@@ -136,6 +136,7 @@ public:
 
   [[nodiscard]] std::optional<LongitudeLatitude> PositionOfNode(size_t node) const noexcept;
   [[nodiscard]] std::span<const Connection> ConnectionsFrom(size_t node) const noexcept;
+  [[nodiscard]] std::span<const double> CoordinatesOfWay(size_t way) const noexcept;
 
   [[nodiscard]] size_t ConnectionCapacityBytes() const noexcept {
     return Edges_.capacity() * sizeof(Connection);

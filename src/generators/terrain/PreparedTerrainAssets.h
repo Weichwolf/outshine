@@ -55,12 +55,14 @@ public:
 
 private:
   PreparedTerrainAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
+  [[nodiscard]] std::shared_ptr<std::mutex> MutexForRequest(const std::string &key);
   [[nodiscard]] ::outshine::Ground::TerrainGrid Remember(const std::string &key,
                                                          ::outshine::Ground::TerrainField field);
 
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
+  std::unordered_map<std::string, std::weak_ptr<std::mutex>> Requests_;
   std::unordered_map<std::string, std::weak_ptr<const ::outshine::Ground::TerrainField>> Resident_;
   std::atomic_uint64_t DeformationHits_{0}, DeformationMisses_{0}, DeformationWrites_{0},
       DeformationReadBytes_{0};

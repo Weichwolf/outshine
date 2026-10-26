@@ -1,10 +1,11 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "DrawList.h"
 #include "ExecutionPlan.h"
 #include "Lens.h"
 #include "Mat4.h"
 #include "SceneRenderer.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "Viewing.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -22,7 +23,7 @@ constexpr uint32_t kSide = 32;
 constexpr size_t kCentre = (size_t{kSide / 2} * kSide + kSide / 2) * 4;
 
 bool InstallMesh(SceneRenderer &renderer) {
-  std::array<SubjectMaterial, 2> materials;
+  std::array<MaterialBinding, 2> materials;
   materials[0].Row.Unlit = true;
   materials[0].Row.BaseColour = {{1, 0, 0, 1}};
   materials[1].Row.Transmission = 1;
@@ -42,7 +43,7 @@ bool InstallMesh(SceneRenderer &renderer) {
       -1, -1, 0, 1, -1, 0, 0, 1, 0, 9, -1, 0, 11, -1, 0, 10, 1, 0};
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 3, 4, 5};
   constexpr std::array<float, 18> emitted{1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = positions.data();
   mesh.Positions = positions;
   mesh.Emitted.From = emitted.data();
@@ -70,7 +71,7 @@ bool Draw(SceneRenderer &renderer, std::vector<float> &pixels) {
 void Exercise() {
   PlanSpec spec;
   spec.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::SceneComposited};
-  spec.Content = {Stage::Geometry, Stage::TransmissiveGeometry};
+  spec.Content = {Stage::OpaqueGeometry, Stage::TransmissiveGeometry};
   const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan && (*plan)->Holds(Stage::TransmissiveGeometry),
         "the test really executes both opaque and transmission passes");

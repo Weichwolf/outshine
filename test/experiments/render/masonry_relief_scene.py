@@ -30,11 +30,11 @@ def compile_family(runtime, baseline, enabled):
                 "LIT_KIND": variant[0],
                 "LIT_TEXTURED": variant[1],
                 "LIT_MAPPED": variant[2],
-                "SUBJECT_WRITES_VELOCITY": variant[4],
-                "SUBJECT_NORMAL_LOCATION": variant[5],
-                "SUBJECT_IDENTITY_LOCATION": variant[6],
-                "SUBJECT_BASE_LOCATION": variant[7] if len(variant) > 7 else "0",
-                "SUBJECT_METALROUGH_LOCATION": variant[8] if len(variant) > 8 else "0",
+                "SURFACE_WRITES_VELOCITY": variant[4],
+                "SURFACE_NORMAL_LOCATION": variant[5],
+                "SURFACE_IDENTITY_LOCATION": variant[6],
+                "SURFACE_BASE_LOCATION": variant[7] if len(variant) > 7 else "0",
+                "SURFACE_METALROUGH_LOCATION": variant[8] if len(variant) > 8 else "0",
             }
             cmd = [
                 "nice",

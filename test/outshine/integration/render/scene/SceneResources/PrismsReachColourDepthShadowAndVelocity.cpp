@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -89,8 +90,8 @@ Geometry NativeMaterialOwner() {
 
 void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
                               SceneRenderer &renderer,
-                              const SubjectLight &light) {
-  std::array<SubjectMaterial, 2> materials;
+                              const SceneLight &light) {
+  std::array<MaterialBinding, 2> materials;
   materials[1].Row.Unlit = true;
   std::string error;
   CHECK(renderer.SetGeometryMaterials(materials, error) && renderer.RestorePieceMaterials(error),
@@ -143,18 +144,18 @@ void CheckScene() {
   instances[0].Current[12] = instances[0].Current[14] = -1;
   instances[0].Previous = instances[0].Current;
   (void)Draw(*scene, renderer);
-  const auto nativeBytes = renderer.Spent(Stage::Geometry).DeviceBytes;
+  const auto nativeBytes = renderer.Spent(Stage::OpaqueGeometry).DeviceBytes;
   constexpr uint64_t prismBytes = sizeof(PrismSpan) + sizeof(GpuPrismPatch);
   const auto handle = renderer.PlacePrismGrid(Source(1), instances, *slot);
   CHECK(handle.has_value(), "one prism becomes resident through the scene handle API");
   if (!handle) { return; }
-  SubjectLight light;
+  SceneLight light;
   light.Light.Intensity = kKeyLux;
   light.Light.Direction = {{0, 0, -1}};
   CHECK(renderer.SetGeometryLights(std::span(&light, 1), error),
         "a frontal key illuminates the independently chosen front face");
   const auto first = Draw(*scene, renderer);
-  CHECK(renderer.Spent(Stage::Geometry).DeviceBytes == nativeBytes + prismBytes,
+  CHECK(renderer.Spent(Stage::OpaqueGeometry).DeviceBytes == nativeBytes + prismBytes,
         "geometry diagnostics include the live prism sample and record buffer payload");
   if (first.Depth.size() <= kCentre || first.Colour.size() <= kCentre * 4 + 2 ||
       first.Velocity.size() <= kCentre * 2 + 1) {
@@ -192,7 +193,7 @@ void CheckScene() {
   CheckMappedNormal(*scene, renderer, *handle, instances);
   renderer.ReleasePrismGrid(*handle);
   const auto released = Draw(*scene, renderer);
-  CHECK(renderer.Spent(Stage::Geometry).DeviceBytes == nativeBytes,
+  CHECK(renderer.Spent(Stage::OpaqueGeometry).DeviceBytes == nativeBytes,
         "release removes prism payload from the geometry memory diagnostic");
   CHECK(released.Depth.size() > kCentre && released.Depth[kCentre] == 0 &&
             std::ranges::none_of(released.Shadow, [](float depth) { return depth > 0; }),

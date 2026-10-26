@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
 #define OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
 
+#include "MeshInput.h"
 #include <span>
 #include <optional>
 #include <array>
@@ -27,11 +28,13 @@
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
-#include "SubjectMaterialPacking.h"
-#include "SubjectTypes.h"
+#include "MaterialPacking.h"
+#include "SceneLighting.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
 #include "ShadowCasterSelection.h"
 #include "CasterChanges.h"
-#include "SubjectLightingUniform.h"
+#include "LightingUniform.h"
 
 namespace outshine::Render {
 
@@ -89,13 +92,13 @@ public:
 
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
-  static constexpr size_t kSubjectFragmentStorage = 3;
+  static constexpr size_t kGeometryFragmentStorageCount = 3;
 
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
                                          .VertexStorageBuffers = 1,
-                                         .FragmentSamplers = kSubjectImages,
-                                         .FragmentUniformBuffers = kSubjectFragmentUniforms,
-                                         .FragmentStorageBuffers = kSubjectFragmentStorage};
+                                         .FragmentSamplers = kGeometryFragmentImageCount,
+                                         .FragmentUniformBuffers = kGeometryFragmentUniformCount,
+                                         .FragmentStorageBuffers = kGeometryFragmentStorageCount};
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu);
@@ -183,7 +186,7 @@ public:
 
   [[nodiscard]] uint32_t PieceTriangles() const { return PieceTriangles_; }
 
-  [[nodiscard]] uint32_t SubjectRows() const { return SubjectRows_; }
+  [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
@@ -199,7 +202,7 @@ public:
       Stamped_.clear();
       return true;
     }
-    for (const DrawBatch &batch : SubjectBatches_) {
+    for (const DrawBatch &batch : MainMeshBatches_) {
       if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
         continue;
       }
@@ -258,7 +261,7 @@ public:
     Placed_.assign(models, models + rows * 16u);
     Before_ = Placed_;
     Stamped_.assign(rows, Frame_);
-    for (const DrawBatch &batch : SubjectBatches_) {
+    for (const DrawBatch &batch : MainMeshBatches_) {
       if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
         continue;
       }
@@ -271,11 +274,11 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
-  [[nodiscard]] bool ValidateMaterials(std::span<const SubjectMaterial> materials,
+  [[nodiscard]] bool SetMaterials(std::span<const MaterialBinding> materials, std::string &error);
+  [[nodiscard]] bool ValidateMaterials(std::span<const MaterialBinding> materials,
                                        std::string &error) const;
   [[nodiscard]] bool AppendMaterials(
-      std::span<const SubjectMaterial> materials,
+      std::span<const MaterialBinding> materials,
       std::string &error,
       GeometryResidency::ImageUploadMode mode = GeometryResidency::ImageUploadMode::Immediate);
 
@@ -283,16 +286,16 @@ public:
 
   void TruncateMaterials(size_t count) noexcept;
 
-  [[nodiscard]] bool ValidateMesh(const SubjectMesh &mesh, std::string &error) const;
-  [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
-  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const SubjectMesh &mesh);
-  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::string &error);
+  [[nodiscard]] bool ValidateMesh(const MeshInput &mesh, std::string &error) const;
+  [[nodiscard]] bool SetMesh(const MeshInput &mesh, std::string &error);
+  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const MeshInput &mesh);
+  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error);
 
   [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
 
   [[nodiscard]] GeometryUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
 
-  [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
+  [[nodiscard]] bool SetVertexInput(const VertexInput &pose, std::string &error);
 
 private:
   class PipelineShaders;
@@ -303,11 +306,12 @@ private:
 
   struct FrameUniforms {
     std::array<float, kUniFloats> View{};
-    std::array<float, sizeof(SubjectLightingUniform) / sizeof(float)> Light{};
+    std::array<float, sizeof(LightingUniform) / sizeof(float)> Light{};
   };
 
   struct DrawResources {
-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 2;
+    static constexpr size_t kMostBindings =
+        kGeometryFragmentImageCount + 3 + kGeometryFragmentUniformCount + 2;
     std::array<Native::Binding, kMostBindings> Bindings{};
     std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
     uint32_t BindingCount = 0;
@@ -337,10 +341,10 @@ private:
                    uint32_t &built);
 
   [[nodiscard]] bool
-  ValidateBatch(const SubjectMesh &mesh, const DrawBatch &batch, std::string &error) const;
+  ValidateBatch(const MeshInput &mesh, const DrawBatch &batch, std::string &error) const;
   [[nodiscard]] bool ValidatePiece(const PieceMesh &piece, std::string &error) const;
 
-  [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
+  [[nodiscard]] bool HandStreams(const VertexInput &pose, bool deferred, std::string &error);
   void BindSlot(DrawResources &into,
                 size_t slot,
                 VertexLayout layout,
@@ -357,11 +361,11 @@ private:
                                                     const DrawResources &resources);
 
 public:
-  [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
+  [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
 
-  void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
+  void SetEnvironment(const EnvironmentLighting &environment) { IndirectLight = environment; }
 
-  [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
+  [[nodiscard]] const EnvironmentLighting &Environment() const { return IndirectLight; }
 
   struct Reflections {
     Native::Texture *Atlas = nullptr;
@@ -447,7 +451,7 @@ public:
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
 private:
-  static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
+  static constexpr size_t kLightFloats = sizeof(LightingUniform) / sizeof(float);
 
   struct SurfaceSlot {
     GeometryResidency::BoundImage Colour;
@@ -460,12 +464,12 @@ private:
     GeometryResidency::BoundImage DiffuseReflection;
     GeometryResidency::BoundImage DiffuseTransmission;
 
-    PackedSubjectMaterial Row{};
+    GpuMaterialRecord Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
     std::optional<std::array<float, 3>> Unlit;
 
-    SurfaceDomain Domain = SurfaceDomain::Subject;
+    SurfaceDomain Domain = SurfaceDomain::Geometry;
     bool ReadsSecondUv = false;
   };
 
@@ -482,7 +486,7 @@ private:
                                            PieceSurface::Source source) const noexcept;
   [[nodiscard]] bool TruncatesShadowMaterials(size_t count) const noexcept;
 
-  [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
+  [[nodiscard]] bool BindSurface(const MaterialBinding &material,
                                  std::string &error,
                                  GeometryResidency::ImageUploadMode mode);
 
@@ -528,8 +532,8 @@ public:
   [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
 
 private:
-  std::vector<SubjectLight> Placed;
-  SubjectEnvironment IndirectLight;
+  std::vector<SceneLight> Placed;
+  EnvironmentLighting IndirectLight;
   Reflections Reflections_;
   Vec3 Anchor;
   Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
@@ -562,14 +566,14 @@ private:
     bool Live = false;
   };
 
-  std::vector<DrawBatch> SubjectBatches_;
-  std::vector<uint32_t> SubjectJobs_;
-  std::vector<float> SubjectSpheres_;
+  std::vector<DrawBatch> MainMeshBatches_;
+  std::vector<uint32_t> MainMeshClusterJobs_;
+  std::vector<float> MainMeshClusterSpheres_;
   std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
   std::vector<float> TableSpheres_;
   ShadowCasterSelection ShadowCasters_;
-  bool SubjectBoundsCurrent_ = false;
-  uint32_t SubjectRows_ = 0;
+  bool MainMeshBoundsCurrent_ = false;
+  uint32_t MainMeshRows_ = 0;
   std::vector<Piece> Pieces_;
   std::vector<uint32_t> Spare_;
   std::vector<uint32_t> SlotOf_, RegisteredSlotOf_;

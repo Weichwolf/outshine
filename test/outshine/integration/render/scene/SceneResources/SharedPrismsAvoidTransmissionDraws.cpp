@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -104,7 +105,7 @@ void Exercise() {
   eye.ZFarM = kFarM;
   scene->Eye(eye);
   (void)Draw(*scene, renderer);
-  const auto baseline = renderer.Spent(Stage::Geometry).DeviceBytes;
+  const auto baseline = renderer.Spent(Stage::OpaqueGeometry).DeviceBytes;
   const auto glassDraws = renderer.Spent(Stage::TransmissiveGeometry).Draws;
   Geometry materials;
   Material red;
@@ -123,7 +124,7 @@ void Exercise() {
   const auto prism = renderer.PlacePrismGrid(source, std::span(&instance, 1), *material);
   CHECK(prism, "one prism becomes resident");
   if (!prism) { return; }
-  SubjectLight light;
+  SceneLight light;
   constexpr float kLux = 10000;
   light.Light.Intensity = kLux;
   light.Light.Direction = {{0, 0, -1}};
@@ -132,7 +133,7 @@ void Exercise() {
   if (first.Colour.size() <= kCentre * 4 || first.Depth.size() <= kCentre) { return; }
   CHECK(first.Depth[kCentre] > 0 && first.Colour[kCentre * 4] > first.Colour[kCentre * 4 + 1],
         "the shared prism really reaches depth and red PBR colour");
-  CHECK(renderer.Spent(Stage::Geometry).DeviceBytes ==
+  CHECK(renderer.Spent(Stage::OpaqueGeometry).DeviceBytes ==
                 baseline + sizeof(PrismSpan) + sizeof(GpuPrismPatch) &&
             renderer.Spent(Stage::TransmissiveGeometry).DeviceBytes == 0 &&
             renderer.Spent(Stage::TransmissiveGeometry).Draws == glassDraws,
@@ -149,7 +150,7 @@ void Exercise() {
   renderer.ReleasePrismGrid(*prism);
   const auto released = Draw(*scene, renderer);
   CHECK(released.Depth.size() > kCentre && released.Depth[kCentre] == 0 &&
-            renderer.Spent(Stage::Geometry).DeviceBytes == baseline,
+            renderer.Spent(Stage::OpaqueGeometry).DeviceBytes == baseline,
         "releasing the shared product removes its pixels and resident byte count");
 }
 }

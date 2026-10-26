@@ -6,7 +6,12 @@ from fractions import Fraction as F
 
 import shapely
 from outshine_ref.contracts import BuildingFootprint, HeightInterval
-from stair_occupancy_geometry import AffineOccupancy, OccupancyError
+from stair_occupancy_geometry import (
+    AffineOccupancy,
+    OccupancyError,
+    plane_value,
+    plane_values,
+)
 from stair_occupancy_handoff import OccupancyQuery, adjusted
 from stair_occupancy_precision import exact_band_area
 
@@ -16,6 +21,28 @@ def body(domain, origin=(0, 0), lower=(100, 1, 0), upper=(101, 1, 0)):
 
 
 class ExactEmptyBands(unittest.TestCase):
+    def test_zero_gradients_are_exact_and_small_nonzero_gradients_are_retained(self):
+        origin = (999999.75, -999999.75)
+        points = [(F(1, 3), F(-2, 7)), (F(1000000), F(-1000000))]
+        tiny = math.ulp(0.0)
+        for gradients in ((0, 0), (-0.0, 0.0), (tiny, 0), (0, -tiny), (0.1, -0.3)):
+            plane = (0.1, *gradients)
+            with self.subTest(gradients=gradients):
+                actual = plane_values(plane, origin, points)
+                self.assertTrue(all(isinstance(value, F) for value in actual))
+                self.assertEqual(
+                    actual, [plane_value(plane, origin, point) for point in points]
+                )
+
+    def test_constant_subnormal_volume_preserves_outward_rounding_and_inversion(self):
+        domain = shapely.box(0, 0, 1, 1)
+        tiny = math.ulp(0.0)
+        row = body(domain, lower=(0, 0, -0.0), upper=(tiny, -0.0, 0))
+        self.assertEqual((row.heights.lower_m, row.heights.upper_m), (-tiny, 2 * tiny))
+        self.assertEqual(row._whole_overlap_m, (tiny, 0))
+        with self.assertRaisesRegex(ValueError, "non-inverting positive"):
+            body(domain, lower=(tiny, 0, 0), upper=(tiny, 0, 0))
+
     def test_large_origin_and_binary_slopes_preserve_thin_outward_envelope(self):
         origin = (999999.75, -999999.75)
         domain = shapely.box(999999.5, -1000000, 1000000, -999999.5)

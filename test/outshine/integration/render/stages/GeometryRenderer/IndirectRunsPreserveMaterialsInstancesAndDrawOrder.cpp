@@ -7,7 +7,7 @@
 #include "Viewing.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 
 #include <SDL3/SDL.h>
 #include <array>
@@ -94,8 +94,8 @@ void Compare(outshine::Render::SceneRenderer &actual, outshine::Render::SceneRen
   CHECK(red > 100 && green > 100, "both independent materials contribute visible pixels");
   CHECK(actual.GeometryBatchCount() == 48 && oracle.GeometryBatchCount() == 25,
         "all instance batches and the direct fallback remain present");
-  const auto &indirect = actual.Spent(Stage::Geometry);
-  const auto &direct = oracle.Spent(Stage::Geometry);
+  const auto &indirect = actual.Spent(Stage::OpaqueGeometry);
+  const auto &direct = oracle.Spent(Stage::OpaqueGeometry);
   CHECK(indirect.Draws == 6 && direct.Draws == 25,
         "stage counters count encoded requests rather than all prepared batches");
   CHECK(indirect.DirectTriangles == 4 && indirect.IndirectInputTriangles == 93 &&
@@ -135,7 +135,7 @@ int main() {
     declaration.InitialGeometry = &geometry;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 128;
     declaration.Outputs = {"sceneLinear"};
-    declaration.Stages = {"subjects"};
+    declaration.Stages = {"opaqueGeometry"};
     SceneRenderer actual;
     SceneRenderer oracle;
     std::unique_ptr<Core::RuntimeScene> scene;

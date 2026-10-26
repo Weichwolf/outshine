@@ -28,7 +28,7 @@ for line in log.splitlines():
     if line.startswith('CASTER_PATCH '):
         fields = line.split()[1:]
         patches.append((tuple(map(int, fields[:6])), tuple(map(float, fields[6:]))))
-assert 'SUBJECT_POSE' not in log, 'A changing vertex stream needs snapshots for each revision.'
+assert 'SURFACE_POSE' not in log, 'A changing vertex stream needs snapshots for each revision.'
 assert patches and 0 <= args.initial_patches < len(patches)
 EPS = 2 ** (-23)
 MIN = 2 ** (-126)

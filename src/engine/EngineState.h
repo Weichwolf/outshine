@@ -56,7 +56,7 @@
 #include "SourceConfiguration.h"
 #include "SurfacePreparation.h"
 #include "SourceSession.h"
-#include "WeatherPreparation.h"
+#include "WeatherSnapshotLoader.h"
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"
 #include "OsmSourceAcquisition.h"
@@ -239,7 +239,7 @@ struct WorldRegionState {
   std::shared_ptr<Data::SourceSession> Sources;
   std::vector<Data::SourceProvider> SourceDeclarations;
   Ground::SurfacePreparation Stack;
-  std::unique_ptr<WeatherPreparation> Weather;
+  std::unique_ptr<Generators::Weather::WeatherSnapshotLoader> Weather;
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;

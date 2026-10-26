@@ -115,11 +115,11 @@ def prepare(source, output, mode, family, cover):
                 artifact.name.split("-", 1)[1].removesuffix(".frag.spv").ljust(5, "0")
             )
             fields = (
-                "SUBJECT_WRITES_VELOCITY",
-                "SUBJECT_NORMAL_LOCATION",
-                "SUBJECT_IDENTITY_LOCATION",
-                "SUBJECT_BASE_LOCATION",
-                "SUBJECT_METALROUGH_LOCATION",
+                "SURFACE_WRITES_VELOCITY",
+                "SURFACE_NORMAL_LOCATION",
+                "SURFACE_IDENTITY_LOCATION",
+                "SURFACE_BASE_LOCATION",
+                "SURFACE_METALROUGH_LOCATION",
             )
             command = [
                 "nice",

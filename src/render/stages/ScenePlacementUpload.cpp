@@ -12,7 +12,7 @@
 namespace outshine::Render {
 
 bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
-  const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_));
+  const size_t needed = std::max(Placed_.size() / 16u, static_cast<size_t>(MainMeshRows_));
   size_t all = needed;
   for (const Piece &piece : Pieces_) { all += piece.Rows.size(); }
   if (!RowsStale_ && Rows_.size() == all) {
@@ -45,8 +45,8 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
       Rows_[row].Current[at] = static_cast<float>(now[at]);
       Rows_[row].Previous[at] = static_cast<float>(was[at]);
     }
-    Rows_[row].ColourOffset = Bound().SubjectColours().First - Bound().SubjectVertices().First;
-    Rows_[row].TangentOffset = Bound().SubjectTangents().First - Bound().SubjectVertices().First;
+    Rows_[row].ColourOffset = Bound().MainColourRange().First - Bound().MainVertexRange().First;
+    Rows_[row].TangentOffset = Bound().MainTangentRange().First - Bound().MainVertexRange().First;
   }
   std::array rows = {GeometryResidency::Crossing{
       .Which = GeometryResidency::Stream::Placements,
@@ -66,7 +66,7 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
 void GeometryRenderer::PrepareShadowCasters() {
   if (ShadowCasters_.Ready()) { return; }
   ShadowCasters_.Prepare(
-      Batches, TableJobs_, TableSpheres_, Rows_, SubjectRows_, SubjectBoundsCurrent_);
+      Batches, TableJobs_, TableSpheres_, Rows_, MainMeshRows_, MainMeshBoundsCurrent_);
 }
 
 }

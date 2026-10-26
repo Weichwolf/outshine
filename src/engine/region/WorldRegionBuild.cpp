@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "TerrainLattice.h"
 #include "WorldRegionBuildState.h"
 #include "TerrainFieldPinning.h"
@@ -343,7 +344,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
       Published.RecordMetric("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
     }
   }
-  const Render::SubjectEnvironment &lighting = candidate.AmbientStanding();
+  const Render::EnvironmentLighting &lighting = candidate.AmbientStanding();
   Published.RecordMetric(
       "lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
   Published.RecordMetric("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");

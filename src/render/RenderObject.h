@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_RENDEROBJECT_H
 #define OUTSHINE_RENDER_RENDEROBJECT_H
 
+#include "SceneLighting.h"
 #include "Mat4.h"
 #include "Vec3.h"
 #include "Shape.h"
@@ -33,7 +34,7 @@ public:
   }
 
   [[nodiscard]] bool SetMaterials(std::span<const uint32_t> partSlot,
-                                  std::span<const SubjectMaterial> slots,
+                                  std::span<const MaterialBinding> slots,
                                   std::string &error);
   [[nodiscard]] bool SetEmission(size_t part, const std::array<float, 3> &radiance);
   [[nodiscard]] bool SetPlacement(size_t part, const Mat4 &placement);
@@ -42,7 +43,7 @@ public:
 
   void AddLight(const outshine::PunctualLight &light) { Lights_.push_back(light); }
 
-  void SetEnvironment(const SubjectEnvironment &environment) { Environment_ = environment; }
+  void SetEnvironment(const EnvironmentLighting &environment) { Environment_ = environment; }
 
   [[nodiscard]] const Shape *Shaped() const { return Shape_; }
 
@@ -64,13 +65,13 @@ public:
 
   [[nodiscard]] const Mat4 &Placement(size_t row) const { return PartPlacement_[row]; }
 
-  [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
+  [[nodiscard]] std::span<const MaterialBinding> Slots() const { return Surfaces_; }
 
   [[nodiscard]] const std::span<const float> &Previous() const { return Previous_; }
 
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
 
-  [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
+  [[nodiscard]] const EnvironmentLighting &IndirectLight() const { return Environment_; }
 
 private:
   Vec3 AnchorEcefM_;
@@ -81,10 +82,10 @@ private:
   std::vector<Mat4> PartPlacement_;
   size_t Instances_ = 1;
   bool Placed_ = false;
-  std::vector<SubjectMaterial> Surfaces_;
+  std::vector<MaterialBinding> Surfaces_;
   std::span<const float> Previous_;
   std::vector<outshine::PunctualLight> Lights_;
-  SubjectEnvironment Environment_;
+  EnvironmentLighting Environment_;
 };
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error);
@@ -141,13 +142,13 @@ struct RenderObjectPreparation {
   const Shape *PreparedShape = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
-  std::vector<SubjectLight> Lights;
+  std::vector<SceneLight> Lights;
   DrawList Draws;
 };
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
                        const Shape &subject,
-                       const SubjectView &view,
+                       const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);
 
@@ -158,13 +159,13 @@ struct RenderObjectPreparation {
 
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
                            const RenderObject &proxy,
-                           const SubjectView &view,
+                           const PreparedView &view,
                            RenderObjectPreparation &scratch,
                            std::string &error);
 
 [[nodiscard]] bool PlanPlacement(SceneRenderer &renderer,
                                  const RenderObject &proxy,
-                                 const SubjectView &view,
+                                 const PreparedView &view,
                                  RenderObjectPreparation &scratch,
                                  std::string &error);
 
@@ -176,7 +177,7 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
                                     const RenderObject &proxy,
-                                    const SubjectView &view,
+                                    const PreparedView &view,
                                     RenderObjectPreparation &scratch,
                                     std::string &error);
 
@@ -196,13 +197,13 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,
                          const RenderObject &proxy,
-                         const SubjectView &view,
+                         const PreparedView &view,
                          RenderObjectPreparation &scratch,
                          std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
                         const RenderObject &proxy,
-                        const SubjectView &view,
+                        const PreparedView &view,
                         RenderObjectPreparation &scratch,
                         std::string &error);
 

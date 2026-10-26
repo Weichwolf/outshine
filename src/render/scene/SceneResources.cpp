@@ -1,7 +1,7 @@
 #include "SceneResources.h"
 
 #include "GeometryRenderer.h"
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 
 #include <algorithm>
 #include <cassert>
@@ -216,10 +216,11 @@ bool SceneResources::AppendPieceMaterials(GeometryRenderer &subjects,
                                           GeometryRenderer *glass,
                                           const PieceMaterials &materials,
                                           std::string &error) {
-  if (materials.Slots.size() >= kNoSlot || RegisteredPieceSlots_.size() >= kNoSlot ||
-      materials.Slots.size() > kNoSlot - RegisteredPieceSlots_.size() ||
-      subjects.MaterialSlots() >= kNoSlot ||
-      materials.Slots.size() > kNoSlot - subjects.MaterialSlots()) {
+  if (materials.Slots.size() >= kNoMaterialSlot ||
+      RegisteredPieceSlots_.size() >= kNoMaterialSlot ||
+      materials.Slots.size() > kNoMaterialSlot - RegisteredPieceSlots_.size() ||
+      subjects.MaterialSlots() >= kNoMaterialSlot ||
+      materials.Slots.size() > kNoMaterialSlot - subjects.MaterialSlots()) {
     error = Says::PieceMaterialLimit;
     return false;
   }

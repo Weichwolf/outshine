@@ -56,7 +56,7 @@ bool Configure(GeometryRenderer &draw, Pressure &device) {
   gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
   gpu.Width = gpu.Height = 32;
   if (!gpu.SceneColours.Add(Resource::SceneLinear) || !draw.Configure(gpu)) { return false; }
-  const std::array<SubjectMaterial, 1> materials{};
+  const std::array<MaterialBinding, 1> materials{};
   std::string error;
   if (!draw.AppendMaterials(materials, error)) { return false; }
   constexpr std::array<uint32_t, 1> slots{0};

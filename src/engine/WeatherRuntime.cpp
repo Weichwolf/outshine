@@ -12,6 +12,8 @@
 #include <vector>
 
 namespace outshine {
+using Generators::Weather::WeatherSnapshotLoader;
+
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
   if (providers.empty() && !Session.Declared.Ground.Declared) {
     World.Weather.reset();
@@ -59,14 +61,14 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
   const bool failed =
-      World.Weather && (World.Weather->CurrentPhase() == WeatherPreparation::Phase::Failed ||
-                        World.Weather->CurrentPhase() == WeatherPreparation::Phase::Cancelled);
+      World.Weather && (World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
+                        World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
   if (!World.Weather || World.WeatherUtcS != Picture.Shown.UtcS || failed) {
     World.Weather.reset();
-    World.Weather = std::make_unique<WeatherPreparation>(
+    World.Weather = std::make_unique<WeatherSnapshotLoader>(
         World.Sources,
         *World.Wire,
-        WeatherPreparation::Workers{.Io = *World.Io, .Compute = *World.Pool},
+        WeatherSnapshotLoader::Workers{.Io = *World.Io, .Compute = *World.Pool},
         *Picture.Shown.UtcS);
     World.WeatherUtcS = Picture.Shown.UtcS;
   }
@@ -79,7 +81,7 @@ bool Engine::State::PollWeather() {
     Error = "assemble the current declaration before acquiring its weather";
     return false;
   }
-  if (World.Weather->Advance() != WeatherPreparation::Phase::Failed) { return true; }
+  if (World.Weather->Advance() != WeatherSnapshotLoader::Phase::Failed) { return true; }
   Error = World.Weather->Error();
   return false;
 }
@@ -90,10 +92,10 @@ std::string_view Engine::State::WeatherBlocker() const noexcept {
     return "current weather declaration is not assembled";
   }
   switch (World.Weather->CurrentPhase()) {
-    case WeatherPreparation::Phase::Ready:
-    case WeatherPreparation::Phase::Missing: return {};
-    case WeatherPreparation::Phase::Failed: return World.Weather->Error();
-    case WeatherPreparation::Phase::Cancelled: return "weather acquisition cancelled";
+    case WeatherSnapshotLoader::Phase::Ready:
+    case WeatherSnapshotLoader::Phase::Missing: return {};
+    case WeatherSnapshotLoader::Phase::Failed: return World.Weather->Error();
+    case WeatherSnapshotLoader::Phase::Cancelled: return "weather acquisition cancelled";
     default: return "native weather snapshot pending";
   }
 }

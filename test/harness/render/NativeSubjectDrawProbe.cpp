@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "GeometryRenderer.h"
 #include "GeometryCullStage.h"
@@ -51,8 +52,8 @@ struct MeshData {
     }
   }
 
-  [[nodiscard]] SubjectMesh Mesh(VertexLayout layout, const DrawList &draws) const {
-    SubjectMesh mesh;
+  [[nodiscard]] MeshInput Mesh(VertexLayout layout, const DrawList &draws) const {
+    MeshInput mesh;
     mesh.Verts.From = kPositions.data();
     mesh.Positions = kPositions;
     mesh.VertexCount = 4;
@@ -200,18 +201,18 @@ void Indirect(Device &device,
 
 void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const MeshData &source) {
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   constexpr std::array<uint8_t, 8> texels{255, 0, 0, 255, 0, 0, 255, 255};
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.Unlit = true;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   material.Colour = {.Rgba = texels.data(),
                      .Width = 2,
                      .Height = 1,
-                     .Magnify = SubjectFilter::Nearest,
-                     .Minify = SubjectFilter::Nearest,
-                     .Mip = SubjectMip::None,
+                     .Magnify = outshine::Filter::Nearest,
+                     .Minify = outshine::Filter::Nearest,
+                     .Mip = outshine::MipFilter::None,
                      .Uv = {},
                      .Set = UvSet::Uv1};
   CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
@@ -248,16 +249,16 @@ void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &target
   static constexpr std::array<uint8_t, 16> base{
       255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255};
   static constexpr std::array<uint8_t, 4> lower{0, 255, 0, 255};
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.Unlit = true;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   material.Colour = {
-      .Rgba = base.data(), .Width = 2, .Height = 2, .Mip = SubjectMip::Nearest, .Uv = {}};
+      .Rgba = base.data(), .Width = 2, .Height = 2, .Mip = outshine::MipFilter::Nearest, .Uv = {}};
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
   MeshData data;
   constexpr float uvMost = 64;
@@ -295,7 +296,7 @@ int main() {
   Require(subject.Configure(gpu));
   CHECK(subject.PipelineCount() > 0,
         "all existing vertex/domain/coverage variants compile natively");
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.DoubleSided = true;
   material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
   std::string error;

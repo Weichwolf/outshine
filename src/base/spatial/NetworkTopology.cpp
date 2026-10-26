@@ -16,4 +16,11 @@ std::span<const Network::Connection> Network::ConnectionsFrom(size_t node) const
   const auto &from = Nodes_[node];
   return std::span<const Connection>(Edges_).subspan(from.FirstEdge, from.EdgeCount);
 }
+
+std::span<const double> Network::CoordinatesOfWay(size_t way) const noexcept {
+  if (!Woven_ || way >= Ways_.size()) { return {}; }
+  const auto &source = Ways_[way];
+  return std::span<const double>(Points_).subspan(source.First * 2, source.Count * 2);
+}
+
 }

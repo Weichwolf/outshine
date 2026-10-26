@@ -65,7 +65,7 @@ int main() {
     const bool configured = draw.Configure(gpu).has_value();
     CHECK(configured, "native pipelines configure");
     if (!configured) { return Report(); }
-    const std::array<SubjectMaterial, 1> materials{};
+    const std::array<MaterialBinding, 1> materials{};
     const bool appended = draw.AppendMaterials(materials, error);
     CHECK(appended, "native material registers");
     if (!appended) { return Report(); }

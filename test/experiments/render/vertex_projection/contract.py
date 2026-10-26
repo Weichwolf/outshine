@@ -44,7 +44,7 @@ def variants():
                     f"-DLIT_UVS={layout[0]}",
                     f"-DLIT_TINTED={layout[1]}",
                     f"-DLIT_MAPPED={layout[2]}",
-                    f"-DSUBJECT_WRITES_VELOCITY={motion}",
+                    f"-DSURFACE_WRITES_VELOCITY={motion}",
                 ],
             )
     for uv in range(3):
@@ -56,7 +56,7 @@ def variants():
                     [
                         f"-DFLAT_UVS={uv}",
                         f"-DFLAT_TINTED={tint}",
-                        f"-DSUBJECT_WRITES_VELOCITY={motion}",
+                        f"-DSURFACE_WRITES_VELOCITY={motion}",
                     ],
                 )
 

@@ -17,7 +17,7 @@ Each call decodes the bounded payload; no implicit decoded-state cache is added.
 
 ## Provider and source ownership
 
-`generators/weather/OpenMeteoProvider.h` is the concrete extension factory.
+`generators/weather/providers/OpenMeteoProvider.h` is the concrete extension factory.
 The caller supplies typed original request coordinates and optional recorded
 acquisition/model metadata. This trusted context must match the actual request;
 it is not reconstructed from URI parameters. Registration uses the ordinary
@@ -56,19 +56,18 @@ and their validation/import/export remain unchanged.
 
 ## Reproduction, checks and remaining integration
 
-Build `weather_snapshot.cpp` against the **matching rebuilt** `build/liboutshine.a`
-with the project's C++23 toolchain. Include `include`, `src/base`, `src/base/io`,
-`src/base/format`, `src/world/data`, `src/world/weather`, `src/generators/weather`
-and `test/harness/shared`. The probe uses no GPU or engine/frame calls.
+Build the existing probe through its CMake target. It links the weather/provider
+modules and their declared dependencies; no GPU or engine/frame calls.
 
 ```sh
 snapshot_out="${TMPDIR:-/tmp}/outshine-weather-snapshot-$(git rev-parse --short HEAD)"
 mkdir -p "$snapshot_out"
-# Place the matching compiled probe at "$snapshot_out/weather_snapshot".
-python3 -W error test/experiments/weather/weather_snapshot_controls.py \
-  --probe "$snapshot_out/weather_snapshot" --output "$snapshot_out/controls"
-sh test/run.sh outshine/src/generators/weather/OpenMeteoSource
-sh test/run.sh outshine/src/generators/weather/OpenMeteo
+cmake -S . -B "${BUILD_DIR:-build}" -DBUILD_TESTING=ON
+nice -n 10 cmake --build "${BUILD_DIR:-build}" \
+  --target test_harness_weather_snapshot --parallel
+"${PYTHON:-python3}" -W error test/experiments/weather/weather_snapshot_controls.py \
+  --probe "${BUILD_DIR:-build}/test_harness_weather_snapshot" --output "$snapshot_out/controls"
+sh test/run.sh outshine/src/generators/weather
 sh test/run.sh outshine/src/world/weather/CloudLayer
 ```
 

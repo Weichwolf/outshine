@@ -6,7 +6,7 @@ int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
   const auto compiled = ExecutionPlan::Compile({.Outputs = {Resource::SceneHdr},
-                                                .Content = {Stage::Geometry, Stage::Sky},
+                                                .Content = {Stage::OpaqueGeometry, Stage::Sky},
                                                 .Exposure = {},
                                                 .Display = {},
                                                 .Precision = {}});
@@ -17,7 +17,7 @@ int main() {
   for (const auto &pass : (*compiled)->Passes()) {
     for (size_t at = 0; at < pass.Count; ++at) {
       const Stage stage = (*compiled)->Order()[pass.First + at];
-      if (stage != Stage::Irradiance && stage != Stage::SubjectCull) { continue; }
+      if (stage != Stage::Irradiance && stage != Stage::GeometryCull) { continue; }
       const Resource expected =
           stage == Stage::Irradiance ? Resource::IrradianceBuffer : Resource::ClusterKept;
       bool first = true;
@@ -30,7 +30,7 @@ int main() {
       }
       CHECK(!first, "the compute output has a storage binding");
       irradiance |= stage == Stage::Irradiance;
-      culling |= stage == Stage::SubjectCull;
+      culling |= stage == Stage::GeometryCull;
     }
   }
   CHECK(irradiance && culling, "both independent kernels are covered");

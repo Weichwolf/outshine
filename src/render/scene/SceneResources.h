@@ -3,7 +3,9 @@
 
 #include "ResourceHandle.h"
 #include "HeightPageBatch.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
+#include "MaterialBinding.h"
 #include "TerrainTile.h"
 #include "PrismInstance.h"
 #include <PrismGrid.h>
@@ -156,7 +158,7 @@ private:
 
   struct PieceMaterials {
     Geometry Source;
-    std::vector<SubjectMaterial> Slots;
+    std::vector<MaterialBinding> Slots;
   };
 
   [[nodiscard]] static std::expected<PieceMaterials, std::string>

@@ -8,13 +8,40 @@ add_dependencies(outshine_gate outshine)
 set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
-  outshine/integration/render/Surfacing/NativeImagesReachTheRenderer
+  outshine/integration/render/material/MaterialResolution/NativeImagesReachTheRenderer
   outshine/integration/render/device/GpuSubmission/WindowFramesCloseAfterDrawing
   outshine/src/engine/Engine/CameraFollowsItsNamedEntity
   outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
   outshine/src/engine/Engine/PerspectiveNativeMipImagesRepeatLinearPixels
   outshine/src/engine/Engine/ScenarioViewsPreserveProjection
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
+)
+set(metal_validation_cases
+  outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
+  outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
+  outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
+  outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
+  outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
+  outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
+  outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
+  outshine/src/render/stages/GeometryRenderer/InstancesShareTheirPieceClusterSpheres
+  outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
+  outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
+  outshine/src/render/stages/GeometryRenderer/PassPipelinesExcludeUnreachableMaterials
+  outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
+  outshine/src/render/stages/GeometryResidency/DeferredImagesSurviveBackpressureAndRejectedSubmission
+  outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
+  outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
+  outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
+  outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
+  outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
+  outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
+  outshine/src/render/terrain/TerrainRenderer/SharedInputsPreserveIndependentGrids
+  outshine/src/render/terrain/TerrainRenderer/SurfacePatchesPreserveRasterAndFractions
+  outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels
+
 )
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
@@ -36,7 +63,11 @@ foreach(source IN LISTS cases)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
-  if(name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
+  if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
+      OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
+      OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
+      OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
@@ -66,7 +97,7 @@ foreach(source IN LISTS cases)
       set(owner app)
     elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene)/")
       set(owner render)
-    elseif(name MATCHES "^outshine/integration/generators/osm/(PreparedGroundRegions|BuildingFoundationJob)/")
+    elseif(name MATCHES "^outshine/integration/generators/osm/(PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
@@ -87,6 +118,9 @@ foreach(source IN LISTS cases)
     endif()
   endif()
   string(REPLACE "/" "_" component "outshine_${owner}")
+  if(name MATCHES "^outshine/src/generators/weather/(LowCloud|inputs/WeatherSnapshotLoader)/")
+    target_link_libraries(${target} PRIVATE outshine_generators_weather_providers)
+  endif()
   if(name MATCHES "^outshine/src/render/frame/FrameTargets/")
     target_link_libraries(${target} PRIVATE outshine_render_device_native)
   endif()
@@ -112,7 +146,11 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/integration/generators/terrain/inputs/TilePool/NativeCellsSupplyMercatorTerrain")
     target_link_libraries(${target} PRIVATE outshine_generators_base)
   endif()
-  if(name STREQUAL "outshine/integration/generators/water/WaterHeightFit/RoadAndWaterSolversKeepIndependentMatrixStorage")
+  if(name MATCHES "^outshine/integration/generators/osm/MvtTransportSnapshot/")
+    target_link_libraries(${target} PRIVATE outshine_generators_transport)
+  endif()
+  if(name STREQUAL "outshine/integration/generators/water/WaterHeightFit/RoadAndWaterSolversKeepIndependentMatrixStorage"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/NativeSourcesReachCoreSelection")
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
@@ -124,7 +162,7 @@ foreach(source IN LISTS cases)
     TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "${owner}"
     ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
-  if(APPLE AND name STREQUAL "outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads")
+  if(APPLE AND name IN_LIST metal_validation_cases)
     set_property(TEST "${name}" APPEND PROPERTY ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endif()
   add_dependencies(outshine_tests ${target})
@@ -150,6 +188,26 @@ foreach(source IN LISTS cases)
     endif()
     set(suite "${parent}")
   endwhile()
+endforeach()
+
+add_executable(test_harness_material_bindings EXCLUDE_FROM_ALL
+  test/experiments/render/material_binding_benchmark.cpp
+  test/harness/shared/CppAllocationProbe.cpp)
+target_include_directories(test_harness_material_bindings PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared")
+target_compile_options(test_harness_material_bindings PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_material_bindings PRIVATE outshine_render)
+
+add_executable(test_harness_weather_forecast EXCLUDE_FROM_ALL
+  test/experiments/weather/native_forecast.cpp)
+target_link_libraries(test_harness_weather_forecast PRIVATE outshine_generators_weather_providers)
+add_executable(test_harness_weather_snapshot EXCLUDE_FROM_ALL
+  test/experiments/weather/weather_snapshot.cpp)
+target_link_libraries(test_harness_weather_snapshot PRIVATE outshine_generators_weather
+  outshine_generators_weather_providers)
+foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snapshot)
+  target_compile_options(${target} PRIVATE -fno-exceptions)
+  target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
 add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL

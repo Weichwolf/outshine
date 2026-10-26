@@ -27,7 +27,7 @@ bool readPrismSurface() {
     u = vec3(localNormal.z, 0.0, 0.0);
     v = vec3(0.0, 1.0, 0.0);
   }
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
   prismShadowReceiver = prismReceiverPlane(mat3(prismView.lightFromWorld),
                                           mat3(gridPatch.current), localNormal);
 #endif
@@ -41,7 +41,7 @@ bool readPrismSurface() {
   float handedness = sign(dot(cross(normal, tangentDirection), mat3(gridPatch.current) * v));
   tangent = vec4(tangentDirection, handedness);
 #endif
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
   curClip = clip;
   vec4 previousWorld = gridPatch.previous * vec4(point, 1.0) + vec4(prismView.prevShift.xyz, 0.0);
   prevClip = prismView.prevViewProj * previousWorld;

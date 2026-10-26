@@ -94,7 +94,8 @@ ReadParts(const AssetCache &cache,
 
 std::expected<std::optional<PreparedTerrainDeformation>, std::string>
 PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesMost) {
-  const std::scoped_lock lock(Lock_);
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   auto loaded = Cache_->Load(key, kTerrainDeformationBytesMost);
   if (!loaded) { return std::unexpected("terrain deformation asset read failed"); }
   if (*loaded) {
@@ -127,9 +128,10 @@ PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesM
 std::expected<void, std::string>
 PreparedTerrainAssets::StoreDeformation(const std::string &key,
                                         const PreparedTerrainDeformation &product) {
+  const auto request = MutexForRequest(key);
+  const std::scoped_lock preparing(*request);
   const auto counts = TerrainDeformationPageCounts(product.Pages);
   if (!counts) { return std::unexpected("terrain deformation page exceeds its package budget"); }
-  const std::scoped_lock lock(Lock_);
   const auto publish = [&](const std::string &identity,
                            std::span<const Sheet> pages,
                            std::span<const uint8_t> bytes,
