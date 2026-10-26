@@ -4,10 +4,11 @@
 #include "Tasks.h"
 #include <array>
 #include <atomic>
-#include <barrier>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <mutex>
 #include <span>
 #include <sqlite3.h>
 #include <string>
@@ -23,7 +24,9 @@ int main() {
   std::filesystem::create_directories(directory);
   constexpr unsigned kWorkers = 6;
   constexpr unsigned kProductsPerWorker = 8;
-  std::barrier start(kWorkers);
+  std::mutex startMutex;
+  std::condition_variable started;
+  unsigned arrived = 0;
   std::atomic<unsigned> completed{0};
   {
     Tasks workers(kWorkers);
@@ -31,7 +34,12 @@ int main() {
     jobs.reserve(kWorkers);
     for (unsigned worker = 0; worker < kWorkers; ++worker) {
       jobs.push_back(workers.Post([&, worker] {
-        start.arrive_and_wait();
+        {
+          std::unique_lock lock(startMutex);
+          ++arrived;
+          started.notify_all();
+          started.wait(lock, [&] { return arrived == kWorkers; });
+        }
         const auto path =
             worker % 2 == 0 ? directory / "assets.sqlite" : directory / "." / "assets.sqlite";
         auto cache = AssetCache::Open(path.string());

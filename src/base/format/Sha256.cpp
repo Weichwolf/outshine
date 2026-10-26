@@ -7,7 +7,8 @@
 #include <CommonCrypto/CommonDigest.h>
 #endif
 #ifdef __linux__
-#include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <memory>
 #endif
 #include <span>
 #include <cstdint>
@@ -188,8 +189,12 @@ std::string Sha256Prefix::Hex(const void *data, size_t bytes) const {
 
 std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
 #ifdef __linux__
+  static const std::unique_ptr<EVP_MD, decltype(&EVP_MD_free)> method(
+      EVP_MD_fetch(nullptr, "SHA256", nullptr), &EVP_MD_free);
   std::array<uint8_t, 32> digest{};
-  if (SHA256(static_cast<const uint8_t *>(data), bytes, digest.data()) != nullptr) {
+  unsigned written = 0;
+  if (method && EVP_Digest(data, bytes, digest.data(), &written, method.get(), nullptr) == 1 &&
+      written == digest.size()) {
     return digest;
   }
 #endif
