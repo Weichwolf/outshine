@@ -64,7 +64,7 @@ void PrepareLocalStreetMask(Generators::Fields &stands,
                             Core::DiagnosticLedger &metrics) {
   if (stands.Ways == nullptr || stands.Ways->Ingested(*stands.Vectors)) { return; }
   (void)mask.Ingest(*stands.Vectors,
-                    world.Stack.Vegetation(),
+                    world.Stack.SurfaceRecipes(),
                     {.CentreX = region.X(), .CentreY = region.Y(), .Rings = 0});
   stands.Ways = &mask;
   metrics.RecordMetric(

@@ -1,6 +1,6 @@
 #include "ForestMixtures.h"
 #include "TreeSpecies.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "ReadTextFile.h"
 #include "Json.h"
 #include <algorithm>
@@ -52,7 +52,7 @@ ReadMixture(Json::Ref weights, std::span<const std::string_view> names, std::str
 
 std::expected<std::vector<SpeciesMixture>, std::string>
 ReadForestMixtures(std::string_view path,
-                   const ::outshine::Ground::VegetationTemplates &templates,
+                   const RegionSurfaceRecipes &templates,
                    std::span<const TreeSpecies> species) {
   if (species.empty() || species.size() > SpeciesMixture::kMostSpecies) {
     return std::unexpected("forest mixtures require 1..64 catalogue species");

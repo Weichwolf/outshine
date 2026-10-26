@@ -369,7 +369,7 @@ void CheckBuild(const std::filesystem::path &directory,
   CHECK(restore && (*restore)->Pages() >= 2 && (*restore)->NativeBytes() > 0 &&
             SameMesh(geometry, expected),
         "page boundaries preserve original words, primitive order and material rows");
-  auto invalid = RoadPageRestoration::Begin(pool, {}, restored->SurfacePages);
+  const auto invalid = RoadPageRestoration::Begin(pool, {}, restored->SurfacePages);
   CHECK(!invalid, "a missing cache service is explicit before a world transition");
   CheckSelection(pool, pages, restored->SurfacePages, *manifestKey, directory, *encoded);
 }
@@ -392,8 +392,8 @@ int main() {
   }
   CHECK(vectors.Declare(roads, origin).has_value(),
         "fixed independent road intervals are declared");
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the existing real material rules are loaded");

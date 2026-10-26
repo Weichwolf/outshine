@@ -8,8 +8,8 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::Ground {
-class VegetationTemplates;
+namespace outshine::Generators {
+class RegionSurfaceRecipes;
 }
 
 namespace outshine::Generators {
@@ -18,7 +18,7 @@ class TreeSpecies;
 
 [[nodiscard]] std::expected<std::vector<SpeciesMixture>, std::string>
 ReadForestMixtures(std::string_view path,
-                   const ::outshine::Ground::VegetationTemplates &templates,
+                   const RegionSurfaceRecipes &templates,
                    std::span<const TreeSpecies> species);
 
 }

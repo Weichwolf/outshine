@@ -1,12 +1,14 @@
 #include "OsmField.h"
 #include "BuildingProperties.h"
-#include "GroundMaterials.h"
-#include "VegetationTemplates.h"
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
 #include "GroundRule.h"
 #include "StreetField.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
@@ -33,9 +35,9 @@ Bytes Layer(std::string_view name,
   const Bytes line{9, 0, 0, 10, 20, 20};
   Append(feature, 0x22, type == 3 ? polygon : line);
   Bytes tags;
-  for (uint8_t index = 0; index < keys.size(); ++index) {
-    tags.push_back(index);
-    tags.push_back(index);
+  for (size_t index = 0; index < keys.size(); ++index) {
+    tags.push_back(static_cast<uint8_t>(index));
+    tags.push_back(static_cast<uint8_t>(index));
     Append(layer,
            0x1a,
            std::span(reinterpret_cast<const uint8_t *>(keys[index].data()), keys[index].size()));
@@ -118,7 +120,7 @@ void CheckUnprefixedBuildingColours() {
       const auto &feature = field.Features().front();
       const auto building = ReadBuildingProperties(field, feature);
       CHECK(building.WallColour && !building.WallColourRejected &&
-                field.Str(feature, key.data()) == supplied,
+                field.Str(feature, std::string(key).c_str()) == supplied,
             "six-digit provider RGB is used without rewriting supplied tags");
       if (!building.WallColour) { continue; }
       for (size_t channel = 0; channel < expected.size(); ++channel) {
@@ -136,8 +138,8 @@ void CheckLandClasses() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
   if (!templates.Ready()) { return; }
@@ -146,13 +148,17 @@ void CheckLandClasses() {
     std::string_view Canonical, Source, Kind, Template;
   };
 
-  constexpr std::array cases{Case{"land", "landcover", "wood", "mixed_broadleaf"},
-                             Case{"land", "landcover", "grass", "meadow"},
-                             Case{"land", "landcover", "rock", "rock_crevice"},
-                             Case{"land", "landcover", "ice", "glacier"},
-                             Case{"sites", "landuse", "park", "meadow"},
-                             Case{"sites", "landuse", "farmland", "arable"},
-                             Case{"sites", "landuse", "construction", "heath"}};
+  constexpr std::array cases{
+      Case{.Canonical = "land",
+           .Source = "landcover",
+           .Kind = "wood",
+           .Template = "mixed_broadleaf"},
+      Case{.Canonical = "land", .Source = "landcover", .Kind = "grass", .Template = "meadow"},
+      Case{.Canonical = "land", .Source = "landcover", .Kind = "rock", .Template = "rock_crevice"},
+      Case{.Canonical = "land", .Source = "landcover", .Kind = "ice", .Template = "glacier"},
+      Case{.Canonical = "sites", .Source = "landuse", .Kind = "park", .Template = "meadow"},
+      Case{.Canonical = "sites", .Source = "landuse", .Kind = "farmland", .Template = "arable"},
+      Case{.Canonical = "sites", .Source = "landuse", .Kind = "construction", .Template = "heath"}};
   for (const auto &test : cases) {
     const std::array<std::string, 1> layers{std::string(test.Canonical)};
     OsmField field(2, layers, MvtSchema::OpenMapTiles);
@@ -178,8 +184,8 @@ void CheckLandSubclasses() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
   if (!templates.Ready()) { return; }
@@ -188,15 +194,16 @@ void CheckLandSubclasses() {
     std::string_view Kind, Subclass, Template;
   };
 
-  constexpr std::array cases{Case{"rock", "bare_rock", "rock_crevice"},
-                             Case{"rock", "scree", "scree"},
-                             Case{"ice", "glacier", "glacier"},
-                             Case{"grass", "grassland", "alpine_grassland"},
-                             Case{"grass", "scrub", "heath"},
-                             Case{"farmland", "orchard", "arable"},
-                             Case{"wood", "forest", "mixed_broadleaf"},
-                             Case{"wood", "unknown_subclass", "mixed_broadleaf"},
-                             Case{"wetland", "wetland", ""}};
+  constexpr std::array cases{
+      Case{.Kind = "rock", .Subclass = "bare_rock", .Template = "rock_crevice"},
+      Case{.Kind = "rock", .Subclass = "scree", .Template = "scree"},
+      Case{.Kind = "ice", .Subclass = "glacier", .Template = "glacier"},
+      Case{.Kind = "grass", .Subclass = "grassland", .Template = "alpine_grassland"},
+      Case{.Kind = "grass", .Subclass = "scrub", .Template = "heath"},
+      Case{.Kind = "farmland", .Subclass = "orchard", .Template = "arable"},
+      Case{.Kind = "wood", .Subclass = "forest", .Template = "mixed_broadleaf"},
+      Case{.Kind = "wood", .Subclass = "unknown_subclass", .Template = "mixed_broadleaf"},
+      Case{.Kind = "wetland", .Subclass = "wetland", .Template = ""}};
   const std::array<std::string, 1> layers{"land"};
   for (const auto &test : cases) {
     OsmField field(2, layers, MvtSchema::OpenMapTiles);
@@ -261,8 +268,8 @@ void CheckRailClassRules() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
   if (!templates.Ready()) { return; }
@@ -293,8 +300,8 @@ void CheckPathClassRules() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "production path recipes load");
@@ -367,8 +374,8 @@ void CheckTransitClassRules() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             templates.Load("src/assets/world/vegetation.json", materials),
         "production transit recipes load");

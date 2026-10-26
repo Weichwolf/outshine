@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -34,12 +36,40 @@ public:
 
 }
 
+namespace {
+void CheckAnalyticGates(std::span<const outshine::RoadGate> gates,
+                        std::span<const outshine::EarthworkStamp> contacts,
+                        const outshine::TangentFrame &frame,
+                        double north,
+                        const auto &grade) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  double fromN = 0;
+  double toN = 0;
+  for (const auto &gate : gates) {
+    if (gate.OutN > .9) { fromN = gate.NorthM; }
+    if (gate.OutN < -.9) { toN = gate.NorthM; }
+  }
+  const double lengthM =
+      frame.ToLocalGroundPosition({.LongitudeDeg = 8, .LatitudeDeg = north}).NorthM;
+  CHECK(toN - fromN >= std::min(2.0, .5 * lengthM) - .00001,
+        "opposing junction cuts leave a positive connecting span even on a sub-two-metre road");
+  double mostDriftM = 0;
+  for (size_t at = 2; at < contacts.size(); ++at) {
+    const auto &contact = contacts[at];
+    mostDriftM = std::max(mostDriftM, std::abs(contact.PlateauM - grade(contact.AtE, contact.AtN)));
+  }
+  CHECK(mostDriftM < .00001,
+        "short spans and quantized node offsets preserve their actual analytic cut heights");
+}
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "short spans use production road rules");
@@ -107,23 +137,7 @@ int main() {
       CHECK(corridors.Lay(site, geometry, contacts, notes) && contacts.size() >= 2 &&
                 mesher.Gates.size() == 6,
             "both three-arm junctions produce native gates and contacts");
-      double fromN = 0;
-      double toN = 0;
-      for (const auto &gate : mesher.Gates) {
-        if (gate.OutN > .9) { fromN = gate.NorthM; }
-        if (gate.OutN < -.9) { toN = gate.NorthM; }
-      }
-      const double lengthM = frame.ToLocalGroundPosition({8, north}).NorthM;
-      CHECK(toN - fromN >= std::min(2.0, .5 * lengthM) - .00001,
-            "opposing junction cuts leave a positive connecting span even on a sub-two-metre road");
-      double mostDriftM = 0;
-      for (size_t at = 2; at < contacts.size(); ++at) {
-        const auto &contact = contacts[at];
-        mostDriftM =
-            std::max(mostDriftM, std::abs(contact.PlateauM - grade(contact.AtE, contact.AtN)));
-      }
-      CHECK(mostDriftM < .00001,
-            "short spans and quantized node offsets preserve their actual analytic cut heights");
+      CheckAnalyticGates(mesher.Gates, contacts, frame, north, grade);
     }
   }
   return Report();

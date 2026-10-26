@@ -23,7 +23,7 @@
 #include "curve/Fit.h"
 #include "GroundMesher.h"
 #include "TerrainClassificationMap.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
 #include "RoadPageRecipe.h"
@@ -43,8 +43,8 @@ public:
   struct Site {
     const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
     const ::outshine::Generators::Osm::StreetField &Ways;
-    const outshine::Ground::GroundMaterials &Materials;
-    const outshine::Ground::VegetationTemplates &Vegetation;
+    const GroundMaterialCatalog &Materials;
+    const RegionSurfaceRecipes &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
@@ -57,7 +57,7 @@ public:
     ProjectedErrorBudget Projection{};
   };
 
-  [[nodiscard]] static Material StreetMaterial(const outshine::Ground::GroundMaterials &wearing);
+  [[nodiscard]] static Material StreetMaterial(const GroundMaterialCatalog &wearing);
 
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
@@ -77,8 +77,8 @@ private:
   };
 
   struct Paving {
-    const outshine::Ground::GroundMaterials &Materials;
-    const outshine::Ground::VegetationTemplates &Vegetation;
+    const GroundMaterialCatalog &Materials;
+    const RegionSurfaceRecipes &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const ::outshine::Generators::Osm::StreetField &Ways;
@@ -328,11 +328,11 @@ private:
                         uint32_t edgeAt,
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
   static RoadProfile ProfileOf(const Osm::StreetField::Way &lane,
-                               const outshine::Ground::VegetationTemplates &vegetation);
+                               const RegionSurfaceRecipes &vegetation);
   static Vec3f LaneColour(const Osm::StreetField::Way &lane,
-                          const outshine::Ground::VegetationTemplates &vegetation);
+                          const RegionSurfaceRecipes &vegetation);
   static RoadSweep SurfaceOf(const Osm::StreetField::Way &lane,
-                             const outshine::Ground::VegetationTemplates &vegetation,
+                             const RegionSurfaceRecipes &vegetation,
                              const Edge &edge,
                              bool unbanked);
   static bool

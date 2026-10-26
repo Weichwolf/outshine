@@ -52,18 +52,18 @@ public:
   bool Pending = true;
   mutable size_t Queries = 0;
 
-  outshine::GroundSample At(outshine::LongitudeLatitude) const override {
+  outshine::GroundSample At(outshine::LongitudeLatitude /*at*/) const override {
     ++Queries;
     return Pending ? outshine::GroundSample::Waiting() : outshine::GroundSample::At(10.0);
   }
 
   outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*at*/) const override {
     return outshine::Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1.0; }
+  double PostM(double /*latDeg*/) const override { return 1.0; }
 };
 
 Bytes PolygonTile(bool oversizedHole) {
@@ -97,8 +97,8 @@ Bytes PolygonTile(bool oversizedHole) {
 
 outshine::LongitudeLatitude
 Midpoint(std::span<const double> points, uint32_t left, uint32_t right) {
-  return {.LongitudeDeg = 0.5 * (points[left * 2u + 1u] + points[right * 2u + 1u]),
-          .LatitudeDeg = 0.5 * (points[left * 2u] + points[right * 2u])};
+  return {.LongitudeDeg = 0.5 * (points[size_t{left} * 2u + 1u] + points[size_t{right} * 2u + 1u]),
+          .LatitudeDeg = 0.5 * (points[size_t{left} * 2u] + points[size_t{right} * 2u])};
 }
 
 bool CoveredBy(std::span<const float> positions,
@@ -107,8 +107,8 @@ bool CoveredBy(std::span<const float> positions,
   for (size_t first = 0; first < triangles.size(); first += 3u) {
     bool inside = true;
     for (size_t edge = 0; edge < 3u; ++edge) {
-      const size_t a = triangles[first + edge] * 3u;
-      const size_t b = triangles[first + (edge + 1u) % 3u] * 3u;
+      const size_t a = size_t{triangles[first + edge]} * 3u;
+      const size_t b = size_t{triangles[first + (edge + 1u) % 3u]} * 3u;
       const double aE = positions[a];
       const double aN = -positions[a + 2u];
       const double bE = positions[b];
@@ -122,39 +122,21 @@ bool CoveredBy(std::span<const float> positions,
 }
 }
 
-int main() {
+namespace {
+void CheckNativeBody(const outshine::Generators::Osm::OsmField &field,
+                     const outshine::Generators::Osm::WaterField &water) {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-
-  const std::array<std::string, 1> layers{"water_polygons"};
-  ::outshine::Generators::Osm::OsmField field(6, layers);
-  const auto accepted = field.Accept(32, 32, PolygonTile(false));
-  CHECK(accepted.has_value() && field.Rings().size() == 2 && field.Rings()[0].Exterior &&
-            !field.Rings()[1].Exterior,
-        "OSM input retains outer and inner rings");
-  if (!accepted) { return Report(); }
-  Heights heights;
-  VegetationTemplates vegetation;
-  ::outshine::Generators::Osm::WaterField water;
-  CHECK(water.Ingest(heights, field, vegetation) == 0 && water.Surfaces().empty(),
-        "pending outer height publishes no partial water body");
-  heights.Pending = false;
-  for (int advance = 0; advance < 8 && !water.Ingested(field); ++advance) {
-    (void)water.Ingest(heights, field, vegetation);
-  }
-  CHECK(water.Ingested(field) && water.Surfaces().size() == 1 &&
-            water.RingsOf(water.Surfaces()[0]).size() == 2 && water.InvalidBodyCount() == 0,
-        "outer ring and hole publish atomically as one water body");
   if (water.Surfaces().size() == 1) {
     const auto rings = water.RingsOf(water.Surfaces()[0]);
     CHECK(rings[0].FirstPoint == field.Rings()[0].First &&
               rings[1].FirstPoint == field.Rings()[1].First && water.Surfaces()[0].LevelM == 10.0f,
           "body preserves OSM ring order and outer level");
     const auto asset = water.Asset(field);
-    ::outshine::Generators::Osm::BuildingField footprints;
-    ::outshine::Generators::Osm::StreetField streets;
-    Generators::Tile region(6, 32, 32);
+    const ::outshine::Generators::Osm::BuildingField footprints;
+    const ::outshine::Generators::Osm::StreetField streets;
+    const Generators::Tile region(6, 32, 32);
     const auto features = Generators::FeaturesOver(region,
                                                    {.Vectors = &field,
                                                     .Footprints = &footprints,
@@ -206,23 +188,15 @@ int main() {
       }
     }
   }
+}
+}
 
-  ::outshine::Generators::Osm::OsmField invalid(6, layers);
-  const auto parsed = invalid.Accept(32, 32, PolygonTile(true));
-  CHECK(parsed.has_value() && invalid.Rings().size() == 2 && invalid.Rings()[1].Count > 512,
-        "oversized inner ring reaches WaterField as valid OSM topology");
-  if (parsed) {
-    Heights ready;
-    ready.Pending = false;
-    ::outshine::Generators::Osm::WaterField rejected;
-    for (int advance = 0; advance < 8 && !rejected.Ingested(invalid); ++advance) {
-      (void)rejected.Ingest(ready, invalid, vegetation);
-    }
-    CHECK(rejected.Ingested(invalid) && rejected.Surfaces().empty() &&
-              rejected.InvalidBodyCount() == 1,
-          "unusable hole rejects its whole body instead of filling the island");
-  }
-
+namespace {
+void CheckConcaveBody(const std::array<std::string, 1> &layers,
+                      const outshine::Generators::RegionSurfaceRecipes &vegetation) {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
   ::outshine::Generators::Osm::OsmField concave(6, layers);
   const std::array concaveFeatures{::outshine::Generators::Osm::OsmField::Declared{
       .Layer = "water_polygons",
@@ -259,6 +233,15 @@ int main() {
             "mesh covers the wet bar but leaves the concave recess dry");
     }
   }
+}
+}
+
+namespace {
+void CheckSnapshot(outshine::Generators::Osm::OsmField &field,
+                   outshine::Generators::Osm::WaterField &water) {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
   const ::outshine::Generators::Osm::RegionSources pinned =
       ::outshine::Generators::Osm::RegionSources::Snapshot(
           &field, ::outshine::Generators::Osm::StreetField{}, water.Asset(field));
@@ -280,5 +263,52 @@ int main() {
             "replacement keeps the candidate lake with its original island topology");
     }
   }
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+
+  const std::array<std::string, 1> layers{"water_polygons"};
+  ::outshine::Generators::Osm::OsmField field(6, layers);
+  const auto accepted = field.Accept(32, 32, PolygonTile(false));
+  CHECK(accepted.has_value() && field.Rings().size() == 2 && field.Rings()[0].Exterior &&
+            !field.Rings()[1].Exterior,
+        "OSM input retains outer and inner rings");
+  if (!accepted) { return Report(); }
+  Heights heights;
+  const outshine::Generators::RegionSurfaceRecipes vegetation;
+  ::outshine::Generators::Osm::WaterField water;
+  CHECK(water.Ingest(heights, field, vegetation) == 0 && water.Surfaces().empty(),
+        "pending outer height publishes no partial water body");
+  heights.Pending = false;
+  for (int advance = 0; advance < 8 && !water.Ingested(field); ++advance) {
+    (void)water.Ingest(heights, field, vegetation);
+  }
+  CHECK(water.Ingested(field) && water.Surfaces().size() == 1 &&
+            water.RingsOf(water.Surfaces()[0]).size() == 2 && water.InvalidBodyCount() == 0,
+        "outer ring and hole publish atomically as one water body");
+  CheckNativeBody(field, water);
+
+  ::outshine::Generators::Osm::OsmField invalid(6, layers);
+  const auto parsed = invalid.Accept(32, 32, PolygonTile(true));
+  CHECK(parsed.has_value() && invalid.Rings().size() == 2 && invalid.Rings()[1].Count > 512,
+        "oversized inner ring reaches WaterField as valid OSM topology");
+  if (parsed) {
+    Heights ready;
+    ready.Pending = false;
+    ::outshine::Generators::Osm::WaterField rejected;
+    for (int advance = 0; advance < 8 && !rejected.Ingested(invalid); ++advance) {
+      (void)rejected.Ingest(ready, invalid, vegetation);
+    }
+    CHECK(rejected.Ingested(invalid) && rejected.Surfaces().empty() &&
+              rejected.InvalidBodyCount() == 1,
+          "unusable hole rejects its whole body instead of filling the island");
+  }
+
+  CheckConcaveBody(layers, vegetation);
+  CheckSnapshot(field, water);
   return Report();
 }

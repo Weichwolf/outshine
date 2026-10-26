@@ -3,13 +3,13 @@
 
 #include "OsmField.h"
 #include "MvtSchema.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators::Osm {
-[[nodiscard]] inline const Ground::VegetationTemplates::Rule *
+[[nodiscard]] inline const RegionSurfaceRecipes::Rule *
 GroundRuleOf(const OsmField &field,
              const OsmField::Feature &feature,
-             const Ground::VegetationTemplates &templates) {
+             const RegionSurfaceRecipes &templates) {
   const auto layer = field.LayerName(feature.Layer);
   const auto kind = field.Str(feature, "kind");
   if (field.Schema() == MvtSchema::OpenMapTiles && layer == "land") {

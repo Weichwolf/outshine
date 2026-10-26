@@ -18,6 +18,10 @@
 #include "TilePool.h"
 #include "TangentFrame.h"
 
+namespace outshine::Generators {
+class RegionSurfaceRecipes;
+}
+
 namespace outshine::Ground {
 
 constexpr int kFineZoom = 14;
@@ -31,8 +35,6 @@ constexpr int kCoarseRings = 1;
 constexpr double kCoarseCellM = 64.0;
 constexpr int kCoarseSide = 128;
 constexpr double kCoarseReachM = 3800.0;
-
-class VegetationTemplates;
 
 class ClassificationPreparation {
 public:
@@ -55,9 +57,9 @@ public:
     Restored_.reset();
   }
 
-  void SetVegetation(const VegetationTemplates *veg) {
-    if (Veg_ != veg) { Restored_.reset(); }
-    Veg_ = veg;
+  void SetRecipes(const Generators::RegionSurfaceRecipes *recipes) {
+    if (Recipes_ != recipes) { Restored_.reset(); }
+    Recipes_ = recipes;
   }
 
   void SetVectorSource(
@@ -220,7 +222,7 @@ private:
 
   Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 
-  const VegetationTemplates *Veg_ = nullptr;
+  const Generators::RegionSurfaceRecipes *Recipes_ = nullptr;
   bool HasVectorSource_ = true;
   Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
 

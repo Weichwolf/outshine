@@ -57,7 +57,7 @@ int main() {
   field.Declare(features, Ground::TileAt{.X = 8192, .Y = 8192});
   const BelowSeaLevel heights;
   ::outshine::Generators::Osm::WaterField water;
-  const Ground::VegetationTemplates vegetation;
+  const outshine::Generators::RegionSurfaceRecipes vegetation;
   for (int step = 0; step < 8 && !water.Ingested(field); ++step) {
     (void)water.Ingest(heights, field, vegetation);
   }

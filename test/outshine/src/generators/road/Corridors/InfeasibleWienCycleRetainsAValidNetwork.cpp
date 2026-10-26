@@ -129,8 +129,8 @@ struct RecordingMesher final : RoadMesher {
 Geometry Build(const Inputs &input, bool incremental) {
   Geometry geometry;
   const auto frame = TangentFrame::At(input.Origin);
-  outshine::Ground::GroundMaterials materials;
-  outshine::Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the genuine case uses production path, stair and bridge recipes");

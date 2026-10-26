@@ -922,8 +922,8 @@ void CheckWorld(InstanceScene &scene,
                 const ImpostorAtlas &atlas,
                 const TreeSpecies &species,
                 Tasks &worker) {
-  outshine::Ground::GroundMaterials materials;
-  outshine::Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   Generators::Shipping catalogue;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials) &&

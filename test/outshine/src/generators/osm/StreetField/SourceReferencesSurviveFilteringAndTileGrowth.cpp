@@ -1,8 +1,9 @@
 #include "StreetField.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -79,8 +80,8 @@ void CheckReferences(const StreetField &streets, const OsmField &field, size_t t
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "production transport recipes load");
@@ -111,11 +112,14 @@ int main() {
   CHECK(streets.Ingest(declared, vegetation) == 1 && streets.Ways()[0].Source.has_value(),
         "a new source context replaces previous references");
   CHECK(!streets.SourceOf(field, 0), "previous source contexts cannot resolve replacement ways");
-  if (!streets.Ways().empty() && streets.Ways()[0].Source) {
-    const auto origin = *streets.Ways()[0].Source;
-    CHECK(origin.Feature == 0 && origin.Ring == 0 &&
-              !declared.Features()[origin.Feature].ProviderFeatureId,
-          "missing provider identity stays missing rather than becoming zero");
+  if (!streets.Ways().empty()) {
+    const auto source = streets.Ways()[0].Source;
+    if (source) {
+      const auto origin = *source;
+      CHECK(origin.Feature == 0 && origin.Ring == 0 &&
+                !declared.Features()[origin.Feature].ProviderFeatureId,
+            "missing provider identity stays missing rather than becoming zero");
+    }
   }
   const auto snapshot = declared.SnapshotQueries();
   CHECK(streets.SourceOf(*snapshot, 0).has_value(), "an immutable snapshot keeps its source scope");

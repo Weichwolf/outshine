@@ -25,14 +25,14 @@
 #include <SourceDecl.h>
 #include "BuildingField.h"
 #include "ClassificationPreparation.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "StreetField.h"
 #include "TilePool.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "WaterField.h"
 
-#include <WorldStorage.h>
+#include "ContentDirectories.h"
 
 namespace outshine {
 class LogSink;
@@ -71,7 +71,7 @@ public:
   SurfacePreparation(const SurfacePreparation &) = delete;
   SurfacePreparation &operator=(const SurfacePreparation &) = delete;
 
-  [[nodiscard]] bool Open(const World::StoragePaths &under,
+  [[nodiscard]] bool Open(const ContentDirectories &under,
                           std::span<const Data::SourceProvider> providers,
                           const Data::ProviderRegistry &registry,
                           LongitudeLatitude focus,
@@ -80,7 +80,7 @@ public:
                           Sink &say,
                           LogSink *diagnostics,
                           double patienceS = 0.0);
-  [[nodiscard]] bool OpenSession(const World::StoragePaths &under,
+  [[nodiscard]] bool OpenSession(const ContentDirectories &under,
                                  std::shared_ptr<Data::SourceSession> session,
                                  LongitudeLatitude focus,
                                  Data::Transport &wire,
@@ -209,9 +209,9 @@ public:
 
   [[nodiscard]] Generators::Osm::MvtSchema VectorSchema() const noexcept { return VectorSchema_; }
 
-  [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
+  [[nodiscard]] const Generators::GroundMaterialCatalog &Materials() const { return Materials_; }
 
-  void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
+  void SetRecipes(const Generators::RegionSurfaceRecipes *veg) { Cls_.SetRecipes(veg); }
 
   [[nodiscard]] std::unique_ptr<::outshine::Generators::Osm::OsmField> CreateVectorField() const;
 
@@ -254,9 +254,9 @@ public:
   void RequestStreets() noexcept;
   [[nodiscard]] bool UsesCachedRegionNetwork() const noexcept;
 
-  [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
+  [[nodiscard]] const Generators::RegionSurfaceRecipes &SurfaceRecipes() const { return Recipes_; }
 
-  [[nodiscard]] bool Vegetated() const { return Vegetated_; }
+  [[nodiscard]] bool RecipesReady() const { return RecipesReady_; }
 
   [[nodiscard]] std::expected<void, std::string_view> AdvanceAt(LongitudeLatitude at,
                                                                 SurfacePreparationBudget budget);
@@ -307,7 +307,7 @@ public:
 private:
   [[nodiscard]] std::expected<void, std::string>
   BindAssetCaches(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
-  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const World::StoragePaths &under,
+  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const ContentDirectories &under,
                                                                  const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
@@ -334,8 +334,8 @@ private:
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
   std::string DeclaredDigest_;
   ClassificationPreparation Cls_;
-  GroundMaterials Materials_;
-  VegetationTemplates Templates_;
+  Generators::GroundMaterialCatalog Materials_;
+  Generators::RegionSurfaceRecipes Recipes_;
   std::size_t Overflowed_ = 0;
 
   struct SettlementInputs {
@@ -383,7 +383,7 @@ private:
   ::outshine::Generators::Osm::StreetField Ways_;
   int SurfaceZoom_ = 0;
   std::optional<LongitudeLatitude> Stood_;
-  bool Vegetated_ = false;
+  bool RecipesReady_ = false;
   bool Opened_ = false;
   SurfacePreparationMetrics LastAdvance_;
   SurfacePreparationMetrics WorstAdvance_;

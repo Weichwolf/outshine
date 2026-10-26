@@ -14,8 +14,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "the closed-road fixture uses production classification");
@@ -58,7 +58,7 @@ int main() {
     std::vector<DiagnosticSample> notes;
     CHECK(corridors.Lay(site, geometry, contacts, notes) && !contacts.empty(),
           "the road still generates its pavement contacts");
-    const std::array<EastNorth, 1> centre{{{0, 0}}};
+    const std::array<EastNorth, 1> centre{{{.EastM = 0, .NorthM = 0}}};
     std::array<double, 1> heights{amplitude};
     const auto pressed = ApplyEarthworkStamps(contacts, centre, heights, kMostEarthworkM);
     CHECK(pressed.Structures == 0 && heights[0] == amplitude,

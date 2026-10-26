@@ -3,36 +3,49 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <Transport.h>
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 
 #include <memory>
+#include <string>
 
 namespace {
 using namespace outshine::Data;
 
 class NoTransport final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class PendingSource final : public Source {
 public:
-  SourceDecl Decl{.Id = "pending", .Keeps = Cacheability::Never};
+  SourceDecl Decl{.Id = "pending",
+                  .Revision = {},
+                  .Endpoint = {},
+                  .Keeps = Cacheability::Never,
+                  .PayloadSha256 = {},
+                  .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Working();
   }
 };
@@ -42,19 +55,19 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
   CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
   CHECK(sources.Add(std::make_unique<PendingSource>()) == Data::SourceSet::Registration::Accepted,
         "pending vector source registers");
-  TilePool pool({.PollAttempts = 1, .Carriers = 1}, sources, transport);
+  TilePool pool({.PollAttempts = 1, .Carriers = 1, .PreparedFields = {}}, sources, transport);
   Tasks compute(1);
   ClassificationPreparation field;
-  field.SetVegetation(&templates);
+  field.SetRecipes(&templates);
   field.Open(0, 0, compute);
   CHECK(field.Update(pool, {}).has_value(), "classification requests its source tiles");
   CHECK(field.PendingTiles() > 0, "the source fields remain incomplete");

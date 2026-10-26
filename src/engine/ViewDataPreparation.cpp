@@ -109,7 +109,7 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
           ? std::span<const Ground::ClassificationPreparation::SourceWindow>(classification)
           : std::span<const Ground::ClassificationPreparation::SourceWindow>();
   const bool vectors = S_->World.Stack.HasVectorSource() && !S_->World.Stack.HasDeclaredVectors() &&
-                       S_->World.Stack.Vegetated();
+                       S_->World.Stack.RecipesReady();
   auto plan = PlanTerrainPath(*path,
                               S_->World.Stack.Ground(),
                               {.VectorZoom = vectors ? S_->World.Stack.VectorZoom() : -1,

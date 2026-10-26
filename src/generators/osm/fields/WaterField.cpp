@@ -143,7 +143,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
 
 void WaterField::MaterializeCandidate(const OsmField &field,
                                       OnLayers on,
-                                      const VegetationTemplates &vegetation,
+                                      const RegionSurfaceRecipes &vegetation,
                                       const Candidate &candidate) {
   size_t firstSurfaceRing = 0;
   size_t surfaceFeature = 0;
@@ -187,7 +187,7 @@ void WaterField::MaterializeCandidate(const OsmField &field,
 void WaterField::AddCourse(const OsmField &field,
                            size_t featureAt,
                            const OsmField::Ring &ring,
-                           const VegetationTemplates &vegetation,
+                           const RegionSurfaceRecipes &vegetation,
                            std::span<double> heights) {
   if (heights.front() >= heights.back()) {
     for (size_t at = 1; at < heights.size(); ++at) {
@@ -273,7 +273,7 @@ std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
 
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
-                            const VegetationTemplates &veg) {
+                            const RegionSurfaceRecipes &veg) {
   if (SourceGeneration_ != field.Generation() || SourceOrigin_.get() != field.OriginToken()) {
     *this = WaterField{};
     SourceGeneration_ = field.Generation();
