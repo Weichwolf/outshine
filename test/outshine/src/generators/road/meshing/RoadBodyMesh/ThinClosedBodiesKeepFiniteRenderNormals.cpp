@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "RoadStepBody.h"
+#include "RoadBodyMesh.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -21,10 +21,8 @@ int main() {
       {.Points = points, .Faces = faces, .TopHeights = tops, .BottomHeights = bottoms});
   CHECK(solid.has_value(), "the thin indexed solid is closed and representable in Float32");
   if (!solid) { return Report(); }
-  SurfaceBody body;
-  body.Geometry = std::move(*solid);
   RoadMeshBuffers mesh;
-  CHECK(AppendRoadStepBody(body, {{1, 1, 1}}, mesh), "the validated body reaches render buffers");
+  CHECK(AppendRoadBodyMesh(*solid, {{1, 1, 1}}, mesh), "the validated body reaches render buffers");
   CHECK(!mesh.NormalM.empty() &&
             std::ranges::all_of(mesh.NormalM, [](float normal) { return std::isfinite(normal); }),
         "normal construction retains the nonzero cross product of representable thin faces");

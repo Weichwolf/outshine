@@ -1,5 +1,6 @@
 #include "Corridors.h"
-#include "RoadStepBody.h"
+#include "SurfaceBody.h"
+#include "RoadBodyMesh.h"
 #include "JunctionFootprint.h"
 #include "RoadCrossSection.h"
 
@@ -419,7 +420,7 @@ void Corridors::PaveEdge(const Paving &on,
   const auto surface = SurfaceOf(lane, on.Vegetation, edge, into.UnbankedWays.contains(laneAt));
   into.WaterMs += since();
   if (edge.StepBody) {
-    if (AppendRoadStepBody(*edge.StepBody, surface.WearsLinear, pavement)) {
+    if (AppendRoadBodyMesh(edge.StepBody->Geometry, surface.WearsLinear, pavement)) {
       ++into.Swept.Pieces;
     } else {
       ++into.Swept.Refused;

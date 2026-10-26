@@ -1,6 +1,6 @@
 #include "Check.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
-#include "src/generators/road/RoadCrossSection.h"
+#include "src/generators/road/meshing/ProfiledRoadMesher.h"
+#include "src/generators/road/meshing/RoadCrossSection.h"
 
 #include <algorithm>
 #include <array>
