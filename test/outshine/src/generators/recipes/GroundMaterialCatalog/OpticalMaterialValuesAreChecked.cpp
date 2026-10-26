@@ -61,7 +61,7 @@ int main() {
   CHECK(materials.Load(path.c_str()) && materials.At(0).Albedo[0] == 0 &&
             materials.At(0).Roughness == 0 && materials.At(0).LitterCoverage == 0,
         "zero factors are valid on retry");
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped catalog remains valid");
+  CHECK(materials.Load("data/world/ground-materials.json"), "shipped catalog remains valid");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);
   CHECK(!cleanup, "temporary files removed");

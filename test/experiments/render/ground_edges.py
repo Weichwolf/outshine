@@ -169,7 +169,7 @@ def main():
     sources = json.loads(args.receipts.read_text())
     if not sources["sites"]:
         raise ValueError("no SHA-verified OSM input; no boundary proof produced")
-    recipes = json.loads(Path("src/assets/world/vegetation.json").read_text())
+    recipes = json.loads(Path("data/world/vegetation.json").read_text())
     reach_m = max(row["ground"].get("edgeReachM", 0.0) for row in recipes["templates"])
     if not math.isfinite(args.cell_m) or args.cell_m <= 0:
         raise ValueError("cell size must be finite positive metres")

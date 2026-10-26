@@ -192,7 +192,7 @@ def main():
         "cases": [],
     }
     for name in args.species:
-        source = Path("src/assets/world/species") / f"{name}.json"
+        source = Path("data/world/species") / f"{name}.json"
         profile = json.loads(source.read_text())
         for count in args.counts:
             for seed in args.seeds:

@@ -17,7 +17,7 @@
     0.9
   ],
   "recipe_sha256": {
-    "src/assets/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658",
-    "src/assets/world/vegetation.json": "016c0fb56f819327c6c225fda06bfa362f0fa579f6cb14230b4f75955b886adf"
+    "data/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658",
+    "data/world/vegetation.json": "016c0fb56f819327c6c225fda06bfa362f0fa579f6cb14230b4f75955b886adf"
   }
 }

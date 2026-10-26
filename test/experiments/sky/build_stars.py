@@ -109,7 +109,7 @@ def encode(star):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", help="local HYG csv (default: download from astronexus)")
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "stars"))
+    ap.add_argument("--out", required=True, help="explicit output directory for magnitude bands")
     ap.add_argument("--epoch", type=float, default=None,
                     help="equinox/epoch as fractional year (default: now)")
     args = ap.parse_args()

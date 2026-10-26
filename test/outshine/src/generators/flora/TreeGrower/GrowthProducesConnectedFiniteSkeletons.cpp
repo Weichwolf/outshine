@@ -144,7 +144,7 @@ int main() {
   using namespace outshine::Test;
   NearlyParallelFramesRemainOrthogonal();
   std::vector<std::filesystem::path> paths;
-  for (const auto &entry : std::filesystem::directory_iterator("src/assets/world/species")) {
+  for (const auto &entry : std::filesystem::directory_iterator("data/world/species")) {
     if (entry.path().extension() == ".json") { paths.push_back(entry.path()); }
   }
   std::ranges::sort(paths);

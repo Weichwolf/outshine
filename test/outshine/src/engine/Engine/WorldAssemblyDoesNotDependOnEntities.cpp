@@ -30,7 +30,7 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider), "fixture source factory registers before declaration");
     Roots roots;
-    roots.Shipped = "src/assets";
+    roots.Shipped = "data";
     roots.Offline = true;
     CHECK(engine.setRoots(roots).has_value(), "roots are accepted before declaration");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target configured");

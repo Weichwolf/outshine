@@ -9,7 +9,7 @@ from outshine_ref.places import tile_geography
 from stair_junction_layout import INPUT, inputs
 
 FIXTURE = Path(__file__).with_name("fixtures") / "stair-context-vienna.json"
-PROFILES = Path(__file__).resolve().parents[3] / "src/assets/world/vegetation.json"
+PROFILES = Path(__file__).resolve().parents[3] / "data/world/vegetation.json"
 
 
 def window_samples(row, raster, extent):

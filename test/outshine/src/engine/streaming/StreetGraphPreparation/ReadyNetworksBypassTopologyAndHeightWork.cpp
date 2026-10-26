@@ -71,8 +71,8 @@ int main() {
   const Data::SourceSet sources(store);
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "native street rules load");
   auto vectors = Input(false);
   auto ways = std::make_shared<Generators::Osm::StreetField>();

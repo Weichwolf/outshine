@@ -79,7 +79,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     names = ("oak", "beech", "birch")
-    sources = [Path("src/assets/world/species") / f"{name}.json" for name in names]
+    sources = [Path("data/world/species") / f"{name}.json" for name in names]
     profiles = [json.loads(path.read_text()) for path in sources]
     heights = [profile["height_m"] for profile in profiles]
     spreads = [profile["spread_m"] for profile in profiles]

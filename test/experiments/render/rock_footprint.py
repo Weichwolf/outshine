@@ -21,9 +21,9 @@ GRADIENT_CONVERGENCE = 1e-4
 
 def recipe():
     materials = json.loads(
-        (ROOT / "src/assets/world/ground-materials.json").read_text()
+        (ROOT / "data/world/ground-materials.json").read_text()
     )
-    templates = json.loads((ROOT / "src/assets/world/vegetation.json").read_text())
+    templates = json.loads((ROOT / "data/world/vegetation.json").read_text())
     template = next(x for x in templates["templates"] if x["name"] == "rock_crevice")
     material = next(
         x for x in materials["classes"] if x["name"] == template["ground"]["class"]
