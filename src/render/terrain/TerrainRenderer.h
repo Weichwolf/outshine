@@ -64,7 +64,7 @@ public:
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,
                                       .FragmentSamplers = 2,
-                                      .FragmentUniformBuffers = kSubjectFragmentUniforms,
+                                      .FragmentUniformBuffers = kGeometryFragmentUniformCount,
                                       .FragmentStorageBuffers = 2};
   static constexpr DrawShape PatchShape = [] {
     auto shape = LitShape;

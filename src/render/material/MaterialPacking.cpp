@@ -1,4 +1,4 @@
-#include "SubjectMaterialPacking.h"
+#include "MaterialPacking.h"
 
 #include <algorithm>
 #include <array>
@@ -13,10 +13,9 @@ static_assert(static_cast<int>(ScatteringModel::MetallicRoughness) == 0 &&
 static_assert(static_cast<int>(SurfacePattern::None) == 0 &&
               static_cast<int>(SurfacePattern::Facade) == 1 &&
               static_cast<int>(SurfacePattern::FacadeMetres) == 2);
-static_assert(sizeof(PackedSubjectMaterial) == kSubjectSurfaceFloats * sizeof(float));
+static_assert(sizeof(GpuMaterialRecord) == kMaterialRecordFloatCount * sizeof(float));
 
-PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
-                                          float identity) noexcept {
+GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) noexcept {
   const Material &row = material.Row;
   Vec3f f0;
   DielectricF0(row, f0);
@@ -60,10 +59,10 @@ PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
                               row.DiffuseTransmission[0],
                               row.DiffuseTransmission[1],
                               row.DiffuseTransmission[2]};
-  static_assert(scalars.size() == kSubjectSurfaceScalars);
-  PackedSubjectMaterial packed{};
+  static_assert(scalars.size() == kMaterialScalarCount);
+  GpuMaterialRecord packed{};
   std::ranges::copy(scalars, packed.begin());
-  const std::array<const SubjectTexture *const, kSubjectMaterialImages> images = {
+  const std::array<const MaterialTexture *const, kMaterialTextureCount> images = {
       &material.Colour,
       &material.Normal,
       &material.MetalRough,
@@ -72,11 +71,11 @@ PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
       &material.SpecularTint,
       &material.DiffuseReflection,
       &material.DiffuseTransmission};
-  size_t at = kSubjectSurfaceScalars;
-  for (const SubjectTexture *image : images) {
+  size_t at = kMaterialScalarCount;
+  for (const MaterialTexture *image : images) {
     for (const double element : image->Uv.M) { packed[at++] = static_cast<float>(element); }
   }
-  for (const SubjectTexture *image : images) {
+  for (const MaterialTexture *image : images) {
     packed[at++] = image->Set == UvSet::Uv1 ? 1.0f : 0.0f;
   }
   return packed;

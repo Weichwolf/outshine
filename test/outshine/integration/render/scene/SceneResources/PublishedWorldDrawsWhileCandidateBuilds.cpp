@@ -26,7 +26,7 @@ int main() {
     declaration.InitialGeometry = &geometry;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"sceneLinear"};
-    declaration.Surfacing.front().Unlit = true;
+    declaration.Materials.front().Unlit = true;
     Render::SceneRenderer renderer;
     const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
     std::unique_ptr<Core::RuntimeScene> scene;

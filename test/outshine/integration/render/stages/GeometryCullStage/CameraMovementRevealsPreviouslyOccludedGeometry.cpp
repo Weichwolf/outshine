@@ -75,10 +75,10 @@ void ReplaceMaterials(outshine::Core::RuntimeScene &scene,
   using namespace outshine::Render;
   using namespace outshine::Test;
   CHECK(scene.Draw(error), "unchanged selection settles before a table replacement");
-  SubjectMaterial red;
+  MaterialBinding red;
   red.Row.Unlit = true;
   red.Row.BaseColour = {{1, 0, 0, 1}};
-  const std::array<SubjectMaterial, 1> materials{red};
+  const std::array<MaterialBinding, 1> materials{red};
   CHECK(renderer.SetGeometryMaterials(materials, error) && scene.Draw(error),
         "replacement native materials remain drawable");
   CHECK(GeometryCullStage::JobsSweptTaken() > 0,

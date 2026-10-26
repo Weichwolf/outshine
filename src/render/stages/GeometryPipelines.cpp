@@ -258,7 +258,7 @@ Native::Result<void> GeometryRenderer::ConfigureKind(
     std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
     uint32_t &built) {
   const auto targets = Targets(gpu, options, colours, kind == SurfaceKind::Blended);
-  for (const auto domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
+  for (const auto domain : {SurfaceDomain::Geometry, SurfaceDomain::Ground}) {
     for (const auto &row : kVertexLayouts) {
       if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
         continue;

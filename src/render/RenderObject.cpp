@@ -71,7 +71,7 @@ bool RenderObject::ResizeInstances(size_t instances) {
 }
 
 bool RenderObject::SetMaterials(std::span<const uint32_t> partSlot,
-                                std::span<const SubjectMaterial> slots,
+                                std::span<const MaterialBinding> slots,
                                 std::string &error) {
   if (partSlot.size() != Parts()) {
     error = "the subject proxy stands over " + std::to_string(Parts()) +
@@ -201,7 +201,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 }
 
 [[nodiscard]] bool Lit(const RenderObject &proxy, const Shape &subject, size_t part) {
-  const SubjectMaterial &wearing = proxy.Slots()[proxy.Slot(part)];
+  const MaterialBinding &wearing = proxy.Slots()[proxy.Slot(part)];
   return subject.Parts[part].HasNormal && (Gathers(proxy) || wearing.Emissive.Rgba != nullptr) &&
          !wearing.Row.Unlit;
 }

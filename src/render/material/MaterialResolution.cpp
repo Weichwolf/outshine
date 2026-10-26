@@ -1,4 +1,4 @@
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 #include <span>
 #include <string>
 #include <vector>
@@ -14,28 +14,8 @@ namespace Says {
 constexpr auto MissingNativeImage = "native material names absent image {}";
 }
 
-namespace {
-SubjectWrap WrapOf(Wrap wrap) {
-  switch (wrap) {
-    case Wrap::ClampToEdge: return SubjectWrap::ClampToEdge;
-    case Wrap::MirroredRepeat: return SubjectWrap::MirroredRepeat;
-    case Wrap::Repeat: return SubjectWrap::Repeat;
-  }
-  return SubjectWrap::Repeat;
-}
-
-SubjectMip MipOf(MipFilter mip) {
-  switch (mip) {
-    case MipFilter::None: return SubjectMip::None;
-    case MipFilter::Nearest: return SubjectMip::Nearest;
-    case MipFilter::Linear: return SubjectMip::Linear;
-  }
-  return SubjectMip::Linear;
-}
-}
-
 bool ResolveNativeTextures(const Geometry &geometry,
-                           std::span<SubjectMaterial> surfaces,
+                           std::span<MaterialBinding> surfaces,
                            std::string &error) {
   std::vector<ImageView> images;
   images.reserve(static_cast<size_t>(geometry.images()));
@@ -44,9 +24,9 @@ bool ResolveNativeTextures(const Geometry &geometry,
 }
 
 bool ResolveNativeTextures(std::span<const ImageView> images,
-                           std::span<SubjectMaterial> surfaces,
+                           std::span<MaterialBinding> surfaces,
                            std::string &error) {
-  const auto bind = [images, &error](const SurfaceMap &map, SubjectTexture &texture) {
+  const auto bind = [images, &error](const SurfaceMap &map, MaterialTexture &texture) {
     texture = {};
     if (!map.bound()) { return true; }
     const ImageView image = static_cast<size_t>(map.Image) < images.size()
@@ -63,16 +43,14 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
     texture.LowerMips = image.LowerMips;
     texture.Set = map.Set;
     texture.Uv = UvTransformOf(map.Uv);
-    texture.WrapU = WrapOf(map.Sampler.WrapU);
-    texture.WrapV = WrapOf(map.Sampler.WrapV);
-    texture.Magnify =
-        map.Sampler.Magnify == Filter::Nearest ? SubjectFilter::Nearest : SubjectFilter::Linear;
-    texture.Minify =
-        map.Sampler.Minify == Filter::Nearest ? SubjectFilter::Nearest : SubjectFilter::Linear;
-    texture.Mip = MipOf(map.Sampler.Mip);
+    texture.WrapU = map.Sampler.WrapU <= Wrap::Repeat ? map.Sampler.WrapU : Wrap::Repeat;
+    texture.WrapV = map.Sampler.WrapV <= Wrap::Repeat ? map.Sampler.WrapV : Wrap::Repeat;
+    texture.Magnify = map.Sampler.Magnify == Filter::Nearest ? Filter::Nearest : Filter::Linear;
+    texture.Minify = map.Sampler.Minify == Filter::Nearest ? Filter::Nearest : Filter::Linear;
+    texture.Mip = map.Sampler.Mip <= MipFilter::Linear ? map.Sampler.Mip : MipFilter::Linear;
     return true;
   };
-  for (SubjectMaterial &surface : surfaces) {
+  for (MaterialBinding &surface : surfaces) {
     const Material &row = surface.Row;
     surface.NormalScale = row.NormalScale;
     if (!bind(row.BaseColourMap, surface.Colour) || !bind(row.NormalMap, surface.Normal) ||

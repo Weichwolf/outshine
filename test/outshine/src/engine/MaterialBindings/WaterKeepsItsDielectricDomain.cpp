@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "OsmField.h"
 #include "Shape.h"
-#include "SubjectMaterials.h"
+#include "MaterialBindings.h"
 #include "TangentFrame.h"
 #include "TerrainLoader.h"
 #include "WaterField.h"
@@ -94,7 +94,7 @@ int main() {
   const auto shape = Render::PrepareShape(geometry, storage);
   CHECK(shape.has_value(), "mixed terrain and water geometry prepares");
   if (!shape) { return Report(); }
-  Core::SubjectMaterials materials;
+  Core::MaterialBindings materials;
   const auto resolved =
       materials.Resolve(geometry, *shape, soil, {}, ground->index(), "water-world");
   CHECK(resolved && materials.PartSlots().size() == 2, "native mixed materials resolve");
@@ -102,7 +102,7 @@ int main() {
   const auto &terrainMaterial = materials.Slots()[materials.PartSlots()[0]];
   const auto &waterMaterial = materials.Slots()[materials.PartSlots()[1]];
   CHECK(terrainMaterial.Domain == Render::SurfaceDomain::Ground &&
-            waterMaterial.Domain == Render::SurfaceDomain::Subject,
+            waterMaterial.Domain == Render::SurfaceDomain::Geometry,
         "only terrain receives the ground-classification shader");
   CHECK(terrainMaterial.State().Kind() == SurfaceKind::Opaque &&
             waterMaterial.State().Kind() == SurfaceKind::ThinTransmissive &&

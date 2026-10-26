@@ -32,7 +32,7 @@ int main() {
           "radiance and motion attachments add");
     std::string error;
     CHECK(draw.Configure(gpu).has_value(), "velocity-writing pipelines configure");
-    const std::array<SubjectMaterial, 1> materials{};
+    const std::array<MaterialBinding, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "material registers");
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
     constexpr std::array<float, 9> previous{-2, -1, 0, 0, -1, 0, -1, 1, 0};

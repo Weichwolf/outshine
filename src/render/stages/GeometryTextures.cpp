@@ -16,17 +16,17 @@
 
 namespace outshine::Render {
 namespace {
-Native::Address AddressOf(SubjectWrap wrap) {
+Native::Address AddressOf(outshine::Wrap wrap) {
   switch (wrap) {
-    case SubjectWrap::ClampToEdge: return Native::Address::ClampToEdge;
-    case SubjectWrap::MirroredRepeat: return Native::Address::MirrorRepeat;
-    case SubjectWrap::Repeat: return Native::Address::Repeat;
+    case outshine::Wrap::ClampToEdge: return Native::Address::ClampToEdge;
+    case outshine::Wrap::MirroredRepeat: return Native::Address::MirrorRepeat;
+    case outshine::Wrap::Repeat: return Native::Address::Repeat;
   }
   return Native::Address::Repeat;
 }
 
-Native::Filter FilterOf(SubjectFilter filter) {
-  return filter == SubjectFilter::Nearest ? Native::Filter::Nearest : Native::Filter::Linear;
+Native::Filter FilterOf(outshine::Filter filter) {
+  return filter == outshine::Filter::Nearest ? Native::Filter::Nearest : Native::Filter::Linear;
 }
 
 std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels, ImagePixelFormat format) {
@@ -49,7 +49,7 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels, ImagePixel
 }
 
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
-    const SubjectTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
+    const MaterialTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
   if (mode == ImageUploadMode::Immediate) {
     const auto flushed = SubmitPendingUploads();
     if (!flushed) { return std::unexpected(flushed.error()); }
@@ -78,7 +78,7 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
 }
 
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
-    const SubjectTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
+    const MaterialTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
@@ -91,7 +91,7 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
   }
   uint32_t levels = 1;
   for (uint32_t extent = std::max(width, height); extent > 1; extent /= 2) { ++levels; }
-  if (texture.Mip == SubjectMip::None) { levels = 1; }
+  if (texture.Mip == outshine::MipFilter::None) { levels = 1; }
   if (!MipChainBytes({.WidthPx = width, .HeightPx = height}, levels, texture.Format)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "texture mip chain exceeds transfer storage"});
@@ -119,14 +119,15 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
   std::shared_ptr<Native::Texture> shared = std::move(*image);
   const auto uploaded = UploadMipChain(shared, pixels, levels, interpretation, mode);
   if (!uploaded) { return std::unexpected(uploaded.error()); }
-  auto sample = Device_->CreateSampler(
-      {.Min = FilterOf(texture.Minify),
-       .Mag = FilterOf(texture.Magnify),
-       .Mip = texture.Mip == SubjectMip::Nearest ? Native::Filter::Nearest : Native::Filter::Linear,
-       .U = AddressOf(texture.WrapU),
-       .V = AddressOf(texture.WrapV),
-       .MinLod = 0,
-       .MaxLod = static_cast<float>(levels - 1u)});
+  auto sample = Device_->CreateSampler({.Min = FilterOf(texture.Minify),
+                                        .Mag = FilterOf(texture.Magnify),
+                                        .Mip = texture.Mip == outshine::MipFilter::Nearest
+                                                   ? Native::Filter::Nearest
+                                                   : Native::Filter::Linear,
+                                        .U = AddressOf(texture.WrapU),
+                                        .V = AddressOf(texture.WrapV),
+                                        .MinLod = 0,
+                                        .MaxLod = static_cast<float>(levels - 1u)});
   if (!sample) { return std::unexpected(sample.error()); }
   return BoundImage{.Image = std::move(shared),
                     .Sample = std::shared_ptr<Native::Sampler>(std::move(*sample))};

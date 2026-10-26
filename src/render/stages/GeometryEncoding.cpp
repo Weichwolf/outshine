@@ -70,28 +70,28 @@ void GeometryRenderer::BindSlot(DrawResources &into,
                                           : 2u + (CarriesColour(layout) ? 1u : 0u) +
                                                 (CarriesTangent(layout) ? 1u : 0u);
   const auto &surface = Slots[slot];
-  auto images =
-      std::array<Native::SampledTexture, kSubjectImages>{Image(surface.Colour),
-                                                         Image(surface.Normal),
-                                                         Image(surface.MetalRough),
-                                                         Image(surface.Emissive),
-                                                         Image(surface.SpecularStrength),
-                                                         Image(surface.SpecularTint),
-                                                         Image(surface.DiffuseReflection),
-                                                         Image(surface.DiffuseTransmission),
-                                                         Image(surface.Colour),
-                                                         Image(surface.Colour),
-                                                         Image(surface.Colour)};
+  auto images = std::array<Native::SampledTexture, kGeometryFragmentImageCount>{
+      Image(surface.Colour),
+      Image(surface.Normal),
+      Image(surface.MetalRough),
+      Image(surface.Emissive),
+      Image(surface.SpecularStrength),
+      Image(surface.SpecularTint),
+      Image(surface.DiffuseReflection),
+      Image(surface.DiffuseTransmission),
+      Image(surface.Colour),
+      Image(surface.Colour),
+      Image(surface.Colour)};
   if (Binding().Behind != nullptr) {
-    images[kSubjectMaterialImages] = {.Image = {.Image = Binding().Behind},
-                                      .Sampling = Binding().BehindSampler};
+    images[kMaterialTextureCount] = {.Image = {.Image = Binding().Behind},
+                                     .Sampling = Binding().BehindSampler};
   }
   if (Atlas_ != nullptr) {
-    images[kSubjectMaterialImages + 1] = {.Image = {.Image = Atlas_}, .Sampling = AtlasSampler_};
+    images[kMaterialTextureCount + 1] = {.Image = {.Image = Atlas_}, .Sampling = AtlasSampler_};
   }
   if (Reflections_.Atlas != nullptr) {
-    images[kSubjectMaterialImages + 2] = {.Image = {.Image = Reflections_.Atlas},
-                                          .Sampling = Reflections_.Sampler};
+    images[kMaterialTextureCount + 2] = {.Image = {.Image = Reflections_.Atlas},
+                                         .Sampling = Reflections_.Sampler};
   }
   const SurfaceBindings selected(
       layout,
@@ -220,7 +220,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
                    Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
   std::pair bound{kPipelines, VertexMotion::Deforming};
-  uint32_t boundSlot = kNoSlot;
+  uint32_t boundSlot = kNoMaterialSlot;
   DrawResources resources;
   for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
     const auto &batch = Batches[at];
@@ -240,7 +240,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
           .Slot = 0,
           .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(uniforms.View))}};
       bound = key;
-      boundSlot = kNoSlot;
+      boundSlot = kNoMaterialSlot;
     }
     if (boundSlot != batch.MaterialSlot) {
       BindSlot(resources, batch.MaterialSlot, wanted, uniforms);

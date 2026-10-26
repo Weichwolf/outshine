@@ -335,7 +335,7 @@ void TransmissionFollowsReplacementPlan() {
                                  {Stage::OpaqueGeometry, Stage::TransmissiveGeometry, Stage::Sky});
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
-  std::array<SubjectMaterial, 1> materials{};
+  std::array<MaterialBinding, 1> materials{};
   materials.front().Row.Transmission = 1;
   SceneRenderer renderer;
   std::string error;

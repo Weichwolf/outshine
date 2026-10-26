@@ -577,14 +577,14 @@ public:
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetPose(pose, error));
   }
 
-  [[nodiscard]] bool SetGeometryMaterials(std::span<const SubjectMaterial> materials,
+  [[nodiscard]] bool SetGeometryMaterials(std::span<const MaterialBinding> materials,
                                           std::string &error) {
     return ActiveState().Content.Geometry.SetMaterials(materials, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetMaterials(materials, error));
   }
 
-  [[nodiscard]] bool AppendGeometryMaterials(std::span<const SubjectMaterial> materials,
+  [[nodiscard]] bool AppendGeometryMaterials(std::span<const MaterialBinding> materials,
                                              std::string &error) {
     if (!ActiveState().Content.Geometry.ValidateMaterials(materials, error) ||
         (ActiveState().Content.DrawsGlass &&

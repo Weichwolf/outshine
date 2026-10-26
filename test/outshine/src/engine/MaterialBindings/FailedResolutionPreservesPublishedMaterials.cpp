@@ -1,6 +1,7 @@
 #include <array>
 #include <algorithm>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -8,7 +9,7 @@
 
 #include "Check.h"
 #include "Shape.h"
-#include "SubjectMaterials.h"
+#include "MaterialBindings.h"
 
 int main() {
   using namespace outshine;
@@ -21,7 +22,7 @@ int main() {
   const auto surface = geometry.addSurface("shared", original).value();
   for (int part = 0; part < 2; ++part) {
     const int at = geometry.addPart(part == 0 ? "first" : "second", surface).value();
-    const float x = static_cast<float>(part);
+    const auto x = static_cast<float>(part);
     CHECK(geometry.setPositions(at, std::array<float, 9>{x, 0, 0, x + 1, 0, 0, x, 1, 0}),
           "positions");
     CHECK(geometry.setTriangles(at, std::array<uint32_t, 3>{0, 1, 2}), "triangles");
@@ -32,7 +33,7 @@ int main() {
   CHECK(shaped.has_value(), "native subject prepares a render shape");
   if (!shaped) { return Report(); }
 
-  Core::SubjectMaterials materials;
+  Core::MaterialBindings materials;
   auto resolved = materials.Resolve(geometry, *shaped, {}, {}, -1, "subject");
   CHECK(resolved.has_value(), "valid native materials resolve");
   const auto published = materials.Slots();
@@ -40,17 +41,13 @@ int main() {
         "published material borrows its owning geometry image");
   const auto *const publishedPixels = published[0].Colour.Rgba;
 
-  Core::SubjectSurfaceOverride override;
+  Core::MaterialOverride override;
   override.PartIndex = 1;
   override.RetainMaps = true;
   override.Surface.BaseColour = {{1, 0, 0, 1}};
   override.Surface.Unlit = true;
-  resolved = materials.Resolve(geometry,
-                               *shaped,
-                               {},
-                               std::span<const Core::SubjectSurfaceOverride>{&override, 1},
-                               -1,
-                               "subject");
+  resolved = materials.Resolve(
+      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "subject");
   CHECK(resolved.has_value(), "part override resolves");
   CHECK(materials.PartSlots().size() == 2 && materials.PartSlots()[0] != materials.PartSlots()[1],
         "part override splits a material shared by two parts");
@@ -64,12 +61,8 @@ int main() {
                                              materials.PartSlots().end());
   const Material committedSurface = materials.Slots()[overridden].Row;
   override.PartIndex = 7;
-  resolved = materials.Resolve(geometry,
-                               *shaped,
-                               {},
-                               std::span<const Core::SubjectSurfaceOverride>{&override, 1},
-                               -1,
-                               "subject");
+  resolved = materials.Resolve(
+      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "subject");
   CHECK(!resolved.has_value(), "unmatched override rejects resolution");
   CHECK(materials.PartSlots().size() == committedSlots.size() &&
             materials.PartSlots()[1] == committedSlots[1],
@@ -79,7 +72,7 @@ int main() {
         "rejection preserves independent material values and image binding");
 
   override.PartIndex = 1;
-  Core::SubjectSurfaceOverride shared;
+  Core::MaterialOverride shared;
   shared.MaterialName = "shared";
   shared.RetainMaps = true;
   shared.Surface.BaseColour = {{0, 1, 0, 1}};
@@ -97,7 +90,7 @@ int main() {
     CHECK(materials.Slots()[first].Colour.Rgba == publishedPixels &&
               materials.Slots()[second].Colour.Rgba == publishedPixels,
           "both override passes retain native texture ownership");
-    std::reverse(overrides.begin(), overrides.end());
+    std::ranges::reverse(overrides);
   }
   return Report();
 }

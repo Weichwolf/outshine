@@ -10,7 +10,7 @@
 
 namespace outshine::Render {
 namespace {
-constexpr Winding kSubjectWinding = Winding::Trusted;
+constexpr Winding kGeometryWinding = Winding::Trusted;
 
 const char *KindName(SurfaceKind kind) {
   switch (kind) {
@@ -24,19 +24,19 @@ const char *KindName(SurfaceKind kind) {
 }
 }
 
-bool GeometryRenderer::BindSurface(const SubjectMaterial &material,
+bool GeometryRenderer::BindSurface(const MaterialBinding &material,
                                    std::string &error,
                                    GeometryResidency::ImageUploadMode mode) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
-  slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
+  slot.CullsBack = CullsBackFaces(material.State(), kGeometryWinding);
   slot.Domain = material.Domain;
   if (material.Row.Unlit) {
     slot.Unlit = {
         {material.Row.BaseColour[0], material.Row.BaseColour[1], material.Row.BaseColour[2]}};
   }
   slot.ReadsSecondUv = material.ReadsSecondUv();
-  const auto bind = [&](const SubjectTexture &texture,
+  const auto bind = [&](const MaterialTexture &texture,
                         GeometryResidency::Transfer transfer,
                         TexelKind texel,
                         GeometryResidency::BoundImage &into) {
@@ -79,7 +79,7 @@ bool GeometryRenderer::BindSurface(const SubjectMaterial &material,
   }
 
   const auto identity = static_cast<float>(Slots.size() + 1u);
-  slot.Row = PackSubjectMaterial(material, identity);
+  slot.Row = PackMaterial(material, identity);
   Slots.push_back(std::move(slot));
   return true;
 }
@@ -113,7 +113,7 @@ uint32_t GeometryRenderer::Textured() const {
   return wearing;
 }
 
-bool GeometryRenderer::ValidateMaterials(std::span<const SubjectMaterial> materials,
+bool GeometryRenderer::ValidateMaterials(std::span<const MaterialBinding> materials,
                                          std::string &error) const {
   if (Binding().Device == nullptr) {
     error = "the subject unit has no device, so no surface can be bound";
@@ -135,7 +135,7 @@ bool GeometryRenderer::ValidateMaterials(std::span<const SubjectMaterial> materi
   return true;
 }
 
-bool GeometryRenderer::AppendMaterials(std::span<const SubjectMaterial> materials,
+bool GeometryRenderer::AppendMaterials(std::span<const MaterialBinding> materials,
                                        std::string &error,
                                        GeometryResidency::ImageUploadMode mode) {
   if (!ValidateMaterials(materials, error)) { return false; }
@@ -156,7 +156,7 @@ void GeometryRenderer::TruncateMaterials(size_t count) noexcept {
   TablesStale_ = true;
 }
 
-bool GeometryRenderer::SetMaterials(std::span<const SubjectMaterial> materials,
+bool GeometryRenderer::SetMaterials(std::span<const MaterialBinding> materials,
                                     std::string &error) {
   if (!ValidateMaterials(materials, error)) { return false; }
   ShadowChanges_.Unknown();

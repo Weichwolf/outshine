@@ -90,7 +90,7 @@ Geometry NativeMaterialOwner() {
 void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
                               SceneRenderer &renderer,
                               const SubjectLight &light) {
-  std::array<SubjectMaterial, 2> materials;
+  std::array<MaterialBinding, 2> materials;
   materials[1].Row.Unlit = true;
   std::string error;
   CHECK(renderer.SetGeometryMaterials(materials, error) && renderer.RestorePieceMaterials(error),
