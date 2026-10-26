@@ -297,11 +297,14 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
       candidate->Camera_.MarkBound();
     }
   }
-  if (!renderer.PublishesWorldCandidate(error)) {
+  const auto overlay = out ? Render::SceneRenderer::OverlaySource::Published
+                           : Render::SceneRenderer::OverlaySource::Candidate;
+  if (!renderer.PublishesWorldCandidate(error, overlay)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  if (out != nullptr) { candidate->Ui_ = std::move(out->Ui_); }
   candidate->StopsEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
