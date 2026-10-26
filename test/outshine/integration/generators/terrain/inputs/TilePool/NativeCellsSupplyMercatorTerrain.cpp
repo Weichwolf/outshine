@@ -11,7 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <charconv>
 #include <chrono>
 #include <cstdlib>
 #include <expected>
@@ -20,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <memory>
 #include <utility>
@@ -29,6 +30,24 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
+
+std::optional<CellId> NativeCellAddress(std::string_view url) {
+  if (!url.starts_with("g/")) { return {}; }
+  url.remove_prefix(2);
+  const size_t separator = url.find('/');
+  if (separator == std::string_view::npos) { return {}; }
+  const auto south = url.substr(0, separator);
+  const auto west = url.substr(separator + 1);
+  CellId cell;
+  const auto parsedSouth =
+      std::from_chars(south.data(), south.data() + south.size(), cell.SouthDeg);
+  const auto parsedWest = std::from_chars(west.data(), west.data() + west.size(), cell.WestDeg);
+  if (parsedSouth.ec != std::errc{} || parsedSouth.ptr != south.data() + south.size() ||
+      parsedWest.ec != std::errc{} || parsedWest.ptr != west.data() + west.size()) {
+    return {};
+  }
+  return cell;
+}
 
 class Http final : public Transport {
 public:
@@ -56,12 +75,14 @@ public:
     const auto found = Requests.find(ticket);
     if (found == Requests.end()) { return Wire::Working(); }
     const auto [url, range] = found->second;
-    int south = 0;
-    int west = 0;
-    CHECK(std::sscanf(url.c_str(), "g/%d/%d", &south, &west) == 2,
-          "source IO uses native cell addresses");
+    const auto cell = NativeCellAddress(url);
+    CHECK(cell, "source IO uses native cell addresses");
+    if (!cell) {
+      Requests.erase(found);
+      return Wire::Answered(400, {});
+    }
     auto &bytes = Objects[url];
-    if (bytes.empty()) { bytes = Test::NativeCog({.SouthDeg = south, .WestDeg = west}, Missing_); }
+    if (bytes.empty()) { bytes = Test::NativeCog(*cell, Missing_); }
     CHECK(range.First <= bytes.size() && range.Length <= bytes.size() - range.First,
           "source receives original byte intervals");
     if (range.First > bytes.size() || range.Length > bytes.size() - range.First) {

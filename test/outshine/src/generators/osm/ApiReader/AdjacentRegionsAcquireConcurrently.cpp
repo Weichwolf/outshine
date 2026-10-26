@@ -15,7 +15,6 @@
 #include <system_error>
 #include <vector>
 
-using outshine::GeoCellId;
 using outshine::GeographicBounds;
 
 namespace {

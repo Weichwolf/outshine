@@ -23,6 +23,20 @@ void AddRectangle(outshine::Raised &mesh, float left, float right, float bottom,
   AddTriangle(mesh, {{{{left, bottom, 0}}, {{right, top, 0}}, {{left, top, 0}}}}, true);
 }
 
+void CheckEmptyInputs(outshine::Generators::StructureSurfaceErrorTask &task,
+                      const outshine::Raised &reference) {
+  using namespace outshine::Test;
+  const outshine::Raised empty;
+  CHECK(!task.Reset({.Reference = reference, .Variant = empty, .SourceKey = 15}),
+        "empty and nonempty surfaces never imply zero error");
+  const auto emptyReset = task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 16});
+  const auto emptyBound = task.Bound(16);
+  CHECK(emptyReset && emptyBound && emptyBound->UpperDistanceM() == 0,
+        "two empty surfaces have exact zero geometric error");
+  CHECK(!task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 0}) && !task.Bound(0),
+        "unspecified source identity never receives certification");
+}
+
 }
 
 int main() {
@@ -76,8 +90,10 @@ int main() {
         "cap corners coincide with frame but its filled opening still has nonzero surface error");
   CHECK(task.Reset({.Reference = frame, .Variant = cap, .SourceKey = 10}),
         "reversed input direction starts independently");
-  CHECK(task.Step(10, {.MaxCorners = 128}) && task.Bound(10) && openingBound &&
-            task.Bound(10)->UpperDistanceM() == openingBound->UpperDistanceM(),
+  const auto reversed = task.Step(10, {.MaxCorners = 128});
+  const auto reversedBound = task.Bound(10);
+  CHECK(reversed && reversedBound && openingBound &&
+            reversedBound->UpperDistanceM() == openingBound->UpperDistanceM(),
         "input reversal swaps directed bounds without changing the maximum");
 
   CHECK(task.Reset({.Reference = cap, .Variant = frame, .SourceKey = 11}), "restart is reusable");
@@ -113,18 +129,14 @@ int main() {
         "partially validated task is copyable");
   auto copied = task;
   auto moved = copied;
-  CHECK(task.Step(17, {.MaxCorners = 128}) && moved.Step(17, {.MaxCorners = 128}) &&
-            task.Bound(17) && moved.Bound(17) &&
-            task.Bound(17)->UpperDistanceM() == moved.Bound(17)->UpperDistanceM() &&
+  const auto originalProgress = task.Step(17, {.MaxCorners = 128});
+  const auto copiedProgress = moved.Step(17, {.MaxCorners = 128});
+  const auto originalBound = task.Bound(17);
+  const auto copiedBound = moved.Bound(17);
+  CHECK(originalProgress && copiedProgress && originalBound && copiedBound &&
+            originalBound->UpperDistanceM() == copiedBound->UpperDistanceM() &&
             task.WorkUnits() == moved.WorkUnits(),
         "copy and move preserve independent progress over the same immutable geometry");
-  const Raised empty;
-  CHECK(!task.Reset({.Reference = reference, .Variant = empty, .SourceKey = 15}),
-        "empty and nonempty surfaces never imply zero error");
-  CHECK(task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 16}) && task.Bound(16) &&
-            task.Bound(16)->UpperDistanceM() == 0,
-        "two empty surfaces have exact zero geometric error");
-  CHECK(!task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 0}) && !task.Bound(0),
-        "unspecified source identity never receives certification");
+  CheckEmptyInputs(task, reference);
   return Report();
 }
