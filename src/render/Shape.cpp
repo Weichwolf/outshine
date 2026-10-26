@@ -1,6 +1,6 @@
 #include <algorithm>
 #include "Shape.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cstddef>
 

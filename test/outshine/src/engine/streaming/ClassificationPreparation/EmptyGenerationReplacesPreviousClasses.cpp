@@ -1,25 +1,27 @@
+#include "TilePool.h"
 #include "ClassificationPreparation.h"
-#include <world/data/Transport.h>
-#include "ContentStore.h"
+#include <Transport.h>
+#include "RawSourceCache.h"
 #include "SourceSet.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include "Check.h"
 #include <array>
 #include <chrono>
+#include <string>
 #include <thread>
 
 namespace {
 class NoTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 bool Complete(outshine::Ground::ClassificationPreparation &field,
@@ -38,18 +40,18 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
+  CHECK(materials.Load("data/world/ground-materials.json"), "materials load");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "classification rules load");
   if (!templates.Ready()) { return Report(); }
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);
   Tasks compute(1);
   ClassificationPreparation field;
-  field.SetVegetation(&templates);
+  field.SetRecipes(&templates);
   field.Open(0, 0, compute);
   std::array<::outshine::Generators::Osm::OsmField::Declared, 1> area{
       {{.Layer = "land",

@@ -1,0 +1,40 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "airSource.glsl"
+#include "AirPrefixProbeLayout.h"
+#include "cloud_air_transfer_response.glsl"
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(std430, set = 0, binding = 4) readonly buffer Results { ProbeSample samples[]; } source;
+layout(rgba32f, set = 1, binding = 0) writeonly uniform image2D intoVisibility;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay inputRay = from.rays[index];
+  AirPathSpan span = airPhysicalSpan(pushed.Air, inputRay.Ray);
+  AirRay ray = airPathRay(pushed.Air, inputRay.Ray, span);
+  AirSourceTerms terms = airSourceTermsAt(pushed.Air, ray, 0.0,
+      airSunVisible(pushed.Air, ray, 0.0), veil, multiScatter);
+  for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
+    float lengthKm = max(0.0, min(query.distanceKm[at], span.EndKm) - span.BeginKm);
+    vec3 integral = transferIntegral(terms.Extinction, lengthKm);
+    ProbeSample record = source.samples[at];
+    vec3 radiance = vec3(record.RadianceR, record.RadianceG, record.RadianceB);
+    vec3 visibility = vec3(1.0);
+    for (int channel = 0; channel < 3; ++channel) {
+      if (integral[channel] > 0.0 && terms.DirectEmission[channel] > 0.0) {
+        visibility[channel] = (radiance[channel] / integral[channel] -
+            terms.DiffuseEmission[channel]) / terms.DirectEmission[channel];
+      }
+    }
+    ivec2 extent = imageSize(intoVisibility);
+    imageStore(intoVisibility, ivec2(int(at) % extent.x, int(at) / extent.x),
+        vec4(visibility, float(record.SourceEvaluations)));
+  }
+}

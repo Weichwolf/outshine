@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "scope": "Fixed offline semantic-part corpus, one source cell plus one complete-junction halo. Not prepared runtime LODs, an occlusion product or global stable-ID schema.",
+  "archive": "parts.tar.xz",
+  "archive_sha256": "5aafb7b17b2820135b45ed26ca57a7e48d575e84ee6262ead81fc438713810fb",
+  "archive_bytes": 5597868,
+  "files": {
+    "metadata.json": {
+      "bytes": 905962,
+      "sha256": "b31e904e14f9ef1b6d07468f0b03b5b04fae178a9039d033b9559dbf34e5887e"
+    },
+    "parts.jsonl": {
+      "bytes": 9643783,
+      "sha256": "031628537b2c515d978c9622a8dddfed03e0b4779ebab4f980ada005739d89ab"
+    },
+    "payloads.bin": {
+      "bytes": 18610944,
+      "sha256": "66801359efd493857db2adea23b9d10c6c3ff08073c2b9a94e91b4ae09e441cb"
+    },
+    "materials.asset": {
+      "bytes": 2391,
+      "sha256": "13b40a5de64e79b09297073bb475c9ad340bf4a815298457a1213003e9139d90"
+    }
+  },
+  "core_tile": [
+    14,
+    14549,
+    6452
+  ],
+  "core_edges": 5486,
+  "payload_edges": 6510,
+  "payload_junctions": 1848,
+  "boundary_edges": 208,
+  "boundary_junctions": 103,
+  "lanes": 2051,
+  "source_tiles": 49,
+  "source_cpp": "d408273e7a41fa2081465c6d4c8223fa00c174b6",
+  "source_cpp_equivalent": "725530ead",
+  "shader_cpp_combination": "4f4a1f94ed7f6cde4455f0765c6a8d5f9a94e33c",
+  "original_region_key": "6f5fbb2c2adf913dfa376a959471930c179c64a7099641fdd9d76719a97e42f2",
+  "original_region_road_arrays": [
+    {
+      "counts": [
+        9126312,
+        9126312,
+        12168416,
+        8787528
+      ],
+      "hashes": {
+        "colours": "7ced0525874f8948e2e9051ed4efdf86fa7ebc16926e6ed21efa21c6b4b60b38",
+        "indices": "0929d391cbb552eedfaeca09c73eb5803c5492d63ca5951e5f3ad0ea315df9a1",
+        "normals": "7c3a5407903d6b94ace3d81c20282e2c193f542424efc6a53fa8734c3728de59",
+        "positions": "6e33761091bc4d34d35d27b3580bf4d35fc55b84c13479f97516cedebd031460"
+      },
+      "material": 1,
+      "placement": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "original_source_scope_sha256": "86f61193c3b4df35b8cebf5bd946274dad1de774682955afcfa79c388b4eb80f",
+  "original_frame_rgba_sha256": "c9e72069f39a722d9d6004aaf3edeff163140927735fef408a5d04f2e742aba0",
+  "native_payload_indexing": "positions/normals/colours Float32 words and original global UInt32 indices, little endian. Counts and base_vertex remain original. Every part references only its own newly emitted vertex interval; subtract base_vertex when making an independently owned mesh.",
+  "identity_scope": "edge/junction/lane/node/contact identifiers are original values scoped by this frozen source/plan; not global stable IDs across source revisions/reordering. Provider IDs are supplied separately with source tile/layer/ring.",
+  "boundary_scope": "All incident edges of selected junctions have full payload. Endpoints beyond that one-ring halo retain exact source edge/port/junction metadata as boundary references, without payload. This is not a complete regional road graph.",
+  "native_input_comparison": "generated and warm-original road position/normal/colour/index words, part material and placement exactly equal; baseline/capture final1280x720RGBA identical; Core/Sync validation noVUIDs; original assets/packages/index unchanged.",
+  "capture_private_evidence": "/tmp/outshine-engine-road-parts-725530ead",
+  "attribution": "Procedural native road geometry derived from OpenStreetMap via OpenFreeMap and Mapterhorn elevations. \u00a9 OpenStreetMap contributors, ODbL1.0; https://www.openstreetmap.org/copyright"
+}

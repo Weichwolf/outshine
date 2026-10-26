@@ -1,4 +1,3 @@
-#include "ShippedProviders.h"
 #include <algorithm>
 #include <expected>
 #include <array>
@@ -51,20 +50,20 @@ SurfacePreparation::CreateVectorField() const {
 }
 
 std::expected<void, std::string>
-SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
+SurfacePreparation::BindRegionCache(const ContentDirectories &under,
                                     const Data::SourceSet &sources) {
-  if (under.AssetCache.empty()) { return {}; }
-  const auto &assets = under.Shipped;
+  if (under.Assets.empty()) { return {}; }
+  const auto &builtinData = under.BuiltinData;
   constexpr size_t bytesMost = size_t{1024} * 1024u;
-  auto materials = ReadTextFile(assets + "/world/ground-materials.json", bytesMost);
-  auto vegetation = ReadTextFile(assets + "/world/vegetation.json", bytesMost);
+  auto materials = ReadTextFile(builtinData + "/world/ground-materials.json", bytesMost);
+  auto vegetation = ReadTextFile(builtinData + "/world/vegetation.json", bytesMost);
   if (!materials || !vegetation) {
     return std::unexpected("could not bind the prepared ground region rules");
   }
+  materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
-  auto regions =
-      Generators::Osm::PreparedGroundRegions::Open(under.AssetCache, sources, *materials);
+  auto regions = Generators::Osm::PreparedGroundRegions::Open(under.Assets, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
   return {};
@@ -81,22 +80,59 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   if (!network) { return std::unexpected(std::move(network.error())); }
   auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, sources, compute);
   if (!vectors) { return std::unexpected(std::move(vectors.error())); }
+  auto urban = Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors);
+  if (!urban) { return std::unexpected(std::move(urban.error())); }
+  auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory);
+  if (!roads) { return std::unexpected(std::move(roads.error())); }
+  PreparedRoads_ = std::move(*roads);
   PreparedTerrain_ = std::move(*terrain);
   PreparedBuildings_ = std::move(*buildings);
   PreparedNetwork_ = std::move(*network);
   PreparedVectors_ = std::move(*vectors);
+  PreparedUrban_ = std::move(*urban);
   return {};
 }
 
-bool SurfacePreparation::Open(const World::StoragePaths &under,
+bool SurfacePreparation::Open(const ContentDirectories &under,
                               std::span<const Data::SourceProvider> providers,
+                              const Data::ProviderRegistry &registry,
                               LongitudeLatitude focus,
                               Data::Transport &wire,
                               Tasks &compute,
                               Sink &say,
                               LogSink *diagnostics,
-                              double patienceS,
-                              const Data::ProviderRegistry *registry) {
+                              double patienceS) {
+  const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
+  if (!position) {
+    say.Refuse(std::string(position.error()));
+    return false;
+  }
+  const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
+  if (!config) {
+    say.Refuse(std::string(config.error()));
+    return false;
+  }
+  auto sources = Data::SourceSession::Open(
+      {.Directory = under.Sources}, providers, under.BuiltinData, registry);
+  if (!sources) {
+    say.Refuse(sources.error());
+    return false;
+  }
+  return OpenSession(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
+}
+
+bool SurfacePreparation::OpenSession(const ContentDirectories &under,
+                                     std::shared_ptr<Data::SourceSession> session,
+                                     LongitudeLatitude focus,
+                                     Data::Transport &wire,
+                                     Tasks &compute,
+                                     Sink &say,
+                                     LogSink *diagnostics,
+                                     double patienceS) {
+  if (!session) {
+    say.Refuse("surface preparation requires configured sources");
+    return false;
+  }
   const auto position = ::outshine::Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -108,21 +144,16 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     return false;
   }
   Close();
-  outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = under.Cache;
-  Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
-  Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
-  outshine::Data::SourceSet &sources = *Sources_;
-  std::string refused;
-  Data::ProviderRegistry defaults;
-  if (registry == nullptr) { Generators::RegisterShippedProviders(defaults); }
-  const bool registered = outshine::Data::RegisterSources(
-      sources, providers, under.Shipped, refused, registry != nullptr ? *registry : defaults);
-  if (!registered) {
-    say.Refuse(refused);
-    Close();
+  auto digest = Generators::Osm::OsmField::DeclarationDigest({});
+  if (!digest) {
+    say.Refuse(std::string(digest.error()));
     return false;
   }
+  Declared_.clear();
+  DeclaredDigest_ = std::move(*digest);
+  Cls_.Declares({}, DeclaredDigest_);
+  Sources_ = std::move(session);
+  auto &sources = Sources_->Sources();
   for (size_t at = 0; at < sources.Count(); ++at) {
     const auto &decl = sources.At(at).Declaration();
     if (decl.Kind != Data::DataKind::VectorMap) { continue; }
@@ -140,12 +171,12 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
 
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
-  surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
+  surface.Z = TerrainRenderZoom() - 1;
   auto poolConfig = *config;
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
-  if (!under.AssetCache.empty()) {
-    if (auto bound = BindAssetCaches(under.AssetCache, sources, compute); !bound) {
+  if (!under.Assets.empty()) {
+    if (auto bound = BindAssetCaches(under.Assets, sources, compute); !bound) {
       say.Refuse(bound.error());
       Close();
       return false;
@@ -164,11 +195,11 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg, compute);
   Cls_.SetPreparedTiles(PreparedVectors_);
 
-  const std::string &assets = under.Shipped;
-  Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
-               Templates_.Load((assets + "/world/vegetation.json").c_str(), Materials_);
-  if (Vegetated_) {
-    Cls_.SetVegetation(&Templates_);
+  const std::string &builtinData = under.BuiltinData;
+  RecipesReady_ = Materials_.Load((builtinData + "/world/ground-materials.json").c_str()) &&
+                  Recipes_.Load((builtinData + "/world/vegetation.json").c_str(), Materials_);
+  if (RecipesReady_) {
+    Cls_.SetRecipes(&Recipes_);
     auto bound = BindRegionCache(under, sources);
     if (!bound) {
       say.Refuse(bound.error());
@@ -178,7 +209,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   } else {
     say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
                  "with no vegetation and no vector features",
-                 assets.c_str()));
+                 builtinData.c_str()));
   }
   Opened_ = true;
   return true;
@@ -187,6 +218,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
 void SurfacePreparation::Close() {
   Cls_.Close();
   Vectors_.reset();
+  PreparedUrban_.reset();
   PreparedVectors_.reset();
   Ground_.reset();
   Pool_.reset();
@@ -194,6 +226,7 @@ void SurfacePreparation::Close() {
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
+  PreparedRoads_.reset();
   StreetMode_ = StreetMode::Source;
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};
@@ -201,7 +234,6 @@ void SurfacePreparation::Close() {
   WaterMode_ = WaterMode::Immediate;
   LandingCursor_ = {};
   Sources_.reset();
-  Store_.reset();
   HasVectorSource_ = false;
   VectorZoom_ = kFineZoom;
   VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
@@ -211,11 +243,16 @@ void SurfacePreparation::Close() {
   WorstAdvance_ = {};
 }
 
+int SurfacePreparation::TerrainRenderZoom() const {
+  const int sourceZoom = FinestZoomOf(Data::DataKind::Elevation);
+  return sourceZoom > 0 ? sourceZoom : kGeographicTerrainRenderZoom;
+}
+
 int SurfacePreparation::FinestZoomOf(Data::DataKind kind) const {
   int finest = 0;
   if (!Sources_) { return finest; }
-  for (size_t at = 0; at < Sources_->Count(); ++at) {
-    const Data::SourceDecl &decl = Sources_->At(at).Declaration();
+  for (size_t at = 0; at < Sources_->Sources().Count(); ++at) {
+    const Data::SourceDecl &decl = Sources_->Sources().At(at).Declaration();
     if (decl.Kind != kind) { continue; }
     const int zoom = kind == Data::DataKind::Elevation && decl.How == Data::Scheme::GeographicCell
                          ? kGeographicTerrainRenderZoom
@@ -246,13 +283,16 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
   if (!Pool_) { return complete(); }
-  if (UsesCachedRegionNetwork() && at != CachedNetworkFocus_) { RequestStreets(); }
+  if (UsesCachedRegionNetwork() &&
+      (vectorTile->X != CachedNetworkTile_.X || vectorTile->Y != CachedNetworkTile_.Y)) {
+    RequestStreets();
+  }
   const auto classificationAt = std::chrono::steady_clock::now();
   const auto classified = Cls_.Update(*Pool_, at);
   metrics.ClassificationMs = ElapsedMs(classificationAt);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
-  if (!Vegetated_) { return complete(); }
+  if (!RecipesReady_) { return complete(); }
   const auto vectorAt = std::chrono::steady_clock::now();
   if (!Vectors_) {
     Vectors_ = CreateVectorField();
@@ -266,7 +306,8 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
     metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {
     Vectors_->Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(Declared_),
-                      *vectorTile);
+                      *vectorTile,
+                      DeclaredDigest_);
   }
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();
@@ -298,9 +339,12 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       const auto settleAt = std::chrono::steady_clock::now();
+      Cls_.ReleaseBuildInputs();
       Settle();
-      metrics.SettlementMs += ElapsedMs(settleAt);
       Settled_ = inputs;
+      const size_t held = HeapBytes();
+      if (held > kHoldsBytes && Pool_) { (void)Pool_->EvictSourceBytes(held - kHoldsBytes); }
+      metrics.SettlementMs += ElapsedMs(settleAt);
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
         Overflowing_ = true;
@@ -312,13 +356,13 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     if (!UsesCachedRegionNetwork()) {
       const auto streetsAt = std::chrono::steady_clock::now();
       const auto looked = Ways_.LookedCount();
-      (void)Ways_.Ingest(*Vectors_, Templates_);
+      (void)Ways_.Ingest(*Vectors_, Recipes_);
       metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
       metrics.StreetsMs += ElapsedMs(streetsAt);
     }
     const auto waterAt = std::chrono::steady_clock::now();
     if (WaterStage_ == WaterStage::Requested) {
-      (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Templates_);
+      (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Recipes_);
       metrics.IngestionUnits += WaterProducer_.LastIngest().AdvancedUnits;
       if (WaterProducer_.Ingested(*Vectors_)) {
         WaterBodies_ = WaterProducer_.Asset(*Vectors_);
@@ -365,39 +409,47 @@ void SurfacePreparation::Settle() {
 }
 
 bool SurfacePreparation::Drained() const {
-  if (!Vegetated_ || !Vectors_) { return true; }
+  if (!RecipesReady_ || !Vectors_) { return true; }
   return (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_)) && WaterReady();
 }
 
 bool SurfacePreparation::Ingested() const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
 bool SurfacePreparation::IngestedWithin(int rings) const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings)) &&
          (WaterReady() || WaterProducer_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReady() const {
-  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
 }
 
 void SurfacePreparation::UseCachedRegionNetwork(LongitudeLatitude focus) {
   if (!Opened_ || StreetMode_ == StreetMode::RequiredSource) { return; }
-  if (StreetMode_ == StreetMode::CachedRegion && CachedNetworkFocus_ == focus) { return; }
+  const auto tile = Generators::Osm::OsmField::Locate(focus, VectorZoom_);
+  if (!tile) {
+    ForgetCachedRegionNetwork();
+    return;
+  }
+  if (StreetMode_ == StreetMode::CachedRegion && tile->X == CachedNetworkTile_.X &&
+      tile->Y == CachedNetworkTile_.Y) {
+    return;
+  }
   StreetMode_ = StreetMode::CachedRegion;
-  CachedNetworkFocus_ = focus;
+  CachedNetworkTile_ = *tile;
   Settled_.reset();
 }
 

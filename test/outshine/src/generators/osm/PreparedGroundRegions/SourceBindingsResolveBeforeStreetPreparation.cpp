@@ -1,7 +1,7 @@
 #include "PreparedGroundRegions.h"
 #include "OsmField.h"
 #include "WaterField.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "TilePool.h"
 #include "TerrainLoader.h"
@@ -9,6 +9,7 @@
 #include "MvtWireFixture.h"
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <system_error>
@@ -17,17 +18,20 @@
 namespace {
 class NoHeights final : public outshine::GroundQuery {
 public:
-  outshine::GroundSample At(outshine::LongitudeLatitude) const override {
+  [[nodiscard]] outshine::GroundSample At(outshine::LongitudeLatitude /*at*/) const override {
     return outshine::GroundSample::Waiting();
   }
 
-  outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
+  [[nodiscard]] outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override {
+    return At(at);
+  }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  [[nodiscard]] outshine::Ground::GroundBlock
+  BlockAt(outshine::Ground::TileSpot /*at*/) const override {
     return outshine::Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1; }
+  [[nodiscard]] double PostM(double /*latDeg*/) const override { return 1; }
 };
 
 void FreshRequestHit(const std::string &directory,
@@ -76,12 +80,12 @@ int main() {
                     ("outshine-region-binding-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
-  Data::ContentStore store({.Using = Data::ContentStore::Use::Off});
-  Data::SourceSet sources(store);
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
+  const Data::SourceSet sources(store);
   const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
   CHECK(opened, "native regions open before any source or street preparation");
   if (!opened) { return Report(); }
-  auto cache = *opened;
+  const auto &cache = *opened;
   const std::array<std::string, 1> layers{"x"};
   Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
   Append(layer, 0x12, Bytes{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2});
@@ -112,8 +116,8 @@ int main() {
                             .Postings = 2}};
   region.Terrain.Tiles = 1;
   Generators::Osm::WaterField water;
-  NoHeights ground;
-  Ground::VegetationTemplates rules;
+  const NoHeights ground;
+  const outshine::Generators::RegionSurfaceRecipes rules;
   (void)water.Ingest(ground, vectors, rules);
   const auto saved =
       cache->Store(key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
@@ -145,6 +149,11 @@ int main() {
   declared.Declare({}, Ground::TileAt{.X = 1, .Y = 1});
   CHECK(cache->Key(declared, shape, parameters).empty(),
         "unbound declared inputs cannot claim persistent source identity");
+  const auto identity = OsmField::DeclarationDigest({});
+  CHECK(identity, "an explicit empty declaration can be bound to its full content");
+  declared.Declare({}, Ground::TileAt{.X = 1, .Y = 1}, *identity);
+  CHECK(!cache->Key(declared, shape, parameters).empty(),
+        "the persistent region cache accepts a genuinely bound empty source");
   std::error_code error;
   std::filesystem::remove_all(root, error);
   CHECK(!error, "test storage is removed");

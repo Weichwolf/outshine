@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "outer_sha256": "a2989e49b3df55ee9d28f72e39b096ef9b81877017a6a96c33671b202398ab73",
+  "source_id": "openfreemap:14/8937/5678:transportation:32651280:3",
+  "elevation": [
+    {
+      "tile": [
+        14,
+        8937,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+      "raw_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+      "raw_bytes": 56194,
+      "window_file": "stair-cycle-vienna-dem-8937.npz",
+      "window_sha256": "063846e22530633d2dcd104bbb3c51e10eabc86e4cb08114d4b777eb1f6b5d5a"
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8938/5678.webp",
+      "raw_sha256": "f0588282420d4654f76e742d68813e3d5fecca792a1158770a64d0d062d5fee7",
+      "raw_bytes": 63642,
+      "window_file": "stair-cycle-vienna-dem-8938.npz",
+      "window_sha256": "9ff1f83a33c48120cfa3536acf896ca0cc9c2996498fa52dd07ffd6a1bc618e5"
+    }
+  ],
+  "scope": "Whole original neighbour; planar contacts are explicit choices. DEM priors select their actual tile without extrapolation. No measured deck, indoor or cross-tile vector continuity claim."
+}

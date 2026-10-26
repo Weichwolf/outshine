@@ -4,7 +4,7 @@
 #include <optional>
 
 #include "RoadSurfaceBuilder.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 

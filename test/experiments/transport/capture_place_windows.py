@@ -18,7 +18,7 @@ from transport_place_shots import PLACES, ROOT, flat_model
 
 
 def camera_tiles(name, origin, *, distance_m=1600.0):
-    camera = read_camera(ROOT / "src/assets/places" / (name + ".scenario"))
+    camera = read_camera(ROOT / "test/outshine/data/places" / (name + ".scenario"))
     xy = (
         mercator(camera.latitude_deg, camera.longitude_deg) - mercator(*origin)
     ) * math.cos(math.radians(origin[0]))

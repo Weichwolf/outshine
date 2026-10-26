@@ -3,6 +3,7 @@
 
 #include <span>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -12,9 +13,11 @@
 #include "OsmField.h"
 #include "TileRanges.h"
 #include "TileAdmission.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators::Osm {
+struct SurfacePlacement;
+enum class SurfacePlacementError : uint8_t;
 
 using namespace outshine::Ground;
 
@@ -22,6 +25,11 @@ class StreetField {
 public:
   enum class Shape : uint8_t { Ribbon, Area };
   enum class Traffic : uint8_t { Road, Path, Rail };
+
+  struct SourceReference {
+    uint32_t Feature = 0;
+    uint32_t Ring = 0;
+  };
 
   struct Way {
     uint32_t FirstPoint = 0, PointCount = 0;
@@ -40,17 +48,28 @@ public:
     bool Oneway = false;
     bool Bridge = false;
     bool Ramp = false;
+    std::optional<SourceReference> Source;
   };
 
-  uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
+  uint32_t Ingest(const OsmField &field, const RegionSurfaceRecipes &veg);
 
   uint32_t
-  Ingest(const OsmField &field, const VegetationTemplates &veg, TileAdmission::Reach reach);
+  Ingest(const OsmField &field, const RegionSurfaceRecipes &veg, TileAdmission::Reach reach);
 
   [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
                                                      uint32_t tile) const noexcept;
 
+  [[nodiscard]] std::optional<SourceReference> SourceOf(const OsmField &field,
+                                                        size_t way) const noexcept;
+
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
+
+  [[nodiscard]] StreetField Without(size_t way) const {
+    assert(way < Ways_.size());
+    auto retained = *this;
+    retained.Ways_[way] = {};
+    return retained;
+  }
 
   [[nodiscard]] std::span<const Way> OfTile(int tile) const {
     if (tile < 0) { return {}; }
@@ -65,6 +84,8 @@ public:
   [[nodiscard]] long LookedCount() const { return Looked_; }
 
   [[nodiscard]] long InvalidLayerCount() const { return InvalidLayers_; }
+
+  [[nodiscard]] long InvalidPlacementCount() const { return InvalidPlacements_; }
 
   [[nodiscard]] long TunnelCount() const { return Tunnels_; }
 
@@ -95,11 +116,14 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
+  void RecordInvalidPlacement(SurfacePlacementError error);
   void AppendFeature(const OsmField &field,
-                     const OsmField::Feature &feature,
-                     const VegetationTemplates::Rule &rule,
-                     Shape shape);
+                     uint32_t featureAt,
+                     const RegionSurfaceRecipes::Rule &rule,
+                     Shape shape,
+                     const SurfacePlacement &placement);
   long InvalidLayers_ = 0;
+  long InvalidPlacements_ = 0;
   std::vector<Way> Ways_;
   std::vector<uint64_t> SourceDigests_;
   std::shared_ptr<const void> SourceOrigin_;

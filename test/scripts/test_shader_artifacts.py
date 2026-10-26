@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile independent SDL-layout fixtures, then break the actual package and reflection tool."""
+"""Compile native resource fixtures, then break the actual package and reflection tool."""
 import json
 import os
 from pathlib import Path
@@ -49,7 +49,7 @@ class ShaderArtifacts(unittest.TestCase):
         self.package = self.root / 'build/shaders'
         self.package.mkdir(parents=True)
         self.manifest = self.root / 'build/shader-artifacts.txt'
-        self.names = [f'build/shaders/fixture.{stage}.spv' for stage in ('vert', 'frag', 'comp')]
+        self.names = [f'fixture.{stage}.spv' for stage in ('vert', 'frag', 'comp')]
         self.manifest.write_text('\n'.join(self.names) + '\n')
         self.contracts = self.root / 'build/compute-shaders.json'
         self.contract = {'artifact': self.names[2], 'shape': {
@@ -87,7 +87,7 @@ class ShaderArtifacts(unittest.TestCase):
     def test_missing_graphics_and_compute_artifacts_are_not_rebuilt_or_skipped(self):
         for name in self.names:
             with self.subTest(name=name):
-                path = self.root / name
+                path = self.package / name
                 original = path.read_bytes()
                 path.unlink()
                 report = self.check(False)
@@ -99,21 +99,21 @@ class ShaderArtifacts(unittest.TestCase):
     def test_empty_duplicate_partial_or_escaping_inventory_and_undeclared_artifact(self):
         original = self.manifest.read_text()
         for content in ('', original + self.names[0] + '\n', self.names[0] + '\n',
-                        '../outside.vert.spv\n', 'build/shaders/fixture.geom.spv\n'):
+                        '../outside.vert.spv\n', 'fixture.geom.spv\n'):
             with self.subTest(content=content):
                 self.manifest.write_text(content)
                 self.assertTrue(self.check(False)['errors'])
         self.manifest.write_text(original)
-        shutil.copyfile(self.root / self.names[0], self.package / 'undeclared.vert.spv')
+        shutil.copyfile(self.package / self.names[0], self.package / 'undeclared.vert.spv')
         report = self.check(False)
         self.assertEqual(report['valid'], 3)
         self.assertIn('undeclared shader artifact', report['errors'][0])
 
     def test_truncated_corrupt_and_wrong_stage_modules(self):
-        path = self.root / self.names[0]
+        path = self.package / self.names[0]
         original = path.read_bytes()
         for content in (b'', original[:-1], b'BAD!' + original[4:],
-                        (self.root / self.names[1]).read_bytes()):
+                        (self.package / self.names[1]).read_bytes()):
             with self.subTest(length=len(content)):
                 path.write_bytes(content)
                 self.assertEqual(self.check(False)['valid'], 2)
@@ -133,12 +133,24 @@ class ShaderArtifacts(unittest.TestCase):
                 self.compile('comp', source)
                 self.assertEqual(self.check(False)['valid'], 2)
 
-    def test_graphics_sets_and_write_access(self):
+    def test_native_graphics_accept_sparse_shared_sets_and_resource_order(self):
+        for stage, source in (('vert', VERTEX), ('frag', FRAGMENT)):
+            variants = [source.replace('binding = 2', 'binding = 8'),
+                        source.replace('set = 1', 'set = 3') if stage == 'vert' else
+                        source.replace('set = 3', 'set = 1'),
+                        source.replace('set = 2', 'set = 0') if stage == 'frag' else source,
+                        source.replace('binding = 0', 'binding = TEMP').replace(
+                            'binding = 1', 'binding = 0').replace('TEMP', '1')]
+            for altered in variants:
+                with self.subTest(stage=stage, altered=altered):
+                    self.compile(stage, altered)
+                    self.assertEqual(self.check(True)['valid'], 3)
+            self.compile(stage, source)
+
+    def test_native_graphics_reject_duplicate_bindings_and_uncontracted_writes(self):
         for stage, source in (('vert', VERTEX), ('frag', FRAGMENT)):
             for altered in (source.replace('readonly buffer Input', 'buffer Input'),
-                            source.replace('binding = 2', 'binding = 8'),
-                            source.replace('set = 1', 'set = 3') if stage == 'vert' else
-                            source.replace('set = 3', 'set = 1')):
+                            source.replace('binding = 2', 'binding = 1')):
                 with self.subTest(stage=stage, altered=altered):
                     self.compile(stage, altered)
                     self.assertEqual(self.check(False)['valid'], 2)
@@ -170,7 +182,7 @@ class ShaderArtifacts(unittest.TestCase):
     def test_compute_catalog_coverage_and_schema_cannot_be_skipped(self):
         bad_shape = json.loads(json.dumps(self.contract))
         del bad_shape['shape']['group_z']
-        unbuilt = dict(self.contract, artifact='build/shaders/unbuilt.comp.spv')
+        unbuilt = dict(self.contract, artifact='unbuilt.comp.spv')
         for content in ('', '[]', '{}', json.dumps([self.contract, self.contract]),
                         json.dumps([unbuilt]), json.dumps([bad_shape])):
             with self.subTest(content=content):

@@ -1,7 +1,11 @@
 #include "periodicBand.glsl"
 #include "roofTiles.glsl"
 #include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeCoating.glsl"
 #include "facadeProfiles.glsl"
+#include "facadeMasonry.glsl"
 
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
   FacadeGlazing glass = facadeGlazing(coverage, albedo, roughness);
@@ -9,17 +13,11 @@ void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) 
   roughness = glass.roughness;
 }
 
-void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, inout vec3 albedo, inout float roughness) {
-  vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
-  float bay = mod(encoded.x, 256.0);
-  float storey = encoded.y - 1.0;
-  float opening = facadeOpeningCoverage(fractions, bay, storey, footprint.x, footprint.y);
-  float pane = facadePaneCoverage(fractions, bay, storey, footprint.x, footprint.y);
-  if (glazing) {
-    pane = clamp(pane / max(opening, 0.0001), 0.0, 1.0);
-    opening = 1.0;
-  }
-  FacadeGlazing window = facadeWindow(opening, pane, albedo, roughness);
+void applyFacadeGlazedWindow(vec2 at, vec2 fractions, vec2 dx, vec2 dy,
+                              inout vec3 albedo, inout float roughness) {
+  vec3 coverage = facadeFootprintCoverage(fractions, at, dx, dy, 0.0);
+  float pane = clamp(coverage.y / max(coverage.x, 0.0001), 0.0, 1.0);
+  FacadeGlazing window = facadeBandedWindow(1.0, pane, 0.0, albedo, roughness);
   albedo = window.albedo;
   roughness = window.roughness;
 }
@@ -42,12 +40,19 @@ void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout v
   heightChange = -0.004 * (joint.courseSlope * courseChange + joint.tileSlope * tileChange);
 }
 
-void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
-                 inout float roughness, out vec2 heightChange) {
+void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
+                 bool metreMaterial, vec2 materialM, inout vec3 albedo, inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
-  if (encoded.x < 0.0) {
-    float trim = mod(-encoded.x - 1.0, 16.0);
-    float ident = floor((-encoded.x - 1.0) / 16.0);
+  vec2 dx = dFdx(coordinates);
+  vec2 materialDx = dFdx(materialM);
+  vec2 materialDy = dFdy(materialM);
+  vec2 dy = dFdy(coordinates);
+  vec3 dxM = dFdx(metricM);
+  vec3 dyM = dFdy(metricM);
+  float storeysPerM = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM), dx.y, dy.y));
+  if (code < 0) {
+    float trim = float((-code - 1) % 16);
+    float ident = float((-code - 1) / 16);
     if (trim > 10.5 && trim < 11.5) {
       applyFacadeGlass(1.0, albedo, roughness);
       return;
@@ -72,7 +77,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
           tint = vec3(0.65, 0.90, 1.12);
         }
         albedo *= tint;
-        applyRoofCourses(encoded, positionM, localM, n, albedo, roughness, heightChange);
+        applyRoofCourses(coordinates, positionM, localM, n, albedo, roughness, heightChange);
       }
       return;
     }
@@ -83,15 +88,15 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
     return;
   }
 
-  float group = floor(encoded.x / 256.0);
-  int style = int(mod(group, float(kFacadeStyleCount)));
+  int style = code % kFacadeStyleCount;
   vec2 fractions = facadeFractions(style);
-  float field = mod(floor(group / float(kFacadeStyleCount)), 3.0);
-  if (style == 7 || (field > 0.5 && field < 1.5)) {
-    applyFacadeWindow(encoded, fractions, true, albedo, roughness);
+  int field = (code / kFacadeStyleCount) % 3;
+  vec2 at = vec2(coordinates.x, coordinates.y - 1.0);
+  if (style == 7 || field == 1) {
+    applyFacadeGlazedWindow(at, fractions, dx, dy, albedo, roughness);
     return;
   }
-  float variant = floor(encoded.x / (256.0 * float(kFacadeStyleCount) * 3.0));
+  float variant = float(code / (kFacadeStyleCount * 3));
   vec3 wallTint = vec3(1.0);
   if (variant > 0.5 && variant < 1.5) { wallTint = vec3(0.90, 0.94, 1.00); }
   else if (variant < 2.5 && variant > 1.5) { wallTint = vec3(1.07, 1.05, 1.04); }
@@ -101,7 +106,32 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
   albedo *= wallTint * paint;
-  if (fractions.x > 0.0 && fractions.y > 0.0 && encoded.y >= 1.0) {
-    applyFacadeWindow(encoded, fractions, false, albedo, roughness);
+  if (coordinates.y < 1.0 || fractions.x <= 0.0 || fractions.y <= 0.0) {
+    fractions = vec2(0.0);
+    storeysPerM = 0.0;
   }
+  vec4 filtered = facadeCoatedFootprint(fractions, at, dx, dy, storeysPerM, metricM, dxM, dyM);
+  bool masonry = metreMaterial && variant > 5.5 && variant < 6.5;
+  float masonryField = 0.0;
+  vec3 amplitude = vec3(0.0);
+  float roughnessAmplitude = 0.0;
+  if (masonry) {
+    masonryField = facadeMasonryField(fractions, at, dx, dy, storeysPerM,
+                               materialM, materialDx, materialDy, filtered.xyz);
+    amplitude = facadeMasonryAmplitude(albedo, facadeCoatingAmplitude(albedo));
+    roughnessAmplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
+  }
+  FacadeGlazing wall = facadeCoatedWindow(filtered, albedo, roughness);
+  if (masonry) {
+    wall.albedo += amplitude * masonryField;
+    wall.roughness += roughnessAmplitude * masonryField;
+  }
+  albedo = wall.albedo;
+  roughness = wall.roughness;
+}
+
+void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
+                 inout vec3 albedo, inout float roughness, out vec2 heightChange) {
+  applyFacade(code, coordinates, paint, positionM, localM, metricM, n,
+               false, vec2(0.0), albedo, roughness, heightChange);
 }

@@ -16,8 +16,8 @@ int main() {
        .Missing = Data::MissingDataPolicy::Fail,
        .Dataset = "openstreetmap",
        .Location = "old.osm",
-       .Coverage = Data::SourceCoverage{
-           .WestDeg = 8.5, .SouthDeg = 49.3, .EastDeg = 8.6, .NorthDeg = 49.4}});
+       .Coverage =
+           GeographicBounds{.WestDeg = 8.5, .SouthDeg = 49.3, .EastDeg = 8.6, .NorthDeg = 49.4}});
   constexpr std::string_view layer =
       "<scenario><providers>"
       "<provider kind='osm' dataset='openstreetmap' location='west.osm' pin='r1' "

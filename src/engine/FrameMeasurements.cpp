@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 
 #include <array>
@@ -37,17 +37,18 @@ void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
 void PublishStageMeasurements(Core::DiagnosticLedger &published,
                               const Render::SceneRenderer &device) {
   static const auto names = [] {
-    std::array<std::array<std::string, 10>, Render::kStageCount> out;
-    constexpr std::array<const char *, 10> suffixes{", took",
-                                                    ", drew",
-                                                    ", triangles",
-                                                    ", surfaces",
-                                                    ", placements",
-                                                    ", textured",
-                                                    ", colour images",
-                                                    ", device bytes",
-                                                    ", placements that differ",
-                                                    ", vertex layouts"};
+    std::array<std::array<std::string, 11>, Render::kStageCount> out;
+    constexpr std::array<const char *, 11> suffixes{", took",
+                                                    ", encoded draw requests",
+                                                    ", direct input triangles",
+                                                    ", referenced surface slot limit",
+                                                    ", referenced placement slot limit",
+                                                    ", resident textured slots",
+                                                    ", resident colour images",
+                                                    ", owned device bytes",
+                                                    ", resident vertex layouts",
+                                                    ", indirect input triangles",
+                                                    ", indirect draw records"};
     for (size_t at = 0; at < out.size(); ++at) {
       for (size_t key = 0; key < suffixes.size(); ++key) {
         out[at][key] = std::string(Row(static_cast<Render::Stage>(at)).Name) + suffixes[key];
@@ -58,17 +59,18 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
   for (size_t at = 0; at < Render::kStageCount; ++at) {
     const auto &spent = device.Spent(static_cast<Render::Stage>(at));
     if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-    const std::array<double, 10> values{spent.TookMs,
+    const std::array<double, 11> values{spent.TookMs,
                                         static_cast<double>(spent.Draws),
-                                        static_cast<double>(spent.Triangles),
+                                        static_cast<double>(spent.DirectTriangles),
                                         static_cast<double>(spent.Surfaces),
                                         static_cast<double>(spent.Placements),
                                         static_cast<double>(spent.Textured),
                                         static_cast<double>(spent.Palettes),
                                         static_cast<double>(spent.DeviceBytes),
-                                        static_cast<double>(spent.Distinct),
-                                        static_cast<double>(spent.Layouts)};
-    constexpr std::array<const char *, 10> units{"ms",
+                                        static_cast<double>(spent.Layouts),
+                                        static_cast<double>(spent.IndirectInputTriangles),
+                                        static_cast<double>(spent.IndirectRecords)};
+    constexpr std::array<const char *, 11> units{"ms",
                                                  "draws",
                                                  "triangles",
                                                  "slots",
@@ -76,9 +78,15 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                  "slots",
                                                  "images",
                                                  "bytes",
-                                                 "rows",
-                                                 "layouts"};
-    for (size_t key = 0; key < values.size(); ++key) {
+                                                 "layouts",
+                                                 "triangles",
+                                                 "records"};
+    published.RecordMetric(names[at][0], values[0], units[0]);
+    const auto stage = static_cast<Render::Stage>(at);
+    if (stage != Render::Stage::OpaqueGeometry && stage != Render::Stage::TransmissiveGeometry) {
+      continue;
+    }
+    for (size_t key = 1; key < values.size(); ++key) {
       published.RecordMetric(names[at][key], values[key], units[key]);
     }
   }
@@ -143,27 +151,27 @@ void Engine::State::PublishGroundPreparationMeasurements() {
   Published.RecordMetric("ground retirement time, last", Cost.GroundRetirement.LastMs(), "ms");
   Published.RecordMetric(
       "ground retirement slices", static_cast<double>(Cost.GroundRetirement.Taken()), "slices");
-  static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
-      "candidate",
-      "patchwork",
-      "sheet fields",
-      "sheet refinement",
-      "sheet halos",
-      "terrain survey",
-      "classes",
-      "surface",
-      "models",
-      "network",
-      "road alignments",
-      "corridors",
-      "structure bake",
-      "earthworks",
-      "terrain residency",
-      "water",
-      "geometry",
-      "publication"};
+  static constexpr std::array<std::string_view, EngineCostCounters::kGroundPhaseCount>
+      kGroundPhases{"candidate",
+                    "patchwork",
+                    "sheet fields",
+                    "sheet refinement",
+                    "sheet halos",
+                    "terrain survey",
+                    "classes",
+                    "surface",
+                    "models",
+                    "network",
+                    "road alignments",
+                    "corridors",
+                    "structure bake",
+                    "earthworks",
+                    "terrain residency",
+                    "water",
+                    "geometry",
+                    "publication"};
   static const auto phaseNames = [] {
-    std::array<std::array<std::string, 2>, Spent::kGroundPhaseCount> out;
+    std::array<std::array<std::string, 2>, EngineCostCounters::kGroundPhaseCount> out;
     for (size_t phase = 0; phase < out.size(); ++phase) {
       const auto base = std::string("ground phase ") + std::string(kGroundPhases[phase]);
       out[phase] = {base + " time, most", base + " advances"};
@@ -186,7 +194,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("the step's own time, most", Cost.Advance.MostMs(), "ms");
     Published.RecordMetric("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
     Published.RecordMetric("world update time, most", Cost.Update.MostMs(), "ms");
-    const Spent::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
+    const EngineCostCounters::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
     if (worst.TotalMs > 0.0) {
       Published.RecordMetric("worst successful update: total", worst.TotalMs, "ms");
       Published.RecordMetric(
@@ -274,7 +282,9 @@ void Engine::State::PublishAdvanceMeasurements() {
 }
 
 void Engine::State::PublishGroundMemoryMeasurements() {
-  Published.RecordMetric("building triangles the world meshed",
+  constexpr auto kSnapshotAnchor = "building triangles the world meshed";
+  if (Published.RecordedThisFrame(kSnapshotAnchor)) { return; }
+  Published.RecordMetric(kSnapshotAnchor,
                          static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                          "triangles");
   Published.RecordMetric(
@@ -299,39 +309,39 @@ void Engine::State::PublishGroundMemoryMeasurements() {
                          "bytes");
   if (Picture.Standing) {
     const auto memory = Picture.Device.PieceAllocations();
-    constexpr std::array names{"world: subject position buffer",
-                               "world: subject emitted buffer",
-                               "world: subject normal buffer",
-                               "world: subject tangent buffer",
-                               "world: subject uv buffer",
-                               "world: subject uv1 buffer",
-                               "world: subject colour buffer",
-                               "world: subject previous position buffer",
-                               "world: subject placement buffer",
-                               "world: subject index buffer",
-                               "world: subject cluster sphere buffer",
-                               "world: subject cluster job buffer",
-                               "world: subject cluster batch buffer",
-                               "world: subject cluster kept buffer",
-                               "world: subject cluster slot buffer",
-                               "world: subject draw index buffer",
-                               "world: subject draw argument buffer"};
+    constexpr std::array names{"world: geometry position buffer",
+                               "world: geometry emitted buffer",
+                               "world: geometry normal buffer",
+                               "world: geometry tangent buffer",
+                               "world: geometry uv buffer",
+                               "world: geometry uv1 buffer",
+                               "world: geometry colour buffer",
+                               "world: geometry previous position buffer",
+                               "world: geometry placement buffer",
+                               "world: geometry index buffer",
+                               "world: geometry cluster sphere buffer",
+                               "world: geometry cluster job buffer",
+                               "world: geometry cluster batch buffer",
+                               "world: geometry cluster kept buffer",
+                               "world: geometry cluster slot buffer",
+                               "world: geometry draw index buffer",
+                               "world: geometry draw argument buffer"};
     static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
     for (size_t stream = 0; stream < names.size(); ++stream) {
       Published.RecordMetric(
           names[stream], static_cast<double>(memory.StreamBytes[stream]), "bytes");
     }
-    Published.RecordMetric("world: subject transfer buffer capacity",
+    Published.RecordMetric("world: geometry transfer buffer capacity",
                            static_cast<double>(memory.TransferBytes),
                            "bytes");
     Published.RecordMetric(
-        "world: subject vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
+        "world: geometry vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
     Published.RecordMetric(
-        "world: subject free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
+        "world: geometry free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
     Published.RecordMetric(
-        "world: subject index arena extent", static_cast<double>(memory.IndexSlots), "slots");
+        "world: geometry index arena extent", static_cast<double>(memory.IndexSlots), "slots");
     Published.RecordMetric(
-        "world: subject free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
+        "world: geometry free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
   }
   Published.RecordMetric(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
@@ -367,6 +377,7 @@ void Engine::State::PublishFrameMeasurements() {
     }
   }
   PublishAdvanceMeasurements();
+  PublishUrbanMeasurements();
   if (Picture.Standing) { PublishStageMeasurements(Published, Picture.Device); }
 
   if (Cost.Render.Taken() > 0) {

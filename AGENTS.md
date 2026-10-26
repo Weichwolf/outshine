@@ -1,267 +1,152 @@
 # Outshine
 
-## Auftrag
-- Ich lese AGENTS, den aktiven Goal-Text, Parent-Issue [#5](https://github.com/Weichwolf/outshine/issues/5) und betroffene Kinder zuerst.
-  Goal enthält das Ergebnis, AGENTS dauerhafte Regeln, GitHub Issues Features und technische Entscheidungen.
-  Aktuelle Nutzeranweisungen gehen vor.
-- GitHub Issues unter https://github.com/Weichwolf/outshine/issues sind die einzige gemeinsame Aufgabenablage.
-  Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
-  Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
-  Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich entwickle Outshine auf `master`
-  und integriere verifizierte Fachlieferungen einschließlich Generatoren und öffentlicher APIs.
-  Sieben Fachagenten arbeiten jeweils in einem eigenen Worktree und Branch namens `outshine_<bereich>`.
-  Laufende Umbenennungen übernehmen dieses Schema; sie erzeugen keine zusätzlichen Agenten.
-  Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
+## Ziel
+Ich entwickle eine weltweite, datengetriebene Open-World-Sandbox vom Orbit bis zum
+Grashalm: Infrastruktur, begehbare Gebäude/Innenräume, Vegetation, Wetter, Fahrzeuge
+und NPCs. Physik, Spatial Audio, Persistenz, JavaScript, HTML/CSS und LLM-Aktionen
+wirken auf dieselbe konsistente Welt. LLMs liefern validierte, gespeicherte Rezepte;
+Assets und Weltentscheidungen bleiben danach reproduzierbar und dauerhaft.
 
-  | Worktree/Branch | Rolle und Zuständigkeit | Einstieg |
-  |---|---|---|
-  | `outshine_transport` | Reine Python-Forschung: Verkehrsnetze, Profile, Ebenen und räumliche Reservierungen | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_performance` | Native Entwicklung: Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
-  | `outshine_material` | Native Entwicklung: prozedurale Oberflächen, Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
-  | `outshine_light` | Native Entwicklung: Licht, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
-  | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
+**Jeder Ort der Erde, bis 240 km mögliche Sichtweite, 1280×720/60 einschließlich p99**
+sind feste Auslegungsbedingungen auf **A18 Pro/Metal** und **i5-1135G7/Iris Xe/Vulkan**.
+Sie gelten auch in Bewegung bis viele hundert Meter pro Sekunde, bei Richtungs-/Höhenwechseln
+und im Dauerbetrieb. Gelände, Erdkrümmung und Wetter begrenzen die tatsächliche Sicht.
+Alle Inhalte teilen CPU/GPU, Bandbreite und die 8-GB-Systemklasse samt OS-/Treiberreserve.
+`1000/60 = 16,67 ms` ist das gesamte Framebudget. Darin steigere ich die Qualität;
+andere Auflösungen/Zielraten bleiben ausdrücklich bezeichnete Vergleichsprofile.
 
-  Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
-  gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Engine-Implementierung.
-  Ich übernehme ihre verifizierten Verfahren eigenständig maschinennah in C++ unter `src/`.
-  Die vier nativen Fachagenten liefern PRs gegen `master`; ich reviewe und integriere sie,
-  verantworte gemeinsame Bildqualität/Places und halte das A18-Pro-Profil 1280×720/30.
-  Native Fachagenten mergen erst nach diesem Review; die Python-Merge-Regel bleibt separat.
-  Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
-  Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
-- `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
-  Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
-  Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
-  Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut danach,
-  Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger. Quell-IDs und Quellen erhalten.
-- Die drei Forschungsagenten committen und pushen ihre verifizierten Fortschritte selbstständig,
-  erstellen für ihre Experimente und Änderungen an `lib/` Pull Requests und mergen diese nach bestandenen
-  betroffenen Prüfungen eigenständig nach `master`. Zugehörige Tests/Referenzdokumentation mitführen.
-  Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
-  Der Outshine-Hauptagent übernimmt die native Integration samt Engine-, Bild- und Kostenprüfung eigenständig.
-  Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
-  Alle Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
-  Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
-- [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
-  der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
-  Nachrichten beginnen mit `[Absenderbranch → Zielbranches]`: Fach-Issue/PR-Link und konkrete
-  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branch-Namen stehen in der Rollentabelle;
-  der Hauptagent adressiert und antwortet als `master`.
-  Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
-  Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
-  oder bei direkter Master-Lieferung beim verlinkten Commit im Fach-Issue;
-  ausführliche Berichte in verlinkten Artefakten. Jede Aussage hat einen Ort; andere Stellen verlinken sie.
-  Antworten bleiben bei der Fachfrage. Zuständige Branches antworten ausdrücklich; Schweigen ist keine Zustimmung.
-  Ich lese repositoryweit nur neue oder bearbeitete Kommentare seit meinem lokalen Abrufmarker;
-  der Marker wird erst nach erfolgreichem Abruf fortgeschrieben. Historie/PRs öffne ich gezielt bei Bedarf.
-  Wir teilen einen GitHub-Account: Kommentare nur über ihre konkrete ID ändern, niemals mit `--edit-last`.
-  Ich hole den Remote-Stand vor Arbeitsblöcken und Commits, bei längerer Arbeit spätestens alle 15 Minuten.
-  Eigene Änderungen bleiben erhalten; Gates bleiben eingefroren. Kompatible Arbeit braucht keine
-  Freigaberunde. Fehlende Teilverträge benennen und unabhängig weiterarbeiten. Verlorene Nachrichten
-  korrigiere ich anhand tatsächlicher Antworten, ohne eine gemeinsame Verwaltungsbibliothek aufzubauen.
-- Der aktive Nutzerauftrag bleibt maßgeblich; `goal.md` auf `master` beschreibt den Outshine-/Integrationsauftrag.
-- Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
-  OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
-  Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
-  und vereinfachen sie kohärent innerhalb des Budgets.
-  Ich suche eine schnelle, plausible, ästhetische und funktionale Lösung, keine eindeutige
-  Rekonstruktion. Ich darf Lage, Form und Profile kohärent anpassen und einfachere Rezepte wählen.
-- Solarpunk ist das Default-Setting. Den gemeinsamen Look besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
-- Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
-  einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
-  behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
-- Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
-  gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
-  Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
-- Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
-  räumliche/zeitliche Approximationen. Transport braucht konstruktive CAD-Qualität: saubere
-  Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
-  Speichersicherheit, korrekte erzeugte Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
-  Anforderungen; geänderte Anforderungen korrigiere ich ausdrücklich samt betroffenen Tests.
-  Ferndetails dürfen plausibel geschätzt werden; Bildwirkung, Herkunft und Übergang zum Nahdetail zählen.
-  Transportsolver liefern innerhalb ihres Budgets ein gültiges Teilnetz. Ungelöste Teile
-  blockieren weder Weltaufbau noch Frame; ich begrenze Auslassungen lokal und protokolliere
-  jede nicht verwendete Quelle mit Grund. Quelldaten bleiben erhalten; der Verwendungsgrad wächst.
-- Ich suche selbst Alternativen, sobald ein Ansatz erkennbar ungeeignet ist. Ich prüfe sie gegen
-  Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
-- Kostenbestimmende Verfahren vergleiche ich zuerst in kleinen Python-Experimenten mit echten
-  Eingaben und gleichen Qualitätsanforderungen; den Gewinner integriere und messe ich nativ.
-  Kostenbelege erfassen auch bearbeitete Elemente/Rechenschritte, Allokationen, kopierte Bytes und
-  Peak-Speicher, nicht nur Laufzeit/FPS. Hardwareübergreifende Arbeitsersparnis und tatsächliche
-  Gerätezeiten getrennt belegen; Speicherzugriffe und Lokalität gehören zum Kostenmodell.
-  Beibehaltene Pfade brauchen Korrektheits-/Kostenbelege und Alternativenvergleich; globale
-  Optimalität behaupte ich nur mit einer tatsächlich hergeleiteten Grenze.
-- Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
-  Datenfluss bis Bild, Ton, Aktion und nächstem Weltzustand: Laden, Stillstand, Drehung, Bewegung,
-  Änderungen, Persistenz und Fehler. Ich prüfe Abhängigkeiten, Besitz, Threads, Kopien und Kosten;
-  unsichtbare Schatten-/Simulationswirkung zählt. Gegenbeispiele suchen, Hypothesen messen.
-- Ich baue keine Verwaltungs-, Cache- oder Beweissysteme ohne konkreten Bedarf. Nach zwei
-  Reparatur-Iterationen ohne Bildgewinn überprüfe ich den Ansatz. Ein umfassender Refactor darf
-  keine ausführbare sichtbare Verbesserung verdrängen. Commits und grüne Tests sind kein Bildgewinn.
+Ich baue eine plausible, funktionale Erde, keinen digitalen Zwilling. OSM/DEM/Wetter
+liefern Verteilung, Großformen und Parameter; Rezepte ergänzen mit Quellbezug und
+physikalischer Plausibilität. PBR und reale Referenzen bestimmen Material, Licht und
+Kameraantwort; keine Stilpalette. Licht, Schatten, Materialien und Bildstabilität zählen
+innerhalb des festen Profils. Erster visueller Meilenstein: größtmögliche Webcam-Annäherung.
 
-## Quellen und Architekturgrenzen
-- Bevorzugt: OpenFreeMap für OSM-basierte Vektoren, Mapterhorn für Höhen, Open-Meteo für Wetter.
-  Ein Hauptanbieter je Datenart; Geschwindigkeit, Verfügbarkeit und nutzbarer Inhalt entscheiden.
-  Original-OSM und vollständige Tags sind keine Pflicht. Formate/Nutzungsfragen besitzt [#10](https://github.com/Weichwolf/outshine/issues/10).
-- Zeit/Kamera und ein fester lizenzierter/versionierter Sternenkatalog ergänzen die Welteingaben.
-  Belegte, fehlende und prozedural ergänzte Angaben bleiben unterscheidbar. Webcam-Fotos dienen
-  nur dem Vergleich; keine Fototexturen, Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie.
-- Der Engine fordert fertige Game-Assets an: Cachetreffer laden, Misses erzeugen asynchron
-  über Generatoren und speichern vollständig ergänzte, versionierte Assets. Das gilt für alle
-  Weltklassen. Der Cache enthält vollständig angereicherte Asset-Rohlinge. Treffer wiederholen
-  weder Quellaufbereitung noch Rohling-Aufbau; Nahdetails dürfen und müssen daraus zur Laufzeit
-  ergänzt werden. Räumliche/LOD-Auswahl und aktuelles Shading folgen danach. Quelle, Asset, Spielstand und
-  Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. [#10](https://github.com/Weichwolf/outshine/issues/10) besitzt den Vertrag.
-- Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
-  Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
-  Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
-- Builtins und externe Erweiterungen nutzen dieselbe öffentliche API. API-Änderungen migrieren
-  alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine einzelnen CLI-Inhaltsschalter.
-  Der Client nimmt ein Szenario oder generische Szenario-Overrides entgegen.
-  Konkrete Verträge besitzt [#9](https://github.com/Weichwolf/outshine/issues/9); sie werden mit einem echten Feature integriert.
-- Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
-  Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
-  Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
-- Metallic-Roughness ist der Hauptshader; zusätzliche Shader ergänzen Effekte, die er nicht abdeckt.
-  Texturen werden prozedural erzeugt und dürfen als fertige Assets gecacht werden.
-- Besitz, Lebensdauer, Abbruch, Rückstau und Fehler bleiben explizit. Kein blockierendes IO oder
-  unbegrenztes Warten im Frame. GPU-Ressourcen erst nach letzter Nutzung freigeben.
+## Rollen und selbstständiger Auftrag
+Ich formuliere mein Goal aus **Ziel + Rolle + aktuellen Issues**. AGENTS ist die gemeinsame
+Ziel-/Regelquelle; technische Entscheidungen und Iststand stehen ausschließlich in
+[GitHub Issues](https://github.com/Weichwolf/outshine/issues). Keine separate Goal-Datei
+oder lokale Aufgabenablage. Aktuelle Nutzeranweisungen gehen vor.
 
-## Qualität und Abnahme
-- Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
-  Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
-  480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
-  Hohe Bildqualität bei 1280×720/30 auf A18 Pro ist mein Ziel; 1280×720/60 bleibt Vergleichsmessprofil.
-  RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
-  1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
-  Das Ziel ersetzt keinen gemessenen Gerätenachweis.
-- Transport rendert eigene Python-Aufnahmen von Wien, Tokyo, Central Park und Feldkirch nach
-  den festen Orts-/Kamerareferenzen in `doc/images/places/` und den Place-Szenarien.
-  Genau vier Referenz-PNGs liegen unter `doc/images/transport/`; bei deutlich sichtbaren
-  Verbesserungen nach tatsächlichem Vorher/Nachher-Bildvergleich aktualisieren. Kein Showcase-Server.
-- Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
-  Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
-  Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
-  Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
-  je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
-  Die README-Galerie erhält dieselben aktuellen PNGs unter `doc/images/places/`, untereinander
-  nur mit Ortsangabe und ohne Vergrößerungslink.
-  Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
-- Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
-  Vorbereitete Places sollen warm unter zehn Sekunden laden; eine Sekunde ist ein Optimierungs-
-  anreiz, kein Gate. Ich begründe Ladeziele anhand Datenmenge und Arbeit. Internet-Erwerb,
-  Asset-Aufbau und Cachetreffer getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
-  nur letzter Frame als PNG in Ausgangsrichtung. p50/p95/p99 ohne Zusatzframes messen.
-- Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
-  und Kosten, ohne feste Quoten. Stadt und Wald dürfen andere Lastverteilungen haben, müssen
-  aber gleichermaßen flüssig und visuell kohärent sein. Profil, Inhalte und Sichtweite im Vergleich nicht reduzieren.
-  Jeder sichtbare Pixel bekommt denselben Qualitätsanspruch unabhängig von seinem Inhalt.
-- Korrektheit, Bild, CPU/GPU, Laden und Speicher getrennt prüfen. Budgets nennen Einheit, Herkunft,
-  Lastfall, Profil und Besitzer; Peaks und OS-/Treiberreserve zählen. Geteilten Speicher nicht doppelt
-  zählen, asynchrone Zeiten nicht addieren, Fence-Warten nicht als GPU-Zeit ausgeben. A18 Pros
-  8 GB sind kein App-Budget; die aktuelle Maschine ersetzt keinen Gerätenachweis.
-- Überschreitungen sperren das Gate; schlechte Istwerte erhöhen keine Grenzen. Fehlende Messbarkeit
-  bleibt unbewiesen. CPU-Beweise ersetzen kein Runtime-Bild und allein keine kleinere LOD-Schranke.
-  Tests nur bei nachweislich falscher oder ausdrücklich geänderter Spezifikation anpassen.
-  Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
-- Das Pflichtgate prüft die Weltpipeline: native Assets/Cache, DEM/OSM, Umwelt und Offline-Places.
-  glTF-/Animationskompatibilität und Khronos-Bildreferenzen bleiben separat ausführbar.
-  Gemeinsame Shaderbindungen, CPU/GPU-Layouts und Ressourcenlebensdauer bleiben Pflicht.
+| Worktree / dauerhafter Branch | Mein Auftrag | Einstieg |
+|---|---|---|
+| `outshine` / `master` | Ich trage Gesamtverantwortung als Technical und Art Director: Architektur, Art Direction, Prioritäten, Integration, Metal/A18 und sichtbares Ergebnis. Ich bündele native Tests, Lint, Geräte- und Places-Abnahme und implementiere nach Bedarf selbst. | [#5](https://github.com/Weichwolf/outshine/issues/5) |
+| `outshine_research` | Ich entwickle ausschließlich in Python Verfahren, Solver, Rezepte und Repräsentationen, besonders für Generatoren. Ich liefere geprüfte Referenzen, echte Eingaben/Gegenbeispiele, Bildbelege und Kostenvergleiche für die native Übernahme. | [#788](https://github.com/Weichwolf/outshine/issues/788) |
+| `outshine_engine` | Ich entwickle/optimiere gemeinsame C++-Engine und Vulkan/Iris Xe, übernehme geprüfte Python-Verfahren nativ und unterstütze master bei Architekturreview und PR-Merges. Ich liefere Intel-Gerätemessungen. | [#789](https://github.com/Weichwolf/outshine/issues/789) |
+| Zusätzlicher `master` auf der zweiten schnellen Maschine, eigener Checkout | Ich verantworte Review und Integration selbstständig, behebe Fehler und Konflikte und implementiere nötige Refactor-/Architekturkorrekturen. Ich prüfe nativ, mit Lint und ergänzend Vulkan/RTX; eine zusätzliche Master-Freigabe ist nicht nötig. | #5 / #47 / #108 |
 
-## Code und Arbeit
-- Ich nutze Command Line Tools und CLI-Profiler; die Xcode-App ist keine Voraussetzung.
-- Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
-  Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
-  Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;
-  Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
-  schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
-  passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
-  PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
-- C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
-  behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
-  Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
-  Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
-  `src/` ohne Kommentare, `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
-- Genau ein oberstes Parent-Issue mit `state:active`, darunter 0:N tatsächlich bearbeitete aktive Kinder.
-  Offene Issues bleiben auf GitHub offen; `state:open` und `state:active` unterscheiden Reserve und Arbeit.
-  Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
-  Beim Aktivieren das andere Statuslabel entfernen; abschließen erst nach erfüllter Abnahme mit `gh issue close`.
-  `priority:P0` bis `priority:P3`, `architecture:ready`/`architecture:planned` und `owner:*` erhalten.
-  Beschreibungen enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende Verträge und kurze Abnahme, keine Prüfchronik.
-  Bevorzugt 80 Zeilen/6 KiB; ausführliche Diskussion und Belege bleiben in Kommentaren.
-- `Parent` und `Depends` nennen GitHub-Issuenummern. `Depends` bezeichnet einen fehlenden Vertrag,
-  keine Reihenfolge oder pauschal ein ganzes Subsystem. Priorität, Abhängigkeiten und Vision getrennt prüfen.
-  Vor gemeinsamen Änderungen den aktuellen Issue-Stand lesen, fremde Fortschritte erhalten und betroffene
-  Verbraucher/Abnahmen mitführen. Beschreibung und Status gelten branchübergreifend.
-- Neue Nummern vergibt GitHub.
-  Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
-  Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
-  Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
-- Auf `outshine_vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
-  Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
-  Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
-  Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
-  Vegetations-Showcase-Renderings mindestens 1920×1080, Standard 2560×1440 für erkennbare Details.
-  Für Vegetation gilt SpeedTree als Qualitätsmaßstab; die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
-- Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
-  ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
-  keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
-- Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
-  betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
-  nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
-  Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
-- Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
-  der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
-  Ein zur Integration übergebener PR bleibt bis auf angeforderte Korrekturen stabil; neue Arbeit folgt separat.
-  Nach Übernahme von Master prüfen sie betroffene Übergänge. Vorhandene passende Belege wiederverwenden;
-  sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
-  Ich bündele kompatible prüffertige PRs, reviewe ihre Änderungen und prüfe neue Wechselwirkungen,
-  Metal/A18 sowie betroffene Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
-  Kostenbeleg an `outshine_performance`; ich übernehme die Geräte-/Bildgegenprüfung.
-  Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
-  Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
-- Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
-  keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
-  Lastfall; Vergleichsläufe nennen ihren Lastzustand. Breite Prüfungen und aufwendige Renderexperimente
-  bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
-  RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
-  Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
-  Kein geteilter Build/parallel spotless.
-  Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
-- Im Repository liegt nur, was gemeinsam für Outshine gebraucht wird: Produktcode, Tests,
-  wiederverwendbare Experimentquellen unter `test/experiments/`, feste Testeingaben, Dokumentation,
-  Papers und aktuelle Präsentationsbilder. Produkt-Builds bleiben unter `build/`; in `build/shots/`
-  liegen ausgewählte Präsentationsbilder und benötigte Referenzen.
-  Private Versuchsausgaben, Arbeitsdaten, Hilfsumgebungen und Zwischenprodukte liegen ausschließlich
-  im jeweiligen System-Tempverzeichnis (`${TMPDIR:-/tmp}/outshine-<Agent>-<Auftrag>-<Commit>`).
-  Kein privater Experimentbaum unter `build/experiments/`. Skripte nutzen explizite Temp-Ausgabepfade;
-  beim betroffenen Ausbau alte Standardpfade migrieren. Gemeinsam benötigte feste Referenzinputs
-  erhalten einen passenden versionierten Testdatenpfad, keine Abhängigkeit von privaten Tempbäumen.
-- Jeder Agent räumt seine Artefakte nach jedem Arbeitsblock und vor einer Lieferung auf:
-  ersetzte/fehlgeschlagene Versuchsausgaben, doppelte Exporte, alte Renderings und entbehrliche
-  Zwischenprodukte löschen. Aktuellen geprüften Stand, nötigen Vorher-Vergleich, weiter benötigte
-  Gegenbeispiele/Eingaben und referenzierte Pins/Belege erhalten. Reproduktion und kompakte
-  Ergebnisberichte ersetzen keine benötigten Originaleingaben; alte vollständige Ausgabekopien
-  dagegen nicht stapeln. Aktive/fremde Arbeiten, gemeinsame Quellen-/Assetcaches und benötigte
-  Referenzen nicht pauschal bereinigen. Diese Pflicht gilt auch im Haupt-Checkout und in Worktrees.
-- Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
-  `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
-  Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
-  Normale Logs bleiben kompakt; Detailausgabe ist explizit. Diagnose verwendet feste Zähler, hält
-  Formatierung/Ausgabe aus dem Hot Path, misst eigene Kosten und kennzeichnet fehlende Messwerte.
-- Feste Ablage: Buildprodukte unter `build/`; Netzwerkquellen im Client-Pref-Verzeichnis
-  unter `sources/`, fertige Assets/Index separat unter `assets/`; Papers in `doc/references/`;
-  Vergleichsbilder/Pins getrennt von beiden Caches.
-  Temp-Worktrees heißen `${TMPDIR:-/tmp}/outshine-<Auftrag>-<Commit>`, Logs dort
-  `outshine-<Auftrag>-<Commit>.log`; Tests nutzen `outshine-tests.<Checkout>`.
-  `outshine-prepared`, `outshine-content` und `outshine-reference-images` enthalten benötigte
-  Eingaben/Orakel und werden nicht pauschal gelöscht. Nach Arbeitsblöcken `make cleanup-temp`
-  prüfen und mit `CLEANUP_ARGS='--apply --keep-worktree <aktiver Pfad>'` bereinigen.
-  Aktive, geänderte, gesperrte oder ungemergte Worktrees bleiben; alte Referenzen ins Haupt-Checkout übernehmen.
-- Ich recherchiere normalerweise lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche
-  sowie beauftragte Technik-/Bibliotheksrecherche erlauben Websuche. Werkzeuge aktuell halten,
-  nach Updates Orakelherkunft prüfen.
-  Ich berichte knapp auf Deutsch: Ergebnis, Commit, Belege und offene Qualitätslücke.
+Der Nutzer ist Regisseur. Fachbesitzer bleiben `master`, `outshine_research` und
+`outshine_engine`; der zusätzliche master trägt dieselbe Integrationsverantwortung.
+Fach-Worktrees liegen neben `outshine` unter `Git/`, Branch und Verzeichnis heißen gleich. Geschützte
+Übergaben: #786. Jeder arbeitet selbstständig am höchstpriorisierten passenden offenen
+Paket weiter, ohne nach Lieferungen auf Einzelaufträge zu warten. Besitz melden,
+Überschneidungen sind für das Vier-Augen-Prinzip willkommen; gemeinsame Basis und
+Merges koordinieren. Lokale Blocker sperren nur abhängige Arbeit. Nur der Nutzer
+pausiert ein Goal. Ein fertiges Paket beendet einen Arbeitsblock, nicht den Gesamtauftrag.
+
+## Prioritäten und Design
+1. **Refactor vollständig abschließen** (#1233). Erkannte Fehler und nötige Optimierungen direkt im Paket beheben; ungeeignete Verfahren ersetzen.
+2. **Gesamte aktuelle Codebasis gemeinsam durch master und Engine architektonisch abnehmen/korrigieren** (#1320), einschließlich neuerer Teile. Erst danach neue Features integrieren.
+
+Abnahme: benannter Commit/Pfade, Zuständigkeiten, tatsächliche Verbraucher/Abhängigkeiten,
+Datenfluss, Lebensdauer, Nebenläufigkeit, Korrektheit, Einsatzgrenzen und Kosten.
+Beide Bestätigungen stehen im Fach-Issue/PR; Bestand, Umbenennung, Tests oder Merge genügen
+nicht. Fehlende Zukunftsfunktionen ausweisen, nicht vorab implementieren. Scenario,
+Physik, Body/Entity, Rigging und Audio kritisch prüfen. Eignung entscheidet, nicht Alter/Herkunft.
+
+Wenige zusammenpassende Referenzen tragen das Engine-Design (#1225); Annahmen und
+Übertragung auf SSD/Unified Memory prüfen. **Generatoren bleiben breites Forschungsfeld**:
+Produkt-/Lebensdauer-/Kostenverträge festlegen, keine Solver-/Grammatikfamilie vorschreiben.
+SIGGRAPH und passende Primärquellen zuerst prüfen; PDFs auch optisch samt Formeln/Abbildungen.
+Bewährte Libraries nutzen, wenn Umfang/Robustheit ihre direkten/transitiven Abhängigkeiten
+rechtfertigen; kleine Teilmengen dürfen geprüfte eigene Operationen ersetzen. Keine Pakete
+auf Vorrat oder gebündelter Fremdcode; Homebrew/apt nutzen, nötige Pakete nennen.
+
+Vor Arbeitsblöcken, nach Integration und bei Regressionen den gesamten Fluss bis Bild,
+Ton, Aktion und nächstem Weltzustand durchdenken: Laden, Stillstand, Drehung, Bewegung,
+Änderungen, Persistenz, Fehler. Besitz/Threads/Kopien/Kosten prüfen, Gegenbeispiele suchen,
+Hypothesen messen. Nach zwei erfolglosen Reparatur-Iterationen Ansatz prüfen/ersetzen.
+Keine Verwaltungs-/Beweissysteme ohne Bedarf; Commits und Tests sind kein Bildgewinn.
+Straßenqualität/Terrain-Deformation erhalten; Abstürze, Datenverlust und falsche Geometrie sofort beheben.
+
+KISS, DRY, Local Reasoning, klare Zuständigkeiten und erwartbare Namen gelten für Code
+und Projekt. Falsche Grenzen/Namen samt Aufrufern korrigieren. Ohne Produktkonsumenten
+Altpfad samt exklusiven Tests, Buildregeln, Abhängigkeiten und Docs entfernen; benötigte
+Formate/Daten und laufende Lieferungen schützen. Tests allein erhalten keinen Altpfad.
+
+## Architekturgrenzen
+- Bevorzugte Quellen: **OpenFreeMap**, **Mapterhorn**, **Open-Meteo**; ein Hauptanbieter je Datenart, Inhalt/Geschwindigkeit/Verfügbarkeit entscheiden (#10). Kamera, Zeit und lizenzierter/versionierter Sternenkatalog ergänzen sie. Herkunft/Ergänzungen unterscheiden. Webcam-Fotos nur vergleichen: keine Fototexturen, Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie.
+- Adapter/Provider beschaffen/normalisieren Eingaben, Generatoren erzeugen native Produkte; Provider sind optional. Quellsemantik bleibt beim Generator, OSM unter `generators/osm`. World bleibt generische 3D-Datenwelt; Engine koordiniert, Render/Audio konsumieren native Produkte.
+- Bild-, Schatten-, Interaktions- und Bewegungsbedarf bestimmen räumliche/LOD-Auswahl **vor IO/Decode/Erzeugung/Upload**. Kleine Rundum-Metadaten und grobe Abdeckung bereithalten; Feinprodukte selektiv laden. Unverändertes nicht neu erzeugen, Unbekanntes nicht als verdeckt behandeln, Eltern bis vollständiger Kindabdeckung erhalten.
+- SSD-Asset-DB liefert fertige versionierte, angereicherte Rohlinge. Misses begrenzt asynchron erzeugen/speichern; Treffer wiederholen keine Quellaufbereitung oder Rohling-Erzeugung. Nahdetails bedarfsgerecht ergänzen. Quellcache, Assets, Spielstand und Referenzen trennen; keine automatische Quellaktualisierung. Größe/Nutzung erfassen; Quellen/Assets getrennt bereinigen, SSD/Residency/Queues im Dauerbetrieb begrenzen.
+- Render-LOD, funktionale Geometrie und Simulation trennen: nah präzise, mittel vereinfacht, fern statistisch; Zustand/Interaktion erhalten. Transport braucht konstruktive CAD-Qualität mit sauberen Anschlüssen, Profilen und Zugangsregeln für Straßen, Schienen, Flugplätze, Feld-/Radwege und weitere Verkehrswege. Ungelöstes lokal mit Quell-ID/Grund auslassen; gültiges Teilnetz/Quelldaten erhalten, Weltaufbau nicht blockieren.
+- Transport liefert angepasste Grundrisse/Freiräume, Buildings baut danach, Vegetation mit Produkten beider Vorgänger; Terrain berücksichtigt Infrastrukturkontakte (#18). Rezepte und Verfahrensdetails gehören in Fach-Issues.
+- Besitz, Admission, Lebensdauer, Abbruch, Rückstau und Fehler explizit halten. Kein blockierendes IO/unbegrenztes Warten im Frame; GPU-Ressourcen nach letzter Nutzung freigeben. Hintergrundarbeit begrenzen/priorisieren; CPU/GPU/Bandbreite/Speicher getrennt budgetieren.
+- Outshine ist Szenario-Anwendung, kein SDK: Datei/JSON und generische Overrides, keine einzelnen CLI-Inhaltsschalter. `benchmark` nimmt synthetische oder generische Kamera-/Bewegungs-/Frameeingaben. Produktcode/-daten kennen keine Places/Koordinaten; diese gehören zum Testtreiber. Kein glTF/Doxygen/SDK-Gate; HTML/CSS/JS erhalten.
+- Gemeinsame Verfahren/Shader einmal implementieren; Backend-Ausführung und begründete Qualitätsprofile dürfen abweichen. Metal/Vulkan-Verträge vor Änderungen abstimmen (#48). Metallic-Roughness als Hauptpfad, Spezialeffekte ergänzen ihn. Material, Licht/Schatten und Wetter haben klare Besitzer/Kompositionsverträge.
+
+## Bild und Kosten
+Master hält **zwölf wechselnde Places** lokal unter `build/shots/places/` aktuell, je Place
+nur die neueste erfolgreiche Hash-PNG; Pins/Referenzen erhalten. Bilder tatsächlich öffnen,
+Vorher/Nachher und datierte [Webcam-/Archivbilder](https://www.foto-webcam.eu/) vergleichen.
+Natur, Mischszenen, Städte/Parkränder und geografische Gegenfälle rotieren; zwölf Ansichten
+beweisen keine weltweite Funktion. Mindestens ein aktueller Place gehört ins Gate.
+Aktuell alle zwölf **ohne Vegetation**, um Transport/Gebäude/Boden zu prüfen; das Diagnoseprofil
+reduziert den Zielumfang nicht. README-/doc-Bilder nur auf ausdrücklichen Nutzerauftrag;
+Fachagenten veröffentlichen keine Galerien. Unvollständige/unbelegte Bilder bleiben rot.
+
+Vollen Assetcache in frischem Offline-Prozess prüfen. Internet-Erwerb, Aufbau und Treffer
+getrennt messen. Warm möglichst schnell: unter zehn Sekunden Optimierungsziel, eine Sekunde
+Anreiz; Ladeziele aus Arbeit/Datenmenge begründen. Danach exakt eine Ziel-fps-Sekunde mit
+360° Drehung, nur letzten Frame in Ausgangsrichtung speichern; p50/p95/p99 ohne Zusatzframes.
+Inhalte teilen Ressourcen nach Bildgewinn/Kosten, ohne feste Quoten; Profil/Inhalte/Sichtweite
+nicht reduzieren, um Budgets einzuhalten.
+
+Belege nennen Commit, Eingabe, Gerät/Profil, Lastzustand, Aufruf und terminales Ergebnis.
+Bild, CPU/GPU, Laden, Peak-Speicher, Schritte/Elemente, Allokationen, kopierte Bytes und
+Lokalität getrennt prüfen. Gemeinsamen Speicher einmal zählen, asynchrone Zeiten nicht
+addieren, Fence-Warten nicht als GPU-Zeit melden. Gerätebelege auf dem Zielgerät;
+Python/CPU/RTX ersetzen sie nicht. Budgetfehler bleiben rot, Istwerte erhöhen keine Grenzen.
+Fehlende Messwerte sind unbewiesen; CPU-Beweise allein senken keine LOD-Schranke.
+Globale Optimalität nur mit hergeleiteter Grenze behaupten.
+
+Kostenbestimmende Verfahren zuerst in kleinen Python-Vergleichen mit echten Eingaben und
+gleicher Qualität prüfen, dann nativ integrieren/messen. Forschung bleibt unabhängig;
+botanische Referenzen bestimmen die Vegetationsabnahme (#1).
+
+## Prüfungen und Code
+- Atomare Modultests prüfen gültige Anforderungen mit positiven/negativen Eingaben und deklarierten Abhängigkeiten; unerwartete Abhängigkeiten sind Architekturfehler. Aufgegebene Tests entfernen, weiter gültige Anforderungen an neuen Grenzen prüfen. Tests nicht für Grün an Produktfehler anpassen; Spezifikationsänderungen belegen. Normale Tests erzeugen keine Orakel/ändern keine Pins.
+- Places prüfen Bild/Laden/Performance; gezielte Integration ergänzt Miss/Hit, Abbruch, Persistenz und GPU-Lebensdauer. Pflichtgate: native Assets/Cache, DEM/OSM, Umwelt, Offline-Places und Shaderverträge; keine Khronos-Korpora. Cycles-Belege erfordern belegtes GPU-Backend.
+- Code: Format, betroffene Tests, fokussiertes clang-tidy samt Headerverbrauchern mit vollständigen aktuellen CDB-Flags; Shader/betroffene Places prüfen. Include-/Moduländerungen durch betroffene CMake-Targets bauen. CMake/Ninja besitzen Abhängigkeiten/Tidy-Scope, CTest die Auswahl; keine eigenen Layer-/Buildplaner oder Claims.
+- `make lint` inkrementell, `make lint-all` vollständig am eingefrorenen Integrationsstand. Breite Läufe am Integrationsende und bei Prüfregel-/Build-/Moduländerungen bündeln. Docs: `make lint-docs` (Whitespace), keine Engine-Abnahme. Python-Experimente lokal prüfen, native Gates bei Integration. Passende Belege wiederverwenden; Änderungen brauchen neue betroffene Prüfungen.
+- Master bündelt Integration/Lint/native Tests/Metal/Places; Lieferanten behalten gezielte Eigenprüfungen/Kostenvergleiche. Breite Läufe koordinieren, lange Gates eingefroren im detached Worktree mit eigenem Build. Keine parallele Buildmutation/`spotless`; Prozesse tatsächlich prüfen, nicht blind neu starten.
+- Builds/Lint neben Messungen/interaktiver Arbeit mit `nice -n 10`, Messungen normal. Alle verfügbaren Kerne nutzen, Konkurrenz/RAM/Bandbreite berücksichtigen; keine globale Ein-Lauf-Sperre. Vergleichbare Trends entscheiden im Entwicklungsloop; isolierte Gegenmessungen bei Regressionen, größeren Entscheidungen und Geräteabnahme bündeln.
+- C++23, RAII, Composition, Zustandsautomaten, keine Runtime-Exceptions; behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge. Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; sonstige Logik atomar testen. SDL3 für Fenster/Eingabe/Audio, native Metal/Vulkan, GLSL; keine Xcode-App-Pflicht.
+- Header bei ihren Komponenten unter `src/`, größere Implementierungen in `.cpp`; kein öffentlicher `include/`-Baum. `.cpp`/`.mm`-Kommentare unter `src/` strippen; knappe nötige Vertrags-/Warum-Kommentare in Headern erlaubt, keine Pflichtblöcke. Funktionen höchstens 120 Zeilen per clang-tidy, keine Verdichtung/Suppression oder künstliche Fragmentierung.
+- Erst `rg`/Historie/`make help`, dann Ausschnitte bis 160 Zeilen; gewöhnlich höchstens 2000 Ausgabe-Tokens. Zusammenhängende Aufgabe je Datei, erwartbare Namen. Logs: Ergebnis/Fehler/Belegpfad. Hot Path ohne Formatierung/Ausgabe; feste Diagnosezähler, explizite Detailausgabe, Diagnosekosten messen.
+- Normalerweise lokal recherchieren; beauftragte Quellen-/API-, Webcam-/Technik-/Bibliotheksrecherche erlaubt Webzugriff. Nach Werkzeugupdates Orakelherkunft prüfen. Kurz auf Deutsch berichten: Ergebnis, Commit, Belege, Qualitätslücke; Zahlen herleiten, Unsicherheit benennen.
+
+## Zusammenarbeit
+- Vor Arbeitsblöcken AGENTS, #5, Rollen-Einstieg und Fach-Issues lesen. Remote vor Arbeitsblöcken/Commits, spätestens alle 15 Minuten abrufen; eigene Änderungen erhalten, eingefrorene Gates nicht nachziehen. Selbstständig nächste passende Arbeit nehmen.
+- GitHub (`gh issue list/view/create/edit`) ist einzige Aufgabenablage. Ein oberstes aktives Parent mit 0:N tatsächlich aktiven Kindern. Labels/Beschreibung konsistent: `state:open`/`state:active`, `priority:P0`–`priority:P3`, `architecture:planned`/`architecture:ready`, Besitzer. Vor Implementierung aktivieren, nach erfüllter Abnahme schließen.
+- Fach-Issues: Ergebnis, Iststand, Besitzer, Entscheidung, fehlende Verträge, kurze Abnahme; bevorzugt höchstens 80 Zeilen/6 KiB. `Parent`/`Depends` referenzieren Issues; `Depends` bedeutet fehlenden Vertrag, keine Reihenfolge/ganzen Subsysteme. Diskussion/Belege in Kommentare/PRs; eine Aussage an einem Ort, fremde Fortschritte erhalten.
+- Kommunikation #47, Ablauf #108: `[Absenderbranch → Zielbranches]`, Fach-Link und konkrete Lieferung/Frage/Entscheidung, gewöhnlich 3–6 Zeilen. Gesamtintegration antwortet als `master`, der PR-Merger eindeutig als `master:merge` (Rollenkennung, kein eigener Fachbranch). Nur neue/bearbeitete Kommentare seit erfolgreichem Abrufmarker lesen; Historie gezielt. Kommentare über konkrete ID ändern, nie `--edit-last`; Schweigen ist keine Zustimmung.
+- Besitz vor Arbeit melden; master koordiniert Reihenfolge/Basis. Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Der zusätzliche master übernimmt die koordinierte Warteschlange und bei lokalen Blockern unabhängige Refactor-/Architekturarbeit; Autoren aktualisieren/prüfen ihre Pakete und dürfen nicht übernommene fertige PRs weiter selbst mergen. Vor jedem Merge aktuellen Paketbesitz prüfen; gemeinsame Verträge vorher abstimmen. Draft/Mergefähigkeit ersetzt keine Abnahme. Research liefert Python, Engine/master native Übernahme; Fehler reproduzierbar mit Vertrag/Bild/Kosten zurückmelden.
+- Vollständig integrierte Themenbranches lokal/remote löschen, Remote-Löschung per Lease auf geprüften Stand. Dauerhafte Agentenbranches, offene PRs, belegte Worktrees/unintegrierte Commits schützen; keine globale Löschautomatik.
+
+## Ablage und Cleanup
+| Inhalt | Ort |
+|---|---|
+| Code / Tests / Experimente / gemeinsame Python-Referenzen | `src/`, `test/outshine/{src,integration}`, `test/experiments/`, `lib/` |
+| Builds / Places / Referenzbilder / Papers | `build/`, `build/shots/places/`, `build/shots/reference/`, `doc/references/` |
+| Quellen / Assets und Index | Getrennte `sources/` und `assets/` im Client-Pref-Verzeichnis |
+| Private Arbeitsdaten, Logs, Umgebungen, Bilder, Worktrees | `${TMPDIR:-/tmp}/outshine-<Agent>-<Auftrag>-<Commit>`; Tests `outshine-tests.<Checkout>` |
+
+Nur gemeinsam benötigter Inhalt ins Repo; keine privaten `build/experiments/`-Ausgaben.
+Feste Testinputs versionieren, keine privaten Temp-Abhängigkeiten. Bildvergleich:
+`test/scripts/pixels.py`; Worktree-Shots ins Haupt-Checkout übernehmen.
+Nach Arbeitsblöcken/vor Lieferung ersetzte Ausgaben/Exporte/Renderings und Zwischenprodukte
+aufräumen. Aktuellen Stand, nötigen Vorher-Vergleich, Originalinputs/Gegenbeispiele und
+Pins/Belege erhalten. Aktive/fremde Arbeiten, gemeinsame Caches sowie `outshine-prepared`,
+`outshine-content`, `outshine-reference-images` nie pauschal löschen.
+`make cleanup-temp` prüfen, gezielt mit `CLEANUP_ARGS='--apply --keep-worktree <Pfad>'` bereinigen;
+aktive/geänderte/gesperrte/ungemergte Worktrees schützen.

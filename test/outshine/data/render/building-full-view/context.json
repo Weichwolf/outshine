@@ -1,0 +1,269 @@
+{
+  "base_commit": "3c139527c4238060f8cdfeb8da46753180d6eb7a",
+  "scope": "Original complete normal-3D cell, not a frustum subset or current optimized runtime admission.",
+  "native_variant_binary_sha256": "437c879df7d4f57d77e304fa9a040d7d71e1f5351d35e67222f68d30dc8b4b46",
+  "native_build": {
+    "commit": "9ff4674396d45a0f0554ff183d434c1fba28640e",
+    "compiler": "Apple LLVM 21.0.0 (clang-2100.3.34.2)",
+    "flags": "c++ -std=c++23 -fno-exceptions -O2 -ffp-contract=off -Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter  ",
+    "host_load_after": [
+      2.31640625,
+      2.0986328125,
+      2.24462890625
+    ],
+    "host_load_before": [
+      2.04345703125,
+      2.025390625,
+      2.2275390625
+    ]
+  },
+  "declaration_sha256": "f7b22676574269357d95562f40b9dc19e228f148ce33e298eb47116913d0b222",
+  "profile": {
+    "budget_ms": 16.666666666666668,
+    "fps": 60.0,
+    "height_px": 720,
+    "width_px": 1280
+  },
+  "scenario_xml": "<scenario>\n  <world vegetation=\"no\" lat=\"35.6595\" lon=\"139.7005\" patienceS=\"3\" sightM=\"240000\" haze=\"0\"/>\n  <render widthPx=\"1280\" heightPx=\"720\" fill=\"0.6\" antialiasing=\"temporal\"/>\n  <lighting/>\n  <clock start=\"2026-06-21T02:41:00Z\" live=\"no\"/>\n  <views>\n    <view id=\"station\" person=\"first\" fovDeg=\"55\">\n      <at lat=\"35.6595\" lon=\"139.7005\" heightM=\"60\"\n          samplesHeight=\"yes\" bearingDeg=\"40\" pitchDeg=\"-6\"/>\n    </view>\n  </views>\n</scenario>\n",
+  "projection": {
+    "cell": 33,
+    "cluster_triangles": 128,
+    "error_px": 1.0,
+    "eye_ecef": [
+      -3956886.5916309967,
+      3355624.4977365807,
+      3697604.6631132816
+    ],
+    "focal_px": 691.5535657096198,
+    "latitude": 35.659500000000044,
+    "longitude": 139.7005,
+    "reuse_radius_m": 64.0
+  },
+  "parent": "6d3f9945a1035effd6769a8d93a00499aad7662296e276c8ec15dc2a10b52cae",
+  "motion": {
+    "static": {
+      "angular_velocity_deg_s": [
+        0.0,
+        -360.0,
+        0.0
+      ],
+      "finish": {
+        "far_m": 0.0,
+        "look_at_m": [
+          0.6392663516938986,
+          75.08297153691129,
+          -0.7618479709235999
+        ],
+        "looks_at": false,
+        "near_m": 0.05,
+        "perspective_fov_deg": 55.0,
+        "position_m": [
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10
+        ],
+        "up": [
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371
+        ],
+        "world_from_camera": [
+          0.7660444431189781,
+          -1.3877787807814457e-17,
+          0.6427876096865393,
+          0.0,
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371,
+          0.0,
+          -0.6392663519046988,
+          0.10452846326765551,
+          0.7618479715070194,
+          0.0,
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10,
+          1.0
+        ]
+      },
+      "frames": 60,
+      "linear_velocity_mps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "start": {
+        "far_m": 0.0,
+        "look_at_m": [
+          0.6392663516938984,
+          75.08297153691129,
+          -0.7618479709235999
+        ],
+        "looks_at": false,
+        "near_m": 0.05,
+        "perspective_fov_deg": 55.0,
+        "position_m": [
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10
+        ],
+        "up": [
+          0.06718960104802352,
+          0.9945218953682733,
+          -0.08007344843395373
+        ],
+        "world_from_camera": [
+          0.7660444431189781,
+          -1.3877787807814457e-17,
+          0.6427876096865393,
+          0.0,
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371,
+          0.0,
+          -0.6392663519046988,
+          0.10452846326765551,
+          0.7618479715070194,
+          0.0,
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10,
+          1.0
+        ]
+      },
+      "time_step_s": 0.016666666666666666
+    },
+    "moving": {
+      "angular_velocity_deg_s": [
+        0.0,
+        -360.0,
+        0.0
+      ],
+      "finish": {
+        "far_m": 0.0,
+        "look_at_m": [
+          6.639266351693898,
+          75.08297153691129,
+          -0.7618479709235999
+        ],
+        "looks_at": false,
+        "near_m": 0.05,
+        "perspective_fov_deg": 55.0,
+        "position_m": [
+          5.9999999997892,
+          75.18750000017894,
+          5.834195349052607e-10
+        ],
+        "up": [
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371
+        ],
+        "world_from_camera": [
+          0.7660444431189781,
+          -1.3877787807814457e-17,
+          0.6427876096865393,
+          0.0,
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371,
+          0.0,
+          -0.6392663519046988,
+          0.10452846326765551,
+          0.7618479715070194,
+          0.0,
+          5.9999999997892,
+          75.18750000017894,
+          5.834195349052607e-10,
+          1.0
+        ]
+      },
+      "frames": 60,
+      "linear_velocity_mps": [
+        6.0,
+        0.0,
+        0.0
+      ],
+      "start": {
+        "far_m": 0.0,
+        "look_at_m": [
+          0.6392663516938984,
+          75.08297153691129,
+          -0.7618479709235999
+        ],
+        "looks_at": false,
+        "near_m": 0.05,
+        "perspective_fov_deg": 55.0,
+        "position_m": [
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10
+        ],
+        "up": [
+          0.06718960104802352,
+          0.9945218953682733,
+          -0.08007344843395373
+        ],
+        "world_from_camera": [
+          0.7660444431189781,
+          -1.3877787807814457e-17,
+          0.6427876096865393,
+          0.0,
+          0.06718960104802352,
+          0.9945218953682731,
+          -0.08007344843395371,
+          0.0,
+          -0.6392663519046988,
+          0.10452846326765551,
+          0.7618479715070194,
+          0.0,
+          -2.1080026613162772e-10,
+          75.18750000017894,
+          5.834195349052607e-10,
+          1.0
+        ]
+      },
+      "time_step_s": 0.016666666666666666
+    },
+    "sample_time_s": "(frame + 1) / 60; frames 0..59",
+    "orientation_rule": "BenchmarkMotion.cpp: delta-world-axis quaternion multiplied by initial rotation"
+  },
+  "geometry_frame": "Float32 ECEF-relative coordinates; add anchor_ecef to obtain ECEF. Source-index ranges retain original index order.",
+  "scene_frame": {
+    "origin_ecef": [
+      -3956840.0002376544,
+      3355584.986060605,
+      3697560.8312791325
+    ],
+    "x_ecef": [
+      -0.6467831239491048,
+      -0.7626739739722583,
+      0
+    ],
+    "y_ecef": [
+      -0.6196694044010599,
+      0.5255085749245418,
+      0.5829670376016237
+    ],
+    "z_ecef": [
+      -0.4446137872624653,
+      0.3770532417393334,
+      -0.8124958049553161
+    ],
+    "camera_start_ecef_error_m": 1.0052245643419634e-08,
+    "qualification": "Double transform from native TangentFrame/GeodeticCamera convention, checked against original eye. Packed renderer placement bytes not exported."
+  },
+  "material_scope": "Wall/roof streams and actual vertex colour/UV/normal/material-metre attributes preserved; GPU material bindings/opacity remain unqualified.",
+  "part_scope": "Analytic surfaces retain parts/faces. Cached whole-source triangle part IDs are unknown and remain null.",
+  "sources_sha256": {
+    "test/experiments/render/export_building_selection.cpp": "b4ff9bd94130970e3f95d2e54c264728333a332b7d8dfa92bea046bb7fb55592",
+    "test/experiments/render/building_selection_observer.h": "5c18abf9edfab25253376e040ab6b0182adb36b39c7d4a0016a0a3db929dc5af",
+    "test/experiments/render/building_view_geometry.h": "d3fecdd049f85f8ad9a5b4661ba0b024e5604a77c72c7d0378676fd3955730a2",
+    "test/experiments/render/check_building_full_view.py": "b6be286d6f43e596185e91056d736ea2af77a881df494f362f58d1203b19c1be",
+    "src/base/spatial/TangentFrame.h": "50b3be1f33737de198bc6b450bd48e27161df690b1efcac96aaa44501b7d09d3",
+    "src/engine/GeodeticCamera.h": "dcfc374f42a1020eb913be3687406151031acc6bed18d923d4959dd00491a127",
+    "src/client/BenchmarkMotion.cpp": "3377c86c7aa09dd69e3669bd4ed38e50fc38a5c0d57c89a695297ff973f5351a",
+    "src/generators/building/BuildingMesh.cpp": "e0ef673c342337003de3b9cbb0858ea03cff5ce2c2630f2f6225094eb818a2d8",
+    "src/generators/building/StructurePlanSelection.cpp": "43a29240922bc475b3484382c363bbf2681e11630f267da4096fffe8c5c46303"
+  }
+}

@@ -19,12 +19,13 @@ from special_sources import INVENTORY, tiles
 SITES = ("Spittelau", "BerlinFernsehturm", "Grohnde", "Hameln")
 
 
-def read_tile(site):
+def read_tile(site, *, source_root=None):
     inventory = json.loads(INVENTORY.read_text())
     selection = next(s for s in inventory["sites"] if s["name"] == site)
     tile = tiles(selection["latitude"], selection["longitude"], 0)[0]
     receipt = next(r for r in inventory["receipts"] if tuple(r["tile"]) == tile)
-    path = SOURCES / (hashlib.sha256(receipt["url"].encode()).hexdigest() + ".pbf")
+    root = SOURCES if source_root is None else source_root
+    path = root / (hashlib.sha256(receipt["url"].encode()).hexdigest() + ".pbf")
     data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != receipt["sha256"]:
         raise ValueError("Pinned tile changed")
@@ -81,6 +82,8 @@ def prism(row, parameters, material):
         parameters["buildingHeight"],
         material,
     )
+    if not storage[0] or not storage[1]:
+        raise ValueError("Unresolved prism triangulation")
     vertices = np.asarray(storage[0])
     faces = np.asarray(storage[1], dtype=np.uint32)
     triangles = vertices[faces]
@@ -107,7 +110,9 @@ def prism(row, parameters, material):
     }
 
 
-def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
+def construct(
+    site, error_m=1.0, prepared=None, ordinary_builder=None, radial_builder=None
+):
     rows, receipt = read_tile(site) if prepared is None else prepared
     industry = shapely.union_all(
         [
@@ -176,16 +181,24 @@ def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
             if prototype:
                 plan, info = prototype
                 metric_error = error_m(row, params) if callable(error_m) else error_m
-                result = radial_mesh(plan, error_m=metric_error)
-                mesh = dict(result.mesh)
-                info.update(
-                    profile_knots=plan.knots,
-                    profile_indices=result.profile_indices,
-                    sides=result.sides,
-                    radial_error_m=result.error_m,
-                    logical_profile="complete camera-independent profile",
-                    triangles=len(mesh["faces"]),
+                detail = (
+                    radial_builder(row, plan, info, metric_error)
+                    if radial_builder is not None
+                    else None
                 )
+                if detail is None:
+                    result = radial_mesh(plan, error_m=metric_error)
+                    mesh = dict(result.mesh)
+                    info.update(
+                        profile_knots=plan.knots,
+                        profile_indices=result.profile_indices,
+                        sides=result.sides,
+                        radial_error_m=result.error_m,
+                        logical_profile="complete camera-independent profile",
+                        triangles=len(mesh["faces"]),
+                    )
+                else:
+                    mesh, info = detail
             else:
                 detail = (
                     ordinary_builder(row, params, material)
@@ -237,7 +250,10 @@ def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
                 members[-1].update(
                     placement_base_enu_m=row["placement_base_enu_m"],
                     ground_asl_m=row["ground_asl_m"],
-                    placement_origin="separate sampled DEM placement, provider height interval unchanged",
+                    placement_origin=row.get(
+                        "placement_origin",
+                        "separate sampled DEM placement, provider height interval unchanged",
+                    ),
                 )
         except (ValueError, shapely.errors.GEOSException) as error:
             omissions.append({"id": row["id"], "reason": str(error)})

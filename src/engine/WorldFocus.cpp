@@ -1,11 +1,11 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include <optional>
 #include <expected>
 #include <string_view>
 #include "GeodeticCamera.h"
 #include "Geodesy.h"
 #include "TangentFrame.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 
@@ -17,7 +17,7 @@ Engine::State::GeodeticCameraPosition(const Scenario::View &view) const {
   if (view.Geographic.SamplesHeight && ground != nullptr) {
     sample = ground->At({.LongitudeDeg = view.Geographic.Geodetic.LongitudeDeg,
                          .LatitudeDeg = view.Geographic.Geodetic.LatitudeDeg},
-                        World.Stack.FinestZoomOf(Data::DataKind::Elevation));
+                        World.Stack.TerrainRenderZoom());
   }
   return ResolveGeodeticCamera(
       view,
@@ -34,6 +34,10 @@ std::optional<LongitudeLatitudeHeight> Engine::State::CurrentGeographicPosition(
     const auto position = GeodeticCameraPosition(Session.Views->Active());
     if (!position || !*position) { return std::nullopt; }
     eye = **position;
+  } else if (CameraPosePending && Session.Views &&
+             Session.Views->Active().Placement == Scenario::CameraPlacement::Local) {
+    const auto &view = Session.Views->Active();
+    eye = view.Sees.PositionM + view.OffsetM;
   } else {
     if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return std::nullopt; }
     eye = Picture.Standing->Watching().EyeM;

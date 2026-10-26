@@ -1,0 +1,80 @@
+{
+  "scope": "Actual frozen-contact counterexamples; neither wider tolerance nor a small approach fragment repairs these inputs. Joint source planning replaces the incompatible frozen stage.",
+  "vector_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "dem_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+  "old_cap_orientation": {
+    "producer_commit": "b9b55329a",
+    "old_ring_source_id": "openfreemap:14/8937/5678:transportation:1574593312:0",
+    "approach_source_id": "openfreemap:14/8937/5678:transportation:103612620:13",
+    "triangle_enu_m": [
+      [
+        -618.7587890625,
+        350.97314453125,
+        163.98500962959406
+      ],
+      [
+        -618.75927734375,
+        350.97314453125,
+        163.98503198012583
+      ],
+      [
+        -617.23291015625,
+        348.58154296875,
+        163.91214007817723
+      ]
+    ],
+    "grade_frame": [
+      [
+        -5.498483487974724,
+        8.352645050070624
+      ],
+      [
+        -27.84215016690208,
+        -18.32827829324908
+      ]
+    ],
+    "expected_normalized_double": 1.278454243686761
+  },
+  "incompatible_fixed_edge": {
+    "producer_commit": "a18abeb06ec67592b62f0e8d245cc0ec4d7cc9b3",
+    "fixed_xy_m": [
+      [
+        -616.1160438611214,
+        344.3105783231422
+      ],
+      [
+        -615.70654296875,
+        346.18994140625
+      ]
+    ],
+    "fixed_heights_m": [
+      163.76557038217953,
+      163.93093872070312
+    ],
+    "grade_frame": [
+      [
+        -5.509502492960646,
+        8.369383817706035
+      ],
+      [
+        -28.029010235136322,
+        -18.451286872398406
+      ]
+    ],
+    "required_dz_m": 0.16536833852359223,
+    "maximum_dz_m": 0.14031122313377462,
+    "expected_ratio": 1.178582402962362,
+    "solver_grade_reserve": 0.0002,
+    "nominal_grade_frame": [
+      [
+        -5.498483487974725,
+        8.352645050070624
+      ],
+      [
+        -27.842150166902076,
+        -18.32827829324908
+      ]
+    ],
+    "maximum_nominal_dz_m": 0.140648890599464
+  }
+}

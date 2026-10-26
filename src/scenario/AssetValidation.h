@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_SCENARIO_ASSETVALIDATION_H
 #define OUTSHINE_SCENARIO_ASSETVALIDATION_H
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <expected>
 #include <string_view>
 

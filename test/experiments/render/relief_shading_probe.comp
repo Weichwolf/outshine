@@ -1,0 +1,28 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+const float kPi = 3.14159265358979323846;
+#include "metalRoughBrdf.glsl"
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  uint at = 320u + 12u * uint(probes[index].Which);
+  vec3 normal = vec3(palette[at], palette[at + 1u], palette[at + 2u]);
+  float roughness = palette[at + 3u];
+  vec3 light = vec3(palette[at + 4u], palette[at + 5u], palette[at + 6u]);
+  vec3 view = vec3(palette[at + 8u], palette[at + 9u], palette[at + 10u]);
+  vec3 halfVector = normalize(light + view);
+  float nl = max(dot(normal, light), 0.0);
+  float nv = max(dot(normal, view), 1e-6);
+  float nh = max(dot(normal, halfVector), 0.0);
+  float vh = max(dot(view, halfVector), 0.0);
+  Brdf value = metalRoughBrdf(vec3(0.0), vec3(0.04), 1.0, pow(roughness, 4.0), nl, nv, nh, vh);
+  results[index] = Result(vec4(value.specular * nl, roughenedBy(roughness, palette[at + 7u])),
+                           vec4(nl, nv, nh, vh));
+}

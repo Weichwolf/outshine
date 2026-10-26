@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_SHADE_IMAGEMIPS_H
 #define OUTSHINE_CONTENT_SHADE_IMAGEMIPS_H
 
-#include "scene/Texture.h"
+#include "Texture.h"
 #include <optional>
 #include <vector>
 

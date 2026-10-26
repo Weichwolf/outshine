@@ -1,0 +1,13 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Input { uint source[]; };
+layout(std430, set = 1, binding = 0) writeonly buffer Output { uint outputValues[]; };
+layout(std140, set = 2, binding = 0) uniform Constants { uvec4 parameters[16]; };
+
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at >= outputValues.length()) { return; }
+  outputValues[at] = at < source.length()
+      ? source[at] + parameters[0].x + uint(source.length()) : 0xffffffffu;
+}

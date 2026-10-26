@@ -8,13 +8,13 @@
 #include <span>
 #include <type_traits>
 
-#include <world/EntityRegistry.h>
+#include <EntityRegistry.h>
 
 namespace outshine {
 
 template <class Value> class Column {
 public:
-  [[nodiscard]] bool Open(const EntityRegistry &of) {
+  [[nodiscard]] bool Open(const World::EntityRegistry &of) {
     if (of.capacity() == 0) { return false; }
     Bound_ = &of;
     Values_.assign(of.capacity(), Value{});
@@ -69,7 +69,7 @@ public:
   }
 
 private:
-  const EntityRegistry *Bound_ = nullptr;
+  const World::EntityRegistry *Bound_ = nullptr;
   std::vector<Value> Values_;
   std::vector<Entity> Entities_;
 };

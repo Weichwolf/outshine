@@ -10,7 +10,7 @@
 
 #include "Earth.h"
 #include "RoadConstraintChain.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 

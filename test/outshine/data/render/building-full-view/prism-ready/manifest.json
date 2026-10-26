@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "producer": "15f41cb3fa225e5a844953a376d2424bb9c55eb7",
+  "issue": 1161,
+  "method_pr": 1100,
+  "files": {
+    "product.npz": {
+      "bytes": 264264,
+      "sha256": "b05ec5cb38ca0e792cb1014c2e4c9e0f3a502cb79bb719fc031a90228ef3cbfb"
+    },
+    "exact-control.npz": {
+      "bytes": 239239,
+      "sha256": "a8e2d01a630295772aca7de6efef373551b050b2f42919fe48e05503fd57c274"
+    },
+    "plane-fit.npz": {
+      "bytes": 284459,
+      "sha256": "60ac1e5ca96bc42e7d4fc77a6c3fddb6010bb7406ae61927d15194b08feaec6f"
+    }
+  },
+  "original_fixture": "../cell.json.gz",
+  "original_manifest_sha256": "d0e281c5820911dae438dd7c96df7d6e781c88a1c7a8d5135f4b44e59bf285a5",
+  "original_archive_sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac",
+  "population": {
+    "sources": 576,
+    "original_triangles": 14169,
+    "analytic_sources": 557,
+    "analytic_solids": 586,
+    "planes": 4327,
+    "fallback_sources": 19,
+    "fallback_triangles": 887
+  },
+  "array_payload_bytes": {
+    "product.npz": 428888,
+    "exact-control.npz": 450372,
+    "plane-fit.npz": 446196
+  },
+  "poses": {
+    "input": "../context.json",
+    "reader": "test/experiments/render/full_view_reference.py:views",
+    "frames_per_sequence": 60,
+    "sequences": [
+      "static",
+      "moving"
+    ],
+    "profile_px": [
+      1280,
+      720
+    ]
+  },
+  "geometry": {
+    "coordinates": "Original cell anchor-relative native XYZ and BSC3 source frames; use original fixture/context frame, not ENU area priors.",
+    "planes": "Outward unit Float64 n.xyz and d, solid n dot p <= d; offsets delimit each prism.",
+    "binding": "prism_binding columns are original parent source ordinal, own analytic part ordinal. Native original Part/Face IDs remain unknown.",
+    "fallback": "prism_fallback_faces are original whole-view triangle indices; fallback_* preserve their complete original geometry/attributes.",
+    "bvh": "node_children: inner child pair, or [-1, primitive ordinal]; node_bounds are conservative. Omitted primitive bounds can be recovered from leaves.",
+    "source_ids": "Parent ordinals are stable within the original parent; do not deduplicate anonymous external IDs."
+  },
+  "material": {
+    "codes": "Material dictionary pairs selected by own source-relative gable test, material_code_index maps planes to dictionary. Categories never interpolate through packed U.",
+    "normal": "Baseline analytic plane normal for analytic hits, unpacked original Oct16x2 vertex normals for fallback; not raster-identical.",
+    "wall_rows": "material_edge_offsets per primitive; rows correspond to wall planes starting at prism_offsets[primitive]+1.",
+    "fields": "Source frames/heights/edge/bays/metres plus explicit codes reconstruct continuous local UV/metres; ready consumer requires no BSC3/GEOS.",
+    "fallback_colour": "Empty fallback_colour means shared white RGBA; nonwhite original factors otherwise retained.",
+    "reference_shader": "Original flat facadeCode is separated before interpolation; UV/bay/metres/RGBA interpolate. Neutral diagnostic PBR does not implement native procedural filtering/emissive/opacity/TAA/MSAA/caster/reflections."
+  },
+  "exact_control": {
+    "positions": "Float32 native position bit patterns as uint32 dictionary, position_indices retain triangle order.",
+    "attributes": "Float32 bit dictionary of post-vertex UV.xy and metres.xy; white RGBA implicit for this input. attribute_indices retain corners.",
+    "normal_code": "normal_code_index selects normal_table packed Oct16x2 and explicit code_table category per triangle.",
+    "source_runs": "source_ids with source_offsets retain original triangle-order source membership. No required native part/face tags are invented."
+  },
+  "limits": [
+    "product.npz/exact-control.npz remain the unchanged baseline/control. plane-fit.npz is a separately named opt-in candidate.",
+    "Known moving-023 material/normal switch and static-025 coverage loss remain failures of product.npz; the finite correction and its limits belong to #1164.",
+    "One complete original native cell; not all 3054 Shell cells, world, device/p99 or native material/transition admission.",
+    "Asset/reference input only; no images, new export format, source acquisition or scene rebuilding."
+  ],
+  "variants": {
+    "plane-fit.npz": {
+      "producer": "50c620e44544d4ca60990f8bd0c2df27f0e0cdf4",
+      "method_pr": 1164,
+      "baseline": "product.npz",
+      "geometry": "Same source/part/plane ordering and complete original fallback; fitted plane coefficients and rebuilt BVH bounds/child order. All unchanged material/identity/fallback arrays retained.",
+      "shading": "fit_normal_words stores one source-owned Oct16x2 word per plane. Fitted plane normals are geometric intersection normals, not source shading normals. Python render_source_shading applies words only to analytic hits; fallback stays native.",
+      "field_scope": "Extra fit_normal_words is experimental reference data, no native GPU binding or product/cache format change. Existing native first-surface probe may compare fitted geometry independently of shading.",
+      "finite_result": "120 poses / 120676 rays: old one missing sample and one different material code removed; no added samples or changed source IDs. Fresh matched PBR has local gains and a day negative case; no general containment/image/device admission.",
+      "cold_input": "Existing original post-vertex triangles required for fitting; no avoided cold Shell expansion/IO claim."
+    }
+  }
+}

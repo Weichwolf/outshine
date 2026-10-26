@@ -13,24 +13,13 @@ import numpy as np
 from axis_surface import axis_mesh
 from blade_surface import Blade
 from curve_frame import arc_frame
+from experiment_output import private_output
+from grass_tuft import GRASS
 from shoot_plan import Shoot, normal_frame
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 UPRIGHT = np.array(((1, 0, 0), (0, 0, -1), (0, 1, 0)), dtype=float)
-GRASS = Blade(
-    length=0.45,
-    width=0.009,
-    widest=0.1,
-    lobes=0,
-    lobe_depth=0,
-    base_fill=0.7,
-    bend=1.15,
-    fold=0.25,
-    fold_power=1,
-    twist=0,
-    petiole=0,
-)
 
 
 def triangle_areas(mesh):
@@ -400,9 +389,7 @@ def make_scenes(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=Path("build/experiments/vegetation/organs")
-    )
+    parser.add_argument("--output", type=private_output, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     blades = check_blades()

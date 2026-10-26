@@ -1,0 +1,197 @@
+#ifdef __linux__
+#include "Recording.h"
+#include <expected>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <limits>
+#include <string>
+
+namespace outshine::Render::Native::Vulkan {
+
+Recording::~Recording() {
+  assert(OnOwner(*Context_));
+  if (Pool_ != VK_NULL_HANDLE) { vkDestroyCommandPool(Context_->Logical, Pool_, nullptr); }
+  for (const auto &tracked : Images_) {
+    if (tracked.Image->Reserved == this) { tracked.Image->Reserved = nullptr; }
+    if (tracked.Image->Presentation) {
+      tracked.Image->Presentation->Recordings.fetch_sub(1);
+      tracked.Image->Presentation->Wake();
+    }
+  }
+  for (const auto &buffer : Buffers_) { --buffer->RecordedUses; }
+  --Context_->Recordings;
+  if (!Submitted_) { --Context_->OpenRecordings; }
+}
+
+void Recording::CommitSubmission() noexcept {
+  Submitted_ = true;
+  --Context_->OpenRecordings;
+  CommitImages();
+  CommitPresent();
+}
+
+Result<void> Recording::Initialize() {
+  if (Context_->LastRecordingIdentity == std::numeric_limits<uint64_t>::max()) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Busy, .Message = "Vulkan recording identity space exhausted"});
+  }
+  Identity_ = ++Context_->LastRecordingIdentity;
+  VkCommandPoolCreateInfo create{};
+  create.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  create.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+  create.queueFamilyIndex = Context_->QueueFamily;
+  auto result = vkCreateCommandPool(Context_->Logical, &create, nullptr, &Pool_);
+  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateCommandPool", result)); }
+  VkCommandBufferAllocateInfo allocation{};
+  allocation.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocation.commandPool = Pool_;
+  allocation.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocation.commandBufferCount = 1;
+  result = vkAllocateCommandBuffers(Context_->Logical, &allocation, &Commands_);
+  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkAllocateCommandBuffers", result)); }
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  result = vkBeginCommandBuffer(Commands_, &begin);
+  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkBeginCommandBuffer", result)); }
+  return Timings_.BeginSubmission(Commands_);
+}
+
+Result<void> Recording::End() {
+  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Finished_ || Render_) {
+    return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "commands already ended"});
+  }
+  if (auto presented = FinalizePresentation(); !presented) { return presented; }
+  if (auto sealed = Storage_.Seal(); !sealed) { return sealed; }
+  Timings_.EndSubmission(Commands_);
+  const auto result = vkEndCommandBuffer(Commands_);
+  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkEndCommandBuffer", result)); }
+  Finished_ = true;
+  return {};
+}
+
+Result<void> Recording::Hold(const std::shared_ptr<BufferState> &buffer) {
+  if (buffer->Mapped != nullptr || Finished_) {
+    return std::unexpected(Error{.Kind = ErrorKind::Busy,
+                                 .Message = "buffer is mapped or command recording has ended"});
+  }
+  if (std::ranges::find(Buffers_, buffer) == Buffers_.end()) {
+    Buffers_.push_back(buffer);
+    ++buffer->RecordedUses;
+  }
+  return {};
+}
+
+bool Recording::RepeatsRead(BufferState &buffer, ByteRange range, BufferAccess access) const {
+  constexpr size_t kRememberedReads = 16;
+  constexpr VkAccessFlags2 reads =
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT |
+      VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
+      VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_HOST_READ_BIT;
+  if (buffer.ReadRecording != Identity_) {
+    buffer.ReadRecording = Identity_;
+    buffer.ReadScopes.clear();
+  }
+  auto &known = buffer.ReadScopes;
+  if (access.Stage == 0 || access.Access == 0 || (access.Access & ~reads) != 0) {
+    known.clear();
+    return false;
+  }
+  const auto matches = [range, access](const BufferReadScope &read) {
+    return read.Range.Offset == range.Offset && read.Range.Bytes == range.Bytes &&
+           read.Stage == access.Stage && read.Access == access.Access;
+  };
+  if (std::ranges::any_of(known, matches)) { return true; }
+  if (known.size() == kRememberedReads) { known.clear(); }
+  known.push_back({.Range = range, .Stage = access.Stage, .Access = access.Access});
+  return false;
+}
+
+void Recording::Use(BufferState &buffer, ByteRange range, BufferAccess access) {
+  if (RepeatsRead(buffer, range, access)) { return; }
+  VkBufferMemoryBarrier2 barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+  barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_HOST_BIT;
+  barrier.srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+  barrier.dstStageMask = access.Stage;
+  barrier.dstAccessMask = access.Access;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.buffer = buffer.Handle;
+  barrier.offset = range.Offset;
+  barrier.size = range.Bytes;
+  VkDependencyInfo dependency{};
+  dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  dependency.bufferMemoryBarrierCount = 1;
+  dependency.pBufferMemoryBarriers = &barrier;
+  vkCmdPipelineBarrier2(Commands_, &dependency);
+}
+
+Result<void> Recording::Copy(const Buffer &source, Buffer &destination, BufferCopy region) {
+  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
+  const auto from = BufferFrom(source, *Context_);
+  const auto into = BufferFrom(destination, *Context_);
+  if (!from) { return std::unexpected(from.error()); }
+  if (!into) { return std::unexpected(into.error()); }
+  const auto has = [](UseMask<BufferUse> use, BufferUse bit) {
+    return (static_cast<uint32_t>(use) & static_cast<uint32_t>(bit)) != 0;
+  };
+  const ByteRange sourceRange{.Offset = region.SourceOffset, .Bytes = region.Bytes};
+  const ByteRange destinationRange{.Offset = region.DestinationOffset, .Bytes = region.Bytes};
+  if (!Contains(source.Description().Bytes, sourceRange) ||
+      !Contains(destination.Description().Bytes, destinationRange) ||
+      !has(source.Description().Use, BufferUse::CopySource) ||
+      !has(destination.Description().Use, BufferUse::CopyDestination) ||
+      (from->get() == into->get())) {
+    return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "invalid buffer copy"});
+  }
+  if (auto held = Hold(*from); !held) { return std::unexpected(held.error()); }
+  if (auto held = Hold(*into); !held) { return std::unexpected(held.error()); }
+  Use(**from,
+      sourceRange,
+      {.Stage = VK_PIPELINE_STAGE_2_COPY_BIT, .Access = VK_ACCESS_2_TRANSFER_READ_BIT});
+  Use(**into,
+      destinationRange,
+      {.Stage = VK_PIPELINE_STAGE_2_COPY_BIT, .Access = VK_ACCESS_2_TRANSFER_WRITE_BIT});
+  const VkBufferCopy copy{.srcOffset = region.SourceOffset,
+                          .dstOffset = region.DestinationOffset,
+                          .size = region.Bytes};
+  vkCmdCopyBuffer(Commands_, (*from)->Handle, (*into)->Handle, 1, &copy);
+  if (destination.Description().Placement == Memory::Readback) {
+    Use(**into,
+        destinationRange,
+        {.Stage = VK_PIPELINE_STAGE_2_HOST_BIT, .Access = VK_ACCESS_2_HOST_READ_BIT});
+  }
+  return {};
+}
+
+void Recording::BeginLabel(std::string_view name) {
+  if (!Context_->DebugMarkers) { return; }
+  const auto begin = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
+      vkGetDeviceProcAddr(Context_->Logical, "vkCmdBeginDebugUtilsLabelEXT"));
+  if (begin == nullptr || Finished_) { return; }
+  const std::string text(name);
+  VkDebugUtilsLabelEXT label{};
+  label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+  label.pLabelName = text.c_str();
+  begin(Commands_, &label);
+}
+
+void Recording::EndLabel() {
+  if (!Context_->DebugMarkers) { return; }
+  const auto end = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
+      vkGetDeviceProcAddr(Context_->Logical, "vkCmdEndDebugUtilsLabelEXT"));
+  if (end != nullptr && !Finished_) { end(Commands_); }
+}
+
+}
+#endif

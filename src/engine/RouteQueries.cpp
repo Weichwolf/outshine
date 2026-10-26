@@ -1,4 +1,4 @@
-#include <Outshine.h>
+#include <Engine.h>
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "TangentFrame.h"
 #include "math/RenderFrame.h"
 #include "RoadSurfaceSampler.h"
@@ -21,7 +21,7 @@ struct RouteFrames {
   const TangentFrame &World;
 };
 
-[[nodiscard]] const NamedRoadAlignment *PublishedRoute(const Surrounds &world,
+[[nodiscard]] const NamedRoadAlignment *PublishedRoute(const WorldRegionState &world,
                                                        std::string_view name) {
   if (!world.GroundPublished.Current()) { return nullptr; }
   const auto found =

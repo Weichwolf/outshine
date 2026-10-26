@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "OfflineTransport.h"
@@ -15,13 +16,17 @@ namespace {
 
 class SilentSink final : public outshine::Sink {
 public:
-  void Number(const char *, double, const char *) override {}
+  void Number(const char *name, double value, const char *unit) override {}
 
-  void Claim(bool, const char *) override {}
+  void Claim(bool valid, const char *claim) override {}
 
-  void Near(double, double, double, const char *, const char *) override {}
+  void Near(double /*got*/,
+            double /*want*/,
+            double /*within*/,
+            const char * /*unit*/,
+            const char * /*why*/) override {}
 
-  void Say(const std::string &) override {}
+  void Say(const std::string &message) override {}
 };
 
 struct TemporaryCache {
@@ -42,16 +47,21 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  TemporaryCache cache;
+  const TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
+  Data::SourceProvider terrain;
+  terrain.Kind = "terrain";
+  const std::array providers{terrain};
   Tasks sourceCompute(1);
+  Data::ProviderRegistry registry;
+  Generators::RegisterShippedProviders(registry);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
+                   registry,
                    first,
                    wire,
                    sourceCompute,
@@ -73,7 +83,7 @@ int main() {
         "a settled zero-feature tile replaces absent source data without vector IO");
   CHECK(!stack.Ground().At(first).AslM(),
         "publishing an empty vector snapshot does not invent missing elevation");
-  if (!vectors) { return Report(); }
+  if (vectors == nullptr) { return Report(); }
   const uint64_t firstGeneration = vectors->Generation();
   const int firstX = vectors->CentreX();
   const auto repeated = stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0});
@@ -107,7 +117,7 @@ int main() {
        .WidthM = 4.0,
        .LatLon = {49.3274, 8.6159, 49.3275, 8.6160}},
   }};
-  stack.Declares(declared);
+  CHECK(stack.Declares(declared), "declared contents receive a persistent input identity");
   const auto withFeature = stack.AdvanceAt(moved, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(withFeature && stack.Vectors()->Features().size() == 1 &&
             stack.Vectors()->PendingTiles() == 0,

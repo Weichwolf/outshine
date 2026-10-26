@@ -1,6 +1,6 @@
 # Vorbereitete Assets, räumliche Pakete und Residency
 
-Stand: 2026-10-06. Primärquellen unten sind Online-Dokumentation von Epic und ein
+Stand: 2026-10-26. Primärquellen unten sind Online-Dokumentation von Epic und ein
 SIGGRAPH-Paper. Diese Notiz fasst Verfahren zusammen; sie ist keine Kopie der Dokumentation.
 Den Outshine-Vertrag besitzt [#10](https://github.com/Weichwolf/outshine/issues/10).
 
@@ -11,6 +11,7 @@ Den Outshine-Vertrag besitzt [#10](https://github.com/Weichwolf/outshine/issues/
 | [Unreal Derived Data Cache](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-derived-data-cache-in-unreal-engine) | Hierarchischer Lookup; Miss erzeugt abgeleitete Daten und speichert sie asynchron. | UE nutzt DDC beim Asset-Build. Cooked Games benötigen keinen DDC. Outshines Runtime-Misses sind unsere Übertragung. |
 | [World Partition](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine) | Räumliche Zellen, Ladebedarf durch Streaming Sources und deren Reichweite. | Belegt keine konkrete Datenbank, Radiusabfrage oder Ladezeit für Outshine. |
 | [World Partition HLOD](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition---hierarchical-level-of-detail-in-unreal-engine) | Vorbereitete vereinfachte Verbandsmeshes und Materialien stellen entfernte Zellen dar. | Proxies müssen unsere dynamische Beleuchtung und Bildstabilität erhalten; keine universelle Geometrieform. |
+| [Zen Loader](https://dev.epicgames.com/documentation/unreal-engine/zen-loader-in-unreal-engine) | Runtime-IO adressiert Chunks; vorbereitete Paket-/Objektabhängigkeiten reduzieren Ladevorarbeit. | Graph/Container werden beim Staging vorbereitet; kein unveränderter Vertrag für dynamisch generierte Produkte. Häufig erneut benötigte Bulkdata müssen unabhängig lesbar bleiben. |
 | [Texture Streaming Overview](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine) | Sichtbedarf, Speicherbudget und Retention-Prioritäten einschließlich letzter Nutzung bestimmen residente Mips. | Texturverfahren; feste TTL-Sekunden je Geometrie-LOD sind damit nicht belegt. |
 | [Geometry Clipmaps, Losasso/Hoppe, SIGGRAPH 2004](https://hhoppe.com/geomclipmap.pdf), [lokales PDF](../../terrain/siggraph/2004-geometry-clipmaps.pdf) | Komprimierte Terrainbasis, verschachtelte kamerazentrierte Gitter, inkrementelle Aktualisierung und synthetisierte feinere Details. | Heightfields; kein direkter Ersatz für Gebäude-, Vegetations- oder beliebige Objekt-LOD. |
 
@@ -25,6 +26,11 @@ Basis-/Fernprodukte. Nahgeometrie entsteht budgetiert daraus. Licht, Wetter, Win
 dynamische Pose bleiben Laufzeitaufgaben. Treffer wiederholen keinen Quellen-Decode,
 keine Anreicherung und keinen Rohling-Aufbau.
 
+Angenommene Rezepte und dauerhafte Weltentscheidungen sind keine wegwerfbaren
+abgeleiteten Daten. Ihre Speicherung und Pins besitzen #1230/#1231; erst daraus
+reproduzierbare Produkte dürfen Cachebereinigung unterliegen. DDC/Zen Storage und
+Zen Loader haben verschiedene Aufgaben; keine Format-/Dienstübernahme folgt daraus.
+
 | Ebene | Gültigkeit und Freigabe |
 |---|---|
 | Netzwerk-Quellcache | Unveränderte Eingaben bis ausdrücklicher Leerung; keine automatische Aktualisierung. |
@@ -36,5 +42,9 @@ TTL ist höchstens eine gemessene Freigabeverzögerung gegen Thrashing, kein Abl
 gültiger Assets. Konkrete Zeiten bleiben offen. Fehlende Feinprodukte behalten gültige
 grobe Eltern; Frustumwechsel löst keinen vollständigen Neuaufbau aus.
 
-Die Quellen stützen diese Bausteine. Ladezeit, Speicherverbrauch und Bildqualität der
-Kombination müssen Wien, Central Park und Tokyo in Outshine belegen.
+Die Quellen stützen diese Bausteine. Ladezeit, Speicherverbrauch und Bildqualität
+der Kombination bleiben nativ an wechselnden Szenarien und geografischen Gegenfällen
+zu prüfen. HLOD-Merge kann Öffnungen schließen oder ortsabhängige Materialien verändern;
+Bildproxy, funktionale Geometrie und konservative Verdeckung sind getrennte Verträge.
+Original-/Abbildungsprüfung und Grenzen:
+[#1225](https://github.com/Weichwolf/outshine/issues/1225#issuecomment-6410933180).

@@ -1,6 +1,9 @@
 #include "BuildingField.h"
+#include "BuildingPhysicalProduct.h"
 #include "Check.h"
 
+#include <algorithm>
+#include <initializer_list>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -8,11 +11,43 @@
 #include <utility>
 #include <vector>
 
+namespace {
+constexpr auto kWestAcrossM = 12.0;
+constexpr auto kCentreAcrossM = 15.0;
+constexpr auto kCentreSecondAcrossM = 15.1;
+constexpr auto kEastAcrossM = 19.0;
+constexpr auto kWestHeightM = 20.0f;
+constexpr auto kCentreSpreadM = 5.0;
+constexpr auto kCentreSecondSpreadM = 5.1;
+constexpr auto kEastSpreadM = 9.0;
+constexpr auto kEastHeightM = 90.0f;
+using Field = ::outshine::Generators::Osm::BuildingField;
+
+bool MeasurementsMatch(const Field &field,
+                       std::initializer_list<double> spread,
+                       std::initializer_list<double> across) {
+  const auto matches = [&](std::span<const double> expected, auto member) {
+    size_t offset = 0;
+    for (size_t tile = 0; tile < field.AcceptedTiles().size(); ++tile) {
+      const auto &values = field.ProductAt(tile).*member;
+      if (values.size() > expected.size() - offset ||
+          !std::ranges::equal(values, expected.subspan(offset, values.size()))) {
+        return false;
+      }
+      offset += values.size();
+    }
+    return offset == expected.size();
+  };
+  return matches(std::span(spread), &::outshine::Ground::BuildingPhysicalProduct::SeatSpreadM) &&
+         matches(std::span(across), &::outshine::Ground::BuildingPhysicalProduct::AcrossM);
+}
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  ::outshine::Generators::Osm::OsmField empty(14, {});
+  const ::outshine::Generators::Osm::OsmField empty(14, {});
   ::outshine::Generators::Osm::BuildingField field;
   field.AnchorAt({{0, 0, 0}});
 
@@ -22,34 +57,37 @@ int main() {
                           std::span<const double> across,
                           size_t triangles) {
     const ::outshine::Generators::Osm::BuildingField::Baked baked{
+        .Coordinates = {},
         .Prints = prints,
         .SeatSpreadM = spread,
         .AcrossM = across,
         .Triangles = triangles,
         .OsmHeights = static_cast<int>(prints.size())};
-    field.PreparesAcceptances(
-        {.Prints = prints.size(), .Spread = spread.size(), .Across = across.size(), .Tiles = 1});
+    field.PreparesAcceptances(1);
     field.Take(tile);
     auto pending = field.PrepareAcceptance(tile, baked);
     field.CommitAcceptance(std::move(pending), baked);
   };
-  const std::array<::outshine::Ground::BuildingFootprint, 1> east{{{.HeightM = 90.0f}}};
-  const std::array<::outshine::Ground::BuildingFootprint, 1> west{{{.HeightM = 20.0f}}};
-  const std::array<double, 1> eastSpread{9.0}, westSpread{2.0};
-  const std::array<double, 1> eastAcross{19.0}, westAcross{12.0};
+  const std::array<::outshine::Ground::BuildingFootprint, 1> east{
+      {{.HeightM = kEastHeightM, .Street = {}, .TerrainCeiling = {}, .TerrainContacts = {}}}};
+  const std::array<::outshine::Ground::BuildingFootprint, 1> west{
+      {{.HeightM = kWestHeightM, .Street = {}, .TerrainCeiling = {}, .TerrainContacts = {}}}};
+  const std::array<double, 1> eastSpread{kEastSpreadM};
+  const std::array<double, 1> westSpread{2.0};
+  const std::array<double, 1> eastAcross{kEastAcrossM};
+  const std::array<double, 1> westAcross{kWestAcrossM};
   accept(9, east, eastSpread, eastAcross, 9);
   accept(5, {}, {}, {}, 0);
   accept(2, west, westSpread, westAcross, 2);
-  CHECK(field.Footprints().size() == 2 && field.Footprints()[0].HeightM == 20.0f &&
-            field.Footprints()[1].HeightM == 90.0f && field.OfTile(5).empty() &&
-            field.OfTile(9).front().HeightM == 90.0f,
+  CHECK(field.FootprintCount() == 2 && field.OfTile(2).front().HeightM == kWestHeightM &&
+            field.OfTile(9).front().HeightM == kEastHeightM && field.OfTile(5).empty() &&
+            field.OfTile(9).front().HeightM == kEastHeightM,
         "out-of-order and empty accepted tiles keep correct footprint ranges");
-  CHECK(field.SeatSpreadM() == std::vector<double>({2.0, 9.0}) &&
-            field.FootprintAcrossM() == std::vector<double>({12.0, 19.0}) &&
+  CHECK(MeasurementsMatch(field, {2.0, kEastSpreadM}, {kWestAcrossM, kEastAcrossM}) &&
             field.IngestedTiles() == 3 && field.Ingested(empty),
         "measurement ranges and first-ingestion watermark follow sorted tile order");
 
-  ::outshine::Generators::Osm::BuildingField published = field.SnapshotAccepted();
+  const ::outshine::Generators::Osm::BuildingField published = field.SnapshotAccepted();
   field.BeginRefinement();
   CHECK(field.RefinementTile() == 2 && field.RefinementRemaining() == 3 &&
             !field.RefinementComplete() && field.AcceptedInputs().size() == 3,
@@ -60,27 +98,30 @@ int main() {
   const size_t ingested = field.IngestedTiles();
   const uint64_t firstRevision = field.Revision();
   const std::array<::outshine::Ground::BuildingFootprint, 2> centre{
-      {{.HeightM = 50.0f}, {.HeightM = 51.0f}}};
-  const std::array<double, 2> centreSpread{5.0, 5.1}, centreAcross{15.0, 15.1};
+      {{.HeightM = 50.0f, .Street = {}, .TerrainCeiling = {}, .TerrainContacts = {}},
+       {.HeightM = 51.0f, .Street = {}, .TerrainCeiling = {}, .TerrainContacts = {}}}};
+  const std::array<double, 2> centreSpread{kCentreSpreadM, kCentreSecondSpreadM};
+  const std::array<double, 2> centreAcross{kCentreAcrossM, kCentreSecondAcrossM};
   const Data::TileSourceIdentity fine{.Kind = Data::DataKind::Elevation,
                                       .Tile = {.Zoom = 14, .X = 5, .Y = 0},
                                       .SourceId = "dem",
                                       .Revision = "fine-2"};
-  const ::outshine::Generators::Osm::BuildingField::Baked larger{.Prints = centre,
+  const ::outshine::Generators::Osm::BuildingField::Baked larger{.Coordinates = {},
+                                                                 .Prints = centre,
                                                                  .SeatSpreadM = centreSpread,
                                                                  .AcrossM = centreAcross,
                                                                  .Triangles = 10,
                                                                  .OsmHeights = 2};
-  field.PreparesAcceptances(
-      {.Prints = centre.size(), .Spread = centreSpread.size(), .Across = centreAcross.size()});
+  field.PreparesAcceptances(0);
   auto pending = field.PrepareAcceptance(5, larger, std::span(&fine, 1), true);
   CHECK(field.OfTile(5).empty() && field.Revision() == firstRevision,
         "preparing replacement leaves published tile unchanged");
   field.ReplaceAcceptance(std::move(pending), larger);
-  CHECK(field.Footprints().size() == 4 && field.OfTile(2).front().HeightM == 20.0f &&
-            field.OfTile(5).size() == 2 && field.OfTile(9).front().HeightM == 90.0f &&
-            field.SeatSpreadM() == std::vector<double>({2.0, 5.0, 5.1, 9.0}) &&
-            field.FootprintAcrossM() == std::vector<double>({12.0, 15.0, 15.1, 19.0}),
+  CHECK(field.FootprintCount() == 4 && field.OfTile(2).front().HeightM == kWestHeightM &&
+            field.OfTile(5).size() == 2 && field.OfTile(9).front().HeightM == kEastHeightM &&
+            MeasurementsMatch(field,
+                              {2.0, kCentreSpreadM, kCentreSecondSpreadM, kEastSpreadM},
+                              {kWestAcrossM, kCentreAcrossM, kCentreSecondAcrossM, kEastAcrossM}),
         "larger replacement shifts every later footprint and measurement range");
   CHECK(field.InputOfTile(5) && field.InputOfTile(5)->Qualified &&
             field.InputOfTile(5)->Sources.front() == fine && field.TrianglesHanded() == 21 &&
@@ -95,9 +136,8 @@ int main() {
   const ::outshine::Generators::Osm::BuildingField::Baked smaller{};
   auto shrink = field.PrepareAcceptance(5, smaller);
   field.ReplaceAcceptance(std::move(shrink), smaller);
-  CHECK(field.OfTile(5).empty() && field.OfTile(9).front().HeightM == 90.0f &&
-            field.SeatSpreadM() == std::vector<double>({2.0, 9.0}) &&
-            field.FootprintAcrossM() == std::vector<double>({12.0, 19.0}) &&
+  CHECK(field.OfTile(5).empty() && field.OfTile(9).front().HeightM == kEastHeightM &&
+            MeasurementsMatch(field, {2.0, kEastSpreadM}, {kWestAcrossM, kEastAcrossM}) &&
             field.TrianglesHanded() == 11 && field.OsmHeights() == 2 &&
             field.IngestedTiles() == ingested,
         "smaller empty replacement removes stale data and preserves later tiles");

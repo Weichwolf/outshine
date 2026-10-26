@@ -1,0 +1,47 @@
+{
+  "format": "outshine-junction-slope-case-1",
+  "origin": {
+    "place": "Wien",
+    "commit": "6cd909e7d",
+    "profile": [
+      1920,
+      1080
+    ],
+    "network": "offline complete source cache",
+    "assets": "empty asset cache before rebuild",
+    "scope": "Unmodified scalar solver operands exported only after the actual failure. Provider/source-way geometry is not reconstructed by this packet."
+  },
+  "original_junction_indices": [
+    14939,
+    14974
+  ],
+  "slopes": [
+    [
+      0,
+      0,
+      0.05999999865889549
+    ],
+    [
+      0,
+      0,
+      0.05999999865889549
+    ]
+  ],
+  "constraints": [
+    {
+      "minimum_rise_m": 1.176377770493975,
+      "terms": [
+        [
+          1,
+          -3.9460175497522414,
+          -6.021050773338857
+        ],
+        [
+          0,
+          6.768700239935015,
+          0.5884023803095033
+        ]
+      ]
+    }
+  ]
+}

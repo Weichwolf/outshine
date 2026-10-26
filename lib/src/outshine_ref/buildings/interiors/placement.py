@@ -100,7 +100,7 @@ def placed(spec, centre, tangent, identifier):
     }
 
 
-def access(room, portals, items, reserved=()):
+def access(room, portals, items, reserved=(), *, placement_reserved=()):
     geometry(room, polygonal=True)
     if room.geom_type != "Polygon" or len(shapely.get_coordinates(room)) > 256:
         raise ValueError(
@@ -115,6 +115,11 @@ def access(room, portals, items, reserved=()):
         or not np.isfinite(portal_points).all()
     ):
         raise ValueError("Furnishing access requires finite XY portal anchors")
+    placement_reserved = tuple(placement_reserved)
+    if len(placement_reserved) > 16:
+        raise ValueError("Furnishing movement reservation capacity exceeded")
+    for region in placement_reserved:
+        geometry(region, polygonal=True)
     obstacles = shapely.union_all([r["footprint"] for r in items])
     if any(
         not room.covers(r["footprint"]) or not room.covers(r["activity"]) for r in items
@@ -130,6 +135,12 @@ def access(room, portals, items, reserved=()):
             raise ValueError("Furnishing activity area is occupied")
         if any(item["footprint"].intersects(region) for region in reserved):
             raise ValueError("Furnishing intersects a reserved approach or opening")
+        if any(
+            item[field].intersection(region).area > 1e-9
+            for region in placement_reserved
+            for field in ("footprint", "activity")
+        ):
+            raise ValueError("Furnishing or activity intersects reserved movement")
     free = room.difference(obstacles).buffer(-AGENT_RADIUS_M, join_style="mitre")
     anchors = [_owned_coordinates(p) for p in portals] + [
         _owned_coordinates(point) for r in items for point in r["targets"]
@@ -214,6 +225,8 @@ def layout(
     max_candidates=64,
     beam_width=1,
     objective="short-paths",
+    *,
+    placement_reserved=(),
 ):
     check_identifier(identifier)
     if not room.is_valid or room.geom_type != "Polygon" or room.is_empty:
@@ -232,7 +245,8 @@ def layout(
         raise ValueError("Unknown furnishing candidate method or capacity")
     rejected = []
     tested = 0
-    proof = access(room, portals, [], reserved)
+    placement_reserved = tuple(placement_reserved)
+    proof = access(room, portals, [], reserved, placement_reserved=placement_reserved)
     states = [(0.0, (), [], proof)]
     for number, spec in enumerate(requests):
         choices = []
@@ -243,7 +257,13 @@ def layout(
             for item in pool:
                 tested += 1
                 try:
-                    current = access(room, portals, [*items, item], reserved)
+                    current = access(
+                        room,
+                        portals,
+                        [*items, item],
+                        reserved,
+                        placement_reserved=placement_reserved,
+                    )
                 except ValueError as error:
                     rejected.append({"kind": spec.kind, "reason": str(error)})
                     continue

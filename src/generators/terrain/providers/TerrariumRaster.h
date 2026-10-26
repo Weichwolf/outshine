@@ -5,7 +5,7 @@
 #include <expected>
 #include <span>
 #include <string>
-#include <scene/HeightRaster.h>
+#include <HeightRaster.h>
 
 namespace outshine::Generators::Terrain {
 

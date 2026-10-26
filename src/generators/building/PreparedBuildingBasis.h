@@ -4,7 +4,8 @@
 #include "HeightField.h"
 #include "GeographicRing.h"
 #include "SourceProvenance.h"
-#include <math/Vec3.h>
+#include "Capacity.h"
+#include <Vec3.h>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -32,6 +33,16 @@ struct PreparedBuildingBasis {
   bool FallbackHeights = false;
   size_t SkippedRings = 0;
   int NoGround = 0;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    size_t bytes = sizeof(*this) + CapacityBytes(PointsLatLon) + CapacityBytes(Holes) +
+                   CapacityBytes(Sources) + CapacityBytes(HeightSources) +
+                   CapacityBytes(HeightRequest.Tiles);
+    for (const auto &source : HeightSources) {
+      bytes += source.SourceId.capacity() + 1u + source.Revision.capacity() + 1u;
+    }
+    return bytes;
+  }
 
   [[nodiscard]] static PreparedBuildingBasis Of(const PreparedStructureTile &base);
 };

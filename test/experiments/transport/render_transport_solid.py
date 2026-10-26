@@ -9,6 +9,7 @@ from pathlib import Path
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from regional_render_frame import bind_positions, render_camera, vector
 
 COLOURS = (
     (0.32, 0.38, 0.38, 1.0),
@@ -17,6 +18,8 @@ COLOURS = (
     (0.12, 0.43, 0.65, 1.0),
     (0.9, 0.29, 0.1, 1.0),
     (0.52, 0.58, 0.39, 1.0),
+    (0.64, 0.67, 0.70, 1.0),
+    (0.32, 0.27, 0.21, 1.0),
 )
 
 
@@ -92,23 +95,46 @@ def verify_place_camera(configuration, projection, view, vertices):
     path.write_text(json.dumps(proof, indent=2) + "\n")
 
 
-def render(configuration):
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    path = Path(configuration["mesh"])
-    if hashlib.sha256(path.read_bytes()).hexdigest() != configuration["mesh_sha256"]:
+def imported_body(configuration, item, name, render_origin):
+    path = Path(item["mesh"])
+    if hashlib.sha256(path.read_bytes()).hexdigest() != item["mesh_sha256"]:
         raise ValueError("render input changed")
     with np.load(path) as data:
         vertices, faces, slots = data["vertices"], data["triangles"], data["materials"]
-    geometry = bpy.data.meshes.new(configuration["id"])
+    geometry = bpy.data.meshes.new(name)
     geometry.from_pydata(vertices.tolist(), [], faces.tolist())
     geometry.update()
-    body = bpy.data.objects.new(configuration["id"], geometry)
+    body = bpy.data.objects.new(name, geometry)
     bpy.context.collection.objects.link(body)
+    relative, binding = bind_positions(body, vertices, item, render_origin)
     for i, colour in enumerate(configuration.get("colours", COLOURS)):
         material = bpy.data.materials.new(f"body-{i}")
         material.diffuse_color = colour
         geometry.materials.append(material)
     geometry.polygons.foreach_set("material_index", slots.astype(np.int32))
+    return relative, len(faces), body, binding
+
+
+def render(configuration):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    render_origin = vector(configuration.get("render_origin_m", [0, 0, 0]))
+    camera_configuration = render_camera(configuration)
+    objects = configuration.get("objects", [configuration])
+    if not 1 <= len(objects) <= 256:
+        raise ValueError("bounded render object list required")
+    imported = [
+        imported_body(
+            configuration,
+            item,
+            configuration["id"]
+            if len(objects) == 1
+            else configuration["id"] + "-" + str(i),
+            render_origin,
+        )
+        for i, item in enumerate(objects)
+    ]
+    vertices = np.vstack([item[0] for item in imported])
+    face_count = sum(item[1] for item in imported)
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
     shading = scene.display.shading
@@ -122,7 +148,7 @@ def render(configuration):
     scene.world = bpy.data.worlds.new("inspection")
     scene.world.color = configuration.get("background", (0.86, 0.87, 0.81))
     scene.view_settings.view_transform = "Standard"
-    camera = configure_camera(configuration)
+    camera = configure_camera(camera_configuration)
     scene.camera = camera
     scene.render.resolution_x, scene.render.resolution_y = configuration["profile"]
     scene.render.resolution_percentage = 100
@@ -138,9 +164,30 @@ def render(configuration):
         )
     )
     view = np.asarray(camera.matrix_world.inverted())
+    if "render_origin_m" in configuration:
+        bindings = [
+            {
+                **item[3],
+                "actual_model_matrix_f32": np.asarray(item[2].matrix_world).tolist(),
+            }
+            for item in imported
+        ]
+        proof = {
+            "render_origin_m": render_origin.tolist(),
+            "input_eye": configuration["eye"],
+            "input_target": configuration["target"],
+            "actual_camera_translation_f32_m": np.asarray(camera.location).tolist(),
+            "actual_view_matrix_f32": view.tolist(),
+            "actual_projection_matrix_f32": projection.tolist(),
+            "objects": bindings,
+            "scope": "Actual Blender CPU mesh/model/camera bindings before Workbench rendering; no native backend or vertex-shader capture.",
+        }
+        Path(configuration["output"]).with_suffix(".bindings.json").write_text(
+            json.dumps(proof, indent=2) + "\n"
+        )
     clip = np.c_[vertices, np.ones(len(vertices))] @ view.T @ projection.T
     if configuration.get("projection") == "perspective":
-        verify_place_camera(configuration, projection, view, vertices)
+        verify_place_camera(camera_configuration, projection, view, vertices)
     elif not configuration.get("detail_view", False) and np.any(
         np.abs(clip[:, :2] / clip[:, 3:4]) > 1.00001
     ):
@@ -154,7 +201,12 @@ def render(configuration):
                 "engine": scene.render.engine,
                 "profile": configuration["profile"],
                 "imported_vertices": len(vertices),
-                "imported_triangles": len(faces),
+                "imported_triangles": face_count,
+                **(
+                    {"render_origin_m": render_origin.tolist(), "objects": len(objects)}
+                    if "render_origin_m" in configuration
+                    else {}
+                ),
             }
         ),
         flush=True,

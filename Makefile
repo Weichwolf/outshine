@@ -1,255 +1,84 @@
-# Outshine — the library under src/, its declared data under src/assets/, the tests and the mods
-# they run under test/. This Makefile is the ONE way in: nothing here is started by reaching past
-# it into a script.
-#
-# WHAT EACH TARGET IS FOR
-#
-#   make strip      delete every comment src/ may not keep. `include/` keeps
-#                   Doxygen; src/ keeps NOTHING, test/ keeps all comments, and seeing that on
-#                   every build is what forces code that speaks for itself
-#   make            the library -> build/liboutshine.a, the generators -> build/libgenerators.a,
-#                   and the tools beside them
-#   make db         compile_commands.json, derived from the SAME tier graph the build uses
-#   make lint       clang-format, clang-tidy and this tree's own repository rules
-#   make doc        the door's documentation -> build/doc
-#   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
-#   make test       the world gate; compatibility corpora run explicitly
-#   make suite      one named suite                                (SUITE=outshine/integration/places)
-#   make clean      remove build artefacts
-#   make spotless   and the compiler's own nest in the system temp directory
-#
-# THE LAYERING IS THE BUILD AND IT IS DECLARED ONCE, in src/<tier>/reaches. test/run.sh derives
-# every include set from it, so this file keeps NO second map -- one went stale, left three layers
-# out of the archive and broke `make` at HEAD (board:1584).
-SHELL := /bin/bash
+SHELL := /bin/sh
 .DEFAULT_GOAL := all
-
-SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-RUN      := cd $(SELF_DIR) && sh test/run.sh
-
-# clang-tidy and clang-format ship with LLVM and are NOT on the default path on this platform;
-# naming the directory once here is the difference between a lint that runs and a lint that is
-# quietly skipped.
-LLVM_BIN := /opt/homebrew/opt/llvm/bin
-
-.PHONY: all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
-
-GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
-GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc -Isrc/content/shade
-GLSL_SHADERS := $(wildcard src/render/shaders/*.comp src/render/shaders/*.vert src/render/shaders/*.frag)
-SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHADERS))
-
-GROUND_OUTPUTS := $(foreach v,0 1,$(foreach n,0 1 2 3,$(foreach i,0 1 2 3,$(if $(and $(filter 1,$(v)),$(filter 1,$(n) $(i))),,$(if $(and $(filter-out 0,$(n)),$(filter $(n),$(i))),,$(v)$(n)$(i))))))
-GROUND_OUTPUTS += 01234
-GROUND_SHADERS := $(foreach v,0 1,build/shaders/groundLattice-$(v).vert.spv) $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundLit-$(output).frag.spv)
-
-FLAT_VERTICES := $(foreach u,0 1 2,$(foreach t,0 1,$(foreach v,0 1,build/shaders/flat-$(u)$(t)-$(v).vert.spv)))
-FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_OUTPUTS),build/shaders/flat-$(kind)-$(output).frag.spv))
-
-LIT_LAYOUTS := 000 010 100 110 200 210 101 111 201 211
-LIT_VERTICES := $(foreach layout,$(LIT_LAYOUTS),$(foreach v,0 1,build/shaders/lit-$(layout)-$(v).vert.spv))
-LIT_FRAGMENTS := $(foreach kind,0 1 2 3,$(foreach layout,00 10 11,$(foreach output,$(GROUND_OUTPUTS),build/shaders/lit-$(kind)$(layout)-$(output).frag.spv)))
-SHADOW_MASK_SHADERS := $(foreach u,0 1 2,$(foreach c,0 1,build/shaders/subjectShadow-$(u)$(c).vert.spv)) $(foreach u,0 1 2,build/shaders/subjectShadow-$(u).frag.spv)
-SHADER_ARTIFACTS := $(sort $(SPIRV_SHADERS) $(GROUND_SHADERS) $(FLAT_VERTICES) $(FLAT_FRAGMENTS) $(LIT_VERTICES) $(LIT_FRAGMENTS) $(SHADOW_MASK_SHADERS))
-
-build/shaders/subjectShadow-%.vert.spv: src/render/shaders/subjectShadowVertex.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@stem='$*'; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSHADOW_UVS=$${stem%?} -DSHADOW_TINTED=$${stem#?} $< -o $@
-
-build/shaders/subjectShadow-%.frag.spv: src/render/shaders/subjectShadowFragment.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S frag -DSHADOW_UVS=$* $< -o $@
-shaders: $(SHADER_ARTIFACTS) build/compute-shaders.json
-	@mkdir -p build
-	@printf '%s\n' $(SHADER_ARTIFACTS) > build/shader-artifacts.txt.tmp
-	@mv build/shader-artifacts.txt.tmp build/shader-artifacts.txt
-
-build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/render/stages/ComputeShaders.h src/render/stages/KernelShape.h
-	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages $< -o $@
-
-build/compute-shaders.json: build/compute-shader-contracts
-	@$< > $@.tmp && mv $@.tmp $@
-
-build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DLIT_UVS=$${variant:0:1} -DLIT_TINTED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} $< -o $@
-
-build/shaders/lit-%.frag.spv: src/render/shaders/litFragment.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:7:1}; metal=$${variant:8:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DLIT_KIND=$${variant:0:1} -DLIT_TEXTURED=$${variant:1:1} -DLIT_MAPPED=$${variant:2:1} -DSUBJECT_WRITES_VELOCITY=$${variant:4:1} -DSUBJECT_NORMAL_LOCATION=$${variant:5:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:6:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
-
-build/shaders/flat-%.vert.spv: src/render/shaders/flatVertex.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@variant=$*; $(GLSLANG) $(GLSLANG_FLAGS) -S vert -DFLAT_UVS=$${variant:0:1} -DFLAT_TINTED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} $< -o $@
-
-build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl $(wildcard src/render/shaders/*.glsl)
-	@mkdir -p $(@D)
-	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
-
-build/shader-tables: test/scripts/shader-tables.cpp $(wildcard src/render/stages/*.h) $(wildcard src/base/math/*.h)
-	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
-
-build/shaders/brdfTables.glsl: build/shader-tables
-	@mkdir -p $(@D)
-	@$< > $@.tmp && mv $@.tmp $@
-
-build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
-	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
-
-build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
-	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
-
-shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
-	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
-
-build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
-	@mkdir -p $(@D)
-	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
-
-all: strip shaders ## the library, the generator archive, and the tools beside them
-	@cd $(SELF_DIR) && sh test/run.sh --library
-
-test-strip-comments: ## verify comment policy and lexical preservation
-	@cd $(SELF_DIR) && python3 test/scripts/test_strip_comments.py
-
-strip: test-strip-comments ## remove src comments, keep only include Doxygen; leave test comments intact
-	@cd $(SELF_DIR) && CLANG_FORMAT=$(LLVM_BIN)/clang-format python3 test/strip-comments.py
-
-db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-format
-	@$(RUN) --compile-db
-
-.PHONY: experiment-tree-cost
-experiment-tree-cost: all db ## compare native tree expansion/instancing (CPU, no GPU proof)
-	@cd $(SELF_DIR) && python3 test/experiments/render/tree_representation_cost.py
-
-lint: ## format, static analysis, and this tree's own repository rules
-	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
-
-.PHONY: lint-docs
-lint-docs: ## AGENTS contracts only; offline, no GitHub or engine build
-	@cd $(SELF_DIR) && sh test/lint-docs.sh
-
-doc:             ## the door's documentation -> build/doc
-	@cd $(SELF_DIR) && doxygen doc/Doxyfile
-
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+BUILD_DIR ?= $(ROOT)/build
+LLVM_BIN ?= /opt/homebrew/opt/llvm/bin
+CLANG_FORMAT ?= $(LLVM_BIN)/clang-format
+GLSLANG ?= $(ROOT)/build/deps/install/bin/glslang
+CMAKE_ARGS ?=
+PLACES_CATALOG ?= $(ROOT)/test/outshine/data/places
 PREPARE_SECONDS ?= 1800
-prepare-place: all ## prepare generated assets and terrain without a frame-rate claim (PLACE=Koerbersee)
-	@$(if $(PLACE),,$(error name a PLACE))
-	@cd $(SELF_DIR) && build/outshine-client prepare $(PLACE) $(PREPARE_SECONDS)
+CMAKE_BUILD := cmake --build "$(BUILD_DIR)" --parallel
+.PHONY: all configure db shaders strip format lint lint-all lint-docs test test-all suite clean spotless help
 
-shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
-	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
+configure:
+	@mkdir -p "$(BUILD_DIR)/.cmake/api/v1/query"
+	@test -f "$(BUILD_DIR)/.cmake/api/v1/query/codemodel-v2" || touch "$(BUILD_DIR)/.cmake/api/v1/query/codemodel-v2"
+	@test -f "$(BUILD_DIR)/CMakeCache.txt" || cmake -S "$(ROOT)" -B "$(BUILD_DIR)" -G Ninja -DBUILD_TESTING=ON $(CMAKE_ARGS)
 
-corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.../manifest.json)
-	@$(if $(MANIFEST),,$(error name a MANIFEST))
-	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
+all: configure strip ## build the application through CMake/Ninja using all cores
+	@$(CMAKE_BUILD) --target outshine
 
-corpus-reference: ## explicitly pin generated reference images (CASES=...; REFERENCE_ARGS=--migrate-existing)
-	@cd $(SELF_DIR) && python3 test/scripts/reference_from_oracle.py $(REFERENCE_ARGS) $(CASES)
+shaders: configure ## build the native shader package
+	@$(CMAKE_BUILD) --target outshine_shaders
 
-corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
-	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
+db: configure ## generate the CMake compilation database
+	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)" $(CMAKE_ARGS)
+	@cmake -E rm -f "$(ROOT)/compile_commands.json"
+	@cmake -E create_symlink "$(BUILD_DIR)/compile_commands.json" "$(ROOT)/compile_commands.json"
 
-test: test-timeout-cleanup test-client-arguments test-client-data test-reference-store test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
-	@$(RUN)
+strip: ## strip implementation comments; preserve headers and tests
+	@cd "$(ROOT)" && CLANG_FORMAT="$(CLANG_FORMAT)" python3 test/strip-comments.py
 
-.PHONY: test-khronos test-all
-test-khronos: test-reference-cache test-client-render test-corpus-invariants all ## glTF, animation and pinned Khronos image compatibility
-	@$(RUN) khronos outshine/src/import outshine/src/content/animation outshine/include/import outshine/include/Outshine
+format: strip ## format owned C++ files with clang-format
+	@cd "$(ROOT)" && python3 test/scripts/format_sources.py --tool "$(CLANG_FORMAT)"
 
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-reference-cache test-client-render test-corpus-invariants test-motion-trace all ## all declared suites, including compatibility corpora
-	@$(RUN) --all
+lint lint-all: ## clang-format and CMake-integrated clang-tidy
+	@cd "$(ROOT)" && python3 test/scripts/format_sources.py --tool "$(CLANG_FORMAT)" --check
+	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)/lint" -G Ninja -DBUILD_TESTING=OFF -DOUTSHINE_CLANG_TIDY=ON $(CMAKE_ARGS)
+	@cmake --build "$(BUILD_DIR)/lint" --target outshine --parallel $(if $(filter lint-all,$@),--clean-first)
 
-suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
-	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
-	@$(RUN) $(SUITE)
+lint-docs: ## whitespace check for changed documentation
+	@cd "$(ROOT)" && git diff --check -- '*.md'
 
-clean:           ## remove build artefacts
-	cd $(SELF_DIR) && rm -rf build compile_commands.json
+test: configure ## execute the world gate through CTest
+	@cd "$(ROOT)" && OUTSHINE_BUILD_DIR="$(BUILD_DIR)" sh test/run.sh
 
-spotless: clean  ## and the compiler's own nest in the system temp directory
-	rm -rf $${TMPDIR:-/tmp}/outshine-tests.*
+test-all: configure ## build and run every registered CTest
+	@cd "$(ROOT)" && OUTSHINE_BUILD_DIR="$(BUILD_DIR)" sh test/run.sh --all
 
-.PHONY: cleanup-temp test-cleanup-temp
-cleanup-temp: ## preview obsolete owned temp artifacts (CLEANUP_ARGS=--apply to remove)
-	@cd $(SELF_DIR) && python3 test/scripts/cleanup_temp.py $(CLEANUP_ARGS)
+suite: configure ## build and run a selected test or suite (SUITE=...)
+	@test -n "$(SUITE)" || { echo 'set SUITE to a test path'; exit 2; }
+	@cd "$(ROOT)" && OUTSHINE_BUILD_DIR="$(BUILD_DIR)" sh test/run.sh $(SUITE)
 
-test-cleanup-temp: ## verify cleanup ownership, active work and reference preservation
-	@cd $(SELF_DIR) && python3 test/scripts/test_cleanup_temp.py
+test-sanitizers test-races: configure ## run selected tests under separate sanitizer builds
+	@test -n "$(SUITE)" || { echo 'set SUITE to a test path'; exit 2; }
+	@cd "$(ROOT)" && OUTSHINE_BUILD_DIR="$(BUILD_DIR)" sh test/run.sh --sanitizer $(if $(filter test-races,$@),thread,address) --harden $(SUITE)
 
-help:            ## this list
-	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
+clean: ## clean declared CMake build products
+	@$(CMAKE_BUILD) --target clean
 
-.PHONY: test-strip-comments test-client-data
-test-client-data: all ## verify external place scenarios through the client
-	@cd $(SELF_DIR) && python3 test/scripts/test_place_catalog.py
+spotless: clean
 
-.PHONY: test-tidy-analysis
-test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
-	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
+shader-tools: ## prepare the pinned shader compiler
+	@cd "$(ROOT)" && python3 test/scripts/shader-tools.py
 
-.PHONY: format
-format: strip ## apply repository formatting to the same owned files lint checks
-	@cd $(SELF_DIR) && python3 test/scripts/format_sources.py --tool $(LLVM_BIN)/clang-format
+cleanup-temp: ## preview obsolete owned temp artifacts (CLEANUP_ARGS=--apply)
+	@cd "$(ROOT)" && python3 test/scripts/cleanup_temp.py $(CLEANUP_ARGS)
 
-.PHONY: test-format
-test-format: ## verify formatting coverage, real diagnostics and failure handling
-	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py
+test-cleanup-temp: ## check owned temporary artifact cleanup
+	@cd "$(ROOT)" && python3 -B test/scripts/test_cleanup_temp.py
 
-.PHONY: test-client-arguments
-test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
-	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
+shots: all ## run the external Places driver (PLACE=...)
+	@cd "$(ROOT)" && python3 -B test/scripts/places.py --client "$(BUILD_DIR)/outshine" --catalog "$(PLACES_CATALOG)" $(SHOTS_ARGS) $(PLACE)
 
-.PHONY: test-shader-artifacts
-test-shader-artifacts: shaders ## verify the shader package, reflection and negative controls
-	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
-	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
+prepare-place: all ## prepare an external Place scene (PLACE=...)
+	@test -n "$(PLACE)" || { echo 'set PLACE'; exit 2; }
+	@cd "$(ROOT)" && python3 -B test/scripts/places.py --client "$(BUILD_DIR)/outshine" --catalog "$(PLACES_CATALOG)" --online --preload-seconds "$(PREPARE_SECONDS)" $(PLACE)
 
-.PHONY: test-documentation
-test-documentation: ## verify public documentation coverage and Doxygen failure detection
-	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
+corpus-prepare corpus-fetch: ## prepare or fetch pinned comparison inputs (MANIFEST=...)
+	@test -n "$(MANIFEST)" || { echo 'set MANIFEST'; exit 2; }
+	@cd "$(ROOT)" && python3 test/harness/shared/corpus/prepare.py $(if $(filter corpus-fetch,$@),fetch,all) --manifest "$(MANIFEST)"
 
-.PHONY: test-reference-store test-reference-cache corpus-reference
-test-reference-store: ## verify immutable reference storage and missing/corrupt cache failures
-	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
-
-test-reference-cache: test-reference-store ## resolve all pinned vendor references; explicit compatibility prerequisite
-	@cd $(SELF_DIR) && python3 test/scripts/test_oracle_seed_shift.py
-	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
-
-.PHONY: test-client-render
-test-client-render: all ## exercise direct glTF/GLB capture, cameras, exact time and invalid input
-	@cd $(SELF_DIR) && python3 test/scripts/test_client_render.py
-
-.PHONY: test-corpus-invariants
-test-corpus-invariants: ## verify declared vendor relations and negative controls
-	@cd $(SELF_DIR) && python3 test/scripts/test_corpus_invariants.py
-
-.PHONY: render
-render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)
-	@$(if $(ASSET),,$(error name an ASSET))
-	@$(if $(OUTPUT),,$(error name an OUTPUT))
-	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
-
-.PHONY: corpus-fetch
-corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khronos/.../manifest.json)
-	@$(if $(MANIFEST),,$(error name a MANIFEST))
-	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
-
-.PHONY: test-writer-inventory test-motion-trace
-test-motion-trace: ## verify route-camera trace continuity and lap closure with analytic controls
-	@cd $(SELF_DIR) && python3 test/scripts/test_motion_trace.py
-
-test-writer-inventory: ## verify scenario writer source inventory
-	@cd $(SELF_DIR) && python3 test/scripts/test_grammar_vs_writer.py
-
-.PHONY: test-timeout-cleanup
-test-timeout-cleanup: ## verify owned process-group cleanup and foreign-process isolation
-	@cd $(SELF_DIR) && python3 test/scripts/test_timeout_cleanup.py
-
-.PHONY: test-file-stamps
-test-file-stamps: ## verify portable native test file metadata and failure handling
-	@cd $(SELF_DIR) && python3 test/scripts/test_file_stamps.py
+help: ## show available targets
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_ -]+:.*## / {printf "%-24s %s\n", $$1, $$2}' "$(ROOT)/Makefile"

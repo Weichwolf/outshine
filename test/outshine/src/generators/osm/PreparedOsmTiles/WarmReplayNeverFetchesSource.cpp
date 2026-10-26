@@ -1,3 +1,4 @@
+#include "TilePool.h"
 #include "PreparedOsmTiles.h"
 #include "Check.h"
 #include "SourceSet.h"
@@ -6,6 +7,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -20,35 +22,43 @@ using namespace outshine::Generators::Osm;
 
 class NoTransport final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class VectorSource final : public Source {
 public:
   VectorSource(std::string revision, std::vector<uint8_t> bytes, std::atomic_uint &calls)
-      : Decl_{.Id = "fixture-vector",
-              .Revision = std::move(revision),
-              .Kind = DataKind::VectorMap,
-              .Wire = WireFormat::MapboxVectorTile,
-              .Keeps = Cacheability::Never},
-        Bytes_(std::move(bytes)),
-        Calls_(calls) {}
+      : Decl_{}, Bytes_(std::move(bytes)), Calls_(calls) {
+    Decl_.Id = "fixture-vector";
+    Decl_.Revision = std::move(revision);
+    Decl_.Kind = DataKind::VectorMap;
+    Decl_.Wire = WireFormat::MapboxVectorTile;
+    Decl_.Keeps = Cacheability::Never;
+  }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  Fetched Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         Transport & /*transport*/) const override {
     ++Calls_;
-    return Fetched::Delivered(Bytes_);
+    return SourceResponse::Delivered(Bytes_);
   }
 
 private:
@@ -56,21 +66,6 @@ private:
   std::vector<uint8_t> Bytes_;
   std::atomic_uint &Calls_;
 };
-
-std::vector<uint8_t> TileBytes() {
-  using outshine::Test::Mvt::Append;
-  using outshine::Test::Mvt::Bytes;
-  Bytes layer{0x0a, 8, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g', 0x78, 2, 0x28, 64};
-  Append(layer, 0x1a, Bytes{'r', 'e', 'n', 'd', 'e', 'r', '_', 'h', 'e', 'i', 'g', 'h', 't'});
-  Append(layer, 0x22, Bytes{0x28, 19});
-  Bytes feature{0x08, 7, 0x18, 3};
-  Append(feature, 0x12, Bytes{0, 0});
-  Append(feature, 0x22, Bytes{9, 0, 0, 26, 20, 0, 0, 20, 19, 0, 15});
-  Append(layer, 0x12, feature);
-  Bytes tile;
-  Append(tile, 0x1a, layer);
-  return tile;
-}
 
 struct Snapshot {
   std::vector<double> Points;
@@ -81,15 +76,16 @@ struct Snapshot {
 Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string revision = "r1") {
   using namespace outshine::Test;
   std::atomic_uint calls{0};
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
   CHECK(sources.Add(std::make_unique<VectorSource>(std::move(revision),
-                                                   warm ? std::vector<uint8_t>{} : TileBytes(),
+                                                   warm ? std::vector<uint8_t>{}
+                                                        : outshine::Test::Mvt::BuildingTile(),
                                                    calls)) == SourceSet::Registration::Accepted,
         "isolated provider registration succeeds");
-  Ground::TilePool pool({.Compute = &compute}, sources, transport);
+  Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
   auto opened = PreparedOsmTiles::Open(directory.string(), sources, compute);
   CHECK(opened, "native service opens the persistent spatial cache");
   if (!opened) { return {}; }
@@ -99,7 +95,8 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     CHECK(field.Build(pool, eye, 1, 9), "bounded asynchronous tile work advances");
-    (void)compute.AwaitCompletion(0.001);
+    (void)compute.AwaitCompletion(
+        std::chrono::duration<double>(std::chrono::milliseconds(1)).count());
   } while (!field.SettledWithin(1) && std::chrono::steady_clock::now() < deadline);
   CHECK(field.SettledWithin(1) && field.Tiles().size() == 9 && field.Features().size() == 9,
         "all nine native tiles are published with complete coverage");
@@ -111,7 +108,8 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
   CHECK(field.TotalBuildMetrics().ParseMs == 0,
         "source preparation stays on the worker rather than the admission path");
   CHECK(field.MissingLayers() == 9, "native assembly preserves genuine missing layers");
-  Snapshot result{.Points = {field.Points().begin(), field.Points().end()}};
+  Snapshot result{};
+  result.Points.assign(field.Points().begin(), field.Points().end());
   for (const auto &tile : field.Tiles()) {
     result.Sources.push_back(tile.Source);
     result.Digests.push_back(tile.InputDigest);
@@ -127,25 +125,27 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
 
 void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   std::atomic_uint calls{0};
-  ContentStore store({.Using = ContentStore::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
-  CHECK(sources.Add(std::make_unique<VectorSource>("r1", TileBytes(), calls)) ==
-            SourceSet::Registration::Accepted,
+  CHECK(sources.Add(std::make_unique<VectorSource>(
+            "r1", outshine::Test::Mvt::BuildingTile(), calls)) == SourceSet::Registration::Accepted,
         "abandoned-demand provider registers");
-  Ground::TilePool pool({.Compute = &compute}, sources, transport);
+  Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
   auto opened = PreparedOsmTiles::Open(directory.string(), sources, compute);
   CHECK(opened, "isolated demand service opens");
   if (!opened) { return; }
   const std::array<std::string, 1> layers{"buildings"};
-  for (int x = 0; x < 160; ++x) {
-    OsmField abandoned(9, layers, MvtSchema::OpenMapTiles, *opened);
+  constexpr int abandonedCount = 160;
+  constexpr auto pollWait = std::chrono::milliseconds(100);
+  for (int x = 0; x < abandonedCount; ++x) {
+    const OsmField abandoned(9, layers, MvtSchema::OpenMapTiles, *opened);
     CHECK((*opened)->Acquire(pool, {.X = x, .Y = 1}, abandoned),
           "each short-lived owner admits a bounded request");
-    (void)compute.AwaitCompletion(0.1);
+    (void)compute.AwaitCompletion(std::chrono::duration<double>(pollWait).count());
   }
-  OsmField current(9, layers, MvtSchema::OpenMapTiles, *opened);
+  const OsmField current(9, layers, MvtSchema::OpenMapTiles, *opened);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   bool ready = false;
   do {
@@ -153,7 +153,8 @@ void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
     CHECK(product, "current demand continues after more than the pending-job limit");
     if (!product) { break; }
     ready = product->Status == PreparedOsmTiles::State::Ready;
-    (void)compute.AwaitCompletion(0.001);
+    (void)compute.AwaitCompletion(
+        std::chrono::duration<double>(std::chrono::milliseconds(1)).count());
   } while (!ready && std::chrono::steady_clock::now() < deadline);
   CHECK(ready && calls > 0, "abandoned owners release capacity without discarding live work");
 }

@@ -14,10 +14,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "junctions use production road grade limits");
   if (!vegetation.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
@@ -25,12 +25,17 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth at) -> std::optional<double> { return .3 * at.NorthM; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const int variant : {0, 1, 2, 3}) {
     Generators::Osm::OsmField vectors(14, layers);
-    const std::string kind = variant == 1 ? "path" : variant == 3 ? "rail" : "residential";
+    std::string kind = "residential";
+    if (variant == 1) {
+      kind = "path";
+    } else if (variant == 3) {
+      kind = "rail";
+    }
     const std::array declared{
         Generators::Osm::OsmField::Declared{
             .Layer = "streets", .Key = "kind", .Value = kind, .LatLon = {49, 8, 49.001, 8}},
@@ -50,6 +55,8 @@ int main() {
                                            .Standing = frame,
                                            .Draped = drape,
                                            .Classes = noClasses,
+                                           .WaterUpM = {},
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};

@@ -8,7 +8,7 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include "Xml.h"
 
 namespace outshine {

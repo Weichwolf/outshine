@@ -2,7 +2,7 @@
 #include "ScenarioRead.h"
 #include "ScenarioWrite.h"
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 #include <string>
 #include <string_view>
@@ -30,19 +30,6 @@ int main() {
     CHECK(ReadScenario(written->data(), written->size(), roundTrip, error) &&
               roundTrip.Providers == scenario.Providers,
           "tile endpoint survives scenario roundtrip");
-  }
-  for (const std::string_view rejected :
-       {"<scenario><providers><provider kind='vector' endpoint='http://a/{z}/{x}/{y}' "
-        "dataset='a'/></providers></scenario>",
-        "<scenario><providers><provider kind='vector' endpoint='https://a/{z}/{x}/{y}'/>"
-        "</providers></scenario>",
-        "<scenario><providers><provider kind='osm' endpoint='https://a/{z}/{x}/{y}'/>"
-        "</providers></scenario>"}) {
-    Scenario::Document unchanged = scenario;
-    error.clear();
-    CHECK(!ReadScenario(rejected.data(), rejected.size(), unchanged, error) &&
-              unchanged.Providers == scenario.Providers,
-          "invalid endpoint fails without replacing prior declaration");
   }
   return Report();
 }

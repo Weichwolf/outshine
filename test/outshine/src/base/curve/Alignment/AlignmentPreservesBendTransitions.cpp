@@ -1,4 +1,4 @@
-#include "src/base/curve/Alignment.h"
+#include "Alignment.h"
 #include "Check.h"
 #include <array>
 #include <cmath>

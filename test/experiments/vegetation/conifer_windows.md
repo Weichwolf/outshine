@@ -63,15 +63,20 @@ subpixel sampling. It reports area and spatial coverage error at several image
 sizes; botanical/shading/perspective/wind and LOD-transition approval stay open.
 
 ```sh
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase catalog --output build/experiments/vegetation/conifer-whole --size 256
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase build --output build/experiments/vegetation/conifer-whole --size 256
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_checks.py --whole build/experiments/vegetation/conifer-whole --products
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_cache.py --products build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/fresh-cache.json
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_comparison.py --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/shoot-comparison.json
-OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/conifer_whole_preview.py -- --scenario build/experiments/vegetation/conifer-crowns/tile/tile.json --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/tile/render.png
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase catalog --source "$probe_root/crowns" --output "$probe_root/whole" --size 256
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase build --source "$probe_root/crowns" --output "$probe_root/whole" --size 256
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_checks.py --whole "$probe_root/whole" --source "$probe_root/crowns" --products
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_cache.py --products "$probe_root/whole" --output "$probe_root/fresh-cache.json"
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_comparison.py --whole "$probe_root/whole" --models "$probe_root/crowns" --output "$probe_root/shoot-comparison.json"
+OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/conifer_whole_preview.py -- --scenario "$probe_root/tile/tile.json" --whole "$probe_root/whole" --output "$probe_root/whole-render.png"
 ```
 
-Use a frozen commit and one heavy run at a time. Do not elevate Blender upstream
+Use the explicit temporary `probe_root` and prepared young source/tile from
+[conifer_crowns.md](conifer_crowns.md). The comparison requires explicit
+product/model paths. For the current mature
+plan use the self-contained inputs and [cached twig fidelity study](cached_twig_fidelity.md);
+the other commands above document the historical young-tree experiment. Private
+outputs belong in /tmp. Use a frozen commit and choose concurrency for the host. Do not elevate Blender upstream
 deprecation warnings into exceptions: bpy 5.2.2 otherwise fails RNA node-tree
 registration before rendering. Numerical checks do use `-W error`. Terminal
 Linux RSS and wall-clock times are host measurements, not GPU or A18 evidence.

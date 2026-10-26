@@ -1,6 +1,6 @@
-#include "EngineHeld.h"
+#include "TerrainLattice.h"
+#include "EngineState.h"
 #include "BinaryValueArchive.h"
-#include "GroundLattice.h"
 #include "TerrainRefinement.h"
 #include <expected>
 #include <cstdint>
@@ -33,8 +33,12 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
                   eye.YMagM,
                   Picture.Frame.HeightPx,
                   Generators::TerrainRefinementDetail{}.ErrorPx,
-                  Render::GroundLattice::kMaximumPages)) {
+                  Render::TerrainLattice::kMaximumPages)) {
     return std::unexpected("ground region parameters exceed their encoding limit");
+  }
+  if ((!World.Stack.HasVectorSource() || World.Stack.HasDeclaredVectors()) &&
+      !parameters.Text(World.Stack.DeclaredDigest())) {
+    return std::unexpected("declared ground input identity exceeds its encoding limit");
   }
   return std::move(parameters.Out).TakeBytes();
 }
@@ -90,9 +94,13 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
           auto loaded = assets->LoadRequest(key);
           if (!loaded) { return std::unexpected(std::move(loaded.error())); }
           const auto product = *loaded ? (**loaded).Key : std::string{};
-          return GroundRegionPreparation::Completed{
-              .Key = product, .Loaded = std::move(*loaded), .RequestKey = key, .RequestHit = true};
-        });
+          return GroundRegionPreparation::Completed{.Key = product,
+                                                    .Loaded = std::move(*loaded),
+                                                    .RequestKey = key,
+                                                    .RequestHit = true,
+                                                    .SurfacePages = nullptr};
+        },
+        World.Stack.RoadAssets());
   }
   if (!World.GroundLookup) { return true; }
   const auto *result = World.GroundLookup->Peek();

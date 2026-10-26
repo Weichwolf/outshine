@@ -17,11 +17,27 @@ int main() {
         "containers retain boolean, null and exponent values");
   CHECK(array[4u]["escaped key"].Str() == "\"\\/\b\f\n\r\tA\xf0\x9f\x98\x80",
         "JSON escapes and surrogate pair decode to independently specified UTF-8");
+  constexpr std::string_view unicode = "\"\xc2\x80\xdf\xbf\xe0\xa0\x80\xed\x9f\xbf"
+                                       "\xee\x80\x80\xef\xbf\xbf\xf0\x90\x80\x80\xf4\x8f\xbf\xbf\"";
+  CHECK(document.Parse(unicode.data(), unicode.size()) &&
+            document.Root().Str() == unicode.substr(1, unicode.size() - 2),
+        "shortest UTF-8 encodings at scalar boundaries remain unchanged");
   for (const std::string_view invalid : {R"("\q")",
                                          R"("\u12xz")",
                                          R"("\u123")",
                                          "\"raw\nline\"",
                                          "\"raw\tcolumn\"",
+                                         "\"\x80\"",
+                                         "\"\xc0\xaf\"",
+                                         "\"\xe0\x80\xaf\"",
+                                         "\"\xed\xa0\x80\"",
+                                         "\"\xf4\x90\x80\x80\"",
+                                         "\"\xf5\x80\x80\x80\"",
+                                         "\"\xc2\"",
+                                         "\"\xe2\x82",
+                                         "\"\xf0\x90\x80",
+                                         "\"\xe2!\xac\"",
+                                         "{\"\xff\":0}",
                                          R"({"bad\x":0})",
                                          "[1,]",
                                          "{\"x\":1,}",

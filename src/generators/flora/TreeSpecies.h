@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "GrowthForm.h"
 
 namespace outshine::Generators {

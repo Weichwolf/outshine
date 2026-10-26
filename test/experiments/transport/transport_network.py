@@ -162,7 +162,7 @@ def save_inputs(path, receipt, transport):
 
 
 def transport_widths():
-    templates = json.loads(Path("src/assets/world/vegetation.json").read_text())[
+    templates = json.loads(Path("data/world/vegetation.json").read_text())[
         "templates"
     ]
     rules = [
@@ -180,7 +180,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--endpoint", required=True)
-    parser.add_argument("--places", type=Path, default=Path("src/assets/places"))
+    parser.add_argument("--places", type=Path, default=Path("test/outshine/data/places"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--radius", type=float, default=1600)
     parser.add_argument("--view", type=float, default=600)

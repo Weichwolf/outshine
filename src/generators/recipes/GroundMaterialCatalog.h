@@ -1,0 +1,52 @@
+#ifndef OUTSHINE_GENERATORS_RECIPES_GROUNDMATERIALCATALOG_H
+#define OUTSHINE_GENERATORS_RECIPES_GROUNDMATERIALCATALOG_H
+
+#include "Vec3.h"
+#include <string_view>
+#include <cstddef>
+#include <string>
+#include <vector>
+
+namespace outshine::Generators {
+
+class GroundMaterialCatalog {
+public:
+  struct Material {
+    std::string Name;
+    Vec3f Albedo;
+    float VisibleRatio;
+    float Roughness;
+    float PeakFriction;
+    float FrictionFactor;
+    float Moisture;
+    float SpecularScale;
+    float GrainSizeM;
+    float HeightAmplitudeM;
+    float DetailCoarseM;
+    float DetailFineM;
+
+    float SlopeMaxDeg;
+    bool SlopeExposesRock = false;
+    int LitterClass;
+    float LitterCoverage;
+  };
+
+  [[nodiscard]] bool Load(const char *path);
+
+  [[nodiscard]] bool Ready() const { return !Mats_.empty(); }
+
+  [[nodiscard]] size_t Count() const { return Mats_.size(); }
+
+  [[nodiscard]] const Material &At(size_t i) const { return Mats_[i]; }
+
+  [[nodiscard]] int Find(std::string_view name) const;
+
+  [[nodiscard]] const std::string &Error() const { return Error_; }
+
+private:
+  std::vector<Material> Mats_;
+  std::string Error_;
+};
+
+}
+#endif

@@ -1,0 +1,69 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cloudMoments.glsl"
+#include "cloudPrefix.glsl"
+
+#if CLOUD_VIEW_SAMPLES != 16
+#error This private fixture stores the two default sixteen-cell intervals.
+#endif
+
+layout(local_size_x = 64) in;
+
+struct Query {
+  CloudLayer Layer;
+  vec4 OriginQueryM;
+  vec4 DirectionExtentM;
+  vec4 Control;
+  vec4 Cells[32];
+};
+
+struct Answer {
+  vec4 Moments;
+  vec4 Cells[32];
+};
+
+layout(std430, set = 0, binding = 0) readonly buffer Queries {
+  Query Items[];
+} queries;
+
+layout(std430, set = 1, binding = 0) writeonly buffer Answers {
+  Answer Items[];
+} answers;
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= queries.Items.length()) { return; }
+  Query query = queries.Items[index];
+  CloudMomentSum sum = cloudMomentBegin();
+  uint visits = 0u;
+  float evaluations = 0.0;
+  CloudPrefix prefix = cloudPrefixBegin(query.Layer, query.OriginQueryM.xyz,
+      query.DirectionExtentM.xyz, query.DirectionExtentM.w,
+      CloudLight(vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0)));
+  for (uint cell = 0u; cell < 32u; ++cell) {
+    vec3 actual = vec3(0.0);
+    float fullLengthM = 0.0;
+    if (query.Control.x == 0.0) {
+      if (cell < uint(query.Control.y)) {
+        vec3 given = query.Cells[cell].xyz;
+        float lengthM = clamp(query.OriginQueryM.w - given.x, 0.0, given.y);
+        float optical = given.y > 0.0 ? given.z * (lengthM / given.y) : 0.0;
+        actual = vec3(given.x, lengthM, optical);
+        fullLengthM = given.y;
+      }
+    } else if (prefix.EndM > prefix.BeginM && prefix.BeginM < query.OriginQueryM.w) {
+      float lengthM = min(prefix.EndM, query.OriginQueryM.w) - prefix.BeginM;
+      vec3 pointM = prefix.OriginM + prefix.Direction *
+          (0.5 * (prefix.BeginM + prefix.EndM));
+      float extinction = cloudExtinction(prefix.Layer, pointM);
+      evaluations += 1.0;
+      actual = vec3(prefix.BeginM, lengthM, extinction * lengthM);
+      fullLengthM = prefix.EndM - prefix.BeginM;
+      cloudPrefixNext(prefix);
+    }
+    if (actual.y > 0.0) { ++visits; }
+    cloudMomentCell(sum, actual.x, actual.y, actual.z);
+    answers.Items[index].Cells[cell] = vec4(actual, fullLengthM);
+  }
+  answers.Items[index].Moments = vec4(cloudMomentValue(sum), evaluations, visits);
+}

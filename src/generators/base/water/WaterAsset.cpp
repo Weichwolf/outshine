@@ -2,11 +2,21 @@
 #include "Capacity.h"
 #include <utility>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace outshine::Generators {
+namespace {
+size_t StringBytes(const std::string &text) noexcept {
+  const auto address = reinterpret_cast<uintptr_t>(text.data());
+  const auto object = reinterpret_cast<uintptr_t>(&text);
+  return address - object < sizeof(std::string) ? 0 : text.capacity() + 1;
+}
+}
+
 WaterAsset::WaterAsset(Data data) : Data_(std::make_shared<const Data>(std::move(data))) {}
 
 const WaterAsset::Data &WaterAsset::Contents() const noexcept {
@@ -28,6 +38,24 @@ const std::vector<float> &WaterAsset::Levels() const noexcept {
 
 std::span<const double> WaterAsset::Points() const noexcept {
   return Contents().Points;
+}
+
+std::span<const WaterAsset::Source> WaterAsset::Sources() const noexcept {
+  return Contents().Sources;
+}
+
+std::span<const WaterAsset::Input> WaterAsset::Inputs() const noexcept {
+  return Contents().Inputs;
+}
+
+const WaterAsset::Input *WaterAsset::InputOf(const Surface &surface) const noexcept {
+  const auto inputs = Inputs();
+  return surface.Input < inputs.size() ? &inputs[surface.Input] : nullptr;
+}
+
+const WaterAsset::Input *WaterAsset::InputOf(const Course &course) const noexcept {
+  const auto inputs = Inputs();
+  return course.Input < inputs.size() ? &inputs[course.Input] : nullptr;
 }
 
 std::span<const WaterAsset::SurfaceRing>
@@ -61,10 +89,19 @@ size_t WaterAsset::IngestedTiles() const noexcept {
 
 size_t WaterAsset::HeapBytes() const noexcept {
   const auto &data = Contents();
-  return Data_ ? sizeof(Data) + CapacityBytes(data.Surfaces) + CapacityBytes(data.Rings) +
-                     CapacityBytes(data.Courses) + CapacityBytes(data.Levels) +
-                     CapacityBytes(data.Points) + CapacityBytes(data.Tiles)
-               : 0;
+  size_t metadata = CapacityBytes(data.Sources) + CapacityBytes(data.Inputs);
+  for (const auto &source : data.Sources) {
+    metadata += StringBytes(source.Identity.SourceId) + StringBytes(source.Identity.Revision) +
+                StringBytes(source.InputDigest);
+  }
+  for (const auto &input : data.Inputs) {
+    metadata += StringBytes(input.Layer) + StringBytes(input.Kind) + StringBytes(input.Crossing);
+  }
+  return (Data_ ? sizeof(Data) + CapacityBytes(data.Surfaces) + CapacityBytes(data.Rings) +
+                      CapacityBytes(data.Courses) + CapacityBytes(data.Levels) +
+                      CapacityBytes(data.Points) + CapacityBytes(data.Tiles) + metadata
+                : 0) +
+         PreparedSurfaceBytes();
 }
 
 long WaterAsset::NoGroundCount() const noexcept {

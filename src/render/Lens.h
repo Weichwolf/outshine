@@ -3,8 +3,8 @@
 
 #include <expected>
 #include "Viewing.h"
-#include "math/Mat4.h"
-#include "math/Vec2.h"
+#include "Mat4.h"
+#include "Vec2.h"
 
 namespace outshine::Render {
 

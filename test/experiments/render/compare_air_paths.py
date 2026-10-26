@@ -1,6 +1,6 @@
-"""Finite clear-gas experiment for #206; requires NumPy, an explicit external output and host lock.
+"""Finite clear-gas experiment for #206; requires NumPy and an explicit output directory.
 
-Run compare_air_paths.py --output /tmp/outshine-light-air-<commit> under the shared host lock.
+Use build/experiments/ for results; retain inputs and reference provenance.
 Then test_air_path_integral.py checks independent closed forms; plot_air_paths.py renders diagnostics.
 View/source optical-depth integration is shared by the finite Gauss reference and the
 optimistic distant-sky baseline. Timings describe this CPU experiment, not LUT-backed GPU work.
@@ -110,8 +110,13 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     root, output = args.root.resolve(), args.output.resolve()
-    if output == root or root in output.parents:
-        raise ValueError("private comparison outputs belong outside the repository")
+    allowed = (root / "build/experiments").resolve()
+    if (output == root or root in output.parents) and not (
+        output == allowed or allowed in output.parents
+    ):
+        raise ValueError(
+            "comparison outputs belong in build/experiments/ or system temp"
+        )
     medium_path = root / "src/world/sky/Atmosphere.h"
     medium = engine_clear_air(medium_path)
     cases, inputs = place_cases(root)

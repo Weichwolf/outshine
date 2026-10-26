@@ -13,8 +13,13 @@ from air_path_integral import boundary_distance, engine_clear_air, transmittance
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def write_texture(path, pixels, width, height, half=False):
-    data = pixels.astype("<f2").astype("<f4") if half else pixels.astype("<f4")
+def write_texture(path, pixels, width, height, half=False, *, storage_bits=32):
+    if storage_bits == 16:
+        data = pixels.astype("<f2")
+    elif storage_bits == 32:
+        data = pixels.astype("<f2").astype("<f4") if half else pixels.astype("<f4")
+    else:
+        raise ValueError("LUT storage must be binary16 or binary32")
     path.write_bytes(struct.pack("<2I", width, height) + data.tobytes())
 
 

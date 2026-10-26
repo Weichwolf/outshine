@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_SHIPPEDPROVIDERS_H
 #define OUTSHINE_GENERATORS_SHIPPEDPROVIDERS_H
-#include <world/Provider.h>
-#include <world/SourceProvider.h>
+#include <Provider.h>
+#include <SourceProvider.h>
 #include <span>
 
 namespace outshine::Generators {

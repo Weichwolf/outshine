@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_BASE_SPATIAL_PLANHIERARCHY_H
 #define OUTSHINE_BASE_SPATIAL_PLANHIERARCHY_H
 
-#include "math/Box.h"
-#include "math/Vec3.h"
+#include "Box.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <array>
@@ -17,7 +17,7 @@
 
 namespace outshine {
 
-enum class PlanHierarchyError { InvalidBounds, CapacityExceeded };
+enum class PlanHierarchyError { InvalidBounds, CapacityExceeded, InvalidStorage };
 
 class PlanHierarchy {
 public:
@@ -34,7 +34,18 @@ public:
   [[nodiscard]] static std::expected<PlanHierarchy, PlanHierarchyError>
   Build(std::span<const Box> bounds);
 
+  [[nodiscard]] static std::expected<PlanHierarchy, PlanHierarchyError>
+  Restore(std::vector<Node> nodes,
+          std::vector<uint32_t> sourceOrder,
+          std::span<const Box> sourceBounds);
+
   [[nodiscard]] std::span<const Node> Nodes() const noexcept { return Nodes_; }
+
+  [[nodiscard]] std::span<const uint32_t> SourceOrder() const noexcept { return Order_; }
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Nodes_.capacity() * sizeof(Node) + Order_.capacity() * sizeof(uint32_t);
+  }
 
   [[nodiscard]] std::span<const uint32_t> Members(const Node &node) const noexcept {
     return std::span(Order_).subspan(node.First, node.Count);
@@ -57,6 +68,34 @@ public:
 
   template <class Accept, class Emit> void Select(Accept &&accept, Emit &&emit) const {
     SelectNodes([&](const Node &node) { return accept(node.Bounds); }, emit);
+  }
+
+  template <class Emit> [[nodiscard]] bool Query(const Box &region, Emit &&emit) const {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      if (!(region.Min[axis] <= region.Max[axis])) { return true; }
+    }
+    if (Nodes_.empty()) { return true; }
+    std::array<uint32_t, 32> pending{};
+    size_t count = 1;
+    const auto overlaps = [&region](const Box &bounds) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        if (!(bounds.Min[axis] <= region.Max[axis]) || !(bounds.Max[axis] >= region.Min[axis])) {
+          return false;
+        }
+      }
+      return true;
+    };
+    while (count != 0) {
+      const Node &node = Nodes_[pending[--count]];
+      if (!overlaps(node.Bounds)) { continue; }
+      if (node.Count == 1) {
+        if (!emit(Order_[node.First])) { return false; }
+      } else {
+        pending[count++] = node.Right;
+        pending[count++] = node.Left;
+      }
+    }
+    return true;
   }
 
   template <class Intersect>

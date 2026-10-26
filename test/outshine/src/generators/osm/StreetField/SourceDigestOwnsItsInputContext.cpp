@@ -1,8 +1,10 @@
+#include <span>
 #include "Check.h"
 #include "Digest.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "StreetField.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -16,11 +18,11 @@
 #include <unistd.h>
 
 namespace {
-void RejectsRead(int) {
+void RejectsRead(int /*unused*/) {
   _exit(23);
 }
 
-void StopsOverdueRead(int) {
+void StopsOverdueRead(int /*unused*/) {
   _exit(25);
 }
 
@@ -44,7 +46,11 @@ void ChecksPointIsolation(const ::outshine::Generators::Osm::StreetField &street
     std::signal(SIGBUS, RejectsRead);
     std::signal(SIGALRM, StopsOverdueRead);
     alarm(2);
-    if (mprotect(reinterpret_cast<void *>(interior), page, PROT_NONE) != 0) { _exit(22); }
+    if (mprotect(const_cast<std::byte *>(std::as_bytes(points).data()) + (interior - first),
+                 page,
+                 PROT_NONE) != 0) {
+      _exit(22);
+    }
     _exit(streets.SourceDigest(field, 0) == expected ? 0 : 24);
   }
   if (child < 0) { return; }
@@ -63,10 +69,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "road rules load");
   if (!templates.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
@@ -100,7 +106,7 @@ int main() {
             streets.SourceDigest(field, 0) == expected,
         "repeated ingestion preserves identity/storage");
   auto snapshot = field.SnapshotQueries();
-  ::outshine::Generators::Osm::StreetField old = streets;
+  const ::outshine::Generators::Osm::StreetField old = streets;
   CHECK(old.SourceDigest(*snapshot, 0) == expected, "snapshot shares the original data context");
   ::outshine::Generators::Osm::OsmField foreign(14, layers);
   CHECK(foreign.Declare(roads, {.LongitudeDeg = 9, .LatitudeDeg = 47}).has_value(),

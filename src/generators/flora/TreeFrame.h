@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 

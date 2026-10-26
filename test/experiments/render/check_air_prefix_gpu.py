@@ -1,6 +1,7 @@
 """Compare native streamed RGB output to the unchanged dense physical reference."""
 
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -23,7 +24,12 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--analytic", action="store_true")
     args = parser.parse_args()
-    metadata = json.loads((args.fixtures / "rays.json").read_text())
+    metadata_path = args.fixtures / "rays.json"
+    if metadata_path.exists():
+        metadata = json.loads(metadata_path.read_text())
+    else:
+        with gzip.open(args.fixtures / "rays.json.gz", "rt") as source:
+            metadata = json.load(source)
     radiance_limit = 1e-5 if args.analytic else MAXIMUM_RADIANCE_ERROR
     through_limit = 2e-6 if args.analytic else MAXIMUM_TRANSMITTANCE_ERROR
     samples = np.fromfile(args.samples, dtype=SAMPLE)

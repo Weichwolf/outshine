@@ -13,14 +13,14 @@ class CellAcquisition {
 public:
   static constexpr size_t MaximumPendingCells = 8;
   CellAcquisition(Data::SourceProvider catalogue,
-                  Data::ContentStore &store,
+                  Data::RawSourceCache &store,
                   Data::Transport &wire,
                   const Data::ProviderRegistry *registry = nullptr,
                   std::string shippedRoot = {});
   ~CellAcquisition();
   CellAcquisition(const CellAcquisition &) = delete;
   CellAcquisition &operator=(const CellAcquisition &) = delete;
-  [[nodiscard]] std::expected<void, std::string> Start(Data::GeoCellId cell);
+  [[nodiscard]] std::expected<void, std::string> Start(GeoCellId cell);
   [[nodiscard]] std::expected<std::optional<SourceRead>, std::string> TakeReady();
   [[nodiscard]] size_t PendingCount() const noexcept;
 

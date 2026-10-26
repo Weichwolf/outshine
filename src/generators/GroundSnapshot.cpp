@@ -13,12 +13,12 @@
 
 #include "GroundPatch.h"
 #include "GroundSample.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 
 namespace outshine::Generators {
 
-std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTemplates &templates) {
-  const outshine::Ground::VegetationTemplates::Row *rows = templates.Rows();
+std::shared_ptr<const GroundTable> TableOf(const RegionSurfaceRecipes &templates) {
+  const outshine::Ground::SurfaceMaterial *rows = templates.Rows();
   const size_t count = templates.TemplateCount();
   std::vector<GroundTable::Row> table(count);
   for (size_t at = 0; at < count; ++at) {
@@ -26,7 +26,6 @@ std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTem
       table[at].Surface.BaseColour[channel] = rows[at].Ground[channel];
     }
     table[at].Surface.Roughness = rows[at].Ground[3];
-    table[at].SlopeMaxDeg = rows[at].Edge[3];
   }
   return GroundTable::Of(std::span<const GroundTable::Row>(table.data(), table.size()));
 }
@@ -88,7 +87,7 @@ public:
       const bool original = geometry != nullptr && geometry->Origin.Provenance;
       if (!original && std::cmp_not_equal(tiles[product], tile)) { continue; }
       const auto coordinates =
-          geometry != nullptr ? std::span<const double>(geometry->Points) : points;
+          geometry != nullptr ? std::span<const double>(geometry->Points()) : points;
       for (const auto &footprint : stands.Footprints->OfTile(static_cast<int>(tiles[product]))) {
         if (footprint.PointCount < 3 ||
             (original && !Intersects(Region_, footprint, coordinates))) {
@@ -103,7 +102,7 @@ public:
         Take(feature, {.First = footprint.FirstPoint, .Count = footprint.PointCount}, coordinates);
         if (geometry == nullptr) { continue; }
         for (const auto &hole :
-             std::span(geometry->Rings).subspan(footprint.FirstHole, footprint.HoleCount)) {
+             std::span(geometry->Rings()).subspan(footprint.FirstHole, footprint.HoleCount)) {
           AppendRing({.First = hole.First, .Count = hole.Count}, coordinates);
           ++Features_.back().RingCount;
         }
@@ -251,7 +250,7 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
 
 Snapped SnapshotOver(const Tile &region,
                      const outshine::GroundQuery &heights,
-                     std::shared_ptr<const ClassStructure> classes,
+                     std::shared_ptr<const TerrainClassificationMap> classes,
                      const Fields &stands,
                      std::shared_ptr<const GroundTable> table,
                      Ground::Snapshot *out,

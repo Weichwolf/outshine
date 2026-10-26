@@ -388,7 +388,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sources', type=Path, required=True)
     parser.add_argument('--endpoint', required=True)
-    parser.add_argument('--places', type=Path, default=Path('src/assets/places'))
+    parser.add_argument('--places', type=Path, default=Path('test/outshine/data/places'))
     parser.add_argument('--native-plan', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--radius', type=float, default=800)
@@ -406,7 +406,7 @@ def main():
             or not math.isfinite(args.side_room) or args.repeats < 1):
         parser.error('finite positive dimensions/repeats and a fraction in (0, 1] required')
     verify()
-    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
+    templates = json.loads(Path('data/world/vegetation.json').read_text())['templates']
     rules = [r for t in templates for r in t.get('osm', [])
              if r.get('layer') == 'streets' and r.get('widthM', 0) > 0]
     widths = {r['kind']: r['widthM'] for r in sorted(rules, key=lambda r: r.get('rank', 0))}

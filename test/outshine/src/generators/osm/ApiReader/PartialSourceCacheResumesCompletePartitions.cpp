@@ -1,9 +1,9 @@
+#include "OsmProviderValidation.h"
 #include "Check.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
-#include "SourceProviderValidation.h"
 
 #include <array>
 #include <cstdlib>
@@ -11,6 +11,8 @@
 #include <string>
 #include <system_error>
 #include <vector>
+
+using outshine::GeoCellId;
 
 namespace {
 using namespace outshine::Data;
@@ -48,7 +50,8 @@ int main() {
                                 .Revision = "partial-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint = std::string(kOfficialOsmApi)};
+                                .Endpoint =
+                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
   auto source = ApiSource::Create(provider, 0);
   CHECK(source.has_value(), "official original source configured");
   if (!source) { return Report(); }
@@ -57,7 +60,7 @@ int main() {
   const auto children = Children(root);
   const auto leaves = Children(children.front());
   {
-    ContentStore partial({.Directory = directory});
+    RawSourceCache partial({.Directory = directory});
     CHECK(partial.KeepCell(decl,
                            leaves.front(),
                            std::span(reinterpret_cast<const uint8_t *>(kXml.data()), kXml.size())),
@@ -68,7 +71,7 @@ int main() {
   Network online;
   OfflineTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
-    ContentStore fresh({.Directory = directory});
+    RawSourceCache fresh({.Directory = directory});
     Transport &wire = pass == 0 ? static_cast<Transport &>(online) : offline;
     std::vector<GeoCellId> pending{root};
     size_t delivered = 0, refined = 0, cached = 0;

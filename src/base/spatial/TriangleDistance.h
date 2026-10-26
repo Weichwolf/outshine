@@ -2,7 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_TRIANGLEDISTANCE_H
 
 #include <optional>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 

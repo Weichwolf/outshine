@@ -8,14 +8,19 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
-#include "math/Vec2.h"
+#include "Vec2.h"
 #include "ClassificationBuild.h"
 #include "OsmField.h"
 #include "TilePool.h"
 #include "TangentFrame.h"
+
+namespace outshine::Generators {
+class RegionSurfaceRecipes;
+}
 
 namespace outshine::Ground {
 
@@ -31,8 +36,6 @@ constexpr double kCoarseCellM = 64.0;
 constexpr int kCoarseSide = 128;
 constexpr double kCoarseReachM = 3800.0;
 
-class VegetationTemplates;
-
 class ClassificationPreparation {
 public:
   [[nodiscard]] bool HasSourceRequests() const noexcept;
@@ -47,14 +50,16 @@ public:
              {.Zoom = Coarse_.Zoom, .Ring = Coarse_.TileRadius}}};
   }
 
-  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
+  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these,
+                std::string_view digest = {}) {
     Declared_.assign(these.begin(), these.end());
+    DeclaredDigest_.assign(digest);
     Restored_.reset();
   }
 
-  void SetVegetation(const VegetationTemplates *veg) {
-    if (Veg_ != veg) { Restored_.reset(); }
-    Veg_ = veg;
+  void SetRecipes(const Generators::RegionSurfaceRecipes *recipes) {
+    if (Recipes_ != recipes) { Restored_.reset(); }
+    Recipes_ = recipes;
   }
 
   void SetVectorSource(
@@ -72,16 +77,16 @@ public:
   void Open(double lat, double lon, Tasks &compute);
   void Close();
 
-  [[nodiscard]] bool Restore(std::shared_ptr<const ClassStructure> classes);
+  [[nodiscard]] bool Restore(std::shared_ptr<const TerrainClassificationMap> classes);
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
   struct Publication {
-    std::shared_ptr<const ClassStructure> Classes;
-    std::shared_ptr<const Render::GroundClassBuffer> Upload;
+    std::shared_ptr<const TerrainClassificationMap> Classes;
+    std::shared_ptr<const Render::PackedTerrainClassification> Upload;
   };
 
-  std::shared_ptr<const ClassStructure> Read() const {
+  std::shared_ptr<const TerrainClassificationMap> Read() const {
     const std::scoped_lock lk(Mu_);
     return Published_.Classes;
   }
@@ -103,14 +108,16 @@ public:
     return Frame_.ToLocalGroundPosition(at);
   }
 
-  [[nodiscard]] static int
-  ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) {
+  [[nodiscard]] static int ClassAt(const TerrainClassificationMap &held,
+                                   LongitudeLatitude at,
+                                   double *edgeM,
+                                   int *runnerUp) {
     const EastNorth on = held.Frame().ToLocalGroundPosition(at);
     return held.Evaluate(on.EastM, on.NorthM, edgeM, runnerUp);
   }
 
   [[nodiscard]] int ClassAt(LongitudeLatitude at, double *edgeM, int *runnerUp) const {
-    const std::shared_ptr<const ClassStructure> held = Read();
+    const std::shared_ptr<const TerrainClassificationMap> held = Read();
     if (!held) { return -1; }
     return ClassAt(*held, at, edgeM, runnerUp);
   }
@@ -161,9 +168,11 @@ public:
   size_t HeapBytes() const;
 
   void Settle();
+  void ReleaseBuildInputs();
 
 private:
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
+  std::string DeclaredDigest_;
 
   struct Tier {
     std::unique_ptr<::outshine::Generators::Osm::OsmField> Field;
@@ -200,6 +209,7 @@ private:
           Zoom(how.Zoom) {}
 
     void Settle();
+    void Reset();
     [[nodiscard]] size_t HeapBytes() const;
   };
 
@@ -212,7 +222,7 @@ private:
 
   Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 
-  const VegetationTemplates *Veg_ = nullptr;
+  const Generators::RegionSurfaceRecipes *Recipes_ = nullptr;
   bool HasVectorSource_ = true;
   Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
 
@@ -234,7 +244,7 @@ private:
 
   mutable std::mutex Mu_;
   Publication Published_;
-  std::shared_ptr<const ClassStructure> Restored_;
+  std::shared_ptr<const TerrainClassificationMap> Restored_;
 
   TangentFrame Frame_;
   Vec2 Cam_ = {{0, 0}};

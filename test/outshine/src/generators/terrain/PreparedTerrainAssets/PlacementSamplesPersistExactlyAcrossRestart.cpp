@@ -15,7 +15,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ground-patch-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   constexpr Data::TileId at{.Zoom = 14, .X = 8937, .Y = 5683};
   const Tile region(at.Zoom, static_cast<int>(at.X), static_cast<int>(at.Y));

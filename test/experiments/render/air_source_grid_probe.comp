@@ -1,0 +1,115 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "airSource.glsl"
+#include "AirPrefixProbeLayout.h"
+#include "source_grid_cases.glsl"
+
+#ifndef SOURCE_GRID_LOG
+#define SOURCE_GRID_LOG 0
+#endif
+#ifndef SOURCE_SHADOW_MODE
+#define SOURCE_SHADOW_MODE 0
+#endif
+#ifndef SOURCE_CLEAR_CONTROL
+#define SOURCE_CLEAR_CONTROL 0
+#endif
+#ifndef SOURCE_ORIGIN_X_M
+#define SOURCE_ORIGIN_X_M 0.0
+#endif
+#ifndef SOURCE_DIRECTION_X
+#define SOURCE_DIRECTION_X 1.0
+#endif
+#ifndef SOURCE_BAD_COORDINATES
+#define SOURCE_BAD_COORDINATES 0
+#endif
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+float sourceCloudSunTransfer(vec3 pointM, vec3 field) {
+  float position = (pointM.x - field.x) / field.y;
+  return exp(-field.z * exp(-position * position));
+}
+
+AirSource probeShadedSource(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
+                            sampler2D solar, sampler2D diffuse, AirSourceRay coordinates) {
+  vec3 field = probeSourceFields[from.rays[gl_GlobalInvocationID.x].Pad];
+  if (field.z <= 0.0) {
+    return airSourceAt(medium, ray, distanceKm, sunVisible, solar, diffuse);
+  }
+  // Hold prescribed homogeneous clear inputs fixed; vary only cloud solar transfer.
+  AirSourceTerms terms = airSourceTermsAt(medium, ray, 0.0, sunVisible, solar, diffuse);
+  vec3 pointM = coordinates.OriginM + coordinates.Direction * (distanceKm * 1000.0);
+  float through = sourceCloudSunTransfer(pointM, field);
+#if SOURCE_SHADOW_MODE == 1 || SOURCE_SHADOW_MODE == 3
+  through = 1.0;
+#endif
+#if SOURCE_SHADOW_MODE == 2
+  return AirSource(terms.Extinction, (terms.DirectEmission + terms.DiffuseEmission) * through);
+#else
+  return AirSource(terms.Extinction, terms.DirectEmission * through + terms.DiffuseEmission);
+#endif
+}
+
+#if SOURCE_GRID_LOG
+float probeLogarithmicGrid(AirRay ray, uint index) {
+  vec3 field = probeSourceFields[from.rays[gl_GlobalInvocationID.x].Pad];
+  if (field.z <= 0.0) {
+    float fraction = float(index) / 22.0;
+    return ray.DistanceKm * fraction * fraction;
+  }
+  float fraction = float(index) / float(AIR_PREFIX_INTERVALS);
+  if (fraction >= 1.0) { return ray.DistanceKm; }
+  return 0.1 * (exp2(log2(1.0 + ray.DistanceKm / 0.1) * fraction) - 1.0);
+}
+#if !SOURCE_CLEAR_CONTROL
+#define AIR_PREFIX_GRID_PROVIDER probeLogarithmicGrid
+#endif
+#endif
+#if !SOURCE_CLEAR_CONTROL
+#define AIR_SOURCE_PROVIDER probeShadedSource
+#endif
+#include "airPrefix.glsl"
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay inputRay = from.rays[index];
+  AirPathSpan span = airPhysicalSpan(pushed.Air, inputRay.Ray);
+  AirRay ray = airPathRay(pushed.Air, inputRay.Ray, span);
+  float heightM = (inputRay.Ray.RadiusKm - pushed.Air.BottomRadiusKm) * 1000.0;
+#ifdef SOURCE_ORIGIN_Y_M
+  heightM = SOURCE_ORIGIN_Y_M;
+#endif
+  AirSourceRay coordinates = AirSourceRay(
+      vec3(SOURCE_ORIGIN_X_M, heightM, 0.0), vec3(SOURCE_DIRECTION_X, 0.0, 0.0));
+#if SOURCE_BAD_COORDINATES
+  coordinates.OriginM.x = 0.0;
+  coordinates.Direction = vec3(1.0, 0.0, 0.0);
+#endif
+#if SOURCE_CLEAR_CONTROL
+  AirPrefix prefix = airPrefixBegin(pushed.Air, ray, veil, multiScatter);
+#else
+  AirPrefix prefix = airPrefixBegin(pushed.Air, ray, veil, multiScatter, coordinates);
+#endif
+  for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
+    float queryKm = clamp(query.distanceKm[at], 0.0, ray.DistanceKm);
+#if SOURCE_CLEAR_CONTROL
+    AirTransfer transfer = airPrefixAdvance(prefix, pushed.Air, queryKm, veil, multiScatter);
+#else
+    AirTransfer transfer = airPrefixAdvance(prefix, pushed.Air, queryKm, veil, multiScatter, coordinates);
+#endif
+#if SOURCE_SHADOW_MODE == 3
+    transfer.RadiancePerLux *= sourceCloudSunTransfer(
+        coordinates.OriginM, probeSourceFields[inputRay.Pad]);
+#endif
+    into.samples[at] = ProbeSample(transfer.RadiancePerLux.r, transfer.RadiancePerLux.g,
+        transfer.RadiancePerLux.b, transfer.Transmittance.r, transfer.Transmittance.g,
+        transfer.Transmittance.b, prefix.SourceEvaluations, 0u);
+  }
+}

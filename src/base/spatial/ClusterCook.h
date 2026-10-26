@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 #include "ClusterDag.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine {
 

@@ -1,0 +1,66 @@
+#ifndef OUTSHINE_WORLD_PRODUCTS_GROUNDSAMPLE_H
+#define OUTSHINE_WORLD_PRODUCTS_GROUNDSAMPLE_H
+
+#include <optional>
+
+#include "Vec3.h"
+
+namespace outshine {
+
+class GroundSample {
+public:
+  enum class State { Resolved, Pending, Hole };
+
+  static constexpr double kDeepestM = -11500.0;
+  static constexpr double kTallestM = 9500.0;
+
+  [[nodiscard]] static bool HeightIsOnEarth(double aslM) {
+    return aslM >= kDeepestM && aslM <= kTallestM;
+  }
+
+  static GroundSample At(double aslM) {
+    if (!HeightIsOnEarth(aslM)) { return Missing(); }
+    return GroundSample(State::Resolved, aslM);
+  }
+
+  static GroundSample At(double aslM, const Vec3 &normal) {
+    if (!HeightIsOnEarth(aslM)) { return Missing(); }
+    GroundSample out(State::Resolved, aslM);
+    out.NormalM_[0] = normal[0];
+    out.NormalM_[1] = normal[1];
+    out.NormalM_[2] = normal[2];
+    return out;
+  }
+
+  [[nodiscard]] GroundSample Coarser(int byZoomSteps) const {
+    GroundSample out(*this);
+    out.CoarseBy_ = byZoomSteps;
+    return out;
+  }
+
+  static GroundSample Waiting() { return GroundSample(State::Pending); }
+
+  static GroundSample Missing() { return GroundSample(State::Hole); }
+
+  [[nodiscard]] State Where() const { return Where_; }
+
+  [[nodiscard]] std::optional<double> AslM() const {
+    if (Where_ != State::Resolved) { return std::nullopt; }
+    return AslM_;
+  }
+
+  [[nodiscard]] const Vec3 &NormalM() const { return NormalM_; }
+
+  [[nodiscard]] int CoarseBy() const { return CoarseBy_; }
+
+private:
+  explicit GroundSample(State where, double aslM = 0.0) : Where_(where), AslM_(aslM) {}
+
+  State Where_;
+  double AslM_;
+  Vec3 NormalM_ = {{0.0, 1.0, 0.0}};
+  int CoarseBy_ = 0;
+};
+
+}
+#endif

@@ -176,7 +176,7 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
 
 std::string Refusal(Data::TileId tile,
                     std::string_view kind,
-                    const std::optional<Data::FetchFailure> &failure) {
+                    const std::optional<Data::SourceFailure> &failure) {
   std::string context =
       std::format("view data preparation refused {}/{}/{}/{}", kind, tile.Zoom, tile.X, tile.Y);
   if (!failure) { return context; }
@@ -209,7 +209,7 @@ std::expected<bool, std::string> PollVector(Data::TileId tile,
 std::expected<bool, std::string> PollField(Data::TileId tile,
                                            const Ground::SurfacePreparation &stack) {
   std::shared_ptr<const Ground::TerrainField> field;
-  std::optional<Data::FetchFailure> failure;
+  std::optional<Data::SourceFailure> failure;
   const auto status = stack.Ground().PollStitchedField(tile, field, &failure);
   if (status == Ground::TilePool::Reply::Refused) {
     return std::unexpected(Refusal(tile, "elevation", failure));
@@ -236,10 +236,10 @@ std::expected<TerrainPathPlan, std::string> PlanTerrainPath(std::span<const Arou
     if (!added) { return std::unexpected(added.error()); }
   }
   const std::vector<Data::TileId> meshTiles(tiles.Meshes.begin(), tiles.Meshes.end());
-  const auto fields = PlanTerrainSourceTiles(meshTiles,
-                                             {.FinestZoom = finest,
-                                              .GroundZoom = ground.BlockZoom(),
-                                              .AdditionalTiles = sources.RoadTiles});
+  const auto fields = Generators::PlanTerrainSourceTiles(meshTiles,
+                                                         {.FinestZoom = finest,
+                                                          .GroundZoom = ground.BlockZoom(),
+                                                          .AdditionalTiles = sources.RoadTiles});
   if (!fields) { return std::unexpected(fields.error()); }
   if (const auto added = Add(tiles.Samples, *fields); !added) {
     return std::unexpected(added.error());
@@ -275,9 +275,9 @@ PrepareTerrainPath(TerrainPathPlan plan,
       !read) {
     return read;
   }
-  const auto heights = PlanTerrainSourceTiles(
+  const auto heights = Generators::PlanTerrainSourceTiles(
       {},
-      {.FinestZoom = stack.FinestZoomOf(Data::DataKind::Elevation),
+      {.FinestZoom = stack.TerrainRenderZoom(),
        .GroundZoom = stack.Ground().BlockZoom(),
        .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : vectors.get(),
        .AdditionalTiles = {}});

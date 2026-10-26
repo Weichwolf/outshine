@@ -6,8 +6,8 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include <world/SourceProvider.h>
-#include <world/data/GeoCellId.h>
+#include "GeographicBounds.h"
+#include <GeoCellId.h>
 
 namespace outshine::Data {
 
@@ -29,7 +29,7 @@ struct SourceProvenance {
 
 struct ProductOrigin {
   std::shared_ptr<const SourceProvenance> Provenance = nullptr;
-  SourceCoverage Bounds{};
+  GeographicBounds Bounds{};
   uint64_t Selection = 0;
 };
 

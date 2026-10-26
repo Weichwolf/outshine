@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 from evidence import revision
+from place_materials import default_finish
 from place_reference import PLACES
 from place_scene import prepare
 
@@ -40,6 +41,7 @@ def render(name, inputs, output, spp):
         "roof_linear": [0.22, 0.24, 0.25],
         "material_definitions": scene["material_definitions"],
         "facade_materials": scene["facade_materials"],
+        "facade_finishes": default_finish(),
         "ground_span_m": 240000.0,
         "spp": spp,
         "seed": 17,
@@ -68,6 +70,7 @@ def render(name, inputs, output, spp):
         "place": name,
         "camera": asdict(scene["camera"]),
         "camera_ground_height_m": scene["camera_ground_height_m"],
+        "ground_mode": scene["ground_mode"],
         "profile": config["profile"],
         "image": name + ".png",
         "image_sha256": renderer["image_sha256"],

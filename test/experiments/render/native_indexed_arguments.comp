@@ -1,0 +1,17 @@
+#version 450
+
+layout(local_size_x = 1) in;
+layout(std430, set = 1, binding = 0) buffer Arguments { uint words[]; };
+layout(std140, set = 2, binding = 0) uniform Control { ivec4 ranges; uvec4 positions; };
+
+void main() {
+  for (uint at = 0; at < words.length(); ++at) { words[at] = 0u; }
+  for (uint draw = 0; draw < positions.w; ++draw) {
+    uint at = positions.z + draw * positions.y;
+    words[at] = uint(ranges.x);
+    words[at + 1u] = uint(ranges.y);
+    words[at + 2u] = uint(ranges.z) + draw * uint(ranges.x);
+    words[at + 3u] = uint(ranges.w);
+    words[at + 4u] = positions.x;
+  }
+}

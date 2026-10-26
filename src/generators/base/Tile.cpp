@@ -1,11 +1,11 @@
 #include "Tile.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <cmath>
 #include <cstdint>
 
 #include "Geodesy.h"
-#include "math/Units.h"
+#include "Units.h"
 
 namespace outshine::Generators {
 

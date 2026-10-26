@@ -78,7 +78,7 @@ class ResidentialRoofs(unittest.TestCase):
             elif mutation == "narrow":
                 row["polygon"] = shapely.box(0, 0, 4, 30)
             else:
-                row["polygon"] = shapely.box(0, 0, 20, 20)
+                row["polygon"] = shapely.box(0, 0, 60, 60)
             self.assertEqual(choose(row, attributes(row["properties"])).kind, "flat")
 
     def test_supplied_storeys_reserve_headroom_before_inferred_roof(self):

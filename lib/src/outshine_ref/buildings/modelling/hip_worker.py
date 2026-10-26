@@ -108,7 +108,7 @@ class HipPlanner:
                 if self._closed:raise HipWorkerError('Planner is closed')
                 self._active=True;self._cancelled.clear();self.last_worker_entered=False
             if not isinstance(polygon,shapely.Polygon):raise ValueError('Roof planner requires a polygon')
-            if method not in ('auto','skeleton','rectangle'):raise ValueError('Invalid roof planning method')
+            if method not in ('auto','skeleton','rectangle','contour'):raise ValueError('Invalid roof planning method')
             count=sum(len(r.coords)-1 for r in (polygon.exterior,*polygon.interiors))
             if count>self.limits.vertices:raise SkeletonBudgetExceeded('Roof input vertex capacity exceeded')
             self._start();deadline=time.monotonic()+self.limits.seconds

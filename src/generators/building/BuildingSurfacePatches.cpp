@@ -6,6 +6,19 @@
 #include <span>
 
 namespace outshine::Generators {
+namespace {
+void AppendMaterialMetres(const BuildingSurface &source,
+                          const BuildingSurfacePatch &patch,
+                          Raised &into) {
+  const bool metres = source.UsesMaterialMetres(patch.Sample);
+  if (!metres && into.WallMaterialM.empty()) { return; }
+  if (into.WallMaterialM.empty()) { into.WallMaterialM.resize(into.WallCorners.size() * 2); }
+  for (const auto &corner : patch.Corners) {
+    const Vec2f at = metres ? source.MaterialMetresAt(patch.Sample, corner) : Vec2f{};
+    into.WallMaterialM.insert(into.WallMaterialM.end(), {at[0], at[1]});
+  }
+}
+}
 
 size_t BuildingSurface::EstimatedTriangles(std::span<const Face> faces) const noexcept {
   size_t count = 0;
@@ -32,6 +45,7 @@ void BuildingSurface::MeshPatches(std::span<const BuildingSurfacePatch> patches,
     const bool paint = !roof && (WallColour_ || !into.WallColours.empty());
     if (paint && into.WallColours.empty()) { into.WallColours.resize(vertices.size() * 4, 1.0f); }
     const Vec3f colour = ColourFactor(patch.Sample);
+    if (!roof) { AppendMaterialMetres(*this, patch, into); }
     for (const auto &corner : patch.Corners) {
       vertices.push_back(VertexAt(patch.Sample, corner));
       if (paint) {

@@ -1,9 +1,12 @@
+#include "TerrainLattice.h"
 #include "GroundWorldCandidate.h"
 
 #include "Check.h"
 
 #include <SDL3/SDL.h>
 #include <array>
+#include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -15,6 +18,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
     Render::SceneRenderer renderer;
+    const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
@@ -22,11 +26,11 @@ int main() {
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
-    Surrounds world;
-    ::outshine::Generators::Osm::BuildingField footprints;
+    WorldRegionState world;
+    const ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     std::array<Render::HeightPageHandle, 3> pages;
-    const std::vector<float> nodes(Render::GroundLattice::kPageNodes, 2.0f);
+    const std::vector<float> nodes(Render::TerrainLattice::kPageNodes, 2.0f);
     for (Render::HeightPageHandle &page : pages) {
       const auto placed = renderer.PlaceHeightPage(nodes);
       CHECK(placed.has_value(), "published height page uploads");

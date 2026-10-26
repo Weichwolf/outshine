@@ -1,8 +1,7 @@
-#include "ShippedProviders.h"
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "OsmXmlReader.h"
 #include "OsmSourceDemand.h"
 #include "OsmStructureCell.h"
@@ -41,7 +40,6 @@ constexpr double kEastStepDeg = 0.0138;
 }
 
 bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
-  Generators::RegisterShippedProviders(World.Providers);
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
@@ -57,7 +55,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) { return true; }
+  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
+    return ConfigureWorldSources(tileProviders);
+  }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
   if (!World.OsmSource) {
@@ -65,19 +65,19 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
       if (Session.Under.Offline) {
         World.Wire = std::make_unique<Data::OfflineTransport>();
       } else {
-        World.Wire = std::make_unique<Fetching>(
-            Fetching::Config{.ConcurrentTransfers = 8,
-                             .ConnectionsPerHost = 8,
-                             .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
+        World.Wire = std::make_unique<HttpTransport>(
+            HttpTransport::Config{.ConcurrentTransfers = 8,
+                                  .ConnectionsPerHost = 8,
+                                  .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
         World.Wire.get(),
         Session.Under.Cache,
-        Generators::Osm::SourceAcquisition::Target::Inputs,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
+  if (!ConfigureWorldSources(tileProviders)) { return false; }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
@@ -118,11 +118,11 @@ bool Engine::State::RequestOriginalCells() {
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
   if (World.OriginalSourceDemand == demand) { return true; }
-  auto cells = Data::CellsAround(demand[0],
-                                 demand[1],
-                                 demand[2],
-                                 Generators::Osm::kCatalogueCellLevel,
-                                 Generators::Osm::kDefaultCellLimits.CellsMost);
+  auto cells = CellsAround(demand[0],
+                           demand[1],
+                           demand[2],
+                           Generators::Osm::kCatalogueCellLevel,
+                           Generators::Osm::kDefaultCellLimits.CellsMost);
   if (!cells) {
     Error = std::move(cells.error());
     return false;
@@ -152,8 +152,8 @@ bool Engine::State::SubmitOsmTransportSource() {
   return true;
 }
 
-void Engine::State::DeclareGroundFeatures() {
-  if (Session.Declared.Ground.Osm.empty()) { return; }
+bool Engine::State::DeclareGroundFeatures() {
+  if (Session.Declared.Ground.Osm.empty()) { return true; }
   std::vector<::outshine::Generators::Osm::OsmField::Declared> told;
   told.reserve(Session.Declared.Ground.Osm.size());
   for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
@@ -173,9 +173,13 @@ void Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  World.Stack.Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(told));
+  if (const auto declared = World.Stack.Declares(told); !declared) {
+    Error = declared.error();
+    return false;
+  }
   Published.RecordMetric(
       "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
+  return true;
 }
 
 bool Engine::State::PrepareRuntimeWorld() {
@@ -198,28 +202,24 @@ bool Engine::State::PrepareRuntimeWorld() {
     if (Session.Under.Offline) {
       World.Wire = std::make_unique<Data::OfflineTransport>();
     } else {
-      World.Wire = std::make_unique<Fetching>(Fetching::Config{});
+      World.Wire = std::make_unique<HttpTransport>(HttpTransport::Config{});
     }
   }
 
-  if (tileProviders.empty()) {
-    const auto shipped = Generators::ShippedProviders();
-    tileProviders.assign(shipped.begin(), shipped.end());
-  }
   Collecting say;
-  const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
-                                         .Cache = Session.Under.Cache,
-                                         .AssetCache = Session.Under.AssetCache};
+  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.Shipped,
+                                              .Sources = Session.Under.Cache,
+                                              .Assets = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
-                                                 tileProviders,
-                                                 {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                                                 *World.Wire,
-                                                 *World.Pool,
-                                                 say,
-                                                 Diagnostics,
-                                                 Session.Declared.Ground.PatienceS,
-                                                 &World.Providers)) {
+  if (!World.Stack.Opened() &&
+      !World.Stack.OpenSession(contentDirectories,
+                               World.Sources,
+                               {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+                               *World.Wire,
+                               *World.Pool,
+                               say,
+                               Diagnostics,
+                               Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }
@@ -248,7 +248,7 @@ bool Engine::State::PrepareRuntimeWorld() {
     Published.RecordMetric("ground: and this a kilometre east", eastM, "m");
   }
 
-  DeclareGroundFeatures();
+  if (!DeclareGroundFeatures()) { return false; }
 
   {
     const double fovDeg =
@@ -266,20 +266,22 @@ bool Engine::State::PrepareRuntimeWorld() {
                                std::ldexp(1.0, vectorZoom);
     World.Stack.FootprintTilesSpan(vectorSpanM);
   }
-  if (World.Stack.Vegetated()) {
+  if (World.Stack.RecipesReady()) {
     std::string why;
-    if (!World.Shipping.EnsureCatalogue(World.Stack.Vegetation(),
+    if (!World.Shipping.EnsureCatalogue(World.Stack.SurfaceRecipes(),
                                         std::string(Session.Under.Shipped) + "/world/species",
                                         why,
-                                        declared.Ground.VegetationEnabled)) {
+                                        declared.Ground.VegetationEnabled,
+                                        std::string(Session.Under.Shipped) +
+                                            "/world/vegetation.json")) {
       Error = std::move(why);
       return false;
     }
-    World.Table = Generators::TableOf(World.Stack.Vegetation());
+    World.Table = Generators::TableOf(World.Stack.SurfaceRecipes());
   }
 
   HandsPiecesOver();
-  return Grounds(true, GroundQuality::Playable);
+  return AdvanceWorldRegionBuild(true, GroundQuality::Playable);
 }
 
 void Engine::State::PollOsmSources() {

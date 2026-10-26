@@ -1,7 +1,7 @@
 #include "StructurePlanSelection.h"
 #include "PlanHierarchy.h"
 #include "Geodesy.h"
-#include "math/Units.h"
+#include "Units.h"
 
 #include <algorithm>
 #include <array>
@@ -73,28 +73,6 @@ bool AcceptedMass(const StructureMassPlan &mass,
   return fits(enclosure);
 }
 
-}
-
-bool StructureSelectionView::Contains(LongitudeLatitude eye,
-                                      ProjectedErrorBudget projection,
-                                      std::optional<Vec3> eyeEcef) const noexcept {
-  if (Projection != projection || !std::isfinite(Projection.FocalPx) || Projection.FocalPx <= 0.0 ||
-      !std::isfinite(Projection.AllowedErrorPx) || Projection.AllowedErrorPx < 0.0 ||
-      !std::isfinite(EyeRadiusM) || EyeRadiusM < 0.0 || !std::isfinite(Eye.LongitudeDeg) ||
-      !std::isfinite(Eye.LatitudeDeg) || EyeEcef.has_value() != eyeEcef.has_value()) {
-    return false;
-  }
-  if (EyeEcef) {
-    const Vec3 offset = *EyeEcef - *eyeEcef;
-    const double distanceM = std::hypot(offset[0], offset[1], offset[2]);
-    return std::isfinite(distanceM) && distanceM <= EyeRadiusM;
-  }
-  const Ellipsoid earth{.SemiMajorM = kWgs84A, .Flattening = 1.0 - std::sqrt(1.0 - kWgs84E2)};
-  const auto distance =
-      GeodesicOn({.LongitudeDeg = Eye.LongitudeDeg, .LatitudeDeg = Eye.LatitudeDeg},
-                 {.LongitudeDeg = eye.LongitudeDeg, .LatitudeDeg = eye.LatitudeDeg},
-                 earth);
-  return distance.Converged && std::isfinite(distance.AlongM) && distance.AlongM <= EyeRadiusM;
 }
 
 std::optional<double> StructurePlanSelection::Add(StructurePlan plan,
@@ -336,16 +314,19 @@ StructurePlanSelection::EmitProjected(const Command &command,
          out.Built.RoofRun,
          projected->Mesh.RoofCorners,
          projected->Mesh.RoofRun);
-  if (!out.Built.WallColours.empty() || !projected->Mesh.WallColours.empty()) {
-    if (out.Built.WallColours.empty()) { out.Built.WallColours.resize(first * 4, 1.0f); }
-    if (projected->Mesh.WallColours.empty()) {
-      out.Built.WallColours.resize(out.Built.WallCorners.size() * 4, 1.0f);
+  const auto appendAttribute = [first, count = out.Built.WallCorners.size()](
+                                   auto &into, const auto &from, size_t components, float missing) {
+    if (into.empty() && from.empty()) { return; }
+    into.reserve(count * components);
+    if (into.empty()) { into.resize(first * components, missing); }
+    if (from.empty()) {
+      into.resize(count * components, missing);
     } else {
-      out.Built.WallColours.insert(out.Built.WallColours.end(),
-                                   projected->Mesh.WallColours.begin(),
-                                   projected->Mesh.WallColours.end());
+      into.insert(into.end(), from.begin(), from.end());
     }
-  }
+  };
+  appendAttribute(out.Built.WallColours, projected->Mesh.WallColours, 4, 1.0f);
+  appendAttribute(out.Built.WallMaterialM, projected->Mesh.WallMaterialM, 2, 0.0f);
   return {};
 }
 

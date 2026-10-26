@@ -1,35 +1,52 @@
 # Engine tests
 
-| Directory | Responsibility |
-|---|---|
-| `include/<header without .h>/` | Public API contracts; only public engine headers |
-| `src/<component without .h or .cpp>/` | Implementation contracts; mirrors the component under `src/` |
-| `integration/places/` | Complete place scenarios and rendered-image checks |
+`src/<component>/` mirrors production ownership. Mixed contracts belong under
+`integration/<area>/`; shared helpers stay under `test/harness/`. No SDK or claims layer.
+CMake targets own source/header dependencies, compilation and linking. CTest owns
+selection, timeouts, output and results. Missing input or a skipped case is not success.
 
-Examples: `include/scene/Geometry/`, `src/base/curve/Ribbon/`,
-`src/import/Subject/`. Name each case after the behavior it proves.
-Test helpers belong with their component or in `test/harness/shared/`.
-Keep one owner for each behavior; extend its cases instead of repeating the same setup
-and assertions in a new executable. Keep API validation, asset persistence and GPU image
-response separate: success at one boundary does not establish the others.
-
-The default `make test` selects the world contracts in `test/world-gate.txt` and renders
-Wien, Tokyo and Central Park offline. `make test-khronos` retains explicit glTF/animation
-and pinned-image compatibility; `make test-all` runs every declared suite.
-`make lint` retains shared shader/GPU contracts independently of compatibility images.
-
-Run a subtree or a single case:
-
-```
+```sh
+cmake --preset native
+cmake --build --preset native --target outshine
 make suite SUITE=outshine/src/base/curve
-make suite SUITE=outshine/include/scene/Geometry/PlacementReplacementPreservesGeometry
-make suite SUITE=outshine/integration/places
+make suite SUITE=outshine/integration/content/AssetGeneration
+make suite SUITE=tools
+make suite SUITE=render/shader-artifacts
+ctest --test-dir build --show-only
 ```
 
-`test/run.sh` selects build profiles by component. Vector decoding/storage keeps
-ASan/UBSan; GPU submission/storage keeps SDL validation; process-allocation
-checks link diagnostic instrumentation. Public API tests compile without `src/`
-include paths. Shared library objects retain their own declared dependencies.
+`make suite` builds only the selected tests and their module dependencies, using all
+cores. Each test source becomes `test_<path with slashes replaced by underscores>`.
+For example, `test_outshine_src_base_curve` builds that subtree; CTest names preserve
+slashes. `OUTSHINE_BUILD_DIR` selects a separate build for `test/run.sh`;
+`BUILD_DIR` does the same for Make. Product and test objects share the configured
+compiler/options; CMake maintains distinct builds for instrumentation. Native tests
+use the runtime's exception-free model. The intentional process-boundary exception
+test explicitly enables exceptions; its failure and unwinding assertions stay intact.
 
-Source-closure audits inspect each distinct resolved source-group list once per
-run. Test discovery and execution still visit every case and instrumentation arm.
+| Command | Scope |
+|---|---|
+| `make test` | World contracts in `test/world-gate.txt`, including offline Places |
+| `make test-all` | All native tests and pinned HTML/CSS/JS/geodesic corpora |
+| `make suite SUITE=<path>` | Named test or subtree |
+| `make test-sanitizers SUITE=<path>` | ASan/UBSan, checked standard library |
+| `make test-races SUITE=<path>` | TSan in a separate build |
+| `make lint` | Incremental CMake-integrated clang-tidy and formatting |
+| `make lint-all` | Clean clang-tidy build for the complete integration |
+
+Prepared corpus inputs live in the system temp directory under `outshine-prepared/`;
+`OUTSHINE_PREPARED_DIR` is a CMake cache setting. Prepare pinned manifests explicitly
+with `make corpus-prepare MANIFEST=test/.../manifest.json`. Normal tests never fetch
+new oracles or change pins. Functional GPU tests and release performance measurements
+remain separate; instrumented results do not establish release frame budgets.
+
+Places are diagnostic profiles, not worldwide acceptance. Target conditions remain
+1280×720/60 including p99; lower-rate profiles are explicitly separate comparisons.
+Image correctness, shader layouts, persistence and device timing need their own
+checks. Tests succeeding at one boundary do not establish the others.
+
+Built shaders resolve through their owning CMake build, independently of the working
+directory. Tests invoke that build's client through `OUTSHINE_CLIENT`. The optional
+`OUTSHINE_CACHE_DIR` selects prepared source/asset storage for native Place checks.
+The profile test requires a prepared Place asset cache; CTest supplies its offline
+preparation fixture before the unchanged warm-load and 25/30/60-Hz checks.

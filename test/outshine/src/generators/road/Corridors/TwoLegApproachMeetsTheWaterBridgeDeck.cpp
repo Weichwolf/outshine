@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -35,10 +37,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the fixture uses production road and water rules");
   if (!vegetation.Ready()) { return Report(); }
   int water = -1;
@@ -84,14 +86,18 @@ int main() {
     CHECK(ways.Ingest(vectors, vegetation) == declared.size(),
           "both adjoining roads reach the generator");
     const TangentFrame standing = TangentFrame::At(origin);
-    auto grid = std::make_shared<ClassStructure::Grid>();
+    const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
     grid->W = grid->H = 1;
     grid->OrgE = -500;
     grid->OrgN = betweenBridges ? -500 : 0;
     grid->CellM = 1000;
     grid->Cells = {static_cast<uint32_t>(water) | (1u << 8), 0};
-    const std::shared_ptr<const ClassStructure> classes = std::make_shared<ClassStructure>(
-        standing, grid, std::make_shared<const ClassStructure::Grid>(), ClassStructure::FromRun{});
+    const std::shared_ptr<const TerrainClassificationMap> classes =
+        std::make_shared<TerrainClassificationMap>(
+            standing,
+            grid,
+            std::make_shared<const TerrainClassificationMap::Grid>(),
+            TerrainClassificationMap::FromRun{});
     const TriangleBvh empty = TriangleBvh::Over({}, {});
     const Drape drape{.Surface = empty,
                       .Field = [betweenBridges](EastNorth at) -> std::optional<double> {
@@ -106,6 +112,7 @@ int main() {
         .Draped = drape,
         .Classes = classes,
         .WaterUpM = [](LongitudeLatitude) { return std::optional<double>{0}; },
+        .CensusAt = {},
         .EyeLatDeg = origin.LatitudeDeg,
         .EyeLonDeg = origin.LongitudeDeg,
         .Projection = {.FocalPx = 800}};
@@ -116,7 +123,7 @@ int main() {
     std::vector<DiagnosticSample> notes;
     CHECK(corridors.Lay(site, geometry, earthworks, notes) && geometry.wellFormed(),
           "the water crossing generates native road products");
-    CheckBridgeJoint(earthworks, {0, 0});
+    CheckBridgeJoint(earthworks, {.EastM = 0, .NorthM = 0});
     if (betweenBridges) {
       CheckBridgeJoint(earthworks,
                        standing.ToLocalGroundPosition({.LongitudeDeg = 8, .LatitudeDeg = 49.0002}));

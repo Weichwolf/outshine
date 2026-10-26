@@ -1,5 +1,6 @@
-#include "EngineHeld.h"
-#include "math/Vec3.h"
+#include "RigidBodyState.h"
+#include "EngineState.h"
+#include "Vec3.h"
 
 #include <atomic>
 #include <cmath>
@@ -25,12 +26,11 @@ void Engine::State::PublishAudioSnapshot() {
       sources.push_back(where);
       continue;
     }
-    const Physics::Rigid *stood = nullptr;
+    const World::RigidBodyState *stood = nullptr;
     const auto binding =
         source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
-    if (binding && Simulation->DeclarationRevision == Session.DeclarationRevision) {
-      const auto &body = Simulation->DynamicBodies[*binding];
-      if (Simulation->Entities.alive(body.Owner)) { stood = &body.Motion; }
+    if (binding && ScenarioState->DeclarationRevision == Session.DeclarationRevision) {
+      stood = BodyFrame.Body(*binding);
     }
     if (stood != nullptr) {
       where.Standing = true;

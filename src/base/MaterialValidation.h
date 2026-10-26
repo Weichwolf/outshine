@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_BASE_MATERIALVALIDATION_H
 #define OUTSHINE_BASE_MATERIALVALIDATION_H
-#include <scene/Material.h>
+#include <Material.h>
 #include "MaterialMaps.h"
 #include <cmath>
 #include <algorithm>
@@ -101,7 +101,8 @@ namespace MaterialValidation {
              row.DiffuseTransmissionMap.bound()) {
     return false;
   }
-  if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade) {
+  if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade &&
+      row.Pattern != SurfacePattern::FacadeMetres) {
     return false;
   }
   if (row.Alpha != AlphaMode::Opaque && row.Alpha != AlphaMode::Masked &&

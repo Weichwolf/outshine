@@ -15,7 +15,7 @@ int main() {
       .Dataset = "missing",
       .Location = "source-which-must-never-be-read.osm",
       .Coverage =
-          Data::SourceCoverage{.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 1.0, .NorthDeg = 1.0}};
+          GeographicBounds{.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 1.0, .NorthDeg = 1.0}};
   std::stop_source stop;
   (void)stop.request_stop();
   const auto loaded =

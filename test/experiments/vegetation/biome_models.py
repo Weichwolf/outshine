@@ -1,0 +1,168 @@
+"""Small physical plant products for four flat research tiles, no GIS inputs."""
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+from biome_recipes import woody_plan
+from broadleaf_crowns import architecture, match_area
+from outshine_ref.vegetation.axis_surface import axis_mesh
+from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
+
+
+class Assembly:
+    def __init__(self):
+        self.parts = []
+        self.vertices = 0
+
+    def add(self, mesh, origins, frames, surface):
+        if not len(origins):
+            return
+        v, f = mesh["vertices"], mesh["faces"]
+        vertices = np.einsum("nij,vj->nvi", frames, v) + origins[:, None]
+        faces = f[None] + np.arange(len(origins))[:, None, None] * len(v)
+        normals = np.einsum("nij,cj->nci", frames, mesh["normals"].reshape(-1, 3))
+        if "uv" in mesh:
+            uv = mesh["uv"]
+        elif "parameters" in mesh:
+            parameter = mesh["parameters"]
+            uv = np.column_stack(((parameter[:, 1] + 1) / 2, parameter[:, 0]))
+        else:
+            uv = np.zeros((len(v), 2))
+        uv = mesh["corner_uv"] if "corner_uv" in mesh else uv[f.ravel()]
+        self.parts.append(
+            {
+                "vertices": vertices.reshape(-1, 3),
+                "faces": faces.reshape(-1, 3) + self.vertices,
+                "normals": normals.reshape(-1, 3),
+                "uv": np.tile(uv, (len(origins), 1)),
+                "surface": np.full(len(origins) * len(f), surface, dtype=np.uint8),
+            }
+        )
+        self.vertices += vertices.size // 3
+
+    def finish(self):
+        return {
+            key: np.concatenate([p[key] for p in self.parts]) for key in self.parts[0]
+        }
+
+
+def flower():
+    # An authored four-lobed bell form, not an accepted Calluna species model.
+    angles = np.arange(8) * (2 * np.pi / 8)
+    t = np.array([0, 0.6, 1.0])
+    radius = np.array([0.001, 0.003, 0.0028])
+    v = np.stack(
+        np.broadcast_arrays(
+            radius[:, None] * np.cos(angles),
+            radius[:, None] * np.sin(angles),
+            t[:, None] * 0.009 + (t[:, None] ** 4) * 0.001 * np.cos(4 * angles),
+        ),
+        axis=-1,
+    ).reshape(-1, 3)
+    a = (np.arange(2)[:, None] * 8 + np.arange(8)[None]).ravel()
+    b = (a // 8) * 8 + (a + 1) % 8
+    f = np.concatenate((np.c_[a, b, a + 8], np.c_[b, b + 8, a + 8]))
+    p = v[f]
+    n = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
+    n /= np.linalg.norm(n, axis=1, keepdims=True)
+    return {"vertices": v, "faces": f, "normals": np.repeat(n, 3, axis=0)}
+
+
+def plant_mesh(plan, leaf_segments=3):
+    levels, blades = plan.levels, plan.blades
+    data = plan.tables(10000, 100000)
+    if data is None:
+        raise ValueError("complete plant product exceeds10000 axes or100000 leaves")
+    assembly = Assembly()
+    for state in plan.expand(10000, 100000)["axes"]:
+        level = levels[len(state.path)]
+        mesh = axis_mesh(
+            state.length,
+            state.bend,
+            level.base_radius,
+            level.tip_radius,
+            6 if len(state.path) < 2 else 3,
+            6,
+        )
+        assembly.add(mesh, state.origin[None], state.frame[None], 0)
+    for index, blade in enumerate(blades):
+        selected = data["leaf_variants"] == index
+        assembly.add(
+            blade.mesh(leaf_segments, 1),
+            data["leaf_origins"][selected],
+            data["leaf_frames"][selected],
+            1 + index % 3,
+        )
+    return assembly.finish()
+
+
+def woody(key, seed):
+    broadleaf = key in ("oak", "beech")
+    plan = (
+        match_area(architecture(key, seed, terminal=True), 55)
+        if broadleaf
+        else woody_plan(key, seed)
+    )
+    mesh = plant_mesh(plan, leaf_segments=8 if broadleaf else 3)
+    if key == "heather":
+        data = plan.tables(10000, 100000)
+        ends = data["leaf_origins"][::3]
+        frames = data["leaf_frames"][::3]
+        assembly = Assembly()
+        assembly.parts.append(mesh)
+        assembly.vertices = len(mesh["vertices"])
+        assembly.add(flower(), ends, frames, 4)
+        return assembly.finish()
+    return mesh
+
+
+def cached_conifer(directory):
+    recipe = json.loads((directory / "whole.json").read_text())
+    assembly = Assembly()
+    for product in recipe["products"]:
+        with np.load(directory / product["mesh"]) as stored:
+            mesh = {key: stored[key] for key in stored.files}
+        with np.load(directory / product["placements"]) as poses:
+            scales = (
+                poses["scales"] if "scales" in poses else np.ones(len(poses["origins"]))
+            )
+            if scales.ndim == 1:
+                scales = np.repeat(scales[:, None], 3, axis=1)
+            # Product scales are uniform in these saved whole-plant products.
+            for scale in np.unique(scales, axis=0):
+                selected = np.all(scales == scale, axis=1)
+                scaled = dict(mesh)
+                scaled["vertices"] = mesh["vertices"] * scale
+                normals = mesh["normals"] / scale
+                scaled["normals"] = normals / np.linalg.norm(
+                    normals, axis=-1, keepdims=True
+                )
+                assembly.add(
+                    scaled,
+                    poses["origins"][selected],
+                    poses["frames"][selected],
+                    0 if product["surface"] == "wood" else 2,
+                )
+    return assembly.finish()
+
+
+def build(output, conifer):
+    output.mkdir(parents=True, exist_ok=True)
+    for key in ("oak", "beech", "heather"):
+        np.savez_compressed(output / (key + ".npz"), **woody(key, 718))
+    np.savez_compressed(output / "pine.npz", **cached_conifer(conifer))
+    for index in range(8):
+        mesh = graminoid_tuft_mesh(17 + index, segments=3)
+        mesh["uv"] = mesh["uv"][mesh["faces"].ravel()]
+        mesh["surface"] = np.full(len(mesh["faces"]), 1 + index % 3, dtype=np.uint8)
+        np.savez_compressed(output / f"grass-{index}.npz", **mesh)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--conifer", type=Path, required=True)
+    args = parser.parse_args()
+    build(args.output, args.conifer)

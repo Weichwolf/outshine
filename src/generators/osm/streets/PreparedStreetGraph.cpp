@@ -2,7 +2,7 @@
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "SourceSet.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -82,12 +82,13 @@ std::expected<std::shared_ptr<PreparedStreetGraph>, std::string>
 PreparedStreetGraph::Open(const std::string &directory, const Data::SourceSet &sources) {
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared street graph cache"); }
-  return std::shared_ptr<PreparedStreetGraph>(new PreparedStreetGraph(
-      std::move(*cache),
-      Generators::AssetSourceRecipe(
-          "prepared-street-graph-1",
-          sources,
-          std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap})));
+  auto recipe = Generators::AssetSourceRecipe(
+      "prepared-street-graph-3",
+      sources,
+      std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("street source metadata cannot be encoded"); }
+  return std::shared_ptr<PreparedStreetGraph>(
+      new PreparedStreetGraph(std::move(*cache), std::move(recipe)));
 }
 
 std::expected<PreparedStreetGraph::Loaded, std::string>

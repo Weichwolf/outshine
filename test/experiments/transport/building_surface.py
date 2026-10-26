@@ -270,7 +270,7 @@ def main():
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument('--manifest', type=Path)
     inputs.add_argument('--native-scene', type=Path)
-    parser.add_argument('--scenario', type=Path, default=Path('src/assets/places/Tokyo.scenario'))
+    parser.add_argument('--scenario', type=Path, default=Path('test/outshine/data/places/Tokyo.scenario'))
     parser.add_argument('--output', type=Path, default=Path('build/experiments/building-surface'))
     parser.add_argument('--reference', type=Path)
     parser.add_argument('--width', type=int, default=640)

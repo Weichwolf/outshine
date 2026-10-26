@@ -3,8 +3,8 @@
 
 #include "WaterAsset.h"
 #include "Earth.h"
-#include "scene/Geometry.h"
-#include "scene/Material.h"
+#include "Geometry.h"
+#include "Material.h"
 
 #include <cstddef>
 #include <expected>
@@ -21,8 +21,12 @@ namespace outshine::Generators {
 struct WaterSurfaceMetrics {
   size_t Laid = 0;
   size_t RefusedTopology = 0;
+  size_t RefusedCapacity = 0;
+  size_t ProfileDeclines = 0;
   size_t Triangles = 0;
 };
+
+[[nodiscard]] WaterSurfaceMetrics InspectWaterSurfaceGeometry(const WaterAsset &water) noexcept;
 
 [[nodiscard]] Material WaterSurfaceMaterial() noexcept;
 

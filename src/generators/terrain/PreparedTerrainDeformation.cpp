@@ -76,7 +76,7 @@ template <class Archive> bool Effects(Archive &archive, EarthworkMetrics &value)
                  value.WasBelowM);
 }
 
-template <class Archive> bool Effects(Archive &archive, PressedTerrain &value) {
+template <class Archive> bool Effects(Archive &archive, TerrainDeformationMetrics &value) {
   return Scalars(
              archive, value.Nodes, value.Structures, value.Held, value.DeepestM, value.RaisedM) &&
          Effects(archive, value.Pads) && Effects(archive, value.Corridors);
@@ -111,9 +111,10 @@ bool Page(ByteReader &in, Sheet &page, size_t &remaining) {
 }
 }
 
-std::optional<std::vector<uint8_t>> EncodeTerrainDeformation(const std::string &key,
-                                                             std::span<const Sheet> pages,
-                                                             const PressedTerrain &measures) {
+std::optional<std::vector<uint8_t>>
+EncodeTerrainDeformation(const std::string &key,
+                         std::span<const Sheet> pages,
+                         const TerrainDeformationMetrics &measures) {
   if (key.size() != 64 || pages.size() > kPagesMost) { return std::nullopt; }
   ByteWriter out(kTerrainDeformationBytesMost);
   size_t bytes = sizeof(PreparedTerrainDeformation);

@@ -9,7 +9,7 @@ from outshine_ref.places import decode_vector
 from outshine_ref.places import tile_geography as geography
 
 
-def decode(reference, receipt, elevation):
+def decode(reference, receipt, elevation=None):
     tile = tuple(receipt["tile"])
     layers = decode_vector(receipt)
 
@@ -40,8 +40,10 @@ def decode(reference, receipt, elevation):
                 coordinates = shapely.get_coordinates(piece)
                 centre = np.asarray(piece.representative_point().coords)
                 latitude, longitude = geography(centre, extent, tile)
-                ground = float(elevation.sample(latitude, longitude)[0])
-                base = float(reference.local(latitude, longitude, ground)[0, 2])
+                ground, base = None, 0.0
+                if elevation is not None:
+                    ground = float(elevation.sample(latitude, longitude)[0])
+                    base = float(reference.local(latitude, longitude, ground)[0, 2])
                 step_m = (
                     40075016.68557849
                     * np.cos(np.deg2rad(reference.latitude_deg))
@@ -59,6 +61,9 @@ def decode(reference, receipt, elevation):
                         ),
                         "ground_asl_m": ground,
                         "placement_base_enu_m": base,
+                        "placement_origin": "flat shared building plane; no DEM"
+                        if elevation is None
+                        else "sampled DEM placement",
                         "source_sha256": receipt["sha256"],
                     }
                 )
@@ -73,5 +78,7 @@ def decode(reference, receipt, elevation):
         "invalid": invalid,
         "context": context,
         "frame": "WGS84 ENU at the native scenario origin, ellipsoid height zero",
-        "ground": "Highest acquired Terrarium sample at each representative source point; not a native foundation/terrain-modifier proof",
+        "ground": "Flat shared building plane; no DEM"
+        if elevation is None
+        else "Highest acquired Terrarium sample at each representative source point; not a native foundation/terrain-modifier proof",
     }

@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 namespace outshine::Core {
 
@@ -29,6 +29,11 @@ public:
 
   [[nodiscard]] const std::vector<std::string> &ConflictingMetricNames() const {
     return ConflictingNames_;
+  }
+
+  [[nodiscard]] bool RecordedThisFrame(std::string_view what) const {
+    const auto found = Indices_.find(what);
+    return found != Indices_.end() && SampleFrameSerials_[found->second] == FrameSerial_;
   }
 
   void RecordMetric(const std::string &what, double how, const char *unit) {

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_CAMERASPELLINGS_H
 #define OUTSHINE_SCENARIO_CAMERASPELLINGS_H
 #include "Spelling.h"
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <expected>
 #include <string_view>
 

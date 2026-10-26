@@ -1,6 +1,6 @@
 #include "AudioOcclusion.h"
 #include "Check.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include <array>
 #include <cstdint>
 #include <limits>

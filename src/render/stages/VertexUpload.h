@@ -4,8 +4,8 @@
 #include <expected>
 #include <limits>
 #include <string_view>
-#include "SubjectTypes.h"
-#include "SubjectResidency.h"
+#include "MeshInput.h"
+#include "GeometryResidency.h"
 
 namespace outshine::Render {
 namespace Says {
@@ -14,18 +14,18 @@ inline constexpr std::string_view kVertexUploadTooLarge =
 }
 
 struct VertexStreamUpload {
-  SubjectResidency::Stream Which;
-  SubjectStream Source;
+  GeometryResidency::Stream Which;
+  VertexSource Source;
   bool Carried;
   uint32_t Components;
 };
 
-[[nodiscard]] inline std::expected<SubjectResidency::Crossing, std::string_view>
-VertexCrossing(VertexStreamUpload upload, SubjectResidency::Range vertices) {
-  SubjectResidency::Crossing crossing{.Which = upload.Which, .Usage = SDL_GPU_BUFFERUSAGE_VERTEX};
-  if (upload.Which == SubjectResidency::Stream::Colour ||
-      upload.Which == SubjectResidency::Stream::Tangent) {
-    crossing.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+[[nodiscard]] inline std::expected<GeometryResidency::Crossing, std::string_view>
+VertexCrossing(VertexStreamUpload upload, GeometryResidency::Range vertices) {
+  GeometryResidency::Crossing crossing{.Which = upload.Which, .Usage = Native::BufferUse::Vertex};
+  if (upload.Which == GeometryResidency::Stream::Colour ||
+      upload.Which == GeometryResidency::Stream::Tangent) {
+    crossing.Usage = Native::BufferUse::Storage;
   }
   if (!upload.Carried) { return crossing; }
   const uint64_t stride = uint64_t{upload.Components} * sizeof(float);

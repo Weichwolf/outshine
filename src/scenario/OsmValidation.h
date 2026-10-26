@@ -4,8 +4,8 @@
 #include <cstddef>
 #include <expected>
 #include <string_view>
-#include <scenario/Scenario.h>
-#include "math/Units.h"
+#include <Scenario.h>
+#include "Units.h"
 
 namespace outshine {
 namespace Says {

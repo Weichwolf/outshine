@@ -1,0 +1,8 @@
+#ifndef @OUTSHINE_BUILD_GUARD@
+#define @OUTSHINE_BUILD_GUARD@
+#include <string_view>
+namespace @OUTSHINE_BUILD_NAMESPACE@ {
+inline constexpr std::string_view kBuildCommit = "@OUTSHINE_BUILD_COMMIT@";
+inline constexpr std::string_view kBuildFlags = "@OUTSHINE_BUILD_FLAGS@";
+}
+#endif

@@ -1,0 +1,79 @@
+#include <array>
+#include <cmath>
+#include <vector>
+#include <SDL3/SDL.h>
+#include <Engine.h>
+#include <Scenario.h>
+#include <Geometry.h>
+#include "Check.h"
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    Unprepared(SDL_GetError());
+    return Report();
+  }
+  std::array<float, 3> radiance{};
+  for (size_t at = 0; at < radiance.size(); ++at) {
+    Geometry geometry;
+    Material material;
+    material.Roughness = 0.5f;
+    const int part =
+        geometry.addPart("plane", geometry.addSurface("dielectric", material).value()).value();
+    CHECK(
+        geometry.setPositions(part, std::array<float, 12>{-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0}),
+        "plane positions");
+    CHECK(geometry.setNormals(part, std::array<float, 12>{0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1}),
+          "plane normals");
+    CHECK(geometry.setTriangles(part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3}),
+          "plane triangles");
+    PunctualLight light;
+    light.Kind = at == 0 ? LightKind::Point : LightKind::Spot;
+    light.Position = {{0, 0, 2}};
+    light.OuterConeRad = std::acos(0.5f);
+    if (at == 1) { light.Direction = {{std::sqrt(1.0f - 0.75f * 0.75f), 0, -0.75f}}; }
+    CHECK(geometry.addLamp("measured", light, Mat4{}).has_value(), "create measured light");
+    Engine engine;
+    Scenario::Document declaration;
+    declaration.Render.Declared = true;
+    declaration.Render.Frame = {65, 65};
+    declaration.Render.Outputs = {"sceneLinear"};
+    declaration.Lit.Declared = true;
+    declaration.Lit.Key.Lux = 0;
+    Scenario::View view;
+    view.Id = "parallel";
+    view.Person = "first";
+    view.Placement = Scenario::CameraPlacement::Local;
+    view.Sees.PositionM = {{0, 0, 2}};
+    view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
+    declaration.Views.push_back(view);
+    std::vector<float> frame;
+    if (!accepted(engine.setRenderTarget({65, 65})) || !accepted(engine.declare(declaration)) ||
+        !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
+        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+        !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
+      return Report();
+    }
+    CHECK(frame.size() == 65u * 65u * 4u, "linear image dimensions");
+    if (frame.size() != 65u * 65u * 4u) { return Report(); }
+    radiance[at] = frame[(32u * 65u + 32u) * 4u];
+  }
+  CHECK(radiance[0] > 0 && std::isfinite(radiance[0]), "point control illuminates the receiver");
+  if (!(radiance[0] > 0)) { return Report(); }
+  CHECK_NEAR(radiance[1] / radiance[0],
+             0.25f,
+             0.002f,
+             "ratio",
+             "Khronos cosine midpoint: ((0.75 - 0.5) / (1 - 0.5)) squared");
+  CHECK_NEAR(radiance[2] / radiance[0],
+             1.0f,
+             0.002f,
+             "ratio",
+             "spot axis preserves point intensity at equal distance");
+  return Report();
+}

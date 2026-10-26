@@ -13,7 +13,6 @@
 #include <optional>
 
 #include "HeightField.h"
-#include "ArtifactStore.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
@@ -30,14 +29,6 @@ public:
   struct ProofRequest {
     uint64_t SourceKey = 0;
     Generators::StructureSurfaceRefinementLimits Limits;
-  };
-
-  struct CacheRequest {
-    std::shared_ptr<Data::ArtifactStore> Store;
-    Tasks *Io = nullptr;
-    std::optional<Data::TileSourceIdentity> Source;
-    uint64_t SourceKey = 0;
-    size_t ResidentBytesMost = 0;
   };
 
   struct Output {
@@ -60,8 +51,7 @@ public:
                      std::shared_ptr<const Ground::HeightField> heights,
                      std::unique_ptr<Output> output,
                      std::unique_ptr<MeshScratch> scratch,
-                     std::optional<ProofRequest> proof = std::nullopt,
-                     std::optional<CacheRequest> cache = std::nullopt);
+                     std::optional<ProofRequest> proof = std::nullopt);
   StructureBuildTask(uint32_t tile,
                      std::shared_ptr<const Generators::PreparedStructureTile> base,
                      std::unique_ptr<Generators::RawTile> view,
@@ -82,6 +72,9 @@ public:
                        std::string key,
                        std::string requestKey = {});
   [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
+  void UseInitialCells();
+  [[nodiscard]] uint64_t InitialCells() const noexcept;
+  void SelectNextCell(uint32_t cell);
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
   void RequestStop() noexcept;
@@ -130,7 +123,6 @@ public:
 
 private:
   struct Comparison;
-  struct Artifact;
 
   enum class State : uint8_t { Empty, Ready, Running, Completed };
 
@@ -148,7 +140,6 @@ private:
   std::unique_ptr<Generators::StructureBakeProgress> Progress_;
   std::shared_ptr<std::atomic_bool> Stopping_;
   std::unique_ptr<Comparison> Comparison_;
-  std::unique_ptr<Artifact> Artifact_;
   Tasks *ActivePool_ = nullptr;
   Tasks::Handle Handle_ = Tasks::kNoTask;
   State State_ = State::Ready;

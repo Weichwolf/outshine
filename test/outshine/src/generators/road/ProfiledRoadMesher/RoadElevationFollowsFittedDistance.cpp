@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
@@ -15,7 +16,7 @@ int main() {
   const double sourceLength = 100 + std::hypot(100.0, 30.0);
   CHECK(std::abs(sourceLength - line.LengthM()) > 0.0001,
         "fixture exercises a change in station distance");
-  for (double sourceSlope : {0.25, -0.25}) {
+  for (const double sourceSlope : {0.25, -0.25}) {
     const std::array<RoadStation, 3> stations{
         {{.EastM = 0, .NorthM = 0, .GradeM = 7},
          {.EastM = 100, .NorthM = 0, .GradeM = 7 + sourceSlope * 100},

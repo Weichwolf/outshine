@@ -31,7 +31,8 @@ std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open native OSM tile cache"); }
   const auto recipe = Generators::AssetSourceRecipe(
-      "prepared-osm-tile-2", sources, std::array{Data::DataKind::VectorMap});
+      "prepared-osm-tile-3", sources, std::array{Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("OSM source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedOsmTiles>(
       new PreparedOsmTiles(std::move(*cache), compute, recipe));
 }
@@ -72,8 +73,8 @@ std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const 
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
-std::expected<PreparedOsmTiles::Delivery, std::string_view>
-PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
+std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
+PreparedOsmTiles::Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout) {
   if (layout.Zoom_ < 0 || layout.Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 ||
       at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint64_t{1} << static_cast<unsigned>(layout.Zoom_)) ||
@@ -86,7 +87,7 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
   if (Pending_.size() >= kPendingMost) { RetireUnused(); }
   const auto found = Pending_.find(request);
   if (found == Pending_.end()) {
-    if (Pending_.size() >= kPendingMost) { return Delivery{}; }
+    if (Pending_.size() >= kPendingMost) { return SourceDelivery{}; }
     auto work = std::make_shared<Work>();
     work->Definition = definition;
     Observe(*work, layout.Demand_);
@@ -101,42 +102,44 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
       return std::unexpected("native OSM tile lookup was not accepted");
     }
     Pending_.emplace(request, std::move(work));
-    return Delivery{};
+    return SourceDelivery{};
   }
   const auto &work = found->second;
   Observe(*work, layout.Demand_);
   if (work->Task != Tasks::kNoTask) {
-    if (!Compute_.TakeCompletion(work->Task)) { return Delivery{}; }
+    if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
     work->Task = Tasks::kNoTask;
     if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
     if (*work->Result) {
       auto product = std::move(*work->Result);
       Pending_.erase(found);
-      return Delivery{.Status = State::Ready, .Product = std::move(product)};
+      return SourceDelivery{.Status = State::Ready, .Product = std::move(product)};
     }
     work->Stage = Work::Phase::Source;
   }
   if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
-  if (work->Stage != Work::Phase::Source) { return Delivery{}; }
-  TilePool::Landing landing;
-  const auto status =
-      tiles.Bytes(Data::Fetch(Data::DataKind::VectorMap,
-                              Data::Address::At({.Zoom = work->Definition.Zoom,
-                                                 .X = static_cast<uint32_t>(at.X),
-                                                 .Y = static_cast<uint32_t>(at.Y)})),
-                  &landing);
-  switch (status) {
-    case TilePool::Reply::Absent:
-    case TilePool::Reply::Undeclared:
+  if (work->Stage != Work::Phase::Source) { return SourceDelivery{}; }
+  auto delivery =
+      sources.Poll(Data::SourceRequest(Data::DataKind::VectorMap,
+                                       Data::Address::At({.Zoom = work->Definition.Zoom,
+                                                          .X = static_cast<uint32_t>(at.X),
+                                                          .Y = static_cast<uint32_t>(at.Y)})));
+  switch (delivery.Where()) {
+    case Data::SourceDelivery::State::Vacant:
+    case Data::SourceDelivery::State::Undeclared:
       Pending_.erase(found);
-      return Delivery{.Status = State::Absent, .Product = {}};
-    case TilePool::Reply::Refused: return Delivery{.Status = State::Refused, .Product = {}};
-    case TilePool::Reply::Pending:
-    case TilePool::Reply::Deferred: return Delivery{};
-    default: break;
+      return SourceDelivery{.Status = State::Absent, .Product = {}};
+    case Data::SourceDelivery::State::Refused:
+      return SourceDelivery{.Status = State::Refused, .Product = {}};
+    case Data::SourceDelivery::State::Pending: return SourceDelivery{};
+    case Data::SourceDelivery::State::Consumed:
+      return std::unexpected("native OSM source reader returned no payload");
+    case Data::SourceDelivery::State::Delivered: break;
   }
+  auto landing = delivery.Take();
+  if (!landing) { return std::unexpected("native OSM source reader returned no payload"); }
   work->Stage = Work::Phase::Generate;
-  work->Task = Compute_.Post([this, work, at, request, landing = std::move(landing)] mutable {
+  work->Task = Compute_.Post([this, work, at, request, landing = std::move(*landing)] mutable {
     const auto began = std::chrono::steady_clock::now();
     work->Result = Generate(at, std::move(landing), request, work->Definition);
     GenerationMs_.fetch_add(
@@ -147,7 +150,7 @@ PreparedOsmTiles::Acquire(TilePool &tiles, TileAt at, const OsmField &layout) {
     work->Result = std::unexpected("native OSM tile generation was not accepted");
     return std::unexpected(std::string_view(work->Result.error()));
   }
-  return Delivery{};
+  return SourceDelivery{};
 }
 
 PreparedOsmTiles::Counters PreparedOsmTiles::Costs() const noexcept {

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 #define OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 #include <array>
 #include <expected>
 #include <chrono>
@@ -17,20 +17,21 @@
 #include <unordered_set>
 #include <vector>
 
-#include <diagnostics/DiagnosticSample.h>
+#include <DiagnosticSample.h>
 
 #include "Earth.h"
 #include "curve/Fit.h"
 #include "GroundMesher.h"
-#include "ClassStructure.h"
-#include "GroundMaterials.h"
+#include "TerrainClassificationMap.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
+#include "RoadPageRecipe.h"
 #include "StreetField.h"
 #include "TerrainLoader.h"
 #include "TangentFrame.h"
 #include "Wayfinding.h"
-#include "scene/Geometry.h"
+#include "Geometry.h"
 #include "spatial/Drape.h"
 
 namespace outshine::Generators {
@@ -42,19 +43,21 @@ public:
   struct Site {
     const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
     const ::outshine::Generators::Osm::StreetField &Ways;
-    const outshine::Ground::GroundMaterials &Materials;
-    const outshine::Ground::VegetationTemplates &Vegetation;
+    const GroundMaterialCatalog &Materials;
+    const RegionSurfaceRecipes &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
     const Drape &Draped;
-    const std::shared_ptr<const ClassStructure> &Classes;
+    const std::shared_ptr<const TerrainClassificationMap> &Classes;
     std::function<std::optional<double>(LongitudeLatitude)> WaterUpM;
     std::chrono::steady_clock::time_point CensusAt;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
     ProjectedErrorBudget Projection{};
   };
+
+  [[nodiscard]] static Material StreetMaterial(const GroundMaterialCatalog &wearing);
 
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
@@ -74,8 +77,8 @@ private:
   };
 
   struct Paving {
-    const outshine::Ground::GroundMaterials &Materials;
-    const outshine::Ground::VegetationTemplates &Vegetation;
+    const GroundMaterialCatalog &Materials;
+    const RegionSurfaceRecipes &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const ::outshine::Generators::Osm::StreetField &Ways;
@@ -85,12 +88,14 @@ private:
     std::unordered_map<uint64_t, uint64_t> &JoinedNodes;
     const Drape &Draped;
     const TangentFrame &Standing;
-    const std::shared_ptr<const ClassStructure> &Classes;
+    const std::shared_ptr<const TerrainClassificationMap> &Classes;
     const std::function<std::optional<double>(LongitudeLatitude)> &WaterUpM;
     int WaterRow = -1;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
     ProjectedErrorBudget Projection{};
+    bool FunctionalPlan = false;
+    std::span<const uint32_t> FunctionalWays;
   };
 
   struct Edge {
@@ -104,6 +109,7 @@ private:
     std::array<double, 2> GradeAtM{};
     std::array<bool, 2> HasEndGrade{};
     std::array<std::optional<RoadPort>, 2> EndPorts{};
+    std::shared_ptr<const SurfaceBody> StepBody = nullptr;
   };
 
   struct Leg {
@@ -132,6 +138,7 @@ private:
 
   struct Paved {
     std::vector<DiagnosticSample> Notes;
+    std::vector<size_t> ConflictingWays;
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<RoadStation> Planned;
     std::vector<Edge> Edges;
@@ -162,6 +169,10 @@ private:
     std::unordered_map<uint64_t, double> GroundEndM;
     RoadMeshingStats Swept;
     size_t ChordAdded = 0;
+    size_t StairBodies = 0;
+    size_t StairBodyBytes = 0;
+    std::array<size_t, 5> StairRefusals{};
+    double StairBodyMs = 0;
 
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
@@ -222,6 +233,7 @@ private:
                          const ::outshine::Generators::Osm::StreetField::Way &lane,
                          size_t laneAt,
                          Paved &into);
+  static void ConnectFootpaths(const Paving &on, Paved &into);
 
   [[nodiscard]] static double
   RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept;
@@ -261,7 +273,6 @@ private:
   static bool FindCrossings(const Path::Network &network,
                             std::vector<Path::Network::Crossing> &crossed,
                             Paved &into);
-  static void Crosses(const Paving &on, Paved &into);
 
   struct Ends {
     std::array<uint64_t, 2> Key{};
@@ -288,7 +299,6 @@ private:
     std::unordered_map<uint64_t, LongitudeLatitude> PlaceOf;
   };
 
-  [[nodiscard]] static BridgeTopology BridgeTopologyOf(const Paving &on);
   static void AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology);
   [[nodiscard]] static std::vector<uint64_t>
   RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into);
@@ -297,13 +307,8 @@ private:
 
   static void EaseRampPass(const Paving &on, double mostDeckM, Paved &into);
 
-  static void EasesRamps(const Paving &on, double mostDeckM, Paved &into);
-
   static void GradesApproaches(const Paving &on, Paved &into);
 
-  static void SeedsBridgeEnds(const Paving &on, Paved &into);
-
-  static void ResolveBridgeConnections(const Paving &on, Paved &into);
   static void RecordBridgeConnectionMetrics(Paved &into);
 
   [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
@@ -318,13 +323,21 @@ private:
   static void HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph);
   [[nodiscard]] static std::expected<void, std::string_view> PlanHeights(const Paving &on,
                                                                          Paved &into);
-  [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
-                                                                             const Paved &into);
   static void AppendLeg(const Paving &on,
                         const Paved &into,
                         uint32_t edgeAt,
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
-  static RoadProfile ProfileOf(const Paving &on, size_t lane);
+  static RoadProfile ProfileOf(const Osm::StreetField::Way &lane,
+                               const RegionSurfaceRecipes &vegetation);
+  static Vec3f LaneColour(const Osm::StreetField::Way &lane,
+                          const RegionSurfaceRecipes &vegetation);
+  static RoadSweep SurfaceOf(const Osm::StreetField::Way &lane,
+                             const RegionSurfaceRecipes &vegetation,
+                             const Edge &edge,
+                             bool unbanked);
+  static bool
+  PrepareStepBody(const Paving &on, Edge &edge, Paved &into, std::vector<EarthworkStamp> &corridor);
+  static void RecordStepMetrics(Paved &into);
   static void
   GatesOf(const Paving &on, std::span<const Leg> legs, const Paved &into, Junction &made);
   static void
@@ -333,7 +346,6 @@ private:
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static bool IsContinuation(const Paving &on, std::span<const Leg> legs, const Paved &into);
-  static void ShapesJunctions(const Paving &on, Paved &into);
   static void RecordJunctionMetrics(Paved &into);
   static void LimitEndCuts(Edge &edge, const Paved &into);
   static void FinalizeJunction(const Paving &on, Junction &made, Paved &into);
@@ -344,42 +356,14 @@ private:
                                   Paved &into,
                                   std::vector<EarthworkStamp> &corridor);
 
-  void PaveEdge(const Paving &on,
-                size_t edgeAt,
-                Paved &into,
-                std::vector<EarthworkStamp> &corridor,
-                RoadMeshBuffers &pavement) const;
+  void PaveEdge(const Paving &on, size_t edgeAt, Paved &into, RoadMeshBuffers &pavement) const;
 
   enum class Pass : uint8_t { Designing, Paving };
 
-  [[nodiscard]] static constexpr std::string_view Doing(Pass pass) {
-    return pass == Pass::Designing ? "designing" : "paving";
-  }
-
-  [[nodiscard]] bool PaveLanes(const Paving &on,
-                               Paved &into,
-                               std::vector<EarthworkStamp> &corridor,
-                               RoadMeshBuffers &pavement,
-                               std::chrono::steady_clock::time_point &tookFrom) const;
-  void RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
-                                               int waterRow,
-                                               Paved &into,
-                                               RoadMeshBuffers &pavement) const;
-
-  void PaveLane(const Paving &on,
-                Pass pass,
-                size_t laneAt,
-                Paved &into,
-                std::vector<EarthworkStamp> &corridor,
-                RoadMeshBuffers &pavement) const;
-
-  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
+  void PaveLane(
+      const Paving &on, Pass pass, size_t laneAt, Paved &into, RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
-  [[nodiscard]] static bool HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                               const RoadMeshBuffers &pavement,
-                                               Paved &into,
-                                               Geometry &ground);
 
   [[nodiscard]] static std::unordered_map<uint64_t, uint32_t>
   SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
@@ -406,6 +390,7 @@ public:
       CrossFile,
       CrossDecks,
       Design,
+      FootpathConnections,
       BridgeTopology,
       BridgeRelevant,
       BridgeSample,
@@ -421,6 +406,7 @@ public:
       Profiles,
       Heights,
       JunctionContacts,
+      TerrainContacts,
       Pave,
       Bodies,
       FinishNotes,
@@ -459,6 +445,17 @@ public:
           WayCount(site.Ways.Ways().size()) {}
 
     Paved Work;
+
+    struct FunctionalDemand {
+      std::vector<uint32_t> Ways;
+      std::shared_ptr<const void> Origin;
+      LongitudeLatitude Anchor;
+    };
+
+    std::optional<FunctionalDemand> Functional;
+    std::optional<Osm::StreetField> RetainedWays;
+    std::unique_ptr<Job> Retiring;
+    std::vector<DiagnosticSample> Omissions;
     RoadMeshBuffers Pavement;
     std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
@@ -492,10 +489,18 @@ public:
 
   public:
     [[nodiscard]] double WorkMs() const noexcept { return TotalMs; }
+
+    [[nodiscard]] std::span<const DiagnosticSample> Diagnostics() const noexcept {
+      return Work.Notes;
+    }
   };
 
 private:
   struct JobSlice;
+  [[nodiscard]] static bool MatchesFunctionalInput(const Job &job, const Site &site);
+  [[nodiscard]] static bool UsesWay(const Paving &on, size_t way);
+  void DesignWays(Job &job, const Paving &on, size_t end) const;
+  [[nodiscard]] static bool RetainValidWays(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view> AdvanceStage(Job &job,
                                                                    const JobSlice &slice) const;
   [[nodiscard]] static std::expected<bool, std::string_view>
@@ -511,9 +516,13 @@ private:
   [[nodiscard]] std::expected<bool, std::string_view>
   AdvanceRoadDesign(Job &job, const JobSlice &slice) const;
   [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceFootpathConnections(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceRoadProfiles(Job &job, const JobSlice &slice);
   [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceRoadJunctions(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceTerrainContacts(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view>
   AdvanceRoadPaving(Job &job, const JobSlice &slice) const;
   [[nodiscard]] std::expected<bool, std::string_view>
@@ -529,6 +538,20 @@ private:
 
 public:
   [[nodiscard]] static std::unique_ptr<Job> Begin(const Site &site);
+  // The selected source ways include the core and its qualified planning closure.
+  [[nodiscard]] static std::expected<std::unique_ptr<Job>, std::string_view>
+  BeginFunctionalPlan(const Site &site, std::span<const uint32_t> ways);
+  [[nodiscard]] std::expected<bool, std::string_view>
+  AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const;
+  [[nodiscard]] static std::expected<std::vector<RoadPagePart>, std::string_view>
+  PlannedParts(const Job &job);
+  [[nodiscard]] static std::span<const DiagnosticSample> PlanMeasures(const Job &job) noexcept;
+  [[nodiscard]] static std::expected<std::vector<std::vector<RoadPagePart>>, std::string_view>
+  PlannedPages(const Job &job, double cellWidthM, size_t partsMost);
+  [[nodiscard]] static std::expected<std::vector<EarthworkStamp>, std::string_view>
+  TakeTerrainContacts(Job &job);
+  [[nodiscard]] static std::expected<RoadPageRecipe, std::string_view>
+  PageRecipe(const Job &job, const Site &site, std::span<const RoadPagePart> parts);
   [[nodiscard]] std::expected<bool, std::string_view>
   Advance(Job &job,
           const Site &site,

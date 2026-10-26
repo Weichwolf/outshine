@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "OsmSourceSnapshot.h"
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 
 namespace outshine::Generators::Osm {
 
@@ -22,7 +22,7 @@ struct SourceChunk {
   std::string Origin;
   double ReadMs = 0.0;
   bool FromStore = false;
-  std::optional<Data::GeoCellId> Cell = std::nullopt;
+  std::optional<GeoCellId> Cell = std::nullopt;
 };
 
 class ChunkSetLoader {

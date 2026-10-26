@@ -1,0 +1,478 @@
+{
+  "origin": "Preferred OpenFreeMap provider; exact flat city census sources from PR293, no roof type supplied",
+  "cases": [
+    {
+      "id": "Paris/(14, 8298, 5635)/10851960/24/0",
+      "properties": {
+        "colour": "beige",
+        "render_height": 26,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "housenumber:692240620:58:3",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:1072150712:41:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:15025254672:830:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:159",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:160",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:164",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:166",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:167",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:258970880:360:4",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:258971032:655:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:709945132:701:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:258970880:121:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:327890550:140:1",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:42510880:296:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "coordinate_step_m": 0.39278873338328335,
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "footprint_wkb": "0103000000040000000C0000008C55C7FC9147774082BD888543A47440106F7DE3D87977406EC99270CB8C7540655686108E9F774030D6EDE3EEA575401F0E90FB15887840CF4F402A5D9975401F0E90FB15887840E9AFDC89845A7540636DDBD2A1187940D11606AD3B547540636DDBD2A11879400D43E5B639807540E3F805B42BD57940F5A90EDAF07975408394AB4008BC794043ECC8B3748973405D013588F26E7840A1ABB0EA27DB7340A6EE0B653B75784084844E08225F74408C55C7FC9147774082BD888543A47440050000007A613F737A57794082BD888543A4744031746896315179400B65CA71474C7440B58D1E7D788379400B65CA71474C7440FF7AF559C18979406A24B2A8FA9D74407A613F737A57794082BD888543A474400900000016DB232E8823784073571E768802754030964D513F1D7840C9E399DFADEF74405FC8FA0AD129784006D73E6C8AD6744022D5557EF442784006D73E6C8AD674409BF4D914CF557840675DEC251CE37440E4E1B0F1175C784012D170BCF6F574406BC22C5B3D497840D4DDCB2F1A0F7540A9B5D1E719307840D4DDCB2F1A0F754016DB232E8823784073571E7688027540090000005A3A6F0514B47840AADE1CB8B53F7440E11AEB6E39A1784049586FFE23337440E11AEB6E39A17840874B148B001A744074F59828CBAD784026C566D16E0D7440ED141DBFA5C07840DDD78FF4250774406634A15580D37840874B148B001A7440AF217832C9D9784049586FFE233374401D47CA7837CD7840AADE1CB8B53F74405A3A6F0514B47840AADE1CB8B53F7440"
+    },
+    {
+      "id": "Paris/(14, 8298, 5635)/5335120/23/685",
+      "properties": {
+        "render_height": 26,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "poi:14894672811:7310:0",
+            "layer": "poi",
+            "role": "office",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "poi:27990104191:7344:0",
+            "layer": "poi",
+            "role": "street-furniture",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:1141203570:242:2",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:1141203570:242:5",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:15124813182:831:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:15124813342:832:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:1922171992:918:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:147",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:157",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:882",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:891",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:897",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:2568334780:201:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:2568334780:201:6",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:258970880:360:12",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:3227601190:441:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:520330822:382:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:5476939262:750:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:5476939272:942:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:106609060:324:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:106609060:324:1",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:38380290:453:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:520330820:154:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:8224527682:235:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "coordinate_step_m": 0.39278873338328335,
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "footprint_wkb": "0103000000010000000800000056250C4E867B8140F24909701C457B40CC7DCA6182D3814021D743ED3D8A7B4077F14EF85CE6814016DD119DD16A7B40156BA13ECBD98140ECDD62256D9B7A40B1AEA0DF61788140F7D79475D9BA7A4056250C4E867B81400DAAA5CF43067B4012354E99F38481406E305389D5127B4056250C4E867B8140F24909701C457B40"
+    },
+    {
+      "id": "Rom/(14, 8759, 6088)/764320/29/66",
+      "properties": {
+        "render_height": 19,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc",
+        "evidence": [
+          {
+            "id": "housenumber:112324558390:74:9",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:120547012571:61:0",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:128786320010:10:15",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:134241265900:55:8",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:17376550:5:5",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:28943242280:101:8",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:38364255570:136:4",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:52882261240:98:11",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:60738623890:1:8",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:61240412740:231:4",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:61240412750:226:3",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:61240425030:233:3",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:61240425570:155:11",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:77572820850:108:3",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:81962434000:147:10",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "housenumber:83167478190:134:4",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "landuse:54527443:10:0",
+            "layer": "landuse",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "poi:44364720021:2060:0",
+            "layer": "poi",
+            "role": "food",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "poi:56539449221:2102:0",
+            "layer": "poi",
+            "role": "food",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "poi:59838125851:535:0",
+            "layer": "poi",
+            "role": "retail",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "poi:65563366861:2115:0",
+            "layer": "poi",
+            "role": "food",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "poi:82231742681:2129:0",
+            "layer": "poi",
+            "role": "office",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:188582703:40:0",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:230971400:265:322",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:230971400:265:326",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:230972500:267:331",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:2368159532:1059:0",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:2368159542:1060:0",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:256619330:284:10",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:42453190:249:4",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation:42453250:251:17",
+            "layer": "transportation",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation_name:1259881480:302:1",
+            "layer": "transportation_name",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation_name:2368159542:861:0",
+            "layer": "transportation_name",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation_name:281594102:133:0",
+            "layer": "transportation_name",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          },
+          {
+            "id": "transportation_name:508075620:840:0",
+            "layer": "transportation_name",
+            "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc"
+          }
+        ],
+        "site_use": {
+          "value": "quarter",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:54527443:10:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "coordinate_step_m": 0.44448601571956187,
+      "source_sha256": "701ddb641744197ec4ef28312c06f4599d11296937b8d225c4d596ece149dddc",
+      "footprint_wkb": "0103000000070000000A00000065C6E0F756526FC0EDB053E9F07A38C0250EAD6EE3D371C0B459D016E2B33AC0250EAD6EE3D371C0971BFFB0934A26C0C91D41BCAB0572C009509DB1D2A23E40DEEE84D3527071C0C3787F879C143F40F533410E8C7E71C0EA2DA48915354440957F694DDDD370C0783C9874FA6D44407E3AAD12A4C570C0DF95675D66863F402277FB7DCCEE6FC098BE493330F83F4065C6E0F756526FC0EDB053E9F07A38C005000000214A41606CF770C07C8407C4779A05C0ACB84E7587BE70C09D9BC614290C02C04FBC0BB0C0CC70C09236898161B62140388FFD9AA50571C09236898161B62140214A41606CF770C07C8407C4779A05C005000000DA2A19C5DB9370C04104D60145BC22C0AA50AD64843E70C04104D60145BC22C0EF130B02A14570C07C8407C4779A05C0F16FD5FF14A270C04ACA1873C62809C0DA2A19C5DB9370C04104D60145BC22C006000000DA36F0D76AB770C0B0F2F8F497693040C195699FBD4C70C0CB0FE1CA61DB30409317C83CDA5370C087DB80A7A1A23640F16FD5FF14A270C06BBE98D1D7303640DA36F0D76AB770C0DC4FEC4F7ADB3440DA36F0D76AB770C0B0F2F8F49769304005000000DA2A19C5DB9370C0A376078B535E31C008A9BA27BF8C70C0DD704864D87A34C0064DF0294B3070C02348668E0E0934C0D8CE4EC7673770C0A376078B535E31C0DA2A19C5DB9370C0A376078B535E31C007000000F3D77610182271C0EC8FF7D492DB38400A115C38C20C71C007ADDFAA5C4D3940388FFD9AA50571C0971B8C2CBAA23A406701C8EAF9DA70C0B338740284143B403883268816E270C0330AD3053FBF3D40DC92BAD5DE1371C0330AD3053FBF3D40F3D77610182271C0EC8FF7D492DB3840050000000A115C38C20C71C0B2B69F8B92B629403883268816E270C0B2B69F8B92B629400A05852533E970C0957C048F4D612C400A115C38C20C71C0957C048F4D612C400A115C38C20C71C0B2B69F8B92B62940"
+    }
+  ],
+  "context_projection": "Roof-selection context retains site_use and evidence IDs/layers/roles/source hashes; original provider snapshot remains in the census receipt."
+}

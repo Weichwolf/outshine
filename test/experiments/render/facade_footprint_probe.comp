@@ -1,0 +1,68 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeProfiles.glsl"
+#include "facade_area_clip.glsl"
+#ifndef FACADE_FILTER
+#define FACADE_FILTER 0
+#endif
+float footprintMask(vec2 at, vec2 dx, vec2 dy, vec2 low, vec2 high) {
+  at = fract(at);
+#if FACADE_FILTER == 9
+  return facadeClippedPeriodic(at, dx, dy, low, high);
+#else
+  vec2 width = abs(dx) + abs(dy);
+#if FACADE_FILTER == 0
+  return periodicBand(at.x, low.x, high.x, width.x) * periodicBand(at.y, low.y, high.y, width.y);
+#else
+  float result = 0.0;
+  for (int y = 0; y < FACADE_FILTER; ++y) {
+    for (int x = 0; x < FACADE_FILTER; ++x) {
+      vec2 point = at + ((float(x) + 0.5) / float(FACADE_FILTER) - 0.5) * dx +
+                        ((float(y) + 0.5) / float(FACADE_FILTER) - 0.5) * dy;
+      result += periodicBand(point.x, low.x, high.x, width.x / float(FACADE_FILTER)) *
+                periodicBand(point.y, low.y, high.y, width.y / float(FACADE_FILTER));
+    }
+  }
+  return result / float(FACADE_FILTER * FACADE_FILTER);
+#endif
+#endif
+}
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe p = probes[index];
+  vec2 fractions = facadeFractions(p.Which);
+  vec2 low = 0.5 * (1.0 - fractions);
+  vec2 high = 0.5 * (1.0 + fractions);
+#if FACADE_FILTER == 5
+  vec3 coverage = facadeFootprintCoverage(
+      fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, uintBitsToFloat(p.Mode));
+  float opening = coverage.x;
+  float pane = coverage.y;
+  float band = coverage.z;
+#else
+  float opening = footprintMask(p.PointDx.xy, p.PointDx.zw, p.Dy, low, high);
+  float pane = 0.0;
+  if (min(fractions.x, fractions.y) > 2.0 * kPaneInset) {
+    pane = footprintMask(p.PointDx.xy, p.PointDx.zw, p.Dy,
+                         low + kPaneInset, vec2(kMullionLowU, high.y - kPaneInset)) +
+           footprintMask(p.PointDx.xy, p.PointDx.zw, p.Dy,
+                         vec2(kMullionHighU, low.y + kPaneInset), high - kPaneInset);
+  }
+  float band = facadeStoreyBand(fractions.y, p.PointDx.y,
+                                 abs(p.PointDx.w) + abs(p.Dy.y), uintBitsToFloat(p.Mode));
+#endif
+  FacadeGlazing surface = facadeBandedWindow(opening, pane, band, vec3(palette[4], palette[5], palette[6]), palette[7]);
+  results[index] = Result(vec4(surface.albedo, surface.roughness), vec4(opening, pane, band, 0.0));
+}

@@ -24,15 +24,10 @@ vec3 mediumExtinctionPerKm(Medium medium, float heightKm) {
          ozone * vec3(medium.OzoneAbsorptionPerKm);
 }
 
-vec2 mediumTransmittanceUv(Medium medium, MediumLook look) {
-  float span = sqrt(max(0.0, medium.TopRadiusKm * medium.TopRadiusKm -
-                             medium.BottomRadiusKm * medium.BottomRadiusKm));
-  float ground = sqrt(
-      max(0.0, look.RadiusKm * look.RadiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  float reach = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
-  float shortest = medium.TopRadiusKm - look.RadiusKm;
-  float longest = ground + span;
-  return vec2((reach - shortest) / (longest - shortest), ground / span);
+vec2 mediumTransmittanceUv(Medium medium, MediumLook look, ivec2 extent) {
+  MediumUv uv = mediumTransmittanceSample(medium, look,
+      MediumLutSize(float(extent.x), float(extent.y)));
+  return vec2(uv.U, uv.V);
 }
 
 void mediumScatterExtinctPerKm(Medium medium, float heightKm,
@@ -81,7 +76,7 @@ void mediumMultiScatterTexel(Medium medium, MediumLook look,
       float shadowed = mediumGroundReach(medium, hereKm - liftKm, cosSunAt) >= 0.0 ? 0.0 : 1.0;
       vec3 sun = vec3(0.0);
       if (shadowed > 0.0) {
-        sun = textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt)), 0.0)
+        sun = textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt), textureSize(transmittance, 0)), 0.0)
                   .rgb;
       }
       vec3 stepT = exp(-extinction * stride);
@@ -129,7 +124,7 @@ vec3 mediumSkyRay(Medium medium, float radiusKm, SkyViewLook look,
     float shadowed = mediumGroundReach(medium, hereKm - liftKm, cosSunAt) >= 0.0 ? 0.0 : 1.0;
     vec3 toSun = vec3(0.0);
     if (shadowed > 0.0) {
-      toSun = textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt)), 0.0)
+      toSun = textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt), textureSize(transmittance, 0)), 0.0)
                   .rgb;
     }
     ivec2 psiExtent = textureSize(multiScatter, 0);
@@ -152,7 +147,7 @@ vec3 mediumSkyRay(Medium medium, float radiusKm, SkyViewLook look,
     float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
     if (cosSunAt > 0.0) {
       vec3 toSunGround =
-          textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt)), 0.0)
+          textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt), textureSize(transmittance, 0)), 0.0)
               .rgb;
       summed += throughput * toSunGround * cosSunAt * vec3(medium.GroundAlbedo) /
                 OUTSHINE_PI;
@@ -161,21 +156,52 @@ vec3 mediumSkyRay(Medium medium, float radiusKm, SkyViewLook look,
   return summed;
 }
 
-vec3
-mediumTransmittance(Medium medium, MediumLook look, uint steps, float segment) {
+vec3 mediumTransmittanceOver(Medium medium, MediumLook look, float span, uint steps) {
   float radiusKm = look.RadiusKm;
   float cosZenith = look.CosZenith;
-  float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
-  float toTop = mediumTopReach(medium, radiusKm, cosZenith);
-  float span = toGround < 0.0 ? toTop : min(toTop, toGround);
+  if (steps == 0u || span <= 0.0) { return vec3(1.0); }
+  uint cells = steps / 2u;
+  float focus = 0.0;
+  if (cells > 0u && cosZenith > 0.0 && medium.MieExtinctionPerKm > 0.0) {
+    vec3 start = mediumExtinctionPerKm(medium, radiusKm - medium.BottomRadiusKm);
+    focus = mediumSolarFocus(medium, min(start.r, min(start.g, start.b)), look, span / float(cells));
+  }
   vec3 depth = vec3(0.0);
-  float stride = span / float(steps);
-  for (uint step = 0u; step < steps; step = step + 1u) {
-    float along = stride * (float(step) + segment);
-    depth += mediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along)) *
-             stride;
+  if (focus == 0.0) {
+    float stride = span / float(steps);
+    for (uint step = 0u; step < steps; ++step) {
+      float along = stride * (float(step) + kMediumSampleSegment);
+      depth +=
+          mediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along)) *
+          stride;
+    }
+  } else {
+    for (uint cell = 0u; cell < cells; ++cell) {
+      float beginKm = mediumSolarEdge(span, float(cell) / float(cells), focus);
+      float endKm = mediumSolarEdge(span, float(cell + 1u) / float(cells), focus);
+      float halfWidthKm = (endKm - beginKm) * 0.5;
+      float middleKm = (endKm + beginKm) * 0.5;
+      float offsetKm = halfWidthKm * 0.5773502691896258;
+      vec3 left = mediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm - offsetKm));
+      vec3 right = mediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm + offsetKm));
+      depth += (left + right) * halfWidthKm;
+    }
   }
   return exp(-depth);
+}
+
+vec3 mediumTransmittanceToTop(Medium medium, MediumLook look, uint steps) {
+  return mediumTransmittanceOver(medium, look,
+      mediumTopReach(medium, look.RadiusKm, look.CosZenith), steps);
+}
+
+vec3 mediumTransmittance(Medium medium, MediumLook look, uint steps) {
+  float toGround = mediumGroundReach(medium, look.RadiusKm, look.CosZenith);
+  float toTop = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
+  return mediumTransmittanceOver(medium, look,
+      toGround < 0.0 ? toTop : min(toTop, toGround), steps);
 }
 
 #endif

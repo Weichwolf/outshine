@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 
-#include "math/Box.h"
+#include "Box.h"
 
 #include <cstddef>
 #include <expected>
@@ -12,10 +12,10 @@
 #include <span>
 #include <vector>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
-#include <scene/LevelOfDetail.h>
-#include <scene/ProjectedErrorBudget.h>
+#include <LevelOfDetail.h>
+#include <ProjectedErrorBudget.h>
 
 #include "StoredVertex.h"
 #include "BuildingFrontage.h"
@@ -35,6 +35,7 @@ struct Raised {
   std::vector<StoredVertex> WallCorners, RoofCorners;
   std::vector<uint32_t> WallRun, RoofRun;
   std::vector<float> WallColours;
+  std::vector<float> WallMaterialM;
 
   void Clear() noexcept {
     WallCorners.clear();
@@ -42,6 +43,7 @@ struct Raised {
     WallRun.clear();
     RoofRun.clear();
     WallColours.clear();
+    WallMaterialM.clear();
   }
 
   void Settle() {
@@ -50,18 +52,20 @@ struct Raised {
     WallRun.shrink_to_fit();
     RoofRun.shrink_to_fit();
     WallColours.shrink_to_fit();
+    WallMaterialM.shrink_to_fit();
   }
 
   [[nodiscard]] std::size_t HeapBytes() const noexcept {
     return WallCorners.capacity() * sizeof(StoredVertex) +
            RoofCorners.capacity() * sizeof(StoredVertex) + WallRun.capacity() * sizeof(uint32_t) +
-           RoofRun.capacity() * sizeof(uint32_t) + WallColours.capacity() * sizeof(float);
+           RoofRun.capacity() * sizeof(uint32_t) + WallColours.capacity() * sizeof(float) +
+           WallMaterialM.capacity() * sizeof(float);
   }
 
   [[nodiscard]] std::size_t UsedBytes() const noexcept {
     return WallCorners.size() * sizeof(StoredVertex) + RoofCorners.size() * sizeof(StoredVertex) +
            WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t) +
-           WallColours.size() * sizeof(float);
+           WallColours.size() * sizeof(float) + WallMaterialM.size() * sizeof(float);
   }
 };
 
@@ -144,8 +148,6 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
-  [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
-
   [[nodiscard]] virtual std::optional<double>
   ShellSurfaceErrorM([[maybe_unused]] std::span<const StoredVertex> walls) const noexcept {
     return std::nullopt;
@@ -158,6 +160,11 @@ public:
   }
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual bool
+  KnownEmptySurface([[maybe_unused]] const StructurePlan &plan) const noexcept {
+    return false;
+  }
 
   [[nodiscard]] virtual bool HasSurfaceProjection() const noexcept { return false; }
 

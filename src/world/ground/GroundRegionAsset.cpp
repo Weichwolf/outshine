@@ -1,8 +1,8 @@
 #include "GroundRegionAsset.h"
 #include "ClassSeed.h"
 #include "BinaryValueArchive.h"
-#include "math/Units.h"
-#include "content/GeometryAsset.h"
+#include "Units.h"
+#include "GeometryProductCodec.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -19,7 +19,7 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kFormat = 0x0004314e5247ULL;
+constexpr uint64_t kFormat = 0x0005314e5247ULL;
 constexpr uint32_t kPagesMost = 65536;
 constexpr size_t kPageHeaderBytes = 7 * sizeof(uint32_t) + sizeof(uint8_t);
 
@@ -27,7 +27,7 @@ template <class T> bool Finite(std::span<const T> values) {
   return std::ranges::all_of(values, [](T value) { return std::isfinite(value); });
 }
 
-bool ValidGrid(const ClassStructure::Grid &grid) {
+bool ValidGrid(const TerrainClassificationMap::Grid &grid) {
   if (grid.W < 0 || grid.H < 0 || !std::isfinite(grid.OrgE) || !std::isfinite(grid.OrgN) ||
       !std::isfinite(grid.CellM) || grid.CellM <= 0 || !std::isfinite(grid.BoundaryHaloM) ||
       grid.BoundaryHaloM < 0 || grid.BoundaryHaloM > std::numeric_limits<float>::max() ||
@@ -137,20 +137,29 @@ template <class Archive, class Region> bool RegionFields(Archive &archive, Regio
                  region.GroundAlbedo[0],
                  region.GroundAlbedo[1],
                  region.GroundAlbedo[2]) &&
-         PatchFields(archive, region.Terrain) && archive.template Array<float>(region.ClassPalette);
+         PatchFields(archive, region.Terrain) &&
+         archive.template Array<float>(region.ClassPalette) && archive.Text(region.SurfaceManifest);
 }
 
 bool ValidRegion(const GroundRegionAsset &region) {
   return std::isfinite(region.Anchor.LongitudeDeg) && std::isfinite(region.Anchor.LatitudeDeg) &&
          std::abs(region.Anchor.LongitudeDeg) <= kDegPerHalfTurn &&
          std::abs(region.Anchor.LatitudeDeg) <= (kDegPerHalfTurn * 0.5) &&
+         (region.SurfaceManifest.empty() ||
+          (region.SurfaceManifest.size() == 64 &&
+           std::ranges::all_of(region.SurfaceManifest,
+                               [](char value) {
+                                 return (value >= '0' && value <= '9') ||
+                                        (value >= 'a' && value <= 'f');
+                               }))) &&
          region.GroundSurface >= 0 && region.GroundSurface < region.Surfaces.surfaces() &&
          std::ranges::all_of(
              region.GroundAlbedo,
              [](double value) { return std::isfinite(value) && value >= 0 && value <= 1; });
 }
 
-bool WriteClasses(BinaryValueWriter &out, const std::shared_ptr<const ClassStructure> &classes) {
+bool WriteClasses(BinaryValueWriter &out,
+                  const std::shared_ptr<const TerrainClassificationMap> &classes) {
   if (!out(classes != nullptr)) { return false; }
   if (!classes) { return true; }
   const auto anchor = classes->Frame().Anchor();
@@ -162,14 +171,14 @@ bool WriteClasses(BinaryValueWriter &out, const std::shared_ptr<const ClassStruc
          GridFields(out, classes->Fine()) && GridFields(out, classes->Coarse());
 }
 
-bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const ClassStructure> &classes) {
+bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificationMap> &classes) {
   bool present = false;
   if (!in(present)) { return false; }
   if (!present) { return true; }
   LongitudeLatitude anchor;
-  ClassStructure::FromRun version;
-  auto fine = std::make_shared<ClassStructure::Grid>();
-  auto coarse = std::make_shared<ClassStructure::Grid>();
+  TerrainClassificationMap::FromRun version;
+  auto fine = std::make_shared<TerrainClassificationMap::Grid>();
+  auto coarse = std::make_shared<TerrainClassificationMap::Grid>();
   if (!in(anchor.LongitudeDeg,
           anchor.LatitudeDeg,
           version.Version,
@@ -181,7 +190,7 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const ClassStructure> &c
       !GridFields(in, *coarse)) {
     return false;
   }
-  classes = std::make_shared<const ClassStructure>(
+  classes = std::make_shared<const TerrainClassificationMap>(
       TangentFrame::At(anchor), std::move(fine), std::move(coarse), version);
   return true;
 }
@@ -202,7 +211,7 @@ std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAs
     const auto bytes = region.Network->EncodeAsset(bytesMost - out.Out.Bytes().size());
     if (!bytes || !out.Array<uint8_t>(*bytes)) { return std::nullopt; }
   }
-  const auto geometry = EncodeGeometryAsset(region.Surfaces, bytesMost - out.Out.Bytes().size());
+  const auto geometry = EncodeGeometryProduct(region.Surfaces, bytesMost - out.Out.Bytes().size());
   if (!geometry || !out.Out.Put(*geometry)) { return std::nullopt; }
   return std::move(out.Out).TakeBytes();
 }
@@ -235,7 +244,7 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   }
   const auto geometry = in.In.Take(in.In.Remaining());
   if (!geometry) { return std::nullopt; }
-  auto decoded = DecodeGeometryAsset(*geometry, bytesMost);
+  auto decoded = DecodeGeometryProduct(*geometry, bytesMost);
   if (!decoded) { return std::nullopt; }
   region.Surfaces = std::move(*decoded);
   if (!ValidRegion(region)) { return std::nullopt; }

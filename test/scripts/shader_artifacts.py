@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Audit the Make shader inventory against actual SPIR-V and SDL descriptor conventions.
+"""Audit the CMake shader inventory against SPIR-V and native resource contracts.
 
-This proves package coverage and the supported SDL binding profile, not renderer
+This proves package coverage, unique native bindings and compute conventions, not renderer
 graphics selection, host struct layout, interface linkage or backend execution.
 """
 import argparse
@@ -53,46 +53,46 @@ def validate_reflection(document, stage):
                 raise ValueError('resource lacks a nonnegative set and binding')
             readonly = resource.get('readonly', False)
             rank = RESOURCE_KINDS.index(kind)
-            if kind == 'ubos':
-                required = 2 if stage == 'comp' else 1 if stage == 'vert' else 3
-            elif stage == 'comp':
-                required = 0 if kind == 'textures' or readonly else 1
-            else:
-                required = 0 if stage == 'vert' else 2
-                if kind in ('images', 'ssbos') and not readonly:
-                    raise ValueError('graphics storage resources must be readonly')
-            if descriptor_set != required:
-                raise ValueError(f'{kind} binding {binding}: set {descriptor_set}, SDL requires {required}')
+            if stage == 'comp':
+                required = 2 if kind == 'ubos' else 0 if kind == 'textures' or readonly else 1
+                if descriptor_set != required:
+                    raise ValueError(f'{kind} binding {binding}: compute contract requires set {required}')
+            elif kind in ('images', 'ssbos') and not readonly:
+                raise ValueError('graphics storage writes require a pass synchronization contract')
             sets.setdefault(descriptor_set, []).append((binding, rank))
             resources.append({'kind': kind, 'set': descriptor_set, 'binding': binding})
     for descriptor_set, bindings in sets.items():
         ordered = sorted(bindings)
-        if [binding for binding, _ in ordered] != list(range(len(ordered))):
-            raise ValueError(f'set {descriptor_set}: bindings must be unique and consecutive from zero')
-        ranks = [rank for _, rank in ordered]
-        if ranks != sorted(ranks):
-            raise ValueError(f'set {descriptor_set}: SDL requires samplers, storage textures, then buffers')
+        slots = [binding for binding, _ in ordered]
+        if len(slots) != len(set(slots)):
+            raise ValueError(f'set {descriptor_set}: bindings must be unique')
+        if stage == 'comp':
+            if slots != list(range(len(ordered))):
+                raise ValueError(f'set {descriptor_set}: compute bindings must be consecutive from zero')
+            ranks = [rank for _, rank in ordered]
+            if ranks != sorted(ranks):
+                raise ValueError(f'set {descriptor_set}: compute samplers, storage textures, then buffers required')
     return resources
 
 
-def inventory(root, manifest):
+def inventory(manifest):
     names = manifest.read_text().splitlines()
     if not names or any(not name for name in names):
         raise ValueError('empty shader inventory or empty inventory row')
     if len(names) != len(set(names)):
         raise ValueError('duplicate shader inventory entry')
-    directory = root / 'build/shaders'
+    directory = manifest.parent / 'shaders'
     for name in names:
         path = Path(name)
-        if (path.is_absolute() or '..' in path.parts or path.parent != Path('build/shaders') or
+        if (path.is_absolute() or '..' in path.parts or path.parent != Path('.') or
                 path.suffix != '.spv' or path.stem.rsplit('.', 1)[-1] not in STAGES):
             raise ValueError(f'invalid shader inventory path: {name}')
-        if not (root / path).resolve().is_relative_to(directory.resolve()):
+        if not (directory / path).resolve().is_relative_to(directory.resolve()):
             raise ValueError(f'shader artifact escapes package: {name}')
     stages = {Path(name).stem.rsplit('.', 1)[-1] for name in names}
     if stages != STAGES:
         raise ValueError('shader package must declare vertex, fragment and compute stages')
-    actual = {str(path.relative_to(root)) for path in directory.rglob('*.spv')}
+    actual = {str(path.relative_to(directory)) for path in directory.rglob('*.spv')}
     unexpected = sorted(actual - set(names))
     return sorted(names), [f'undeclared shader artifact: {name}' for name in unexpected]
 
@@ -178,20 +178,21 @@ def check_compute_contracts(path, names, records):
     return result
 
 
-def audit(root, manifest, contracts, tool, report, timeout=30, jobs=4):
+def audit(manifest, contracts, tool, report, timeout=30, jobs=4):
     started = time.monotonic()
     report.mkdir(parents=True, exist_ok=True)
     names, records, errors = [], [], []
     tool_hash = None
     resolved_tool = shutil.which(tool)
     try:
-        names, errors = inventory(root, manifest)
+        names, errors = inventory(manifest)
+        directory = manifest.parent / 'shaders'
         if not resolved_tool:
             raise ValueError(f'reflection tool unavailable: {tool}')
         tool_hash = hashlib.sha256(Path(resolved_tool).read_bytes()).hexdigest()
         with ThreadPoolExecutor(max_workers=jobs) as workers:
             records = list(workers.map(
-                lambda name: inspect_artifact(root, name, resolved_tool, timeout, report), names))
+                lambda name: inspect_artifact(directory, name, resolved_tool, timeout, report), names))
     except (OSError, ValueError) as error:
         errors.append(str(error))
     compute = check_compute_contracts(contracts, names, records)
@@ -230,7 +231,7 @@ def main():
     if not math.isfinite(args.timeout) or args.timeout <= 0 or args.jobs <= 0:
         parser.error('timeout and jobs must be positive finite values')
     root = args.root.resolve()
-    return audit(root, args.manifest or root / 'build/shader-artifacts.txt',
+    return audit(args.manifest or root / 'build/shader-artifacts.txt',
                  args.compute_contracts or root / 'build/compute-shaders.json', args.tool,
                  args.report or Path(tempfile.mkdtemp(prefix='outshine-shaders-')),
                  args.timeout, args.jobs)

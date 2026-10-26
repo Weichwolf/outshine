@@ -3,21 +3,23 @@
 #include "medium.glsl"
 #include "world/sky/AirRayLayout.h"
 
+#include "world/sky/AirPathLayout.h"
+#define AIR_INLINE
+#define AIR_NOEXCEPT
+#define MEDIUM_ARG Medium
+#include "world/sky/AirPathCore.h"
+#undef MEDIUM_ARG
+#undef AIR_NOEXCEPT
+#undef AIR_INLINE
+
 vec2 airQuadraticRoots(float quadratic, float halfLinear, float constant) {
-  if (quadratic == 0.0) {
-    return vec2(halfLinear == 0.0 ? -1.0 : -constant / (2.0 * halfLinear));
-  }
-  float discriminant = halfLinear * halfLinear - quadratic * constant;
-  if (discriminant < 0.0) { return vec2(-1.0); }
-  float root = sqrt(discriminant);
-  float stable = -halfLinear - (halfLinear >= 0.0 ? root : -root);
-  return stable == 0.0 ? vec2(-halfLinear / quadratic)
-                       : vec2(stable / quadratic, constant / stable);
+  AirRoots roots = airSolveQuadratic(AirQuadratic(quadratic, halfLinear, constant));
+  return vec2(roots.First, roots.Second);
 }
 
 vec2 airShellRoots(AirRay ray, float shellRadiusKm) {
-  return airQuadraticRoots(1.0, ray.RadiusKm * ray.CosView,
-      (ray.RadiusKm - shellRadiusKm) * (ray.RadiusKm + shellRadiusKm));
+  AirRoots roots = airSphereRoots(ray, shellRadiusKm);
+  return vec2(roots.First, roots.Second);
 }
 
 vec2 airShadowRoots(Medium medium, AirRay ray) {

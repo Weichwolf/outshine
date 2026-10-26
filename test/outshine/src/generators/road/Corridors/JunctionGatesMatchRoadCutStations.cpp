@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <memory>
 #include <optional>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -15,10 +16,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "junctions use production road rules");
   if (!vegetation.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
@@ -26,7 +27,7 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth at) -> std::optional<double> { return .1 * at.NorthM; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const bool reverse : {false, true}) {
@@ -62,6 +63,8 @@ int main() {
                                            .Standing = frame,
                                            .Draped = drape,
                                            .Classes = noClasses,
+                                           .WaterUpM = {},
+                                           .CensusAt = {},
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
                                            .Projection = {.FocalPx = 800}};
@@ -85,8 +88,8 @@ int main() {
       }
     }
     if (witness != nullptr && mostDriftM >= .00001) {
-      std::fprintf(stderr,
-                   "contact drift %.9f m at EN %.9f %.9f, height %.9f m\n",
+      std::println(stderr,
+                   "contact drift {:.9f} m at EN {:.9f} {:.9f}, height {:.9f} m",
                    mostDriftM,
                    witness->AtE,
                    witness->AtN,

@@ -18,7 +18,7 @@
 #include "OsmSourceSnapshot.h"
 #include "Tasks.h"
 #include "TransportNetworkSnapshot.h"
-#include <world/SourceProvider.h>
+#include <SourceProvider.h>
 
 namespace outshine::Generators::Osm {
 

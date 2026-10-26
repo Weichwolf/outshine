@@ -1,15 +1,19 @@
+#include "HockenheimCircuitFixture.h"
 #include "OsmXmlReader.h"
 #include "Check.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
 
 namespace {
 
@@ -26,7 +30,7 @@ std::string_view TagValue(const std::vector<outshine::Generators::Osm::Tag> &tag
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
-  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
+  std::ifstream input(Circuit::SourcePath, std::ios::binary);
   CHECK(input.good(), "pinned OSM relation source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
@@ -35,10 +39,11 @@ int main() {
   CHECK(parsed.has_value(), "pinned OSM source parses");
   if (!parsed) { return Report(); }
   const outshine::Generators::Osm::ElementSet &elements = *parsed;
-  CHECK(elements.Nodes().size() == 319 && elements.Ways().size() == 17 &&
-            elements.Relations().size() == 1 && !elements.FirstMissingReference(),
+  CHECK(elements.Nodes().size() == Circuit::NodeCount &&
+            elements.Ways().size() == Circuit::WayCount && elements.Relations().size() == 1 &&
+            !elements.FirstMissingReference(),
         "all source objects and references survive the import");
-  const outshine::Generators::Osm::Relation *circuit = elements.FindRelation(284588);
+  const outshine::Generators::Osm::Relation *circuit = elements.FindRelation(Circuit::RelationId);
   CHECK(circuit != nullptr && circuit->Members.size() == 17 &&
             TagValue(circuit->Tags, "type") == "circuit",
         "the Grand Prix relation and its members survive by source ID");
@@ -65,7 +70,8 @@ int main() {
       ++indegree[way->NodeIds[at]];
     }
   }
-  CHECK(validMembers && mainWays == 16 && pitWays == 1 && successor.size() == 267,
+  CHECK(validMembers && mainWays == Circuit::MainWayCount && pitWays == 1 &&
+            successor.size() == Circuit::EdgeCount,
         "sixteen directed raceway ways form the main route; the pitlane has its own role");
 
   std::unordered_set<uint64_t> visited;
@@ -78,7 +84,7 @@ int main() {
     cycle &= next != successor.end();
     if (next != successor.end()) { node = next->second; }
   }
-  CHECK(cycle && node == start && visited.size() == 267,
+  CHECK(cycle && node == start && visited.size() == Circuit::EdgeCount,
         "directed node topology closes exactly once independently of relation member order");
   return Report();
 }

@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-#include <audio/AudioScene.h>
+#include <AudioScene.h>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include "BusGraph.h"
 
 namespace outshine::Audio {

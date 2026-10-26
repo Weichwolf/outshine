@@ -1,0 +1,142 @@
+#include "MetalPresentation.h"
+#include <algorithm>
+#include <cmath>
+
+namespace outshine::Render::Native::Metal {
+
+void MetalDevice::Collect() {
+  while (!Pending_.empty()) {
+    {
+      const auto &submission = Pending_.front();
+      const std::scoped_lock lock(submission->Mutex);
+      if (!submission->Done) { return; }
+      if (submission->Failed && !Failed_) { Failed_ = submission->Failed; }
+      Retired_ = submission->Serial;
+      if (GpuTiming_ == GpuTimingMode::Submission) {
+        Timings_[(submission->Serial - 1) % Timings_.size()] = {
+            .Serial = submission->Serial, .Nanoseconds = submission->GpuNanoseconds};
+      }
+    }
+    Pending_.pop_front();
+  }
+}
+
+Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
+  @autoreleasepool {
+    Collect();
+    if (Failed_) { return std::unexpected(*Failed_); }
+    auto *const metal = dynamic_cast<MetalCommands *>(commands.get());
+    if (metal == nullptr || metal->Device != Identity_ || metal->Render) {
+      return Failure(ErrorKind::Invalid, "Metal submission requires its device and closed passes");
+    }
+    auto *const frame = dynamic_cast<MetalPresentFrame *>(metal->Presentation.get());
+    if (frame != nullptr && !frame->Current(Identity_)) {
+      return Failure(ErrorKind::Invalid, "Metal submission contains a stale presentation frame");
+    }
+    metal->Finish();
+    const auto submission = std::make_shared<Submission>();
+    submission->Serial = NextSerial_;
+    submission->Commands = metal->Native;
+    const auto held = std::make_shared<SubmissionResources>();
+    held->Buffers = std::move(metal->Held);
+    metal->Permit->ReleaseRecording();
+    held->Permit = std::move(metal->Permit);
+    held->Presentation = std::move(metal->Presentation);
+    const bool gpuTiming = GpuTiming_ == GpuTimingMode::Submission;
+    const auto profile = metal->Profile;
+    const uint64_t serial = submission->Serial;
+    [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+      if (profile && finished.status == MTLCommandBufferStatusCompleted) {
+        @autoreleasepool {
+          CollectEncoderProfile(profile, finished, serial);
+        }
+      }
+      held->Buffers.clear();
+      held->Permit.reset();
+      held->Presentation.reset();
+      {
+        const std::scoped_lock lock(submission->Mutex);
+        if (finished.status != MTLCommandBufferStatusCompleted) {
+          const char *const message = finished.error.localizedDescription.UTF8String;
+          submission->Failed =
+              Error{.Kind = ErrorKind::DeviceLost,
+                    .Message = message != nullptr ? message : "Metal command failed"};
+        } else if (gpuTiming) {
+          constexpr double nanosecondsPerSecond = 1'000'000'000.0;
+          const double begin = finished.GPUStartTime;
+          const double end = finished.GPUEndTime;
+          const double elapsed = (end - begin) * nanosecondsPerSecond;
+          if (std::isfinite(begin) && begin > 0 && std::isfinite(end) && std::isfinite(elapsed) &&
+              elapsed >= 0) {
+            submission->GpuNanoseconds = elapsed;
+          }
+        }
+        submission->Done = true;
+      }
+      submission->Changed.notify_all();
+    }];
+    Pending_.push_back(submission);
+    ++NextSerial_;
+    if (frame != nullptr) { frame->Schedule(metal->Native); }
+    [metal->Native commit];
+    metal->ReleaseImages();
+    return Completion{.Device = Identity_, .Serial = submission->Serial};
+  }
+}
+
+Result<CompletionStatus> MetalDevice::Poll(Completion completion) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
+  if (completion.Device != Identity_ || completion.Serial == 0 ||
+      completion.Serial >= NextSerial_) {
+    return Failure(ErrorKind::Invalid, "invalid Metal completion token");
+  }
+  Collect();
+  if (Failed_) { return std::unexpected(*Failed_); }
+  return completion.Serial <= Retired_ ? CompletionStatus::Ready : CompletionStatus::Pending;
+}
+
+Result<CompletionStatus> MetalDevice::Wait(Completion completion, std::chrono::nanoseconds budget) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
+  const auto now = std::chrono::steady_clock::now();
+  if (budget.count() < 0 || budget > std::chrono::steady_clock::time_point::max() - now) {
+    return Failure(ErrorKind::Invalid, "invalid or overflowing Metal wait budget");
+  }
+  auto status = Poll(completion);
+  if (!status || *status == CompletionStatus::Ready || budget.count() == 0) { return status; }
+  const auto found = std::ranges::find_if(
+      Pending_, [&](const auto &one) { return one->Serial == completion.Serial; });
+  if (found == Pending_.end()) { return Failure(ErrorKind::Invalid, "unknown Metal submission"); }
+  const auto &submission = *found;
+  {
+    std::unique_lock lock(submission->Mutex);
+    submission->Changed.wait_until(lock, now + budget, [&] { return submission->Done; });
+  }
+  return Poll(completion);
+}
+
+Result<SubmissionGpuTiming> MetalDevice::SubmissionGpuTime(Completion completion) {
+  const auto status = Poll(completion);
+  if (!status) { return std::unexpected(status.error()); }
+  if (GpuTiming_ == GpuTimingMode::None) {
+    return Failure(ErrorKind::Unsupported, "Metal submission timing is disabled");
+  }
+  if (*status == CompletionStatus::Pending) { return SubmissionGpuTiming{}; }
+  const auto &timing = Timings_[(completion.Serial - 1) % Timings_.size()];
+  if (timing.Serial != completion.Serial) {
+    return Failure(ErrorKind::Invalid, "Metal submission timing retention has expired");
+  }
+  if (!timing.Nanoseconds) {
+    return Failure(ErrorKind::Driver, "Metal submission has no valid GPU timestamps");
+  }
+  return SubmissionGpuTiming{.Status = CompletionStatus::Ready,
+                             .ElapsedNanoseconds = *timing.Nanoseconds};
+}
+
+}

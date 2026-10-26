@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "provider_prefix": "https://tiles.openfreemap.org/planet/20260927_080001_pt",
+  "zoom": 14,
+  "profile": [1280, 720],
+  "cases": [
+    {"id": "Zuerich", "label": "Zürich Gleisvorfeld", "source": "Zuerich", "origin_lat_lon": [47.381, 8.518], "eye_direction": [0.55, -1.0, 1.1]},
+    {"id": "Basel", "label": "Basel Badischer Bahnhof", "source": "Basel", "origin_lat_lon": [47.569, 7.607], "eye_direction": [-0.6, -1.0, 1.1]},
+    {"id": "Wien", "label": "Wien Brücken- und Tunnelverbund", "source": "ViennaResearch", "origin_lat_lon": [48.21, 16.37], "tiles": [[14, 8938, 5680], [14, 8939, 5680], [14, 8939, 5681]], "recipe": "bridge_tunnel_reference", "focus_xy_m": [3800, 0], "span_m": 1400, "eye_direction": [-0.3, -1.0, 0.85]},
+    {"id": "NewYork", "label": "New York Midtown", "source": "NewYork", "origin_lat_lon": [40.752, -73.989], "eye_direction": [0.55, -1.0, 1.1]}
+  ]
+}

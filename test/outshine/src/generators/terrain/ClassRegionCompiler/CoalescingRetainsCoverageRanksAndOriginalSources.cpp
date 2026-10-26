@@ -1,5 +1,5 @@
 #include "ClassRegionCompiler.h"
-#include "ClassStructure.h"
+#include "TerrainClassificationMap.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -71,9 +71,9 @@ int main() {
   CHECK(before && after && before->Overflow == 0 && after->Overflow == 0,
         "both representations fit the existing raster budget");
   if (!before || !after) { return Report(); }
-  const auto empty = std::make_shared<const ClassStructure::Grid>();
-  const ClassStructure original(TangentFrame::At({}), before->Grid, empty, {});
-  const ClassStructure merged(TangentFrame::At({}), after->Grid, empty, {});
+  const auto empty = std::make_shared<const TerrainClassificationMap::Grid>();
+  const TerrainClassificationMap original(TangentFrame::At({}), before->Grid, empty, {});
+  const TerrainClassificationMap merged(TangentFrame::At({}), after->Grid, empty, {});
   for (int north = -2; north < 25; ++north) {
     for (int east = -2; east < 25; ++east) {
       CHECK(original.Evaluate(east + .137, north + .293, nullptr, nullptr) ==

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
+#include <ranges>
 #include <vector>
 #include <limits>
 #include <string>
@@ -100,11 +101,26 @@ public:
   template <class T> bool Array(std::vector<T> &values) {
     uint32_t count = 0;
     if (!In.Number(count) || count > In.Remaining() / sizeof(T)) { return false; }
-    values.resize(count);
     if constexpr (std::endian::native == std::endian::little) {
       const auto bytes = In.Take(static_cast<size_t>(count) * sizeof(T));
-      if (count != 0) { std::memcpy(values.data(), bytes->data(), bytes->size()); }
+      if (!bytes) { return false; }
+      if constexpr (std::is_same_v<T, uint8_t>) {
+        values.assign(bytes->begin(), bytes->end());
+      } else if constexpr ((std::is_integral_v<T> && !std::is_same_v<T, bool>) ||
+                           std::is_same_v<T, float> || std::is_same_v<T, double>) {
+        const auto decoded = std::views::iota(size_t{0}, static_cast<size_t>(count)) |
+                             std::views::transform([raw = *bytes](size_t at) {
+                               T value;
+                               std::memcpy(&value, raw.data() + at * sizeof(T), sizeof(T));
+                               return value;
+                             });
+        values.assign_range(decoded);
+      } else {
+        values.resize(count);
+        if (count != 0) { std::memcpy(values.data(), bytes->data(), bytes->size()); }
+      }
     } else {
+      values.resize(count);
       for (auto &value : values) {
         if (!In.Number(value)) { return false; }
       }

@@ -6,8 +6,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -69,8 +72,14 @@ bool SameGeometry(const Geometry &left, const Geometry &right) {
   return true;
 }
 
-bool SameSemanticMeasures(std::span<const DiagnosticSample> left,
-                          std::span<const DiagnosticSample> right) {
+struct MeasurementComparison {
+  std::span<const DiagnosticSample> Expected;
+  std::span<const DiagnosticSample> Actual;
+};
+
+bool SameSemanticMeasures(MeasurementComparison comparison) {
+  const auto left = comparison.Expected;
+  const auto right = comparison.Actual;
   size_t candidate = 0;
   for (const DiagnosticSample &expected : left) {
     while (candidate < right.size() && right[candidate].Name != expected.Name) { ++candidate; }
@@ -83,6 +92,27 @@ bool SameSemanticMeasures(std::span<const DiagnosticSample> left,
   return true;
 }
 
+}
+
+namespace {
+void CheckCancellation(const Generators::Corridors &corridors,
+                       const Generators::Corridors::Site &site) {
+  using namespace outshine::Test;
+  std::unique_ptr<Generators::Corridors::Job> canceled = Generators::Corridors::Begin(site);
+  Geometry canceledMesh;
+  std::vector<EarthworkStamp> canceledEarthworks;
+  std::vector<DiagnosticSample> canceledMeasures;
+  const auto started =
+      corridors.Advance(*canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures);
+  CHECK(started.has_value() && !*started, "a road job has a cancellable intermediate state");
+  bool retired = false;
+  for (size_t step = 0; step < 1024 && !retired; ++step) { retired = canceled->RetireStep(1); }
+  CHECK(retired &&
+            !corridors.Advance(
+                *canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures) &&
+            canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
+        "canceled scratch retires without publishing and cannot resume");
+}
 }
 
 int main() {
@@ -117,10 +147,10 @@ int main() {
   if (!tile) { return Report(); }
   vectors.Declare(declared, *tile);
 
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "road fixture loads the production material rules");
   ::outshine::Generators::Osm::StreetField ways;
   while (!ways.Ingested(vectors)) { (void)ways.Ingest(vectors, vegetation); }
@@ -130,7 +160,7 @@ int main() {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth) -> std::optional<double> { return 0.0; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::Corridors::Site site{.Vectors = &vectors,
                                          .Ways = ways,
                                          .Materials = materials,
@@ -138,6 +168,8 @@ int main() {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800.0}};
@@ -157,23 +189,10 @@ int main() {
           "interruption preserves exact road vertices, attributes, indices and materials");
     CHECK(oneShot.Earthworks == sliced.Earthworks,
           "interruption preserves exact ordered terrain earthworks");
-    CHECK(SameSemanticMeasures(oneShot.Measures, sliced.Measures),
+    CHECK(SameSemanticMeasures({.Expected = oneShot.Measures, .Actual = sliced.Measures}),
           "interruption preserves ordered semantic diagnostics independently of timing");
   }
-  std::unique_ptr<Generators::Corridors::Job> canceled = Generators::Corridors::Begin(site);
-  Geometry canceledMesh;
-  std::vector<EarthworkStamp> canceledEarthworks;
-  std::vector<DiagnosticSample> canceledMeasures;
-  const auto started =
-      corridors.Advance(*canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures);
-  CHECK(started.has_value() && !*started, "a road job has a cancellable intermediate state");
-  bool retired = false;
-  for (size_t step = 0; step < 1024 && !retired; ++step) { retired = canceled->RetireStep(1); }
-  CHECK(retired &&
-            !corridors.Advance(
-                *canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures) &&
-            canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
-        "canceled scratch retires without publishing and cannot resume");
+  CheckCancellation(corridors, site);
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
   const ::outshine::Generators::Osm::RegionSources pinned =
       ::outshine::Generators::Osm::RegionSources::Snapshot(
@@ -194,6 +213,8 @@ int main() {
                                                .Standing = frame,
                                                .Draped = drape,
                                                .Classes = noClasses,
+                                               .WaterUpM = {},
+                                               .CensusAt = {},
                                                .EyeLatDeg = origin.LatitudeDeg,
                                                .EyeLonDeg = origin.LongitudeDeg,
                                                .Projection = {.FocalPx = 800.0}};

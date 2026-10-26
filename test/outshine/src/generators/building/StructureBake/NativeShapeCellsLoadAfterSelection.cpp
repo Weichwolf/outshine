@@ -1,13 +1,14 @@
 #include "Check.h"
+#include "FacadeProfiles.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
 #include "BuildingSurfaceBlock.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include "Geodesy.h"
 #include <array>
 #include <algorithm>
@@ -131,7 +132,7 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-building-cells-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
   Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "native building cache opens");
@@ -149,7 +150,7 @@ int main() {
               decoded->Surfaces[2].Shapes().front().OpeningStyle == FacadeStyle::Tower,
           "native restart retains supplied service use and independent opening plans");
     auto invalid = *reference;
-    invalid.Structures[2].Layout.Facade = static_cast<FacadeStyle>(8);
+    invalid.Structures[2].Layout.Facade = static_cast<FacadeStyle>(kStyleCount);
     CHECK(!EncodePreparedStructureTile(invalid), "invalid opening families cannot publish");
     CHECK(reference->Surfaces.front().FaceCount() > 4 * 8 + 16,
           "long terrace yields more faces than a source-point multiplier can bound");
@@ -171,6 +172,11 @@ int main() {
   CHECK(base && *base && (*cache)->Costs().SurfaceReadBytes == 0,
         "parent generation reloads metadata without reading any form cell");
   if (!reference || !base || !*base) { return Report(); }
+  CHECK((*base)->Structures.front().Standing.TerrainCeiling ==
+                reference->Structures.front().Standing.TerrainCeiling &&
+            (*base)->Structures.front().Standing.TerrainCeiling.has_value() &&
+            (*cache)->Costs().SurfaceReadBytes == 0,
+        "cached source contacts are ready without opening any fine form cell");
   raw = {};
   heights.reset();
   BuildingMesh mesher;

@@ -1,0 +1,6 @@
+InheritParentConfig: true
+Checks: >
+  -readability-magic-numbers,
+  -bugprone-random-generator-seed
+# Literal fixtures are independent expected data; fixed seeds reproduce counterexamples.
+# Production units keep both checks through the root configuration.

@@ -3,7 +3,7 @@
 
 #include <cmath>
 #include <numbers>
-#include "math/Mat4.h"
+#include "Mat4.h"
 
 namespace outshine {
 struct PerspectiveProjection {

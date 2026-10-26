@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -13,16 +14,16 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "roads use production class recipes");
   if (!vegetation.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
   const TangentFrame frame = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   for (const std::string kind : {"residential", "track"}) {
@@ -44,6 +45,8 @@ int main() {
                                              .Standing = frame,
                                              .Draped = drape,
                                              .Classes = noClasses,
+                                             .WaterUpM = {},
+                                             .CensusAt = {},
                                              .EyeLatDeg = origin.LatitudeDeg,
                                              .EyeLonDeg = origin.LongitudeDeg,
                                              .Projection = {.FocalPx = 800}};

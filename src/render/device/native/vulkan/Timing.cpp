@@ -1,0 +1,128 @@
+#ifdef __linux__
+#include "Timing.h"
+#include "TimestampRange.h"
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <limits>
+#include <optional>
+#include <ratio>
+
+namespace outshine::Render::Native::Vulkan {
+
+TimingQueries::~TimingQueries() {
+  if (Pool_ != VK_NULL_HANDLE) { vkDestroyQueryPool(Context_.Logical, Pool_, nullptr); }
+}
+
+Result<void> TimingQueries::BeginSubmission(VkCommandBuffer commands) {
+  if (Context_.GpuTiming == GpuTimingMode::None) { return {}; }
+  VkQueryPoolCreateInfo create{};
+  create.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+  create.queryType = VK_QUERY_TYPE_TIMESTAMP;
+  create.queryCount =
+      kSubmissionQueries +
+      (Context_.GpuTiming == GpuTimingMode::Dispatches ? 2 * kMaximumDispatches : 0);
+  const auto result = vkCreateQueryPool(Context_.Logical, &create, nullptr, &Pool_);
+  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateQueryPool", result)); }
+  RecordedAt_ = std::chrono::steady_clock::now();
+  vkCmdResetQueryPool(commands, Pool_, 0, create.queryCount);
+  vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, Pool_, 0);
+  return {};
+}
+
+void TimingQueries::EndSubmission(VkCommandBuffer commands) const {
+  if (Pool_ != VK_NULL_HANDLE) {
+    vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, Pool_, 1);
+  }
+}
+
+Result<SubmissionGpuTiming> TimingQueries::ReadSubmission() const {
+  std::array<uint64_t, size_t{kSubmissionQueries} * 2> values{};
+  const auto result =
+      vkGetQueryPoolResults(Context_.Logical,
+                            Pool_,
+                            0,
+                            kSubmissionQueries,
+                            sizeof(values),
+                            values.data(),
+                            2 * sizeof(uint64_t),
+                            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+  if (result != VK_SUCCESS) {
+    return std::unexpected(Failure("vkGetQueryPoolResults submission", result));
+  }
+  const double hostUpperBoundNs =
+      std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - RecordedAt_)
+          .count();
+  const double period = Context_.Properties.limits.timestampPeriod;
+  if (values[1] == 0 || values[3] == 0 ||
+      !TimestampIntervalFits(
+          values[0], values[2], Context_.TimestampValidBits, period, hostUpperBoundNs)) {
+    return std::unexpected(Error{.Kind = ErrorKind::Driver,
+                                 .Message = "Vulkan submission has no valid GPU timestamps"});
+  }
+  const auto mask = std::numeric_limits<uint64_t>::max() >> (64 - Context_.TimestampValidBits);
+  return SubmissionGpuTiming{.Status = CompletionStatus::Ready,
+                             .ElapsedNanoseconds =
+                                 static_cast<double>((values[2] - values[0]) & mask) * period};
+}
+
+Result<std::optional<uint32_t>> TimingQueries::Begin(VkCommandBuffer commands) {
+  if (Context_.GpuTiming != GpuTimingMode::Dispatches) { return std::nullopt; }
+  const uint64_t ordinal = DispatchCount_++;
+  if (ordinal >= kMaximumDispatches) { return std::nullopt; }
+  const auto query = kSubmissionQueries + static_cast<uint32_t>(ordinal) * 2;
+  vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, Pool_, query);
+  return query;
+}
+
+void TimingQueries::End(VkCommandBuffer commands, std::optional<uint32_t> query) const {
+  if (query) {
+    vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, Pool_, *query + 1);
+  }
+}
+
+GpuTimingResults TimingQueries::Read() const {
+  GpuTimingResults timings{.Status = CompletionStatus::Ready,
+                           .DispatchCount = DispatchCount_,
+                           .Truncated = DispatchCount_ > kMaximumDispatches,
+                           .Dispatches = {}};
+  const auto count = static_cast<uint32_t>(std::min<uint64_t>(DispatchCount_, kMaximumDispatches));
+  if (count == 0) { return timings; }
+  std::array<uint64_t, size_t{kMaximumDispatches} * 4> values{};
+  const auto result =
+      vkGetQueryPoolResults(Context_.Logical,
+                            Pool_,
+                            kSubmissionQueries,
+                            count * 2,
+                            sizeof(values),
+                            values.data(),
+                            2 * sizeof(uint64_t),
+                            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+  const bool readable = result == VK_SUCCESS || result == VK_NOT_READY;
+  const double hostUpperBoundNs =
+      std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - RecordedAt_)
+          .count();
+  timings.Dispatches.reserve(count);
+  for (uint32_t index = 0; index < count; ++index) {
+    const auto at = size_t{index} * 4;
+    const bool available = readable && values[at + 1] != 0 && values[at + 3] != 0 &&
+                           TimestampIntervalFits(values[at],
+                                                 values[at + 2],
+                                                 Context_.TimestampValidBits,
+                                                 Context_.Properties.limits.timestampPeriod,
+                                                 hostUpperBoundNs);
+    timings.Dispatches.push_back({.Ordinal = index,
+                                  .Begin = available ? values[at] : 0,
+                                  .End = available ? values[at + 2] : 0,
+                                  .NanosecondsPerTick = Context_.Properties.limits.timestampPeriod,
+                                  .ValidBits = Context_.TimestampValidBits,
+                                  .Available = available});
+  }
+  return timings;
+}
+
+}
+#endif

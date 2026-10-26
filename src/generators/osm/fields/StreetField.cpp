@@ -1,4 +1,5 @@
 #include "StreetField.h"
+#include "OsmSurfacePlacement.h"
 #include <cstdint>
 #include <span>
 #include <string_view>
@@ -10,7 +11,7 @@
 #include <numbers>
 #include "Digest.h"
 #include "TileSourceIdentity.h"
-#include "math/Units.h"
+#include "Units.h"
 
 namespace outshine::Generators::Osm {
 
@@ -66,13 +67,13 @@ uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> w
 
 }
 
-uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+uint32_t StreetField::Ingest(const OsmField &field, const RegionSurfaceRecipes &veg) {
   return Ingest(
       field, veg, {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing});
 }
 
 uint32_t StreetField::Ingest(const OsmField &field,
-                             const VegetationTemplates &veg,
+                             const RegionSurfaceRecipes &veg,
                              TileAdmission::Reach reach) {
   if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation()) {
     *this = StreetField{};
@@ -98,12 +99,13 @@ uint32_t StreetField::Ingest(const OsmField &field,
     const bool area = f.Type == 3 && std::cmp_equal(f.Layer, areas);
     if (!ribbon && !area) { continue; }
 
-    if (field.Num(f, "tunnel", 0.0) > 0.5) {
+    const auto placement = ReadSurfacePlacement(field, static_cast<uint32_t>(c));
+    if (placement && placement->Tunnel == true) {
       Tunnels_++;
       continue;
     }
 
-    const VegetationTemplates::Rule *rule =
+    const RegionSurfaceRecipes::Rule *rule =
         veg.Find(field.LayerName(static_cast<int>(f.Layer)), field.Str(f, "kind"));
     if (rule == nullptr) {
       Unruled_++;
@@ -114,7 +116,12 @@ uint32_t StreetField::Ingest(const OsmField &field,
       continue;
     }
 
-    AppendFeature(field, f, *rule, ribbon ? Shape::Ribbon : Shape::Area);
+    if (!placement) {
+      RecordInvalidPlacement(placement.error());
+      continue;
+    }
+    AppendFeature(
+        field, static_cast<uint32_t>(c), *rule, ribbon ? Shape::Ribbon : Shape::Area, *placement);
   }
 
   ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
@@ -123,6 +130,11 @@ uint32_t StreetField::Ingest(const OsmField &field,
   }
   SourceDigests_[next.Tile] = DigestOfWays(field, OfTile(static_cast<int>(next.Tile)));
   return static_cast<uint32_t>(Ways_.size());
+}
+
+void StreetField::RecordInvalidPlacement(SurfacePlacementError error) {
+  ++InvalidPlacements_;
+  if (error == SurfacePlacementError::InvalidLayer) { ++InvalidLayers_; }
 }
 
 std::optional<uint64_t> StreetField::SourceDigest(const OsmField &field,
@@ -134,15 +146,21 @@ std::optional<uint64_t> StreetField::SourceDigest(const OsmField &field,
   return tile < SourceDigests_.size() ? SourceDigests_[tile] : kDigestBasis;
 }
 
-void StreetField::AppendFeature(const OsmField &field,
-                                const OsmField::Feature &feature,
-                                const VegetationTemplates::Rule &rule,
-                                Shape shape) {
-  const auto layer = field.Integer(feature, "layer");
-  if (!layer) {
-    ++InvalidLayers_;
-    return;
+std::optional<StreetField::SourceReference> StreetField::SourceOf(const OsmField &field,
+                                                                  size_t way) const noexcept {
+  if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation() ||
+      way >= Ways_.size()) {
+    return std::nullopt;
   }
+  return Ways_[way].Source;
+}
+
+void StreetField::AppendFeature(const OsmField &field,
+                                uint32_t featureAt,
+                                const RegionSurfaceRecipes::Rule &rule,
+                                Shape shape,
+                                const SurfacePlacement &placement) {
+  const auto &feature = field.Features()[featureAt];
   const bool ribbon = shape == Shape::Ribbon;
   const bool area = shape == Shape::Area;
   for (uint32_t r = 0; r < feature.RingCount; r++) {
@@ -163,20 +181,21 @@ void StreetField::AppendFeature(const OsmField &field,
                     OwnsEnd(field, feature, static_cast<size_t>(ring.First) + ring.Count - 1u)};
     }
     w.Lanes = rule.Lanes;
-    w.Bridge = field.Num(feature, "bridge", 0.0) > 0.5;
+    w.Bridge = placement.Bridge.value_or(false);
     w.Ramp = field.Num(feature, "ramp", 0.0) > 0.5 ||
              field.Str(feature, "kind").ends_with("_link") ||
              field.Str(feature, "subclass").ends_with("_link");
-    w.Layer = layer->value_or(0);
+    w.Layer = placement.Layer.value_or(0);
     w.ClearanceM = rule.ClearanceM;
     w.MaxGradient = rule.MaxGradient;
     w.SpeedMps = rule.SpeedMps;
     w.Priority = rule.Priority;
     w.Sealed = rule.Sealed;
     w.Oneway = rule.Oneway;
+    w.Source = SourceReference{.Feature = featureAt, .Ring = feature.FirstRing + r};
     Bridges_ += w.Bridge ? 1 : 0;
     Layered_ += w.Layer != 0 ? 1 : 0;
-    LayerSaid_ += layer->has_value() ? 1 : 0;
+    LayerSaid_ += placement.Layer.has_value() ? 1 : 0;
     Ways_.push_back(w);
   }
 }

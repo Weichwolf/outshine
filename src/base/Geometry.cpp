@@ -1,8 +1,9 @@
-#include "math/Mat4.h"
+#include "Mat4.h"
 #include "MaterialValidation.h"
 #include "GeometryCapacity.h"
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -15,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include <scene/Geometry.h>
+#include <Geometry.h>
 
 namespace outshine {
 
@@ -23,25 +24,20 @@ struct Geometry::Held {
   struct Piece {
     std::string Named;
     int Material;
-    std::vector<float> PositionsM;
-    std::vector<float> Normals;
-    std::vector<float> Uv;
-    std::vector<float> Uv1;
-    std::vector<float> Tangents;
-    std::vector<float> Colours;
-    std::vector<uint32_t> Indices;
+    Mesh Data;
     Mat4 PlacedM;
 
     [[nodiscard]] bool Valid(size_t materials) const {
       if (Material >= 0 && std::cmp_greater_equal(Material, materials)) { return false; }
-      if (PositionsM.empty() || Indices.empty()) { return false; }
-      const size_t vertices = PositionsM.size() / 3;
-      if (!Normals.empty() && Normals.size() / 3 != vertices) { return false; }
-      if (!Uv.empty() && Uv.size() / 2 != vertices) { return false; }
-      if (!Uv1.empty() && Uv1.size() / 2 != vertices) { return false; }
-      if (!Tangents.empty() && Tangents.size() / 4 != vertices) { return false; }
-      if (!Colours.empty() && Colours.size() / 4 != vertices) { return false; }
-      return std::ranges::all_of(Indices, [vertices](uint32_t index) { return index < vertices; });
+      if (Data.PositionsM.empty() || Data.Indices.empty()) { return false; }
+      const size_t vertices = Data.PositionsM.size() / 3;
+      if (!Data.Normals.empty() && Data.Normals.size() / 3 != vertices) { return false; }
+      if (!Data.Uv.empty() && Data.Uv.size() / 2 != vertices) { return false; }
+      if (!Data.Uv1.empty() && Data.Uv1.size() / 2 != vertices) { return false; }
+      if (!Data.Tangents.empty() && Data.Tangents.size() / 4 != vertices) { return false; }
+      if (!Data.Colours.empty() && Data.Colours.size() / 4 != vertices) { return false; }
+      return std::ranges::all_of(Data.Indices,
+                                 [vertices](uint32_t index) { return index < vertices; });
     }
   };
 
@@ -59,6 +55,7 @@ struct Geometry::Held {
   struct Picture {
     int WidthPx = 0;
     int HeightPx = 0;
+    ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
     std::vector<uint8_t> Rgba;
     ImageMipData LowerMips;
   };
@@ -97,32 +94,41 @@ Geometry Geometry::clone() const {
 
 std::expected<void, GeometryAppendError> Geometry::append(const Geometry &source) {
   if (!source.wellFormed()) { return std::unexpected(GeometryAppendError::MalformedSource); }
-  if (Held_->Surfaces.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Surfaces.size() ||
-      Held_->Images.size() >
-          static_cast<size_t>(std::numeric_limits<int>::max()) - source.Held_->Images.size()) {
+  const auto fits = [](const auto &held, size_t added) {
+    const size_t limit =
+        std::min(held.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+    return held.size() <= limit && added <= limit - held.size();
+  };
+  const size_t partsMost =
+      std::min(Held_->Parts.max_size(), static_cast<size_t>(std::numeric_limits<int>::max()));
+  if (Held_->Live > partsMost || source.Held_->Live > partsMost - Held_->Live ||
+      !fits(Held_->Surfaces, source.Held_->Surfaces.size()) ||
+      !fits(Held_->Images, source.Held_->Images.size()) ||
+      !fits(Held_->Lamps, source.Held_->Lamps.size())) {
     return std::unexpected(GeometryAppendError::CapacityExceeded);
   }
-  Geometry candidate = clone();
-  const int imageBase = static_cast<int>(candidate.Held_->Images.size());
-  const int materialBase = static_cast<int>(candidate.Held_->Surfaces.size());
-  candidate.Held_->Images.insert(
-      candidate.Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
+  if (this == &source) {
+    const Geometry snapshot = source.clone();
+    return append(snapshot);
+  }
+  const int imageBase = static_cast<int>(Held_->Images.size());
+  const int materialBase = static_cast<int>(Held_->Surfaces.size());
+  Held_->Parts.resize(Held_->Live);
+  Held_->Images.insert(
+      Held_->Images.end(), source.Held_->Images.begin(), source.Held_->Images.end());
   for (Held::Named surface : source.Held_->Surfaces) {
     const auto remap = [imageBase](SurfaceMap &map) {
       if (map.Image >= 0) { map.Image += imageBase; }
     };
     for (auto *map : MaterialMaps(surface.Surface)) { remap(*map); }
-    candidate.Held_->Surfaces.push_back(std::move(surface));
+    Held_->Surfaces.push_back(std::move(surface));
   }
   for (Held::Piece part : std::span(source.Held_->Parts).first(source.Held_->Live)) {
     if (part.Material >= 0) { part.Material += materialBase; }
-    candidate.Held_->Parts.push_back(std::move(part));
-    ++candidate.Held_->Live;
+    Held_->Parts.push_back(std::move(part));
+    ++Held_->Live;
   }
-  candidate.Held_->Lamps.insert(
-      candidate.Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
-  *this = std::move(candidate);
+  Held_->Lamps.insert(Held_->Lamps.end(), source.Held_->Lamps.begin(), source.Held_->Lamps.end());
   return {};
 }
 
@@ -130,13 +136,13 @@ void Geometry::clear() {
   for (size_t at = 0; at < Held_->Live && at < Held_->Parts.size(); ++at) {
     Geometry::Held::Piece &piece = Held_->Parts[at];
     piece.Named.clear();
-    piece.PositionsM.clear();
-    piece.Normals.clear();
-    piece.Uv.clear();
-    piece.Uv1.clear();
-    piece.Tangents.clear();
-    piece.Colours.clear();
-    piece.Indices.clear();
+    piece.Data.PositionsM.clear();
+    piece.Data.Normals.clear();
+    piece.Data.Uv.clear();
+    piece.Data.Uv1.clear();
+    piece.Data.Tangents.clear();
+    piece.Data.Colours.clear();
+    piece.Data.Indices.clear();
   }
   Held_->Live = 0;
   Held_->Surfaces.clear();
@@ -161,17 +167,81 @@ std::expected<int, GeometryPartError> Geometry::addPart(std::string_view named,
 namespace {
 
 constexpr double kUnitWithin = 1.0e-3;
+constexpr int kBinary64Digits = 53;
+constexpr uint64_t kBinary64OneBits = 0x3ff0000000000000ULL;
+static_assert(std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::digits == kBinary64Digits &&
+              std::bit_cast<uint64_t>(1.0) == kBinary64OneBits);
+
+[[nodiscard]] consteval double NextPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) + 1);
+}
+
+[[nodiscard]] consteval double PreviousPositiveDouble(double value) noexcept {
+  return std::bit_cast<double>(std::bit_cast<uint64_t>(value) - 1);
+}
+
+constexpr double kUnitLengthMin = NextPositiveDouble(1.0 - kUnitWithin);
+constexpr double kUnitLengthMax = PreviousPositiveDouble(1.0 + kUnitWithin);
+constexpr double kUnitSquaredMin = NextPositiveDouble(kUnitLengthMin * kUnitLengthMin);
+constexpr double kUnitSquaredMax = PreviousPositiveDouble(kUnitLengthMax * kUnitLengthMax);
 constexpr double kNoAreaM4 = 1.0e-12;
 
-[[nodiscard]] std::expected<void, GeometryAttributeError> Into(std::vector<float> &slot,
-                                                               std::span<const float> from) {
+[[nodiscard]] std::expected<void, GeometryAttributeError>
+Finite(std::span<const float> from) noexcept {
   for (const float value : from) {
     if (!std::isfinite(value)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
   }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, GeometryAttributeError>
+ValidateNormals(std::span<const float> unit) noexcept {
+  if (unit.size() % 3 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
+  for (size_t at = 0; at + 2 < unit.size(); at += 3) {
+    const double squared = static_cast<double>(unit[at]) * unit[at] +
+                           static_cast<double>(unit[at + 1]) * unit[at + 1] +
+                           static_cast<double>(unit[at + 2]) * unit[at + 2];
+    if (squared >= kUnitSquaredMin && squared <= kUnitSquaredMax) { continue; }
+    const double length = std::sqrt(squared);
+    if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
+    if (std::fabs(length - 1.0) > kUnitWithin) {
+      return std::unexpected(GeometryAttributeError::NonUnitNormal);
+    }
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, GeometryAttributeError> Into(std::vector<float> &slot,
+                                                               std::span<const float> from) {
+  if (const auto valid = Finite(from); !valid) { return valid; }
   slot.assign(from.begin(), from.end());
   return {};
 }
 
+}
+
+std::expected<void, GeometryAttributeError> Geometry::adoptMesh(int part, Mesh &mesh) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  const std::array attributes{std::pair{std::span<const float>(mesh.PositionsM), size_t{3}},
+                              std::pair{std::span<const float>(mesh.Uv), size_t{2}},
+                              std::pair{std::span<const float>(mesh.Uv1), size_t{2}},
+                              std::pair{std::span<const float>(mesh.Tangents), size_t{4}},
+                              std::pair{std::span<const float>(mesh.Colours), size_t{4}}};
+  for (const auto &[values, width] : attributes) {
+    if (values.size() % width != 0) {
+      return std::unexpected(GeometryAttributeError::IncompleteTuple);
+    }
+    if (const auto valid = Finite(values); !valid) { return valid; }
+  }
+  if (const auto valid = ValidateNormals(mesh.Normals); !valid) { return valid; }
+  if (mesh.Indices.size() % 3 != 0) {
+    return std::unexpected(GeometryAttributeError::IncompleteTuple);
+  }
+  Held_->Parts[static_cast<size_t>(part)].Data = std::move(mesh);
+  return {};
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
@@ -181,37 +251,73 @@ std::expected<void, GeometryAttributeError> Geometry::setPositions(int part,
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].PositionsM, metres);
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.PositionsM, metres);
 }
 
-std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
-                                                                 std::span<const float> unit) {
-  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || unit.size() % 3 != 0) {
+std::expected<void, GeometryAttributeError>
+Geometry::adoptPositions(int part, std::vector<float> &metres) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || metres.size() % 3 != 0) {
     return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  for (size_t at = 0; at + 2 < unit.size(); at += 3) {
-    const double length = std::sqrt(static_cast<double>(unit[at]) * unit[at] +
-                                    static_cast<double>(unit[at + 1]) * unit[at + 1] +
-                                    static_cast<double>(unit[at + 2]) * unit[at + 2]);
-    if (!std::isfinite(length)) { return std::unexpected(GeometryAttributeError::NonFiniteValue); }
-    if (std::fabs(length - 1.0) > kUnitWithin) {
-      return std::unexpected(GeometryAttributeError::NonUnitNormal);
-    }
+  if (const auto valid = Finite(metres); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.PositionsM = std::move(metres);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptNormals(int part, std::vector<float> &unit) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Normals, unit);
+  if (const auto valid = ValidateNormals(unit); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Normals = std::move(unit);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptColours(int part, std::vector<float> &rgba) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || rgba.size() % 4 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  if (const auto valid = Finite(rgba); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Colours = std::move(rgba);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError>
+Geometry::adoptTriangles(int part, std::vector<uint32_t> &indices) noexcept {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live) || indices.size() % 3 != 0) {
+    return std::unexpected(part < 0 || std::cmp_greater_equal(part, Held_->Live)
+                               ? GeometryAttributeError::MissingPart
+                               : GeometryAttributeError::IncompleteTuple);
+  }
+  Held_->Parts[static_cast<size_t>(part)].Data.Indices = std::move(indices);
+  return {};
+}
+
+std::expected<void, GeometryAttributeError> Geometry::setNormals(int part,
+                                                                 std::span<const float> unit) {
+  if (part < 0 || std::cmp_greater_equal(part, Held_->Live)) {
+    return std::unexpected(GeometryAttributeError::MissingPart);
+  }
+  if (const auto valid = ValidateNormals(unit); !valid) { return valid; }
+  Held_->Parts[static_cast<size_t>(part)].Data.Normals.assign(unit.begin(), unit.end());
+  return {};
 }
 
 int Geometry::windingAgainstNormals(int part) const {
   const Held::Piece *piece = Held_->At(part);
   if (piece == nullptr) { return 0; }
-  const std::vector<float> &p = piece->PositionsM;
-  const std::vector<float> &n = piece->Normals;
+  const std::vector<float> &p = piece->Data.PositionsM;
+  const std::vector<float> &n = piece->Data.Normals;
   int against = 0;
-  for (size_t at = 0; at + 2 < piece->Indices.size(); at += 3) {
+  for (size_t at = 0; at + 2 < piece->Data.Indices.size(); at += 3) {
     const std::array<size_t, 3> corner = {
-        piece->Indices[at], piece->Indices[at + 1], piece->Indices[at + 2]};
+        piece->Data.Indices[at], piece->Data.Indices[at + 1], piece->Data.Indices[at + 2]};
     if (corner[2] * 3 + 2 >= p.size() || corner[2] * 3 + 2 >= n.size() ||
         corner[0] * 3 + 2 >= p.size() || corner[1] * 3 + 2 >= p.size() ||
         corner[0] * 3 + 2 >= n.size() || corner[1] * 3 + 2 >= n.size()) {
@@ -242,7 +348,7 @@ Geometry::setTexture(int part, std::span<const float> uv, int set) {
   if (uv.size() % 2 != 0) { return std::unexpected(GeometryAttributeError::IncompleteTuple); }
   if (set != 0 && set != 1) { return std::unexpected(GeometryAttributeError::InvalidTextureSet); }
   Geometry::Held::Piece &piece = Held_->Parts[static_cast<size_t>(part)];
-  return Into(set == 0 ? piece.Uv : piece.Uv1, uv);
+  return Into(set == 0 ? piece.Data.Uv : piece.Data.Uv1, uv);
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setTangents(int part,
@@ -252,7 +358,7 @@ std::expected<void, GeometryAttributeError> Geometry::setTangents(int part,
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Tangents, xyzw);
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.Tangents, xyzw);
 }
 
 std::expected<void, GeometryAttributeError> Geometry::setColours(int part,
@@ -262,7 +368,7 @@ std::expected<void, GeometryAttributeError> Geometry::setColours(int part,
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  return Into(Held_->Parts[static_cast<size_t>(part)].Colours, rgba);
+  return Into(Held_->Parts[static_cast<size_t>(part)].Data.Colours, rgba);
 }
 
 std::expected<void, GeometryAttributeError>
@@ -272,7 +378,7 @@ Geometry::setTriangles(int part, std::span<const uint32_t> indices) {
                                ? GeometryAttributeError::MissingPart
                                : GeometryAttributeError::IncompleteTuple);
   }
-  Held_->Parts[static_cast<size_t>(part)].Indices.assign(indices.begin(), indices.end());
+  Held_->Parts[static_cast<size_t>(part)].Data.Indices.assign(indices.begin(), indices.end());
   return {};
 }
 
@@ -348,10 +454,10 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   if (!CanAppendGeometryEntry(Held_->Images.size(), Held_->Images.max_size())) {
     return std::unexpected(GeometryImageError::CapacityExceeded);
   }
-  constexpr size_t bytesPerPixel = 4;
+  const size_t bytesPerPixel = ImagePixelBytes(image.Format);
   const auto width = static_cast<size_t>(widthPx);
   const auto height = static_cast<size_t>(heightPx);
-  if (width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
+  if (bytesPerPixel == 0 || width > std::numeric_limits<size_t>::max() / bytesPerPixel / height) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
   const size_t bytes = width * height * bytesPerPixel;
@@ -360,6 +466,7 @@ std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
+  made.Format = image.Format;
   made.Rgba.assign(rgba.begin(), rgba.end());
   made.LowerMips = CopyImageMips(image.LowerMips);
   Held_->Images.push_back(std::move(made));
@@ -388,6 +495,7 @@ ImageView Geometry::imageAt(int image) const {
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{.WidthPx = held.WidthPx,
                    .HeightPx = held.HeightPx,
+                   .Format = held.Format,
                    .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size()),
                    .LowerMips = ViewImageMips(held.LowerMips)};
 }
@@ -451,10 +559,12 @@ size_t Geometry::storageBytes() const noexcept {
                  Held_->Images.capacity() * sizeof(Held::Picture) +
                  Held_->Lamps.capacity() * sizeof(Held::Placed);
   for (const Held::Piece &part : Held_->Parts) {
-    bytes += part.Named.capacity() + part.PositionsM.capacity() * sizeof(float) +
-             part.Normals.capacity() * sizeof(float) + part.Uv.capacity() * sizeof(float) +
-             part.Uv1.capacity() * sizeof(float) + part.Tangents.capacity() * sizeof(float) +
-             part.Colours.capacity() * sizeof(float) + part.Indices.capacity() * sizeof(uint32_t);
+    bytes += part.Named.capacity() + part.Data.PositionsM.capacity() * sizeof(float) +
+             part.Data.Normals.capacity() * sizeof(float) +
+             part.Data.Uv.capacity() * sizeof(float) + part.Data.Uv1.capacity() * sizeof(float) +
+             part.Data.Tangents.capacity() * sizeof(float) +
+             part.Data.Colours.capacity() * sizeof(float) +
+             part.Data.Indices.capacity() * sizeof(uint32_t);
   }
   for (const Held::Named &surface : Held_->Surfaces) { bytes += surface.Named.capacity(); }
   for (const Held::Picture &image : Held_->Images) {
@@ -479,33 +589,35 @@ MaterialInstance Geometry::materialOf(int part) const {
 
 std::span<const float> Geometry::positionsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->PositionsM) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.PositionsM)
+                          : std::span<const float>();
 }
 
 std::span<const float> Geometry::normalsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Normals) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Normals) : std::span<const float>();
 }
 
 std::span<const float> Geometry::textureOf(int part, UvSet set) const {
   const Held::Piece *piece = Held_->At(part);
   if (piece == nullptr) { return {}; }
-  return {set == UvSet::Uv0 ? piece->Uv : piece->Uv1};
+  return {set == UvSet::Uv0 ? piece->Data.Uv : piece->Data.Uv1};
 }
 
 std::span<const float> Geometry::tangentsOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Tangents) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Tangents) : std::span<const float>();
 }
 
 std::span<const float> Geometry::coloursOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const float>(piece->Colours) : std::span<const float>();
+  return piece != nullptr ? std::span<const float>(piece->Data.Colours) : std::span<const float>();
 }
 
 std::span<const uint32_t> Geometry::trianglesOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
-  return piece != nullptr ? std::span<const uint32_t>(piece->Indices) : std::span<const uint32_t>();
+  return piece != nullptr ? std::span<const uint32_t>(piece->Data.Indices)
+                          : std::span<const uint32_t>();
 }
 
 bool Geometry::wellFormed() const {

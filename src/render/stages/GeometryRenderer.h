@@ -1,0 +1,627 @@
+#ifndef OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
+#define OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
+
+#include "MeshInput.h"
+#include <span>
+#include <optional>
+#include <array>
+#include <cstdint>
+#include <expected>
+#include <string>
+#include <vector>
+
+#include "FragmentArms.h"
+#include "SurfaceOutputs.h"
+#include "Mat4.h"
+#include "Vec3.h"
+#include "SurfaceState.h"
+
+#include "FrameContext.h"
+#include "Gpu.h"
+#include <memory>
+#include <cstddef>
+
+#include "KernelShape.h"
+#include "DrawList.h"
+#include "TerrainRenderer.h"
+#include "PrismResidency.h"
+#include "PrismPipelines.h"
+#include "GeometryResidency.h"
+#include "GpuPlacement.h"
+#include "MaterialPacking.h"
+#include "SceneLighting.h"
+#include "PieceMesh.h"
+#include "GroundTile.h"
+#include "ShadowCasterSelection.h"
+#include "CasterChanges.h"
+#include "LightingUniform.h"
+
+namespace outshine::Render {
+
+class RenderScene;
+
+class GeometryPipelineBinding {
+public:
+  [[nodiscard]] Native::Result<void> ConfigureGroundSelection(Native::Device &device) {
+    return Ground.ConfigureSelection(device);
+  }
+
+  GeometryPipelineBinding() = default;
+  GeometryPipelineBinding(const GeometryPipelineBinding &) = delete;
+  GeometryPipelineBinding &operator=(const GeometryPipelineBinding &) = delete;
+  GeometryPipelineBinding(GeometryPipelineBinding &&) noexcept = default;
+  GeometryPipelineBinding &operator=(GeometryPipelineBinding &&) noexcept = default;
+
+private:
+  friend class GeometryRenderer;
+  static constexpr size_t kPipelineCount =
+      kSurfaceDomains * kVertexLayouts.size() * 2 * kSurfaceKinds;
+  Native::Device *Device = nullptr;
+  std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelineCount> Pipelines;
+  uint32_t Built = 0;
+  std::vector<Resource> Colours;
+  TerrainPipelines Ground;
+  PrismPipelines Prisms;
+  Native::Texture *Behind = nullptr;
+  Native::Sampler *BehindSampler = nullptr;
+  bool GlassDrawnElsewhere = false;
+  bool WritesVelocity = false;
+  bool CapturesMaterial = false;
+};
+
+struct GeometryUploadMetrics {
+  double AdmissionMs = 0.0;
+  double IndexMs = 0.0;
+  double StreamsMs = 0.0;
+  double TablesMs = 0.0;
+};
+
+enum class GeometryPassKind : uint8_t { Opaque, Transmission };
+
+class GeometryRenderer {
+public:
+  explicit GeometryRenderer(RenderScene &scene,
+                            GeometryPassKind pass = GeometryPassKind::Opaque) noexcept;
+
+  struct MeshTicket {
+    uint64_t Generation = 0;
+    bool NeedsFinish = false;
+  };
+
+  using SourceOptions = SurfaceOutputs;
+
+  [[nodiscard]] static const char *
+  FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
+  static constexpr size_t kGeometryFragmentStorageCount = 3;
+
+  static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
+                                         .VertexStorageBuffers = 1,
+                                         .FragmentSamplers = kGeometryFragmentImageCount,
+                                         .FragmentUniformBuffers = kGeometryFragmentUniformCount,
+                                         .FragmentStorageBuffers = kGeometryFragmentStorageCount};
+  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
+
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> Configure(GeometryPipelineBinding &binding,
+                                               const Gpu &gpu,
+                                               Native::Texture *behind,
+                                               Native::Sampler *exact,
+                                               bool separateTransmission);
+  [[nodiscard]] Native::Result<void> AttachPipelines(GeometryPipelineBinding &binding,
+                                                     const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> PrepareTerrainMaterialBuffers(const Gpu &gpu);
+
+  void UsePipelines(GeometryPipelineBinding &binding) noexcept {
+    Binding_ = &binding;
+    Ground_.UsePipelines(binding.Ground);
+  }
+
+  void SeeThroughTo(Native::Texture *behind, Native::Sampler *exact) {
+    Binding().Behind = behind;
+    Binding().BehindSampler = exact;
+  }
+
+  void SetSeparateTransmission(bool enabled) { Binding().GlassDrawnElsewhere = enabled; }
+
+  void ShadowedBy(Native::Texture *atlas,
+                  Native::Sampler *exact,
+                  size_t lightIndex,
+                  const Mat4 &lightFromWorld,
+                  const std::array<ShadowRegionUniform, kSunShadowRegions> &regions,
+                  size_t count) {
+    Atlas_ = atlas;
+    AtlasSampler_ = exact;
+    Shadowed_ = atlas != nullptr && exact != nullptr && count > 0;
+    ShadowRegionCount_ = Shadowed_ ? count : 0;
+    ShadowLightIndex_ = lightIndex;
+    if (!Shadowed_) { return; }
+    LightFromWorld_ = lightFromWorld;
+    ShadowRegions_ = regions;
+  }
+
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, 0, Mat4{}, {}, 0); }
+
+  [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
+
+  [[nodiscard]] bool HandDrawArguments(bool deferred, std::string &error);
+
+  [[nodiscard]] TerrainRenderer &Ground() { return Ground_; }
+
+  [[nodiscard]] const TerrainRenderer &Ground() const { return Ground_; }
+
+  [[nodiscard]] const PrismResidency &Prisms() const noexcept { return *Prisms_; }
+
+  [[nodiscard]] CasterChanges::Snapshot ShadowChangesSince(uint64_t revision) const noexcept {
+    return ShadowChanges_.Since(revision);
+  }
+
+  void AcknowledgeShadowChanges(uint64_t revision) noexcept {
+    ShadowChanges_.Acknowledge(revision);
+  }
+
+  void AcknowledgePrismShadowChanges(uint64_t revision) noexcept {
+    Prisms_->AcknowledgeShadowChanges(revision);
+  }
+
+  [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                                                        std::span<const PrismInstance> instances,
+                                                        uint32_t material);
+  [[nodiscard]] Native::Result<void>
+  SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
+  void ReleasePrismGrid(uint64_t id);
+  [[nodiscard]] Native::Result<void> EncodePrismShadow(const PassRecording &into,
+                                                       const PrismDepthView &view) const;
+
+  void SetPiecesVisible(bool visible);
+
+  [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
+  void ReleasePiece(PieceId which);
+  [[nodiscard]] bool
+  SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
+  void SetNativePieceSurfaces(std::span<const uint32_t> slots);
+  void SetRegisteredPieceSurfaces(std::span<const uint32_t> slots);
+  [[nodiscard]] bool HandTables(std::string &error);
+
+  [[nodiscard]] uint32_t PiecesStanding() const { return PiecesLive_; }
+
+  [[nodiscard]] uint32_t PieceTriangles() const { return PieceTriangles_; }
+
+  [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
+
+  [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
+
+  [[nodiscard]] uint32_t ClusterBatchRows() const {
+    return Args_.empty() ? 0u : static_cast<uint32_t>(Batches.size());
+  }
+
+  [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
+    if (rows == 0) {
+      if (!Placed_.empty()) { ShadowChanges_.Unknown(); }
+      Placed_.clear();
+      Before_.clear();
+      Stamped_.clear();
+      return true;
+    }
+    for (const DrawBatch &batch : MainMeshBatches_) {
+      if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
+        continue;
+      }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
+              std::to_string(batch.Instances) + " instance(s) over a table of " +
+              std::to_string(rows) + " placements";
+      ShadowChanges_.Unknown();
+      Placed_.clear();
+      return false;
+    }
+    if (Placed_.size() == rows * 16u) { return true; }
+    ShadowChanges_.Unknown();
+    Placed_.resize(rows * 16u, 0.0);
+    Before_.assign(rows * 16u, 0.0);
+    Stamped_.assign(rows, 0u);
+    return true;
+  }
+
+  void MovePlacement(size_t slot, const Mat4 &model) {
+    if ((slot + 1) * 16u > Placed_.size()) { return; }
+    Before_.resize(Placed_.size(), 0.0);
+    Stamped_.resize(Placed_.size() / 16u, 0u);
+    if (Stamped_[slot] != Frame_) {
+      const double *const carry = Stamped_[slot] == 0u ? model.data() : Placed_.data() + slot * 16u;
+      for (size_t at = 0; at < 16u; ++at) { Before_[slot * 16u + at] = carry[at]; }
+      Stamped_[slot] = Frame_;
+    }
+    for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model[at]; }
+    ++Moved_;
+    ShadowChanges_.Unknown();
+    RowsStale_ = true;
+  }
+
+  void CarryFrame() { ++Frame_; }
+
+  [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
+
+  [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_->Generation(); }
+
+  [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
+    ShadowChanges_.Unknown();
+    RowsStale_ = true;
+    if (models == nullptr && rows > 0) {
+      Placed_.clear();
+      error = "a placement table of " + std::to_string(rows) +
+              " rows arrives with no rows to read -- a count without a table is a declaration "
+              "that names placements it does not hand over";
+      return false;
+    }
+    if (models == nullptr || rows == 0) {
+      Placed_.clear();
+      Before_.clear();
+      Stamped_.clear();
+      return true;
+    }
+    Placed_.assign(models, models + rows * 16u);
+    Before_ = Placed_;
+    Stamped_.assign(rows, Frame_);
+    for (const DrawBatch &batch : MainMeshBatches_) {
+      if (static_cast<size_t>(batch.ModelSlot) + static_cast<size_t>(batch.Instances) <= rows) {
+        continue;
+      }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) + " and " +
+              std::to_string(batch.Instances) + " instance(s) over a table of " +
+              std::to_string(rows) + " placements";
+      Placed_.clear();
+      return false;
+    }
+    return true;
+  }
+
+  [[nodiscard]] bool SetMaterials(std::span<const MaterialBinding> materials, std::string &error);
+  [[nodiscard]] bool ValidateMaterials(std::span<const MaterialBinding> materials,
+                                       std::string &error) const;
+  [[nodiscard]] bool AppendMaterials(
+      std::span<const MaterialBinding> materials,
+      std::string &error,
+      GeometryResidency::ImageUploadMode mode = GeometryResidency::ImageUploadMode::Immediate);
+
+  [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
+
+  void TruncateMaterials(size_t count) noexcept;
+
+  [[nodiscard]] bool ValidateMesh(const MeshInput &mesh, std::string &error) const;
+  [[nodiscard]] bool SetMesh(const MeshInput &mesh, std::string &error);
+  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const MeshInput &mesh);
+  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error);
+
+  [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
+
+  [[nodiscard]] GeometryUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
+
+  [[nodiscard]] bool SetVertexInput(const VertexInput &pose, std::string &error);
+
+private:
+  class PipelineShaders;
+  static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
+  static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
+
+  static constexpr int kUniFloats = 56;
+
+  struct FrameUniforms {
+    std::array<float, kUniFloats> View{};
+    std::array<float, sizeof(LightingUniform) / sizeof(float)> Light{};
+  };
+
+  struct DrawResources {
+    static constexpr size_t kMostBindings =
+        kGeometryFragmentImageCount + 3 + kGeometryFragmentUniformCount + 2;
+    std::array<Native::Binding, kMostBindings> Bindings{};
+    std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
+    uint32_t BindingCount = 0;
+    uint32_t VertexCount = 0;
+  };
+
+  [[nodiscard]] FrameUniforms FrameUniformsOf(const FrameContext &ctx);
+  void BindVertexStreams(DrawResources &into, VertexLayout layout, VertexMotion motion) const;
+  [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
+  [[nodiscard]] static Native::Result<void>
+  ConfigureKind(const Gpu &gpu,
+                const SourceOptions &options,
+                std::span<const Resource> colours,
+                SurfaceKind kind,
+                PipelineShaders &shaders,
+                std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
+                uint32_t &built);
+  [[nodiscard]] static Native::Result<void>
+  ConfigureVariant(SurfaceKind kind,
+                   SurfaceDomain domain,
+                   VertexLayout layout,
+                   const SourceOptions &options,
+                   std::span<const Native::ColourTarget> targets,
+                   Native::Device &device,
+                   PipelineShaders &shaders,
+                   std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
+                   uint32_t &built);
+
+  [[nodiscard]] bool
+  ValidateBatch(const MeshInput &mesh, const DrawBatch &batch, std::string &error) const;
+  [[nodiscard]] bool ValidatePiece(const PieceMesh &piece, std::string &error) const;
+
+  [[nodiscard]] bool HandStreams(const VertexInput &pose, bool deferred, std::string &error);
+  void BindSlot(DrawResources &into,
+                size_t slot,
+                VertexLayout layout,
+                const FrameUniforms &uniforms,
+                uint32_t prefixBindings = 0) const;
+  [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
+                                                  const FrameUniforms &uniforms) const;
+  [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
+                                                  const FrameUniforms &uniforms);
+  [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
+                                                    size_t first,
+                                                    bool culled,
+                                                    size_t end,
+                                                    const DrawResources &resources);
+
+public:
+  [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
+
+  void SetEnvironment(const EnvironmentLighting &environment) { IndirectLight = environment; }
+
+  [[nodiscard]] const EnvironmentLighting &Environment() const { return IndirectLight; }
+
+  struct Reflections {
+    Native::Texture *Atlas = nullptr;
+    Native::Sampler *Sampler = nullptr;
+    Vec3f Up = {{0, 1, 0}};
+    Vec3f ToSun = {{0, 1, 0}};
+  };
+
+  void ReflectionsFrom(Reflections from) { Reflections_ = from; }
+
+  struct GroundBuffers {
+    const Native::Buffer *Classes = nullptr;
+    const Native::Buffer *Palette = nullptr;
+  };
+
+  void GroundFrom(GroundBuffers from) {
+    GroundClasses_ = from.Classes;
+    GroundPalette_ = from.Palette;
+  }
+
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
+                                                  const PassRecording &into);
+
+  [[nodiscard]] const GeometryResidency &Resident() const { return Bound(); }
+
+  [[nodiscard]] GeometryResidency &Residency() noexcept { return *Storage_; }
+
+  [[nodiscard]] bool IsTransmission() const noexcept {
+    return Pass_ == GeometryPassKind::Transmission;
+  }
+
+  [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
+
+  [[nodiscard]] Native::Result<uint32_t> EncodeShadow(const PassRecording &into,
+                                                      const Native::GraphicsPipeline &pipeline,
+                                                      size_t batchIndex,
+                                                      const BatchFrustum &visible,
+                                                      uint32_t instances,
+                                                      std::span<const std::byte> view) const;
+
+  [[nodiscard]] uint32_t ColourImages() const;
+  [[nodiscard]] uint32_t Layouts() const;
+  [[nodiscard]] uint32_t Textured() const;
+
+  [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
+
+  [[nodiscard]] const Vec3 &AnchorM() const { return Anchor; }
+
+  [[nodiscard]] const Mat4 &ModelM() const { return Model; }
+
+  [[nodiscard]] uint64_t HeldBytes() const {
+    return IsTransmission() ? 0u : Storage_->HeldBytes() + Prisms_->HeldBytes();
+  }
+
+  [[nodiscard]] uint32_t StagedBytes() const { return Bound().StagedBytes(); }
+
+  void ForgetStagedCount() { Bound().ForgetStagedCount(); }
+
+  [[nodiscard]] uint32_t VertexCount() const { return Bound().Shape().Vertices; }
+
+  [[nodiscard]] long TriangleCount() const {
+    return static_cast<long>(Bound().Shape().Indices) / 3;
+  }
+
+  [[nodiscard]] uint32_t BatchCount() const { return static_cast<uint32_t>(Batches.size()); }
+
+  [[nodiscard]] uint32_t DrawCount() const;
+
+  struct EncodedWork {
+    uint64_t DirectTriangles = 0;
+    uint64_t IndirectInputTriangles = 0;
+    uint32_t DrawRequests = 0;
+    uint32_t IndirectRecords = 0;
+    uint32_t SurfaceSlotLimit = 0;
+    uint32_t PlacementSlotLimit = 0;
+  };
+
+  [[nodiscard]] const EncodedWork &Work() const noexcept { return EncodedWork_; }
+
+  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedWork_.DrawRequests; }
+
+  [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
+
+private:
+  static constexpr size_t kLightFloats = sizeof(LightingUniform) / sizeof(float);
+
+  struct SurfaceSlot {
+    GeometryResidency::BoundImage Colour;
+    GeometryResidency::BoundImage Normal;
+    GeometryResidency::BoundImage MetalRough;
+    GeometryResidency::BoundImage Emissive;
+
+    GeometryResidency::BoundImage SpecularStrength;
+    GeometryResidency::BoundImage SpecularTint;
+    GeometryResidency::BoundImage DiffuseReflection;
+    GeometryResidency::BoundImage DiffuseTransmission;
+
+    GpuMaterialRecord Row{};
+    SurfaceKind Kind = SurfaceKind::Opaque;
+    bool CullsBack = true;
+    std::optional<std::array<float, 3>> Unlit;
+
+    SurfaceDomain Domain = SurfaceDomain::Geometry;
+    bool ReadsSecondUv = false;
+  };
+
+  TerrainRenderer Ground_;
+  PrismResidency *Prisms_;
+  CasterChanges ShadowChanges_;
+
+  void RecordPieceShadowChange(const std::optional<std::array<float, 4>> &before,
+                               size_t beforeRows,
+                               const std::optional<std::array<float, 4>> &after,
+                               size_t afterRows) noexcept;
+  [[nodiscard]] bool ChangesShadowSurfaces(std::span<const uint32_t> before,
+                                           std::span<const uint32_t> after,
+                                           PieceSurface::Source source) const noexcept;
+  [[nodiscard]] bool TruncatesShadowMaterials(size_t count) const noexcept;
+
+  [[nodiscard]] bool BindSurface(const MaterialBinding &material,
+                                 std::string &error,
+                                 GeometryResidency::ImageUploadMode mode);
+
+public:
+  [[nodiscard]] Native::Result<void> FlushCrossings(Native::Commands *commands) {
+    return Bound().FlushCrossings(commands);
+  }
+
+  void CommitCrossings() { Bound().CommitCrossings(); }
+
+private:
+  [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
+
+  [[nodiscard]] static size_t
+  PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
+
+  std::vector<SurfaceSlot> Slots;
+  std::vector<DrawBatch> Batches;
+
+  std::vector<VertexLayout> BatchLayout;
+
+  GeometryResidency *Storage_;
+  GeometryPassKind Pass_;
+  const Native::Buffer *GroundClasses_ = nullptr;
+  const Native::Buffer *GroundPalette_ = nullptr;
+
+  [[nodiscard]] GeometryResidency &Bound() { return *Storage_; }
+
+  [[nodiscard]] const GeometryResidency &Bound() const { return *Storage_; }
+
+  Native::Texture *Atlas_ = nullptr;
+  Native::Sampler *AtlasSampler_ = nullptr;
+  std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions_{};
+  size_t ShadowRegionCount_ = 0;
+  size_t ShadowLightIndex_ = 0;
+  Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  size_t ShadowedFrames_ = 0;
+  size_t UniformPushes_ = 0;
+
+public:
+  [[nodiscard]] size_t ShadowedFrames() const { return ShadowedFrames_; }
+
+  [[nodiscard]] size_t UniformPushes() const { return UniformPushes_; }
+
+private:
+  std::vector<SceneLight> Placed;
+  EnvironmentLighting IndirectLight;
+  Reflections Reflections_;
+  Vec3 Anchor;
+  Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  std::vector<double> Placed_;
+  std::vector<double> Before_;
+  std::vector<uint64_t> Stamped_;
+  Mat4 ModelBefore_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+  uint64_t ModelStamp_ = 0;
+  uint64_t Frame_ = 1;
+  std::vector<GpuPlacement> Rows_;
+
+  std::vector<uint32_t> Args_;
+  uint32_t Jobs_ = 0;
+  EncodedWork EncodedWork_;
+
+  struct Piece {
+    GeometryResidency::Range V;
+    GeometryResidency::Range I;
+    GeometryResidency::Range C;
+    GeometryResidency::Range T;
+    uint32_t IndexCount = 0;
+    PieceSurface Surface;
+    VertexLayout Layout = VertexLayout::PositionNormal;
+    std::optional<std::array<float, 3>> Emitted;
+    std::vector<Mat4> Rows;
+    uint32_t FirstRow = 0;
+    uint32_t MaxInstances = 0;
+    std::vector<DagCluster> Clusters;
+    std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
+    bool Live = false;
+  };
+
+  std::vector<DrawBatch> MainMeshBatches_;
+  std::vector<uint32_t> MainMeshClusterJobs_;
+  std::vector<float> MainMeshClusterSpheres_;
+  std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
+  std::vector<float> TableSpheres_;
+  ShadowCasterSelection ShadowCasters_;
+  bool MainMeshBoundsCurrent_ = false;
+  uint32_t MainMeshRows_ = 0;
+  std::vector<Piece> Pieces_;
+  std::vector<uint32_t> Spare_;
+  std::vector<uint32_t> SlotOf_, RegisteredSlotOf_;
+  uint32_t PiecesLive_ = 0;
+  uint32_t PieceTriangles_ = 0;
+
+  [[nodiscard]] Native::Result<void> RoomForStreams();
+
+  struct OptionalStreamEnds {
+    uint32_t VertexEnd;
+    uint32_t ColourEnd;
+    uint32_t TangentEnd;
+  };
+
+  [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
+                                                            VertexRunsCarried carried);
+  void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
+  void BindShadowResources(DrawResources &resources,
+                           const DrawBatch &batch,
+                           std::span<const std::byte> view) const;
+  [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
+  [[nodiscard]] bool Retable(std::string &error);
+  [[nodiscard]] bool BuildMainMeshBatches(std::string &error);
+  void PrepareMainMeshTables();
+  void PrepareShadowCasters();
+  [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
+  void OrderPieces();
+  [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
+  [[nodiscard]] bool UploadTables(std::string &error);
+  size_t Moved_ = 0;
+  uint64_t Reshaped_ = 0;
+  GeometryUploadMetrics LastMeshUpload_;
+  MeshTicket PendingMesh_;
+  const DrawList *PendingDraws_ = nullptr;
+  const uint32_t *PendingIndices_ = nullptr;
+  uint32_t PendingIndexCount_ = 0;
+
+  GeometryPipelineBinding OwnedBinding_;
+  GeometryPipelineBinding *Binding_ = &OwnedBinding_;
+  bool Shadowed_ = false;
+  bool RowsStale_ = false;
+  bool TablesStale_ = false;
+  bool PiecesVisible_ = true;
+
+  [[nodiscard]] GeometryPipelineBinding &Binding() { return *Binding_; }
+
+  [[nodiscard]] const GeometryPipelineBinding &Binding() const { return *Binding_; }
+};
+
+}
+#endif

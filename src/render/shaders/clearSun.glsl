@@ -18,17 +18,12 @@ vec3 clearSunUnoccludedTransfer(Medium medium, MediumLook point, sampler2D veil)
     point.RadiusKm = medium.TopRadiusKm;
     point.CosZenith = -sqrt(discriminant) / medium.TopRadiusKm;
   }
-  vec3 value = textureLod(veil, mediumTransmittanceUv(medium, point), 0.0).rgb;
+  vec3 value = textureLod(veil, mediumTransmittanceUv(medium, point, textureSize(veil, 0)), 0.0).rgb;
   return value;
 }
 
 vec3 clearSunPhysicalTransfer(Medium medium, MediumLook point, sampler2D veil) {
   if (!mediumPhysicalSunVisible(medium, point)) { return vec3(0.0); }
-  return clearSunUnoccludedTransfer(medium, point, veil);
-}
-
-vec3 clearSunLegacyTransfer(Medium medium, MediumLook point, sampler2D veil) {
-  if (!mediumSunVisible(medium, point, kMediumGroundLiftKm)) { return vec3(0.0); }
   return clearSunUnoccludedTransfer(medium, point, veil);
 }
 

@@ -1,11 +1,11 @@
+#include "ShapedGround.h"
 #include "PreparedGroundRegions.h"
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include "SourceSet.h"
 #include "OsmField.h"
-#include "TilePool.h"
-#include "content/AssetGeneration.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -23,6 +23,7 @@
 
 namespace outshine::Generators::Osm {
 namespace {
+constexpr size_t kRequestBytesMost = size_t{4} * 1024u * 1024u;
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
 
 bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround &shape) {
@@ -52,7 +53,7 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
   const auto waterBytes = in.In.Take(static_cast<size_t>(waterSize));
   if (!waterBytes) { return std::unexpected("invalid native region water range"); }
   auto water = WaterAsset::DecodeNative(*waterBytes);
-  if (!water || in.In.Remaining() != 0) {
+  if (!water || !water->SurfacesReady() || in.In.Remaining() != 0) {
     return std::unexpected("invalid native region water inputs");
   }
   return PreparedGroundRegions::Loaded{.Region = std::move(*region),
@@ -63,6 +64,9 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
 
 std::expected<std::vector<uint8_t>, std::string>
 Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMost) {
+  if (!water.SurfacesReady()) {
+    return std::unexpected("native region water surfaces are not prepared");
+  }
   auto ground = EncodeGroundRegionAsset(region, bytesMost);
   auto inputs = water.EncodeNative(bytesMost);
   if (!ground || !inputs) { return std::unexpected("native region products cannot be encoded"); }
@@ -76,16 +80,23 @@ Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMos
 }
 
 PreparedGroundRegions::PreparedGroundRegions(std::unique_ptr<AssetCache> cache, std::string recipe)
-    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
+    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {
+  BinaryValueWriter prefix(kRequestBytesMost);
+  if (!prefix.Text("native-ground-region-demand-2") || !prefix.Text(Recipe_)) { return; }
+  const auto bytes = prefix.Out.Bytes();
+  RequestPrefix_.emplace(bytes.data(), bytes.size());
+  RequestPrefixBytes_ = bytes.size();
+}
 
 std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
     const std::string &directory, const Data::SourceSet &sources, std::string_view rules) {
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-72",
+      "prepared-ground-region-98",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
+  if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }
   recipe.append(rules);
   return std::shared_ptr<PreparedGroundRegions>(
       new PreparedGroundRegions(std::move(*cache), std::move(recipe)));
@@ -130,15 +141,15 @@ PreparedGroundRegions::RequestKey(int zoom,
                                   const ::outshine::Ground::ShapedGround &shape,
                                   std::span<const uint8_t> parameters,
                                   std::span<const ::outshine::Ground::TileSpot> tiles) const {
-  BinaryValueWriter out(size_t{4} * 1024u * 1024u);
-  if (!out.Text("native-ground-region-demand-2") || !out.Text(Recipe_) ||
-      !ShapeValues(out, shape) || !out(zoom, schema, static_cast<uint64_t>(tiles.size())) ||
+  if (!RequestPrefix_) { return {}; }
+  BinaryValueWriter out(kRequestBytesMost - RequestPrefixBytes_);
+  if (!ShapeValues(out, shape) || !out(zoom, schema, static_cast<uint64_t>(tiles.size())) ||
       !std::ranges::all_of(tiles,
                            [&](const auto &tile) { return out(tile.Zoom, tile.X, tile.Y); }) ||
       !out.Array(parameters)) {
     return {};
   }
-  return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
+  return RequestPrefix_->Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
 std::expected<std::string, std::string>

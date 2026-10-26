@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:1580280942:0",
+    "end": -1
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:1950369630:9",
+    "openfreemap:14/8937/5678:transportation:80922970:248",
+    "openfreemap:14/8937/5678:transportation:80922970:247",
+    "openfreemap:14/8937/5678:transportation:80922970:244"
+  ],
+  "source_profiles": {},
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "shared_box",
+  "interior_contacts": [],
+  "endpoint_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1950369630:9",
+      "vertex": 4,
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:80922970:62",
+      "cached_vertex": 3
+    }
+  ],
+  "scope": "Same four whole footway sources as the76 experiment, planned after the whole67.642082m minor on immutable72. An explicit fourth walking contact borrows the actual minor cap; no motor/cycle contact. This replaces four derived products, not an immutable76 prefix.",
+  "surface_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1950369630:9",
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:1950369630:8",
+      "kind": "footway_overlap",
+      "modes": [
+        "walk"
+      ],
+      "access_assumption": "procedural_walk_default"
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:247",
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:1580280942:0",
+      "kind": "minor_pedestrian_crossing",
+      "modes": [
+        "walk"
+      ],
+      "access_assumption": "procedural_walk_default"
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:244",
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:12998091542:0",
+      "kind": "minor_pedestrian_crossing",
+      "modes": [
+        "walk"
+      ],
+      "access_assumption": "procedural_walk_default"
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:248",
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:1605770952:0",
+      "kind": "minor_pedestrian_crossing",
+      "modes": [
+        "walk"
+      ],
+      "access_assumption": "procedural_walk_default"
+    }
+  ],
+  "cached_box_grids_m": {
+    "openfreemap:14/8937/5678:transportation:1580280942:0": 0.00048828125
+  }
+}

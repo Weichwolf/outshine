@@ -13,12 +13,11 @@ int main() {
   const bool created = mkdtemp(directory.data()) != nullptr;
   CHECK(created, "isolated empty species directory created");
   if (!created) { return Report(); }
-  outshine::Ground::GroundMaterials materials;
-  outshine::Ground::VegetationTemplates vegetation;
-  outshine::Ground::VegetationTemplates absent;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground materials load");
-  CHECK(vegetation.Load("src/assets/world/vegetation.json", materials),
-        "vegetation templates load");
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  const outshine::Generators::RegionSurfaceRecipes absent;
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground materials load");
+  CHECK(vegetation.Load("data/world/vegetation.json", materials), "vegetation templates load");
   Shipping catalogue;
   std::string error;
   const auto *groundMesher = &catalogue.Covering();
@@ -35,7 +34,7 @@ int main() {
     CHECK(catalogue.Ready() && catalogue.Placing().Count() == 1 &&
               &catalogue.Placing().At(0) == building && catalogue.TreeFor(ClusterId{0}) == nullptr,
           "failed activation preserves the prior registry and borrowed generator");
-    CHECK(catalogue.EnsureCatalogue(vegetation, "src/assets/world/species", error, true),
+    CHECK(catalogue.EnsureCatalogue(vegetation, "data/world/species", error, true),
           "valid species activate after failed activation");
     CHECK(catalogue.Placing().Count() == 2 && catalogue.Drawing().Count() == 2 &&
               catalogue.TreeFor(ClusterId{0}) != nullptr,

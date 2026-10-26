@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_INSTANCEPLACEMENTINPUTS_H
 
 #include "GroundPublication.h"
-#include <scene/LevelOfDetail.h>
+#include <LevelOfDetail.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>

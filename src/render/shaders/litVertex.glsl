@@ -1,13 +1,23 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "subjectView.glsl"
+#include "geometryView.glsl"
 #define VARYING out
-#define GROUND_WORLD_POSITION
-#include "subjectVaryings.glsl"
+#define SURFACE_VERTEX_STAGE 1
+#if LIT_UVS == 0
+#define SURFACE_CONSTANT_UV 1
+#endif
+#include "surfaceVaryings.glsl"
+#if SURFACE_CONSTANT_UV
+float facadeBay = 0.0;
+float facadeCode = 0.0;
+#else
+layout(location = 11) out float facadeBay;
+layout(location = 12) flat out float facadeCode;
+#endif
 #if LIT_MAPPED
 layout(location = 9) out vec4 tangent;
 #endif
-#include "subjectPlacement.glsl"
+#include "geometryPlacements.glsl"
 layout(location = 0) in vec3 p;
 layout(location = 3) in uint vertexNormalWord;
 #include "packedNormal.glsl"
@@ -27,7 +37,7 @@ layout(std430, set = 0, binding = 2) readonly buffer TangentFactors { vec4 tange
 layout(std430, set = 0, binding = 1) readonly buffer TangentFactors { vec4 tangentFactors[]; };
 #endif
 #endif
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
 layout(location = 5) in vec3 previous;
 #endif
 void main() {
@@ -43,10 +53,14 @@ void main() {
   vec3 vertexNormal = unpackedNormal(vertexNormalWord);
   normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);
   uv = vec2(0.0);
+  facadeBay = 0.0;
+  facadeCode = 0.0;
   uv1 = vec2(0.0);
   colour = vec4(1.0);
 #if LIT_UVS > 0
   uv = vertexUv;
+  facadeBay = mod(vertexUv.x, 256.0);
+  facadeCode = vertexUv.x < 0.0 ? vertexUv.x : floor(vertexUv.x / 256.0);
 #endif
 #if LIT_UVS > 1
   uv1 = vertexUv1;
@@ -59,10 +73,11 @@ void main() {
   tangent = vec4(normalize(m[0].xyz * vertexTangent.x + m[1].xyz * vertexTangent.y +
                           m[2].xyz * vertexTangent.z), vertexTangent.w);
 #endif
-#if SUBJECT_WRITES_VELOCITY
+#if SURFACE_WRITES_VELOCITY
   curClip = gl_Position;
   mat4 previousPlacement = placement.previous;
   previousPlacement[3] += vec4(s.prevShift.xyz, 0.0);
   prevClip = s.prevViewProj * (previousPlacement * vec4(previous, 1.0));
 #endif
+  writeSurfaceVaryings();
 }

@@ -1,50 +1,44 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
 #include <span>
 #include <optional>
 #include <array>
-#include "math/Box.h"
-#include "math/Mat4.h"
+#include "Box.h"
+#include "Mat4.h"
 #include "Shape.h"
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <Outshine.h>
-#include <render/RenderConfiguration.h>
-#include "ScenePlayback.h"
+#include <Engine.h>
+#include <RenderConfiguration.h>
+#include "SceneGeometry.h"
 #include "CameraState.h"
-#include "SubjectProxy.h"
-#include "SubjectMaterials.h"
-#include "SubjectPlacementHistory.h"
-#include "UiSession.h"
+#include "RenderObject.h"
+#include "MaterialBindings.h"
+#include "ObjectTransformHistory.h"
+#include "SurfaceSession.h"
 #include "Layout.h"
-#include "Markup.h"
-#include "Paint.h"
 #include "Pointer.h"
 #include "SceneRenderer.h"
-#include "Style.h"
-#include "scene/Material.h"
-#include "Atmosphere.h"
-#include "Surfacing.h"
+#include "Material.h"
+#include "GroundAtmosphere.h"
+#include "MaterialResolution.h"
 
 namespace outshine::Core {
 
 constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
 
 struct Declaration {
+  std::optional<int64_t> UtcS;
   double Haze = 1.0;
-  PlaybackPolicy Playback = PlaybackPolicy::Once;
-  int Clip = 0;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
-
-  std::string Stands;
-  std::vector<std::string> Joins;
 
   std::vector<std::string> Stages;
 
@@ -57,11 +51,9 @@ struct Declaration {
   std::string Antialiasing;
 
   const Geometry *InitialGeometry = nullptr;
-  std::vector<Material> Surfacing{Material{}};
+  std::vector<Material> Materials{Material{}};
 
-  std::vector<SubjectSurfaceOverride> Overriding;
-
-  std::string Variant;
+  std::vector<MaterialOverride> Overriding;
 
   double MetresPerUnit = 1.0;
 
@@ -84,7 +76,7 @@ struct Declaration {
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
   bool KeyFromClock = false;
 
-  std::vector<UiSurface> Surfaces;
+  std::vector<Ui::SurfaceDeclaration> Surfaces;
 };
 
 struct Extents {
@@ -103,7 +95,7 @@ struct GeometryBuildSliceMetrics {
   double FinalizeMs = 0;
 };
 
-enum class SubjectGeometrySources : uint8_t { All, Driven };
+enum class GeometryRetention : uint8_t { All, Driven };
 enum class ResourceRestoreMode : uint8_t { Immediate, Deferred };
 
 class RuntimeScene {
@@ -146,7 +138,7 @@ public:
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-      SubjectGeometrySources geometry = SubjectGeometrySources::All,
+      GeometryRetention geometry = GeometryRetention::All,
       ResourceRestoreMode restore = ResourceRestoreMode::Immediate);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
@@ -154,7 +146,7 @@ public:
                                                    std::string &error);
 
   [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
-  [[nodiscard]] bool Redeclare(std::vector<UiSurface> surfaces, std::string &error);
+  [[nodiscard]] bool Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   void GroundIs(int surfaceIndex) { GroundSurface_ = surfaceIndex; }
@@ -183,7 +175,7 @@ public:
 
   [[nodiscard]] double MediumMs() const { return MediumMs_; }
 
-  [[nodiscard]] Render::SubjectTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
+  [[nodiscard]] Render::GeometryTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
 
   [[nodiscard]] const GeometryBuildSliceMetrics &GeometrySlices() const noexcept {
     return GeometrySlices_;
@@ -253,7 +245,7 @@ public:
 
   [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
     const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ShadowStoodAtM();
+    return Renderer_->ShadowCentreM();
   }
 
   struct Bearing {
@@ -265,7 +257,7 @@ public:
 
   [[nodiscard]] bool Carry(const Bearing &held, std::string &error);
 
-  [[nodiscard]] bool PlacedBounds(Extents &into, std::string &error);
+  [[nodiscard]] Extents PlacedBounds();
 
   void SetSkyElevation(double elevationM);
 
@@ -286,7 +278,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() const noexcept { return GroundAlbedo_; }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() const {
     return Stood_.IndirectLight();
   }
 
@@ -311,7 +303,7 @@ public:
 
   [[nodiscard]] bool Watched() const { return Camera_.HasOverride(); }
 
-  void FrameItself() { Camera_.FrameSubject(); }
+  void FrameGeometry() { Camera_.FrameGeometry(); }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const {
     return Ui_.Under(xPx, yPx, surface);
@@ -334,15 +326,9 @@ public:
     return Ui_.RestoreScroll(std::move(kept), error);
   }
 
-  [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
-
-  [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
-
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }
 
   [[nodiscard]] static size_t TookDrawing() { return TookDrawing_; }
-
-  [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
 
   [[nodiscard]] static size_t PlanInits() { return PlanInits_; }
 
@@ -356,21 +342,36 @@ public:
 
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
-  static constexpr int kSweepSamples = 16;
-
-  [[nodiscard]] double AtS() const { return Held_.TimeS(); }
-
-  [[nodiscard]] double DurationS() const { return Held_.DurationS(); }
-
-  [[nodiscard]] bool Moves() const { return Held_.IsAnimated(); }
-
-  [[nodiscard]] double LocalsDigest() const { return Held_.PlacementDigest(); }
-
-  [[nodiscard]] double AssembledDigest() const { return Held_.VertexDigest(); }
-
-  [[nodiscard]] int Frames() const { return Held_.FrameCount(); }
-
 private:
+  [[nodiscard]] static bool PrepareWithPlan(Render::SceneRenderer &renderer,
+                                            Declaration declaration,
+                                            const Ui::Font *font,
+                                            std::unique_ptr<RuntimeScene> &out,
+                                            std::string &error,
+                                            const GroundAtmosphere &atmosphere,
+                                            std::shared_ptr<const Render::ExecutionPlan> plan);
+  [[nodiscard]] std::expected<void, std::string> ValidGeometryBuild(const Geometry &built,
+                                                                    size_t drivenParts) const;
+  [[nodiscard]] static bool
+  PreparesRetainedGeometryReplacement(Render::SceneRenderer &renderer,
+                                      const RuntimeScene &previous,
+                                      std::shared_ptr<const Geometry> replacement,
+                                      size_t drivenParts,
+                                      const Ui::Font *font,
+                                      std::unique_ptr<RuntimeScene> &candidate,
+                                      std::string &error,
+                                      Render::SceneResources::PieceSources pieces,
+                                      ResourceRestoreMode restore);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         std::string &error);
+  [[nodiscard]] bool SetRetainedGeometry(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         const Material &wearing,
+                                         std::string &error);
+  [[nodiscard]] std::expected<void, std::string> BeginRetainedGeometryBuild(
+      std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing);
+
   friend class ::outshine::Engine;
 
   enum class GeometryBuildStage : uint8_t {
@@ -388,18 +389,17 @@ private:
     if (owner != nullptr) { owner->Renderer_ = nullptr; }
   }
 
-  static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
-  static size_t AssetReads_;
+  static size_t TookAiming_, TookDrawing_;
   static size_t PlanInits_;
-  Render::PlanSpec PlanDeclared_;
 
   RuntimeScene(Render::SceneRenderer &renderer, Declaration declaration, const Ui::Font *font);
 
   [[nodiscard]] Mat4 InMetres(const Mat4 &placed) const;
   void StandsEnvironment();
-  void LightsFromTheSky(Render::SubjectEnvironment &environment) const;
+  void LightsFromTheSky(Render::EnvironmentLighting &environment) const;
   void EmitsPerPart();
   [[nodiscard]] bool StandsPlan(std::string &error);
+  [[nodiscard]] bool InitializesFramePlan(std::string &error);
 
   [[nodiscard]] bool DeclaresKeyLight() const {
     return Declared_.KeyLux > 0.0 || Declared_.KeyFromClock;
@@ -411,10 +411,8 @@ private:
   void StandsKeyLight();
   void StandsLighting();
   void StandsShadowRadius();
-  void ClearsSubject();
-  [[nodiscard]] bool PrepareSubject(std::string &error);
-  [[nodiscard]] bool JoinsSubjects(std::string &error);
-  [[nodiscard]] bool StandsSubjects(std::string &error);
+  void ClearGeometry();
+  [[nodiscard]] bool PrepareGeometry(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceBuild(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> PlanBuild();
@@ -428,58 +426,42 @@ private:
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool
   FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const;
-  [[nodiscard]] bool Pose(double seconds, std::string &error);
-  [[nodiscard]] bool Measure(double seconds, std::string &error);
-
-  [[nodiscard]] int Sweeps() const {
-    const int frames = Held_.FrameCount();
-    return std::clamp(frames, 1, kSweepSamples);
-  }
-
-  [[nodiscard]] double Seconds(int sample) const {
-    const int over = Sweeps();
-    return over > 1
-               ? static_cast<double>(sample) * Held_.DurationS() / static_cast<double>(over - 1)
-               : 0.0;
-  }
 
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
-  [[nodiscard]] bool ApplyAuthoredCamera(Render::Viewpoint &out) const;
   [[nodiscard]] bool Submit(std::string &error);
 
   Render::SceneRenderer *Renderer_ = nullptr;
-  UiSession Ui_;
+  Ui::SurfaceSession Ui_;
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
-  std::shared_ptr<const Render::Compiled> Plan_;
+  std::shared_ptr<const Render::ExecutionPlan> Plan_;
+  std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
   std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
-  Render::SubjectPlacementHistory PlacementUploadHistory_;
+  Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
-  void CapturesRenderedPositions();
   void CoverShapedParts();
-  [[nodiscard]] bool PartVolumes(std::string &error);
-  SubjectMaterials Materials_;
+  void PreparePartBounds();
+  MaterialBindings Materials_;
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
-  Geometry DrivenGeometry_;
-  ScenePlayback Held_;
-  Render::SubjectProxy Stood_;
-  Render::SubjectScratch Scratch_;
+  SceneGeometry DrivenGeometry_;
+  SceneGeometry Held_;
+  Render::RenderObject Stood_;
+  Render::RenderObjectPreparation Scratch_;
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
-  Render::SubjectDraw::MeshTicket BuildTicket_;
+  Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;
-  std::vector<float> RenderedPositionsM_;
   int GroundSurface_ = -1;
   void WearsPieces();
   uint64_t ShapedAt_ = 0;

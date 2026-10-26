@@ -7,9 +7,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
+
+struct SDL_Window;
 
 namespace outshine::Render::Native {
 
@@ -26,6 +30,7 @@ struct Capabilities {
   std::array<uint32_t, 3> MaxWorkgroupCount{};
   uint32_t MaxWorkgroupInvocations = 0;
   bool GpuTimestamps = false;
+  bool DepthClamp = false;
 };
 
 struct Completion {
@@ -35,8 +40,38 @@ struct Completion {
 
 enum class CompletionStatus { Pending, Ready };
 
+struct DispatchTiming {
+  uint64_t Ordinal = 0;
+  uint64_t Begin = 0;
+  uint64_t End = 0;
+  double NanosecondsPerTick = 0;
+  uint32_t ValidBits = 0;
+  bool Available = false;
+};
+
+struct GpuTimingResults {
+  CompletionStatus Status = CompletionStatus::Pending;
+  uint64_t DispatchCount = 0;
+  bool Truncated = false;
+  std::vector<DispatchTiming> Dispatches;
+};
+
+struct SubmissionGpuTiming {
+  CompletionStatus Status = CompletionStatus::Pending;
+  double ElapsedNanoseconds = std::numeric_limits<double>::quiet_NaN();
+};
+
+enum class GpuTimingMode : uint8_t { None, Submission, Dispatches };
+
 struct DeviceOptions {
   bool Validation = false;
+  SDL_Window *Window = nullptr;
+  GpuTimingMode GpuTiming = GpuTimingMode::None;
+};
+
+struct ComputeOptions {
+  std::string_view Entry = "main";
+  std::string_view Label;
 };
 
 class Device {
@@ -56,9 +91,13 @@ public:
   [[nodiscard]] virtual Result<std::unique_ptr<Sampler>>
   CreateSampler(SamplerDescription description, std::string_view label = {}) = 0;
   [[nodiscard]] virtual Result<std::unique_ptr<ComputePipeline>>
-  CreateComputePipeline(std::span<const uint32_t> spirv,
-                        std::string_view entry = "main",
-                        std::string_view label = {}) = 0;
+  CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options = {}) = 0;
+
+  [[nodiscard]] virtual Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline([[maybe_unused]] const GraphicsDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native graphics pipelines unavailable"});
+  }
 
   [[nodiscard]] virtual Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) = 0;
   [[nodiscard]] virtual Result<std::span<const std::byte>> MapRead(Buffer &buffer,
@@ -66,10 +105,33 @@ public:
   [[nodiscard]] virtual Result<void> Unmap(Buffer &buffer) = 0;
 
   [[nodiscard]] virtual Result<std::unique_ptr<Commands>> Begin() = 0;
+
+  [[nodiscard]] virtual Result<void> SetPresentTarget([[maybe_unused]] SDL_Window *window) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native target switching unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native presentation unavailable"});
+  }
+
   [[nodiscard]] virtual Result<Completion> Submit(std::unique_ptr<Commands> commands) = 0;
   [[nodiscard]] virtual Result<CompletionStatus> Poll(Completion completion) = 0;
   [[nodiscard]] virtual Result<CompletionStatus> Wait(Completion completion,
                                                       std::chrono::nanoseconds budget) = 0;
+
+  [[nodiscard]] virtual Result<GpuTimingResults>
+  GpuTimings([[maybe_unused]] Completion completion) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native dispatch timing unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<SubmissionGpuTiming>
+  SubmissionGpuTime([[maybe_unused]] Completion completion) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native submission timing unavailable"});
+  }
 
 protected:
   Device() = default;

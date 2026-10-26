@@ -4,7 +4,7 @@
 #include "ByteArchive.h"
 #include "Sha256.h"
 #include "Geodesy.h"
-#include <math/Units.h>
+#include <Units.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -51,8 +51,10 @@ PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
-  auto assets = std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
-      std::move(*cache), AssetSourceRecipe("prepared-building-base-8", sources, kinds)));
+  auto recipe = AssetSourceRecipe("prepared-building-base-12", sources, kinds);
+  if (recipe.empty()) { return std::unexpected("building source metadata cannot be encoded"); }
+  auto assets = std::shared_ptr<PreparedBuildingAssets>(
+      new PreparedBuildingAssets(std::move(*cache), std::move(recipe)));
   assets->Self_ = assets;
   return assets;
 }
@@ -179,6 +181,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
           .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
           .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
+          .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
           .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
           .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
           .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),

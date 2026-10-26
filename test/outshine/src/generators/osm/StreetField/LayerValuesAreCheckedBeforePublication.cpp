@@ -1,5 +1,5 @@
 #include "StreetField.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "Check.h"
 #include <array>
 #include <bit>
@@ -57,10 +57,10 @@ Bytes Tile(const Bytes &value) {
 int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  GroundMaterials materials;
-  VegetationTemplates templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground catalog loads");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "street rules load");
   if (!templates.Ready()) { return Report(); }
 
   struct Case {
@@ -68,30 +68,31 @@ int main() {
     std::optional<int32_t> Layer;
   };
 
-  const std::vector<Case> cases{{{}, 0},
-                                {Number(0), 0},
-                                {Number(-2), -2},
-                                {Text("-3"), -3},
-                                {Text("+2"), 2},
-                                {Number(2147483647.0), INT32_MAX},
-                                {Number(-2147483648.0), INT32_MIN},
-                                {Text("2147483647"), INT32_MAX},
-                                {Text("-2147483648"), INT32_MIN},
-                                {Number(2147483648.0), {}},
-                                {Number(-2147483649.0), {}},
-                                {Number(0.5), {}},
-                                {Number(std::numeric_limits<double>::max()), {}},
-                                {Number(std::numeric_limits<double>::infinity()), {}},
-                                {Number(std::numeric_limits<double>::quiet_NaN()), {}},
-                                {Text("2147483648"), {}},
-                                {Text("-2147483649"), {}},
-                                {Text("1x"), {}},
-                                {Text("1.5"), {}},
-                                {Text(""), {}},
-                                {Text("+"), {}},
-                                {Text("+-1"), {}},
-                                {Text(" 1"), {}},
-                                {Text("1 "), {}}};
+  const std::vector<Case> cases{
+      {.Wire = {}, .Layer = 0},
+      {.Wire = Number(0), .Layer = 0},
+      {.Wire = Number(-2), .Layer = -2},
+      {.Wire = Text("-3"), .Layer = -3},
+      {.Wire = Text("+2"), .Layer = 2},
+      {.Wire = Number(2147483647.0), .Layer = INT32_MAX},
+      {.Wire = Number(-2147483648.0), .Layer = INT32_MIN},
+      {.Wire = Text("2147483647"), .Layer = INT32_MAX},
+      {.Wire = Text("-2147483648"), .Layer = INT32_MIN},
+      {.Wire = Number(2147483648.0), .Layer = {}},
+      {.Wire = Number(-2147483649.0), .Layer = {}},
+      {.Wire = Number(0.5), .Layer = {}},
+      {.Wire = Number(std::numeric_limits<double>::max()), .Layer = {}},
+      {.Wire = Number(std::numeric_limits<double>::infinity()), .Layer = {}},
+      {.Wire = Number(std::numeric_limits<double>::quiet_NaN()), .Layer = {}},
+      {.Wire = Text("2147483648"), .Layer = {}},
+      {.Wire = Text("-2147483649"), .Layer = {}},
+      {.Wire = Text("1x"), .Layer = {}},
+      {.Wire = Text("1.5"), .Layer = {}},
+      {.Wire = Text(""), .Layer = {}},
+      {.Wire = Text("+"), .Layer = {}},
+      {.Wire = Text("+-1"), .Layer = {}},
+      {.Wire = Text(" 1"), .Layer = {}},
+      {.Wire = Text("1 "), .Layer = {}}};
   for (const Case &one : cases) {
     const std::array<std::string, 1> layers{"streets"};
     ::outshine::Generators::Osm::OsmField field(1, layers);

@@ -38,10 +38,11 @@ struct DirectionTags {
   std::optional<std::string_view> Junction;
 };
 
+template <class Entry>
 std::expected<std::optional<std::string_view>, TransportBuildErrorCode>
-UniqueTag(std::span<const Tag> tags, std::string_view key) {
+UniqueTag(std::span<const Entry> tags, std::string_view key) {
   std::optional<std::string_view> value;
-  for (const Tag &tag : tags) {
+  for (const auto &tag : tags) {
     if (tag.Key != key) { continue; }
     if (value) { return std::unexpected(TransportBuildErrorCode::AmbiguousTag); }
     value = tag.Value;
@@ -247,22 +248,21 @@ ReadLaneCount(std::optional<std::string_view> lanes) {
   return static_cast<uint8_t>(count);
 }
 
-}
-
-std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Way &way) {
-  const auto highway = UniqueTag(way.Tags, "highway");
-  const auto railway = UniqueTag(way.Tags, "railway");
-  const auto waterway = UniqueTag(way.Tags, "waterway");
-  const auto route = UniqueTag(way.Tags, "route");
-  const auto oneway = UniqueTag(way.Tags, "oneway");
-  const auto junction = UniqueTag(way.Tags, "junction");
-  const auto layer = UniqueTag(way.Tags, "layer");
-  const auto bridge = UniqueTag(way.Tags, "bridge");
-  const auto tunnel = UniqueTag(way.Tags, "tunnel");
-  const auto access = UniqueTag(way.Tags, "access");
-  const auto width = UniqueTag(way.Tags, "width");
-  const auto lanes = UniqueTag(way.Tags, "lanes");
-  const auto surface = UniqueTag(way.Tags, "surface");
+template <class Entry>
+std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeTags(std::span<const Entry> tags) {
+  const auto highway = UniqueTag(tags, "highway");
+  const auto railway = UniqueTag(tags, "railway");
+  const auto waterway = UniqueTag(tags, "waterway");
+  const auto route = UniqueTag(tags, "route");
+  const auto oneway = UniqueTag(tags, "oneway");
+  const auto junction = UniqueTag(tags, "junction");
+  const auto layer = UniqueTag(tags, "layer");
+  const auto bridge = UniqueTag(tags, "bridge");
+  const auto tunnel = UniqueTag(tags, "tunnel");
+  const auto access = UniqueTag(tags, "access");
+  const auto width = UniqueTag(tags, "width");
+  const auto lanes = UniqueTag(tags, "lanes");
+  const auto surface = UniqueTag(tags, "surface");
   if (!highway || !railway || !waterway || !route || !oneway || !junction || !layer || !bridge ||
       !tunnel || !access || !width || !lanes || !surface) {
     return std::unexpected(TransportBuildErrorCode::AmbiguousTag);
@@ -316,6 +316,17 @@ std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Way
   semantics.Tunnel = Enabled(*tunnel);
   semantics.Access = ReadAccess(*access);
   return semantics;
+}
+
+}
+
+std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Way &way) {
+  return DescribeTags(std::span(way.Tags));
+}
+
+std::expected<OsmWaySemantics, TransportBuildErrorCode>
+DescribeOsmWay(std::span<const WayTagView> tags) {
+  return DescribeTags(tags);
 }
 
 }

@@ -125,13 +125,23 @@ def populate(recipe, directory):
 
 
 def link_shadow_products(light, name):
-    shadows = [obj for obj in bpy.context.scene.objects if obj.get("shadow_light")]
+    shadows = [
+        obj
+        for obj in bpy.context.scene.objects
+        if obj.get("shadow_light") or obj.get("shadow_lights") is not None
+    ]
     if not shadows:
         return
     collection = bpy.data.collections.new(f"{name} cached shadow blockers")
     for obj in bpy.context.scene.objects:
         role = obj.get("vegetation_pass_role", "all")
-        if obj.type == "MESH" and (role == "all" or obj.get("shadow_light") == name):
+        owners = obj.get("shadow_lights")
+        blocks = (
+            name in owners
+            if owners is not None
+            else role == "all" or obj.get("shadow_light") == name
+        )
+        if obj.type == "MESH" and blocks:
             collection.objects.link(obj)
     light.light_linking.blocker_collection = collection
 

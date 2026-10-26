@@ -1,7 +1,7 @@
+#include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
 #include "OfflineTransport.h"
-#include "SourceProviderValidation.h"
 #include "OsmXmlReader.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -57,17 +57,18 @@ int main() {
       (std::filesystem::temp_directory_path() / "outshine-original-api-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-response cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
-  ContentStore store({.Directory = directory});
+  RawSourceCache store({.Directory = directory});
   ApiWire wire;
-  SourceProvider provider{
-      .Kind = "osm",
-      .Revision = "r1",
-      .Missing = MissingDataPolicy::Fail,
-      .Dataset = "openstreetmap.original",
-      .Endpoint = std::string(kOfficialOsmApi),
-      .Coverage =
-          SourceCoverage{.WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8},
-      .PayloadSha256 = Sha256Hex(wire.Xml)};
+  SourceProvider provider{.Kind = "osm",
+                          .Revision = "r1",
+                          .Missing = MissingDataPolicy::Fail,
+                          .Dataset = "openstreetmap.original",
+                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                          .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                       .SouthDeg = 54.785,
+                                                       .EastDeg = 9.445,
+                                                       .NorthDeg = 54.8},
+                          .PayloadSha256 = Sha256Hex(wire.Xml)};
   const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==
@@ -101,10 +102,10 @@ int main() {
           "unofficial or insecure endpoints fail before IO");
   }
   changed = provider;
-  changed.Coverage = SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
+  changed.Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
   CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
-  ContentStore noCache({.Using = ContentStore::Use::Off});
+  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegion(provider, noCache, stalled, 110, {}) &&
@@ -145,12 +146,12 @@ int main() {
     capacity.Xml = "You requested too many nodes (limit is 50000). Either request a smaller area, "
                    "or use planet.osm";
     auto rejected = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();
-    CHECK(rejected && rejected->Reason == FetchFailureReason::CapacityRefused &&
+    CHECK(rejected && rejected->Reason == SourceFailureReason::CapacityRefused &&
               rejected->HttpStatus == 400,
           "the official node-limit refusal is classified as capacity at the HTTP boundary");
     capacity.Xml = "The requested bounds are invalid";
     auto invalid = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();
-    CHECK(invalid && invalid->Reason == FetchFailureReason::ProviderRefused,
+    CHECK(invalid && invalid->Reason == SourceFailureReason::ProviderRefused,
           "an unrelated HTTP 400 cannot trigger subdivision");
   }
   std::error_code error;

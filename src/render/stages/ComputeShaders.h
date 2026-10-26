@@ -17,9 +17,14 @@ enum class ComputeShaderId : uint32_t {
   MediumMultiScatter,
   MediumRadiance,
   EnvironmentSpecular,
-  SubjectCull,
-  SubjectScan,
-  SubjectCompact,
+  GeometryCull,
+  GeometryScan,
+  GeometryCompact,
+  TerrainPatchCull,
+  TerrainPatchScan,
+  TerrainPatchCompact,
+  CalibrationFma,
+  CalibrationTriad,
   Count
 };
 
@@ -33,28 +38,28 @@ namespace Detail {
 inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::DepthPyramid,
-        .Path = "build/shaders/depthPyramid.comp.spv",
+        .Path = "depthPyramid.comp.spv",
         .Shape =
             {.Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::Irradiance,
-                            .Path = "build/shaders/irradiance.comp.spv",
+                            .Path = "irradiance.comp.spv",
                             .Shape = {.Samplers = 2, .ReadWriteBuffers = 1, .UniformBuffers = 1}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::MediumTransmittance,
-        .Path = "build/shaders/mediumTransmittance.comp.spv",
+        .Path = "mediumTransmittance.comp.spv",
         .Shape = {.ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::MediumMultiScatter,
-        .Path = "build/shaders/mediumMultiScatter.comp.spv",
+        .Path = "mediumMultiScatter.comp.spv",
         .Shape =
             {.Samplers = 1, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::MediumRadiance,
-        .Path = "build/shaders/mediumRadiance.comp.spv",
+        .Path = "mediumRadiance.comp.spv",
         .Shape =
             {.Samplers = 2, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::EnvironmentSpecular,
-                            .Path = "build/shaders/environmentSpecular.comp.spv",
+                            .Path = "environmentSpecular.comp.spv",
                             .Shape = {.Samplers = 1,
                                       .ReadWriteTextures = 1,
                                       .ReadOnlyBuffers = 1,
@@ -62,17 +67,33 @@ inline constexpr std::array kComputeShaders = {
                                       .GroupX = 8,
                                       .GroupY = 8}},
     ComputeShaderDescriptor{
-        .Id = ComputeShaderId::SubjectCull,
-        .Path = "build/shaders/subjectCullKernel.comp.spv",
+        .Id = ComputeShaderId::GeometryCull,
+        .Path = "geometryCull.comp.spv",
         .Shape = {.ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
-    ComputeShaderDescriptor{.Id = ComputeShaderId::SubjectScan,
-                            .Path = "build/shaders/subjectScanKernel.comp.spv",
+    ComputeShaderDescriptor{.Id = ComputeShaderId::GeometryScan,
+                            .Path = "geometryScan.comp.spv",
+                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 32}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryCompact,
+        .Path = "geometryCompact.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::TerrainPatchCull,
+        .Path = "groundPatchCull.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::TerrainPatchScan,
+                            .Path = "groundPatchScan.comp.spv",
                             .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 256}},
     ComputeShaderDescriptor{
-        .Id = ComputeShaderId::SubjectCompact,
-        .Path = "build/shaders/subjectCompactKernel.comp.spv",
-        .Shape = {
-            .ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128}}};
+        .Id = ComputeShaderId::TerrainPatchCompact,
+        .Path = "groundPatchCompact.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 3, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 128}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::CalibrationFma,
+                            .Path = "calibrationFma.comp.spv",
+                            .Shape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::CalibrationTriad,
+                            .Path = "calibrationTriad.comp.spv",
+                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .GroupX = 256}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }

@@ -20,11 +20,11 @@
 #include <span>
 #include <vector>
 
-#include "math/Units.h"
+#include "Units.h"
 #include "StructureMassing.h"
 #include "StructurePlanSelection.h"
 #include "Geodesy.h"
-#include <scene/ProjectedErrorBudget.h>
+#include <ProjectedErrorBudget.h>
 
 namespace outshine::Generators {
 
@@ -106,6 +106,7 @@ std::expected<void, StructureMeshError> RaiseStructureMass(const StructureMassPl
   for (const uint32_t one : built.WallRun) { fold(one); }
   for (const uint32_t one : built.RoofRun) { fold(one); }
   for (const float one : built.WallColours) { fold(std::bit_cast<uint32_t>(one)); }
+  for (const float value : built.WallMaterialM) { fold(std::bit_cast<uint32_t>(value)); }
   return mixed;
 }
 
@@ -188,28 +189,26 @@ struct BuildingDetail {
 
 BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM) {
   BuildingDetail detail{.Envelope = raw.RequestedDetail.value_or(LevelOfDetail::Fine)};
-  if (!raw.RequestedDetail || raw.RequestedCell) {
-    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
-    const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
-    const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
-    const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
-    const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
-    const double eastM =
-        (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
-    const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
-    const double conservativeAwayM =
-        std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    const auto &projection = raw.Projection;
-    detail.RecessedOpenings = !projection.Allows(
-        kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
-    if (!raw.RequestedDetail &&
-        projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Shell;
-    }
-    if (!raw.RequestedDetail && detail.Envelope == LevelOfDetail::Shell &&
-        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
-      detail.Envelope = LevelOfDetail::Massed;
-    }
+  if (raw.RequestedDetail) { return detail; }
+  const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
+  const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
+  const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
+  const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
+  const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
+  const double eastM =
+      (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
+  const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
+  const double conservativeAwayM =
+      std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
+  const auto &projection = raw.Projection;
+  detail.RecessedOpenings = !projection.Allows(
+      kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
+  if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Shell;
+  }
+  if (detail.Envelope == LevelOfDetail::Shell &&
+      projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
+    detail.Envelope = LevelOfDetail::Massed;
   }
   return detail;
 }
@@ -265,6 +264,10 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
   plan.Prepared = surface;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
+  if (mesher.KnownEmptySurface(plan)) {
+    ++out.UnsupportedMeshes;
+    return {};
+  }
 
   const auto mass = StructureMassOf(bounds,
                                     {.BaseM = base,
@@ -330,9 +333,6 @@ std::expected<void, StructureBakeError> ValidateStructureView(const RawTile &raw
       (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
     return std::unexpected(StructureBakeErrorKind::InvalidCell);
   }
-  if (raw.RequestedCell && !raw.RequestedDetail) {
-    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-  }
   return {};
 }
 
@@ -382,8 +382,7 @@ struct StructureBakeProgress::State {
     out.UnsupportedMeshes = 0;
     out.SkippedRings = 0;
     out.FallbackHeights = fallback;
-    const StructureSelectionView selectedView{
-        .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
+    const auto selectedView = StructureSelectionDomain(raw.Eye, raw.Projection, raw.EyeEcef);
     out.SelectedView =
         !raw.RequestedDetail && selectedView.Contains(raw.Eye, raw.Projection, raw.EyeEcef)
             ? std::optional(selectedView)
@@ -399,6 +398,16 @@ struct StructureBakeProgress::State {
     Masses.clear();
     Corners.clear();
     Started = true;
+  }
+
+  void StartPrepared(const PreparedStructureTile &base, const RawTile &view) {
+    if (Started) { return; }
+    Start(view, base.FallbackHeights, base.Structures.size());
+    Tile.SkippedRings = base.SkippedRings;
+    Tile.NoGround = base.NoGround;
+    Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+    Tile.Coordinates->Origin = base.Origin;
+    Tile.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
   }
 };
 
@@ -432,8 +441,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     return *emitted;
   }
   const std::span<const double> pts = raw.LatLon;
-  const size_t until = std::min(state.Next + structuresMost, raw.Structures.size());
-  for (; state.Next < until; ++state.Next) {
+  size_t processed = 0;
+  for (; state.Next < raw.Structures.size() && processed < structuresMost; ++state.Next) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     const auto baked = BakeOne(raw,
                                heights,
@@ -448,6 +457,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                state.Corners,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
+    processed += static_cast<size_t>(!raw.RequestedCell ||
+                                     raw.Structures[state.Next].Cell.Index == *raw.RequestedCell);
   }
   if (state.Next != raw.Structures.size()) { return false; }
   if (raw.RequestedDetail) {
@@ -515,15 +526,7 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
   State &state = *State_;
   assert(!state.Finalized);
   BakedTile &out = state.Tile;
-  if (!state.Started) {
-    state.Start(view, base.FallbackHeights, base.Structures.size());
-    out.SkippedRings = base.SkippedRings;
-    out.NoGround = base.NoGround;
-    out.Coordinates = std::make_shared<Ground::BuildingGeometry>();
-    out.Coordinates->Origin = base.Origin;
-    out.Coordinates->Points = base.PointsLatLon;
-    out.Coordinates->Rings = base.Holes;
-  }
+  state.StartPrepared(base, view);
   if (state.Current == State::Phase::Complete) { return true; }
   if (state.Current == State::Phase::Emission) {
     const auto emitted = state.Selection.Emit(view, mesher, scratch, out, structuresMost, stopping);
@@ -531,11 +534,12 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
     if (*emitted) { state.Current = State::Phase::Complete; }
     return *emitted;
   }
-  const size_t until = std::min(state.Next + structuresMost, base.Structures.size());
-  for (; state.Next < until; ++state.Next) {
+  size_t processed = 0;
+  for (; state.Next < base.Structures.size() && processed < structuresMost; ++state.Next) {
     const auto &one = base.Structures[state.Next];
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     if (view.RequestedCell && one.Layout.Cell.Index != *view.RequestedCell) { continue; }
+    ++processed;
     const auto emitted =
         EmitStructure(one,
                       base.PointsLatLon,

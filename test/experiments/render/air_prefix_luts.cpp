@@ -62,11 +62,12 @@ int main(int argc, char **argv) {
   std::vector<MediumLook> looks(size_t{width} * height);
   for (uint32_t y = 0; y < height; ++y) {
     for (uint32_t x = 0; x < width; ++x) {
-      const auto look = medium_core::mediumTransmittanceParams(
+      const auto look = medium_core::mediumTransmittanceTexel(
           medium,
           {.U = (static_cast<float>(x) + 0.5f) / static_cast<float>(width),
-           .V = (static_cast<float>(y) + 0.5f) / static_cast<float>(height)});
-      const auto through = MediumTransmittance(medium, look, kTransmittanceSteps);
+           .V = (static_cast<float>(y) + 0.5f) / static_cast<float>(height)},
+          {.WidthPx = static_cast<float>(width), .HeightPx = static_cast<float>(height)});
+      const auto through = MediumTransmittanceToTop(medium, look, kTransmittanceSteps);
       const size_t pixel = size_t{y} * width + x;
       const size_t offset = pixel * 4u;
       looks[pixel] = look;

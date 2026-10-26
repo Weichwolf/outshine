@@ -1,4 +1,4 @@
-#include "EngineHeld.h"
+#include "EngineState.h"
 
 #include <array>
 #include <chrono>
@@ -47,6 +47,9 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
       "cost.assets.building_basis.writes", static_cast<double>(costs.BasisWrites), "packages");
   published.RecordMetric(
       "cost.assets.building_basis.read_bytes", static_cast<double>(costs.BasisReadBytes), "bytes");
+  published.RecordMetric("cost.assets.building_basis.resident_hits",
+                         static_cast<double>(costs.BasisResidentHits),
+                         "reuses");
   published.RecordMetric(
       "cost.assets.building_lod.hits", static_cast<double>(costs.GeometryHits), "reads");
   published.RecordMetric(
@@ -77,6 +80,9 @@ void PublishPrototypeCosts(Core::DiagnosticLedger &published,
                          static_cast<double>(costs.Assets.Preparations),
                          "products");
   published.RecordMetric("cost.assets.prototypes.preparation_ms", costs.Assets.PreparationMs, "ms");
+  published.RecordMetric("cost.assets.prototypes.selected_instances",
+                         static_cast<double>(costs.SelectedInstances),
+                         "instances");
   published.RecordMetric("cost.assets.prototypes.generation_ms", costs.GenerationMs, "ms");
   published.RecordMetric("cost.assets.prototypes.read_ms", costs.Assets.ReadMs, "ms");
   published.RecordMetric("cost.assets.prototypes.write_ms", costs.Assets.WriteMs, "ms");
@@ -118,6 +124,31 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
   }
 }
 
+}
+
+void Engine::State::PublishGpuFrameMeasurements(bool completedCapture) {
+  if (!Picture.Standing) { return; }
+  const auto &render = Picture.Device.Costs();
+  constexpr std::array frameNames{"cost.gpu.frames",
+                                  "cost.gpu.total_ms",
+                                  "cost.gpu.max_ms",
+                                  "cost.gpu.unavailable",
+                                  "cost.gpu.query_ms"};
+  constexpr std::array captureNames{"capture.gpu.frames",
+                                    "capture.gpu.total_ms",
+                                    "capture.gpu.max_ms",
+                                    "capture.gpu.unavailable",
+                                    "capture.gpu.query_ms"};
+  const auto &names = completedCapture ? captureNames : frameNames;
+  Published.RecordMetric(names[0], static_cast<double>(render.Gpu.Frames), "frames");
+  Published.RecordMetric(names[1], render.Gpu.TotalMs, "ms");
+  Published.RecordMetric(names[2], render.Gpu.MostMs, "ms");
+  Published.RecordMetric(names[3], static_cast<double>(render.UnavailableGpuFrames), "frames");
+  Published.RecordMetric(names[4], render.GpuQueryMs, "ms");
+  if (completedCapture) {
+    Published.RecordMetric(
+        "capture.gpu.render_frames", static_cast<double>(render.Frames), "frames");
+  }
 }
 
 void Engine::State::PublishCostMeasurements() {
@@ -169,7 +200,7 @@ void Engine::State::PublishCostMeasurements() {
   Published.RecordMetric(
       "cost.structures.ranges", static_cast<double>(structures.CompletedRanges()), "ranges");
   Published.RecordMetric("cost.structures.max_range_ms", structures.SlowestRangeMs(), "ms");
-  static const auto groundNames = MetricNames<Spent::kGroundPhaseCount>(
+  static const auto groundNames = MetricNames<EngineCostCounters::kGroundPhaseCount>(
       "cost.ground.", std::array{".total_ms", ".max_ms", ".calls"}, [](size_t at) {
         constexpr std::array names{"candidate",
                                    "patchwork",
@@ -205,6 +236,7 @@ void Engine::State::PublishCostMeasurements() {
     return;
   }
   const auto &render = Picture.Device.Costs();
+  PublishGpuFrameMeasurements();
   Published.RecordMetric("cost.render.frames", static_cast<double>(render.Frames), "frames");
   static const auto hostNames = MetricNames<static_cast<size_t>(Render::RenderFramePhase::Count)>(
       "cost.host.", std::array{".total_ms", ".worst_ms"}, [](size_t at) {

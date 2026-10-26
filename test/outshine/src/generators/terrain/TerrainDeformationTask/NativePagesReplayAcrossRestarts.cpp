@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "TerrainDeformationTask.h"
 #include "PreparedTerrainAssets.h"
-#include "ContentStore.h"
+#include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <chrono>
 #include <filesystem>
@@ -45,8 +45,8 @@ std::vector<EarthworkStamp> Stamps() {
   return {stamp};
 }
 
-std::expected<PressedTerrain, std::string> Complete(TerrainDeformationTask &task,
-                                                    Patchwork &pages) {
+std::expected<TerrainDeformationMetrics, std::string> Complete(TerrainDeformationTask &task,
+                                                               Patchwork &pages) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!task.Advance()) {
     if (std::chrono::steady_clock::now() >= deadline) {
@@ -63,12 +63,12 @@ int main() {
                     ("outshine-terrain-deformation-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(path);
-  Data::ContentStore store({.Directory = (path / "sources").string()});
+  Data::RawSourceCache store({.Directory = (path / "sources").string()});
   Data::SourceSet sources(store);
   const auto frame = TangentFrame::At({});
   Tasks pool(1);
   Patchwork reference = Inputs();
-  TerrainPressJob original(Stamps(), reference, frame, kLayout, 30);
+  TerrainDeformationJob original(Stamps(), reference, frame, kLayout, 30);
   while (!original.Advance(32, 8192)) {}
   const auto expected = original.Take();
   CHECK(expected.Nodes > 0, "fixture creates actual deformed terrain");
@@ -81,6 +81,15 @@ int main() {
   auto cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
   CHECK(cache.has_value(), "native terrain service opens");
   if (!cache) { return Report(); }
+  const std::string legacyKey = "82aeb24257e4cb347f8a9e5a1f2339692dcfc04f58fefad77d3a560f5f60e2b2";
+  CHECK(key != legacyKey,
+        "the grouped-apron solver cannot select products of solver revision eight");
+  PreparedTerrainDeformation legacy{.Pages = reference.Sheets, .Effects = expected};
+  for (auto &page : legacy.Pages) {
+    for (auto &height : page.Nodes) { height = -100; }
+  }
+  CHECK((*cache)->StoreDeformation(legacyKey, legacy).has_value(),
+        "an old solver product may remain stored alongside current products");
   Patchwork cold = Inputs();
   {
     TerrainDeformationTask task(pool, *cache, Stamps(), cold, frame, kLayout, 30);
@@ -90,8 +99,8 @@ int main() {
     CHECK(cold.Sheets == reference.Sheets && cold.Tiles == 4 && cold.ReachTiles == 4,
           "native deformation reproduces the original generator bit for bit");
   }
-  CHECK((*cache)->Costs().DeformationMisses == 1 && (*cache)->Costs().DeformationWrites == 1,
-        "cold miss builds and atomically publishes exactly once");
+  CHECK((*cache)->Costs().DeformationMisses == 1 && (*cache)->Costs().DeformationWrites == 2,
+        "cold miss adds one current product beside the retained old solver product");
   cache->reset();
   cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
   CHECK(cache.has_value(), "independent native cache connection restarts");

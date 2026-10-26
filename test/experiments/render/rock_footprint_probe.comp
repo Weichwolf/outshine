@@ -1,0 +1,81 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float groundPalette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+const uint groundClasses[3] = uint[](0u, 0u, 0u);
+#include "groundMaterial.glsl"
+#include "surfaceNoise.glsl"
+#include "groundRock.glsl"
+
+vec3 metricAt(uint offset) {
+  return vec3(groundPalette[offset], groundPalette[offset + 1], groundPalette[offset + 2]);
+}
+
+float mappedSize(vec3 dx, vec3 dy) { return max(length(dx), length(dy)); }
+float visible(float across) { return 1.0 - smoothstep(0.25, 0.8, across); }
+
+float profileSlope(vec4 field, vec3 dx, vec3 dy, float size, float visibility) {
+  float variance = 1.125 * size * size;
+#if ROCK_PIXEL_METHOD == 2
+  vec2 phase = vec2(dot(field.xyz, dx), dot(field.xyz, dy));
+  variance = dot(phase, phase) / 12.0;
+#endif
+  float square = 0.07 * 0.07 + variance;
+  float pulse = 0.07 * inversesqrt(square) * exp(-field.w * field.w / (2.0 * square));
+  return pulse * field.w / square * visibility;
+}
+
+GroundDetail mappedDetail(vec3 point, vec3 dx, vec3 dy, uint rows) {
+  uint rock = min(floatBitsToUint(groundPalette[1]), rows);
+  uint at = 4u * (rows + 2u) + rows + 1u + rock * 8u;
+  float height = groundPalette[at + 1u];
+  float coarse = groundPalette[at + 2u];
+  float fine = groundPalette[at + 3u];
+  float contrast = clamp(groundPalette[at + 4u], 0.0, 1.0);
+  if (coarse <= 0.0 || fine <= 0.0) { return GroundDetail(1.0, 0.0, vec2(0.0)); }
+  mat3 bedding = transpose(mat3(0.12, 1.0, 0.08, 0.125, 0.0, 0.0, 0.0, 0.0, 0.125));
+  mat3 fractures = transpose(mat3(0.94, 0.04, 0.34, 0.0, 1.0 / 6.0, 0.0, -0.34 / 6.0, 0.0, 0.94 / 6.0));
+  mat3 transforms[3] = mat3[](mat3(1.0) / (coarse * 12.0), bedding / coarse, fractures / fine);
+  vec3 amplitudes = vec3(min(coarse * 12.0 * 0.025, 3.0), min(coarse * 0.04, 0.4), height);
+  vec3 values = vec3(0.0);
+  vec3 gradient = vec3(0.0);
+  for (int index = 0; index < 3; ++index) {
+    mat3 transform = transforms[index];
+    vec3 tx = transform * dx;
+    vec3 ty = transform * dy;
+    float size = mappedSize(tx, ty);
+    float visibility = visible(size);
+    if (visibility == 0.0) { continue; }
+    vec4 field = surfaceNoise3(transform * point);
+    field.w -= 0.5;
+    values[index] = field.w * visibility;
+    float slope = visibility;
+    if (index < 2) { slope = profileSlope(field, tx, ty, size, visibility); }
+    gradient += amplitudes[index] * slope * (transpose(transform) * field.xyz);
+  }
+  return GroundDetail(clamp(1.0 + contrast * dot(values, vec3(0.4, 0.5, 0.1)), 0.72, 1.28),
+                       dot(values.xy, vec2(0.14, 0.06)), vec2(dot(gradient, dx), dot(gradient, dy)));
+}
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  uint offset = 320u + 12u * uint(probes[index].Which);
+  vec3 point = metricAt(offset);
+  vec3 dx = metricAt(offset + 4u);
+  vec3 dy = metricAt(offset + 8u);
+  uint rows = floatBitsToUint(groundPalette[0]);
+#if ROCK_PIXEL_METHOD == 0
+  GroundDetail result = rockDetail(point, dx, dy, mappedSize(dx, dy), rows);
+#elif ROCK_PIXEL_METHOD == 3
+  GroundDetail result = rockDetail(point, dx, dy, rows);
+#else
+  GroundDetail result = mappedDetail(point, dx, dy, rows);
+#endif
+  results[index] = Result(vec4(result.AlbedoScale, result.RoughnessOffset, result.BumpDxDy), vec4(0.0));
+}

@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMAPISOURCE_H
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_OSMAPISOURCE_H
 
-#include <world/data/Source.h>
-#include <world/SourceProvider.h>
+#include <Source.h>
+#include <SourceProvider.h>
 
 #include <cstdint>
 #include <expected>
@@ -19,15 +19,15 @@ public:
 
   [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  [[nodiscard]] Data::Coverage Covers(const Data::Fetch &request) const noexcept override;
+  [[nodiscard]] Data::Coverage Covers(const Data::SourceRequest &request) const noexcept override;
 
-  [[nodiscard]] Data::Address Serves(const Data::Fetch &request) const noexcept override {
+  [[nodiscard]] Data::Address Serves(const Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
   [[nodiscard]] Data::FetchStart Begin(const Data::Address &at,
                                        Data::Transport &transport) const override;
-  [[nodiscard]] Data::Fetched
+  [[nodiscard]] Data::SourceResponse
   Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const override;
 
 private:

@@ -56,8 +56,10 @@ void Corridors::FileCrossing(const Path::Network::Crossing &one,
                              Paved &into) {
   const size_t first = network.TagOf(one.OverWay);
   const size_t second = network.TagOf(one.UnderWay);
+  if (!UsesWay(on, first) && !UsesWay(on, second)) { return; }
   const auto &a = on.Ways.Ways()[first];
   const auto &b = on.Ways.Ways()[second];
+  if (a.PointCount < 2 || b.PointCount < 2) { return; }
   const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
   const auto crossedAt = GroundUnder(on, at);
   if (!crossedAt) { return; }

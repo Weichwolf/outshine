@@ -143,7 +143,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
 
 void WaterField::MaterializeCandidate(const OsmField &field,
                                       OnLayers on,
-                                      const VegetationTemplates &vegetation,
+                                      const RegionSurfaceRecipes &vegetation,
                                       const Candidate &candidate) {
   size_t firstSurfaceRing = 0;
   size_t surfaceFeature = 0;
@@ -179,15 +179,15 @@ void WaterField::MaterializeCandidate(const OsmField &field,
     heights.clear();
     heights.reserve(samples.Heights.size());
     for (const auto &height : samples.Heights) { heights.push_back(height.value_or(0.0)); }
-    AddCourse(field, feature, ring, vegetation, heights);
+    AddCourse(field, samples.Feature, ring, vegetation, heights);
   }
   publishSurface(candidate.Rings.size());
 }
 
 void WaterField::AddCourse(const OsmField &field,
-                           const OsmField::Feature &feature,
+                           size_t featureAt,
                            const OsmField::Ring &ring,
-                           const VegetationTemplates &vegetation,
+                           const RegionSurfaceRecipes &vegetation,
                            std::span<double> heights) {
   if (heights.front() >= heights.back()) {
     for (size_t at = 1; at < heights.size(); ++at) {
@@ -198,6 +198,7 @@ void WaterField::AddCourse(const OsmField &field,
       heights[at] = std::min(heights[at], heights[at + 1]);
     }
   }
+  const auto &feature = field.Features()[featureAt];
   const auto *rule =
       vegetation.Find(field.LayerName(static_cast<int>(feature.Layer)), field.Str(feature, "kind"));
   Course course{};
@@ -207,6 +208,7 @@ void WaterField::AddCourse(const OsmField &field,
   course.HalfWidthM = rule != nullptr && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
   for (double height : heights) { Levels_.push_back(static_cast<float>(height)); }
   Courses_.push_back(course);
+  CourseFeatures_.push_back(featureAt);
 }
 
 void WaterField::AddSurface(std::span<const RingSamples> rings, const OsmField &field) {
@@ -248,6 +250,7 @@ void WaterField::AddSurface(std::span<const RingSamples> rings, const OsmField &
                        .RingCount = static_cast<uint32_t>(rings.size()),
                        .LevelM = static_cast<float>(level)});
   SurfaceInputs_.push_back({.Feature = rings.front().Feature, .Heights = std::move(heights)});
+  SurfaceFeatures_.push_back(rings.front().Feature);
 }
 
 void WaterField::RecountSurfaceOutliers() {
@@ -270,7 +273,7 @@ std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
 
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
-                            const VegetationTemplates &veg) {
+                            const RegionSurfaceRecipes &veg) {
   if (SourceGeneration_ != field.Generation() || SourceOrigin_.get() != field.OriginToken()) {
     *this = WaterField{};
     SourceGeneration_ = field.Generation();

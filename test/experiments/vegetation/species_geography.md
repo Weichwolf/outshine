@@ -6,7 +6,7 @@ one real botanical-country dataset and a geometry-free regional candidate
 lookup, before binding ecological/species pools.
 It does not identify individual plants or establish a worldwide species catalog.
 
-The geographic cells follow existing `include/world/data/GeoCellId.h`: level L
+The geographic cells follow existing `src/base/geo/GeoCellId.h`: level L
 partitions longitude −180..180 and latitude −90..90 into 2^L cells per axis.
 Point queries canonicalize +180 to −180; the north pole uses the last row.
 There is no Mercator latitude cutoff. All matching source memberships survive

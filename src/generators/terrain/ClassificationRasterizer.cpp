@@ -1,5 +1,5 @@
-#include "math/Units.h"
-#include "math/Vec2.h"
+#include "Units.h"
+#include "Vec2.h"
 #include "ClassificationRasterizer.h"
 #include "ClassSeed.h"
 #include <array>
@@ -133,7 +133,7 @@ ClassificationRasterizer::Build(const Input &input, const std::stop_token &stop)
       input.BoundaryHaloM > std::numeric_limits<float>::max()) {
     return std::nullopt;
   }
-  auto grid = std::make_shared<ClassStructure::Grid>();
+  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   int overflow = 0;
   const double began = Clock();
   if (!LayDown(input, *grid, overflow)) { return std::nullopt; }
@@ -172,7 +172,7 @@ void ClassificationRasterizer::BuildFeatureEdges(const Input &job, const Feature
 }
 
 void ClassificationRasterizer::IndexFeatureEdges(const Feature &feature,
-                                                 const ClassStructure::Grid &grid,
+                                                 const TerrainClassificationMap::Grid &grid,
                                                  const RasterWindow &window) {
   const double cell = grid.CellM;
   const size_t ne = Workspace_.Edges.size() / 4;
@@ -255,7 +255,7 @@ void ClassificationRasterizer::ScanlineHits(double northM, size_t &nextEdge) {
 }
 
 void ClassificationRasterizer::SeedCell(const Feature &feature,
-                                        ClassStructure::Grid &grid,
+                                        TerrainClassificationMap::Grid &grid,
                                         const RasterWindow &window,
                                         CellSample sample,
                                         int &overflow) {
@@ -314,7 +314,7 @@ void ClassificationRasterizer::SeedCell(const Feature &feature,
 }
 
 void ClassificationRasterizer::ScanFeature(const Feature &feature,
-                                           ClassStructure::Grid &grid,
+                                           TerrainClassificationMap::Grid &grid,
                                            const RasterWindow &window,
                                            int &overflow) {
   const double cell = grid.CellM;
@@ -354,7 +354,7 @@ void ClassificationRasterizer::ScanFeature(const Feature &feature,
   }
 }
 
-void ClassificationRasterizer::PackGrid(ClassStructure::Grid &grid) {
+void ClassificationRasterizer::PackGrid(TerrainClassificationMap::Grid &grid) {
   const int W = grid.W;
   const int H = grid.H;
   auto &base = Workspace_.Base;
@@ -384,7 +384,7 @@ void ClassificationRasterizer::PackGrid(ClassStructure::Grid &grid) {
 void ClassificationRasterizer::RasterizeFeature(const Input &job,
                                                 const Feature &feature,
                                                 uint32_t &generation,
-                                                ClassStructure::Grid &grid,
+                                                TerrainClassificationMap::Grid &grid,
                                                 int &overflow) {
   const int W = grid.W;
   const int H = grid.H;
@@ -409,7 +409,9 @@ void ClassificationRasterizer::RasterizeFeature(const Input &job,
   grid.Edges.insert(grid.Edges.end(), Workspace_.Edges.begin(), Workspace_.Edges.end());
 }
 
-bool ClassificationRasterizer::LayDown(const Input &job, ClassStructure::Grid &out, int &overflow) {
+bool ClassificationRasterizer::LayDown(const Input &job,
+                                       TerrainClassificationMap::Grid &out,
+                                       int &overflow) {
   out.W = out.H = job.HalfCells * 2;
   out.CellM = job.CellM;
   out.BoundaryHaloM = job.BoundaryHaloM;

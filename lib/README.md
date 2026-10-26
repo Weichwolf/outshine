@@ -16,9 +16,86 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`water.fit_physical_surface` liefert geteilte Float64-ENU-Wasserfacetten unter
+expliziten physischen Richtungsintervallen, optional als hergeleitetes lineares QP.
+Frame/Datum, Quellenzulassung und native Produkte bleiben beim Aufrufer:
+[water_profiles.md](water_profiles.md) (#760). Zusatzabhängigkeiten über `./lib[water]`.
+
+`Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
+ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
+und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt
+frei. `overlaps(BuildingFootprint)` prüft einen zweidimensionalen Schnitt der
+Innenräume, einschließlich vollständiger Enthaltung. Ein unterlaufender numerischer
+Flächenwert wird dadurch nicht mit leerem Raum verwechselt. Konstruktoren bleiben
+unverändert. Der affine Untertyp und dessen XY-Präzisionsgrenzen werden noch im
+[Transportexperiment](../test/experiments/transport/stair_occupancy_comparison.md)
+unter [#568](https://github.com/Weichwolf/outshine/issues/568) geprüft.
+
+`transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
+liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
+tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
+Aufrufer: [horizontal.md](horizontal.md) (#535).
+
+`transport.frontiers.discover_source_modules` wählt begrenzte alternative Module
+aus ausdrücklichen ursprünglichen Quellknoten. Frame, Ebenen und ganze physische
+Abnahme bleiben beim Aufrufer: [frontiers.md](frontiers.md) (#537).
+
+`transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
+quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
+expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;
+Gewichte, Besitz, gültige Kandidaten und Grenzen stehen in
+[weighted_heights.md](weighted_heights.md) (#265).
+
+`transport.level_heights.fit_level_heights` passt ausdrücklich gemeinsame ebene
+Vertexgruppen unter ganzen Gradgrenzen an und prüft eine begrenzte lokale
+Float32-Höhenkorrektur. Bestehende `Mesh`-/`HeightBudget`-/`HeightFit`-Verträge,
+verzögerter Import, Repräsentationsgrenzen und Abwesenheit:
+[level_heights.md](level_heights.md) (#732).
+
+`transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
+gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
+gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
+stehen in [rail_hardware.md](rail_hardware.md) (#250).
+
+`build_planar_rail_hardware` ergänzt dieselben metrischen Profile auf einer
+ausdrücklich gewählten affinen Bettebene. `PlanarRailHardware` besitzt starre
+Rahmen/Instanzen, tatsächliche projizierte Footprints und alle Schwellenunterecken;
+endliche Kontakt-/Freiraumzulassung bleibt beim Aufrufer (#376).
+
+`transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
+zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
+Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
+[supports.md](supports.md) (#332). Der Wiener Pfeilerversuch nutzt denselben Kern.
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
+
+`vegetation.TwigClusters` verteilt unveränderte kanonische Blatt-IDs auf
+physisch angeschlossene Kurztriebe mit begrenzten, nachgefragten Prototypen.
+`vegetation.twig_radius_basis` verwendet dieselben tatsächlichen Radien in einer
+exakten affinen Röhrenbasis. Vertrag, Ownership, Abnahme und Grenzen:
+[twig_clusters.md](twig_clusters.md) (#746).
+
+`vegetation.load_species_catalog()` lädt einen festen lizenzierten Pilot mit
+30 akzeptierten Arten, Herkunft und getrennten regionalen Vorkommenszuständen.
+Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische
+Abnahme stehen in [species_catalog.md](species_catalog.md) (#226).
+
+`vegetation.SpeciesHeightMixture` bereitet höhenabhängige relative Artengewichte
+vor; `species_site_uniforms` bindet die Auswahl an stabile Standort-IDs.
+Mathematischer Vertrag, realer Vergleich, Cache-Replay und Grenzen stehen in
+[species_mixture.md](species_mixture.md) (#226).
+
+`vegetation.graminoid` liefert begrenzte geteilte Grasbüschel-Meshes aus dem
+bestehenden analytischen `Blade`, mit stabilen Blatt-IDs und Auflösungsproben.
+Vertrag, tatsächlicher Orts-/Nahverbrauch und botanische/LOD-Grenzen stehen in
+[graminoid.md](graminoid.md) (#22/#208).
+
+`vegetation.normal_distribution` liefert nichtnegative diffuse Antworten aus
+gebinnten Normalmomenten, endliche Fehlergrenzen und eine massenerhaltende Variante.
+Vertrag, Filterung und Grenzen: [normal_distribution.md](normal_distribution.md)
+(#643); keine native Shaderbindung oder vollständige Vegetationsmaterialfreigabe.
 
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
@@ -58,6 +135,25 @@ ohne Koordinaten oder belegte Fläche zu ändern. Die zugehörigen Gegenfälle p
 Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
+
+`geometry.weld_vertices` kanonisiert numerische Vertices mit begrenzter Vertex- und
+Paarkapazität und prüft die tatsächliche Verschiebung jedes Eingangsvertices.
+[Vertrag und Grenzen](welding.md): unveränderliche eigene Arrays, Zählung vor
+Paarallokation und ausdrückliche Ablehnung zu langer transitiver Ketten;
+Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
+
+`geometry.surface_patches.SurfacePatch/SurfacePatches` erhält exakte endliche
+Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
+Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
+Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+Der optionale `geometry.surface_patches.prepared`-Codec speichert und lädt bekannte
+gültige, vom bestehenden Produktdatensatz gebundene Oberflächen ohne erneute
+Geometriekonstruktion; normale unbekannte Eingaben bleiben streng (#678).
+
+`transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
+Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
+[Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche
+Quellen-/Ebenenwahl und vollständige Höhen-/Float32-Kontakte beim Aufrufer.
 
 `transport.fit_surface_heights(mesh, grade_frames, budget=HeightBudget(), fixed=...)`
 passt ausschließlich Z-Höhen an einen weichen Höhenprior an. XY, Dreiecke und der
@@ -201,7 +297,7 @@ route, driving, terrain deformation, collision or LOD claim. The same-source
 Wiener #119 experiment imports this library; proof and migration belong to #122.
 
 `geometry.vertical_clearance(lower, underside, max_pairs=65536, seconds=1.0,
-max_faces=8192)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
+max_faces=8192, include_maximum=False)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
 positiven XY-Dreiecksschnittflächen. Beide Meshes sind ausdrücklich gewählte
 affine Höhenflächen im gemeinsamen metrischen Datum; Frame/Kind/Quelle und
 benötigte physische Freiheit bindet der Aufrufer. Es wird keine höchste Fläche
@@ -219,6 +315,11 @@ und kooperative Zeit sind begrenzt; eine Abfrage alloziert höchstens
 Ganzflächenminima können an neuen Schnittvertices liegen und werden nicht durch
 Quellvertexstichproben ersetzt. Der Kernel bereitet Ebenengradienten einmal je
 Face vor; alle Brücken-/Portalversuche importieren diesen installierbaren Kern.
+`include_maximum=True` ergänzt `maximum_clearance_m`, `maximum_witness_xy` und
+`maximum_face_pair` im selben Durchlauf. Beide Extrema beschreiben dieselben
+positiven Überlappungen; vollständige gegenseitige Abdeckung bleibt ungeprüft.
+Das Maximum ist nur bei vollständig erfolgreicher Prüfung vorhanden. Die Option
+erfordert einen Boolean; der Default erzeugt keine zusätzlichen Maximumfelder.
 [#146](https://github.com/Weichwolf/outshine/issues/146) besitzt Übernahme und
 Vergleich; API-/Wheel-/Bild-/Kostenbelege stehen im zugehörigen PR.
 
@@ -228,6 +329,9 @@ Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfra
 Außerhalb, bei mehrdeutiger Projektion oder erschöpftem Kandidatenbudget bleiben
 Z/Normale NaN und Face -1; unbekannte Höhe wird nicht null. Gemeinsame Kanten oder
 Vertices mit konsistenter Höhe wählen deterministisch die niedrigste Face-ID.
+Dabei zählt der Abstand zum endlichen Quellsegment; mehrere nahe Kanten dünner
+Dreiecke verdecken keine tatsächlich gemeinsame Quellkante. Einzeltreffer
+benötigen keine gemeinsame Kantensuche.
 Die aufwärts gerichtete Normale gehört zu dieser Facette und ist nicht geglättet.
 Vertikale/degenerierte Projektionen und doppelte Faces werden bei Vorbereitung
 abgelehnt. Überlagerte Innenflächen werden lokal als mehrdeutig ausgewiesen.
@@ -291,6 +395,34 @@ Die botanischen Sommerproben für vier Schweizer/europäische Nadelgehölze steh
 bei [#131](https://github.com/Weichwolf/outshine/issues/131). Kronendichte,
 entfernungsabhängige Darstellung, reife/Jahresformen und botanische Freigabe sind offen.
 
+`AxisLevel.radius_parent_ratio` ergänzt ausdrücklich begrenzte Kindradien für
+`branching-plant-4`: Der tatsächliche Basisradius ist das Minimum aus nominalem
+Basisradius und Ratio × tatsächlichem Elternradius am Ansatz. Das nominale
+Tip/Base-Verhältnis bleibt erhalten. Wurzelachsen haben keinen Elternmodus;
+nach einem adaptiven Level müssen Nachfolger ihre Ratio ausdrücklich setzen.
+Adaptive v4-Level erlauben bis zu 256 Geschwister, damit reife Quirle nicht an
+der alten 64er-Formprobe scheitern. Unveränderte Level behalten 64 als Grenze.
+`AxisState.path_capacity` ist dafür ausdrücklich 256; der Default bleibt 64.
+`PlantPlan.radii(path)` liefert die tatsächlichen Radien in Metern. `radius_limits`
+liefert konservative, unveränderliche Basisradius-Grenzen je Ordnung/Slot ohne
+Achsenplatzierung; auch Needle-Slenderness wird davor geprüft. Tabellen,
+Holzflächen und Nadelplatzierung verwenden dieselben tatsächlichen Radien.
+v2/v3-Rezepte, Identitäten und Default-Arrays bleiben erhalten; diese Versionen
+dürfen das neue Feld nicht einschleusen. Der Modus verändert weder Achslängen
+noch physische Organmaße oder IDs/Counts. Pipe-Flusserhaltung und reife
+Populationskalibrierung folgen daraus nicht. Vertrag und Vergleich:
+[#172](https://github.com/Weichwolf/outshine/issues/172).
+
+`NeedledPlant.area_summary(unit_areas_m2)` zählt vollständige Varianten und
+erwartete physische Organfläche ohne Achsen-/Nadelplatzierung. Der Aufrufer
+liefert pro Variante eine positive Fläche in m² samt eigener Flächenkonvention.
+Globale ID/Seed-Zyklen bleiben exakt; skalare uniforme Größenvariation liefert
+den Faktor `1 + variation²/3`. Das Ergebnis hält eigene skalare Werte, Counts
+und erwartete Flächen je Ordnung. Es ist weder beobachtete Einzelpflanzenfläche
+noch Sichtdeckung. Die Nadelprobe verwendet halbe geschlossene Prototypfläche
+und eine deklarierte Referenz-Kronenfläche, keine gemessene Bestands-LAI:
+[#179](https://github.com/Weichwolf/outshine/issues/179).
+
 Die Vegetationsbibliothek exportiert `vegetation.Needle`: geschlossene, spitze
 Organflächen mit elliptischen, rhombischen oder Halbkreis-/Kreissektorquerschnitten,
 kontrollierter Biegung/Twist und analytischen Normalen. Gemeinsame Nah-/Grobpunkte
@@ -315,7 +447,7 @@ Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/
 `buildings.interiors.Furnishing(kind, width_m, depth_m, height_m, activity_depth_m)`
 beschreibt einen vollständigen Möbelgrundriss mit notwendiger Aktivitätsfläche.
 `layout(room, portals, requests, identifier, reserved=(), method="wall-anchors",
-max_candidates=64, beam_width=1, objective="short-paths")` platziert in einem
+max_candidates=64, beam_width=1, objective="short-paths", *, placement_reserved=())` platziert in einem
 gelieferten Raum, ohne Portal-/Nutzungsfreiräume zu blockieren. Alternative:
 `jittered-anchors`; die deterministische Breitsuche hält höchstens acht Zustände.
 Die Programme vergleichen dieselben Anforderungen mit `beam_width=1|4` und
@@ -333,6 +465,22 @@ keine impliziten Anbieterabfragen oder Welt-/Cachezustände. Kapazitäten:
 `access` und `placed` ermöglichen unabhängige Prüfungen und explizite Platzierung.
 Programme, eigene Möbel, reale Gegenfälle und Bild-/Kostenbelege:
 [#174](https://github.com/Weichwolf/outshine/issues/174).
+
+`placement_reserved` hält Möbelkörper und ihre Aktivitätsflächen aus höchstens
+16 polygonalen Bewegungsreservierungen heraus. Die Reservierung sperrt keine
+Gehwege: Der Aufrufer zieht den tatsächlich geparkten beweglichen Körper vom
+begehbaren Raum ab. `reserved` behält seinen bisherigen Vertrag für freie
+Portal-/Fensterantritte; bestehende Aufrufe ändern sich nicht.
+
+`buildings.interiors.doors.DoorLeaf` besitzt einen unveränderlichen metrischen
+Gelenkrahmen und stabile ID, getrennt vom Winkel. `pose(leaf, angle_deg)` und
+`sweep(leaf, error_m=0.001, method="segmented", max_segments=128)` liefern
+Türgrundriss und konservative Schwenkhülle für 0–90°. Der Punkt-/Sehnenabstand
+ist begrenzt, die zusätzliche Hüllenfläche besitzt keine globale Fehlerschranke.
+Keine eigene Simulation, Welt-/Cachezustände oder Gebäudenutzungen. Der Aufrufer
+besitzt Wand-/Möbel-/Raumanschluss, 3D-Vorlage und veränderlichen Türzustand.
+Unabhängige dichte Winkel-/Transformprüfungen liegen unter `lib/tests/`;
+echte Gebäudezustände, Nutzungswahl und Kosten in [#197](https://github.com/Weichwolf/outshine/issues/197).
 
 `buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
 beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und
@@ -392,6 +540,13 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
 keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+
+`prepare_hip(polygon, method='contour')` wählt die SFCGAL-freie begrenzte
+Kontur-/Facettenreferenz aus den Basisabhängigkeiten. Sie bewahrt Originaltraufe,
+Höfe und denselben `HipPlan`; fertige Pläne lassen sich unmittelbar über
+`Shape.roof_hip(..., prepared_plans=...)` konsumieren. `python_events` begrenzt hier
+die Kollaps-/Split-Schritte. Verfahren, Originalvergleich, Kosten und CPU/GPU-Grenze
+stehen in [roof_partition.md](../test/experiments/buildings/roof_partition.md) (#955).
 `HipPlanner` besitzt als expliziter Desktop-Kontext einen wiederverwendbaren
 Spawn-Prozess für dieselben Pläne. Eine Anfrage zugleich; begrenzte private
 Nachrichten, externe Anfragedeadline, `cancel()` und vollständiges Verwerfen
@@ -463,7 +618,7 @@ Gesamtgeometrie für positive Überhänge.
 .venv/bin/python -m pip install -e './lib[assets]'
 ```
 
-`assets` installiert Trimesh/Pygltflib für den optionalen OBJ/glTF/GLB-Import.
+`assets` installiert Trimesh für den optionalen OBJ-Import.
 Der Grundkern benötigt NumPy, Shapely und Pillow. Importiert er nur eigene Shapes,
 lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benannt;
 `Shape.from_polygon` übernimmt einen ENU-XY-Grundriss und erzeugt ihn in CGA-XZ
@@ -510,6 +665,17 @@ Preflight uses conservative capacities: an insufficient aggregate budget returns
 and populated tables own immutable bytes. The implementation skips empty parents
 after vectorized preflight, with bounded parent/site work. This does not establish
 a complete SpeedTree property mapping, botanical recipe or native placement ABI.
+
+The opt-in `mode="uniform"` uses a constant positive `spacing` as a minimum group
+distance and `limit_groups` as a complete-population cap. The existing closed
+endpoint count is retained, including its Float64 tolerance. Two or more groups
+span the whole `[first,last]` interval evenly; one group stays at `last` and empty
+intervals stay empty. The minimum distance applies between groups, not members
+of one whorl, up to that endpoint tolerance. Variable spacing and longitudinal
+spread are rejected in this mode. A cap therefore redistributes groups instead
+of truncating the distal physical sequence. Existing modes/recipes are unchanged.
+This is an explicit own allocation rule, not a vendor growth model; #626 owns the
+complete spruce comparison and the still unapproved botanical/image outcome.
 
 ### Spatial branch curves and surfaces
 
@@ -583,6 +749,13 @@ Budgets are Python integers in [0,100000]. These row bounds are not a total
 memory/time guarantee. `Shoot.detail` shares the same bounded placement contract.
 Public `AxisState` frames must be finite, orthonormal and right-handed. Shared
 axis/leaf/shoot arrays have immutable bytes, and leaf mappings are read-only.
+`AxisState(..., path_capacity=256)` explicitly accepts real slot indices up to255
+from a separately authored generator graph. The default remains64; negative,
+noninteger and out-of-capacity slots still fail. This does not raise `PlantPlan`
+branch limits, change its recipes/IDs/tables, or change `NeedlePattern.detail`
+for the same physical axis and seed. The wider state permits deferred needles
+on the actual cached graph path instead of a fabricated small replacement path
+(#562).
 
 `tables(max_axes, max_leaves)` returns cached complete immutable rows: axis IDs,
 parent IDs (-1 for root), seven-slot Int16 paths (-1 padding), origins, frames,
@@ -594,6 +767,18 @@ the recipe, rows, full mesh/placement levels and procedural material files.
 World instance identity/placement, source reservations and terrain remain the
 caller's responsibility. See [#86](https://github.com/Weichwolf/outshine/issues/86)
 for cache/material semantics, controls, costs and open botanical/LOD/wind limits.
+
+The [compact tree-entry reference](../test/experiments/vegetation/tree_entry.md)
+provides an unchanged existing64-axis/571-leaf recipe, fixed canonical rows and
+an executable cache-only whole-plant consumer for native comparison (#367).
+
+[`StandHabitat` and `HabitatStand`](habitat_stand.md) prepare source-bound integer
+stand parents without enumerating individual trees. Canonical leaf sites are an
+explicit bounded demand; source support, saved cells and layout identity persist.
+
+[`BladeCutout`](blade_cutout.md) preserves authored asymmetric polygon margins and
+holes on an existing curved Blade carrier, with separate fold/petiole normals and
+bounded requested meshes. It does not change old PlantPlan recipes or statistics.
 
 ### Frond guides, source patterns and cross-section curl
 
@@ -874,3 +1059,91 @@ declared surface filter, not an EWA, shaded image-error or native LOD bound.
 [#161](https://github.com/Weichwolf/outshine/issues/161) owns context-scoped real
 tile facade plans, physical CPU binding and costs; full programmes/near room
 transitions remain #31/#33, native integration #48.
+
+`buildings.facade_finish.FacadeFinish(frame_m=0.06, band_m=0.16)` evaluates
+`coverage(repeat, centres_m, footprints_m)` as wall/frame/glass/band fractions
+along the final array axis. The immutable `FacadeRepeat` supplies metric cells
+and finite counts. Frames occupy the inside of its existing opening. Bands
+are centred at floor boundaries, including clipped half-bands at the domain
+ends; their width is limited to the opaque vertical gap. Fractions sum to one,
+with wall outside the repeat domain. No window geometry or repeated rectangles
+are expanded. This is surface coverage, not an opening/collision or native
+LOD contract. #245 owns independent explicit rectangle integration, actual
+physical CPU binding and same-camera cached Place comparisons. The source
+wall colour and existing near-detail geometry are preserved by that consumer.
+
+Shared optional Blender-host helpers live in `outshine_ref.rendering.blender_camera` and
+`blender_mesh` ([#291](https://github.com/Weichwolf/outshine/issues/291)).
+They preserve supplied triangles, point/corner normals and optional point UVs.
+Normals are assigned to Blender as supplied; its packed mesh-normal encoding is
+not an exact shader-vector guarantee. Consumers can bind explicit FLOAT_VECTOR
+corner attributes in their local material path, as recorded in #291.
+Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays an
+optional host dependency; module import does not require `bpy`. Buildings research
+uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
+until its presentation migration. These helpers do not imply a native/device gate.
+
+`outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
+Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
+Research images stay local; only master publishes integrated Places.
+
+`buildings.interiors.entrances.entrance` shares the existing first-storey
+selector with bounded facade-cell candidates and caller-owned acceptance.
+`buildings.opening_panels.OpeningPanel` / `panel_surface` emit an actual closed
+through-opening slab. Contracts, source attachment and limitations:
+[entrances.md](entrances.md).
+
+`buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
+profile bands, including courtyard boundaries and capped partial edge runs.
+Normals, metric UVs and stable source-edge IDs are caller-owned. See
+[profiled_bands.md](profiled_bands.md) for limits, neighbor ownership and evidence.
+
+`buildings.recessed_facades.RecessPlan` and `recess_surface` reuse existing
+`FacadeRepeat` axes for bounded inward window surfaces with stable global cell
+identities, supplied hard normals and UVs. Partial replay and scalar/batch
+construction share a template. Geometry, ownership, capacity and consumer limits
+are documented in [recessed_facades.md](recessed_facades.md) (#318).
+
+`vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
+kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
+Teil-Replay im selben festen Meterrahmen. Mengen/Budgets werden vor Platzierungen
+ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.md](ground_cover.md) (#304).
+
+`vegetation.Bellflower` liefert eine eigene reguläre hängende Glockenfläche mit
+analytischen Normalen, geschlossener Ansatzkappe, offener Mündung und expliziten
+Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbraucher:
+[bellflower.md](bellflower.md) (#316).
+
+The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for bounded retail/food ground-floor display fronts (#377), with unchanged upper-cell scale and shared entrance anchors. Provider-use/host/level and frontage policy stays in `test/experiments/buildings/facade_shopfronts.py`; no second library planner or native contract is introduced. Reproduction and limits are in the building experiment README.
+
+`buildings.balconies.BalconyPlan/balcony_surface` supplies a bounded local deck/U-guard solid with40 exterior triangles, explicit deck/guard roles and caller-owned geometry. Four-prism union and separate-part controls describe the same solid. Caller owns materials/UVs, attachment, demand, collision and access; this primitive provides no source classification or room planner. `buildings.facade_cells.cell_complement` subtracts at most128 explicit existing cells from a FacadeRepeat as bounded disjoint index rectangles, without expanding the complete grid. Actual ordinary-facade consumers and functional counterexamples: building experiment README (#388).
+
+`buildings.balconies.balcony_plates` is the separate16-triangle open render approximation; it is never the closed physical/collision solid. Dropped surfaces map along Z within slab/2 or X/Y within guard thickness. The actual consumer must bound these displacements in its projection and preserve the closed plan; no light/shadow/topology equivalence is promised.
+
+
+`buildings.window_bays.WindowBay/bay_surface` supplies metrically related rectangular/chamfered open-backed window-bay components. Roles0/1/2/3 are wall/floor/ceiling/glass; `method="parts"` retains explicit component IDs and individually closed prisms, while the existing union comparison rejects outputs that lose volume/topology on actual mesh re-import. `bay_skin` is a separate86-triangle external-only render surface, never the physical/collision solid. Caller owns source fitting, materials/UVs, attachment, demand, access and light/shadow/LOD admission. Actual ordinary-facade consumers, independent controls, counterexamples and reproduction are documented in the building experiments (#408).
+
+
+`buildings.window_bays.bay_flat(plan, back_covered=True)` supplies a separate46-triangle open exterior. Three panes move outward by `(wall_m-glass_m)/2`; removed reveals map along the same three directions. Only the exposed Y≤0 domain has this positional bound. Omitted attachment pieces at Y>0 require the caller's opaque source-cell cover. No interior/collision, topology, radiance or shadow equivalence. The building consumer admits this product using the existing directional projection bound over conservative bounds/camera movement; otherwise it retains86triangles, with full physical parts near/inside. Both render constructors now bypass hidden section/post construction; prior skin/physical arrays are preserved in representative paired controls (#428).
+
+`buildings.roller_gates.RollerGate` and `leaf_surface` supply bounded closed
+visible roller sheets in local `(width, height, outward)` metres. Static
+width/height/pitch/depth/rib and the separate opening fraction determine the
+remaining sheet; hidden winding is omitted. At most32 slats, finite dimensions,
+16-bit material and conservative triangle capacity are checked before expansion.
+`lift` snaps remaining heights≤1e−7m to fully open; consumers use that same lift
+for clearance. Detailed sawtooth strips have geometric normals and developed
+metre UVs; `detail=False` directly emits12 triangles at nominal depth without
+expanding corrugation. The front displacement is at most `rib_m`; this is no
+whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
+tracks, attachment, room/collision use, visibility and source interpretation
+remain consumer-owned. Actual source hall consumer, physical alternatives,
+functional negatives and reproduction live in building experiments (#489).
+## Glazed rooflight panels
+
+`buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
+render skin with checked parent contacts. Optional direct two-sided sheets have
+20 triangles with explicit geometric bounds and independent physical products.
+Contract, real source/installed-wheel
+controls, render comparisons and separated preparation/emission costs:
+[rooflight_panels.md](rooflight_panels.md) (#500).

@@ -5,13 +5,13 @@
 #include <span>
 #include "Structures.h"
 
-#include "ground/TileMeshes.h"
+#include "TileMeshes.h"
 
 #include <array>
 #include <algorithm>
 #include <cmath>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>

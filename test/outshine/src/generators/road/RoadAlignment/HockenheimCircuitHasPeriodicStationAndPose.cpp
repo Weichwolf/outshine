@@ -1,3 +1,5 @@
+#include "HockenheimTransportFixture.h"
+#include "HockenheimCircuitFixture.h"
 #include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
@@ -5,9 +7,18 @@
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
-#include <iterator>
+#include <cstddef>
 #include <string>
+
+namespace Circuit = outshine::Test::HockenheimFixture;
+
+namespace {
+constexpr double kMinimumArcLengthM = 4500;
+constexpr double kMaximumArcLengthM = 4700;
+constexpr double kPositionToleranceM = 1e-7;
+constexpr double kDirectionTolerance = 1e-10;
+constexpr double kMaximumMetreStepM = 1.1;
+}
 
 int main() {
   using namespace outshine;
@@ -16,21 +27,12 @@ int main() {
   using namespace outshine::Test;
   using namespace outshine::World;
 
-  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
-  CHECK(input.good(), "the pinned Hockenheim source is available");
-  if (!input) { return Report(); }
-  const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  const auto source = outshine::Generators::Osm::XmlReader::Read(
-      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
-  CHECK(source.has_value(), "Hockenheim source parses");
-  if (!source) { return Report(); }
-  const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
-  CHECK(topology.has_value(), "Hockenheim source builds the logical topology");
-  if (!topology) { return Report(); }
-  const auto route =
-      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*topology, *source, 284588);
-  CHECK(route.has_value(), "the main circuit resolves by source relation");
-  if (!route) { return Report(); }
+  auto fixture = Circuit::LoadNetwork();
+  CHECK(fixture,
+        fixture ? "pinned source, topology and directed circuit load" : fixture.error().c_str());
+  if (!fixture) { return Report(); }
+  const auto &topology = fixture->Graph;
+  auto &route = fixture->Route;
 
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -42,14 +44,14 @@ int main() {
                     .Revision = "r1"}};
   const auto heights = Ground::HeightField::Of(0, {block});
   const auto constraints =
-      RoadConstraintChain::Build(*topology, route->SourceIdentity, route->EdgeIds, *heights);
+      RoadConstraintChain::Build(topology, route.SourceIdentity, route.EdgeIds, *heights);
   CHECK(constraints.has_value(), "all route edges have pinned terrain constraints");
   if (!constraints) { return Report(); }
   const auto alignment = RoadAlignmentBuilder::Build(*constraints);
   CHECK(alignment.has_value(), "the closed source circuit builds a periodic road centerline");
   if (!alignment) { return Report(); }
-  CHECK(alignment->Closed() && alignment->Edges().size() == 267 && alignment->LengthM() > 4500.0 &&
-            alignment->LengthM() < 4700.0,
+  CHECK(alignment->Closed() && alignment->Edges().size() == Circuit::EdgeCount &&
+            alignment->LengthM() > kMinimumArcLengthM && alignment->LengthM() < kMaximumArcLengthM,
         "the source circuit retains every edge and a plausible measured arc length");
 
   bool allSeams = true;
@@ -60,13 +62,13 @@ int main() {
     const auto end =
         alignment->AtEdgeStation(current.SourceEdge, current.EndStationM - current.StartStationM);
     const auto start = alignment->AtEdgeStation(next.SourceEdge, 0.0);
-    allSeams &= current.SourceEdge == route->EdgeIds[index] &&
+    allSeams &= current.SourceEdge == route.EdgeIds[index] &&
                 alignment->FindEdge(current.SourceEdge) != nullptr && end && start &&
-                std::abs(end->PositionM.EastM - start->PositionM.EastM) < 1e-7 &&
-                std::abs(end->PositionM.NorthM - start->PositionM.NorthM) < 1e-7 &&
-                std::abs(end->PositionM.UpM - start->PositionM.UpM) < 1e-7 &&
-                Dot(end->TangentEnu, start->TangentEnu) > 1.0 - 1e-10 &&
-                std::abs(end->WidthM - start->WidthM) < 1e-10 &&
+                std::abs(end->PositionM.EastM - start->PositionM.EastM) < kPositionToleranceM &&
+                std::abs(end->PositionM.NorthM - start->PositionM.NorthM) < kPositionToleranceM &&
+                std::abs(end->PositionM.UpM - start->PositionM.UpM) < kPositionToleranceM &&
+                Dot(end->TangentEnu, start->TangentEnu) > 1.0 - kDirectionTolerance &&
+                std::abs(end->WidthM - start->WidthM) < kDirectionTolerance &&
                 current.EndStationM > current.StartStationM;
     const EastNorthUp &from = constraints->Points()[index].TerrainLocalM;
     const EastNorthUp &to = constraints->Points()[index + 1].TerrainLocalM;
@@ -98,12 +100,14 @@ int main() {
         "one full station period returns to the identical source pose");
   bool continuousMotion = true;
   auto previous = first;
-  for (double stationM = 1.0; stationM < alignment->LengthM(); stationM += 1.0) {
+  for (size_t station = 1; static_cast<double>(station) < alignment->LengthM(); ++station) {
+    const auto stationM = static_cast<double>(station);
     const auto current = alignment->AtStation(stationM);
-    continuousMotion &= previous && current &&
-                        std::hypot(current->PositionM.EastM - previous->PositionM.EastM,
-                                   current->PositionM.NorthM - previous->PositionM.NorthM,
-                                   current->PositionM.UpM - previous->PositionM.UpM) < 1.1;
+    continuousMotion &=
+        previous && current &&
+        std::hypot(current->PositionM.EastM - previous->PositionM.EastM,
+                   current->PositionM.NorthM - previous->PositionM.NorthM,
+                   current->PositionM.UpM - previous->PositionM.UpM) < kMaximumMetreStepM;
     previous = current;
   }
   CHECK(continuousMotion, "metre-spaced camera samples contain no route-edge teleport");

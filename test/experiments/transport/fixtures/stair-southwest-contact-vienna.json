@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "scope": "Actual cropped immutable parent input; neither a complete cached world nor expected new-output oracle. All piers and bridges lie outside this cropped reference.",
+  "data_sha256": "b50dcefaaea04a525084fd0c166eded64dcdc1a8f5dd175cb908b68fcf61140e",
+  "parent_module_sha256": "d90be6e8992d8ce1b959ec0f812cdd529e0b496e484d08bc8d424332af92ce87",
+  "parent_module_report_sha256": "7976962748110f4e59ce829af3bf42d68eb53b95350b74fead7fb066d15d42a9",
+  "parent_field_sha256": "cccae87a8b09abe77cd5313c5abc07e14b518030955230c3767a5037bd1bdb4a",
+  "parent_field_report_sha256": "eabd411b63518903e516a6451417f9c5c29bb9d97f701bd851efdf8011ce31dc",
+  "parent_planning_sha256": "a5d3f5ed9b6a5943627785b2d57fa0e48d72eb66199c95b05763044596e4da7e",
+  "parent_face_index_array": "old_parent_face_indices",
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:138663000:8",
+    "openfreemap:14/8937/5678:transportation:39881120:24",
+    "openfreemap:14/8937/5678:transportation:80922970:318",
+    "openfreemap:14/8937/5678:transportation:80922970:325"
+  ],
+  "outer_profiles": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:318",
+      "end": 0,
+      "proposed_vertices_enu_m": [
+        [
+          -281.9703224511846,
+          -210.9326409591959,
+          162.00001219679913
+        ],
+        [
+          -281.9703224511846,
+          -210.0326409591959,
+          162.00001219679237
+        ],
+        [
+          -281.9703224511846,
+          -209.1326409591959,
+          161.97590795981046
+        ]
+      ]
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:325",
+      "end": -1,
+      "proposed_vertices_enu_m": [
+        [
+          -77.81675305932754,
+          -17.005323202894992,
+          162.50386024480798
+        ],
+        [
+          -78.34718409433479,
+          -16.278244859728915,
+          162.50000719671982
+        ],
+        [
+          -78.87761512934205,
+          -15.551166516562837,
+          162.50000719692716
+        ]
+      ]
+    }
+  ],
+  "cached_module_rows": {
+    "openfreemap:14/8937/5678:transportation:39881120:24": {
+      "source_id": "openfreemap:14/8937/5678:transportation:39881120:24",
+      "xy": [
+        [
+          -219.1334945988755,
+          -130.62430295711908
+        ],
+        [
+          -217.94039027256582,
+          -140.1532449530914
+        ],
+        [
+          -219.92889748308193,
+          -145.7118018257854
+        ],
+        [
+          -241.0070739145527,
+          -171.9165002919078
+        ],
+        [
+          -267.2553690933654,
+          -208.84150769533923
+        ],
+        [
+          -272.42548784070726,
+          -210.82672994153336
+        ],
+        [
+          -278.39100947225563,
+          -214.40013173089346
+        ],
+        [
+          -282.76572533539104,
+          -218.7676258561936
+        ],
+        [
+          -285.1519339880104,
+          -223.1351233366756
+        ],
+        [
+          -372.2485498086161,
+          -306.5152641775828
+        ]
+      ],
+      "width_m": 2.0
+    }
+  },
+  "origin_lat_lon": [
+    48.242427962074906,
+    16.386505365371704
+  ]
+}

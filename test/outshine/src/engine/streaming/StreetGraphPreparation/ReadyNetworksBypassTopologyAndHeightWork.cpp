@@ -1,24 +1,30 @@
 #include "Check.h"
-#include "GroundMaterials.h"
+#include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "PreparedStreetGraph.h"
 #include "Sha256.h"
 #include "SourceSet.h"
 #include "StreetGraphPreparation.h"
-#include "VegetationTemplates.h"
+#include "RegionSurfaceRecipes.h"
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
 namespace {
 using namespace outshine;
 using Clock = std::chrono::steady_clock;
+constexpr std::string_view kTerrainRecipe = "declared-elevation-100m-plus-latitude";
+constexpr double kBaseHeightM = 100;
+constexpr size_t kPackageBytesMost = size_t{1024} * 1024u;
 
 std::optional<StreetGraphPreparation::Completed> Await(StreetGraphPreparation &work) {
   const auto deadline = Clock::now() + std::chrono::seconds(5);
@@ -61,12 +67,12 @@ int main() {
       std::filesystem::temp_directory_path() /
       ("outshine-native-network-" + std::to_string(Clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root / "assets");
-  Data::ContentStore store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
+  const Data::SourceSet sources(store);
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes templates;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "native street rules load");
   auto vectors = Input(false);
   auto ways = std::make_shared<Generators::Osm::StreetField>();
@@ -75,16 +81,18 @@ int main() {
   CHECK(opened.has_value(), "street graphs use the common asset database");
   if (!opened) { return Report(); }
   auto cache = std::move(*opened);
-  const auto key = cache->Key(*vectors, *ways, {}, 14);
+  const auto terrainBinding = Sha256Digest(kTerrainRecipe.data(), kTerrainRecipe.size());
+  const auto key = cache->Key(*vectors, *ways, {}, 14, terrainBinding);
   CHECK(key.has_value(), "complete street input has a persistent identity");
   if (!key) { return Report(); }
   Tasks pool(1);
-  size_t factories = 0, heightSamples = 0;
+  size_t factories = 0;
+  size_t heightSamples = 0;
   const StreetGraphPreparation::JobFactory begin = [&] {
     ++factories;
     return Generators::Osm::StreetGraphBuildJob::Begin(*vectors, *ways, [&](LongitudeLatitude at) {
       ++heightSamples;
-      return std::optional<double>(100 + at.LatitudeDeg);
+      return std::optional<double>(kBaseHeightM + at.LatitudeDeg);
     });
   };
   std::optional<StreetGraphPreparation::Completed> cold;
@@ -108,23 +116,23 @@ int main() {
               factories == 1,
           "fresh warm loading invokes neither street layout, weave nor elevation");
     if (warm) {
-      CHECK(warm->Graph.Graph->EncodeAsset(1024 * 1024) ==
-                    cold->Graph.Graph->EncodeAsset(1024 * 1024) &&
+      CHECK(warm->Graph.Graph->EncodeAsset(kPackageBytesMost) ==
+                    cold->Graph.Graph->EncodeAsset(kPackageBytesMost) &&
                 warm->Graph.Elevated.Points == cold->Graph.Elevated.Points &&
                 warm->Graph.Elevated.SteepestGrade == cold->Graph.Elevated.SteepestGrade &&
                 warm->Graph.WeaveMs == 0 && warm->Graph.ElevateMs == 0,
             "native geometry, topology and profiles survive without replaying old timings");
     }
   }
-  auto bridge = Input(true);
+  const auto bridge = Input(true);
   Generators::Osm::StreetField bridgeWays;
   CHECK(bridgeWays.Ingest(*bridge, templates) == 2, "bridge input is normalized");
-  CHECK(cache->Key(*bridge, bridgeWays, {}, 14) != key,
+  CHECK(cache->Key(*bridge, bridgeWays, {}, 14, terrainBinding) != key,
         "bridge classification invalidates the asset even with unchanged centreline points");
   Ground::ShapedGround changed;
   changed.Seed = 1;
-  CHECK(cache->Key(*vectors, *ways, changed, 14) != key &&
-            cache->Key(*vectors, *ways, {}, 13) != key,
+  CHECK(cache->Key(*vectors, *ways, changed, 14, terrainBinding) != key &&
+            cache->Key(*vectors, *ways, {}, 13, terrainBinding) != key,
         "terrain shape and source detail are persistent inputs");
   auto raw = AssetCache::Open((root / "assets" / "assets.sqlite").string());
   CHECK(raw.has_value(), "the generic cache can inspect native publication");

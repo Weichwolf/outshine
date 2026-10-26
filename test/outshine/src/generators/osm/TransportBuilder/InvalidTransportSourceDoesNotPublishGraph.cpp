@@ -46,20 +46,20 @@ int main() {
   };
 
   const std::array rejected{
-      Rejected{Source("<nd ref='1'/><nd ref='9'/>", ""),
-               outshine::Generators::Osm::TransportBuildErrorCode::MissingSourceObject},
-      Rejected{Source(refs, "<tag k='oneway' v='sideways'/>"),
-               outshine::Generators::Osm::TransportBuildErrorCode::InvalidOneway},
-      Rejected{Source(refs, "<tag k='layer' v='1.5'/>"),
-               outshine::Generators::Osm::TransportBuildErrorCode::InvalidLayer},
-      Rejected{Source(refs, "<tag k='width' v='12 yards'/>"),
-               outshine::Generators::Osm::TransportBuildErrorCode::InvalidWidth},
-      Rejected{Source(refs, "<tag k='lanes' v='1;2'/>"),
-               outshine::Generators::Osm::TransportBuildErrorCode::InvalidLaneCount},
-      Rejected{Source("<nd ref='1'/><nd ref='1'/>", ""),
-               outshine::Generators::Osm::TransportBuildErrorCode::DegenerateSegment},
-      Rejected{Source(refs, "<tag k='oneway' v='yes'/><tag k='oneway' v='no'/>"),
-               outshine::Generators::Osm::TransportBuildErrorCode::AmbiguousTag},
+      Rejected{.Xml = Source("<nd ref='1'/><nd ref='9'/>", ""),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::MissingSourceObject},
+      Rejected{.Xml = Source(refs, "<tag k='oneway' v='sideways'/>"),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::InvalidOneway},
+      Rejected{.Xml = Source(refs, "<tag k='layer' v='1.5'/>"),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::InvalidLayer},
+      Rejected{.Xml = Source(refs, "<tag k='width' v='12 yards'/>"),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::InvalidWidth},
+      Rejected{.Xml = Source(refs, "<tag k='lanes' v='1;2'/>"),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::InvalidLaneCount},
+      Rejected{.Xml = Source("<nd ref='1'/><nd ref='1'/>", ""),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::DegenerateSegment},
+      Rejected{.Xml = Source(refs, "<tag k='oneway' v='yes'/><tag k='oneway' v='no'/>"),
+               .Code = outshine::Generators::Osm::TransportBuildErrorCode::AmbiguousTag},
   };
   for (const Rejected &caseInput : rejected) {
     const auto parsed = outshine::Generators::Osm::XmlReader::Read(

@@ -1,0 +1,63 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Palette {
+  float palette[];
+};
+
+struct Probe {
+  vec4 PointDx;
+  vec2 Dy;
+  int Which;
+  uint Mode;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Inputs {
+  Probe probes[];
+};
+
+struct Result {
+  vec4 Wearing;
+  vec4 Detail;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs {
+  Result results[];
+};
+
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  uint count;
+  uint unmapped;
+  uvec2 padding;
+};
+
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeProfiles.glsl"
+#include "surfaceGradient.glsl"
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe probe = probes[index];
+  int style = probe.Which < 0 ? -probe.Which - 1 : probe.Which;
+  vec2 fractions = facadeFractions(style);
+  float floorM = uintBitsToFloat(probe.Mode);
+  vec2 dx = probe.PointDx.zw;
+  vec2 dy = probe.Dy;
+  float perM = length(surfaceGradient(vec3(0.0, 0.0, 1.0),
+                                      vec3(dx.x, dx.y * floorM, 0.0),
+                                      vec3(dy.x, dy.y * floorM, 0.0),
+                                      dx.y,
+                                      dy.y));
+  vec2 width = abs(dx) + abs(dy);
+  vec2 at = probe.PointDx.xy;
+  float opening = facadeOpeningCoverage(fractions, at.x, at.y, width.x, width.y);
+  float pane = facadePaneCoverage(fractions, at.x, at.y, width.x, width.y);
+  float band = probe.Which < 0 ? 0.0 : facadeStoreyBand(fractions.y, at.y, width.y, perM);
+  FacadeGlazing surface =
+      facadeBandedWindow(opening, pane, band, vec3(palette[4], palette[5], palette[6]), palette[7]);
+  results[index] = Result(vec4(surface.albedo, surface.roughness), vec4(opening, pane, band, perM));
+}

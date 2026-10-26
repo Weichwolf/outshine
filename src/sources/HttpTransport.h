@@ -1,0 +1,107 @@
+#ifndef OUTSHINE_SOURCES_HTTPTRANSPORT_H
+#define OUTSHINE_SOURCES_HTTPTRANSPORT_H
+
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
+#include <map>
+#include <optional>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <thread>
+
+#include <Transport.h>
+
+namespace outshine {
+
+constexpr long kDefaultHttpTimeoutS = 20;
+constexpr size_t kDefaultHttpBodyMiB = 64u;
+constexpr unsigned kHttpMiBShift = 20u;
+
+class HttpTransport : public Data::Transport {
+public:
+  struct Config {
+    int ConcurrentTransfers = 8;
+
+    int ConnectionsPerHost = 8;
+
+    size_t MaxRequests = 1024;
+
+    long TimeoutS = kDefaultHttpTimeoutS;
+
+    std::string UserAgent = "outshine/1 (game engine; non-commercial research)";
+
+    size_t MaxBodyBytes = kDefaultHttpBodyMiB << kHttpMiBShift;
+  };
+
+  explicit HttpTransport(Config config);
+  ~HttpTransport() override;
+  HttpTransport(const HttpTransport &) = delete;
+  HttpTransport &operator=(const HttpTransport &) = delete;
+
+  [[nodiscard]] Data::FetchStart Begin(const std::string &url) override;
+  [[nodiscard]] Data::FetchStart
+  Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag = {}) override;
+  [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;
+  void Cancel(Data::Ticket ticket) override;
+  [[nodiscard]] bool Await(double forMs) override;
+
+  [[nodiscard]] int WorkerCount() const { return Worker_.joinable() ? 1 : 0; }
+
+private:
+  struct Transfer {
+    ~Transfer();
+    void ReadHeader(std::string_view line);
+
+    uint64_t Ticket = 0;
+    std::string Url;
+    std::string Origin;
+    std::optional<Data::ByteRange> Range;
+    std::string RangeText;
+    std::string EntityTag;
+    std::string IfMatch;
+    std::optional<Data::RangeResponse> Partial;
+    bool InvalidRangeHeaders = false;
+    void *Headers = nullptr;
+    void *Handle = nullptr;
+    std::atomic_bool Cancelled = false;
+    size_t MaxBodyBytes = 0;
+    bool Done = false;
+    std::optional<Data::SourceFailureReason> Failure;
+    int Status = 0;
+    double RetryAfterS = 0.0;
+    std::vector<uint8_t> Body;
+  };
+
+  [[nodiscard]] size_t AddQueuedTransfers(void *multi, size_t active);
+  [[nodiscard]] bool CanStart(const Transfer &transfer, double nowMs) const;
+  void DeferOrigin(const Transfer &transfer, const std::string &responseOrigin, double retryAfterS);
+  [[nodiscard]] Data::FetchStart
+  Start(const std::string &url, std::optional<Data::ByteRange> range, std::string_view entityTag);
+  void CollectCompletions(void *multi, size_t &active);
+  [[nodiscard]] bool ConfigureTransfer(void *handle, Transfer &transfer) const;
+  void FinishTransfers(void *multi, bool failed);
+  void Work();
+  void WakeWorker() noexcept;
+  void RememberCancellation(uint64_t ticket);
+
+  Config Config_;
+  std::mutex Mutex_;
+  std::condition_variable Landed_;
+  uint64_t Completions_ = 0;
+  std::map<uint64_t, Transfer> Transfers_;
+  std::deque<uint64_t> Queue_;
+  std::map<std::string, double, std::less<>> Cooldowns_;
+  std::vector<uint64_t> CancelledTickets_;
+  uint64_t NextTicket_ = 1;
+  enum class State { Unavailable, Ready, Stopping, Failed };
+  State State_ = State::Unavailable;
+  void *Multi_ = nullptr;
+  std::thread Worker_;
+};
+
+}
+#endif

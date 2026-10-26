@@ -1,9 +1,10 @@
 #include "Mixer.h"
 #include "SignalGraph.h"
+#include "SourceBindings.h"
 
 #include <utility>
 #include <expected>
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <array>
 #include <algorithm>
@@ -17,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "math/Units.h"
+#include "Units.h"
 #include "format/Number.h"
 
 namespace outshine::Audio {
@@ -351,7 +352,7 @@ void Reverberation::Mix(std::span<const double> input, std::span<float> stereo) 
 
 struct Mixer::Held {
   void MixBlock(std::span<float> stereo,
-                std::span<const Heard> sources,
+                std::span<const Heard *const> sources,
                 const Listening &ear,
                 MixingContext context);
   [[nodiscard]] std::expected<void, std::string> ConfigureRoom(std::span<const MixBus> buses,
@@ -360,6 +361,7 @@ struct Mixer::Held {
   BuildSources(std::span<const SoundSource> declared, int rate, std::string &error);
 
   BusGraph Routing;
+  SourceBindings Bindings;
   std::vector<SoundSource> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<SignalGraph> Graphs;
@@ -482,6 +484,7 @@ Mixer::Configure(std::span<const MixBus> buses, std::span<const SoundSource> dec
   if (!routing) { return routing; }
   if (auto spatial = ValidateSpatialSources(declared); !spatial) { return spatial; }
   candidate->Declared.assign(declared.begin(), declared.end());
+  candidate->Bindings.Prepare(declared, candidate->Routing);
   std::string error;
   if (!candidate->BuildSources(declared, rate, error)) { return std::unexpected(std::move(error)); }
   const auto room = candidate->ConfigureRoom(buses, rate);
@@ -500,10 +503,12 @@ bool Mixer::Mix(std::span<float> stereo,
             std::to_string(stereo.size());
     return false;
   }
+  if (stereo.empty()) { return true; }
+  const auto bindings = Held_->Bindings.Resolve(sources);
   while (!stereo.empty()) {
     const size_t count = std::min(stereo.size(), kAudioBlockFrames * 2);
     Held_->MixBlock(stereo.first(count),
-                    sources,
+                    bindings,
                     ear,
                     {.SampleRateHz = Rate_, .SpeedOfSoundMs = SpeedOfSoundMs_});
     stereo = stereo.subspan(count);
@@ -513,7 +518,7 @@ bool Mixer::Mix(std::span<float> stereo,
 }
 
 void Mixer::Held::MixBlock(std::span<float> stereo,
-                           std::span<const Heard> sources,
+                           std::span<const Heard *const> sources,
                            const Listening &ear,
                            MixingContext context) {
   for (float &one : stereo) { one = 0.0f; }
@@ -525,14 +530,10 @@ void Mixer::Held::MixBlock(std::span<float> stereo,
   for (size_t at = 0; at < Declared.size(); ++at) {
     const SoundSource &sound = Declared[at];
     if (sound.Graph.empty()) { continue; }
-    const Heard *standing = nullptr;
-    for (const Heard &one : sources) {
-      if (one.Id == sound.Id && one.Standing) { standing = &one; }
-    }
+    const Heard *standing = sources[at];
     if (standing == nullptr) { continue; }
 
-    const auto spatial =
-        Spatialize(sound.Spatial, *standing, ear, context, Routing.GainOf(sound.Id));
+    const auto spatial = Spatialize(sound.Spatial, *standing, ear, context, Bindings.Gain(at));
     if (!(spatial.Gain > 0.0)) { continue; }
 
     Voiced(sound,

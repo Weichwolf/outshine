@@ -22,11 +22,11 @@ public:
 
   outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*at*/) const override {
     return outshine::Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1; }
+  double PostM(double /*latDeg*/) const override { return 1; }
 };
 }
 
@@ -57,7 +57,7 @@ int main() {
                          .Value = "river",
                          .LatLon = {0.2, 0.2, 0.2, 0.5, 0.2, 0.8}}};
   source.Declare(features, Ground::TileAt{.X = 32, .Y = 32});
-  Ground::VegetationTemplates rules;
+  const outshine::Generators::RegionSurfaceRecipes rules;
   Heights ground;
   WaterField water;
   CHECK(!water.Asset(source).EncodeNative(4096),
@@ -69,6 +69,10 @@ int main() {
             water.Courses().size() == 1,
         "cold generation prepares both standing water and a terrain-dependent flow profile");
   const auto prepared = water.Asset(source);
+  CHECK(prepared.Sources().size() == 1 && prepared.Inputs().size() == 2 &&
+            prepared.InputOf(prepared.Surfaces().front()) &&
+            !prepared.InputOf(prepared.Surfaces().front())->Intermittent,
+        "unreported intermittency remains unknown in declared assets");
   CHECK(prepared.Points().size() == 14 && prepared.Points().size() < source.Points().size(),
         "native water owns only its seven contour vertices and excludes unrelated polygons");
   CHECK(water.Asset(source).Points().data() == prepared.Points().data(),

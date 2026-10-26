@@ -1,8 +1,8 @@
 #ifndef OUTSHINE_SCENARIO_TRIGGERS_H
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
-#include "math/Vec3.h"
-#include <world/Entity.h>
+#include "Vec3.h"
+#include <Entity.h>
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -10,7 +10,7 @@
 #include <span>
 #include <vector>
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 

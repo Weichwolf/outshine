@@ -1,5 +1,5 @@
 #include "AirCell.h"
-#include "render/device/native/Device.h"
+#include "Device.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -158,7 +158,8 @@ std::expected<std::vector<AirCellChannel>, std::string> Run(gpu::Device &device,
 
 int OnDevice(const char *shader,
              std::span<const AirCellInput> inputs,
-             std::span<const Reference> expected) {
+             std::span<const Reference> expected,
+             const char *output) {
   const auto device = gpu::CreateDevice({.Validation = true});
   if (!device) {
     std::println(stderr, "device: {}", device.error().Message);
@@ -187,13 +188,23 @@ int OnDevice(const char *shader,
   }
   std::println("device={}; cell mathematics only; no source-LUT or frame-time proof",
                (*device)->Limits().Name);
+  if (output != nullptr) {
+    const auto bytes = std::as_bytes(std::span(*samples));
+    std::ofstream file(output, std::ios::binary);
+    if (!file.write(reinterpret_cast<const char *>(bytes.data()),
+                    static_cast<std::streamsize>(bytes.size()))) {
+      std::println(stderr, "cannot write GPU samples: {}", output);
+      return 2;
+    }
+  }
   return Compare("GPU", *samples, expected) ? 0 : 1;
 }
 }
 
-int main(int argc, char **argv) {
-  if (argc != 4) {
-    std::println(stderr, "usage: air-cell-gpu kernel.spv inputs.bin expected.bin");
+int main(int argc, const char *const *argv) {
+  if (argc != 4 && argc != 5) {
+    std::println(stderr,
+                 "usage: air-cell-gpu kernel.spv inputs.bin expected.bin [gpu-samples.bin]");
     return 2;
   }
   const auto inputs = ReadBinary<outshine::AirCellInput>(argv[2]);
@@ -214,5 +225,5 @@ int main(int argc, char **argv) {
   cpu.reserve(inputs->size());
   for (const auto &input : *inputs) { cpu.push_back(outshine::air_cell::airIntegrateCell(input)); }
   if (!Compare("CPU", cpu, *expected)) { return 1; }
-  return OnDevice(argv[1], *inputs, *expected);
+  return OnDevice(argv[1], *inputs, *expected, argc == 5 ? argv[4] : nullptr);
 }

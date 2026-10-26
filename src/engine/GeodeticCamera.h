@@ -2,11 +2,11 @@
 #define OUTSHINE_ENGINE_GEODETICCAMERA_H
 
 #include "GroundQuery.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "math/RenderFrame.h"
 #include "TangentFrame.h"
 #include "TileGeodesy.h"
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 #include <cmath>
 #include <expected>
 #include <optional>

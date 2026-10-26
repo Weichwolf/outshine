@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
 #define OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
 
-#include "EngineHeld.h"
+#include "EngineState.h"
 #include <cassert>
 #include <cstdint>
 #include <expected>
@@ -11,25 +11,29 @@
 
 namespace outshine {
 [[nodiscard]] inline std::expected<void, std::string>
-PublishStructureTile(Surrounds &world,
+PublishStructureTile(WorldRegionState &world,
                      Render::SceneRenderer &renderer,
                      const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
   const auto published = renderer.PublishedWorld();
-  TilePieces pieces = world.Pieces;
-  pieces.Into(&renderer);
+  auto &pieces = world.Pieces;
+  pieces.BindRenderer(&renderer);
   const auto &baked = *landing.Baked;
   std::string error;
-  if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error, landing.SourceKey)) {
+  if (!pieces.Upload(
+          landing.Tile,
+          BuildingPageView(baked, world.StructureSurfaces.value_or(BuildingPageMaterials{})).View(),
+          landing.AnchorEcef,
+          error,
+          landing.SourceKey)) {
     return std::unexpected(std::move(error));
   }
-  world.Pieces = std::move(pieces);
   world.BindSceneResources(renderer);
   return {};
 }
 
 [[nodiscard]] inline std::expected<void, std::string>
-StageStructureCell(Surrounds &world,
+StageStructureCell(WorldRegionState &world,
                    Render::SceneRenderer &renderer,
                    const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
@@ -40,24 +44,25 @@ StageStructureCell(Surrounds &world,
     return std::unexpected("staged structure product has no cell address");
   }
   std::string error;
-  if (!world.Pieces.StageCell(landing.Tile,
-                              *baked.RequestedCell,
-                              baked,
-                              landing.AnchorEcef,
-                              error,
-                              landing.SourceKey)) {
+  if (!world.Pieces.StageCell(
+          landing.Tile,
+          *baked.RequestedCell,
+          BuildingPageView(baked, world.StructureSurfaces.value_or(BuildingPageMaterials{})).View(),
+          landing.AnchorEcef,
+          error,
+          landing.SourceKey)) {
     return std::unexpected(std::move(error));
   }
   return {};
 }
 
 [[nodiscard]] inline std::expected<void, std::string>
-ActivateStructureCells(Surrounds &world,
+ActivateStructureCells(WorldRegionState &world,
                        Render::SceneRenderer &renderer,
                        uint32_t tile,
                        uint64_t sourceKey,
                        uint64_t occupiedCells,
-                       std::span<const TilePieces::CellSelection> selected) {
+                       std::span<const Render::GeometryPageResidency::CellSelection> selected) {
   const auto published = renderer.PublishedWorld();
   world.BindSceneResources(renderer);
   std::string error;

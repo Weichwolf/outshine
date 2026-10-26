@@ -1,0 +1,319 @@
+{
+  "origin": "Actual flat OpenFreeMap Paris sources; first retained urban-roof control and second selected from the same complete source census for stable chamfered programme. No authored facade/window-bay tag supplied.",
+  "receipts": [
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5634
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5634.pbf",
+      "bytes": 644336,
+      "sha256": "e391ac93d790d112030cf3c8da98b582471d6dade8dd62a73da0e41e7656472c"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5634
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5634.pbf",
+      "bytes": 797995,
+      "sha256": "d69c5c40bd2f99b423cf8277a2bbb3f093a6124813849b11508d3f7cea816717"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5635
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5635.pbf",
+      "bytes": 722011,
+      "sha256": "7a729bff839264cfb72337ef6cfec46f353ffd8adfb9e959edb92e0340b39b5c"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5635
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5635.pbf",
+      "bytes": 1080648,
+      "sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5636
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5636.pbf",
+      "bytes": 641030,
+      "sha256": "1191c8f2245b0932faccdbde2da9779ca7ed1b0e1658b25b6b9bb54f16a19371"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5636
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5636.pbf",
+      "bytes": 1182371,
+      "sha256": "255cfa6f7451747fac9dd048892734ea102db03d7b5d0ccd29b4f225efabbbb5"
+    }
+  ],
+  "cases": [
+    {
+      "id": "Paris/(14, 8298, 5635)/10851960/24/0",
+      "properties": {
+        "colour": "beige",
+        "render_height": 26,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "housenumber:692240620:58:3",
+            "layer": "housenumber",
+            "role": "address",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:1072150712:41:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:15025254672:830:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:159",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:160",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:164",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:166",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:232723930:347:167",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:258970880:360:4",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:258971032:655:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation:709945132:701:0",
+            "layer": "transportation",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:258970880:121:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:327890550:140:1",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          },
+          {
+            "id": "transportation_name:42510880:296:0",
+            "layer": "transportation_name",
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "coordinate_step_m": 0.39278873338328335,
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "footprint_wkb": "0103000000040000000C0000008C55C7FC9147774082BD888543A47440106F7DE3D87977406EC99270CB8C7540655686108E9F774030D6EDE3EEA575401F0E90FB15887840CF4F402A5D9975401F0E90FB15887840E9AFDC89845A7540636DDBD2A1187940D11606AD3B547540636DDBD2A11879400D43E5B639807540E3F805B42BD57940F5A90EDAF07975408394AB4008BC794043ECC8B3748973405D013588F26E7840A1ABB0EA27DB7340A6EE0B653B75784084844E08225F74408C55C7FC9147774082BD888543A47440050000007A613F737A57794082BD888543A4744031746896315179400B65CA71474C7440B58D1E7D788379400B65CA71474C7440FF7AF559C18979406A24B2A8FA9D74407A613F737A57794082BD888543A474400900000016DB232E8823784073571E768802754030964D513F1D7840C9E399DFADEF74405FC8FA0AD129784006D73E6C8AD6744022D5557EF442784006D73E6C8AD674409BF4D914CF557840675DEC251CE37440E4E1B0F1175C784012D170BCF6F574406BC22C5B3D497840D4DDCB2F1A0F7540A9B5D1E719307840D4DDCB2F1A0F754016DB232E8823784073571E7688027540090000005A3A6F0514B47840AADE1CB8B53F7440E11AEB6E39A1784049586FFE23337440E11AEB6E39A17840874B148B001A744074F59828CBAD784026C566D16E0D7440ED141DBFA5C07840DDD78FF4250774406634A15580D37840874B148B001A7440AF217832C9D9784049586FFE233374401D47CA7837CD7840AADE1CB8B53F74405A3A6F0514B47840AADE1CB8B53F7440"
+    },
+    {
+      "id": "Paris/(14, 8298, 5635)/5335130/11/22",
+      "properties": {
+        "render_height": 15,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "area-overlap",
+            "coverage": 1.0,
+            "context_area_m2": 2752744.2448455156,
+            "scope": "site-context"
+          },
+          {
+            "id": "poi:14458723301:290:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "Institut Pratique de Journalisme",
+              "name:sk": "Institut pratique du journalisme",
+              "name:pl": "Institut pratique du journalisme",
+              "name:ca": "Institut pratique du journalisme",
+              "name:de": "Institut pratique du Journalisme",
+              "name_de": "Institut Pratique de Journalisme",
+              "name": "Institut Pratique de Journalisme",
+              "subclass": "college",
+              "name:fr": "Institut pratique du journalisme",
+              "rank": 7,
+              "name:en": "Institut Pratique du Journalisme",
+              "name:hr": "Institut pratique du journalisme",
+              "class": "college",
+              "name:cs": "Institut pratique du journalisme",
+              "name:es": "Institut pratique du journalisme",
+              "name:latin": "Institut Pratique de Journalisme",
+              "name_en": "Institut Pratique de Journalisme"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "education",
+            "position_xy": [
+              310.0197328512567,
+              504.2718936591304
+            ],
+            "scope": "partial-use",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "transportation:232723930:347:109",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 1.1783661995937678,
+            "position_xy": [
+              306.4846342524754,
+              493.2738091250963
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:135",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.8029877404925525,
+            "position_xy": [
+              300.863023656013,
+              493.0714288632383
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:246588362:636:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.528277450332724,
+            "position_xy": [
+              303.13487763753704,
+              493.2363866224366
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:246588360:368:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue Saint-Georges",
+              "name_int": "Rue Saint-Georges",
+              "class": "minor",
+              "name:latin": "Rue Saint-Georges",
+              "name_de": "Rue Saint-Georges",
+              "name_en": "Rue Saint-Georges"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 4.528277450332724,
+            "position_xy": [
+              303.13487763753704,
+              493.2363866224366
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "footprint_wkb": "01030000000100000005000000B5265E646EFD7340B4DF09B757B07F40234CB0AADCF07340E06CD6A818CE7E40EDAD5CA69B3A7340295AAD8561D47E40EDAD5CA69B3A7340E311B770E9BC7F40B5265E646EFD7340B4DF09B757B07F40",
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "coordinate_step_m": 0.39278873338328335
+    }
+  ]
+}

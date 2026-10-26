@@ -11,6 +11,9 @@ from place_reference import PLACES, read
 class PlaceReferences(unittest.TestCase):
     def test_fixed_native_camera_values_and_vertical_lens(self):
         controls = {
+            "Husum": (20.0, 35.0, -7.0, 38.04),
+            "Feldkirch": (614.0, 1.0, -11.5, 80.72),
+            "ZuerichHauptbahnhof": (510.0, 285.0, -20.0, 85.0),
             "DarmstadtWest": (205.0, 252.0, 2.6, 38.04),
             "Flensburg": (66.0, 1.0, -7.0, 33.966661),
             "Rosenheim": (492.0, 185.0, -1.6, 30.68),

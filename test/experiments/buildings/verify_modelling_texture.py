@@ -42,7 +42,7 @@ def controls():
     direct=Shape(asset.geometry,opaque.scope,asset=asset)
     assert direct.textures==asset.textures and Asset.from_shape(direct).textures==asset.textures
     placed=source.insert(asset);assert placed.textures==asset.textures
-    with TemporaryDirectory(prefix='outshine-texture-',dir='/var/tmp') as directory:
+    with TemporaryDirectory(prefix='outshine-texture-',dir='/tmp') as directory:
         path=Path(directory)/'source.png';path.write_bytes(rgb.encoded)
         captured=source.texture(path);path.unlink()
         assert captured.textures[0].encoded==rgb.encoded and captured.textures[0].metadata==rgb.metadata
@@ -59,8 +59,11 @@ def controls():
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/texture-verification.json'))
-    args=parser.parse_args();record=revision()|dict(status='pass',controls=controls(),
+    parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args()
+    if not args.output.resolve().is_relative_to(Path('/tmp').resolve()):
+        parser.error('--output must be inside /tmp')
+    record=revision()|dict(status='pass',controls=controls(),
         limits='Resource capture only; procedural production recipes, projection, renderer binding and LOD filtering remain open.')
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(record,indent=2)+'\n');print(json.dumps(record['controls']))

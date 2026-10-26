@@ -1,0 +1,58 @@
+{
+  "source": "actual selected ground facets of the verified 65-source Wiener resident world; source geometry unchanged",
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "resident_sha256": "c897308d7276fa4e0412355bbeca187f99f670e683747d89a517aa504fa2467a",
+  "parent_report_sha256": "b773ea3f614a3294c8b202faf1b5d807b44a690271737af39f815ca4dafe3f89",
+  "original_local_face_indices": [
+    297,
+    300
+  ],
+  "original_local_vertex_indices": [
+    361,
+    362,
+    364,
+    383
+  ],
+  "vertices_enu_m": [
+    [
+      -681.60693359375,
+      517.8330078125,
+      163.69377139634608
+    ],
+    [
+      -681.6064453125,
+      517.83203125,
+      163.69377139657485
+    ],
+    [
+      -679.27392578125,
+      519.291015625,
+      163.69376504671214
+    ],
+    [
+      -677.5927407859782,
+      520.3441369048526,
+      163.6937604682582
+    ]
+  ],
+  "triangles": [
+    [
+      0,
+      1,
+      2
+    ],
+    [
+      3,
+      0,
+      2
+    ]
+  ],
+  "query_xy_m": [
+    [
+      -681.6068139552688,
+      517.8330826538654
+    ]
+  ],
+  "xy_tolerance_m": 1e-07,
+  "expected_height_m": 163.69377139602037
+}

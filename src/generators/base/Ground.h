@@ -4,13 +4,13 @@
 #include <memory>
 #include <optional>
 
-#include "math/Vec3.h"
-#include "ClassStructure.h"
+#include "Vec3.h"
+#include "TerrainClassificationMap.h"
 #include "Cover.h"
 #include "FeatureField.h"
 #include "GroundPatch.h"
 #include "GroundTable.h"
-#include <generation/Generate.h>
+#include <Generator.h>
 
 #include "Tile.h"
 
@@ -20,7 +20,7 @@ class Ground {
 public:
   struct Snapshot {
     std::shared_ptr<const GroundPatch> Patch;
-    std::shared_ptr<const ClassStructure> Classes;
+    std::shared_ptr<const TerrainClassificationMap> Classes;
     std::shared_ptr<const FeatureField> Features;
     std::shared_ptr<const GroundTable> Table;
   };
@@ -56,7 +56,7 @@ private:
 
   Tile Region_;
   std::shared_ptr<const GroundPatch> Patch_;
-  std::shared_ptr<const ClassStructure> Classes_;
+  std::shared_ptr<const TerrainClassificationMap> Classes_;
   std::shared_ptr<const FeatureField> Features_;
   std::shared_ptr<const GroundTable> Table_;
   Vec3 AnchorEcef_;

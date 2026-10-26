@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_FLORA_LEAFOPTICSDEFAULTS_H
 
 #include "LeafOpticsTable.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 namespace outshine::Generators {
 [[nodiscard]] const LeafOpticsTable &DefaultLeafOptics();

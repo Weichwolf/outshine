@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
@@ -16,10 +17,10 @@ void CheckCrossings(int variant) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  outshine::Generators::GroundMaterialCatalog materials;
+  outshine::Generators::RegionSurfaceRecipes vegetation;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "crossings use production road classification");
   if (!vegetation.Ready()) { return; }
   const std::array<std::string, 1> layers{"streets"};
@@ -53,7 +54,8 @@ void CheckCrossings(int variant) {
     const auto &way = ways.Ways()[lane];
     CHECK(
         network
-            ->Lay(vectors.Points().subspan(2u * way.FirstPoint, 2u * way.PointCount), {.Tag = lane})
+            ->Lay(vectors.Points().subspan(size_t{2} * way.FirstPoint, size_t{2} * way.PointCount),
+                  {.Tag = lane})
             .has_value(),
         "the network retains the source-way association");
   }
@@ -61,7 +63,7 @@ void CheckCrossings(int variant) {
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,
                     .Field = [](EastNorth) -> std::optional<double> { return 0; }};
-  const std::shared_ptr<const ClassStructure> noClasses;
+  const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   const Generators::Corridors::Site site{.Vectors = &vectors,
@@ -72,6 +74,8 @@ void CheckCrossings(int variant) {
                                          .Standing = frame,
                                          .Draped = drape,
                                          .Classes = noClasses,
+                                         .WaterUpM = {},
+                                         .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .Projection = {.FocalPx = 800}};

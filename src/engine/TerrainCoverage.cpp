@@ -1,5 +1,5 @@
-#include "EngineHeld.h"
-#include "math/Units.h"
+#include "EngineState.h"
+#include "Units.h"
 
 #include <cmath>
 #include <string>
@@ -19,7 +19,7 @@ Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
   Around over;
   over.LatitudeDeg = focus.LatitudeDeg;
   over.LongitudeDeg = focus.LongitudeDeg;
-  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  over.Zoom = World.Stack.TerrainRenderZoom();
   {
     const double tileSpanM =
         40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);

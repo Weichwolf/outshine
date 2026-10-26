@@ -1,6 +1,6 @@
 #include "ImpostorBaker.h"
 
-#include "Compiled.h"
+#include "ExecutionPlan.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
 #include "Shape.h"
@@ -48,10 +48,11 @@ struct NativePiece {
   std::vector<uint32_t> Indices;
   std::vector<float> Tangents;
   std::vector<float> Colours;
+  std::vector<float> Uv1;
 };
 
-std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
-                                                            std::string &error) {
+std::optional<ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
+                                                   std::string &error) {
   const size_t count = readback.PixelCount;
   if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
       readback.Identity.size() != count * 4 || readback.Base.size() != count * 4 ||
@@ -59,7 +60,7 @@ std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback 
     error = Says::Readback;
     return std::nullopt;
   }
-  Content::ImpostorAtlas::View view;
+  ImpostorAtlas::View view;
   view.Texels.resize(count);
   view.Materials.resize(count);
   for (size_t pixel = 0; pixel < count; ++pixel) {
@@ -86,11 +87,13 @@ std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback 
 
 std::optional<NativePiece> BuildPiece(const ShapePart &part,
                                       std::span<const uint32_t> indices,
-                                      bool mapped,
+                                      const Material &material,
                                       std::string &error) {
   if (part.PositionsM.size() != part.VertexCount * 3 ||
       part.Normals.size() != part.VertexCount * 3 ||
       (!part.Uv.empty() && part.Uv.size() != part.VertexCount * 2) ||
+      (material.Pattern == SurfacePattern::FacadeMetres &&
+       (part.Uv.size() != part.VertexCount * 2 || part.Uv1.size() != part.VertexCount * 2)) ||
       part.FirstIndex > indices.size() || part.IndexCount > indices.size() - part.FirstIndex) {
     error = Says::Geometry;
     return std::nullopt;
@@ -113,8 +116,13 @@ std::optional<NativePiece> BuildPiece(const ShapePart &part,
     }
     index -= static_cast<uint32_t>(part.FirstVertex);
   }
-  if (mapped) { piece.Tangents.assign(part.Tangents.begin(), part.Tangents.end()); }
+  if (material.NormalMap.bound()) {
+    piece.Tangents.assign(part.Tangents.begin(), part.Tangents.end());
+  }
   piece.Colours.assign(part.Colours.begin(), part.Colours.end());
+  if (material.Pattern == SurfacePattern::FacadeMetres) {
+    piece.Uv1.assign(part.Uv1.begin(), part.Uv1.end());
+  }
   return piece;
 }
 
@@ -181,13 +189,14 @@ bool InstallSource(SceneRenderer &renderer,
       return false;
     }
     const Material &material = shaped->Surfaces[static_cast<size_t>(part.Material)];
-    auto native = BuildPiece(part, shaped->Indices, material.NormalMap.bound(), error);
+    auto native = BuildPiece(part, shaped->Indices, material, error);
     if (!native) { return false; }
     PieceMesh piece;
     piece.Verts = native->Vertices;
     piece.Indices = native->Indices;
     piece.Tangents = native->Tangents;
     piece.Colours = native->Colours;
+    piece.Uv1 = native->Uv1;
     piece.Instances = source.Instances;
     piece.MaxInstances = static_cast<uint32_t>(source.Instances.size());
     piece.Surface = PieceSurface::Registered(*firstSurface + static_cast<uint32_t>(part.Material));
@@ -200,14 +209,13 @@ bool InstallSource(SceneRenderer &renderer,
   return true;
 }
 
-std::optional<std::vector<Content::ImpostorAtlas::View>>
-CaptureViews(SceneRenderer &renderer,
-             const Vec3 &centre,
-             double halfExtent,
-             Content::ImpostorAtlasShape shape,
-             size_t materialCount,
-             std::string &error) {
-  std::vector<Content::ImpostorAtlas::View> views;
+std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &renderer,
+                                                             const Vec3 &centre,
+                                                             double halfExtent,
+                                                             ImpostorAtlasShape shape,
+                                                             size_t materialCount,
+                                                             std::string &error) {
+  std::vector<ImpostorAtlas::View> views;
   views.reserve(shape.Views);
   std::vector<float> depth;
   std::vector<float> normal;
@@ -281,9 +289,8 @@ CaptureViews(SceneRenderer &renderer,
 
 }
 
-std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture capture,
-                                                          Content::ImpostorAtlasShape shape,
-                                                          std::string &error) {
+std::optional<ImpostorAtlas>
+ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
       static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels) * shape.Views >
           kMostAtlasTexels) {
@@ -306,8 +313,8 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
                            Resource::SceneSurfaceIdentity,
                            Resource::SceneSurfaceBase,
                            Resource::SceneSurfaceMetalRough};
-  specification.Content = {Stage::Subjects};
-  auto plan = Compiled::Compile(specification);
+  specification.Content = {Stage::OpaqueGeometry};
+  auto plan = ExecutionPlan::Compile(specification);
   if (!plan) {
     error = std::move(plan.error());
     return std::nullopt;
@@ -324,7 +331,7 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
   }
   auto views = CaptureViews(renderer, centre, halfExtent, shape, surfaces.size(), error);
   if (!views) { return std::nullopt; }
-  return Content::ImpostorAtlas::Create(
+  return ImpostorAtlas::Create(
       shape.Pixels, centre, halfExtent, std::move(surfaces), std::move(*views), error);
 }
 

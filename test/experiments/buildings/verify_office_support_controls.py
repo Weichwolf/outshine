@@ -1,11 +1,13 @@
 """Counterexamples for whole support polygons, retained apertures and rigid frame changes."""
 
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import shapely
 from building_layout import rectangle
 from office_support_geometry import MAX_CANDIDATES, candidates, split
+from office_support_plan import support_step
 from outshine_ref.buildings.interiors import layout
 from room_programme import BASIN, TEA, WC
 from shapely.affinity import rotate, translate
@@ -30,6 +32,36 @@ def fixture():
 
 
 class SupportControls(unittest.TestCase):
+    def test_failed_door_geometry_still_respects_the_partition_trial_capacity(self):
+        states = [
+            {"plan": fixture(), "ids": ["hall", "parent"], "records": [], "score": 0.0}
+        ]
+        proposals = [
+            {"host": 1, "candidate": i, "score": float(i), "kind": "tea"}
+            for i in range(30)
+        ]
+
+        def applied(current, identifiers, candidate):
+            return (
+                {"rooms": [shapely.box(0, 0, candidate["candidate"] + 1, 2)]},
+                identifiers,
+                {"kind": "tea"},
+            )
+
+        rejected = []
+        with (
+            patch("office_support_plan.candidates", return_value=(proposals, [])),
+            patch("office_support_plan.apply_candidate", side_effect=applied),
+            patch(
+                "door_furnishing.fit",
+                side_effect=ValueError("No valid room-side portal anchor"),
+            ) as fit,
+        ):
+            result = support_step(states, "tea", "wall-ends", 0, rejected, True)
+        self.assertEqual(fit.call_count, 24)
+        self.assertEqual(len(rejected), 24)
+        self.assertIs(result, states)
+
     def test_compact_support_fits_full_functions_beside_reserved_door_approach(self):
         room = shapely.box(0.0, 0.0, 1.68, 3.54)
         approach = shapely.LineString([(0.84, -0.06), (0.84, 0.49)]).buffer(

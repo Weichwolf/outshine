@@ -1,8 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
-#include <scene/ProjectedErrorBudget.h>
-#include <array>
+#include <ProjectedErrorBudget.h>
 #include <expected>
 #include <functional>
 #include <cstdint>
@@ -14,14 +13,14 @@
 #include <vector>
 #include <unordered_map>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include "HeightField.h"
 #include "OsmStructurePreparation.h"
 #include "SurfacePreparation.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
-#include "StructureSourcePreparation.h"
+#include "StructureCellAssembly.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
 
@@ -31,7 +30,6 @@ class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
-  enum class CellSourceState : uint8_t { Current, Unknown, Stale, ScopeChanged, Pending };
   enum class BuildPurpose : uint8_t { ViewDetail, SourceGeometry };
 
   struct HeightSourceRevision {
@@ -125,12 +123,7 @@ public:
   struct HeightSource {
     std::function<std::optional<double>(LongitudeLatitude)> Sample;
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinField;
-    std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
-    std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinResidentField = nullptr;
     HeightSourceRevision Revision;
-    std::function<std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>(
-        std::span<const Ground::TileSpot>, size_t)>
-        CaptureFields = nullptr;
   };
 
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
@@ -143,45 +136,16 @@ public:
                              BuildPurpose purpose = BuildPurpose::ViewDetail,
                              const std::function<bool(uint32_t)> &cellReady = {});
 
-  struct CellRequest {
-    uint32_t Tile = 0;
-    uint32_t Cell = 0;
-    LevelOfDetail Detail = LevelOfDetail::Massed;
-    uint64_t SourceKey = 0;
-  };
-
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile);
-  [[nodiscard]] static CellSourceState
-  InspectCellSource(const Ground::SurfacePreparation &stack,
-                    const ::outshine::Generators::Osm::BuildingField &footprints,
-                    const HeightSource &heightAt,
-                    uint32_t tile,
-                    uint64_t sourceKey);
-  [[nodiscard]] static bool
-  ValidateResidentCellSource(const Ground::SurfacePreparation &stack,
-                             const ::outshine::Generators::Osm::BuildingField &footprints,
-                             const HeightSource &heightAt,
-                             uint32_t tile,
-                             uint64_t sourceKey);
-  [[nodiscard]] bool PostsCell(Ground::SurfacePreparation &stack,
-                               ::outshine::Generators::Osm::BuildingField &footprints,
-                               LongitudeLatitude eye,
-                               const HeightSource &heightAt,
-                               CellRequest request);
-
-  [[nodiscard]] std::expected<size_t, std::string>
-  PostsCells(Ground::SurfacePreparation &stack,
-             ::outshine::Generators::Osm::BuildingField &footprints,
-             LongitudeLatitude eye,
-             const HeightSource &heightAt,
-             std::span<const CellRequest> requests);
 
   struct Landing {
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
     uint64_t SourceKey = 0;
+    uint64_t InitialCells = 0;
+    bool SourceComplete = true;
     std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
   };
 
@@ -194,11 +158,6 @@ public:
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
                BuildPurpose purpose = BuildPurpose::ViewDetail);
-  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
-  NextCellLanding(const Ground::SurfacePreparation &stack,
-                  const ::outshine::Generators::Osm::BuildingField &footprints,
-                  const HeightSource &heightAt);
-  void CommitsCellLanding(const Landing &landing) noexcept;
   void ResumeCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
@@ -208,12 +167,6 @@ public:
     return Queue_.size() + PendingBasisLookups() +
            static_cast<size_t>(OriginalPreparation_ && OriginalPreparation_->Running());
   }
-
-  [[nodiscard]] size_t QueuedCells() const;
-
-  [[nodiscard]] size_t FastCellValidations() const noexcept { return FastCellValidations_; }
-
-  [[nodiscard]] bool CellQueued(CellRequest request) const noexcept;
 
   [[nodiscard]] bool Complete(const Ground::SurfacePreparation &stack,
                               const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -270,19 +223,15 @@ public:
     if (OriginalPreparation_ && OriginalPreparation_->Running()) {
       return OriginalPreparation_->AwaitSlice(seconds);
     }
-    for (const auto &batch : PreparedCells_) {
-      if (batch && batch->Preparation->Running()) { return Pool_->AwaitCompletion(seconds); }
-    }
     for (const QueuedBuild &build : Queue_) {
-      if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
-    }
-    for (const QueuedBuild &build : CellQueue_) {
       if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
     }
     return false;
   }
 
 private:
+  [[nodiscard]] bool
+  HasPendingSourceChanges(const ::outshine::Generators::Osm::BuildingField &footprints) const;
   [[nodiscard]] size_t PostsVectors(Ground::SurfacePreparation &stack,
                                     ::outshine::Generators::Osm::BuildingField &prints,
                                     LongitudeLatitude eye,
@@ -306,11 +255,11 @@ private:
     StructureBuildTask Task;
     uint64_t StreetDigest = 0;
     uint64_t SourceKey = 0;
-    uint32_t Cell = 0;
     size_t BakedStructures = 0;
     size_t Tasks = 0;
     bool Finished = false;
     bool Replacement = false;
+    std::optional<StructureCellAssembly> InitialCells = std::nullopt;
     std::shared_ptr<const void> ReservationOwner = nullptr;
   };
 
@@ -357,13 +306,16 @@ private:
   [[nodiscard]] std::vector<Landing>
   PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
                   const ::outshine::Generators::Osm::OsmField *vectors,
-                  size_t count,
-                  size_t printCount,
-                  size_t spreadCount,
-                  size_t acrossCount);
+                  size_t count);
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
+  static void CollectInitialCell(QueuedBuild &bake);
+  [[nodiscard]] static ::outshine::Generators::Osm::BuildingField::Baked
+  ContactMetadata(const QueuedBuild &bake) noexcept;
+  static void CommitFootprints(QueuedBuild &bake,
+                               Landing &landing,
+                               ::outshine::Generators::Osm::BuildingField &footprints) noexcept;
 
   template <typename T>
   [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {
@@ -397,13 +349,6 @@ private:
                     std::optional<LevelOfDetail> detail,
                     BuildPurpose purpose);
 
-  struct PinnedCellHeight {
-    uint32_t Tile = 0;
-    uint64_t SourceKey = 0;
-    HeightSourceRevision Revision;
-    std::shared_ptr<const Ground::HeightField> Heights;
-  };
-
   struct PendingVectorHeights {
     uint32_t Tile = 0;
     uint64_t Generation = 0;
@@ -420,42 +365,6 @@ private:
                                           VectorSelection &selected,
                                           double &durationMs);
 
-  struct PreparedCells {
-    ::outshine::Generators::Osm::BuildingField::AcceptedInput Receipt;
-    std::array<CellRequest, 8> Requests{};
-    size_t Count = 0;
-    size_t Next = 0;
-    uint64_t Generation = 0;
-    HeightSourceRevision Revision;
-    LongitudeLatitude Eye;
-    std::unique_ptr<StructureSourcePreparation> Preparation;
-    bool Revoked = false;
-  };
-
-  [[nodiscard]] std::expected<void, Generators::StructureBakeError>
-  AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
-                      const Ground::SurfacePreparation &stack,
-                      const ::outshine::Generators::Osm::BuildingField &footprints,
-                      const HeightSource &heightAt);
-  [[nodiscard]] bool
-  ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
-                            const ::outshine::Generators::Osm::BuildingField &footprints,
-                            const HeightSource &heightAt,
-                            const QueuedBuild &bake);
-  void RetireCellBuilds(BuildPurpose purpose);
-  [[nodiscard]] std::expected<void, Generators::StructureBakeError>
-  AdvancePreparedCells(const Ground::SurfacePreparation &stack,
-                       const ::outshine::Generators::Osm::BuildingField &footprints,
-                       const HeightSource &heightAt);
-  [[nodiscard]] bool PostPreparedCell(const Ground::SurfacePreparation &stack,
-                                      const ::outshine::Generators::Osm::BuildingField &footprints,
-                                      LongitudeLatitude eye,
-                                      const HeightSource &heightAt,
-                                      CellRequest request,
-                                      std::shared_ptr<const Ground::HeightField> heights,
-                                      std::shared_ptr<const void> owner);
-
-  std::array<std::shared_ptr<PreparedCells>, kCandidateWindow> PreparedCells_{};
   Tasks *Pool_ = nullptr;
   std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation_;
   std::vector<std::shared_ptr<const void>> PreparingOriginals_;
@@ -472,13 +381,10 @@ private:
   std::deque<QueuedBuild> Queue_;
   std::unordered_map<std::string, std::unique_ptr<NativeLookup>> NativeLookups_;
   std::optional<Generators::StructureBakeError> NativeFailure_;
-  std::deque<QueuedBuild> CellQueue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
-  std::optional<PinnedCellHeight> PinnedCellHeight_;
   std::optional<PendingVectorHeights> PendingVectorHeights_;
-  size_t FastCellValidations_ = 0;
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;

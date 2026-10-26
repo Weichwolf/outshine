@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-#include <scenario/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 
@@ -18,6 +18,8 @@ public:
   Stand(std::span<const Scenario::View> declared, std::string_view starting);
 
   [[nodiscard]] bool Take(std::string_view id);
+
+  [[nodiscard]] std::expected<void, CameraMatrixError> SetCameraPose(const Camera &pose) noexcept;
 
   [[nodiscard]] const Scenario::View &Active() const noexcept { return Held_[Active_]; }
 

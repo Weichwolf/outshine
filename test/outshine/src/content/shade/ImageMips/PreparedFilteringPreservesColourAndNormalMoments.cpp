@@ -1,8 +1,11 @@
 #include "Check.h"
-#include "shade/ImageMips.h"
+#include "ImageMips.h"
 #include "math/Srgb.h"
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
+#include <span>
 #include <vector>
 
 using namespace outshine;

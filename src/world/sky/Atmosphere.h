@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-#include "math/Vec3.h"
+#include "Vec3.h"
 #include <numbers>
 #include <cmath>
 #include <cstddef>
@@ -370,22 +370,46 @@ template <typename ToSun, typename Psi>
   return irradiance;
 }
 
-[[nodiscard]] inline Vec3f MediumTransmittance(const Medium &medium, MediumLook look, int steps) {
+[[nodiscard]] inline Vec3f
+MediumTransmittanceOver(const Medium &medium, MediumLook look, float span, int steps) {
   const float radiusKm = look.RadiusKm;
   const float cosZenith = look.CosZenith;
-  const float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
-  const float toTop = mediumTopReach(medium, radiusKm, cosZenith);
-  const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
-
+  if (steps <= 0 || span <= 0.0f) { return {1.0f, 1.0f, 1.0f}; }
+  const int cells = steps / 2;
+  float focus = 0.0f;
+  if (cells > 0 && cosZenith > 0.0f && medium.MieExtinctionPerKm > 0.0f) {
+    const Vec3f start = MediumExtinctionPerKm(medium, radiusKm - medium.BottomRadiusKm);
+    focus = medium_core::mediumSolarFocus(
+        medium, std::min({start[0], start[1], start[2]}), look, span / static_cast<float>(cells));
+  }
   Vec3 depth = {0.0, 0.0, 0.0};
-  const float stride = span / static_cast<float>(steps);
-  for (int step = 0; step < steps; ++step) {
-    const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
-
-    const Vec3f extinction =
-        MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along));
-    for (int channel = 0; channel < 3; ++channel) {
-      depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
+  if (focus == 0.0f) {
+    const float stride = span / static_cast<float>(steps);
+    for (int step = 0; step < steps; ++step) {
+      const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
+      const Vec3f extinction =
+          MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along));
+      for (int channel = 0; channel < 3; ++channel) {
+        depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
+      }
+    }
+  } else {
+    for (int cell = 0; cell < cells; ++cell) {
+      const float beginKm = medium_core::mediumSolarEdge(
+          span, static_cast<float>(cell) / static_cast<float>(cells), focus);
+      const float endKm = medium_core::mediumSolarEdge(
+          span, static_cast<float>(cell + 1) / static_cast<float>(cells), focus);
+      const float halfWidthKm = (endKm - beginKm) * 0.5f;
+      const float middleKm = (endKm + beginKm) * 0.5f;
+      const float offsetKm = halfWidthKm * std::numbers::inv_sqrt3_v<float>;
+      const Vec3f left = MediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm - offsetKm));
+      const Vec3f right = MediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm + offsetKm));
+      for (int channel = 0; channel < 3; ++channel) {
+        depth[channel] +=
+            static_cast<double>(left[channel] + right[channel]) * static_cast<double>(halfWidthKm);
+      }
     }
   }
   Vec3f out;
@@ -395,51 +419,20 @@ template <typename ToSun, typename Psi>
   return out;
 }
 
+[[nodiscard]] inline Vec3f
+MediumTransmittanceToTop(const Medium &medium, MediumLook look, int steps) {
+  return MediumTransmittanceOver(
+      medium, look, mediumTopReach(medium, look.RadiusKm, look.CosZenith), steps);
+}
+
+[[nodiscard]] inline Vec3f MediumTransmittance(const Medium &medium, MediumLook look, int steps) {
+  const float toGround = mediumGroundReach(medium, look.RadiusKm, look.CosZenith);
+  const float toTop = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
+  return MediumTransmittanceOver(
+      medium, look, toGround < 0.0f ? toTop : std::fmin(toTop, toGround), steps);
+}
+
 inline constexpr double kSolarIlluminanceLx = 133000.0;
-
-struct GroundLight {
-  Vec3f SunTransmittance;
-  Vec3f SkyIrradiance;
-};
-
-class GroundAtmosphere {
-public:
-  [[nodiscard]] GroundLight Evaluate(const Medium &medium, double cosSunZenith) const {
-    const auto cosine = static_cast<float>(cosSunZenith);
-    if (cosine != CachedCosine_ || !(medium == CachedMedium_)) {
-      const float radiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm;
-      const auto toSun = [&](MediumLook look) {
-        return MediumTransmittance(medium, look, kTransmittanceSteps);
-      };
-      const auto secondOrder = [&](MediumLook look) {
-        const MediumUv unit = {.U = look.CosZenith * 0.5f + 0.5f,
-                               .V = (look.RadiusKm - medium.BottomRadiusKm) /
-                                    (medium.TopRadiusKm - medium.BottomRadiusKm)};
-        const MultiScatterSample sample = MediumMultiScatterTexel(medium, unit, toSun);
-        Vec3f result;
-        for (int channel = 0; channel < 3; ++channel) {
-          result[channel] = sample.Luminance[channel] / (1.0f - sample.Transfer[channel]);
-        }
-        return result;
-      };
-      const MediumLook ground = {.RadiusKm = radiusKm, .CosZenith = cosine};
-      CachedLight_.SkyIrradiance = MediumSkyIrradiance(medium, ground, toSun, secondOrder);
-      CachedLight_.SunTransmittance = toSun(ground);
-      CachedCosine_ = cosine;
-      CachedMedium_ = medium;
-      ++Integrations_;
-    }
-    return CachedLight_;
-  }
-
-  [[nodiscard]] size_t Integrations() const noexcept { return Integrations_; }
-
-private:
-  mutable float CachedCosine_ = -2.0f;
-  mutable Medium CachedMedium_{};
-  mutable GroundLight CachedLight_{};
-  mutable size_t Integrations_ = 0;
-};
 
 }
 #endif

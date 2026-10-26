@@ -1,8 +1,8 @@
 #include <cmath>
 #include <numbers>
 #include <limits>
-#include "scene/Camera.h"
-#include <scene/UvTransform.h>
+#include "Camera.h"
+#include <UvTransform.h>
 #include "Check.h"
 #include "Lens.h"
 

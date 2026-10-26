@@ -1,0 +1,254 @@
+"""Exercise the production Vulkan archive on an explicitly declared device."""
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import re
+import shlex
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def run(command, log, *, environment=None, timeout=120):
+    result = subprocess.run(command, cwd=ROOT, env=environment, text=True,
+                            capture_output=True, timeout=timeout, check=False)
+    log.write(shlex.join(map(str, command)) + '\n')
+    log.write(result.stdout)
+    log.write(result.stderr)
+    log.write(f'Exit: {result.returncode}\n')
+    log.flush()
+    if result.returncode:
+        raise RuntimeError(f'native Vulkan command failed: {command[0]} (see {log.name})')
+    return result
+
+
+def verdict(result, log):
+    if result.stderr:
+        raise RuntimeError(f'native Vulkan probe reported diagnostics (see {log.name})')
+    rows = re.findall(r'^CHECKS (\d+) FAILURES (\d+) SKIPPED (\d+) '
+                      r'UNPREPARED (\d+) PARTIAL (\d+)$', result.stdout, re.MULTILINE)
+    if len(rows) != 1 or any(int(value) for value in rows[0][1:]):
+        raise RuntimeError(f'native Vulkan probe has an incomplete verdict (see {log.name})')
+    return int(rows[0][0])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--validation', action='store_true')
+    parser.add_argument('--present', action='store_true', help='also exercise actual SDL window presentation')
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--device-name', required=True, help='exact Vulkan physical device name')
+    args = parser.parse_args()
+    if platform.system() != 'Linux':
+        parser.error('the native Vulkan backend currently requires Linux')
+    validation = os.environ.get('VULKAN_VALIDATION', '')
+    if validation not in ('', '0', '1'):
+        parser.error('VULKAN_VALIDATION must be 0 or 1')
+    args.validation = args.validation or validation == '1'
+    output = args.output.resolve()
+    if output.is_relative_to(ROOT):
+        parser.error('private outputs belong in the system temporary directory')
+    archive = ROOT / 'build/liboutshine.a'
+    if not archive.is_file():
+        parser.error('build the production archive first with make all')
+    output.mkdir(parents=True, exist_ok=True)
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True))
+    log_path = output / 'run.log'
+    with log_path.open('w') as log:
+        glslang = shlex.split(os.environ.get('GLSLANG', 'glslangValidator'))
+        flags = shlex.split(run(
+            ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared', 'sdl3'], log).stdout)
+        flags += shlex.split(run(['sh', 'test/run.sh', '--native-link-flags'], log).stdout)
+        run(['make', 'db'], log)
+        database = json.loads((ROOT / 'compile_commands.json').read_text())
+        stage = next(item for item in database if Path(item['file']).name == 'StagePipelines.cpp')
+        arguments = stage.get('arguments') or shlex.split(stage['command'])
+        compiler = arguments[:1]
+        toolchain = []
+        operands = iter(arguments[1:])
+        for argument in operands:
+            if argument == '-o':
+                next(operands)
+            elif argument not in ('-c', stage['file']):
+                toolchain.append(argument)
+        selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
+        native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
+        members = run(['ar', 't', str(archive)], log).stdout.splitlines()
+        for unit in native:
+            prefix = str(unit.relative_to(ROOT).with_suffix('')).replace('/', '-') + '.'
+            if sum(member.startswith(prefix) for member in members) != 1:
+                raise RuntimeError(f'archive does not contain exactly one selected object for {unit}')
+        sources = [ROOT / 'src/render/shaders/geometryScan.comp',
+                   ROOT / 'src/render/shaders/geometryCompact.comp',
+                   Path(__file__).with_name('native_texture.comp'),
+                   ROOT / 'src/render/shaders/depthPyramid.comp',
+                   ROOT / 'src/render/shaders/fullscreen.vert',
+                   Path(__file__).with_name('native_metal_mrt.frag'),
+                   ROOT / 'src/render/shaders/present.frag',
+                   Path(__file__).with_name('native_buffer_lengths.comp'),
+                   Path(__file__).with_name('native_draw_transitions.vert'),
+                   Path(__file__).with_name('native_draw_transitions.frag'),
+                   Path(__file__).with_name('native_draw_indirect.comp'),
+                   Path(__file__).with_name('native_draw.vert'),
+                   Path(__file__).with_name('native_draw.frag')]
+        if args.present:
+            sources += [Path(__file__).with_name('native_present.frag'),
+                        Path(__file__).with_name('native_vulkan_present.frag'),
+                        Path(__file__).with_name('native_target_delay.comp')]
+        else:
+            sources.append(Path(__file__).with_name('native_target_delay.comp'))
+        sources.append(ROOT / 'src/render/shaders/presentUnorm.frag')
+        sources += [Path(__file__).with_name('native_timing.comp'),
+                    Path(__file__).with_name('native_timing_empty.comp')]
+        sources += [Path(__file__).with_name('native_descriptors.' + stage)
+                    for stage in ('vert', 'frag', 'comp')]
+        if not args.present:
+            sources.append(Path(__file__).with_name('native_present.frag'))
+        sources += [Path(__file__).with_name('native_depth_clamp.' + stage)
+                    for stage in ('vert', 'frag')]
+        sources += [Path(__file__).with_name('native_binding_' + kind + '.frag')
+                    for kind in ('storage', 'uniform', 'texture')]
+        shaders = []
+        for source in sources:
+            shader = output / (source.name + '.spv')
+            run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
+                 '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', str(source), '-o', str(shader)], log)
+            shaders.append(shader)
+        write_shader = output / 'native_graphics_write.frag.spv'
+        run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
+             '-DNATIVE_GRAPHICS_WRITE=1', str(Path(__file__).with_name('native_metal_mrt.frag')),
+             '-o', str(write_shader)], log)
+        shaders.append(write_shader)
+        consumers = [ROOT / 'test/harness/render' / name for name in
+                     ('NativeVulkanProbe.cpp', 'NativeTextureProbe.cpp',
+                      'NativeTextureLifetimeProbe.cpp', 'NativeRasterProbe.cpp',
+                      'NativeRenderPassProbe.cpp', 'NativeMrtDrawProbe.cpp', 'NativeDrawTransitionsProbe.cpp',
+                      'NativeDrawProbe.cpp', 'NativeMrtProbe.cpp')]
+        if args.present:
+            consumers += [ROOT / 'test/harness/render/NativePresentProbe.cpp',
+                          ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
+                          ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
+        consumers.append(ROOT / 'test/harness/render/NativeTimingProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeReadbackProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeSdrTransferProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeDescriptorProbe.cpp')
+        consumers += [ROOT / 'test/harness/render' / name
+                      for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
+        consumers.append(ROOT / 'test/harness/render/NativeDepthClampProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeBindingTransitionsProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeImageReadScopeProbe.cpp')
+        binaries = []
+        for source in consumers:
+            binary = output / source.stem
+            run(['nice', '-n', '10', *compiler, *toolchain, '-I.',
+                 '-Isrc/render/device/native', '-Itest/harness/shared', str(source),
+                 str(archive), *flags, '-o', str(binary)], log)
+            binaries.append(binary)
+        environment = os.environ.copy()
+        suffix = ['--validation'] if args.validation else []
+        if args.validation:
+            environment['VK_VALIDATION_VALIDATE_SYNC'] = '1'
+            environment['VK_VALIDATION_SYNCVAL_SHADER_ACCESSES_HEURISTIC'] = '1'
+        result = run([str(binaries[0]), *map(str, shaders[:2]), args.device_name, *suffix], log,
+                     environment=environment, timeout=20)
+        if result.stderr:
+            raise RuntimeError(f'native Vulkan probe reported diagnostics (see {log.name})')
+        report = json.loads(result.stdout)
+        report['validation_environment'] = {
+            name: environment[name] for name in
+            ('VK_VALIDATION_VALIDATE_SYNC', 'VK_VALIDATION_SYNCVAL_SHADER_ACCESSES_HEURISTIC')
+            if args.validation}
+        report['texture_checks'] = verdict(run(
+            [str(binaries[1]), *map(str, shaders[2:4]), *suffix], log,
+            environment=environment, timeout=25), log)
+        report['texture_lifetime_checks'] = verdict(run(
+            [str(binaries[2]), str(shaders[2]), *suffix], log,
+            environment=environment, timeout=25), log)
+        raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6, len(shaders) - 1]),
+                       ('render_pass_checks', 4, [7]),
+                       ('mrt_draw_checks', 5, [4, 5]),
+                       ('draw_transition_checks', 6, [8, 9, 10]),
+                       ('draw_checks', 7, [11, 12]),
+                       ('mrt_hiz_checks', 8, [4, 5, 3])]
+        for key, binary, indices in raster_jobs:
+            report[key] = verdict(run(
+                [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
+                log, environment=environment, timeout=25), log)
+        report['image_read_scope_checks'] = verdict(run(
+            [str(output / 'NativeImageReadScopeProbe')], log,
+            environment=environment, timeout=20), log)
+        report['binding_transition_checks'] = verdict(run(
+            [str(output / 'NativeBindingTransitionsProbe'),
+             str(output / 'fullscreen.vert.spv'),
+             *(str(output / ('native_binding_' + kind + '.frag.spv'))
+               for kind in ('storage', 'uniform', 'texture')), *suffix],
+            log, environment=environment, timeout=25), log)
+        report['dispatch_timing_checks'] = verdict(run(
+            [str(output / 'NativeTimingProbe'), str(output / 'native_timing.comp.spv'),
+             str(output / 'native_timing_empty.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['native_readback_checks'] = verdict(run(
+            [str(output / 'NativeReadbackProbe'), str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['sdr_transfer_checks'] = verdict(run(
+            [str(output / 'NativeSdrTransferProbe')], log,
+            environment=environment, timeout=30), log)
+        report['descriptor_checks'] = verdict(run(
+            [str(output / 'NativeDescriptorProbe'),
+             *(str(output / ('native_descriptors.' + stage + '.spv'))
+               for stage in ('vert', 'frag', 'comp')), *suffix], log,
+            environment=environment, timeout=60), log)
+        model = Path(__file__).with_name('descriptor_work.py')
+        trace = ROOT / 'test/outshine/data/render/husum-shadow-bindings.json'
+        run(['python3', str(model), '--input', str(trace),
+             '--output', str(output / 'descriptor-work.json')], log)
+        report['submission_timing_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionTimingProbe'),
+             str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['submission_scope_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionScopeProbe'), str(output / 'fullscreen.vert.spv'),
+             str(output / 'native_present.frag.spv'), str(output / 'submission-scope.ppm')], log,
+            environment=environment, timeout=30), log)
+        report['gpu_timing'] = 'opt-in native submission and dispatch timestamps'
+        report['depth_clamp_checks'] = verdict(run(
+            [str(output / 'NativeDepthClampProbe'), str(output / 'native_depth_clamp.vert.spv'),
+             str(output / 'native_depth_clamp.frag.spv'), str(output / 'depth-clamp')], log,
+            environment=environment, timeout=30), log)
+        if args.present:
+            report['present_checks'] = verdict(run(
+                [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,
+                environment=environment, timeout=30), log)
+            report['vulkan_wsi_checks'] = verdict(run(
+                [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm'),
+                 args.device_name],
+                log, environment=environment, timeout=30), log)
+        if args.present:
+            report['present_target_checks'] = verdict(run(
+                [str(binaries[11]), str(shaders[4]), str(shaders[13]), str(shaders[15])],
+                log, environment=environment, timeout=45), log)
+        report.update(commit=commit, dirty=dirty, log=str(log_path),
+                      expected_device_name=args.device_name,
+                      archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
+                      native_archive_objects=len(native))
+        headers = list((ROOT / 'src/render/device/native').glob('*.h'))
+        headers += list((ROOT / 'src/render/device/native/vulkan').glob('*.h'))
+        headers.append(ROOT / 'test/harness/render/NativeSdr.h')
+        report['sources'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                             for path in [*native, *headers, *consumers, *sources, Path(__file__),
+                                          ROOT / 'src/render/stages/StagePipelines.cpp',
+                                          ROOT / 'src/render/stages/StagePipelines.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.cpp',
+                                          model, trace, ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
+        (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps({key: value for key, value in report.items() if key != 'sources'}))
+
+
+if __name__ == '__main__':
+    main()

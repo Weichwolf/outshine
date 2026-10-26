@@ -9,11 +9,13 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from camera_height_display import window_heights
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import close_surface
 from PIL import Image
 from port_height_library_comparison import load
 from port_plane_fixture import load_reference
+from rail_place_display import append_hardware
 from transport_place_inputs import place_camera, plan_vertices
 
 HERE = Path(__file__).resolve().parent
@@ -36,7 +38,7 @@ def pinned(path, release, pins):
     return path
 
 
-def flat_model(name, release, pins, datum, camera_products=None):
+def flat_model(name, release, pins, datum, camera_products=None, height_products=None):
     if camera_products is None:
         base = release / "geometry/components"
     else:
@@ -51,14 +53,32 @@ def flat_model(name, release, pins, datum, camera_products=None):
     for index in range(report["products"]):
         path = pinned(directory / f"product-{index}.npz", release, pins)
         with np.load(path) as data:
+            heights = np.full(len(data["vertices"]), datum)
+            height_proof = None
+            if height_products is not None:
+                if camera_products is None or report["products"] != 1:
+                    raise ValueError(
+                        "height result requires one captured camera product"
+                    )
+                heights, height_proof = window_heights(
+                    height_products,
+                    name,
+                    data["vertices"],
+                    data["indices"],
+                    digest(path),
+                    digest(camera_products / "generation.json"),
+                    datum,
+                )
             top = Mesh(
-                np.c_[data["vertices"], np.full(len(data["vertices"]), datum)],
+                np.c_[data["vertices"], heights],
                 data["indices"],
             )
             slots = data["part_roles"][data["face_owners"]]
         meshes.append(top)
         colours.append(slots)
-        sources.append({"path": str(path), "sha256": digest(path)})
+        sources.append(
+            {"path": str(path), "sha256": digest(path), "height_product": height_proof}
+        )
     offsets = np.cumsum([0] + [len(m.vertices) for m in meshes])
     mesh = Mesh(
         np.vstack([m.vertices for m in meshes]),
@@ -74,6 +94,13 @@ def flat_model(name, release, pins, datum, camera_products=None):
         "recipe": "Accepted flat recipe rigidly placed at the coarse DEM height of its captured local origin. No terrain fit, bank, tier or drivable-turn claim.",
         "flat_datum_m": datum,
     }
+    if height_products is not None:
+        proof["recipe"] = (
+            "Experimental shared coarse DEM fit on unchanged XY/topology, with whole "
+            "verified rail-support facets fixed at the reference datum. Per-product "
+            "proof declares valid fit or original-flat fallback. No C1/tier/traffic claim."
+        )
+        proof["reference_flat_datum_m"] = proof.pop("flat_datum_m")
     return mesh, np.concatenate(colours), proof
 
 
@@ -160,6 +187,7 @@ def prepare(args):
                     pins,
                     camera_proof["local_flat_datum_m"],
                     args.camera_products,
+                    args.height_products,
                 )
                 top, slots, overlap = append_camera_window(top, slots, near, near_slots)
                 model_proof.update(
@@ -174,6 +202,7 @@ def prepare(args):
                 pins,
                 camera_proof["local_flat_datum_m"],
                 args.camera_products,
+                args.height_products,
             )
             if name in retained:
                 old_pins = json.loads((args.flat_release / "sha256.json").read_text())
@@ -192,6 +221,17 @@ def prepare(args):
         body = close_surface(top, 0.25)
         materials = np.full(len(body.triangles), 2, int)
         materials[: len(top.triangles)] = slots
+        if args.rail_products is not None:
+            body, materials, rail_proof = append_hardware(
+                body,
+                materials,
+                args.rail_products,
+                name,
+                original["origin_lat_lon"],
+                camera_proof["local_flat_datum_m"],
+                digest(args.camera_products / "generation.json"),
+            )
+            model_proof["rail_hardware"] = rail_proof
         path = args.output / (name + ".npz")
         np.savez_compressed(
             path,
@@ -231,12 +271,20 @@ def main():
     parser.add_argument("--flat-release", type=Path)
     parser.add_argument("--port-plan", type=Path, required=True)
     parser.add_argument("--camera-products", type=Path)
+    parser.add_argument("--rail-products", type=Path)
+    parser.add_argument("--height-products", type=Path)
     parser.add_argument("--elevation-inventory", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
     if args.flat_release is None and args.camera_products is None:
         parser.error("--camera-products or --flat-release required")
+    if args.rail_products is not None and args.camera_products is None:
+        parser.error("--rail-products requires its captured --camera-products")
+    if args.height_products is not None and (
+        args.camera_products is None or args.rail_products is None
+    ):
+        parser.error("--height-products requires its captured camera and rail products")
     began = time.monotonic()
     scene = prepare(args)
     if args.build_only:

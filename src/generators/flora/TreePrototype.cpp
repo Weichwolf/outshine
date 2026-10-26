@@ -1,7 +1,7 @@
 #include "math/Srgb.h"
-#include "math/Units.h"
+#include "Units.h"
 #include "TreePrototype.h"
-#include "math/Vec3.h"
+#include "Vec3.h"
 
 #include <algorithm>
 #include <span>

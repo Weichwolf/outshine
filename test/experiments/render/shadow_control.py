@@ -20,9 +20,9 @@ def main():
     shutil.copytree(ROOT/'build/shaders', shaders, dirs_exist_ok=True)
     source = output/'shader-source'
     source.mkdir(exist_ok=True)
-    for name in ['groundLit.glsl', 'subjectLighting.glsl']:
+    for name in ['groundLit.glsl', 'surfaceLighting.glsl']:
         shutil.copyfile(ROOT/'src/render/shaders'/name, source/name)
-    lighting = source/'subjectLighting.glsl'
+    lighting = source/'surfaceLighting.glsl'
     text = lighting.read_text()
     if mode == 'disabled':
         original = 'attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);'
@@ -39,9 +39,9 @@ def main():
     for artifact in sorted(shaders.glob('groundLit-*.frag.spv')):
         variant = artifact.name.removeprefix('groundLit-').removesuffix('.frag.spv')
         layout = variant.ljust(5, '0')
-        definitions = ['SUBJECT_WRITES_VELOCITY', 'SUBJECT_NORMAL_LOCATION',
-                       'SUBJECT_IDENTITY_LOCATION', 'SUBJECT_BASE_LOCATION',
-                       'SUBJECT_METALROUGH_LOCATION']
+        definitions = ['SURFACE_WRITES_VELOCITY', 'SURFACE_NORMAL_LOCATION',
+                       'SURFACE_IDENTITY_LOCATION', 'SURFACE_BASE_LOCATION',
+                       'SURFACE_METALROUGH_LOCATION']
         command = [str(compiler), '-V', '--target-env', 'vulkan1.0', '-S', 'frag',
                    '-I'+str(ROOT/'src'), '-I'+str(ROOT/'src/content/shade'),
                    '-I'+str(ROOT/'src/render/shaders'), '-I'+str(ROOT/'build/shaders')]
@@ -50,7 +50,7 @@ def main():
         subprocess.run(command, cwd=output, check=True, capture_output=True, timeout=30)
     control = ROOT/'build/experiments/render/ground-detail/GroundGrains.scenario'
     log = Path(os.environ.get('TMPDIR', '/tmp'))/'outshine-ground-shadow-control.log'
-    command = [str(ROOT/'build/outshine-client'), 'measures', '--offline', '--quality',
+    command = [str(ROOT/'build/outshine'), 'measures', '--offline', '--quality',
                'refined', '--view', 'station', '--at-seconds', '0', '--into', 'terrain-contact',
                str(control), 'GroundShadowControl']
     with log.open('w') as stream:

@@ -1,0 +1,11 @@
+{
+  "schema": "outshine-needle-area-heldout-v1",
+  "views": [[0.37, -0.81, 0.45], [-0.62, 0.41, 0.67], [0.2, 0.9, -0.39]],
+  "world_lights": [[-0.71, 0.19, 0.68], [0.28, -0.91, -0.31], [0, 0, 1], [0, 0, -1]],
+  "native_size": 16,
+  "orders": [2, 4],
+  "refinement_order": 6,
+  "central_bias_m": 0.000002,
+  "probe_biases_m": [0.0000002, 0.00002],
+  "selection": "maximum absolute q2-q4 difference over every coverage/direct field"
+}

@@ -70,7 +70,7 @@ def native_sun_formula(latitude_deg, longitude_deg, utc):
 def place_cases(root: Path):
     cases, inputs = [], []
     for name in ("Rosenheim", "Koerbersee", "Malcesine"):
-        path = root / "src/assets/places" / (name + ".scenario")
+        path = root / "test/outshine/data/places" / (name + ".scenario")
         inputs.append(path)
         tree = ET.parse(path).getroot()
         world, camera, clock = (

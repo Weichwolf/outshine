@@ -3,17 +3,19 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::ProfiledRoadMesher mesher;
+  const Generators::ProfiledRoadMesher mesher;
   const RoadSweep settings{.HalfWidthM = 3,
                            .Profile = RoadProfile::Simple,
                            .WearsLinear = {{0.2f, 0.3f, 0.4f}},
                            .Crossfall = 0};
-  for (double heading : {0.0, 0.7, -1.2}) {
-    const double east = std::cos(heading), north = std::sin(heading);
+  for (const double heading : {0.0, 0.7, -1.2}) {
+    const double east = std::cos(heading);
+    const double north = std::sin(heading);
     const std::array<RoadStation, 2> stations{
         {{.EastM = 10, .NorthM = 20, .GradeM = 5},
          {.EastM = 10 + 64 * east, .NorthM = 20 + 64 * north, .GradeM = 21}}};

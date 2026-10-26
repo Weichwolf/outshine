@@ -2,8 +2,9 @@
 #define OUTSHINE_GENERATORS_OSM_REGIONS_PREPAREDGROUNDREGIONS_H
 
 #include "GroundRegionAsset.h"
+#include "Sha256.h"
 #include "WaterAsset.h"
-#include "content/AssetCache.h"
+#include "AssetCache.h"
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -70,6 +71,8 @@ private:
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string> Read(const std::string &key);
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
+  std::optional<Sha256Prefix> RequestPrefix_;
+  size_t RequestPrefixBytes_ = 0;
   std::mutex Lock_;
 };
 }

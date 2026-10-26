@@ -15,14 +15,14 @@ public:
 
   struct Config {
     Content::PreparedImpostorAssets::Config Cache;
-    Content::ImpostorAtlasShape Shape;
+    ImpostorAtlasShape Shape;
     size_t Prototypes = 64;
     size_t Instances = 65536;
   };
 
   struct Counters {
     Content::PreparedImpostorAssets::Counters Assets;
-    uint64_t Generated = 0;
+    uint64_t Generated = 0, SelectedInstances = 0;
     double GenerationMs = 0.0;
   };
 
@@ -52,6 +52,7 @@ private:
     std::string Provenance;
     std::vector<Mat4> Models;
     std::unique_ptr<Render::ImpostorInstances> Pieces;
+    std::optional<Vec3> ViewOrigin;
     Phase State = Phase::Wanted;
   };
 
@@ -63,11 +64,12 @@ private:
   std::vector<Group> Groups_;
   Tasks *Preparation_;
   Content::PreparedImpostorAssets Cache_;
-  Content::ImpostorAtlasShape Shape_;
-  std::optional<Content::ImpostorAtlas> PreparedAtlas_;
+  ImpostorAtlasShape Shape_;
+  std::optional<ImpostorAtlas> PreparedAtlas_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;
+  uint64_t SelectedInstances_ = 0;
   std::atomic_uint64_t Generated_{0};
   std::atomic<double> GenerationMs_{0};
 };

@@ -1,16 +1,27 @@
-"""Publish four verified Python renders at the fixed native Place cameras; no server."""
+"""Export a legacy flat Place comparison locally; no server or repository gallery."""
 
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from place_reference import PLACES, ROOT, read
+from place_reference import PLACES, ROOT, flat
 
 
 def publish(source, output):
+    destination = output.resolve()
+    temporary_root = Path("/tmp").resolve()
+    if (
+        destination.is_relative_to(ROOT)
+        or destination == temporary_root
+        or not destination.is_relative_to(temporary_root)
+    ):
+        raise ValueError(
+            "Research comparisons require a subdirectory of /tmp outside the repository"
+        )
     snapshot = json.loads((source / "place-reports.json").read_text())
     reports = snapshot["reports"]
     if set(reports) != set(PLACES):
@@ -30,7 +41,8 @@ def publish(source, output):
         report = json.loads((source / filename).read_text())
         if (
             report["place"] != name
-            or report["camera"]["scenario_sha256"] != read(name).scenario_sha256
+            or report["camera"]["scenario_sha256"] != flat(name).scenario_sha256
+            or report.get("ground_mode") != "flat-no-dem"
         ):
             raise ValueError(
                 "Place render does not match the current native scenario camera"
@@ -42,7 +54,12 @@ def publish(source, output):
             raise ValueError("Clean own Python render proof required")
         if report["commit"] != commits[name]:
             raise ValueError("Place report differs from its declared render snapshot")
-        reference = read(name)
+        if (
+            report.get("geometry_mesh_sha256", report["renderer"]["mesh_sha256"])
+            != report["renderer"]["mesh_sha256"]
+        ):
+            raise ValueError("Cached geometry differs from the actual renderer input")
+        reference = flat(name)
         view = reference.view(
             report.get("camera_ground_height_m"), tuple(report["profile"])
         )
@@ -71,7 +88,11 @@ def publish(source, output):
                 raise ValueError(
                     "Python Place images require actual 1920×1080 or higher rendering"
                 )
-        prepared.append((name, data, report))
+            published = io.BytesIO()
+            picture.resize((1280, 720), Image.Resampling.LANCZOS).save(
+                published, format="PNG"
+            )
+        prepared.append((name, published.getvalue(), report))
     output.mkdir(parents=True, exist_ok=True)
     for name, data, report in prepared:
         temporary = output / (name + ".png.tmp")
@@ -80,9 +101,7 @@ def publish(source, output):
     for path in output.glob("*.png"):
         if path.stem not in PLACES:
             path.unlink()
-    caption = (
-        "Aktueller Python-Gebäudegenerator an den festen Outshine-Place-Kameras.\n\n"
-    )
+    caption = "Historischer lokaler Python-Vergleich: vier OSM-Orte auf flacher Bodenebene, ohne DEM; 1280×720.\n\n"
     caption += (
         "\n\n".join(name + "\n\n![" + name + "](" + name + ".png)" for name in PLACES)
         + "\n"
@@ -96,14 +115,21 @@ def publish(source, output):
                 for key in (
                     "camera",
                     "camera_ground_height_m",
-                    "profile",
-                    "image_sha256",
+                    "ground_mode",
                     "triangles",
                     "source_radius_m",
                     "limits",
                 )
             }
-            for name, _, report in prepared
+            | {
+                "geometry_commit": report.get("geometry_commit", report["commit"]),
+                "mesh_sha256": report["renderer"]["mesh_sha256"],
+                "render_profile": report["profile"],
+                "render_image_sha256": report["image_sha256"],
+                "profile": [1280, 720],
+                "image_sha256": hashlib.sha256(data).hexdigest(),
+            }
+            for name, data, report in prepared
         },
     }
     (output / "render-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
@@ -113,6 +139,6 @@ def publish(source, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=ROOT / "doc/images/buildings")
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(publish(args.input, args.output), indent=2))

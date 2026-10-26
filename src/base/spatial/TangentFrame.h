@@ -4,8 +4,8 @@
 #include <cmath>
 
 #include "Geodesy.h"
-#include "math/Units.h"
-#include "math/Vec3.h"
+#include "Units.h"
+#include "Vec3.h"
 
 namespace outshine {
 
@@ -24,6 +24,14 @@ public:
   [[nodiscard]] const Vec3 &NorthEcef() const { return North_; }
 
   [[nodiscard]] const Vec3 &UpEcef() const { return Up_; }
+
+  [[nodiscard]] Vec3 ToEcefDirection(EastNorthUp direction) const {
+    return East_ * direction.EastM + North_ * direction.NorthM + Up_ * direction.UpM;
+  }
+
+  [[nodiscard]] Vec3 ToEcefPosition(EastNorthUp position) const {
+    return O_ + ToEcefDirection(position);
+  }
 
   [[nodiscard]] EastNorthUp ToLocalPosition(const Vec3 &ecef) const {
     return ToLocalDirection(ecef - O_);

@@ -2,8 +2,8 @@
 #include "Geodesy.h"
 #include "Sha256.h"
 #include "TileGeodesy.h"
-#include "math/Units.h"
-#include "content/AssetGeneration.h"
+#include "Units.h"
+#include "AssetGeneration.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -79,8 +79,11 @@ PreparedOsmTiles::Load(const std::string &request, const Layout &layout) {
   return Product{};
 }
 
-std::expected<PreparedOsmTiles::Product, std::string> PreparedOsmTiles::Generate(
-    TileAt at, TilePool::Landing landing, const std::string &request, const Layout &layout) {
+std::expected<PreparedOsmTiles::Product, std::string>
+PreparedOsmTiles::Generate(TileAt at,
+                           Data::SourceDelivery::Answer landing,
+                           const std::string &request,
+                           const Layout &layout) {
   auto field = std::make_shared<OsmField>(layout.Zoom, layout.Layers, layout.Schema);
   auto accepted = field->Accept(at.X, at.Y, landing.Bytes);
   if (!accepted) { return std::unexpected(std::string(accepted.error())); }

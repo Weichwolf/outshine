@@ -2,6 +2,9 @@
 #include "TerrainLoader.h"
 #include "Check.h"
 #include <array>
+#include <cstddef>
+#include <string>
+#include <cstdint>
 #include <vector>
 
 using namespace outshine;
@@ -25,7 +28,7 @@ public:
     if (Pending) { return GroundSample::Waiting(); }
     constexpr std::array values{10.0, 12.0, 5.0, 3.0};
     if (at.LatitudeDeg < 0 || at.LatitudeDeg >= 4) { return GroundSample::Missing(); }
-    const size_t index = static_cast<size_t>(at.LatitudeDeg);
+    const auto index = static_cast<size_t>(at.LatitudeDeg);
     ++Hits[index];
     if (index == 2 && DelayThird) {
       DelayThird = false;
@@ -36,16 +39,14 @@ public:
 
   GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
 
-  GroundBlock BlockAt(TileSpot) const override { return GroundBlock::Waiting(); }
+  GroundBlock BlockAt(TileSpot /*at*/) const override { return GroundBlock::Waiting(); }
 
-  double PostM(double) const override { return 1; }
+  double PostM(double /*latDeg*/) const override { return 1; }
 };
 }
 
-int main() {
-  using namespace outshine::Test;
-  const std::array<std::string, 3> layers{"water_polygons", "water_lines", "buildings"};
-  ::outshine::Generators::Osm::OsmField field(6, layers);
+namespace {
+std::vector<outshine::Generators::Osm::OsmField::Declared> WaterFeatures() {
   std::vector<::outshine::Generators::Osm::OsmField::Declared> features{
       {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = {0, 0, 1, 0, 2, 0, 3, 0}},
       {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = {3, 1, 2, 1, 1, 1, 0, 1}},
@@ -77,9 +78,68 @@ int main() {
       {.Layer = "water_lines",
        .Key = "kind",
        .Value = "river",
-       .LatLon = std::vector<double>(513 * 2, 50.0)}};
+       .LatLon = std::vector<double>(size_t{513} * 2, 50.0)}};
+  return features;
+}
+}
+
+namespace {
+void CheckLongCourses(const std::array<std::string, 3> &layers,
+                      const outshine::Generators::RegionSurfaceRecipes &materials) {
+  using namespace outshine::Test;
+  ::outshine::Generators::Osm::OsmField longField(6, layers);
+  std::vector<double> longLine;
+  for (int point = 0; point < 130; ++point) {
+    longLine.push_back(0.0);
+    longLine.push_back(static_cast<double>(point));
+  }
+  const std::array longFeatures{::outshine::Generators::Osm::OsmField::Declared{
+      .Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = longLine}};
+  longField.Declare(longFeatures, TileAt{.X = 32, .Y = 32});
+  Heights longGround;
+  longGround.Pending = false;
+  ::outshine::Generators::Osm::WaterField longWater;
+  (void)longWater.Ingest(longGround, longField, materials);
+  CHECK(!longWater.Ingested(longField) && longGround.Queries <= 128 && longWater.Courses().empty(),
+        "large ring stops at admission step cap without partial publication");
+  CHECK(longWater.LastIngest().AdvancedUnits > 0 && longWater.IngestedTiles() == 0,
+        "unfinished bounded admission reports local work before publishing any tile");
+  for (int advance = 0; advance < 10 && !longWater.Ingested(longField); ++advance) {
+    (void)longWater.Ingest(longGround, longField, materials);
+  }
+  CHECK(longWater.Ingested(longField) && longGround.Queries == 130 &&
+            longWater.Courses().size() == 1 && longWater.Levels().size() == 130,
+        "large ring resumes without repeating resolved points");
+  ::outshine::Generators::Osm::OsmField mixedField(6, layers);
+  std::vector<::outshine::Generators::Osm::OsmField::Declared> mixedFeatures;
+  mixedFeatures.reserve(301);
+  for (int feature = 0; feature < 300; ++feature) {
+    mixedFeatures.push_back({.Layer = "buildings",
+                             .Key = "kind",
+                             .Value = "building",
+                             .Area = true,
+                             .LatLon = {50, 0, 51, 1, 50, 1}});
+  }
+  mixedFeatures.push_back(
+      {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = {0, 0, 1, 0}});
+  mixedField.Declare(mixedFeatures, TileAt{.X = 32, .Y = 32});
+  Heights mixedGround;
+  mixedGround.Pending = false;
+  ::outshine::Generators::Osm::WaterField mixedWater;
+  (void)mixedWater.Ingest(mixedGround, mixedField, materials);
+  CHECK(mixedField.Features().size() == mixedFeatures.size() && mixedWater.Ingested(mixedField) &&
+            mixedGround.Queries == 2 && mixedWater.Courses().size() == 1,
+        "irrelevant features do not spend the height-sampling budget");
+}
+}
+
+int main() {
+  using namespace outshine::Test;
+  const std::array<std::string, 3> layers{"water_polygons", "water_lines", "buildings"};
+  ::outshine::Generators::Osm::OsmField field(6, layers);
+  auto features = WaterFeatures();
   field.Declare(features, TileAt{.X = 32, .Y = 32});
-  VegetationTemplates materials;
+  const outshine::Generators::RegionSurfaceRecipes materials;
   Heights ground;
   ::outshine::Generators::Osm::WaterField water;
   CHECK(water.Ingest(ground, field, materials) == 0 && water.IngestedTiles() == 0 &&
@@ -148,48 +208,6 @@ int main() {
              "queries",
              "new source revision discards staged height queries");
   CHECK(revisionWater.Levels() == water.Levels(), "new source revision preserves complete profile");
-  ::outshine::Generators::Osm::OsmField longField(6, layers);
-  std::vector<double> longLine;
-  for (int point = 0; point < 130; ++point) {
-    longLine.push_back(0.0);
-    longLine.push_back(static_cast<double>(point));
-  }
-  const std::array longFeatures{::outshine::Generators::Osm::OsmField::Declared{
-      .Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = longLine}};
-  longField.Declare(longFeatures, TileAt{.X = 32, .Y = 32});
-  Heights longGround;
-  longGround.Pending = false;
-  ::outshine::Generators::Osm::WaterField longWater;
-  (void)longWater.Ingest(longGround, longField, materials);
-  CHECK(!longWater.Ingested(longField) && longGround.Queries <= 128 && longWater.Courses().empty(),
-        "large ring stops at admission step cap without partial publication");
-  CHECK(longWater.LastIngest().AdvancedUnits > 0 && longWater.IngestedTiles() == 0,
-        "unfinished bounded admission reports local work before publishing any tile");
-  for (int advance = 0; advance < 10 && !longWater.Ingested(longField); ++advance) {
-    (void)longWater.Ingest(longGround, longField, materials);
-  }
-  CHECK(longWater.Ingested(longField) && longGround.Queries == 130 &&
-            longWater.Courses().size() == 1 && longWater.Levels().size() == 130,
-        "large ring resumes without repeating resolved points");
-  ::outshine::Generators::Osm::OsmField mixedField(6, layers);
-  std::vector<::outshine::Generators::Osm::OsmField::Declared> mixedFeatures;
-  mixedFeatures.reserve(301);
-  for (int feature = 0; feature < 300; ++feature) {
-    mixedFeatures.push_back({.Layer = "buildings",
-                             .Key = "kind",
-                             .Value = "building",
-                             .Area = true,
-                             .LatLon = {50, 0, 51, 1, 50, 1}});
-  }
-  mixedFeatures.push_back(
-      {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = {0, 0, 1, 0}});
-  mixedField.Declare(mixedFeatures, TileAt{.X = 32, .Y = 32});
-  Heights mixedGround;
-  mixedGround.Pending = false;
-  ::outshine::Generators::Osm::WaterField mixedWater;
-  (void)mixedWater.Ingest(mixedGround, mixedField, materials);
-  CHECK(mixedField.Features().size() == mixedFeatures.size() && mixedWater.Ingested(mixedField) &&
-            mixedGround.Queries == 2 && mixedWater.Courses().size() == 1,
-        "irrelevant features do not spend the height-sampling budget");
+  CheckLongCourses(layers, materials);
   return Report();
 }
