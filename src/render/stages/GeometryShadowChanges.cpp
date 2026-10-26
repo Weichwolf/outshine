@@ -37,7 +37,7 @@ bool GeometryRenderer::ChangesShadowSurfaces(std::span<const uint32_t> before,
 }
 
 bool GeometryRenderer::TruncatesShadowMaterials(size_t count) const noexcept {
-  for (const auto &batch : SubjectBatches_) {
+  for (const auto &batch : MainMeshBatches_) {
     if (batch.Instances != 0 && batch.MaterialSlot >= count) { return true; }
   }
   for (const auto &piece : Pieces_) {

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_TERRAINTILEUPLOAD_H
 #define OUTSHINE_RENDER_SCENE_TERRAINTILEUPLOAD_H
 
-#include "SubjectTypes.h"
+#include "GroundTile.h"
 #include "TerrainTile.h"
 
 #include <expected>

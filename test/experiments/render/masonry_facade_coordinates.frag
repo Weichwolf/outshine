@@ -1,7 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#include "subjectVaryings.glsl"
+#include "surfaceVaryings.glsl"
 layout(location = 11) in float facadeBay;
 layout(location = 12) flat in float facadeCode;
 #include "material.glsl"

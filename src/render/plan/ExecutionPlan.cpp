@@ -33,8 +33,9 @@ struct Pull {
   explicit Pull(const PlanSpec &spec) : Spec(spec) {
     for (size_t r = 0; r < kResourceCount; ++r) { Bound[r] = static_cast<Resource>(r); }
     for (const Stage s : spec.Content) { Declared[static_cast<size_t>(s)] = true; }
-    Declared[static_cast<size_t>(Stage::Ground)] = Declared[static_cast<size_t>(Stage::Ground)] ||
-                                                   Declared[static_cast<size_t>(Stage::Geometry)];
+    Declared[static_cast<size_t>(Stage::Ground)] =
+        Declared[static_cast<size_t>(Stage::Ground)] ||
+        Declared[static_cast<size_t>(Stage::OpaqueGeometry)];
   }
 
   void Want(Resource r) {

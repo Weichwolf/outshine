@@ -134,7 +134,7 @@ int main() {
   CHECK(!materials.Load(nullptr) && materials.Ready(), "null path preserves catalog");
   std::filesystem::remove(path);
   CHECK(!materials.Load(path.c_str()) && materials.Ready(), "missing file preserves catalog");
-  CHECK(materials.Load("src/assets/world/ground-materials.json") && materials.Error().empty(),
+  CHECK(materials.Load("data/world/ground-materials.json") && materials.Error().empty(),
         "shipped catalog loads after failures");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);

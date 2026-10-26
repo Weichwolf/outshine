@@ -59,8 +59,8 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground catalog loads");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "street rules load");
   if (!templates.Ready()) { return Report(); }
 
   struct Case {

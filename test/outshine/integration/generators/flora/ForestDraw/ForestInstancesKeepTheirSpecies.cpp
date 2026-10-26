@@ -45,15 +45,15 @@ void CheckCatalogue(const outshine::Generators::Ground &ground,
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
   std::string error;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped ground materials load");
-  CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "shipped vegetation loads");
+  CHECK(materials.Load("data/world/ground-materials.json"), "shipped ground materials load");
+  CHECK(vegetation.Load("data/world/vegetation.json", materials), "shipped vegetation loads");
 
   std::vector<TreeSpecies> sources;
-  CHECK(ReadSpecies("src/assets/world/species", sources, error) && !sources.empty(),
+  CHECK(ReadSpecies("data/world/species", sources, error) && !sources.empty(),
         "source species catalogue loads");
   Shipping shipping;
   CHECK(shipping.TreeFor(ClusterId{0}) == nullptr, "an unprepared catalogue resolves no tree");
-  CHECK(shipping.EnsureCatalogue(vegetation, "src/assets/world/species", error),
+  CHECK(shipping.EnsureCatalogue(vegetation, "data/world/species", error),
         "world catalogue stands");
   CHECK(shipping.TreeFor(ClusterId{static_cast<uint32_t>(sources.size())}) == nullptr &&
             shipping.TreeFor(ClusterId{~0u}) == nullptr,
@@ -67,7 +67,7 @@ void CheckCatalogue(const outshine::Generators::Ground &ground,
           "each cluster retains its source species and prototype height");
   }
   const auto *first = shipping.TreeFor(ClusterId{0});
-  CHECK(shipping.EnsureCatalogue(vegetation, "src/assets/world/species", error) &&
+  CHECK(shipping.EnsureCatalogue(vegetation, "data/world/species", error) &&
             shipping.TreeFor(ClusterId{0}) == first,
         "repeated preparation preserves the immutable prototype address");
   RegionPool pool({.Reached = region, .Anywhere = region}, {});

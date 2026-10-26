@@ -6,8 +6,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <span>
 #include <vector>
 #include "Check.h"
+
+namespace {
+int RgbPeak(std::span<const uint8_t> pixels) {
+  int peak = 0;
+  for (size_t at = 0; at + 3 < pixels.size(); at += 4) {
+    for (size_t channel = 0; channel < 3; ++channel) {
+      peak = std::max(peak, static_cast<int>(pixels[at + channel]));
+    }
+  }
+  return peak;
+}
+}
 
 int main() {
   using namespace outshine;
@@ -17,10 +30,11 @@ int main() {
   if (!initialized) { return Report(); }
   {
     Engine engine;
-    CHECK(engine.setRenderTarget(Extent{32, 32}).has_value(), "offscreen target configured");
+    CHECK(engine.setRenderTarget(Extent{.WidthPx = 32, .HeightPx = 32}).has_value(),
+          "offscreen target configured");
     Scenario::Document document;
     document.Render.Declared = true;
-    document.Render.Frame = {32, 32};
+    document.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
     document.Render.Outputs = {"surface", "sceneLinear"};
     Scenario::View view;
     view.Id = "inspection-camera";
@@ -34,15 +48,11 @@ int main() {
     if (ready) {
       std::vector<uint8_t> pixels;
       CHECK(engine.renderer().render({}).has_value(), "explicitly render before readback");
-      CHECK(engine.renderer().readPixels(pixels).has_value() && pixels.size() == 32u * 32u * 4u,
+      CHECK(engine.renderer().readPixels(pixels).has_value() &&
+                pixels.size() == size_t{32} * 32 * 4,
             "public readback provides complete RGBA image");
       CHECK(engine.inspect().has_value(), "public inspection reads the available frame");
-      int peak = 0;
-      for (size_t at = 0; at + 3 < pixels.size(); at += 4) {
-        for (size_t channel = 0; channel < 3; ++channel) {
-          peak = std::max(peak, static_cast<int>(pixels[at + channel]));
-        }
-      }
+      const int peak = RgbPeak(pixels);
       const auto find = [&](std::string_view name) -> const DiagnosticSample * {
         for (const auto &measure : engine.measures()) {
           if (measure.Name == name) { return &measure; }
@@ -57,8 +67,9 @@ int main() {
             "inspection publishes a finite positive applied exposure");
       CHECK(engine.inspect().has_value(), "unchanged frame can be inspected repeatedly");
       CHECK(engine.renderer().render({}).has_value(), "empty scene publishes render metrics");
-      const auto *emptyDraws = find("subject draws");
-      CHECK(emptyDraws && emptyDraws->Value == 0, "empty scene publishes zero subject draws");
+      const auto *emptyDraws = find("geometry draw records");
+      CHECK(emptyDraws && emptyDraws->Value == 0,
+            "empty scene publishes zero geometry draw records");
       Geometry geometry;
       Material material;
       material.Unlit = true;
@@ -72,16 +83,11 @@ int main() {
         CHECK(engine.setGeometry(geometry).has_value(),
               "geometry changes without a simulation tick");
         CHECK(engine.renderer().render({}).has_value(), "changed geometry renders without a tick");
-        const auto *changedDraws = find("subject draws");
+        const auto *changedDraws = find("geometry draw records");
         CHECK(changedDraws && changedDraws->Value == 1,
               "render replaces the empty scene draw count without advance or inspect");
         CHECK(engine.renderer().readPixels(pixels).has_value(), "changed scene rendered");
-        int changedPeak = 0;
-        for (size_t at = 0; at + 3 < pixels.size(); at += 4) {
-          for (size_t channel = 0; channel < 3; ++channel) {
-            changedPeak = std::max(changedPeak, static_cast<int>(pixels[at + channel]));
-          }
-        }
+        const int changedPeak = RgbPeak(pixels);
         CHECK(changedPeak > peak, "new frame is measurably brighter than the previous one");
         CHECK(engine.inspect().has_value(), "changed frame inspected without advance");
         presented = find("the brightest the presented frame shows");

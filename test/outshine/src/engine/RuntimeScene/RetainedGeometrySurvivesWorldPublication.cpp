@@ -32,7 +32,7 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"sceneLinear"};
-    declaration.Surfacing.front().Unlit = true;
+    declaration.Materials.front().Unlit = true;
     Render::SceneRenderer renderer;
     std::unique_ptr<Core::RuntimeScene> scene;
     std::unique_ptr<Core::RuntimeScene> candidate;
@@ -48,7 +48,7 @@ int main() {
     eye.ZNearM = kNearPlaneM;
     eye.ZFarM = 10;
     scene->Eye(eye);
-    const auto pixels = [&]() {
+    const auto pixels = [&] {
       std::vector<float> values;
       CHECK(scene->Draw(error), "published world draws");
       renderer.WaitForGpu();

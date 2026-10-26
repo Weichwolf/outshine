@@ -53,7 +53,7 @@ Native::Result<void> TerrainPatchSelection::Configure(Native::Device &device,
   if (!cull) { return std::unexpected(cull.error()); }
   auto local = CreateComputePipeline(device, ComputeShaderId::TerrainPatchScan);
   if (!local) { return std::unexpected(local.error()); }
-  auto scan = CreateComputePipeline(device, ComputeShaderId::SubjectScan);
+  auto scan = CreateComputePipeline(device, ComputeShaderId::GeometryScan);
   if (!scan) { return std::unexpected(scan.error()); }
   auto compact = CreateComputePipeline(device, ComputeShaderId::TerrainPatchCompact);
   if (!compact) { return std::unexpected(compact.error()); }

@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "Check.h"
 #include "Gpu.h"
@@ -43,7 +44,7 @@ int main() {
     CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
     std::string error;
     CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
-    const std::array<SubjectMaterial, 1> materials{};
+    const std::array<MaterialBinding, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "material registers");
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
     constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
@@ -59,7 +60,7 @@ int main() {
               "mixed unlit draw adds");
       }
       draws.Compile();
-      SubjectMesh mesh;
+      MeshInput mesh;
       mesh.Verts.From = positions.data();
       mesh.Positions = positions;
       mesh.Normals.From = normals.data();
@@ -80,7 +81,7 @@ int main() {
       } else if (phase == 1 || phase == 3) {
         Readback read;
         constexpr uint32_t vertexBytes = 3 * sizeof(float);
-        const uint32_t offset = resident.SubjectVertices().First * vertexBytes;
+        const uint32_t offset = resident.MainVertexRange().First * vertexBytes;
         CHECK(read.FromBuffer(&device,
                               resident.Buffer(Stream::Emitted).get(),
                               offset + sizeof(emission.Values)) == ReadState::Ready,

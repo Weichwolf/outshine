@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
@@ -38,7 +39,7 @@ bool CaptureTerrainShadow(double anchorZ, std::vector<float> &depth) {
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
         "terrain-only world opens");
   if (!scene) { return false; }
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Anchor = {{0, 0, anchorZ}};
   CHECK(renderer.SetGeometryMesh(mesh, error), "empty subjects retain the terrain anchor");
   const std::vector<float> nodes(TerrainLattice::kPageNodes, 3.0f);

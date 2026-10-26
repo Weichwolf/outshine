@@ -5,7 +5,7 @@
 #if PRISM_DEPTH
 #include "depthView.glsl"
 #else
-#include "subjectView.glsl"
+#include "geometryView.glsl"
 #endif
 layout(location = 0) flat out mat4 prismLocalFromClip;
 layout(location = 4) flat out uint prismPatchIndex;

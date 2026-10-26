@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "VertexUpload.h"
 #include "Check.h"
 #include <limits>
@@ -25,7 +26,7 @@ int main() {
           "wrapped starting offset is rejected");
     upload.Carried = false;
     const auto inactive = VertexCrossing(upload, {.First = 1u << 30, .Count = 1u << 30});
-    CHECK(inactive.has_value() && inactive->Bytes == 0 && !inactive->Stands(),
+    CHECK(inactive.has_value() && inactive->Bytes == 0 && !inactive->HasSource(),
           "inactive stream carries no bytes or producer");
   }
   return Report();

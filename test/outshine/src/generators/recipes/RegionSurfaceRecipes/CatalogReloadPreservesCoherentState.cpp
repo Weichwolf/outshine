@@ -122,8 +122,8 @@ int main() {
               stored->Oneway && !stored->Sealed,
           "integer boundaries and booleans retain their exact values");
   }
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "shipped catalogs remain accepted");
   std::filesystem::remove_all(created);
   return Report();

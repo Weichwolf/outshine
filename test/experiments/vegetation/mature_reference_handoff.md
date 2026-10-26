@@ -142,7 +142,7 @@ Use `PYTHONPATH=lib/src:test/experiments/vegetation` and `.venv/bin/python`:
   --output "$probe_root/source" --verify-reference
 .venv/bin/python test/experiments/vegetation/mature_radius_probe.py \
   --source "$probe_root/young-reference" \
-  --profile src/assets/world/species/spruce.json --species picea-abies \
+  --profile data/world/species/spruce.json --species picea-abies \
   --variant 1 --output "$probe_root/spruce"
 .venv/bin/python test/experiments/vegetation/needle_area_cost.py \
   --source "$probe_root/young-reference" --recipe "$probe_root/spruce/recipe.json" \

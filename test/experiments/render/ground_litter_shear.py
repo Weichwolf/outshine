@@ -96,8 +96,8 @@ def main():
     if output.is_relative_to(ROOT) or not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error('use a directory in system temp')
     output.mkdir(parents=True, exist_ok=True)
-    catalog = json.loads((ROOT / 'src/assets/world/ground-materials.json').read_text())
-    recipes = json.loads((ROOT / 'src/assets/world/vegetation.json').read_text())['templates']
+    catalog = json.loads((ROOT / 'data/world/ground-materials.json').read_text())
+    recipes = json.loads((ROOT / 'data/world/vegetation.json').read_text())['templates']
     templates = [r for r in recipes if r['name'] in ('mixed_broadleaf', 'conifer_forest', 'alpine_grassland')]
     points = np.random.default_rng(196).uniform(-8, 8, (32, 2))
     records = compare(points, templates, catalog)
@@ -107,7 +107,7 @@ def main():
                   source_sha256={name: hashlib.sha256((Path(__file__).parent / name).read_bytes()).hexdigest()
                                  for name in ('ground_litter_shear.py', 'ground_litter_footprint.py',
                                               'ground_litter_motion.py', 'ground_litter_filter.py')},
-                  input_sha256={name: hashlib.sha256((ROOT / 'src/assets/world' / name).read_bytes()).hexdigest()
+                  input_sha256={name: hashlib.sha256((ROOT / 'data/world' / name).read_bytes()).hexdigest()
                                 for name in ('ground-materials.json', 'vegetation.json')},
                   commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   results=records, worst_bounding_box=worst)

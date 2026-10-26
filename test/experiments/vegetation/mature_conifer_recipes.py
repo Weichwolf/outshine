@@ -76,7 +76,7 @@ def prepare(output, source):
     output.mkdir(parents=True, exist_ok=True)
     cases = []
     for kind, (species, profile_name) in enumerate(SPECIES):
-        profile_path = ROOT / "src/assets/world/species" / f"{profile_name}.json"
+        profile_path = ROOT / "data/world/species" / f"{profile_name}.json"
         profile = json.loads(profile_path.read_text())
         areas, inputs = needle_areas(species, source)
         for variant in range(4):

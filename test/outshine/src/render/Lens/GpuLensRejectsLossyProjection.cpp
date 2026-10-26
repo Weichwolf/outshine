@@ -34,7 +34,7 @@ void NumericalBoundary() {
     CHECK_NEAR(-p[10] + p[14], 1.0f, 1e-6f, "depth", "near maps to reverse-Z one");
     CHECK_NEAR((-11.0f * p[10] + p[14]) / 11.0f, 0.0f, 1e-6f, "depth", "far maps to zero");
   }
-  for (double far : {0.0, std::numeric_limits<double>::infinity()}) {
+  for (const double far : {0.0, std::numeric_limits<double>::infinity()}) {
     auto infinite = eye;
     infinite.ZFarM = far;
     const auto made = Lens::From(infinite, 64, 32);
@@ -44,11 +44,11 @@ void NumericalBoundary() {
   const auto reject = [](const Viewpoint &bad) {
     CHECK(!Lens::From(bad, 64, 32), "invalid or nonrepresentable projection is rejected");
   };
-  for (double invalid : {-1.0,
-                         std::numeric_limits<double>::quiet_NaN(),
-                         std::numeric_limits<double>::infinity(),
-                         std::numeric_limits<double>::max(),
-                         std::numeric_limits<double>::min()}) {
+  for (const double invalid : {-1.0,
+                               std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::max(),
+                               std::numeric_limits<double>::min()}) {
     auto bad = eye;
     bad.ZNearM = invalid;
     reject(bad);
@@ -72,11 +72,11 @@ void NumericalBoundary() {
   bad = eye;
   bad.Kind = static_cast<CameraKind>(255);
   reject(bad);
-  for (double extent : {0.0,
-                        -1.0,
-                        std::numeric_limits<double>::infinity(),
-                        std::numeric_limits<double>::quiet_NaN(),
-                        std::numeric_limits<double>::max()}) {
+  for (const double extent : {0.0,
+                              -1.0,
+                              std::numeric_limits<double>::infinity(),
+                              std::numeric_limits<double>::quiet_NaN(),
+                              std::numeric_limits<double>::max()}) {
     CHECK(!Lens::From(eye, extent, 32) && !Lens::From(eye, 32, extent),
           "both viewport dimensions must be representable positive pixel counts");
   }
@@ -93,12 +93,12 @@ void NumericalBoundary() {
     CHECK_NEAR(p[14], 1.0f, 1e-6f, "depth", "orthographic near zero maps to one");
     CHECK_NEAR(-11.0f * p[10] + p[14], 0.0f, 1e-6f, "depth", "orthographic far maps to zero");
   }
-  for (double invalid : {0.0,
-                         -1.0,
-                         std::numeric_limits<double>::quiet_NaN(),
-                         std::numeric_limits<double>::infinity(),
-                         std::numeric_limits<double>::max(),
-                         std::numeric_limits<double>::min()}) {
+  for (const double invalid : {0.0,
+                               -1.0,
+                               std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::max(),
+                               std::numeric_limits<double>::min()}) {
     bad = eye;
     bad.XMagM = invalid;
     reject(bad);
@@ -119,7 +119,7 @@ void FailedAimPreservesLens() {
   const auto target = renderer.DrawsInto(32, 32, nullptr);
   CHECK(target.has_value(), "a real target supplies the camera viewport");
   if (!target) { return; }
-  SubjectView view;
+  PreparedView view;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
   view.Eye.ZFarM = 10;

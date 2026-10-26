@@ -45,10 +45,10 @@ void Exercise(Native::Device &backing) {
   {
     FrameTargets targets;
     PlanSpec spec;
-    spec.Content = {Stage::Geometry};
+    spec.Content = {Stage::OpaqueGeometry};
     spec.Outputs = {Resource::SceneHdr, Resource::SceneDepth};
     const auto basic = ExecutionPlan::Compile(spec);
-    spec.Content = {Stage::Geometry,
+    spec.Content = {Stage::OpaqueGeometry,
                     Stage::Sky,
                     Stage::TransmissiveGeometry,
                     Stage::CompositeTransmission,

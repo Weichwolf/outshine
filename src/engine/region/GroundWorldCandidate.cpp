@@ -108,7 +108,7 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
     auto prepared = World_.Prepare(previous,
                                    font,
                                    PieceSources_,
-                                   Core::SubjectGeometrySources::Driven,
+                                   Core::GeometryRetention::Driven,
                                    Core::ResourceRestoreMode::Deferred);
     if (!prepared) { return std::unexpected(std::move(prepared.error())); }
     WorldPrepared_ = true;

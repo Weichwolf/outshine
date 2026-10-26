@@ -4,7 +4,9 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <memory>
+#include <string>
 
 int main() {
   using namespace outshine;
@@ -22,9 +24,11 @@ int main() {
     declaration.InitialGeometry = &geometry;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"sceneLinear"};
-    declaration.Surfacing.front().Unlit = true;
-    Render::SceneRenderer firstRenderer, secondRenderer;
-    std::unique_ptr<Core::RuntimeScene> first, second;
+    declaration.Materials.front().Unlit = true;
+    Render::SceneRenderer firstRenderer;
+    Render::SceneRenderer secondRenderer;
+    std::unique_ptr<Core::RuntimeScene> first;
+    std::unique_ptr<Core::RuntimeScene> second;
     std::string error;
     CHECK(Core::RuntimeScene::Open(firstRenderer, declaration, nullptr, first, error),
           "first scene opens");

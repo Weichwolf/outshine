@@ -79,7 +79,7 @@ def prepare(output):
     source.write_text("""#version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#include "subjectVaryings.glsl"
+#include "surfaceVaryings.glsl"
 #include "material.glsl"
 #include "surfaceGradient.glsl"
 layout(location=0) out vec4 outAt;

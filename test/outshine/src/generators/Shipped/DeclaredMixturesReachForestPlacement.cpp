@@ -90,8 +90,7 @@ void RejectBadRecipes(Shipping &catalogue,
   for (const auto *recipe : recipes) {
     std::ofstream(path) << recipe;
     std::string error;
-    CHECK(!catalogue.EnsureCatalogue(
-              templates, "src/assets/world/species", error, true, path.string()) &&
+    CHECK(!catalogue.EnsureCatalogue(templates, "data/world/species", error, true, path.string()) &&
               !error.empty(),
           "unknown, negative, nonnumeric and duplicate species weights are rejected");
     CHECK(catalogue.Ready() && catalogue.TreeFor(ClusterId{0}) == retained,
@@ -127,12 +126,12 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "source materials load");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "source templates load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "source materials load");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "source templates load");
   Shipping catalogue;
   std::string error;
   CHECK(catalogue.EnsureCatalogue(
-            templates, "src/assets/world/species", error, true, "src/assets/world/vegetation.json"),
+            templates, "data/world/species", error, true, "data/world/vegetation.json"),
         "the actual world catalogue binds the provided source mixtures");
   if (!catalogue.Ready()) { return Report(); }
   const auto region = Tile::Of(16, {.LongitudeDeg = 10, .LatitudeDeg = 47});

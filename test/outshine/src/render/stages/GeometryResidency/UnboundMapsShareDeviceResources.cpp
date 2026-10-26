@@ -13,10 +13,10 @@ int main() {
   using namespace outshine::Render::Native;
   using namespace outshine::Test::Gpu;
   {
-    auto device = Require(CreateDevice({.Validation = true}));
+    const auto device = Require(CreateDevice({.Validation = true}));
     GeometryResidency residency;
     Require(residency.StandsOn(device.get()));
-    const SubjectTexture missing;
+    const MaterialTexture missing;
     const Texture *image = nullptr;
     const Sampler *sampler = nullptr;
     {
@@ -37,8 +37,8 @@ int main() {
     }
     CHECK(residency.TakeUploadAttempts() == 0 && residency.TakeStagingAllocationAttempts() == 0,
           "repeated default maps allocate and submit no staging resources");
-    SubjectTexture nearest = missing;
-    nearest.Magnify = SubjectFilter::Nearest;
+    MaterialTexture nearest = missing;
+    nearest.Magnify = outshine::Filter::Nearest;
     const auto filtered = RetryOffline(
         [&] {
           return residency.Upload(nearest, GeometryResidency::Transfer::Srgb, TexelKind::Value);
@@ -63,7 +63,7 @@ int main() {
           "normal processing is not merged with scalar processing");
     CHECK(residency.TakeUploadAttempts() == 3,
           "three new processing or sampling configurations require three uploads");
-    const SubjectTexture invalid{.Width = 2, .Height = 2, .Uv = {}};
+    const MaterialTexture invalid{.Width = 2, .Height = 2, .Uv = {}};
     CHECK(!residency.Upload(invalid, GeometryResidency::Transfer::Srgb, TexelKind::Value),
           "a sized missing image cannot read past the default texel");
   }

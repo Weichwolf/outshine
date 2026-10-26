@@ -18,7 +18,7 @@ No paper algorithm or SDK/foreign code is copied into this implementation.
 Material explicitly confirms this limited interpretation in
 [#357/6202135515](https://github.com/Weichwolf/outshine/issues/357#issuecomment-6202135515);
 Transport acknowledges its boundaries in6202309555. Existing linear RGB values
-are read from `src/assets/world/ground-materials.json`, unchanged. Asphalt, paving,
+are read from `data/world/ground-materials.json`, unchanged. Asphalt, paving,
 earth_dry and crushed_stone are procedural choices for the local comparison.
 The actual MVT supplies only paved/unpaved/absent surface tags; paved does not
 prove stone paving or asphalt, unpaved does not prove dry earth. Per-source basis

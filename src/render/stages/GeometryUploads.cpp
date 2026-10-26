@@ -24,7 +24,7 @@ std::optional<uint32_t> UploadBytes(std::span<const GeometryResidency::Crossing>
   constexpr auto maximum = std::numeric_limits<uint32_t>::max();
   for (const auto &crossing : crossings) {
     if (static_cast<size_t>(crossing.Which) >= GeometryResidency::kStreams) { return std::nullopt; }
-    if (crossing.Bytes == 0 || !crossing.Stands()) { continue; }
+    if (crossing.Bytes == 0 || !crossing.HasSource()) { continue; }
     if (uint64_t{crossing.Offset} + crossing.Bytes > maximum ||
         crossing.Offset % sizeof(uint32_t) != 0 || crossing.Bytes % sizeof(uint32_t) != 0) {
       return std::nullopt;
@@ -94,7 +94,7 @@ Native::Result<void> GeometryResidency::PrepareBuffers(std::span<Crossing> what,
   std::array<bool, kStreams> changed{};
   for (const auto &one : what) {
     const auto slot = static_cast<size_t>(one.Which);
-    if (one.Bytes == 0 || !one.Stands()) {
+    if (one.Bytes == 0 || !one.HasSource()) {
       candidates[slot].reset();
       capacities[slot] = 0;
       changed[slot] = true;
@@ -184,7 +184,7 @@ void GeometryResidency::Fill(std::span<std::byte> mapped,
                              uint32_t at,
                              std::span<const Crossing> what) {
   for (const auto &one : what) {
-    if (one.Bytes == 0 || !one.Stands()) { continue; }
+    if (one.Bytes == 0 || !one.HasSource()) { continue; }
     if (one.Writes != nullptr) {
       one.Writes(one.Carrying,
                  reinterpret_cast<float *>(mapped.data() + at),
@@ -204,7 +204,7 @@ Native::Result<void> GeometryResidency::StageUploads(std::span<Crossing> what, u
   if (!unmapped) { return unmapped; }
   auto at = StagingUsed_;
   for (const auto &one : what) {
-    if (one.Bytes == 0 || !one.Stands()) { continue; }
+    if (one.Bytes == 0 || !one.HasSource()) { continue; }
     if (StagedCount_ == Staged_.size()) { Staged_.push_back(Staged{}); }
     Staged_[StagedCount_++] = {.Into = Buffer(one.Which).get(),
                                .From = at,
@@ -252,7 +252,7 @@ Native::Result<void> GeometryResidency::Submit(std::span<Crossing> what, uint32_
   if (!unmapped) { return unmapped; }
   uint32_t at = 0;
   for (const auto &one : what) {
-    if (one.Bytes == 0 || !one.Stands()) { continue; }
+    if (one.Bytes == 0 || !one.HasSource()) { continue; }
     const auto copied = (*commands)->Copy(
         *Bulk_,
         *Buffer(one.Which),

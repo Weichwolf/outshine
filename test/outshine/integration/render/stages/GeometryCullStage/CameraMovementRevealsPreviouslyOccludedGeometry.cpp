@@ -4,7 +4,8 @@
 #include "GeometryCullStage.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
+#include "MaterialBinding.h"
 #include "GpuSubmission.h"
 #include "Viewing.h"
 #include <Geometry.h>
@@ -75,10 +76,10 @@ void ReplaceMaterials(outshine::Core::RuntimeScene &scene,
   using namespace outshine::Render;
   using namespace outshine::Test;
   CHECK(scene.Draw(error), "unchanged selection settles before a table replacement");
-  SubjectMaterial red;
+  MaterialBinding red;
   red.Row.Unlit = true;
   red.Row.BaseColour = {{1, 0, 0, 1}};
-  const std::array<SubjectMaterial, 1> materials{red};
+  const std::array<MaterialBinding, 1> materials{red};
   CHECK(renderer.SetGeometryMaterials(materials, error) && scene.Draw(error),
         "replacement native materials remain drawable");
   CHECK(GeometryCullStage::JobsSweptTaken() > 0,
@@ -119,7 +120,7 @@ int main() {
     constexpr double kRetryEyeXM = 3.5;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtentPx;
     declaration.Outputs = {"sceneLinear", "depthPyramid"};
-    declaration.Stages = {"subjects", "depthPyramid"};
+    declaration.Stages = {"opaqueGeometry", "depthPyramid"};
     bool rejectSubmission = false;
     SceneRenderer history({.Context = &rejectSubmission,
                            .Submit = [](void *context,

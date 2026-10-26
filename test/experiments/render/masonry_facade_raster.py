@@ -28,9 +28,9 @@ def compile_pair(output, fragment_source=None):
         "-Isrc/render/shaders",
         "-Isrc/content/shade",
         "-Ibuild/shaders",
-        "-DSUBJECT_WRITES_VELOCITY=0",
-        "-DSUBJECT_NORMAL_LOCATION=0",
-        "-DSUBJECT_IDENTITY_LOCATION=0",
+        "-DSURFACE_WRITES_VELOCITY=0",
+        "-DSURFACE_NORMAL_LOCATION=0",
+        "-DSURFACE_IDENTITY_LOCATION=0",
     ]
     for stage, source, defines in (
         ("vert", "litVertex.glsl", ["-DLIT_UVS=2", "-DLIT_TINTED=0", "-DLIT_MAPPED=0"]),
@@ -41,8 +41,8 @@ def compile_pair(output, fragment_source=None):
                 "-DLIT_KIND=0",
                 "-DLIT_TEXTURED=0",
                 "-DLIT_MAPPED=0",
-                "-DSUBJECT_BASE_LOCATION=1",
-                "-DSUBJECT_METALROUGH_LOCATION=2",
+                "-DSURFACE_BASE_LOCATION=1",
+                "-DSURFACE_METALROUGH_LOCATION=2",
             ],
         ),
     ):

@@ -39,7 +39,7 @@ ReadLevel(Device *device, Texture *image, uint32_t level, uint32_t size) {
 }
 
 int main() {
-  auto device = Require(CreateDevice({.Validation = true}));
+  const auto device = Require(CreateDevice({.Validation = true}));
   {
     GeometryResidency residency;
     Require(residency.StandsOn(device.get()));
@@ -48,11 +48,11 @@ int main() {
     ImageMipData prepared;
     prepared[1] = std::vector<uint8_t>(kColourMip.begin(), kColourMip.end());
     prepared[2] = std::vector<uint8_t>(kNormalMip.begin(), kNormalMip.end());
-    SubjectTexture texture{.Rgba = base.data(),
-                           .Width = 2,
-                           .Height = 2,
-                           .LowerMips = ViewImageMips(prepared),
-                           .Uv = {}};
+    MaterialTexture texture{.Rgba = base.data(),
+                            .Width = 2,
+                            .Height = 2,
+                            .LowerMips = ViewImageMips(prepared),
+                            .Uv = {}};
     const auto colour =
         residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(colour, "prepared colour image uploads");
@@ -71,7 +71,7 @@ int main() {
     CHECK(normalBase && (*normalBase)[3] == 255 && (*normalBase)[15] == 255,
           "normal base texels retain the existing unit-confidence contract");
     static_cast<void>(residency.TakeUploadBytes());
-    texture.Mip = SubjectMip::None;
+    texture.Mip = outshine::MipFilter::None;
     const auto single =
         residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(single && residency.TakeUploadBytes() == 16,

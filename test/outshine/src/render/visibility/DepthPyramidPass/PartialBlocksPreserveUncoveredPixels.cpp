@@ -108,7 +108,7 @@ Selected(Device &device, const Buffer *pyramid, PyramidShape shape, Texels exten
   const auto args = Upload(device, *commands, arguments.data(), sizeof(arguments));
   const auto kept = Require(device.CreateBuffer(
       {.Bytes = sizeof(uint32_t), .Use = BufferUse::Storage | BufferUse::CopySource}));
-  const auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::SubjectCull));
+  const auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::GeometryCull));
   CullInput view;
   view.Wide = shape.Wide;
   view.High = shape.High;

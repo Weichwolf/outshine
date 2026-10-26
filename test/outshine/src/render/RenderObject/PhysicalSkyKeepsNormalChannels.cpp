@@ -1,8 +1,10 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "SceneRenderer.h"
 #include "RenderObject.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace {
@@ -26,7 +28,7 @@ void CheckLayouts() {
   shape.CarriesNormal = true;
   RenderObject proxy;
   proxy.ResetForShape(shape, {});
-  SubjectView view;
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
@@ -35,11 +37,11 @@ void CheckLayouts() {
   std::string error;
   constexpr std::array<uint32_t, 1> slots{0};
   for (const bool unlit : {false, true}) {
-    SubjectMaterial material;
+    MaterialBinding material;
     material.Row.Unlit = unlit;
     CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "the native material binds");
     for (const double skyLux : {0.0, 10000.0}) {
-      SubjectEnvironment environment;
+      EnvironmentLighting environment;
       environment.SkyLux = skyLux;
       proxy.SetEnvironment(environment);
       CHECK(proxy.Lights().empty(), "no direct light enables the normal stream");
