@@ -51,7 +51,9 @@ Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
 | Physikalische Bildantwort | [Frostbite PBR, Revision 3](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf): Material-/Licht-/Kameraeinheiten und unabhängiger Referenzvergleich | Geometrie-SSE ersetzt keine Materialfehlerprüfung; historische Pass-/Pufferkosten neu messen |
 
 Worldpublikation, Simulation, Audio, JS und Persistenz-Lebensdauer besitzen
-[#1230–#1232](https://github.com/Weichwolf/outshine/issues/1225); die fünf Quellen
+[#1230](https://github.com/Weichwolf/outshine/issues/1230),
+[#1231](https://github.com/Weichwolf/outshine/issues/1231) und
+[#1232](https://github.com/Weichwolf/outshine/issues/1232); die fünf Quellen
 decken sie nicht vollständig ab. Generatoren bleiben ein breites Forschungsfeld,
 ohne vorgeschriebene Solver-/Grammatikfamilie. Refactor und gemeinsame Abnahme
 der gesamten aktuellen Codebasis gehen neuer Featureintegration voraus (#1233/#1320).
