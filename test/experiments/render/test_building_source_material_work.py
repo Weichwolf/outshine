@@ -30,6 +30,22 @@ class BuildingSourceMaterialWork(unittest.TestCase):
     def setUpClass(cls):
         cls.at = policy()
 
+    def test_local_measures_keep_sloped_areas_without_world_geometry(self):
+        source = surface()
+        source["shapes"][0].update(
+            roof_kind=1, rise_m=1, centre=[1, 1.5], axis_u=[1, 0], half_v_m=1.5
+        )
+        with patch(
+            "source_material_patches.SurfacePatch",
+            side_effect=AssertionError("world patch not requested"),
+        ):
+            value, _, _ = source_measure(1, source, geometry(), self.at)
+        np.testing.assert_allclose(
+            value[:, -1], [53, 4 * np.sqrt(1.5**2 + 1)], atol=1e-12, rtol=0
+        )
+        with self.assertRaisesRegex(ValueError, "positive finite source"):
+            source_measure(1, source | {"shapes": []}, geometry(), self.at)
+
     def test_identical_walls_reuse_state_but_source_lifetime_ends(self):
         source, frame = surface(), geometry()
         scalar, count, calls = scalar_measure(source, frame, self.at)
