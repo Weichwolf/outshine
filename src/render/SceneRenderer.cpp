@@ -28,7 +28,7 @@
 #include <optional>
 
 #include "Log.h"
-#include "stages/DepthPyramid.h"
+#include "visibility/DepthPyramid.h"
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
@@ -472,7 +472,7 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
     for (const auto *texture : {frame.Offscreen.get(), frame.Shadow.Atlas()}) {
       if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const auto *buffer : {frame.Pyramid.get(), frame.GroundPyramid.get()}) {
+    for (const auto *buffer : {frame.DepthPyramid.Buffer(), frame.GroundPyramid.Buffer()}) {
       if (buffer != nullptr) { ++counts.Buffers; }
     }
     if (frame.Samp) { ++counts.Samplers; }
@@ -486,8 +486,8 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
   if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Has(resource); }
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
-    case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
-    case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
+    case Resource::DepthPyramid: return frame.DepthPyramid.Buffer() != nullptr;
+    case Resource::GroundPyramid: return frame.GroundPyramid.Buffer() != nullptr;
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
     case Resource::AtmosphereUniform:
@@ -1140,19 +1140,16 @@ bool SceneRenderer::ConfigureDepthPyramid(SceneRenderer &renderer,
   static_cast<void>(renderer);
   (void)plan;
   (void)drawsGlass;
-  return Accepted(frame.PyramidStage.Configure(frame.Handles,
-                                               frame.Targets.Get(Resource::SceneDepth),
-                                               frame.Samp.get(),
-                                               frame.Pyramid.get(),
-                                               {.WidthPx = frame.Width, .HeightPx = frame.Height}),
-                  error);
+  return Accepted(
+      frame.DepthPyramid.Configure(frame.Targets.Get(Resource::SceneDepth), frame.Samp.get()),
+      error);
 }
 
 Native::Result<void> SceneRenderer::EncodeDepthPyramid(const FrameContext &ctx,
                                                        const PassRecording &into) {
   (void)ctx;
   if (!DepthPyramidNeeded(*ActiveState().Plan)) { return {}; }
-  return ActiveFrame().PyramidStage.Encode(into);
+  return ActiveFrame().DepthPyramid.Encode(into);
 }
 
 bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
@@ -1162,9 +1159,7 @@ bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
                                           std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  frame.Cull.PyramidFrom(frame.Pyramid.get(),
-                         PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
-                                      .HeightPx = static_cast<uint32_t>(frame.Height)}));
+  frame.Cull.PyramidFrom(frame.DepthPyramid.Buffer(), frame.DepthPyramid.Shape());
   return Accepted(
       frame.Cull.Configure(CullSource(renderer.ActiveState().Content.Geometry), frame.Handles),
       error);

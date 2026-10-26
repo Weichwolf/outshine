@@ -48,7 +48,7 @@ struct SDL_Window;
 #include "stages/GeometryResidency.h"
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
-#include "stages/DepthPyramidStage.h"
+#include "visibility/DepthPyramidPass.h"
 #include "shadow/SunShadowPass.h"
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
@@ -1057,15 +1057,13 @@ private:
     FrameTargets Targets;
     AtmospherePasses Atmosphere;
     std::unique_ptr<Native::Sampler> Samp;
-    std::unique_ptr<Native::Buffer> Pyramid;
-    std::unique_ptr<Native::Buffer> GroundPyramid;
     Readback PyramidRead;
     int Width = 0, Height = 0;
     CompositeTransmissionStage CompositeTransmission;
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
-    DepthPyramidStage PyramidStage;
-    DepthPyramidStage GroundPyramidStage;
+    DepthPyramidPass DepthPyramid;
+    DepthPyramidPass GroundPyramid;
     SkyStage Sky;
     SunShadowPass Shadow;
     GeometryCullStage Cull;
