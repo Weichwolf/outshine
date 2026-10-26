@@ -8,7 +8,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts for UI composition");
   {
     Engine engine;
-    (void)engine.setRoots({.Shipped = "src/assets"});
+    (void)engine.setRoots({.Shipped = "data"});
     CHECK(engine.setRenderTarget(Extent{128, 128}).has_value(), "offscreen target is configured");
     Scenario::Document scene;
     scene.WheelStepPx = 16;

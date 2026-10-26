@@ -150,7 +150,7 @@ def capture(binary, output, label, payload):
 def execute(binary, output, offsets):
     records, panels = [], []
     catalogue = json.loads(
-        (ROOT / "src/assets/world/ground-materials.json").read_text()
+        (ROOT / "data/world/ground-materials.json").read_text()
     )
     asphalt = next(row for row in catalogue["classes"] if row["name"] == "asphalt")
     recipes = (
@@ -301,7 +301,7 @@ def main():
                 Path(__file__).with_suffix(".frag"),
                 Path(__file__).with_name("asphalt_field.glsl"),
                 ROOT / "src/render/shaders/metalRoughBrdf.glsl",
-                ROOT / "src/assets/world/ground-materials.json",
+                ROOT / "data/world/ground-materials.json",
                 Path(__file__).with_name("asphalt_box_reference.py"),
                 Path(__file__).with_name("asphalt_lighting_reference.py"),
                 Path(__file__).with_name("asphalt_field.py"),

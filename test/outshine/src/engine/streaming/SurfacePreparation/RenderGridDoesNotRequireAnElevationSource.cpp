@@ -41,7 +41,7 @@ int main() {
     const Data::ProviderRegistry registry;
     Ground::SurfacePreparation stack;
     constexpr LongitudeLatitude focus{.LongitudeDeg = 9, .LatitudeDeg = 47};
-    CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = directory, .Assets = {}},
+    CHECK(stack.Open({.BuiltinData = "data", .Sources = directory, .Assets = {}},
                      std::span<const Data::SourceProvider>{},
                      registry,
                      focus,

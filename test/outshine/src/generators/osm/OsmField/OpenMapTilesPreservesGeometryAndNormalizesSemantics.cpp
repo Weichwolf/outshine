@@ -140,8 +140,8 @@ void CheckLandClasses() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground material catalog loads");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "landcover recipes load");
   if (!templates.Ready()) { return; }
 
   struct Case {
@@ -186,8 +186,8 @@ void CheckLandSubclasses() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground material catalog loads");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "landcover recipes load");
   if (!templates.Ready()) { return; }
 
   struct Case {
@@ -270,8 +270,8 @@ void CheckRailClassRules() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "ground catalog loads");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "street rules load");
   if (!templates.Ready()) { return; }
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(2, layers, MvtSchema::OpenMapTiles);
@@ -302,8 +302,8 @@ void CheckPathClassRules() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "production path recipes load");
   const std::array<std::string, 1> layers{"streets"};
   constexpr std::array subtypes{"footway", "cycleway", "steps", "pedestrian", "bridleway"};
@@ -376,8 +376,8 @@ void CheckTransitClassRules() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "production transit recipes load");
   if (!templates.Ready()) { return; }
   const std::array<std::string, 1> layers{"streets"};

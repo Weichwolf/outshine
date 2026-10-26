@@ -93,7 +93,7 @@ void Replay(const std::filesystem::path &directory,
   SilentSink sink;
   Tasks compute(1);
   SurfacePreparation stack;
-  CHECK(stack.Open({.Shipped = "src/assets",
+  CHECK(stack.Open({.Shipped = "data",
                     .Cache = (directory / "sources").string(),
                     .AssetCache = (directory / "assets").string()},
                    providers,

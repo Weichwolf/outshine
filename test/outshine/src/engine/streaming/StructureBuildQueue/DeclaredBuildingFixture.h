@@ -44,7 +44,7 @@ inline bool OpenDeclaredBuilding(Ground::SurfacePreparation &stack,
                                                   .Coverage = {},
                                                   .PayloadSha256 = {},
                                                   .Schema = {}}};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache, .AssetCache = {}},
+  CHECK(stack.Open({.Shipped = "data", .Cache = cache, .AssetCache = {}},
                    providers,
                    eye,
                    wire,

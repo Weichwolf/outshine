@@ -1,7 +1,7 @@
 {
   "purpose": "Fixed intrinsic crown input for the native silhouette-normal countercase; not a presentation image or GPU acceptance oracle.",
   "producer_commit": "a53f5bb7c496916fc21d74cc9da3db7dd328bbd1",
-  "source": "src/assets/world/species/birch.json",
+  "source": "data/world/species/birch.json",
   "source_sha256": "630cc4214d2fa1ad3360f0cadafdb896d3059a4f06ff23ce6b145a0673dbabeb",
   "capture_device": "Intel i5-1135G7 / Iris Xe (TGL GT2), Vulkan",
   "width_px": 128,

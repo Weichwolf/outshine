@@ -60,7 +60,7 @@ int main() {
     Receiver receiver;
     Engine engine = TestEngine::WithGpu({.Create = SubmissionFaultDevice::Create});
     engine.setInputHost(&receiver);
-    (void)engine.setRoots({.Shipped = "src/assets"});
+    (void)engine.setRoots({.Shipped = "data"});
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
     document.Render.Declared = true;

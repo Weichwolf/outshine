@@ -307,7 +307,7 @@ int main() {
   const std::array providers{terrainProvider};
   Data::ProviderRegistry registry;
   Generators::RegisterShippedProviders(registry);
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.string(), .AssetCache = {}},
+  CHECK(stack.Open({.Shipped = "data", .Cache = cache.string(), .AssetCache = {}},
                    providers,
                    registry,
                    eye,

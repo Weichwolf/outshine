@@ -63,7 +63,7 @@ int main() {
   Data::SourceProvider terrain;
   terrain.Kind = "terrain";
   const std::array providers{terrain};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
+  CHECK(stack.Open({.Shipped = "data", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
                    eye,
                    wire,

@@ -42,7 +42,7 @@ def main():
     parser.add_argument('species', nargs='*', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    species = args.species or [ROOT / f'src/assets/world/species/{name}.json'
+    species = args.species or [ROOT / f'data/world/species/{name}.json'
                               for name in ('birch', 'oak', 'spruce')]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)

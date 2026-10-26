@@ -25,7 +25,7 @@ using Stand = std::vector<std::tuple<double, double, double, uint32_t>>;
 
 outshine::Generators::RegionSurfaceRecipes Templates(const std::filesystem::path &file,
                                                      int exposureDeg) {
-  const auto original = ReadTextFile("src/assets/world/ground-materials.json", size_t{1024} * 1024);
+  const auto original = ReadTextFile("data/world/ground-materials.json", size_t{1024} * 1024);
   CHECK(original.has_value(), "the counterexample uses the shipped material definitions");
   outshine::Generators::RegionSurfaceRecipes templates;
   if (!original) { return templates; }
@@ -41,7 +41,7 @@ outshine::Generators::RegionSurfaceRecipes Templates(const std::filesystem::path
   std::ofstream(file) << text;
   outshine::Generators::GroundMaterialCatalog materials;
   CHECK(materials.Load(file.c_str()), "only the material exposure threshold changes");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(templates.Load("data/world/vegetation.json", materials),
         "the identical source habitats consume the changed material");
   return templates;
 }
