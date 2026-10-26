@@ -13,7 +13,5 @@ enum class RoadStepError : uint8_t { InvalidInput, UnsupportedGeometry, BodyFail
 [[nodiscard]] std::expected<SurfaceBody, RoadStepError>
 BuildRoadStepBody(std::span<const RoadStation> stations, const RoadSweep &surface);
 
-[[nodiscard]] bool
-AppendRoadStepBody(const SurfaceBody &body, const Vec3f &colour, RoadMeshBuffers &mesh);
 }
 #endif

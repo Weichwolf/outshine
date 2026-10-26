@@ -1,4 +1,4 @@
-#include "RoadStepBody.h"
+#include "RoadBodyMesh.h"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -6,16 +6,16 @@
 #include <limits>
 
 namespace outshine::Generators {
-bool AppendRoadStepBody(const SurfaceBody &body, const Vec3f &colour, RoadMeshBuffers &mesh) {
+bool AppendRoadBodyMesh(const HeightSolid &body, const Vec3f &colour, RoadMeshBuffers &mesh) {
   const size_t first = mesh.PositionM.size() / 3;
   if (first > std::numeric_limits<uint32_t>::max() ||
-      body.Geometry.Faces.size() > (std::numeric_limits<uint32_t>::max() - first) / 3) {
+      body.Faces.size() > (std::numeric_limits<uint32_t>::max() - first) / 3) {
     return false;
   }
-  for (const auto face : body.Geometry.Faces) {
+  for (const auto face : body.Faces) {
     std::array<std::array<double, 3>, 3> points;
     for (size_t at = 0; at < face.size(); ++at) {
-      const auto source = body.Geometry.Points[face[at]];
+      const auto source = body.Points[face[at]];
       points[at] = {{source[0], source[2], -source[1]}};
     }
     std::array<double, 3> a{};
