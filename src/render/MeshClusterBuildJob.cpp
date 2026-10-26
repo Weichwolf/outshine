@@ -33,6 +33,44 @@ void MeshClusterBuildJob::Completes() noexcept {
   Stage_ = Stage::Complete;
 }
 
+bool MeshClusterBuildJob::KeepsClusters(const ShapePart &part) const {
+  if (part.Material < 0 || static_cast<size_t>(part.Material) >= Surfaces_.size()) { return true; }
+  const SurfaceKind kind = StateOf(Surfaces_[static_cast<size_t>(part.Material)]).Kind();
+  return kind == SurfaceKind::Opaque || kind == SurfaceKind::Masked;
+}
+
+std::expected<MeshClusterBuildJob::Flow, ClusterError>
+MeshClusterBuildJob::PlanParts(size_t &itemsLeft) {
+  while (Part_ < Into_->Parts.size() && itemsLeft > 0) {
+    const ShapePart &part = Into_->Parts[Part_];
+    if (part.FirstIndex > Into_->Indices.size() ||
+        part.IndexCount > Into_->Indices.size() - part.FirstIndex) {
+      return std::unexpected(Fail(ClusterError::InvalidLayout));
+    }
+    if (KeepsClusters(part)) {
+      const size_t triangles = part.IndexCount / 3;
+      const size_t clusters =
+          triangles / kClusterTriangles + (triangles % kClusterTriangles != 0 ? 1u : 0u);
+      if (clusters > std::numeric_limits<uint32_t>::max() - PlannedClusters_) {
+        return std::unexpected(Fail(ClusterError::CapacityExceeded));
+      }
+      PlannedClusters_ += clusters;
+    }
+    ++Part_;
+    --itemsLeft;
+  }
+  if (Part_ < Into_->Parts.size()) { return Flow::Yield; }
+  constexpr size_t kSphereFloats = 12;
+  if (PlannedClusters_ > Into_->ClusterSpheres.max_size() / kSphereFloats) {
+    return std::unexpected(Fail(ClusterError::CapacityExceeded));
+  }
+  Into_->Clusters.reserve(PlannedClusters_);
+  Into_->ClusterSpheres.reserve(PlannedClusters_ * kSphereFloats);
+  Part_ = 0;
+  Stage_ = Stage::Part;
+  return Flow::Continue;
+}
+
 std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::BeginsPart() {
   if (Part_ == Into_->Parts.size()) {
     Completes();
@@ -47,7 +85,8 @@ std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::Begi
       part.FirstVertex > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected(Fail(ClusterError::InvalidLayout));
   }
-  LocalIndices_.resize(part.IndexCount);
+  LocalIndices_.clear();
+  LocalIndices_.reserve(part.IndexCount);
   Cursor_ = 0;
   Stage_ = Stage::Rebase;
   return Flow::Continue;
@@ -56,27 +95,23 @@ std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::Begi
 std::expected<MeshClusterBuildJob::Flow, ClusterError>
 MeshClusterBuildJob::AdvancesRebase(size_t &itemsLeft) {
   const ShapePart &part = Into_->Parts[Part_];
-  const size_t count = std::min(itemsLeft, LocalIndices_.size() - Cursor_);
+  const size_t count = std::min(itemsLeft, part.IndexCount - Cursor_);
   const size_t end = Cursor_ + count;
   for (; Cursor_ < end; ++Cursor_) {
     const uint32_t index = Into_->Indices[part.FirstIndex + Cursor_];
     if (index < part.FirstVertex || index - part.FirstVertex >= part.VertexCount) {
       return std::unexpected(Fail(ClusterError::InvalidIndex));
     }
-    LocalIndices_[Cursor_] = index - static_cast<uint32_t>(part.FirstVertex);
+    LocalIndices_.push_back(index - static_cast<uint32_t>(part.FirstVertex));
   }
   itemsLeft -= count;
-  if (Cursor_ != LocalIndices_.size()) { return Flow::Yield; }
+  if (Cursor_ != part.IndexCount) { return Flow::Yield; }
   if (LocalIndices_.empty()) {
     ++Part_;
     Stage_ = Stage::Part;
     return Flow::Continue;
   }
-  KeepsClusters_ = part.Material < 0 || static_cast<size_t>(part.Material) >= Surfaces_.size();
-  if (!KeepsClusters_) {
-    const SurfaceKind kind = StateOf(Surfaces_[static_cast<size_t>(part.Material)]).Kind();
-    KeepsClusters_ = kind == SurfaceKind::Opaque || kind == SurfaceKind::Masked;
-  }
+  KeepsClusters_ = KeepsClusters(part);
   const auto triangleLimit =
       KeepsClusters_ ? kClusterTriangles
                      : static_cast<uint32_t>(std::max(size_t{1}, LocalIndices_.size() / 3));
@@ -86,14 +121,27 @@ MeshClusterBuildJob::AdvancesRebase(size_t &itemsLeft) {
   return Flow::Continue;
 }
 
-void MeshClusterBuildJob::KeepsCooked(ClusteredMesh cooked) {
-  if (!KeepsClusters_) { return; }
-  ShapePart &part = Into_->Parts[Part_];
-  for (size_t at = 0; at < cooked.Index.size(); ++at) {
-    Into_->Indices[part.FirstIndex + at] =
-        cooked.Index[at] + static_cast<uint32_t>(part.FirstVertex);
+MeshClusterBuildJob::Flow MeshClusterBuildJob::PublishIndices(size_t &itemsLeft) {
+  const ShapePart &part = Into_->Parts[Part_];
+  const size_t count = std::min(itemsLeft, Built_.Index.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    Into_->Indices[part.FirstIndex + Cursor_] =
+        Built_.Index[Cursor_] + static_cast<uint32_t>(part.FirstVertex);
   }
-  for (DagCluster held : cooked.Clusters) {
+  itemsLeft -= count;
+  if (Cursor_ != Built_.Index.size()) { return Flow::Yield; }
+  Cursor_ = 0;
+  Stage_ = Stage::Clusters;
+  return Flow::Continue;
+}
+
+MeshClusterBuildJob::Flow MeshClusterBuildJob::PublishClusters(size_t &itemsLeft) {
+  ShapePart &part = Into_->Parts[Part_];
+  const size_t count = std::min(itemsLeft, Built_.Clusters.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    DagCluster held = Built_.Clusters[Cursor_];
     held.First += static_cast<uint32_t>(part.FirstIndex);
     if (held.ParentErr >= kDagRootErr) { ++RootClusters_; }
     Into_->Clusters.push_back(held);
@@ -111,7 +159,13 @@ void MeshClusterBuildJob::KeepsCooked(ClusteredMesh cooked) {
                                   0.0f,
                                   0.0f});
   }
-  part.ClusterCount = static_cast<uint32_t>(cooked.Clusters.size());
+  itemsLeft -= count;
+  if (Cursor_ != Built_.Clusters.size()) { return Flow::Yield; }
+  part.ClusterCount = static_cast<uint32_t>(Built_.Clusters.size());
+  Built_ = {};
+  ++Part_;
+  Stage_ = Stage::Part;
+  return Flow::Continue;
 }
 
 std::expected<MeshClusterBuildJob::Flow, ClusterError>
@@ -121,53 +175,58 @@ MeshClusterBuildJob::AdvancesCook(size_t &itemsLeft) {
   const auto advanced = cook.AdvanceWithin(itemsLeft);
   if (!advanced) { return std::unexpected(Fail(advanced.error())); }
   if (!*advanced) { return Flow::Yield; }
-  KeepsCooked(cook.Take());
+  Built_ = cook.Take();
   Cook_.reset();
+  Cursor_ = 0;
+  if (KeepsClusters_) {
+    Stage_ = Stage::Indices;
+    return Flow::Continue;
+  }
+  Built_ = {};
   ++Part_;
   Stage_ = Stage::Part;
   return Flow::Continue;
 }
 
 std::expected<MeshClusterBuildJob::Flow, ClusterError>
+MeshClusterBuildJob::AdvanceStage(size_t &itemsLeft) {
+  switch (Stage_) {
+    case Stage::Layout:
+      Into_->Clustering = {};
+      Into_->Clusters.clear();
+      Into_->ClusterSpheres.clear();
+      if (Into_->Indices.size() > std::numeric_limits<uint32_t>::max()) {
+        return std::unexpected(Fail(ClusterError::CapacityExceeded));
+      }
+      Stage_ = Stage::Plan;
+      return Flow::Continue;
+    case Stage::Plan: return PlanParts(itemsLeft);
+    case Stage::Part:
+      if (itemsLeft == 0) { return Flow::Yield; }
+      --itemsLeft;
+      return BeginsPart();
+    case Stage::Rebase: return AdvancesRebase(itemsLeft);
+    case Stage::Cook: return AdvancesCook(itemsLeft);
+    case Stage::Indices: return PublishIndices(itemsLeft);
+    case Stage::Clusters: return PublishClusters(itemsLeft);
+    case Stage::Complete: return Flow::Complete;
+    case Stage::Failed: return std::unexpected(Failure_);
+  }
+  return std::unexpected(Fail(ClusterError::InvalidLayout));
+}
+
+std::expected<MeshClusterBuildJob::Flow, ClusterError>
 MeshClusterBuildJob::AdvanceWork(size_t &itemsLeft) {
   for (;;) {
-    switch (Stage_) {
-      case Stage::Layout:
-        Into_->Clustering = {};
-        Into_->Clusters.clear();
-        Into_->ClusterSpheres.clear();
-        if (Into_->Indices.size() > std::numeric_limits<uint32_t>::max()) {
-          return std::unexpected(Fail(ClusterError::CapacityExceeded));
-        }
-        Stage_ = Stage::Part;
-        break;
-      case Stage::Part: {
-        const auto began = BeginsPart();
-        if (!began) { return std::unexpected(began.error()); }
-        if (*began == Flow::Complete) { return Flow::Complete; }
-        break;
-      }
-      case Stage::Rebase: {
-        const auto rebased = AdvancesRebase(itemsLeft);
-        if (!rebased) { return std::unexpected(rebased.error()); }
-        if (*rebased != Flow::Continue) { return *rebased; }
-        break;
-      }
-      case Stage::Cook: {
-        const auto cooked = AdvancesCook(itemsLeft);
-        if (!cooked) { return std::unexpected(cooked.error()); }
-        if (*cooked != Flow::Continue) { return *cooked; }
-        break;
-      }
-      case Stage::Complete: return Flow::Complete;
-      case Stage::Failed: return std::unexpected(Failure_);
-    }
+    const auto advanced = AdvanceStage(itemsLeft);
+    if (!advanced || *advanced != Flow::Continue) { return advanced; }
   }
 }
 
 std::expected<bool, ClusterError> MeshClusterBuildJob::Advance(size_t itemsMost) {
   if (Stage_ == Stage::Failed) { return std::unexpected(Failure_); }
   if (Ready()) { return true; }
+  if (itemsMost == 0) { return false; }
   const auto began = std::chrono::steady_clock::now();
   size_t itemsLeft = itemsMost;
   const auto advanced = AdvanceWork(itemsLeft);
