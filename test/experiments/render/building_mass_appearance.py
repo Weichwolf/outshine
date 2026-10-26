@@ -58,8 +58,44 @@ def material_measure(at, code, stream, paint, **kwargs):
     return np.concatenate((colour, weights, [1]))
 
 
+def clipped_wall_parts(domain, base):
+    x0, z0, x1, z1 = domain.bounds
+    for above, low, high in ((False, z0, min(z1, base)), (True, max(z0, base), z1)):
+        if high > low:
+            yield (
+                above,
+                shapely.intersection(domain, shapely.box(x0, low, x1, high)).area,
+            )
+
+
+def clipped_wall_areas(domains, base):
+    result = np.zeros((len(domains), 2))
+    if not domains:
+        return result
+    bounds = shapely.bounds(domains)
+    lower = np.column_stack((bounds[:, 1], np.maximum(bounds[:, 1], base)))
+    upper = np.column_stack((np.minimum(bounds[:, 3], base), bounds[:, 3]))
+    rows, cols = np.nonzero(upper > lower)
+    boxes = shapely.box(
+        bounds[rows, 0], lower[rows, cols], bounds[rows, 2], upper[rows, cols]
+    )
+    result[rows, cols] = shapely.area(
+        shapely.intersection(np.asarray(domains, object)[rows], boxes)
+    )
+    return result
+
+
 def domain_measure(
-    domain, shape, surface, side, gable, at, normal_area, *, material_lookup=None
+    domain,
+    shape,
+    surface,
+    side,
+    gable,
+    at,
+    normal_area,
+    *,
+    material_lookup=None,
+    wall_areas=None,
 ):
     local_normal, jacobian = normal_area
     stream = int(local_normal[2] > 0.5)
@@ -85,14 +121,15 @@ def domain_measure(
         (2 if entrance and not gable else 0) + 3 * (shape["wall_variant"] % 8)
     )
     base = shape["seat_m"] + shape["foot_m"]
-    x0, z0, x1, z1 = domain.bounds
     calls = 0
-    for above, low, high in ((False, z0, min(z1, base)), (True, max(z0, base), z1)):
-        if high <= low:
-            continue
-        area = (
-            shapely.intersection(domain, shapely.box(x0, low, x1, high)).area * jacobian
-        )
+    parts = (
+        clipped_wall_parts(domain, base)
+        if wall_areas is None
+        else enumerate(wall_areas)
+    )
+    for above, local_area in parts:
+        above = bool(above)
+        area = local_area * jacobian
         if area <= 0:
             continue
         response = lookup(
@@ -140,6 +177,12 @@ def source_measure(identity, surface, frame, at):
         local = np.stack([p.local_axes for p in generated])
         axes = np.stack([domain_axes(p, transform) for p in generated])
         normals, areas = normal_areas(local, axes, [p.orientation for p in generated])
+        wall_areas = iter(
+            clipped_wall_areas(
+                [p.domain for p in generated if p.side != 1],
+                shape["seat_m"] + shape["foot_m"],
+            )
+        )
         for patch, normal, area in zip(generated, normals, areas, strict=True):
             value, _ = domain_measure(
                 patch.domain,
@@ -150,6 +193,7 @@ def source_measure(identity, surface, frame, at):
                 at,
                 (normal, area),
                 material_lookup=lookup,
+                wall_areas=None if patch.side == 1 else next(wall_areas),
             )
             result[int(patch.side == 1)] += value
             patches += 1

@@ -5,7 +5,14 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from building_mass_appearance import patch_measure, patch_normal_areas, source_measure
+import shapely
+from building_mass_appearance import (
+    clipped_wall_areas,
+    clipped_wall_parts,
+    patch_measure,
+    patch_normal_areas,
+    source_measure,
+)
 from building_mass_materials import material, policy
 from source_material_patches import shape_material_patches
 from test_building_mass_materials import geometry, surface
@@ -29,6 +36,25 @@ class BuildingSourceMaterialWork(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.at = policy()
+
+    def test_wall_areas_preserve_sloping_split_and_empty_sides(self):
+        domains = [
+            shapely.Polygon([(0, 0), (2, 0), (2, 4), (0, 2)]),
+            shapely.box(3, 1, 5, 2),
+        ]
+        for base, expected in (
+            (0, [[0, 6], [0, 2]]),
+            (3, [[5.5, 0.5], [2, 0]]),
+            (4, [[6, 0], [2, 0]]),
+        ):
+            actual = clipped_wall_areas(domains, base)
+            self.assertEqual(actual.tobytes(), np.asarray(expected, float).tobytes())
+            scalar = np.zeros((2, 2))
+            for row, domain in enumerate(domains):
+                for above, area in clipped_wall_parts(domain, base):
+                    scalar[row, int(above)] = area
+            self.assertEqual(scalar.tobytes(), actual.tobytes())
+        self.assertEqual(clipped_wall_areas([], 3).shape, (0, 2))
 
     def test_local_measures_keep_sloped_areas_without_world_geometry(self):
         source = surface()
