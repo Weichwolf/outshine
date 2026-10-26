@@ -80,8 +80,6 @@ class PortSpan:
             )
         if type(self.bridge) is not bool or type(self.tunnel) is not bool:
             raise ValueError("explicit native bridge/tunnel flags required")
-        if self.bridge and self.tunnel:
-            raise ValueError("a normalized span cannot be both bridge and tunnel")
         if type(self.layer) is not int or not -(2**31) <= self.layer < 2**31:
             raise ValueError("actual normalized int32 source layer required")
         object.__setattr__(self, "attributes", immutable(self.attributes))
