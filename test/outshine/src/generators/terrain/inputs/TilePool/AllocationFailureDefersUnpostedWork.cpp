@@ -54,16 +54,16 @@ public:
 }
 
 void *
-operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t & /*unused*/) noexcept {
+operator new(size_t sz, std::align_val_t alignment, const std::nothrow_t & /*unused*/) noexcept {
   if (rejectAllocation) { return nullptr; }
   const auto requested = static_cast<size_t>(alignment);
   const size_t supported = requested < sizeof(void *) ? sizeof(void *) : requested;
   void *block = nullptr;
-  return posix_memalign(&block, supported, bytes) == 0 ? block : nullptr;
+  return posix_memalign(&block, supported, sz) == 0 ? block : nullptr;
 }
 
-void operator delete(void *block, std::align_val_t /*unused*/) noexcept {
-  std::free(block);
+void operator delete(void *p, std::align_val_t /*unused*/) noexcept {
+  std::free(p);
 }
 
 int main() {

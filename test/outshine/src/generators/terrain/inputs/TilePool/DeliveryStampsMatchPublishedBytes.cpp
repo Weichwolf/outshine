@@ -96,6 +96,77 @@ public:
     return SourceResponse::Delivered({Stable ? uint8_t{7} : static_cast<uint8_t>(serial), 42});
   }
 };
+
+void CheckConcurrentPublication(const SourceRequest &askA) {
+  using namespace outshine::Test;
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
+  SourceSet sources(store);
+  NoNetwork transport;
+  auto provider = std::make_unique<Provider>();
+  auto gate = std::make_shared<FirstDeliveryGate>();
+  provider->Gate = gate;
+  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
+        "concurrent provider registers");
+  TilePool pool({.ByteBudget = 64, .PreparedFields = {}}, sources, transport);
+  TilePool::Landing delayed;
+  TilePool::Landing earlier;
+  TilePool::Landing cached;
+  TilePool::Reply delayedReply = TilePool::Reply::Pending;
+  std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
+  CHECK(gate->Wait(), "first delivery reaches the controlled barrier");
+  CHECK(pool.BytesBlocking(askA, &earlier) == TilePool::Reply::Ready,
+        "independent delivery publishes first");
+  gate->Release();
+  first.join();
+  CHECK(!gate->TimedOut && delayedReply == TilePool::Reply::Ready,
+        "delayed delivery publishes without timeout");
+  CHECK(pool.BytesBlocking(askA, &cached) == TilePool::Reply::Ready,
+        "latest publication is cached");
+  CHECK(cached.Bytes == delayed.Bytes && cached.TerrainStamp == delayed.TerrainStamp,
+        "fresh publication replaces existing bytes and stamp together");
+  CHECK(earlier.TerrainStamp && !pool.ValidTerrainStamps(std::array{*earlier.TerrainStamp}),
+        "replaced delivery cannot certify current terrain");
+  CHECK(delayed.TerrainStamp && pool.ValidTerrainStamps(std::array{*delayed.TerrainStamp}),
+        "latest published bytes retain their exact stamp");
+}
+
+void CheckStableRedelivery(const SourceRequest &askA, const SourceRequest &askB) {
+  using namespace outshine::Test;
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
+  SourceSet sources(store);
+  NoNetwork transport;
+  auto provider = std::make_unique<Provider>();
+  auto *observed = provider.get();
+  observed->Stable = true;
+  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
+        "stable terrain provider registers");
+  TilePool pool(
+      {.ByteBudget = 2, .TerrainRevisionEntries = 8, .PreparedFields = {}}, sources, transport);
+  TilePool::Landing first;
+  TilePool::Landing neighbour;
+  TilePool::Landing again;
+  TilePool::Landing relocated;
+  CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
+        "first immutable payload has a certificate");
+  CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&
+            pool.BytesBlocking(askA, &again) == TilePool::Reply::Ready,
+        "evicted bytes are delivered again");
+  CHECK(observed->Calls == 3 && first.Bytes == again.Bytes &&
+            first.TerrainStamp == again.TerrainStamp,
+        "identical re-delivery preserves certificates held by in-flight world candidates");
+  CHECK(first.TerrainStamp && pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+        "candidate can continue after raw-byte cache eviction and identical refill");
+  CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready,
+        "evict the first address before changing served provenance");
+  observed->ShiftServed = true;
+  CHECK(pool.BytesBlocking(askA, &relocated) == TilePool::Reply::Ready &&
+            relocated.Bytes == first.Bytes && relocated.At != first.At,
+        "negative control delivers equal bytes from a different source address");
+  CHECK(relocated.TerrainStamp != first.TerrainStamp && first.TerrainStamp &&
+            !pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+        "equal bytes cannot hide changed terrain provenance");
+}
+
 }
 
 int main() {
@@ -155,71 +226,7 @@ int main() {
       CHECK(next.Bytes.empty(), "absent delivery has no stale payload");
     }
   }
-  {
-    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
-    SourceSet sources(store);
-    NoNetwork transport;
-    auto provider = std::make_unique<Provider>();
-    auto gate = std::make_shared<FirstDeliveryGate>();
-    provider->Gate = gate;
-    CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
-          "concurrent provider registers");
-    TilePool pool({.ByteBudget = 64, .PreparedFields = {}}, sources, transport);
-    TilePool::Landing delayed;
-    TilePool::Landing earlier;
-    TilePool::Landing cached;
-    TilePool::Reply delayedReply = TilePool::Reply::Pending;
-    std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
-    CHECK(gate->Wait(), "first delivery reaches the controlled barrier");
-    CHECK(pool.BytesBlocking(askA, &earlier) == TilePool::Reply::Ready,
-          "independent delivery publishes first");
-    gate->Release();
-    first.join();
-    CHECK(!gate->TimedOut && delayedReply == TilePool::Reply::Ready,
-          "delayed delivery publishes without timeout");
-    CHECK(pool.BytesBlocking(askA, &cached) == TilePool::Reply::Ready,
-          "latest publication is cached");
-    CHECK(cached.Bytes == delayed.Bytes && cached.TerrainStamp == delayed.TerrainStamp,
-          "fresh publication replaces existing bytes and stamp together");
-    CHECK(earlier.TerrainStamp && !pool.ValidTerrainStamps(std::array{*earlier.TerrainStamp}),
-          "replaced delivery cannot certify current terrain");
-    CHECK(delayed.TerrainStamp && pool.ValidTerrainStamps(std::array{*delayed.TerrainStamp}),
-          "latest published bytes retain their exact stamp");
-  }
-  {
-    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
-    SourceSet sources(store);
-    NoNetwork transport;
-    auto provider = std::make_unique<Provider>();
-    auto *observed = provider.get();
-    observed->Stable = true;
-    CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
-          "stable terrain provider registers");
-    TilePool pool(
-        {.ByteBudget = 2, .TerrainRevisionEntries = 8, .PreparedFields = {}}, sources, transport);
-    TilePool::Landing first;
-    TilePool::Landing neighbour;
-    TilePool::Landing again;
-    TilePool::Landing relocated;
-    CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
-          "first immutable payload has a certificate");
-    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&
-              pool.BytesBlocking(askA, &again) == TilePool::Reply::Ready,
-          "evicted bytes are delivered again");
-    CHECK(observed->Calls == 3 && first.Bytes == again.Bytes &&
-              first.TerrainStamp == again.TerrainStamp,
-          "identical re-delivery preserves certificates held by in-flight world candidates");
-    CHECK(first.TerrainStamp && pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
-          "candidate can continue after raw-byte cache eviction and identical refill");
-    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready,
-          "evict the first address before changing served provenance");
-    observed->ShiftServed = true;
-    CHECK(pool.BytesBlocking(askA, &relocated) == TilePool::Reply::Ready &&
-              relocated.Bytes == first.Bytes && relocated.At != first.At,
-          "negative control delivers equal bytes from a different source address");
-    CHECK(relocated.TerrainStamp != first.TerrainStamp && first.TerrainStamp &&
-              !pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
-          "equal bytes cannot hide changed terrain provenance");
-  }
+  CheckConcurrentPublication(askA);
+  CheckStableRedelivery(askA, askB);
   return Report();
 }

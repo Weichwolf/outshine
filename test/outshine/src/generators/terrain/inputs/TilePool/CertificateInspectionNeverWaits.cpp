@@ -85,20 +85,48 @@ Inspection Inspect(const TilePool &pool, const TerrainCertificate &certificate) 
   measureAllocations = false;
   return {.State = state, .Allocations = allocations};
 }
+
+void CheckContendedInspection(TilePool &pool, const TerrainCertificate &certificate) {
+  using namespace outshine::Test;
+  for (std::mutex *mutex : TerrainInspectionTestPeer::Mutexes(pool)) {
+    std::latch held(1);
+    std::latch release(1);
+    std::thread writer([&] {
+      const std::scoped_lock lock(*mutex);
+      held.count_down();
+      release.wait();
+    });
+    held.wait();
+    std::promise<Inspection> completion;
+    auto result = completion.get_future();
+    std::thread reader([&] { completion.set_value(Inspect(pool, certificate)); });
+    const bool beforeRelease =
+        result.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+    release.count_down();
+    writer.join();
+    reader.join();
+    const auto inspected = result.get();
+    CHECK(beforeRelease && inspected.State == Validation::Pending && inspected.Allocations == 0,
+          "inspection reports Pending before the held queue/cache/index writer releases");
+    CHECK(pool.InspectCertificate(certificate) == Validation::Current,
+          "same certificate becomes current after contention without source changes");
+  }
 }
 
-void *operator new(size_t bytes) {
+}
+
+void *operator new(size_t sz) {
   if (measureAllocations) { ++allocations; }
-  if (void *memory = std::malloc(bytes == 0 ? 1 : bytes)) { return memory; }
+  if (void *memory = std::malloc(sz == 0 ? 1 : sz)) { return memory; }
   std::abort();
 }
 
-void operator delete(void *memory) noexcept {
-  std::free(memory);
+void operator delete(void *p) noexcept {
+  std::free(p);
 }
 
-void operator delete(void *memory, size_t /*unused*/) noexcept {
-  std::free(memory);
+void operator delete(void *p, size_t /*unused*/) noexcept {
+  std::free(p);
 }
 
 int main() {
@@ -133,29 +161,7 @@ int main() {
   CHECK(inspected.State == Validation::Current && inspected.Allocations == 0,
         "current certificate inspection allocates nothing");
 
-  for (std::mutex *mutex : TerrainInspectionTestPeer::Mutexes(pool)) {
-    std::latch held(1);
-    std::latch release(1);
-    std::thread writer([&] {
-      const std::scoped_lock lock(*mutex);
-      held.count_down();
-      release.wait();
-    });
-    held.wait();
-    std::promise<Inspection> completion;
-    auto result = completion.get_future();
-    std::thread reader([&] { completion.set_value(Inspect(pool, certificate)); });
-    const bool beforeRelease =
-        result.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
-    release.count_down();
-    writer.join();
-    reader.join();
-    inspected = result.get();
-    CHECK(beforeRelease && inspected.State == Validation::Pending && inspected.Allocations == 0,
-          "inspection reports Pending before the held queue/cache/index writer releases");
-    CHECK(pool.InspectCertificate(certificate) == Validation::Current,
-          "same certificate becomes current after contention without source changes");
-  }
+  CheckContendedInspection(pool, certificate);
 
   (void)deliver(b);
   const auto identical = deliver(a);
