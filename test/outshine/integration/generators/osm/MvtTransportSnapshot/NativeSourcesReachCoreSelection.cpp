@@ -38,7 +38,7 @@ std::expected<MvtTransportSnapshot, std::string> Snapshot() {
   const auto graph = StreetGraphBuilder::BuildOneShot(
       streets, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0.0; });
   if (!graph.Graph) { return std::unexpected("source graph unavailable"); }
-  const auto bounds = GeoCellId{.Level = 16, .X = kTileX, .Y = kTileX}.Bounds();
+  const auto bounds = GeoCellId{.Level = 16, .X = kTileX, .Y = kTileX - 1}.Bounds();
   if (!bounds) { return std::unexpected("source bounds unavailable"); }
   return BuildMvtTransportSnapshot(field, streets, *graph.Graph, std::span(&*bounds, 1));
 }
@@ -86,14 +86,15 @@ int main() {
         made ? "source owners can retire before native selection" : made.error().c_str());
   if (!made) { return Report(); }
   constexpr uint32_t kHalfTile = static_cast<uint32_t>(kTileX) * 2;
+  constexpr uint32_t kSouthernRow = kHalfTile - 1;
   const TransportCoreLimits limits{.SourceNodesMost = 16,
                                    .SourceEdgesMost = 16,
                                    .SegmentsMost = 16,
                                    .ContainerCapacityMost = 4096};
   const auto left =
-      SelectTransportCore({.Level = 17, .X = kHalfTile, .Y = kHalfTile}, made->Network, limits);
-  const auto right =
-      SelectTransportCore({.Level = 17, .X = kHalfTile + 1, .Y = kHalfTile}, made->Network, limits);
+      SelectTransportCore({.Level = 17, .X = kHalfTile, .Y = kSouthernRow}, made->Network, limits);
+  const auto right = SelectTransportCore(
+      {.Level = 17, .X = kHalfTile + 1, .Y = kSouthernRow}, made->Network, limits);
   CHECK(left && right, "adjacent geographic cores consume the same native MVT product");
   if (!left || !right) { return Report(); }
   CHECK(!left->Segments.empty() && !right->Segments.empty(),
