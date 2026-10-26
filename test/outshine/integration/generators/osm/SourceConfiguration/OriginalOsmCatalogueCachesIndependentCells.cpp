@@ -1,5 +1,5 @@
 #include "OsmProviderValidation.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
 #include "OfflineTransport.h"
@@ -63,7 +63,7 @@ int main() {
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   std::array<std::string, 2> keys;
   ApiWire network;
   OfflineTransport offline;

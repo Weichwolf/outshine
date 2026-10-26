@@ -1,5 +1,5 @@
 #include "OsmProviderValidation.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
 #include "RawSourceCache.h"
@@ -126,7 +126,7 @@ void CheckInterruptedRegions(outshine::Generators::Osm::SourceAcquisition::Worke
   revision.Revision = "adaptive-interrupted";
   RawSourceCache acquired({.Directory = directory});
   ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   auto catalogue = ConfigureSource(revision, ".", registry);
   CHECK(catalogue, "the original catalogue supplies the same cache identity");
   if (!catalogue) { return; }

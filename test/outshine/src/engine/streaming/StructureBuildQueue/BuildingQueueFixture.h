@@ -4,7 +4,7 @@
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "OfflineTransport.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
 #include "StructureCell.h"
@@ -91,7 +91,7 @@ struct BuildingQueueFixture {
     terrain.Kind = "terrain";
     const std::array providers{terrain};
     Data::ProviderRegistry registry;
-    Generators::RegisterShippedProviders(registry);
+    Generators::RegisterBuiltinSourceProviders(registry);
     CHECK(Stack.Open({.BuiltinData = "data", .Sources = Cache.Path.string(), .Assets = {}},
                      providers,
                      registry,

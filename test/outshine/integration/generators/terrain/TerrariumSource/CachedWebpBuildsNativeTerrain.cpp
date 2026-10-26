@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
 #include "OfflineTransport.h"
@@ -114,7 +114,7 @@ int main() {
   {
     RawSourceCache cache({.Directory = directory});
     ProviderRegistry registry;
-    Generators::RegisterShippedProviders(registry);
+    Generators::RegisterBuiltinSourceProviders(registry);
     Tiles online({owned.get(), owned.get() + count});
     Build(cache, online, registry, false);
     CHECK(online.InvalidEndpoints() == 0, "configured adapter expands its own endpoint");

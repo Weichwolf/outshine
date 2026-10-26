@@ -1,7 +1,7 @@
 #include "SourceBuildingFixture.h"
 #include <cstddef>
 #include <cstdint>
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "BuildingMesh.h"
 #include "BuildingFoundationJob.h"
 #include "Check.h"
@@ -184,7 +184,7 @@ int main() {
   terrainProvider.Kind = "terrain";
   const std::array providers{terrainProvider};
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.string(), .Assets = {}},
                    providers,
                    registry,

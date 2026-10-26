@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "Check.h"
 #include <string>
@@ -8,7 +8,7 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   const auto primary = ConfigureSource({.Kind = "terrain",
                                         .Revision = {},
                                         .Dataset = {},

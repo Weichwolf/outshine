@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "Check.h"
 
@@ -8,14 +8,15 @@
 
 int main() {
   outshine::Data::ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   using namespace outshine::Data;
   using namespace outshine::Test;
   RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
-  CHECK(RegisterSources(sources, outshine::Generators::ShippedProviders(), {}, error, registry),
-        error.c_str());
+  CHECK(
+      RegisterSources(sources, outshine::Generators::DefaultSourceProviders(), {}, error, registry),
+      error.c_str());
   for (size_t i = 0; i < sources.Count(); ++i) {
     CHECK(sources.At(i).Declaration().Kind != DataKind::VectorMap,
           "shipped source set has no reduced vector-map source");
