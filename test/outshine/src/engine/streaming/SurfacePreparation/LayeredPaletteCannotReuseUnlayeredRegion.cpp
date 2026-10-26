@@ -94,9 +94,9 @@ int main() {
   Generators::RegisterShippedProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
-    return stack.Open({.Shipped = "src/assets",
-                       .Cache = (cache.Path / "sources").string(),
-                       .AssetCache = (cache.Path / "assets").string()},
+    return stack.Open({.BuiltinData = "src/assets",
+                       .Sources = (cache.Path / "sources").string(),
+                       .Assets = (cache.Path / "assets").string()},
                       {},
                       registry,
                       {},
