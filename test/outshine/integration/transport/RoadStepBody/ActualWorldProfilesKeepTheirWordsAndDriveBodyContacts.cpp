@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Json.h"
 #include "RoadStepBody.h"
+#include "RoadBodyMesh.h"
 #include "SurfaceEarthworks.h"
 #include <algorithm>
 #include <array>
@@ -106,7 +107,7 @@ int main() {
   Profiles(*body, root);
   Contacts(*body);
   RoadMeshBuffers mesh;
-  CHECK(AppendRoadStepBody(*body, surface.WearsLinear, mesh),
+  CHECK(AppendRoadBodyMesh(body->Geometry, surface.WearsLinear, mesh),
         "the real render consumer accepts it");
   CHECK(mesh.Index.size() == body->Geometry.Faces.size() * 3 &&
             std::ranges::all_of(mesh.NormalM, [](float value) { return std::isfinite(value); }),

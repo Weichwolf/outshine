@@ -11,7 +11,7 @@
 #include "DrawSet.h"
 #include "TreeSpecies.h"
 #include "GroundMesher.h"
-#include "road/RoadMesher.h"
+#include "road/meshing/RoadMesher.h"
 #include "building/StructureMesher.h"
 #include "GeneratorSet.h"
 #include "RegionSurfaceRecipes.h"

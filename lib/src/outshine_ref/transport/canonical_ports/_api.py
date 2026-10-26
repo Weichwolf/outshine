@@ -9,7 +9,7 @@ import numpy as np
 
 from ._ground import fit_ground, prepare_ground
 from ._queries import canonical_port
-from ._source import component, ground_chain, source_index, validate_cut
+from ._source import component, source_chain, source_index, validate_cut
 from ._types import PortBudget, PortDemand, PortResult, PortSource, PortValue
 
 DEFAULT_BUDGET = PortBudget()
@@ -28,21 +28,36 @@ def result(values, reasons, source, terrain_binding, components, work, settings)
             "scope": (
                 "Numeric ports in exhausted admitted normalized source components. "
                 "No whole-world, native plan/cache, physical simulation or device admission. "
-                "Bridge/tunnel, branching and mixed-profile ground recipes remain explicit Pending."
+                "Unqualified bridge/tunnel, branching and mixed-profile recipes remain Pending. "
+                "Numeric bridge heights do not qualify crossing or deck clearance."
             ),
         },
     )
 
 
-def component_field(index, selected, terrain, error_limit_m, method, budget):
-    chain, reason = ground_chain(index, selected)
+def component_field(
+    index, selected, terrain, error_limit_m, method, budget, bridge_second
+):
+    bridge = any(index[1][identity].bridge for identity in selected)
+    enabled = bridge and bridge_second is not None
+    chain, reason = source_chain(index, selected, bridge_recipe=enabled)
     if reason:
         return None, reason, {}
     try:
+        if enabled:
+            if method != "auto":
+                return None, "ground_fit_method_does_not_select_bridge_recipe", {}
+            from ._bridge import prepare_bridge
+
+            anchor, field, report = prepare_bridge(
+                index, selected, chain, terrain, error_limit_m, bridge_second, budget
+            )
+            return (anchor, field), "", report
         anchor, inputs, samples = prepare_ground(chain, terrain, budget)
         field, report = fit_ground(inputs, error_limit_m, method, budget)
     except (ValueError, OSError, np.linalg.LinAlgError) as error:
-        return None, "ground_field_unavailable:" + str(error), {}
+        kind = "bridge" if enabled else "ground"
+        return None, kind + "_field_unavailable:" + str(error), {}
     report.update(
         terrain_samples=samples,
         input_vertices=len(inputs.surface.vertices),
@@ -79,6 +94,8 @@ def port_value(demand, span, nodes, prepared, terrain):
     numeric = canonical_port(
         field, anchor, position, geographic, span.width_m / 2, float(sampled[0])
     )
+    if span.bridge and numeric["height_m"] < float(sampled[0]) - 1e-6:
+        raise ValueError("bridge_port_below_bound_DEM")
     if abs(numeric["longitudinal_grade"]) > span.maximum_gradient + 1e-9:
         raise ValueError("physical_port_longitudinal_grade_limit")
     if abs(math.tan(numeric["crossfall_rad"])) > 0.025 + 1e-9:
@@ -106,6 +123,7 @@ def derive_canonical_ports(
     maximum_prior_change_m,
     budget=DEFAULT_BUDGET,
     method="auto",
+    bridge_second_derivative_per_m=None,
 ):
     """Derive numeric values from normalized source geometry and a bound sampler.
 
@@ -115,6 +133,8 @@ def derive_canonical_ports(
     geoid conversion or measured ellipsoid equivalence is inferred. The caller's
     explicit prior-change limit is a generator quality input, not a world gate.
     Times are cooperative offline limits; callbacks/solvers require bounded workers.
+    An explicit bridge second-derivative recipe enables a narrow straight-chain
+    source/DEM landing profile. It qualifies heights/slopes, not crossing clearance.
     """
     if not isinstance(source, PortSource) or not isinstance(budget, PortBudget):
         raise TypeError("bound PortSource and PortBudget required")
@@ -129,8 +149,14 @@ def derive_canonical_ports(
         raise ValueError(
             "explicit bounded positive ground-prior quality limit required"
         )
-    if method not in ("auto", "affine", "cone") or not callable(terrain):
+    if method not in ("auto", "affine", "cone", "lp") or not callable(terrain):
         raise ValueError("declared field method and bound terrain sampler required")
+    if bridge_second_derivative_per_m is not None and (
+        type(bridge_second_derivative_per_m) not in (int, float)
+        or not math.isfinite(bridge_second_derivative_per_m)
+        or not 1e-12 <= bridge_second_derivative_per_m <= 1
+    ):
+        raise ValueError("explicit bounded bridge second-derivative recipe required")
     if (
         not isinstance(terrain_binding, Mapping)
         or not isinstance(terrain_binding.get("height_mapping"), str)
@@ -144,9 +170,11 @@ def derive_canonical_ports(
     values, reasons = [None] * len(demands), [""] * len(demands)
     reports, work = [], {"terrain_port_samples": 0, "terrain_samples": 0}
     settings = {
-        "version": 1,
+        "version": 2,
         "requested_method": method,
         "maximum_prior_change_m": maximum_prior_change_m,
+        "requires_terminal_solver": True,
+        "bridge_second_derivative_per_m": bridge_second_derivative_per_m,
     }
 
     def sample(positions):
@@ -210,6 +238,7 @@ def derive_canonical_ports(
                     maximum_prior_change_m,
                     method,
                     local_budget,
+                    bridge_second_derivative_per_m,
                 )
                 report["field"] = fitting
         report["reason"] = reason
