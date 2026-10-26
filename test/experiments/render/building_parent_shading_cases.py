@@ -38,8 +38,10 @@ def normal_counter(albedo, weights, palette, tables):
     }
 
 
-def counterexamples(source, fit_root, tables):
-    receipt = json.loads((fit_root / "1/report.json").read_text())
+def counterexamples(source, fit_root, tables, *, selected_budget=1):
+    if selected_budget not in (1, 2):
+        raise ValueError("one of the existing fixed lobe budgets is required")
+    receipt = json.loads((fit_root / str(selected_budget) / "report.json").read_text())
     material, record = max(
         ((m, r) for r in receipt["nodes"] for m in r["materials"]),
         key=lambda pair: pair[0]["validation_maximum_relative_channel_error"],
@@ -50,17 +52,17 @@ def counterexamples(source, fit_root, tables):
     albedo = data["m__albedo"][group, role]
     palette = data["m__roughness_palette"]
     weights = {"full": data["m__roughness_weights"][group, role]}
-    for budget in (1, 2):
+    for fit_budget in (1, 2):
         fitted = read_fit(
-            fit_root / str(budget) / path.name,
+            fit_root / str(fit_budget) / path.name,
             path,
             data["m__roughness_weights"].shape,
-            budget,
+            fit_budget,
         )
-        weights[str(budget)] = fitted[group, role]
+        weights[str(fit_budget)] = fitted[group, role]
     samples = angular_samples(validation=True)
     basis = response_basis(palette, tables, samples)
-    error = emitted_error(weights["full"], weights["1"], albedo, basis)
+    error = emitted_error(weights["full"], weights[str(selected_budget)], albedo, basis)
     row = np.unravel_index(np.argmax(error), error.shape)[0]
     nl, nv, phi = samples[row]
     light = np.array([np.sqrt(1 - nl * nl), 0, nl])
@@ -80,7 +82,7 @@ def counterexamples(source, fit_root, tables):
             intensity=1,
             ambient=0,
         )[0][0].tolist()
-    return {
+    result = {
         "material": {
             "node_file": path.name,
             "group": group,
@@ -94,6 +96,9 @@ def counterexamples(source, fit_root, tables):
         },
         "normal": normal_counter(albedo, weights["full"], palette, tables),
     }
+    if selected_budget != 1:
+        result["material"]["selection_budget"] = selected_budget
+    return result
 
 
 def plot_counterexamples(cases, path):
