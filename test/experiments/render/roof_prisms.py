@@ -4,7 +4,6 @@ import itertools
 from dataclasses import dataclass
 
 import numpy as np
-import shapely
 
 
 @dataclass
@@ -81,6 +80,8 @@ def roof_planes(shape):
 
 
 def shape_planes(shape):
+    import shapely
+
     ring = np.asarray(shape["ring"], float)
     polygon = shapely.Polygon(ring, shape["holes"])
     if (
