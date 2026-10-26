@@ -343,7 +343,7 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
       Settle();
       Settled_ = inputs;
       const size_t held = HeapBytes();
-      if (held > kHoldsBytes && Pool_) { (void)Pool_->EvictSourceBytes(held - kHoldsBytes); }
+      if (held > kHoldsBytes && Pool_) { (void)Pool_->EvictInputs(held - kHoldsBytes); }
       metrics.SettlementMs += ElapsedMs(settleAt);
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
