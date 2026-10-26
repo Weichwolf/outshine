@@ -3,6 +3,7 @@
 #include "WaterHeightFit.h"
 #include <array>
 #include <cmath>
+#include <cstdint>
 
 namespace {
 using namespace outshine;
