@@ -10,7 +10,8 @@ from unittest.mock import patch
 
 import numpy as np
 from building_parent_shading_cases import normal_counter
-from building_parent_shading_work import factor_work, projected_work
+from building_parent_shading_work import factor_work, opaque_blocked, projected_work
+from building_tree_transfer import compose_layers
 from compare_mass_appearance import read
 from fit_building_brdf import validate_fit_receipt
 from fit_building_parent_shading import compile_states
@@ -22,6 +23,27 @@ TABLES = (
 
 
 class BuildingParentShading(unittest.TestCase):
+    def test_only_later_layers_behind_exact_opacity_one_are_blocked(self):
+        rays = np.array([4, 4, 4, 4, 4, 7, 7, 9])
+        depth = np.array([3, 2, 2, 1, 2, 0, 1, -1.0])
+        ties = np.array([8, 4, 2, 1, 6, 0, 1, 0])
+        opacity = np.array([0.25, 1, 0.5, 0.5, 0.5, np.nextafter(1.0, 0), 0.5, 1])
+        blocked = opaque_blocked(rays, depth, opacity, ties)
+        np.testing.assert_array_equal(blocked, [1, 0, 0, 0, 1, 0, 0, 0])
+        colour = np.arange(24).reshape(8, 3) / 24
+        before = compose_layers(rays, depth, colour, opacity, ties, 10)
+        keep = ~blocked
+        after = compose_layers(
+            rays[keep], depth[keep], colour[keep], opacity[keep], ties[keep], 10
+        )
+        for a, b in zip(before[:2], after[:2], strict=True):
+            self.assertEqual(a.tobytes(), b.tobytes())
+        self.assertFalse(
+            opaque_blocked(rays[:0], depth[:0], opacity[:0], ties[:0]).any()
+        )
+        with self.assertRaisesRegex(ValueError, "finite ordered"):
+            opaque_blocked(rays, depth, opacity * 2, ties)
+
     def test_offline_fitter_does_not_load_image_or_mesh_dependencies(self):
         code = (
             "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent)) + "); "
