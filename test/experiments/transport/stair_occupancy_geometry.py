@@ -25,8 +25,14 @@ def plane_value(plane, origin, xy):
 
 def plane_values(plane, origin, points):
     z, gx, gy = map(rational, plane)
+    if not gx and not gy:
+        return [z] * len(points)
     ox, oy = map(rational, origin)
     intercept = z - gx * ox - gy * oy
+    if not gx:
+        return [intercept + gy * y for _x, y in points]
+    if not gy:
+        return [intercept + gx * x for x, _y in points]
     return [intercept + gx * x + gy * y for x, y in points]
 
 
