@@ -1,24 +1,10 @@
 #include "SceneRenderer.h"
-#include "DepthPyramid.h"
 #include "EnvironmentSpecularLayout.h"
-#include <array>
-#include <cstdint>
 #include <expected>
-#include <memory>
 #include <string>
 #include <utility>
 
 namespace outshine::Render {
-
-namespace {
-
-Native::Result<void> Keep(Native::Result<std::unique_ptr<Native::Buffer>> made,
-                          std::unique_ptr<Native::Buffer> &into) {
-  if (!made) { return std::unexpected(made.error()); }
-  into = std::move(*made);
-  return {};
-}
-}
 
 Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame) {
   auto made = Device_->CreateSampler({.Min = Native::Filter::Linear,
@@ -38,14 +24,8 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::LinearSampler: return CreateSampler(frame);
     case Resource::GroundPyramid:
     case Resource::DepthPyramid:
-      return Keep(
-          Device_->CreateBuffer(
-              {.Bytes = uint64_t{PyramidOver({.WidthPx = static_cast<uint32_t>(frame.Width),
-                                              .HeightPx = static_cast<uint32_t>(frame.Height)})
-                                     .Texels} *
-                        sizeof(float),
-               .Use = Native::BufferUse::Storage | Native::BufferUse::CopySource}),
-          resource == Resource::DepthPyramid ? frame.Pyramid : frame.GroundPyramid);
+      return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.GroundPyramid)
+          .Allocate(*Device_, {.WidthPx = frame.Width, .HeightPx = frame.Height});
     case Resource::ShadowAtlas: return frame.Shadow.Allocate(*Device_);
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
