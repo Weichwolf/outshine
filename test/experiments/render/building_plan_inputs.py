@@ -1,9 +1,12 @@
 """Read enriched native source plans and selection summaries without emitting meshes."""
 
+import math
 import struct
 
 import numpy as np
 from prepared_surface_recipes import Reader
+
+SUMMARY_PREFIX = struct.Struct("<19d")
 
 
 def array(reader, item_bytes):
@@ -82,6 +85,20 @@ def prepared(reader, terrain_fields=False):
     return result
 
 
+def summary_prefix(reader):
+    size = SUMMARY_PREFIX.size
+    if (
+        reader.at + size <= len(reader.data)
+        and 19 <= reader.number_limit - reader.numbers
+    ):
+        values = SUMMARY_PREFIX.unpack_from(reader.data, reader.at)
+        if all(map(math.isfinite, values)):
+            reader.at += size
+            reader.numbers += 19
+            return values
+    return tuple(reader.number("d") for _ in range(19))
+
+
 def summary(reader):
     if not reader.flag():
         return {
@@ -91,9 +108,10 @@ def summary(reader):
             "faces": 0,
             "projectable": False,
         }
-    frame = np.array([reader.number("d") for _ in range(12)]).reshape(4, 3)
-    bounds = np.array([reader.number("d") for _ in range(6)]).reshape(2, 3)
-    minimum = reader.number("d")
+    values = summary_prefix(reader)
+    frame = np.array(values[:12]).reshape(4, 3)
+    bounds = np.array(values[12:18]).reshape(2, 3)
+    minimum = values[18]
     colour = tuple(reader.number("f") for _ in range(3)) if reader.flag() else None
     envelope = (
         np.array([reader.number("d") for _ in range(6)]).reshape(2, 3)

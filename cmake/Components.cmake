@@ -4,7 +4,6 @@ set(OUTSHINE_COMPONENT_ROOTS
   app/scenario
   audio
   base
-  client
   content
   content/assets
   content/shade
@@ -88,12 +87,11 @@ foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
 endforeach()
 set_property(TARGET outshine_render_device_native_objects PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
 target_link_libraries(outshine_app_scenario PUBLIC outshine_base outshine_scenario)
-target_link_libraries(outshine_app PUBLIC outshine_app_scenario outshine_base outshine_engine outshine_generators outshine_sources)
+target_link_libraries(outshine_app PUBLIC outshine_app_scenario outshine_app_capture outshine_simulation outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
 target_link_libraries(outshine_simulation PUBLIC outshine_base outshine_world_entity)
 target_link_libraries(outshine_audio PUBLIC outshine_base)
-target_link_libraries(outshine_app_capture PUBLIC outshine_base outshine_render outshine_engine
+target_link_libraries(outshine_app_capture PUBLIC outshine_app_scenario outshine_base outshine_render outshine_engine
   PRIVATE PkgConfig::sdl3_image)
-target_link_libraries(outshine_client PUBLIC outshine_app_scenario outshine_app outshine_app_capture outshine_simulation outshine_audio outshine_base outshine_content outshine_diagnostics outshine_diagnostics_calibration outshine_engine outshine_generators outshine_sources outshine_render outshine_scenario outshine_world)
 target_link_libraries(outshine_content PUBLIC outshine_base outshine_content_assets outshine_content_shade outshine_world_products)
 target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage
   PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
@@ -150,7 +148,7 @@ endif()
 target_link_libraries(outshine_generators_water PUBLIC osqp::osqp)
 target_link_libraries(outshine_generators_road PUBLIC highs::highs)
 target_link_libraries(outshine_engine PUBLIC PkgConfig::sdl3_image)
-target_link_libraries(outshine_client PUBLIC PkgConfig::nlohmann_json)
+target_link_libraries(outshine_app PUBLIC PkgConfig::nlohmann_json)
 
 foreach(component IN LISTS OUTSHINE_COMPONENTS)
   get_target_property(dependencies ${component} LINK_LIBRARIES)

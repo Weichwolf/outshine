@@ -15,7 +15,6 @@ outshine/src/scenario
 outshine/src/scripting
 outshine/src/sources
 outshine/src/storage
-outshine/src/client
 outshine/integration/app
 outshine/integration/places/client/RenderWien
 outshine/integration/places/client/RenderTokyo

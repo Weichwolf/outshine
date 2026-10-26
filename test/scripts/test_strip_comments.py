@@ -19,7 +19,7 @@ class CommentPolicy(unittest.TestCase):
         self.assertEqual(scanner.strip('int/**/value; a+/*gap*/+b;'), 'int value; a+ +b;')
 
     def test_header_scope(self):
-        self.assertFalse(scanner.keeps_comments('src/client/Main.cpp'))
+        self.assertFalse(scanner.keeps_comments('src/app/Main.cpp'))
         self.assertFalse(scanner.keeps_comments('src/render/device/metal/Device.mm'))
         self.assertTrue(scanner.keeps_comments('src/engine/Engine.h'))
         self.assertTrue(scanner.keeps_comments('src/base/Math.hpp'))

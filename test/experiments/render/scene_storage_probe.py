@@ -130,7 +130,7 @@ def main():
     archive = checkout / "build/liboutshine.a"
     paths = (source_path, database_path, header, Path(__file__).resolve())
     if link_command:
-        paths += (archive, args.link_command.resolve(), checkout / "src/client/Main.cpp")
+        paths += (archive, args.link_command.resolve(), checkout / "src/app/Main.cpp")
         paths += tuple(sorted((checkout / "src/diagnostics").glob("*.cpp")))
     report = {
         "schema": 2,
