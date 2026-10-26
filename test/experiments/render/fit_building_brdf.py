@@ -15,6 +15,26 @@ from building_brdf_highs import highs_pair
 from process_memory import peak_rss_bytes
 
 
+def validate_fit_receipt(root, budget, tables_path):
+    receipt = json.loads((root / "report.json").read_text())
+    programs = receipt["response_program_sha256"]
+    expected = {"material_filter.py", "building_mass_lighting.py"}
+    if (
+        receipt["max_lobes"] != budget
+        or receipt["energy_table_sha256"]
+        != hashlib.sha256(tables_path.read_bytes()).hexdigest()
+        or set(programs) != expected
+    ):
+        raise ValueError("fit budget/energy/program reference differs")
+    for name, digest in programs.items():
+        if (
+            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+            != digest
+        ):
+            raise ValueError("fitted response and current renderer model differ")
+    return receipt
+
+
 def read_material(path):
     keys = ("m__roughness_weights", "m__albedo", "m__roughness_palette", "m__supported")
     with np.load(path, allow_pickle=False) as archive:
