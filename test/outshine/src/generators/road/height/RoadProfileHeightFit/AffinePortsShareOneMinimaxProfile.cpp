@@ -9,23 +9,23 @@ namespace {
 outshine::Generators::RoadProfiles::HeightProgram Program() {
   using namespace outshine;
   using namespace outshine::Generators::RoadProfiles;
-  std::vector<SparseEntry<int>> terms{{0, 0, 1},
-                                      {1, 0, -1},
-                                      {2, 0, 1},
-                                      {2, 1, 1},
-                                      {3, 0, -1},
-                                      {3, 1, -1},
-                                      {4, 0, 1},
-                                      {4, 1, 2},
-                                      {4, 2, -1},
-                                      {5, 0, -1},
-                                      {5, 1, -2},
-                                      {5, 2, -1},
-                                      {6, 1, 1},
-                                      {7, 1, -1}};
+  std::vector<SparseEntry<int>> terms{{.Row = 0, .Column = 0, .Value = 1},
+                                      {.Row = 1, .Column = 0, .Value = -1},
+                                      {.Row = 2, .Column = 0, .Value = 1},
+                                      {.Row = 2, .Column = 1, .Value = 1},
+                                      {.Row = 3, .Column = 0, .Value = -1},
+                                      {.Row = 3, .Column = 1, .Value = -1},
+                                      {.Row = 4, .Column = 0, .Value = 1},
+                                      {.Row = 4, .Column = 1, .Value = 2},
+                                      {.Row = 4, .Column = 2, .Value = -1},
+                                      {.Row = 5, .Column = 0, .Value = -1},
+                                      {.Row = 5, .Column = 1, .Value = -2},
+                                      {.Row = 5, .Column = 2, .Value = -1},
+                                      {.Row = 6, .Column = 1, .Value = 1},
+                                      {.Row = 7, .Column = 1, .Value = -1}};
   return {.Conditions = SparseMatrix<int>::Assemble(8, 3, terms),
           .Upper = {10, -10, 10.1, -10.1, 11, -11, .2, .2},
-          .Variables = {{}, {}, {0, 2}},
+          .Variables = {{}, {}, {.Minimum = 0, .Maximum = 2}},
           .AdjustmentVariable = 2};
 }
 
@@ -51,11 +51,12 @@ void DiscardedLibraryCoefficientsCannotBypassOriginalConditions() {
   using namespace outshine;
   using namespace outshine::Generators::RoadProfiles;
   using namespace outshine::Test;
-  std::array terms{SparseEntry<int>{0, 0, 1e-10}};
-  const HeightProgram program{.Conditions = SparseMatrix<int>::Assemble(1, 2, terms),
-                              .Upper = {0},
-                              .Variables = {{1e9, 1e9}, {0, 1}},
-                              .AdjustmentVariable = 1};
+  std::array terms{SparseEntry<int>{.Row = 0, .Column = 0, .Value = 1e-10}};
+  const HeightProgram program{
+      .Conditions = SparseMatrix<int>::Assemble(1, 2, terms),
+      .Upper = {0},
+      .Variables = {{.Minimum = 1e9, .Maximum = 1e9}, {.Minimum = 0, .Maximum = 1}},
+      .AdjustmentVariable = 1};
   const auto fit = FitHeights(program, {}, {});
   CHECK(!fit && fit.error() == HeightFitError::VerificationFailed,
         "a dropped small coefficient still participates in original-matrix verification");

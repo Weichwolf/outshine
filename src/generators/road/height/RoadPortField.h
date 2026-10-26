@@ -1,8 +1,8 @@
-#ifndef OUTSHINE_GENERATORS_ROAD_ROADPORTFIELD_H
-#define OUTSHINE_GENERATORS_ROAD_ROADPORTFIELD_H
+#ifndef OUTSHINE_GENERATORS_ROAD_HEIGHT_ROADPORTFIELD_H
+#define OUTSHINE_GENERATORS_ROAD_HEIGHT_ROADPORTFIELD_H
 
 #include "Earth.h"
-#include "RoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <array>
 #include <cstddef>
@@ -58,9 +58,6 @@ public:
          const std::array<EastNorth, 3> &triangle,
          const std::array<double, 4> &gradeFrame) const noexcept;
 
-private:
-  RoadPortField(std::vector<Plane> planes, std::vector<Patch> patches);
-
   struct Basis {
     std::array<double, 6> Height{};
     std::array<std::array<double, 6>, 2> Gradient{};
@@ -75,6 +72,9 @@ private:
   [[nodiscard]] std::expected<Basis, Error> BasisAt(size_t patch, EastNorth at) const noexcept;
   [[nodiscard]] std::expected<std::array<Control, 15>, Error>
   Controls(size_t patch, const std::array<EastNorth, 3> &triangle) const noexcept;
+
+private:
+  RoadPortField(std::vector<Plane> planes, std::vector<Patch> patches);
 
   std::vector<Plane> Planes_;
   std::vector<Patch> Patches_;

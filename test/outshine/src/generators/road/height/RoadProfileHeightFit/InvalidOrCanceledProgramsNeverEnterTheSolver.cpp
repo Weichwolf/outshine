@@ -10,7 +10,7 @@ outshine::Generators::RoadProfiles::HeightProgram Program() {
   return {.Conditions =
               {.Rows = 1, .Columns = 1, .ColumnOffsets = {0, 1}, .RowIndices = {0}, .Values = {-1}},
           .Upper = {-.5},
-          .Variables = {{0, 1}},
+          .Variables = {{.Minimum = 0, .Maximum = 1}},
           .AdjustmentVariable = 0};
 }
 
