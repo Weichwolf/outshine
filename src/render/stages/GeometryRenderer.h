@@ -27,7 +27,7 @@
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GpuPlacement.h"
-#include "SubjectMaterialPacking.h"
+#include "MaterialPacking.h"
 #include "SubjectTypes.h"
 #include "ShadowCasterSelection.h"
 #include "CasterChanges.h"
@@ -89,13 +89,13 @@ public:
 
   [[nodiscard]] static const char *
   FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout);
-  static constexpr size_t kSubjectFragmentStorage = 3;
+  static constexpr size_t kGeometryFragmentStorageCount = 3;
 
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
                                          .VertexStorageBuffers = 1,
-                                         .FragmentSamplers = kSubjectImages,
-                                         .FragmentUniformBuffers = kSubjectFragmentUniforms,
-                                         .FragmentStorageBuffers = kSubjectFragmentStorage};
+                                         .FragmentSamplers = kGeometryFragmentImageCount,
+                                         .FragmentUniformBuffers = kGeometryFragmentUniformCount,
+                                         .FragmentStorageBuffers = kGeometryFragmentStorageCount};
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu);
@@ -271,11 +271,11 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
-  [[nodiscard]] bool ValidateMaterials(std::span<const SubjectMaterial> materials,
+  [[nodiscard]] bool SetMaterials(std::span<const MaterialBinding> materials, std::string &error);
+  [[nodiscard]] bool ValidateMaterials(std::span<const MaterialBinding> materials,
                                        std::string &error) const;
   [[nodiscard]] bool AppendMaterials(
-      std::span<const SubjectMaterial> materials,
+      std::span<const MaterialBinding> materials,
       std::string &error,
       GeometryResidency::ImageUploadMode mode = GeometryResidency::ImageUploadMode::Immediate);
 
@@ -307,7 +307,8 @@ private:
   };
 
   struct DrawResources {
-    static constexpr size_t kMostBindings = kSubjectImages + 3 + kSubjectFragmentUniforms + 2;
+    static constexpr size_t kMostBindings =
+        kGeometryFragmentImageCount + 3 + kGeometryFragmentUniformCount + 2;
     std::array<Native::Binding, kMostBindings> Bindings{};
     std::array<Native::VertexBuffer, kMostVertexRuns> Vertices{};
     uint32_t BindingCount = 0;
@@ -460,12 +461,12 @@ private:
     GeometryResidency::BoundImage DiffuseReflection;
     GeometryResidency::BoundImage DiffuseTransmission;
 
-    PackedSubjectMaterial Row{};
+    GpuMaterialRecord Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
     std::optional<std::array<float, 3>> Unlit;
 
-    SurfaceDomain Domain = SurfaceDomain::Subject;
+    SurfaceDomain Domain = SurfaceDomain::Geometry;
     bool ReadsSecondUv = false;
   };
 
@@ -482,7 +483,7 @@ private:
                                            PieceSurface::Source source) const noexcept;
   [[nodiscard]] bool TruncatesShadowMaterials(size_t count) const noexcept;
 
-  [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
+  [[nodiscard]] bool BindSurface(const MaterialBinding &material,
                                  std::string &error,
                                  GeometryResidency::ImageUploadMode mode);
 

@@ -82,7 +82,7 @@ void Exercise() {
           "the unfinished candidate differs from the published render counters");
     CHECK(engine.renderer().render({}), "the engine keeps rendering the published world");
     CHECK(Metric(engine, "batches the picture draws") == batches &&
-              Metric(engine, "subject draws") > 0 &&
+              Metric(engine, "geometry draw records") > 0 &&
               Metric(engine, "vertex uniform pushes the subject stages make") > pushes,
           "published frame diagnostics describe the world that actually drew");
     CHECK(state.Picture.Device.HasWorldCandidate() &&

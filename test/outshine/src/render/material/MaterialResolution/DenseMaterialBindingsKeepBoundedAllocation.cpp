@@ -1,4 +1,4 @@
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 #include "Check.h"
 #include "CppAllocationProbe.h"
 #include <cstddef>
@@ -25,7 +25,7 @@ int main() {
             std::cmp_equal(table.Material.front(), count - 1) && table.Material.back() == 0 &&
             table.PartSlot.front() == 0 && table.PartSlot.back() == count - 1,
         "distinct native materials retain first-use order and direct part bindings");
-  const size_t outputBytes = count * (sizeof(SubjectMaterial) + 2 * sizeof(int) + sizeof(uint32_t));
+  const size_t outputBytes = count * (sizeof(MaterialBinding) + 2 * sizeof(int) + sizeof(uint32_t));
   const size_t scratchMost = 2 * count * sizeof(size_t);
   CHECK(
       allocated.Calls <= 6 && allocated.Bytes <= outputBytes + scratchMost,

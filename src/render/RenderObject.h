@@ -33,7 +33,7 @@ public:
   }
 
   [[nodiscard]] bool SetMaterials(std::span<const uint32_t> partSlot,
-                                  std::span<const SubjectMaterial> slots,
+                                  std::span<const MaterialBinding> slots,
                                   std::string &error);
   [[nodiscard]] bool SetEmission(size_t part, const std::array<float, 3> &radiance);
   [[nodiscard]] bool SetPlacement(size_t part, const Mat4 &placement);
@@ -64,7 +64,7 @@ public:
 
   [[nodiscard]] const Mat4 &Placement(size_t row) const { return PartPlacement_[row]; }
 
-  [[nodiscard]] std::span<const SubjectMaterial> Slots() const { return Surfaces_; }
+  [[nodiscard]] std::span<const MaterialBinding> Slots() const { return Surfaces_; }
 
   [[nodiscard]] const std::span<const float> &Previous() const { return Previous_; }
 
@@ -81,7 +81,7 @@ private:
   std::vector<Mat4> PartPlacement_;
   size_t Instances_ = 1;
   bool Placed_ = false;
-  std::vector<SubjectMaterial> Surfaces_;
+  std::vector<MaterialBinding> Surfaces_;
   std::span<const float> Previous_;
   std::vector<outshine::PunctualLight> Lights_;
   SubjectEnvironment Environment_;

@@ -14,7 +14,7 @@
 
 #include "PunctualLight.h"
 #include "UvTransform.h"
-#include "Texture.h"
+#include "../material/MaterialBinding.h"
 
 #include "DrawList.h"
 #include "Vec3.h"
@@ -37,74 +37,6 @@ struct SubjectEnvironment {
 };
 
 constexpr size_t kMaxSubjectLights = 16;
-
-constexpr uint32_t kSubjectMaterialImages = 8;
-constexpr uint32_t kSubjectImages = kSubjectMaterialImages + 3;
-constexpr uint32_t kSubjectFragmentUniforms = 2;
-
-enum class SubjectWrap { ClampToEdge, MirroredRepeat, Repeat };
-enum class SubjectFilter { Nearest, Linear };
-
-enum class SubjectMip { None, Nearest, Linear };
-
-struct SubjectTexture {
-  const uint8_t *Rgba = nullptr;
-  uint32_t Width = 0;
-  uint32_t Height = 0;
-  ImagePixelFormat Format = ImagePixelFormat::Rgba8Unorm;
-  ImageMipViews LowerMips{};
-  SubjectWrap WrapU = SubjectWrap::Repeat;
-  SubjectWrap WrapV = SubjectWrap::Repeat;
-  SubjectFilter Magnify = SubjectFilter::Linear;
-
-  SubjectFilter Minify = SubjectFilter::Linear;
-  SubjectMip Mip = SubjectMip::Linear;
-
-  outshine::UvTransform Uv;
-
-  outshine::UvSet Set = outshine::UvSet::Uv0;
-};
-
-enum class SurfaceDomain : std::uint8_t { Subject, Ground };
-
-inline constexpr std::size_t kSurfaceDomains = 2;
-
-struct SubjectMaterial {
-  Material Row;
-  SurfaceDomain Domain = SurfaceDomain::Subject;
-  SubjectTexture Colour;
-
-  SubjectTexture SpecularStrength;
-  SubjectTexture SpecularTint;
-  SubjectTexture DiffuseReflection;
-  SubjectTexture DiffuseTransmission;
-
-  SubjectTexture Normal;
-  SubjectTexture MetalRough;
-  SubjectTexture Emissive;
-
-  float NormalScale = 1.0f;
-
-  [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
-
-  [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
-
-  [[nodiscard]] bool ReadsSecondUv() const {
-    return Row.Pattern == SurfacePattern::FacadeMetres || Colour.Set == outshine::UvSet::Uv1 ||
-           Normal.Set == outshine::UvSet::Uv1 || MetalRough.Set == outshine::UvSet::Uv1 ||
-           Emissive.Set == outshine::UvSet::Uv1 || SpecularStrength.Set == outshine::UvSet::Uv1 ||
-           SpecularTint.Set == outshine::UvSet::Uv1 ||
-           DiffuseReflection.Set == outshine::UvSet::Uv1 ||
-           DiffuseTransmission.Set == outshine::UvSet::Uv1;
-  }
-
-  [[nodiscard]] bool ReadsAnyImage() const {
-    return (Colour.Rgba != nullptr) || (Normal.Rgba != nullptr) || (MetalRough.Rgba != nullptr) ||
-           (Emissive.Rgba != nullptr) || (SpecularStrength.Rgba != nullptr) ||
-           (SpecularTint.Rgba != nullptr) || (DiffuseReflection.Rgba != nullptr) ||
-           (DiffuseTransmission.Rgba != nullptr);
-  }
-};
 
 struct SubjectStream {
   const float *From = nullptr;
@@ -185,7 +117,6 @@ struct GroundTile {
 
 using PageId = uint32_t;
 inline constexpr PageId kNoPage = ~0u;
-inline constexpr uint32_t kNoSlot = ~0u;
 
 struct SubjectMesh : SubjectPose {
   const uint32_t *Indices = nullptr;

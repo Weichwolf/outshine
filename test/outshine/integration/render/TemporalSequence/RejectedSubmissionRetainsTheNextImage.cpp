@@ -57,7 +57,7 @@ std::vector<float> RenderSequence(Mode mode) {
   injection.Renderer = &renderer;
   PlanSpec spec;
   spec.Outputs = {Resource::SceneLinear, Resource::Surface};
-  spec.Content = {Stage::Geometry, Stage::Sky, Stage::TemporalResolve};
+  spec.Content = {Stage::OpaqueGeometry, Stage::Sky, Stage::TemporalResolve};
   const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan, "actual temporal frame plan compiles");
   if (!plan) { return {}; }

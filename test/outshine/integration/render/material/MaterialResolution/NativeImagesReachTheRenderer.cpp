@@ -1,23 +1,25 @@
 #include "ImageCapture.h"
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <numbers>
 #include <algorithm>
 #include <filesystem>
+#include <string>
 #include <vector>
+#include <span>
 #include <SDL3/SDL.h>
 #include <Engine.h>
 #include <Scenario.h>
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 #include "Check.h"
+#include "Texture.h"
 
-int main() {
-  using namespace outshine;
-  using namespace outshine::Test;
-  const auto accepted = [](const Result &result) {
-    if (!result) { Unprepared(result.error().c_str()); }
-    return result.has_value();
-  };
-  Geometry geometry;
+namespace {
+using namespace outshine;
+using namespace outshine::Test;
+
+void CheckNativeBindings(Geometry &geometry, Material &material) {
   const std::array<uint8_t, 16> pixels{
       255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
   ImageMipData mips;
@@ -25,7 +27,6 @@ int main() {
   const int image = *geometry.addImage(
       {.WidthPx = 2, .HeightPx = 2, .Rgba = pixels, .LowerMips = ViewImageMips(mips)});
   CHECK(image >= 0, "native RGBA image is accepted");
-  Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Unlit = true;
   material.NormalScale = 0.25f;
@@ -43,7 +44,7 @@ int main() {
         "normals");
   CHECK(geometry.setTexture(part, std::array<float, 8>{0, 1, 1, 1, 1, 0, 0, 0}), "UVs");
   CHECK(geometry.setTriangles(part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3}), "triangles");
-  std::array<Render::SubjectMaterial, 1> slots;
+  std::array<Render::MaterialBinding, 1> slots;
   slots[0].Row = material;
   slots[0].Row.NormalMap = material.BaseColourMap;
   slots[0].Row.NormalMap.Set = UvSet::Uv1;
@@ -58,19 +59,22 @@ int main() {
   CHECK(slots[0].NormalScale == material.NormalScale && slots[0].Normal.Set == UvSet::Uv1 &&
             slots[0].Normal.Uv.M[2] == 0.25 && slots[0].Normal.Uv.M[5] == 0.5,
         "normal scale, socket-specific UV set and translation survive");
+  const ImageView source = geometry.imageAt(image);
   for (const auto *texture : {&slots[0].Colour,
                               &slots[0].Normal,
                               &slots[0].MetalRough,
                               &slots[0].Emissive,
                               &slots[0].SpecularStrength,
                               &slots[0].SpecularTint}) {
+    const auto lower = texture->LowerMips[1].value_or(std::span<const uint8_t>{});
+    const auto original = source.LowerMips[1].value_or(std::span<const uint8_t>{});
     CHECK(texture->Rgba == geometry.imageAt(image).Rgba.data() && texture->Width == 2 &&
-              texture->Height == 2 && texture->LowerMips[1] &&
-              texture->LowerMips[1]->data() == geometry.imageAt(image).LowerMips[1]->data(),
+              texture->Height == 2 && texture->LowerMips[1] && source.LowerMips[1] &&
+              lower.data() == original.data(),
           "each socket borrows the declared base and prepared mip bytes");
-    CHECK(texture->Magnify == Render::SubjectFilter::Nearest &&
-              texture->Mip == Render::SubjectMip::None &&
-              texture->WrapU == Render::SubjectWrap::ClampToEdge,
+    CHECK(texture->Magnify == outshine::Filter::Nearest &&
+              texture->Mip == outshine::MipFilter::None &&
+              texture->WrapU == outshine::Wrap::ClampToEdge,
           "native sampler reaches the socket");
   }
   slots[0].Row.BaseColourMap.Image = image + 1;
@@ -92,6 +96,19 @@ int main() {
             joined.surfaceAt(joined.materialOf(1)).BaseColourMap.Image == 2 &&
             std::equal(secondPixel.begin(), secondPixel.end(), joined.imageAt(2).Rgba.begin()),
         "append rebases image and material references together");
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto accepted = [](const Result &result) {
+    if (!result) { Unprepared(result.error().c_str()); }
+    return result.has_value();
+  };
+  Geometry geometry;
+  Material material;
+  CheckNativeBindings(geometry, material);
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -99,7 +116,7 @@ int main() {
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {320, 320};
+  scenario.Render.Frame = {.WidthPx = 320, .HeightPx = 320};
   scenario.Render.Outputs = {"sceneLinear"};
   Scenario::View view;
   view.Id = "native-map";
@@ -109,8 +126,8 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> frame;
-  if (!accepted(engine.setRenderTarget({320, 320})) || !accepted(engine.declare(scenario)) ||
-      !accepted(engine.setGeometry(geometry))) {
+  if (!accepted(engine.setRenderTarget({.WidthPx = 320, .HeightPx = 320})) ||
+      !accepted(engine.declare(scenario)) || !accepted(engine.setGeometry(geometry))) {
     return Report();
   }
   Geometry rotated = geometry.clone();
@@ -120,8 +137,8 @@ int main() {
       !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
     return Report();
   }
-  CHECK(frame.size() == 320u * 320u * 4u, "linear frame has the declared dimensions");
-  if (frame.size() != 320u * 320u * 4u) { return Report(); }
+  CHECK(frame.size() == size_t{320} * 320 * 4u, "linear frame has the declared dimensions");
+  if (frame.size() != size_t{320} * 320 * 4u) { return Report(); }
   const std::array<std::array<int, 2>, 4> sample{{{120, 120}, {200, 120}, {120, 200}, {200, 200}}};
   const std::array<std::array<int, 3>, 4> expected{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 1, 0}}};
   for (size_t at = 0; at < sample.size(); ++at) {

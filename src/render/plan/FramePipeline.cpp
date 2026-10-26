@@ -49,7 +49,7 @@ bool DeclareStages(const FramePipelineSettings &settings,
     return true;
   }
   declaration.Outputs.push_back(Resource::SceneVelocity);
-  declaration.Content = {Stage::Geometry, Stage::Overlay};
+  declaration.Content = {Stage::OpaqueGeometry, Stage::Overlay};
   if (settings.DrawsSky) {
     declaration.Content.push_back(Stage::Sky);
     declaration.Content.push_back(Stage::AerialPerspective);

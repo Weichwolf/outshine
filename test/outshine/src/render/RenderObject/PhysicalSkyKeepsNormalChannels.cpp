@@ -3,6 +3,7 @@
 #include "RenderObject.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace {
@@ -35,7 +36,7 @@ void CheckLayouts() {
   std::string error;
   constexpr std::array<uint32_t, 1> slots{0};
   for (const bool unlit : {false, true}) {
-    SubjectMaterial material;
+    MaterialBinding material;
     material.Row.Unlit = unlit;
     CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "the native material binds");
     for (const double skyLux : {0.0, 10000.0}) {

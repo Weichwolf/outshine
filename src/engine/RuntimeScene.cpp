@@ -391,7 +391,7 @@ void RuntimeScene::ClearsSubject() {
 }
 
 bool RuntimeScene::PrepareSubject(std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = "the declaration carries a built subject and no surface -- a body without a "
             "material cannot be resolved, and an empty list is a refusal, not a "
             "dereference";
@@ -408,7 +408,7 @@ bool RuntimeScene::PrepareSubject(std::string &error) {
   const auto resolvedFrom = std::chrono::steady_clock::now();
   auto resolved = Materials_.Resolve(Held_.Snapshot(),
                                      Shaped_,
-                                     Declared_.Surfacing.front(),
+                                     Declared_.Materials.front(),
                                      Declared_.Overriding,
                                      GroundSurface_,
                                      "native geometry");
@@ -1047,21 +1047,21 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
 }
 
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t drivenParts, std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = Says::NoGeometrySurface;
     return false;
   }
-  return SetGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
+  return SetGeometry(std::move(built), drivenParts, Declared_.Materials.front(), error);
 }
 
 bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,
                                        size_t drivenParts,
                                        std::string &error) {
-  if (Declared_.Surfacing.empty()) {
+  if (Declared_.Materials.empty()) {
     error = Says::NoGeometrySurface;
     return false;
   }
-  return SetRetainedGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
+  return SetRetainedGeometry(std::move(built), drivenParts, Declared_.Materials.front(), error);
 }
 
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
@@ -1127,9 +1127,9 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
   }
   if (std::cmp_equal(drivenParts, built->parts())) { DrivenGeometry_.SetGeometry(built); }
   Camera_.Invalidate();
-  GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
-  Declared_.Surfacing.clear();
-  Declared_.Surfacing.push_back(wearing);
+  GeometryBuildSurfaces_ = std::move(Declared_.Materials);
+  Declared_.Materials.clear();
+  Declared_.Materials.push_back(wearing);
   Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
   PendingDrivenParts_ = drivenParts;
@@ -1207,7 +1207,7 @@ void RuntimeScene::RestoreGeometryBuildState() noexcept {
   BuildStage_ = GeometryBuildStage::Idle;
   BuildTicket_ = {};
   PendingDrivenParts_.reset();
-  Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
+  Declared_.Materials = std::move(GeometryBuildSurfaces_);
 }
 
 size_t RuntimeScene::TookAiming_ = 0, RuntimeScene::TookDrawing_ = 0;

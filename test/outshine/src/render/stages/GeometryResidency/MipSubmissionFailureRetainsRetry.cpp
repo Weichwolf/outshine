@@ -40,7 +40,7 @@ int main() {
     Require(residency.StandsOn(&device));
     const std::array<uint8_t, 16> pixels = {
         255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
-    const SubjectTexture texture{.Rgba = pixels.data(), .Width = 2, .Height = 2, .Uv = {}};
+    const MaterialTexture texture{.Rgba = pixels.data(), .Width = 2, .Height = 2, .Uv = {}};
     device.Reject = true;
     const auto failed =
         residency.Upload(texture, GeometryResidency::Transfer::Srgb, TexelKind::Value);

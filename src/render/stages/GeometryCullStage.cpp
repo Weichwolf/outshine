@@ -237,7 +237,7 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
   const auto encoded =
       into.Commands->Dispatch(*Compact_, bindings, {.X = Source_.Jobs, .Y = 1, .Z = 1});
   if (!encoded) { return encoded; }
-  into.Submission.Record(Stage::SubjectCompact, Cache_);
+  into.Submission.Record(Stage::GeometryCompact, Cache_);
   return {};
 }
 

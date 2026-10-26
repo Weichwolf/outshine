@@ -169,7 +169,7 @@ struct CaptureRoute {
       state.CandidateProgress = measure.Value;
     } else if (measure.Name == "render host last submitted: fence wait") {
       state.PreviousFenceWaitMs = measure.Value;
-    } else if (measure.Name == "subject residency upload attempts in all") {
+    } else if (measure.Name == "geometry residency upload attempts total") {
       state.PreviousUploadAttempts = measure.Value;
     } else if (measure.Name == "staged crossings recorded in copy passes") {
       state.PreviousCrossings = measure.Value;

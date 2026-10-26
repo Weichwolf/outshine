@@ -83,8 +83,8 @@ def main():
             prefix = str(unit.relative_to(ROOT).with_suffix('')).replace('/', '-') + '.'
             if sum(member.startswith(prefix) for member in members) != 1:
                 raise RuntimeError(f'archive does not contain exactly one selected object for {unit}')
-        sources = [ROOT / 'src/render/shaders/subjectScanKernel.comp',
-                   ROOT / 'src/render/shaders/subjectCompactKernel.comp',
+        sources = [ROOT / 'src/render/shaders/geometryScan.comp',
+                   ROOT / 'src/render/shaders/geometryCompact.comp',
                    Path(__file__).with_name('native_texture.comp'),
                    ROOT / 'src/render/shaders/depthPyramid.comp',
                    ROOT / 'src/render/shaders/fullscreen.vert',

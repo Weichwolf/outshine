@@ -1,4 +1,4 @@
-# Subject index compaction workgroup comparison
+# Geometry index compaction workgroup comparison
 
 Owner: #1069, parent #16. The existing one-group-per-cluster kernel copies kept
 index words to the already scanned offsets. It uses no shared memory or barrier.
@@ -52,7 +52,7 @@ and the 64-lane image was opened. All moving frames remain unrefined (#1045).
 
 Master approved the bounded comparison and synchronized group contract in
 [#47](https://github.com/Weichwolf/outshine/issues/47#issuecomment-6324899205).
-The common candidate changes GLSL local_size and SubjectCompact.Shape.GroupX to64.
+The common candidate changes GLSL local_size and GeometryCompact.Shape.GroupX to64.
 Dispatch remains one group per job. Reflection agrees on every descriptor,
 buffer type/offset/access and dimension except the intended local X size.
 Shader byte identity includes that size. No device branch, resource, layout,
@@ -82,7 +82,7 @@ The shared integration preserves the expanded scan fixture: boundary counts arou
 32/64/128/256 and the original longest1939-job batch with384indices each. Other
 jobs use3/18/72/381/384indices. Real Metal execution passes1,118,443word/slot/argument/
 guard checks with API validation. Pipeline metadata, including stale128rejection,
-and the camera-motion visibility consumer pass. Only SubjectCompact SPIR-V differs;
+and the camera-motion visibility consumer pass. Only GeometryCompact SPIR-V differs;
 the other521shaders are byte-identical.
 
 A18 Pro/Metal, fresh offline processes, unchanged original scenario contents,

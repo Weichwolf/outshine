@@ -156,7 +156,7 @@ private:
 
   struct PieceMaterials {
     Geometry Source;
-    std::vector<SubjectMaterial> Slots;
+    std::vector<MaterialBinding> Slots;
   };
 
   [[nodiscard]] static std::expected<PieceMaterials, std::string>

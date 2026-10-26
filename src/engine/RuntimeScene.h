@@ -19,7 +19,7 @@
 #include "SceneGeometry.h"
 #include "CameraState.h"
 #include "RenderObject.h"
-#include "SubjectMaterials.h"
+#include "MaterialBindings.h"
 #include "ObjectTransformHistory.h"
 #include "SurfaceSession.h"
 #include "Layout.h"
@@ -27,7 +27,7 @@
 #include "SceneRenderer.h"
 #include "Material.h"
 #include "GroundAtmosphere.h"
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 
 namespace outshine::Core {
 
@@ -50,9 +50,9 @@ struct Declaration {
   std::string Antialiasing;
 
   const Geometry *InitialGeometry = nullptr;
-  std::vector<Material> Surfacing{Material{}};
+  std::vector<Material> Materials{Material{}};
 
-  std::vector<SubjectSurfaceOverride> Overriding;
+  std::vector<MaterialOverride> Overriding;
 
   double MetresPerUnit = 1.0;
 
@@ -444,7 +444,7 @@ private:
   std::vector<Box> PartBounds_;
   void CoverShapedParts();
   void PreparePartBounds();
-  SubjectMaterials Materials_;
+  MaterialBindings Materials_;
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 

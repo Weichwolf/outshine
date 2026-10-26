@@ -59,7 +59,7 @@ int main() {
   std::vector<GeometryResidency::BoundImage> images;
   {
     auto source = pixels;
-    const SubjectTexture texture{.Rgba = source.data(), .Width = 2, .Height = 2, .Uv = {}};
+    const MaterialTexture texture{.Rgba = source.data(), .Width = 2, .Height = 2, .Uv = {}};
     device.Busy = true;
     for (size_t at = 0; at < count; ++at) {
       images.push_back(Require(residency.Upload(texture, linear, TexelKind::Value, deferred)));

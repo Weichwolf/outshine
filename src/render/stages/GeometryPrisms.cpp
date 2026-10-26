@@ -28,7 +28,7 @@ Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const 
   }
   const uint32_t slot = RegisteredSlotOf_[material];
   const auto &surface = Slots[slot];
-  if (surface.Kind != SurfaceKind::Opaque || surface.Domain != SurfaceDomain::Subject ||
+  if (surface.Kind != SurfaceKind::Opaque || surface.Domain != SurfaceDomain::Geometry ||
       surface.Unlit.has_value()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Unsupported,
@@ -59,7 +59,7 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
     }
     const uint32_t slot = RegisteredSlotOf_[product.Material];
     const auto &surface = Slots[slot];
-    if (surface.Kind != SurfaceKind::Opaque || surface.Domain != SurfaceDomain::Subject ||
+    if (surface.Kind != SurfaceKind::Opaque || surface.Domain != SurfaceDomain::Geometry ||
         surface.Unlit.has_value()) {
       return std::unexpected(
           Native::Error{.Kind = Native::ErrorKind::Unsupported,

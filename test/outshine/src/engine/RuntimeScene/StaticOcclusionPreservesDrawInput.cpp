@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,8 +18,8 @@ outshine::Geometry OccludedGrid() {
   constexpr int side = 128;
   std::vector<float> positions;
   std::vector<uint32_t> triangles;
-  positions.reserve((side * side + 1) * 12);
-  triangles.reserve((side * side + 1) * 6);
+  positions.reserve((size_t{side} * side + 1) * 12);
+  triangles.reserve((size_t{side} * side + 1) * 6);
   const auto quad = [&](float x, float y, float wide, float z) {
     const auto first = static_cast<uint32_t>(positions.size() / 3);
     positions.insert(positions.end(),
@@ -29,7 +30,7 @@ outshine::Geometry OccludedGrid() {
   for (int y = 0; y < side; ++y) {
     for (int x = 0; x < side; ++x) {
       constexpr float step = 1.6f / side;
-      quad(-0.8f + x * step, -0.8f + y * step, step, -1.0f);
+      quad(-0.8f + static_cast<float>(x) * step, -0.8f + static_cast<float>(y) * step, step, -1.0f);
     }
   }
   Geometry geometry;
@@ -46,7 +47,7 @@ outshine::Geometry OccludedGrid() {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Geometry single = OccludedGrid();
+  const Geometry single = OccludedGrid();
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();
@@ -56,7 +57,7 @@ int main() {
   declaration.SurfaceWidthPx = 1280;
   declaration.SurfaceHeightPx = 720;
   declaration.Outputs = {"sceneLinear"};
-  declaration.Stages = {"subjects"};
+  declaration.Stages = {"opaqueGeometry"};
   Render::SceneRenderer renderer;
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;

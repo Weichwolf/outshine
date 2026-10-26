@@ -45,7 +45,7 @@ void CheckLayouts() {
   constexpr std::array<uint32_t, 1> slots{0};
   for (const auto pattern :
        {SurfacePattern::None, SurfacePattern::Facade, SurfacePattern::FacadeMetres}) {
-    SubjectMaterial material;
+    MaterialBinding material;
     material.Row.Pattern = pattern;
     CHECK(!material.ReadsAnyImage(), "the procedural material carries no image");
     CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "native material binds");

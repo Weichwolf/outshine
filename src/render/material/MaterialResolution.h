@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_SURFACING_H
-#define OUTSHINE_RENDER_SURFACING_H
+#ifndef OUTSHINE_RENDER_MATERIAL_MATERIALRESOLUTION_H
+#define OUTSHINE_RENDER_MATERIAL_MATERIALRESOLUTION_H
 
 #include <cstdint>
 #include <span>
@@ -8,24 +8,24 @@
 
 #include "Material.h"
 #include "Geometry.h"
-#include "stages/SubjectTypes.h"
+#include "material/MaterialBinding.h"
 #include "Shape.h"
 
 namespace outshine::Render {
 
 struct SurfaceTable {
-  std::vector<SubjectMaterial> Slots;
+  std::vector<MaterialBinding> Slots;
   std::vector<int> Material;
   std::vector<int> NativeMaterial;
   std::vector<uint32_t> PartSlot;
 };
 
 [[nodiscard]] bool ResolveNativeTextures(std::span<const ImageView> images,
-                                         std::span<SubjectMaterial> surfaces,
+                                         std::span<MaterialBinding> surfaces,
                                          std::string &error);
 
 [[nodiscard]] bool ResolveNativeTextures(const Geometry &geometry,
-                                         std::span<SubjectMaterial> surfaces,
+                                         std::span<MaterialBinding> surfaces,
                                          std::string &error);
 
 void ResolveDeclaredSurface(const Shape &geometry,

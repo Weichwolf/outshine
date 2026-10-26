@@ -607,7 +607,7 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
   const std::span<const uint32_t> slots = piece.Surface.From == PieceSurface::Source::Registered
                                               ? std::span<const uint32_t>(RegisteredSlotOf_)
                                               : std::span<const uint32_t>(SlotOf_);
-  if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoSlot) {
+  if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] == kNoMaterialSlot) {
     error = "a piece refers to " +
             std::string(piece.Surface.From == PieceSurface::Source::Registered ? "a registered"
                                                                                : "a native") +
@@ -853,7 +853,7 @@ void GeometryRenderer::PrepareSubjectTables() {
 uint32_t GeometryRenderer::MaterialSlotFor(const Piece &piece) const {
   const auto &slots =
       piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
-  return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoSlot;
+  return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoMaterialSlot;
 }
 
 void GeometryRenderer::OrderPieces() {
@@ -870,7 +870,8 @@ void GeometryRenderer::OrderPieces() {
     nextRow += static_cast<uint32_t>(piece.Rows.size());
   }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
-    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() && MaterialSlotFor(Pieces_[at]) != kNoSlot &&
+    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() &&
+        MaterialSlotFor(Pieces_[at]) != kNoMaterialSlot &&
         MaterialSlotFor(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
       clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();

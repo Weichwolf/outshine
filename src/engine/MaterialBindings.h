@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_SUBJECTMATERIALS_H
-#define OUTSHINE_ENGINE_SUBJECTMATERIALS_H
+#ifndef OUTSHINE_ENGINE_MATERIALBINDINGS_H
+#define OUTSHINE_ENGINE_MATERIALBINDINGS_H
 
 #include <cstddef>
 #include <expected>
@@ -9,13 +9,13 @@
 #include <vector>
 
 #include "Shape.h"
-#include "Surfacing.h"
+#include "MaterialResolution.h"
 #include "Geometry.h"
 #include "Material.h"
 
 namespace outshine::Core {
 
-struct SubjectSurfaceOverride {
+struct MaterialOverride {
   std::string MaterialName;
   std::string PartName;
   int PartIndex = -1;
@@ -23,7 +23,7 @@ struct SubjectSurfaceOverride {
   Material Surface;
 };
 
-class SubjectMaterials {
+class MaterialBindings {
 public:
   void Clear();
 
@@ -31,11 +31,11 @@ public:
   Resolve(const Geometry &native,
           const Render::Shape &shaped,
           const Material &fallback,
-          std::span<const SubjectSurfaceOverride> overrides,
+          std::span<const MaterialOverride> overrides,
           int groundSurface,
-          std::string_view subjectName);
+          std::string_view objectName);
 
-  [[nodiscard]] std::span<const Render::SubjectMaterial> Slots() const noexcept {
+  [[nodiscard]] std::span<const Render::MaterialBinding> Slots() const noexcept {
     return Table_.Slots;
   }
 

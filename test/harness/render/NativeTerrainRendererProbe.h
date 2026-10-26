@@ -8,7 +8,7 @@
 #include "GroundRasterReference.h"
 #include "SurfaceOutputs.h"
 #include "StageSubmission.h"
-#include "SubjectMaterialPacking.h"
+#include "MaterialPacking.h"
 #include "SubjectLightingUniform.h"
 #include "ReadbackTransfer.h"
 #include "NativeGpuCheck.h"
@@ -332,7 +332,7 @@ inline void Lit(Device &device,
   view.Current = frame.Mvp;
   SubjectLightingUniform lighting{};
   lighting.Up = {{0, 0, 1, 0}};
-  const auto material = PackSubjectMaterial(SubjectMaterial{}, 1);
+  const auto material = PackMaterial(MaterialBinding{}, 1);
   const std::array bindings{
       Binding{.Set = 1, .Slot = 0, .Value = Uniform{.Bytes = std::as_bytes(std::span(&view, 1))}},
       Storage(2, 0, *classes),

@@ -116,12 +116,12 @@ void Exercise() {
   for (const auto failure : {Faults::Failure::Acquire, Faults::Failure::Submit}) {
     faults.Next = failure;
     const auto refused = prepared.PrepareWorldResources();
-    CHECK(!refused && refused.error().find("injected preparation") != std::string::npos,
+    CHECK(!refused && refused.error().contains("injected preparation"),
           "preparation failure returns its owned diagnosis and allows retry");
     CHECK(!prepared.Drew() && prepared.LastSubmittedCamera().Serial == 0,
           "failed preparation never publishes a camera frame");
   }
-  const std::array<SubjectMaterial, 1> rebuiltMaterials{};
+  const std::array<MaterialBinding, 1> rebuiltMaterials{};
   CHECK(prepared.SetGeometryMaterials(rebuiltMaterials, error) &&
             control.SetGeometryMaterials(rebuiltMaterials, error),
         "both scenes receive the final native materials after retrying acquisition");

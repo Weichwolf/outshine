@@ -65,7 +65,7 @@ int main() {
     Core::Declaration declaration;
     declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
-    declaration.Stages = {"subjects"};
+    declaration.Stages = {"opaqueGeometry"};
     declaration.Outputs = {"sceneDepth", "sceneVelocity"};
     SceneRenderer renderer;
     std::unique_ptr<Core::RuntimeScene> scene;

@@ -1,21 +1,21 @@
 #include "Check.h"
-#include "HeightSheets.h"
+#include "TerrainSeams.h"
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <string>
 #include <vector>
 
 namespace {
 using namespace outshine;
+using namespace outshine::Generators::Terrain;
 
 constexpr int kSide = 33;
-constexpr int kPageSide = kSide + 2;
+constexpr auto kPageSide = static_cast<size_t>(kSide) + 2;
 
 size_t Node(int i, int j) {
-  return static_cast<size_t>((j + 1) * kPageSide + i + 1);
+  return (static_cast<size_t>(j) + 1) * kPageSide + static_cast<size_t>(i) + 1;
 }
 
 Sheet Page(Data::TileId tile, bool plane = false) {
@@ -44,16 +44,16 @@ struct Edge {
   int Y;
 };
 
-constexpr std::array<Edge, 4> kEdges{{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}};
+constexpr std::array<Edge, 4> kEdges{
+    {{.X = -1, .Y = 0}, {.X = 1, .Y = 0}, {.X = 0, .Y = -1}, {.X = 0, .Y = 1}}};
 
 Data::TileId FineAt(Edge edge, uint32_t scale) {
-  return {.Zoom = 6,
-          .X = edge.X < 0   ? 2 * scale
-               : edge.X > 0 ? 3 * scale - 1
-                            : 2 * scale + 1,
-          .Y = edge.Y < 0   ? 2 * scale
-               : edge.Y > 0 ? 3 * scale - 1
-                            : 2 * scale + 1};
+  const auto coordinate = [scale](int direction) {
+    if (direction < 0) { return 2 * scale; }
+    if (direction > 0) { return 3 * scale - 1; }
+    return 2 * scale + 1;
+  };
+  return {.Zoom = 6, .X = coordinate(edge.X), .Y = coordinate(edge.Y)};
 }
 
 Data::TileId CoarseAt(Edge edge, int drop) {
@@ -85,23 +85,19 @@ bool ExpectedEdge(const Sheet &page, Data::TileId coarse, Edge edge, uint32_t sc
   }
   return true;
 }
-}
 
-int main() {
-  using namespace outshine::Test;
-  std::string error;
-  HeightSheets sheets;
-  sheets.Framed(TangentFrame::At({}));
-
+void CoveringAncestorsKeepInterior() {
   const Data::TileId inner{.Zoom = 6, .X = 19, .Y = 21};
   for (const bool reverse : {false, true}) {
     Patchwork patchwork{.Sheets = {Page({.Zoom = 3, .X = 2, .Y = 2}, true), Page(inner)}};
     if (reverse) { std::ranges::reverse(patchwork.Sheets); }
-    CHECK(sheets.Stitch(patchwork, error) && Constant(Find(patchwork, inner)) &&
-              sheets.Seams().Virtual.Edges == 0,
+    const auto seams = StitchTerrainSeams(patchwork);
+    CHECK(seams && Constant(Find(patchwork, inner)) && seams->Virtual.Edges == 0,
           "a covering ancestor cannot drag internal fine boundaries to its remote exterior");
   }
+}
 
+void CoarseNeighboursShareOnlyTheirEdges() {
   for (const Edge edge : kEdges) {
     for (const int drop : {1, 2, 4}) {
       const uint32_t scale = 1u << static_cast<uint32_t>(drop);
@@ -110,9 +106,9 @@ int main() {
       for (const bool reverse : {false, true}) {
         Patchwork patchwork{.Sheets = {Page(coarse, true), Page(fine)}};
         if (reverse) { std::ranges::reverse(patchwork.Sheets); }
-        CHECK(sheets.Stitch(patchwork, error) &&
-                  ExpectedEdge(Find(patchwork, fine), coarse, edge, scale) &&
-                  sheets.Seams().Virtual.Edges == 1,
+        const auto seams = StitchTerrainSeams(patchwork);
+        CHECK(seams && ExpectedEdge(Find(patchwork, fine), coarse, edge, scale) &&
+                  seams->Virtual.Edges == 1,
               "a true coarse neighbor transfers its analytic plane only along the shared edge");
 
         const Data::TileId peer{.Zoom = fine.Zoom,
@@ -120,33 +116,48 @@ int main() {
                                 .Y = static_cast<uint32_t>(static_cast<int>(fine.Y) + edge.Y)};
         Patchwork covered{.Sheets = {Page(coarse, true), Page(fine), Page(peer)}};
         if (reverse) { std::ranges::reverse(covered.Sheets); }
-        CHECK(sheets.Stitch(covered, error) && Constant(Find(covered, fine)),
+        CHECK(StitchTerrainSeams(covered) && Constant(Find(covered, fine)),
               "an equal-resolution neighbor takes precedence over an overlapping coarse page");
       }
     }
   }
+}
 
+void LongitudeWrapsAtTheDateline() {
   for (const bool west : {false, true}) {
     const Data::TileId fine{.Zoom = 6, .X = west ? 0u : 63u, .Y = 19};
     const Data::TileId coarse{.Zoom = 4, .X = west ? 15u : 0u, .Y = 4};
     Patchwork patchwork{.Sheets = {Page(fine), Page(coarse, true)}};
-    CHECK(sheets.Stitch(patchwork, error), "a dateline neighbor remains stitchable");
+    const auto seams = StitchTerrainSeams(patchwork);
+    CHECK(seams, "a dateline neighbor remains stitchable");
     bool correct = true;
     for (int k = 0; k < kSide; ++k) {
       const double along = (3.0 * 32 + k) / 4;
       const double expected = 200 + (west ? 64 : 0) + 3 * along;
       correct = correct && Find(patchwork, fine).Nodes[Node(west ? 0 : 32, k)] == expected;
     }
-    CHECK(correct && sheets.Seams().Virtual.Edges == 1,
+    CHECK(seams && correct && seams->Virtual.Edges == 1,
           "longitude wrapping uses the opposite physical boundary and the correct subinterval");
   }
+}
 
+void LatitudeNeverWraps() {
   for (const bool north : {false, true}) {
     const Data::TileId fine{.Zoom = 6, .X = 19, .Y = north ? 0u : 63u};
     const Data::TileId opposite{.Zoom = 4, .X = 4, .Y = north ? 15u : 0u};
     Patchwork patchwork{.Sheets = {Page(fine), Page(opposite, true)}};
-    CHECK(sheets.Stitch(patchwork, error) && Constant(Find(patchwork, fine)),
+    const auto seams = StitchTerrainSeams(patchwork);
+    CHECK(seams && Constant(Find(patchwork, fine)),
           "a polar boundary never wraps to terrain at the opposite pole");
   }
-  return Report();
+}
+
+}
+
+int main() {
+  CoveringAncestorsKeepInterior();
+  CoarseNeighboursShareOnlyTheirEdges();
+  LongitudeWrapsAtTheDateline();
+  LatitudeNeverWraps();
+  return outshine::Test::Report();
 }

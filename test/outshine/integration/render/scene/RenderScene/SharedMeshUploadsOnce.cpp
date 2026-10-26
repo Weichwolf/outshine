@@ -22,7 +22,7 @@ constexpr uint32_t kSide = 32;
 constexpr size_t kCentre = (size_t{kSide / 2} * kSide + kSide / 2) * 4;
 
 bool InstallMesh(SceneRenderer &renderer) {
-  std::array<SubjectMaterial, 2> materials;
+  std::array<MaterialBinding, 2> materials;
   materials[0].Row.Unlit = true;
   materials[0].Row.BaseColour = {{1, 0, 0, 1}};
   materials[1].Row.Transmission = 1;
@@ -70,7 +70,7 @@ bool Draw(SceneRenderer &renderer, std::vector<float> &pixels) {
 void Exercise() {
   PlanSpec spec;
   spec.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::SceneComposited};
-  spec.Content = {Stage::Geometry, Stage::TransmissiveGeometry};
+  spec.Content = {Stage::OpaqueGeometry, Stage::TransmissiveGeometry};
   const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan && (*plan)->Holds(Stage::TransmissiveGeometry),
         "the test really executes both opaque and transmission passes");

@@ -43,7 +43,7 @@ int main() {
     CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
     std::string error;
     CHECK(draw.Configure(gpu).has_value(), "native pipelines configure");
-    const std::array<SubjectMaterial, 1> materials{};
+    const std::array<MaterialBinding, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "material registers");
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
     constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};

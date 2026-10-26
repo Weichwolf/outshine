@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <string>
+#include <utility>
 
 namespace outshine {
 static_assert(kPatchGrid + 1 == Render::TerrainLattice::kSide,
@@ -11,7 +12,14 @@ static_assert(kPatchGrid + 1 == Render::TerrainLattice::kSide,
 
 bool HeightSheets::Stitch(Patchwork &laid, std::string &error) {
   if (!Framed_) { return true; }
-  return StitchEdges(laid, error);
+  auto stitched = Generators::Terrain::StitchTerrainSeams(laid);
+  if (!stitched) {
+    Seams_ = {};
+    error = std::move(stitched.error());
+    return false;
+  }
+  Seams_ = *stitched;
+  return true;
 }
 
 bool HeightSheets::Hands(Patchwork &laid, std::string &error) {

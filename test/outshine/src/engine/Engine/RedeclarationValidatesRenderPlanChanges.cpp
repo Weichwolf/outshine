@@ -1,5 +1,6 @@
 #include <Engine.h>
 #include <array>
+#include <cstddef>
 #include <vector>
 #include <string>
 #include "Check.h"
@@ -10,8 +11,8 @@ enum class Setting { Outputs, Transfer, Precision };
 outshine::Scenario::Document Scene() {
   outshine::Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {32, 32};
-  scene.Render.Stages = {"subjects"};
+  scene.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
+  scene.Render.Stages = {"opaqueGeometry"};
   return scene;
 }
 
@@ -32,7 +33,7 @@ void ChangedPlanIsValidated(Setting setting) {
   }
   const auto cold = fresh.declare(scene);
   const auto warm = reused.declare(scene);
-  CHECK(!cold && cold.error().find("invalid-") != std::string::npos,
+  CHECK(!cold && cold.error().contains("invalid-"),
         "first declaration rejects the independently invalid plan parameter");
   CHECK(!warm && !cold && warm.error() == cold.error(),
         "redeclaration validates the changed parameter exactly as first declaration");
@@ -60,7 +61,7 @@ void AdditionalOutputIsApplied() {
   CHECK(engine.renderer().render({}).has_value(), "render initial plan");
   std::vector<float> velocity{17};
   const auto missing = engine.renderer().readPixels(Buffer::Velocity, velocity);
-  CHECK(!missing && missing.error().find("no velocity") != std::string::npos,
+  CHECK(!missing && missing.error().contains("no velocity"),
         "the initial explicit plan does not retain velocity");
   scene.Render.Outputs = {"sceneVelocity"};
   CHECK(engine.declare(scene) && engine.assemble() && engine.advance(),
@@ -68,7 +69,7 @@ void AdditionalOutputIsApplied() {
   CHECK(engine.renderer().render({}).has_value(), "render replacement plan");
   CHECK(engine.renderer().readPixels(Buffer::Velocity, velocity).has_value(),
         "the changed plan actually retains the requested velocity attachment");
-  CHECK(velocity.size() == 32u * 32u * 2u,
+  CHECK(velocity.size() == size_t{32} * 32 * 2,
         "the newly retained attachment has two components for every target pixel");
 }
 

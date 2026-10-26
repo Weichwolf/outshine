@@ -19,7 +19,7 @@
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
 #include "GpuPlacement.h"
-#include "SubjectMaterialPacking.h"
+#include "MaterialPacking.h"
 #include "SubjectTypes.h"
 #include "Material.h"
 #include "GeometryResidency.h"
@@ -369,7 +369,7 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
 bool ConfigureNative(Fixture &fixture, TextureUploadCounts &counts) {
   if (!CreateTargets(fixture)) { return false; }
   const auto chain = Chain(MipMode::None);
-  SubjectMaterial material;
+  MaterialBinding material;
   material.Row.BaseColour = {{1, 1, 1, 1}};
   material.Row.Unlit = true;
   material.Row.BaseColourMap.Image = 0;
@@ -439,7 +439,7 @@ bool ConfigureNative(Fixture &fixture, TextureUploadCounts &counts) {
   fixture.VertexUniform.assign(identity.begin(), identity.end());
   fixture.VertexUniform.insert(fixture.VertexUniform.end(), identity.begin(), identity.end());
   fixture.VertexUniform.insert(fixture.VertexUniform.end(), 24u, 0.0f);
-  const PackedSubjectMaterial packed = PackSubjectMaterial(material, 1.0f);
+  const GpuMaterialRecord packed = PackMaterial(material, 1.0f);
   fixture.FragmentUniform.assign(packed.begin(), packed.end());
   return true;
 }

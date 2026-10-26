@@ -190,7 +190,7 @@ struct GeometryResidency {
   [[nodiscard]] Native::Result<void> SubmitPendingUploads();
 
   [[nodiscard]] Native::Result<BoundImage>
-  Upload(const SubjectTexture &texture,
+  Upload(const MaterialTexture &texture,
          Transfer decode,
          TexelKind kind,
          ImageUploadMode mode = ImageUploadMode::Immediate);
@@ -203,8 +203,10 @@ private:
                                                     ImageMipKind kind,
                                                     ImageUploadMode mode);
 
-  [[nodiscard]] Native::Result<BoundImage>
-  UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode);
+  [[nodiscard]] Native::Result<BoundImage> UploadImage(const MaterialTexture &texture,
+                                                       Transfer decode,
+                                                       TexelKind kind,
+                                                       ImageUploadMode mode);
 
   struct StagedImage {
     std::shared_ptr<Native::Texture> Image;
@@ -220,9 +222,9 @@ private:
   struct DefaultImageKey {
     Transfer Decode;
     TexelKind Kind;
-    SubjectWrap WrapU, WrapV;
-    SubjectFilter Magnify, Minify;
-    SubjectMip Mip;
+    outshine::Wrap WrapU, WrapV;
+    outshine::Filter Magnify, Minify;
+    outshine::MipFilter Mip;
 
     bool operator==(const DefaultImageKey &) const = default;
   };

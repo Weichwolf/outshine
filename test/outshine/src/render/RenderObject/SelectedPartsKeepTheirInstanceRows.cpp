@@ -3,6 +3,8 @@
 #include "RenderObject.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
+#include <cstddef>
 #include <string>
 
 namespace {
@@ -31,7 +33,7 @@ void CheckSelection() {
   RenderObject proxy;
   proxy.ResetForShape(shape, {});
   CHECK(proxy.ResizeInstances(2), "each original part retains two instance rows");
-  SubjectMaterial material;
+  MaterialBinding material;
   constexpr std::array<uint32_t, 2> slots{0, 0};
   std::string error;
   CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "native materials bind");
