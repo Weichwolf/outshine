@@ -21,7 +21,7 @@ from stair_junction_body import build
 from stair_network_geometry import vertex_links
 
 
-def run(recipe, trace):
+def run(recipe, trace, *, selection="minimax", solver="highs-ds"):
     case, sources = inputs()
     native = json.loads(
         FIXTURE.with_name("mvt_stair_native_crosscuts.json").read_text()
@@ -34,6 +34,8 @@ def run(recipe, trace):
         fixed_contacts=contacts,
         max_prior_change_m=3,
         gradient_model="axis_crossfall",
+        selection=selection,
+        solver=solver,
     )
     if heights is None:
         raise ValueError(solve)
@@ -63,6 +65,7 @@ def run(recipe, trace):
         products,
         {
             "recipe": recipe,
+            "solve": solve,
             "instrumented": trace,
             "body_build_s": elapsed,
             "geometry": geometry,

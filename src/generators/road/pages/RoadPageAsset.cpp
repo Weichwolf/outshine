@@ -17,10 +17,12 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <variant>
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kFormat = 0x000231504452ULL;
+constexpr uint64_t kLegacyFormat = 0x000231504452ULL;
+constexpr uint64_t kAppearanceFormat = 0x000331504452ULL;
 
 bool HashKey(const std::string &key) {
   return key.size() == 64 && std::ranges::all_of(key, [](char value) {
@@ -34,6 +36,7 @@ bool Before(const RoadPagePart &left, const RoadPagePart &right) {
 
 bool ValidAddress(const RoadPageAddress &address) {
   return HashKey(address.PlanKey) && HashKey(address.MaterialKey) &&
+         ValidRoadPageAppearance(address.Appearance) &&
          address.MaterialIndex <= static_cast<uint32_t>(std::numeric_limits<int>::max()) &&
          std::isfinite(address.Anchor.LatitudeDeg) && std::isfinite(address.Anchor.LongitudeDeg) &&
          std::abs(address.Anchor.LatitudeDeg) <= kDegPerHalfTurn * 0.5 &&
@@ -48,7 +51,11 @@ bool ValidAddress(const RoadPageAddress &address) {
 }
 
 bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
-  if (!out(kFormat) || !out.Text(address.PlanKey) || !out.Text(address.MaterialKey) ||
+  const auto format = std::holds_alternative<LegacyRoadPageV1>(address.Appearance)
+                          ? kLegacyFormat
+                          : kAppearanceFormat;
+  if (!out(format) || !out.Text(address.PlanKey) || !out.Text(address.MaterialKey) ||
+      !WriteRoadPageAppearance(out, address.Appearance) ||
       !out(address.MaterialIndex,
            address.Anchor.LatitudeDeg,
            address.Anchor.LongitudeDeg,
@@ -63,8 +70,9 @@ bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
 bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
   uint64_t version = 0;
   uint32_t count = 0;
-  if (!in(version) || version != kFormat || !in.Text(address.PlanKey) ||
-      !in.Text(address.MaterialKey) ||
+  if (!in(version) || (version != kLegacyFormat && version != kAppearanceFormat) ||
+      !in.Text(address.PlanKey) || !in.Text(address.MaterialKey) ||
+      !ReadRoadPageAppearance(in, version == kAppearanceFormat, address.Appearance) ||
       !in(address.MaterialIndex,
           address.Anchor.LatitudeDeg,
           address.Anchor.LongitudeDeg,

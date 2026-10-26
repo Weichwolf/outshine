@@ -14,6 +14,11 @@ struct RoadPagePart {
   [[nodiscard]] bool operator==(const RoadPagePart &) const = default;
 };
 
+struct RoadPagePartAppearance {
+  RoadPagePart Part;
+  Vec3f WearsLinear;
+};
+
 struct RoadPageDiagnostic {
   RoadPagePart Part;
   uint64_t Source = 0;

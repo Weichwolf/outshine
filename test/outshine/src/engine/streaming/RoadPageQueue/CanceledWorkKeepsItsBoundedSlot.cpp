@@ -1,3 +1,4 @@
+#include "RoadPageRecipe.h"
 #include "RoadPublicationFixture.h"
 #include "PreparedRoadPageFixture.h"
 #include "ControlledRoadPageProducer.h"

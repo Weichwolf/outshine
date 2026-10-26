@@ -55,7 +55,7 @@ int main() {
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
-          "authored subject opens");
+          "authored geometry opens");
     CHECK(scene && scene->DrivenParts() == 1, "the initial authored part is driven");
 
     WorldRegionState world;
