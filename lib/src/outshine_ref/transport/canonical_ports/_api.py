@@ -129,7 +129,7 @@ def derive_canonical_ports(
         raise ValueError(
             "explicit bounded positive ground-prior quality limit required"
         )
-    if method not in ("auto", "affine", "cone") or not callable(terrain):
+    if method not in ("auto", "affine", "cone", "lp") or not callable(terrain):
         raise ValueError("declared field method and bound terrain sampler required")
     if (
         not isinstance(terrain_binding, Mapping)
@@ -144,9 +144,10 @@ def derive_canonical_ports(
     values, reasons = [None] * len(demands), [""] * len(demands)
     reports, work = [], {"terrain_port_samples": 0, "terrain_samples": 0}
     settings = {
-        "version": 1,
+        "version": 2,
         "requested_method": method,
         "maximum_prior_change_m": maximum_prior_change_m,
+        "requires_terminal_solver": True,
     }
 
     def sample(positions):

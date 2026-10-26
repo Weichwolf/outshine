@@ -18,7 +18,9 @@ from outshine_ref.transport.canonical_ports._geodesy import (
     ground_geographic_at,
     positions_in_frame,
 )
+from outshine_ref.transport.canonical_ports._ground import fit_ground
 from outshine_ref.transport.canonical_ports._queries import canonical_port
+from test_port_affine import terminal
 
 TERRAIN_BINDING = {
     "sources": [{"dataset": "analytic-model", "revision": "1"}],
@@ -79,6 +81,22 @@ def derive(source, demands, sampler=terrain, **kwargs):
 
 
 class CanonicalPorts(unittest.TestCase):
+    def test_direct_affine_prior_is_a_complete_canonical_field_without_iterations(self):
+        for method in ("cone", "lp"):
+            with self.subTest(method=method):
+                field, report = fit_ground(terminal(), 0.1, method, PortBudget())
+                self.assertIsNotNone(field)
+                solvers = [
+                    r["fitting"]["solver"] for r in report["rounds"] if r["fitting"]
+                ]
+                self.assertTrue(solvers)
+                self.assertTrue(
+                    all(
+                        s["status"] == "affine_prior" and s["termination_complete"]
+                        for s in solvers
+                    )
+                )
+
     def test_port_ray_matches_independent_ecef_plane_intersection(self):
         class Plane:
             def evaluate(self, xy):
