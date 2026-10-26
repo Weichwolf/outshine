@@ -50,6 +50,10 @@ CompileComputePipeline(Native::Device &device, const ComputeShaderDescriptor &sh
   }
   auto pipeline = device.CreateComputePipeline(*words, {.Label = shader.Path});
   if (!pipeline) { return std::unexpected(pipeline.error()); }
+  if (!*pipeline) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                         .Message = "native device returned no compute pipeline"});
+  }
   if (!Matches((*pipeline)->Layout(), shader.Shape)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
