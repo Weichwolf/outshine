@@ -198,7 +198,8 @@ std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
   return MvtTransportSnapshot{.Network = std::move(snapshot),
                               .Omissions = std::move(sources.Omissions),
                               .InputConnections = connections->InputCount,
-                              .StreetWays = std::move(sources.StreetWays)};
+                              .StreetWays = std::move(sources.StreetWays),
+                              .SourceOrigin = {}};
 }
 }
 

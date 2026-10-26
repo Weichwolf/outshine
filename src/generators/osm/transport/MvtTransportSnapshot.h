@@ -38,7 +38,7 @@ struct MvtTransportSnapshot {
   std::vector<MvtTransportOmission> Omissions;
   size_t InputConnections = 0;
   std::vector<uint32_t> StreetWays;
-  std::shared_ptr<const void> SourceOrigin = {};
+  std::shared_ptr<const void> SourceOrigin;
   uint64_t SourceGeneration = 0;
   size_t SourceWayCount = 0;
 };
