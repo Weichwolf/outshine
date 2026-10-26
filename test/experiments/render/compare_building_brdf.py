@@ -1,7 +1,6 @@
 """Material-only one/two/full comparisons on unchanged source-tree boundary views."""
 
 import argparse
-import hashlib
 import json
 import subprocess
 import time
@@ -18,7 +17,7 @@ from building_tree_transfer import transfers
 from compare_building_hierarchy import complete, write_images
 from compare_building_transition import endpoints, render_endpoints
 from compare_mass_appearance import errors, read
-from fit_building_brdf import read_fit, read_material
+from fit_building_brdf import read_fit, read_material, validate_fit_receipt
 from PIL import Image, ImageDraw
 from process_memory import peak_rss_bytes
 from urban_parent_light import display
@@ -212,19 +211,7 @@ def main():
         / "outshine/data/render/material-filter/energy-tables.npz"
     )
     for budget, path in ((1, args.one), (2, args.two)):
-        receipt = json.loads((path / "report.json").read_text())
-        if (
-            receipt["max_lobes"] != budget
-            or receipt["energy_table_sha256"]
-            != hashlib.sha256(table_path.read_bytes()).hexdigest()
-        ):
-            raise ValueError("fit budget/energy reference differs")
-        for name, digest in receipt["response_program_sha256"].items():
-            if (
-                hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-                != digest
-            ):
-                raise ValueError("fitted response and current renderer model differ")
+        validate_fit_receipt(path, budget, table_path)
     reports = [run_case(args, cell, policy(), read(table_path)) for cell in args.cells]
     result = {
         "producer": subprocess.check_output(
