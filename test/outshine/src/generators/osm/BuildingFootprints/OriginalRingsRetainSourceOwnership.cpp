@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "OsmBuildingFootprints.h"
 #include "OsmXmlReader.h"
 #include "Check.h"

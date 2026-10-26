@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "TerrainTiles.h"
 #include "Check.h"
 #include <cstdint>

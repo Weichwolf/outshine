@@ -18,7 +18,7 @@ namespace {
 
 using namespace outshine;
 
-std::optional<double> Closest(const Raised &mesh, const Vec3 &origin, const Vec3 &direction) {
+std::optional<double> Closest(const Raised &mesh, const BuildingSurface::Ray &ray) {
   double nearest = std::numeric_limits<double>::infinity();
   const auto trace = [&](std::span<const StoredVertex> points, std::span<const uint32_t> run) {
     for (size_t at = 0; at < run.size(); at += 3) {
@@ -29,13 +29,13 @@ std::optional<double> Closest(const Raised &mesh, const Vec3 &origin, const Vec3
       const Vec3 a = point(run[at]);
       const Vec3 ab = point(run[at + 1]) - a;
       const Vec3 ac = point(run[at + 2]) - a;
-      const Vec3 p = Cross(direction, ac);
+      const Vec3 p = Cross(ray.Direction, ac);
       const double determinant = Dot(ab, p);
       if (std::abs(determinant) < 1e-10) { continue; }
-      const Vec3 offset = origin - a;
+      const Vec3 offset = ray.Origin - a;
       const double u = Dot(offset, p) / determinant;
       const Vec3 q = Cross(offset, ab);
-      const double v = Dot(direction, q) / determinant;
+      const double v = Dot(ray.Direction, q) / determinant;
       const double along = Dot(ac, q) / determinant;
       if (u >= 0 && v >= 0 && u + v <= 1 && along >= 0) { nearest = std::min(nearest, along); }
     }
@@ -87,7 +87,7 @@ int main() {
         const Vec3 start = axes.East * (e + 0.37) + axes.North * (n + 0.19) + axes.Up * 60.0;
         const Vec3 direction = axes.Up * -1.0 + axes.East * 0.071 + axes.North * 0.053;
         const auto direct = source->Trace({.Origin = start, .Direction = direction}, 0, 100, cuts);
-        const auto reference = Closest(mesh, start, direction);
+        const auto reference = Closest(mesh, {.Origin = start, .Direction = direction});
         CHECK(direct.has_value() == reference.has_value(),
               "oblique native roof coverage matches the shell");
         if (!direct || !reference) { continue; }
@@ -105,7 +105,7 @@ int main() {
     for (int n = -5; n < 28; n += 2) {
       const Vec3 start = axes.East * -20.0 + axes.North * (n + 0.41) + axes.Up * 8.0;
       const auto hit = source->Trace({.Origin = start, .Direction = axes.East}, 0, 100, cuts);
-      const auto reference = Closest(mesh, start, axes.East);
+      const auto reference = Closest(mesh, {.Origin = start, .Direction = axes.East});
       CHECK(hit.has_value() == reference.has_value(), "wall coverage matches terrain-aware shells");
       if (!hit || !reference) { continue; }
       ++wallHits;
