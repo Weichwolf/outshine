@@ -9,11 +9,14 @@
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <system_error>
 #include <map>
 #include <thread>
+#include <vector>
 
 namespace {
 class CapacityLimitedOsmTransport final : public outshine::Data::Transport {

@@ -2,6 +2,7 @@
 #include "SourceSet.h"
 #include "Check.h"
 #include <chrono>
+#include <cstdint>
 #include <thread>
 #include <memory>
 #include <string>
@@ -13,11 +14,11 @@ using namespace outshine::Data;
 
 class NoTransport final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class ByteSource final : public Source {
@@ -33,13 +34,18 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     ++Calls;
     return SourceResponse::Delivered(std::move(Bytes));
   }

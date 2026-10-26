@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -79,7 +81,7 @@ int main() {
   const TerrainGrid stitched = tiles.StitchedGrid(2, 1, 1);
   const TerrainField *field = stitched.TryField();
   CHECK(field != nullptr, "centre and eight neighbours decode into a stitched field");
-  if (!field) { return Report(); }
+  if (field == nullptr) { return Report(); }
   const auto sources = field->Sources();
   CHECK(sources.size() == 9 && std::ranges::is_sorted(sources),
         "stitched height field owns nine unique sources in stable order");

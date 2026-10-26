@@ -1,6 +1,9 @@
 #include "TilePool.h"
 #include "Check.h"
 #include "TerrainDelivery.h"
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 int main() {
   using namespace outshine;

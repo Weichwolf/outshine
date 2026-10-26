@@ -7,6 +7,7 @@
 #include "Units.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <utility>
@@ -63,7 +64,7 @@ int main() {
   CHECK(prepared && prepared->Structures.size() == 2 && prepared->Surfaces.size() == 2,
         "prepared input retains both physical source footprints");
   if (!prepared) { return Report(); }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   auto omitted = PreparedStructurePlan(prepared->Structures[1],
                                        prepared->PointsLatLon,
@@ -82,7 +83,8 @@ int main() {
       std::nullopt, LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed};
   for (const auto detail : details) {
     raw.RequestedDetail = detail;
-    BakedTile actual, expected;
+    BakedTile actual;
+    BakedTile expected;
     auto all = BakePreparedStructures(*prepared, raw, mesher, *scratch);
     auto one = BakePreparedStructures(control, raw, mesher, *scratch);
     CHECK(all && one, "full and renderable-only prepared sources bake at every detail");

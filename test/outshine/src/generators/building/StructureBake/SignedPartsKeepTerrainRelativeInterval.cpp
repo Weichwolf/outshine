@@ -10,6 +10,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 int main() {
   using namespace outshine;
@@ -35,7 +36,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 100);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BuildingScratch shapeScratch;
   const auto key = Sha256Hex("signed-height-interval");

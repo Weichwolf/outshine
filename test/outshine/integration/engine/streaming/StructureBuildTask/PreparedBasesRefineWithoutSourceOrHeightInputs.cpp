@@ -19,11 +19,13 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <chrono>
 #include <string>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 #include <variant>
 #include <sqlite3.h>
@@ -87,7 +89,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   CHECK(database && (*database)->Remove(key), "fixture removes the complete plan product");
   if (!database) { return; }
   const auto before = cache->Costs();
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   Tasks pool(1);
   StructureBuildTask task(0,
                           *basis,
@@ -143,7 +145,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
                    PreparedBuildingAssets &cache,
                    const std::string &key,
                    const PreparedStructureTile &base) {
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   std::optional<Vec3> remotePoint;
   for (const bool cell : {false, true}) {
@@ -225,7 +227,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
 
 void NativeCache(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   const auto directory = root.string();
   auto opened = PreparedBuildingAssets::Open(directory, sources);
   CHECK(opened.has_value(), "native building service opens the shared spatial cache");
@@ -240,7 +242,7 @@ void NativeCache(const std::filesystem::path &root) {
   const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated && (*generated)->Structures.size() == 3,
         "cache miss publishes and reloads complete intrinsic building assets");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -298,7 +300,7 @@ void NativeCache(const std::filesystem::path &root) {
 
 void RequestMigration(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "request migration opens");
   if (!cache) { return; }
@@ -377,7 +379,7 @@ void RequestMigration(const std::filesystem::path &root) {
 
 void ResidentRequests(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "resident basis fixture opens");
   if (!cache) { return; }
@@ -389,7 +391,7 @@ void ResidentRequests(const std::filesystem::path &root) {
   const auto generated = (*cache)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated, "resident fixture publishes real complete building inputs");
   if (!generated || !*generated) { return; }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -490,7 +492,7 @@ void ResidentRequests(const std::filesystem::path &root) {
 
 void ResidentRequestLimit(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "bounded resident fixture opens");
   if (!cache) { return; }
@@ -735,7 +737,7 @@ void UnsupportedMass() {
   CHECK(restored && restored->Surfaces.front().Shapes().empty(),
         "restart retains the unsupported mass without replanning it");
   if (!restored) { return; }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile reference;
   const auto original = BakeStructures(raw, *heights, mesher, *scratch, reference);
@@ -765,7 +767,7 @@ int main() {
         "unknown height and road frontage are fully enriched before runtime selection");
   CHECK(base->Structures[2].Standing.MinimumHeightM == 3.0f,
         "prepared raised parts retain their clearance");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   std::vector<RawTile> views;
   std::vector<BakedTile> references;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
@@ -806,7 +808,7 @@ int main() {
               std::ranges::equal(built->Coordinates->Points(), decoded->PointsLatLon),
           "runtime native footprints carry their own geometry rather than source-cache views");
   }
-  std::atomic_bool stopping{true};
+  const std::atomic_bool stopping{true};
   auto scratch = mesher.Scratch();
   const auto cancelled = BakePreparedStructures(*base, views[0], mesher, *scratch, &stopping);
   CHECK(!cancelled && cancelled.error() == StructureBakeError(StructureBakeErrorKind::Cancelled),

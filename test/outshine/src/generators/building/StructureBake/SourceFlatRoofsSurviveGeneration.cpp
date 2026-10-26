@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace {
@@ -78,7 +79,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell}) {
     raw.RequestedDetail = detail;
     for (const int pitched : {0, 1}) {

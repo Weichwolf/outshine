@@ -3,6 +3,8 @@
 #include "OsmApiReader.h"
 
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
@@ -18,24 +20,24 @@ public:
   std::atomic<double> *Deadline = nullptr;
   double ChangedDeadlineMs = 0;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     ++Starts;
     return static_cast<outshine::Data::Ticket>(Starts);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (ClockMs < 15) { return outshine::Data::Wire::Working(); }
     const std::string body = "<osm version='0.6'><node id='1' lat='0' lon='0'/></osm>";
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(body.begin(), body.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 
   double NowMs() override { return ClockMs; }
 
   bool Await(double ms) override {
     ClockMs += ms;
-    if (Deadline && ClockMs >= 5) { Deadline->store(ChangedDeadlineMs); }
+    if ((Deadline != nullptr) && ClockMs >= 5) { Deadline->store(ChangedDeadlineMs); }
     return false;
   }
 };

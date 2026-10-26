@@ -6,11 +6,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <stop_token>
 #include <string>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 using outshine::GeographicBounds;
@@ -28,7 +31,7 @@ public:
   bool Stall = false, Refuse = false;
   std::map<outshine::Data::Ticket, double> Active;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     const auto ticket = static_cast<outshine::Data::Ticket>(++Starts);
     Active.emplace(ticket, ClockMs + (Starts % 2 == 0 ? 5 : 10));
     Peak = std::max(Peak, Active.size());

@@ -6,8 +6,12 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <expected>
 #include <memory>
+#include <optional>
+#include <print>
 
 namespace {
 class CountingMesher final : public outshine::StructureMesher {
@@ -57,7 +61,7 @@ int main() {
     for (uint32_t column = 0; column < 16; ++column) {
       const double lat = 47 + row * 20 / kMPerDegLat;
       const double lon = 9 + column * 20 / lonScale;
-      const uint32_t first = static_cast<uint32_t>(raw.LatLon.size() / 2);
+      const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
       const std::array ring{lat,
                             lon,
                             lat,
@@ -88,7 +92,7 @@ int main() {
   size_t previousTriangles = 0;
   for (const double longitude : {9.0, 9.03, 12.0}) {
     raw.Eye = {.LongitudeDeg = longitude, .LatitudeDeg = 47};
-    CountingMesher mesher;
+    const CountingMesher mesher;
     auto scratch = mesher.Scratch();
     StructureBakeProgress progress;
     const auto planned = progress.AdvanceStructures(raw, *heights, mesher, *scratch, 256);
@@ -122,17 +126,17 @@ int main() {
       CHECK(mesher.Calls < 256 / 4 && built->Lumped == 256,
             "far parents replace individual source meshes before allocation");
     }
-    std::printf("longitude %.2f: %zu mesh calls, %zu triangles, %d grouped sources\n",
-                longitude,
-                mesher.Calls,
-                triangles,
-                built->Lumped);
+    std::println("longitude {:.2f}: {} mesh calls, {} triangles, {} grouped sources",
+                 longitude,
+                 mesher.Calls,
+                 triangles,
+                 built->Lumped);
   }
   raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   Vec3 elevatedEye;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 80000}, elevatedEye);
   raw.EyeEcef = elevatedEye;
-  CountingMesher elevatedMesher;
+  const CountingMesher elevatedMesher;
   auto elevatedScratch = elevatedMesher.Scratch();
   BakedTile elevated;
   CHECK(BakeStructures(raw, *heights, elevatedMesher, *elevatedScratch, elevated),

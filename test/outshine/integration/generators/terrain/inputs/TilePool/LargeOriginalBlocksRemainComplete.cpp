@@ -10,10 +10,17 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -23,9 +30,9 @@ using namespace outshine::Ground;
 class OriginalBlocks final : public Transport {
 public:
   explicit OriginalBlocks(Test::NativeCogProfile profile)
-      : Bytes_(Test::NativeCog({47, 10}, false, profile)) {}
+      : Bytes_(Test::NativeCog({.SouthDeg = 47, .WestDeg = 10}, false, profile)) {}
 
-  FetchStart Begin(const std::string &) override {
+  FetchStart Begin(const std::string & /*url*/) override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 

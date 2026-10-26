@@ -15,8 +15,8 @@ std::string Scene(std::string_view attributes) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  for (const auto name : {"widthM", "heightM", "level"}) {
-    for (const auto value : {"", "x", "1x", "nan", "inf", "1e999", " 1", "1 "}) {
+  for (const auto *const name : {"widthM", "heightM", "level"}) {
+    for (const auto *const value : {"", "x", "1x", "nan", "inf", "1e999", " 1", "1 "}) {
       Scenario::Document held;
       held.Ground.Osm.push_back({.Kind = "retained", .LatLon = {}});
       const auto xml = Scene(std::string(name) + "=\"" + value + "\"");
@@ -27,12 +27,12 @@ int main() {
             "invalid late attributes preserve the old document");
     }
   }
-  for (const auto attributes : {"widthM=\"-1\"",
-                                "heightM=\"-0.01\"",
-                                "level=\"1.5\"",
-                                "level=\"-1.5\"",
-                                "level=\"2147483648\"",
-                                "level=\"-2147483649\""}) {
+  for (const auto *const attributes : {"widthM=\"-1\"",
+                                       "heightM=\"-0.01\"",
+                                       "level=\"1.5\"",
+                                       "level=\"-1.5\"",
+                                       "level=\"2147483648\"",
+                                       "level=\"-2147483649\""}) {
     const auto xml = Scene(attributes);
     Scenario::Document held;
     std::string error;
@@ -44,7 +44,7 @@ int main() {
   for (const int level :
        {std::numeric_limits<int>::min(), -1, 0, 1, std::numeric_limits<int>::max()}) {
     const auto xml =
-        Scene("widthM=\"3.125e0\" heightM=\"0\" level=\"" + std::to_string(level) + "\"");
+        Scene(R"(widthM="3.125e0" heightM="0" level=")" + std::to_string(level) + "\"");
     Scenario::Document held;
     std::string error;
     const bool read = ReadScenario(xml.data(), xml.size(), held, error);

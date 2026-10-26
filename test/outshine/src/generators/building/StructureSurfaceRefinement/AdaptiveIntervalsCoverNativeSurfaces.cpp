@@ -2,6 +2,8 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -181,7 +183,7 @@ int main() {
   CHECK(!task.Reset({.Reference = cap, .Variant = frame, .SourceKey = 18},
                     {.TargetUncertaintyM = std::numeric_limits<double>::quiet_NaN()}),
         "nonfinite uncertainty does not disable stopping guards");
-  Raised empty;
+  const Raised empty;
   CHECK(task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 19}) && task.Bound(19) &&
             task.Bound(19)->UpperDistanceM() == 0,
         "two empty surfaces preserve exact zero error");

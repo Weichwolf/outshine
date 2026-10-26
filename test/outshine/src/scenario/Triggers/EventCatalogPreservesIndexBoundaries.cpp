@@ -1,7 +1,10 @@
 #include "Triggers.h"
 #include "Check.h"
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <vector>
 
 int main() {

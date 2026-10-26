@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <print>
 #include <vector>
 
 int main() {
@@ -63,10 +64,10 @@ int main() {
       CHECK(std::isfinite(vertex.uv()[0]) && std::isfinite(vertex.uv()[1]),
             "captured facades retain native material coordinates");
     }
-    std::printf("shell %zu triangles, captured %zu triangles, %zu wall vertices\n",
-                (shells.WallRun.size() + shells.RoofRun.size()) / 3,
-                (mesh.WallRun.size() + mesh.RoofRun.size()) / 3,
-                mesh.WallCorners.size());
+    std::println("shell {} triangles, captured {} triangles, {} wall vertices",
+                 (shells.WallRun.size() + shells.RoofRun.size()) / 3,
+                 (mesh.WallRun.size() + mesh.RoofRun.size()) / 3,
+                 mesh.WallCorners.size());
   }
   return Report();
 }

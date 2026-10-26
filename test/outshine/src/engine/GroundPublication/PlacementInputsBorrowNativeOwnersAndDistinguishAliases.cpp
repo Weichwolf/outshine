@@ -9,11 +9,11 @@ int main() {
   using namespace outshine::Test;
   auto source = std::make_shared<std::array<int, 2>>(std::array{7, 9});
   const std::weak_ptr<std::array<int, 2>> lifetime = source;
-  auto first = std::shared_ptr<const int>(source, &(*source)[0]);
+  auto first = std::shared_ptr<const int>(source, (*source).data());
   auto second = std::shared_ptr<const int>(source, &(*source)[1]);
   const InstancePlacementInputs input{
       .Publication = {}, .Classes = {.Owner = first}, .Table = {}, .FeatureOrigin = {}};
-  const auto repeated = input;
+  const auto &repeated = input;
   auto changed = input;
   changed.Classes.Owner = second;
   CHECK(input == repeated && input != changed,

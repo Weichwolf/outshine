@@ -7,8 +7,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -34,7 +38,7 @@ struct Gate {
   }
 
   void Release() {
-    const std::lock_guard lock(Mutex);
+    const std::scoped_lock lock(Mutex);
     Released = true;
     Changed.notify_all();
   }
@@ -50,11 +54,11 @@ struct Gate {
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class Provider final : public Source {
@@ -68,15 +72,22 @@ public:
                   .PayloadSha256 = {},
                   .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     Gate_->Pause();
     return SourceResponse::Delivered({kPng0, kPng0 + sizeof(kPng0)});
   }
@@ -150,7 +161,7 @@ int main() {
             "obsolete completion cannot poison the retained current mesh");
     }
     {
-      const std::lock_guard lock(gate->Mutex);
+      const std::scoped_lock lock(gate->Mutex);
       CHECK(!gate->TimedOut, "ordering comes from barriers rather than source timeouts");
     }
   }

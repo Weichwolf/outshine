@@ -4,7 +4,9 @@
 #include "WorldCandidate.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 int main() {

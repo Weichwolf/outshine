@@ -1,8 +1,12 @@
 #include "Check.h"
 #include "TerrainTiles.h"
 
+#include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
+#include <optional>
+#include <utility>
 #include <vector>
 
 namespace {

@@ -5,6 +5,7 @@
 #include "OsmXmlReader.h"
 #include "Check.h"
 
+#include <cstdint>
 #include <memory>
 #include <algorithm>
 #include <cmath>
@@ -59,7 +60,7 @@ int main() {
   const auto heights = Ground::HeightField::Of(0, {block});
   CHECK(heights != nullptr, "independent flat DEM is available");
   if (!heights) { return Report(); }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile product;
   const auto baked = BakeStructures(*raw, *heights, mesher, *scratch, product);

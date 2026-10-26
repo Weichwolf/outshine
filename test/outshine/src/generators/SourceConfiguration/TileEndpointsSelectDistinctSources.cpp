@@ -8,6 +8,7 @@
 #include <Transport.h>
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
@@ -33,7 +34,7 @@ public:
     return outshine::Data::Wire::Answered(200, {17, 42});
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 }

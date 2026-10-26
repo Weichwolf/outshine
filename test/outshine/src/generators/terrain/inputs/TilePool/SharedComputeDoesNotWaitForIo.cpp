@@ -10,8 +10,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <semaphore>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -25,11 +27,11 @@ public:
   std::atomic<unsigned> Began{0};
   std::atomic<unsigned> Cancelled{0};
 
-  FetchStart Begin(const std::string &) override { return Ticket{++Began}; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket{++Began}; }
 
-  Wire Collect(Ticket) override { return Wire::Working(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Working(); }
 
-  void Cancel(Ticket) override { ++Cancelled; }
+  void Cancel(Ticket /*ticket*/) override { ++Cancelled; }
 };
 
 class SlowElevation final : public Source {
@@ -42,20 +44,23 @@ public:
     Decl.Keeps = Cacheability::Never;
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation && request.Where().Tile() ? Coverage::Inside
                                                                            : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
     return transport.Begin("test://pending-raster");
   }
 
-  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
     (void)transport.Collect(ticket);
     return SourceResponse::Working();
   }
@@ -90,7 +95,8 @@ int main() {
     second.Shapes({.Kind = "plane", .AmplitudeM = 20.0});
     CHECK(first.ThreadCount() == 1 && second.ThreadCount() == 1,
           "borrowers do not create the requested private four-worker pools");
-    std::binary_semaphore entered(0), release(0);
+    std::binary_semaphore entered(0);
+    std::binary_semaphore release(0);
     const auto blocker = compute.Post([&] {
       entered.release();
       release.acquire();

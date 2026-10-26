@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <stop_token>
 #include <utility>
 #include <vector>
 

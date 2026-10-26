@@ -3,7 +3,9 @@
 
 #include <array>
 #include <cstddef>
+#include <expected>
 #include <string>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -13,7 +15,7 @@ int main() {
   constexpr TerrainPageLayout layout{.Side = 33, .Halo = 1};
   constexpr Data::TileId tile{.Zoom = 10, .X = 512, .Y = 512};
   const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = 33};
-  Ground::TerrainField flat(65, 65);
+  const Ground::TerrainField flat(65, 65);
   const std::array flatSource{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
   const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const auto coarse = RefineTerrain(flatSource, TangentFrame::At({}), layout, detail, 8);

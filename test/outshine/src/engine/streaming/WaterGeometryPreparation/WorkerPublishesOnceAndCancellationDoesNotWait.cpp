@@ -29,7 +29,8 @@ int main() {
             result->value().Water.SharesInputsWith(source) && result->value().WorkerMs >= 0,
         "worker publishes ready geometry bound to its immutable source snapshot");
   CHECK(!worker.Collect(), "the completed product is collected exactly once");
-  std::binary_semaphore started(0), release(0);
+  std::binary_semaphore started(0);
+  std::binary_semaphore release(0);
   const auto blocker = pool.Post([&] {
     started.release();
     release.acquire();

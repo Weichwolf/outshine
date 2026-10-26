@@ -9,12 +9,21 @@
 #include <atomic>
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <chrono>
+#include <cstdlib>
+#include <expected>
 #include <map>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -26,7 +35,7 @@ public:
   std::atomic<int> Begins{0}, Pinned{0};
   bool Missing = false;
 
-  FetchStart Begin(const std::string &) override {
+  FetchStart Begin(const std::string & /*url*/) override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
@@ -44,7 +53,8 @@ public:
     const auto found = Requests.find(ticket);
     if (found == Requests.end()) { return Wire::Working(); }
     const auto [url, range] = found->second;
-    int south = 0, west = 0;
+    int south = 0;
+    int west = 0;
     CHECK(std::sscanf(url.c_str(), "g/%d/%d", &south, &west) == 2,
           "source IO uses native cell addresses");
     auto &bytes = Objects[url];
@@ -74,17 +84,19 @@ private:
 
 class Native final : public Source {
 public:
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation && request.Where().Cell() && request.Range()
                ? Coverage::Inside
                : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override {
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
@@ -92,7 +104,8 @@ public:
     return transport.Begin(request.Where().Text(), *request.Range(), request.EntityTag());
   }
 
-  SourceResponse Collect(const Address &, Ticket ticket, Transport &transport) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
     auto response = transport.Collect(ticket);
     auto body = response.Take();
     return body ? SourceResponse::Delivered(std::move(body->Body), std::move(body->Range))
@@ -188,8 +201,9 @@ int main() {
   CHECK(Field(absent, at, none, failure) == TilePool::Reply::Refused && !none && failure,
         "missing original heights refuse terrain instead of making zero ground");
   const std::optional<TileSourceIdentity> noVector;
-  std::array<TileSourceIdentity, 1> first{
-      {{.NativeCell = CellId{54, 9}, .SourceId = "native", .Revision = "original"}}};
+  std::array<TileSourceIdentity, 1> first{{{.NativeCell = CellId{.SouthDeg = 54, .WestDeg = 9},
+                                            .SourceId = "native",
+                                            .Revision = "original"}}};
   auto second = first;
   second[0].NativeCell->WestDeg = 10;
   CHECK(StructureSourceKey({.Vector = noVector, .HeightSources = first}) !=

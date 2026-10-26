@@ -1,5 +1,9 @@
 #include <atomic>
 #include <algorithm>
+#include <cstddef>
+#include <expected>
+#include <memory>
+#include <variant>
 
 #include "src/generators/building/StructureBake.h"
 #include "Check.h"
@@ -17,8 +21,8 @@ public:
 
   std::expected<void, outshine::StructureMeshError>
   Mesh(const outshine::StructurePlan &plan,
-       outshine::MeshScratch &,
-       outshine::Raised &) const noexcept override {
+       outshine::MeshScratch & /*scratch*/,
+       outshine::Raised & /*into*/) const noexcept override {
     ++Calls;
     LastCoarseness = plan.Coarseness;
     return std::unexpected(Error_);
@@ -53,7 +57,7 @@ int main() {
   for (auto error : {StructureMeshError::InvalidPlan,
                      StructureMeshError::IncompatibleScratch,
                      StructureMeshError::BuildFailed}) {
-    RefusingMesher mesher(error);
+    const RefusingMesher mesher(error);
     auto scratch = mesher.Scratch();
     Generators::BakedTile output;
     const auto result = Generators::BakeStructures(raw, *heights, mesher, *scratch, output);
@@ -67,7 +71,7 @@ int main() {
     }
   }
   raw.Structures.push_back(raw.Structures.front());
-  RefusingMesher unsupported(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher unsupported(StructureMeshError::UnsupportedFootprint);
   auto scratch = unsupported.Scratch();
   Generators::BakedTile output;
   const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
@@ -78,7 +82,7 @@ int main() {
         "unproven or omitted producer geometry cannot advertise a tighter shell");
   raw.LatLon.insert(raw.LatLon.end(), {47, 8.9998, 47.0001, 8.9998});
   raw.Ways.push_back({.LocalFirst = 4, .PointCount = 2, .HalfWidthM = 4});
-  RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);
   auto frontedScratch = frontedMesher.Scratch();
   Generators::BakedTile fronted;
   const auto frontedResult =
@@ -88,7 +92,7 @@ int main() {
 
   Generators::RawTile distant = raw;
   distant.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 0};
-  RefusingMesher distantMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher distantMesher(StructureMeshError::UnsupportedFootprint);
   auto distantScratch = distantMesher.Scratch();
   Generators::BakedTile distantOutput;
   const auto distantResult =
@@ -104,7 +108,7 @@ int main() {
   threshold.LatLon = {47, 9.0047, 47, 9.0048, 47.0001, 9.0048, 47.0001, 9.0047};
   threshold.Structures.resize(1);
   threshold.Ways.clear();
-  RefusingMesher thresholdMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher thresholdMesher(StructureMeshError::UnsupportedFootprint);
   auto thresholdScratch = thresholdMesher.Scratch();
   Generators::BakedTile thresholdOutput;
   const auto thresholdResult = Generators::BakeStructures(
@@ -113,12 +117,12 @@ int main() {
             thresholdOutput.FootprintDetails.front() == LevelOfDetail::Fine,
         "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
 
-  RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();
   Generators::BakedTile oneShot;
   const auto oneShotResult =
       Generators::BakeStructures(raw, *heights, oneShotMesher, *oneShotScratch, oneShot);
-  RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
   auto slicedScratch = slicedMesher.Scratch();
   Generators::StructureBakeProgress progress;
   const auto first = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
@@ -144,12 +148,12 @@ int main() {
   Generators::RawTile many = raw;
   many.Ways.clear();
   many.Structures.assign(257, raw.Structures.front());
-  RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto manyOneShotScratch = manyOneShotMesher.Scratch();
   Generators::BakedTile manyOneShot;
   const auto manyOneShotResult = Generators::BakeStructures(
       many, *heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
-  RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
   auto manySlicedScratch = manySlicedMesher.Scratch();
   Generators::StructureBakeProgress manyProgress;
   for (size_t range = 0; range < 4; ++range) {
@@ -210,7 +214,7 @@ int main() {
             manyFinalized->Built.RoofRun == manyOneShot.Built.RoofRun,
         "five bounded ranges equal one uninterrupted 257-structure bake");
 
-  RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
   auto cancelledScratch = cancelledMesher.Scratch();
   Generators::StructureBakeProgress cancelled;
   std::atomic_bool stopping{false};

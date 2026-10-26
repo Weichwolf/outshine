@@ -5,7 +5,10 @@
 #include "Check.h"
 #include "Geometry.h"
 #include <cmath>
+#include <cstddef>
+#include <expected>
 #include <stop_token>
+#include <string>
 
 int main() {
   using namespace outshine;

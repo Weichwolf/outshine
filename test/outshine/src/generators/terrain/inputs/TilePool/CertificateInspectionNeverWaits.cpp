@@ -6,6 +6,8 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <utility>
 #include <chrono>
 #include <cstdlib>
@@ -36,11 +38,11 @@ thread_local size_t allocations = 0;
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class Provider final : public Source {
@@ -55,13 +57,18 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Delivered({42, Content.load()});
   }
 };
@@ -76,7 +83,7 @@ Inspection Inspect(const TilePool &pool, const TerrainCertificate &certificate) 
   measureAllocations = true;
   const auto state = pool.InspectCertificate(certificate);
   measureAllocations = false;
-  return {state, allocations};
+  return {.State = state, .Allocations = allocations};
 }
 }
 
@@ -90,7 +97,7 @@ void operator delete(void *memory) noexcept {
   std::free(memory);
 }
 
-void operator delete(void *memory, size_t) noexcept {
+void operator delete(void *memory, size_t /*unused*/) noexcept {
   std::free(memory);
 }
 
@@ -127,7 +134,8 @@ int main() {
         "current certificate inspection allocates nothing");
 
   for (std::mutex *mutex : TerrainInspectionTestPeer::Mutexes(pool)) {
-    std::latch held(1), release(1);
+    std::latch held(1);
+    std::latch release(1);
     std::thread writer([&] {
       const std::scoped_lock lock(*mutex);
       held.count_down();
@@ -172,7 +180,7 @@ int main() {
   inspected = Inspect(pool, later);
   CHECK(inspected.State == Validation::Unknown && inspected.Allocations == 0,
         "evicted metadata is Unknown rather than known stale");
-  TerrainCertificate incomplete;
+  const TerrainCertificate incomplete;
   inspected = Inspect(pool, incomplete);
   CHECK(inspected.State == Validation::Unknown && inspected.Allocations == 0,
         "incomplete certificate cannot report Current");
@@ -199,7 +207,8 @@ int main() {
         "index try-inspection agrees with blocking inspection");
   CHECK((**other).TryInspectStamps({}) == TerrainRevisionIndex::Validation::Unknown,
         "empty stamps retain Unknown classification");
-  std::latch held(1), release(1);
+  std::latch held(1);
+  std::latch release(1);
   std::thread writer([&] {
     const std::scoped_lock lock(TerrainInspectionTestPeer::Mutex(**other));
     held.count_down();

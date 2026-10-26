@@ -8,7 +8,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <string>
 
 namespace {
 using namespace outshine;
@@ -23,11 +26,11 @@ constexpr uint8_t kPng[]{
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class Provider final : public Source {
@@ -39,15 +42,22 @@ public:
                   .PayloadSha256 = {},
                   .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Delivered({kPng, kPng + sizeof(kPng)});
   }
 };
@@ -76,7 +86,7 @@ int main() {
     CHECK(untouched.Posts == 0 && untouched.Fetches == 0 && untouched.MeshTiles == 0 &&
               untouched.Outstanding == 0,
           "inspection starts no IO, compute, reservation or mesh generation");
-    GroundStream ground(pool, {.Z = 2, .Grid = 4});
+    const GroundStream ground(pool, {.Z = 2, .Grid = 4});
     const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
     std::shared_ptr<const TerrainField> previous;
     double previousAmplitude = 0.0;

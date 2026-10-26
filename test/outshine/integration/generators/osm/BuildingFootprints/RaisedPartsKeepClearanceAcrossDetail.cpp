@@ -1,4 +1,3 @@
-#include "OriginalBuildingInput.h"
 #include "StructureBake.h"
 #include "PreparedStructureCodec.h"
 #include "BuildingMesh.h"
@@ -13,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
@@ -58,7 +58,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 100);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   for (const auto level : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = level;

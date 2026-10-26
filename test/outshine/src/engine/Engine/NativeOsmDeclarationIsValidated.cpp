@@ -2,7 +2,9 @@
 #include <Generator.h>
 #include "Check.h"
 #include <limits>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace {
 class Probe final : public outshine::Generators::Generator {
@@ -11,7 +13,7 @@ public:
 
   std::string_view kind() const override { return "native-osm-probe"; }
 
-  Product make(const outshine::Generators::Request &) const override {
+  Product make(const outshine::Generators::Request & /*asked*/) const override {
     ++Calls;
     return outshine::Geometry{};
   }
@@ -21,7 +23,7 @@ class Receiver final : public outshine::Host {
 public:
   std::string Last;
 
-  bool calls(std::string_view name, std::span<const outshine::Argument>) override {
+  bool calls(std::string_view name, std::span<const outshine::Argument> /*args*/) override {
     Last = name;
     return true;
   }
@@ -32,7 +34,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Receiver receiver;
-  Probe probe;
+  const Probe probe;
   Engine engine;
   engine.setInputHost(&receiver);
   CHECK(engine.registerGenerator(probe), "fixture generator registers");

@@ -4,6 +4,8 @@
 #include <Transport.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <limits>
@@ -19,19 +21,19 @@ public:
   std::vector<double> StartedAtMs;
   const std::string Xml = "<osm version='0.6'/>";
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     StartedAtMs.push_back(ClockMs);
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (SucceedAfterFirst && Starts > 1) {
       return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
     }
     return outshine::Data::Wire::Answered(Status, {}, RetryAfterS);
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 
   bool Await(double ms) override {
     ClockMs += ms;

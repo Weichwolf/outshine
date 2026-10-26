@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include <Generator.h>
 #include "Check.h"
+#include <expected>
 #include <string>
 #include <string_view>
 

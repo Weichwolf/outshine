@@ -3,6 +3,7 @@
 #include "Check.h"
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sqlite3.h>
@@ -32,7 +33,8 @@ int64_t Scalar(const std::filesystem::path &path, const char *sql) {
 
 void Sources(const std::filesystem::path &root) {
   std::filesystem::create_directories(root);
-  const std::string legacy(64, 'a'), fresh(64, 'b');
+  const std::string legacy(64, 'a');
+  const std::string fresh(64, 'b');
   { std::ofstream(root / legacy) << "old"; }
   const std::array<uint8_t, 3> bytes{1, 2, 3};
   {

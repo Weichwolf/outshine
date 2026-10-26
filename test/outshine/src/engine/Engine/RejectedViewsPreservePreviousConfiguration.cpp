@@ -1,13 +1,15 @@
 #include <Engine.h>
 #include <Generator.h>
+#include <expected>
+#include <string_view>
 #include "Check.h"
 
 namespace {
 class RefusingGenerator final : public outshine::Generators::Generator {
 public:
-  std::string_view kind() const override { return "refusing-view-publication"; }
+  [[nodiscard]] std::string_view kind() const override { return "refusing-view-publication"; }
 
-  Product make(const outshine::Generators::Request &) const override {
+  [[nodiscard]] Product make(const outshine::Generators::Request & /*asked*/) const override {
     return std::unexpected("refused");
   }
 };
@@ -16,7 +18,7 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  RefusingGenerator generator;
+  const RefusingGenerator generator;
   Engine engine;
   CHECK(engine.registerGenerator(generator), "fixture generator registers");
   Scenario::Document original;

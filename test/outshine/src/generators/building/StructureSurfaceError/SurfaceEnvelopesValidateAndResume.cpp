@@ -2,6 +2,8 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -110,13 +112,13 @@ int main() {
   CHECK(task.Step(17, {.MaxCorners = 2}) && !task.Bound(17),
         "partially validated task is copyable");
   auto copied = task;
-  auto moved = std::move(copied);
+  auto moved = copied;
   CHECK(task.Step(17, {.MaxCorners = 128}) && moved.Step(17, {.MaxCorners = 128}) &&
             task.Bound(17) && moved.Bound(17) &&
             task.Bound(17)->UpperDistanceM() == moved.Bound(17)->UpperDistanceM() &&
             task.WorkUnits() == moved.WorkUnits(),
         "copy and move preserve independent progress over the same immutable geometry");
-  Raised empty;
+  const Raised empty;
   CHECK(!task.Reset({.Reference = reference, .Variant = empty, .SourceKey = 15}),
         "empty and nonempty surfaces never imply zero error");
   CHECK(task.Reset({.Reference = empty, .Variant = empty, .SourceKey = 16}) && task.Bound(16) &&

@@ -2,7 +2,9 @@
 #include "TerrainTiles.h"
 
 #include <array>
+#include <cstdint>
 #include <limits>
+#include <utility>
 #include <variant>
 
 namespace {
@@ -51,7 +53,7 @@ int main() {
   const auto *field = stitched.TryField();
   CHECK(field && field->Rows() == 4 && field->Cols() == 4 && !field->HasMissingBoundary(),
         "native meters use the existing complete-neighbour terrain stitching path");
-  if (field) {
+  if (field != nullptr) {
     for (uint32_t row = 0; row < 4; ++row) {
       for (uint32_t col = 0; col < 4; ++col) {
         CHECK(field->AtM(row, col) == Meters::Height(at, row, col),

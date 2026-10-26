@@ -5,7 +5,9 @@
 #include "Units.h"
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <print>
 
 int main() {
   using namespace outshine;
@@ -20,7 +22,7 @@ int main() {
     for (uint32_t column = 0; column < 32; ++column) {
       const double lat = 47 + (row * 20.0) / kMPerDegLat;
       const double lon = 9 + (column * 20.0) / metresPerLon;
-      const uint32_t first = static_cast<uint32_t>(raw.LatLon.size() / 2);
+      const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
       const std::array ring{lat,
                             lon,
                             lat,
@@ -48,7 +50,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   size_t fineTriangles = 0;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = detail;
@@ -59,10 +61,10 @@ int main() {
     CHECK(built.Prints.size() == 1024 && built.UnsupportedMeshes == 0 && built.NoGround == 0,
           "all 1024 source footprints survive every detail level");
     const size_t triangles = (built.Built.WallRun.size() + built.Built.RoofRun.size()) / 3;
-    std::printf("detail %d: %zu triangles, %d aggregated buildings\n",
-                static_cast<int>(detail),
-                triangles,
-                built.Lumped);
+    std::println("detail {}: {} triangles, {} aggregated buildings",
+                 static_cast<int>(detail),
+                 triangles,
+                 built.Lumped);
     for (size_t cell = 0; cell < built.CellShellErrorM.size(); ++cell) {
       if ((built.OccupiedCells & (uint64_t{1} << cell)) == 0) { continue; }
       CHECK(built.CellShellErrorM[cell] > 0.16,

@@ -7,9 +7,11 @@
 #include "Check.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <limits>
+#include <stop_token>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -33,12 +35,12 @@ public:
     return static_cast<outshine::Data::Ticket>(Urls.size());
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (Stall) { return outshine::Data::Wire::Working(); }
     return outshine::Data::Wire::Answered(Status, std::vector<uint8_t>(Xml.begin(), Xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 
   bool Await(double ms) override {
     ClockMs += ms;
@@ -59,18 +61,18 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
-  SourceProvider provider{.Kind = "osm",
-                          .Revision = "r1",
-                          .Missing = MissingDataPolicy::Fail,
-                          .Dataset = "openstreetmap.original",
-                          .Location = {},
-                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
-                          .Coverage = GeographicBounds{.WestDeg = 9.433,
-                                                       .SouthDeg = 54.785,
-                                                       .EastDeg = 9.445,
-                                                       .NorthDeg = 54.8},
-                          .PayloadSha256 = Sha256Hex(wire.Xml),
-                          .Schema = {}};
+  const SourceProvider provider{.Kind = "osm",
+                                .Revision = "r1",
+                                .Missing = MissingDataPolicy::Fail,
+                                .Dataset = "openstreetmap.original",
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                             .SouthDeg = 54.785,
+                                                             .EastDeg = 9.445,
+                                                             .NorthDeg = 54.8},
+                                .PayloadSha256 = Sha256Hex(wire.Xml),
+                                .Schema = {}};
   const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==

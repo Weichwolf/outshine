@@ -1,14 +1,17 @@
 #include <Engine.h>
 #include <Generator.h>
 #include "Check.h"
+#include <expected>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace {
 class Receiver final : public outshine::Host {
 public:
   std::string Last;
 
-  bool calls(std::string_view name, std::span<const outshine::Argument>) override {
+  bool calls(std::string_view name, std::span<const outshine::Argument> /*args*/) override {
     Last = name;
     return true;
   }
@@ -16,9 +19,9 @@ public:
 
 class RefusingGenerator final : public outshine::Generators::Generator {
 public:
-  std::string_view kind() const override { return "refusing"; }
+  [[nodiscard]] std::string_view kind() const override { return "refusing"; }
 
-  Product make(const outshine::Generators::Request &) const override {
+  [[nodiscard]] Product make(const outshine::Generators::Request & /*asked*/) const override {
     return std::unexpected("refused");
   }
 };
@@ -28,7 +31,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Receiver receiver;
-  RefusingGenerator generator;
+  const RefusingGenerator generator;
   Engine engine;
   engine.setInputHost(&receiver);
   CHECK(engine.registerGenerator(generator), "fixture generator registers");

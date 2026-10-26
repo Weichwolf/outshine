@@ -8,9 +8,13 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -19,11 +23,11 @@ using namespace outshine::Ground;
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 struct FirstDeliveryGate {
@@ -66,7 +70,9 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override {
     if (ShiftServed && request.Where().Tile()) {
@@ -77,9 +83,12 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     const auto serial = ++Calls;
     if (serial == 1 && Gate) { Gate->Pause(); }
     if (Absent) { return SourceResponse::NotFound(); }
@@ -107,7 +116,10 @@ int main() {
                    .PreparedFields = {}},
                   sources,
                   transport);
-    TilePool::Landing first, cached, neighbour, next;
+    TilePool::Landing first;
+    TilePool::Landing cached;
+    TilePool::Landing neighbour;
+    TilePool::Landing next;
     CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready, "first delivery arrives");
     CHECK(first.TerrainStamp.has_value(), "delivery carries its requested-address stamp");
     if (!first.TerrainStamp) { continue; }
@@ -152,7 +164,9 @@ int main() {
     CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
           "concurrent provider registers");
     TilePool pool({.ByteBudget = 64, .PreparedFields = {}}, sources, transport);
-    TilePool::Landing delayed, earlier, cached;
+    TilePool::Landing delayed;
+    TilePool::Landing earlier;
+    TilePool::Landing cached;
     TilePool::Reply delayedReply = TilePool::Reply::Pending;
     std::thread first([&] { delayedReply = pool.BytesBlocking(askA, &delayed); });
     CHECK(gate->Wait(), "first delivery reaches the controlled barrier");
@@ -182,7 +196,10 @@ int main() {
           "stable terrain provider registers");
     TilePool pool(
         {.ByteBudget = 2, .TerrainRevisionEntries = 8, .PreparedFields = {}}, sources, transport);
-    TilePool::Landing first, neighbour, again, relocated;
+    TilePool::Landing first;
+    TilePool::Landing neighbour;
+    TilePool::Landing again;
+    TilePool::Landing relocated;
     CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
           "first immutable payload has a certificate");
     CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&

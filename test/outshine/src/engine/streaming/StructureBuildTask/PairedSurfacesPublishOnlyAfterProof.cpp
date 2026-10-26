@@ -3,6 +3,9 @@
 #include "BuildingMesh.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <memory>
 #include <utility>
 
@@ -15,10 +18,12 @@ class Planes final : public StructureMesher {
 public:
   explicit Planes(bool refuse = false) : Refuse_(refuse) {}
 
-  std::unique_ptr<MeshScratch> Scratch() const override { return std::make_unique<::Scratch>(); }
+  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override {
+    return std::make_unique<::Scratch>();
+  }
 
   std::expected<void, StructureMeshError>
-  Mesh(const StructurePlan &plan, MeshScratch &, Raised &into) const noexcept override {
+  Mesh(const StructurePlan &plan, MeshScratch & /*scratch*/, Raised &into) const noexcept override {
     if (Refuse_) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
     const float z = plan.Coarseness == LevelOfDetail::Fine ? 0.0f : 2.0f;
     const auto first = static_cast<uint32_t>(into.RoofCorners.size());
@@ -81,7 +86,7 @@ void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesh
 int main() {
   using namespace outshine::Test;
   Tasks pool(1);
-  Planes mesher;
+  const Planes mesher;
   for (const auto detail : {LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     auto task = Task(mesher, detail);
     task.Start(pool, mesher);
@@ -123,7 +128,7 @@ int main() {
     CHECK(!task.Result().Status && !task.Result().Tile,
           "cancellation before reference or proof cannot expose a private variant");
   }
-  Planes unsupported(true);
+  const Planes unsupported(true);
   for (const bool invalidRing : {false, true}) {
     const StructureMesher &chosen = invalidRing ? mesher : unsupported;
     auto task = Task(chosen, LevelOfDetail::Shell, 71, invalidRing);
@@ -141,7 +146,7 @@ int main() {
             unknown.Result().Tile->SurfaceFailure ==
                 Generators::StructureSurfaceErrorFailure::InvalidSource,
         "missing source identity retains a variant without claiming a certificate");
-  Generators::BuildingMesh native;
+  const Generators::BuildingMesh native;
   auto task = Task(native);
   task.Start(pool, native);
   task.Join(pool);

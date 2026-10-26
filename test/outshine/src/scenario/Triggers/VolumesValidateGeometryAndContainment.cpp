@@ -18,19 +18,19 @@ int main() {
   const double infinity = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();
   for (int axis = 0; axis < 3; ++axis) {
-    for (double bad : {infinity, -infinity, nan}) {
+    for (const double bad : {infinity, -infinity, nan}) {
       volume.AtM[axis] = bad;
       CHECK(!prepare(), "nonfinite centers are rejected");
       volume.AtM[axis] = 0;
     }
-    for (double bad : {-1.0, infinity, nan}) {
+    for (const double bad : {-1.0, infinity, nan}) {
       volume.ExtentM[axis] = bad;
       CHECK(!prepare(), "invalid extents are rejected");
       volume.ExtentM[axis] = 1;
     }
   }
   volume.When = "dwell";
-  for (double bad : {0.0, -1.0, infinity, nan}) {
+  for (const double bad : {0.0, -1.0, infinity, nan}) {
     volume.DwellS = bad;
     CHECK(!prepare(), "dwell requires a finite positive duration");
   }

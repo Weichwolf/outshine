@@ -5,30 +5,30 @@
 
 namespace {
 std::string Scene(std::string_view tag, std::string_view points) {
-  return "<scenario><world><osm><way kind=\"track\" points=\"0,0 1,1\"/><" + std::string(tag) +
-         " kind=\"building\" points=\"" + std::string(points) + "\"/></osm></world></scenario>";
+  return R"(<scenario><world><osm><way kind="track" points="0,0 1,1"/><)" + std::string(tag) +
+         R"( kind="building" points=")" + std::string(points) + "\"/></osm></world></scenario>";
 }
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  for (const auto points : {"",
-                            "0,0",
-                            "0,0 1",
-                            "0,0 1,",
-                            "0,0 ,1",
-                            "0,0 x,1",
-                            "0,0 1x,2",
-                            "0,0 1,2x",
-                            "0,0 1,2,3",
-                            "0,0 nan,0",
-                            "0,0 inf,0",
-                            "0,0 1e999,0",
-                            "0,0 90.0001,0",
-                            "0,0 -90.0001,0",
-                            "0,0 0,180.0001",
-                            "0,0 0,-180.0001"}) {
+  for (const auto *const points : {"",
+                                   "0,0",
+                                   "0,0 1",
+                                   "0,0 1,",
+                                   "0,0 ,1",
+                                   "0,0 x,1",
+                                   "0,0 1x,2",
+                                   "0,0 1,2x",
+                                   "0,0 1,2,3",
+                                   "0,0 nan,0",
+                                   "0,0 inf,0",
+                                   "0,0 1e999,0",
+                                   "0,0 90.0001,0",
+                                   "0,0 -90.0001,0",
+                                   "0,0 0,180.0001",
+                                   "0,0 0,-180.0001"}) {
     Scenario::Document held;
     held.Ground.Osm.push_back({.Kind = "retained", .LatLon = {}});
     const auto xml = Scene("way", points);
@@ -38,14 +38,14 @@ int main() {
     CHECK(held.Ground.Osm.size() == 1 && held.Ground.Osm.front().Kind == "retained",
           "a late invalid feature preserves the previous document");
   }
-  for (const auto points : {"0,0 1,1", " -90,-180 90,180 ", "0,0&#9;1e-7,-2E-7&#10;2,3"}) {
+  for (const auto *const points : {"0,0 1,1", " -90,-180 90,180 ", "0,0&#9;1e-7,-2E-7&#10;2,3"}) {
     Scenario::Document held;
     std::string error;
     const auto xml = Scene("way", points);
     CHECK(ReadScenario(xml.data(), xml.size(), held, error) && held.Ground.Osm.size() == 2,
           "canonical boundaries, exponents and XML whitespace are accepted");
   }
-  for (const auto points : {"0,0 1,1", "0,0 1,1 2,0"}) {
+  for (const auto *const points : {"0,0 1,1", "0,0 1,1 2,0"}) {
     Scenario::Document held;
     std::string error;
     const auto xml = Scene("area", points);

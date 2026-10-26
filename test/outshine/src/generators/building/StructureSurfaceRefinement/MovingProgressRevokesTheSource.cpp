@@ -45,7 +45,7 @@ int main() {
   using namespace outshine::Test;
   Raised cap;
   Raised frame;
-  Raised empty;
+  const Raised empty;
   Rectangle(cap, 0, 3, 0, 3);
   Rectangle(frame, 0, 1, 0, 3);
   Rectangle(frame, 2, 3, 0, 3);
@@ -66,11 +66,12 @@ int main() {
     if (!revoked) { return Report(); }
     moving.Cancel();
     if (transfers == 100 || transfers == 300) {
-      reusable &= moving.Reset({frame, cap, 17}).has_value() &&
+      reusable &= moving.Reset({.Reference = frame, .Variant = cap, .SourceKey = 17}).has_value() &&
                   moving.Step(17, {.MaxWorkUnits = 100}).has_value();
     } else {
-      reusable &= moving.Reset({empty, empty, 17}).has_value() && moving.Bound(17) &&
-                  moving.Bound(17)->UpperDistanceM() == 0;
+      reusable &=
+          moving.Reset({.Reference = empty, .Variant = empty, .SourceKey = 17}).has_value() &&
+          moving.Bound(17) && moving.Bound(17)->UpperDistanceM() == 0;
     }
     moving = std::move(destination);
     const bool assignmentRevoked = Revoked(destination);

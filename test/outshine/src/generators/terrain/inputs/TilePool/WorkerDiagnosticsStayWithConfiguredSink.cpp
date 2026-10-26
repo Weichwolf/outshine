@@ -2,10 +2,14 @@
 #include "TilePool.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -13,38 +17,41 @@ namespace {
 
 class RefusingTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 class RefusingSource final : public outshine::Data::Source {
 public:
-  const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const outshine::Data::SourceDecl &Declaration() const noexcept override {
+    return Decl_;
+  }
 
-  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
+  [[nodiscard]] outshine::Data::Coverage
+  Covers(const outshine::Data::SourceRequest & /*request*/) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
-  outshine::Data::Address
+  [[nodiscard]] outshine::Data::Address
   Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
-  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
+  outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
                                    outshine::Data::Transport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
-                                         outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
+  outshine::Data::SourceResponse Collect(const outshine::Data::Address & /*at*/,
+                                         outshine::Data::Ticket /*ticket*/,
+                                         outshine::Data::Transport & /*transport*/) const override {
     return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
   }
 
@@ -59,8 +66,8 @@ private:
 
 class RecordingSink final : public outshine::LogSink {
 public:
-  void Write(double,
-             outshine::LogLevel,
+  void Write(double /*simTimeS*/,
+             outshine::LogLevel /*level*/,
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
     const std::scoped_lock lock(Mutex_);

@@ -1,10 +1,14 @@
 #include "TerrainTiles.h"
 #include "TerrainRevisionIndex.h"
 #include "Check.h"
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -25,12 +29,13 @@ public:
   unsigned Takes = 0;
   std::array<std::optional<TerrainRevisionIndex::Stamp>, 64> Cached;
 
-  TerrainRevisionIndex::Validation
+  [[nodiscard]] TerrainRevisionIndex::Validation
   InspectStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
     return Revisions->InspectStamps(stamps);
   }
 
-  bool AreCurrent(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
+  [[nodiscard]] bool
+  AreCurrent(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
     return Revisions->AreCurrent(stamps);
   }
 

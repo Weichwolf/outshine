@@ -37,7 +37,7 @@ WaterSurfaceTopology Topology(std::array<double, 2> origin = {1, 0}) {
                          {next, origin[1]},
                          {origin[0] + 1, origin[1] + 1},
                          {origin[0] - 1, origin[1] + 1}},
-          .Faces = {{{0, 1, 2}, 0}, {{0, 2, 3}, 0}},
+          .Faces = {{.Vertices = {0, 1, 2}, .Surface = 0}, {.Vertices = {0, 2, 3}, .Surface = 0}},
           .FaceSourceOffsets = {0, 1, 2},
           .FaceSources = {0, 0}};
 }

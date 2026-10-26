@@ -3,6 +3,7 @@
 #include "StructureBake.h"
 #include "Check.h"
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
@@ -27,7 +28,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile built;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, built).has_value(),

@@ -3,9 +3,11 @@
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <variant>
 #include <vector>
 
 int main() {
@@ -27,7 +29,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
 
   std::array<uint64_t, 3> digests{};
   std::optional<::outshine::Ground::BuildingFootprint> semantic;

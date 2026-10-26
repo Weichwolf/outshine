@@ -3,6 +3,7 @@
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 #include <string>
 
 int main() {

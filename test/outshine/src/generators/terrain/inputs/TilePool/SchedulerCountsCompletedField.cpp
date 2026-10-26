@@ -2,21 +2,23 @@
 #include "SourceSet.h"
 #include "Check.h"
 
+#include <cstddef>
 #include <memory>
+#include <string>
 
 namespace {
 
 class NoTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 }

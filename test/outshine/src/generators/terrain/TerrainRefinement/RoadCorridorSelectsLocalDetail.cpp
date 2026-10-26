@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -29,7 +30,7 @@ int main() {
     return EastNorth{.EastM = local.EastM, .NorthM = local.NorthM};
   };
   const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = layout.Side};
-  Ground::TerrainField flat(129, 129);
+  const Ground::TerrainField flat(129, 129);
   const std::array sources{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
   const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const TerrainRefinementCorridor road{
@@ -46,8 +47,8 @@ int main() {
     size_t finest = 0;
     size_t coarse = 0;
     for (const Sheet &sheet : *refined) {
-      finest += sheet.Tile.Zoom == tile.Zoom + 2;
-      coarse += sheet.Tile.Zoom == tile.Zoom + 1;
+      finest += static_cast<size_t>(sheet.Tile.Zoom == tile.Zoom + 2);
+      coarse += static_cast<size_t>(sheet.Tile.Zoom == tile.Zoom + 1);
     }
     CHECK(finest > 0 && coarse > 0,
           "selected ground has fine road patches and coarse distant patches");

@@ -7,6 +7,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace {
 using namespace outshine::Data;
@@ -15,17 +16,17 @@ class Http final : public Transport {
 public:
   int Begins = 0;
 
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  FetchStart Begin(const std::string &, ByteRange range, std::string_view tag) override {
+  FetchStart Begin(const std::string & /*url*/, ByteRange range, std::string_view tag) override {
     ++Begins;
     Range = {.Bytes = range, .TotalBytes = 1000, .EntityTag = std::string(tag)};
     return Ticket{1};
   }
 
-  Wire Collect(Ticket) override { return Wire::Answered({4, 5, 6}, Range); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Answered({4, 5, 6}, Range); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   RangeResponse Range;
 };
@@ -43,10 +44,11 @@ int main() {
   Http wire;
   TilePool pool({.ByteBudget = 1024, .Carriers = 1, .PreparedFields = {}}, sources, wire);
   const SourceRequest request(DataKind::Elevation,
-                              Address::AtCell({54, 9}),
+                              Address::AtCell({.SouthDeg = 54, .WestDeg = 9}),
                               ByteRange{.First = 100, .Length = 3},
                               "\"original-revision\"");
-  TilePool::Landing live, warm;
+  TilePool::Landing live;
+  TilePool::Landing warm;
   CHECK(
       pool.BytesBlocking(request, &live) == TilePool::Reply::Ready && live.Range &&
           live.Range->Bytes == *request.Range() && live.Range->EntityTag == request.EntityTag() &&

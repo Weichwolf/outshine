@@ -6,6 +6,7 @@
 #include "StructureSourceKey.h"
 #include "Check.h"
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -81,7 +82,7 @@ int main() {
   const auto heights = Ground::HeightField::Of(0, {block});
   CHECK(heights != nullptr, "independent terrain remains available");
   if (!heights) { return Report(); }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile baked;
   CHECK(BakeStructures(*input, *heights, mesher, *scratch, baked) && baked.Prints.size() == 1 &&

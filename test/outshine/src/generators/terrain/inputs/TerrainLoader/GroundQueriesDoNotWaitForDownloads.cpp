@@ -3,10 +3,14 @@
 #include "HeightField.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 class DelayedSource final : public outshine::Data::Source {
@@ -24,7 +28,8 @@ public:
 
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
+  outshine::Data::Coverage
+  Covers(const outshine::Data::SourceRequest & /*request*/) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
@@ -33,14 +38,14 @@ public:
     return request.Where();
   }
 
-  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
-                                   outshine::Data::Transport &) const override {
+  outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
+                                   outshine::Data::Transport & /*transport*/) const override {
     return outshine::Data::Ticket::None;
   }
 
   outshine::Data::SourceResponse Collect(const outshine::Data::Address &address,
-                                         outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
+                                         outshine::Data::Ticket /*ticket*/,
+                                         outshine::Data::Transport & /*transport*/) const override {
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
     if (const auto tile = address.Tile(); tile && tile->Zoom == 6) { FineRequested = true; }
     if (!Released) { return outshine::Data::SourceResponse::Working(); }
@@ -54,15 +59,15 @@ public:
 
 class NoNetwork final : public outshine::Data::Transport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 }
 
@@ -77,7 +82,7 @@ int main() {
   CHECK(sources.Add(std::move(source)) == Data::SourceSet::Registration::Accepted,
         "source registered");
   Ground::TilePool pool({.PollAttempts = 100, .PreparedFields = {}}, sources, transport);
-  Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
+  const Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   CHECK(ground.At({}).Where() == GroundSample::State::Pending, "unavailable tile remains pending");
   CHECK(!probe->CalledOnCaller, "ground query never collects sources on its caller");
   CHECK(ground.At({}, 6).Where() == GroundSample::State::Pending,

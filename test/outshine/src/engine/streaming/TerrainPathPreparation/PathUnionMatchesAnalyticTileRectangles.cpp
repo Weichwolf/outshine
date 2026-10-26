@@ -7,10 +7,15 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <numbers>
 #include <set>
+#include <span>
+#include <string>
 #include <tuple>
+#include <vector>
 
 using namespace outshine;
 
@@ -19,14 +24,14 @@ class NoNetwork final : public Data::Transport {
 public:
   size_t Starts = 0;
 
-  Data::FetchStart Begin(const std::string &) override {
+  Data::FetchStart Begin(const std::string & /*url*/) override {
     ++Starts;
     return Data::Ticket::None;
   }
 
-  Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
+  Data::Wire Collect(Data::Ticket /*ticket*/) override { return Data::Wire::Never(); }
 
-  void Cancel(Data::Ticket) override {}
+  void Cancel(Data::Ticket /*ticket*/) override {}
 };
 
 using Key = std::tuple<int, uint32_t, uint32_t>;
@@ -62,7 +67,7 @@ int main() {
   Data::SourceSet sources(store);
   NoNetwork transport;
   Ground::TilePool pool({}, sources, transport);
-  Ground::GroundStream ground(pool, {.Z = 5, .Grid = 4});
+  const Ground::GroundStream ground(pool, {.Z = 5, .Grid = 4});
   const std::array path{Point(20.25), Point(22.25)};
   const std::array classification{
       Ground::ClassificationPreparation::SourceWindow{.Zoom = 5, .Ring = 1}};
@@ -106,7 +111,7 @@ int main() {
   CHECK(!PlanTerrainPath(invalid, ground, {}), "invalid geography is refused");
   const std::array hugeWindow{
       Ground::ClassificationPreparation::SourceWindow{.Zoom = 14, .Ring = 1000}};
-  CHECK(!PlanTerrainPath(path, ground, {.Classification = hugeWindow}),
+  CHECK(!PlanTerrainPath(path, ground, {.Classification = hugeWindow, .RoadTiles = {}}),
         "oversized windows are refused before enumerating millions of cells");
   CHECK(pool.Counters().Posts == 0 && pool.Counters().Fetches == 0 && transport.Starts == 0,
         "path planning starts neither provider requests nor workers");

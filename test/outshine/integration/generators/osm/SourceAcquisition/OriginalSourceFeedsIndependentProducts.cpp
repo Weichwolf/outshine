@@ -6,6 +6,7 @@
 
 #include <array>
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <memory>

@@ -4,6 +4,9 @@
 #include "OfflineTransport.h"
 #include "TilePool.h"
 #include "Check.h"
+#include <cstdint>
+#include <span>
+#include <utility>
 #include <webp/encode.h>
 #include <array>
 #include <atomic>
@@ -32,9 +35,9 @@ public:
     return static_cast<Ticket>(++Starts);
   }
 
-  Wire Collect(Ticket) override { return Wire::Answered(200, Bytes_); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Answered(200, Bytes_); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
 private:
   std::vector<uint8_t> Bytes_;

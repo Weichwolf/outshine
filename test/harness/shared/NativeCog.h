@@ -27,7 +27,7 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
                                       bool missing = false,
                                       NativeCogProfile profile = NativeCogProfile::Analytic) {
   const char *temp = std::getenv("TMPDIR");
-  std::string path = std::string(temp ? temp : "/tmp") + "/outshine-native-cog-XXXXXX";
+  std::string path = std::string((temp != nullptr) ? temp : "/tmp") + "/outshine-native-cog-XXXXXX";
   const int descriptor = mkstemp(path.data());
   CHECK(descriptor >= 0, "analytic COG fixture has a temporary file");
   if (descriptor < 0) { return {}; }
@@ -44,10 +44,30 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
     CHECK(ftruncate(descriptor,
                     profile == NativeCogProfile::LargeBlockOverlapsHeader ? 8 : 32768) == 0,
           "native fixture separates metadata and original blocks");
-    const std::array<TIFFFieldInfo, 3> fields = {
-        {{33550, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_DOUBLE, FIELD_CUSTOM, 1, 1, "PixelScale"},
-         {33922, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_DOUBLE, FIELD_CUSTOM, 1, 1, "TiePoint"},
-         {34735, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_SHORT, FIELD_CUSTOM, 1, 1, "GeoKeys"}}};
+    const std::array<TIFFFieldInfo, 3> fields = {{{.field_tag = 33550,
+                                                   .field_readcount = TIFF_VARIABLE2,
+                                                   .field_writecount = TIFF_VARIABLE2,
+                                                   .field_type = TIFF_DOUBLE,
+                                                   .field_bit = FIELD_CUSTOM,
+                                                   .field_oktochange = 1,
+                                                   .field_passcount = 1,
+                                                   .field_name = "PixelScale"},
+                                                  {.field_tag = 33922,
+                                                   .field_readcount = TIFF_VARIABLE2,
+                                                   .field_writecount = TIFF_VARIABLE2,
+                                                   .field_type = TIFF_DOUBLE,
+                                                   .field_bit = FIELD_CUSTOM,
+                                                   .field_oktochange = 1,
+                                                   .field_passcount = 1,
+                                                   .field_name = "TiePoint"},
+                                                  {.field_tag = 34735,
+                                                   .field_readcount = TIFF_VARIABLE2,
+                                                   .field_writecount = TIFF_VARIABLE2,
+                                                   .field_type = TIFF_SHORT,
+                                                   .field_bit = FIELD_CUSTOM,
+                                                   .field_oktochange = 1,
+                                                   .field_passcount = 1,
+                                                   .field_name = "GeoKeys"}}};
     CHECK(TIFFMergeFieldInfo(file.get(), fields.data(), fields.size()) == 0,
           "fixture registers georeference");
     const bool large = profile != NativeCogProfile::Analytic;
@@ -55,7 +75,8 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
     const uint32_t baseRows = large ? 1024 : 128;
     const uint32_t blockSide = large ? 1024 : 16;
     for (uint32_t level = 0; level < (large ? 1u : 2u); ++level) {
-      const uint32_t columns = baseColumns >> level, rows = baseRows >> level;
+      const uint32_t columns = baseColumns >> level;
+      const uint32_t rows = baseRows >> level;
       CHECK(TIFFSetField(file.get(), TIFFTAG_IMAGEWIDTH, columns) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_IMAGELENGTH, rows) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_TILEWIDTH, blockSide) == 1 &&

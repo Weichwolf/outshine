@@ -1,5 +1,7 @@
 #include "TerrainTiles.h"
 #include "Check.h"
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace {

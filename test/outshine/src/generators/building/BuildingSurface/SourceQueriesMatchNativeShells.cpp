@@ -4,11 +4,15 @@
 #include "Check.h"
 #include "Geodesy.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <span>
+#include <vector>
 
 namespace {
 
@@ -23,7 +27,8 @@ std::optional<double> Closest(const Raised &mesh, const Vec3 &origin, const Vec3
         return Vec3{{p[0], p[1], p[2]}};
       };
       const Vec3 a = point(run[at]);
-      const Vec3 ab = point(run[at + 1]) - a, ac = point(run[at + 2]) - a;
+      const Vec3 ab = point(run[at + 1]) - a;
+      const Vec3 ac = point(run[at + 2]) - a;
       const Vec3 p = Cross(direction, ac);
       const double determinant = Dot(ab, p);
       if (std::abs(determinant) < 1e-10) { continue; }
@@ -63,7 +68,7 @@ int main() {
                      .Facade = {}};
   GeoToEcef({.LongitudeDeg = 16, .LatitudeDeg = 48, .HeightM = 300}, plan.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   BuildingScratch scratch;
   std::vector<double> cuts;
   for (const double pitch : {0.0, 1.0}) {
@@ -75,7 +80,8 @@ int main() {
     Raised mesh;
     CHECK(mesher.Mesh(plan, scratch, mesh).has_value(),
           "an independent native shell reference meshes");
-    size_t covered = 0, wallHits = 0;
+    size_t covered = 0;
+    size_t wallHits = 0;
     for (int e = -7; e < 32; e += 3) {
       for (int n = -7; n < 32; n += 3) {
         const Vec3 start = axes.East * (e + 0.37) + axes.North * (n + 0.19) + axes.Up * 60.0;

@@ -1,6 +1,7 @@
 #include "StructureSurfaceRefinement.h"
 #include "Check.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 

@@ -1,5 +1,6 @@
 #include "DrawList.h"
 #include "Check.h"
+#include <cstdint>
 #include <limits>
 #include <string>
 

@@ -4,6 +4,8 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <chrono>
+#include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -68,7 +70,7 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(path);
   Data::RawSourceCache store({.Directory = (path / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   const auto frame = TangentFrame::At({});
   Tasks pool(1);
   Patchwork reference = Inputs();

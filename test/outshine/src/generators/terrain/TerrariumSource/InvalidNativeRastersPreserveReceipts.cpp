@@ -1,8 +1,11 @@
 #include "TerrainDelivery.h"
 #include "Check.h"
 #include <Source.h>
+#include <cstdint>
+#include <expected>
 #include <limits>
 #include <memory>
+#include <span>
 #include <variant>
 
 namespace {
@@ -19,18 +22,23 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Meant(Meaning::Refused);
   }
 
   std::expected<HeightRaster, DecodeFailure>
-  DecodeElevation(std::span<const uint8_t>) const override {
+  DecodeElevation(std::span<const uint8_t> /*bytes*/) const override {
     if (Payload_ == Payload::Refused) { return std::unexpected(DecodeFailure::CorruptPayload); }
     HeightRaster raster{.Rows = 2, .Cols = 2, .Meters = {-1.5f, 0.0f, 1.25f, 172.875f}};
     if (Payload_ == Payload::OneRow) {

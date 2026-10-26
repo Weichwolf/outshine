@@ -2,9 +2,12 @@
 #include "Check.h"
 #include "OsmCellAcquisition.h"
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 
@@ -14,7 +17,7 @@ public:
   int Starts = 0, Canceled = 0;
   bool BlockFirst = true, CapacityRefusal = false;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
@@ -31,7 +34,7 @@ public:
                                           std::vector<uint8_t>(xml.begin(), xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 };
 }
 

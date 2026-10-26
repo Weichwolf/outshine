@@ -6,18 +6,20 @@
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 using namespace outshine::Data;
 
 class NoNetwork final : public Transport {
 public:
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class WholeSource final : public Source {
@@ -29,15 +31,22 @@ public:
                   .PayloadSha256 = {},
                   .Schema = {}};
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &) const noexcept override { return Address::Whole(73); }
+  [[nodiscard]] Address Serves(const SourceRequest & /*request*/) const noexcept override {
+    return Address::Whole(73);
+  }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse
+  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     return SourceResponse::Delivered({1, 2, 3});
   }
 };
@@ -60,7 +69,7 @@ int main() {
       CHECK(sources.Add(std::move(source)) == Data::SourceSet::Registration::Accepted,
             "non-tile source registers without network access");
       TilePool pool({.Threads = 1, .PollAttempts = 10, .PreparedFields = {}}, sources, transport);
-      GroundStream ground(pool, {.Z = 4, .Grid = 4});
+      const GroundStream ground(pool, {.Z = 4, .Grid = 4});
       bool refused = false;
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
       do {

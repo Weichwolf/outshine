@@ -5,7 +5,9 @@
 #include "TilePool.h"
 #include <Transport.h>
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +30,7 @@ public:
     return ticket == Ticket{1} ? Wire::Answered(404, {}) : Wire::Never(Reason);
   }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   double NowMs() override { return Now; }
 };

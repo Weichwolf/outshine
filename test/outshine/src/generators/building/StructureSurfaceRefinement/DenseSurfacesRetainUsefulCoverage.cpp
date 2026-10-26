@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <print>
 
 namespace {
 using namespace outshine;
@@ -13,8 +14,8 @@ Raised Grid(float height) {
   Raised mesh;
   for (int y = 0; y < 48; ++y) {
     for (int x = 0; x < 48; ++x) {
-      const float left = static_cast<float>(x);
-      const float bottom = static_cast<float>(y);
+      const auto left = static_cast<float>(x);
+      const auto bottom = static_cast<float>(y);
       const std::array<Vec3f, 6> points{{{{left, bottom, height}},
                                          {{left + 1, bottom, height}},
                                          {{left + 1, bottom + 1, height}},
@@ -64,16 +65,16 @@ int main() {
       const auto bound = task.Bound(91);
       CHECK(complete && safe && paced, "every partial certificate covers the analytic distance");
       if (bound && bound->UpperDistanceM() - bound->LowerDistanceM() > 0.02) {
-        std::printf("dense distance=%g reverse=%d lower=%g upper=%g queries=%zu work=%zu "
-                    "regions=%zu splits=%zu\n",
-                    static_cast<double>(distance),
-                    reverse,
-                    bound->LowerDistanceM(),
-                    bound->UpperDistanceM(),
-                    task.TriangleQueries(),
-                    task.WorkUnits(),
-                    task.RegionCount(),
-                    task.Splits());
+        std::println("dense distance={:g} reverse={:d} lower={:g} upper={:g} queries={} work={} "
+                     "regions={} splits={}",
+                     static_cast<double>(distance),
+                     static_cast<int>(reverse),
+                     bound->LowerDistanceM(),
+                     bound->UpperDistanceM(),
+                     task.TriangleQueries(),
+                     task.WorkUnits(),
+                     task.RegionCount(),
+                     task.Splits());
       }
       CHECK(bound && bound->UpperDistanceM() - bound->LowerDistanceM() <= 0.02,
             "more than 4096 triangles obtain a useful interval without increasing caps");
