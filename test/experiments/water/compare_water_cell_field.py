@@ -38,6 +38,12 @@ def replay_field(field, output):
     with np.load(path) as saved:
         for key, value in arrays.items():
             np.testing.assert_array_equal(saved[key], value)
+    return read_field(path, report=field.report)
+
+
+def read_field(path, *, report=None):
+    """Read only the generated diagnostic NPZ; this is not a native cache codec."""
+    with np.load(path) as saved:
         return CellField(
             tuple(int(v) for v in saved["cell"]),
             saved["context"].item(),
@@ -48,7 +54,7 @@ def replay_field(field, output):
                 owned(saved[key], saved[key].dtype)
                 for key in ("roots", "world", "normals")
             ],
-            field.report,
+            report or {},
         )
 
 
