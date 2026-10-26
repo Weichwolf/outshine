@@ -30,6 +30,7 @@ class BuildingParentShading(unittest.TestCase):
         )
         result = subprocess.run(
             [sys.executable, "-B", "-W", "error", "-c", code],
+            check=False,
             capture_output=True,
             text=True,
         )

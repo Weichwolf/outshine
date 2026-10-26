@@ -8,9 +8,9 @@ response fits. No contour, tolerance, camera, light or fitting-grid search.
 `fit_building_parent_shading` shares material reads and the existing training/
 held-out response basis across both controls and all nodes. Raw complete source
 containers are still hashed for strict sidecar identity, with bytes charged.
-Only four material arrays are decoded. Solvers run in this offline producer;
-the fitter imports no image/mesh stack through incidental array-loading helpers.
-rendering/loading checks receipts and reads weights without fitting. The source
+Only four material arrays are decoded. Solvers run in this offline producer.
+The fitter imports no image/mesh stack through incidental array-loading helpers.
+Rendering/loading checks receipts and reads weights without fitting. The source
 files remain available. The dense weight shape remains unchanged, so neither
 sidecars nor active-zero entries imply lower stored/uploaded material bytes.
 
