@@ -1,4 +1,5 @@
 #include "MvtLayer.h"
+#include "Sha256.h"
 #include "Capacity.h"
 
 #include <cstdint>
@@ -513,6 +514,8 @@ MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies
     Feature f{};
     f.Type = encoded.Type;
     f.ProviderFeatureId = encoded.ProviderFeatureId;
+    f.HasContentDigest = true;
+    f.ContentDigest = Sha256Digest(bytes.data(), bytes.size());
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());

@@ -622,6 +622,8 @@ void OsmField::AppendLayer(const MvtLayer &layer, uint16_t layerIndex) {
     f.Layer = layerIndex;
     f.Type = static_cast<uint8_t>(sf.Type);
     f.ProviderFeatureId = sf.ProviderFeatureId;
+    f.HasContentDigest = sf.HasContentDigest;
+    f.ContentDigest = sf.ContentDigest;
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.MinLat = f.MinLon = kNoLeastYet;
@@ -925,6 +927,11 @@ double OsmField::Num(const Feature &f, const char *key, double def) const {
 
 bool OsmField::Has(const Feature &feature, std::string_view key) const {
   return FindTag(feature, key).has_value();
+}
+
+std::optional<MvtLayer::Tag> OsmField::ReadAttribute(const Feature &feature,
+                                                     std::string_view key) const {
+  return FindTag(feature, key);
 }
 
 namespace Says {

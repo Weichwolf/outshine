@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
 #define OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
 
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
@@ -52,7 +53,9 @@ public:
     uint32_t Tile = 0;
     uint16_t Layer = 0;
     uint8_t Type = 0;
+    bool HasContentDigest = false;
     std::optional<uint64_t> ProviderFeatureId;
+    std::array<uint8_t, 32> ContentDigest{};
     double MinLat = 0, MinLon = 0, MaxLat = 0, MaxLon = 0;
   };
 
@@ -199,6 +202,9 @@ public:
   [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 
   [[nodiscard]] bool Has(const Feature &feature, std::string_view key) const;
+
+  [[nodiscard]] std::optional<MvtLayer::Tag> ReadAttribute(const Feature &feature,
+                                                           std::string_view key) const;
 
   [[nodiscard]] int Extent() const { return Extent_; }
 
