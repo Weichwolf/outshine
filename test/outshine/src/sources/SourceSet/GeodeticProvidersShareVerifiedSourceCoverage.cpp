@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 
 #include <array>
@@ -44,12 +44,12 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address &at, Transport &transport) const override {
+  FetchStart Begin(const Address &at, SourceTransport &transport) const override {
     return transport.Begin(Decl.Endpoint + "/" + at.Text());
   }
 
   SourceResponse
-  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
+  Collect(const Address & /*at*/, Ticket ticket, SourceTransport &transport) const override {
     auto wire = transport.Collect(ticket);
     auto answer = wire.Take();
     return answer ? SourceResponse::Delivered(std::move(answer->Body))
@@ -57,7 +57,7 @@ public:
   }
 };
 
-class Network final : public Transport {
+class Network final : public SourceTransport {
 public:
   int Starts = 0;
 
@@ -80,14 +80,14 @@ int main() {
                             GeoCellId{.Level = 2, .X = 3, .Y = 0},
                             GeoCellId{.Level = 2, .X = 3, .Y = 1}};
   Network online;
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const Cells provider;
   for (int pass = 0; pass < 2; ++pass) {
     RawSourceCache store({.Directory = path});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Cells>()) == SourceSet::Registration::Accepted,
           "external geodetic source uses the same public source contract");
-    Transport &wire = pass == 0 ? static_cast<Transport &>(online) : offline;
+    SourceTransport &wire = pass == 0 ? static_cast<SourceTransport &>(online) : offline;
     for (size_t at = 0; at < children.size(); ++at) {
       auto query =
           sources.Ask(SourceRequest(DataKind::Elevation, Address::AtGeoCell(children[at])));

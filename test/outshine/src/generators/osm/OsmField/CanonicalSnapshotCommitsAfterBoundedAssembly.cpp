@@ -21,7 +21,7 @@ using namespace outshine::Data;
 constexpr double kTravelLongitudeDeg = 90.0;
 constexpr size_t kSourceByteBudget = 1u << 20u;
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*location*/) override { return Ticket::None; }
 
@@ -44,13 +44,13 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
   SourceResponse Collect(const Address & /*address*/,
                          Ticket /*ticket*/,
-                         Transport & /*transport*/) const override {
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Delivered(Bytes);
   }
 

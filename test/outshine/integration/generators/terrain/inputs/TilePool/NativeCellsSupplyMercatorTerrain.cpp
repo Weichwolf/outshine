@@ -49,7 +49,7 @@ std::optional<CellId> NativeCellAddress(std::string_view url) {
   return cell;
 }
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   explicit Http(bool missing = false) : Missing_(missing) {}
 
@@ -122,18 +122,18 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
-  FetchStart Begin(const SourceRequest &request, Transport &transport) const override {
+  FetchStart Begin(const SourceRequest &request, SourceTransport &transport) const override {
     const auto range = request.Range();
     if (!range) { return std::unexpected(SourceFailureReason::InvalidRequest); }
     return transport.Begin(request.Where().Text(), *range, request.EntityTag());
   }
 
   SourceResponse
-  Collect(const Address & /*at*/, Ticket ticket, Transport &transport) const override {
+  Collect(const Address & /*at*/, Ticket ticket, SourceTransport &transport) const override {
     auto response = transport.Collect(ticket);
     auto body = response.Take();
     return body ? SourceResponse::Delivered(std::move(body->Body), std::move(body->Range))

@@ -73,7 +73,7 @@ sh test/run.sh outshine/src/world/weather/CloudLayer
 
 The executable actually consumes the source snapshot through the native low-cloud
 optical-depth kernel. Its controls first prepare the original capture through the
-ordinary SourceSet/Transport/cache path, then launch 24 fresh offline processes
+ordinary SourceSet/SourceTransport/cache path, then launch 24 fresh offline processes
 from a receipt-only directory without the original payload. They verify exact UTC,
 source digest, known-zero extinction, one cache hit and zero provider starts each.
 Absent/invalid UTC and an empty offline cache stay explicit failures. Unit tests

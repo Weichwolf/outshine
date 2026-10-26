@@ -12,7 +12,7 @@
 using outshine::GeographicBounds;
 
 namespace {
-class DelayedWire final : public outshine::Data::Transport {
+class DelayedWire final : public outshine::Data::SourceTransport {
 public:
   double ClockMs = 0;
   size_t Starts = 0, Canceled = 0;

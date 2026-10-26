@@ -1,6 +1,6 @@
 #include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Sha256.h"
 #include "Check.h"
 
@@ -23,7 +23,7 @@ std::string Xml(size_t id) {
          "' lat='0' lon='0'><tag k='custom:unknown' v='preserved'/></node></osm>";
 }
 
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   size_t Starts = 0, Peak = 0, Canceled = 0;
   double ClockMs = 0;
@@ -100,7 +100,7 @@ int main() {
     CHECK(parsed && parsed->Chunks.size() == 4 && parsed->Elements.FindNode(4),
           "independently pinned responses merge as one consistent original dataset");
   }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm =
       outshine::Generators::Osm::ReadRegions(providers, store, offline, offline.NowMs() + 1000, {});
   CHECK(warm && warm->Chunks.size() == 4 &&

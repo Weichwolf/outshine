@@ -1,7 +1,7 @@
 #include "TilePool.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <array>
 #include <atomic>
@@ -36,7 +36,7 @@ using Validation = TerrainCertificate::Validation;
 thread_local bool measureAllocations = false;
 thread_local size_t allocations = 0;
 
-class NoNetwork final : public Transport {
+class NoNetwork final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -63,12 +63,13 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Delivered({42, Content.load()});
   }
 };

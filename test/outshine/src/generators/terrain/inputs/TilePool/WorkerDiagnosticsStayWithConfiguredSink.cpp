@@ -15,7 +15,7 @@
 
 namespace {
 
-class RefusingTransport final : public outshine::Data::Transport {
+class RefusingTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
@@ -45,13 +45,14 @@ public:
   }
 
   outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
-                                   outshine::Data::Transport &transport) const override {
+                                   outshine::Data::SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address & /*at*/,
-                                         outshine::Data::Ticket /*ticket*/,
-                                         outshine::Data::Transport & /*transport*/) const override {
+  outshine::Data::SourceResponse
+  Collect(const outshine::Data::Address & /*at*/,
+          outshine::Data::Ticket /*ticket*/,
+          outshine::Data::SourceTransport & /*transport*/) const override {
     return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
   }
 

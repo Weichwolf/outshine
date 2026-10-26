@@ -40,13 +40,14 @@ public:
   }
 
   outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
-                                   outshine::Data::Transport & /*transport*/) const override {
+                                   outshine::Data::SourceTransport & /*transport*/) const override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address &address,
-                                         outshine::Data::Ticket /*ticket*/,
-                                         outshine::Data::Transport & /*transport*/) const override {
+  outshine::Data::SourceResponse
+  Collect(const outshine::Data::Address &address,
+          outshine::Data::Ticket /*ticket*/,
+          outshine::Data::SourceTransport & /*transport*/) const override {
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
     if (const auto tile = address.Tile(); tile && tile->Zoom == 6) { FineRequested = true; }
     if (!Released) { return outshine::Data::SourceResponse::Working(); }
@@ -58,7 +59,7 @@ public:
   }
 };
 
-class NoNetwork final : public outshine::Data::Transport {
+class NoNetwork final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;

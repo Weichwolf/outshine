@@ -1,7 +1,7 @@
 #include "WeatherSnapshotLoader.h"
 #include "SourceSession.h"
 #include "WeatherCapture.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Check.h"
 
 #include <array>
@@ -50,16 +50,18 @@ public:
     return Source_->Serves(request);
   }
 
-  [[nodiscard]] FetchStart Begin(const Address &at, Transport &wire) const override {
+  [[nodiscard]] FetchStart Begin(const Address &at, SourceTransport &wire) const override {
     return Source_->Begin(at, wire);
   }
 
   [[nodiscard]] SourceResponse
-  Collect(const Address &at, Ticket ticket, Transport &wire) const override {
+  Collect(const Address &at, Ticket ticket, SourceTransport &wire) const override {
     return Source_->Collect(at, ticket, wire);
   }
 
-  void Cancel(Ticket ticket, Transport &wire) const override { Source_->Cancel(ticket, wire); }
+  void Cancel(Ticket ticket, SourceTransport &wire) const override {
+    Source_->Cancel(ticket, wire);
+  }
 
   [[nodiscard]] std::expected<std::optional<WeatherSnapshot>, DecodeFailure>
   DecodeWeather(std::span<const uint8_t> bytes, int64_t utcS) const override {
@@ -103,7 +105,7 @@ struct TransportCalls {
   std::thread::id IoThread;
 };
 
-class WatchedTransport final : public Transport {
+class WatchedTransport final : public SourceTransport {
 public:
   WatchedTransport(const WeatherCapture &capture, TransportCalls &calls)
       : Replay_(capture), Calls_(calls) {}
@@ -191,7 +193,7 @@ void RealAndOffline(const WeatherCapture &capture, const std::string &directory)
         "the immutable publication owns its provenance after source/session destruction");
   const auto warm = Session(capture, provider, directory);
   if (!warm) { return; }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   WeatherSnapshotLoader cached(warm, offline, workers, kCapturedWeatherUtcS);
   CHECK(Pump(cached, workers) == WeatherSnapshotLoader::Phase::Ready,
         "another source session replays the original bytes offline through existing cache");

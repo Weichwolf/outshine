@@ -1,6 +1,6 @@
 #include "WeatherCapture.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "LowCloud.h"
 
 #include <array>
@@ -75,10 +75,10 @@ int main(int argc, char *const *argv) {
   }
   sources.Seal();
   outshine::Test::CapturedWeatherTransport replay(*capture);
-  outshine::Data::OfflineTransport offline;
-  outshine::Data::Transport &transport = prepare
-                                             ? static_cast<outshine::Data::Transport &>(replay)
-                                             : static_cast<outshine::Data::Transport &>(offline);
+  outshine::Data::OfflineSourceTransport offline;
+  outshine::Data::SourceTransport &transport =
+      prepare ? static_cast<outshine::Data::SourceTransport &>(replay)
+              : static_cast<outshine::Data::SourceTransport &>(offline);
   auto query = sources.Ask(outshine::Data::SourceRequest(outshine::Data::DataKind::Weather,
                                                          outshine::Data::Address::Whole(0)));
   const auto answer = sources.Collect(query, transport).Take();

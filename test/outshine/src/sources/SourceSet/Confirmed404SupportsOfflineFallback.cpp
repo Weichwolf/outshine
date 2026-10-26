@@ -1,9 +1,9 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <cstdlib>
 #include <filesystem>
@@ -16,7 +16,7 @@
 namespace {
 using namespace outshine::Data;
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   int Status = 404;
   std::optional<SourceFailureReason> Failure;
@@ -54,9 +54,9 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     return SourceResponse::Meant(Meaning::Absent);
   }
 
@@ -101,7 +101,7 @@ int main() {
     RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     const auto bytes = sources.Collect(query, offline).Take();
     CHECK(bytes && bytes->SourceId == "fallback" && bytes->Bytes == std::vector<uint8_t>({11, 22}),
@@ -114,7 +114,7 @@ int main() {
     RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, {}, AbsencePolicy::Fail);
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     const auto reply = sources.Collect(query, offline);
     CHECK(reply.Failure() && reply.Failure()->Reason == SourceFailureReason::ConfirmedAbsent &&
@@ -125,7 +125,7 @@ int main() {
     RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources, changedRevision ? "different-pin" : "");
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     auto reply = sources.Collect(query, offline);
     if (changedRevision) {
@@ -179,7 +179,7 @@ int main() {
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<UnprovenAbsence>()) == SourceSet::Registration::Accepted,
           "unproven source registered");
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     CHECK(sources.Collect(query, offline).Where() == SourceDelivery::State::Vacant,
           "generic absence can finish its current request");

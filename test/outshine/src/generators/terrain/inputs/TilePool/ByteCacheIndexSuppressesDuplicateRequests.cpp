@@ -14,7 +14,7 @@ namespace {
 constexpr uint64_t kByteMask = 0xFFu;
 using namespace outshine::Data;
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -42,12 +42,12 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
   SourceResponse
-  Collect(const Address &at, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  Collect(const Address &at, Ticket /*ticket*/, SourceTransport & /*transport*/) const override {
     const auto index = at.Index();
     if (!index) { return SourceResponse::Meant(Meaning::Refused); }
     ++Calls;

@@ -1,7 +1,7 @@
 #include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "TilePool.h"
 #include "Check.h"
 #include <cstdint>
@@ -21,7 +21,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 
-class Tiles final : public Transport {
+class Tiles final : public SourceTransport {
 public:
   explicit Tiles(std::vector<uint8_t> bytes) : Bytes_(std::move(bytes)) {}
 
@@ -46,7 +46,10 @@ private:
   std::vector<uint8_t> Bytes_;
 };
 
-void Build(RawSourceCache &cache, Transport &transport, ProviderRegistry &registry, bool warm) {
+void Build(RawSourceCache &cache,
+           SourceTransport &transport,
+           ProviderRegistry &registry,
+           bool warm) {
   const SourceProvider config{.Kind = "terrain",
                               .Revision = "fixture-2026",
                               .Missing = MissingDataPolicy::Fail,
@@ -119,7 +122,7 @@ int main() {
     Build(cache, online, registry, false);
     CHECK(online.InvalidEndpoints() == 0, "configured adapter expands its own endpoint");
     CHECK(online.Starts() == 9, "one request per actual required source tile");
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     Build(cache, offline, registry, true);
   }
   std::filesystem::remove_all(directory);

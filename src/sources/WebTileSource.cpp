@@ -51,12 +51,12 @@ std::string WebTileSource::Url(const Address &at) const {
   return url;
 }
 
-FetchStart WebTileSource::Begin(const Address &at, Transport &transport) const {
+FetchStart WebTileSource::Begin(const Address &at, SourceTransport &transport) const {
   return transport.Begin(Url(at));
 }
 
 SourceResponse
-WebTileSource::Collect(const Address &at, Ticket ticket, Transport &transport) const {
+WebTileSource::Collect(const Address &at, Ticket ticket, SourceTransport &transport) const {
   (void)at;
   Wire wire = transport.Collect(ticket);
   switch (wire.Where()) {

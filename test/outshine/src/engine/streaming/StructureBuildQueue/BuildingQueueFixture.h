@@ -3,7 +3,7 @@
 
 #include "BuildingMesh.h"
 #include "Check.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "BuiltinSourceProviders.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
@@ -57,7 +57,7 @@ struct BuildingQueueCache {
 struct BuildingQueueFixture {
   BuildingQueueCache Cache;
   BuildingQueueSink Sink;
-  Data::OfflineTransport Wire;
+  Data::OfflineSourceTransport Wire;
   Tasks SourceCompute{1};
   Ground::SurfacePreparation Stack;
   const LongitudeLatitude Eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};

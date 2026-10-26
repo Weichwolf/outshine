@@ -4,7 +4,7 @@
 #include <string>
 
 namespace {
-class NoTransport final : public outshine::Data::Transport {
+class NoTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;

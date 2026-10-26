@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "StarCatalogueSource.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "RawSourceCache.h"
 #include "ReadTextFile.h"
 #include <algorithm>
@@ -24,7 +24,7 @@ using Generators::Sky::StarCatalogueSource;
 constexpr size_t kReferenceBytesMost = size_t{1024} * 1024u;
 
 std::optional<SourceResponse::Settled> Read(const StarCatalogueSource &source, Address at) {
-  OfflineTransport transport;
+  OfflineSourceTransport transport;
   CHECK(source.Begin(at, transport) == FetchStart(Ticket::None),
         "local catalogue requests start without a network operation");
   auto reply = source.Collect(at, Ticket::None, transport);

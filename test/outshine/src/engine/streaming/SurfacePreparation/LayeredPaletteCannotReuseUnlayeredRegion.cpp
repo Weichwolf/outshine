@@ -15,7 +15,7 @@
 #include <system_error>
 
 namespace {
-class NoRequests final : public outshine::Data::Transport {
+class NoRequests final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Begins;

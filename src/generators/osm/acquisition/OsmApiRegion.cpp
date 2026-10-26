@@ -25,7 +25,7 @@ ConfiguredSource(const Data::SourceProvider &provider,
 }
 }
 
-ApiRegion::ApiRegion(Data::RawSourceCache &store, Data::Transport &wire, Data::Address at)
+ApiRegion::ApiRegion(Data::RawSourceCache &store, Data::SourceTransport &wire, Data::Address at)
     : Sources_(store), Wire_(wire), Address_(at) {}
 
 ApiRegion::~ApiRegion() {
@@ -35,7 +35,7 @@ ApiRegion::~ApiRegion() {
 std::expected<std::unique_ptr<ApiRegion>, std::string>
 ApiRegion::Create(const Data::SourceProvider &provider,
                   Data::RawSourceCache &store,
-                  Data::Transport &wire,
+                  Data::SourceTransport &wire,
                   const Data::ProviderRegistry *registry,
                   std::string_view shippedRoot,
                   std::optional<GeoCellId> cell) {

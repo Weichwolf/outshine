@@ -2,7 +2,7 @@
 #include <Source.h>
 #include <SourceRequest.h>
 #include <SourceResponse.h>
-#include <Transport.h>
+#include <SourceTransport.h>
 #include <string>
 
 namespace {
@@ -19,14 +19,14 @@ public:
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
   FetchStart Begin([[maybe_unused]] const Address &at,
-                   [[maybe_unused]] Transport &transport) const override {
+                   [[maybe_unused]] SourceTransport &transport) const override {
     ++Begins_;
     return Ticket::None;
   }
 
   SourceResponse Collect([[maybe_unused]] const Address &at,
                          [[maybe_unused]] Ticket ticket,
-                         [[maybe_unused]] Transport &transport) const override {
+                         [[maybe_unused]] SourceTransport &transport) const override {
     return SourceResponse::Delivered({1});
   }
 
@@ -37,7 +37,7 @@ private:
   SourceDecl Decl_;
 };
 
-class UnusedTransport final : public Transport {
+class UnusedTransport final : public SourceTransport {
 public:
   FetchStart Begin([[maybe_unused]] const std::string &url) override { return Ticket::None; }
 

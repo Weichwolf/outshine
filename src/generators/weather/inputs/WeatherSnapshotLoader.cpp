@@ -32,7 +32,7 @@ WeatherSnapshotLoader::Work::Work(std::shared_ptr<Data::SourceSession> sources, 
       UtcS(utcS) {}
 
 WeatherSnapshotLoader::WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
-                                             Data::Transport &transport,
+                                             Data::SourceTransport &transport,
                                              Workers workers,
                                              int64_t utcS)
     : Transport_(transport),
@@ -61,7 +61,7 @@ void WeatherSnapshotLoader::Cancel() noexcept {
 
 void WeatherSnapshotLoader::Abandon() {
   Work *const work = Work_.get();
-  Data::Transport *const transport = &Transport_;
+  Data::SourceTransport *const transport = &Transport_;
   ActivePool_ = &Io_;
   Handle_ = Io_.Post([work, transport] {
     Data::SourceSet::Abandon(work->Query, *transport);
@@ -139,7 +139,7 @@ WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
     Error_ = "weather source acquisition was refused";
   } else {
     Work *const work = Work_.get();
-    Data::Transport *const transport = &Transport_;
+    Data::SourceTransport *const transport = &Transport_;
     ActivePool_ = &Io_;
     Handle_ = Io_.Post([work, transport] {
       if (!work->Stopping.load(std::memory_order_relaxed)) {

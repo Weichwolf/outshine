@@ -1,7 +1,7 @@
 #include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmXmlReader.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   std::string Xml = "<osm version='0.6'><node id='1' lat='54.79' lon='9.44'/>"
                     "<way id='1'><nd ref='1'/><tag k='man_made' v='chimney'/>"
@@ -88,7 +88,7 @@ int main() {
             parsed->Chunks.size() == 1 && parsed->Chunks[0].PinVerified,
         "original object kinds, unknown tags and verified response provenance reach the snapshot");
   }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm =
       outshine::Generators::Osm::ReadRegion(provider, store, offline, offline.NowMs() + 1000, {});
   CHECK(cold && warm && warm->FromStore && warm->Xml == wire.Xml && warm->Origin == cold->Origin,

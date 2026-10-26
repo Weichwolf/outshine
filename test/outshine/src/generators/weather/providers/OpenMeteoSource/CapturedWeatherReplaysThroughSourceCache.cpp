@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "WeatherCapture.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 
 #include <array>
 #include <cstdlib>
@@ -45,7 +45,7 @@ int main() {
     const auto answer = sources.Collect(query, transport).Take();
     CHECK(answer && answer->Bytes.size() == capture->Bytes.size() && transport.Begins() == 1 &&
               sources.Counters().ProviderStarts == 1 && store.Counters().Writes == 1,
-          "ordinary SourceSet/Transport acquisition stores the original captured bytes once");
+          "ordinary SourceSet/SourceTransport acquisition stores the original captured bytes once");
     if (answer) {
       const auto snapshot = sources.At(0).DecodeWeather(answer->Bytes, kCapturedWeatherUtcS);
       CHECK(snapshot && *snapshot && (**snapshot).Values.CloudLow == 0.0,
@@ -66,7 +66,7 @@ int main() {
     std::string error;
     CHECK(RegisterSources(sources, declarations, {}, error, registry), error.c_str());
     if (sources.Count() != 1) { return Report(); }
-    OfflineTransport transport;
+    OfflineSourceTransport transport;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, transport).Take();
     CHECK(answer && sources.Counters().ProviderStarts == 0 && sources.Counters().FromStore == 1 &&

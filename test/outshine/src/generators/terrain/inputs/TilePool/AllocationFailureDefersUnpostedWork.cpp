@@ -13,7 +13,7 @@ using namespace outshine::Data;
 
 thread_local bool rejectAllocation = false;
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -41,12 +41,13 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Working();
   }
 };

@@ -27,15 +27,16 @@ public:
     return request.Where();
   }
 
-  [[nodiscard]] Data::FetchStart Begin([[maybe_unused]] const Data::Address &at,
-                                       [[maybe_unused]] Data::Transport &transport) const override {
+  [[nodiscard]] Data::FetchStart
+  Begin([[maybe_unused]] const Data::Address &at,
+        [[maybe_unused]] Data::SourceTransport &transport) const override {
     return std::unexpected(Data::SourceFailureReason::ProviderRefused);
   }
 
   [[nodiscard]] Data::SourceResponse
   Collect([[maybe_unused]] const Data::Address &at,
           [[maybe_unused]] Data::Ticket ticket,
-          [[maybe_unused]] Data::Transport &transport) const override {
+          [[maybe_unused]] Data::SourceTransport &transport) const override {
     return Data::SourceResponse::Meant(Data::Meaning::Refused);
   }
 

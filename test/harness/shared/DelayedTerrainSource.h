@@ -48,14 +48,14 @@ public:
 
   outshine::Data::FetchStart
   Begin([[maybe_unused]] const outshine::Data::Address &at,
-        [[maybe_unused]] outshine::Data::Transport &transport) const override {
+        [[maybe_unused]] outshine::Data::SourceTransport &transport) const override {
     return outshine::Data::Ticket::None;
   }
 
   outshine::Data::SourceResponse
   Collect([[maybe_unused]] const outshine::Data::Address &at,
           [[maybe_unused]] outshine::Data::Ticket ticket,
-          [[maybe_unused]] outshine::Data::Transport &transport) const override {
+          [[maybe_unused]] outshine::Data::SourceTransport &transport) const override {
     ++Collections;
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
     if (!Released) { return outshine::Data::SourceResponse::Working(); }
@@ -69,7 +69,7 @@ public:
   }
 };
 
-class NoNetwork final : public outshine::Data::Transport {
+class NoNetwork final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     return outshine::Data::Ticket::None;

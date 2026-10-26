@@ -28,7 +28,7 @@ outshine::Test::Mvt::Bytes WaterTile() {
   return tile;
 }
 
-class VectorTransport final : public outshine::Data::Transport {
+class VectorTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);

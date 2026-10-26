@@ -4,7 +4,7 @@
 #include "SourceSet.h"
 #include "RegionSurfaceRecipes.h"
 #include "Check.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -15,7 +15,7 @@ namespace {
 constexpr double kInsideCoverageLongitudeDeg = 0.001;
 constexpr double kOutsideCoverageLongitudeDeg = 0.1;
 
-class NoTransport final : public outshine::Data::Transport {
+class NoTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;

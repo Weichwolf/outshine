@@ -38,7 +38,7 @@
 #include "StackProbe.h"
 #include "TerrainTiles.h"
 #include <limits>
-#include <Transport.h>
+#include <SourceTransport.h>
 
 namespace outshine::Ground {
 
@@ -183,7 +183,7 @@ struct TilePool::ComputeContext {
         Tiles(Source, frame, TerrainTiles::Config{.Shared = decoded, .PreparedFields = prepared}) {}
 };
 
-TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
+TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::SourceTransport &transport)
     : Sources_(sources),
       Wire_(transport),
       OriginLatDeg_(config.OriginLatDeg),

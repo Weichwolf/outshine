@@ -1,6 +1,6 @@
 #include "SurfacePreparation.h"
 #include "GroundPatchwork.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Sink.h"
 #include "Check.h"
 #include <cstdlib>
@@ -36,7 +36,7 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
     SilentSink sink;
-    Data::OfflineTransport wire;
+    Data::OfflineSourceTransport wire;
     Tasks compute(1);
     const Data::ProviderRegistry registry;
     Ground::SurfacePreparation stack;

@@ -16,7 +16,7 @@
 
 namespace {
 
-class StreetTransport final : public outshine::Data::Transport {
+class StreetTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);

@@ -1,7 +1,7 @@
 #include "OsmProviderValidation.h"
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
 
@@ -20,7 +20,7 @@ namespace {
 using namespace outshine::Data;
 const std::string kXml = "<osm version='0.6'><node id='1' lat='48' lon='16'/></osm>";
 
-class Network final : public Transport {
+class Network final : public SourceTransport {
 public:
   size_t Starts = 0;
 
@@ -74,10 +74,10 @@ int main() {
           "one received leaf cannot certify the remaining world");
   }
   Network online;
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
     RawSourceCache fresh({.Directory = directory});
-    Transport &wire = pass == 0 ? static_cast<Transport &>(online) : offline;
+    SourceTransport &wire = pass == 0 ? static_cast<SourceTransport &>(online) : offline;
     std::vector<GeoCellId> pending{root};
     size_t delivered = 0;
     size_t refined = 0;

@@ -25,11 +25,12 @@ public:
   }
 
   [[nodiscard]] Data::FetchStart Begin(const Data::Address &at,
-                                       Data::Transport &transport) const override;
+                                       Data::SourceTransport &transport) const override;
   [[nodiscard]] Data::FetchStart Begin(const Data::SourceRequest &request,
-                                       Data::Transport &transport) const override;
-  [[nodiscard]] Data::SourceResponse
-  Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const override;
+                                       Data::SourceTransport &transport) const override;
+  [[nodiscard]] Data::SourceResponse Collect(const Data::Address &at,
+                                             Data::Ticket ticket,
+                                             Data::SourceTransport &transport) const override;
   [[nodiscard]] std::string Url(const Data::Address &at) const;
 
 private:

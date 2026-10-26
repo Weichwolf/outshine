@@ -2,7 +2,7 @@
 #include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "OsmXmlReader.h"
 #include "SourceSet.h"
@@ -22,7 +22,7 @@
 using outshine::GeoCellId;
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   std::vector<std::string> Urls;
   const std::string Xml = "<osm version='0.6'><node id='1' lat='54.78' lon='9.43'/>"
@@ -66,7 +66,7 @@ int main() {
   outshine::Generators::RegisterBuiltinSourceProviders(registry);
   std::array<std::string, 2> keys;
   ApiWire network;
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
     RawSourceCache store({.Directory = directory});
     SourceSet sources(store);
@@ -82,7 +82,7 @@ int main() {
     CHECK(sources.Add(std::move(*made)) == SourceSet::Registration::Accepted,
           "catalogue registration uses the same source registry");
     sources.Seal();
-    Transport &wire = pass == 0 ? static_cast<Transport &>(network) : offline;
+    SourceTransport &wire = pass == 0 ? static_cast<SourceTransport &>(network) : offline;
     for (size_t at = 0; at < cells.size(); ++at) {
       const Address address = Address::AtGeoCell(cells[at]);
       auto query = sources.Ask(SourceRequest(DataKind::OriginalOsm, address));

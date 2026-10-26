@@ -231,7 +231,7 @@ struct WorldRegionState {
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
 
-  std::unique_ptr<Data::Transport> Wire;
+  std::unique_ptr<Data::SourceTransport> Wire;
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;

@@ -1,12 +1,12 @@
-#ifndef OUTSHINE_SOURCES_OFFLINETRANSPORT_H
-#define OUTSHINE_SOURCES_OFFLINETRANSPORT_H
+#ifndef OUTSHINE_SOURCES_OFFLINESOURCETRANSPORT_H
+#define OUTSHINE_SOURCES_OFFLINESOURCETRANSPORT_H
 
-#include <Transport.h>
+#include <SourceTransport.h>
 #include <expected>
 
 namespace outshine::Data {
 
-class OfflineTransport final : public Transport {
+class OfflineSourceTransport final : public SourceTransport {
 public:
   [[nodiscard]] FetchStart Begin(const std::string &url) override {
     (void)url;

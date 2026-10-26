@@ -47,14 +47,14 @@ public:
   }
 
   Data::FetchStart Begin(const Data::Address &at,
-                         [[maybe_unused]] Data::Transport &transport) const override {
+                         [[maybe_unused]] Data::SourceTransport &transport) const override {
     return at.Index() == 0 ? Data::FetchStart(Data::Ticket::None)
                            : std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
 
   Data::SourceResponse Collect(const Data::Address &at,
                                [[maybe_unused]] Data::Ticket ticket,
-                               [[maybe_unused]] Data::Transport &transport) const override {
+                               [[maybe_unused]] Data::SourceTransport &transport) const override {
     if (at.Index() != 0) {
       return Data::SourceResponse::Meant(Data::Meaning::Refused,
                                          Data::SourceFailureReason::InvalidRequest);
