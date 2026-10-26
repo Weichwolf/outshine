@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from mvt_t_connection_geometry import endpoint_nodes
 from scipy import sparse
 from stair_planar_lineage import prepared_faces, refined_face_ids
 from stair_station_cuts import _frame, _split
@@ -28,11 +29,7 @@ def _flight(plan, owner):
     if np.max(abs((row["xy"] - origin) @ normal)) > 1e-8:
         raise ValueError("station loft requires a separately planned straight flight")
     stations = (plan["xy"] - origin) @ tangent
-    nodes = {
-        c["source_endpoint"]: i
-        for i, c in enumerate(plan["construction_contacts"])
-        if c.get("source_id") == row["source_id"]
-    }
+    nodes = endpoint_nodes(plan["construction_contacts"], row["source_id"])
     vertices = np.unique(plan["parts"][owner])
     start = vertices[
         shapely.dwithin(
