@@ -329,8 +329,6 @@ private:
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
   static RoadProfile ProfileOf(const Osm::StreetField::Way &lane,
                                const RegionSurfaceRecipes &vegetation);
-  static Vec3f LaneColour(const Osm::StreetField::Way &lane,
-                          const RegionSurfaceRecipes &vegetation);
   static RoadSweep SurfaceOf(const Osm::StreetField::Way &lane,
                              const RegionSurfaceRecipes &vegetation,
                              const Edge &edge,

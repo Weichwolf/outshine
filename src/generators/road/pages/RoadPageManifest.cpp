@@ -15,10 +15,13 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <variant>
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kFormat = 0x0001314d4452ULL;
+constexpr uint64_t kLegacyFormat = 0x0001314d4452ULL;
+constexpr uint64_t kAppearanceFormat = 0x0002314d4452ULL;
+constexpr size_t kAppearanceBytes = sizeof(uint32_t) + 64;
 constexpr size_t kReferenceBytes =
     sizeof(uint32_t) + 64 + 6 * sizeof(double) + sizeof(uint64_t) + 2 * sizeof(uint32_t);
 
@@ -30,6 +33,7 @@ bool Key(const std::string &key) {
 
 bool Valid(const RoadPageManifest &manifest) {
   if (!Key(manifest.PlanKey) || !Key(manifest.MaterialKey) ||
+      !ValidRoadPageAppearance(manifest.Appearance) ||
       !std::isfinite(manifest.Anchor.LatitudeDeg) || !std::isfinite(manifest.Anchor.LongitudeDeg) ||
       std::abs(manifest.Anchor.LatitudeDeg) > kDegPerHalfTurn * 0.5 ||
       std::abs(manifest.Anchor.LongitudeDeg) > kDegPerHalfTurn || manifest.Materials.parts() != 0 ||
@@ -37,15 +41,21 @@ bool Valid(const RoadPageManifest &manifest) {
       manifest.Pages.size() > std::numeric_limits<uint32_t>::max()) {
     return false;
   }
+  if (const auto *appearance = std::get_if<RoadPageAppearanceV2>(&manifest.Appearance);
+      appearance != nullptr && appearance->Key != RoadPageManifestAppearanceKey(manifest.Pages)) {
+    return false;
+  }
   std::unordered_set<std::string> keys;
   for (const auto &page : manifest.Pages) {
     if (!Key(page.Key) || !keys.insert(page.Key).second || page.ByteCount == 0 ||
+        page.Appearance.index() != manifest.Appearance.index() ||
         RoadPageKey({.PlanKey = manifest.PlanKey,
                      .MaterialKey = manifest.MaterialKey,
                      .MaterialIndex = 0,
                      .Anchor = manifest.Anchor,
                      .Level = page.Level,
-                     .Parts = page.Parts}) != page.Key) {
+                     .Parts = page.Parts,
+                     .Appearance = page.Appearance}) != page.Key) {
       return false;
     }
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -62,6 +72,7 @@ bool Valid(const RoadPageManifest &manifest) {
 
 bool ReferenceFields(BinaryValueWriter &archive, const RoadPageReference &page) {
   if (page.Parts.size() > std::numeric_limits<uint32_t>::max() || !archive.Text(page.Key) ||
+      !WriteRoadPageAppearance(archive, page.Appearance) ||
       !archive(page.Bounds.Min.Axis,
                page.Bounds.Max.Axis,
                page.ByteCount,
@@ -73,9 +84,9 @@ bool ReferenceFields(BinaryValueWriter &archive, const RoadPageReference &page) 
                              [&](const auto &part) { return archive(part.Kind, part.Index); });
 }
 
-bool ReferenceFields(BinaryValueReader &archive, RoadPageReference &page) {
+bool ReferenceFields(BinaryValueReader &archive, RoadPageReference &page, bool version2) {
   uint32_t count = 0;
-  if (!archive.Text(page.Key) ||
+  if (!archive.Text(page.Key) || !ReadRoadPageAppearance(archive, version2, page.Appearance) ||
       !archive(page.Bounds.Min.Axis, page.Bounds.Max.Axis, page.ByteCount, page.Level, count) ||
       count > archive.In.Remaining() / (2 * sizeof(uint32_t))) {
     return false;
@@ -86,6 +97,27 @@ bool ReferenceFields(BinaryValueReader &archive, RoadPageReference &page) {
 }
 }
 
+std::string RoadPageManifestAppearanceKey(std::span<const RoadPageReference> pages) {
+  constexpr size_t prefixBytes = 64;
+  constexpr size_t keyBytes = sizeof(uint32_t) + 64;
+  if (pages.size() > std::numeric_limits<uint32_t>::max() ||
+      pages.size() > (std::numeric_limits<size_t>::max() - prefixBytes) / keyBytes) {
+    return {};
+  }
+  BinaryValueWriter out(prefixBytes + pages.size() * keyBytes);
+  if (!out.Text("outshine-road-manifest-appearance") ||
+      !out(uint32_t{2}, static_cast<uint32_t>(pages.size()))) {
+    return {};
+  }
+  for (const auto &page : pages) {
+    if (!std::holds_alternative<RoadPageAppearanceV2>(page.Appearance) ||
+        !WriteRoadPageAppearance(out, page.Appearance)) {
+      return {};
+    }
+  }
+  return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
+}
+
 std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifest &manifest,
                                                            size_t bytesMost) {
   if (!Valid(manifest)) { return std::nullopt; }
@@ -94,7 +126,11 @@ std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifes
     return std::nullopt;
   }
   BinaryValueWriter out(bytesMost);
-  if (!out(kFormat) || !out.Text(manifest.PlanKey) || !out.Text(manifest.MaterialKey) ||
+  const auto format = std::holds_alternative<LegacyRoadPageV1>(manifest.Appearance)
+                          ? kLegacyFormat
+                          : kAppearanceFormat;
+  if (!out(format) || !out.Text(manifest.PlanKey) || !out.Text(manifest.MaterialKey) ||
+      !WriteRoadPageAppearance(out, manifest.Appearance) ||
       !out(manifest.Anchor.LongitudeDeg,
            manifest.Anchor.LatitudeDeg,
            static_cast<uint32_t>(manifest.Pages.size())) ||
@@ -113,14 +149,18 @@ std::optional<RoadPageManifest> DecodeRoadPageManifest(std::span<const uint8_t> 
   RoadPageManifest manifest;
   uint64_t format = 0;
   uint32_t count = 0;
-  if (!in(format) || format != kFormat || !in.Text(manifest.PlanKey) ||
-      !in.Text(manifest.MaterialKey) ||
+  if (!in(format) || (format != kLegacyFormat && format != kAppearanceFormat) ||
+      !in.Text(manifest.PlanKey) || !in.Text(manifest.MaterialKey) ||
+      !ReadRoadPageAppearance(in, format == kAppearanceFormat, manifest.Appearance) ||
       !in(manifest.Anchor.LongitudeDeg, manifest.Anchor.LatitudeDeg, count) ||
-      count > in.In.Remaining() / kReferenceBytes) {
+      count > in.In.Remaining() /
+                  (kReferenceBytes + (format == kAppearanceFormat ? kAppearanceBytes : 0))) {
     return std::nullopt;
   }
   manifest.Pages.resize(count);
-  if (!std::ranges::all_of(manifest.Pages, [&](auto &page) { return ReferenceFields(in, page); })) {
+  if (!std::ranges::all_of(manifest.Pages, [&](auto &page) {
+        return ReferenceFields(in, page, format == kAppearanceFormat);
+      })) {
     return std::nullopt;
   }
   std::vector<uint8_t> materials;
