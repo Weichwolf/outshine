@@ -34,7 +34,7 @@ void CheckPlanningInput(const MvtTransportSnapshot &made,
                         const Path::Network &graph) {
   using namespace outshine::Test;
   constexpr uint32_t kHalfTile = static_cast<uint32_t>(kTileX) * 2;
-  const auto core = SelectTransportCore({.Level = 17, .X = kHalfTile, .Y = kHalfTile - 1},
+  const auto core = SelectTransportCore({.Level = 17, .X = kHalfTile + 1, .Y = kHalfTile - 1},
                                         made.Network,
                                         {.SourceNodesMost = 16,
                                          .SourceEdgesMost = 16,
@@ -44,9 +44,13 @@ void CheckPlanningInput(const MvtTransportSnapshot &made,
         "native geographic demand contains original source segments");
   if (!core || core->Segments.empty()) { return; }
   std::vector<World::TransportEdgeId> edges;
+  size_t bridges = 0;
   for (const auto &segment : core->Segments) {
-    edges.push_back(made.Network->Topology().Edges()[segment.SourceEdge].Id);
+    const auto &edge = made.Network->Topology().Edges()[segment.SourceEdge];
+    bridges += static_cast<size_t>(edge.Bridge);
+    edges.push_back(edge.Id);
   }
+  CHECK(bridges == 0, "the chosen eastern core excludes the western bridge");
   const auto selected = ResolveMvtTransportWays(made, field, streets, edges);
   CHECK(selected && selected->size() == 1,
         "actual native core demand resolves one original street");

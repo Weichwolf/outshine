@@ -100,7 +100,10 @@ void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
     CHECK(first && second, "both original tile arrival orders are accepted");
     StreetField streets;
     for (size_t tile = 0; tile < 2 && !streets.Ingested(field); ++tile) {
-      (void)streets.Ingest(field, recipes);
+      (void)streets.Ingest(
+          field,
+          recipes,
+          {.CentreX = order == 0 ? kTileX : kNextTileX, .CentreY = kTileX, .Rings = 1});
     }
     const auto graph = StreetGraphBuilder::BuildOneShot(
         streets, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0.0; });
