@@ -75,7 +75,7 @@ def canopy_sources(shader, output, catalog, family, cover):
 
 
 def prepare(source, output, mode, family, cover):
-    catalog_file = source / "src/assets/world/vegetation.json"
+    catalog_file = source / "data/world/vegetation.json"
     catalog = json.loads(catalog_file.read_text())
     names = [t["name"] for t in catalog["templates"]] + ["unmapped"]
     colours = [COLOURS[name] for name in names]

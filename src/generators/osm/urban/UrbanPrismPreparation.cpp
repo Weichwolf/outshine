@@ -13,7 +13,7 @@
 #include <string>
 #include <utility>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 struct UrbanPrismPreparation::Work {
   Result Value;
   Costs Measured;
@@ -39,7 +39,7 @@ DecodeProduct(const CachedAsset &loaded, size_t bytesMost, Preparation::Costs &c
     return std::unexpected("ready prism demand refers to another asset kind");
   }
   costs.ReadBytes += loaded.Bytes().size();
-  auto decoded = Generators::Osm::DecodeUrbanPrisms(loaded.Bytes(), bytesMost);
+  auto decoded = DecodeUrbanPrisms(loaded.Bytes(), bytesMost);
   if (!decoded) { return std::unexpected(std::move(decoded.error())); }
   return Preparation::Product(std::make_shared<Generators::Osm::UrbanPrisms>(std::move(*decoded)));
 }
@@ -86,7 +86,7 @@ UrbanPrismPreparation::UrbanPrismPreparation(Tasks &pool,
       BytesMost_(bytesMost) {
   if (Database_.empty() || Request_.size() != 64 ||
       Request_.find_first_not_of("0123456789abcdef") != std::string::npos || BytesMost_ == 0 ||
-      BytesMost_ > Generators::Osm::kUrbanPrismBytesMost) {
+      BytesMost_ > kUrbanPrismBytesMost) {
     Result_ = std::unexpected("invalid prism preparation demand or byte budget");
     Phase_ = Phase::Failed;
     return;

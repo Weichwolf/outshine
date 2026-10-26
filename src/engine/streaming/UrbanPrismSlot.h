@@ -22,13 +22,15 @@ public:
                  size_t bytesMost = Generators::Osm::kUrbanPrismBytesMost);
   [[nodiscard]] std::expected<bool, std::string>
   Advance(const std::string &request,
-          const UrbanPrismPreparation::Capture &capture = {},
+          const Generators::Osm::UrbanPrismPreparation::Capture &capture = {},
           Admission admission = Admission::AllowWork);
   void Clear();
   [[nodiscard]] bool InFlight() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
 
-  [[nodiscard]] const UrbanPrismPreparation::Product &Ready() const noexcept { return Ready_; }
+  [[nodiscard]] const Generators::Osm::UrbanPrismPreparation::Product &Ready() const noexcept {
+    return Ready_;
+  }
 
   [[nodiscard]] const std::string &ReadyKey() const noexcept { return ReadyKey_; }
 
@@ -40,8 +42,8 @@ private:
   std::string Database_;
   size_t BytesMost_ = 0;
   std::string Wanted_, ReadyKey_;
-  UrbanPrismPreparation::Product Ready_;
-  std::unique_ptr<UrbanPrismPreparation> Job_, Retiring_;
+  Generators::Osm::UrbanPrismPreparation::Product Ready_;
+  std::unique_ptr<Generators::Osm::UrbanPrismPreparation> Job_, Retiring_;
   Counters Costs_;
 };
 }

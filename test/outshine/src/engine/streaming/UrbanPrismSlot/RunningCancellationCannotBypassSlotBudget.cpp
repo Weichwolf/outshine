@@ -1,5 +1,7 @@
+#include <expected>
+#include <cstddef>
 #include "Check.h"
-#include "PrismPreparationFixture.h"
+#include "PrismSlotFixture.h"
 #include "UrbanPrismSlot.h"
 #include "Sha256.h"
 #include <chrono>
@@ -12,17 +14,19 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  using outshine::Generators::Osm::UrbanPrismPreparation;
   namespace Fixture = PrismPreparationFixture;
-  Fixture::Cache cache;
+  const Fixture::Cache cache;
   Tasks pool(1);
   UrbanPrismSlot slot(pool, cache.Database());
   const auto request = Sha256Hex("prism slot/canceled running factory");
-  std::promise<void> release, entered;
+  std::promise<void> release;
+  std::promise<void> entered;
   auto gate = release.get_future().share();
   auto running = entered.get_future();
   size_t captures = 0;
   const UrbanPrismPreparation::Capture slow =
-      [&](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+      [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
     ++captures;
     return AssetFactory{[&, gate](size_t most) {
       entered.set_value();
@@ -59,7 +63,9 @@ int main() {
     CHECK(absent && !*absent, "the completed canceled factory publishes no stale product");
   }
   const auto complete = Fixture::Await(
-      slot, request, [&](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+      slot,
+      request,
+      [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
         ++captures;
         return AssetFactory{[request](size_t most) {
           return Generators::Osm::PackageUrbanPrisms(
@@ -71,7 +77,7 @@ int main() {
   const auto original = slot.Ready();
   const auto failed = Sha256Hex("prism slot/missing terrain");
   const auto failure = Fixture::Await(
-      slot, failed, [](std::stop_token) -> std::optional<UrbanPrismPreparation::Captured> {
+      slot, failed, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
         return std::unexpected("terrain input unavailable");
       });
   CHECK(!failure && failure.error() == "terrain input unavailable" && slot.Ready() == original,

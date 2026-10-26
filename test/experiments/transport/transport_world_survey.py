@@ -65,7 +65,7 @@ def run(args):
                  Path(__file__).with_name('transport_network.py'),
                  Path(__file__).with_name('transport_travel.py'),
                  Path(__file__).with_name('transport_building_clearance.py'),
-                 Path('src/assets/world/vegetation.json')]:
+                 Path('data/world/vegetation.json')]:
         implementation[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     header = dict(inventory=str(args.inventory),inventory_sha256=hashlib.sha256(args.inventory.read_bytes()).hexdigest(),
                   implementation_sha256=implementation,sites=[s[0] for s in sites],radius_m=args.radius,

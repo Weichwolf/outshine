@@ -10,8 +10,8 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped material catalog");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "shipped ground recipes");
+  CHECK(materials.Load("data/world/ground-materials.json"), "shipped material catalog");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "shipped ground recipes");
   if (!templates.Ready()) { return Report(); }
   const Vec4f fallback{{.11f, .22f, .33f, .9f}};
   const auto palette = Render::GroundMaterialPalette(templates.SurfacePalette(), fallback);

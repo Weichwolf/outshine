@@ -118,7 +118,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   Swept_ = 0;
   const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
-                         LastSubjectGeneration_ == Source_.Generation &&
+                         LastGeometryGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
   if (!unchanged) { DepthForSelection_ = false; }
   OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
@@ -172,7 +172,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   if (!encoded) { return encoded; }
   LastProjection_ = projection;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
-  LastSubjectGeneration_ = Source_.Generation;
+  LastGeometryGeneration_ = Source_.Generation;
   LastGroundGeneration_ = Source_.GroundGeneration;
   Refined_ = OccludeThisFrame_;
   Swept_ = Source_.Jobs;

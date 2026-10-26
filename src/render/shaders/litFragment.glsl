@@ -53,7 +53,7 @@ void main() {
 #if PRISM_GRID
   if (!readPrismSurface()) { discard; }
 #else
-  readSubjectVaryings();
+  readSurfaceVaryings();
 #endif
   M surface = materialAt();
   vec4 tap = vec4(1.0);

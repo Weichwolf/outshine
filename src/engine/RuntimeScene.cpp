@@ -41,7 +41,7 @@ constexpr auto InvalidFramedCamera = "automatic framing produced an invalid rend
 constexpr auto GeometryBuildAlreadyActive = "native geometry preparation is already active";
 constexpr auto NoGeometryBuild = "native geometry preparation has not begun";
 constexpr auto InvalidDrivenPartCount = "driven part count exceeds native geometry";
-constexpr auto InvalidDrivenGeometry = "driven geometry does not match the composed subject";
+constexpr auto InvalidDrivenGeometry = "driven geometry does not match the composed geometry";
 constexpr auto InvalidGroundSurface = "generated ground surface is absent";
 constexpr auto GeneratedGeometryAppendFailed = "generated geometry could not join driven geometry";
 }
@@ -376,7 +376,7 @@ double RuntimeScene::MeteredLux() const {
          (straightDown * Photopic(reach.SunTransmittance) + Photopic(reach.SkyIrradiance));
 }
 
-void RuntimeScene::ClearsSubject() {
+void RuntimeScene::ClearGeometry() {
   Held_.Clear();
   DrivenGeometry_.Clear();
   Materials_.Clear();
@@ -392,9 +392,9 @@ void RuntimeScene::ClearsSubject() {
   }
 }
 
-bool RuntimeScene::PrepareSubject(std::string &error) {
+bool RuntimeScene::PrepareGeometry(std::string &error) {
   if (Declared_.Materials.empty()) {
-    error = "the declaration carries a built subject and no surface -- a body without a "
+    error = "the declaration carries a built geometry and no surface -- a body without a "
             "material cannot be resolved, and an empty list is a refusal, not a "
             "dereference";
     return false;
@@ -570,8 +570,8 @@ bool RuntimeScene::Build(std::string &error) {
 std::expected<void, std::string> RuntimeScene::PlanBuild() {
   std::string error;
   if (!Held_.HasGeometry()) {
-    ClearsSubject();
-  } else if (!PrepareSubject(error)) {
+    ClearGeometry();
+  } else if (!PrepareGeometry(error)) {
     return std::unexpected(std::move(error));
   }
 
@@ -961,7 +961,7 @@ bool RuntimeScene::ResizeBodyInstances(size_t bodies, std::string &error) {
   }
   const size_t stood = Stood_.Instances();
   if (!Stood_.ResizeInstances(bodies)) {
-    error = "subject proxy cannot resize to " + std::to_string(bodies) + " body instances";
+    error = "geometry proxy cannot resize to " + std::to_string(bodies) + " body instances";
     return false;
   }
   if (stood != bodies && Stoodup_) {
@@ -995,7 +995,7 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   }
   const size_t parts = Shaped_.Parts.size();
   if (Stood_.Parts() != parts) {
-    error = "the subject proxy stands over " + std::to_string(Stood_.Parts()) +
+    error = "the geometry proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
             ", so nothing standing was held.AsBuilt from what is being carried";
     return false;

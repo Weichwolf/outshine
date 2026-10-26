@@ -304,3 +304,10 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
+
+add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
+target_include_directories(outshine_ggx_fragment_probe PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared" "${PROJECT_SOURCE_DIR}/test/harness/render")
+target_compile_options(outshine_ggx_fragment_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_ggx_fragment_probe PRIVATE outshine_render)

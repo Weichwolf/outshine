@@ -30,7 +30,7 @@ const float kPi = acos(-1.0);
 #endif
 #endif
 void main() {
-  readSubjectVaryings();
+  readSurfaceVaryings();
 #if GROUND_PATCHES
   vec3 surfaceNormal = groundFineNormal();
 #if SURFACE_BASE_LOCATION == 0

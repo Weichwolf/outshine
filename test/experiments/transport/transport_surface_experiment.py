@@ -15,7 +15,7 @@ from transport_surface_families import FAMILIES, MATERIALS, family_domains
 from transport_surface_inputs import inputs
 
 HERE = Path(__file__).resolve().parent
-PALETTE = HERE.parents[2] / "src/assets/world/ground-materials.json"
+PALETTE = HERE.parents[2] / "data/world/ground-materials.json"
 
 
 def albedos(camera):

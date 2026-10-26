@@ -61,8 +61,8 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   const Data::SourceSet sources(store);
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            templates.Load("data/world/vegetation.json", materials),
         "the fixture uses the production street rules");
   const std::array<std::string, 1> layers{"streets"};
   Osm::OsmField vectors(kZoom, layers);

@@ -24,7 +24,7 @@ class SceneRenderer;
 
 class RenderObject {
 public:
-  void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
+  void ResetForShape(const Shape &geometry, const Vec3 &anchorEcefM);
   void SelectParts(std::span<const std::string> names);
 
   [[nodiscard]] bool PartVisible(size_t part) const noexcept { return PartVisible_[part] != 0; }
@@ -147,7 +147,7 @@ struct RenderObjectPreparation {
 };
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
-                       const Shape &subject,
+                       const Shape &geometry,
                        const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);
