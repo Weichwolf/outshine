@@ -82,7 +82,9 @@ std::expected<MvtTransportSnapshot, std::string> Snapshot() {
   }
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(16, layers);
-  if (!field.Accept(kTileX, kTileX, Tile())) { return std::unexpected("MVT input rejected"); }
+  if (!field.Accept(kTileX, kTileX, Test::MvtTransportWire::Tile())) {
+    return std::unexpected("MVT input rejected");
+  }
   StreetField streets;
   (void)streets.Ingest(field, recipes);
   const auto graph = StreetGraphBuilder::BuildOneShot(
