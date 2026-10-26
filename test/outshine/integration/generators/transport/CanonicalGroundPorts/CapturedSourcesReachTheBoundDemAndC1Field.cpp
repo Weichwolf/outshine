@@ -13,7 +13,9 @@
 #include "RoadPortFieldProgram.h"
 #include "RoadPortFrame.h"
 #include "TransportNetworkSnapshot.h"
+#include "TransportPlanCodec.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -44,6 +46,7 @@ struct ComponentResult {
   std::vector<PortRecord> Ports;
   std::vector<double> Coefficients;
   std::optional<RoadGroundMesh> Geometry;
+  std::optional<std::array<uint8_t, 32>> ProcedureAndTerrainBinding;
 };
 
 template <class Range> std::string Array(const Range &values) {
@@ -188,6 +191,22 @@ void CheckCoarseFacets(const RoadGroundField &source, const RoadPortField &field
        "B");
 }
 
+std::optional<std::array<uint8_t, 32>>
+BindProcedureAndTerrain(const RoadPortFieldFit &fit,
+                        const CanonicalGroundFixture::Terrain &terrain) {
+  std::array inputs{fit.RecipeInput,
+                    TransportInputReference{.DatasetId = "outshine/terrain-bilinear-view",
+                                            .Version = "1",
+                                            .Revision = "",
+                                            .ItemId = "original-raster",
+                                            .Content = terrain.Binding.Key}};
+  const auto binding = TransportPlanInputBinding(inputs, 4096);
+  CHECK(binding.has_value(),
+        "the actual solver procedure and sampled DEM identity compose through the existing codec");
+  Note("actual C1 procedure encoded inputs", static_cast<double>(fit.Work.ProcedureBytes), "B");
+  return binding ? std::make_optional(*binding) : std::nullopt;
+}
+
 ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
                            const GroundPortSources &sources,
                            const CanonicalGroundFixture::Terrain &terrain,
@@ -266,7 +285,8 @@ ComponentResult CheckField(const CanonicalGroundFixture::Source &source,
   if (!reverse) { WriteFieldDiagnostics(*field, *fitted, which, path); }
   return {.Ports = Ports(*fitted, *field, demands, terrain, *chain),
           .Coefficients = fitted->Solver.Values,
-          .Geometry = std::move(geometry)};
+          .Geometry = std::move(geometry),
+          .ProcedureAndTerrainBinding = BindProcedureAndTerrain(*fitted, terrain)};
 }
 
 void WriteDiagnostics(std::span<const PortRecord> ports, const char *path) {
@@ -323,6 +343,10 @@ int main(int argc, char **argv) {
       const auto forward =
           CheckField(*source, *sources, *terrain, which, false, argc > 1 ? argv[1] : nullptr);
       const auto backward = CheckField(*source, *sources, *terrain, which, true, nullptr);
+      CHECK(forward.ProcedureAndTerrainBinding &&
+                forward.ProcedureAndTerrainBinding == backward.ProcedureAndTerrainBinding,
+            "the actual procedure and DEM binding remain exact across independent request order "
+            "and admitted work caps");
       CHECK(forward.Geometry && backward.Geometry &&
                 forward.Geometry->Surface.Points == backward.Geometry->Surface.Points &&
                 forward.Geometry->Surface.Faces == backward.Geometry->Surface.Faces &&

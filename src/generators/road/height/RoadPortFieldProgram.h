@@ -8,6 +8,16 @@
 
 namespace outshine::Generators {
 inline constexpr size_t kPortFitPolygonSides = 16;
+inline constexpr double kPortFitVerificationTolerance = 1e-7;
+inline constexpr uint32_t kPortFitProcedureRevision = 1;
+
+struct RoadPortProcedure {
+  TransportInputReference Input;
+  size_t Bytes = 0;
+};
+
+[[nodiscard]] std::expected<RoadPortProcedure, RoadProfiles::HeightFitError>
+BindRoadPortProcedure(const RoadPortFieldFitInput &input, const std::stop_token &stop);
 
 struct RoadPortFieldProgram {
   RoadProfiles::HeightProgram Program;

@@ -3,6 +3,7 @@
 
 #include "HeightProgram.h"
 #include "RoadPortField.h"
+#include "TransportPlan.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -31,12 +32,14 @@ struct RoadPortFieldFitWork {
   size_t GradientControls = 0;
   size_t Conditions = 0;
   size_t Nonzeros = 0;
+  size_t ProcedureBytes = 0;
 };
 
 struct RoadPortFieldFit {
   RoadPortField Field;
   RoadProfiles::HeightFit Solver;
   RoadPortFieldFitWork Work;
+  TransportInputReference RecipeInput;
   double MaximumPriorErrorM = 0;
   double MaximumNormalizedGrade = 0;
 };

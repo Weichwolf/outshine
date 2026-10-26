@@ -32,14 +32,17 @@ void Interrupt([[maybe_unused]] int kind,
 
 bool Configure(void *solver, HeightFitBudget budget, std::stop_token &stop) {
   return Highs_setBoolOptionValue(solver, "output_flag", 0) == kHighsStatusOk &&
-         Highs_setIntOptionValue(solver, "threads", 1) == kHighsStatusOk &&
-         Highs_setIntOptionValue(solver, "simplex_strategy", 1) == kHighsStatusOk &&
+         Highs_setIntOptionValue(solver, "threads", kHeightSolverThreads) == kHighsStatusOk &&
+         Highs_setIntOptionValue(solver, "simplex_strategy", kHeightSolverSimplexStrategy) ==
+             kHighsStatusOk &&
+         Highs_setIntOptionValue(solver, "random_seed", kHeightSolverRandomSeed) ==
+             kHighsStatusOk &&
          Highs_setIntOptionValue(solver,
                                  "simplex_iteration_limit",
                                  static_cast<HighsInt>(budget.Iterations)) == kHighsStatusOk &&
-         Highs_setStringOptionValue(solver, "parallel", "off") == kHighsStatusOk &&
-         Highs_setStringOptionValue(solver, "solver", "simplex") == kHighsStatusOk &&
-         Highs_setStringOptionValue(solver, "presolve", "off") == kHighsStatusOk &&
+         Highs_setStringOptionValue(solver, "parallel", kHeightSolverParallel) == kHighsStatusOk &&
+         Highs_setStringOptionValue(solver, "solver", kHeightSolverName) == kHighsStatusOk &&
+         Highs_setStringOptionValue(solver, "presolve", kHeightSolverPresolve) == kHighsStatusOk &&
          Highs_setDoubleOptionValue(
              solver, "primal_feasibility_tolerance", kHeightProgramTolerance) == kHighsStatusOk &&
          Highs_setDoubleOptionValue(solver, "time_limit", budget.Seconds) == kHighsStatusOk &&

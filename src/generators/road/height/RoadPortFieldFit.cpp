@@ -48,13 +48,18 @@ FitRoadPortField(const RoadPortFieldFitInput &input,
     if (!bound) { return std::unexpected(Error::VerificationFailed); }
     maximumGrade = std::max(maximumGrade, bound->NormalizedGradientMaximum);
   }
-  constexpr double tolerance = 1e-7;
-  if (maximumError > input.MaximumPriorChangeM + tolerance || maximumGrade > 1 + tolerance) {
+  if (maximumError > input.MaximumPriorChangeM + kPortFitVerificationTolerance ||
+      maximumGrade > 1 + kPortFitVerificationTolerance) {
     return std::unexpected(Error::VerificationFailed);
   }
+  auto procedure = BindRoadPortProcedure(input, stop);
+  if (!procedure) { return std::unexpected(procedure.error()); }
+  auto work = program->Work;
+  work.ProcedureBytes = procedure->Bytes;
   return RoadPortFieldFit{.Field = std::move(*field),
                           .Solver = std::move(*solved),
-                          .Work = program->Work,
+                          .Work = work,
+                          .RecipeInput = std::move(procedure->Input),
                           .MaximumPriorErrorM = maximumError,
                           .MaximumNormalizedGrade = maximumGrade};
 }

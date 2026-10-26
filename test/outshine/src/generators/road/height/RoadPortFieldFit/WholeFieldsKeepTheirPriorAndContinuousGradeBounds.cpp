@@ -1,4 +1,5 @@
 #include "RoadPortFieldFit.h"
+#include "TransportPlanCodec.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -7,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 #include <stop_token>
+#include <span>
 #include <vector>
 
 namespace {
@@ -108,6 +110,73 @@ void CheckFit(const Fixture &fixture) {
   Note("native smooth port field prior error", fitted->MaximumPriorErrorM, "m");
 }
 
+auto Binding(const TransportInputReference &input) {
+  return TransportPlanInputBinding(std::span(&input, 1), 4096);
+}
+
+void CheckProcedure(const Fixture &fixture) {
+  const auto fitted = FitRoadPortField(fixture.Input(), {});
+  CHECK(fitted.has_value(), "the actual successful field supplies its procedure identity");
+  if (!fitted) { return; }
+  const auto original = Binding(fitted->RecipeInput);
+  CHECK(original && !fitted->RecipeInput.Revision.empty() && fitted->Work.ProcedureBytes > 0,
+        "the native solver revision and consumed input bytes reach the existing plan binding");
+  auto budget = RoadProfiles::HeightFitBudget{};
+  budget.Variables *= 2;
+  budget.Conditions *= 2;
+  budget.Nonzeros *= 2;
+  budget.Iterations *= 2;
+  budget.Seconds *= 2;
+  const auto repeated = FitRoadPortField(fixture.Input(), budget);
+  CHECK(repeated && Binding(repeated->RecipeInput) == original &&
+            repeated->Solver.Values == fitted->Solver.Values,
+        "larger admitted work limits change neither procedure identity nor solved coefficients");
+  auto initial = fixture;
+  initial.Planes[0].HeightM = 123;
+  initial.Planes[1].Gradient = {.SlopeE = .2, .SlopeN = -.3};
+  initial.Patches[0].CutCentres[0].EastM = 5;
+  initial.Patches[0].ScaleM = 2;
+  const auto unused = FitRoadPortField(initial.Input(), {});
+  CHECK(unused && Binding(unused->RecipeInput) == original &&
+            unused->Solver.Values == fitted->Solver.Values,
+        "overwritten prototype values and unused hard-patch cuts do not enter fitted identity");
+  auto reference = fitted->RecipeInput;
+  reference.Version += "/changed";
+  CHECK(Binding(reference) && Binding(reference) != original,
+        "a semantic procedure revision invalidates the existing combined input binding");
+  reference = fitted->RecipeInput;
+  reference.Revision += "/changed";
+  CHECK(Binding(reference) && Binding(reference) != original,
+        "a solver implementation revision invalidates the existing combined input binding");
+  Note(
+      "native fit procedure encoded inputs", static_cast<double>(fitted->Work.ProcedureBytes), "B");
+}
+
+void CheckChangedInputs(const Fixture &fixture) {
+  const auto fitted = FitRoadPortField(fixture.Input(), {});
+  CHECK(fitted.has_value(), "changed-input comparisons start from the actual accepted fit");
+  if (!fitted) { return; }
+  const auto original = Binding(fitted->RecipeInput);
+  for (size_t change = 0; change < 6; ++change) {
+    auto changed = fixture;
+    auto input = changed.Input();
+    switch (change) {
+      case 0: changed.Priors[0].HeightM += .001; break;
+      case 1: changed.Faces[0].GradeFrame[0] *= .99; break;
+      case 2: input.MaximumPriorChangeM *= 2; break;
+      case 3: changed.Planes[0].Origin.EastM += .01; break;
+      case 4: changed.Patches[1].CutCentres[0].EastM += .001; break;
+      default: std::ranges::reverse(changed.Priors); break;
+    }
+    const auto updated = FitRoadPortField(input, {});
+    CHECK(updated.has_value(), "each physically admissible changed input still yields a valid fit");
+    if (!updated) { continue; }
+    CHECK(
+        Binding(updated->RecipeInput) && Binding(updated->RecipeInput) != original,
+        "actual priors, grades, quality limits, basis origins, blends and LP row order are bound");
+  }
+}
+
 void CheckFailures(const Fixture &fixture) {
   auto budget = RoadProfiles::HeightFitBudget{};
   budget.Variables = 1;
@@ -132,6 +201,8 @@ void CheckFailures(const Fixture &fixture) {
 int main() {
   const Fixture fixture;
   CheckFit(fixture);
+  CheckProcedure(fixture);
+  CheckChangedInputs(fixture);
   CheckFailures(fixture);
   return Report();
 }
