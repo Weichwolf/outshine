@@ -29,6 +29,7 @@ struct Sources {
   World::TransportProvenance Provenance;
   std::vector<uint32_t> TileRows;
   std::vector<Way> Ways;
+  std::vector<uint32_t> StreetWays;
   std::vector<MvtTransportOmission> Omissions;
 };
 

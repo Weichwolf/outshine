@@ -37,7 +37,18 @@ struct MvtTransportSnapshot {
   std::shared_ptr<const World::TransportNetworkSnapshot> Network;
   std::vector<MvtTransportOmission> Omissions;
   size_t InputConnections = 0;
+  std::vector<uint32_t> StreetWays;
+  std::shared_ptr<const void> SourceOrigin;
+  uint64_t SourceGeneration = 0;
+  size_t SourceWayCount = 0;
 };
+
+[[nodiscard]] std::expected<std::vector<uint32_t>, std::string>
+ResolveMvtTransportWays(const MvtTransportSnapshot &snapshot,
+                        const OsmField &field,
+                        const StreetField &streets,
+                        std::span<const World::TransportEdgeId> edges,
+                        const std::stop_token &stop = {});
 
 [[nodiscard]] std::expected<MvtTransportSnapshot, std::string>
 BuildMvtTransportSnapshot(const OsmField &field,

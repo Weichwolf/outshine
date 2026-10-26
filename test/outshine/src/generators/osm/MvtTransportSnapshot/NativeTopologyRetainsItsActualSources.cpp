@@ -76,18 +76,22 @@ void CheckSnapshot(const MvtTransportSnapshot &made) {
                                &MvtTransportOmission::Reason) == 2,
         "unsupported tunnel and both unqualified level connections name their sources");
   std::println("MVT_NATIVE nodes={} directed_edges={} source_paths={} input_connections={} "
-               "capacity_bytes={}",
+               "capacity_bytes={} local_binding_capacity_bytes={} normalization_owner_bytes={}",
                snapshot.Topology().Nodes().size(),
                snapshot.Topology().Edges().size(),
                snapshot.Provenance().Paths.size(),
                made.InputConnections,
-               snapshot.CapacityBytes());
+               snapshot.CapacityBytes(),
+               made.StreetWays.capacity() * sizeof(uint32_t),
+               sizeof(MvtTransportSnapshot));
 }
 
 void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
                        std::span<const GeographicBounds> coverage) {
   using namespace outshine::Test;
   std::array<std::shared_ptr<const World::TransportNetworkSnapshot>, 2> outputs;
+  std::array<uint32_t, 2> selectedWays{};
+  World::TransportEdgeId requested{};
   const std::array<std::string, 1> layers{"streets"};
   for (size_t order = 0; order < outputs.size(); ++order) {
     OsmField field(16, layers);
@@ -107,6 +111,16 @@ void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
           made ? "arrival order publishes native topology" : made.error().c_str());
     if (!made) { return; }
     outputs[order] = made->Network;
+    if (order == 0) { requested = made->Network->Topology().Edges().front().Id; }
+    const auto selected = ResolveMvtTransportWays(*made, field, streets, std::span(&requested, 1));
+    CHECK(selected && selected->size() == 1,
+          "the same native edge resolves after either actual tile arrival order");
+    if (!selected || selected->size() != 1) { return; }
+    selectedWays[order] = selected->front();
+    const auto source = streets.SourceOf(field, selected->front());
+    CHECK(source && streets.Ways()[selected->front()].Bridge ==
+                        made->Network->Topology().FindEdge(requested)->Bridge,
+          "the local demand retains the requested source semantics");
   }
   CHECK(outputs[0]->SourceIdentity() == outputs[1]->SourceIdentity(),
         "canonical full-product identity is independent of input arrival order");
@@ -121,6 +135,46 @@ void CheckArrivalOrder(const Ground::VegetationTemplates &recipes,
                                &World::TransportEdge::Id,
                                &World::TransportEdge::Id),
         "all derived node and path identities remain stable with repeated cross-tile provider IDs");
+  CHECK(selectedWays[0] != selectedWays[1],
+        "stable native identity selects different local ordinals when arrival order changes");
+}
+
+void CheckDemand(const MvtTransportSnapshot &made,
+                 const OsmField &field,
+                 const StreetField &streets) {
+  using namespace outshine::Test;
+  std::vector<World::TransportEdgeId> edges;
+  for (const auto &edge : made.Network->Topology().Edges()) { edges.push_back(edge.Id); }
+  BeginCppAllocationProbe();
+  const auto selected = ResolveMvtTransportWays(made, field, streets, edges);
+  const auto allocations = EndCppAllocationProbe();
+  std::println("MVT_DEMAND input_edges={} allocation_calls={} requested_bytes={}",
+               edges.size(),
+               allocations.Calls,
+               allocations.Bytes);
+  CHECK(selected && *selected == std::vector<uint32_t>({0, 1}),
+        "directed fragments coalesce to the two original source ways");
+  const auto empty = ResolveMvtTransportWays(made, field, streets, {});
+  CHECK(empty && empty->empty(), "empty native demand selects no source ways");
+  auto absent = edges.front();
+  absent.SegmentOrdinal = 1000;
+  CHECK(!ResolveMvtTransportWays(made, field, streets, std::span(&absent, 1)),
+        "a valid path cannot admit an absent directed fragment");
+  const auto retired = streets.Without(0);
+  CHECK(!ResolveMvtTransportWays(made, field, retired, edges),
+        "retired local source ways cannot become functional demand");
+  std::stop_source canceled;
+  canceled.request_stop();
+  CHECK(!ResolveMvtTransportWays(made, field, streets, {}, canceled.get_token()),
+        "cancellation also rejects empty native demand");
+  const std::array<std::string, 1> layers{"streets"};
+  OsmField unrelated(16, layers);
+  CHECK(unrelated.Accept(kTileX, kTileX, Tile()).has_value(),
+        "equal source bytes have another owner");
+  StreetField otherStreets;
+  CHECK(!ResolveMvtTransportWays(made, unrelated, streets, edges) &&
+            !ResolveMvtTransportWays(made, field, otherStreets, edges),
+        "neither equal foreign bytes nor another street field can reuse local bindings");
 }
 }
 
@@ -156,7 +210,10 @@ int main() {
                allocations.Bytes,
                elapsedMs);
   CHECK(made.has_value(), made ? "native snapshot publishes" : made.error().c_str());
-  if (made) { CheckSnapshot(*made); }
+  if (made) {
+    CheckSnapshot(*made);
+    CheckDemand(*made, field, streets);
+  }
   std::stop_source cancelled;
   cancelled.request_stop();
   CHECK(!BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage, cancelled.get_token()),
@@ -167,5 +224,9 @@ int main() {
   CHECK(!BuildMvtTransportSnapshot(unrelated, streets, *graph.Graph, coverage),
         "equal local ordinals cannot bind another source owner");
   CheckArrivalOrder(recipes, coverage);
+  CHECK(field.Accept(kNextTileX, kTileX, Tile()).has_value(),
+        "another source tile changes the generation");
+  CHECK(made && !ResolveMvtTransportWays(*made, field, streets, {}),
+        "even empty demand cannot reuse a binding after its source generation changes");
   return Report();
 }

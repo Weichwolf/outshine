@@ -7,12 +7,14 @@
 #include "VegetationTemplates.h"
 #include "TransportCoreSelection.h"
 #include "BridgeInputRequirements.h"
+#include "Corridors.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -23,6 +25,53 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Generators::Osm;
 using namespace outshine::Test::MvtTransportWire;
+
+void CheckPlanningInput(const MvtTransportSnapshot &made,
+                        const OsmField &field,
+                        const StreetField &streets,
+                        const Ground::GroundMaterials &materials,
+                        const Ground::VegetationTemplates &recipes,
+                        const Path::Network &graph) {
+  using namespace outshine::Test;
+  constexpr uint32_t kHalfTile = static_cast<uint32_t>(kTileX) * 2;
+  const auto core = SelectTransportCore({.Level = 17, .X = kHalfTile, .Y = kHalfTile - 1},
+                                        made.Network,
+                                        {.SourceNodesMost = 16,
+                                         .SourceEdgesMost = 16,
+                                         .SegmentsMost = 16,
+                                         .ContainerCapacityMost = 4096});
+  CHECK(core && !core->Segments.empty(),
+        "native geographic demand contains original source segments");
+  if (!core || core->Segments.empty()) { return; }
+  std::vector<World::TransportEdgeId> edges;
+  for (const auto &segment : core->Segments) {
+    edges.push_back(made.Network->Topology().Edges()[segment.SourceEdge].Id);
+  }
+  const auto selected = ResolveMvtTransportWays(made, field, streets, edges);
+  CHECK(selected && selected->size() == 1,
+        "actual native core demand resolves one original street");
+  if (!selected) { return; }
+  const auto frame = TangentFrame::At(core->Segments.front().Ends.front().Geographic);
+  const auto surface = TriangleBvh::Over({}, {});
+  const Drape drape{.Surface = surface, .Field = [](EastNorth at) -> std::optional<double> {
+                      static_cast<void>(at);
+                      return 0.0;
+                    }};
+  const std::shared_ptr<const TerrainClassificationMap> classes;
+  const Corridors::Site site{.Vectors = &field,
+                             .Ways = streets,
+                             .Materials = materials,
+                             .Vegetation = recipes,
+                             .Network = &graph,
+                             .Standing = frame,
+                             .Draped = drape,
+                             .Classes = classes,
+                             .WaterUpM = {},
+                             .CensusAt = {}};
+  CHECK(Corridors::BeginFunctionalPlan(site, *selected),
+        "native geographic demand enters the existing functional planner with the actual source "
+        "lease");
+}
 
 std::expected<MvtTransportSnapshot, std::string> Snapshot() {
   Ground::GroundMaterials materials;
@@ -41,7 +90,9 @@ std::expected<MvtTransportSnapshot, std::string> Snapshot() {
   if (!graph.Graph) { return std::unexpected("source graph unavailable"); }
   const auto bounds = GeoCellId{.Level = 16, .X = kTileX, .Y = kTileX - 1}.Bounds();
   if (!bounds) { return std::unexpected("source bounds unavailable"); }
-  return BuildMvtTransportSnapshot(field, streets, *graph.Graph, std::span(&*bounds, 1));
+  auto made = BuildMvtTransportSnapshot(field, streets, *graph.Graph, std::span(&*bounds, 1));
+  if (made) { CheckPlanningInput(*made, field, streets, materials, recipes, *graph.Graph); }
+  return made;
 }
 
 bool SharesBoundary(const TransportCoreEnd &from, const TransportCoreEnd &to) {
