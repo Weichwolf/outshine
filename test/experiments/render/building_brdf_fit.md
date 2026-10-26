@@ -22,6 +22,17 @@ HiGHS LP is an independent challenger via the existing SciPy dependency; no
 highspy installation. Its forwarded threads option is checked explicitly; other
 warnings/failures are not ignored. Solvers never execute in loading/rendering.
 
+The default interval solver batches the fixed palette pairs in contiguous rows.
+Each pair retains the same endpoints,48 bisections, active-residual tie order and
+exact zero-slope stop; stopped rows leave the batch. Float32 emission and final
+per-pair scoring keep their original order. Custom/HiGHS callbacks retain their
+one-dimensional pair protocol. This reduces NumPy dispatch and the number of
+large expression-array allocations, not objective rows or their total bytes.
+Gathered pair inputs increase the working set and setup bytes. Counters separate
+dispatch rounds, evaluated rows, selected known expression/setup allocations,
+contiguous copies and stopped-row copies; they are not a complete allocation
+or peak-memory trace. Fresh full-compiler processes measure the latter separately.
+
 Training has1377 fixed cosine/azimuth samples; validation uses1088 shifted samples
 including additional mirror directions. Both are finite approximations, not
 global response bounds. All pairs are tested, but no globally optimal quantized

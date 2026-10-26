@@ -8,12 +8,29 @@ from unittest.mock import patch
 
 import numpy as np
 from building_brdf_basis import angular_samples, response_basis
-from building_brdf_fit import emitted_error, fit_weights, interval_pair
+from building_brdf_fit import emitted_error, fit_weights, interval_pair, interval_pairs
 from building_mass_lighting import shade
 from fit_building_brdf import read_fit, read_material
 
 
 class BuildingBrdfFit(unittest.TestCase):
+    def test_batch_keeps_scalar_ties_boundaries_and_exact_zero_slope_stops(self):
+        delta = np.array([[0, 1], [1, np.nextafter(1.0, 2)], [0, 0], [1, 2], [-1, -2]])
+        target = np.array([[0.25, 0.5], [0.3, 0.3], [0, 0], [-1, -2], [3, 4]])
+        scalar = [interval_pair(d, t) for d, t in zip(delta, target, strict=True)]
+        actual, work = interval_pairs(delta, target)
+        expected = np.array([weight for weight, _ in scalar])
+        self.assertEqual(actual.dtype, expected.dtype)
+        self.assertEqual(actual.tobytes(), expected.tobytes())
+        self.assertEqual(
+            work["objective_rows"], sum(w["objective_rows"] for _, w in scalar)
+        )
+        self.assertEqual(work["iterations"], sum(w["iterations"] for _, w in scalar))
+        self.assertLess(work["pair_dispatch_rounds"], work["iterations"])
+        for d, t in ((delta[:, :0], target[:, :0]), (delta, target[:, :1])):
+            with self.assertRaisesRegex(ValueError, "paired affine"):
+                interval_pairs(d, t)
+
     def test_known_three_axis_minimax_problem_and_two_component_identity(self):
         basis = {"specular": np.eye(3), "diffuse": np.ones(3)}
         weights = np.full(3, 1 / 3, np.float32)
