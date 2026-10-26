@@ -39,7 +39,11 @@ Material integration consumes the shared source-local domains and area Jacobians
 without constructing world-space patch origins/normals or full surface objects.
 Consumers requesting full patches use those same domains with their unchanged
 geometry fields; this path additionally creates temporary local-domain records.
-No source-sampling, deck/party/gable rule or material accumulation order changes. Compare actual
+No source-sampling, deck/party/gable rule or material accumulation order changes.
+The bounded index/form reader reuses six declared scalar `Struct` decoders;
+other scalar formats retain their dynamic fallback. Byte/scalar limits, finite
+checks, cursor advancement, decoded types and values remain unchanged. Fixed
+float-block decoding was compared but adds no consistent gain here. Compare actual
 post-qualification original needs with the earlier lower bound. Missing parent
 files retain every source in that subtree; unbounded originals remain required.
 Count known source-summary faces separately. They are not native runtime

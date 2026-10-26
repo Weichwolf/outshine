@@ -96,6 +96,21 @@ class CoordinateTest(unittest.TestCase):
 
 
 class WireTest(unittest.TestCase):
+    def test_scalar_words_budget_and_less_common_format_remain_exact(self):
+        values = [1, -2, -0.0, 2**63 + 3, 0.5, 2**32 - 1, 65535]
+        codes = ["B", "i", "d", "Q", "f", "I", "H"]
+        raw = struct.pack("<BidQfIH", *values)
+        reader = Reader(raw + b"\x01", number_limit=len(values))
+        actual = [reader.number(code) for code in codes]
+        self.assertEqual(struct.pack("<BidQfIH", *actual), raw)
+        self.assertEqual(reader.at, len(raw))
+        self.assertEqual(reader.numbers, len(values))
+        with self.assertRaisesRegex(ValueError, "over-budget"):
+            reader.number("B")
+        for code in ("d", "f"):
+            with self.assertRaisesRegex(ValueError, "nonfinite"):
+                Reader(struct.pack("<" + code, float("inf"))).number(code)
+
     def test_empty_legacy_truncated_count_trailing_and_nonfinite(self):
         empty = struct.pack("<IQ", 0x33435342, 0)
         self.assertEqual(decode(empty)[0], [])
