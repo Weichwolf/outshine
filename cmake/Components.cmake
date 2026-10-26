@@ -163,7 +163,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 else()
   target_link_libraries(outshine_generators_water PUBLIC osqp::osqp)
 endif()
-target_link_libraries(outshine_generators_road PUBLIC outshine_generators_road_meshing highs::highs)
+target_link_libraries(outshine_generators_road PUBLIC highs::highs)
 target_link_libraries(outshine_engine PUBLIC PkgConfig::sdl3_image)
 target_link_libraries(outshine_app PUBLIC PkgConfig::nlohmann_json)
 

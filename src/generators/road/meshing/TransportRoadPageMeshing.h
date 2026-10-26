@@ -14,6 +14,7 @@ struct RoadPagePartAppearance {
   Vec3f WearsLinear;
 };
 
+// Borrows a validated complete plan during meshing; the result owns its buffers.
 [[nodiscard]] std::expected<RoadPageGeometry, std::string_view>
 MeshTransportRoadPage(const RoadMesher &mesher,
                       const TransportPlan &plan,
