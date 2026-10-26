@@ -21,7 +21,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  std::ifstream input("src/assets/world/species/birch.json");
+  std::ifstream input("data/world/species/birch.json");
   const std::string text{std::istreambuf_iterator<char>(input), {}};
   TreeSpecies species;
   CHECK(species.Parse(text.data(), text.size()), "the shipped birch parses");

@@ -20,7 +20,7 @@
 #include "test/harness/render/NativeOffline.h"
 #include "GpuPlacement.h"
 #include "MaterialPacking.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "Material.h"
 #include "GeometryResidency.h"
 #include "TexelChain.h"

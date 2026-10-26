@@ -1,4 +1,5 @@
 #include "Tasks.h"
+#include <algorithm>
 #include <variant>
 
 #include <cstddef>
@@ -11,7 +12,7 @@
 namespace outshine {
 
 int Tasks::ComputeThreads() {
-  return 1;
+  return static_cast<int>(std::max(1U, std::thread::hardware_concurrency()));
 }
 
 Tasks::Tasks(int threads) {

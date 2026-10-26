@@ -1,5 +1,5 @@
 #include "src/generators/road/Corridors.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "ProfiledRoadMesher.h"
 #include "Check.h"
 
 #include <array>
@@ -39,8 +39,8 @@ int main() {
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the fixture uses production road and water rules");
   if (!vegetation.Ready()) { return Report(); }
   int water = -1;

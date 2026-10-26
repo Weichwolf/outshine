@@ -131,8 +131,8 @@ Geometry Build(const Inputs &input, bool incremental) {
   const auto frame = TangentFrame::At(input.Origin);
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "the genuine case uses production path, stair and bridge recipes");
   const std::array<std::string, 1> layers{"streets"};
   Osm::OsmField vectors(14, layers);

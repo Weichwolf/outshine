@@ -35,8 +35,8 @@ def runtime(native, output, alternative=None):
     if alternative == "gather":
         (output / "groundLatticeVertex.glsl").write_bytes((source / "groundLatticeVertex.glsl").read_bytes())
     commands = []
-    names = ("SUBJECT_WRITES_VELOCITY", "SUBJECT_NORMAL_LOCATION",
-             "SUBJECT_IDENTITY_LOCATION", "SUBJECT_BASE_LOCATION", "SUBJECT_METALROUGH_LOCATION")
+    names = ("SURFACE_WRITES_VELOCITY", "SURFACE_NORMAL_LOCATION",
+             "SURFACE_IDENTITY_LOCATION", "SURFACE_BASE_LOCATION", "SURFACE_METALROUGH_LOCATION")
     artifacts = sorted(shaders.glob("ground*Lit-*.frag.spv"))
     if alternative == "gather":
         artifacts += sorted(shaders.glob("ground*Lattice-*.vert.spv"))

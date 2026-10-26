@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
@@ -112,7 +113,7 @@ std::vector<float> CaptureSheet(const Geometry &mesh) {
     return {};
   }
   renderer.SetGeometryEnvironment({});
-  Render::SubjectLight key;
+  Render::SceneLight key;
   key.Light.Kind = LightKind::Directional;
   key.Light.Intensity = kLux;
   key.Light.Direction = {{0, 0, -1}};

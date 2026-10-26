@@ -166,7 +166,7 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
                                             : GeometryResidency::Stream::Index);
   if (into.Commands == nullptr || !index || !Binding().Pipelines[pipeline]) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "subject draw is missing native resources"});
+                                         .Message = "geometry draw is missing native resources"});
   }
   const Native::DrawState state{
       .Pipeline = Binding().Pipelines[pipeline].get(),
@@ -340,7 +340,7 @@ Native::Result<uint32_t> GeometryRenderer::EncodeShadow(const PassRecording &int
   if (into.Commands == nullptr || !Bound().Buffer(GeometryResidency::Stream::Index)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "subject shadow draw is missing native resources"});
+                      .Message = "geometry shadow draw is missing native resources"});
   }
   using S = GeometryResidency::Stream;
   DrawResources resources;

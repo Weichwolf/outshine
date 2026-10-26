@@ -1,8 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
-#include "subjectVaryings.glsl"
-#include "subjectOutput.glsl"
+#include "surfaceVaryings.glsl"
+#include "surfaceOutput.glsl"
 #include "material.glsl"
 #include "groundBindings.glsl"
 #include "brdfTables.glsl"
@@ -11,8 +11,8 @@ const float kPi = acos(-1.0);
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
-#if SUBJECT_BASE_LOCATION == 0
-#include "subjectLighting.glsl"
+#if SURFACE_BASE_LOCATION == 0
+#include "surfaceLighting.glsl"
 #endif
 #include "groundClass.glsl"
 #include "groundMaterial.glsl"
@@ -25,15 +25,15 @@ const float kPi = acos(-1.0);
 #include "surfaceGradient.glsl"
 #if GROUND_PATCHES
 #include "groundFineNormal.glsl"
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
 #include "groundFineShadow.glsl"
 #endif
 #endif
 void main() {
-  readSubjectVaryings();
+  readSurfaceVaryings();
 #if GROUND_PATCHES
   vec3 surfaceNormal = groundFineNormal();
-#if SUBJECT_BASE_LOCATION == 0
+#if SURFACE_BASE_LOCATION == 0
   vec4 shadowLightSpace = fineGroundShadow();
 #endif
 #else
@@ -77,7 +77,7 @@ void main() {
   shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), heightDxDy.x, heightDxDy.y);
   vec3 albedo = clamp(composed.Albedo, vec3(0.0), vec3(1.0));
   float roughness = clamp(composed.Roughness, 0.04, 1.0);
-#if SUBJECT_BASE_LOCATION > 0
+#if SURFACE_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, surface.metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
 #else

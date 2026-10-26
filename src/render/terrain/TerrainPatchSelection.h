@@ -5,7 +5,7 @@
 #include "TerrainPatchBounds.h"
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "SubjectTypes.h"
+#include "GroundTile.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

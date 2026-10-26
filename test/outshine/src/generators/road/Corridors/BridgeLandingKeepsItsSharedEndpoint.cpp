@@ -59,8 +59,8 @@ void CheckLanding(bool joined, bool reversed) {
   const auto frame = TangentFrame::At(origin);
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "landing dimensions use production recipes");
   if (!vegetation.Ready()) { return; }
   const std::array<std::string, 1> layers{"streets"};

@@ -671,7 +671,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!geometry.wellFormed()) {
-    S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
+    S_->Error = "the geometry stands no whole part, and a geometry of nothing is a refusal rather "
                 "than an empty picture";
     return std::unexpected(S_->Error);
   }

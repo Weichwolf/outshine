@@ -926,9 +926,9 @@ void CheckWorld(InstanceScene &scene,
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
   Generators::Shipping catalogue;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials) &&
-            catalogue.EnsureCatalogue(vegetation, "src/assets/world/species", scene.Error),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials) &&
+            catalogue.EnsureCatalogue(vegetation, "data/world/species", scene.Error),
         "world crown catalogue loads through the production species path");
   const auto birch = FindBirch(catalogue, species);
   const std::array<WorldInstance, 2> placements{
@@ -1002,7 +1002,7 @@ void CheckInstances(const ImpostorAtlas &atlas, const TreeSpecies &species, Task
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  std::ifstream input("src/assets/world/species/birch.json");
+  std::ifstream input("data/world/species/birch.json");
   const std::string text{std::istreambuf_iterator<char>(input), {}};
   TreeSpecies species;
   CHECK(species.Parse(text.data(), text.size()), "the atlas uses the shipped birch generator");

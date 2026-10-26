@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "MeshInput.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
@@ -598,7 +599,7 @@ public:
             ActiveState().Content.Glass.AppendMaterials(materials, error));
   }
 
-  [[nodiscard]] bool SetGeometryLights(std::span<const SubjectLight> lights, std::string &error) {
+  [[nodiscard]] bool SetGeometryLights(std::span<const SceneLight> lights, std::string &error) {
     return ActiveState().Content.Geometry.SetLights(lights, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetLights(lights, error));
@@ -650,7 +651,7 @@ public:
     return ActiveFrame().Atmosphere.Texture(Resource::TransmittanceLut);
   }
 
-  void SetGeometryEnvironment(const SubjectEnvironment &environment) {
+  void SetGeometryEnvironment(const EnvironmentLighting &environment) {
     ActiveState().Content.Geometry.SetEnvironment(environment);
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.SetEnvironment(environment);

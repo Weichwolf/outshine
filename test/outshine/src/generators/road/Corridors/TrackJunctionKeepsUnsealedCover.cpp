@@ -1,5 +1,5 @@
 #include "src/generators/road/Corridors.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "ProfiledRoadMesher.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -138,8 +138,8 @@ int main() {
           ::outshine::Generators::Osm::OsmLayer::StreetPolygons)};
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "road fixture loads production cover rules");
   const int asphaltRow = materials.Find("asphalt");
   CHECK(asphaltRow >= 0, "road fixture has an explicit asphalt material");

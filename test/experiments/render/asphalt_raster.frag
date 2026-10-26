@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #define VARYING in
 #define GROUND_WORLD_POSITION
-#include "subjectVaryings.glsl"
+#include "surfaceVaryings.glsl"
 #include "material.glsl"
 const float kPi = acos(-1.0);
 #include "metalRoughBrdf.glsl"

@@ -13,7 +13,7 @@ namespace outshine::App {
 
 [[nodiscard]] inline Roots MakeApplicationRoots(std::string_view cacheDirectory = {},
                                                 bool offline = false) {
-  return {.Shipped = "src/assets",
+  return {.Shipped = "data",
           .Cache = std::string(cacheDirectory),
           .Offline = offline,
           .AssetCache = {}};

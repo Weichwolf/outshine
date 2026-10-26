@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_RENDEROBJECT_H
 #define OUTSHINE_RENDER_RENDEROBJECT_H
 
+#include "SceneLighting.h"
 #include "Mat4.h"
 #include "Vec3.h"
 #include "Shape.h"
@@ -23,7 +24,7 @@ class SceneRenderer;
 
 class RenderObject {
 public:
-  void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
+  void ResetForShape(const Shape &geometry, const Vec3 &anchorEcefM);
   void SelectParts(std::span<const std::string> names);
 
   [[nodiscard]] bool PartVisible(size_t part) const noexcept { return PartVisible_[part] != 0; }
@@ -42,7 +43,7 @@ public:
 
   void AddLight(const outshine::PunctualLight &light) { Lights_.push_back(light); }
 
-  void SetEnvironment(const SubjectEnvironment &environment) { Environment_ = environment; }
+  void SetEnvironment(const EnvironmentLighting &environment) { Environment_ = environment; }
 
   [[nodiscard]] const Shape *Shaped() const { return Shape_; }
 
@@ -70,7 +71,7 @@ public:
 
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
 
-  [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
+  [[nodiscard]] const EnvironmentLighting &IndirectLight() const { return Environment_; }
 
 private:
   Vec3 AnchorEcefM_;
@@ -84,7 +85,7 @@ private:
   std::vector<MaterialBinding> Surfaces_;
   std::span<const float> Previous_;
   std::vector<outshine::PunctualLight> Lights_;
-  SubjectEnvironment Environment_;
+  EnvironmentLighting Environment_;
 };
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error);
@@ -141,12 +142,12 @@ struct RenderObjectPreparation {
   const Shape *PreparedShape = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
-  std::vector<SubjectLight> Lights;
+  std::vector<SceneLight> Lights;
   DrawList Draws;
 };
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
-                       const Shape &subject,
+                       const Shape &geometry,
                        const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);

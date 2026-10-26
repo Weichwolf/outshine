@@ -9,7 +9,7 @@
 
 #include "native/Device.h"
 
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "TexelChain.h"
 
 namespace outshine::Render {

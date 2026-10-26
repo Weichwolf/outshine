@@ -146,7 +146,7 @@ def main():
     recipe = next(
         row
         for row in json.loads(
-            (ROOT / "src/assets/world/ground-materials.json").read_text()
+            (ROOT / "data/world/ground-materials.json").read_text()
         )["classes"]
         if row["name"] == "rock"
     )

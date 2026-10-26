@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_REGION_GROUNDWORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_REGION_GROUNDWORLDCANDIDATE_H
 
+#include "SceneLighting.h"
 #include "EngineState.h"
 #include "WorldCandidate.h"
 #include "TerrainClassificationMap.h"
@@ -86,7 +87,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() { return World_.GroundAlbedo(); }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() {
     return World_.AmbientStanding();
   }
 

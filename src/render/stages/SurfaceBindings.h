@@ -4,7 +4,7 @@
 #include <array>
 #include "DrawList.h"
 #include "KernelShape.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 #include "SurfaceState.h"
 
 namespace outshine::Render {

@@ -36,7 +36,7 @@ int main() {
     CHECK(indexed, "all triangle corners address owned vertices");
   }
   size_t profiles = 0;
-  for (const auto &entry : std::filesystem::directory_iterator("src/assets/world/species")) {
+  for (const auto &entry : std::filesystem::directory_iterator("data/world/species")) {
     if (entry.path().extension() != ".json") { continue; }
     std::ifstream stream(entry.path());
     const std::string source{std::istreambuf_iterator<char>(stream), {}};

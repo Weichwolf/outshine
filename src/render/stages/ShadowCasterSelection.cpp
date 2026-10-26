@@ -61,14 +61,14 @@ void ShadowCasterSelection::Prepare(std::span<const DrawBatch> batches,
                                     std::span<const uint32_t> jobs,
                                     std::span<const float> spheres,
                                     std::span<const GpuPlacement> placements,
-                                    uint32_t subjectRows,
-                                    bool subjectBoundsCurrent) {
+                                    uint32_t mainMeshRows,
+                                    bool mainMeshBoundsCurrent) {
   Batches_.assign(batches.size(), {});
   Ranges_.clear();
   Ranges_.reserve(jobs.size() / DrawList::kJobWords);
   for (size_t at = 0; at < batches.size(); ++at) {
     const auto &batch = batches[at];
-    if (batch.ModelSlot < subjectRows && !subjectBoundsCurrent) { continue; }
+    if (batch.ModelSlot < mainMeshRows && !mainMeshBoundsCurrent) { continue; }
     const size_t first = Ranges_.size();
     if (!Append(Ranges_, batch, at, jobs, spheres, placements)) {
       Ranges_.resize(first);

@@ -1,5 +1,5 @@
 #include "src/generators/road/Corridors.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "ProfiledRoadMesher.h"
 #include "PublishedRegion.h"
 #include "WaterAsset.h"
 #include "Check.h"
@@ -149,8 +149,8 @@ int main() {
 
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials),
         "road fixture loads the production material rules");
   ::outshine::Generators::Osm::StreetField ways;
   while (!ways.Ingested(vectors)) { (void)ways.Ingest(vectors, vegetation); }

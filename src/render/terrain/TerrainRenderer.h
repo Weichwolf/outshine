@@ -15,7 +15,8 @@
 #include "FrameContext.h"
 #include "KernelShape.h"
 #include "Vec3.h"
-#include "SubjectTypes.h"
+#include "GroundTile.h"
+#include "MaterialBinding.h"
 #include "TerrainPatchSelection.h"
 #include "TerrainResidency.h"
 #include <optional>

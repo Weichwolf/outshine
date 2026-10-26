@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <span>
 #include <string>
@@ -35,7 +36,7 @@ std::string Read(const char *name) {
 struct Slice {
   std::span<const char> Bytes;
 
-  uint64_t Word(size_t element, size_t width) const {
+  [[nodiscard]] uint64_t Word(size_t element, size_t width) const {
     uint64_t value = 0;
     for (size_t byte = 0; byte < width; ++byte) {
       value |= static_cast<uint64_t>(static_cast<uint8_t>(Bytes[element * width + byte]))
@@ -44,11 +45,15 @@ struct Slice {
     return value;
   }
 
-  double Number(size_t element) const { return std::bit_cast<double>(Word(element, 8)); }
+  [[nodiscard]] double Number(size_t element) const {
+    return std::bit_cast<double>(Word(element, 8));
+  }
 
-  uint32_t Index(size_t element) const { return static_cast<uint32_t>(Word(element, 4)); }
+  [[nodiscard]] uint32_t Index(size_t element) const {
+    return static_cast<uint32_t>(Word(element, 4));
+  }
 
-  EastNorth Point(size_t element) const {
+  [[nodiscard]] EastNorth Point(size_t element) const {
     return {.EastM = Number(2 * element), .NorthM = Number(2 * element + 1)};
   }
 };
@@ -69,7 +74,7 @@ public:
     return bound;
   }
 
-  Slice Array(const char *name, const char *type, size_t count) const {
+  Slice Array(const char *name, size_t count, const char *type) const {
     const auto array = Metadata_.Root()["arrays"][name];
     const auto offset = static_cast<size_t>(array["offset"].Int());
     const auto bytes = static_cast<size_t>(array["bytes"].Int());
@@ -93,12 +98,12 @@ private:
 };
 
 auto Field(const Reference &reference) {
-  const auto origins = reference.Array("plane_origins", "<f8", kPlanes * 2);
-  const auto coefficients = reference.Array("plane_coefficients", "<f8", kPlanes * 3);
-  const auto parents = reference.Array("plane_ids", "<u4", kModules * 2);
-  const auto cuts = reference.Array("cut_centres", "<f8", kModules * 4);
-  const auto normals = reference.Array("inward_normals", "<f8", kModules * 4);
-  const auto scales = reference.Array("scales", "<f8", kModules);
+  const auto origins = reference.Array("plane_origins", kPlanes * 2, "<f8");
+  const auto coefficients = reference.Array("plane_coefficients", kPlanes * 3, "<f8");
+  const auto parents = reference.Array("plane_ids", kModules * 2, "<u4");
+  const auto cuts = reference.Array("cut_centres", kModules * 4, "<f8");
+  const auto normals = reference.Array("inward_normals", kModules * 4, "<f8");
+  const auto scales = reference.Array("scales", kModules, "<f8");
   std::vector<RoadPortField::Plane> planes;
   std::vector<RoadPortField::Patch> patches;
   planes.reserve(kPlanes);
@@ -119,9 +124,9 @@ auto Field(const Reference &reference) {
 }
 
 void CompareSample(RoadPortField::Sample sample,
+                   double datum,
                    const Slice &expected,
                    size_t offset,
-                   double datum,
                    std::array<double, 3> &errors) {
   const std::array actual{sample.HeightM + datum, sample.Gradient.SlopeE, sample.Gradient.SlopeN};
   for (size_t channel = 0; channel < actual.size(); ++channel) {
@@ -132,15 +137,15 @@ void CompareSample(RoadPortField::Sample sample,
 }
 
 void CheckFaces(const Reference &reference, const RoadPortField &field) {
-  const auto vertices = reference.Array("road_xy", "<f8", kVertices * 2);
-  const auto faces = reference.Array("source_faces", "<u4", kFaces * 3);
-  const auto ids = reference.Array("source_face_ids", "<u4", kFaces);
-  const auto modules = reference.Array("face_parts", "<u4", kFaces);
-  const auto points = reference.Array("face_points", "<f8", kFaces * 2);
-  const auto values = reference.Array("face_values", "<f8", kFaces * 3);
-  const auto frames = reference.Array("grade_frames", "<f8", kFaces * 4);
-  const auto bounds = reference.Array("face_bounds", "<f8", kFaces * 2);
-  const double datum = reference.Array("datum_m", "<f8", 1).Number(0);
+  const auto vertices = reference.Array("road_xy", kVertices * 2, "<f8");
+  const auto faces = reference.Array("source_faces", kFaces * 3, "<u4");
+  const auto ids = reference.Array("source_face_ids", kFaces, "<u4");
+  const auto modules = reference.Array("face_parts", kFaces, "<u4");
+  const auto points = reference.Array("face_points", kFaces * 2, "<f8");
+  const auto values = reference.Array("face_values", kFaces * 3, "<f8");
+  const auto frames = reference.Array("grade_frames", kFaces * 4, "<f8");
+  const auto bounds = reference.Array("face_bounds", kFaces * 2, "<f8");
+  const double datum = reference.Array("datum_m", 1, "<f8").Number(0);
   std::array<double, 3> errors{};
   std::array<double, 2> boundErrors{};
   std::array<bool, kModules> covered{};
@@ -153,7 +158,7 @@ void CheckFaces(const Reference &reference, const RoadPortField &field) {
     const auto sampled = field.Evaluate(owner, points.Point(index));
     CHECK(sampled.has_value(), "every original face centroid is in the analytic field domain");
     if (!sampled) { return; }
-    CompareSample(*sampled, values, 3 * index, datum, errors);
+    CompareSample(*sampled, datum, values, 3 * index, errors);
     std::array<EastNorth, 3> triangle;
     for (size_t corner = 0; corner < 3; ++corner) {
       const auto vertex = faces.Index(3 * index + corner);
@@ -186,11 +191,11 @@ void CheckFaces(const Reference &reference, const RoadPortField &field) {
 }
 
 void CheckPorts(const Reference &reference, const RoadPortField &field) {
-  const auto ids = reference.Array("port_ids", "<u4", kPorts);
-  const auto modules = reference.Array("port_parts", "<u4", kPorts * 2);
-  const auto points = reference.Array("port_points", "<f8", kPorts * 3 * 2);
-  const auto values = reference.Array("port_values", "<f8", kPorts * 2 * 3 * 3);
-  const double datum = reference.Array("datum_m", "<f8", 1).Number(0);
+  const auto ids = reference.Array("port_ids", kPorts, "<u4");
+  const auto modules = reference.Array("port_parts", kPorts * 2, "<u4");
+  const auto points = reference.Array("port_points", kPorts * 3 * 2, "<f8");
+  const auto values = reference.Array("port_values", kPorts * 2 * 3 * 3, "<f8");
+  const double datum = reference.Array("datum_m", 1, "<f8").Number(0);
   std::array<double, 3> errors{};
   std::array<double, 3> jumps{};
   for (size_t index = 0; index < kPorts; ++index) {
@@ -204,7 +209,7 @@ void CheckPorts(const Reference &reference, const RoadPortField &field) {
               "both modules evaluate at each whole-port endpoint and midpoint");
         if (!sampled) { return; }
         samples[side] = *sampled;
-        CompareSample(*sampled, values, ((index * 2 + side) * 3 + point) * 3, datum, errors);
+        CompareSample(*sampled, datum, values, ((index * 2 + side) * 3 + point) * 3, errors);
       }
       const std::array left{
           samples[0].HeightM, samples[0].Gradient.SlopeE, samples[0].Gradient.SlopeN};

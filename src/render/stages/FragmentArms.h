@@ -7,7 +7,7 @@
 #include <SurfaceState.h>
 
 #include "DrawList.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 
 namespace outshine::Render {
 

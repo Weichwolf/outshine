@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_WORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_WORLDCANDIDATE_H
 
+#include "SceneLighting.h"
 #include "RuntimeScene.h"
 #include <cassert>
 #include <expected>
@@ -29,7 +30,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() { return Scene().GroundAlbedo(); }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() {
     return Scene().AmbientStanding();
   }
 

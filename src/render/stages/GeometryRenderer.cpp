@@ -1,5 +1,5 @@
 #include "MeshInput.h"
-#include "SubjectLightingUniform.h"
+#include "LightingUniform.h"
 #include "Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"
@@ -203,7 +203,7 @@ UploadPieceRuns(GeometryResidency &res, const PieceMesh &piece, const PieceAlloc
 Native::Result<void> GeometryRenderer::RoomForStreams() {
   GeometryResidency &res = Bound();
   const uint32_t verts = res.VertexRoom();
-  const uint32_t subject = res.MainVertexRange().First + res.MainVertexRange().Count;
+  const uint32_t mainVertexEnd = res.MainVertexRange().First + res.MainVertexRange().Count;
   const auto bytes = [](uint32_t count, uint32_t wide) {
     return count * wide * static_cast<uint32_t>(sizeof(float));
   };
@@ -212,14 +212,14 @@ Native::Result<void> GeometryRenderer::RoomForStreams() {
   const std::array streams = {
       std::pair{S::Vertex, bytes(verts, kPositionFloats)},
       std::pair{S::Normal, bytes(verts, 1u)},
-      std::pair{S::Previous, res.Shape().HasPrevious ? bytes(subject, kPositionFloats) : 0u},
-      std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(subject, kPositionFloats) : 0u}};
+      std::pair{S::Previous, res.Shape().HasPrevious ? bytes(mainVertexEnd, kPositionFloats) : 0u},
+      std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(mainVertexEnd, kPositionFloats) : 0u}};
   for (const auto &[stream, size] : streams) {
     if (size == 0) { continue; }
     auto grown = res.Grow(stream, {.Usage = vertex, .Bytes = size, .Deferred = true});
     if (!grown) { return grown; }
   }
-  if (subject != 0) {
+  if (mainVertexEnd != 0) {
     auto optional =
         RoomForOptionalStreams({.VertexEnd = res.MainVertexRange().First + res.Shape().Vertices,
                                 .ColourEnd = res.MainColourRange().First + res.Shape().Vertices,
@@ -302,7 +302,7 @@ bool GeometryRenderer::ValidateBatch(const MeshInput &mesh,
 bool GeometryRenderer::ValidateMesh(const MeshInput &mesh, std::string &error) const {
   if (mesh.VertexCount == 0 || mesh.IndexCount == 0) { return true; }
   if (Binding().Device == nullptr) {
-    error = "the subject stage carries no device, so a mesh of " +
+    error = "the geometry stage carries no device, so a mesh of " +
             std::to_string(mesh.VertexCount) + " vertices has nowhere to become resident";
     return false;
   }
@@ -448,7 +448,7 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   }
   if (!Bound().Buffer(GeometryResidency::Stream::Index)) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's index run did not reach the device: ");
+    error = std::string("the geometry's index run did not reach the device: ");
     return std::unexpected(std::move(error));
   }
   LastMeshUpload_.IndexMs =
@@ -466,13 +466,13 @@ bool GeometryRenderer::FinishMesh(MeshTicket ticket, const MeshInput &mesh, std:
     if (ticket.Generation != 0 && ticket.Generation == Reshaped_ && !PendingMesh_.NeedsFinish) {
       return true;
     }
-    error = "subject mesh completion has no matching preparation";
+    error = "geometry mesh completion has no matching preparation";
     return false;
   }
   if (ticket.Generation == 0 || ticket.Generation != PendingMesh_.Generation ||
       mesh.Draws != PendingDraws_ || mesh.Indices != PendingIndices_ ||
       mesh.IndexCount != PendingIndexCount_ || mesh.VertexCount != Bound().Shape().Vertices) {
-    error = "subject mesh completion has no matching preparation";
+    error = "geometry mesh completion has no matching preparation";
     return false;
   }
   Bound().Shape().Indices = PendingIndexCount_;
@@ -569,7 +569,7 @@ bool GeometryRenderer::HandStreams(const VertexInput &pose, bool deferred, std::
       (Bound().Shape().HasPrevious && !Bound().Buffer(GeometryResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(GeometryResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's vertex streams did not reach the device: ");
+    error = std::string("the geometry's vertex streams did not reach the device: ");
     return false;
   }
   return true;
@@ -602,7 +602,7 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
     return false;
   }
   if (Binding().Device == nullptr) {
-    error = "the subject stage carries no device, so a piece has nowhere to become resident";
+    error = "the geometry stage carries no device, so a piece has nowhere to become resident";
     return false;
   }
   const std::span<const uint32_t> slots = piece.Surface.From == PieceSurface::Source::Registered
@@ -612,7 +612,7 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
     error = "a piece refers to " +
             std::string(piece.Surface.From == PieceSurface::Source::Registered ? "a registered"
                                                                                : "a native") +
-            " surface " + std::to_string(piece.Surface.Index) + " but the subject has " +
+            " surface " + std::to_string(piece.Surface.Index) + " but the geometry has " +
             std::to_string(slots.size()) + " surface slots";
     return false;
   }
@@ -794,9 +794,9 @@ bool GeometryRenderer::Retable(std::string &error) {
   BatchLayout.clear();
   Args_.clear();
   Jobs_ = 0;
-  if (!BuildSubjectBatches(error)) { return false; }
+  if (!BuildMainMeshBatches(error)) { return false; }
   if (IsTransmission()) { return true; }
-  PrepareSubjectTables();
+  PrepareMainMeshTables();
   OrderPieces();
   for (const uint32_t at : TableOrder_) {
     if (!AppendPieceBatches(Pieces_[at], error)) { return false; }
@@ -804,11 +804,11 @@ bool GeometryRenderer::Retable(std::string &error) {
   return UploadTables(error);
 }
 
-bool GeometryRenderer::BuildSubjectBatches(std::string &error) {
-  const uint32_t subjectIndexFirst = Bound().MainIndexRange().First;
+bool GeometryRenderer::BuildMainMeshBatches(std::string &error) {
+  const uint32_t mainIndexFirst = Bound().MainIndexRange().First;
   for (const DrawBatch &one : MainMeshBatches_) {
     DrawBatch batch = one;
-    batch.FirstIndex += subjectIndexFirst;
+    batch.FirstIndex += mainIndexFirst;
     VertexRunsCarried carried;
     carried.Uv = CarriesUv(batch.Layout) && Bound().Shape().HasUv;
     carried.Normal = CarriesNormal(batch.Layout) && Bound().Shape().HasNormal;
@@ -831,17 +831,15 @@ bool GeometryRenderer::BuildSubjectBatches(std::string &error) {
   return true;
 }
 
-void GeometryRenderer::PrepareSubjectTables() {
-  const uint32_t subjectIndexFirst = Bound().MainIndexRange().First;
+void GeometryRenderer::PrepareMainMeshTables() {
+  const uint32_t mainIndexFirst = Bound().MainIndexRange().First;
   std::vector<uint32_t> &jobs = TableJobs_;
   std::vector<float> &spheres = TableSpheres_;
   jobs.assign(MainMeshClusterJobs_.begin(), MainMeshClusterJobs_.end());
   spheres.assign(MainMeshClusterSpheres_.begin(), MainMeshClusterSpheres_.end());
-  for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) {
-    jobs[at] += subjectIndexFirst;
-  }
-  const bool subjectCut = !jobs.empty() && !spheres.empty();
-  if (!subjectCut) {
+  for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) { jobs[at] += mainIndexFirst; }
+  const bool hasMainClusters = !jobs.empty() && !spheres.empty();
+  if (!hasMainClusters) {
     jobs.clear();
     spheres.clear();
     for (DrawBatch &batch : Batches) {
@@ -1063,12 +1061,12 @@ bool GeometryRenderer::SetVertexInput(const VertexInput &pose, std::string &erro
   ++Reshaped_;
   if (IsTransmission()) { return true; }
   if (Bound().Shape().Indices == 0) {
-    error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
+    error = "a pose arrived before any mesh, and there is no geometry for it to be a pose of";
     return false;
   }
   if (pose.VertexCount != Bound().Shape().Vertices) {
     error = "the pose carries " + std::to_string(pose.VertexCount) +
-            " vertices and the subject has " + std::to_string(Bound().Shape().Vertices) +
+            " vertices and the geometry has " + std::to_string(Bound().Shape().Vertices) +
             ", so it is a different body rather than the same one moved";
     return false;
   }

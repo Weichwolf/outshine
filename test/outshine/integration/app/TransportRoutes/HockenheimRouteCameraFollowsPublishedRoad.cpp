@@ -164,8 +164,7 @@ int main() {
     chase.RisesBy = kChaseRise;
     scene.Views.push_back(chase);
 
-    CHECK(engine.setRoots(
-              {.Shipped = "src/assets", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
               engine.setRenderTarget(Circuit::Frame) && engine.declare(scene) && engine.assemble(),
           "the pinned circuit and route view enter the public engine");
     CHECK(!engine.setView("lap") && engine.advance(),

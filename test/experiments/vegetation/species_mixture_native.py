@@ -55,10 +55,10 @@ def fixtures():
         ("subnormal", ["a", "b", "c"], [5e-324, 1e-323, 0]),
         ("empty", ["a", "b", "c"], [0, 0, 0]),
     ]
-    definitions = json.loads((ROOT / "src/assets/world/vegetation.json").read_text())
+    definitions = json.loads((ROOT / "data/world/vegetation.json").read_text())
     catalogue = sorted(
         json.loads(path.read_text())["name"]
-        for path in (ROOT / "src/assets/world/species").glob("*.json")
+        for path in (ROOT / "data/world/species").glob("*.json")
     )
     for entry in definitions["templates"]:
         weights = entry["trees"]["species"]

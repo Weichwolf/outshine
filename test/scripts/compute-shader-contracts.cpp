@@ -24,6 +24,7 @@ int main() try {
   std::cout.flush();
   return std::cout.good() ? 0 : 1;
 } catch (...) {
+
   std::fputs("compute shader catalog generation failed\n", stderr);
   return 1;
 }

@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -123,7 +124,7 @@ void Exercise() {
   const auto prism = renderer.PlacePrismGrid(source, std::span(&instance, 1), *material);
   CHECK(prism, "one prism becomes resident");
   if (!prism) { return; }
-  SubjectLight light;
+  SceneLight light;
   constexpr float kLux = 10000;
   light.Light.Intensity = kLux;
   light.Light.Direction = {{0, 0, -1}};

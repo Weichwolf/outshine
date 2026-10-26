@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <mutex>
 #include <span>
 #include <string_view>
 #include <string>
@@ -125,10 +126,12 @@ std::expected<std::vector<AssetRecord>, AssetCacheError> PrepareRecords(
 std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRecord> records,
                                                          std::span<const uint8_t> payload) {
   if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
+  std::unique_lock lock(*State_->Mutex);
   if (payload.size() >
       static_cast<size_t>(sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
+  lock.unlock();
   const std::string key = Sha256Hex(payload.data(), payload.size());
   auto publishing = PrepareRecords(records, payload.size(), key);
   if (!publishing) { return std::unexpected(publishing.error()); }
@@ -136,6 +139,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
   if (!compressed) { return std::unexpected(compressed.error()); }
   const int codec = compressed->empty() ? 0 : 1;
   const auto bytes = codec == 0 ? payload : std::span<const uint8_t>(*compressed);
+  lock.lock();
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
@@ -183,6 +187,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
 }
 
 std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
+  const std::scoped_lock lock(*State_->Mutex);
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
@@ -205,6 +210,7 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,
                                                              std::string_view requestKey) {
+  const std::scoped_lock lock(*State_->Mutex);
   if (!AssetSql::ValidKey(key) || !AssetSql::ValidKey(requestKey)) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }

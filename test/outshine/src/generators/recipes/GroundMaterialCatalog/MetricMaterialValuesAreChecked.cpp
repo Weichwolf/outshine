@@ -73,7 +73,7 @@ int main() {
   CHECK(!materials.Load(path.c_str()) && materials.At(0).SlopeExposesRock &&
             materials.Error().contains("slopeExposesRock"),
         "invalid exposure flag cannot replace the last valid catalog");
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped catalog remains valid");
+  CHECK(materials.Load("data/world/ground-materials.json"), "shipped catalog remains valid");
   const int asphalt = materials.Find("asphalt");
   const int limestone = materials.Find("limestone");
   const int water = materials.Find("water");
@@ -86,7 +86,7 @@ int main() {
           "pavement remains built while rocky and water-covered slopes expose bedrock");
   }
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials),
+  CHECK(templates.Load("data/world/vegetation.json", materials),
         "shipped vegetation templates accept the material contract");
   const int sand = materials.Find("sand");
   bool sawAsphalt = false;
