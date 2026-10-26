@@ -60,6 +60,13 @@ python -B -W error test/experiments/render/compare_building_parent_shading.py \
   --output <fresh-system-temp-view>
 ```
 
+For strict opaque-blocked work run `diagnose_building_layer_work.py` with the
+same comparator arguments. It preserves the actual shade/composition path,
+checks per-record lobe counts against the shader, and verifies exact per-sample
+C/T after dropping only later records behind alpha exactly1 in the existing
+depth/face-tie order. Its extra sorting/copies/second composition are diagnostic
+costs; zero-effect counts do not establish native work or a profitable early pass.
+
 The composed producer measures archive/index, unchanged scalar parent creation
 and subsequent fit states in one sequential run; stage RSS peaks are cumulative.
 For existing cached parents use `fit_building_parent_shading.py --input <parents>

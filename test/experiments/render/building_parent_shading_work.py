@@ -1,6 +1,35 @@
 """Reference work factors and pre-depth projected primitive boxes; no GPU timings."""
 
 import numpy as np
+
+
+def opaque_blocked(rays, depth, opacity, ties):
+    """Later records behind strict alpha1, using the compositor's exact order."""
+    rays, depth, opacity, ties = map(np.asarray, (rays, depth, opacity, ties))
+    if (
+        rays.ndim != 1
+        or any(v.shape != rays.shape for v in (depth, opacity, ties))
+        or rays.dtype.kind not in "iu"
+        or ties.dtype.kind not in "iu"
+        or np.any(rays < 0)
+        or not np.isfinite(depth).all()
+        or not np.isfinite(opacity).all()
+        or np.any((opacity < 0) | (opacity > 1))
+    ):
+        raise ValueError("finite ordered surface records required")
+    blocked = np.zeros(len(rays), bool)
+    if not len(rays):
+        return blocked
+    order = np.lexsort((ties, depth, rays))
+    _, first, counts = np.unique(rays[order], return_index=True, return_counts=True)
+    positions = np.arange(len(rays))
+    first_opaque = np.minimum.reduceat(
+        np.where(opacity[order] == 1, positions, len(rays)), first
+    )
+    blocked[order] = positions > np.repeat(first_opaque, counts)
+    return blocked
+
+
 from current_visibility import project
 
 
