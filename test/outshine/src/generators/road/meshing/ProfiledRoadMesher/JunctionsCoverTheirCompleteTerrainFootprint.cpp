@@ -1,6 +1,6 @@
 #include "Check.h"
-#include "src/generators/road/JunctionFootprint.h"
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "src/generators/road/meshing/JunctionFootprint.h"
+#include "src/generators/road/meshing/ProfiledRoadMesher.h"
 
 #include <array>
 #include <cmath>
