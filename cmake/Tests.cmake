@@ -37,6 +37,9 @@ foreach(source IN LISTS cases)
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
   if(name STREQUAL "outshine/src/render/Surfacing/DenseMaterialBindingsKeepBoundedAllocation"
+      OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
+      OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
+      OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
@@ -67,7 +70,7 @@ foreach(source IN LISTS cases)
       set(owner app)
     elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene)/")
       set(owner render)
-    elseif(name MATCHES "^outshine/integration/generators/osm/(PreparedGroundRegions|BuildingFoundationJob)/")
+    elseif(name MATCHES "^outshine/integration/generators/osm/(PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
@@ -116,7 +119,11 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/integration/generators/terrain/inputs/TilePool/NativeCellsSupplyMercatorTerrain")
     target_link_libraries(${target} PRIVATE outshine_generators_base)
   endif()
-  if(name STREQUAL "outshine/integration/generators/water/WaterHeightFit/RoadAndWaterSolversKeepIndependentMatrixStorage")
+  if(name MATCHES "^outshine/integration/generators/osm/MvtTransportSnapshot/")
+    target_link_libraries(${target} PRIVATE outshine_generators_transport)
+  endif()
+  if(name STREQUAL "outshine/integration/generators/water/WaterHeightFit/RoadAndWaterSolversKeepIndependentMatrixStorage"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/NativeSourcesReachCoreSelection")
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
