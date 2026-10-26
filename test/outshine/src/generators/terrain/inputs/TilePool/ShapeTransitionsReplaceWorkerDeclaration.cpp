@@ -62,6 +62,83 @@ public:
     return SourceResponse::Delivered({kPng.begin(), kPng.end()});
   }
 };
+
+std::shared_ptr<const outshine::Ground::TerrainField>
+AwaitField(outshine::Ground::TilePool &pool,
+           const outshine::Ground::GroundStream &ground,
+           outshine::Data::TileId at,
+           bool querySide) {
+  using namespace outshine::Ground;
+  std::shared_ptr<const TerrainField> field;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  do {
+    const auto result = querySide ? ground.PollStitchedField(at, field) : pool.Field(at, &field);
+    if (result == TilePool::Reply::Ready) { break; }
+    (void)pool.AwaitLanding(0.01);
+  } while (std::chrono::steady_clock::now() < deadline);
+  return field;
+}
+
+void CheckFieldTransitions(outshine::Ground::TilePool &pool,
+                           const outshine::Ground::GroundStream &ground,
+                           outshine::Data::TileId at,
+                           bool querySide) {
+  using namespace outshine;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  std::shared_ptr<const TerrainField> previous;
+  double previousAmplitude = 0.0;
+  for (const double amplitude : {0.0, 5.0, 9.0, 0.0}) {
+    const bool shaped = amplitude != 0.0;
+    pool.Shapes(
+        shaped ? ShapedGround{.Kind = "sineRidge", .AmplitudeM = amplitude, .WavelengthM = 1.0e12}
+               : ShapedGround{});
+    if (previous && previous->Certificate().IsComplete()) {
+      CHECK(!pool.CertificateCurrent(previous->Certificate()),
+            "shape transition revokes old provider certificate");
+    }
+    const uint64_t revision = pool.TerrainScopeRevision();
+    const auto declaration = pool.Shaped();
+    pool.Shapes(declaration);
+    CHECK(pool.TerrainScopeRevision() == revision,
+          "an identical declaration does not revoke terrain scope");
+    const auto field = AwaitField(pool, ground, at, querySide);
+    CHECK(field != nullptr, "each terrain declaration yields a worker product");
+    if (!field) { continue; }
+    CHECK(field->Certificate().TerrainScopeRevision() == revision &&
+              field->Certificate().ScopeCurrent(revision),
+          "provider and shaped snapshots both retain their captured terrain scope");
+    if (!shaped) {
+      CHECK(field->Certificate().TerrainScopeRevision() == revision &&
+                pool.CertificateCurrent(field->Certificate()),
+            "provider certificate captures current pool scope");
+    }
+    if (previous) {
+      CHECK(std::abs(static_cast<double>(previous->AtM(3, 3)) - previousAmplitude) < 1.0e-4,
+            "a borrowed old field remains immutable through shape transitions");
+    }
+    previous = field;
+    previousAmplitude = amplitude;
+    if (querySide) {
+      CHECK(ground.ResidentStitchedField(at) == field,
+            "unchanged scope retains the current stitched product");
+      const LongitudeLatitude eye{.LongitudeDeg = -45, .LatitudeDeg = 45};
+      const auto sample = ground.At(eye).AslM();
+      CHECK(sample && std::abs(*sample - amplitude) < 1.0e-4,
+            "sampled ground follows the same terrain transition");
+    }
+    CHECK(std::abs(static_cast<double>(field->AtM(3, 3)) - amplitude) < 1.0e-4,
+          "worker output follows the current analytical terrain declaration");
+    CHECK(!field->Sources().empty() &&
+              std::ranges::all_of(field->Sources(),
+                                  [shaped](const auto &source) {
+                                    return (source.From ==
+                                            Data::TileSourceIdentity::Origin::Shaped) == shaped;
+                                  }),
+          "returning to empty Kind restores provider provenance");
+  }
+}
+
 }
 
 int main() {
@@ -91,66 +168,7 @@ int main() {
           "inspection starts no IO, compute, reservation or mesh generation");
     const GroundStream ground(pool, {.Z = 2, .Grid = 4});
     const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
-    std::shared_ptr<const TerrainField> previous;
-    double previousAmplitude = 0.0;
-    for (const double amplitude : {0.0, 5.0, 9.0, 0.0}) {
-      const bool shaped = amplitude != 0.0;
-      pool.Shapes(
-          shaped ? ShapedGround{.Kind = "sineRidge", .AmplitudeM = amplitude, .WavelengthM = 1.0e12}
-                 : ShapedGround{});
-      if (previous && previous->Certificate().IsComplete()) {
-        CHECK(!pool.CertificateCurrent(previous->Certificate()),
-              "shape transition revokes old provider certificate");
-      }
-      const uint64_t revision = pool.TerrainScopeRevision();
-      const auto declaration = pool.Shaped();
-      pool.Shapes(declaration);
-      CHECK(pool.TerrainScopeRevision() == revision,
-            "an identical declaration does not revoke terrain scope");
-      std::shared_ptr<const TerrainField> field;
-      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-      do {
-        const auto result =
-            querySide ? ground.PollStitchedField(at, field) : pool.Field(at, &field);
-        if (result == TilePool::Reply::Ready) { break; }
-        (void)pool.AwaitLanding(0.01);
-      } while (std::chrono::steady_clock::now() < deadline);
-      CHECK(field != nullptr, "each terrain declaration yields a worker product");
-      if (field) {
-        CHECK(field->Certificate().TerrainScopeRevision() == revision &&
-                  field->Certificate().ScopeCurrent(revision),
-              "provider and shaped snapshots both retain their captured terrain scope");
-      }
-      if (field && !shaped) {
-        CHECK(field->Certificate().TerrainScopeRevision() == revision &&
-                  pool.CertificateCurrent(field->Certificate()),
-              "provider certificate captures current pool scope");
-      }
-      if (!field) { continue; }
-      if (previous) {
-        CHECK(std::abs(static_cast<double>(previous->AtM(3, 3)) - previousAmplitude) < 1.0e-4,
-              "a borrowed old field remains immutable through shape transitions");
-      }
-      previous = field;
-      previousAmplitude = amplitude;
-      if (querySide) {
-        CHECK(ground.ResidentStitchedField(at) == field,
-              "unchanged scope retains the current stitched product");
-        const LongitudeLatitude eye{.LongitudeDeg = -45, .LatitudeDeg = 45};
-        const auto sample = ground.At(eye).AslM();
-        CHECK(sample && std::abs(*sample - amplitude) < 1.0e-4,
-              "sampled ground follows the same terrain transition");
-      }
-      CHECK(std::abs(static_cast<double>(field->AtM(3, 3)) - amplitude) < 1.0e-4,
-            "worker output follows the current analytical terrain declaration");
-      CHECK(!field->Sources().empty() &&
-                std::ranges::all_of(field->Sources(),
-                                    [shaped](const auto &source) {
-                                      return (source.From ==
-                                              Data::TileSourceIdentity::Origin::Shaped) == shaped;
-                                    }),
-            "returning to empty Kind restores provider provenance");
-    }
+    CheckFieldTransitions(pool, ground, at, querySide);
     TileBuild mesh;
     const auto awaitMesh = [&] {
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
