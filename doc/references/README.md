@@ -35,6 +35,27 @@ A18 Pros 8 GB sind der geteilte Systemspeicher, kein Assetbudget. Physische Peak
 komprimierten/entpackten Daten, Übergängen, Renderzielen und Scratch zählen; gemeinsame
 Seiten einmal erfassen. Spätes Aussortieren gibt den vorherigen Ladepeak nicht zurück.
 
+## Gemeinsamer Engine-Referenzkern
+
+Die fünf Grundlagen tragen unterschiedliche Schritte derselben Pipeline; weitere
+Einträge bleiben gezielte Fachreferenzen. Auswahl, Original-/Abbildungsprüfung und
+Abstimmung: [#1225](https://github.com/Weichwolf/outshine/issues/1225#issuecomment-6410933180).
+Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
+
+| Schritt | Grundlage und übernommener Baustein | Grenze |
+|---|---|---|
+| Fertige räumliche Produkte | [Unreal DDC / World Partition / HLOD](engine/unreal/prepared-assets.md): regenerierbare Produkte, Zellen und vorbereitete Proxies | Runtime-Miss→Generator ist unsere Anpassung; dauerhafte Rezepte/Weltentscheidungen separat sichern |
+| Bedarf vor Content-IO | [Cesium Native Selection](engine/visibility-driven-demand.md#cesium-native-selection): Hierarchie/SSE und verfügbare Ersatzabdeckung | Fallback und Rundumabdeckung explizit wählen; geometrischer Fehler ist kein Material-/Funktionsfehler |
+| Residente Renderauswahl | [GPU-Driven Rendering Pipelines 2015](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf): Instanz-/Clusterwahl, Kompaktion, indirekte Submission | Spart vorheriges IO/Decode/Upload nicht automatisch; gemeinsame Metal-/Vulkan-Verträge |
+| Bewegliches Höhenfeld | [Geometry Clipmaps 2004](terrain/siggraph/2004-geometry-clipmaps.pdf): toroidale Wiederverwendung und begrenzte Randupdates | Bei Überlast fällt Feindetail zurück; kein allgemeines Gebäude-/Transport-LOD |
+| Physikalische Bildantwort | [Frostbite PBR, Revision 3](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf): Material-/Licht-/Kameraeinheiten und unabhängiger Referenzvergleich | Geometrie-SSE ersetzt keine Materialfehlerprüfung; historische Pass-/Pufferkosten neu messen |
+
+Worldpublikation, Simulation, Audio, JS und Persistenz-Lebensdauer besitzen
+[#1230–#1232](https://github.com/Weichwolf/outshine/issues/1225); die fünf Quellen
+decken sie nicht vollständig ab. Generatoren bleiben ein breites Forschungsfeld,
+ohne vorgeschriebene Solver-/Grammatikfamilie. Refactor und gemeinsame Abnahme
+der gesamten aktuellen Codebasis gehen neuer Featureintegration voraus (#1233/#1320).
+
 ## PDFs und Nutzung
 
 Alle vorhandenen PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
@@ -852,7 +873,8 @@ von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind On
 das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
 [Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
-prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
+prüft konkrete MapLibre-/CesiumJS-Codepfade und ergänzt die getrennte
+Cesium-Native-Originalprüfung samt Fallback-/Ladegrenzen.
 
 ### Gebäudeeingaben — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#17](https://github.com/Weichwolf/outshine/issues/17)
 
@@ -871,7 +893,7 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
 | Bereich / WI | Grundlage | Entscheidung für Outshine |
 |---|---|---|
 | Quellen/HTTP/Cache — [#10](https://github.com/Weichwolf/outshine/issues/10) | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
-| Weltweite Auswahl — [#12](https://github.com/Weichwolf/outshine/issues/12) | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
+| Weltweite Auswahl — [#12](https://github.com/Weichwolf/outshine/issues/12) | [Cesium Native: Auswahl](engine/visibility-driven-demand.md#cesium-native-selection) | SSE vor Content-IO; Ersatzabdeckung, `forbidHoles` und erreichte Zielqualität unterscheiden; Blick-Culling getrennt von Rundum-Residency |
 | Import/Material/Animation — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#6](https://github.com/Weichwolf/outshine/issues/6) / [#2](https://github.com/Weichwolf/outshine/issues/2) | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Material-/Transformkonventionen als Referenz; kein glTF-Import/-Export im Produkt |
 | Backend/Submission — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#4](https://github.com/Weichwolf/outshine/issues/4) | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Historischer SDL3_GPU-Bezug; aktuell native Metal-/Vulkan-Verträge in [#48](https://github.com/Weichwolf/outshine/issues/48) |
 | JS/UI/LLM — [#2](https://github.com/Weichwolf/outshine/issues/2) | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
