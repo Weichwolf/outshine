@@ -1,9 +1,10 @@
 """Bounded source/DEM-derived canonical transport ports, independent of core order.
 
-The current executable vertical slice qualifies unbranched admitted ground
-components. Other domains remain Pending; this is not a whole-world/native-plan
-admission. Native IDs, original source references, omissions and height mappings
-remain explicit. No cache, job manager or native product codec is introduced.
+Unbranched admitted ground components and explicitly enabled straight bridge
+height recipes are executable. Other domains remain Pending; this is not a
+whole-world/native-plan or bridge-clearance admission. Native IDs, original
+source references, omissions and height mappings remain explicit. No cache,
+job manager or native product codec is introduced.
 """
 
 from ._api import derive_canonical_ports
