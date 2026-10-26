@@ -335,7 +335,7 @@ bool RuntimeScene::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::st
 }
 
 bool RuntimeScene::Reshape(std::string &error) {
-  if (ShapeCooking_) {
+  if (ClusterBuild_) {
     error = Says::GeometryBuildAlreadyActive;
     return false;
   }
@@ -1144,7 +1144,7 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
     RestoreGeometryBuildState();
     return std::unexpected(std::string(Describe(bound.error())));
   }
-  ShapeCooking_.emplace(ShapeParts_, ShapeParts_.Surfaces);
+  ClusterBuild_.emplace(ShapeParts_, ShapeParts_.Surfaces);
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   return {};
@@ -1169,8 +1169,8 @@ std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
 std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {
   if (!GeometryBuildActive()) { return std::unexpected(Says::NoGeometryBuild); }
   const auto phaseAt = std::chrono::steady_clock::now();
-  if (ShapeCooking_) {
-    auto cooked = ShapeCooking_->Advance(itemsMost);
+  if (ClusterBuild_) {
+    auto cooked = ClusterBuild_->Advance(itemsMost);
     const double sliceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
             .count();
@@ -1185,7 +1185,7 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
     Shaped_ = Render::ViewShape(ShapeParts_);
     ShapedAt_ = Held_.Revision();
     EverShaped_ = true;
-    ShapeCooking_.reset();
+    ClusterBuild_.reset();
     BuildStage_ = GeometryBuildStage::Plan;
     return false;
   }
@@ -1205,7 +1205,7 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
 }
 
 void RuntimeScene::RestoreGeometryBuildState() noexcept {
-  ShapeCooking_.reset();
+  ClusterBuild_.reset();
   BuildStage_ = GeometryBuildStage::Idle;
   BuildTicket_ = {};
   PendingDrivenParts_.reset();
