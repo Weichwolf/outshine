@@ -26,7 +26,7 @@ class AffineGround:
         residual = xyz[:, 2] - xy @ gradient
         self.intercept = float((residual.min() + residual.max()) / 2)
         self.gradient = gradient
-        self.domain = CoarseDomain(source)
+        self.domain = CoarseDomain(source.surface, source.face_parts)
         error = float(np.max(abs(self.intercept + xy @ gradient - xyz[:, 2])))
         self.report = {
             "method": "least-squares gradient with common grade scaling and exact fixed-gradient minimax intercept",

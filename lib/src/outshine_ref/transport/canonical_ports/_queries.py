@@ -8,9 +8,9 @@ from ._geodesy import frame, positions_in_frame
 
 
 class CoarseDomain:
-    def __init__(self, source):
-        self.parts = source.face_parts
-        self.triangles = source.surface.vertices[source.surface.triangles, :2]
+    def __init__(self, surface, face_parts):
+        self.parts = face_parts
+        self.triangles = surface.vertices[surface.triangles, :2]
         self.lo = self.triangles.min(axis=1)
         self.hi = self.triangles.max(axis=1)
         self.edge1 = self.triangles[:, 1] - self.triangles[:, 0]
@@ -42,7 +42,7 @@ class CoarseDomain:
 class CoarseFieldQuery:
     def __init__(self, source, plan):
         self.plan = plan
-        self.domain = CoarseDomain(source)
+        self.domain = CoarseDomain(source.surface, source.face_parts)
 
     @property
     def queries(self):

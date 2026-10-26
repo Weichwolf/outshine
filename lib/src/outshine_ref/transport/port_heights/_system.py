@@ -178,6 +178,7 @@ def polygon_fit(
         "setup_ms": setup_ms,
         "iterations": result.nit,
         "polygon_sides": sides,
+        "termination_complete": bool(result.success and result.status == 0),
         "solver_ms": (time.perf_counter() - began) * 1000 - setup_ms,
     }
     return coefficients, report
@@ -264,6 +265,7 @@ def fit_planes(
             "setup_ms": setup_ms,
             "primal_objective": result.obj_val,
             "dual_objective": result.obj_val_dual,
+            "termination_complete": str(result.status) == "Solved",
         }
     elif method == "lp":
         coefficients, report = polygon_fit(
