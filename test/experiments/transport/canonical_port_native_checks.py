@@ -100,6 +100,51 @@ class NativeCanonicalPorts(unittest.TestCase):
         self.assertEqual(len(result.report["components"][0]["selected"]), 591)
         self.assertEqual(calls, [])
 
+    def test_existing_lp_solver_meets_the_same_real_inputs_and_quality(self):
+        result = self.derive(self.demands, method="lp")
+        reversed_result = self.derive(self.demands[::-1], method="lp")
+        self.assertEqual(result.reasons, ("",) * len(self.demands))
+        self.assertEqual(result.values, reversed_result.values[::-1])
+        for row in result.report["components"]:
+            field = row["field"]
+            self.assertEqual(field["selected_method"], "lp")
+            self.assertLessEqual(field["maximum_original_prior_error_m"], 0.5)
+            self.assertLessEqual(
+                field["audit"]["maximum_normalized_continuous_grade"], 1
+            )
+            self.assertEqual(field["audit"]["bad_finite_road_faces"], 0)
+            self.assertTrue(
+                field["analytic_contacts"]["analytic_c1_by_shared_plane_identity"]
+            )
+            self.assertLessEqual(
+                field["analytic_contacts"]["maximum_contact_height_error_m"], 1e-8
+            )
+
+    def test_iteration_truncated_feasible_fits_do_not_become_canonical_values(self):
+        demands = interior_demands(self.source, self.path)
+        for iterations in (7, 12):
+            with self.subTest(iterations=iterations):
+                budget = PortBudget(
+                    surface=replace(PortBudget().surface, max_iterations=iterations)
+                )
+                result = self.derive(demands, method="cone", budget=budget)
+                self.assertTrue(all(value is None for value in result.values))
+                self.assertTrue(
+                    all(
+                        "canonical_solver_incomplete" in reason
+                        for reason in result.reasons
+                    )
+                )
+                field = result.report["components"][0]["field"]
+                self.assertLessEqual(field["maximum_original_prior_error_m"], 0.5)
+                self.assertTrue(
+                    any(
+                        row["fitting"]
+                        and not row["fitting"]["solver"]["termination_complete"]
+                        for row in field["rounds"]
+                    )
+                )
+
     def test_terrain_budget_is_shared_across_components_and_port_queries(self):
         full = self.derive(self.demands)
         limit = full.report["work"]["terrain_samples"] - 1

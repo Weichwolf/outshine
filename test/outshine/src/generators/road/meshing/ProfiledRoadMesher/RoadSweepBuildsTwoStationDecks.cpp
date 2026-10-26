@@ -1,4 +1,4 @@
-#include "src/generators/road/ProfiledRoadMesher.h"
+#include "src/generators/road/meshing/ProfiledRoadMesher.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>

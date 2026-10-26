@@ -50,7 +50,9 @@ def main():
     )
     parser.add_argument("--level", type=int, default=20)
     parser.add_argument("--maximum-prior-change-m", type=float, required=True)
-    parser.add_argument("--method", choices=("auto", "affine", "cone"), default="auto")
+    parser.add_argument(
+        "--method", choices=("auto", "affine", "cone", "lp"), default="auto"
+    )
     parser.add_argument("--reverse", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
