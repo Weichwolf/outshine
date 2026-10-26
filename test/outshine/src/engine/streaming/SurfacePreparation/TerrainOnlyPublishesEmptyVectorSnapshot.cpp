@@ -55,7 +55,7 @@ int main() {
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
+  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    first,
