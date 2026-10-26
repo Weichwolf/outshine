@@ -115,6 +115,13 @@ def build(plan, heights):
         raise ValueError("known declared tread partition recipe required")
     if envelope is not None:
         note["envelope_remesh"] = envelope
+    if plan.get("float32_edge_cleanup", False):
+        from stair_float32_edges import contract_alias_edges
+
+        points, faces, owners, steps, cleanup = contract_alias_edges(
+            points, faces, owners, steps
+        )
+        note["float32_edge_cleanup"] = cleanup
     body, top, bottom, walls, families, volume = close(points, faces, steps, levels)
     extra = {}
     if "stairs" in note:

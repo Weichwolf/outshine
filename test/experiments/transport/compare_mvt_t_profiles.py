@@ -24,12 +24,34 @@ from stair_junction_body import build
 from stair_network_geometry import vertex_links
 
 
-def run(solver, *, output=None, trace_memory=False, formulation="projected"):
+def run(
+    solver,
+    *,
+    output=None,
+    trace_memory=False,
+    formulation="projected",
+    input_path=FIXTURE,
+    region_sources=None,
+    compact_stairs=None,
+):
     if trace_memory:
         tracemalloc.start()
     began = time.perf_counter()
-    case, sources = inputs()
-    proposal = plan_connections(sources)
+    case, sources = inputs(input_path)
+    if region_sources is None:
+        proposal = plan_connections(sources)
+    else:
+        from mvt_t_profile_region import region_inputs
+
+        case, sources, proposal = region_inputs(case, region_sources)
+    if compact_stairs:
+        from mvt_t_compact_caps import compact_caps
+
+        if region_sources is None:
+            raise ValueError(
+                "compact flights require explicit observed region selection"
+            )
+        proposal = compact_caps(sources, proposal, compact_stairs)
     connected = time.perf_counter()
     plan = prepare_profiles(case, sources, proposal, mesh_recipe="outward_binary_grid")
     prepared = time.perf_counter()
@@ -61,6 +83,11 @@ def run(solver, *, output=None, trace_memory=False, formulation="projected"):
         "proof": proof,
         "layout": plan["note"],
         "station_refinement": plan["station_refinement"],
+        **(
+            {"region_work": plan["region_context"]["work"]}
+            if "region_context" in plan
+            else {}
+        ),
         "connection_work": proposal["work"],
         "footprint_checks": plan["footprint_checks"],
         "landing_displacement_m": plan["landing_displacement_m"],
@@ -84,7 +111,7 @@ def run(solver, *, output=None, trace_memory=False, formulation="projected"):
         },
         "explicit_copy_bytes": {
             "quantized_xy_f32_then_f64": plan["xy"].size * 12,
-            "three_sampler_xyz_constructions": len(plan["rows"]) * len(heights) * 24,
+            "source_sampler_xyz_constructions": len(plan["rows"]) * len(heights) * 24,
         },
         "copy_scope": "only these explicit array paths; not complete allocator, native, IO or GPU traffic",
         "counts": {
@@ -107,14 +134,23 @@ def run(solver, *, output=None, trace_memory=False, formulation="projected"):
         np.savez_compressed(output / "products.npz", **arrays)
         (output / "shared-plan.json").write_text(json.dumps(products, indent=2) + "\n")
         display(plan, heights, data, products, output / "profiles.png")
+        if plan.get("compact_flights"):
+            from mvt_t_profile_display import display_compact_flights
+
+            display_compact_flights(plan, data, output)
     return report
 
 
-def compare(output):
+def compare(output, *, input_path=FIXTURE, region_sources=None, compact_stairs=None):
     output.mkdir(parents=True, exist_ok=True)
     results = {}
+    worker = [sys.executable, str(Path(__file__).resolve()), "--input", str(input_path)]
+    if region_sources is not None:
+        worker += ["--region-sources", *region_sources]
+    if compact_stairs:
+        worker += ["--compact-stairs", *compact_stairs]
     for solver in ("highs-ds", "highs-ipm"):
-        cmd = [sys.executable, str(Path(__file__).resolve()), "--worker", solver]
+        cmd = worker + ["--worker", solver]
         if solver == "highs-ds":
             cmd += ["--output", str(output)]
         completed = subprocess.run(
@@ -122,9 +158,7 @@ def compare(output):
         )
         results[solver] = json.loads(completed.stdout)
         print(json.dumps({"solver": solver, "result": results[solver]}), flush=True)
-    cmd = [
-        sys.executable,
-        str(Path(__file__).resolve()),
+    cmd = worker + [
         "--worker",
         "highs-ds",
         "--trace-memory",
@@ -134,9 +168,8 @@ def compare(output):
     )
     results["memory_run"] = json.loads(measured.stdout)
     explicit = subprocess.run(
-        [
-            sys.executable,
-            str(Path(__file__).resolve()),
+        worker
+        + [
             "--worker",
             "highs-ds",
             "--formulation",
@@ -166,13 +199,21 @@ def compare(output):
         raise ValueError(
             "equivalent height formulations differ on the finite objective"
         )
-    case, _rows = inputs()
+    case, _rows = inputs(input_path)
     report = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
-        "input_sha256": hashlib.sha256(FIXTURE.read_bytes()).hexdigest(),
-        "baseline_frozen_native": reproduce(case),
+        "input_sha256": hashlib.sha256(input_path.read_bytes()).hexdigest(),
+        **({"compact_stairs": compact_stairs} if compact_stairs else {}),
+        **(
+            {"baseline_frozen_native": reproduce(case)}
+            if region_sources is None
+            else {
+                "capture_provenance": case["provenance"],
+                "region_sources": region_sources,
+            }
+        ),
         "results": results,
         "scope": "local 2.5D proposal; outer contacts, native consumers and device admission remain open",
     }
@@ -184,6 +225,9 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--worker", choices=("highs-ds", "highs-ipm"))
     parser.add_argument("--trace-memory", action="store_true")
+    parser.add_argument("--input", type=Path, default=FIXTURE)
+    parser.add_argument("--region-sources", nargs="+")
+    parser.add_argument("--compact-stairs", nargs="+")
     parser.add_argument(
         "--formulation", choices=("projected", "equalities"), default="projected"
     )
@@ -196,11 +240,19 @@ def main():
                     output=args.output,
                     trace_memory=args.trace_memory,
                     formulation=args.formulation,
+                    input_path=args.input,
+                    region_sources=args.region_sources,
+                    compact_stairs=args.compact_stairs,
                 )
             )
         )
     elif args.output is not None:
-        compare(args.output)
+        compare(
+            args.output,
+            input_path=args.input,
+            region_sources=args.region_sources,
+            compact_stairs=args.compact_stairs,
+        )
     else:
         parser.error("an explicit output directory is required")
 
