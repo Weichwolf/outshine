@@ -22,9 +22,15 @@ WaterAsset Source(float first, float second) {
                                {.FirstPoint = 4, .PointCount = 4},
                                {.FirstPoint = 8, .PointCount = 4},
                                {.FirstPoint = 4, .PointCount = 4}},
+                     .Courses = {},
+                     .Levels = {},
                      .Points = {-.001,  -.002,  -.001, .001,   .001,  .001,  .001,   -.002,
                                 -.0002, -.0002, .0002, -.0002, .0002, .0002, -.0002, .0002,
-                                -.001,  -.001,  -.001, .002,   .001,  .002,  .001,   -.001}});
+                                -.001,  -.001,  -.001, .002,   .001,  .002,  .001,   -.001},
+                     .Tiles = {},
+                     .ProcessedTiles = 0,
+                     .Sources = {},
+                     .Inputs = {}});
 }
 
 double RingArea(std::span<const LongitudeLatitude> ring, const TangentFrame &frame) {
@@ -38,10 +44,14 @@ double RingArea(std::span<const LongitudeLatitude> ring, const TangentFrame &fra
 }
 
 void CheckCoverage(const WaterSurfaceTopology &topology, const TangentFrame &frame) {
-  const std::array<LongitudeLatitude, 4> outer{
-      {{-.002, -.001}, {.002, -.001}, {.002, .001}, {-.002, .001}}};
-  const std::array<LongitudeLatitude, 4> hole{
-      {{-.0002, -.0002}, {.0002, -.0002}, {.0002, .0002}, {-.0002, .0002}}};
+  const std::array<LongitudeLatitude, 4> outer{{{.LongitudeDeg = -.002, .LatitudeDeg = -.001},
+                                                {.LongitudeDeg = .002, .LatitudeDeg = -.001},
+                                                {.LongitudeDeg = .002, .LatitudeDeg = .001},
+                                                {.LongitudeDeg = -.002, .LatitudeDeg = .001}}};
+  const std::array<LongitudeLatitude, 4> hole{{{.LongitudeDeg = -.0002, .LatitudeDeg = -.0002},
+                                               {.LongitudeDeg = .0002, .LatitudeDeg = -.0002},
+                                               {.LongitudeDeg = .0002, .LatitudeDeg = .0002},
+                                               {.LongitudeDeg = -.0002, .LatitudeDeg = .0002}}};
   const double expected = RingArea(outer, frame) - RingArea(hole, frame);
   double drawn = 0;
   for (const auto &face : topology.Faces) {
@@ -58,6 +68,7 @@ void CheckCoverage(const WaterSurfaceTopology &topology, const TangentFrame &fra
 
 void CheckReplay(const WaterAsset &source, WaterSurfaceTopology topology) {
   std::vector<Vec3> fitted;
+  fitted.reserve(topology.VerticesXY.size());
   for (const auto &xy : topology.VerticesXY) {
     fitted.push_back({{xy[0], xy[1], 20 + xy[0] * .001}});
   }
@@ -67,8 +78,10 @@ void CheckReplay(const WaterAsset &source, WaterSurfaceTopology topology) {
   if (!mesh) { return; }
   const auto prepared =
       source.WithSurfaces({.Mesh = std::move(*mesh),
+                           .Rejections = {},
                            .FaceSourceOffsets = std::move(topology.FaceSourceOffsets),
-                           .FaceSources = std::move(topology.FaceSources)});
+                           .FaceSources = std::move(topology.FaceSources),
+                           .ProfileDeclines = {}});
   CHECK(prepared, "no admitted source is lost or treated as an omission");
   if (!prepared) { return; }
   const auto encoded = prepared->EncodeNative(1 << 20);
@@ -105,7 +118,8 @@ void CheckBudgets(const WaterAsset &source, const TangentFrame &frame) {
   const auto spacing = BuildWaterSurfaceTopology(source, selected, frame, {.BoundarySpacingM = 0});
   CHECK(!spacing && spacing.error() == WaterTopologyError::InvalidInput,
         "invalid refinement cannot enter GEOS");
-  const std::array<uint32_t, 2> duplicate{0, 0}, unknown{0, 2};
+  const std::array<uint32_t, 2> duplicate{0, 0};
+  const std::array<uint32_t, 2> unknown{0, 2};
   CHECK(!BuildWaterSurfaceTopology(source, duplicate, frame) &&
             !BuildWaterSurfaceTopology(source, unknown, frame) &&
             !BuildWaterSurfaceTopology(source, {}, frame),
@@ -120,7 +134,8 @@ void CheckBudgets(const WaterAsset &source, const TangentFrame &frame) {
 int main() {
   const auto source = Source(100, 1500);
   const auto frame = TangentFrame::At({});
-  const std::array<uint32_t, 2> selected{0, 1}, reversed{1, 0};
+  const std::array<uint32_t, 2> selected{0, 1};
+  const std::array<uint32_t, 2> reversed{1, 0};
   const auto topology = BuildWaterSurfaceTopology(source, selected, frame);
   CHECK(topology, "overlapping source fragments produce a shared horizontal domain");
   if (!topology) { return Report(); }
