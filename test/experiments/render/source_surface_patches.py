@@ -19,12 +19,19 @@ class SurfacePatch:
 
 def wall_domains(shape, roofs, bottom):
     """Partition original contour edges by the supplied planar roof domains."""
+    boundaries = [
+        (shapely.get_coordinates(boundary), plane)
+        for domain, plane in roofs
+        for part in shapely.get_parts(domain)
+        for boundary in [part.exterior, *part.interiors]
+    ]
     result = []
     for ring, hole in [(shape["ring"], False), *[(r, True) for r in shape["holes"]]]:
         ring = np.asarray(ring, float)
         following = np.roll(ring, -1, axis=0)
         signed = np.sum(ring[:, 0] * following[:, 1] - ring[:, 1] * following[:, 0])
         orientation = 1 if (signed >= 0) != hole else -1
+        tolerance = 64 * np.finfo(float).eps * max(1, np.max(np.abs(ring)))
         for a, b in zip(ring, np.roll(ring, -1, axis=0), strict=True):
             edge = b - a
             length = np.linalg.norm(edge)
@@ -32,29 +39,22 @@ def wall_domains(shape, roofs, bottom):
                 raise ValueError("zero-length original wall edge")
             direction = edge / length
             intervals = []
-            tolerance = 64 * np.finfo(float).eps * max(1, np.max(np.abs(ring)))
-            for domain, plane in roofs:
-                for part in shapely.get_parts(domain):
-                    for boundary in [part.exterior, *part.interiors]:
-                        points = shapely.get_coordinates(boundary)
-                        distance = (points[:, 0] - a[0]) * direction[1] - (
-                            points[:, 1] - a[1]
-                        ) * direction[0]
-                        along = (points - a) @ direction
-                        for at in range(len(points) - 1):
-                            if (
-                                max(abs(distance[at]), abs(distance[at + 1]))
-                                > tolerance
-                            ):
-                                continue
-                            first, last = sorted(along[at : at + 2])
-                            first, last = max(first, 0), min(last, length)
-                            if first < tolerance:
-                                first = 0.0
-                            if length - last < tolerance:
-                                last = length
-                            if last > first:
-                                intervals.append((first, last, plane))
+            for points, plane in boundaries:
+                distance = (points[:, 0] - a[0]) * direction[1] - (
+                    points[:, 1] - a[1]
+                ) * direction[0]
+                along = (points - a) @ direction
+                for at in range(len(points) - 1):
+                    if max(abs(distance[at]), abs(distance[at + 1])) > tolerance:
+                        continue
+                    first, last = sorted(along[at : at + 2])
+                    first, last = max(first, 0), min(last, length)
+                    if first < tolerance:
+                        first = 0.0
+                    if length - last < tolerance:
+                        last = length
+                    if last > first:
+                        intervals.append((first, last, plane))
             cuts = np.unique(
                 [0, length, *[v for low, high, _ in intervals for v in [low, high]]]
             )

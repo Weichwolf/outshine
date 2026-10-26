@@ -26,7 +26,11 @@ recipe/quality settings. No equal measured image-quality claim follows. The16km
 audit is metadata-only; no near-world/frame-budget admission is inferred.
 
 Source forms are prepared once for the demanded nodes, material surface measures
-once for their union, and node products reused across queries. Compare actual
+once for their union, and node products reused across queries. Within each shape,
+wall-domain construction reads each immutable roof boundary once and retains its
+coordinates only for that call. Edge projections, interval ordering/tolerances,
+polygon construction and material accumulation remain unchanged. This avoids
+repeated GEOS extraction without a persistent cache or approximate geometry. Compare actual
 post-qualification original needs with the earlier lower bound. Missing parent
 files retain every source in that subtree; unbounded originals remain required.
 Count known source-summary faces separately. They are not native runtime
