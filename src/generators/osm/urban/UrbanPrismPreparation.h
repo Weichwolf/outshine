@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_URBANPRISMPREPARATION_H
-#define OUTSHINE_ENGINE_STREAMING_URBANPRISMPREPARATION_H
+#ifndef OUTSHINE_GENERATORS_OSM_URBAN_URBANPRISMPREPARATION_H
+#define OUTSHINE_GENERATORS_OSM_URBAN_URBANPRISMPREPARATION_H
 
 #include "Tasks.h"
 #include "UrbanPrismCodec.h"
@@ -13,10 +13,10 @@
 #include <stop_token>
 #include <string>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 class UrbanPrismPreparation {
 public:
-  using Product = std::shared_ptr<const Generators::Osm::UrbanPrisms>;
+  using Product = std::shared_ptr<const UrbanPrisms>;
   using Result = std::expected<Product, std::string>;
   using Captured = std::expected<AssetFactory, std::string>;
   using Capture = std::function<std::optional<Captured>(std::stop_token)>;
@@ -32,7 +32,7 @@ public:
   UrbanPrismPreparation(Tasks &pool,
                         std::string database,
                         std::string request,
-                        size_t bytesMost = Generators::Osm::kUrbanPrismBytesMost);
+                        size_t bytesMost = kUrbanPrismBytesMost);
   ~UrbanPrismPreparation();
   UrbanPrismPreparation(const UrbanPrismPreparation &) = delete;
   UrbanPrismPreparation &operator=(const UrbanPrismPreparation &) = delete;
