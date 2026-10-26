@@ -47,6 +47,11 @@ int main() {
           "digest matches independent padding and block-boundary vectors");
     for (size_t split : std::array<size_t, 10>{0, 1, 55, 56, 63, 64, 65, 127, 128, test.Bytes}) {
       if (split > bytes.size()) { continue; }
+      Sha256Prefix streamed(nullptr, 0);
+      streamed.Append(bytes.data(), split);
+      streamed.Append(bytes.data() + split, bytes.size() - split);
+      CHECK(streamed.Hex(nullptr, 0) == test.Digest,
+            "streamed chunks match the independent standard digest without a whole-message copy");
       const Sha256Prefix prefix(bytes.data(), split);
       CHECK(prefix.Hex(bytes.data() + split, bytes.size() - split) == test.Digest,
             "reused partial-block prefix matches the independent whole-message oracle");

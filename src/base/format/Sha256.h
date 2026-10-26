@@ -16,11 +16,11 @@ namespace outshine {
 class Sha256Prefix {
 public:
   Sha256Prefix(const void *data, size_t bytes) noexcept;
+  void Append(const void *data, size_t bytes) noexcept;
   [[nodiscard]] std::array<uint8_t, 32> Digest(const void *data, size_t bytes) const noexcept;
   [[nodiscard]] std::string Hex(const void *data, size_t bytes) const;
 
 private:
-  void Append(const void *data, size_t bytes) noexcept;
 #ifdef __APPLE__
   CC_SHA256_CTX State_{};
 #else
