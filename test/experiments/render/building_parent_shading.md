@@ -60,6 +60,17 @@ python -B -W error test/experiments/render/compare_building_parent_shading.py \
   --output <fresh-system-temp-view>
 ```
 
+The composed producer accepts the existing `--buffer-path components` recipe;
+scalar remains its default. To compare the fixed recipe/response combinations,
+run `compare_building_regional_hierarchy.py --scalar <scalar>/parents
+--components <components>/parents --fits-scalar <scalar>/fits/2
+--fits-components <components>/fits/2`, plus its source/controls/output arguments.
+Both fit roots are required together. This compares original, scalar full/two
+and component full/two on one ROI and original rest; same-recipe T is exact.
+Without fit roots the previous opaque/full comparison remains unchanged.
+Price the complete producer separately from shader work and dense stored weights.
+No new recipe parameter, quality threshold or native format is selected here.
+
 For strict opaque-blocked work run `diagnose_building_layer_work.py` with the
 same comparator arguments. It preserves the actual shade/composition path,
 checks per-record lobe counts against the shader, and verifies exact per-sample
