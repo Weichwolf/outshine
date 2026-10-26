@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "Check.h"
 #include "TerrainTiles.h"
 

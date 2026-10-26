@@ -10,6 +10,155 @@
 #include <variant>
 #include <vector>
 
+namespace {
+void CheckCellFailures(outshine::Generators::RawTile &cellRaw,
+                       const outshine::Ground::HeightField &heights,
+                       const outshine::Generators::BuildingMesh &mesher) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto westCell = cellRaw.Structures.front().Cell;
+  const auto eastCell = cellRaw.Structures.back().Cell;
+  cellRaw.RequestedCell = 0;
+  auto invalidCellScratch = mesher.Scratch();
+  Generators::BakedTile invalidCell;
+  const auto badCell =
+      Generators::BakeStructures(cellRaw, heights, mesher, *invalidCellScratch, invalidCell);
+  CHECK(!badCell && std::get_if<Generators::StructureBakeErrorKind>(&badCell.error()) != nullptr &&
+            *std::get_if<Generators::StructureBakeErrorKind>(&badCell.error()) ==
+                Generators::StructureBakeErrorKind::InvalidCell,
+        "reserved whole-tile address cannot be requested as a cell product");
+  cellRaw.RequestedCell = eastCell.Index;
+  cellRaw.Structures.front().Cell.Index = 0;
+  auto invalidSourceScratch = mesher.Scratch();
+  Generators::BakedTile invalidSource;
+  const auto badSource =
+      Generators::BakeStructures(cellRaw, heights, mesher, *invalidSourceScratch, invalidSource);
+  CHECK(!badSource &&
+            std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) != nullptr &&
+            *std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) ==
+                Generators::StructureBakeErrorKind::InvalidCell,
+        "a malformed source in another cell cannot be silently omitted");
+  cellRaw.Structures.front().Cell = westCell;
+  cellRaw.RequestedCell = westCell.Index;
+  Generators::StructureBakeProgress cellProgress;
+  auto slicedScratch = mesher.Scratch();
+  const auto firstCell =
+      cellProgress.AdvanceStructures(cellRaw, heights, mesher, *slicedScratch, 1);
+  CHECK(firstCell && !*firstCell, "first worker slice pins the selected cell");
+  cellRaw.RequestedCell = eastCell.Index;
+  const auto changedCell =
+      cellProgress.AdvanceStructures(cellRaw, heights, mesher, *slicedScratch, 1);
+  CHECK(!changedCell &&
+            std::get_if<Generators::StructureBakeErrorKind>(&changedCell.error()) != nullptr &&
+            *std::get_if<Generators::StructureBakeErrorKind>(&changedCell.error()) ==
+                Generators::StructureBakeErrorKind::ChangedCell,
+        "worker slices reject a changed cell request");
+}
+
+void CheckCellGeometry(const outshine::Ground::GeoBounds &tileBounds,
+                       const outshine::Ground::HeightField &heights,
+                       const outshine::Generators::BuildingMesh &mesher) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const std::array westRing{47.004, 9.0005, 47.004, 9.0015, 47.0041, 9.0015, 47.0041, 9.0005};
+  const std::array eastRing{47.004, 9.0065, 47.004, 9.0075, 47.0041, 9.0075, 47.0041, 9.0065};
+  const auto westCell = Generators::StructureCellOf(tileBounds, westRing);
+  const auto eastCell = Generators::StructureCellOf(tileBounds, eastRing);
+  const std::array reversedWest{47.0041, 9.0005, 47.0041, 9.0015, 47.004, 9.0015, 47.004, 9.0005};
+  const auto reversedCell = Generators::StructureCellOf(tileBounds, reversedWest);
+  CHECK(westCell && eastCell && reversedCell && westCell->Index != eastCell->Index &&
+            westCell->Index == reversedCell->Index && westCell->Footprint.MinLonDeg < 9.001 &&
+            westCell->Footprint.MaxLonDeg > 9.001,
+        "tile-local cell ownership survives ring order and keeps the entire cross-cell footprint");
+  const Ground::GeoBounds datelineTile{
+      .MinLonDeg = 179.9, .MinLatDeg = 0, .MaxLonDeg = 180.0, .MaxLatDeg = 0.1};
+  const std::array datelineRing{0.05, 179.99, 0.05, -179.99, 0.06, -179.99, 0.06, 179.99};
+  const auto datelineCell = Generators::StructureCellOf(datelineTile, datelineRing);
+  CHECK(datelineCell && datelineCell->Footprint.MinLonDeg == 179.99 &&
+            datelineCell->Footprint.MaxLonDeg > 180.0,
+        "antimeridian crossing stays local and does not acquire world-size bounds");
+  auto invalidRing = westRing;
+  invalidRing[0] = std::numeric_limits<double>::quiet_NaN();
+  CHECK(!Generators::StructureCellOf(tileBounds, invalidRing),
+        "nonfinite source positions cannot obtain a cell identity");
+  if (!westCell || !eastCell) { return; }
+
+  Generators::RawTile cellRaw;
+  cellRaw.LatLon.assign(westRing.begin(), westRing.end());
+  cellRaw.LatLon.insert(cellRaw.LatLon.end(), eastRing.begin(), eastRing.end());
+  cellRaw.Structures = {{.PointCount = 4,
+                         .SourceFirst = 0,
+                         .Cell = *westCell,
+                         .HeightM = 12.0,
+                         .WallColour = {},
+                         .Facade = {}},
+                        {.LocalFirst = 4,
+                         .PointCount = 4,
+                         .SourceFirst = 4,
+                         .Cell = *eastCell,
+                         .HeightM = 16.0,
+                         .WallColour = {},
+                         .Facade = {}}};
+  cellRaw.TileSpanM = 1000.0;
+  cellRaw.Projection.FocalPx = 1000.0;
+  cellRaw.RequestedDetail = LevelOfDetail::Fine;
+  cellRaw.RequestedCell = westCell->Index;
+  auto westScratch = mesher.Scratch();
+  Generators::BakedTile west;
+  CHECK(Generators::BakeStructures(cellRaw, heights, mesher, *westScratch, west).has_value() &&
+            west.RequestedCell == westCell->Index && west.Prints.size() == 1 &&
+            west.OccupiedCells == (uint64_t{1} << (westCell->Index - 1u)) &&
+            west.CellBounds[westCell->Index - 1u] == westCell->Footprint &&
+            west.CellMaxHeightM[westCell->Index - 1u] == west.Prints.front().HeightM &&
+            west.Prints.front().FirstPoint == 0 && west.FootprintBounds &&
+            west.FootprintBounds->MinLonDeg == westCell->Footprint.MinLonDeg &&
+            west.FootprintBounds->MaxLonDeg == westCell->Footprint.MaxLonDeg,
+        "one cell bake owns only its structure and the full footprint bounds");
+  cellRaw.Eye = {.LongitudeDeg = 0, .LatitudeDeg = 0};
+  cellRaw.Projection.FocalPx = 1;
+  auto movedScratch = mesher.Scratch();
+  Generators::BakedTile moved;
+  CHECK(Generators::BakeStructures(cellRaw, heights, mesher, *movedScratch, moved).has_value() &&
+            moved.Digest == west.Digest,
+        "cell product is independent of the camera and focal length");
+  cellRaw.RequestedCell = eastCell->Index;
+  auto eastScratch = mesher.Scratch();
+  Generators::BakedTile east;
+  CHECK(Generators::BakeStructures(cellRaw, heights, mesher, *eastScratch, east).has_value() &&
+            east.Prints.size() == 1 && east.Prints.front().FirstPoint == 4 &&
+            east.OccupiedCells == (uint64_t{1} << (eastCell->Index - 1u)) &&
+            east.CellBounds[eastCell->Index - 1u] == eastCell->Footprint &&
+            east.CellMaxHeightM[eastCell->Index - 1u] == east.Prints.front().HeightM &&
+            east.Digest != west.Digest,
+        "a neighbouring cell produces a distinct product from the same source tile");
+  const std::array widerWestRing{
+      47.0041, 9.0011, 47.0041, 9.0018, 47.0042, 9.0018, 47.0042, 9.0011};
+  const auto extraCell = Generators::StructureCellOf(tileBounds, widerWestRing);
+  CHECK(extraCell && extraCell->Index == westCell->Index,
+        "the second footprint belongs to the same cell");
+  if (!extraCell) { return; }
+  auto unionRaw = cellRaw;
+  unionRaw.RequestedCell = westCell->Index;
+  unionRaw.LatLon.insert(unionRaw.LatLon.end(), widerWestRing.begin(), widerWestRing.end());
+  unionRaw.Structures.push_back({.LocalFirst = 8,
+                                 .PointCount = 4,
+                                 .SourceFirst = 8,
+                                 .Cell = *extraCell,
+                                 .HeightM = 24.0,
+                                 .WallColour = {},
+                                 .Facade = {}});
+  auto unionScratch = mesher.Scratch();
+  Generators::BakedTile united;
+  CHECK(Generators::BakeStructures(unionRaw, heights, mesher, *unionScratch, united).has_value() &&
+            united.Prints.size() == 2 &&
+            united.CellBounds[westCell->Index - 1u].MinLonDeg == westCell->Footprint.MinLonDeg &&
+            united.CellBounds[westCell->Index - 1u].MaxLonDeg == extraCell->Footprint.MaxLonDeg &&
+            united.CellMaxHeightM[westCell->Index - 1u] == 24.0f,
+        "one cell envelope includes both full footprints and their greatest height");
+  CheckCellFailures(cellRaw, heights, mesher);
+}
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -107,135 +256,6 @@ int main() {
                 Generators::StructureBakeErrorKind::ChangedDetail,
         "one tile cannot mix detail requests across worker slices");
 
-  const std::array westRing{47.004, 9.0005, 47.004, 9.0015, 47.0041, 9.0015, 47.0041, 9.0005};
-  const std::array eastRing{47.004, 9.0065, 47.004, 9.0075, 47.0041, 9.0075, 47.0041, 9.0065};
-  const auto westCell = Generators::StructureCellOf(tileBounds, westRing);
-  const auto eastCell = Generators::StructureCellOf(tileBounds, eastRing);
-  const std::array reversedWest{47.0041, 9.0005, 47.0041, 9.0015, 47.004, 9.0015, 47.004, 9.0005};
-  const auto reversedCell = Generators::StructureCellOf(tileBounds, reversedWest);
-  CHECK(westCell && eastCell && reversedCell && westCell->Index != eastCell->Index &&
-            westCell->Index == reversedCell->Index && westCell->Footprint.MinLonDeg < 9.001 &&
-            westCell->Footprint.MaxLonDeg > 9.001,
-        "tile-local cell ownership survives ring order and keeps the entire cross-cell footprint");
-  const Ground::GeoBounds datelineTile{
-      .MinLonDeg = 179.9, .MinLatDeg = 0, .MaxLonDeg = 180.0, .MaxLatDeg = 0.1};
-  const std::array datelineRing{0.05, 179.99, 0.05, -179.99, 0.06, -179.99, 0.06, 179.99};
-  const auto datelineCell = Generators::StructureCellOf(datelineTile, datelineRing);
-  CHECK(datelineCell && datelineCell->Footprint.MinLonDeg == 179.99 &&
-            datelineCell->Footprint.MaxLonDeg > 180.0,
-        "antimeridian crossing stays local and does not acquire world-size bounds");
-  auto invalidRing = westRing;
-  invalidRing[0] = std::numeric_limits<double>::quiet_NaN();
-  CHECK(!Generators::StructureCellOf(tileBounds, invalidRing),
-        "nonfinite source positions cannot obtain a cell identity");
-  if (!westCell || !eastCell) { return Report(); }
-
-  Generators::RawTile cellRaw;
-  cellRaw.LatLon.assign(westRing.begin(), westRing.end());
-  cellRaw.LatLon.insert(cellRaw.LatLon.end(), eastRing.begin(), eastRing.end());
-  cellRaw.Structures = {{.PointCount = 4,
-                         .SourceFirst = 0,
-                         .Cell = *westCell,
-                         .HeightM = 12.0,
-                         .WallColour = {},
-                         .Facade = {}},
-                        {.LocalFirst = 4,
-                         .PointCount = 4,
-                         .SourceFirst = 4,
-                         .Cell = *eastCell,
-                         .HeightM = 16.0,
-                         .WallColour = {},
-                         .Facade = {}}};
-  cellRaw.TileSpanM = 1000.0;
-  cellRaw.Projection.FocalPx = 1000.0;
-  cellRaw.RequestedDetail = LevelOfDetail::Fine;
-  cellRaw.RequestedCell = westCell->Index;
-  auto westScratch = mesher.Scratch();
-  Generators::BakedTile west;
-  CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *westScratch, west).has_value() &&
-            west.RequestedCell == westCell->Index && west.Prints.size() == 1 &&
-            west.OccupiedCells == (uint64_t{1} << (westCell->Index - 1u)) &&
-            west.CellBounds[westCell->Index - 1u] == westCell->Footprint &&
-            west.CellMaxHeightM[westCell->Index - 1u] == west.Prints.front().HeightM &&
-            west.Prints.front().FirstPoint == 0 && west.FootprintBounds &&
-            west.FootprintBounds->MinLonDeg == westCell->Footprint.MinLonDeg &&
-            west.FootprintBounds->MaxLonDeg == westCell->Footprint.MaxLonDeg,
-        "one cell bake owns only its structure and the full footprint bounds");
-  cellRaw.Eye = {.LongitudeDeg = 0, .LatitudeDeg = 0};
-  cellRaw.Projection.FocalPx = 1;
-  auto movedScratch = mesher.Scratch();
-  Generators::BakedTile moved;
-  CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *movedScratch, moved).has_value() &&
-            moved.Digest == west.Digest,
-        "cell product is independent of the camera and focal length");
-  cellRaw.RequestedCell = eastCell->Index;
-  auto eastScratch = mesher.Scratch();
-  Generators::BakedTile east;
-  CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *eastScratch, east).has_value() &&
-            east.Prints.size() == 1 && east.Prints.front().FirstPoint == 4 &&
-            east.OccupiedCells == (uint64_t{1} << (eastCell->Index - 1u)) &&
-            east.CellBounds[eastCell->Index - 1u] == eastCell->Footprint &&
-            east.CellMaxHeightM[eastCell->Index - 1u] == east.Prints.front().HeightM &&
-            east.Digest != west.Digest,
-        "a neighbouring cell produces a distinct product from the same source tile");
-  const std::array widerWestRing{
-      47.0041, 9.0011, 47.0041, 9.0018, 47.0042, 9.0018, 47.0042, 9.0011};
-  const auto extraCell = Generators::StructureCellOf(tileBounds, widerWestRing);
-  CHECK(extraCell && extraCell->Index == westCell->Index,
-        "the second footprint belongs to the same cell");
-  if (!extraCell) { return Report(); }
-  auto unionRaw = cellRaw;
-  unionRaw.RequestedCell = westCell->Index;
-  unionRaw.LatLon.insert(unionRaw.LatLon.end(), widerWestRing.begin(), widerWestRing.end());
-  unionRaw.Structures.push_back({.LocalFirst = 8,
-                                 .PointCount = 4,
-                                 .SourceFirst = 8,
-                                 .Cell = *extraCell,
-                                 .HeightM = 24.0,
-                                 .WallColour = {},
-                                 .Facade = {}});
-  auto unionScratch = mesher.Scratch();
-  Generators::BakedTile united;
-  CHECK(Generators::BakeStructures(unionRaw, *heights, mesher, *unionScratch, united).has_value() &&
-            united.Prints.size() == 2 &&
-            united.CellBounds[westCell->Index - 1u].MinLonDeg == westCell->Footprint.MinLonDeg &&
-            united.CellBounds[westCell->Index - 1u].MaxLonDeg == extraCell->Footprint.MaxLonDeg &&
-            united.CellMaxHeightM[westCell->Index - 1u] == 24.0f,
-        "one cell envelope includes both full footprints and their greatest height");
-  cellRaw.RequestedCell = 0;
-  auto invalidCellScratch = mesher.Scratch();
-  Generators::BakedTile invalidCell;
-  const auto badCell =
-      Generators::BakeStructures(cellRaw, *heights, mesher, *invalidCellScratch, invalidCell);
-  CHECK(!badCell && std::get_if<Generators::StructureBakeErrorKind>(&badCell.error()) != nullptr &&
-            *std::get_if<Generators::StructureBakeErrorKind>(&badCell.error()) ==
-                Generators::StructureBakeErrorKind::InvalidCell,
-        "reserved whole-tile address cannot be requested as a cell product");
-  cellRaw.RequestedCell = eastCell->Index;
-  cellRaw.Structures.front().Cell.Index = 0;
-  auto invalidSourceScratch = mesher.Scratch();
-  Generators::BakedTile invalidSource;
-  const auto badSource =
-      Generators::BakeStructures(cellRaw, *heights, mesher, *invalidSourceScratch, invalidSource);
-  CHECK(!badSource &&
-            std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) != nullptr &&
-            *std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) ==
-                Generators::StructureBakeErrorKind::InvalidCell,
-        "a malformed source in another cell cannot be silently omitted");
-  cellRaw.Structures.front().Cell = *westCell;
-  cellRaw.RequestedCell = westCell->Index;
-  Generators::StructureBakeProgress cellProgress;
-  auto slicedScratch = mesher.Scratch();
-  const auto firstCell =
-      cellProgress.AdvanceStructures(cellRaw, *heights, mesher, *slicedScratch, 1);
-  CHECK(firstCell && !*firstCell, "first worker slice pins the selected cell");
-  cellRaw.RequestedCell = eastCell->Index;
-  const auto changedCell =
-      cellProgress.AdvanceStructures(cellRaw, *heights, mesher, *slicedScratch, 1);
-  CHECK(!changedCell &&
-            std::get_if<Generators::StructureBakeErrorKind>(&changedCell.error()) != nullptr &&
-            *std::get_if<Generators::StructureBakeErrorKind>(&changedCell.error()) ==
-                Generators::StructureBakeErrorKind::ChangedCell,
-        "worker slices reject a changed cell request");
+  CheckCellGeometry(tileBounds, *heights, mesher);
   return Report();
 }

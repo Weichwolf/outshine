@@ -32,6 +32,19 @@ std::optional<std::vector<uint8_t>> PreparedBytes(const outshine::Generators::Ra
   CHECK(bytes, "the current asset codec accepts the complete prepared product");
   return bytes ? std::optional(std::move(*bytes)) : std::nullopt;
 }
+
+double LowestSurface(const outshine::Raised &mesh, const outshine::Vec3 &vertical) {
+  double lower = std::numeric_limits<double>::infinity();
+  for (const auto &vertices : {std::span(mesh.WallCorners), std::span(mesh.RoofCorners)}) {
+    for (const auto &vertex : vertices) {
+      double up = 0;
+      for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * vertical[axis]; }
+      lower = std::min(lower, up);
+    }
+  }
+  return lower;
+}
+
 }
 
 int main() {
@@ -71,15 +84,7 @@ int main() {
     CHECK(product.Prints.size() == 1 && product.Prints[0].MinimumHeightM == 5 &&
               product.Lumped == 0,
           "raised source retains its clearance and is not mixed into grounded aggregates");
-    double lower = std::numeric_limits<double>::infinity();
-    for (const auto &vertices :
-         {std::span(product.Built.WallCorners), std::span(product.Built.RoofCorners)}) {
-      for (const auto &vertex : vertices) {
-        double up = 0;
-        for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * axes.Up[axis]; }
-        lower = std::min(lower, up);
-      }
-    }
+    const double lower = LowestSurface(product.Built, axes.Up);
     CHECK(std::isfinite(lower) && std::abs(lower - 5) < 0.02,
           "independent ENU projection places the lowest generated surface at min_height");
   }

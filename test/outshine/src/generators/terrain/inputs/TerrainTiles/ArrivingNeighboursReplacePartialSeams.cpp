@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <array>
 #include "TerrainTiles.h"
 #include "Check.h"

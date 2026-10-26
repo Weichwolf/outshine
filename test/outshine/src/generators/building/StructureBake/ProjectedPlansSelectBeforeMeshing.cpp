@@ -45,9 +45,8 @@ public:
   mutable size_t Calls = 0;
   bool UnknownFirst = false;
 };
-}
 
-int main() {
+std::optional<outshine::Generators::RawTile> CityInputs() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
@@ -72,7 +71,7 @@ int main() {
                             lon};
       const auto cell = StructureCellOf(bounds, ring);
       CHECK(cell, "each original source footprint has a cell");
-      if (!cell) { return Report(); }
+      if (!cell) { return std::nullopt; }
       raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
       raw.Structures.push_back({.LocalFirst = first,
                                 .PointCount = 4,
@@ -84,6 +83,44 @@ int main() {
     }
   }
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
+  return raw;
+}
+
+void CheckAltitude(outshine::Generators::RawTile &raw,
+                   const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
+  Vec3 elevatedEye;
+  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 80000}, elevatedEye);
+  raw.EyeEcef = elevatedEye;
+  const CountingMesher elevatedMesher;
+  auto elevatedScratch = elevatedMesher.Scratch();
+  BakedTile elevated;
+  CHECK(BakeStructures(raw, heights, elevatedMesher, *elevatedScratch, elevated),
+        "the demand also evaluates actual camera altitude");
+  CHECK(elevated.Lumped == 256 && elevatedMesher.Calls < 64,
+        "a camera above the city selects far parents without horizontal displacement");
+  CHECK(elevated.SelectedView &&
+            elevated.SelectedView->Contains(raw.Eye, raw.Projection, raw.EyeEcef),
+        "the emitted view records its full spatial demand");
+  elevatedEye[0] += 128;
+  CHECK(elevated.SelectedView &&
+            !elevated.SelectedView->Contains(raw.Eye, raw.Projection, elevatedEye),
+        "position changes beyond the guarded reuse radius require a new selection");
+}
+
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  auto inputs = CityInputs();
+  CHECK(inputs, "the dense source fixture contains every original city footprint");
+  if (!inputs) { return Report(); }
+  auto &raw = *inputs;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
@@ -132,24 +169,7 @@ int main() {
                  triangles,
                  built->Lumped);
   }
-  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
-  Vec3 elevatedEye;
-  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 80000}, elevatedEye);
-  raw.EyeEcef = elevatedEye;
-  const CountingMesher elevatedMesher;
-  auto elevatedScratch = elevatedMesher.Scratch();
-  BakedTile elevated;
-  CHECK(BakeStructures(raw, *heights, elevatedMesher, *elevatedScratch, elevated),
-        "the demand also evaluates actual camera altitude");
-  CHECK(elevated.Lumped == 256 && elevatedMesher.Calls < 64,
-        "a camera above the city selects far parents without horizontal displacement");
-  CHECK(elevated.SelectedView &&
-            elevated.SelectedView->Contains(raw.Eye, raw.Projection, raw.EyeEcef),
-        "the emitted view records its full spatial demand");
-  elevatedEye[0] += 128;
-  CHECK(elevated.SelectedView &&
-            !elevated.SelectedView->Contains(raw.Eye, raw.Projection, elevatedEye),
-        "position changes beyond the guarded reuse radius require a new selection");
+  CheckAltitude(raw, *heights);
   raw.Eye = {.LongitudeDeg = 12, .LatitudeDeg = 47};
   raw.EyeEcef.reset();
   CountingMesher mixed;

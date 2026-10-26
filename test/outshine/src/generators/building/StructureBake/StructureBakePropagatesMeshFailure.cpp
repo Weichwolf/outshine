@@ -37,6 +37,136 @@ private:
   mutable outshine::LevelOfDetail LastCoarseness_ = outshine::LevelOfDetail::Fine;
   outshine::StructureMeshError Error_;
 };
+
+void CheckSlicedBake(const outshine::Generators::RawTile &raw,
+                     const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
+  auto oneShotScratch = oneShotMesher.Scratch();
+  Generators::BakedTile oneShot;
+  const auto oneShotResult =
+      Generators::BakeStructures(raw, heights, oneShotMesher, *oneShotScratch, oneShot);
+  const RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
+  auto slicedScratch = slicedMesher.Scratch();
+  Generators::StructureBakeProgress progress;
+  const auto first = progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
+  CHECK(progress.BakedStructures() == 1,
+        "a completed range exposes its exact structure count after the worker boundary");
+  const auto second = progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
+  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls() == 0,
+        "bounded source planning finishes before geometry emission starts");
+  const auto firstEmission =
+      progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
+  const auto lastEmission =
+      progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
+  CHECK(firstEmission && !*firstEmission && lastEmission && *lastEmission,
+        "bounded emission completes only after all selected products are built");
+  auto sliced = progress.Finalize(raw, slicedMesher, *slicedScratch);
+  CHECK(sliced && slicedMesher.Calls() == oneShotMesher.Calls() &&
+            sliced->Prints.size() == oneShot.Prints.size() &&
+            sliced->UnsupportedMeshes == oneShot.UnsupportedMeshes &&
+            sliced->Built.WallRun == oneShot.Built.WallRun &&
+            sliced->Built.RoofRun == oneShot.Built.RoofRun,
+        "one-structure ranges produce the same complete tile as one uninterrupted bake");
+}
+
+void CheckLargeSlicedBake(const outshine::Generators::RawTile &raw,
+                          const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  Generators::RawTile many = raw;
+  many.Ways.clear();
+  many.Structures.assign(257, raw.Structures.front());
+  const RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
+  auto manyOneShotScratch = manyOneShotMesher.Scratch();
+  Generators::BakedTile manyOneShot;
+  const auto manyOneShotResult = Generators::BakeStructures(
+      many, heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
+  const RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
+  auto manySlicedScratch = manySlicedMesher.Scratch();
+  Generators::StructureBakeProgress manyProgress;
+  for (size_t range = 0; range < 4; ++range) {
+    const auto incomplete =
+        manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
+    CHECK(incomplete && !*incomplete && manyProgress.BakedStructures() == (range + 1) * 64,
+          "each complete 64-structure range retains the private aggregate");
+  }
+  const auto manyStructuresComplete =
+      manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
+  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls() == 0,
+        "the final source range selects representations without building geometry");
+  bool allEmitted = false;
+  for (size_t slice = 0; slice < 5; ++slice) {
+    const auto emitted =
+        manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
+    CHECK(emitted, "each bounded emission range succeeds");
+    if (emitted && *emitted) {
+      allEmitted = true;
+      break;
+    }
+  }
+  CHECK(allEmitted, "the final emission range completes the selected products");
+  auto manyFinalized = manyProgress.Finalize(many, manySlicedMesher, *manySlicedScratch);
+  CHECK(manyOneShotResult && manyFinalized &&
+            manyProgress.BakedStructures() == many.Structures.size(),
+        "the final short range and finalization complete a 257-structure aggregate");
+  CHECK(manyFinalized && manySlicedMesher.Calls() == manyOneShotMesher.Calls() &&
+            manyFinalized->Prints.size() == manyOneShot.Prints.size() &&
+            std::ranges::equal(manyFinalized->Prints,
+                               manyOneShot.Prints,
+                               [](const auto &left, const auto &right) {
+                                 return left.FirstPoint == right.FirstPoint &&
+                                        left.PointCount == right.PointCount &&
+                                        left.HeightM == right.HeightM &&
+                                        left.BaseM == right.BaseM && left.SeatM == right.SeatM &&
+                                        left.FootM == right.FootM && left.Source == right.Source &&
+                                        left.Street.Known == right.Street.Known &&
+                                        left.Street.KerbEm == right.Street.KerbEm &&
+                                        left.Street.KerbNm == right.Street.KerbNm &&
+                                        left.Street.AlongE == right.Street.AlongE &&
+                                        left.Street.AlongN == right.Street.AlongN &&
+                                        left.Street.ToStreetE == right.Street.ToStreetE &&
+                                        left.Street.ToStreetN == right.Street.ToStreetN;
+                               }) &&
+            manyFinalized->FootprintDetails == manyOneShot.FootprintDetails &&
+            manyFinalized->SeatSpreadM == manyOneShot.SeatSpreadM &&
+            manyFinalized->AcrossM == manyOneShot.AcrossM &&
+            manyFinalized->Digest == manyOneShot.Digest &&
+            manyFinalized->UnsupportedMeshes == manyOneShot.UnsupportedMeshes &&
+            manyFinalized->OsmHeights == manyOneShot.OsmHeights &&
+            manyFinalized->DefaultHeights == manyOneShot.DefaultHeights &&
+            manyFinalized->Fronted == manyOneShot.Fronted &&
+            manyFinalized->Lumped == manyOneShot.Lumped &&
+            manyFinalized->Blocks == manyOneShot.Blocks &&
+            manyFinalized->NoGround == manyOneShot.NoGround &&
+            manyFinalized->Built.WallRun == manyOneShot.Built.WallRun &&
+            manyFinalized->Built.RoofRun == manyOneShot.Built.RoofRun,
+        "five bounded ranges equal one uninterrupted 257-structure bake");
+}
+
+void CheckCancellation(const outshine::Generators::RawTile &raw,
+                       const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
+  auto cancelledScratch = cancelledMesher.Scratch();
+  Generators::StructureBakeProgress cancelled;
+  std::atomic_bool stopping{false};
+  const auto beforeCancel =
+      cancelled.AdvanceStructures(raw, heights, cancelledMesher, *cancelledScratch, 1, &stopping);
+  stopping.store(true);
+  const auto afterCancel =
+      cancelled.AdvanceStructures(raw, heights, cancelledMesher, *cancelledScratch, 1, &stopping);
+  CHECK(beforeCancel && !*beforeCancel && !afterCancel,
+        "cancelling between ranges cannot report a complete tile");
+  if (!afterCancel) {
+    const auto *reason = std::get_if<Generators::StructureBakeErrorKind>(&afterCancel.error());
+    CHECK(reason && *reason == Generators::StructureBakeErrorKind::Cancelled,
+          "cancellation reaches the generator boundary as its explicit error");
+  }
+}
+
 }
 
 int main() {
@@ -120,118 +250,8 @@ int main() {
             thresholdOutput.FootprintDetails.front() == LevelOfDetail::Fine,
         "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
 
-  const RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
-  auto oneShotScratch = oneShotMesher.Scratch();
-  Generators::BakedTile oneShot;
-  const auto oneShotResult =
-      Generators::BakeStructures(raw, *heights, oneShotMesher, *oneShotScratch, oneShot);
-  const RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
-  auto slicedScratch = slicedMesher.Scratch();
-  Generators::StructureBakeProgress progress;
-  const auto first = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(progress.BakedStructures() == 1,
-        "a completed range exposes its exact structure count after the worker boundary");
-  const auto second = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls() == 0,
-        "bounded source planning finishes before geometry emission starts");
-  const auto firstEmission =
-      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  const auto lastEmission =
-      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(firstEmission && !*firstEmission && lastEmission && *lastEmission,
-        "bounded emission completes only after all selected products are built");
-  auto sliced = progress.Finalize(raw, slicedMesher, *slicedScratch);
-  CHECK(sliced && slicedMesher.Calls() == oneShotMesher.Calls() &&
-            sliced->Prints.size() == oneShot.Prints.size() &&
-            sliced->UnsupportedMeshes == oneShot.UnsupportedMeshes &&
-            sliced->Built.WallRun == oneShot.Built.WallRun &&
-            sliced->Built.RoofRun == oneShot.Built.RoofRun,
-        "one-structure ranges produce the same complete tile as one uninterrupted bake");
-
-  Generators::RawTile many = raw;
-  many.Ways.clear();
-  many.Structures.assign(257, raw.Structures.front());
-  const RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
-  auto manyOneShotScratch = manyOneShotMesher.Scratch();
-  Generators::BakedTile manyOneShot;
-  const auto manyOneShotResult = Generators::BakeStructures(
-      many, *heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
-  const RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
-  auto manySlicedScratch = manySlicedMesher.Scratch();
-  Generators::StructureBakeProgress manyProgress;
-  for (size_t range = 0; range < 4; ++range) {
-    const auto incomplete =
-        manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-    CHECK(incomplete && !*incomplete && manyProgress.BakedStructures() == (range + 1) * 64,
-          "each complete 64-structure range retains the private aggregate");
-  }
-  const auto manyStructuresComplete =
-      manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls() == 0,
-        "the final source range selects representations without building geometry");
-  bool allEmitted = false;
-  for (size_t slice = 0; slice < 5; ++slice) {
-    const auto emitted =
-        manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-    CHECK(emitted, "each bounded emission range succeeds");
-    if (emitted && *emitted) {
-      allEmitted = true;
-      break;
-    }
-  }
-  CHECK(allEmitted, "the final emission range completes the selected products");
-  auto manyFinalized = manyProgress.Finalize(many, manySlicedMesher, *manySlicedScratch);
-  CHECK(manyOneShotResult && manyFinalized &&
-            manyProgress.BakedStructures() == many.Structures.size(),
-        "the final short range and finalization complete a 257-structure aggregate");
-  CHECK(manyFinalized && manySlicedMesher.Calls() == manyOneShotMesher.Calls() &&
-            manyFinalized->Prints.size() == manyOneShot.Prints.size() &&
-            std::ranges::equal(manyFinalized->Prints,
-                               manyOneShot.Prints,
-                               [](const auto &left, const auto &right) {
-                                 return left.FirstPoint == right.FirstPoint &&
-                                        left.PointCount == right.PointCount &&
-                                        left.HeightM == right.HeightM &&
-                                        left.BaseM == right.BaseM && left.SeatM == right.SeatM &&
-                                        left.FootM == right.FootM && left.Source == right.Source &&
-                                        left.Street.Known == right.Street.Known &&
-                                        left.Street.KerbEm == right.Street.KerbEm &&
-                                        left.Street.KerbNm == right.Street.KerbNm &&
-                                        left.Street.AlongE == right.Street.AlongE &&
-                                        left.Street.AlongN == right.Street.AlongN &&
-                                        left.Street.ToStreetE == right.Street.ToStreetE &&
-                                        left.Street.ToStreetN == right.Street.ToStreetN;
-                               }) &&
-            manyFinalized->FootprintDetails == manyOneShot.FootprintDetails &&
-            manyFinalized->SeatSpreadM == manyOneShot.SeatSpreadM &&
-            manyFinalized->AcrossM == manyOneShot.AcrossM &&
-            manyFinalized->Digest == manyOneShot.Digest &&
-            manyFinalized->UnsupportedMeshes == manyOneShot.UnsupportedMeshes &&
-            manyFinalized->OsmHeights == manyOneShot.OsmHeights &&
-            manyFinalized->DefaultHeights == manyOneShot.DefaultHeights &&
-            manyFinalized->Fronted == manyOneShot.Fronted &&
-            manyFinalized->Lumped == manyOneShot.Lumped &&
-            manyFinalized->Blocks == manyOneShot.Blocks &&
-            manyFinalized->NoGround == manyOneShot.NoGround &&
-            manyFinalized->Built.WallRun == manyOneShot.Built.WallRun &&
-            manyFinalized->Built.RoofRun == manyOneShot.Built.RoofRun,
-        "five bounded ranges equal one uninterrupted 257-structure bake");
-
-  const RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
-  auto cancelledScratch = cancelledMesher.Scratch();
-  Generators::StructureBakeProgress cancelled;
-  std::atomic_bool stopping{false};
-  const auto beforeCancel =
-      cancelled.AdvanceStructures(raw, *heights, cancelledMesher, *cancelledScratch, 1, &stopping);
-  stopping.store(true);
-  const auto afterCancel =
-      cancelled.AdvanceStructures(raw, *heights, cancelledMesher, *cancelledScratch, 1, &stopping);
-  CHECK(beforeCancel && !*beforeCancel && !afterCancel,
-        "cancelling between ranges cannot report a complete tile");
-  if (!afterCancel) {
-    const auto *reason = std::get_if<Generators::StructureBakeErrorKind>(&afterCancel.error());
-    CHECK(reason && *reason == Generators::StructureBakeErrorKind::Cancelled,
-          "cancellation reaches the generator boundary as its explicit error");
-  }
+  CheckSlicedBake(raw, *heights);
+  CheckLargeSlicedBake(raw, *heights);
+  CheckCancellation(raw, *heights);
   return Report();
 }
