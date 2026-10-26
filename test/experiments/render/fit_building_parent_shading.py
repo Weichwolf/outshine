@@ -10,7 +10,6 @@ from pathlib import Path
 import numpy as np
 from building_brdf_basis import angular_samples, response_basis
 from building_brdf_fit import interval_pair
-from compare_mass_appearance import read
 from fit_building_brdf import fit_materials, read_material
 from process_memory import peak_rss_bytes
 
@@ -19,7 +18,8 @@ def compile_states(source, output, tables_path):
     output.mkdir(parents=True, exist_ok=False)
     cpu, wall = time.process_time(), time.perf_counter()
     case = json.loads((source / "report.json").read_text())
-    tables = read(tables_path)
+    with np.load(tables_path, allow_pickle=False) as archive:
+        tables = dict(archive)
     bases = {}
     records = {1: [], 2: []}
     for budget in records:
