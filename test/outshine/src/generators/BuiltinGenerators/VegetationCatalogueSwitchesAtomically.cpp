@@ -1,4 +1,6 @@
-#include "Shipped.h"
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
+#include "BuiltinGenerators.h"
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
@@ -18,7 +20,7 @@ int main() {
   const outshine::Generators::RegionSurfaceRecipes absent;
   CHECK(materials.Load("data/world/ground-materials.json"), "ground materials load");
   CHECK(vegetation.Load("data/world/vegetation.json", materials), "vegetation templates load");
-  Shipping catalogue;
+  BuiltinGenerators catalogue;
   std::string error;
   const auto *groundMesher = &catalogue.Covering();
   const auto *roadMesher = &catalogue.Paving();

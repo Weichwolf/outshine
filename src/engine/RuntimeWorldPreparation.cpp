@@ -268,7 +268,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
   if (World.Stack.RecipesReady()) {
     std::string why;
-    if (!World.Shipping.EnsureCatalogue(World.Stack.SurfaceRecipes(),
+    if (!World.Builtins.EnsureCatalogue(World.Stack.SurfaceRecipes(),
                                         std::string(Session.Under.Shipped) + "/world/species",
                                         why,
                                         declared.Ground.VegetationEnabled,

@@ -51,8 +51,10 @@ int main() {
   const Registry moved(std::move(registry));
   CHECK(moved.named("structures") == &first && moved.count() == 1,
         "move transfers names and preserves borrowed generator addresses");
-  CHECK(nameOf(Shipped::Structures) == "structures", "known built-in resolves its declared name");
-  for (const auto invalid : {Shipped::kCount, static_cast<Shipped>(255)}) {
+  CHECK(nameOf(BuiltinGeneratorKind::Structures) == "structures",
+        "known built-in resolves its declared name");
+  for (const auto invalid :
+       {BuiltinGeneratorKind::kCount, static_cast<BuiltinGeneratorKind>(255)}) {
     CHECK(nameOf(invalid).empty(), "invalid catalogue values are rejected without array access");
   }
   return Report();

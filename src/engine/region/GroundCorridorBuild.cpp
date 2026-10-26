@@ -195,7 +195,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   const bool planning = !state.CorridorsPlanned();
   const auto paved =
-      AdvanceRoadProducts(World.Shipping.Corridors(), state, site, build.Ground, corridors, notes);
+      AdvanceRoadProducts(World.Builtins.Corridors(), state, site, build.Ground, corridors, notes);
   state.SamplesProductPeak();
   if (!paved) {
     Error = paved.error();

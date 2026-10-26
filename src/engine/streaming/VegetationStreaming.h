@@ -6,7 +6,7 @@
 #include "ImpostorAtlasShape.h"
 #include "ImpostorInstances.h"
 #include "WorldPlacement.h"
-#include "Shipped.h"
+#include "BuiltinGenerators.h"
 
 namespace outshine {
 class VegetationStreaming {
@@ -28,7 +28,7 @@ public:
 
   static std::unique_ptr<VegetationStreaming> Create(Render::SceneRenderer &renderer,
                                                      Tasks &compute,
-                                                     const Generators::Shipping &catalogue,
+                                                     const Generators::BuiltinGenerators &catalogue,
                                                      std::span<const WorldInstance> instances,
                                                      const TangentFrame &frame,
                                                      const Config &config,

@@ -39,7 +39,7 @@ bool Engine::State::InspectTerrainCoverage() {
   over.Access = TerrainTileAccess::Inspect;
   over.PlayableOnly = !World.GroundPublished.Current();
   World.Stack.Pool().Focus({.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
-  auto asked = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
+  auto asked = World.Builtins.Covering().Lay(World.Stack.Pool(), over);
   if (!asked) {
     Error = asked.error();
     return false;

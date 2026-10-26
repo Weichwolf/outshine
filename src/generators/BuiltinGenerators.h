@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_SHIPPED_H
-#define OUTSHINE_GENERATORS_SHIPPED_H
+#ifndef OUTSHINE_GENERATORS_BUILTINGENERATORS_H
+#define OUTSHINE_GENERATORS_BUILTINGENERATORS_H
 
 #include <memory>
 #include <string>
@@ -9,23 +9,26 @@
 #include <Generator.h>
 
 #include "DrawSet.h"
-#include "TreeSpecies.h"
-#include "GroundMesher.h"
-#include "road/meshing/RoadMesher.h"
-#include "building/StructureMesher.h"
 #include "GeneratorSet.h"
-#include "RegionSurfaceRecipes.h"
+
+namespace outshine {
+class GroundMesher;
+class RoadMesher;
+class StructureMesher;
+}
 
 namespace outshine::Generators {
 
 class Corridors;
+class TreeSpecies;
+class RegionSurfaceRecipes;
 
-class Shipping {
+class BuiltinGenerators {
 public:
-  Shipping();
-  ~Shipping();
-  Shipping(const Shipping &) = delete;
-  Shipping &operator=(const Shipping &) = delete;
+  BuiltinGenerators();
+  ~BuiltinGenerators();
+  BuiltinGenerators(const BuiltinGenerators &) = delete;
+  BuiltinGenerators &operator=(const BuiltinGenerators &) = delete;
 
   [[nodiscard]] bool EnsureCatalogue(const RegionSurfaceRecipes &declared,
                                      std::string_view speciesDir,

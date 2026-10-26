@@ -125,11 +125,11 @@ bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
   Published.RecordMetric(
       "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
   Published.RecordMetric(
-      "generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0, "yes/no");
+      "generators: a shipped catalogue stands", World.Builtins.Ready() ? 1.0 : 0.0, "yes/no");
   Published.RecordMetric("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
   Published.RecordMetric(
       "generators: vector data stands", vectors != nullptr ? 1.0 : 0.0, "yes/no");
-  if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table || vectors == nullptr) {
+  if (World.Placed > 0 || !World.Builtins.Ready() || !World.Table || vectors == nullptr) {
     return false;
   }
   return GenerateInstancesForRegion(
@@ -182,7 +182,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   Published.RecordMetric("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
   if (!lease) { return false; }
-  const Generators::GeneratorSet &placing = World.Shipping.Placing();
+  const Generators::GeneratorSet &placing = World.Builtins.Placing();
   std::vector<Generators::Yield> yields;
   std::vector<std::vector<Generators::Yield::Note>> notes(placing.Count());
   yields.reserve(placing.Count());
@@ -236,7 +236,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   World.EmptyPlacementInputs.reset();
   std::vector<WorldInstance> instances(placed);
   WorldInstanceSink sink(instances, region);
-  World.Shipping.Drawing().Draw(*over,
+  World.Builtins.Drawing().Draw(*over,
                                 placing,
                                 std::span<const Generators::Yield>(yields.data(), yields.size()),
                                 lease->Sink().Placed(),
