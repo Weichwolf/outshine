@@ -16,6 +16,34 @@ def body(domain, origin=(0, 0), lower=(100, 1, 0), upper=(101, 1, 0)):
 
 
 class ExactEmptyBands(unittest.TestCase):
+    def test_large_origin_and_binary_slopes_preserve_thin_outward_envelope(self):
+        origin = (999999.75, -999999.75)
+        domain = shapely.box(999999.5, -1000000, 1000000, -999999.5)
+        lower = (0.1, 0.1, -0.3)
+        upper = (math.nextafter(0.1, 1), 0.1, -0.3)
+        row = body(domain, origin, lower, upper)
+        values = [
+            [
+                F(plane[0])
+                + F(plane[1]) * (F(x) - F(origin[0]))
+                + F(plane[2]) * (F(y) - F(origin[1]))
+                for x, y in domain.exterior.coords
+            ]
+            for plane in (lower, upper)
+        ]
+        self.assertIs(row.geometry, domain)
+        self.assertEqual(
+            (row.heights.lower_m, row.heights.upper_m, *row._whole_overlap_m),
+            (
+                math.nextafter(float(min(values[0])), -math.inf),
+                math.nextafter(float(max(values[1])), math.inf),
+                math.nextafter(float(max(values[0])), math.inf),
+                math.nextafter(float(min(values[1])), -math.inf),
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "non-inverting positive"):
+            body(domain, origin, lower, lower)
+
     def test_valid_source_and_query_are_supported_despite_area_underflow(self):
         source = shapely.box(0, 0, 1e-170, 1e-170)
         self.assertTrue(source.is_valid)
