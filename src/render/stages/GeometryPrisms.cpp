@@ -1,4 +1,5 @@
 #include "GeometryRenderer.h"
+#include "PrismDrawing.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -33,22 +34,22 @@ Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const 
         Native::Error{.Kind = Native::ErrorKind::Unsupported,
                       .Message = "prism grids require an opaque metallic-roughness material"});
   }
-  return Prisms_.Place(std::move(source), instances, material);
+  return Prisms_->Place(std::move(source), instances, material);
 }
 
 Native::Result<void>
 GeometryRenderer::SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances) {
-  return Prisms_.SetInstances(id, instances);
+  return Prisms_->SetInstances(id, instances);
 }
 
 void GeometryRenderer::ReleasePrismGrid(uint64_t id) {
-  (void)Prisms_.Release(id);
+  (void)Prisms_->Release(id);
 }
 
 Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
                                                     const FrameUniforms &uniforms) {
-  if (Binding().Behind != nullptr) { return {}; }
-  for (const auto &product : Prisms_.Products()) {
+  if (IsTransmission() || Binding().Behind != nullptr) { return {}; }
+  for (const auto &product : Prisms_->Products()) {
     if (product.Records.empty()) { continue; }
     if (into.Commands == nullptr || Binding().Prisms.Colour() == nullptr ||
         product.Material >= RegisteredSlotOf_.size() ||
@@ -75,12 +76,12 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
     BindSlot(resources, slot, VertexLayout::PositionNormalUvTangent, uniforms, 4);
     resources.Bindings[resources.BindingCount++] = PrismStorage(4, 3, *product.Buffers[0]);
     resources.Bindings[resources.BindingCount++] = PrismStorage(4, 4, *product.Buffers[1]);
-    auto drawn = PrismRenderer::Encode(product,
-                                       *into.Commands,
-                                       *Binding().Prisms.Colour(),
-                                       std::span(resources.Bindings).first(resources.BindingCount),
-                                       into.Area,
-                                       into.Clip);
+    auto drawn = EncodePrism(product,
+                             *into.Commands,
+                             *Binding().Prisms.Colour(),
+                             std::span(resources.Bindings).first(resources.BindingCount),
+                             into.Area,
+                             into.Clip);
     if (!drawn) { return drawn; }
     ++EncodedWork_.DrawRequests;
     constexpr uint32_t proxyTriangles = 12;
@@ -92,11 +93,12 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
 
 Native::Result<void> GeometryRenderer::EncodePrismShadow(const PassRecording &into,
                                                          const PrismDepthView &view) const {
-  if (Prisms_.Products().empty()) { return {}; }
+  if (IsTransmission() || Prisms_->Products().empty()) { return {}; }
   if (into.Commands == nullptr || Binding().Prisms.Depth() == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism shadow resources are unavailable"});
   }
-  return Prisms_.EncodeDepth(*into.Commands, *Binding().Prisms.Depth(), view, into.Area, into.Clip);
+  return EncodePrismDepth(
+      *Prisms_, *into.Commands, *Binding().Prisms.Depth(), view, into.Area, into.Clip);
 }
 }

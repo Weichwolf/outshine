@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "FragmentArms.h"
 #include "GeometryRenderer.h"
@@ -97,7 +98,7 @@ void CheckGlass(TransmissionDevice &device, bool velocity, bool rejectUnreachabl
                                                .Use = Native::TextureUse::Sampled}));
   const auto sampler = Test::Gpu::Require(device.CreateSampler({}));
   GeometryPipelineBinding binding;
-  GeometryResidency drawStorage;
+  RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   device.Created = device.Rejected = 0;
   device.RejectUnreachable = rejectUnreachable;

@@ -6,10 +6,12 @@
 #include "SourceMetadataFixture.h"
 #include "TilePool.h"
 #include "WaterAsset.h"
+#include "Wayfinding.h"
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <spawn.h>
 #include <string>
 #include <string_view>
@@ -29,11 +31,26 @@ using Generators::Osm::PreparedGroundRegions;
 namespace Fixture = Test::SourceMetadata;
 constexpr auto kLegacyRequest = "c2e51b9d79875b1bbe3c2bfa418eadd4d70224b20cf180b0fe2e41bea495383c";
 constexpr std::array<float, 4> kTerrainHeightsM{100, 101, 102, 103};
+constexpr double kNetworkSpanDeg = 0.001;
+constexpr uint64_t kNetworkSourceTag = 42;
 
 std::string Request(const PreparedGroundRegions &cache) {
   const std::array<Ground::TileSpot, 1> tiles{{{.Zoom = 2, .X = 1, .Y = 1}}};
   const std::array<uint8_t, 3> parameters{1, 2, 3};
   return cache.RequestKey(2, MvtSchema::Shortbread, {}, parameters, tiles);
+}
+
+std::shared_ptr<const Path::Network> SourceNetwork() {
+  auto graph = Path::Network::Create({.CellM = 1}, {});
+  const std::array<double, 4> points{0, 0, 0, kNetworkSpanDeg};
+  if (!graph || !graph->Lay(points, {.HalfWidthM = 1, .Oneway = true, .Tag = kNetworkSourceTag})) {
+    return {};
+  }
+  std::string error;
+  if (!graph->Weave(error) || graph->Elevate([](LongitudeLatitude) { return 0.0; }).Refused != 0) {
+    return {};
+  }
+  return std::make_shared<const Path::Network>(std::move(*graph));
 }
 
 bool Prime(const std::filesystem::path &root) {
@@ -44,6 +61,10 @@ bool Prime(const std::filesystem::path &root) {
   CHECK(opened, "the native producer opens its test-owned asset directory");
   if (!opened) { return false; }
   GroundRegionAsset region{};
+  region.Network = SourceNetwork();
+  CHECK(region.Network, "the region owns a complete source-bearing directed native network");
+  if (!region.Network) { return false; }
+  region.NetworkWays = region.Network->WayCount();
   region.Anchor = {.LongitudeDeg = 0, .LatitudeDeg = 0};
   const auto material = region.Surfaces.addSurface("ground", Material{});
   CHECK(material, "the complete native fixture owns its ground material");
@@ -92,6 +113,13 @@ int Offline(const std::filesystem::path &root, bool pair) {
                 region.Terrain.Sheets.front().Nodes ==
                     std::vector<float>(kTerrainHeightsM.begin(), kTerrainHeightsM.end()),
             "the same binding restores the exact native product in a fresh offline process");
+      CHECK(region.Network && region.NetworkWays == 1 &&
+                region.Network->TagOf(0) == kNetworkSourceTag &&
+                region.Network->ConnectionsFrom(0).size() == 1 &&
+                region.Network->ConnectionsFrom(0).front().Source.Way == 0 &&
+                region.Network->ConnectionsFrom(0).front().Source.Step() == 1 &&
+                !region.Network->ConnectionsFrom(0).front().Source.Reverse(),
+            "the early region hit retains source way, segment and direction without rebuilding");
     }
   }
   CHECK(raw.Counters().ReadCalls == 0 && sources.Counters().ProviderStarts == 0,

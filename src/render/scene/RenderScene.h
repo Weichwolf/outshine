@@ -2,6 +2,8 @@
 #define OUTSHINE_RENDER_SCENE_RENDERSCENE_H
 
 #include "GeometryResidency.h"
+#include "PrismResidency.h"
+#include "terrain/TerrainResidency.h"
 #include "SceneResources.h"
 #include "TerrainMaterialBuffers.h"
 
@@ -20,6 +22,14 @@ public:
 
   [[nodiscard]] const GeometryResidency &Meshes() const noexcept { return Meshes_; }
 
+  [[nodiscard]] PrismResidency &Prisms() noexcept { return Prisms_; }
+
+  [[nodiscard]] const PrismResidency &Prisms() const noexcept { return Prisms_; }
+
+  [[nodiscard]] TerrainResidency &Terrain() noexcept { return Terrain_; }
+
+  [[nodiscard]] const TerrainResidency &Terrain() const noexcept { return Terrain_; }
+
   [[nodiscard]] TerrainMaterialBuffers &GroundMaterials() noexcept { return GroundMaterials_; }
 
   [[nodiscard]] const TerrainMaterialBuffers &GroundMaterials() const noexcept {
@@ -32,6 +42,8 @@ public:
 
 private:
   GeometryResidency Meshes_;
+  PrismResidency Prisms_;
+  TerrainResidency Terrain_;
   TerrainMaterialBuffers GroundMaterials_;
   SceneResources Resources_;
 };

@@ -1,3 +1,5 @@
+#include "TerrainLattice.h"
+#include "RenderScene.h"
 #include "SunShadowStage.h"
 #include "GeometryRenderer.h"
 #include "ReadbackTransfer.h"
@@ -48,7 +50,7 @@ struct MaskCase {
 };
 
 struct Scene {
-  GeometryResidency GeometryStorage;
+  RenderScene GeometryStorage;
   GeometryRenderer Geometry{GeometryStorage};
   SunShadowStage Shadow;
   std::unique_ptr<Texture> Atlas;
@@ -392,7 +394,7 @@ void ConfigureRollback(Device &device, Scene &scene) {
       scene.Shadow.Configure(scene.Geometry, {.Device = &rejected, .SceneColours = {}});
   CHECK(!changed && changed.error().Kind == ErrorKind::Driver && scene.Shadow.Cached(),
         "failed native pipeline creation preserves the accepted cache and pipeline set");
-  GeometryResidency otherStorage;
+  RenderScene otherStorage;
   GeometryRenderer other{otherStorage};
   scene.Shadow.Binds(other);
   CHECK(!scene.Shadow.HasSubmittedData(),
@@ -405,7 +407,7 @@ void GroundOnly(Device &device, Scene &scene) {
   CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
   CheckSceneUpload(scene.Geometry.SetPlacements(nullptr, 0, error), error);
   auto &ground = scene.Geometry.Ground();
-  std::vector<float> heights(TerrainRenderer::kPageNodes, 3);
+  std::vector<float> heights(TerrainLattice::kPageNodes, 3);
   const auto page = Require(ground.PlacePage(heights));
   GroundTile tile;
   tile.Instance.Corners = {{-64, 64, 64, 64, -64, -64, 64, -64}};

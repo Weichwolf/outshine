@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "Gpu.h"
 #include "test/harness/render/NativeOfflineDevice.h"
@@ -32,7 +33,7 @@ int main() {
   {
     auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
     outshine::Test::Gpu::NativeOfflineDevice device(*native);
-    GeometryResidency drawStorage;
+    RenderScene drawStorage;
     GeometryRenderer draw{drawStorage};
     outshine::Render::Gpu gpu;
     gpu.Device = &device;

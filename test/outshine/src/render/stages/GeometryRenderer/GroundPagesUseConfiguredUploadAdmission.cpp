@@ -1,3 +1,5 @@
+#include "TerrainLattice.h"
+#include "RenderScene.h"
 #include "Check.h"
 #include "Gpu.h"
 #include "GeometryRenderer.h"
@@ -49,13 +51,13 @@ int main() {
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear),
         "the configured subject has its colour target");
-  GeometryResidency drawStorage;
+  RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   Require(draw.Configure(gpu));
   const auto marker = Require(uploads.Submit(Require(uploads.Begin())));
   CHECK(Require(actual->Wait(marker, std::chrono::seconds(5))) == Native::CompletionStatus::Ready,
         "the admission retry has an actual accepted completion");
-  std::array<float, TerrainRenderer::kPageNodes> heights{};
+  std::array<float, TerrainLattice::kPageNodes> heights{};
   constexpr float heightM = 3.5f;
   heights.fill(heightM);
   const auto generation = draw.Ground().Generation();

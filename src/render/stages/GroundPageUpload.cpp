@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "GroundPageUpload.h"
 #include <cstddef>
 #include <cstdint>
@@ -24,7 +25,7 @@ Native::Result<void> UploadHeightPages(Native::Device &device,
                                        Native::Texture &atlas,
                                        std::span<const PageId> pages,
                                        std::span<const HeightPageView> nodes) {
-  constexpr uint64_t pageBytes = TerrainRenderer::kPageNodes * sizeof(float);
+  constexpr uint64_t pageBytes = TerrainLattice::kPageNodes * sizeof(float);
   auto staging = device.CreateBuffer({.Bytes = pageBytes * nodes.size(),
                                       .Use = Native::BufferUse::CopySource,
                                       .Placement = Native::Memory::Upload});
@@ -42,15 +43,14 @@ Native::Result<void> UploadHeightPages(Native::Device &device,
         **staging,
         atlas,
         {.BufferOffset = at * pageBytes,
-         .RowBytes = static_cast<uint64_t>(TerrainRenderer::kPageSide) * sizeof(float),
-         .Region = {.Layer = page / TerrainRenderer::kPagesPerLayer,
-                    .X = (page % TerrainRenderer::kPageColumns) *
-                         static_cast<uint32_t>(TerrainRenderer::kPageSide),
-                    .Y =
-                        ((page % TerrainRenderer::kPagesPerLayer) / TerrainRenderer::kPageColumns) *
-                        static_cast<uint32_t>(TerrainRenderer::kPageSide),
-                    .Width = static_cast<uint32_t>(TerrainRenderer::kPageSide),
-                    .Height = static_cast<uint32_t>(TerrainRenderer::kPageSide)}});
+         .RowBytes = static_cast<uint64_t>(TerrainLattice::kPageSide) * sizeof(float),
+         .Region = {.Layer = page / TerrainLattice::kPagesPerLayer,
+                    .X = (page % TerrainLattice::kPageColumns) *
+                         static_cast<uint32_t>(TerrainLattice::kPageSide),
+                    .Y = ((page % TerrainLattice::kPagesPerLayer) / TerrainLattice::kPageColumns) *
+                         static_cast<uint32_t>(TerrainLattice::kPageSide),
+                    .Width = static_cast<uint32_t>(TerrainLattice::kPageSide),
+                    .Height = static_cast<uint32_t>(TerrainLattice::kPageSide)}});
     if (!copied) { return copied; }
   }
   return {};

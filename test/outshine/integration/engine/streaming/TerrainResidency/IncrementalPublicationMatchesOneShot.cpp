@@ -1,8 +1,9 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "TerrainRenderer.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 
 #include <SDL3/SDL.h>
 
@@ -32,10 +33,10 @@ int main() {
       for (uint32_t x = firstTileX; x < firstTileX + tileCount; ++x) {
         patch.Sheets.push_back(
             {.Tile = {.Zoom = 14, .X = x, .Y = 8192},
-             .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes,
+             .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes,
                                          static_cast<float>(x - firstTileX) + firstAslM),
-             .Side = Render::TerrainRenderer::kSide,
-             .Postings = Render::TerrainRenderer::kSide});
+             .Side = Render::TerrainLattice::kSide,
+             .Postings = Render::TerrainLattice::kSide});
       }
       const TangentFrame frame = TangentFrame::At({});
       TerrainResidency staged;

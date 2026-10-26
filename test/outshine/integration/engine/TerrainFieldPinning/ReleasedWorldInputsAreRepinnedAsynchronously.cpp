@@ -1,9 +1,9 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "DelayedTerrainSource.h"
 #include "HeightSheets.h"
 #include "TerrainInputPreparation.h"
 #include "TerrainFieldPinning.h"
-#include "TerrainRenderer.h"
 #include "RuntimeScene.h"
 #include <SDL3/SDL.h>
 #include <cstddef>
@@ -50,9 +50,9 @@ void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
   Patchwork candidate;
   candidate.Sheets.push_back(
       {.Tile = tile,
-       .Nodes = std::vector<float>(Render::TerrainRenderer::kNodes, DelayedTerrainSource::HeightM),
-       .Side = Render::TerrainRenderer::kSide,
-       .Postings = Render::TerrainRenderer::kSide});
+       .Nodes = std::vector<float>(Render::TerrainLattice::kNodes, DelayedTerrainSource::HeightM),
+       .Side = Render::TerrainLattice::kSide,
+       .Postings = Render::TerrainLattice::kSide});
   CHECK(UntilReady([&] {
           const auto ready = inputs.PrepareFields(
               candidate, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = {}});

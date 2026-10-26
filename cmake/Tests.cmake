@@ -21,6 +21,21 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
+    set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
+    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+    add_custom_command(OUTPUT "${receiver_shader}"
+      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+        "-I${PROJECT_SOURCE_DIR}/src" --depfile "${receiver_shader}.d"
+        "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-receiver.comp"
+        -o "${receiver_shader}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-receiver.comp"
+      DEPFILE "${receiver_shader}.d" VERBATIM)
+    add_custom_target(test_prism_receiver_shader DEPENDS "${receiver_shader}")
+    add_dependencies(${target} test_prism_receiver_shader)
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
+  endif()
   if(name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"

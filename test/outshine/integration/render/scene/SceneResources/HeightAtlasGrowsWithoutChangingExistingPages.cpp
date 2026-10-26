@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "RuntimeScene.h"
@@ -79,7 +80,7 @@ bool ReadPageImage(Render::SceneRenderer &renderer,
   tile.Page = page;
   tile.LowM = 1;
   tile.HighM = 3;
-  tile.StepE = tile.StepN = 2.0f / static_cast<float>(Render::TerrainRenderer::kSide - 1);
+  tile.StepE = tile.StepN = 2.0f / static_cast<float>(Render::TerrainLattice::kSide - 1);
   return renderer.SetTerrainTiles({&tile, 1}, {}, error) && scene.Advance(error) &&
          scene.Draw(error) && renderer.ReadSceneLinear(pixels) == Render::ReadState::Ready;
 }
@@ -138,7 +139,7 @@ int main() {
           "ground material binds to the scene");
     CHECK(candidate.Publish(scene).has_value(), "ground world publishes");
     CHECK(faults.Layers.empty(), "a scene without terrain allocates no height texture");
-    const std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 3);
+    const std::vector<float> nodes(Render::TerrainLattice::kPageNodes, 3);
     const auto first = renderer.PlaceHeightPage(nodes);
     CHECK(first && faults.Layers == std::vector<uint32_t>{1}, "the first page allocates one layer");
     if (!first) { return Report(); }
@@ -155,9 +156,9 @@ int main() {
     CHECK(ReadPageImage(renderer, *scene, *first, baseline, error) && Varies(baseline),
           "a visible terrain page produces a nonuniform baseline image");
     std::optional<Render::HeightPageHandle> last;
-    const std::vector<float> lowerNodes(Render::TerrainRenderer::kPageNodes, 1);
-    for (uint32_t page = 1; page < Render::TerrainRenderer::kPagesPerLayer; ++page) {
-      const bool final = page + 1 == Render::TerrainRenderer::kPagesPerLayer;
+    const std::vector<float> lowerNodes(Render::TerrainLattice::kPageNodes, 1);
+    for (uint32_t page = 1; page < Render::TerrainLattice::kPagesPerLayer; ++page) {
+      const bool final = page + 1 == Render::TerrainLattice::kPagesPerLayer;
       const auto placed = renderer.PlaceHeightPage(final ? lowerNodes : nodes);
       CHECK(placed.has_value(), "the first layer fills without growth");
       if (final && placed) { last = *placed; }
@@ -169,15 +170,13 @@ int main() {
     CHECK(faults.Layers.size() == 1, "only live page demand allocates texture layers");
     faults.RefuseTexture = true;
     const auto refused = renderer.PlaceHeightPage(nodes);
-    CHECK(!refused && refused.error().Message.find("injected height atlas allocation failure") !=
-                          std::string::npos,
+    CHECK(!refused && refused.error().Message.contains("injected height atlas allocation failure"),
           "failed growth returns the allocation error");
     std::vector<float> afterFailure;
     CHECK(ReadPageImage(renderer, *scene, *first, afterFailure, error) && afterFailure == baseline,
           "failed growth preserves the old page handle and its GPU samples");
     const auto next = renderer.PlaceHeightPage(nodes);
-    CHECK(next && next->Slot == Render::TerrainRenderer::kPagesPerLayer &&
-              faults.Layers.back() == 2,
+    CHECK(next && next->Slot == Render::TerrainLattice::kPagesPerLayer && faults.Layers.back() == 2,
           "growth retries into the next layer without losing a page reservation");
     std::vector<float> afterGrowth;
     CHECK(ReadPageImage(renderer, *scene, *first, afterGrowth, error) && afterGrowth == baseline,

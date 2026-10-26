@@ -1,8 +1,8 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainRenderer.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include "UrbanAreaTerrainPrisms.h"
 #include "TileGeodesy.h"
 #include "Geodesy.h"
@@ -18,6 +18,8 @@
 #include <vector>
 
 namespace {
+constexpr auto kHeightToleranceM = 1e-6;
+
 using namespace outshine;
 using namespace outshine::Test;
 namespace Osm = Generators::Osm;
@@ -37,15 +39,16 @@ std::shared_ptr<const Osm::UrbanArea> AreaAt(Data::TileId tile) {
 
 void CheckCapture(Render::SceneRenderer &renderer) {
   constexpr Data::TileId tile{.Zoom = 16, .X = 32768, .Y = 32768};
-  constexpr double initialHeight = 42, replacementHeight = 1200;
+  constexpr double initialHeight = 42;
+  constexpr double replacementHeight = 1200;
   const auto area = AreaAt(tile);
   const std::array selected{Osm::UrbanPatchRange{.Columns = 2, .Rows = 2}};
   Patchwork patch;
   patch.Sheets.push_back(
       {.Tile = tile,
-       .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, initialHeight),
-       .Side = Render::TerrainRenderer::kSide,
-       .Postings = Render::TerrainRenderer::kSide});
+       .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, initialHeight),
+       .Side = Render::TerrainLattice::kSide,
+       .Postings = Render::TerrainLattice::kSide});
   TerrainResidency terrain;
   terrain.Into(&renderer);
   const auto frame = TangentFrame::At({});
@@ -62,7 +65,7 @@ void CheckCapture(Render::SceneRenderer &renderer) {
   canceled.request_stop();
   CHECK(!CaptureUrbanPrismFactory(area, selected, terrain, request, 4, {}, canceled.get_token()),
         "canceled source capture never retains a new pending job");
-  patch.Sheets.front().Nodes.assign(Render::TerrainRenderer::kPageNodes, replacementHeight);
+  patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, replacementHeight);
   CHECK(terrain.Publish(patch, frame, error), "the live terrain can change after capture");
   terrain.Clear();
   if (factory) {
@@ -78,8 +81,8 @@ void CheckCapture(Render::SceneRenderer &renderer) {
         const Vec3 position = placement.EcefFromLocal.TransformPoint(
             {{shape.PitchX * .5, cell.Lower, shape.PitchZ * .5}});
         const auto geographic = GeoFromEcef(position);
-        CHECK(geographic &&
-                  std::abs(geographic->HeightM - initialHeight) <= placement.MaxCornerErrorM + 1e-6,
+        CHECK(geographic && std::abs(geographic->HeightM - initialHeight) <=
+                                placement.MaxCornerErrorM + kHeightToleranceM,
               "ready geometry retains captured published terrain rather than later live values");
       }
     }

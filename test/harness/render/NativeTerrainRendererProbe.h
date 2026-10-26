@@ -1,6 +1,9 @@
 #ifndef OUTSHINE_TEST_RENDER_NATIVETERRAINRENDERERPROBE_H
 #define OUTSHINE_TEST_RENDER_NATIVETERRAINRENDERERPROBE_H
 
+#include "terrain/TerrainResidency.h"
+#include "TerrainLattice.h"
+
 #include "TerrainRenderer.h"
 #include "GroundRasterReference.h"
 #include "SurfaceOutputs.h"
@@ -55,8 +58,8 @@ constexpr std::array kTargetFormats{Format::Rgba32Float,
                                     Format::Rg16Float};
 
 struct HeightPattern {
-  std::array<float, TerrainRenderer::kSide> Fractions{};
-  std::array<float, TerrainRenderer::kPageNodes> Nodes{};
+  std::array<float, TerrainLattice::kSide> Fractions{};
+  std::array<float, TerrainLattice::kPageNodes> Nodes{};
   std::array<GroundTile, 2> Tiles{};
 };
 
@@ -385,11 +388,11 @@ inline void NonAffine(Device &device, TerrainRenderer &ground) {
   HeightPattern pattern;
   for (size_t i = 0; i < pattern.Fractions.size(); ++i) {
     pattern.Fractions[i] =
-        std::pow(static_cast<float>(i) / (TerrainRenderer::kSide - 1), kFractionPower);
+        std::pow(static_cast<float>(i) / (TerrainLattice::kSide - 1), kFractionPower);
   }
-  for (size_t j = 0; j < TerrainRenderer::kPageSide; ++j) {
-    for (size_t i = 0; i < TerrainRenderer::kPageSide; ++i) {
-      pattern.Nodes[j * TerrainRenderer::kPageSide + i] =
+  for (size_t j = 0; j < TerrainLattice::kPageSide; ++j) {
+    for (size_t i = 0; i < TerrainLattice::kPageSide; ++i) {
+      pattern.Nodes[j * TerrainLattice::kPageSide + i] =
           kHeightBase + kHeightAmpE * std::sin(static_cast<float>(i) * kHeightRateE) +
           kHeightAmpN * std::cos(static_cast<float>(j) * kHeightRateN);
     }
@@ -408,23 +411,24 @@ inline void NonAffine(Device &device, TerrainRenderer &ground) {
 
 inline int RunTerrainRendererProbe(const std::string &prefix) {
   auto device = Require(CreateDevice({.Validation = true}));
-  TerrainRenderer ground;
+  outshine::Render::TerrainResidency groundData;
+  TerrainRenderer ground{groundData};
   std::array<ColourTarget, kTargetFormats.size()> targets;
   for (size_t at = 0; at < targets.size(); ++at) { targets[at].Texels = kTargetFormats[at]; }
   const SurfaceOutputs outputs{
       .NormalIndex = 1, .IdentityIndex = 2, .BaseIndex = 3, .MetalRoughIndex = 4};
   Require(RetryOffline([&] { return ground.Configure(*device, outputs, targets); },
                        std::chrono::seconds(5)));
-  std::vector<float> nodes(TerrainRenderer::kPageNodes, kSurface[0]);
+  std::vector<float> nodes(TerrainLattice::kPageNodes, kSurface[0]);
   const auto left =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
   std::ranges::fill(nodes, kSurface[2]);
   auto right =
       Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
-  for (uint32_t page = 2; page <= TerrainRenderer::kPagesPerLayer; ++page) {
+  for (uint32_t page = 2; page <= TerrainLattice::kPagesPerLayer; ++page) {
     right = Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5)));
   }
-  CHECK(right == TerrainRenderer::kPagesPerLayer,
+  CHECK(right == TerrainLattice::kPagesPerLayer,
         "real texture-array growth preserves the first layer and adds the next");
   auto distant = Tile(left, {kLeft, -kInner});
   distant.Instance.Row[12] = 10;

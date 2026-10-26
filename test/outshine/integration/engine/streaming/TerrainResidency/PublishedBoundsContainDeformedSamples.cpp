@@ -1,8 +1,8 @@
+#include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "TerrainRenderer.h"
-#include "TerrainResidency.h"
+#include "streaming/TerrainResidency.h"
 #include "TileGeodesy.h"
 #include "UrbanAreaTerrainInstances.h"
 #include "UrbanAreaTerrainPrisms.h"
@@ -23,7 +23,7 @@ using namespace outshine;
 constexpr float kFlatAslM = 100;
 constexpr double kPositionToleranceM = 1e-6;
 constexpr std::array<float, 2> kDeformedAslM{-1000, 9000}, kAlternatingAslM{-700, 1900};
-constexpr int kPageSide = Render::TerrainRenderer::kSide + 2, kMiddleNode = kPageSide / 2;
+constexpr int kPageSide = Render::TerrainLattice::kSide + 2, kMiddleNode = kPageSide / 2;
 
 void CheckSelectedInstances(const TerrainResidency &terrain,
                             LongitudeLatitude anchor,
@@ -132,8 +132,8 @@ int main() {
       Patchwork patch;
       patch.Sheets.push_back(
           {.Tile = tile,
-           .Nodes = std::vector<float>(Render::TerrainRenderer::kPageNodes, kFlatAslM),
-           .Side = Render::TerrainRenderer::kSide,
+           .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, kFlatAslM),
+           .Side = Render::TerrainLattice::kSide,
            .Virtual = true});
       CHECK(terrain.Publish(patch, frame, error), "uniform virtual terrain publishes");
       CheckSamples(terrain, tile);

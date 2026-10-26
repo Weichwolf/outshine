@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
 #include "Gpu.h"
@@ -70,9 +71,9 @@ void RejectedReplacement(SceneResources &resources,
 }
 
 void Probe(Native::Device &device, UploadFailure &failure) {
-  GeometryResidency publishedStorage;
+  RenderScene publishedStorage;
   GeometryRenderer published{publishedStorage};
-  GeometryResidency candidateStorage;
+  RenderScene candidateStorage;
   GeometryRenderer candidate{candidateStorage};
   Configure(published, device);
   Configure(candidate, device);

@@ -1,5 +1,6 @@
+#include "TerrainLattice.h"
 #include "UploadQueue.h"
-#include "TerrainRenderer.h"
+#include "TerrainResidency.h"
 #include "GroundPageUpload.h"
 #include "VectorCapacity.h"
 #include <array>
@@ -13,37 +14,38 @@
 #include <vector>
 
 namespace outshine::Render {
-Native::Result<void> TerrainRenderer::BuildPages(uint32_t layers,
-                                                 std::unique_ptr<Native::Texture> &into) {
-  auto pages =
-      Device_->CreateTexture({.Width = static_cast<uint32_t>(kPageSide) * kPageColumns,
-                              .Height = static_cast<uint32_t>(kPageSide) * kPageColumns,
-                              .Layers = layers,
-                              .Type = Native::TextureType::Image2DArray,
-                              .Texels = Native::Format::R32Float,
-                              .Use = Native::TextureUse::Sampled | Native::TextureUse::CopySource |
-                                     Native::TextureUse::CopyDestination});
+Native::Result<void> TerrainResidency::BuildPages(uint32_t layers,
+                                                  std::unique_ptr<Native::Texture> &into) {
+  auto pages = Device_->CreateTexture(
+      {.Width = static_cast<uint32_t>(TerrainLattice::kPageSide) * TerrainLattice::kPageColumns,
+       .Height = static_cast<uint32_t>(TerrainLattice::kPageSide) * TerrainLattice::kPageColumns,
+       .Layers = layers,
+       .Type = Native::TextureType::Image2DArray,
+       .Texels = Native::Format::R32Float,
+       .Use = Native::TextureUse::Sampled | Native::TextureUse::CopySource |
+              Native::TextureUse::CopyDestination});
   if (!pages) { return std::unexpected(pages.error()); }
   into = std::move(*pages);
   return {};
 }
 
 Native::Result<std::vector<PageId>>
-TerrainRenderer::PlacePages(std::span<const HeightPageView> nodes) {
+TerrainResidency::PlacePages(std::span<const HeightPageView> nodes) {
   if (nodes.size() > kHeightPageBatchMost) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground height page batch exceeds its budget"});
   }
   if (nodes.empty()) { return std::vector<PageId>{}; }
-  if (Device_ == nullptr ||
-      std::ranges::any_of(nodes, [](HeightPageView page) { return page.size() != kPageNodes; })) {
+  if (Device_ == nullptr || std::ranges::any_of(nodes, [](HeightPageView page) {
+        return page.size() != TerrainLattice::kPageNodes;
+      })) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "ground height page requires a device and a complete page"});
   }
   const size_t recycled = std::min(Spare_.size(), nodes.size());
   const size_t fresh = nodes.size() - recycled;
-  if (fresh > kMaximumPages - PagesMade_) {
+  if (fresh > TerrainLattice::kMaximumPages - PagesMade_) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground height page capacity exceeded"});
   }
@@ -56,9 +58,10 @@ TerrainRenderer::PlacePages(std::span<const HeightPageView> nodes) {
   GrowCapacity(PagesInUse_, made);
   uint32_t layers = PageLayers_;
   std::unique_ptr<Native::Texture> candidate;
-  if (made > PageLayers_ * kPagesPerLayer) {
-    const uint32_t needed = (made + kPagesPerLayer - 1u) / kPagesPerLayer;
-    layers = std::min(kMaximumPageLayers, std::max({needed, PageLayers_ * 2u, 1u}));
+  if (made > PageLayers_ * TerrainLattice::kPagesPerLayer) {
+    const uint32_t needed =
+        (made + TerrainLattice::kPagesPerLayer - 1u) / TerrainLattice::kPagesPerLayer;
+    layers = std::min(TerrainLattice::kMaximumPageLayers, std::max({needed, PageLayers_ * 2u, 1u}));
     const auto created = BuildPages(layers, candidate);
     if (!created) { return std::unexpected(created.error()); }
   }
@@ -92,13 +95,13 @@ TerrainRenderer::PlacePages(std::span<const HeightPageView> nodes) {
   PagesLive_ += static_cast<uint32_t>(pages.size());
   for (size_t at = 0; at < pages.size(); ++at) {
     PagesInUse_[pages[at]] = 1;
-    Selection_.Page(pages[at], nodes[at]);
+    Patches_.Page(pages[at], nodes[at]);
     ++Generation_;
   }
   return pages;
 }
 
-Native::Result<PageId> TerrainRenderer::PlacePage(std::span<const float> nodes) {
+Native::Result<PageId> TerrainResidency::PlacePage(std::span<const float> nodes) {
   const std::array batch{nodes};
   auto placed = PlacePages(batch);
   if (!placed) { return std::unexpected(placed.error()); }

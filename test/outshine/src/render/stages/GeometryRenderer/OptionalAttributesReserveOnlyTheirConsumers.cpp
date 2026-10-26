@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include <span>
 #include <cstddef>
 #include <cstdint>
@@ -77,7 +78,7 @@ void CheckLayout(Native::Device *device,
                  std::span<const uint32_t> prefixIndices,
                  bool mapped,
                  bool second) {
-  GeometryResidency drawStorage;
+  RenderScene drawStorage;
   GeometryRenderer draw{drawStorage};
   std::string error;
   outshine::Render::Gpu gpu;

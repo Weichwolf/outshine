@@ -1,7 +1,8 @@
 #ifndef OUTSHINE_TEST_RENDER_GROUNDRASTERREFERENCE_H
 #define OUTSHINE_TEST_RENDER_GROUNDRASTERREFERENCE_H
 
-#include "TerrainRenderer.h"
+#include "TerrainLattice.h"
+
 #include "NativeGpuCheck.h"
 #include <array>
 #include <cstddef>
@@ -17,7 +18,7 @@ struct GroundReferenceInput {
 };
 
 inline std::vector<float> GroundControlGrid(std::span<const float> fractions) {
-  constexpr uint32_t side = Render::TerrainRenderer::kSide;
+  constexpr uint32_t side = Render::TerrainLattice::kSide;
   std::vector<float> grid;
   for (uint32_t variant = 0; variant < 2; ++variant) {
     for (uint32_t y = 0; y < side; ++y) {
@@ -39,7 +40,7 @@ inline std::vector<float> GroundControlGrid(std::span<const float> fractions) {
 }
 
 inline std::vector<uint32_t> GroundControlIndices() {
-  constexpr uint32_t side = Render::TerrainRenderer::kSide;
+  constexpr uint32_t side = Render::TerrainLattice::kSide;
   std::vector<uint32_t> indices;
   for (uint32_t y = 0; y + 1 < side; ++y) {
     for (uint32_t x = 0; x + 1 < side; ++x) {
@@ -82,9 +83,9 @@ inline void DrawGroundReference(Device &device,
   auto instances = Upload(device, commands, words(tiles), BufferUse::Vertex);
   const auto page = static_cast<uint32_t>(tiles[0].Page);
   auto pages = Require(
-      device.CreateTexture({.Width = TerrainRenderer::kPageSide * TerrainRenderer::kPageColumns,
-                            .Height = TerrainRenderer::kPageSide * TerrainRenderer::kPageColumns,
-                            .Layers = page / TerrainRenderer::kPagesPerLayer + 1u,
+      device.CreateTexture({.Width = TerrainLattice::kPageSide * TerrainLattice::kPageColumns,
+                            .Height = TerrainLattice::kPageSide * TerrainLattice::kPageColumns,
+                            .Layers = page / TerrainLattice::kPagesPerLayer + 1u,
                             .Type = TextureType::Image2DArray,
                             .Texels = Format::R32Float,
                             .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
@@ -92,13 +93,13 @@ inline void DrawGroundReference(Device &device,
   Require(commands.Copy(
       *heights,
       *pages,
-      {.RowBytes = TerrainRenderer::kPageSide * sizeof(float),
-       .Region = {.Layer = page / TerrainRenderer::kPagesPerLayer,
-                  .X = (page % TerrainRenderer::kPageColumns) * TerrainRenderer::kPageSide,
-                  .Y = ((page % TerrainRenderer::kPagesPerLayer) / TerrainRenderer::kPageColumns) *
-                       TerrainRenderer::kPageSide,
-                  .Width = TerrainRenderer::kPageSide,
-                  .Height = TerrainRenderer::kPageSide}}));
+      {.RowBytes = TerrainLattice::kPageSide * sizeof(float),
+       .Region = {.Layer = page / TerrainLattice::kPagesPerLayer,
+                  .X = (page % TerrainLattice::kPageColumns) * TerrainLattice::kPageSide,
+                  .Y = ((page % TerrainLattice::kPagesPerLayer) / TerrainLattice::kPageColumns) *
+                       TerrainLattice::kPageSide,
+                  .Width = TerrainLattice::kPageSide,
+                  .Height = TerrainLattice::kPageSide}}));
   const auto sampler = Require(device.CreateSampler(
       {.Min = Render::Native::Filter::Nearest, .Mag = Render::Native::Filter::Nearest}));
   std::vector<Binding> resources(bindings.begin(), bindings.end());
@@ -113,8 +114,8 @@ inline void DrawGroundReference(Device &device,
         VertexBuffer{
             .Stream = 0,
             .Data = vertices.get(),
-            .Range = {.Offset = uint64_t{tile} * TerrainRenderer::kVertices * 3u * sizeof(float),
-                      .Bytes = uint64_t{TerrainRenderer::kVertices} * 3u * sizeof(float)}},
+            .Range = {.Offset = uint64_t{tile} * TerrainLattice::kVertices * 3u * sizeof(float),
+                      .Bytes = uint64_t{TerrainLattice::kVertices} * 3u * sizeof(float)}},
         VertexBuffer{.Stream = 1,
                      .Data = instances.get(),
                      .Range = {.Bytes = instances->Description().Bytes}}};

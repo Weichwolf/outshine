@@ -1035,8 +1035,8 @@ private:
 
     WorldContent()
         : Scene(std::make_unique<RenderScene>()),
-          Geometry(Scene->Meshes()),
-          Glass(Scene->Meshes(), GeometryPassKind::Transmission) {}
+          Geometry(*Scene),
+          Glass(*Scene, GeometryPassKind::Transmission) {}
 
     WorldContent(const WorldContent &) = delete;
     WorldContent &operator=(const WorldContent &) = delete;

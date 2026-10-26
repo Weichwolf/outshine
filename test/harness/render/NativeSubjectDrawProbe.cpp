@@ -1,3 +1,4 @@
+#include "RenderScene.h"
 #include "GeometryRenderer.h"
 #include "GeometryCullStage.h"
 #include "StageSubmission.h"
@@ -289,7 +290,7 @@ int main() {
                               Resource::SceneSurfaceMetalRough}) {
     CHECK(gpu.SceneColours.Add(resource), "the full native material attachment order is accepted");
   }
-  GeometryResidency subjectStorage;
+  RenderScene subjectStorage;
   GeometryRenderer subject{subjectStorage};
   Require(subject.Configure(gpu));
   CHECK(subject.PipelineCount() > 0,

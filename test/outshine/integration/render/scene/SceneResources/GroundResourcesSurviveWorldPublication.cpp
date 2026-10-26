@@ -1,3 +1,4 @@
+#include "TerrainLattice.h"
 #include "RuntimeScene.h"
 #include "WorldCandidate.h"
 #include "EngineState.h"
@@ -58,7 +59,7 @@ int main() {
     if (scene) {
       WorldRegionState world;
       world.BindSceneResources(renderer);
-      std::vector<float> nodes(Render::TerrainRenderer::kPageNodes, 3.0f);
+      std::vector<float> nodes(Render::TerrainLattice::kPageNodes, 3.0f);
       const auto removed = renderer.PlaceHeightPage(nodes);
       CHECK(removed.has_value(), "a predecessor creates a gap in native slot identity");
       if (!removed) { return Report(); }
@@ -66,7 +67,7 @@ int main() {
       CHECK(page.has_value(), "a stable height-page handle is placed");
       if (!page) { return Report(); }
       renderer.ReleaseHeightPage(*removed);
-      std::vector<float> fractions(Render::TerrainRenderer::kSide);
+      std::vector<float> fractions(Render::TerrainLattice::kSide);
       for (size_t at = 0; at < fractions.size(); ++at) {
         fractions[at] = static_cast<float>(at) / static_cast<float>(fractions.size() - 1u);
       }
@@ -78,7 +79,7 @@ int main() {
       CHECK(renderer.SetGroundGrid(fractions, error) &&
                 renderer.SetTerrainTiles({&tile, 1}, {}, error),
             "ground inputs retain stable page handles");
-      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "one published ground tile has its full topology");
       scene->Eye(GroundView());
       CHECK(scene->Draw(error), "a ground-only frame renders without any subject placement buffer");
@@ -97,13 +98,13 @@ int main() {
       CHECK(failure.ComputePipelineRequests == pipelines,
             "a new world candidate binds resident frame pipelines without shader recompilation");
       world.BindSceneResources(renderer);
-      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "first streamed-world publication retains the ground tile topology");
       CHECK(Core::RuntimeScene::ReplacesGeometry(
                 renderer, *scene, geometry.clone(), nullptr, scene, error),
             "geometry replacement recreates ground resources in its candidate");
       world.BindSceneResources(renderer);
-      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+      CHECK(renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "candidate publication retains the ground tile topology");
       renderer.ReleaseHeightPage(*page);
       const auto replacement = renderer.PlaceHeightPage(nodes);
@@ -115,7 +116,7 @@ int main() {
       next.Page = *replacement;
       CHECK(renderer.SetTerrainTiles({&next, 1}, {}, error), "replacement page publishes");
       CHECK(!renderer.SetTerrainTiles({&tile, 1}, {}, error) &&
-                renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+                renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "stale lattice input is rejected without changing the current topology");
       for (const Render::HeightPageHandle invalid :
            {Render::HeightPageHandle{},
@@ -124,7 +125,7 @@ int main() {
         Render::TerrainTile refused = next;
         refused.Page = invalid;
         CHECK(!renderer.SetTerrainTiles({&refused, 1}, {}, error) &&
-                  renderer.TerrainRendererTriangles() == Render::TerrainRenderer::kIndices / 3u,
+                  renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
               "invalid page identities preserve the published lattice");
         renderer.ReleaseHeightPage(invalid);
       }

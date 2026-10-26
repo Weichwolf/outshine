@@ -1,6 +1,6 @@
+#include "TerrainLattice.h"
 #include "TerrainResidency.h"
 #include "BlockedDigest.h"
-#include "TerrainRenderer.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -94,7 +94,7 @@ TerrainResidency::SurfaceIdentity(Data::TileId region, size_t pagesMost) const {
   BlockedDigest digest;
   constexpr uint32_t samplingVersion = 1;
   (void)digest.Number(samplingVersion);
-  (void)digest.Number(Render::TerrainRenderer::kSide);
+  (void)digest.Number(Render::TerrainLattice::kSide);
   for (const size_t slot : slots) {
     const Held &page = Held_[slot];
     (void)digest.Number(page.Tile.Zoom);
