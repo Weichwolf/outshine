@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "Sink.h"
 #include "SurfacePreparation.h"
@@ -99,7 +99,7 @@ int main() {
   const std::array providers{source};
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   constexpr LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};

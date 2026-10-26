@@ -7,7 +7,7 @@
 #include <string>
 #include "SourceProviderValidation.h"
 #include "PreferredVectorSource.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 
 namespace outshine::App {
 
@@ -33,7 +33,7 @@ ConfigureWorldSources(Scenario::Document &scenario) {
     scenario.Providers.push_back(Generators::Osm::PreferredVectorSource());
   }
   if (scenario.Ground.Declared && scenario.Ground.Shape.Kind.empty()) {
-    for (const auto &defaults : Generators::ShippedProviders()) {
+    for (const auto &defaults : Generators::DefaultSourceProviders()) {
       if (std::ranges::any_of(scenario.Providers, [&](const auto &provider) {
             return provider.Kind == defaults.Kind ||
                    (defaults.Kind == "terrain" && provider.Kind == "copernicus");
