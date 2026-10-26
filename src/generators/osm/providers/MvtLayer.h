@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_OSM_PROVIDERS_MVTLAYER_H
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_MVTLAYER_H
 
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <optional>
@@ -22,7 +23,10 @@ public:
     uint32_t FirstRing = 0, RingCount = 0;
     uint32_t FirstTag = 0, TagCount = 0;
     int Type = 0;
+    bool HasContentDigest = false;
     std::optional<uint64_t> ProviderFeatureId;
+    // Original feature message digest, independent of native array placement.
+    std::array<uint8_t, 32> ContentDigest{};
   };
 
   enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion };

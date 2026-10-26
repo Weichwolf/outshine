@@ -16,7 +16,7 @@
 
 namespace outshine::Generators::Osm {
 namespace {
-constexpr uint32_t kNativeTileVersion = 0x314d534f;
+constexpr uint32_t kNativeTileVersion = 0x324d534f;
 constexpr int kMaximumTileZoom = std::numeric_limits<int>::digits - 1;
 
 template <class Archive, class T> using Transfer = std::conditional_t<Archive::Reading, T, const T>;
@@ -116,6 +116,7 @@ struct OsmField::NativeCodec {
                        feature.Layer,
                        feature.Type) &&
                     Optional(in, feature.ProviderFeatureId) &&
+                    in(feature.HasContentDigest, feature.ContentDigest) &&
                     in(feature.MinLat, feature.MinLon, feature.MaxLat, feature.MaxLon);
            });
   }
