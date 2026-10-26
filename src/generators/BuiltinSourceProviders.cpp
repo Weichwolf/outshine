@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "OsmProvider.h"
 #include "CopernicusDemSource.h"
 #include "TerrariumSource.h"
@@ -207,7 +207,7 @@ public:
 
 }
 
-void RegisterShippedProviders(Data::ProviderRegistry &registry) {
+void RegisterBuiltinSourceProviders(Data::ProviderRegistry &registry) {
   static const CopernicusProvider copernicus;
   static const TerrariumProvider terrain;
   static const VectorProvider vector;
@@ -225,8 +225,8 @@ void RegisterShippedProviders(Data::ProviderRegistry &registry) {
   }
 }
 
-std::span<const Data::SourceProvider> ShippedProviders() {
-  static const std::array<Data::SourceProvider, 2> shipped = {{
+std::span<const Data::SourceProvider> DefaultSourceProviders() {
+  static const std::array<Data::SourceProvider, 2> defaults = {{
       {.Kind = "terrain",
        .Revision = "",
        .Priority = 0,
@@ -248,7 +248,7 @@ std::span<const Data::SourceProvider> ShippedProviders() {
        .PayloadSha256 = "",
        .Schema = ""},
   }};
-  return shipped;
+  return defaults;
 }
 
 }

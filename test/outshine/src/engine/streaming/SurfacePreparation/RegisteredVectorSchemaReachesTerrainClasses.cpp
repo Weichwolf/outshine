@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "Sink.h"
@@ -85,7 +85,7 @@ int main() {
   const std::array providers{source};
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
   CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},

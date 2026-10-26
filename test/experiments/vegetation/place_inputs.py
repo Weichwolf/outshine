@@ -18,7 +18,7 @@ def providers(root):
     definitions = {}
     for kind, relative, suffix in (
         ("vector", "src/generators/osm/providers/PreferredVectorSource.h", "pbf"),
-        ("elevation", "src/generators/ShippedProviders.cpp", "webp"),
+        ("elevation", "src/generators/BuiltinSourceProviders.cpp", "webp"),
     ):
         raw = (Path(root) / relative).read_bytes()
         match = re.search(
