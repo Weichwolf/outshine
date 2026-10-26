@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <optional>
 #include <span>
@@ -45,12 +46,9 @@ std::expected<MvtTransportSnapshot, std::string> Snapshot() {
 
 bool SharesBoundary(const TransportCoreEnd &from, const TransportCoreEnd &to) {
   if (from.Geographic != to.Geographic) { return false; }
-  for (const auto &boundary : from.Boundaries) {
-    if (boundary && std::ranges::find(to.Boundaries, boundary) != to.Boundaries.end()) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(from.Boundaries, [&to](const auto &boundary) {
+    return boundary && std::ranges::find(to.Boundaries, boundary) != to.Boundaries.end();
+  });
 }
 
 size_t MatchingEnds(const TransportCoreSegment &a, const TransportCoreSegment &b) {
