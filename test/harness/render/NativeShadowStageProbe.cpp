@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "TerrainLattice.h"
 #include "RenderScene.h"
 #include "SunShadowPass.h"
@@ -96,7 +97,7 @@ void SetMask(Scene &scene, MaskCase mask) {
     material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   }
   std::string error;
-  CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(MeshInput{}, error), error);
   CheckSceneUpload(scene.Geometry.SetMaterials(std::span(&material, 1), error), error);
   std::array<float, 12> emitted{};
   std::array<float, 16> colours{};
@@ -130,7 +131,7 @@ void SetMask(Scene &scene, MaskCase mask) {
                              error),
                    error);
   draws.Compile();
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = kPositions.data();
   mesh.Positions = kPositions;
   mesh.Emitted.From = emitted.data();
@@ -403,7 +404,7 @@ void ConfigureRollback(Device &device, Scene &scene) {
 
 void GroundOnly(Device &device, Scene &scene) {
   std::string error;
-  CheckSceneUpload(scene.Geometry.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(scene.Geometry.SetMesh(MeshInput{}, error), error);
   CheckSceneUpload(scene.Geometry.SetPlacements(nullptr, 0, error), error);
   auto &ground = scene.Geometry.Ground();
   std::vector<float> heights(TerrainLattice::kPageNodes, 3);

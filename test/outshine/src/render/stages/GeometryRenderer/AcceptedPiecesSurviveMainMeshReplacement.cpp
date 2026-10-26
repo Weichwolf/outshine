@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include <cstddef>
 #include <cstdint>
@@ -98,7 +99,7 @@ int main() {
       CHECK(draws.Add(item, error), "replacement triangle adds");
       draws.Compile();
       constexpr std::array<float, 9> emitted{};
-      SubjectMesh mesh;
+      MeshInput mesh;
       if (replacement) {
         mesh.Verts.From = expected.data();
         mesh.Positions = expected;

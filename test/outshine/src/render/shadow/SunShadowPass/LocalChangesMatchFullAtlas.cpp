@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
@@ -313,7 +314,7 @@ int main() {
   GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));
   std::string error;
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Anchor = kAnchor;
   CheckSceneUpload(geometry.SetMesh(mesh, error), error);
   MaterialBinding material;

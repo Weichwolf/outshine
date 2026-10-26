@@ -70,7 +70,7 @@ struct GeometryResidency {
     void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
     const void *Carrying = nullptr;
 
-    [[nodiscard]] bool Stands() const { return From != nullptr || Writes != nullptr; }
+    [[nodiscard]] bool HasSource() const { return From != nullptr || Writes != nullptr; }
   };
 
   struct BoundImage {
@@ -120,21 +120,21 @@ struct GeometryResidency {
 
   [[nodiscard]] uint32_t IndexRoom() const { return TopI_; }
 
-  [[nodiscard]] const Range &SubjectVertices() const { return SubjectV_; }
+  [[nodiscard]] const Range &MainVertexRange() const { return MainVertexRange_; }
 
-  [[nodiscard]] const Range &SubjectIndices() const { return SubjectI_; }
+  [[nodiscard]] const Range &MainIndexRange() const { return MainIndexRange_; }
 
-  [[nodiscard]] const Range &SubjectColours() const { return SubjectC_; }
+  [[nodiscard]] const Range &MainColourRange() const { return MainColourRange_; }
 
-  [[nodiscard]] const Range &SubjectTangents() const noexcept { return SubjectT_; }
+  [[nodiscard]] const Range &MainTangentRange() const noexcept { return MainTangentRange_; }
 
   [[nodiscard]] uint32_t TangentRoom() const noexcept { return TopT_; }
 
-  void SubjectStands(Range vertices, Range indices, Range colours, Range tangents) {
-    SubjectV_ = vertices;
-    SubjectI_ = indices;
-    SubjectC_ = colours;
-    SubjectT_ = tangents;
+  void SetMainMeshRanges(Range vertices, Range indices, Range colours, Range tangents) {
+    MainVertexRange_ = vertices;
+    MainIndexRange_ = indices;
+    MainColourRange_ = colours;
+    MainTangentRange_ = tangents;
   }
 
   [[nodiscard]] Native::Result<void> StandsOn(Native::Device *device);
@@ -269,10 +269,10 @@ private:
   uint32_t TopI_ = 0;
   uint32_t TopC_ = 0;
   uint32_t TopT_ = 0;
-  Range SubjectV_;
-  Range SubjectI_;
-  Range SubjectC_;
-  Range SubjectT_;
+  Range MainVertexRange_;
+  Range MainIndexRange_;
+  Range MainColourRange_;
+  Range MainTangentRange_;
 
   struct Staged {
     Native::Buffer *Into = nullptr;

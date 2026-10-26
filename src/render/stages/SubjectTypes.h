@@ -38,34 +38,6 @@ struct SubjectEnvironment {
 
 constexpr size_t kMaxSubjectLights = 16;
 
-struct SubjectStream {
-  const float *From = nullptr;
-  void (*Writes)(const void *carrying, float *into, uint32_t floats) = nullptr;
-  const void *Carrying = nullptr;
-
-  [[nodiscard]] bool Stands() const { return From != nullptr || Writes != nullptr; }
-};
-
-struct SubjectPose {
-  SubjectStream Verts;
-
-  std::span<const float> Positions;
-  SubjectStream Uv;
-
-  SubjectStream Uv1;
-  SubjectStream Normals;
-
-  SubjectStream Tangents;
-
-  SubjectStream Colours;
-  SubjectStream Emitted;
-
-  SubjectStream PrevVerts;
-  uint32_t VertexCount = 0;
-  Vec3 Anchor = {{0, 0, 0}};
-  Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-};
-
 struct PieceSurface {
   enum class Source { Geometry, Registered };
   uint32_t Index = 0;
@@ -117,16 +89,6 @@ struct GroundTile {
 
 using PageId = uint32_t;
 inline constexpr PageId kNoPage = ~0u;
-
-struct SubjectMesh : SubjectPose {
-  const uint32_t *Indices = nullptr;
-  uint32_t IndexCount = 0;
-  const DrawList *Draws = nullptr;
-
-  std::span<const DagCluster> Clusters;
-
-  std::span<const float> ClusterSpheres;
-};
 
 }
 

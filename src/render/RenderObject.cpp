@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Digest.h"
 #include "Units.h"
 #include "Mat4.h"
@@ -642,7 +643,7 @@ struct PlacementMeshInput {
   ChannelPack Tangents;
   ChannelPack Colours;
   EmitPack Emitted;
-  SubjectMesh Mesh;
+  MeshInput Mesh;
 
   PlacementMeshInput(const Shape &subject,
                      const RenderObject &proxy,
@@ -654,27 +655,27 @@ struct PlacementMeshInput {
         Tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4},
         Colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4},
         Emitted{.From = &subject, .Proxy = &proxy} {
-    Mesh.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Positions};
+    Mesh.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Positions};
     if (subject.CarriesUv) {
-      Mesh.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv};
+      Mesh.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv};
     }
     if (subject.CarriesUv1) {
-      Mesh.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv1};
+      Mesh.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv1};
     }
     if (subject.CarriesNormal) {
-      Mesh.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Normals};
+      Mesh.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Normals};
     }
     if (subject.CarriesTangent) {
-      Mesh.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Tangents};
+      Mesh.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Tangents};
     }
     if (subject.CarriesColour) {
-      Mesh.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Colours};
+      Mesh.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Colours};
     }
-    Mesh.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &Emitted};
+    Mesh.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &Emitted};
     Mesh.Positions = scratch.Vertices;
     if (!proxy.Previous().empty()) {
       Mesh.PrevVerts =
-          SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
+          VertexSource{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
     }
     Mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
     Mesh.Indices = scratch.Indices.data();
@@ -783,7 +784,7 @@ bool Move(SceneRenderer &renderer,
 
   scratch.Metrics = {};
   const auto packingFrom = std::chrono::steady_clock::now();
-  SubjectPose pose;
+  VertexInput pose;
   const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
   const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
   const ChannelPack uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2};
@@ -792,23 +793,23 @@ bool Move(SceneRenderer &renderer,
   const ChannelPack colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4};
   const EmitPack emitted{.From = &subject, .Proxy = &proxy};
 
-  pose.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
+  pose.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
   if (subject.CarriesUv) {
-    pose.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
+    pose.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
   }
   if (subject.CarriesUv1) {
-    pose.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
+    pose.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
   }
   if (subject.CarriesNormal) {
-    pose.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
+    pose.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
   }
   if (subject.CarriesTangent) {
-    pose.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
+    pose.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
   }
   if (subject.CarriesColour) {
-    pose.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
+    pose.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
   }
-  pose.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
+  pose.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
   scratch.Vertices.resize(subject.VertexCount() * 3u);
   PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   scratch.Metrics.PackingMs =
@@ -832,14 +833,14 @@ bool Move(SceneRenderer &renderer,
   pose.Positions = scratch.Vertices;
   if (!proxy.Previous().empty()) {
     pose.PrevVerts =
-        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
+        VertexSource{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
   }
   pose.VertexCount = static_cast<uint32_t>(subject.VertexCount());
   for (int axis = 0; axis < 3; ++axis) { pose.Anchor[axis] = proxy.Anchor()[axis]; }
   static const Heap::Tag kHandingTag("subject-pose");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
-  const bool uploaded = renderer.SetGeometryPose(pose, error);
+  const bool uploaded = renderer.SetGeometryVertexInput(pose, error);
   scratch.Metrics.UploadMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count();

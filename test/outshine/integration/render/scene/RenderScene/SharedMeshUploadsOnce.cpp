@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "DrawList.h"
 #include "ExecutionPlan.h"
@@ -42,7 +43,7 @@ bool InstallMesh(SceneRenderer &renderer) {
       -1, -1, 0, 1, -1, 0, 0, 1, 0, 9, -1, 0, 11, -1, 0, 10, 1, 0};
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 3, 4, 5};
   constexpr std::array<float, 18> emitted{1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = positions.data();
   mesh.Positions = positions;
   mesh.Emitted.From = emitted.data();

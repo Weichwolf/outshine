@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
@@ -15,7 +16,7 @@ using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
 
-void CorruptMesh(SubjectMesh &mesh, DrawBatch &batch, int fault) {
+void CorruptMesh(MeshInput &mesh, DrawBatch &batch, int fault) {
   constexpr auto maximum = std::numeric_limits<uint32_t>::max();
   switch (fault) {
     case 0: mesh.Verts = {}; break;
@@ -48,7 +49,7 @@ void CheckInterruptedUpload(SceneRenderer &renderer,
   draws.Compile();
   constexpr std::array<float, 9> stagedPositions{
       -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = stagedPositions.data();
   mesh.Positions = stagedPositions;
   mesh.Emitted.From = emitted.data();
@@ -84,7 +85,7 @@ void CheckInterruptedUpload(SceneRenderer &renderer,
     std::vector<float> oneShot;
     CHECK(renderer.ReadSceneLinear(oneShot) == ReadState::Ready && oneShot == staged,
           "interrupted and one-shot uploads render identical pixels");
-    const SubjectMesh empty;
+    const MeshInput empty;
     auto cleared = renderer.BeginGeometryMesh(empty);
     CHECK(cleared.has_value() && !cleared->NeedsFinish && !renderer.GeometryMeshPending(),
           "empty subject completes during admission");
@@ -128,11 +129,11 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "native scene opens");
     if (scene) {
-      SubjectPose pose;
+      VertexInput pose;
       pose.Verts.From = positions.data();
       pose.Emitted.From = emitted.data();
       pose.VertexCount = 3;
-      CHECK(renderer.SetGeometryPose(pose, error), "initial mesh accepts a native pose");
+      CHECK(renderer.SetGeometryVertexInput(pose, error), "initial mesh accepts a native pose");
       CHECK(scene->Draw(error), "initial geometry renders");
       renderer.WaitForGpu();
       std::vector<float> before;
@@ -147,7 +148,7 @@ int main() {
         item.IndexCount = 3;
         CHECK(draws.Add(item, error), "valid independent draw added");
         draws.Compile();
-        SubjectMesh mesh;
+        MeshInput mesh;
         mesh.Verts.From = positions.data();
         mesh.Emitted.From = emitted.data();
         mesh.VertexCount = 3;
@@ -162,7 +163,7 @@ int main() {
               "invalid mesh is rejected with a diagnosis");
         CHECK(renderer.TotalUploadAttempts() == uploads && renderer.GeometryBatchCount() == batches,
               "rejection preserves uploaded geometry and draw tables");
-        CHECK(renderer.SetGeometryPose(pose, error),
+        CHECK(renderer.SetGeometryVertexInput(pose, error),
               "valid pose update still finds the previous resident mesh after rejection");
         CHECK(scene->Draw(error), "old geometry remains drawable after rejection");
         renderer.WaitForGpu();

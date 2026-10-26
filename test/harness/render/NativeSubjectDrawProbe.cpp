@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "GeometryRenderer.h"
 #include "GeometryCullStage.h"
@@ -51,8 +52,8 @@ struct MeshData {
     }
   }
 
-  [[nodiscard]] SubjectMesh Mesh(VertexLayout layout, const DrawList &draws) const {
-    SubjectMesh mesh;
+  [[nodiscard]] MeshInput Mesh(VertexLayout layout, const DrawList &draws) const {
+    MeshInput mesh;
     mesh.Verts.From = kPositions.data();
     mesh.Positions = kPositions;
     mesh.VertexCount = 4;
@@ -200,7 +201,7 @@ void Indirect(Device &device,
 
 void PieceUv1(Device &device, GeometryRenderer &subject, Targets &targets, const MeshData &source) {
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   constexpr std::array<uint8_t, 8> texels{255, 0, 0, 255, 0, 0, 255, 255};
   MaterialBinding material;
   material.Row.Unlit = true;
@@ -257,7 +258,7 @@ void PreparedMipChain(Device &device, GeometryRenderer &subject, Targets &target
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
   material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
   std::string error;
-  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMesh(MeshInput{}, error), error);
   CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
   MeshData data;
   constexpr float uvMost = 64;

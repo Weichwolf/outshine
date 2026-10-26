@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "SurfaceSession.h"
 #include <expected>
 #include <span>
@@ -73,7 +74,7 @@ RuntimeScene::~RuntimeScene() {
   if (Renderer_ == nullptr) { return; }
 
   std::string ignored;
-  (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
+  (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
   Renderer_->SetPictureRegion({});
 }
@@ -385,7 +386,7 @@ void RuntimeScene::ClearsSubject() {
   PartBounds_.clear();
   if (Renderer_ != nullptr) {
     std::string ignored;
-    (void)Renderer_->SetGeometryMesh(Render::SubjectMesh{}, ignored);
+    (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
     (void)Renderer_->SetGeometryPlacements(nullptr, 0, ignored);
   }
 }
@@ -593,7 +594,7 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
   if (Shaped_.TriangleCount() == 0) {
-    if (!Renderer_->SetGeometryMesh(Render::SubjectMesh{}, error) ||
+    if (!Renderer_->SetGeometryMesh(Render::MeshInput{}, error) ||
         !Renderer_->SetGeometryPlacements(nullptr, 0, error)) {
       return std::unexpected(std::move(error));
     }
