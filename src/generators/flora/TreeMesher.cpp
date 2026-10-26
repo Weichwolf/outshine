@@ -179,7 +179,7 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node,
 bool TreeMesher::Collar(int face,
                         const TreeSkeleton::Node &anchor,
                         const TreeSkeleton::Node &first,
-                        Fitted within,
+                        BranchCollarLimits within,
                         std::span<int> out) {
   if (face < 0 || (Dead_[static_cast<size_t>(face)] != 0u)) { return false; }
   const Face parent = Faces_[static_cast<size_t>(face)];

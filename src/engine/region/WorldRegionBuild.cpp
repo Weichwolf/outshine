@@ -38,9 +38,6 @@
 #include <chrono>
 #include <vector>
 
-#include "Fit.h"
-#include "ReferenceLine.h"
-
 #include "spatial/Census.h"
 #include "spatial/Drape.h"
 #include "geo/PlaceKey.h"

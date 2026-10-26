@@ -11,8 +11,8 @@ int main() {
   const std::array<double, 6> points{{0, 0, 100, 0, 200, 30}};
   ReferenceLine line;
   const auto fitted = Fit(points, 0.5, 5.5, line);
-  CHECK(fitted.Laid, "gentle bend has a single drivable alignment");
-  if (!fitted.Laid) { return Report(); }
+  CHECK(fitted.Succeeded, "gentle bend has a single drivable alignment");
+  if (!fitted.Succeeded) { return Report(); }
   const double sourceLength = 100 + std::hypot(100.0, 30.0);
   CHECK(std::abs(sourceLength - line.LengthM()) > 0.0001,
         "fixture exercises a change in station distance");

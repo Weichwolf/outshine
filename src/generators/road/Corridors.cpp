@@ -103,7 +103,7 @@ double Corridors::LeastSeen(double held, double seen) {
   return held > 0.0 ? std::min(held, seen) : seen;
 }
 
-void Corridors::NotesFit(Paved &into, const Fitted &got) {
+void Corridors::NotesFit(Paved &into, const CurveFitResult &got) {
   ++into.FitLaid;
   ++into.FitsMeasured;
   into.FitRadiusTightestM = LeastSeen(into.FitRadiusTightestM, got.TightestRadiusM);
@@ -115,12 +115,12 @@ void Corridors::FitAlongLane(Paved &into) {
   bool wholeWay = true;
   while (from * 2u + 6u <= into.FitEastNorth.size()) {
     ReferenceLine fitted;
-    const Fitted got = Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u,
-                                                   into.FitEastNorth.size() - from * 2u),
-                           kFitWithinM,
-                           kFitTightestM,
-                           fitted);
-    if (got.Laid) {
+    const CurveFitResult got = Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u,
+                                                           into.FitEastNorth.size() - from * 2u),
+                                   kFitWithinM,
+                                   kFitTightestM,
+                                   fitted);
+    if (got.Succeeded) {
       NotesFit(into, got);
       into.FitUndrivable += got.Undrivable;
       break;
@@ -134,12 +134,12 @@ void Corridors::FitAlongLane(Paved &into) {
     const size_t upTo = got.TightestDemandedAtVertex;
     if (upTo + 1u >= 3u) {
       ReferenceLine piece;
-      const Fitted head =
+      const CurveFitResult head =
           Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
               kFitWithinM,
               kFitTightestM,
               piece);
-      if (head.Laid) {
+      if (head.Succeeded) {
         NotesFit(into, head);
       } else {
         ++into.FitUnsplittable;

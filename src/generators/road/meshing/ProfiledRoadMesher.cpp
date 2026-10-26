@@ -74,11 +74,11 @@ bool FitPiece(std::span<const double> eastNorthM,
       return false;
     }
   } else {
-    const Fitted laid = Fit(std::span<const double>(eastNorthM.data(), eastNorthM.size()),
-                            kLayWithinM,
-                            kLayTightestM,
-                            line);
-    if (!laid.Laid || !(line.LengthM() > 0.0)) {
+    const CurveFitResult laid = Fit(std::span<const double>(eastNorthM.data(), eastNorthM.size()),
+                                    kLayWithinM,
+                                    kLayTightestM,
+                                    line);
+    if (!laid.Succeeded || !(line.LengthM() > 0.0)) {
       ++rejections.Fit;
       return false;
     }
@@ -292,12 +292,12 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
   size_t from = 0;
   while (from + 2u <= along.size()) {
     ReferenceLine probe;
-    const Fitted got =
+    const CurveFitResult got =
         Fit(std::span<const double>(eastNorth.data() + from * 2u, (along.size() - from) * 2u),
             kLayWithinM,
             kLayTightestM,
             probe);
-    const size_t upTo = got.Laid ? along.size() - from - 1u : got.TightestDemandedAtVertex;
+    const size_t upTo = got.Succeeded ? along.size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
     if (count >= 2u) {
       const RoadSweep piece = PieceSettings(how, along.subspan(from, count), from, along.size());
@@ -315,7 +315,7 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
       ++tally.Refused;
       ++rejections.TooShort;
     }
-    if (got.Laid) { break; }
+    if (got.Succeeded) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
       ++tally.Refused;
       break;
