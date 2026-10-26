@@ -3,12 +3,19 @@
 
 #include <cstdint>
 #include <expected>
+#include <span>
+#include <string_view>
 
 #include "OsmTransportBuilder.h"
 
 namespace outshine::Generators::Osm {
 
 enum class OsmWayTravel : uint8_t { Forward, Reverse, Both };
+
+struct WayTagView {
+  std::string_view Key;
+  std::string_view Value;
+};
 
 struct OsmWaySemantics {
   bool TransportTagged = false;
@@ -26,6 +33,9 @@ struct OsmWaySemantics {
 
 [[nodiscard]] std::expected<OsmWaySemantics, TransportBuildErrorCode>
 DescribeOsmWay(const Way &way);
+
+[[nodiscard]] std::expected<OsmWaySemantics, TransportBuildErrorCode>
+DescribeOsmWay(std::span<const WayTagView> tags);
 
 }
 

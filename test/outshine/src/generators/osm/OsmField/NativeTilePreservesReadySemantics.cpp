@@ -56,6 +56,9 @@ int main() {
   CHECK(feature.ProviderFeatureId == 7 && feature.Layer == 0 &&
             warm->Num(feature, "height", 0) == 19 && warm->Str(feature, "name") == "house",
         "provider identity and normalized numeric/string tags are ready for all consumers");
+  CHECK(feature.HasContentDigest && cold.Features().front().HasContentDigest &&
+            feature.ContentDigest == cold.Features().front().ContentDigest,
+        "the source message digest survives a native hit without hashing or projecting again");
   CHECK(warm->Schema() == cold.Schema() && warm->MissingLayers() == cold.MissingLayers() &&
             warm->MissingLayers() == 1 && warm->SettledWithin(0),
         "schema, genuine missing layers and readiness remain explicit");
@@ -79,7 +82,10 @@ int main() {
   std::fill(invalid.begin() + 4, invalid.begin() + 8, uint8_t{255});
   CHECK(!OsmField::DecodeNativeTile(invalid, most), "invalid geographic hierarchy is rejected");
   invalid = *encoded;
-  std::fill(invalid.end() - 64, invalid.end() - 60, uint8_t{255});
+  constexpr size_t kFeatureWireBytes = 97;
+  std::fill(invalid.end() - kFeatureWireBytes,
+            invalid.end() - kFeatureWireBytes + sizeof(uint32_t),
+            uint8_t{255});
   CHECK(!OsmField::DecodeNativeTile(invalid, most), "out-of-range feature rings are rejected");
   invalid = *encoded;
   std::fill(invalid.end() - 32, invalid.end() - 24, uint8_t{255});
