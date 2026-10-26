@@ -7,7 +7,7 @@
 namespace outshine::Render {
 Native::Result<TerrainRenderer::DrawArguments> SceneRenderer::ReadGroundDrawArguments() const {
   const auto &state = ActiveState();
-  if (!state.Ready || !state.Submitted || !state.Plan) {
+  if (!state.Ready || !state.History.HasSubmittedFrame() || !state.Plan) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "no submitted ground frame"});
   }

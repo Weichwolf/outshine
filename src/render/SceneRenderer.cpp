@@ -110,7 +110,7 @@ Lens SceneRenderer::Through() const {
           .OrthoM = ActiveState().OrthoM,
           .NearM = ActiveState().NearM,
           .FarM = ActiveState().FarM,
-          .Jitter = ActiveState().Temporal.Jitter()};
+          .Jitter = ActiveState().History.Sequence().Jitter()};
 }
 
 const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
@@ -336,7 +336,7 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
   ActiveState().Content.Glass.GroundFrom(
       {.Classes = ActiveState().Content.Scene->GroundMaterials().Classes(),
        .Palette = ActiveState().Content.Scene->GroundMaterials().Palette()});
-  ActiveState().Submitted = false;
+  ActiveState().History.InvalidateView();
   ActiveState().Ready = true;
   return true;
 }
@@ -381,7 +381,7 @@ SceneRenderer::BuildFrameResources(Extent frame, const ExecutionPlan &plan, bool
 void SceneRenderer::PublishFrameResources(FrameResources frame,
                                           std::shared_ptr<const ExecutionPlan> plan) {
   ActiveState().Ready = false;
-  ActiveState().Submitted = false;
+  ActiveState().History.InvalidateView();
   if (Candidate_) {
     Candidate_->Frame.emplace(std::move(frame));
   } else {
@@ -511,7 +511,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
 }
 
 Native::Texture *SceneRenderer::Target(Resource resource) const {
-  return Target(ActiveFrame(), resource, ActiveState().Temporal.OutputIndex());
+  return Target(ActiveFrame(), resource, ActiveState().History.Sequence().OutputIndex());
 }
 
 Native::Texture *
@@ -883,21 +883,14 @@ FrameContext SceneRenderer::Framing() const {
   }
 
   ctx.Mvp = Through().ViewProjection(ActiveState().Camera);
-  for (int axis = 0; axis < 3; axis++) {
-    ctx.PrevPreViewTranslation[axis] =
-        ActiveState().Submitted ? -ActiveState().PrevEye[axis] : ctx.PreViewTranslation[axis];
-  }
-  for (int at = 0; at < 16; at++) {
-    ctx.PrevMvp[at] = ActiveState().Submitted ? ActiveState().PrevMvp[at] : ctx.Mvp[at];
-  }
+  ActiveState().History.ApplyPrevious(ctx);
   return ctx;
 }
 
-Native::Result<void> SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
+Native::Result<void>
+SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecording &into) {
   const Executor *seat = ExecutorOf(stage);
   if (seat == nullptr || seat->Encode == nullptr) { return {}; }
-
-  const FrameContext ctx = Framing();
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
@@ -951,12 +944,12 @@ Native::Result<void> SceneRenderer::EncodeTonemap(const FrameContext &ctx,
                                                   const PassRecording &into) {
   ActiveFrame().Tonemap.Bind(DisplaySource());
   ActiveFrame().Tonemap.BindTemporal(
-      {.History =
-           ActiveFrame().Targets.Get(Resource::SceneLinear, ActiveState().Temporal.HistoryIndex()),
+      {.History = ActiveFrame().Targets.Get(Resource::SceneLinear,
+                                            ActiveState().History.Sequence().HistoryIndex()),
        .Velocity = ActiveFrame().Targets.Get(Resource::SceneVelocity)},
       Extent{.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
-      ActiveState().Temporal.JitterDelta(),
-      ActiveState().Temporal.HasHistory());
+      ActiveState().History.Sequence().JitterDelta(),
+      ActiveState().History.Sequence().HasHistory());
   return ActiveFrame().Tonemap.Encode(ctx, Picture(true, into));
 }
 
@@ -1295,25 +1288,30 @@ Native::Result<void> SceneRenderer::EncodeSky(const FrameContext &ctx, const Pas
   return ActiveFrame().Sky.Encode(ctx, Picture(true, into));
 }
 
-Native::Result<void>
-SceneRenderer::EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission) {
+Native::Result<void> SceneRenderer::EncodePass(Native::Commands *commands,
+                                               size_t pass,
+                                               const FrameContext &ctx,
+                                               StageSubmission &submission) {
   const auto &declared = ActiveState().Plan->Passes()[pass];
   if (declared.Count == 1 &&
       ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility &&
       ActiveFrame().Shadow.Cached()) {
     return EncodeStage(Stage::LightVisibility,
+                       ctx,
                        {.Commands = commands, .Submission = submission, .Area = {}, .Clip = {}});
   }
-  return declared.Kind == PassKind::Compute ? EncodeComputePass(commands, declared, submission)
-                                            : EncodeGraphicsPass(commands, declared, submission);
+  return declared.Kind == PassKind::Compute
+             ? EncodeComputePass(commands, declared, ctx, submission)
+             : EncodeGraphicsPass(commands, declared, ctx, submission);
 }
 
 Native::Result<void> SceneRenderer::EncodeComputePass(Native::Commands *commands,
                                                       const ExecutionPlan::Pass &declared,
+                                                      const FrameContext &ctx,
                                                       StageSubmission &submission) {
   const PassRecording into{.Commands = commands, .Submission = submission, .Area = {}, .Clip = {}};
   for (size_t at = 0; at < declared.Count; ++at) {
-    auto encoded = EncodeStage(ActiveState().Plan->Order()[declared.First + at], into);
+    auto encoded = EncodeStage(ActiveState().Plan->Order()[declared.First + at], ctx, into);
     if (!encoded) { return encoded; }
   }
   return {};
@@ -1321,6 +1319,7 @@ Native::Result<void> SceneRenderer::EncodeComputePass(Native::Commands *commands
 
 Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *commands,
                                                        const ExecutionPlan::Pass &declared,
+                                                       const FrameContext &ctx,
                                                        StageSubmission &submission) {
   std::array<Native::ColourAttachment, kMaxColourAttachments> colours{};
   size_t count = 0;
@@ -1365,14 +1364,14 @@ Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *command
       .Area = {.Width = static_cast<float>(width), .Height = static_cast<float>(height)},
       .Clip = {.Width = width, .Height = height}};
   for (size_t at = 0; at < declared.Count; ++at) {
-    auto encoded = EncodeStage(ActiveState().Plan->Order()[declared.First + at], into);
+    auto encoded = EncodeStage(ActiveState().Plan->Order()[declared.First + at], ctx, into);
     if (!encoded) { return encoded; }
   }
   return commands->EndRenderPass();
 }
 
 void SceneRenderer::BeginTemporalRun() {
-  ActiveState().Temporal.Reset();
+  ActiveState().History.ResetAccumulation();
 }
 
 std::expected<void, std::string> SceneRenderer::PrepareFrame() {
@@ -1408,6 +1407,7 @@ std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResour
   if (!commands) { return std::unexpected(commands.error().Message); }
   const auto flushed = FlushCrossings(**commands);
   if (!flushed) { return std::unexpected(flushed.error().Message); }
+  const FrameContext ctx = Framing();
   StageSubmission preparation;
   const auto world = [](Stage stage) { return Row(stage).Phase == StagePhase::WorldPreparation; };
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
@@ -1418,7 +1418,7 @@ std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResour
     if (!std::ranges::all_of(stages, world)) {
       return std::unexpected("world resource preparation shares a pass with frame-only work");
     }
-    auto encoded = EncodePass(commands->get(), pass, preparation);
+    auto encoded = EncodePass(commands->get(), pass, ctx, preparation);
     if (!encoded) { return std::unexpected(encoded.error().Message); }
   }
   auto completion = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
@@ -1442,21 +1442,17 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   return RenderPublishedFrame();
 }
 
-void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
+void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission,
+                                         const CameraBasis &camera) {
   ActiveState().Content.Scene->Meshes().CommitCrossings();
   stageSubmission.Commit();
   ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
                                     DepthPyramidNeeded(*ActiveState().Plan));
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
-  for (int axis = 0; axis < 3; axis++) {
-    ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
-  }
   ActiveState().Content.Geometry.CarryFrame();
   ActiveState().Content.Glass.CarryFrame();
 
-  ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
-  ActiveState().Submitted = true;
-  LastSubmittedCamera_.Basis = ActiveState().Camera;
+  LastSubmittedCamera_.Basis = camera;
   LastSubmittedCamera_.GeometryAnchorM = ActiveState().Content.Geometry.AnchorM();
   ++LastSubmittedCamera_.Serial;
 }
@@ -1507,14 +1503,17 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   record(RenderFramePhase::Swapchain);
 
-  auto temporal = ActiveState().Temporal.Begin(ActiveState().Plan->Holds(Stage::TemporalResolve));
+  auto temporal =
+      ActiveState().History.BeginFrame(ActiveState().Plan->Holds(Stage::TemporalResolve));
+  const CameraBasis camera = ActiveState().Camera;
+  const FrameContext ctx = Framing();
   StageSubmission stageSubmission;
   const auto restorePresentSurface = [&] {
     if (presenting) { ActiveFrame().HostSurface = ActiveFrame().Offscreen.get(); }
   };
 
   auto culled = ActiveState().Content.Geometry.Ground().Cull(
-      Framing(), ActiveState().Content.Geometry.AnchorM(), **commands);
+      ctx, ActiveState().Content.Geometry.AnchorM(), **commands);
   if (!culled) {
     restorePresentSurface();
     return std::unexpected(culled.error().Message);
@@ -1522,7 +1521,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   record(RenderFramePhase::Cull);
   PendingSpent_ = {};
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
-    auto encoded = EncodePass(commands->get(), pass, stageSubmission);
+    auto encoded = EncodePass(commands->get(), pass, ctx, stageSubmission);
     if (!encoded) {
       restorePresentSurface();
       return std::unexpected(encoded.error().Message);
@@ -1542,12 +1541,12 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     restorePresentSurface();
     return std::unexpected(submitted.error().Message);
   }
-  temporal.Commit();
+  temporal.Commit(ctx);
   Landed_[LandedAt_] = *submitted;
   LastFrameSubmission_ = *submitted;
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
-  CommitSubmittedFrame(stageSubmission);
+  CommitSubmittedFrame(stageSubmission, camera);
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   CommitCostProfile(timing);
@@ -1566,7 +1565,7 @@ void SceneRenderer::StopShowing() {
   }
   ActiveFrame().HostSurface = nullptr;
   ActiveFrame().Shown = {};
-  ActiveState().Submitted = false;
+  ActiveState().History.InvalidateView();
   Showing_ = nullptr;
 }
 
@@ -1607,7 +1606,7 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   Presenting_ = true;
   ActiveFrame().HostSurface = ActiveFrame().Offscreen.get();
   ActiveFrame().Shown = {};
-  ActiveState().Submitted = false;
+  ActiveState().History.InvalidateView();
   ActiveState().WhyNot.clear();
   return {};
 }
