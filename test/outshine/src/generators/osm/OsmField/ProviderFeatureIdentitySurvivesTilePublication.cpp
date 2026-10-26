@@ -17,6 +17,13 @@ namespace {
 using outshine::Test::Mvt::Append;
 using outshine::Test::Mvt::Bytes;
 
+constexpr uint8_t kFeatureType = 0x18;
+constexpr uint8_t kFeatureGeometry = 0x22;
+constexpr uint8_t kLayerVersion = 0x78;
+constexpr uint8_t kLayerExtent = 0x28;
+constexpr uint8_t kLayerFeature = 0x12;
+constexpr uint8_t kTileLayer = 0x1a;
+
 void AppendVarint(Bytes &bytes, uint64_t value) {
   while (value >= 0x80u) {
     bytes.push_back(static_cast<uint8_t>(value) | 0x80u);
@@ -26,7 +33,7 @@ void AppendVarint(Bytes &bytes, uint64_t value) {
 }
 
 Bytes LineFeature(std::optional<uint64_t> id) {
-  Bytes feature{0x18, 2, 0x22, 6, 9, 0, 0, 10, 2, 2};
+  Bytes feature{kFeatureType, 2, kFeatureGeometry, 6, 9, 0, 0, 10, 2, 2};
   if (id) {
     feature.push_back(0x08);
     AppendVarint(feature, *id);
@@ -35,10 +42,10 @@ Bytes LineFeature(std::optional<uint64_t> id) {
 }
 
 Bytes VectorTile(std::span<const Bytes> features) {
-  Bytes layer{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
-  for (const Bytes &feature : features) { Append(layer, 0x12, feature); }
+  Bytes layer{0x0a, 1, 'x', kLayerVersion, 2, kLayerExtent, 64};
+  for (const Bytes &feature : features) { Append(layer, kLayerFeature, feature); }
   Bytes tile;
-  Append(tile, 0x1a, layer);
+  Append(tile, kTileLayer, layer);
   return tile;
 }
 }
