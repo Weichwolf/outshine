@@ -34,7 +34,7 @@ def metadata():
 
 def compile_flags():
     rows = json.loads((BUILD / "compile_commands.json").read_text())
-    row = next(r for r in rows if Path(r["file"]).resolve() == ROOT / "src/client/Main.cpp")
+    row = next(r for r in rows if Path(r["file"]).resolve() == ROOT / "src/app/Main.cpp")
     command = row.get("arguments") or shlex.split(row["command"])
     flags = []
     iterator = iter(command[1:])

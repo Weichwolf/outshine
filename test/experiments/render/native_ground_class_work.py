@@ -32,7 +32,7 @@ def build(native, output):
     commands = []
     for name, actual, obj in (
         ("SceneRenderer.cpp", target, output / "renderer.o"),
-        ("Main.cpp", native / "src/client/Main.cpp", output / "main.o"),
+        ("Main.cpp", native / "src/app/Main.cpp", output / "main.o"),
     ):
         command = compile_unit(database, native, name, actual, obj)
         checked(["nice", "-n", "10", *command], native, output / f"{name}.log")

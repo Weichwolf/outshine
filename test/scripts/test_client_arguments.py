@@ -93,7 +93,7 @@ class Coordinates(unittest.TestCase):
         database = json.loads((Path(os.environ.get('OUTSHINE_BUILD_DIR', ROOT / 'build')) / 'compile_commands.json').read_text())
         command = next(entry for entry in database
                        if (Path(entry['directory']) / entry['file']).resolve() ==
-                       (ROOT / 'src/client/Main.cpp').resolve())
+                       (ROOT / 'src/app/Main.cpp').resolve())
         arguments = command.get('arguments') or shlex.split(command['command'])
         with tempfile.TemporaryDirectory(prefix='outshine-nodiscard-') as temporary:
             source = Path(temporary) / 'result.cpp'

@@ -36,7 +36,7 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 
 Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
 Setup. Plattform-SDK, SDL/Codecs/Shaderwerkzeuge stehen in den Buildprofilen und
-`src/client/README.md`. Metal und Vulkan verwenden die nativen Backendverträge;
+`src/app/README.md`. Metal und Vulkan verwenden die nativen Backendverträge;
 SDL3_shadercross ist keine Produkt- oder Buildabhängigkeit.
 
 ## Installation

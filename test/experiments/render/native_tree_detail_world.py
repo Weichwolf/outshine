@@ -270,7 +270,7 @@ def main():
             database,
             native,
             "Main.cpp",
-            native / "src/client/Main.cpp",
+            native / "src/app/Main.cpp",
             output / "main.o",
         )
     ]
