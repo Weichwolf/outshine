@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "MeshClusterBuildJob.h"
+
 #include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
@@ -220,7 +222,7 @@ public:
                                                                               size_t pagesMost);
 
   [[nodiscard]] bool GeometryBuildActive() const noexcept {
-    return ShapeCooking_.has_value() || BuildStage_ != GeometryBuildStage::Idle;
+    return ClusterBuild_.has_value() || BuildStage_ != GeometryBuildStage::Idle;
   }
 
   [[nodiscard]] bool Reshape(std::string &error);
@@ -460,7 +462,7 @@ private:
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
   Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
-  std::optional<Render::ShapeCookJob> ShapeCooking_;
+  std::optional<Render::MeshClusterBuildJob> ClusterBuild_;
   std::vector<Material> GeometryBuildSurfaces_;
   int GroundSurface_ = -1;
   void WearsPieces();

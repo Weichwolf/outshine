@@ -1,3 +1,4 @@
+#include "MeshClusterBuildJob.h"
 #include "Shape.h"
 #include "SurfaceState.h"
 #include <algorithm>
@@ -12,26 +13,27 @@
 
 namespace outshine::Render {
 
-ShapeCookJob::ShapeCookJob(ShapeStore &into, std::span<const Material> surfaces) noexcept
+MeshClusterBuildJob::MeshClusterBuildJob(ShapeStore &into,
+                                         std::span<const Material> surfaces) noexcept
     : Into_(&into), Surfaces_(surfaces) {}
 
-bool ShapeCookJob::Ready() const noexcept {
+bool MeshClusterBuildJob::Ready() const noexcept {
   return Stage_ == Stage::Complete;
 }
 
-ClusterError ShapeCookJob::Fail(ClusterError error) noexcept {
+ClusterError MeshClusterBuildJob::Fail(ClusterError error) noexcept {
   Failure_ = error;
   Stage_ = Stage::Failed;
   return error;
 }
 
-void ShapeCookJob::Completes() noexcept {
+void MeshClusterBuildJob::Completes() noexcept {
   Into_->Clustering.RootClusters = RootClusters_;
   Into_->Clustering.Clusters = Into_->Clusters.size();
   Stage_ = Stage::Complete;
 }
 
-std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::BeginsPart() {
+std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::BeginsPart() {
   if (Part_ == Into_->Parts.size()) {
     Completes();
     return Flow::Complete;
@@ -51,7 +53,8 @@ std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::BeginsPart() {
   return Flow::Continue;
 }
 
-std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvancesRebase(size_t &itemsLeft) {
+std::expected<MeshClusterBuildJob::Flow, ClusterError>
+MeshClusterBuildJob::AdvancesRebase(size_t &itemsLeft) {
   const ShapePart &part = Into_->Parts[Part_];
   const size_t count = std::min(itemsLeft, LocalIndices_.size() - Cursor_);
   const size_t end = Cursor_ + count;
@@ -83,7 +86,7 @@ std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvancesRebase(siz
   return Flow::Continue;
 }
 
-void ShapeCookJob::KeepsCooked(ClusteredMesh cooked) {
+void MeshClusterBuildJob::KeepsCooked(ClusteredMesh cooked) {
   if (!KeepsClusters_) { return; }
   ShapePart &part = Into_->Parts[Part_];
   for (size_t at = 0; at < cooked.Index.size(); ++at) {
@@ -111,7 +114,8 @@ void ShapeCookJob::KeepsCooked(ClusteredMesh cooked) {
   part.ClusterCount = static_cast<uint32_t>(cooked.Clusters.size());
 }
 
-std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvancesCook(size_t &itemsLeft) {
+std::expected<MeshClusterBuildJob::Flow, ClusterError>
+MeshClusterBuildJob::AdvancesCook(size_t &itemsLeft) {
   if (!Cook_) { return std::unexpected(Fail(ClusterError::InvalidLayout)); }
   ClusterCookJob &cook = *Cook_;
   const auto advanced = cook.AdvanceWithin(itemsLeft);
@@ -124,7 +128,8 @@ std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvancesCook(size_
   return Flow::Continue;
 }
 
-std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvanceWork(size_t &itemsLeft) {
+std::expected<MeshClusterBuildJob::Flow, ClusterError>
+MeshClusterBuildJob::AdvanceWork(size_t &itemsLeft) {
   for (;;) {
     switch (Stage_) {
       case Stage::Layout:
@@ -160,7 +165,7 @@ std::expected<ShapeCookJob::Flow, ClusterError> ShapeCookJob::AdvanceWork(size_t
   }
 }
 
-std::expected<bool, ClusterError> ShapeCookJob::Advance(size_t itemsMost) {
+std::expected<bool, ClusterError> MeshClusterBuildJob::Advance(size_t itemsMost) {
   if (Stage_ == Stage::Failed) { return std::unexpected(Failure_); }
   if (Ready()) { return true; }
   const auto began = std::chrono::steady_clock::now();
@@ -173,8 +178,9 @@ std::expected<bool, ClusterError> ShapeCookJob::Advance(size_t itemsMost) {
   return *advanced == Flow::Complete;
 }
 
-std::expected<void, ClusterError> CookShape(ShapeStore &into, std::span<const Material> surfaces) {
-  ShapeCookJob job(into, surfaces);
+std::expected<void, ClusterError> BuildMeshClusters(ShapeStore &into,
+                                                    std::span<const Material> surfaces) {
+  MeshClusterBuildJob job(into, surfaces);
   for (;;) {
     const auto advanced = job.Advance(65536);
     if (!advanced) { return std::unexpected(advanced.error()); }

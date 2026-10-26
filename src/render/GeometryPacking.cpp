@@ -1,3 +1,4 @@
+#include "MeshClusterBuildJob.h"
 #include <expected>
 #include "Shape.h"
 #include "Mat4.h"
@@ -401,7 +402,7 @@ Shape ViewShape(const ShapeStore &store) noexcept {
 
 std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
   if (auto bound = BindShapeStorage(into); !bound) { return std::unexpected(bound.error()); }
-  const auto cooked = CookShape(into, into.Surfaces);
+  const auto cooked = BuildMeshClusters(into, into.Surfaces);
   if (!cooked) { return std::unexpected(cooked.error()); }
   return ViewShape(into);
 }
@@ -420,7 +421,7 @@ std::expected<Shape, ClusterError> PrepareShape(std::shared_ptr<const Geometry> 
   if (auto prepared = PrepareShapeStorage(std::move(from), into); !prepared) {
     return std::unexpected(prepared.error());
   }
-  if (auto cooked = CookShape(into, into.Surfaces); !cooked) {
+  if (auto cooked = BuildMeshClusters(into, into.Surfaces); !cooked) {
     return std::unexpected(cooked.error());
   }
   return ViewShape(into);

@@ -1,6 +1,8 @@
+#include "MeshClusterBuildJob.h"
 #include "Check.h"
 #include "Shape.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -12,7 +14,7 @@ int main() {
   std::vector<float> shapePositions;
   std::vector<uint32_t> shapeIndices;
   for (uint32_t triangleAt = 0; triangleAt < 260; ++triangleAt) {
-    const float along = static_cast<float>(triangleAt % 17);
+    const auto along = static_cast<float>(triangleAt % 17);
     shapePositions.insert(shapePositions.end(), {along, 0, 0, along + 0.5f, 0, 0, along, 1, 0});
     shapeIndices.insert(shapeIndices.end(),
                         {triangleAt * 3, triangleAt * 3 + 1, triangleAt * 3 + 2});
@@ -30,9 +32,9 @@ int main() {
   Render::ShapeStore interrupted;
   fillsShape(uninterrupted);
   fillsShape(interrupted);
-  CHECK(Render::CookShape(uninterrupted, {}).has_value(),
+  CHECK(Render::BuildMeshClusters(uninterrupted, {}).has_value(),
         "one-shot shape cooking accepts the clustered fixture");
-  Render::ShapeCookJob shapeJob(interrupted, {});
+  Render::MeshClusterBuildJob shapeJob(interrupted, {});
   for (size_t turn = 0; !shapeJob.Ready() && turn < 100000; ++turn) {
     const auto advanced = shapeJob.Advance(turn % 7 + 1);
     CHECK(advanced.has_value(), "paced shape cooking accepts every intermediate boundary");
