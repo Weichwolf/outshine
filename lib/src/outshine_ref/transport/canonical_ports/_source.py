@@ -58,17 +58,19 @@ def component(index, seed, unknown, budget):
     return tuple(sorted(selected)), ";".join(sorted(reasons)), work
 
 
-def ground_chain(index, selected):
+def source_chain(index, selected, *, bridge_recipe=False):
     nodes, spans, _incidence = index
     adjacency = defaultdict(list)
     widths, gradients = set(), set()
     for identity in selected:
         span = spans[identity]
-        if span.bridge:
+        if span.bridge and span.tunnel:
+            return None, "covered_bridge_height_recipe_required"
+        if span.bridge and not bridge_recipe:
             return None, "bridge_anchor_recipe_required"
         if span.tunnel:
             return None, "tunnel_height_recipe_required"
-        if span.layer != 0:
+        if span.layer != 0 and not (bridge_recipe and span.bridge and span.layer > 0):
             return None, "layer_height_recipe_required"
         if span.maximum_gradient is None or span.width_m <= 0:
             return None, "missing_source_profile_recipe"

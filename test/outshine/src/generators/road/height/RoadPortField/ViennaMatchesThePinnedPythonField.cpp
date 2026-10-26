@@ -10,8 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
-#include <iterator>
 #include <ios>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
