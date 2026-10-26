@@ -372,7 +372,8 @@ void Corridors::PaveLane(
     return;
   }
   if (pass == Pass::Designing) {
-    if (on.Projection.Allows(2.0 * static_cast<double>(lane.HalfWidthM), AwayM(on, lane))) {
+    if (!on.FunctionalPlan &&
+        on.Projection.Allows(2.0 * static_cast<double>(lane.HalfWidthM), AwayM(on, lane))) {
       ++into.UnseenWays;
       return;
     }
@@ -526,6 +527,7 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (one.OverWay >= net.WayCount() || one.UnderWay >= net.WayCount()) { return; }
   const size_t a = net.TagOf(one.OverWay);
   const size_t b = net.TagOf(one.UnderWay);
+  if (!UsesWay(on, a) && !UsesWay(on, b)) { return; }
   const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
   const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
   if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge) { return; }
@@ -610,6 +612,7 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
 }
 
 void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
+  if (!UsesWay(on, laneAt)) { return; }
   const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2) {
     return;
@@ -673,7 +676,9 @@ double Corridors::HighestDeckM(const Paved &over) {
 }
 
 void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
-  for (const ::outshine::Generators::Osm::StreetField::Way &lane : on.Ways.Ways()) {
+  for (size_t index = 0; index < on.Ways.Ways().size(); ++index) {
+    if (!UsesWay(on, index)) { continue; }
+    const auto &lane = on.Ways.Ways()[index];
     if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon ||
         lane.PointCount < 2) {
       continue;
@@ -705,7 +710,9 @@ void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
 void Corridors::GradesApproaches(const Paving &on, Paved &into) {
   const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
 
-  for (const ::outshine::Generators::Osm::StreetField::Way &lane : ways.Ways()) {
+  for (size_t index = 0; index < ways.Ways().size(); ++index) {
+    if (!UsesWay(on, index)) { continue; }
+    const auto &lane = ways.Ways()[index];
     if (lane.Bridge || lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon) {
       continue;
     }
@@ -1508,9 +1515,11 @@ bool Corridors::RetainValidWays(Job &job, const JobSlice &slice) {
   const double spentMs = job.TotalMs + slice.Elapsed();
   const auto advances = job.StageAdvances;
   const auto longest = job.LongestSliceMs;
+  auto functional = std::move(job.Functional);
   auto previous = std::make_unique<Job>(std::move(job));
   job = Job(slice.site);
   job.RetainedWays = std::move(retained);
+  job.Functional = std::move(functional);
   job.Omissions = std::move(omissions);
   job.Retiring = std::move(previous);
   job.TotalMs = spentMs;
@@ -1531,6 +1540,7 @@ Corridors::Advance(Job &job,
     return std::unexpected(Says::kRetiredCorridorJob);
   }
   const auto *vectors = site.Vectors;
+  if (!MatchesFunctionalInput(job, site)) { return std::unexpected(Says::kStaleCorridorInput); }
   const auto &ways = job.RetainedWays ? *job.RetainedWays : site.Ways;
   if ((vectors != nullptr ? vectors->Generation() : 0) != job.VectorGeneration ||
       site.Ways.Ways().size() != job.WayCount) {
@@ -1568,7 +1578,11 @@ Corridors::Advance(Job &job,
                           .WaterRow = waterRow,
                           .EyeLatDeg = site.EyeLatDeg,
                           .EyeLonDeg = site.EyeLonDeg,
-                          .Projection = site.Projection});
+                          .Projection = site.Projection,
+                          .FunctionalPlan = job.Functional.has_value(),
+                          .FunctionalWays = job.Functional
+                                                ? std::span<const uint32_t>(job.Functional->Ways)
+                                                : std::span<const uint32_t>{}});
   }
   const JobSlice slice{.site = site,
                        .ways = ways,
@@ -1881,17 +1895,16 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
   Paved &into = job.Work;
   switch (job.Phase) {
     case Job::Stage::Design: {
-      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+      const size_t count = job.Functional ? job.Functional->Ways.size() : job.WayCount;
+      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), count);
       if (paving != nullptr) {
-        for (; job.NextLane < end; ++job.NextLane) {
-          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Pavement);
-        }
+        DesignWays(job, *paving, end);
       } else {
         job.NextLane = end;
       }
       job.StageMs += elapsed();
       job.TotalMs += elapsed();
-      if (job.NextLane < job.WayCount) { return false; }
+      if (job.NextLane < count) { return false; }
       Notes(into, "streets: of that, designing every lane", job.StageMs, "ms");
       Notes(into, "streets: of designing, the fit", into.FitMs, "ms");
       Notes(into, "streets: of designing, the water", into.WaterMs, "ms");

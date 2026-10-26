@@ -26,7 +26,7 @@ RoadSweep Corridors::SurfaceOf(const Osm::StreetField::Way &lane,
 
 std::expected<bool, std::string_view>
 Corridors::AdvancePlan(Job &job, const Site &site, size_t lanesMost, size_t nodesMost) const {
-  if (job.Retirement != Job::RetireStage::Active ||
+  if (!MatchesFunctionalInput(job, site) || job.Retirement != Job::RetireStage::Active ||
       (site.Vectors != nullptr ? site.Vectors->Generation() : 0) != job.VectorGeneration ||
       site.Ways.Ways().size() != job.WayCount) {
     return std::unexpected("road page plan inputs are stale or retired");
@@ -88,7 +88,8 @@ std::span<const DiagnosticSample> Corridors::PlanMeasures(const Job &job) noexce
 
 std::expected<RoadPageRecipe, std::string_view>
 Corridors::PageRecipe(const Job &job, const Site &site, std::span<const RoadPagePart> parts) {
-  if (job.Retirement != Job::RetireStage::Active || job.Phase < Job::Stage::Pave ||
+  if (!MatchesFunctionalInput(job, site) || job.Retirement != Job::RetireStage::Active ||
+      job.Phase < Job::Stage::Pave ||
       (site.Vectors != nullptr ? site.Vectors->Generation() : 0) != job.VectorGeneration ||
       site.Ways.Ways().size() != job.WayCount) {
     return std::unexpected("road page plan inputs are stale or unavailable");
