@@ -6,12 +6,15 @@
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <span>
 #include <string>
 #include <system_error>
 #include <thread>
+#include <vector>
 
 namespace {
 class ApiWire final : public outshine::Data::Transport {
@@ -78,6 +81,82 @@ size_t ActiveCharge(const outshine::Generators::Osm::SourceAcquisition &loader) 
   for (const auto &entry : loader.CurrentCells()) { bytes += entry.ChargedBytes; }
   return bytes;
 }
+
+void CheckReplacementAndRedirection(
+    ApiWire &wire,
+    outshine::Tasks &compute,
+    outshine::Generators::Osm::SourceAcquisition &loader,
+    const outshine::Data::SourceProvider &provider,
+    const auto &cells,
+    const outshine::Generators::Osm::SourceAcquisition::CellLimits &limits,
+    const auto &retained,
+    const auto &added) {
+  using namespace outshine;
+  using namespace outshine::Data;
+  using namespace outshine::Test;
+  auto changed = provider;
+  changed.Revision = "resident-r2";
+  wire.Large = true;
+  CHECK(loader.RequestCells(changed,
+                            std::span(cells).subspan(1, 1),
+                            {.CellsMost = 8, .SnapshotBytesMost = ActiveCharge(loader) + 4096},
+                            ".") &&
+            Settled(loader) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
+            loader.CurrentCells()[0].Snapshot == retained &&
+            loader.CellSnapshotChargeBytes() == ActiveCharge(loader),
+        "large retained tag buffers exceed the snapshot budget and preserve the valid old world");
+  wire.Large = false;
+  CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
+            Settled(loader) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready,
+        "returning to a retained source revision recovers without losing products");
+
+  changed.Revision = "resident-r3";
+  wire.Block = true;
+  const auto before = wire.Starts.load();
+  CHECK(loader.RequestCells(changed, std::span(cells).subspan(1), limits, ".") &&
+            Await(loader, [&wire, before] { return wire.Starts >= before + 2; }),
+        "a source replacement starts both bounded IO requests");
+  const auto probe = compute.Post([] {});
+  const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  bool probeDone = false;
+  while (!(probeDone = compute.TakeCompletion(probe)) && std::chrono::steady_clock::now() < until) {
+    (void)compute.AwaitCompletion(0.01);
+  }
+  CHECK(probeDone && loader.CurrentCells()[0].Snapshot == retained,
+        "stalled IO leaves the shared compute worker and published world available");
+  CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
+            Settled(loader) && wire.Canceled == 2 && wire.Active == 0 &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
+            loader.CurrentCells()[0].Snapshot == retained,
+        "superseded source work cancels every ticket and cannot overwrite retained cells");
+  wire.Block = false;
+  changed.Revision = "resident-partial";
+  const auto beforePartial = wire.Starts.load();
+  const auto publishedCharge = loader.CellSnapshotChargeBytes();
+  wire.BlockAfter = beforePartial + 3;
+  CHECK(loader.RequestCells(changed, cells, limits, ".") &&
+            Await(loader,
+                  [&loader, &wire, beforePartial, publishedCharge] {
+                    return wire.Starts >= beforePartial + 3 &&
+                           loader.CellSnapshotChargeBytes() > publishedCharge;
+                  }),
+        "two completed cells remain staged while the final requested source is blocked");
+  const auto stagedCharge = loader.CellSnapshotChargeBytes();
+  const std::array redirected{cells[0], cells[1], added};
+  CHECK(loader.RequestCells(changed, redirected, limits, ".") &&
+            loader.CellSnapshotChargeBytes() == stagedCharge,
+        "changed demand retains completed unpublished cells instead of re-ingesting them");
+  wire.BlockAfter = 0;
+  CHECK(Settled(loader) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
+            loader.CurrentCells().size() == 3 && wire.Starts == beforePartial + 4,
+        "redirecting a partial load acquires only its newly missing source");
+  CHECK(loader.Request({}, ".") && Settled(loader) && loader.CurrentCells().empty() &&
+            !loader.Current(),
+        "regional-mode removal does not expose former cell snapshots as a global source");
+}
 }
 
 int main() {
@@ -98,13 +177,17 @@ int main() {
                                   .Revision = "resident-r1",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
+                                  .Location = {},
                                   .Endpoint =
-                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                  .Coverage = {},
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
     const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                            GeoCellId{.Level = 9, .X = 270, .Y = 411},
                            GeoCellId{.Level = 9, .X = 271, .Y = 411}};
     const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
-        .CellsMost = 8, .SnapshotBytesMost = 1024 * 1024};
+        .CellsMost = 8, .SnapshotBytesMost = size_t{1024} * 1024};
     CHECK(loader.RequestCells(provider, std::span(cells).first(3), limits, ".") &&
               Settled(loader) &&
               loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
@@ -153,70 +236,8 @@ int main() {
             wire.Starts == starts && loader.CurrentCells()[0].Snapshot == retained,
         "invalid or excessive demand never truncates the requested world or destroys the old set");
 
-    auto changed = provider;
-    changed.Revision = "resident-r2";
-    wire.Large = true;
-    CHECK(loader.RequestCells(changed,
-                              std::span(cells).subspan(1, 1),
-                              {.CellsMost = 8, .SnapshotBytesMost = ActiveCharge(loader) + 4096},
-                              ".") &&
-              Settled(loader) &&
-              loader.CurrentPhase() ==
-                  outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
-              loader.CurrentCells()[0].Snapshot == retained &&
-              loader.CellSnapshotChargeBytes() == ActiveCharge(loader),
-          "large retained tag buffers exceed the snapshot budget and preserve the valid old world");
-    wire.Large = false;
-    CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
-              Settled(loader) &&
-              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready,
-          "returning to a retained source revision recovers without losing products");
-
-    changed.Revision = "resident-r3";
-    wire.Block = true;
-    const auto before = wire.Starts.load();
-    CHECK(loader.RequestCells(changed, std::span(cells).subspan(1), limits, ".") &&
-              Await(loader, [&wire, before] { return wire.Starts >= before + 2; }),
-          "a source replacement starts both bounded IO requests");
-    const auto probe = compute.Post([] {});
-    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    bool probeDone = false;
-    while (!(probeDone = compute.TakeCompletion(probe)) &&
-           std::chrono::steady_clock::now() < until) {
-      (void)compute.AwaitCompletion(0.01);
-    }
-    CHECK(probeDone && loader.CurrentCells()[0].Snapshot == retained,
-          "stalled IO leaves the shared compute worker and published world available");
-    CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
-              Settled(loader) && wire.Canceled == 2 && wire.Active == 0 &&
-              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
-              loader.CurrentCells()[0].Snapshot == retained,
-          "superseded source work cancels every ticket and cannot overwrite retained cells");
-    wire.Block = false;
-    changed.Revision = "resident-partial";
-    const auto beforePartial = wire.Starts.load();
-    const auto publishedCharge = loader.CellSnapshotChargeBytes();
-    wire.BlockAfter = beforePartial + 3;
-    CHECK(loader.RequestCells(changed, cells, limits, ".") &&
-              Await(loader,
-                    [&loader, &wire, beforePartial, publishedCharge] {
-                      return wire.Starts >= beforePartial + 3 &&
-                             loader.CellSnapshotChargeBytes() > publishedCharge;
-                    }),
-          "two completed cells remain staged while the final requested source is blocked");
-    const auto stagedCharge = loader.CellSnapshotChargeBytes();
-    const std::array redirected{cells[0], cells[1], extended[2]};
-    CHECK(loader.RequestCells(changed, redirected, limits, ".") &&
-              loader.CellSnapshotChargeBytes() == stagedCharge,
-          "changed demand retains completed unpublished cells instead of re-ingesting them");
-    wire.BlockAfter = 0;
-    CHECK(Settled(loader) &&
-              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
-              loader.CurrentCells().size() == 3 && wire.Starts == beforePartial + 4,
-          "redirecting a partial load acquires only its newly missing source");
-    CHECK(loader.Request({}, ".") && Settled(loader) && loader.CurrentCells().empty() &&
-              !loader.Current(),
-          "regional-mode removal does not expose former cell snapshots as a global source");
+    CheckReplacementAndRedirection(
+        wire, compute, loader, provider, cells, limits, retained, extended[2]);
   }
   std::error_code error;
   std::filesystem::remove_all(directory, error);

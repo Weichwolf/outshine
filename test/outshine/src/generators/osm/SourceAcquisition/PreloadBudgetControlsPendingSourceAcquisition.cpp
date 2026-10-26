@@ -5,11 +5,15 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <cstddef>
 #include <filesystem>
 #include <limits>
 #include <string>
+#include <system_error>
 #include <thread>
+#include <vector>
 
 namespace {
 class DelayedWire final : public outshine::Data::Transport {
@@ -19,17 +23,17 @@ public:
   size_t Canceled = 0;
   double ReadyAtMs = 12000;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (ClockMs < ReadyAtMs) { return outshine::Data::Wire::Working(); }
     const std::string body = "<osm version='0.6'><node id='1' lat='0' lon='0'/></osm>";
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(body.begin(), body.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 
   double NowMs() override { return ClockMs; }
 
@@ -67,10 +71,14 @@ int main() {
                           .Revision = "longer",
                           .Missing = MissingDataPolicy::Fail,
                           .Dataset = "openstreetmap.original",
-                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                          .Location = {},
+                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                          .Coverage = {},
+                          .PayloadSha256 = {},
+                          .Schema = {}};
   const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
-      .CellsMost = 1, .SnapshotBytesMost = 1024 * 1024};
+      .CellsMost = 1, .SnapshotBytesMost = size_t{1024} * 1024};
   Tasks compute(1);
   Tasks io(1);
   DelayedWire wire;
