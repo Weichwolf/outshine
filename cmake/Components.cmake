@@ -80,8 +80,14 @@ target_include_directories(outshine_ui_paint INTERFACE "${PROJECT_SOURCE_DIR}/sr
 add_library(outshine_render_device_api INTERFACE)
 target_include_directories(outshine_render_device_api INTERFACE
   "${PROJECT_SOURCE_DIR}/src/render/device/native")
+add_library(outshine_world_contracts INTERFACE)
+target_include_directories(outshine_world_contracts INTERFACE
+  "${PROJECT_SOURCE_DIR}/src/world/contracts")
 
 foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
+  if(root STREQUAL "world/contracts")
+    continue()
+  endif()
   string(REPLACE "/" "_" name "outshine_${root}")
   outshine_component(${name} "${root}")
 endforeach()
@@ -105,10 +111,7 @@ target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content 
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world outshine_sources)
 target_link_libraries(outshine_generators_contracts PUBLIC outshine_base outshine_world_contracts outshine_world_products)
 target_link_libraries(outshine_generators_transport PUBLIC outshine_generators_contracts outshine_content_assets)
-target_link_libraries(outshine_world_contracts PUBLIC outshine_base)
-target_sources(outshine_world_contracts PRIVATE src/world/contracts/EarthworkStamp.h)
-set_target_properties(outshine_world_contracts outshine_world_contracts_objects
-  PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(outshine_world_contracts INTERFACE outshine_base)
 target_link_libraries(outshine_generators_building PUBLIC outshine_generators_terrain_inputs outshine_generators_base outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_earth PUBLIC outshine_base outshine_world outshine_generators_terrain outshine_generators_osm)
 target_link_libraries(outshine_generators_flora PUBLIC outshine_generators_base outshine_generators_recipes outshine_base outshine_content outshine_world)
