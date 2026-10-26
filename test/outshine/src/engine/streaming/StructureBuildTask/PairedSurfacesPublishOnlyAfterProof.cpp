@@ -98,6 +98,8 @@ int main() {
     task.Resume(pool, mesher);
     StructureBuildTask moved(std::move(task));
     moved.Join(pool);
+    // The guaranteed empty source is part of the move contract being tested.
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
     CHECK(!moved.Result().Tile && moved.Result().Status && !task.Running(),
           "running reference ownership moves without publishing a variant or cancelling work");
     moved.Resume(pool, mesher);

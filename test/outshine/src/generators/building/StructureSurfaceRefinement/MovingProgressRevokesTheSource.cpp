@@ -23,6 +23,8 @@ void Rectangle(Raised &mesh, float left, float right, float bottom, float top) {
 }
 
 bool Revoked(StructureSurfaceRefinementTask &task) {
+  // The guaranteed cancelled source must refuse progress after every non-self move.
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move)
   const auto progress = task.Step(7, {.MaxWorkUnits = 1});
   return !task.Bound(7) && !progress && progress.error() == StructureSurfaceErrorFailure::Cancelled;
 }
@@ -38,6 +40,13 @@ bool Same(const StructureSurfaceRefinementTask &a, const StructureSurfaceRefinem
                  x->Upper.VariantToReferenceM == y->Upper.VariantToReferenceM &&
                  x->ReferenceToVariantLowerM == y->ReferenceToVariantLowerM &&
                  x->VariantToReferenceLowerM == y->VariantToReferenceLowerM));
+}
+
+bool Reusable(StructureSurfaceRefinementTask &task, StructureSurfacePair pair, bool partial) {
+  if (!task.Reset(pair)) { return false; }
+  if (partial) { return task.Step(pair.SourceKey, {.MaxWorkUnits = 100}).has_value(); }
+  const auto bound = task.Bound(pair.SourceKey);
+  return bound && bound->UpperDistanceM() == 0;
 }
 }
 
@@ -65,14 +74,12 @@ int main() {
     CHECK(revoked, "move construction revokes the source before it can advance an empty heap");
     if (!revoked) { return Report(); }
     moving.Cancel();
-    if (transfers == 100 || transfers == 300) {
-      reusable &= moving.Reset({.Reference = frame, .Variant = cap, .SourceKey = 17}).has_value() &&
-                  moving.Step(17, {.MaxWorkUnits = 100}).has_value();
-    } else {
-      reusable &=
-          moving.Reset({.Reference = empty, .Variant = empty, .SourceKey = 17}).has_value() &&
-          moving.Bound(17) && moving.Bound(17)->UpperDistanceM() == 0;
-    }
+    const bool partial = transfers == 100 || transfers == 300;
+    reusable &= Reusable(
+        moving,
+        partial ? StructureSurfacePair{.Reference = frame, .Variant = cap, .SourceKey = 17}
+                : StructureSurfacePair{.Reference = empty, .Variant = empty, .SourceKey = 17},
+        partial);
     moving = std::move(destination);
     const bool assignmentRevoked = Revoked(destination);
     CHECK(assignmentRevoked, "move assignment revokes its source and replaces prior progress");
