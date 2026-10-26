@@ -70,7 +70,7 @@ int main() {
   auto wrong = providers;
   wrong[1].PayloadSha256 = wrong[0].PayloadSha256;
   const auto refused = outshine::Generators::Osm::ChunkSetLoader::LoadRegion(wrong, directory);
-  CHECK(!refused && refused.error().find("sha256 pin") != std::string::npos,
+  CHECK(!refused && refused.error().contains("sha256 pin"),
         "one wrong response pin prevents publication of the merged region");
   auto legacy = providers[0];
   legacy.Revision = "sha256:" + legacy.PayloadSha256;

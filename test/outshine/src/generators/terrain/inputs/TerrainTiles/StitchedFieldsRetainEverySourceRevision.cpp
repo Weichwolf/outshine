@@ -1,3 +1,4 @@
+#include <array>
 #include "TerrainTiles.h"
 #include "HeightField.h"
 #include "Check.h"
@@ -15,7 +16,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Ground;
 
-constexpr uint8_t kPng[]{
+constexpr std::array<uint8_t, 75> kPng{
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
     0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x02, 0x00, 0x00, 0x00, 0x4b,
     0x6d, 0x29, 0xdc, 0x00, 0x00, 0x00, 0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -29,7 +30,7 @@ public:
   TerrainBytes Take(Data::TileId at) override {
     ++Calls_;
     return TerrainBytes::From(at,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = at,
                                .SourceId = "fixture-dem",
@@ -51,7 +52,7 @@ public:
     ++Calls_;
     const Data::TileId parent{.Zoom = at.Zoom - 1, .X = at.X >> 1u, .Y = at.Y >> 1u};
     return TerrainBytes::From(parent,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = parent,
                                .SourceId = "ancestor-dem",
@@ -66,9 +67,9 @@ private:
 };
 
 TerrainTiles::Config Cache() {
-  return {.DemCacheBytes = 1024u * 1024u,
+  return {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u,
           .Shared = {},
-          .StitchedFieldBytes = 1024u * 1024u,
+          .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
           .PreparedFields = {}};
 }
 

@@ -23,15 +23,18 @@ public:
   Mesh(const outshine::StructurePlan &plan,
        outshine::MeshScratch & /*scratch*/,
        outshine::Raised & /*into*/) const noexcept override {
-    ++Calls;
-    LastCoarseness = plan.Coarseness;
+    ++Calls_;
+    LastCoarseness_ = plan.Coarseness;
     return std::unexpected(Error_);
   }
 
-  mutable size_t Calls = 0;
-  mutable outshine::LevelOfDetail LastCoarseness = outshine::LevelOfDetail::Fine;
+  size_t Calls() const noexcept { return Calls_; }
+
+  outshine::LevelOfDetail LastCoarseness() const noexcept { return LastCoarseness_; }
 
 private:
+  mutable size_t Calls_ = 0;
+  mutable outshine::LevelOfDetail LastCoarseness_ = outshine::LevelOfDetail::Fine;
   outshine::StructureMeshError Error_;
 };
 }
@@ -61,7 +64,7 @@ int main() {
     auto scratch = mesher.Scratch();
     Generators::BakedTile output;
     const auto result = Generators::BakeStructures(raw, *heights, mesher, *scratch, output);
-    CHECK(mesher.Calls == 1, "fixture reaches actual per-building mesher");
+    CHECK(mesher.Calls() == 1, "fixture reaches actual per-building mesher");
     CHECK(!result, "mesh rejection cannot become a successful tile bake");
     if (!result) {
       const auto *reason = std::get_if<StructureMeshError>(&result.error());
@@ -75,7 +78,7 @@ int main() {
   auto scratch = unsupported.Scratch();
   Generators::BakedTile output;
   const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
-  CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
+  CHECK(result && unsupported.Calls() == 2 && output.UnsupportedMeshes == 2,
         "unsupported forms are counted and processing continues to the next building");
   CHECK(output.CellShellErrorM[0] == -1.0 &&
             !unsupported.ShellSurfaceErrorM(output.Built.WallCorners),
@@ -98,7 +101,7 @@ int main() {
   const auto distantResult =
       Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
   CHECK(distantResult, "a distant tile finishes its bake");
-  CHECK(distantMesher.Calls == 2 && distantMesher.LastCoarseness == LevelOfDetail::Fine,
+  CHECK(distantMesher.Calls() == 2 && distantMesher.LastCoarseness() == LevelOfDetail::Fine,
         "a mesher without source bounds keeps individual plans instead of inventing a mass bound");
   CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
   CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Fine,
@@ -129,7 +132,7 @@ int main() {
   CHECK(progress.BakedStructures() == 1,
         "a completed range exposes its exact structure count after the worker boundary");
   const auto second = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls == 0,
+  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls() == 0,
         "bounded source planning finishes before geometry emission starts");
   const auto firstEmission =
       progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
@@ -138,7 +141,7 @@ int main() {
   CHECK(firstEmission && !*firstEmission && lastEmission && *lastEmission,
         "bounded emission completes only after all selected products are built");
   auto sliced = progress.Finalize(raw, slicedMesher, *slicedScratch);
-  CHECK(sliced && slicedMesher.Calls == oneShotMesher.Calls &&
+  CHECK(sliced && slicedMesher.Calls() == oneShotMesher.Calls() &&
             sliced->Prints.size() == oneShot.Prints.size() &&
             sliced->UnsupportedMeshes == oneShot.UnsupportedMeshes &&
             sliced->Built.WallRun == oneShot.Built.WallRun &&
@@ -164,7 +167,7 @@ int main() {
   }
   const auto manyStructuresComplete =
       manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls == 0,
+  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls() == 0,
         "the final source range selects representations without building geometry");
   bool allEmitted = false;
   for (size_t slice = 0; slice < 5; ++slice) {
@@ -181,7 +184,7 @@ int main() {
   CHECK(manyOneShotResult && manyFinalized &&
             manyProgress.BakedStructures() == many.Structures.size(),
         "the final short range and finalization complete a 257-structure aggregate");
-  CHECK(manyFinalized && manySlicedMesher.Calls == manyOneShotMesher.Calls &&
+  CHECK(manyFinalized && manySlicedMesher.Calls() == manyOneShotMesher.Calls() &&
             manyFinalized->Prints.size() == manyOneShot.Prints.size() &&
             std::ranges::equal(manyFinalized->Prints,
                                manyOneShot.Prints,

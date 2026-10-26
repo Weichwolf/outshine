@@ -62,7 +62,8 @@ int main() {
       std::vector<float> depth;
       if (!scene->Draw(error)) { return -1.0f; }
       renderer.WaitForGpu();
-      if (renderer.ReadDepth(depth) != Render::ReadState::Ready || depth.size() != 32u * 32u) {
+      if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
+          depth.size() != static_cast<size_type>(32u) * 32u) {
         return -1.0f;
       }
       return depth[16u * 32u + 16u];

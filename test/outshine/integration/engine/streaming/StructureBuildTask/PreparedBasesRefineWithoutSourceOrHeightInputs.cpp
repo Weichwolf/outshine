@@ -605,7 +605,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   });
   CHECK(hit && generated == 1, "native package hits bypass the unavailable generator and provider");
   if (!hit) { return std::nullopt; }
-  const auto decoded = DecodePreparedStructureTile(hit->Bytes(), 1024 * 1024);
+  const auto decoded = DecodePreparedStructureTile(hit->Bytes(), static_cast<long>(1024) * 1024);
   CHECK(decoded.has_value(), "held cache bytes reconstruct complete source-independent shapes");
   if (!decoded) { return std::nullopt; }
   CHECK(decoded->HeightSources == base.HeightSources &&
@@ -624,7 +624,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
         "native arrays cannot allocate beyond the supplied resident budget");
   auto truncated = *encoded;
   truncated.pop_back();
-  CHECK(!DecodePreparedStructureTile(truncated, 1024 * 1024),
+  CHECK(!DecodePreparedStructureTile(truncated, static_cast<long>(1024 * 1024),
         "partial native building packages do not become ready products");
   (*restarted).reset();
   NativeCache(root);
@@ -733,7 +733,7 @@ void UnsupportedMass() {
   const auto encoded = EncodePreparedStructureTile(*base);
   CHECK(encoded.has_value(), "unsupported intrinsic result is a complete cacheable base state");
   if (!encoded) { return; }
-  const auto restored = DecodePreparedStructureTile(*encoded, 1024 * 1024);
+  const auto restored = DecodePreparedStructureTile(*encoded, static_cast<long>(1024) * 1024);
   CHECK(restored && restored->Surfaces.front().Shapes().empty(),
         "restart retains the unsupported mass without replanning it");
   if (!restored) { return; }

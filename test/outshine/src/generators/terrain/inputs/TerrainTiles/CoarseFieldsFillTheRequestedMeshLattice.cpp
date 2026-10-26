@@ -35,9 +35,9 @@ int main() {
   CHECK(terrain.SampleNodeHeights(at, 64, &heights, &identities, &postings, &side) ==
             Ground::TerrainGrid::State::Decoded,
         "a valid coarse source produces a renderable requested mesh");
-  CHECK(side == 65 && postings == 65 && heights.size() == 65 * 65,
+  CHECK(side == 65 && postings == 65 && heights.size() == static_cast<long>(65 * 65,
         "source resolution never shrinks the renderer's required lattice");
-  if (heights.size() == 65 * 65) {
+  if (heights.size() == static_cast<long>(65) * 65) {
     for (uint32_t row = 0; row < 65; ++row) {
       for (uint32_t col = 0; col < 65; ++col) {
         const double expected =

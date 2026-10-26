@@ -100,7 +100,7 @@ int main() {
                                 .Schema = {}};
   const std::array roots{GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
-      .CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};
+      .CellsMost = 32, .SnapshotBytesMost = static_cast<long>(1024) * 1024};
   auto directory =
       (std::filesystem::temp_directory_path() / "outshine-adaptive-cells-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated adaptive source cache created");
@@ -146,20 +146,20 @@ int main() {
   auto revision = provider;
   revision.Revision = "adaptive-capacity";
   CHECK(loader.RequestCells(
-            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = 1024 * 1024}, ".") &&
+            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = static_cast<long>(1024 * 1024}, ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
-            loader.Error().find("cell budget") != std::string_view::npos &&
+            loader.Error().contains("cell budget") &&
             loader.CurrentCells().front().Snapshot == retained,
         "exhausting subdivision capacity preserves the previous world and reports failure");
   revision.Revision = "adaptive-depth";
   CHECK(loader.RequestCells(revision,
                             roots,
-                            {.CellsMost = 32, .SnapshotBytesMost = 1024 * 1024, .LevelMost = 9},
+                            {.CellsMost = 32, .SnapshotBytesMost = static_cast<long>(1024 * 1024, .LevelMost = 9},
                             ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
-            loader.Error().find("level budget") != std::string_view::npos,
+            loader.Error().contains("level budget"),
         "the depth bound terminates overloaded demand explicitly");
   CapacityLimitedOsmTransport nested;
   nested.WidthMost = 0.2;

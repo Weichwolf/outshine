@@ -46,7 +46,7 @@ int main() {
   candidate.Providers.front().Revision = "pin-r1";
   CHECK(engine.declare(candidate).has_value(), "valid source declaration can replace refusal");
   const auto written = engine.writeScenario();
-  CHECK(written && written->find("dataset=\"openstreetmap\"") != std::string::npos,
+  CHECK(written && written->contains("dataset=\"openstreetmap\""),
         "public scenario writer retains source identity");
   return Report();
 }

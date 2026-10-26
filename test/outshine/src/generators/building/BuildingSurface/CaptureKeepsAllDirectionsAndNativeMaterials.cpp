@@ -19,7 +19,8 @@ int main() {
   GeoToEcef({.LongitudeDeg = 16, .LatitudeDeg = 48, .HeightM = 100}, anchor);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48});
   for (size_t at = 0; at < rings.size(); ++at) {
-    const double lat = 48 + static_cast<double>(at / 8) * 0.0002;
+    const size_t row = at / 8;
+    const double lat = 48 + static_cast<double>(row) * 0.0002;
     const double lon = 16 + static_cast<double>(at % 8) * 0.0003;
     rings[at] = {lat, lon, lat, lon + 0.00015, lat + 0.0001, lon + 0.00015, lat + 0.0001, lon};
     plans.push_back({.RingLatLon = rings[at],

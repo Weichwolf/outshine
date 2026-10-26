@@ -63,7 +63,9 @@ void Build(RawSourceCache &cache, Transport &transport, ProviderRegistry &regist
   CHECK(sources.At(0).Declaration().Wire == WireFormat::TerrariumWebp,
         "factory declares actual network encoding independently of native heights");
   Ground::TilePool pool(
-      {.Threads = 2, .ByteBudget = 1024u * 1024u, .PreparedFields = {}}, sources, transport);
+      {.Threads = 2, .ByteBudget = static_cast<size_t>(1024u) * 1024u, .PreparedFields = {}},
+      sources,
+      transport);
   const TileId at{.Zoom = 12, .X = 2048, .Y = 2048};
   std::shared_ptr<const Ground::TerrainField> field;
   Ground::TilePool::Reply reply = Ground::TilePool::Reply::Pending;
@@ -94,7 +96,7 @@ void Build(RawSourceCache &cache, Transport &transport, ProviderRegistry &regist
 
 int main() {
   using namespace outshine::Test;
-  std::array<uint8_t, 8 * 8 * 3> rgb{};
+  std::array<uint8_t, static_cast<long>(8 * 8) * 3> rgb{};
   for (size_t at = 0; at < rgb.size(); at += 3) {
     rgb[at] = 128;
     rgb[at + 1] = 172;

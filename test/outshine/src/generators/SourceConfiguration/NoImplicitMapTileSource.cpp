@@ -38,7 +38,7 @@ int main() {
                                             .Schema = {}}};
   SourceSet rejected(store);
   CHECK(!RegisterSources(rejected, providers, {}, error, registry) && rejected.Count() == 0 &&
-            error.find("no default") != std::string::npos,
+            error.contains("no default"),
         "implicit map-tile input fails atomically without registering another source");
   return Report();
 }

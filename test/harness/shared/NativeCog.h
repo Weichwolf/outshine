@@ -139,7 +139,8 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
     CHECK(TIFFMergeFieldInfo(file.get(), fields.data(), fields.size()) == 0,
           "fixture registers georeference");
     const bool large = profile != NativeCogProfile::Analytic;
-    const uint32_t baseColumns = large ? 1024 : (at.SouthDeg % 2 == 0 ? 128 : 64);
+    const uint32_t analyticColumns = at.SouthDeg % 2 == 0 ? 128 : 64;
+    const uint32_t baseColumns = large ? 1024 : analyticColumns;
     const uint32_t baseRows = large ? 1024 : 128;
     const uint32_t blockSide = large ? 1024 : 16;
     for (uint32_t level = 0; level < (large ? 1u : 2u); ++level) {
@@ -191,8 +192,8 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
     const long bytes = std::ftell(file.get());
     if (bytes > 0) {
       result.resize(static_cast<size_t>(bytes));
-      std::rewind(file.get());
-      CHECK(std::fread(result.data(), 1, result.size(), file.get()) == result.size(),
+      const bool atStart = std::fseek(file.get(), 0, SEEK_SET) == 0;
+      CHECK(atStart && std::fread(result.data(), 1, result.size(), file.get()) == result.size(),
             "original fixture bytes reopen");
       result.resize(std::max<size_t>(result.size(), 65536), 0);
     }

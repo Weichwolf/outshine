@@ -38,8 +38,7 @@ int main() {
             document.Providers[1].Location == "east.osm" && document.Providers[0].Priority == 0 &&
             document.Providers[1].Priority == 1,
         "same-rank chunk overrides while distinct-rank chunk is appended");
-  CHECK(trace.size() == 2 && trace[0].find("overrode") != std::string::npos &&
-            trace[1].find("added") != std::string::npos,
+  CHECK(trace.size() == 2 && trace[0].contains("overrode") && trace[1].contains("added"),
         "layer diagnostics identify replacement and addition separately");
   return Report();
 }

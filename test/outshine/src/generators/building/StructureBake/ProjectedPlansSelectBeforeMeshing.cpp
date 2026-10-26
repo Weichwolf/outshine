@@ -120,7 +120,7 @@ int main() {
           "moving away never increases generated geometry in the same city");
     previousTriangles = triangles;
     if (longitude == 9.03) {
-      CHECK(triangles == 256 * 12,
+      CHECK(triangles == static_cast<long>(256 * 12,
             "middle distance generates shells directly without Fine products");
     } else if (longitude == 12.0) {
       CHECK(mesher.Calls < 256 / 4 && built->Lumped == 256,

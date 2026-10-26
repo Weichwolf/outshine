@@ -123,7 +123,7 @@ int main() {
   CHECK(WaitFor(loader, tasks) &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
-            loader.Error().find('2') != std::string_view::npos && loader.Current() == first &&
+            loader.Error().contains('2') && loader.Current() == first &&
             loader.Current()->FindRoute("three-edge") != nullptr,
         "conflicting cross-chunk ID rejects replacement and retains the published graph");
 

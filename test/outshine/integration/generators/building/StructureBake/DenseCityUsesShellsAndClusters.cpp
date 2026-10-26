@@ -72,10 +72,10 @@ int main() {
     }
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;
-      CHECK(triangles > 1024 * 12,
+      CHECK(triangles > static_cast<long>(1024 * 12,
             "fine housing adds recessed openings to every complete rectangular envelope");
     } else if (detail == LevelOfDetail::Shell) {
-      CHECK(triangles == 1024 * 12,
+      CHECK(triangles == static_cast<long>(1024 * 12,
             "the shell keeps eight wall, two floor and two roof triangles per building");
     } else {
       CHECK(built.Lumped == 1024 && triangles > 0 && triangles < fineTriangles / 4,

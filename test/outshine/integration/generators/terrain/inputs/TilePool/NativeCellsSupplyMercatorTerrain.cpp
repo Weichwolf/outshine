@@ -126,7 +126,7 @@ private:
                   .Kind = DataKind::Elevation,
                   .How = Scheme::GeographicCell,
                   .Wire = WireFormat::CopernicusCog,
-                  .MaximumPayloadBytes = 8u * 1024 * 1024,
+                  .MaximumPayloadBytes = static_cast<size_t>(8u * 1024) * 1024,
                   .PayloadSha256 = {},
                   .Schema = {}};
 };
@@ -153,8 +153,8 @@ int main() {
   CHECK(sources.Add(std::make_unique<Native>()) == SourceSet::Registration::Accepted,
         "external native provider registers through the common interface");
   Http http;
-  TilePool pool({.ByteBudget = 8u * 1024 * 1024,
-                 .DecodedBytes = 4u * 1024 * 1024,
+  TilePool pool({.ByteBudget = static_cast<size_t>(8u * 1024) * 1024,
+                 .DecodedBytes = static_cast<size_t>(4u * 1024) * 1024,
                  .Carriers = 4,
                  .PreparedFields = {}},
                 sources,
@@ -206,7 +206,9 @@ int main() {
         "missing-post fixture registers");
   Http absentHttp(true);
   TilePool absent(
-      {.ByteBudget = 1024u * 1024, .Carriers = 1, .PreparedFields = {}}, absentSources, absentHttp);
+      {.ByteBudget = static_cast<size_t>(1024u) * 1024, .Carriers = 1, .PreparedFields = {}},
+      absentSources,
+      absentHttp);
   std::shared_ptr<const TerrainField> none;
   CHECK(Field(absent, at, none, failure) == TilePool::Reply::Refused && !none && failure,
         "missing original heights refuse terrain instead of making zero ground");

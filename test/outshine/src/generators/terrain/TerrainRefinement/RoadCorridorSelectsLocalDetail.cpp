@@ -54,14 +54,14 @@ int main() {
           "selected ground has fine road patches and coarse distant patches");
   }
   const auto overBudget = RefineTerrain(sources, frame, layout, detail, 4, corridors);
-  CHECK(!overBudget && overBudget.error().find("height patches") != std::string::npos,
+  CHECK(!overBudget && overBudget.error().contains("height patches"),
         "a corridor that exceeds page capacity fails explicitly");
 
   TerrainRefinementCorridor invalid = road;
   invalid.MaximumPostingM = std::numeric_limits<double>::quiet_NaN();
   const std::array invalidCorridors{invalid};
   const auto rejected = RefineTerrain(sources, frame, layout, detail, 32, invalidCorridors);
-  CHECK(!rejected && rejected.error().find("invalid corridor") != std::string::npos,
+  CHECK(!rejected && rejected.error().contains("invalid corridor"),
         "non-finite corridor input fails before refinement");
 
   TerrainRefinementJob paced(sources, frame, layout, detail, 32, corridors);

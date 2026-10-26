@@ -13,7 +13,7 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Ground;
-constexpr uint8_t kPng[]{
+constexpr std::array<uint8_t, 75> kPng{
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
     0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x02, 0x00, 0x00, 0x00, 0x4b,
     0x6d, 0x29, 0xdc, 0x00, 0x00, 0x00, 0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -50,7 +50,7 @@ public:
     cached = stamp;
     const Data::TileId parent{.Zoom = 1, .X = 0, .Y = 0};
     return TerrainBytes::From(parent,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = parent,
                                .SourceId = "ancestor-dem",
@@ -64,7 +64,7 @@ void CheckStitchedBudget(size_t fieldBytes) {
   CertifiedAncestor source;
   TerrainTiles tiles(source,
                      EnuFrame::At(Geo{}),
-                     {.DemCacheBytes = 1024u * 1024u,
+                     {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u,
                       .Shared = {},
                       .StitchedFieldBytes = 2 * fieldBytes,
                       .PreparedFields = {}});
@@ -91,10 +91,11 @@ int main() {
   TerrainCertificate detached;
   const auto decoded = std::make_shared<DecodedCache>(1024u * 1024u);
   {
-    TerrainTiles tiles(
-        source,
-        EnuFrame::At(Geo{}),
-        {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u, .PreparedFields = {}});
+    TerrainTiles tiles(source,
+                       EnuFrame::At(Geo{}),
+                       {.Shared = decoded,
+                        .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
+                        .PreparedFields = {}});
     const Data::TileId centre{.Zoom = 3, .X = 2, .Y = 2};
     const auto first = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
     CHECK(first && first->Sources().size() == 1,
@@ -131,10 +132,11 @@ int main() {
     CHECK(!source.AreCurrent(first->Certificate().Dependencies()),
           "old borrowed snapshot stays revoked");
     {
-      TerrainTiles consumer(
-          source,
-          EnuFrame::At(Geo{}),
-          {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u, .PreparedFields = {}});
+      TerrainTiles consumer(source,
+                            EnuFrame::At(Geo{}),
+                            {.Shared = decoded,
+                             .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
+                             .PreparedFields = {}});
       const auto shared = consumer.StitchedField(centre.Zoom, centre.X, centre.Y);
       CHECK(shared && source.AreCurrent(shared->Certificate().Dependencies()),
             "a second consumer sees the updated raw dependency");
@@ -165,9 +167,9 @@ int main() {
     CertifiedAncestor constrained(1);
     TerrainTiles tiles(constrained,
                        EnuFrame::At(Geo{}),
-                       {.DemCacheBytes = 1024u * 1024u,
+                       {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u,
                         .Shared = {},
-                        .StitchedFieldBytes = 1024u * 1024u,
+                        .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
                         .PreparedFields = {}});
     const auto usable = tiles.StitchedField(3, 2, 2);
     CHECK(usable && usable->Meshable() && !usable->HasMissingBoundary(),

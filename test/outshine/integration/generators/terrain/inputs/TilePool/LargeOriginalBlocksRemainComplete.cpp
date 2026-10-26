@@ -38,7 +38,7 @@ public:
 
   FetchStart Begin(const std::string &url, ByteRange range, std::string_view tag) override {
     const std::scoped_lock lock(Mutex_);
-    CHECK(url.find("Copernicus_DSM_COG_10_N47_00_E010_00_DEM") != std::string::npos &&
+    CHECK(url.contains("Copernicus_DSM_COG_10_N47_00_E010_00_DEM") &&
               (tag.empty() || tag == "\"original-native\""),
           "built-in provider uses the original cell and pins subsequent ranges");
     LargestRange_.store(std::max(LargestRange_.load(), range.Length));
@@ -104,8 +104,8 @@ int main() {
               SourceSet::Registration::Accepted,
           "large original native fixture registers through the public provider contract");
     OriginalBlocks http(profile);
-    TilePool pool({.ByteBudget = 8u * 1024 * 1024,
-                   .DecodedBytes = 8u * 1024 * 1024,
+    TilePool pool({.ByteBudget = static_cast<size_t>(8u * 1024) * 1024,
+                   .DecodedBytes = static_cast<size_t>(8u * 1024) * 1024,
                    .Carriers = 1,
                    .PreparedFields = {}},
                   sources,
@@ -115,9 +115,10 @@ int main() {
     std::optional<SourceFailure> failure;
     CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field && !failure,
           "terrain accepts a valid block larger than libtiff's individual reads");
-    CHECK(http.LargestRange() > 1024u * 1024,
+    CHECK(http.LargestRange() > static_cast<uint64_t>(1024u * 1024,
           "acquisition batches the complete missing encoded block interval");
-    if (!field) { continue; }
+    if (!field) {
+      continue; }
     double largest = 0;
     for (uint32_t row = 0; row < field->Rows(); ++row) {
       for (uint32_t col = 0; col < field->Cols(); ++col) {

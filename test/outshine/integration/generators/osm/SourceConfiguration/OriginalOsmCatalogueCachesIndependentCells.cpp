@@ -123,8 +123,7 @@ int main() {
   RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const auto global =
       outshine::Generators::Osm::ReadRegion(provider, noCache, network, network.NowMs() + 1000, {});
-  CHECK(!global && global.error().find("geographic cell demand") != std::string::npos &&
-            network.Urls.size() == 2,
+  CHECK(!global && global.error().contains("geographic cell demand") && network.Urls.size() == 2,
         "a catalogue cannot masquerade as a complete bounded regional source");
   auto invalid = provider;
   invalid.PayloadSha256.assign(64, 'a');

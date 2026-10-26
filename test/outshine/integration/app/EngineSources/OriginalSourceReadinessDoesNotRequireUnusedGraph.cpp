@@ -44,9 +44,8 @@ int main() {
     CHECK(sourceOnly.setRoots({.Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
               sourceOnly.declare(document) && sourceOnly.assemble(),
           "renderer-free source declaration queues original data");
-    CHECK(!sourceOnly.settled() &&
-              sourceOnly.unsettledReasons(WorldQuality::Playable)
-                      .find("original OSM source pending") != std::string::npos,
+    CHECK(!sourceOnly.settled() && sourceOnly.unsettledReasons(WorldQuality::Playable)
+                                       .contains("original OSM source pending"),
           "pending original data remains a readiness blocker");
     CHECK(sourceOnly.preload(2.0) && sourceOnly.settled() &&
               sourceOnly.settled(WorldQuality::Refined),

@@ -49,9 +49,10 @@ int main() {
   for (const Data::TileId missing :
        {Data::TileId{.Zoom = 5, .X = 16, .Y = 11}, Data::TileId{.Zoom = 5, .X = 18, .Y = 12}}) {
     MissingNeighbour source(missing);
-    TerrainTiles tiles(source,
-                       EnuFrame::At(Geo{}),
-                       {.DemCacheBytes = 1024u * 1024u, .Shared = {}, .PreparedFields = {}});
+    TerrainTiles tiles(
+        source,
+        EnuFrame::At(Geo{}),
+        {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u, .Shared = {}, .PreparedFields = {}});
     const auto grid = tiles.StitchedGrid(5, 17, 11);
     CHECK(grid.Where() == TerrainGrid::State::Refused && grid.Failure(),
           "missing edge or diagonal prevents publication and owns the raw error");

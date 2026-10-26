@@ -10,8 +10,8 @@ namespace {
 std::vector<outshine::EarthworkStamp> Strip(size_t parts) {
   std::vector<outshine::EarthworkStamp> result;
   for (size_t part = 0; part < parts; ++part) {
-    const double low = -100 + 200.0 * part / parts;
-    const double high = -100 + 200.0 * (part + 1) / parts;
+    const double low = -100 + 200.0 * static_cast<double>(part) / static_cast<double>(parts);
+    const double high = -100 + 200.0 * static_cast<double>(part + 1) / static_cast<double>(parts);
     result.push_back({.RingEastNorthM = {low, -1, high, -1, high, 1, low, 1},
                       .HoleRingsEastNorthM = {},
                       .LowE = low,

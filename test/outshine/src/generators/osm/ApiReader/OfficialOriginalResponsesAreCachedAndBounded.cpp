@@ -140,7 +140,7 @@ int main() {
   const auto refused = outshine::Generators::Osm::ReadRegion(changed, store, forbidden, 1100, {});
   CHECK(!refused && store.Counters().Writes == absentWrites,
         "a forbidden response is not cached as original data or confirmed absence");
-  CHECK(!refused && refused.error().find("HTTP 403 after 0 retries") != std::string::npos,
+  CHECK(!refused && refused.error().contains("HTTP 403 after 0 retries"),
         "the client diagnostic retains the actual HTTP refusal without retrying it");
   auto api = outshine::Generators::Osm::ApiSource::Create(provider, 0);
   CHECK(api.has_value(), "official bounded source created for refusal classification");

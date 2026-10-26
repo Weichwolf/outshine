@@ -1,3 +1,4 @@
+#include <array>
 #include "TilePool.h"
 #include "TerrainTiles.h"
 #include "RawSourceCache.h"
@@ -18,7 +19,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
-constexpr uint8_t kPng0[]{
+constexpr std::array<uint8_t, 75> kPng0{
     0x89, 0x50, 0x4e, 0x47, 0xd,  0xa,  0x1a, 0xa,  0x0,  0x0,  0x0,  0xd,  0x49, 0x48, 0x44,
     0x52, 0x0,  0x0,  0x0,  0x8,  0x0,  0x0,  0x0,  0x8,  0x8,  0x2,  0x0,  0x0,  0x0,  0x4b,
     0x6d, 0x29, 0xdc, 0x0,  0x0,  0x0,  0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -65,14 +66,7 @@ class Provider final : public Source {
 public:
   explicit Provider(std::shared_ptr<Gate> gate) : Gate_(std::move(gate)) {}
 
-  SourceDecl Decl{.Id = "stale-owner-dem",
-                  .Revision = {},
-                  .Endpoint = {},
-                  .Keeps = Cacheability::Never,
-                  .PayloadSha256 = {},
-                  .Schema = {}};
-
-  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
   [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
     return Coverage::Inside;
@@ -89,10 +83,16 @@ public:
   SourceResponse
   Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
     Gate_->Pause();
-    return SourceResponse::Delivered({kPng0, kPng0 + sizeof(kPng0)});
+    return SourceResponse::Delivered({kPng0.begin(), kPng0.end()});
   }
 
 private:
+  SourceDecl Decl_{.Id = "stale-owner-dem",
+                   .Revision = {},
+                   .Endpoint = {},
+                   .Keeps = Cacheability::Never,
+                   .PayloadSha256 = {},
+                   .Schema = {}};
   std::shared_ptr<Gate> Gate_;
 };
 }
@@ -111,10 +111,12 @@ int main() {
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>(gate)) == Data::SourceSet::Registration::Accepted,
           "controlled local provider registers");
-    TilePool pool(
-        {.Threads = 2, .ByteBudget = 1024u * 1024u, .PollAttempts = 10, .PreparedFields = {}},
-        sources,
-        transport);
+    TilePool pool({.Threads = 2,
+                   .ByteBudget = static_cast<size_t>(1024u) * 1024u,
+                   .PollAttempts = 10,
+                   .PreparedFields = {}},
+                  sources,
+                  transport);
     const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
     std::shared_ptr<const TerrainField> field;
     TileBuild build;

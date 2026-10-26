@@ -1,5 +1,7 @@
 #include <array>
+#include <cstddef>
 #include <new>
+#include <span>
 #include "src/engine/WorldInstanceSink.h"
 #include "src/base/io/Heap.h"
 #include "Check.h"
@@ -11,10 +13,14 @@ int main() {
     constexpr auto probeTag = "instance-sink-oracle";
     const Heap::Tagged tagged(probeTag);
     const size_t before = Heap::TakenUnder(probeTag);
+    const size_t liveBefore = Heap::LiveBytes();
     void *(*volatile allocate)(size_t) = &::operator new;
     void *probe = allocate(64);
-    CHECK(Heap::TakenUnder(probeTag) == before + 64, "allocation oracle observes real storage");
+    const size_t usable = Heap::LiveBytes() - liveBefore;
+    CHECK(usable >= 64 && Heap::TakenUnder(probeTag) == before + usable,
+          "allocation oracle attributes the allocator's entire usable block");
     ::operator delete(probe);
+    CHECK(Heap::LiveBytes() == liveBefore, "probe release restores the exact live-byte count");
   }
   const auto region = Generators::Tile::Of(12, {.LongitudeDeg = 9, .LatitudeDeg = 47});
   std::array<WorldInstance, 2> storage{};

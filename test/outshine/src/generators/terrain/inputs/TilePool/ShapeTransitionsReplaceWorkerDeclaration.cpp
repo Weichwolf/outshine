@@ -1,3 +1,4 @@
+#include <array>
 #include "TilePool.h"
 #include "TerrainLoader.h"
 #include "TerrainTiles.h"
@@ -17,7 +18,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
-constexpr uint8_t kPng[]{
+constexpr std::array<uint8_t, 75> kPng{
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
     0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x02, 0x00, 0x00, 0x00, 0x4b,
     0x6d, 0x29, 0xdc, 0x00, 0x00, 0x00, 0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -58,7 +59,7 @@ public:
 
   SourceResponse
   Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
-    return SourceResponse::Delivered({kPng, kPng + sizeof(kPng)});
+    return SourceResponse::Delivered({kPng.begin(), kPng.end()});
   }
 };
 }
@@ -73,10 +74,12 @@ int main() {
     NoNetwork transport;
     CHECK(sources.Add(std::make_unique<Provider>()) == Data::SourceSet::Registration::Accepted,
           "independent provider registers");
-    TilePool pool(
-        {.Threads = 1, .ByteBudget = 1024u * 1024u, .PollAttempts = 10, .PreparedFields = {}},
-        sources,
-        transport);
+    TilePool pool({.Threads = 1,
+                   .ByteBudget = static_cast<size_t>(1024u) * 1024u,
+                   .PollAttempts = 10,
+                   .PreparedFields = {}},
+                  sources,
+                  transport);
     const Data::TileId unknown{.Zoom = 2, .X = 3, .Y = 3};
     for (int query = 0; query < 64; ++query) {
       CHECK(pool.Inspect(unknown, 4) == TilePool::Reply::Pending,

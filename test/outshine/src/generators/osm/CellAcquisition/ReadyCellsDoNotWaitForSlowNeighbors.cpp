@@ -71,7 +71,7 @@ int main() {
       auto ready = reader.TakeReady();
       CHECK(ready && *ready && (**ready).Chunks.size() == 1 &&
                 (**ready).Chunks.front().Cell == cells[index] &&
-                (**ready).Chunks.front().Xml.find("custom:unknown") != std::string::npos,
+                (**ready).Chunks.front().Xml.contains("custom:unknown"),
             "a completed original cell is transferred without waiting for the first request");
     }
     auto pending = reader.TakeReady();
