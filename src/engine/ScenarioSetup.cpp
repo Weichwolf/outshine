@@ -377,7 +377,7 @@ void PublishConfiguration(ScenarioSession &session,
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
-  const auto shipped = registerGenerator(S_->World.Shipping.Offered());
+  const auto shipped = registerGenerator(S_->World.Builtins.Offered());
   if (!shipped) { std::terminate(); }
 }
 

@@ -55,14 +55,14 @@ int main() {
     const auto surface = base.addSurface("wall", Material{});
     CHECK(surface.has_value(), "material is available");
     if (!surface) { return Report(); }
-    const auto part = base.addPart("subject", *surface);
+    const auto part = base.addPart("mesh", *surface);
     constexpr std::array<float, 9> positions{-1.5f, -0.5f, 0, -0.5f, -0.5f, 0, -1, 0.5f, 0};
     constexpr std::array<float, 9> previous{-1.75f, -0.5f, 0, -0.75f, -0.5f, 0, -1.25f, 0.5f, 0};
     constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
     constexpr std::array<float, 9> emitted{};
     constexpr std::array<uint32_t, 3> indices{0, 1, 2};
     CHECK(part && base.setPositions(*part, positions) && base.setTriangles(*part, indices),
-          "subject geometry is complete");
+          "mesh geometry is complete");
     Core::Declaration declaration;
     declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;

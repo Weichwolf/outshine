@@ -35,7 +35,7 @@ void Exercise() {
   const auto part = base.addPart("background", *surface);
   CHECK(part && base.setPositions(*part, std::array<float, 9>{-1, -1, -8, 1, -1, -8, 0, 1, -8}) &&
             base.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
-        "preparation has a real subject pipeline");
+        "preparation has a real geometry pipeline");
   Core::Declaration declaration;
   declaration.InitialGeometry = &base;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;

@@ -1,4 +1,6 @@
-#include "Shipped.h"
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
+#include "BuiltinGenerators.h"
 #include "Species.h"
 #include "GroundSnapshot.h"
 #include "GroundSample.h"
@@ -44,7 +46,7 @@ Generators::Ground::Snapshot Flat(const Tile &region,
   return result;
 }
 
-void CheckStand(const Shipping &catalogue,
+void CheckStand(const BuiltinGenerators &catalogue,
                 const Tile &region,
                 const outshine::Generators::RegionSurfaceRecipes &templates,
                 uint32_t row,
@@ -75,7 +77,7 @@ void CheckStand(const Shipping &catalogue,
   CHECK(used.size() > 1, "a declared mixture retains more than one species in the actual stand");
 }
 
-void RejectBadRecipes(Shipping &catalogue,
+void RejectBadRecipes(BuiltinGenerators &catalogue,
                       const outshine::Generators::RegionSurfaceRecipes &templates) {
   std::string directory =
       (std::filesystem::temp_directory_path() / "outshine-forest-mixtures-XXXXXX").string();
@@ -128,7 +130,7 @@ int main() {
   outshine::Generators::RegionSurfaceRecipes templates;
   CHECK(materials.Load("data/world/ground-materials.json"), "source materials load");
   CHECK(templates.Load("data/world/vegetation.json", materials), "source templates load");
-  Shipping catalogue;
+  BuiltinGenerators catalogue;
   std::string error;
   CHECK(catalogue.EnsureCatalogue(
             templates, "data/world/species", error, true, "data/world/vegetation.json"),

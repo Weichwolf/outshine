@@ -74,7 +74,7 @@ void Exercise() {
       if (!prepared) { return; }
       std::string error;
       const bool emptied = state.Picture.Device.SetGeometryMesh(Render::MeshInput{}, error);
-      CHECK(emptied, "the active candidate has not retained a resident subject mesh");
+      CHECK(emptied, "the active candidate has not retained a resident geometry mesh");
       if (!emptied) { return; }
     }
     const auto candidateBatches = state.Picture.Device.GeometryBatchCount();

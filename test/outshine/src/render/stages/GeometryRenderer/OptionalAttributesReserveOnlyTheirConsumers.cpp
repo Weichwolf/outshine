@@ -142,7 +142,7 @@ void CheckLayout(Native::Device *device,
   const auto previousBytes = resident.HeldOf(Stream::Previous);
   CHECK(previousBytes != 0 &&
             Verify(device, resident, Stream::Previous, previous, resident.MainVertexRange().First),
-        "subject previous pose remains independently addressed after a rigid piece");
+        "render object previous pose remains independently addressed after a rigid piece");
   const auto pieceFirst = resident.VertexRoom();
   const auto pieceTangentFirst = resident.TangentRoom();
   const auto pieceColourFirst = resident.MainColourRange().Count;

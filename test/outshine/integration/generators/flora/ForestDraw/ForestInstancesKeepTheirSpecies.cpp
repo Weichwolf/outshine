@@ -1,3 +1,5 @@
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
 #include <array>
 #include <cstdint>
 #include <cstddef>
@@ -10,7 +12,7 @@
 #include "GroundSample.h"
 #include "BuildingDraw.h"
 #include "WorldPlacement.h"
-#include "Shipped.h"
+#include "BuiltinGenerators.h"
 #include "Species.h"
 #include "RegionPool.h"
 
@@ -51,30 +53,30 @@ void CheckCatalogue(const outshine::Generators::Ground &ground,
   std::vector<TreeSpecies> sources;
   CHECK(ReadSpecies("data/world/species", sources, error) && !sources.empty(),
         "source species catalogue loads");
-  Shipping shipping;
-  CHECK(shipping.TreeFor(ClusterId{0}) == nullptr, "an unprepared catalogue resolves no tree");
-  CHECK(shipping.EnsureCatalogue(vegetation, "data/world/species", error),
+  BuiltinGenerators catalogue;
+  CHECK(catalogue.TreeFor(ClusterId{0}) == nullptr, "an unprepared catalogue resolves no tree");
+  CHECK(catalogue.EnsureCatalogue(vegetation, "data/world/species", error),
         "world catalogue stands");
-  CHECK(shipping.TreeFor(ClusterId{static_cast<uint32_t>(sources.size())}) == nullptr &&
-            shipping.TreeFor(ClusterId{~0u}) == nullptr,
+  CHECK(catalogue.TreeFor(ClusterId{static_cast<uint32_t>(sources.size())}) == nullptr &&
+            catalogue.TreeFor(ClusterId{~0u}) == nullptr,
         "building and unknown clusters do not resolve as trees");
   for (size_t index = 0; index < sources.size(); ++index) {
-    const auto *held = shipping.TreeFor(ClusterId{static_cast<uint32_t>(index)});
+    const auto *held = catalogue.TreeFor(ClusterId{static_cast<uint32_t>(index)});
     CHECK(held && !held->Definition().empty() && held->Definition() == sources[index].Definition(),
           "cluster catalogue carries the same profile definition as its parsed species");
     CHECK(held && held->Name() == sources[index].Name() &&
               held->HeightM() == sources[index].HeightM(),
           "each cluster retains its source species and prototype height");
   }
-  const auto *first = shipping.TreeFor(ClusterId{0});
-  CHECK(shipping.EnsureCatalogue(vegetation, "data/world/species", error) &&
-            shipping.TreeFor(ClusterId{0}) == first,
+  const auto *first = catalogue.TreeFor(ClusterId{0});
+  CHECK(catalogue.EnsureCatalogue(vegetation, "data/world/species", error) &&
+            catalogue.TreeFor(ClusterId{0}) == first,
         "repeated preparation preserves the immutable prototype address");
   RegionPool pool({.Reached = region, .Anywhere = region}, {});
   auto lease = pool.TryAcquire(ground);
   CHECK(lease.has_value(), "catalogue fixture leases a real placement sink");
   if (lease) {
-    const auto &makers = shipping.Placing();
+    const auto &makers = catalogue.Placing();
     std::vector<std::vector<Yield::Note>> notes(makers.Count());
     std::vector<Yield> yields;
     for (size_t maker = 0; maker < makers.Count(); ++maker) {
@@ -95,11 +97,11 @@ void CheckCatalogue(const outshine::Generators::Ground &ground,
       }
     }
     Captured shipped;
-    shipping.Drawing().Draw(ground, makers, yields, lease->Sink().Placed(), shipped);
+    catalogue.Drawing().Draw(ground, makers, yields, lease->Sink().Placed(), shipped);
     CHECK(shipped.Instances.size() == sources.size(),
           "the shipped draw registry reaches every placed species");
     for (const auto &instance : shipped.Instances) {
-      const auto *held = shipping.TreeFor(instance.Cluster);
+      const auto *held = catalogue.TreeFor(instance.Cluster);
       const auto &body = lease->Sink().Placed()[instance.Body];
       CHECK(held && body.Variant < sources.size() && held->Name() == sources[body.Variant].Name(),
             "world instance cluster resolves back to its placed source species");

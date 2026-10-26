@@ -12,7 +12,7 @@
 #include "Vec3.h"
 #include "HttpTransport.h"
 #include "HeapProbe.h"
-#include "Shipped.h"
+#include "BuiltinGenerators.h"
 #include "VegetationStreaming.h"
 #include "UrbanAreaStreaming.h"
 #include "WorldReadiness.h"
@@ -243,7 +243,7 @@ struct WorldRegionState {
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
-  Generators::Shipping Shipping;
+  Generators::BuiltinGenerators Builtins;
 
   using Standing = WorldInstance;
 

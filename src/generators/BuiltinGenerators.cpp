@@ -1,6 +1,11 @@
 #include <span>
 #include <cstdint>
-#include "Shipped.h"
+#include "BuiltinGenerators.h"
+#include "TreeSpecies.h"
+#include "GroundMesher.h"
+#include "road/meshing/RoadMesher.h"
+#include "building/StructureMesher.h"
+#include "RegionSurfaceRecipes.h"
 #include "road/Corridors.h"
 
 #include "BuildingMesh.h"
@@ -23,16 +28,16 @@
 
 namespace outshine::Generators {
 
-Shipping::Shipping()
+BuiltinGenerators::BuiltinGenerators()
     : Offered_(std::make_unique<Structures>()),
       Coverer_(std::make_unique<Patchworker>()),
       Shaper_(std::make_unique<BuildingMesh>()),
       Paver_(std::make_unique<ProfiledRoadMesher>()),
       Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}
 
-Shipping::~Shipping() = default;
+BuiltinGenerators::~BuiltinGenerators() = default;
 
-const TreeSpecies *Shipping::TreeFor(ClusterId cluster) const {
+const TreeSpecies *BuiltinGenerators::TreeFor(ClusterId cluster) const {
   const auto at = static_cast<size_t>(cluster);
   return at < Species_.size() ? &Species_[at] : nullptr;
 }
@@ -44,16 +49,16 @@ constexpr Rank kRankFlora{200};
 
 }
 
-bool Shipping::EnsureCatalogue(const RegionSurfaceRecipes &declared,
-                               std::string_view speciesDir,
-                               std::string &error,
-                               bool vegetation,
-                               std::string_view mixturesPath) {
+bool BuiltinGenerators::EnsureCatalogue(const RegionSurfaceRecipes &declared,
+                                        std::string_view speciesDir,
+                                        std::string &error,
+                                        bool vegetation,
+                                        std::string_view mixturesPath) {
   if (Ready() && VegetationEnabled_ == vegetation && SpeciesDirectory_ == speciesDir &&
       MixturesPath_ == mixturesPath) {
     return true;
   }
-  Shipping candidate;
+  BuiltinGenerators candidate;
   if (!candidate.BuildCatalogue(declared, speciesDir, error, vegetation, mixturesPath)) {
     return false;
   }
@@ -68,11 +73,11 @@ bool Shipping::EnsureCatalogue(const RegionSurfaceRecipes &declared,
   return true;
 }
 
-bool Shipping::BuildCatalogue(const RegionSurfaceRecipes &declared,
-                              std::string_view speciesDir,
-                              std::string &error,
-                              bool vegetation,
-                              std::string_view mixturesPath) {
+bool BuiltinGenerators::BuildCatalogue(const RegionSurfaceRecipes &declared,
+                                       std::string_view speciesDir,
+                                       std::string &error,
+                                       bool vegetation,
+                                       std::string_view mixturesPath) {
   std::vector<TreeSpecies> species;
   std::vector<ForestDraw::Prototype> prototypes;
   if (vegetation) {

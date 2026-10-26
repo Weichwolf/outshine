@@ -52,7 +52,7 @@ int main() {
   staleScan.Shape.GroupX = 256;
   const auto stale = CompileComputePipeline(**device, staleScan);
   CHECK(!stale && stale.error().Kind == Native::ErrorKind::Invalid,
-        "the native subject scan rejects the previous workgroup size");
+        "the native geometry scan rejects the previous workgroup size");
   auto missing = depth;
   missing.Path = "no-such-stage.comp.spv";
   const auto absent = CompileComputePipeline(**device, missing);

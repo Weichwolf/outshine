@@ -59,26 +59,25 @@ void CheckInterruptedUpload(SceneRenderer &renderer,
   mesh.Draws = &draws;
   auto began = renderer.BeginGeometryMesh(mesh);
   CHECK(began.has_value() && began->NeedsFinish && renderer.GeometryMeshPending(),
-        "index upload yields a pending subject");
+        "index upload yields a pending mesh");
   if (began) {
-    CHECK(scene.Draw(error), "pending subject can enter a render pass without its geometry");
+    CHECK(scene.Draw(error), "pending mesh can enter a render pass without its geometry");
     renderer.WaitForGpu();
     std::vector<float> partial;
     CHECK(renderer.ReadSceneLinear(partial) == ReadState::Ready && partial == before,
-          "pending upload still draws the prior complete subject");
+          "pending upload still draws the prior complete mesh");
     auto stale = *began;
     ++stale.Generation;
     std::string staleError;
     CHECK(!renderer.FinishGeometryMesh(stale, mesh, staleError) && !staleError.empty(),
-          "stale completion cannot claim a newer subject upload");
+          "stale completion cannot claim a newer geometry upload");
     CHECK(renderer.FinishGeometryMesh(*began, mesh, error),
-          "the matching subject finishes its streams and tables");
-    CHECK(!renderer.GeometryMeshPending(), "completed subject leaves the pending state");
-    CHECK(scene.Draw(error), "finished subject renders");
+          "the matching mesh finishes its streams and tables");
+    CHECK(!renderer.GeometryMeshPending(), "completed mesh leaves the pending state");
+    CHECK(scene.Draw(error), "finished mesh renders");
     renderer.WaitForGpu();
     std::vector<float> staged;
-    CHECK(renderer.ReadSceneLinear(staged) == ReadState::Ready,
-          "finished subject remains readable");
+    CHECK(renderer.ReadSceneLinear(staged) == ReadState::Ready, "finished mesh remains readable");
     CHECK(renderer.SetGeometryMesh(mesh, error) && scene.Draw(error),
           "the one-shot entry point uses the same mesh");
     renderer.WaitForGpu();
@@ -88,16 +87,16 @@ void CheckInterruptedUpload(SceneRenderer &renderer,
     const MeshInput empty;
     auto cleared = renderer.BeginGeometryMesh(empty);
     CHECK(cleared.has_value() && !cleared->NeedsFinish && !renderer.GeometryMeshPending(),
-          "empty subject completes during admission");
+          "empty mesh completes during admission");
     if (cleared) {
       auto staleClear = *cleared;
       ++staleClear.Generation;
       std::string staleClearError;
       CHECK(!renderer.FinishGeometryMesh(staleClear, empty, staleClearError) &&
                 !staleClearError.empty(),
-            "stale empty-subject completion is rejected");
+            "stale empty-mesh completion is rejected");
       CHECK(renderer.FinishGeometryMesh(*cleared, empty, error),
-            "matching empty-subject completion updates every subject pass");
+            "matching empty-mesh completion updates every geometry pass");
     }
   }
 }

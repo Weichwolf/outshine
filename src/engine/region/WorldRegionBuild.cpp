@@ -485,7 +485,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   Around asking = over;
   asking.Access = TerrainTileAccess::Inspect;
   asking.PlayableOnly = quality == GroundQuality::Playable;
-  auto sees = World.Shipping.Covering().Lay(World.Stack.Pool(), asking);
+  auto sees = World.Builtins.Covering().Lay(World.Stack.Pool(), asking);
   if (!sees) {
     Error = sees.error();
     return Laid::Refused;
@@ -1527,7 +1527,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const A
   if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
   static const Heap::Tag kPatchingTag("ground-patchwork");
   const Heap::Tagged patching(kPatchingTag);
-  auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), coverage);
+  auto made = World.Builtins.Covering().Lay(World.Stack.Pool(), coverage);
   if (!made) {
     Error = made.error();
     World.GroundBuild.reset();
