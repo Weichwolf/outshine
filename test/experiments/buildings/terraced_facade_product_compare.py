@@ -31,7 +31,9 @@ def coverage(product, prepared):
     for w in prepared.facade.windows:
         centre = np.asarray(core.origin_xy) + w.centre[0] * across + w.centre[1] * along
         tangent = w.tangent[0] * across + w.tangent[1] * along
-        frames[w.identifier] = centre, tangent, w.bottom_m
+        frame = w.identifier, centre, tangent, w.bottom_m
+        frames[w.identifier] = frame
+        frames[w.identifier + "/pier"] = frame
     groups = {}
     xyz = product.mesh["vertices"][product.mesh["faces"]]
     for triangle, material, owner in zip(
@@ -40,13 +42,13 @@ def coverage(product, prepared):
         name = product.owner_ids[int(owner)]
         if name not in frames:
             continue
-        centre, tangent, bottom = frames[name]
+        window_id, centre, tangent, bottom = frames[name]
         normal = np.array([tangent[1], -tangent[0]])
         xy = triangle[:, :2] - centre
         depth = xy @ normal
         if np.ptp(depth) > 1e-8:
             raise ValueError("Compact window escaped its declared metrical plane")
-        key = name, int(material), round(float(depth.mean()), 10)
+        key = window_id, int(material), round(float(depth.mean()), 10)
         points = np.c_[xy @ tangent, triangle[:, 2] - bottom]
         groups.setdefault(key, []).append(shapely.Polygon(points))
     return {key: shapely.union_all(triangles) for key, triangles in groups.items()}

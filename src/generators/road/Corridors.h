@@ -20,7 +20,6 @@
 #include <DiagnosticSample.h>
 
 #include "Earth.h"
-#include "curve/Fit.h"
 #include "GroundMesher.h"
 #include "TerrainClassificationMap.h"
 #include "GroundMaterialCatalog.h"
@@ -33,6 +32,10 @@
 #include "Wayfinding.h"
 #include "Geometry.h"
 #include "spatial/Drape.h"
+
+namespace outshine {
+struct CurveFitResult;
+}
 
 namespace outshine::Generators {
 
@@ -238,7 +241,7 @@ private:
   [[nodiscard]] static double
   RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept;
   static double LeastSeen(double held, double seen);
-  static void NotesFit(Paved &into, const Fitted &got);
+  static void NotesFit(Paved &into, const CurveFitResult &got);
   static void FitAlongLane(Paved &into);
   static void TrimLaneEnds(const Edge &edge, Paved &into);
   static void FitLane(const Edge &edge, Paved &into);
