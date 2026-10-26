@@ -151,7 +151,7 @@ int main(int argc, const char *const *argv) {
   if (!input || !Load(input, surface)) { return 2; }
   PlanSpec spec;
   spec.Outputs = {Resource::FrameTex};
-  spec.Content = {Stage::Geometry};
+  spec.Content = {Stage::OpaqueGeometry};
   spec.Exposure = Declared<float>(kExposure);
   const auto compiled = ExecutionPlan::Compile(spec);
   if (!compiled) { return 3; }

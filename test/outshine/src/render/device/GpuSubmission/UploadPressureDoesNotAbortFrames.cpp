@@ -84,7 +84,7 @@ void Exercise(Case mode) {
   SceneRenderer renderer(functions);
   PlanSpec spec;
   spec.Outputs = {Resource::Surface};
-  spec.Content = {Stage::Geometry, Stage::Sky};
+  spec.Content = {Stage::OpaqueGeometry, Stage::Sky};
   const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan.has_value(), "pressure fixture compiles the actual frame pipeline");
   if (!plan) { return; }

@@ -83,7 +83,7 @@ void PublishStageMeasurements(Core::DiagnosticLedger &published,
                                                  "records"};
     published.RecordMetric(names[at][0], values[0], units[0]);
     const auto stage = static_cast<Render::Stage>(at);
-    if (stage != Render::Stage::Geometry && stage != Render::Stage::TransmissiveGeometry) {
+    if (stage != Render::Stage::OpaqueGeometry && stage != Render::Stage::TransmissiveGeometry) {
       continue;
     }
     for (size_t key = 1; key < values.size(); ++key) {

@@ -70,7 +70,7 @@ bool Draw(SceneRenderer &renderer, std::vector<float> &pixels) {
 void Exercise() {
   PlanSpec spec;
   spec.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::SceneComposited};
-  spec.Content = {Stage::Geometry, Stage::TransmissiveGeometry};
+  spec.Content = {Stage::OpaqueGeometry, Stage::TransmissiveGeometry};
   const auto plan = ExecutionPlan::Compile(spec);
   CHECK(plan && (*plan)->Holds(Stage::TransmissiveGeometry),
         "the test really executes both opaque and transmission passes");

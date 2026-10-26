@@ -136,7 +136,8 @@ foreach(source IN LISTS cases)
     ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
   if(APPLE AND (name STREQUAL "outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads"
-      OR name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth"))
+      OR name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth"
+      OR name STREQUAL "outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels"))
     set_property(TEST "${name}" APPEND PROPERTY ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endif()
   add_dependencies(outshine_tests ${target})

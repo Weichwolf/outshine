@@ -116,7 +116,7 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kFrameSide;
     declaration.Outputs = {"surface", "sceneLinear", "sceneDepth", "shadowAtlas"};
-    declaration.Stages = {"sky", "subjects", "ground", "lightVisibility"};
+    declaration.Stages = {"sky", "opaqueGeometry", "ground", "lightVisibility"};
     declaration.DrawsSky = true;
     declaration.KeyLux = kSunLux;
     declaration.KeyElevationDeg = kSunElevationDeg;

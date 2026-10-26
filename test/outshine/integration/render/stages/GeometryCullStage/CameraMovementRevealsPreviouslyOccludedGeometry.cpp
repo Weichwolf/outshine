@@ -119,7 +119,7 @@ int main() {
     constexpr double kRetryEyeXM = 3.5;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtentPx;
     declaration.Outputs = {"sceneLinear", "depthPyramid"};
-    declaration.Stages = {"subjects", "depthPyramid"};
+    declaration.Stages = {"opaqueGeometry", "depthPyramid"};
     bool rejectSubmission = false;
     SceneRenderer history({.Context = &rejectSubmission,
                            .Submit = [](void *context,

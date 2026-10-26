@@ -20,17 +20,17 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
       frameTiming.PhaseMs[static_cast<size_t>(Render::RenderFramePhase::FenceWait)],
       "ms");
   Published.RecordMetric(
-      "subject draws", static_cast<double>(Picture.Device.GeometryDrawCount()), "draws");
+      "geometry draw records", static_cast<double>(Picture.Device.GeometryDrawCount()), "draws");
   Published.RecordMetric("the geometry the renderer was last offered, digested",
                          Picture.Standing->TransferMetrics().DigestValue(),
                          "");
-  Published.RecordMetric("subject residency upload attempts in all",
+  Published.RecordMetric("geometry residency upload attempts total",
                          static_cast<double>(Picture.Device.TotalUploadAttempts()),
                          "uploads");
   Published.RecordMetric("staged crossings recorded in copy passes",
                          static_cast<double>(Picture.Device.RecordedCrossings()),
                          "crossings");
-  Published.RecordMetric("subject clusters",
+  Published.RecordMetric("geometry clusters",
                          static_cast<double>(Picture.Standing->Shown().Clusters.size()),
                          "clusters");
   Published.RecordMetric("cull: jobs it swept",
@@ -61,7 +61,7 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
     }
   }
   Published.RecordMetric(
-      "subject draw calls", static_cast<double>(Picture.Device.GeometryDrawCallCount()), "calls");
+      "geometry draw calls", static_cast<double>(Picture.Device.GeometryDrawCallCount()), "calls");
   Published.RecordMetric(
       "plan passes", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
   for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {

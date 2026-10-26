@@ -146,7 +146,7 @@ The final image matches the original moving hash above and was opened locally.
 
 | Measured interval | Records | Median ms | Actual median work per record |
 |---|---:|---:|---|
-| Opaque subjects, all observed pipeline sets | 60 | 12.051 | 2,597,123.5 vertex and 1,969,124 fragment invocations |
+| Opaque geometry, all observed pipeline sets | 60 | 12.051 | 2,597,123.5 vertex and 1,969,124 fragment invocations |
 | Terrain parent pass | 60 | 2.441 | Parent statistics deliberately absent; children measured separately |
 | Subject index compaction | 60 | 1.455 | 6,442,240 compute invocations |
 | Shadow raster pass | 60 | 0.214 | 649,668 IA vertices and 211,326 vertex invocations |
@@ -159,7 +159,7 @@ counters remain null rather than invented zeros. Instrumented GPU frame median i
 19.957 ms and p99 53.464 ms; this is not an uninstrumented performance comparison
 or admission. All 60 frames remain unrefined. CPU hook scopes total 14.389 ms across
 52,640 calls, with another 4.929 ms for cold teardown output; added GPU query cost
-is uncalibrated. The result shifts the next GPU investigation to opaque subjects
+is uncalibrated. The result shifts the next GPU investigation to opaque geometry
 and their representation/selection, rather than assuming shadows still dominate.
 
 Exact build/source hashes and commands: `/tmp/outshine-engine-iris-pass-work-ab0af74da/probe/build.json`.
