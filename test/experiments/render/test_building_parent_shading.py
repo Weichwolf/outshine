@@ -1,6 +1,8 @@
 """Projected work bounds, state receipts and nonlinear normal counterexample."""
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +22,19 @@ TABLES = (
 
 
 class BuildingParentShading(unittest.TestCase):
+    def test_offline_fitter_does_not_load_image_or_mesh_dependencies(self):
+        code = (
+            "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent)) + "); "
+            "import fit_building_parent_shading; "
+            "assert not any(n in sys.modules for n in ('trimesh', 'scipy', 'PIL'))"
+        )
+        result = subprocess.run(
+            [sys.executable, "-B", "-W", "error", "-c", code],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_reference_work_factorization_is_multiplicative(self):
         factors = factor_work(
             {"hit_samples": 2, "ggx_lobe_evaluations": 4},
