@@ -36,7 +36,10 @@ foreach(source IN LISTS cases)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
-  if(name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock")
+  if(name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
+      OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
+      OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
+      OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
   if(name STREQUAL "outshine/src/client/ProcessBoundary/FatalErrorsAreContained")

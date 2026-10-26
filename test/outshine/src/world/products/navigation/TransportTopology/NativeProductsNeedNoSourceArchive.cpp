@@ -2,12 +2,14 @@
 #include "Check.h"
 
 #include <utility>
+#include <cstdint>
 #include <vector>
 
 int main() {
   using namespace outshine;
   using namespace outshine::World;
   using namespace outshine::Test;
+  constexpr uint64_t kSourceRoute = 100;
   const TransportEdgeId first{.PathId = 8, .SegmentOrdinal = 0};
   const TransportEdgeId second{.PathId = 8, .SegmentOrdinal = 1};
   const TransportEdgeId closing{.PathId = 8, .SegmentOrdinal = 2};
@@ -49,10 +51,10 @@ int main() {
   ResolvedTransport transport{.Graph = std::move(graph),
                               .Routes = {{.Id = "native-loop",
                                           .Circuit = {.SourceIdentity = identity,
-                                                      .SourceRouteId = 100,
+                                                      .SourceRouteId = kSourceRoute,
                                                       .StartNodeId = 1,
                                                       .EdgeIds = {first, second, closing}}}}};
-  TransportNetworkSnapshot published(std::move(transport), {}, {.SourceBytes = 12});
+  const TransportNetworkSnapshot published(std::move(transport), {}, {.SourceBytes = 12});
   CHECK(
       published.SourceIdentity() == identity && published.FindRoute("native-loop") &&
           !published.FindRoute("missing") && published.RouteEdgeCount() == 3 &&
