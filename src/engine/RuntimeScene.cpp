@@ -289,6 +289,19 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                           std::unique_ptr<RuntimeScene> &out,
                                           std::unique_ptr<RuntimeScene> &candidate,
                                           std::string &error) {
+  if (out != nullptr) {
+    candidate->Camera_ = out->Camera_;
+    candidate->Camera_.Invalidate();
+    if (candidate->Camera_.HasOverride()) {
+      auto eye = candidate->Camera_.Override();
+      eye.EyeM = eye.EyeM + (out->Stood_.Anchor() - candidate->Stood_.Anchor());
+      candidate->Camera_.Override(eye);
+    }
+    if (candidate->Camera_.HasOverride() || candidate->Shaped_.TriangleCount() > 0) {
+      if (!candidate->Look(error)) { return false; }
+      candidate->Camera_.MarkBound();
+    }
+  }
   if (!renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
