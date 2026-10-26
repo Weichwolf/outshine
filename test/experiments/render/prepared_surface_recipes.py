@@ -8,6 +8,10 @@ import tarfile
 
 import numpy as np
 
+SCALAR_FIELDS = {
+    code: struct.Struct("<" + code) for code in ("B", "I", "Q", "d", "f", "i")
+}
+
 
 class Reader:
     def __init__(self, data, *, number_limit=1048576):
@@ -19,10 +23,13 @@ class Reader:
         self.number_limit = number_limit
 
     def number(self, code):
-        size = struct.calcsize("<" + code)
+        field = SCALAR_FIELDS.get(code)
+        if field is None:
+            field = struct.Struct("<" + code)
+        size = field.size
         if self.at + size > len(self.data) or self.numbers >= self.number_limit:
             raise ValueError("truncated or over-budget prepared recipe")
-        value = struct.unpack_from("<" + code, self.data, self.at)[0]
+        value = field.unpack_from(self.data, self.at)[0]
         self.at += size
         self.numbers += 1
         if isinstance(value, float) and not math.isfinite(value):
