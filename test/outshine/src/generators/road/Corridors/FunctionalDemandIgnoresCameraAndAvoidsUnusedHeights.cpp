@@ -34,14 +34,17 @@ class MeshObserver final : public RoadMesher {
 public:
   mutable size_t Calls = 0;
 
-  RoadMeshingStats
-  Sweep(std::span<const RoadStation>, RoadSweep, RoadMeshBuffers &) const override {
+  RoadMeshingStats Sweep(std::span<const RoadStation> stations,
+                         RoadSweep surface,
+                         RoadMeshBuffers &output) const override {
     ++Calls;
     return {};
   }
 
-  void
-  Junction(std::span<const RoadGate>, RoadPlane, const Vec3f &, RoadMeshBuffers &) const override {
+  void Junction(std::span<const RoadGate> gates,
+                RoadPlane plane,
+                const Vec3f &colour,
+                RoadMeshBuffers &output) const override {
     ++Calls;
   }
 };
