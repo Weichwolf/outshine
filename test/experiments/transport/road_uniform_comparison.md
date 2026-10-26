@@ -100,7 +100,7 @@ set `OPENBLAS_NUM_THREADS=1`, `OMP_NUM_THREADS=1` and
 `PYTHONPATH=lib/src:test/experiments/transport`:
 
 ```sh
-.venv/bin/python -B -W error -m unittest test_road_surface_lod test_road_surface_uniform
+.venv/bin/python -B -W error -m unittest test_road_surface_lod test_road_surface_uniform test_road_surface_quadrature
 .venv/bin/python -B -W error test/experiments/transport/compare_road_uniform.py --output /tmp/outshine-road-uniform --verify
 ```
 
@@ -163,3 +163,13 @@ endpoint once and performs at most31 recurrence steps per original interval
 (straight spans skip the recurrence). These shared preparation costs are new;
 old timed preparations remain historical. No new profile campaign or unchanged
 whole-build-speed assertion follows from retained mesh arrays.
+
+
+The corrected qualification retains all1462 original recipes/13944 source spans
+at the unchanged0.25m request; maximum complete evaluator budget is
+8.692723609682028e-9m. One necessary whole-corpus correctness replay passes;
+all8772 adaptive/uniform station/position/index arrays remain word-identical to
+the saved original complete outputs. The eighteen targeted controls pass.
+These results qualify this finite original corpus and reject the independent
+long-helix counterexample; they establish no universal floating-point/native,
+whole-body, geographic or device acceptance.
