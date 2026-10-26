@@ -49,7 +49,7 @@ int Consume(const outshine::Data::SourceSet &sources,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if ((argc != 3 && argc != 4) || std::string_view(argv[1]).empty() ||
       (argc == 4 && std::string_view(argv[3]) != "prepare")) {
     std::println(stderr, "usage: weather-snapshot <isolated-cache-dir> <exact-unix-utc> [prepare]");

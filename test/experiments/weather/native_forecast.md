@@ -38,17 +38,13 @@ and Python 3.11 or newer. Use the same compiler/library pair as the project.
 ```sh
 forecast_out="${TMPDIR:-/tmp}/outshine-weather-native-$(git rev-parse --short HEAD)"
 mkdir -p "$forecast_out"
-nice -n 10 "${CXX:-c++}" -std=c++23 -fno-exceptions -O2 -ffp-contract=off \
-  -Wall -Wextra -Wpedantic -Wshadow -Werror \
-  -Iinclude -Isrc/base -Isrc/generators/weather \
-  test/experiments/weather/native_forecast.cpp \
-  src/generators/weather/OpenMeteo.cpp src/generators/weather/OpenMeteoFields.cpp \
-  src/base/format/Json.cpp src/base/format/Sha256.cpp \
-  -o "$forecast_out/native-forecast"
-PYTHONDONTWRITEBYTECODE=1 nice -n 10 python3 -W error \
+cmake -S . -B "${BUILD_DIR:-build}" -DBUILD_TESTING=ON
+nice -n 10 cmake --build "${BUILD_DIR:-build}" \
+  --target test_harness_weather_forecast --parallel
+PYTHONDONTWRITEBYTECODE=1 nice -n 10 "${PYTHON:-python3}" -W error \
   test/experiments/weather/native_forecast_controls.py \
-  --probe "$forecast_out/native-forecast" --output "$forecast_out/controls"
-sh test/run.sh outshine/src/generators/weather/OpenMeteo
+  --probe "${BUILD_DIR:-build}/test_harness_weather_forecast" --output "$forecast_out/controls"
+sh test/run.sh outshine/src/generators/weather/providers/OpenMeteo
 sh test/run.sh outshine/src/base/format/Json
 ```
 

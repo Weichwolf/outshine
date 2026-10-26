@@ -1,18 +1,20 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_WEATHERPREPARATION_H
-#define OUTSHINE_ENGINE_STREAMING_WEATHERPREPARATION_H
+#ifndef OUTSHINE_GENERATORS_WEATHER_INPUTS_WEATHERSNAPSHOTLOADER_H
+#define OUTSHINE_GENERATORS_WEATHER_INPUTS_WEATHERSNAPSHOTLOADER_H
 
-#include "SourceSession.h"
 #include "Tasks.h"
 #include <WeatherSnapshot.h>
-#include <atomic>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 
-namespace outshine {
-class WeatherPreparation {
+namespace outshine::Data {
+class SourceSession;
+class Transport;
+}
+
+namespace outshine::Generators::Weather {
+class WeatherSnapshotLoader {
 public:
   enum class Phase : uint8_t { Acquiring, Decoding, Ready, Missing, Failed, Cancelled };
 
@@ -21,13 +23,13 @@ public:
     Tasks &Compute;
   };
 
-  WeatherPreparation(std::shared_ptr<Data::SourceSession> sources,
-                     Data::Transport &transport,
-                     Workers workers,
-                     int64_t utcS);
-  ~WeatherPreparation();
-  WeatherPreparation(const WeatherPreparation &) = delete;
-  WeatherPreparation &operator=(const WeatherPreparation &) = delete;
+  WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
+                        Data::Transport &transport,
+                        Workers workers,
+                        int64_t utcS);
+  ~WeatherSnapshotLoader();
+  WeatherSnapshotLoader(const WeatherSnapshotLoader &) = delete;
+  WeatherSnapshotLoader &operator=(const WeatherSnapshotLoader &) = delete;
 
   [[nodiscard]] Phase Advance();
   void Cancel() noexcept;
@@ -44,19 +46,7 @@ public:
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
 private:
-  struct Work {
-    Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS);
-    std::shared_ptr<Data::SourceSession> Sources;
-    Data::SourceSet::Query Query;
-    int64_t UtcS;
-    std::atomic_bool Stopping = false;
-    Data::SourceDelivery Delivery = Data::SourceDelivery::Waiting();
-    std::optional<Data::SourceDelivery::Answer> Answer;
-    std::shared_ptr<const WeatherSnapshot> Snapshot;
-    std::string Error;
-    Phase Outcome = Phase::Acquiring;
-    bool Abandoned = false;
-  };
+  struct Work;
 
   void Decode();
   void Abandon();

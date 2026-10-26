@@ -1,4 +1,5 @@
-#include "WeatherPreparation.h"
+#include "WeatherSnapshotLoader.h"
+#include "SourceSession.h"
 #include <DataKind.h>
 #include <SourceRequest.h>
 #include <utility>
@@ -6,24 +7,40 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 
-namespace outshine {
-WeatherPreparation::Work::Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS)
+namespace outshine::Generators::Weather {
+struct WeatherSnapshotLoader::Work {
+  Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS);
+  std::shared_ptr<Data::SourceSession> Sources;
+  Data::SourceSet::Query Query;
+  int64_t UtcS;
+  std::atomic_bool Stopping = false;
+  Data::SourceDelivery Delivery = Data::SourceDelivery::Waiting();
+  std::optional<Data::SourceDelivery::Answer> Answer;
+  std::shared_ptr<const WeatherSnapshot> Snapshot;
+  std::string Error;
+  Phase Outcome = Phase::Acquiring;
+  bool Abandoned = false;
+};
+
+WeatherSnapshotLoader::Work::Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS)
     : Sources(std::move(sources)),
       Query(Sources->Sources().Ask(
           Data::SourceRequest(Data::DataKind::Weather, Data::Address::Whole(0)))),
       UtcS(utcS) {}
 
-WeatherPreparation::WeatherPreparation(std::shared_ptr<Data::SourceSession> sources,
-                                       Data::Transport &transport,
-                                       Workers workers,
-                                       int64_t utcS)
+WeatherSnapshotLoader::WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
+                                             Data::Transport &transport,
+                                             Workers workers,
+                                             int64_t utcS)
     : Transport_(transport),
       Io_(workers.Io),
       Compute_(workers.Compute),
       Work_(std::make_unique<Work>(std::move(sources), utcS)) {}
 
-WeatherPreparation::~WeatherPreparation() {
+WeatherSnapshotLoader::~WeatherSnapshotLoader() {
   Cancel();
   if (Running()) { ActivePool_->Wait(Handle_); }
   if (!Work_->Abandoned) {
@@ -32,17 +49,17 @@ WeatherPreparation::~WeatherPreparation() {
   }
 }
 
-bool WeatherPreparation::AwaitProgress(double seconds) const {
+bool WeatherSnapshotLoader::AwaitProgress(double seconds) const {
   return Running() && ActivePool_->AwaitCompletion(Handle_, seconds);
 }
 
-void WeatherPreparation::Cancel() noexcept {
+void WeatherSnapshotLoader::Cancel() noexcept {
   Work_->Stopping.store(true, std::memory_order_relaxed);
   Snapshot_.reset();
   Phase_ = Phase::Cancelled;
 }
 
-void WeatherPreparation::Abandon() {
+void WeatherSnapshotLoader::Abandon() {
   Work *const work = Work_.get();
   Data::Transport *const transport = &Transport_;
   ActivePool_ = &Io_;
@@ -55,7 +72,7 @@ void WeatherPreparation::Abandon() {
   });
 }
 
-void WeatherPreparation::Decode() {
+void WeatherSnapshotLoader::Decode() {
   Work *const work = Work_.get();
   ActivePool_ = &Compute_;
   Handle_ = Compute_.Post([work] {
@@ -89,13 +106,13 @@ void WeatherPreparation::Decode() {
   });
 }
 
-void WeatherPreparation::Publish() {
+void WeatherSnapshotLoader::Publish() {
   Phase_ = Work_->Outcome;
   if (Phase_ == Phase::Ready) { Snapshot_ = std::move(Work_->Snapshot); }
   Error_ = std::move(Work_->Error);
 }
 
-WeatherPreparation::Phase WeatherPreparation::Advance() {
+WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
   if (Running()) {
     if (!ActivePool_->TakeCompletion(Handle_)) { return Phase_; }
     Handle_ = Tasks::kNoTask;

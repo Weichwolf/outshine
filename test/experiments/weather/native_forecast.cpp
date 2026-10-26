@@ -4,6 +4,7 @@
 
 #include <array>
 #include <charconv>
+#include <cstdio>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -106,7 +107,7 @@ void Hour(const HourlyWeather &hour) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 3 && argc != 4) {
     std::println(stderr, "usage: native-forecast payload.json request-context.json [exact-utc-s]");
     return 2;

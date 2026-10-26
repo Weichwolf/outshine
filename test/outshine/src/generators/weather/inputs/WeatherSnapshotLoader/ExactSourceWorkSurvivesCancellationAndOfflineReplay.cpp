@@ -1,4 +1,5 @@
-#include "WeatherPreparation.h"
+#include "WeatherSnapshotLoader.h"
+#include "SourceSession.h"
 #include "WeatherCapture.h"
 #include "OfflineTransport.h"
 #include "Check.h"
@@ -19,6 +20,7 @@
 
 namespace {
 using namespace outshine;
+using outshine::Generators::Weather::WeatherSnapshotLoader;
 using namespace outshine::Test;
 using namespace outshine::Data;
 constexpr double kWorkerPollSeconds = 0.001;
@@ -145,11 +147,12 @@ std::shared_ptr<SourceSession> Session(const WeatherCapture &capture,
   return sources ? *sources : nullptr;
 }
 
-WeatherPreparation::Phase Pump(WeatherPreparation &work, WeatherPreparation::Workers workers) {
+WeatherSnapshotLoader::Phase Pump(WeatherSnapshotLoader &work,
+                                  WeatherSnapshotLoader::Workers workers) {
   auto phase = work.CurrentPhase();
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((phase == WeatherPreparation::Phase::Acquiring ||
-          phase == WeatherPreparation::Phase::Decoding) &&
+  while ((phase == WeatherSnapshotLoader::Phase::Acquiring ||
+          phase == WeatherSnapshotLoader::Phase::Decoding) &&
          std::chrono::steady_clock::now() < until) {
     phase = work.Advance();
     (void)workers.Io.AwaitCompletion(kWorkerPollSeconds);
@@ -165,16 +168,16 @@ void RealAndOffline(const WeatherCapture &capture, const std::string &directory)
   WatchedTransport replay(capture, wireCalls);
   Tasks io(1);
   Tasks compute(1);
-  const WeatherPreparation::Workers workers{.Io = io, .Compute = compute};
+  const WeatherSnapshotLoader::Workers workers{.Io = io, .Compute = compute};
   auto sources = Session(capture, provider, directory);
   if (!sources) { return; }
   const std::weak_ptr<SourceSession> weak = sources;
   std::shared_ptr<const WeatherSnapshot> held;
   {
-    WeatherPreparation work(sources, replay, workers, kCapturedWeatherUtcS);
+    WeatherSnapshotLoader work(sources, replay, workers, kCapturedWeatherUtcS);
     sources.reset();
     CHECK(!weak.expired(), "the active weather request retains its exact source/store session");
-    CHECK(Pump(work, workers) == WeatherPreparation::Phase::Ready,
+    CHECK(Pump(work, workers) == WeatherSnapshotLoader::Phase::Ready,
           "real original bytes produce the exact native UTC on the compute worker");
     held = work.Snapshot();
     CHECK(held && held->Values.ValidUtcS == kCapturedWeatherUtcS && held->Values.CloudLow == 0.0,
@@ -186,20 +189,20 @@ void RealAndOffline(const WeatherCapture &capture, const std::string &directory)
   }
   CHECK(weak.expired() && held && held->Source.PayloadSha256 == capture.Declaration.PayloadSha256,
         "the immutable publication owns its provenance after source/session destruction");
-  auto warm = Session(capture, provider, directory);
+  const auto warm = Session(capture, provider, directory);
   if (!warm) { return; }
   OfflineTransport offline;
-  WeatherPreparation cached(warm, offline, workers, kCapturedWeatherUtcS);
-  CHECK(Pump(cached, workers) == WeatherPreparation::Phase::Ready,
+  WeatherSnapshotLoader cached(warm, offline, workers, kCapturedWeatherUtcS);
+  CHECK(Pump(cached, workers) == WeatherSnapshotLoader::Phase::Ready,
         "another source session replays the original bytes offline through existing cache");
   CHECK(warm->Sources().Counters().ProviderStarts == 0 && warm->Sources().Counters().FromStore == 1,
         "offline replay starts no provider or transport work");
-  WeatherPreparation missing(warm, offline, workers, kCapturedWeatherUtcS + 1);
-  CHECK(Pump(missing, workers) == WeatherPreparation::Phase::Missing && !missing.Snapshot(),
+  WeatherSnapshotLoader missing(warm, offline, workers, kCapturedWeatherUtcS + 1);
+  CHECK(Pump(missing, workers) == WeatherSnapshotLoader::Phase::Missing && !missing.Snapshot(),
         "a non-hour UTC stays missing instead of rounding to a forecast hour");
   calls.WrongUtc = true;
-  WeatherPreparation wrong(warm, offline, workers, kCapturedWeatherUtcS);
-  CHECK(Pump(wrong, workers) == WeatherPreparation::Phase::Failed && !wrong.Snapshot(),
+  WeatherSnapshotLoader wrong(warm, offline, workers, kCapturedWeatherUtcS);
+  CHECK(Pump(wrong, workers) == WeatherSnapshotLoader::Phase::Failed && !wrong.Snapshot(),
         "a source violating exact UTC is rejected before publication");
 }
 
@@ -211,13 +214,13 @@ void PendingCancellation(const WeatherCapture &capture, const std::string &direc
   wireCalls.Waiting.store(true);
   Tasks io(1);
   Tasks compute(1);
-  const WeatherPreparation::Workers workers{.Io = io, .Compute = compute};
-  auto sources = Session(capture, provider, directory);
+  const WeatherSnapshotLoader::Workers workers{.Io = io, .Compute = compute};
+  const auto sources = Session(capture, provider, directory);
   if (!sources) { return; }
-  WeatherPreparation work(sources, replay, workers, kCapturedWeatherUtcS);
+  WeatherSnapshotLoader work(sources, replay, workers, kCapturedWeatherUtcS);
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (wireCalls.Begins == 0 && std::chrono::steady_clock::now() < until) {
-    CHECK(work.Advance() == WeatherPreparation::Phase::Acquiring,
+    CHECK(work.Advance() == WeatherSnapshotLoader::Phase::Acquiring,
           "pending remote work returns control without a decode or wait");
     (void)workers.Io.AwaitCompletion(kWorkerPollSeconds);
   }

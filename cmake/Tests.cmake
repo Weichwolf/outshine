@@ -85,6 +85,9 @@ foreach(source IN LISTS cases)
     endif()
   endif()
   string(REPLACE "/" "_" component "outshine_${owner}")
+  if(name MATCHES "^outshine/src/generators/weather/(LowCloud|inputs/WeatherSnapshotLoader)/")
+    target_link_libraries(${target} PRIVATE outshine_generators_weather_providers)
+  endif()
   if(name MATCHES "^outshine/src/render/frame/FrameTargets/")
     target_link_libraries(${target} PRIVATE outshine_render_device_native)
   endif()
@@ -145,6 +148,18 @@ foreach(source IN LISTS cases)
     endif()
     set(suite "${parent}")
   endwhile()
+endforeach()
+
+add_executable(test_harness_weather_forecast EXCLUDE_FROM_ALL
+  test/experiments/weather/native_forecast.cpp)
+target_link_libraries(test_harness_weather_forecast PRIVATE outshine_generators_weather_providers)
+add_executable(test_harness_weather_snapshot EXCLUDE_FROM_ALL
+  test/experiments/weather/weather_snapshot.cpp)
+target_link_libraries(test_harness_weather_snapshot PRIVATE outshine_generators_weather
+  outshine_generators_weather_providers)
+foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snapshot)
+  target_compile_options(${target} PRIVATE -fno-exceptions)
+  target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
 add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
