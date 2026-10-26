@@ -74,7 +74,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
         World.Wire.get(),
-        Session.Under.Cache,
+        Session.Under.SourceCacheDirectory,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
   if (!ConfigureWorldSources(tileProviders)) { return false; }
@@ -101,7 +101,8 @@ bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> prov
     }
     return RequestOriginalCells();
   }
-  if (auto requested = World.OsmSource->Request(providers, Session.Under.Shipped, &World.Providers);
+  if (auto requested =
+          World.OsmSource->Request(providers, Session.Under.BuiltinDataDirectory, &World.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
@@ -130,7 +131,7 @@ bool Engine::State::RequestOriginalCells() {
   if (auto requested = World.OsmSource->RequestCells(*found,
                                                      *cells,
                                                      Generators::Osm::kDefaultCellLimits,
-                                                     Session.Under.Shipped,
+                                                     Session.Under.BuiltinDataDirectory,
                                                      &World.Providers);
       !requested) {
     Error = std::move(requested.error());
@@ -207,9 +208,9 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
 
   Collecting say;
-  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.Shipped,
-                                              .Sources = Session.Under.Cache,
-                                              .Assets = Session.Under.AssetCache};
+  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.BuiltinDataDirectory,
+                                              .Sources = Session.Under.SourceCacheDirectory,
+                                              .Assets = Session.Under.AssetCacheDirectory};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() &&
       !World.Stack.OpenSession(contentDirectories,
@@ -268,12 +269,12 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
   if (World.Stack.RecipesReady()) {
     std::string why;
-    if (!World.Builtins.EnsureCatalogue(World.Stack.SurfaceRecipes(),
-                                        std::string(Session.Under.Shipped) + "/world/species",
-                                        why,
-                                        declared.Ground.VegetationEnabled,
-                                        std::string(Session.Under.Shipped) +
-                                            "/world/vegetation.json")) {
+    if (!World.Builtins.EnsureCatalogue(
+            World.Stack.SurfaceRecipes(),
+            std::string(Session.Under.BuiltinDataDirectory) + "/world/species",
+            why,
+            declared.Ground.VegetationEnabled,
+            std::string(Session.Under.BuiltinDataDirectory) + "/world/vegetation.json")) {
       Error = std::move(why);
       return false;
     }

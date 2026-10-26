@@ -31,7 +31,7 @@ public:
   }
 
   [[nodiscard]] virtual std::expected<std::unique_ptr<Source>, std::string>
-  make(const SourceProvider &declaration, std::string_view shippedRoot) const = 0;
+  make(const SourceProvider &declaration, std::string_view builtinDataDirectory) const = 0;
 
 protected:
   Provider() = default;

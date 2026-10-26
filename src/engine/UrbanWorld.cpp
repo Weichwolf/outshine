@@ -73,7 +73,7 @@ bool Engine::State::AdvanceUrbanAreas() {
                                              World.Stack.UrbanAssets(),
                                              World.Stack.Pool(),
                                              World.Stack.VectorSchema(),
-                                             Session.Under.AssetCache + "/assets.sqlite");
+                                             Session.Under.AssetCacheDirectory + "/assets.sqlite");
     World.UrbanAreas->Into(Picture.Device);
   }
   const auto origin = Session.Declared.Ground.Origin;

@@ -17,7 +17,7 @@ public:
   [[nodiscard]] static std::expected<std::shared_ptr<SourceSession>, std::string>
   Open(const RawSourceCache::Config &config,
        std::span<const SourceProvider> providers,
-       std::string_view shippedRoot,
+       std::string_view builtinDataDirectory,
        const ProviderRegistry &registry);
 
   struct Ledger {

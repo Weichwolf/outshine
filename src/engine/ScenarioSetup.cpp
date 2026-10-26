@@ -127,7 +127,7 @@ Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
     return std::unexpected(S_->Error);
   }
   if (!surfaces.empty() &&
-      !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
+      !S_->Picture.Face.Opens(S_->Session.Under.BuiltinDataDirectory + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
   std::vector<Scenario::Surface> candidate(surfaces.begin(), surfaces.end());
@@ -587,7 +587,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
 
   declared.Surfaces = PrepareSurfaces(scenario.Surfaces);
   if (!declared.Surfaces.empty() &&
-      !S_->Picture.Face.Opens(S_->Session.Under.Shipped + "/fonts", S_->Error)) {
+      !S_->Picture.Face.Opens(S_->Session.Under.BuiltinDataDirectory + "/fonts", S_->Error)) {
     return std::unexpected(S_->Error);
   }
 

@@ -17,7 +17,7 @@ int main() {
   constexpr double kPreloadSeconds = 0.02;
   constexpr Extent kFramePx{.WidthPx = 80, .HeightPx = 45};
   Roots roots;
-  roots.Shipped = ".";
+  roots.BuiltinDataDirectory = ".";
   roots.Offline = true;
   Scenario::View view;
   view.Id = "overview";

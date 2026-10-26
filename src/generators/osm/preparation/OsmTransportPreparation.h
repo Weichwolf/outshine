@@ -41,7 +41,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string>
   Request(std::span<const Data::SourceProvider> providers,
-          std::string_view shippedRoot,
+          std::string_view builtinDataDirectory,
           std::span<const CircuitRequest> routes = {});
   [[nodiscard]] std::expected<void, std::string>
   RequestSource(std::shared_ptr<const SourceSnapshot> source,
@@ -87,7 +87,7 @@ private:
   };
 
   [[nodiscard]] static LoadResult Load(std::span<const Data::SourceProvider> providers,
-                                       std::string_view shippedRoot,
+                                       std::string_view builtinDataDirectory,
                                        std::span<const CircuitRequest> routes,
                                        const std::stop_token &stop);
 

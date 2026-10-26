@@ -26,7 +26,7 @@ std::expected<std::unique_ptr<Source>, std::string> ConfigureSource(
 
 bool RegisterSources(SourceSet &set,
                      std::span<const SourceProvider> providers,
-                     std::string_view shippedRoot,
+                     std::string_view builtinDataDirectory,
                      std::string &error,
                      const ProviderRegistry &registry) {
   if (const auto valid = ValidateSourceProviders(providers, registry); !valid) {
@@ -36,7 +36,7 @@ bool RegisterSources(SourceSet &set,
   std::vector<std::unique_ptr<Source>> candidates;
   candidates.reserve(providers.size());
   for (const SourceProvider &provider : providers) {
-    auto made = registry.named(provider.Kind)->make(provider, shippedRoot);
+    auto made = registry.named(provider.Kind)->make(provider, builtinDataDirectory);
     if (!made) {
       error = std::move(made.error());
       return false;

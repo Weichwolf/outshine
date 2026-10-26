@@ -156,7 +156,7 @@ int main() {
     CHECK(engine.registerProvider(provider), "external provider registers through the public API");
     CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
     Roots roots;
-    roots.Shipped = "data";
+    roots.BuiltinDataDirectory = "data";
     roots.Offline = true;
     CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
     CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");

@@ -665,7 +665,7 @@ int CaptureView(outshine::Engine &engine,
   auto input = outshine::App::ReadScenarioInput(
       options.Argv[0],
       options.ScenarioOverrides,
-      MakeApplicationRoots(options.CacheDirectory, options.Offline).Shipped);
+      MakeApplicationRoots(options.CacheDirectory, options.Offline).BuiltinDataDirectory);
   if (!input) {
     std::println("outshine: {} -- {}", sourceName, input.error());
     return 1;

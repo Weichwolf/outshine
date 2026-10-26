@@ -71,7 +71,7 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for the public preload boundary");
   Roots roots;
-  roots.Shipped = "data";
+  roots.BuiltinDataDirectory = "data";
   roots.Offline = true;
   Scenario::Document scene;
   scene.Ground.Declared = true;

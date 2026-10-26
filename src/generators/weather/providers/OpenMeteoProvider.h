@@ -26,7 +26,8 @@ public:
   [[nodiscard]] std::string_view kind() const override;
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
-  make(const Data::SourceProvider &declaration, std::string_view shippedRoot) const override;
+  make(const Data::SourceProvider &declaration,
+       std::string_view builtinDataDirectory) const override;
 
 private:
   OpenMeteoRequest Request_;
