@@ -28,6 +28,7 @@
 #include "Layout.h"
 #include "Pointer.h"
 #include "SceneRenderer.h"
+#include "SceneCandidateEdit.h"
 #include "Material.h"
 #include "GroundAtmosphere.h"
 #include "MaterialResolution.h"
@@ -284,7 +285,7 @@ public:
     return Stood_.IndirectLight();
   }
 
-  void StopsEditingCandidate() noexcept { CandidateEditor_.reset(); }
+  void StopEditingCandidate() noexcept { CandidateEdit_.reset(); }
 
   [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
 
@@ -441,7 +442,7 @@ private:
   std::shared_ptr<const Render::ExecutionPlan> Plan_;
   std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
-  std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
+  std::optional<Render::SceneCandidateEdit> CandidateEdit_;
   Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
