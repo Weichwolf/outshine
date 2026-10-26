@@ -1,5 +1,5 @@
 #include "PreparedTransportPlans.h"
-#include "TransportPlanFixture.h"
+#include "TransportPlanSourceFixture.h"
 #include "Check.h"
 #include <array>
 #include <cstdint>
@@ -28,6 +28,23 @@ TransportPlanAddress Address(uint8_t scope) {
           .Inputs = TransportInputScopeId(inputs)};
 }
 
+bool HasBoundSources(const World::TransportNetworkSnapshot &network) {
+  using namespace World;
+  const auto &source = network.Provenance();
+  if (source.IdentitySpace != TransportIdentitySpace::DerivedFragments ||
+      source.Sources.size() != 2 || source.Paths.size() != 1 || source.References.size() != 2) {
+    return false;
+  }
+  return source.Sources[0].Identity.DatasetId == "source-a" &&
+         source.Sources[0].Item == "opaque-item-a" && source.Sources[0].Content[0] == 1 &&
+         source.Sources[1].Identity.DatasetId == "source-b" && source.Sources[1].Content[0] == 2 &&
+         source.Paths[0].PathId == 42 && source.Paths[0].ReferenceCount == 2 &&
+         source.References[0].Source == 0 && source.References[1].Source == 1 &&
+         source.References[0].ProviderElementId == 0 && !source.References[1].ProviderElementId &&
+         source.References[0].SegmentOrdinal == 3 && source.References[1].SegmentOrdinal == 7 &&
+         source.References[0].Fragment[0] == 3 && source.References[1].Fragment[0] == 4;
+}
+
 int Offline(const std::string &directory) {
   auto cache = PreparedTransportPlans::Open(directory);
   if (!cache) { return 2; }
@@ -48,15 +65,15 @@ int Offline(const std::string &directory) {
                       edge->Allows(World::TransportMode::Motor) &&
                       consumer->Metrics().SourceBytes == 0 && consumer->Metrics().ReadMs == 0 &&
                       consumer->Metrics().ParseMs == 0 && consumer->Metrics().GraphMs == 0;
-  const bool valid = native && first.Record.Key == second.Record.Key &&
-                     first.Plan->Coverage == TransportCoverage::Complete &&
-                     first.Plan->TerrainContacts.size() == 1 &&
-                     first.Plan->TerrainContacts[0].Profile &&
-                     first.Plan->TerrainContacts[0].HoleRingsEastNorthM.size() == 1 &&
-                     first.Plan->Ports.size() == 1 && first.Plan->Bodies.size() == 1 &&
-                     first.Plan->Paths.size() == 2 &&
-                     EncodeTransportPlan(*first.Plan, kTransportFixtureLimits) ==
-                         EncodeTransportPlan(*second.Plan, kTransportFixtureLimits);
+  const bool valid =
+      native && HasBoundSources(*consumer) && first.Record.Key == second.Record.Key &&
+      first.Plan->Coverage == TransportCoverage::Complete &&
+      first.Plan->TerrainContacts.size() == 1 && first.Plan->TerrainContacts[0].Profile &&
+      first.Plan->TerrainContacts[0].HoleRingsEastNorthM.size() == 1 &&
+      first.Plan->Ports.size() == 1 && first.Plan->Bodies.size() == 1 &&
+      first.Plan->Paths.size() == 2 &&
+      EncodeTransportPlan(*first.Plan, kTransportFixtureLimits) ==
+          EncodeTransportPlan(*second.Plan, kTransportFixtureLimits);
   std::println(
       "TRANSPORT_PLAN_OFFLINE valid={} independent_aliases=2 native_snapshot={} source_modules=0",
       valid,
@@ -83,7 +100,7 @@ bool Spawn(const std::string &executable, const std::string &directory) {
 
 void Prepare(const std::string &directory) {
   auto cache = PreparedTransportPlans::Open(directory);
-  const auto plan = TransportPlanFixture();
+  const auto plan = TransportPlanSourceFixture();
   CHECK(cache && plan, "the native source plan and existing asset store are available");
   if (!cache || !plan) { return; }
   const auto before = (*cache)->LoadRequest(Address(0), kTransportFixtureLimits);
