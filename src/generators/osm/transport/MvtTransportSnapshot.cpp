@@ -176,6 +176,9 @@ std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
   if (!nodes) { return std::unexpected(nodes.error()); }
   auto edges = Edges(sources, connections->Segments);
   if (!edges) { return std::unexpected(edges.error()); }
+  if (auto used = RecordMissingTopology(sources, stop); !used) {
+    return std::unexpected(std::move(used.error()));
+  }
   std::ranges::sort(*nodes, {}, &World::TransportNode::SourceNodeId);
   std::ranges::sort(*edges, {}, &World::TransportEdge::Id);
   const auto omissionKey = [](const MvtTransportOmission &omission) {

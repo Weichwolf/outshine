@@ -190,6 +190,38 @@ void CheckDemand(const MvtTransportSnapshot &made,
             !ResolveMvtTransportWays(made, field, otherStreets, edges),
         "neither equal foreign bytes nor another street field can reuse local bindings");
 }
+
+void CheckPartialTopology(const OsmField &field,
+                          const StreetField &streets,
+                          std::span<const GeographicBounds> coverage) {
+  using namespace outshine::Test;
+  const auto partial = streets.Without(0);
+  const auto graph = StreetGraphBuilder::BuildOneShot(
+      partial, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0.0; });
+  CHECK(graph.Graph && graph.Graph->WayCount() == 1,
+        "the actual source builder can retain a valid partial network");
+  if (!graph.Graph) { return; }
+  const auto made = BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage);
+  CHECK(made && made->Network->Topology().Edges().size() == 4,
+        "native normalization preserves the valid directed bridge instead of rejecting the region");
+  if (!made) { return; }
+  const auto omitted = streets.SourceOf(field, 0);
+  CHECK(omitted &&
+            std::ranges::count(made->Omissions,
+                               MvtTransportOmissionReason::MissingTopology,
+                               &MvtTransportOmission::Reason) == 1 &&
+            std::ranges::any_of(made->Omissions,
+                                [&](const MvtTransportOmission &one) {
+                                  return one.Reason ==
+                                             MvtTransportOmissionReason::MissingTopology &&
+                                         one.Feature ==
+                                             field.Features()[omitted->Feature].ContentDigest;
+                                }),
+        "the absent usable source retains its actual feature identity and omission reason");
+  CHECK(std::ranges::all_of(made->Network->Topology().Edges(),
+                            [](const auto &edge) { return edge.Bridge; }),
+        "the missing source is recorded without inventing replacement geometry");
+}
 }
 
 int main() {
@@ -228,6 +260,7 @@ int main() {
     CheckSnapshot(*made);
     CheckDemand(*made, field, streets);
   }
+  CheckPartialTopology(field, streets, coverage);
   std::stop_source cancelled;
   cancelled.request_stop();
   CHECK(!BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage, cancelled.get_token()),

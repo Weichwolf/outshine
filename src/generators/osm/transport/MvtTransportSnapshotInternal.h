@@ -50,6 +50,8 @@ struct Connections {
 
 [[nodiscard]] std::expected<Connections, std::string>
 ReadConnections(const Sources &sources, const Path::Network &network, const std::stop_token &stop);
+[[nodiscard]] std::expected<void, std::string> RecordMissingTopology(Sources &sources,
+                                                                     const std::stop_token &stop);
 [[nodiscard]] std::expected<std::vector<World::TransportNode>, std::string>
 AssignNodes(Sources &sources,
             std::vector<Segment> &segments,

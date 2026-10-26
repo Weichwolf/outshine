@@ -24,7 +24,8 @@ enum class MvtTransportOmissionReason : uint8_t {
   UnsupportedTunnel,
   InvalidAttributes,
   UnclassifiedWay,
-  UnqualifiedLevelConnection
+  UnqualifiedLevelConnection,
+  MissingTopology
 };
 
 struct MvtTransportOmission {
