@@ -101,7 +101,7 @@ std::atomic<uint64_t> serial{0};
 id<MTLCounterSet> counterSet;
 IMP renderOriginal, commitOriginal, pipelineOriginal, indexedOriginal, indirectOriginal,
     drawOriginal;
-IMP computeOriginal, computePipelineOriginal, dispatchOriginal;
+IMP computeOriginal, computePipelineOriginal, dispatchOriginal, indirectDispatchOriginal;
 bool encoderPatched = false;
 bool computeEncoderPatched = false;
 
@@ -315,6 +315,17 @@ void RecordDispatch(OutshineProfilePass *pass, DispatchDimensions shape) {
       @(pass.work[pass.currentPipeline].unsignedLongLongValue + declared);
 }
 
+void IndirectDispatch(
+    id self, SEL sel, id<MTLBuffer> arguments, NSUInteger offset, MTLSize threads) {
+  OutshineProfilePass *const pass = objc_getAssociatedObject(self, &passKey);
+  if (pass != nullptr) {
+    ++pass.calls;
+    ++pass.unavailableDispatches;
+  }
+  reinterpret_cast<void (*)(id, SEL, id<MTLBuffer>, NSUInteger, MTLSize)>(indirectDispatchOriginal)(
+      self, sel, arguments, offset, threads);
+}
+
 id<MTLComputeCommandEncoder> Compute(id self, SEL sel) {
   OutshineProfileCommand *const trace = Trace(self);
   if (trace.samples == nil || trace.passes.count >= 64) {
@@ -336,6 +347,11 @@ id<MTLComputeCommandEncoder> Compute(id self, SEL sel) {
     const Class cls = object_getClass(encoder);
     computePipelineOriginal = Patch(cls, @selector(setComputePipelineState:), (IMP)ComputePipeline);
     dispatchOriginal = Patch(cls, @selector(dispatchThreadgroups:threadsPerThreadgroup:));
+    indirectDispatchOriginal = Patch(
+        cls,
+        @selector(
+            dispatchThreadgroupsWithIndirectBuffer:indirectBufferOffset:threadsPerThreadgroup:),
+        (IMP)IndirectDispatch);
     computeEncoderPatched = true;
   }
   if (encoder != nil) {

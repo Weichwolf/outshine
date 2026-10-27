@@ -1,75 +1,52 @@
-# Native Metal Place work profile
+# Native Metal scenario work profile
 
-This diagnostic instruments the native Metal backend through an injected local library.
-It does not replace the renderer, alter shaders or change generated assets. Build the
-native client first. Command Line Tools and an Apple GPU with stage-boundary timestamp
-sampling are required; Xcode is not required.
-Compiler, language, warnings and Objective-C flags come from the native Metal unit in
-`compile_commands.json`; prepare it with `make db` using the repository toolchain.
+The private injected library records existing Metal pass boundaries and submitted
+work. Build Outshine and its current compilation database first. Apple stage-boundary
+counters and Command Line Tools are required; the Xcode application is not.
+CMake builds the existing injection source as `test_harness_metal_work_profile`,
+using the shared compiler policy, Objective-C ARC and standard SHARED/PIC handling.
+Configure with BUILD_TESTING=ON; `--build-dir` selects that configured build.
+Python3.10+ is required, as for the other render experiments.
 
 ```sh
 python3 test/experiments/render/metal_work_profile.py \
-  --output "${TMPDIR:-/tmp}/outshine-metal-work-tokyo" --place Tokyo
+  --output "${TMPDIR:-/tmp}/outshine-metal-work" -- \
+  --scenario test/outshine/data/places/Jura.scenario --view station \
+  --frames 60 --angular-velocity 0,-360,0 --offline
 ```
 
-`--overrides` accepts the same complete JSON override object as the client.
-Its default selects 60 fps; resolution remains the declared Place resolution.
-Use an explicit override for another profile; previous 30-fps observations below
-remain historical measurements, not acceptance of the current 60-fps target.
-`--client` selects its binary; `--runtime-root` selects the working directory that
-owns its shader artifacts. This allows the shared probe to diagnose a native
-integration build while leaving the main checkout's Place outputs untouched.
-Use a fresh output directory per comparison. Outputs stay in the system temporary
-directory: compile/client logs, injected library and a source/client-bound JSON receipt.
-The client still captures exactly the declared frame count and one full turn.
+Arguments after `--` go directly to `outshine benchmark`. The scenario owns its
+resolution/rate/content; pass the actual source cache with `--cache-dir` when needed.
+Only `--output` and `--image` belong to the profiler. `--client` chooses the binary;
+`--runtime-root` chooses its working directory. Coordinates stay in caller inputs.
+Product, tool and injection-library hashes/build identities remain separate.
 
-The receipt separates preload submissions from measured frames by their sky pass;
-the number of measured submissions must match the successful `ROW`. A custom
-plan without the sky pass is outside this probe's scope. All submissions remain in
-the raw records. Shader names identify passes; phases of a shared pass cannot be
-attributed separately to its individual shaders.
+`benchmark.json` must report a complete world, complete measurement, no unrefined
+frames, one device and all ordered GPU samples. Sky-labelled commandbuffers identify
+candidate frames, including preload. Their rounded native GPU duration sequence must
+match the benchmark sample sequence in exactly one contiguous window. Matching uses
+at most0.500001ns printing tolerance, not assumed equality of native/interposer IDs.
+Missing or ambiguous matches fail; preload stays in raw records and out of summaries.
+Custom plans without a sky pass remain outside this diagnostic.
 
-- Renderpass attachments sample vertex/fragment stage boundaries. Resolved Apple
-  timestamp deltas are nanoseconds; do not apply the CPU mach timebase to them.
-  Hardware calibration on A18 Pro matched these intervals against command-buffer
-  GPU elapsed time. Phases/passes can overlap; do not add their durations into a frame.
-- Compute-encoder attachments sample start/end without splitting the original
-  encoder. Its pipeline set can contain several dependent kernels: that interval
-  cannot be attributed individually to them. Dispatch groups and declared threads
-  are recorded separately; padded/early-returning threads are not actual hardware
-  invocations. Overflow or unavailable counts stay incomplete, not zero work.
-- Direct draw counts include instancing. Indirect argument buffers are copied after
-  the recorded draws and decoded after completion. Indirect arguments must remain
-  unchanged between their draw and this final copy, as in the current native Place path.
-  These are submitted triangle references, including degenerate/clipped triangles,
-  not actual vertex-shader invocations, visible triangles or resident geometry.
-- Sampling is bounded to 64 combined encoders, 65,536 indirect calls and eight readback buffers
-  up to 1 MiB per command. Missing samples/indirect arguments remain explicit. The
-  supplied native client records triangle-list draws on one render thread.
-- Counter allocation, argument copies, Objective-C hooks and completion logging add
-  work. Compare an uninstrumented run separately; these timings do not prove a frame
-  budget. Neither this profiler nor its files belong in the production hot path.
+- Raster vertex/fragment intervals can overlap each other and other passes; do not
+  add them into a frame. Apple counter deltas are nanoseconds, not CPU mach ticks.
+- Compute intervals cover their encoder pipeline set, not individual kernels.
+  Declared groups/threads include padding and early returns, not actual invocations.
+- Indirect arguments are copied after draws and read after completion. They must
+  remain unchanged until that copy. Counts include instancing, clipped/degenerate
+  triangles and hidden geometry; they are not visible triangles or vertex invocations.
+- Sampling is bounded to64 encoders,65536indirect calls and eight readback buffers
+  up to1MiB per command. GPU-indirect dispatches are counted; their generated
+  groups/threads remain unknown, without synchronous argument readback. Missing
+  timing/work stays explicit rather than zero.
+- Hooks, counters, readbacks and completion logging add work. GPU times include
+  instrumentation. Compare an ordinary run separately; this is never a budget gate.
 
-Primary API reference: the installed Metal SDK headers `MTLCounters.h`,
-`MTLRenderPass.h`, `MTLRenderCommandEncoder.h`. Cost decisions belong to #15/#728;
-native pipeline integration belongs to #328. No change to the shared backend API.
-
-`compute_encoders` and raw `METAL_COMPUTE`/`METAL_COMPUTE_WORK` records join the same
-measured submission set as raster passes. Peak-frame profiles include both kinds;
-missing timestamp values are `null`. Preparation remains in raw data and is excluded
-from frame aggregates. `metal_work_profile_checks.py` covers mixed overlapping
-intervals, preparation, invalid/missing data and duplicate/inconsistent records.
-
-On the existing A18-Pro Körbersee control,1280×720/30,30frames/360°, the first
-extended capture keeps PNG076343f4 and matches all command durations to GPUROW.
-Mean encoder intervals: subject cull/scan/compact0.470ms; terrain depth-pyramid/
-cull/scan/compact0.362ms; later depth pyramid0.592ms. Each has30 valid measured
-samples and no unavailable dispatch counts. They are not an additive breakdown.
-The much larger terrain raster interval remains the primary observed cost;
-this evidence does not justify rewriting the already small compute selection.
-
-The A18 1280×720/60 comparison of the unchanged terrain-skirt index orders is
-recorded in [PR776](https://github.com/Weichwolf/outshine/pull/776#issuecomment-6251118304).
-Both scenes remain byte-identical, but 16 ordinary alternating runs show mixed
-timing effects. The RTX work-count reduction does not establish a general Metal
-time improvement; the original order remains the Metal integration default.
+`receipt.json` records commands, source/binary hashes, selected native/interposer
+submission mappings, peak-frame raster/compute intervals and all raw records.
+`metal_work_profile_checks.py` checks overlap, missing work, preload exclusion,
+rounding, ambiguous windows and invalid benchmark measurements. Native Metal APIs:
+installed `MTLCounters.h`, `MTLRenderPass.h`, `MTLRenderCommandEncoder.h`.
+Current integration/measurements: #1540/#1257/#15. Historical index-order cost
+comparison: [PR776](https://github.com/Weichwolf/outshine/pull/776#issuecomment-6251118304).

@@ -1,24 +1,27 @@
 """Verify that diagnostic pass intervals belong to the actual captured GPU frames."""
 
 import unittest
+from copy import deepcopy
 
 from metal_work_profile import frame_timings, parse_records
+from metal_work_profile_checks import benchmark
 
 
 class MetalFrameAttribution(unittest.TestCase):
     def fixture(self):
         lines = ["METAL_COMMAND serial=1 valid=1 gpu_ns=100000000"]
         for serial, elapsed in ((2, 20000000), (3, 10000000)):
-            lines.extend([
-                f"METAL_COMMAND serial={serial} valid=1 gpu_ns={elapsed}",
-                f"METAL_PASS serial={serial} pass=0 valid=1 vertex_ns=3 fragment_ns=7 calls=1 indirect_calls=0 direct_indices=3 indirect_indices=0 unavailable_indirect=0 vertex_start_ns=10 vertex_end_ns=13 fragment_start_ns=11 fragment_end_ns=18 pipeline=sky.frag.spv",
-            ])
-        lines.append("GPUROW\tfixture\t2\t2\t30.0000001\t20\t0\t0.001")
+            lines.extend(
+                [
+                    f"METAL_COMMAND serial={serial} valid=1 gpu_ns={elapsed}",
+                    f"METAL_PASS serial={serial} pass=0 valid=1 vertex_ns=3 fragment_ns=7 calls=1 indirect_calls=0 direct_indices=3 indirect_indices=0 unavailable_indirect=0 vertex_start_ns=10 vertex_end_ns=13 fragment_start_ns=11 fragment_end_ns=18 pipeline=sky.frag.spv",
+                ]
+            )
         return "\n".join(lines)
 
-    def report(self, text):
+    def report(self, text, captured=None):
         passes, _, frames = parse_records(text)
-        return frame_timings(text, passes, frames)
+        return frame_timings(text, passes, frames, captured or benchmark(20, 10))
 
     def test_excludes_preparation_and_keeps_overlap_and_capture_order(self):
         report = self.report(self.fixture())
@@ -32,19 +35,28 @@ class MetalFrameAttribution(unittest.TestCase):
 
     def test_mismatched_capture_counts_or_sums_are_rejected(self):
         source = self.fixture()
-        for changed in (source.replace("\t2\t2\t30", "\t3\t3\t30"),
-                        source.replace("30.0000001", "31"),
-                        source.replace("\t20\t0", "\t19\t0"),
-                        source.replace("\t0\t0.001", "\t1\t0.001")):
+        for section, key, value in (
+            ("", "timed_frames", 3),
+            ("frame", "mean_ms", 16),
+            ("frame", "max_ms", 19),
+            ("", "unavailable_frames", 1),
+            ("frame", "mean_ms", float("nan")),
+        ):
+            captured = deepcopy(benchmark(20, 10))
+            target = captured["gpu_times"]
+            if section:
+                target = target[section]
+            target[key] = value
             with self.assertRaises(ValueError):
-                self.report(changed)
+                self.report(source, captured)
 
     def test_missing_invalid_or_duplicate_command_records_are_rejected(self):
         source = self.fixture()
-        for changed in (source.replace("METAL_COMMAND serial=2 valid=1", "OTHER serial=2 valid=1"),
-                        source.replace("serial=2 valid=1 gpu_ns", "serial=2 valid=0 gpu_ns"),
-                        source + "\nMETAL_COMMAND serial=2 valid=1 gpu_ns=20000000",
-                        source.replace("30.0000001", "nan")):
+        for changed in (
+            source.replace("METAL_COMMAND serial=2 valid=1", "OTHER serial=2 valid=1"),
+            source.replace("serial=2 valid=1 gpu_ns", "serial=2 valid=0 gpu_ns"),
+            source + "\nMETAL_COMMAND serial=2 valid=1 gpu_ns=20000000",
+        ):
             with self.assertRaises(ValueError):
                 self.report(changed)
 
