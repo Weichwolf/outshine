@@ -1,5 +1,6 @@
 #include "SceneLighting.h"
 #include "MeshInput.h"
+#include "GeometryUploadTicket.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
@@ -503,7 +504,7 @@ public:
            (!ActiveContent().DrawsGlass || ActiveContent().Transmission().SetMesh(mesh, error));
   }
 
-  [[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string>
+  [[nodiscard]] std::expected<GeometryUploadTicket, std::string>
   BeginGeometryMesh(const MeshInput &mesh) {
     std::string error;
     if (ActiveContent().DrawsGlass && !ActiveContent().Transmission().ValidateMesh(mesh, error)) {
@@ -512,9 +513,8 @@ public:
     return ActiveContent().Geometry().BeginMesh(mesh);
   }
 
-  [[nodiscard]] bool FinishGeometryMesh(GeometryRenderer::MeshTicket ticket,
-                                        const MeshInput &mesh,
-                                        std::string &error) {
+  [[nodiscard]] bool
+  FinishGeometryMesh(GeometryUploadTicket ticket, const MeshInput &mesh, std::string &error) {
     return ActiveContent().Geometry().FinishMesh(ticket, mesh, error) &&
            (!ActiveContent().DrawsGlass || ActiveContent().Transmission().SetMesh(mesh, error));
   }
