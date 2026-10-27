@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <Geometry.h>
 #include <Engine.h>
 #include "Check.h"

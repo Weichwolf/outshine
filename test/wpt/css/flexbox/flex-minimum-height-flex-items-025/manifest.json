@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "flex-minimum-height-flex-items-025",
   "title": "flex-minimum-height-flex-items-025",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "flex-minimum-height-flex-items-025",

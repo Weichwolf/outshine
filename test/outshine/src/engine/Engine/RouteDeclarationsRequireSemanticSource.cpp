@@ -6,7 +6,7 @@ int main() {
   using namespace outshine::Test;
 
   Engine engine;
-  Scenario::Document original;
+  const Scenario::Document original;
   CHECK(engine.declare(original), "empty scenario declaration is valid");
 
   Scenario::Document invalid = original;

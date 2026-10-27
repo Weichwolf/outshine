@@ -22,7 +22,10 @@ Das Pflichtgate `make test` prüft Weltverträge und Offline-Places.
 einen betroffenen Vertrag. HTML/CSS/JS-Korpora bleiben erhalten.
 
 Pins, Herkunft, Lizenz und erwartete Werte gehören in die Fallmanifeste; große Daten
-und Bilder in den Cache. Normale Tests verändern keine Referenzen. Fehlende Eingaben,
+und Bilder in den Cache. Schema 2 nennt die Eingaben `inputs`; `CorpusInput` hält
+ihre Dateien und Herkunft. Alte vorbereitete Manifeste mit `make corpus-prepare`
+erneut bereitstellen; unveränderte Quelldateien bleiben im Cache. Normale Tests
+verändern keine Referenzen. Fehlende Eingaben,
 übersprungene Fälle und Toolfehler sind kein Erfolg. Referenzcode lokal neben diesem Checkout unter `/Users/cosmo/Git/`
 recherchieren; keine Websuche.
 

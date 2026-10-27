@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "flexbox_justifycontent-rtl-002",
   "title": "CSS Test: Static position of abspos children in a RTL column flex container, with various \"justify-content\" values",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "flexbox_justifycontent-rtl-002",

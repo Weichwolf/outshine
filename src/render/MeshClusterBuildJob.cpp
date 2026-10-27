@@ -1,5 +1,5 @@
 #include "MeshClusterBuildJob.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "SurfaceState.h"
 #include <algorithm>
 #include <chrono>
@@ -13,7 +13,7 @@
 
 namespace outshine::Render {
 
-MeshClusterBuildJob::MeshClusterBuildJob(ShapeStore &into,
+MeshClusterBuildJob::MeshClusterBuildJob(RenderGeometryStorage &into,
                                          std::span<const Material> surfaces) noexcept
     : Into_(&into), Surfaces_(surfaces) {}
 
@@ -33,7 +33,7 @@ void MeshClusterBuildJob::Completes() noexcept {
   Stage_ = Stage::Complete;
 }
 
-bool MeshClusterBuildJob::KeepsClusters(const ShapePart &part) const {
+bool MeshClusterBuildJob::KeepsClusters(const RenderGeometryPart &part) const {
   if (part.Material < 0 || static_cast<size_t>(part.Material) >= Surfaces_.size()) { return true; }
   const SurfaceKind kind = StateOf(Surfaces_[static_cast<size_t>(part.Material)]).Kind();
   return kind == SurfaceKind::Opaque || kind == SurfaceKind::Masked;
@@ -42,7 +42,7 @@ bool MeshClusterBuildJob::KeepsClusters(const ShapePart &part) const {
 std::expected<MeshClusterBuildJob::Flow, ClusterError>
 MeshClusterBuildJob::PlanParts(size_t &itemsLeft) {
   while (Part_ < Into_->Parts.size() && itemsLeft > 0) {
-    const ShapePart &part = Into_->Parts[Part_];
+    const RenderGeometryPart &part = Into_->Parts[Part_];
     if (part.FirstIndex > Into_->Indices.size() ||
         part.IndexCount > Into_->Indices.size() - part.FirstIndex) {
       return std::unexpected(Fail(ClusterError::InvalidLayout));
@@ -76,7 +76,7 @@ std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::Begi
     Completes();
     return Flow::Complete;
   }
-  ShapePart &part = Into_->Parts[Part_];
+  RenderGeometryPart &part = Into_->Parts[Part_];
   part.FirstCluster = static_cast<uint32_t>(Into_->Clusters.size());
   part.ClusterCount = 0;
   if (part.FirstIndex > Into_->Indices.size() ||
@@ -94,7 +94,7 @@ std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::Begi
 
 std::expected<MeshClusterBuildJob::Flow, ClusterError>
 MeshClusterBuildJob::AdvancesRebase(size_t &itemsLeft) {
-  const ShapePart &part = Into_->Parts[Part_];
+  const RenderGeometryPart &part = Into_->Parts[Part_];
   const size_t count = std::min(itemsLeft, part.IndexCount - Cursor_);
   const size_t end = Cursor_ + count;
   for (; Cursor_ < end; ++Cursor_) {
@@ -122,7 +122,7 @@ MeshClusterBuildJob::AdvancesRebase(size_t &itemsLeft) {
 }
 
 MeshClusterBuildJob::Flow MeshClusterBuildJob::PublishIndices(size_t &itemsLeft) {
-  const ShapePart &part = Into_->Parts[Part_];
+  const RenderGeometryPart &part = Into_->Parts[Part_];
   const size_t count = std::min(itemsLeft, Built_.Index.size() - Cursor_);
   const size_t end = Cursor_ + count;
   for (; Cursor_ < end; ++Cursor_) {
@@ -137,7 +137,7 @@ MeshClusterBuildJob::Flow MeshClusterBuildJob::PublishIndices(size_t &itemsLeft)
 }
 
 MeshClusterBuildJob::Flow MeshClusterBuildJob::PublishClusters(size_t &itemsLeft) {
-  ShapePart &part = Into_->Parts[Part_];
+  RenderGeometryPart &part = Into_->Parts[Part_];
   const size_t count = std::min(itemsLeft, Built_.Clusters.size() - Cursor_);
   const size_t end = Cursor_ + count;
   for (; Cursor_ < end; ++Cursor_) {
@@ -237,7 +237,7 @@ std::expected<bool, ClusterError> MeshClusterBuildJob::Advance(size_t itemsMost)
   return *advanced == Flow::Complete;
 }
 
-std::expected<void, ClusterError> BuildMeshClusters(ShapeStore &into,
+std::expected<void, ClusterError> BuildMeshClusters(RenderGeometryStorage &into,
                                                     std::span<const Material> surfaces) {
   MeshClusterBuildJob job(into, surfaces);
   for (;;) {

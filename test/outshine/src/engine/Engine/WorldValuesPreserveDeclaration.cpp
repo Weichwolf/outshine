@@ -7,7 +7,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Engine engine;
-  Scenario::Document original;
+  const Scenario::Document original;
   CHECK(engine.declare(original).has_value(), "initial declaration accepted");
   const auto before = engine.writeScenario();
   for (const auto field : std::array{&Scenario::WorldSettings::GravityMs2,

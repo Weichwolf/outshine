@@ -1,3 +1,6 @@
+#include <cstddef>
+#include <cstdint>
+#include <numbers>
 #include "ImageCapture.h"
 #include <array>
 #include <algorithm>
@@ -17,9 +20,9 @@ int main() {
     return result.has_value();
   };
   Geometry geometry;
-  std::vector<uint8_t> pixels(512u * 512u * 4u, 255);
+  std::vector<uint8_t> pixels(size_t{512} * 512 * 4, 255);
   for (size_t y = 0; y < 512; ++y) {
-    for (size_t x = 0; x < 512; ++x) { pixels[(y * 512 + x) * 4] = (x + y) % 2 ? 255 : 0; }
+    for (size_t x = 0; x < 512; ++x) { pixels[(y * 512 + x) * 4] = (x + y) % 2 != 0 ? 255 : 0; }
   }
   const int image = *geometry.addImage(512, 512, pixels);
   Material material;
@@ -46,7 +49,7 @@ int main() {
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {1280, 720};
+  scenario.Render.Frame = {.WidthPx = 1280, .HeightPx = 720};
   scenario.Render.Outputs = {"sceneLinear"};
   Scenario::View view;
   view.Id = "native-map";
@@ -63,8 +66,8 @@ int main() {
                           .FarM = 4.118946968135317});
   scenario.Views.push_back(view);
   std::vector<float> frame;
-  if (!accepted(engine.setRenderTarget({1280, 720})) || !accepted(engine.declare(scenario)) ||
-      !accepted(engine.setGeometry(geometry))) {
+  if (!accepted(engine.setRenderTarget({.WidthPx = 1280, .HeightPx = 720})) ||
+      !accepted(engine.declare(scenario)) || !accepted(engine.setGeometry(geometry))) {
     return Report();
   }
   geometry.clear();
@@ -73,11 +76,11 @@ int main() {
       !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
     return Report();
   }
-  CHECK(frame.size() == 1280u * 720u * 4u, "linear frame has the declared dimensions");
-  if (frame.size() != 1280u * 720u * 4u) { return Report(); }
+  CHECK(frame.size() == size_t{1280} * 720 * 4, "linear frame has the declared dimensions");
+  if (frame.size() != size_t{1280} * 720 * 4) { return Report(); }
   size_t visible = 0;
   for (size_t at = 0; at + 3 < frame.size(); at += 4) {
-    visible += frame[at] > 0.0f || frame[at + 1] > 0.0f || frame[at + 2] > 0.0f;
+    if (frame[at] > 0.0f || frame[at + 1] > 0.0f || frame[at + 2] > 0.0f) { ++visible; }
   }
   CHECK(visible > 0, "perspective minified checker is visible");
   std::vector<float> repeat;

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Check.h"
 #include "HeightField.h"
 #include <memory>

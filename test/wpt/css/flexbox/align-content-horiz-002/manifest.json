@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "align-content-horiz-002",
   "title": "CSS Test: Testing 'align-content' in a row wrap-reverse flex container",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "align-content-horiz-002",

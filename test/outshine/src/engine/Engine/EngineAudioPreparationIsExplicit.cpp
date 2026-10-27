@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <Engine.h>
 #include "Check.h"
 #include <array>
@@ -21,7 +22,7 @@ int main() {
   tone.Id = "tone";
   Audio::SignalNode oscillator;
   oscillator.Id = "osc";
-  oscillator.Parameters = {{"frequency", "1000"}};
+  oscillator.Parameters = {{.Name = "frequency", .Value = "1000"}};
   tone.Graph.push_back(oscillator);
   scene.Sounds.push_back(tone);
   const bool declared = engine.declare(scene) && control.declare(scene);

@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "align-items-baseline-vert-rl-column-horz-flexbox-item",
   "title": "align-items-baseline-vert-rl-column-horz-flexbox-item",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "align-items-baseline-vert-rl-column-horz-flexbox-item",

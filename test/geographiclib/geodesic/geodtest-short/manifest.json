@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "geographiclib/geodesic/geodtest-short",
   "title": "GeographicLib GeodTest-short -- 10000 geodesics computed in Maxima at 50 digits",
   "covers": [
@@ -12,7 +12,7 @@
     "says": "the distance between two points on the declared sphere agrees with the geodesic GeographicLib computes on the WGS84 ellipsoid to 50 digits -- a reference carried to far more precision than a double holds, so the corpus can never be the thing that is wrong",
     "statedAt": "https://geographiclib.sourceforge.io/C++/doc/geodesic.html#testgeod"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "data",
       "id": "geodtest-short",

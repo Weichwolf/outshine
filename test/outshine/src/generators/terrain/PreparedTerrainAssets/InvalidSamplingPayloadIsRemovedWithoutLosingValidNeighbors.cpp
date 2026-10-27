@@ -1,3 +1,5 @@
+#include <utility>
+#include <string>
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedGroundPatchCodec.h"
@@ -13,7 +15,7 @@ int main() {
                     ("outshine-ground-patch-defect-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
   CHECK(opened.has_value(), "native sampling cache opens");
   if (!opened) { return Test::Report(); }

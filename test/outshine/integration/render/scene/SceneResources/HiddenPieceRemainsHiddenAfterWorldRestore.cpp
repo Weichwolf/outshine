@@ -1,3 +1,6 @@
+#include <string>
+#include <cstdint>
+#include <cstddef>
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "WorldCandidate.h"
@@ -49,11 +52,12 @@ int main() {
       const auto piece = renderer.PlaceStructurePiece(mesh);
       CHECK(piece.has_value(), "structure piece becomes resident");
       if (piece) {
-        const auto centreDepth = [&]() {
+        const auto centreDepth = [&] {
           std::vector<float> depth;
           if (!scene->Draw(error)) { return -1.0f; }
           renderer.WaitForGpu();
-          if (renderer.ReadDepth(depth) != Render::ReadState::Ready || depth.size() != 32u * 32u) {
+          if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
+              depth.size() != size_t{32} * 32u) {
             return -1.0f;
           }
           return depth[16u * 32u + 16u];

@@ -65,7 +65,7 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
   return true;
 }
 
-void ResolveDeclaredSurface(const Shape &geometry,
+void ResolveDeclaredSurface(const RenderGeometryView &geometry,
                             const outshine::Material &row,
                             SurfaceTable &out) {
   out.Slots.clear();
