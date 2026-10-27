@@ -12,6 +12,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Analytische Straßen-Beleuchtungsreferenz](road_surface_frames.md): metrische
+  Flächenableitungen und Texturrahmen ohne Fine-Mesh; reale Gegenfälle gegen
+  bloß interpolierte Vertexnormalen (#1531/#964).
 - [Kleine verbundene Boden-Netze](ground_network.md): gemeinsame ganze Knotenkerne,
   Zweierverbinder und mehrteilige Arme; tatsächliche fünfteilige Geometrie und
   getrennte Quellen-/Endqualifikation (#1527/#1402).
