@@ -104,10 +104,10 @@ struct Loading {
 };
 
 struct Roots {
-  std::string Shipped;
-  std::string Cache;
+  std::string BuiltinDataDirectory;
+  std::string SourceCacheDirectory;
   bool Offline = false;
-  std::string AssetCache;
+  std::string AssetCacheDirectory;
 };
 
 struct WeatherSnapshot;

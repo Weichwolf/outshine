@@ -16,7 +16,7 @@ public:
                   Data::RawSourceCache &store,
                   Data::SourceTransport &wire,
                   const Data::ProviderRegistry *registry = nullptr,
-                  std::string shippedRoot = {});
+                  std::string builtinDataDirectory = {});
   ~CellAcquisition();
   CellAcquisition(const CellAcquisition &) = delete;
   CellAcquisition &operator=(const CellAcquisition &) = delete;

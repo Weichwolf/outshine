@@ -22,7 +22,7 @@ struct CellAcquisition::Impl {
   Data::RawSourceCache &Store;
   Data::SourceTransport &Wire;
   const Data::ProviderRegistry *Registry;
-  std::string ShippedRoot;
+  std::string BuiltinDataDirectory;
   std::vector<Pending> Queries;
 };
 
@@ -30,12 +30,12 @@ CellAcquisition::CellAcquisition(Data::SourceProvider catalogue,
                                  Data::RawSourceCache &store,
                                  Data::SourceTransport &wire,
                                  const Data::ProviderRegistry *registry,
-                                 std::string shippedRoot)
+                                 std::string builtinDataDirectory)
     : Impl_(std::make_unique<Impl>(Impl{.Catalogue = std::move(catalogue),
                                         .Store = store,
                                         .Wire = wire,
                                         .Registry = registry,
-                                        .ShippedRoot = std::move(shippedRoot),
+                                        .BuiltinDataDirectory = std::move(builtinDataDirectory),
                                         .Queries = {}})) {
   Impl_->Queries.reserve(MaximumPendingCells);
 }
@@ -55,7 +55,7 @@ std::expected<void, std::string> CellAcquisition::Start(GeoCellId cell) {
         "original OSM acquisition requires distinct cells within its pending limit");
   }
   auto region = ApiRegion::Create(
-      state.Catalogue, state.Store, state.Wire, state.Registry, state.ShippedRoot, cell);
+      state.Catalogue, state.Store, state.Wire, state.Registry, state.BuiltinDataDirectory, cell);
   if (!region) { return std::unexpected(std::move(region.error())); }
   auto chunk = (*region)->Chunk(state.Catalogue, cell);
   std::vector<GeoCellId> refine;

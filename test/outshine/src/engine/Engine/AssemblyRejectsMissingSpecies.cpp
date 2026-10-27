@@ -24,10 +24,10 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for public assembly path");
   {
     Engine engine;
-    CHECK(engine.setRoots({.Shipped = temporary,
-                           .Cache = (root / "cache").string(),
+    CHECK(engine.setRoots({.BuiltinDataDirectory = temporary,
+                           .SourceCacheDirectory = (root / "cache").string(),
                            .Offline = false,
-                           .AssetCache = {}}),
+                           .AssetCacheDirectory = {}}),
           "isolated content roots are accepted");
     CHECK(engine.setRenderTarget({32, 32}).has_value(), "offscreen target opens");
     const Scenario::Document empty;

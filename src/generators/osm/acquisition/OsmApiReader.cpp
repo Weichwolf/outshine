@@ -46,7 +46,7 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
              double deadlineMs,
              const std::stop_token &stop,
              const Data::ProviderRegistry *registry,
-             std::string_view shippedRoot,
+             std::string_view builtinDataDirectory,
              const std::function<double()> &currentDeadline) {
   const double began = wire.NowMs();
   std::vector<std::unique_ptr<ApiRegion>> regions;
@@ -56,7 +56,7 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
   for (size_t at = 0; at < providers.size(); ++at) {
     const auto &provider = providers[at];
     const auto cell = cells.empty() ? std::nullopt : std::optional(cells[at]);
-    auto region = ApiRegion::Create(provider, store, wire, registry, shippedRoot, cell);
+    auto region = ApiRegion::Create(provider, store, wire, registry, builtinDataDirectory, cell);
     if (!region) { return std::unexpected(std::move(region.error())); }
     chunks.push_back((*region)->Chunk(provider, cell));
     regions.push_back(std::move(*region));
@@ -99,7 +99,7 @@ std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &cat
                                                  double deadlineMs,
                                                  const std::stop_token &stop,
                                                  const Data::ProviderRegistry *registry,
-                                                 std::string_view shippedRoot,
+                                                 std::string_view builtinDataDirectory,
                                                  const std::function<double()> &currentDeadline) {
   if (cells.empty() || cells.size() > kConcurrentRegions) {
     return std::unexpected("original OSM cell jobs require one or two geographic cells");
@@ -108,8 +108,15 @@ std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &cat
     return std::unexpected("original OSM cell jobs require distinct addresses");
   }
   const std::vector<Data::SourceProvider> providers(cells.size(), catalogue);
-  return ReadRequests(
-      providers, cells, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
+  return ReadRequests(providers,
+                      cells,
+                      store,
+                      wire,
+                      deadlineMs,
+                      stop,
+                      registry,
+                      builtinDataDirectory,
+                      currentDeadline);
 }
 
 std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceProvider> providers,
@@ -118,10 +125,17 @@ std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceP
                                                    double deadlineMs,
                                                    const std::stop_token &stop,
                                                    const Data::ProviderRegistry *registry,
-                                                   std::string_view shippedRoot,
+                                                   std::string_view builtinDataDirectory,
                                                    const std::function<double()> &currentDeadline) {
-  return ReadRequests(
-      providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
+  return ReadRequests(providers,
+                      {},
+                      store,
+                      wire,
+                      deadlineMs,
+                      stop,
+                      registry,
+                      builtinDataDirectory,
+                      currentDeadline);
 }
 
 std::expected<SourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
@@ -130,9 +144,9 @@ std::expected<SourceChunk, std::string> ReadRegion(const Data::SourceProvider &p
                                                    double deadlineMs,
                                                    const std::stop_token &stop,
                                                    const Data::ProviderRegistry *registry,
-                                                   std::string_view shippedRoot) {
-  auto chunks =
-      ReadRegions(std::span(&provider, 1), store, wire, deadlineMs, stop, registry, shippedRoot);
+                                                   std::string_view builtinDataDirectory) {
+  auto chunks = ReadRegions(
+      std::span(&provider, 1), store, wire, deadlineMs, stop, registry, builtinDataDirectory);
   if (!chunks) { return std::unexpected(std::move(chunks.error())); }
   return std::move(chunks->Chunks.front());
 }

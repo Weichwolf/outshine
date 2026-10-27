@@ -14,7 +14,10 @@ int main() {
   constexpr double kSourceBytes = 33557.0;
   constexpr double kRouteEdges = 267.0;
   auto engine = App::CreateEngine();
-  CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .Offline = true, .AssetCache = {}}),
+  CHECK(engine.setRoots({.BuiltinDataDirectory = "data",
+                         .SourceCacheDirectory = {},
+                         .Offline = true,
+                         .AssetCacheDirectory = {}}),
         "scenario sources resolve inside the shipped asset root");
   CHECK(outshine::Test::LoadAndDeclareScenario(
             engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario"),
