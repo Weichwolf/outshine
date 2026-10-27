@@ -18,7 +18,7 @@ using namespace outshine::Generators::Osm;
 using namespace outshine::Test;
 namespace Wire = outshine::Test::MvtTransportWire;
 
-Wire::Bytes SplitTile(bool reverse) {
+Wire::Bytes SplitTile(bool reverse, bool openLast) {
   Wire::Bytes layer{Wire::kLayerVersion, 2, Wire::kLayerExtent, 64};
   Wire::Text(layer, 0x0a, "streets");
   Wire::Text(layer, Wire::kLayerKey, "kind");
@@ -30,18 +30,21 @@ Wire::Bytes SplitTile(bool reverse) {
   }
   Wire::Bytes tags{0, 0};
   if (reverse) { tags.insert(tags.end(), {1, 1}); }
+  const Wire::Bytes mainGeometry =
+      openLast ? Wire::Bytes{9, 32, 32, 10, 96, 0} : Wire::Bytes{9, 0, 32, 10, 64, 0};
+  const Wire::Bytes sideGeometry =
+      openLast ? Wire::Bytes{9, 64, 32, 10, 0, 32} : Wire::Bytes{9, 32, 32, 10, 0, 32};
+  Wire::Message(
+      layer, Wire::kFeatureTags, Wire::Feature({.Id = 1, .Tags = tags, .Geometry = mainGeometry}));
   Wire::Message(layer,
                 Wire::kFeatureTags,
-                Wire::Feature({.Id = 1, .Tags = tags, .Geometry = {9, 0, 32, 10, 64, 0}}));
-  Wire::Message(layer,
-                Wire::kFeatureTags,
-                Wire::Feature({.Id = 2, .Tags = {0, 0}, .Geometry = {9, 32, 32, 10, 0, 32}}));
+                Wire::Feature({.Id = 2, .Tags = {0, 0}, .Geometry = sideGeometry}));
   Wire::Bytes out;
   Wire::Message(out, Wire::kLayerKey, layer);
   return out;
 }
 
-void CheckFacts(const MvtTransportSourceFacts &facts, bool reverse) {
+void CheckFacts(const MvtTransportSourceFacts &facts, bool reverse, bool openLast) {
   bool inner = false;
   bool outer = false;
   bool fragment = false;
@@ -63,7 +66,7 @@ void CheckFacts(const MvtTransportSourceFacts &facts, bool reverse) {
         CHECK(!member.SourceTerminal, "split fragment ends are not original source endpoints");
       }
       const size_t physical = member.End ^ static_cast<uint8_t>(member.Edge.Direction);
-      if (member.SourceTerminal && physical == 0) {
+      if (member.SourceTerminal && physical == static_cast<size_t>(openLast)) {
         outer = true;
         CHECK(group.Frontier, "the actual unowned outer source endpoint retains its frontier");
       }
@@ -73,16 +76,16 @@ void CheckFacts(const MvtTransportSourceFacts &facts, bool reverse) {
         "the control actually covers inner, outer and split ordinal cases");
 }
 
-void CheckSplit(const Generators::RegionSurfaceRecipes &recipes, bool reverse) {
+void CheckSplit(const Generators::RegionSurfaceRecipes &recipes, bool reverse, bool openLast) {
   const std::array<std::string, 1> layers{"streets"};
   OsmField field(16, layers);
-  CHECK(field.Accept(Wire::kTileX, Wire::kTileX, SplitTile(reverse)).has_value(),
+  CHECK(field.Accept(Wire::kTileX, Wire::kTileX, SplitTile(reverse, openLast)).has_value(),
         "the actual fragmented first/last-segment source tile loads");
   StreetField streets;
   (void)streets.Ingest(field, recipes);
-  CHECK(streets.Ways().size() == 2 && !streets.Ways()[0].OwnsEnds[0] &&
-            streets.Ways()[0].OwnsEnds[1],
-        "only the first original source endpoint is unowned");
+  CHECK(streets.Ways().size() == 2 && streets.Ways()[0].OwnsEnds[0] == openLast &&
+            streets.Ways()[0].OwnsEnds[1] != openLast,
+        "only the requested original source endpoint is unowned");
   if (streets.Ways().size() != 2) { return; }
   auto network = Path::Network::Create({.CellM = 1}, {.RadiusM = kWgs84A});
   CHECK(network && !network->NodeOfWayPoint(0, 0), "unwoven point identity is unavailable");
@@ -115,7 +118,7 @@ void CheckSplit(const Generators::RegionSurfaceRecipes &recipes, bool reverse) {
       {.NodeGroupPayloadBytesMost = budget, .SourceFactsPayloadBytesMost = budget});
   CHECK(made && made->SourceFacts, "the actual split source captures");
   if (!made || !made->SourceFacts) { return; }
-  CheckFacts(*made->SourceFacts, reverse);
+  CheckFacts(*made->SourceFacts, reverse, openLast);
 }
 }
 
@@ -126,8 +129,10 @@ int main() {
             recipes.Load("data/world/vegetation.json", materials),
         "actual source recipes load");
   if (recipes.Ready()) {
-    CheckSplit(recipes, false);
-    CheckSplit(recipes, true);
+    for (const bool openLast : {false, true}) {
+      CheckSplit(recipes, false, openLast);
+      CheckSplit(recipes, true, openLast);
+    }
   }
   return Report();
 }
