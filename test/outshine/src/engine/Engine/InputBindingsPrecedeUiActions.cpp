@@ -30,7 +30,7 @@ int main() {
     Engine engine;
     engine.setInputHost(&receiver);
     Roots roots;
-    roots.Shipped = "data";
+    roots.BuiltinDataDirectory = "data";
     CHECK(engine.setRoots(roots), "UI roots configured");
     const auto target = engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64});
     CHECK(target.has_value(), target ? "offscreen UI target ready" : target.error().c_str());

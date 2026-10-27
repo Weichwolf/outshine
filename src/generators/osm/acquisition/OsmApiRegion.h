@@ -20,7 +20,7 @@ public:
          Data::RawSourceCache &store,
          Data::SourceTransport &wire,
          const Data::ProviderRegistry *registry,
-         std::string_view shippedRoot,
+         std::string_view builtinDataDirectory,
          std::optional<GeoCellId> cell);
   ~ApiRegion();
   [[nodiscard]] SourceChunk Chunk(const Data::SourceProvider &provider,

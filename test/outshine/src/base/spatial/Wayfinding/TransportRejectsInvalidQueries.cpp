@@ -33,7 +33,7 @@ int main() {
         const auto route =
             network.Plan(invalidStart ? point : start, invalidStart ? finish : point, 0);
         CHECK(!route.Found && route.Legs.empty() && route.StraightM == 0 &&
-                  route.Error.find("route coordinates") != std::string::npos,
+                  route.Error.contains("route coordinates"),
               "invalid endpoint refused before distance calculation or spatial lookup");
       }
     }
@@ -48,7 +48,7 @@ int main() {
                               -std::numeric_limits<double>::infinity()}) {
     const auto route = network.Plan(start, finish, radius);
     CHECK(!route.Found && route.Legs.empty() && route.StraightM == 0 &&
-              route.Error.find("turn radius") != std::string::npos,
+              route.Error.contains("turn radius"),
           "invalid turn radius is not silently treated as unrestricted");
   }
   CHECK(network.Plan(start, finish, 0).Found && network.Plan(start, finish, 1).Found,

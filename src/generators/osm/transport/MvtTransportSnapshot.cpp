@@ -72,16 +72,13 @@ Edges(Sources &sources, std::vector<Segment> &segments) {
   uint64_t previous = 0;
   Signature previousKey{};
   uint32_t ordinal = 0;
-  for (const auto &segment : segments) {
+  for (auto &segment : segments) {
     const auto &way = sources.Ways[segment.Way];
     const uint64_t id = Identifier(segment.Key);
     if (id == 0 || (id == previous && segment.Key != previousKey)) {
       return std::unexpected("MVT transport path identity collision");
     }
     if (id != previous) {
-      if (std::cmp_greater(segment.Way, std::numeric_limits<uint32_t>::max())) {
-        return std::unexpected("MVT transport source way exceeds the local index range");
-      }
       if (sources.Provenance.References.size() >= std::numeric_limits<uint32_t>::max()) {
         return std::unexpected("MVT transport has too many source references");
       }
@@ -91,7 +88,7 @@ Edges(Sources &sources, std::vector<Segment> &segments) {
            .ReferenceCount = 1,
            .SuppliedFields = way.Supplied,
            .DerivedFields = way.Derived});
-      sources.StreetWays.push_back(static_cast<uint32_t>(segment.Way));
+      sources.StreetWays.push_back(segment.Way);
       auto reference = way.Source;
       reference.SegmentOrdinal = segment.SourceStep;
       sources.Provenance.References.push_back(reference);
@@ -102,6 +99,7 @@ Edges(Sources &sources, std::vector<Segment> &segments) {
       }
       ++ordinal;
     }
+    segment.FragmentOrdinal = ordinal;
     if (way.Attributes.Travel != OsmWayTravel::Reverse) {
       edges.push_back(Edge(way, segment, ordinal, false));
     }
@@ -168,11 +166,15 @@ Data::SourceIdentity Identity(const Sources &sources,
 
 std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
                                                          const Path::Network &network,
+                                                         const OsmField &field,
+                                                         const StreetField &streets,
                                                          std::span<const GeographicBounds> coverage,
-                                                         const std::stop_token &stop) {
+                                                         const std::stop_token &stop,
+                                                         MvtTransportCapture capture) {
   auto connections = ReadConnections(sources, network, stop);
   if (!connections) { return std::unexpected(connections.error()); }
-  auto nodes = AssignNodes(sources, connections->Segments, network, stop);
+  NodeGroupCapture nodeGroups{.BytesMost = capture.NodeGroupPayloadBytesMost, .Data = {}};
+  auto nodes = AssignNodes(sources, connections->Segments, network, nodeGroups, stop);
   if (!nodes) { return std::unexpected(nodes.error()); }
   auto edges = Edges(sources, connections->Segments);
   if (!edges) { return std::unexpected(edges.error()); }
@@ -188,6 +190,10 @@ std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
   const auto duplicate = std::ranges::unique(sources.Omissions, {}, omissionKey);
   sources.Omissions.erase(duplicate.begin(), duplicate.end());
   const auto identity = Identity(sources, *nodes, *edges);
+  if (nodeGroups.Data) {
+    CanonicalizeNodeGroups(*nodeGroups.Data, identity.Revision);
+    if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
+  }
   auto snapshot = std::make_shared<World::TransportNetworkSnapshot>(
       World::ResolvedTransport{
           .Graph = World::TransportTopology(identity, std::move(*nodes), std::move(*edges)),
@@ -198,11 +204,29 @@ std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
   if (!World::ValidateTransportNetwork(*snapshot)) {
     return std::unexpected("MVT transport normalization produced an invalid native snapshot");
   }
+  SourceFactCapture facts{};
+  if (capture.SourceFactsPayloadBytesMost != 0) {
+    auto captured = CaptureSourceFacts(sources,
+                                       connections->Segments,
+                                       network,
+                                       field,
+                                       streets,
+                                       snapshot,
+                                       nodeGroups.Data,
+                                       capture.SourceFactsPayloadBytesMost,
+                                       stop);
+    if (!captured) { return std::unexpected(std::move(captured.error())); }
+    facts = std::move(*captured);
+  }
   return MvtTransportSnapshot{.Network = std::move(snapshot),
                               .Omissions = std::move(sources.Omissions),
                               .InputConnections = connections->InputCount,
                               .StreetWays = std::move(sources.StreetWays),
-                              .SourceOrigin = {}};
+                              .SourceOrigin = {},
+                              .NodeGroupState = nodeGroups.State,
+                              .NodeGroups = std::move(nodeGroups.Data),
+                              .SourceFactState = facts.State,
+                              .SourceFacts = std::move(facts.Data)};
 }
 }
 
@@ -211,14 +235,16 @@ BuildMvtTransportSnapshot(const OsmField &field,
                           const StreetField &streets,
                           const Path::Network &network,
                           std::span<const GeographicBounds> coverage,
-                          const std::stop_token &stop) {
+                          const std::stop_token &stop,
+                          MvtTransportCapture capture) {
   if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
   if (!MvtTransport::MatchesSource(field, streets, network)) {
     return std::unexpected("MVT transport graph coordinates do not match the actual source lease");
   }
   auto sources = MvtTransport::PrepareSources(field, streets, stop);
   if (!sources) { return std::unexpected(sources.error()); }
-  auto result = MvtTransport::Publish(std::move(*sources), network, coverage, stop);
+  auto result =
+      MvtTransport::Publish(std::move(*sources), network, field, streets, coverage, stop, capture);
   if (result) {
     result->SourceOrigin = field.ShareOriginToken();
     result->SourceGeneration = field.Generation();

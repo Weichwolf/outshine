@@ -23,4 +23,9 @@ std::span<const double> Network::CoordinatesOfWay(size_t way) const noexcept {
   return std::span<const double>(Points_).subspan(source.First * 2, source.Count * 2);
 }
 
+std::optional<size_t> Network::NodeOfWayPoint(size_t way, size_t point) const noexcept {
+  if (!Woven_ || way >= Ways_.size() || point >= Ways_[way].Count) { return {}; }
+  return NodeOfPoint_[Ways_[way].First + point];
+}
+
 }

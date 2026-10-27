@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <ios>
 #include <numbers>
@@ -88,7 +89,7 @@ bool Accepted(const outshine::Result &result, const char *claim) {
 
 std::vector<float> CaptureReceiver(Caster caster, outshine::AlphaMode alpha, const char *prefix) {
   using namespace outshine;
-  auto geometry = World(caster, alpha);
+  const auto geometry = World(caster, alpha);
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
@@ -147,7 +148,7 @@ void Verify(const std::vector<float> &clear,
   const double expected = kReflectance * kLux / std::numbers::pi;
   for (int y = first; y < last; ++y) {
     for (int x = first; x < last; ++x) {
-      const size_t at = (size_t(y) * kSide + size_t(x)) * kChannels;
+      const size_t at = (static_cast<size_t>(y) * kSide + static_cast<size_t>(x)) * kChannels;
       for (size_t channel = 0; channel < 3; ++channel) {
         const double removed = clear[at + channel] - inside[at + channel];
         worstRelative = std::max(worstRelative, std::abs(removed - expected) / expected);
@@ -164,7 +165,7 @@ void Verify(const std::vector<float> &clear,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc > 2) { return 2; }
   using namespace outshine;
   using namespace outshine::Test;

@@ -44,7 +44,7 @@ std::string_view OpenMeteoProvider::kind() const {
 
 std::expected<std::unique_ptr<Data::Source>, std::string>
 OpenMeteoProvider::make(const Data::SourceProvider &declaration,
-                        [[maybe_unused]] std::string_view shippedRoot) const {
+                        [[maybe_unused]] std::string_view builtinDataDirectory) const {
   if (auto valid = validate(declaration, std::span(&declaration, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }

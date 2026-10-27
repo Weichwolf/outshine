@@ -30,7 +30,7 @@ ReadCells(const Data::SourceProvider &catalogue,
           double deadlineMs,
           const std::stop_token &stop,
           const Data::ProviderRegistry *registry = nullptr,
-          std::string_view shippedRoot = {},
+          std::string_view builtinDataDirectory = {},
           const std::function<double()> &currentDeadline = {});
 
 [[nodiscard]] std::expected<SourceRead, std::string>
@@ -40,7 +40,7 @@ ReadRegions(std::span<const Data::SourceProvider> providers,
             double deadlineMs,
             const std::stop_token &stop,
             const Data::ProviderRegistry *registry = nullptr,
-            std::string_view shippedRoot = {},
+            std::string_view builtinDataDirectory = {},
             const std::function<double()> &currentDeadline = {});
 
 [[nodiscard]] std::expected<SourceChunk, std::string>
@@ -50,7 +50,7 @@ ReadRegion(const Data::SourceProvider &provider,
            double deadlineMs,
            const std::stop_token &stop,
            const Data::ProviderRegistry *registry = nullptr,
-           std::string_view shippedRoot = {});
+           std::string_view builtinDataDirectory = {});
 
 }
 #endif

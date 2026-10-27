@@ -44,7 +44,7 @@ TransportPreparation::~TransportPreparation() {
 
 std::expected<void, std::string>
 TransportPreparation::Request(std::span<const Data::SourceProvider> providers,
-                              std::string_view shippedRoot,
+                              std::string_view builtinDataDirectory,
                               std::span<const CircuitRequest> routes) {
   if (auto valid = ValidateProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
@@ -57,7 +57,8 @@ TransportPreparation::Request(std::span<const Data::SourceProvider> providers,
       return std::unexpected("semantic OSM source accepts only osm provider chunks");
     }
   }
-  return SetRequest({providers.begin(), providers.end()}, std::string(shippedRoot), {}, routes);
+  return SetRequest(
+      {providers.begin(), providers.end()}, std::string(builtinDataDirectory), {}, routes);
 }
 
 std::expected<void, std::string>
@@ -164,10 +165,10 @@ void TransportPreparation::StartRequested() {
 
 TransportPreparation::LoadResult
 TransportPreparation::Load(std::span<const Data::SourceProvider> providers,
-                           std::string_view shippedRoot,
+                           std::string_view builtinDataDirectory,
                            std::span<const CircuitRequest> routes,
                            const std::stop_token &stop) {
-  auto loaded = ChunkSetLoader::Load(providers, shippedRoot, stop);
+  auto loaded = ChunkSetLoader::Load(providers, builtinDataDirectory, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
   return BuildSource(std::make_shared<const SourceSnapshot>(std::move(*loaded)), routes, stop);
 }

@@ -63,16 +63,16 @@ std::expected<ElementSet, MergeError> FinishChunks(std::vector<ElementSet> &chun
 
 std::expected<SourceSnapshot, std::string>
 ChunkSetLoader::LoadRegion(std::span<const Data::SourceProvider> providers,
-                           std::string_view shippedRoot,
+                           std::string_view builtinDataDirectory,
                            const std::stop_token &stop) {
-  auto read = ReadRegion(providers, shippedRoot, stop);
+  auto read = ReadRegion(providers, builtinDataDirectory, stop);
   if (!read) { return std::unexpected(std::move(read.error())); }
   return ParseRegion(*read, stop);
 }
 
 std::expected<std::vector<SourceChunk>, std::string>
 ChunkSetLoader::ReadRegion(std::span<const Data::SourceProvider> providers,
-                           std::string_view shippedRoot,
+                           std::string_view builtinDataDirectory,
                            const std::stop_token &stop,
                            const RemoteRead &remoteRead) {
   std::vector<SourceChunk> chunks;
@@ -88,8 +88,9 @@ ChunkSetLoader::ReadRegion(std::span<const Data::SourceProvider> providers,
       chunk = std::move(*fetched);
     } else {
       const std::filesystem::path location(provider.Location);
-      const auto path =
-          location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
+      const auto path = location.is_absolute()
+                            ? location
+                            : std::filesystem::path(builtinDataDirectory) / location;
       const auto began = std::chrono::steady_clock::now();
       auto xml = ReadTextFile(path.string(), kMaximumXmlBytes);
       if (!xml) { return std::unexpected(std::move(xml.error())); }
@@ -191,9 +192,9 @@ ChunkSetLoader::ParseChunks(std::span<const SourceChunk> input, const std::stop_
 
 std::expected<SourceSnapshot, std::string>
 ChunkSetLoader::Load(std::span<const Data::SourceProvider> providers,
-                     std::string_view shippedRoot,
+                     std::string_view builtinDataDirectory,
                      const std::stop_token &stop) {
-  auto loaded = LoadRegion(providers, shippedRoot, stop);
+  auto loaded = LoadRegion(providers, builtinDataDirectory, stop);
   if (!loaded) { return loaded; }
   if (const auto missing = loaded->Elements.FirstMissingReference()) {
     return std::unexpected("semantic OSM source element " + std::to_string(missing->OwnerId) +

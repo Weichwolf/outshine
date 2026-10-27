@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <Engine.h>
 #include "Check.h"
 #include <algorithm>
@@ -24,7 +25,7 @@ int main() {
   tone.Body = "right";
   tone.Spatial.Positional = true;
   tone.Graph.emplace_back().Id = "osc";
-  tone.Graph.back().Parameters = {{"frequency", "1000"}};
+  tone.Graph.back().Parameters = {{.Name = "frequency", .Value = "1000"}};
   scene.Sounds.push_back(tone);
   Engine engine;
   std::array<float, 128> audio{};

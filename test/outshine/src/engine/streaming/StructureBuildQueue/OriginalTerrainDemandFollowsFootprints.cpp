@@ -125,8 +125,9 @@ int main() {
   const std::array wrapped{seam};
   const auto wrappedReady = Prepare(queue, Source(wrapped), zoom);
   const auto wrappedTiles = queue.OriginalHeightTiles(zoom);
-  const std::array seamExpected{Data::TileId{.Zoom = zoom, .X = 0, .Y = first.Y},
-                                Data::TileId{.Zoom = zoom, .X = (1u << zoom) - 1, .Y = first.Y}};
+  const std::array seamExpected{
+      Data::TileId{.Zoom = zoom, .X = 0, .Y = first.Y},
+      Data::TileId{.Zoom = zoom, .X = (1u << static_cast<unsigned>(zoom)) - 1u, .Y = first.Y}};
   CHECK(wrappedReady && *wrappedReady && wrappedTiles &&
             std::ranges::equal(*wrappedTiles, seamExpected),
         "dateline footprints request both adjacent world-edge fields without a global rectangle");

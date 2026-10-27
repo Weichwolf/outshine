@@ -95,9 +95,9 @@ int main() {
   const SourceRequest recent(DataKind::Elevation, Address::Whole(0));
   CHECK(pool.BytesBlocking(recent, &pinned) == TilePool::Reply::Ready,
         "a retained caller delivery marks its cache entry most recently used");
-  CHECK(pool.EvictSourceBytes(0) == 0 && pool.ByteCacheBytes() == warm,
+  CHECK(pool.EvictInputs(0) == 0 && pool.ByteCacheBytes() == warm,
         "zero memory pressure preserves the resident cache");
-  CHECK(pool.EvictSourceBytes(1) == 1 && pool.ByteCacheBytes() < warm,
+  CHECK(pool.EvictInputs(1) == 1 && pool.ByteCacheBytes() < warm,
         "pressure releases the oldest source payload and its index entry");
   TilePool::Landing landing;
   CHECK(pool.BytesBlocking(recent, &landing) == TilePool::Reply::Ready &&
@@ -107,8 +107,8 @@ int main() {
                 TilePool::Reply::Ready &&
             counted->Calls == requests + 1 && landing.Bytes == std::vector<uint8_t>{1},
         "an evicted source can be acquired again with intact address and bytes");
-  CHECK(pool.EvictSourceBytes(std::numeric_limits<size_t>::max()) == requests &&
-            pool.EvictSourceBytes(1) == 0 && pinned.Bytes == std::vector<uint8_t>{0},
+  CHECK(pool.EvictInputs(std::numeric_limits<size_t>::max()) == requests &&
+            pool.EvictInputs(1) == 0 && pinned.Bytes == std::vector<uint8_t>{0},
         "full eviction is bounded by actual payloads and never invalidates a caller delivery");
   return Report();
 }

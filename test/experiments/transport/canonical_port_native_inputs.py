@@ -18,17 +18,23 @@ from outshine_ref.transport.canonical_ports import (
 FIXTURE = Path(__file__).with_name("fixtures") / "canonical-ports"
 
 
-def load(root=FIXTURE):
+def check_file(root, manifest, name):
+    expected = manifest["files"][name]
+    data = (root / name).read_bytes()
+    if (
+        len(data) != expected["bytes"]
+        or hashlib.sha256(data).hexdigest() != expected["sha256"]
+    ):
+        raise ValueError("pinned canonical port input changed: " + name)
+
+
+def load_source(root=FIXTURE):
+    """Acquire only pinned source/recipe facts; no DEM read or decode."""
     manifest = json.loads((root / "manifest.json").read_text())
     if manifest["schema"] != "outshine/canonical-port-reference-inputs/1":
         raise ValueError("known captured input schema required")
-    for name, expected in manifest["files"].items():
-        data = (root / name).read_bytes()
-        if (
-            len(data) != expected["bytes"]
-            or hashlib.sha256(data).hexdigest() != expected["sha256"]
-        ):
-            raise ValueError("pinned canonical port input changed: " + name)
+    for name in ("native.json.gz", "recipes.json"):
+        check_file(root, manifest, name)
     with gzip.open(root / "native.json.gz", "rb") as stream:
         raw = stream.read(8 * 1024**2 + 1)
     if (
@@ -44,11 +50,19 @@ def load(root=FIXTURE):
         raise ValueError("actual native derived-fragment DTO required")
     recipes = json.loads((root / "recipes.json").read_text())
     source = source_input(snapshot, recipes, manifest)
+    return source, manifest
+
+
+def load(root=FIXTURE):
+    source, manifest = load_source(root)
+    for name in manifest["files"]:
+        if name not in ("native.json.gz", "recipes.json"):
+            check_file(root, manifest, name)
     terrain, binding = terrain_input(root, manifest)
     return source, terrain, binding, manifest
 
 
-def source_input(snapshot, recipes, manifest):
+def source_input(snapshot, recipes, manifest, *, binding=None):
     nodes = {node["SourceNodeId"]: node for node in snapshot["Nodes"]}
     paths = {path["PathId"]: path for path in snapshot["Paths"]}
     if len(nodes) != len(snapshot["Nodes"]) or len(paths) != len(snapshot["Paths"]):
@@ -140,7 +154,9 @@ def source_input(snapshot, recipes, manifest):
         source_nodes,
         tuple(spans),
         tuple(sorted(unknown)),
-        {
+        binding
+        if binding is not None
+        else {
             "native_capture": manifest["native_capture"],
             "source_identity": snapshot["SourceIdentity"],
             "sources": snapshot["Sources"],

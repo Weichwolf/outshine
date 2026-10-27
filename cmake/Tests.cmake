@@ -219,11 +219,26 @@ foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snaps
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
+add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
+  test/experiments/transport/native_transport_export.cpp
+  test/experiments/transport/native_transport_snapshot_json.cpp
+  test/experiments/transport/native_transport_facts_json.cpp)
+target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
+add_dependencies(outshine_tests test_harness_transport_source_export)
+add_test(NAME experiments/transport/NativeSourceFactsExport
+  COMMAND "${Python3_EXECUTABLE}" -B
+  "${PROJECT_SOURCE_DIR}/test/experiments/transport/test_native_transport_export.py"
+  --exporter $<TARGET_FILE:test_harness_transport_source_export>)
+set_tests_properties(experiments/transport/NativeSourceFactsExport PROPERTIES
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/transport;world-gate")
+
 add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
   test/experiments/render/export_building_selection.cpp
   test/experiments/render/building_capture_inputs.cpp)
 target_compile_options(test_harness_building_selection_export PRIVATE -fno-exceptions)
-target_link_libraries(test_harness_building_selection_export PRIVATE outshine_generators_osm)
+target_link_libraries(test_harness_building_selection_export PRIVATE
+  outshine_generators_osm PkgConfig::nlohmann_json)
 add_dependencies(outshine_tests test_harness_building_selection_export)
 add_custom_target(test_experiments_render_BuildingCellControl
   DEPENDS test_harness_building_selection_export)

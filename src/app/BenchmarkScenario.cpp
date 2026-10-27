@@ -121,7 +121,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.LoadBefore = HostLoad();
   auto roots = WithCacheDirectories(MakeApplicationRoots(options.CacheDirectory, options.Offline));
   if (!roots) { return std::unexpected(roots.error()); }
-  auto input = ReadScenarioInput(options.Source, options.Overrides, roots->Shipped);
+  auto input = ReadScenarioInput(options.Source, options.Overrides, roots->BuiltinDataDirectory);
   if (!input) { return std::unexpected(input.error()); }
   auto &document = *input;
   const auto declaration = WriteScenario(document);

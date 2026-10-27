@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_OSM_TRANSPORT_MVTTRANSPORTSNAPSHOT_H
 #define OUTSHINE_GENERATORS_OSM_TRANSPORT_MVTTRANSPORTSNAPSHOT_H
 #include "TransportNetworkSnapshot.h"
+#include "MvtTransportNodeGroups.h"
+#include "MvtTransportSourceFacts.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +20,11 @@ class Network;
 namespace outshine::Generators::Osm {
 class OsmField;
 class StreetField;
+
+struct MvtTransportCapture {
+  size_t NodeGroupPayloadBytesMost = 0;
+  size_t SourceFactsPayloadBytesMost = 0;
+};
 
 enum class MvtTransportOmissionReason : uint8_t {
   UnsupportedArea,
@@ -42,6 +49,10 @@ struct MvtTransportSnapshot {
   std::shared_ptr<const void> SourceOrigin;
   uint64_t SourceGeneration = 0;
   size_t SourceWayCount = 0;
+  MvtTransportNodeGroupState NodeGroupState = MvtTransportNodeGroupState::NotRequested;
+  std::shared_ptr<const MvtTransportNodeGroups> NodeGroups;
+  MvtTransportSourceFactState SourceFactState = MvtTransportSourceFactState::NotRequested;
+  std::shared_ptr<const MvtTransportSourceFacts> SourceFacts;
 };
 
 [[nodiscard]] std::expected<std::vector<uint32_t>, std::string>
@@ -56,6 +67,7 @@ BuildMvtTransportSnapshot(const OsmField &field,
                           const StreetField &streets,
                           const Path::Network &network,
                           std::span<const GeographicBounds> coverage,
-                          const std::stop_token &stop = {});
+                          const std::stop_token &stop = {},
+                          MvtTransportCapture capture = {});
 }
 #endif

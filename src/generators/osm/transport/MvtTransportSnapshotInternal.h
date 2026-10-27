@@ -35,10 +35,12 @@ struct Sources {
 
 struct Segment {
   Signature Key{};
-  size_t Way = 0;
+  uint32_t Way = 0;
+  uint32_t NativeWay = 0;
   size_t From = 0;
   size_t To = 0;
   uint32_t SourceStep = 0;
+  uint32_t FragmentOrdinal = 0;
   uint64_t FromId = 0;
   uint64_t ToId = 0;
 };
@@ -48,6 +50,31 @@ struct Connections {
   size_t InputCount = 0;
 };
 
+struct NodeGroupCapture {
+  size_t BytesMost = 0;
+  MvtTransportNodeGroupState State = MvtTransportNodeGroupState::NotRequested;
+  std::shared_ptr<MvtTransportNodeGroups> Data;
+};
+
+void CanonicalizeNodeGroups(MvtTransportNodeGroups &groups, std::string_view revision);
+
+struct SourceFactCapture {
+  MvtTransportSourceFactState State = MvtTransportSourceFactState::NotRequested;
+  std::shared_ptr<const MvtTransportSourceFacts> Data;
+};
+
+[[nodiscard]] std::expected<SourceFactCapture, std::string>
+CaptureSourceFacts(const Sources &sources,
+                   std::span<const Segment> segments,
+                   const Path::Network &network,
+                   const OsmField &field,
+                   const StreetField &streets,
+                   std::shared_ptr<const World::TransportNetworkSnapshot> snapshot,
+                   std::shared_ptr<const MvtTransportNodeGroups> groups,
+                   size_t bytesMost,
+                   const std::stop_token &stop);
+void BindSourceFacts(MvtTransportSourceFacts &facts);
+
 [[nodiscard]] std::expected<Connections, std::string>
 ReadConnections(const Sources &sources, const Path::Network &network, const std::stop_token &stop);
 [[nodiscard]] std::expected<void, std::string> RecordMissingTopology(Sources &sources,
@@ -56,6 +83,7 @@ ReadConnections(const Sources &sources, const Path::Network &network, const std:
 AssignNodes(Sources &sources,
             std::vector<Segment> &segments,
             const Path::Network &network,
+            NodeGroupCapture &capture,
             const std::stop_token &stop);
 
 [[nodiscard]] std::expected<Sources, std::string> SourceRows(const OsmField &field);
@@ -73,7 +101,10 @@ PrepareSources(const OsmField &field, const StreetField &streets, const std::sto
 [[nodiscard]] std::expected<MvtTransportSnapshot, std::string>
 Publish(Sources sources,
         const Path::Network &network,
+        const OsmField &field,
+        const StreetField &streets,
         std::span<const GeographicBounds> coverage,
-        const std::stop_token &stop);
+        const std::stop_token &stop,
+        MvtTransportCapture capture);
 }
 #endif

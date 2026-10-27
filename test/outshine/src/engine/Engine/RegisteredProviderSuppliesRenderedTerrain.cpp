@@ -8,13 +8,14 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <memory>
 #include <utility>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <cstdlib>
+#include <span>
 #include <cstdio>
 
 namespace {
@@ -88,9 +89,9 @@ public:
     if (Encoding_ == Encoding::OpaqueFixture) { Decl_.Wire = WireFormat::ProviderDefined; }
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     const auto tile = request.Where().Tile();
     if (request.Kind() != DataKind::Elevation || !tile || tile->Zoom < 0 || tile->Zoom > 15) {
       return Coverage::Outside;
@@ -99,17 +100,24 @@ public:
     return tile->X < side && tile->Y < side ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  [[nodiscard]] FetchStart Begin([[maybe_unused]] const Address &where,
+                                 [[maybe_unused]] SourceTransport &transport) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  [[nodiscard]] SourceResponse Collect([[maybe_unused]] const Address &where,
+                                       [[maybe_unused]] Ticket ticket,
+                                       [[maybe_unused]] SourceTransport &transport) const override {
     ++Calls_.Acquired;
     if (Encoding_ == Encoding::OpaqueFixture) { return SourceResponse::Delivered({42, 17}); }
     return SourceResponse::Delivered(std::vector<uint8_t>(kPlane42.begin(), kPlane42.end()));
   }
 
-  std::expected<HeightRaster, DecodeFailure>
+  [[nodiscard]] std::expected<HeightRaster, DecodeFailure>
   DecodeElevation(std::span<const uint8_t> bytes) const override {
     if (Encoding_ == Encoding::TerrariumFixture) {
       return std::unexpected(DecodeFailure::Unsupported);
@@ -131,108 +139,127 @@ class PlaneProvider final : public Provider {
 public:
   explicit PlaneProvider(Encoding encoding) : Encoding_(encoding) {}
 
-  mutable Calls Observed;
+  [[nodiscard]] const Calls &observed() const noexcept { return Observed_; }
 
-  std::string_view kind() const override { return "terrain"; }
+  [[nodiscard]] std::string_view kind() const override { return "terrain"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &,
-                                                           std::string_view) const override {
-    ++Observed.Configured;
-    return std::make_unique<PlaneSource>(Observed, Encoding_);
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make([[maybe_unused]] const SourceProvider &declaration,
+       [[maybe_unused]] std::string_view builtinDataDirectory) const override {
+    ++Observed_.Configured;
+    return std::make_unique<PlaneSource>(Observed_, Encoding_);
   }
 
 private:
+  mutable Calls Observed_;
   Encoding Encoding_;
 };
+
+constexpr size_t kPixelCount = size_t{64} * size_t{64};
+
+[[nodiscard]] Scenario::Document SourceScene() {
+  Scenario::Document scene;
+  Data::SourceProvider selected;
+  selected.Kind = "terrain";
+  scene.Providers.push_back(std::move(selected));
+  scene.Ground.Declared = true;
+  scene.Ground.VegetationEnabled = false;
+  scene.Ground.Origin.LatitudeDeg = 47;
+  scene.Ground.Origin.LongitudeDeg = 8;
+  scene.Ground.Origin.RadiusM = 1000;
+  scene.Render.Declared = true;
+  scene.Render.Frame = {.WidthPx = 64, .HeightPx = 64};
+  scene.Render.Outputs = {"sceneLinear", "sceneDepth"};
+  scene.Lit.Declared = true;
+  scene.Lit.Key.Lux = 40000;
+  scene.Lit.Key.ElevationDeg = 60;
+  Scenario::View view;
+  view.Id = "plane";
+  view.Person = "first";
+  view.Placement = Scenario::CameraPlacement::Geodetic;
+  view.Geographic.Geodetic = {.LongitudeDeg = 8, .LatitudeDeg = 47, .HeightM = 80};
+  view.Geographic.PitchDeg = -30;
+  view.Sees.FovDeg = 55;
+  scene.Views.push_back(view);
+  return scene;
+}
+
+void CheckFrame(Engine &engine) {
+  std::vector<float> pixels;
+  const auto advanced = engine.advance();
+  CHECK(advanced, advanced ? "provider-driven world advanced" : advanced.error().c_str());
+  const auto rendered = advanced ? engine.renderer().render({}) : advanced;
+  CHECK(rendered, rendered ? "provider-driven world rendered" : rendered.error().c_str());
+  const auto readColour =
+      rendered ? engine.renderer().readPixels(Buffer::Linear, pixels) : rendered;
+  CHECK(readColour, readColour ? "linear frame captured" : readColour.error().c_str());
+  CHECK(pixels.size() == kPixelCount * size_t{4} &&
+            std::ranges::all_of(pixels, [](float value) { return std::isfinite(value); }),
+        "a complete finite rendered frame reaches the client");
+  std::vector<float> depth;
+  const auto readDepth = engine.renderer().readPixels(Buffer::Depth, depth);
+  CHECK(readDepth, readDepth ? "depth captured" : readDepth.error().c_str());
+  CHECK(readDepth && std::ranges::any_of(depth, [](float value) { return value > 0 && value < 1; }),
+        "the frame contains rasterized terrain, not only a clear or sky attachment");
+}
+
+void SaveDiagnostic(Engine &engine, const char *path) {
+  std::vector<uint8_t> colour;
+  CHECK(engine.renderer().readPixels(colour), "display pixels captured");
+  if (colour.size() == kPixelCount * size_t{4}) {
+    const auto file =
+        std::unique_ptr<std::FILE, decltype(&std::fclose)>(std::fopen(path, "wb"), &std::fclose);
+    CHECK(file != nullptr, "explicit diagnostic output opened");
+    if (file) {
+      CHECK(std::fprintf(file.get(), "P6\n64 64\n255\n") > 0, "diagnostic header written");
+      std::array<uint8_t, kPixelCount * size_t{3}> rgb{};
+      for (size_t pixel = 0; pixel < kPixelCount; ++pixel) {
+        std::copy_n(colour.data() + pixel * size_t{4}, 3, rgb.data() + pixel * size_t{3});
+      }
+      CHECK(std::fwrite(rgb.data(), 1, rgb.size(), file.get()) == rgb.size(),
+            "diagnostic pixels written");
+    }
+  }
+}
+
+void CheckEncoding(Encoding encoding) {
+  const PlaneProvider provider(encoding);
+  Engine engine;
+  CHECK(engine.registerProvider(provider), "external provider registers through the public API");
+  CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
+  Roots roots;
+  roots.BuiltinDataDirectory = "data";
+  roots.Offline = true;
+  CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
+  CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");
+  const auto scene = SourceScene();
+  const auto declared = engine.declare(scene);
+  CHECK(declared, "library terrain needs no unrelated OSM provider");
+  const auto assembled = declared ? engine.assemble() : declared;
+  CHECK(assembled, assembled ? "world assembled" : assembled.error().c_str());
+  if (assembled) {
+    const auto loaded = engine.preload(10.0);
+    CHECK(loaded, loaded ? "world prepared" : loaded.error().c_str());
+    const auto height = engine.sampleHeight({.LongitudeDeg = 8, .LatitudeDeg = 47});
+    CHECK(height && std::abs(*height - 42.0) < 0.001,
+          "public source bytes become the exact independent 42m terrain plane");
+    CHECK(provider.observed().Configured > 0 && provider.observed().Acquired > 0,
+          "runtime invokes both the registered factory and its configured source");
+    CHECK((provider.observed().Decoded > 0) == (encoding == Encoding::OpaqueFixture),
+          "provider-owned native decoding handles opaque bytes without a private engine route");
+    CheckFrame(engine);
+    if (const char *path = SDL_getenv("OUTSHINE_PROVIDER_CAPTURE")) {
+      SaveDiagnostic(engine, path);
+    }
+  }
+}
 }
 
 int main() {
-  using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   for (const auto encoding : {Encoding::TerrariumFixture, Encoding::OpaqueFixture}) {
-    PlaneProvider provider(encoding);
-    Engine engine;
-    CHECK(engine.registerProvider(provider), "external provider registers through the public API");
-    CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
-    Roots roots;
-    roots.Shipped = "data";
-    roots.Offline = true;
-    CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
-    CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");
-    Scenario::Document scene;
-    Data::SourceProvider selected;
-    selected.Kind = "terrain";
-    scene.Providers.push_back(std::move(selected));
-    scene.Ground.Declared = true;
-    scene.Ground.VegetationEnabled = false;
-    scene.Ground.Origin.LatitudeDeg = 47;
-    scene.Ground.Origin.LongitudeDeg = 8;
-    scene.Ground.Origin.RadiusM = 1000;
-    scene.Render.Declared = true;
-    scene.Render.Frame = {64, 64};
-    scene.Render.Outputs = {"sceneLinear", "sceneDepth"};
-    scene.Lit.Declared = true;
-    scene.Lit.Key.Lux = 40000;
-    scene.Lit.Key.ElevationDeg = 60;
-    Scenario::View view;
-    view.Id = "plane";
-    view.Person = "first";
-    view.Placement = Scenario::CameraPlacement::Geodetic;
-    view.Geographic.Geodetic = {.LongitudeDeg = 8, .LatitudeDeg = 47, .HeightM = 80};
-    view.Geographic.PitchDeg = -30;
-    view.Sees.FovDeg = 55;
-    scene.Views.push_back(view);
-    const auto declared = engine.declare(scene);
-    CHECK(declared, "library terrain needs no unrelated OSM provider");
-    const auto assembled = declared ? engine.assemble() : declared;
-    CHECK(assembled, assembled ? "world assembled" : assembled.error().c_str());
-    if (assembled) {
-      const auto loaded = engine.preload(10.0);
-      CHECK(loaded, loaded ? "world prepared" : loaded.error().c_str());
-      const auto height = engine.sampleHeight({.LongitudeDeg = 8, .LatitudeDeg = 47});
-      CHECK(height && std::abs(*height - 42.0) < 0.001,
-            "public source bytes become the exact independent 42m terrain plane");
-      CHECK(provider.Observed.Configured > 0 && provider.Observed.Acquired > 0,
-            "runtime invokes both the registered factory and its configured source");
-      CHECK((provider.Observed.Decoded > 0) == (encoding == Encoding::OpaqueFixture),
-            "provider-owned native decoding handles opaque bytes without a private engine route");
-      std::vector<float> pixels;
-      const auto advanced = engine.advance();
-      CHECK(advanced, advanced ? "provider-driven world advanced" : advanced.error().c_str());
-      const auto rendered = advanced ? engine.renderer().render({}) : advanced;
-      CHECK(rendered, rendered ? "provider-driven world rendered" : rendered.error().c_str());
-      const auto readColour =
-          rendered ? engine.renderer().readPixels(Buffer::Linear, pixels) : rendered;
-      CHECK(readColour, readColour ? "linear frame captured" : readColour.error().c_str());
-      CHECK(pixels.size() == 64 * 64 * 4 &&
-                std::ranges::all_of(pixels, [](float value) { return std::isfinite(value); }),
-            "a complete finite rendered frame reaches the client");
-      std::vector<float> depth;
-      const auto readDepth = engine.renderer().readPixels(Buffer::Depth, depth);
-      CHECK(readDepth, readDepth ? "depth captured" : readDepth.error().c_str());
-      CHECK(readDepth &&
-                std::ranges::any_of(depth, [](float value) { return value > 0 && value < 1; }),
-            "the frame contains rasterized terrain, not only a clear or sky attachment");
-      if (const char *path = std::getenv("OUTSHINE_PROVIDER_CAPTURE")) {
-        std::vector<uint8_t> colour;
-        CHECK(engine.renderer().readPixels(colour), "display pixels captured");
-        if (colour.size() == 64 * 64 * 4) {
-          const auto file = std::unique_ptr<std::FILE, decltype(&std::fclose)>(
-              std::fopen(path, "wb"), &std::fclose);
-          CHECK(file != nullptr, "explicit diagnostic output opened");
-          if (file) {
-            CHECK(std::fprintf(file.get(), "P6\n64 64\n255\n") > 0, "diagnostic header written");
-            std::array<uint8_t, 64 * 64 * 3> rgb{};
-            for (size_t pixel = 0; pixel < 64 * 64; ++pixel) {
-              std::copy_n(colour.data() + pixel * 4, 3, rgb.data() + pixel * 3);
-            }
-            CHECK(std::fwrite(rgb.data(), 1, rgb.size(), file.get()) == rgb.size(),
-                  "diagnostic pixels written");
-          }
-        }
-      }
-    }
+    CheckEncoding(encoding);
   }
   SDL_Quit();
   return Report();

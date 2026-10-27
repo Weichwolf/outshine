@@ -30,12 +30,12 @@ public:
   [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
-  struct Standing {
+  struct InputKey {
     Medium Declared;
     float CosSunZenith = 2.0f;
     float EyeHeightM = -1.0f;
 
-    [[nodiscard]] constexpr bool operator==(const Standing &) const = default;
+    [[nodiscard]] constexpr bool operator==(const InputKey &) const = default;
   };
 
   std::unique_ptr<Native::ComputePipeline> Pipe;
@@ -43,7 +43,7 @@ private:
   Native::Texture *MultiScatter = nullptr;
   Native::Sampler *Lut = nullptr;
   Native::Texture *Into = nullptr;
-  std::optional<Standing> Standing_;
+  std::optional<InputKey> Inputs_;
   StageCache Cache_;
 };
 

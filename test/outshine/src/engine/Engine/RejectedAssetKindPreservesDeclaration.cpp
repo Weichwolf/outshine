@@ -12,7 +12,7 @@ int main() {
   CHECK(engine.declare(original).has_value(), "initial declaration succeeds");
   const auto before = engine.writeScenario();
   CHECK(before.has_value(), "initial declaration exports");
-  for (const auto kind : {"gltf", "unknown", ""}) {
+  for (const auto *const kind : {"gltf", "unknown", ""}) {
     Scenario::Document candidate = original;
     candidate.Motion.StepS = 0.05;
     Scenario::Asset asset;

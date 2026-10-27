@@ -29,17 +29,17 @@ public:
   [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
-  struct Standing {
+  struct InputKey {
     Medium Air;
     float CosSunZenith;
     float EyeHeightM;
     Vec3 GroundAlbedo;
-    [[nodiscard]] constexpr bool operator==(const Standing &) const = default;
+    [[nodiscard]] constexpr bool operator==(const InputKey &) const = default;
   };
 
   std::unique_ptr<Native::ComputePipeline> Pipe_;
   Sources Sources_;
-  std::optional<Standing> Standing_;
+  std::optional<InputKey> Inputs_;
   StageCache Cache_;
 };
 }

@@ -153,7 +153,10 @@ int main() {
     auto scene = Circuit::AnalyticScene();
     scene.Time = {.Declared = true, .Live = false, .Start = "2026-09-07T10:40:00Z"};
 
-    CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(engine.setRoots({.BuiltinDataDirectory = "data",
+                           .SourceCacheDirectory = {},
+                           .Offline = true,
+                           .AssetCacheDirectory = {}}) &&
               engine.setRenderTarget(Circuit::Frame) && engine.declare(scene) && engine.assemble(),
           "the pinned route and analytic DEM enter the public engine");
     const auto unknown = engine.routeInfo("missing");

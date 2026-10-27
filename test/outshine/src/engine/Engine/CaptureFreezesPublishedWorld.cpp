@@ -13,7 +13,7 @@ int main() {
           "measurement reset requires an assembled render scene");
     Scenario::Document scene;
     scene.Render.Declared = true;
-    scene.Render.Frame = {64, 64};
+    scene.Render.Frame = {.WidthPx = 64, .HeightPx = 64};
     Scenario::View view;
     view.Id = "capture";
     view.Person = "first";
@@ -21,12 +21,13 @@ int main() {
     view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     scene.Views.push_back(view);
-    CHECK(engine.setRenderTarget({64, 64}) && engine.declare(scene) && engine.assemble(),
+    CHECK(engine.setRenderTarget({.WidthPx = 64, .HeightPx = 64}) && engine.declare(scene) &&
+              engine.assemble(),
           "assembled scene is ready for capture without streamed ground");
     CHECK(engine.renderer().resetMeasurements().has_value(),
           "an assembled scene starts an explicit frame measurement interval");
     {
-      auto capture = engine.beginCapture();
+      const auto capture = engine.beginCapture();
       CHECK(capture.has_value(), "capture accepts an assembled scene without ground");
       if (!capture) { return Report(); }
       CHECK(engine.renderer().render({}).has_value(), "capture permits rendering");
@@ -41,7 +42,8 @@ int main() {
       CHECK(!engine.setSurfaces({}), "capture refuses overlay replacement");
       CHECK(!engine.handleEvent(SDL_Event{}), "capture refuses input state changes");
       CHECK(!engine.setGeometry(Geometry{}), "capture refuses geometry replacement");
-      CHECK(!engine.setRenderTarget({32, 32}), "capture refuses target replacement");
+      CHECK(!engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}),
+            "capture refuses target replacement");
       CHECK(!engine.setRoots({}), "capture refuses root replacement");
     }
     CHECK(engine.advance().has_value(), "capture destruction resumes simulation");

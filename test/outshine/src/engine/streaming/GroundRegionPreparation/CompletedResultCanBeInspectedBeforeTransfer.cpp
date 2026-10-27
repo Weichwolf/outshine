@@ -1,8 +1,11 @@
 #include "GroundRegionPreparation.h"
 #include "Check.h"
 #include <chrono>
+#include <expected>
 #include <optional>
 #include <semaphore>
+#include <stop_token>
+#include <string>
 #include <thread>
 
 int main() {
@@ -13,7 +16,9 @@ int main() {
   std::binary_semaphore entered(0);
   std::binary_semaphore release(0);
   GroundRegionPreparation work(
-      pool, [&](std::stop_token) -> std::expected<GroundRegionPreparation::Completed, std::string> {
+      pool,
+      [&](const std::stop_token &)
+          -> std::expected<GroundRegionPreparation::Completed, std::string> {
         entered.release();
         release.acquire();
         return GroundRegionPreparation::Completed{.Key = "native-product",
@@ -27,11 +32,11 @@ int main() {
   CHECK(!work.Peek() && !work.Collect(), "running lookup exposes no partially written product");
   release.release();
   const auto deadline = std::chrono::steady_clock::now() + 5s;
-  while (!work.Peek() && std::chrono::steady_clock::now() < deadline) {
+  while (work.Peek() == nullptr && std::chrono::steady_clock::now() < deadline) {
     std::this_thread::sleep_for(1ms);
   }
-  const auto viewed = work.Peek();
-  CHECK(viewed && *viewed && viewed->value().Key == "native-product" &&
+  const auto *const viewed = work.Peek();
+  CHECK(viewed != nullptr && *viewed && viewed->value().Key == "native-product" &&
             viewed->value().RequestKey == "planned-demand" && viewed->value().RequestHit,
         "completed immutable metadata can be inspected before ownership transfer");
   const auto transferred = work.Collect();

@@ -25,8 +25,10 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     return true;
   }
   if (!World.Sources || World.SourceDeclarations != providers) {
-    auto sources = Data::SourceSession::Open(
-        {.Directory = Session.Under.Cache}, providers, Session.Under.Shipped, World.Providers);
+    auto sources = Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                             providers,
+                                             Session.Under.BuiltinDataDirectory,
+                                             World.Providers);
     if (!sources) {
       Error = sources.error();
       return false;

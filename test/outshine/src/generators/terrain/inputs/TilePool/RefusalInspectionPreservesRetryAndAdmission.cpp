@@ -108,7 +108,7 @@ int main() {
   const auto starts = control->Starts.load();
   const auto refusedBytes = pool.ByteCacheBytes();
   const auto refused = pool.Counters();
-  CHECK(pool.EvictSourceBytes(std::numeric_limits<size_t>::max()) == 0 &&
+  CHECK(pool.EvictInputs(std::numeric_limits<size_t>::max()) == 0 &&
             pool.ByteCacheBytes() == refusedBytes && pool.Refusal(missing) &&
             pool.Refusal(transient),
         "memory pressure preserves refusal identity and the original retry schedule");

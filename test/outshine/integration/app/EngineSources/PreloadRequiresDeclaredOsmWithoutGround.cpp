@@ -36,7 +36,10 @@ int main() {
     localSource.Revision = "original-r1";
     scene.Providers.push_back(std::move(localSource));
     auto local = App::CreateEngine();
-    CHECK(local.setRoots({.Shipped = ".", .Cache = directory, .Offline = true, .AssetCache = {}}) &&
+    CHECK(local.setRoots({.BuiltinDataDirectory = ".",
+                          .SourceCacheDirectory = directory,
+                          .Offline = true,
+                          .AssetCacheDirectory = {}}) &&
               local.setRenderTarget({64, 64}) && local.declare(scene) && local.assemble(),
           "groundless scene queues original source and graph");
     CHECK(!local.settled() && !local.settled(WorldQuality::Refined),
@@ -62,10 +65,12 @@ int main() {
     scene.Providers.front().Location.clear();
     scene.Providers.front().Endpoint = "https://api.openstreetmap.org/api/0.6";
     auto missing = App::CreateEngine();
-    CHECK(
-        missing.setRoots({.Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}}) &&
-            missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
-        "offline remote declaration assembles without fetching or a fallback");
+    CHECK(missing.setRoots({.BuiltinDataDirectory = {},
+                            .SourceCacheDirectory = directory,
+                            .Offline = true,
+                            .AssetCacheDirectory = {}}) &&
+              missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
+          "offline remote declaration assembles without fetching or a fallback");
     const auto absent = missing.preload(kMissingPreloadS);
     CHECK(!absent && !missing.settled() && !missing.beginCapture(),
           "missing original cache cannot produce successful preload or capture");
@@ -75,10 +80,12 @@ int main() {
     scene.Providers.front().Endpoint.clear();
     scene.Providers.front().Location = "missing-original-preload.osm";
     auto invalid = App::CreateEngine();
-    CHECK(
-        invalid.setRoots({.Shipped = directory, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
-            invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
-        "missing local source remains an asynchronous request");
+    CHECK(invalid.setRoots({.BuiltinDataDirectory = directory,
+                            .SourceCacheDirectory = {},
+                            .Offline = true,
+                            .AssetCacheDirectory = {}}) &&
+              invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
+          "missing local source remains an asynchronous request");
     CHECK(!invalid.preload(kMissingPreloadS) && !invalid.settled() && !invalid.beginCapture(),
           "source read failure cannot become a complete groundless world");
   }

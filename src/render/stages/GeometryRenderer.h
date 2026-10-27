@@ -569,6 +569,7 @@ private:
     std::vector<DagCluster> Clusters;
     std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
     bool Live = false;
+    std::array<uint64_t, 3> ProductOrder{};
   };
 
   std::vector<DrawBatch> MainMeshBatches_;
