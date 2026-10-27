@@ -1,3 +1,5 @@
+#include <string>
+#include <cstdint>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"

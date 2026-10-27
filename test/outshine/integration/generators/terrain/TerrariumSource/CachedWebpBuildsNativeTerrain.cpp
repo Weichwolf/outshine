@@ -48,7 +48,7 @@ private:
 
 void Build(RawSourceCache &cache,
            SourceTransport &transport,
-           ProviderRegistry &registry,
+           const ProviderRegistry &registry,
            bool warm) {
   const SourceProvider config{.Kind = "terrain",
                               .Revision = "fixture-2026",

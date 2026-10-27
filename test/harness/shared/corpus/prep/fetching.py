@@ -46,16 +46,16 @@ def stream_to_file(built, url, path):
         for block in iter(lambda: response.read(1 << 20), b""):
             out.write(block)
 
-def check_digest(subject, observed, expected, size, expected_bytes):
+def check_digest(url, observed, expected, size, expected_bytes):
     if observed != expected:
         raise Refusal(
-            "fetch " + subject,
+            "fetch " + url,
             expected="sha256 " + expected,
             observed="sha256 " + observed + " (" + str(size) + " bytes)",
             why="the pin exists so that different bytes are never silently accepted",
         )
     if expected_bytes is not None and size != expected_bytes:
-        raise Refusal("fetch " + subject, expected=str(expected_bytes) + " bytes",
+        raise Refusal("fetch " + url, expected=str(expected_bytes) + " bytes",
                       observed=str(size) + " bytes")
 
 def to_store(built, url, expected_sha256, store, expected_bytes=None):

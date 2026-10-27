@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "image-as-flexitem-size-003",
   "title": "CSS Test: Testing how explicit main-size & cross-size constraints       influence sizing on stretched flex item w/ intrinsic ratio.",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "image-as-flexitem-size-003",

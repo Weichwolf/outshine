@@ -51,11 +51,14 @@ int main(int argc, const char *const *argv) {
   CHECK(manifest.Parse(manifestText.data(), manifestText.size()), "manifest parses");
   if (!manifest.Root().Valid()) { return Report(); }
   const auto root = manifest.Root();
-  const auto subject = root["subjects"][size_t{0}];
+  const bool inputsDeclared = root["schemaVersion"].Num() == 2 && root["inputs"].Size() > 0;
+  CHECK(inputsDeclared, "manifest declares versioned corpus inputs; reprepare older cases");
+  if (!inputsDeclared) { return Report(); }
+  const auto input = root["inputs"][size_t{0}];
   bool raw = false;
   bool strict = false;
-  for (size_t row = 0; row < subject["attributes"].Size(); ++row) {
-    const std::string attribute = subject["attributes"][row].Str();
+  for (size_t row = 0; row < input["attributes"].Size(); ++row) {
+    const std::string attribute = input["attributes"][row].Str();
     raw = raw || attribute == "flags:raw";
     strict = strict || attribute == "flags:onlyStrict";
     if (attribute == "flags:module" || attribute == "flags:async" ||
@@ -65,7 +68,7 @@ int main(int argc, const char *const *argv) {
     }
   }
   std::string source;
-  if (!Read(prepared + "/" + subject["entry"].Str(), source)) {
+  if (!Read(prepared + "/" + input["entry"].Str(), source)) {
     Unprepared(prepared.c_str());
     return Report();
   }

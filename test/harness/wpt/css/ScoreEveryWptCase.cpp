@@ -80,9 +80,12 @@ int main(int argc, char **argv) {
     return outshine::Test::Report();
   }
   const Json::Ref root = manifest.Root();
+  const bool inputsDeclared = root["schemaVersion"].Num() == 2 && root["inputs"].Size() > 0;
+  CHECK(inputsDeclared, "manifest declares versioned corpus inputs; reprepare older cases");
+  if (!inputsDeclared) { return outshine::Test::Report(); }
   const std::string id = root["id"].Str();
-  const Json::Ref subject = root["subjects"][size_t(0)];
-  const std::string entry = subject["entry"].Str();
+  const Json::Ref input = root["inputs"][size_t(0)];
+  const std::string entry = input["entry"].Str();
   const double viewportWidth = root["viewport"]["widthPx"].Num();
   const double viewportHeight = root["viewport"]["heightPx"].Num();
 
@@ -112,8 +115,8 @@ int main(int argc, char **argv) {
 
   Ui::Stylesheet sheet;
   sheet.Read(Ui::UserAgentSheet());
-  for (size_t i = 0; i < subject["files"].Size(); ++i) {
-    const Json::Ref file = subject["files"][i];
+  for (size_t i = 0; i < input["files"].Size(); ++i) {
+    const Json::Ref file = input["files"][i];
     if (!file["role"].StrEquals("stylesheet")) { continue; }
     bool linked = false;
     const std::string linkedSheet = ReadFile(prepared + "/" + file["as"].Str(), linked);

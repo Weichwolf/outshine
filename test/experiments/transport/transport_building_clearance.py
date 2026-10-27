@@ -94,8 +94,8 @@ def polygon_parts(rings):
 
 def source_tile(args, z, x, y):
     revision = args.endpoint.split('/planet/')[1].split('/')[0]
-    subject = f'openfreemap.openmaptiles\n2\n{revision}\nvector\n{z}/{x}/{y}\n{args.endpoint}'
-    path = args.sources / hashlib.sha256(subject.encode()).hexdigest()
+    cache_key = f'openfreemap.openmaptiles\n2\n{revision}\nvector\n{z}/{x}/{y}\n{args.endpoint}'
+    path = args.sources / hashlib.sha256(cache_key.encode()).hexdigest()
     data = path.read_bytes()
     if len(data) > 4 * 1024**2:
         raise ValueError('MVT exceeds experiment byte limit')

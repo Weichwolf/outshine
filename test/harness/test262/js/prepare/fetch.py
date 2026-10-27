@@ -27,7 +27,7 @@ def check_url(url, commit=None):
                       why="an unpinned source is a corpus that changes under a measurement")
     if commit is not None and match.group(1) != commit:
         raise Refusal("fetch " + url,
-                      expected="the commit the subject declares, " + commit,
+                      expected="the commit the manifest declares, " + commit,
                       observed=match.group(1))
     return match
 

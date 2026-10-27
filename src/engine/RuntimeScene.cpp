@@ -104,7 +104,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  candidate->StopsEditingCandidate();
+  candidate->StopEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;
@@ -130,12 +130,12 @@ bool RuntimeScene::PrepareWithPlan(Render::SceneRenderer &renderer,
     error = Says::InvalidInitialGeometry;
     return false;
   }
-  auto editing = renderer.EditsWorldCandidate();
+  auto editing = renderer.EditWorldCandidate();
   std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
   scene->GroundAir_ = atmosphere;
   scene->PreparationPlan_ = std::move(plan);
   if (!scene->Build(error)) { return false; }
-  scene->CandidateEditor_.emplace(std::move(editing));
+  scene->CandidateEdit_.emplace(std::move(editing));
   out = std::move(scene);
   return true;
 }
@@ -308,7 +308,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
     return false;
   }
   if (out != nullptr) { candidate->Ui_ = std::move(out->Ui_); }
-  candidate->StopsEditingCandidate();
+  candidate->StopEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;

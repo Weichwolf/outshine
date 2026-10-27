@@ -227,7 +227,7 @@ void CheckPublication(SurfacePreparation &stack,
   const bool warm = terrain.Warm;
   const size_t coordinateCount = initialCells ? 20 : 12;
   const size_t sourceCount = initialCells ? 2 : 1;
-  auto &prints = stack.Footprints();
+  const auto &prints = stack.Footprints();
   CHECK(landed && prints.FootprintCount() == sourceCount, "the complete footprints land once");
   CHECK(warm || terrain.Fields.size() > 1,
         "cold input crosses multiple height fields delivered on separate pumps");

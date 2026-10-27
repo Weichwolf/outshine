@@ -38,7 +38,7 @@ def read_materials(folder, study, variants):
     return products
 
 
-def subjects(source, surfaces, arrays, original, direction):
+def build_comparison_scene(source, surfaces, arrays, original, direction):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     template = leaf_material(original / "spatial")
     points = np.vstack((source["vertices"], *[s["mesh"]["vertices"] for s in surfaces]))
@@ -139,7 +139,7 @@ def render(study, fields, original, output, node):
         direction = np.asarray(direction, float)
         direction /= np.linalg.norm(direction)
         for state, sign in (("front", 1), ("back", -1)):
-            centre, distance = subjects(source, surfaces, arrays, original, direction)
+            centre, distance = build_comparison_scene(source, surfaces, arrays, original, direction)
             light = sign * np.array((0.8, -0.3, 0.45))
             light /= np.linalg.norm(light)
             scene = environment(direction, centre, distance, light=light)

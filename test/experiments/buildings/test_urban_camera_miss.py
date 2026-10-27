@@ -11,6 +11,8 @@ from urban_parent_conditional import grid, primary_cap
 from urban_parent_layer import render_layer
 from urban_parent_light import light_at
 from urban_receiver_test_scenes import one_box
+from urban_sampled_layer import render_sampled_layer
+from urban_shadow_runs import RowRunShadows
 
 
 def empty_field():
@@ -245,6 +247,24 @@ class CameraMissTest(unittest.TestCase):
         self.assertEqual(before, {k: a.tobytes() for k, a in parent.arrays().items()})
         np.testing.assert_array_equal(o, old_o)
         np.testing.assert_array_equal(d, old_d)
+
+    def test_sampled_and_forced_run_shadow_consumers_keep_the_prefix(self):
+        parent, _, o, d, profile = empty_field()
+        whole = np.array([[[0, 0], [1, 1]]])
+        for query in [None, RowRunShadows(parent, force=True)]:
+            c, t, s, _ = render_sampled_layer(
+                parent,
+                o,
+                d,
+                profile,
+                np.array([50.0]),
+                primary_covered=whole,
+                camera_miss_witness=True,
+                shadow_query=query,
+            )
+            np.testing.assert_array_equal(c, 0)
+            np.testing.assert_array_equal(t, 1)
+            np.testing.assert_array_equal(s, 1)
 
 
 if __name__ == "__main__":
