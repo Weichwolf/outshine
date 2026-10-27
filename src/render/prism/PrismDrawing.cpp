@@ -25,7 +25,7 @@ Native::Result<void> EncodePrism(const PrismProduct &product,
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism drawing requires resident storage"});
   }
-  constexpr uint32_t proxyVertices = 36;
+  constexpr uint32_t proxyVertices = 6;
   return commands.Draw({.State = {.Pipeline = &pipeline,
                                   .Bindings = bindings,
                                   .Vertices = {},
