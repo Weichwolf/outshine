@@ -18,6 +18,7 @@ layout(std140, set = 2, binding = GEOMETRY_HIERARCHY_BINDING) uniform GeometryHi
 } hierarchy;
 const uint kGeometryChunkClusters = 64u;
 const uint kGeometryRootBound = 1u;
+const uint kGeometryUnboundedDeformation = 2u;
 uint geometryGroup() {
   return gl_WorkGroupID.y * hierarchy.work.y + gl_WorkGroupID.x;
 }

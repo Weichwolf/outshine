@@ -4,6 +4,7 @@
 #include "BatchVisibility.h"
 #include "DrawList.h"
 #include "GpuPlacement.h"
+#include "GeometryHierarchy.h"
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -24,7 +25,7 @@ public:
   [[nodiscard]] bool Ready() const noexcept { return Ready_; }
 
   void Prepare(std::span<const DrawBatch> batches,
-               std::span<const uint32_t> jobs,
+               std::span<const GeometryClusterTemplate> templates,
                std::span<const float> spheres,
                std::span<const GpuPlacement> placements,
                uint32_t mainMeshRows,
@@ -42,7 +43,8 @@ private:
 
   struct Source {
     std::span<const DrawBatch> Batches;
-    std::span<const uint32_t> Jobs;
+    std::span<const GeometryClusterTemplate> Templates;
+    size_t RangeCapacity = 0;
     std::span<const float> Spheres;
     std::span<const GpuPlacement> Placements;
     uint32_t MainMeshRows = 0;

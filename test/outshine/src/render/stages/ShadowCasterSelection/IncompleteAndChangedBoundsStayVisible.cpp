@@ -24,7 +24,9 @@ struct Fixture {
   ShadowCasterSelection Selection;
   std::array<DrawBatch, 1> Batches{};
   std::array<GpuPlacement, 1> Rows{};
-  std::array<uint32_t, 8> Jobs{0, 0, 12, 3, 1, 0, 15, 3};
+  std::array<GeometryClusterTemplate, 2> Jobs{
+      GeometryClusterTemplate{.SphereIndex = 0, .RelativeFirstIndex = 12, .IndexCount = 3},
+      GeometryClusterTemplate{.SphereIndex = 1, .RelativeFirstIndex = 15, .IndexCount = 3}};
   std::array<float, 2 * kSphereRecordFloats> Spheres{};
 
   Fixture() {
@@ -52,24 +54,24 @@ void Coverage() {
         "invalidated bounds cannot suppress any draw");
   CHECK(f.Prepare(false).empty(), "a vertex pose invalidates main-mesh bounds");
   CHECK(f.Prepare(false, 0).size() == 2, "independent piece bounds survive a main-mesh pose");
-  f.Jobs[6] = kUncoveredStart;
+  f.Jobs[1].RelativeFirstIndex = kUncoveredStart;
   CHECK(f.Prepare().empty(), "an uncovered interval cannot drop unknown geometry");
-  f.Jobs[6] = 15;
-  f.Jobs[2] = 15;
+  f.Jobs[1].RelativeFirstIndex = 15;
+  f.Jobs[0].RelativeFirstIndex = 15;
   CHECK(f.Prepare().empty(), "an uncovered prefix falls back to the complete batch");
-  f.Jobs[2] = 12;
+  f.Jobs[0].RelativeFirstIndex = 12;
   f.Batches[0].IndexCount = 9;
   CHECK(f.Prepare().empty(), "an uncovered suffix falls back to the complete batch");
   f.Batches[0].IndexCount = 6;
-  f.Jobs[7] = 4;
+  f.Jobs[1].IndexCount = 4;
   CHECK(f.Prepare().empty(), "nontriangular intervals remain unqualified");
-  f.Jobs[7] = 3;
-  f.Jobs[5] = 1;
-  CHECK(f.Prepare().empty(), "jobs must name their actual owning batch");
-  f.Jobs[5] = 0;
-  f.Jobs[3] = 6;
+  f.Jobs[1].IndexCount = 3;
+  f.Batches[0].FirstJob = 1;
+  CHECK(f.Prepare().empty(), "batch template spans must fit the current resident product");
+  f.Batches[0].FirstJob = 0;
+  f.Jobs[0].IndexCount = 6;
   CHECK(f.Prepare().size() == 2, "ordered overlapping source intervals remain covered");
-  f.Jobs[6] = 9;
+  f.Jobs[1].RelativeFirstIndex = 9;
   CHECK(f.Prepare().empty(), "unordered intervals use the original draw");
 }
 
@@ -93,7 +95,7 @@ void Bounds() {
   ranges = f.Prepare();
   CHECK(ranges.size() == 2 && !ranges[1].Bounds && !patch.Outside(ranges[1].Bounds),
         "an unknown individual bound is drawn while retaining complete index coverage");
-  f.Jobs[4] = std::numeric_limits<uint32_t>::max();
+  f.Jobs[1].SphereIndex = std::numeric_limits<uint32_t>::max();
   CHECK(f.Prepare().size() == 2 && !f.Selection.Ranges(0)[1].Bounds,
         "an unavailable sphere is unknown rather than an empty caster");
   f.Batches[0].Instances = 2;

@@ -65,7 +65,7 @@ void RefineStaticView(outshine::Core::RuntimeScene &scene,
   CHECK(refined.Indices < initial.Indices,
         "stationary HiZ removes the hidden target instead of disabling occlusion");
   CHECK(before == after, "removing hidden geometry preserves the image exactly");
-  CHECK(scene.Draw(error) && GeometryCullStage::JobsSweptTaken() == 0,
+  CHECK(scene.Draw(error) && GeometryCullStage::JobsAdmittedTaken() == 0,
         "a settled unchanged view reuses its refined draw input");
 }
 
@@ -82,7 +82,7 @@ void ReplaceMaterials(outshine::Core::RuntimeScene &scene,
   const std::array<MaterialBinding, 1> materials{red};
   CHECK(renderer.SetGeometryMaterials(materials, error) && scene.Draw(error),
         "replacement native materials remain drawable");
-  CHECK(GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(GeometryCullStage::JobsAdmittedTaken() > 0,
         "rebuilt draw tables invalidate cached GPU selection");
   std::vector<float> depth;
   CHECK(renderer.ReadDepth(depth) == ReadState::Ready &&

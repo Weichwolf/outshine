@@ -16,7 +16,7 @@ struct Fixture {
   ShadowCasterSelection Selection;
   std::array<DrawBatch, 4> Batches{};
   std::array<GpuPlacement, 4> Rows{};
-  std::array<uint32_t, 32> Jobs{};
+  std::array<GeometryClusterTemplate, 8> Jobs{};
   std::array<float, 24> Spheres{};
 
   Fixture() {
@@ -32,9 +32,8 @@ struct Fixture {
       batch.WorldSphere = BatchSphere{static_cast<float>(at * 100 + 5), 0, 0, 6};
       Rows[at].Current = {
           1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, static_cast<float>(at * 100), 0, 0, 1};
-      const std::array<uint32_t, 8> jobs{
-          0, static_cast<uint32_t>(at), 12, 3, 1, static_cast<uint32_t>(at), 15, 3};
-      std::ranges::copy(jobs, Jobs.begin() + static_cast<std::ptrdiff_t>(at * jobs.size()));
+      Jobs[at * 2] = {.SphereIndex = 0, .RelativeFirstIndex = 12, .IndexCount = 3};
+      Jobs[at * 2 + 1] = {.SphereIndex = 1, .RelativeFirstIndex = 15, .IndexCount = 3};
     }
   }
 
@@ -87,6 +86,17 @@ void DeferredQueries() {
         "fully demanded range storage is capped at the resident job count");
 }
 
+void SharedTemplates() {
+  Fixture f;
+  for (auto &batch : f.Batches) { batch.FirstJob = 0; }
+  f.Selection.Prepare(f.Batches, std::span(f.Jobs).first(2), f.Spheres, f.Rows, 0, true);
+  for (size_t at = 0; at < f.Batches.size(); ++at) {
+    CHECK(f.Selection.Ranges(at).size() == 2, "each instance can reuse the same source templates");
+  }
+  CHECK(f.Selection.CachedRanges() == 8,
+        "retained shadow bounds are budgeted by demanded instances without duplicating templates");
+}
+
 void ChangedSourcesAndFallbacks() {
   Fixture f;
   f.Prepare();
@@ -102,7 +112,7 @@ void ChangedSourcesAndFallbacks() {
   const auto changed = f.Selection.Ranges(1);
   CHECK(changed.size() == 2 && changed[0].Bounds.value_or(BatchSphere{})[0] == 200,
         "the next accepted revision replaces cached transforms");
-  f.Jobs[3] = 0;
+  f.Jobs[0].IndexCount = 0;
   f.Prepare();
   CHECK(f.Selection.CachedRanges() == 0 && f.Selection.Ranges(0).empty() &&
             f.Selection.CachedRanges() == 0,
@@ -128,5 +138,6 @@ void ChangedSourcesAndFallbacks() {
 int main() {
   DeferredQueries();
   ChangedSourcesAndFallbacks();
+  SharedTemplates();
   return Report();
 }

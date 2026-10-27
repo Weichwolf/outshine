@@ -24,8 +24,12 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 using Stream = GeometryResidency::Stream;
 
-constexpr std::array tableStreams{
-    Stream::ClusterSpheres, Stream::ClusterJobs, Stream::ClusterBatches, Stream::DrawArguments};
+constexpr std::array tableStreams{Stream::ClusterSpheres,
+                                  Stream::ClusterTemplates,
+                                  Stream::ClusterRoots,
+                                  Stream::ClusterPrefix,
+                                  Stream::ClusterReset,
+                                  Stream::DrawArguments};
 
 struct Snapshot {
   const Native::Buffer *Buffer = nullptr;
@@ -206,7 +210,7 @@ void CheckTopology(Fixture &fixture, PieceId clustered, std::array<Mat4, 3> rows
         "a changed instance count rebuilds the actual topology");
   CHECK(fixture.Draw.ClusterJobs() == 2 && fixture.Draw.Drawn().size() == 2 &&
             fixture.Draw.Residency().StagedBytes() > 0 &&
-            fixture.Draw.Residency().RecordedCrossings() == crossings + 4,
+            fixture.Draw.Residency().RecordedCrossings() == crossings + 6,
         "removed instances leave neither cluster jobs nor stale batches");
   rows[0][12] += 100;
   fixture.ResetMetrics();

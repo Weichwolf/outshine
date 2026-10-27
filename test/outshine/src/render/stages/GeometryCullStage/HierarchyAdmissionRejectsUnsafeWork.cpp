@@ -106,6 +106,9 @@ void RejectAggregateOverflow() {
         "1024 instances of 1048578 index words cannot wrap 4 GiB into an 8192-byte destination");
   for (auto &root : roots) { root.IndexCapacity = 3; }
   fixture.Templates[0].IndexCount = 3;
+  const auto shared = AdmitGeometryHierarchy(inputs, Limits());
+  CHECK(shared && shared->TemplateVisits == 2 && shared->View.ClusterCapacity == 1024,
+        "1024 contiguous instances validate their immutable template range only once");
   auto narrow = Limits();
   narrow.MaxWorkgroupCount = {7, 1, 1};
   CHECK(!AdmitGeometryHierarchy(inputs, narrow),

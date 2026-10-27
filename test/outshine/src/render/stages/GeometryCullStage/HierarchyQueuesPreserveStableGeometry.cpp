@@ -304,6 +304,7 @@ struct Case {
   bool Reuse = false;
   bool AllBounds = false;
   bool Occludes = false;
+  bool UnknownDeformation = false;
 };
 
 void Run(Device &device, const Inputs &inputs, Case test) {
@@ -314,7 +315,8 @@ void Run(Device &device, const Inputs &inputs, Case test) {
               width,
               reuse,
               allBounds,
-              occluded] = test;
+              occluded,
+              deformed] = test;
   auto commands = Require(device.Begin());
   auto actual = Uploaded(device, *commands, inputs);
   auto reference = Uploaded(device, *commands, inputs);
@@ -337,7 +339,17 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   hierarchy.ChunkCapacity = chunkCapacity;
   hierarchy.ClusterCapacity = clusterCapacity;
   Hierarchy(device, *commands, actual, view, hierarchy);
-  Flat(device, *commands, reference, view, static_cast<uint32_t>(inputs.Batches.size() / 2));
+  auto referenceView = view;
+  if (deformed) {
+    referenceView.Planes.fill(0);
+    referenceView.ErrorPerMetre = 0;
+    referenceView.Occludes = 0;
+  }
+  Flat(device,
+       *commands,
+       reference,
+       referenceView,
+       static_cast<uint32_t>(inputs.Batches.size() / 2));
   if (reuse) {
     const std::array states{GeometryQueueState{}};
     auto reset = Upload(device, *commands, Words(std::span(states)));
@@ -372,12 +384,15 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   CheckState(leafState,
              {.Capacity = clusterCapacity, .Work = inputs.Logical, .Width = hierarchy.GridWidth});
   CHECK(rootState[2] == inputs.Roots.size(), "each admitted root is examined exactly once");
-  CHECK(leafState[2] == (away ? (allBounds ? 0u : 418u) : 1254u),
+  CHECK(leafState[2] == (deformed ? inputs.Logical
+                         : away   ? (allBounds ? 0u : 418u)
+                                  : 1254u),
         "rejected roots avoid all descendant cluster visits even during overflow fallback");
-  CHECK(leafState[3] == (away || occluded     ? 0u
+  CHECK(leafState[3] == (deformed             ? inputs.Logical
+                         : away || occluded   ? 0u
                          : errorPerMetre == 0 ? 1254u
                                               : 636u),
-        "the original per-cluster LOD and conservative depth selection are retained");
+        "qualified LOD/depth selection and unqualified deformation retain their contracts");
   for (auto [buffer, first] :
        std::array{std::pair{chunks.Read(device), static_cast<size_t>(chunkCapacity) * 2},
                   std::pair{clusters.Read(device), static_cast<size_t>(clusterCapacity) * 2},
@@ -442,5 +457,15 @@ int main() {
       inputs,
       {.ChunkCapacity = inputs.Prefix.back(), .ClusterCapacity = inputs.Logical, .Occludes = true});
   Run(device, inputs, {.ChunkCapacity = 0, .ClusterCapacity = 0, .Occludes = true});
+  auto deformed = inputs;
+  for (auto &root : deformed.Roots) { root.Flags = kGeometryUnboundedDeformation; }
+  Run(device,
+      deformed,
+      {.ChunkCapacity = deformed.Prefix.back(),
+       .ClusterCapacity = deformed.Logical,
+       .ErrorPerMetre = 1,
+       .Away = true,
+       .Occludes = true,
+       .UnknownDeformation = true});
   return Report();
 }

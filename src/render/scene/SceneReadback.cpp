@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <span>
 #include <string>
 #include <vector>
@@ -23,6 +24,26 @@ constexpr int kSingleExponentBias = 127;
 constexpr unsigned kSingleMantissaBits = 23u;
 constexpr unsigned kMantissaWiden = kSingleMantissaBits - kHalfMantissaBits;
 constexpr uint32_t kSingleInfinity = 0x7F800000u;
+
+bool MaskRejectedRoots(Native::Device *device,
+                       const GeometryResidency &resident,
+                       std::span<const DrawBatch> batches,
+                       std::span<uint32_t> into) {
+  Readback roots;
+  const auto *visible = resident.Buffer(GeometryResidency::Stream::ClusterVisible).get();
+  const auto bytes = static_cast<uint32_t>(batches.size() * sizeof(uint32_t));
+  if (visible == nullptr || roots.FromBuffer(device, visible, bytes) != ReadState::Ready) {
+    return false;
+  }
+  const auto *status = reinterpret_cast<const uint32_t *>(roots.Rows());
+  size_t logical = 0;
+  for (size_t at = 0; at < batches.size(); ++at) {
+    if (batches[at].JobCount > into.size() - logical) { return false; }
+    if (status[at] == 0) { std::ranges::fill(into.subspan(logical, batches[at].JobCount), 0u); }
+    logical += batches[at].JobCount;
+  }
+  return logical == into.size();
+}
 
 float HalfToFloat(uint16_t bits) {
   const auto held = static_cast<uint32_t>(bits);
@@ -194,17 +215,38 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     }
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
+    if (!MaskRejectedRoots(
+            Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.Visibility)) {
+      into = {};
+      return ReadState::Failed;
+    }
   }
   const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
-  const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
-  if (drawn.FromBuffer(Device_.get(), index, indexBytes) != ReadState::Ready) {
+  uint64_t end = 0;
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
+  }
+  const uint64_t indexBytes = end * sizeof(uint32_t);
+  if (indexBytes > index->Description().Bytes ||
+      indexBytes > std::numeric_limits<uint32_t>::max() ||
+      drawn.FromBuffer(Device_.get(), index, static_cast<uint32_t>(indexBytes)) !=
+          ReadState::Ready) {
     into = {};
     return ReadState::Failed;
   }
-  const auto *const indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
-  into.DrawIndex.assign(indices, indices + into.Indices);
+  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.DrawIndex.reserve(into.Indices);
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) {
+      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
+    }
+  }
   return ReadState::Ready;
 }
 

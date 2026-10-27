@@ -54,24 +54,35 @@ bool SourcesFit(const GeometryHierarchyInputs &inputs, const Native::Capabilitie
   });
 }
 
+struct TemplateRangeBounds {
+  uint32_t First = std::numeric_limits<uint32_t>::max();
+  uint32_t Count = 0;
+  uint64_t IndexWords = 0;
+  uint64_t SourceEnd = 0;
+};
+
 bool RootFits(const GeometryRoot &root,
               const GeometryHierarchyInputs &inputs,
               uint64_t logical,
-              uint32_t previousBatch) {
+              uint32_t previousBatch,
+              TemplateRangeBounds &bounds,
+              uint64_t &visited) {
   if (root.LogicalFirst != logical || root.BatchRow >= inputs.BatchCount ||
       root.BatchRow < previousBatch || root.ModelSlot >= inputs.PlacementCount ||
       uint64_t{root.TemplateFirst} + root.TemplateCount > inputs.Templates.size()) {
     return false;
   }
-  uint64_t indexWords = 0;
-  for (const auto &one : inputs.Templates.subspan(root.TemplateFirst, root.TemplateCount)) {
-    indexWords += one.IndexCount;
-    if (uint64_t{root.IndexBase} + one.RelativeFirstIndex + one.IndexCount >
-        inputs.SourceIndexCount) {
-      return false;
+  if (bounds.First != root.TemplateFirst || bounds.Count != root.TemplateCount) {
+    bounds = {.First = root.TemplateFirst, .Count = root.TemplateCount};
+    for (const auto &one : inputs.Templates.subspan(root.TemplateFirst, root.TemplateCount)) {
+      bounds.IndexWords += one.IndexCount;
+      bounds.SourceEnd =
+          std::max(bounds.SourceEnd, uint64_t{one.RelativeFirstIndex} + one.IndexCount);
     }
+    visited += root.TemplateCount;
   }
-  return indexWords <= root.IndexCapacity;
+  return bounds.IndexWords <= root.IndexCapacity &&
+         uint64_t{root.IndexBase} + bounds.SourceEnd <= inputs.SourceIndexCount;
 }
 }
 
@@ -89,8 +100,10 @@ AdmitGeometryHierarchy(const GeometryHierarchyInputs &inputs, const Native::Capa
   uint64_t chunks = 0;
   uint64_t indices = 0;
   uint32_t previousBatch = 0;
+  TemplateRangeBounds bounds;
+  result.TemplateVisits = inputs.Templates.size();
   for (const auto &root : inputs.Roots) {
-    if (!RootFits(root, inputs, logical, previousBatch)) {
+    if (!RootFits(root, inputs, logical, previousBatch, bounds, result.TemplateVisits)) {
       return std::unexpected(InvalidHierarchy());
     }
     logical += root.TemplateCount;

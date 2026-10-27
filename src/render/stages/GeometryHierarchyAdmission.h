@@ -14,6 +14,7 @@ struct GeometryHierarchyAdmission {
   Native::Workgroups RootGroups;
   Native::Workgroups ScanGroups;
   uint32_t IndexWords = 0;
+  uint64_t TemplateVisits = 0;
   std::vector<uint32_t> ChunkPrefix;
 };
 

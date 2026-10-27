@@ -87,7 +87,7 @@ void Exercise() {
   CHECK(!renderer.PrepareWorldResources() && !reject && !renderer.Drew(),
         "a rejected preparation publishes no image or selection");
   const auto prepared = renderer.PrepareWorldResources();
-  CHECK(prepared && GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(prepared && GeometryCullStage::JobsAdmittedTaken() > 0,
         "successful preparation actually runs cull, scan and compaction");
   if (!prepared) { return; }
   renderer.WaitForGpu();
@@ -96,13 +96,13 @@ void Exercise() {
   CHECK(renderer.ReadKeptIndices(first) == ReadState::Ready && first.Indices > 0,
         "prepared draw arguments and indices exist before any frame");
   const auto repeated = renderer.PrepareWorldResources();
-  CHECK(repeated && GeometryCullStage::JobsSweptTaken() == 0,
+  CHECK(repeated && GeometryCullStage::JobsAdmittedTaken() == 0,
         "preparation reuses accepted selection without inventing previous depth");
   renderer.WaitForGpu();
   CHECK(!renderer.Drew() && renderer.LastSubmittedCamera().Serial == 0 &&
             renderer.Costs().Frames == 0,
         "preparation performs no world frames or camera publication");
-  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsSweptTaken() == 0,
+  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() == 0,
         "the first real frame reuses the prepared selection");
   std::vector<float> depth;
   CHECK(renderer.ReadDepth(depth) == ReadState::Ready &&
@@ -110,7 +110,7 @@ void Exercise() {
         "only the real frame produces readable geometry depth");
   CHECK(renderer.LastSubmittedCamera().Serial == 1 && renderer.Costs().Frames == 1,
         "only one world frame was measured and published");
-  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() > 0,
         "the next stable frame can refine against genuine previous depth");
 }
 }

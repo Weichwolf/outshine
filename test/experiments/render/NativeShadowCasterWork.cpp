@@ -18,6 +18,7 @@ constexpr uint64_t kMaximumElements = 10000000;
 struct Input {
   std::vector<DrawBatch> Batches;
   std::vector<uint32_t> Jobs;
+  std::vector<GeometryClusterTemplate> Templates;
   std::vector<float> Spheres;
   std::vector<GpuPlacement> Rows;
 };
@@ -52,6 +53,11 @@ bool Load(const char *path, Input &input) {
     if (fields[7] != 0) { batch.WorldSphere = bound; }
   }
   if (!Read(file, std::span(input.Jobs)) || !Read(file, std::span(input.Spheres))) { return false; }
+  for (size_t at = 0; at < input.Jobs.size(); at += 4) {
+    input.Templates.push_back({.SphereIndex = input.Jobs[at],
+                               .RelativeFirstIndex = input.Jobs[at + 2],
+                               .IndexCount = input.Jobs[at + 3]});
+  }
   for (auto &row : input.Rows) {
     if (!Read(file, std::span(row.Current))) { return false; }
   }
@@ -71,7 +77,7 @@ int main(int argc, char **argv) {
   size_t sample = 0;
   for (auto &ms : milliseconds) {
     const auto began = std::chrono::steady_clock::now();
-    selection.Prepare(input.Batches, input.Jobs, input.Spheres, input.Rows, 0, true);
+    selection.Prepare(input.Batches, input.Templates, input.Spheres, input.Rows, 0, true);
     preparationMs[sample++] =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     qualified = 0;

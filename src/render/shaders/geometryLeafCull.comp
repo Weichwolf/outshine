@@ -42,7 +42,9 @@ void main() {
   if (ordinal >= root.cluster.y) { return; }
   atomicAdd(clusterState.counts.z, 1u);
   const uvec4 item = templates[root.cluster.x + ordinal];
-  const uint count = geometryClusterCount(placements[root.instance.x].current, item.x, item.z);
+  const uint count = (root.instance.w & kGeometryUnboundedDeformation) != 0u
+                     ? item.z
+                     : geometryClusterCount(placements[root.instance.x].current, item.x, item.z);
   kept[root.cluster.z + ordinal] = count;
   if (count == 0u) { return; }
   atomicAdd(clusterState.counts.w, 1u);

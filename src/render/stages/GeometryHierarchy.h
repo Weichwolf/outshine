@@ -11,6 +11,7 @@ namespace outshine::Render {
 inline constexpr size_t kGeometryRootBytes = 80;
 inline constexpr uint32_t kGeometryChunkClusters = 64;
 inline constexpr uint32_t kGeometryRootBound = 1;
+inline constexpr uint32_t kGeometryUnboundedDeformation = 2;
 
 struct alignas(16) GeometryRoot {
   std::array<float, 4> LocalSphere{};

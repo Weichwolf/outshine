@@ -166,7 +166,7 @@ struct MaterialFixture {
     scene->Eye(eye);
     for (int frame = 0; frame < 3; ++frame) {
       CHECK(scene->Advance(error) && scene->Draw(error), "fixture rendered");
-      CHECK((Render::GeometryCullStage::JobsSweptTaken() > 0) == (frame < 2),
+      CHECK((Render::GeometryCullStage::JobsAdmittedTaken() > 0) == (frame < 2),
             "new worlds cull, refine with previous depth, then reuse unchanged visibility");
     }
     std::vector<float> pixels;

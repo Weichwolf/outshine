@@ -853,7 +853,7 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 22;
+  static constexpr size_t kExecutorCount = 23;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
@@ -985,6 +985,8 @@ private:
                                                              const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeLightVisibility(const FrameContext &ctx,
                                                            const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryRoots(const FrameContext &ctx,
+                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryCull(const FrameContext &ctx,
                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryScan(const FrameContext &ctx,
