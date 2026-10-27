@@ -4,16 +4,19 @@
 #include "CanonicalGroundTerrainFixture.h"
 #include "Check.h"
 #include "CppAllocationProbe.h"
+#include "GroundPortBodies.h"
 #include "GroundPortField.h"
 #include "GroundPortTerrain.h"
 #include "HeightField.h"
 #include "RoadPortFieldQuery.h"
+#include "TransportNetworkSnapshot.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -21,6 +24,7 @@
 #include <ratio>
 #include <span>
 #include <stop_token>
+#include <string>
 #include <tuple>
 #include <thread>
 #include <utility>
@@ -52,6 +56,129 @@ bool Same(const RoadPortFrameSample &a, const RoadPortFrameSample &b) {
                       value.RayResidualM};
   };
   return words(a) == words(b);
+}
+
+void CheckBodyGuards(const GroundPortField &product) {
+  CHECK(!BuildGroundPortBodies(product, 0) &&
+            !BuildGroundPortBodies(product, std::numeric_limits<double>::quiet_NaN()) &&
+            !BuildGroundPortBodies(product, std::numeric_limits<double>::infinity()),
+        "a functional body needs an explicit positive finite physical recipe depth");
+  std::stop_source stopped;
+  stopped.request_stop();
+  BeginCppAllocationProbe();
+  const auto canceled = BuildGroundPortBodies(product, kSealedDepthM, {}, stopped.get_token());
+  const auto capped = BuildGroundPortBodies(product, kSealedDepthM, {.Bodies = 0});
+  const auto noStorage = BuildGroundPortBodies(product, kSealedDepthM, {.ContainerBytes = 1});
+  const auto allocations = EndCppAllocationProbe();
+  CHECK(!canceled && !capped && !noStorage && allocations.Calls == 0,
+        "stop and impossible body/storage budgets reject before allocation or source copying");
+  const auto shortMesh = BuildGroundPortBodies(
+      product, kSealedDepthM, {.SurfaceFaces = product.Geometry().Surface.Faces.size() - 1});
+  const auto shortSolid = BuildGroundPortBodies(product, kSealedDepthM, {.Solid = {.Points = 1}});
+  CHECK(!shortMesh && !shortSolid,
+        "missing finite faces or unrepresentable individual bodies never become partial success");
+}
+
+void CheckBodySurfaces(const GroundPortField &product, const GroundPortBodies &bodies) {
+  const auto &mesh = product.Geometry();
+  CHECK(bodies.Source == product.Source().Source &&
+            bodies.Anchor.LongitudeDeg == product.Domain().Anchor.LongitudeDeg &&
+            bodies.Anchor.LatitudeDeg == product.Domain().Anchor.LatitudeDeg &&
+            bodies.Bodies.size() == product.Source().SourceEdges.size(),
+        "the body batch retains its actual immutable source and original metric frame");
+  std::vector<unsigned> visits(mesh.Surface.Faces.size());
+  for (const auto &body : bodies.Bodies) {
+    const auto &solid = body.Geometry;
+    CHECK(solid.SurfaceFaces == body.FaceParents.size() && solid.VolumeM3 > 0,
+          "every actual physical source member gets one fully closed native body");
+    for (size_t face = 0; face < body.FaceParents.size(); ++face) {
+      const auto parent = body.FaceParents[face];
+      ++visits[parent];
+      const auto source = product.SourceEdgeOfFace(parent);
+      CHECK(source && *source == body.Source,
+            "body surfaces keep actual source lineage instead of a blend-patch surrogate");
+      for (size_t corner = 0; corner < 3; ++corner) {
+        const auto original = mesh.Surface.Faces[parent][corner];
+        const auto stored = solid.Points[solid.Faces[face][corner]];
+        const auto bottom = solid.Points[solid.Faces[solid.SurfaceFaces + face][2 - corner]];
+        CHECK(stored[0] == mesh.Surface.Points[original][0] &&
+                  stored[1] == mesh.Surface.Points[original][1] &&
+                  stored[2] == mesh.HeightsM[original] && bottom[0] == stored[0] &&
+                  bottom[1] == stored[1] && bottom[2] == stored[2] - kSealedDepthM,
+              "source partition preserves every exact finite top and the requested bed depth");
+      }
+    }
+  }
+  CHECK(std::ranges::all_of(visits, [](unsigned count) { return count == 1; }),
+        "the complete finite surface is partitioned without omissions or duplicate whole bodies");
+}
+
+void WriteBodies(const GroundPortBodies &bodies, size_t which, const char *path) {
+  if (path == nullptr) { return; }
+  RoadGroundMesh mesh;
+  for (const auto &body : bodies.Bodies) {
+    const auto first = static_cast<uint32_t>(mesh.Surface.Points.size());
+    for (const auto &point : body.Geometry.Points) {
+      mesh.Surface.Points.push_back({point[0], point[1]});
+      mesh.HeightsM.push_back(point[2]);
+    }
+    for (const auto &face : body.Geometry.Faces) {
+      mesh.Surface.Faces.push_back({first + face[0], first + face[1], first + face[2]});
+    }
+  }
+  const auto filename = std::format("{}.bodies", path);
+  Fixture::WriteMesh(mesh, which, filename.c_str());
+}
+
+std::optional<GroundPortBodies>
+CheckBodies(const GroundPortField &product, size_t which, const char *path) {
+  CheckBodyGuards(product);
+  BeginCppAllocationProbe();
+  const auto start = std::chrono::steady_clock::now();
+  auto bodies = BuildGroundPortBodies(product, kSealedDepthM);
+  const auto end = std::chrono::steady_clock::now();
+  const auto allocations = EndCppAllocationProbe();
+  CHECK(bodies.has_value(),
+        "all complete native affine/C1 faces become per-source functional bodies");
+  if (!bodies) {
+    std::visit(
+        [](auto error) { std::println("GROUND_BODY_ERROR {}", static_cast<unsigned>(error)); },
+        bodies.error());
+    return std::nullopt;
+  }
+  CheckBodySurfaces(product, *bodies);
+  WriteBodies(*bodies, which, path);
+  const auto again = BuildGroundPortBodies(
+      product, kSealedDepthM, {.Bodies = 4096, .SurfaceFaces = 32768, .ContainerBytes = 67108864});
+  CHECK(again && again->Bodies.size() == bodies->Bodies.size(),
+        "larger admissible work budgets do not change functional source membership");
+  if (again) {
+    for (size_t at = 0; at < bodies->Bodies.size(); ++at) {
+      const auto &a = bodies->Bodies[at];
+      const auto &b = again->Bodies[at];
+      CHECK(a.Source == b.Source && a.FaceParents == b.FaceParents &&
+                a.Geometry.Points == b.Geometry.Points && a.Geometry.Faces == b.Geometry.Faces &&
+                a.Geometry.WallParents == b.Geometry.WallParents &&
+                a.Geometry.WallKinds == b.Geometry.WallKinds &&
+                a.Geometry.VolumeM3 == b.Geometry.VolumeM3,
+            "body geometry, order and provenance are independent of larger work caps");
+    }
+  }
+  std::println("GROUND_BODIES sources={} faces={} ms={} allocations={} requested_bytes={} "
+               "retained_capacity={} scratch_capacity={} face_visits={} remapped_vertices={} "
+               "copied_surface_bytes={} solid_edge_visits={}",
+               bodies->Bodies.size(),
+               product.Geometry().Surface.Faces.size(),
+               std::chrono::duration<double, std::milli>(end - start).count(),
+               allocations.Calls,
+               allocations.Bytes,
+               bodies->Work.ContainerCapacityBytes,
+               bodies->Work.ScratchCapacityBytes,
+               bodies->Work.FaceVisits,
+               bodies->Work.RemappedVertices,
+               bodies->Work.CopiedSurfaceBytes,
+               bodies->Work.SolidEdgeVisits);
+  return std::move(*bodies);
 }
 
 void CheckFaceSources(const GroundPortField &product) {
@@ -308,9 +435,25 @@ int main(int argc, char **argv) {
       retained.push_back({.Field = std::move(product), .Demands = std::move(demands)});
     }
   }
-  for (const auto &held : retained) {
+  std::vector<GroundPortBodies> bodies;
+  std::vector<std::weak_ptr<const GroundPortField>> fields;
+  for (size_t which = 0; which < retained.size(); ++which) {
+    const auto &held = retained[which];
+    auto closed = CheckBodies(*held.Field, which, argc > 1 ? argv[1] : nullptr);
+    if (closed) { bodies.push_back(std::move(*closed)); }
+    fields.emplace_back(held.Field);
     CheckFaceSources(*held.Field);
     CheckSamples(*held.Field, held.Demands);
+  }
+  retained.clear();
+  CHECK(std::ranges::all_of(fields, [](const auto &field) { return field.expired(); }),
+        "the actual native field/fit/terrain products are released before body consumption");
+  for (const auto &batch : bodies) {
+    for (const auto &body : batch.Bodies) {
+      CHECK(batch.Source->Topology().FindEdge(body.Source) && body.Geometry.VolumeM3 > 0 &&
+                !body.Geometry.Points.empty() && !body.Geometry.Faces.empty(),
+            "body geometry and actual immutable source survive all original solver/DEM owners");
+    }
   }
   return Report();
 }
