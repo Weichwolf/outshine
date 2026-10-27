@@ -52,6 +52,24 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
+    set(indirect_shaders "")
+    foreach(shader dispatch-arguments dispatch-count)
+      set(output "${PROJECT_BINARY_DIR}/test-shaders/${shader}.comp.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${output}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/${shader}.comp" -o "${output}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/${shader}.comp"
+        VERBATIM)
+      list(APPEND indirect_shaders "${output}")
+    endforeach()
+    add_custom_target(test_indirect_dispatch_shaders DEPENDS ${indirect_shaders})
+    add_dependencies(${target} test_indirect_dispatch_shaders)
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_DISPATCH_ARGUMENTS_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/dispatch-arguments.comp.spv\""
+      "OUTSHINE_DISPATCH_COUNT_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/dispatch-count.comp.spv\"")
+  endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
     set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")

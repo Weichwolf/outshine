@@ -1,0 +1,8 @@
+#version 450
+layout(local_size_x = 4) in;
+layout(std430, set = 1, binding = 0) buffer Output { uint values[]; };
+void main() {
+  uvec3 size = gl_NumWorkGroups * gl_WorkGroupSize;
+  uint at = gl_GlobalInvocationID.x + size.x * (gl_GlobalInvocationID.y + size.y * gl_GlobalInvocationID.z);
+  values[at] = at + 1u;
+}
