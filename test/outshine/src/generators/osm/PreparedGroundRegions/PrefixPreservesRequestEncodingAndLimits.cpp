@@ -112,16 +112,26 @@ int main() {
   constexpr size_t kLargeRecipeBytes = size_t{160} * 1024;
   std::string rules(kLargeRecipeBytes, 'r');
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-98",
+      "prepared-ground-region-99",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);
+  auto previous = Generators::AssetSourceRecipe(
+      "prepared-ground-region-98",
+      sources,
+      std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
+  previous.append(rules);
   {
     const auto opened = PreparedGroundRegions::Open(root.string(), sources, rules);
     CHECK(opened, "the source-independent request service opens with a large recipe");
     if (opened) {
       rules.assign(rules.size(), 'x');
       CheckKeys(**opened, recipe);
+      const Ground::ShapedGround shape;
+      const auto old = LegacyMessage(previous, shape, 4, MvtSchema::Shortbread, {}, {});
+      CHECK(!old.empty() && (*opened)->RequestKey(4, MvtSchema::Shortbread, shape, {}, {}) !=
+                                Sha256Hex(old.data(), old.size()),
+            "corrected contact selection cannot reuse previous prepared-region requests");
     }
   }
   {

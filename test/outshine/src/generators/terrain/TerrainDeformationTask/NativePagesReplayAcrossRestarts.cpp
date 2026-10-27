@@ -3,6 +3,7 @@
 #include "PreparedTerrainAssets.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <expected>
@@ -87,15 +88,19 @@ int main() {
   auto cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
   CHECK(cache.has_value(), "native terrain service opens");
   if (!cache) { return Report(); }
-  const std::string legacyKey = "82aeb24257e4cb347f8a9e5a1f2339692dcfc04f58fefad77d3a560f5f60e2b2";
-  CHECK(key != legacyKey,
-        "the grouped-apron solver cannot select products of solver revision eight");
+  const std::array legacyKeys{
+      std::string("82aeb24257e4cb347f8a9e5a1f2339692dcfc04f58fefad77d3a560f5f60e2b2"),
+      std::string("812aca3ccb22fd20baf93fda2dbfa12de842266ef039bb05b06bde929c0bf69f")};
   PreparedTerrainDeformation legacy{.Pages = reference.Sheets, .Effects = expected};
   for (auto &page : legacy.Pages) {
     for (auto &height : page.Nodes) { height = -100; }
   }
-  CHECK((*cache)->StoreDeformation(legacyKey, legacy).has_value(),
-        "an old solver product may remain stored alongside current products");
+  for (const auto &legacyKey : legacyKeys) {
+    CHECK(key != legacyKey,
+          "corrected contact selection cannot select products of solver revisions eight or nine");
+    CHECK((*cache)->StoreDeformation(legacyKey, legacy).has_value(),
+          "old solver products remain stored alongside current products");
+  }
   Patchwork cold = Inputs();
   {
     TerrainDeformationTask task(pool, *cache, Stamps(), cold, frame, kLayout, 30);
@@ -105,8 +110,9 @@ int main() {
     CHECK(cold.Sheets == reference.Sheets && cold.Tiles == 4 && cold.ReachTiles == 4,
           "native deformation reproduces the original generator bit for bit");
   }
-  CHECK((*cache)->Costs().DeformationMisses == 1 && (*cache)->Costs().DeformationWrites == 2,
-        "cold miss adds one current product beside the retained old solver product");
+  CHECK((*cache)->Costs().DeformationMisses == 1 &&
+            (*cache)->Costs().DeformationWrites == legacyKeys.size() + 1,
+        "cold miss adds one current product beside both retained old solver products");
   cache->reset();
   cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
   CHECK(cache.has_value(), "independent native cache connection restarts");

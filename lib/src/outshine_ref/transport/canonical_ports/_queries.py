@@ -8,7 +8,10 @@ from ._geodesy import frame, positions_in_frame
 
 
 class CoarseDomain:
-    def __init__(self, surface, face_parts):
+    def __init__(self, surface, face_parts, *, max_queries=4096):
+        if type(max_queries) is not int or not 0 < max_queries <= 4096:
+            raise ValueError("bounded positive coarse-query limit at most4096 required")
+        self.max_queries = max_queries
         self.parts = face_parts
         self.triangles = surface.vertices[surface.triangles, :2]
         self.lo = self.triangles.min(axis=1)
@@ -23,7 +26,7 @@ class CoarseDomain:
 
     def part_at(self, xy):
         self.queries += 1
-        if self.queries > 4096:
+        if self.queries > self.max_queries:
             raise ValueError("coarse field query budget")
         self.face_bounds_tests += len(self.triangles)
         candidates = np.flatnonzero(((xy >= self.lo) & (xy <= self.hi)).all(axis=1))
