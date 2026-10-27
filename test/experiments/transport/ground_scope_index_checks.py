@@ -263,6 +263,102 @@ class ActualGroundScopeIndex(unittest.TestCase):
         self.assertEqual(reason, "ground_scope_time_budget")
         self.assertFalse(any(work.values()))
 
+    def split_group(self, node):
+        group = next(
+            g
+            for g in self.groups
+            if len(g.members) >= 2 and all(m.domain_node == node for m in g.members)
+        )
+        split = tuple(
+            replace(
+                group,
+                identifier=group.identifier + f"-split-{i}",
+                members=(member,),
+                original_endpoint_count=1,
+            )
+            for i, member in enumerate(group.members)
+        )
+        return tuple(g for g in self.groups if g.identifier != group.identifier) + split
+
+    def compare_group_inputs(self, groups):
+        prepared, reason, _ = prepare_ground_scope_index(
+            self.source,
+            groups,
+            self.ways,
+            source_binding=self.source.binding,
+            candidate_binding=self.binding,
+        )
+        self.assertEqual(reason, "")
+        results = [
+            prepare_ground_field_scope(
+                self.source,
+                SEED,
+                groups,
+                self.ways,
+                source_binding=self.source.binding,
+                candidate_binding=self.binding,
+                scope_index=index,
+            )
+            for index in (None, prepared)
+        ]
+        self.assertEqual(results[0][1:4], results[1][1:4])
+        self.assertEqual(results[1][4]["source_fact_member_visits"], 0)
+        return prepared, results[1]
+
+    def test_ambiguity_on_foreign_actual_node_does_not_block_valid_component(self):
+        foreign = 11639685656645323
+        groups = self.split_group(foreign)
+        prepared, current = self.compare_group_inputs(groups)
+        self.assertIsNone(prepared.groups_by_node[foreign])
+        self.assertEqual(current[3], "")
+        self.assertEqual(current[1:4], self.scope(indexed=False)[1:4])
+
+    def test_ambiguity_on_selected_actual_node_stays_pending_before_dem(self):
+        group = next(g for g in self.groups if g.identifier.endswith(":2842"))
+        node = group.members[0].domain_node
+        groups = self.split_group(node)
+        prepared, current = self.compare_group_inputs(groups)
+        self.assertEqual(current[3], "ambiguous_ground_scope_group")
+        sample = Mock(side_effect=AssertionError("no DEM for local ambiguity"))
+        field, reason, report = derive_scoped_ground_field(
+            self.source,
+            SEED,
+            groups,
+            self.ways,
+            sample,
+            source_binding=self.source.binding,
+            candidate_binding=self.binding,
+            terrain_binding=self.terrain_binding,
+            maximum_prior_change_m=3,
+            scope_index=prepared,
+        )
+        self.assertIsNone(field)
+        self.assertEqual(reason, "ambiguous_ground_scope_group")
+        self.assertEqual(report["terrain_samples"], 0)
+        sample.assert_not_called()
+
+    def test_global_group_and_physical_duplicates_still_reject_index(self):
+        group = self.groups[-1]
+        for extra, expected in (
+            (group, "duplicate_ground_scope_group"),
+            (
+                replace(group, identifier=group.identifier + "-duplicate"),
+                "duplicate_ground_scope_member",
+            ),
+        ):
+            with self.subTest(expected=expected):
+                groups = self.groups + (extra,)
+                index, reason, _ = prepare_ground_scope_index(
+                    self.source,
+                    groups,
+                    self.ways,
+                    source_binding=self.source.binding,
+                    candidate_binding=self.binding,
+                )
+                self.assertIsNone(index)
+                self.assertEqual(reason, expected)
+                self.assertEqual(self.scope(indexed=False, groups=groups)[3], expected)
+
 
 class IndexedGroundScopeRequirements(requirements.ActualGroundFieldScope):
     @classmethod

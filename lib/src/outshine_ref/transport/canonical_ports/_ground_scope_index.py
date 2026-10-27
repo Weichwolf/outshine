@@ -73,6 +73,7 @@ def source_omissions(source):
 
 
 def group_nodes(groups, selected_nodes, work):
+    """Index original groups; None preserves a locally ambiguous node in a batch."""
     by_node, physical, identifiers = {}, set(), set()
     for group in groups:
         if group.identifier in identifiers:
@@ -85,8 +86,10 @@ def group_nodes(groups, selected_nodes, work):
             physical.add(key)
             if selected_nodes is None or member.domain_node in selected_nodes:
                 previous = by_node.setdefault(member.domain_node, group)
-                if previous.identifier != group.identifier:
-                    return None, "ambiguous_ground_scope_group"
+                if previous is None or previous.identifier != group.identifier:
+                    if selected_nodes is not None:
+                        return None, "ambiguous_ground_scope_group"
+                    by_node[member.domain_node] = None
             work["source_fact_member_visits"] += 1
     if selected_nodes is not None and by_node.keys() != selected_nodes:
         return None, "missing_ground_scope_original_group"

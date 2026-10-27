@@ -287,11 +287,14 @@ def prepare_ground_field_scope(
             if n in scope_index.groups_by_node
         }
         work["original_group_lookups"] = len(selected_nodes)
-        reason = (
-            ""
-            if by_node.keys() == selected_nodes
-            else "missing_ground_scope_original_group"
-        )
+        if any(group is None for group in by_node.values()):
+            reason = "ambiguous_ground_scope_group"
+        else:
+            reason = (
+                ""
+                if by_node.keys() == selected_nodes
+                else "missing_ground_scope_original_group"
+            )
         table = scope_index.ways_by_id
     if reason:
         return pending(reason)
