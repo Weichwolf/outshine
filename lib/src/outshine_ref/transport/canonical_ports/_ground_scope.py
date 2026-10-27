@@ -4,11 +4,16 @@ The original source and logical Unknown remain unchanged. A qualified scope
 permits its own geometric field, never a World join or external height claim.
 """
 
-from collections.abc import Mapping
 from types import MappingProxyType
 
 from ...contracts import immutable
-from ._end_candidates import CandidateGroup, CandidateWay, float_word
+from ._end_candidates import float_word
+from ._ground_scope_index import (
+    group_nodes,
+    indexed_input_guard,
+    input_guard,
+    source_omissions,
+)
 from ._source import component, source_chain, source_index
 from ._types import PortBudget, PortSource
 
@@ -111,27 +116,6 @@ def bound_member(member, group, index, ways):
     return span, way, ""
 
 
-def group_nodes(groups, selected_nodes, work):
-    by_node, physical, identifiers = {}, set(), set()
-    for group in groups:
-        if group.identifier in identifiers:
-            return None, "duplicate_ground_scope_group"
-        identifiers.add(group.identifier)
-        for member in group.members:
-            key = member.edge[:2], member.physical_end
-            if key in physical:
-                return None, "duplicate_ground_scope_member"
-            physical.add(key)
-            if member.domain_node in selected_nodes:
-                previous = by_node.setdefault(member.domain_node, group)
-                if previous.identifier != group.identifier:
-                    return None, "ambiguous_ground_scope_group"
-            work["source_fact_member_visits"] += 1
-    if by_node.keys() != selected_nodes:
-        return None, "missing_ground_scope_original_group"
-    return by_node, ""
-
-
 def qualify_groups(index, selected, by_node, ways, omissions, work, remaining):
     _nodes, _spans, incidence = index
     selected_set, seen, exits, profiles = set(selected), set(), [], {}
@@ -211,12 +195,22 @@ def qualify_groups(index, selected, by_node, ways, omissions, work, remaining):
 
 
 def prepare_ground_field_scope(
-    source, seed, groups, ways, *, source_binding, candidate_binding, budget=None
+    source,
+    seed,
+    groups,
+    ways,
+    *,
+    source_binding,
+    candidate_binding,
+    budget=None,
+    scope_index=None,
 ):
     """Prepare the existing ground component with an explicit original-fact proof.
 
     Returns (existing index, selected members, immutable binding, reason, work).
     No DEM/solver work occurs here. Unknown never changes or becomes an ignore flag.
+    Optional scope_index owns the exact same input objects and avoids repeated
+    global scans. Its construction work is separate; original admission caps hold.
     """
     budget = PortBudget() if budget is None else budget
     if not isinstance(source, PortSource) or not isinstance(budget, PortBudget):
@@ -231,35 +225,27 @@ def prepare_ground_field_scope(
     def pending(reason):
         return None, (), None, reason, work
 
-    if (
-        not isinstance(groups, tuple)
-        or not isinstance(ways, tuple)
-        or any(not isinstance(g, CandidateGroup) for g in groups)
-        or any(not isinstance(w, CandidateWay) for w in ways)
-    ):
-        raise TypeError("owned original group/Way fact tuples required")
-    if (
-        len(groups) > budget.input_nodes
-        or len(ways) > budget.input_spans
-        or sum(len(g.members) for g in groups) > budget.incidence_visits
-    ):
-        return pending("ground_scope_fact_budget")
-    if (
-        source_binding != source.binding
-        or not isinstance(candidate_binding, Mapping)
-        or not candidate_binding
-        or candidate_binding.get("source_facts_digest")
-        != source.binding.get("source_facts_digest")
-        or not source.binding.get("source_facts_digest")
-    ):
-        return pending("ground_scope_binding_mismatch")
-    index, reason = source_index(source, budget)
+    if scope_index is None:
+        reason, fact_visits = input_guard(
+            source, groups, ways, source_binding, candidate_binding, budget
+        )
+        if reason:
+            return pending(reason)
+        index, reason = source_index(source, budget)
+        work.update(indexed_nodes=len(source.nodes), indexed_spans=len(source.spans))
+        unknown = set(source.unknown_nodes)
+    else:
+        reason = indexed_input_guard(
+            scope_index, source, groups, ways, source_binding, candidate_binding, budget
+        )
+        index, unknown, fact_visits = (
+            scope_index.index,
+            scope_index.unknown,
+            scope_index.member_count,
+        )
     if reason:
         return pending(reason)
-    work.update(indexed_nodes=len(source.nodes), indexed_spans=len(source.spans))
-    selected, closure, counted = component(
-        index, seed, set(source.unknown_nodes), budget
-    )
+    selected, closure, counted = component(index, seed, unknown, budget)
     work.update(counted)
     if closure not in ("", "unknown_source_frontier"):
         return pending(closure)
@@ -280,24 +266,38 @@ def prepare_ground_field_scope(
         )
     ):
         return pending("ground_scope_coverage_gap")
-    omissions = {}
-    for row in source.binding.get("omissions", ()):
-        omissions.setdefault((row["Source"], tuple(row["Feature"])), set()).add(
-            row["Reason"]
-        )
+    omissions = (
+        source_omissions(source) if scope_index is None else scope_index.omissions
+    )
     known_unknown = set()
     for edge in selected:
         if 4 in omissions.get(source_key(spans[edge]), ()):
             known_unknown.update(spans[edge].nodes)
-    if not set(source.unknown_nodes).intersection(selected_nodes) <= known_unknown:
+    if not unknown.intersection(selected_nodes) <= known_unknown:
         return pending("unqualified_ground_scope_unknown")
-    fact_visits = sum(len(group.members) for group in groups)
     if fact_visits > budget.incidence_visits - work["incidence_visits"]:
         return pending("ground_scope_incidence_budget")
-    by_node, reason = group_nodes(groups, selected_nodes, work)
+    if scope_index is None:
+        by_node, reason = group_nodes(groups, selected_nodes, work)
+        table = {w.source_way: w for w in ways}
+    else:
+        by_node = {
+            n: scope_index.groups_by_node[n]
+            for n in selected_nodes
+            if n in scope_index.groups_by_node
+        }
+        work["original_group_lookups"] = len(selected_nodes)
+        if any(group is None for group in by_node.values()):
+            reason = "ambiguous_ground_scope_group"
+        else:
+            reason = (
+                ""
+                if by_node.keys() == selected_nodes
+                else "missing_ground_scope_original_group"
+            )
+        table = scope_index.ways_by_id
     if reason:
         return pending(reason)
-    table = {w.source_way: w for w in ways}
     if len(table) != len(ways):
         return pending("duplicate_ground_scope_way")
     qualified, reason = qualify_groups(
@@ -307,9 +307,7 @@ def prepare_ground_field_scope(
         table,
         omissions,
         work,
-        budget.incidence_visits
-        - work["incidence_visits"]
-        - work["source_fact_member_visits"],
+        budget.incidence_visits - work["incidence_visits"] - fact_visits,
     )
     if reason:
         return pending(reason)
@@ -318,7 +316,9 @@ def prepare_ground_field_scope(
         {
             "procedure": "outshine/finite-ground-domain/1",
             "source_binding": source.binding,
-            "candidate_binding": immutable(candidate_binding),
+            "candidate_binding": immutable(candidate_binding)
+            if scope_index is None
+            else scope_index.candidate_binding,
             "members": selected,
             "profiles": profiles,
             "typed_exits": exits,
