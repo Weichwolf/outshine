@@ -29,6 +29,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/terrain/inputs
   generators/terrain/providers
   generators/transport
+  generators/transport/ground
   generators/water
   generators/weather
   generators/weather/inputs
@@ -117,6 +118,7 @@ target_link_libraries(outshine_generators PUBLIC outshine_base outshine_content 
 target_link_libraries(outshine_generators_base PUBLIC outshine_base outshine_content outshine_world outshine_sources)
 target_link_libraries(outshine_generators_contracts PUBLIC outshine_base outshine_world_contracts outshine_world_products)
 target_link_libraries(outshine_generators_transport PUBLIC outshine_generators_contracts outshine_content_assets)
+target_link_libraries(outshine_generators_transport_ground PUBLIC outshine_generators_transport outshine_generators_road_height outshine_generators_terrain)
 target_link_libraries(outshine_world_contracts INTERFACE outshine_base)
 target_link_libraries(outshine_generators_building PUBLIC outshine_generators_terrain_inputs outshine_generators_base outshine_base outshine_content outshine_world)
 target_link_libraries(outshine_generators_earth PUBLIC outshine_base outshine_world outshine_generators_terrain outshine_generators_osm)

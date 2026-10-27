@@ -74,6 +74,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundStrip/WholeWidthObservationsKeepTheOriginalFieldContracts"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundFacetAudit/ContinuousFieldsStillNeedFiniteContactChecks"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundMesh/FiniteBandsPreserveTheirOriginalDomainAndWholePorts"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OwnedFieldProductsServeTheActualPorts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/CapturedSourcesReachTheBoundDemAndC1Field"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
@@ -121,6 +122,8 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
+    elseif(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OwnedFieldProductsServeTheActualPorts")
+      set(owner generators/transport/ground)
     elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
       set(owner generators/transport)
     elseif(name MATCHES "^outshine/integration/generators/transport/AppearancePages/")
