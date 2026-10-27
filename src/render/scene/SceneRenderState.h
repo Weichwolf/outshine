@@ -6,6 +6,8 @@
 #include <optional>
 
 namespace outshine::Render {
+class SceneRenderer;
+
 class SceneRenderState {
 public:
   SceneRenderState() : Geometry_(Scene_), Transmission_(Scene_, GeometryPassKind::Transmission) {}
@@ -28,11 +30,10 @@ public:
   [[nodiscard]] const GeometryRenderer &Transmission() const noexcept { return Transmission_; }
 
 private:
+  friend class SceneRenderer;
   RenderScene Scene_;
   GeometryRenderer Geometry_;
   GeometryRenderer Transmission_;
-
-public:
   std::optional<GroundClassificationSource> PendingGroundClasses;
   bool DrawsGlass = false;
 };
