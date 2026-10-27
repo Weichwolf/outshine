@@ -11,6 +11,7 @@ import numpy as np
 from ...contracts import Mesh, immutable
 from ..port_heights._world import finite_ports, normal_gradients
 from ._ground import fit_ground, prepare_ground
+from ._ground_recipe import known_geometry_recipe
 from ._ground_scope import prepare_ground_field_scope
 from ._source import source_chain
 from ._types import PortBudget
@@ -49,14 +50,44 @@ def affine_surface(inputs, field):
     return Mesh(vertices, faces), parents, quality
 
 
-def fit_scope_field(index, selected, sample, limit, method, budget, report):
-    chain, reason = source_chain(index, selected)
-    if reason:
-        return None, reason
+def fit_scope_field(
+    index, selected, sample, limit, method, budget, report, geometry_recipe=None
+):
+    deadline = time.monotonic() + budget.surface.time_limit_s
     try:
-        anchor, inputs, _count = prepare_ground(chain, sample, budget)
-        field, fitting = fit_ground(inputs, limit, method, budget)
-    except (ValueError, OSError, np.linalg.LinAlgError) as error:
+        if geometry_recipe is None:
+            chain, reason = source_chain(index, selected)
+            if reason:
+                return None, reason
+            anchor, inputs, _count = prepare_ground(chain, sample, budget)
+            fitting_budget = budget
+        else:
+            from ._ground_star_input import prepare_star_ground
+
+            anchor, inputs, caps, geometry = prepare_star_ground(
+                index, selected, sample, budget, deadline=deadline
+            )
+            report.update(source_terminal_cuts=tuple(caps), geometry=geometry)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError("ground_scope_time_budget")
+            fitting_budget = replace(
+                budget,
+                surface=replace(
+                    budget.surface,
+                    time_limit_s=remaining,
+                    solver_time_limit_s=min(
+                        budget.surface.solver_time_limit_s, remaining
+                    ),
+                    geometry_time_limit_s=min(
+                        budget.surface.geometry_time_limit_s, remaining
+                    ),
+                ),
+            )
+        field, fitting = fit_ground(inputs, limit, method, fitting_budget)
+        if geometry_recipe is not None and time.monotonic() >= deadline:
+            raise ValueError("ground_scope_time_budget")
+    except (ValueError, OSError, MemoryError, np.linalg.LinAlgError) as error:
         return None, "ground_field_unavailable:" + str(error)
     report["field"] = fitting
     report["source_prior_surface"] = inputs.surface
@@ -93,12 +124,15 @@ def derive_scoped_ground_field(
     budget=None,
     method="auto",
     scope_index=None,
+    geometry_recipe=None,
 ):
     """Return (existing prepared field, reason, bound report), with no World join.
 
     The new scope can qualify geometry despite logical Unknown only through the
     original-member proof. The established strict port producer is unchanged.
     The supplied prior limit remains mandatory; no solver result increases it.
+    geometry_recipe explicitly selects the versioned three-arm construction;
+    the default keeps the established chain geometry and binding.
     A scope_index may reuse the same owned source/fact indexes across fields;
     it does not retain fitted fields or alter request/binding/quality semantics.
     """
@@ -130,6 +164,8 @@ def derive_scoped_ground_field(
         "field": None,
         "qualified_world_joins": 0,
     }
+    if not known_geometry_recipe(geometry_recipe):
+        return None, "unsupported_ground_geometry_recipe", report
     if budget.surface.time_limit_s == 0:
         return None, "ground_scope_time_budget", report
     started = time.monotonic()
@@ -142,6 +178,7 @@ def derive_scoped_ground_field(
         candidate_binding=candidate_binding,
         budget=budget,
         scope_index=scope_index,
+        geometry_recipe=geometry_recipe,
     )
     report.update(source_scope=scope, source_work=work)
     if reason:
@@ -186,7 +223,14 @@ def derive_scoped_ground_field(
         return terrain(geographic)
 
     prepared, reason = fit_scope_field(
-        index, selected, sample, maximum_prior_change_m, method, local_budget, report
+        index,
+        selected,
+        sample,
+        maximum_prior_change_m,
+        method,
+        local_budget,
+        report,
+        geometry_recipe,
     )
     if prepared is not None:
         report["state"] = "QualifiedField"

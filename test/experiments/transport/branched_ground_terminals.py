@@ -1,13 +1,8 @@
-"""Private three-cap audit using the existing finite construction and query helpers."""
+"""Independent own-frame diagnostics on the shared finite terminal construction."""
 
 import numpy as np
-from outshine_ref.contracts import Mesh
 from outshine_ref.transport.canonical_ports._ground_terminal_geometry import (
-    boundary_edges,
-    cap_path,
-    intersect_section,
-    section_geometry,
-    terminal_plane,
+    rebuild_terminal_caps,
 )
 from outshine_ref.transport.canonical_ports._ground_terminal_quality import (
     qualify_terminal_surface,
@@ -16,77 +11,26 @@ from outshine_ref.transport.canonical_ports._ground_terminals import terminal_va
 
 
 def construct(anchor, field, inputs, original_caps, index, budget, *, prior_limit):
-    old = field.plan.mesh
-    vertices = old.vertices.copy()
-    boundary = boundary_edges(old)
-    caps = []
-    for original in original_caps:
-        node = original["source_node"]
-        ends = original["original_vertices"]
-        group = index.groups_by_node[node]
-        members = [
-            m
-            for m in group.members
-            if m.domain_node == node and m.edge[:2] == tuple(original["ground_edge"])
-        ]
-        assert len(members) == 1 and members[0].source_terminal is True
-        member = members[0]
-        span = index.index[1][member.edge[:2]]
-        way = index.ways_by_id[member.source_way]
-        segment = way.first_segment if member.physical_end == 0 else way.last_segment
-        faces = np.flatnonzero(
-            np.count_nonzero(np.isin(inputs.surface.triangles, ends), axis=1) == 2
-        )
-        assert len(faces) == 1
-        part = int(inputs.face_parts[faces[0]])
-        assert inputs.part_roles[part] == 1
-        path = cap_path(
-            boundary,
-            field.plan.source_faces,
-            int(faces[0]),
-            field.plan.original_vertex_map[list(ends)],
-        )
-        gradient, intercept = terminal_plane(field, part)
-        at, left, up = section_geometry(anchor, group.position, segment)
-        current, initial = intersect_section(
-            vertices[path], span.width_m / 2, at, left, up, gradient, intercept
-        )
-        vertices[path] = current
-        caps.append(
-            {
-                "group": group.identifier,
-                "source_node": node,
-                "ground_edge": member.edge,
-                "ground_end": member.end,
-                "source_way": member.source_way,
-                "source_segment": segment,
-                "anchor_longitude_latitude": group.position,
-                "half_width_m": span.width_m / 2,
-                "cap_vertices": tuple(map(int, path)),
-                "part": part,
-                "plane_source_gradient": tuple(map(float, gradient)),
-                "plane_source_intercept": intercept,
-                "initial_model_height_m": initial,
-            }
-        )
+    report = {
+        "source_input": inputs,
+        "surface": field.plan.mesh,
+        "surface_source_faces": field.plan.source_faces,
+        "source_terminal_cuts": original_caps,
+        "source_scope": {"members": tuple(cap["ground_edge"] for cap in original_caps)},
+    }
+    mesh, caps, work = rebuild_terminal_caps((anchor, field), report, index)
     mesh, parts, quality, copied = qualify_terminal_surface(
-        field, Mesh(vertices, old.triangles), {"source_input": inputs}, prior_limit
+        field, mesh, report, prior_limit
     )
     values = terminal_values((anchor, field), mesh, parts, caps, index, budget)
     assert len(values) == 3
-    independent = audit_sections(anchor, mesh, values)
     return mesh, {
-        "scope": "Private three-cap finite/numeric control on source-checked inputs. No new accepted source scope, public producer, bridge or World authority.",
+        **work,
+        "scope": "Finite diagnostic on shared helpers; no canonical variant/World binding.",
         "values": values,
         "whole_quality": quality,
         "known_owned_plan_payload_copy_bytes": copied,
-        "triangle_edge_visits": 3 * len(old.triangles),
-        "boundary_edge_scan_visits": len(boundary) * len(caps),
-        "edge_work_scope": "Enumeration and full cap-path scans only; BFS and quality work excluded.",
-        "independent_sections": independent,
-        "maximum_vertex_shift_m": float(
-            np.linalg.norm(vertices - old.vertices, axis=1).max()
-        ),
+        "independent_sections": audit_sections(anchor, mesh, values),
     }
 
 

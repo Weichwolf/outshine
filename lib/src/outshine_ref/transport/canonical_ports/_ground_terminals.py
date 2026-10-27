@@ -7,6 +7,7 @@ from dataclasses import replace
 import numpy as np
 
 from ...contracts import immutable
+from ._ground_recipe import known_geometry_recipe
 from ._ground_scope_field import derive_scoped_ground_field
 from ._ground_scope_index import prepare_ground_scope_index
 from ._ground_terminal_geometry import rebuild_terminal_caps
@@ -53,8 +54,11 @@ def derive_scoped_ground_terminals(
     budget=None,
     method="auto",
     scope_index=None,
+    geometry_recipe=None,
 ):
-    """Fit the existing field and construct both actual source terminal sections.
+    """Fit the existing field and construct its actual source terminal sections.
+
+    The default retains two chain ends; the explicit three-arm recipe has three.
 
     Terminal heights come from intersecting the fitted end planes with their bound
     geodetic source cuts. The existing bounded query then checks the constructed
@@ -74,7 +78,10 @@ def derive_scoped_ground_terminals(
         "qualified_world_joins": 0,
         "index_build_work": {},
     }
-    if budget.requests < 2 or budget.surface.max_queries < 2:
+    if not known_geometry_recipe(geometry_recipe):
+        return None, "unsupported_ground_geometry_recipe", report
+    terminal_count = 2 if geometry_recipe is None else 3
+    if budget.requests < terminal_count or budget.surface.max_queries < terminal_count:
         return None, "ground_terminal_query_budget", report
     if budget.surface.geometry_time_limit_s == 0 or budget.surface.time_limit_s == 0:
         return None, "ground_terminal_time_budget", report
@@ -115,6 +122,7 @@ def derive_scoped_ground_terminals(
         budget=local,
         method=method,
         scope_index=scope_index,
+        geometry_recipe=geometry_recipe,
     )
     fitted["index_build_work"] = report["index_build_work"]
     report = fitted
