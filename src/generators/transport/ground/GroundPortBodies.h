@@ -3,6 +3,7 @@
 
 #include "GroundPortField.h"
 #include "HeightSolid.h"
+#include "HeightSolidTerrainContact.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -16,6 +17,13 @@ struct GroundPortBody {
   World::TransportEdgeId Source;
   HeightSolid Geometry;
   std::vector<uint32_t> FaceParents;
+  std::vector<EarthworkStamp> TerrainContacts;
+};
+
+struct GroundPortBodyRecipe {
+  double ThicknessM = 0;
+  double ApronM = 0;
+  double ReliefM = 0;
 };
 
 struct GroundPortBodyBudget {
@@ -32,6 +40,7 @@ struct GroundPortBodyWork {
   size_t ContainerCapacityBytes = 0;
   size_t ScratchCapacityBytes = 0;
   size_t SolidEdgeVisits = 0;
+  size_t TerrainContactFaces = 0;
 };
 
 struct GroundPortBodies {
@@ -41,11 +50,11 @@ struct GroundPortBodies {
   GroundPortBodyWork Work;
 };
 
-using GroundPortBodyError = std::variant<RoadGroundError, HeightSolidError>;
+using GroundPortBodyError = std::variant<RoadGroundError, HeightSolidError, SurfaceEarthworkError>;
 
 [[nodiscard]] std::expected<GroundPortBodies, GroundPortBodyError>
 BuildGroundPortBodies(const GroundPortField &field,
-                      double thicknessM,
+                      GroundPortBodyRecipe recipe,
                       GroundPortBodyBudget budget = {},
                       const std::stop_token &stop = {});
 }

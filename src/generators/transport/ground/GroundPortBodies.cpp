@@ -70,7 +70,8 @@ Checked<void> Partition(const GroundPortField &field,
                         const std::stop_token &stop) {
   const auto edges = field.Source().Source->Topology().Edges();
   for (const auto index : field.Source().SourceEdges) {
-    output.Bodies.push_back({.Source = edges[index].Id, .Geometry = {}, .FaceParents = {}});
+    output.Bodies.push_back(
+        {.Source = edges[index].Id, .Geometry = {}, .FaceParents = {}, .TerrainContacts = {}});
   }
   std::ranges::sort(output.Bodies, {}, [](const auto &body) { return Key(body.Source); });
   scratch.Counts.resize(output.Bodies.size());
@@ -136,15 +137,41 @@ Checked<void> Copy(const RoadGroundMesh &mesh,
   }
   return {};
 }
+
+Checked<void> Contacts(GroundPortBody &body,
+                       GroundPortBodyRecipe recipe,
+                       GroundPortBodyWork &work,
+                       size_t bytesMost,
+                       const std::stop_token &stop) {
+  body.TerrainContacts.reserve(body.Geometry.SurfaceFaces);
+  work.ContainerCapacityBytes += body.TerrainContacts.capacity() * sizeof(EarthworkStamp);
+  const SurfaceGroundSource source{.Effect = SurfaceGroundEffect::GroundContact,
+                                   .ContactKey = body.Source.PathId,
+                                   .ReliefM = recipe.ReliefM};
+  for (size_t face = 0; face < body.Geometry.SurfaceFaces; ++face) {
+    if (stop.stop_requested()) { return std::unexpected(Error{RoadGroundError::Canceled}); }
+    if (work.ContainerCapacityBytes > bytesMost) {
+      return std::unexpected(Error{RoadGroundError::CapacityExceeded});
+    }
+    auto contact = BuildHeightSolidTerrainContact(body.Geometry, face, source, recipe.ApronM);
+    if (!contact) { return std::unexpected(Error{contact.error()}); }
+    work.ContainerCapacityBytes += contact->HeapBytes();
+    body.TerrainContacts.push_back(std::move(*contact));
+    ++work.TerrainContactFaces;
+  }
+  return {};
+}
 }
 
 std::expected<GroundPortBodies, GroundPortBodyError>
 BuildGroundPortBodies(const GroundPortField &field,
-                      double thicknessM,
+                      GroundPortBodyRecipe recipe,
                       GroundPortBodyBudget budget,
                       const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(Error{RoadGroundError::Canceled}); }
-  if (!std::isfinite(thicknessM) || thicknessM <= 0) {
+  if (!std::isfinite(recipe.ThicknessM) || recipe.ThicknessM <= 0 ||
+      !std::isfinite(recipe.ApronM) || recipe.ApronM < 0 || !std::isfinite(recipe.ReliefM) ||
+      recipe.ReliefM < 0) {
     return std::unexpected(Error{HeightSolidError::InvalidInput});
   }
   const auto &mesh = field.Geometry();
@@ -159,9 +186,10 @@ BuildGroundPortBodies(const GroundPortField &field,
   };
   if (count > budget.Bodies || count >= kAbsent || faces > budget.SurfaceFaces ||
       faces >= kAbsent || !fits(count, sizeof(GroundPortBody) + sizeof(uint32_t)) ||
-      !fits(faces, 2 * sizeof(uint32_t)) || !fits(points, sizeof(uint32_t)) ||
-      budget.Solid.Points == 0 || budget.Solid.SurfaceFaces == 0 || budget.Solid.Vertices == 0 ||
-      budget.Solid.Faces == 0 || budget.Solid.EdgeVisits == 0) {
+      !fits(faces, 2 * sizeof(uint32_t) + sizeof(EarthworkStamp) + 12 * sizeof(double)) ||
+      !fits(points, sizeof(uint32_t)) || budget.Solid.Points == 0 ||
+      budget.Solid.SurfaceFaces == 0 || budget.Solid.Vertices == 0 || budget.Solid.Faces == 0 ||
+      budget.Solid.EdgeVisits == 0) {
     return std::unexpected(Error{RoadGroundError::CapacityExceeded});
   }
   GroundPortBodies output{
@@ -179,7 +207,7 @@ BuildGroundPortBodies(const GroundPortField &field,
   }
   for (auto &body : output.Bodies) {
     scratch.Clear();
-    if (auto copied = Copy(mesh, body.FaceParents, thicknessM, budget.Solid, scratch, stop);
+    if (auto copied = Copy(mesh, body.FaceParents, recipe.ThicknessM, budget.Solid, scratch, stop);
         !copied) {
       return std::unexpected(copied.error());
     }
@@ -201,6 +229,8 @@ BuildGroundPortBodies(const GroundPortField &field,
     output.Work.SolidEdgeVisits += closed->Work.EdgeVisits;
     output.Work.ContainerCapacityBytes += Bytes(*closed);
     body.Geometry = std::move(*closed);
+    const auto contacts = Contacts(body, recipe, output.Work, budget.ContainerBytes, stop);
+    if (!contacts) { return std::unexpected(contacts.error()); }
     if (auto capacity = Capacity(output, scratch, budget.ContainerBytes); !capacity) {
       return std::unexpected(capacity.error());
     }

@@ -1,4 +1,5 @@
 #include "CanonicalGroundDemandFixture.h"
+#include "CanonicalGroundBodyContactsFixture.h"
 #include "CanonicalGroundMeshFixture.h"
 #include "CanonicalGroundSourceFixture.h"
 #include "CanonicalGroundTerrainFixture.h"
@@ -36,6 +37,7 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
 namespace Fixture = CanonicalGroundFixture;
+constexpr GroundPortBodyRecipe kBodyRecipe{.ThicknessM = kSealedDepthM, .ApronM = 5, .ReliefM = 0};
 
 bool Same(const RoadPortFrameSample &a, const RoadPortFrameSample &b) {
   const auto words = [](const RoadPortFrameSample &value) {
@@ -59,22 +61,30 @@ bool Same(const RoadPortFrameSample &a, const RoadPortFrameSample &b) {
 }
 
 void CheckBodyGuards(const GroundPortField &product) {
-  CHECK(!BuildGroundPortBodies(product, 0) &&
-            !BuildGroundPortBodies(product, std::numeric_limits<double>::quiet_NaN()) &&
-            !BuildGroundPortBodies(product, std::numeric_limits<double>::infinity()),
-        "a functional body needs an explicit positive finite physical recipe depth");
+  CHECK(
+      !BuildGroundPortBodies(product, {}) &&
+          !BuildGroundPortBodies(product,
+                                 {.ThicknessM = std::numeric_limits<double>::quiet_NaN()}) &&
+          !BuildGroundPortBodies(product, {.ThicknessM = std::numeric_limits<double>::infinity()}),
+      "a functional body needs an explicit positive finite physical recipe depth");
+  CHECK(!BuildGroundPortBodies(product, {.ThicknessM = kSealedDepthM, .ApronM = -1}) &&
+            !BuildGroundPortBodies(product, {.ThicknessM = kSealedDepthM, .ReliefM = -1}) &&
+            !BuildGroundPortBodies(
+                product,
+                {.ThicknessM = kSealedDepthM, .ApronM = std::numeric_limits<double>::infinity()}),
+        "terrain contact recipe bounds are explicit finite nonnegative physical parameters");
   std::stop_source stopped;
   stopped.request_stop();
   BeginCppAllocationProbe();
-  const auto canceled = BuildGroundPortBodies(product, kSealedDepthM, {}, stopped.get_token());
-  const auto capped = BuildGroundPortBodies(product, kSealedDepthM, {.Bodies = 0});
-  const auto noStorage = BuildGroundPortBodies(product, kSealedDepthM, {.ContainerBytes = 1});
+  const auto canceled = BuildGroundPortBodies(product, kBodyRecipe, {}, stopped.get_token());
+  const auto capped = BuildGroundPortBodies(product, kBodyRecipe, {.Bodies = 0});
+  const auto noStorage = BuildGroundPortBodies(product, kBodyRecipe, {.ContainerBytes = 1});
   const auto allocations = EndCppAllocationProbe();
   CHECK(!canceled && !capped && !noStorage && allocations.Calls == 0,
         "stop and impossible body/storage budgets reject before allocation or source copying");
   const auto shortMesh = BuildGroundPortBodies(
-      product, kSealedDepthM, {.SurfaceFaces = product.Geometry().Surface.Faces.size() - 1});
-  const auto shortSolid = BuildGroundPortBodies(product, kSealedDepthM, {.Solid = {.Points = 1}});
+      product, kBodyRecipe, {.SurfaceFaces = product.Geometry().Surface.Faces.size() - 1});
+  const auto shortSolid = BuildGroundPortBodies(product, kBodyRecipe, {.Solid = {.Points = 1}});
   CHECK(!shortMesh && !shortSolid,
         "missing finite faces or unrepresentable individual bodies never become partial success");
 }
@@ -135,7 +145,7 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
   CheckBodyGuards(product);
   BeginCppAllocationProbe();
   const auto start = std::chrono::steady_clock::now();
-  auto bodies = BuildGroundPortBodies(product, kSealedDepthM);
+  auto bodies = BuildGroundPortBodies(product, kBodyRecipe);
   const auto end = std::chrono::steady_clock::now();
   const auto allocations = EndCppAllocationProbe();
   CHECK(bodies.has_value(),
@@ -149,7 +159,7 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
   CheckBodySurfaces(product, *bodies);
   WriteBodies(*bodies, which, path);
   const auto again = BuildGroundPortBodies(
-      product, kSealedDepthM, {.Bodies = 4096, .SurfaceFaces = 32768, .ContainerBytes = 67108864});
+      product, kBodyRecipe, {.Bodies = 4096, .SurfaceFaces = 32768, .ContainerBytes = 67108864});
   CHECK(again && again->Bodies.size() == bodies->Bodies.size(),
         "larger admissible work budgets do not change functional source membership");
   if (again) {
@@ -160,13 +170,14 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
                 a.Geometry.Points == b.Geometry.Points && a.Geometry.Faces == b.Geometry.Faces &&
                 a.Geometry.WallParents == b.Geometry.WallParents &&
                 a.Geometry.WallKinds == b.Geometry.WallKinds &&
-                a.Geometry.VolumeM3 == b.Geometry.VolumeM3,
+                a.Geometry.VolumeM3 == b.Geometry.VolumeM3 &&
+                a.TerrainContacts == b.TerrainContacts,
             "body geometry, order and provenance are independent of larger work caps");
     }
   }
   std::println("GROUND_BODIES sources={} faces={} ms={} allocations={} requested_bytes={} "
                "retained_capacity={} scratch_capacity={} face_visits={} remapped_vertices={} "
-               "copied_surface_bytes={} solid_edge_visits={}",
+               "copied_surface_bytes={} solid_edge_visits={} terrain_contacts={}",
                bodies->Bodies.size(),
                product.Geometry().Surface.Faces.size(),
                std::chrono::duration<double, std::milli>(end - start).count(),
@@ -177,7 +188,8 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
                bodies->Work.FaceVisits,
                bodies->Work.RemappedVertices,
                bodies->Work.CopiedSurfaceBytes,
-               bodies->Work.SolidEdgeVisits);
+               bodies->Work.SolidEdgeVisits,
+               bodies->Work.TerrainContactFaces);
   return std::move(*bodies);
 }
 
@@ -394,6 +406,8 @@ void CheckTerrainGuards(const Fixture::Terrain &terrain) {
 }
 
 int main(int argc, char **argv) {
+  const char *diagnosticPath = argc > 1 ? argv[1] : nullptr;
+
   struct RetainedProduct {
     std::shared_ptr<const GroundPortField> Field;
     std::vector<Fixture::Demand> Demands;
@@ -427,7 +441,7 @@ int main(int argc, char **argv) {
                 first->Geometry().Surface.Faces == second->Geometry().Surface.Faces &&
                 first->Geometry().HeightsM == second->Geometry().HeightsM,
             "independent source seed order and larger work caps preserve the whole bound product");
-      if (argc > 1) { Fixture::WriteMesh(first->Geometry(), which, argv[1]); }
+      Fixture::WriteMesh(first->Geometry(), which, diagnosticPath);
       auto product = std::make_shared<const GroundPortField>(std::move(*first));
       auto demands = Fixture::Demands(*source, source->Components[which]);
       CHECK(demands.size() == (which == 0 ? 2 : 8),
@@ -439,7 +453,7 @@ int main(int argc, char **argv) {
   std::vector<std::weak_ptr<const GroundPortField>> fields;
   for (size_t which = 0; which < retained.size(); ++which) {
     const auto &held = retained[which];
-    auto closed = CheckBodies(*held.Field, which, argc > 1 ? argv[1] : nullptr);
+    auto closed = CheckBodies(*held.Field, which, diagnosticPath);
     if (closed) { bodies.push_back(std::move(*closed)); }
     fields.emplace_back(held.Field);
     CheckFaceSources(*held.Field);
@@ -448,7 +462,9 @@ int main(int argc, char **argv) {
   retained.clear();
   CHECK(std::ranges::all_of(fields, [](const auto &field) { return field.expired(); }),
         "the actual native field/fit/terrain products are released before body consumption");
-  for (const auto &batch : bodies) {
+  for (size_t which = 0; which < bodies.size(); ++which) {
+    const auto &batch = bodies[which];
+    Fixture::CheckBodyContacts(batch, which, diagnosticPath);
     for (const auto &body : batch.Bodies) {
       CHECK(batch.Source->Topology().FindEdge(body.Source) && body.Geometry.VolumeM3 > 0 &&
                 !body.Geometry.Points.empty() && !body.Geometry.Faces.empty(),
