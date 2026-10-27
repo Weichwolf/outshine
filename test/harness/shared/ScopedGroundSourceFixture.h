@@ -55,7 +55,7 @@ inline std::expected<std::string, std::string> Raw() {
   return bytes;
 }
 
-inline std::expected<Source, std::string> Load() {
+inline std::expected<Source, std::string> Load(unsigned publications = 1) {
   using namespace Generators;
   using namespace Generators::Osm;
   auto raw = Raw();
@@ -78,10 +78,15 @@ inline std::expected<Source, std::string> Load() {
   constexpr std::array<int, 3> tile{14, 8937, 5678};
   const std::array<std::string, 1> layers{"streets"};
   auto field = std::make_unique<OsmField>(tile[0], layers, MvtSchema::OpenMapTiles);
-  if (!field->Accept(tile[1],
-                     tile[2],
-                     std::span(reinterpret_cast<const uint8_t *>(raw->data()), raw->size()))) {
-    return std::unexpected("original MVT cannot be decoded");
+  if (publications < 1 || publications > 2) {
+    return std::unexpected("fixture requires one or two actual original publications");
+  }
+  for (unsigned publication = 0; publication < publications; ++publication) {
+    if (!field->Accept(tile[1],
+                       tile[2],
+                       std::span(reinterpret_cast<const uint8_t *>(raw->data()), raw->size()))) {
+      return std::unexpected("original MVT cannot be decoded");
+    }
   }
   StreetField streets;
   for (size_t pass = 0; pass < field->Tiles().size() && !streets.Ingested(*field); ++pass) {
@@ -107,7 +112,7 @@ inline std::expected<Source, std::string> Load() {
       {.NodeGroupPayloadBytesMost = 16777216, .SourceFactsPayloadBytesMost = 67108864});
   if (!snapshot) { return std::unexpected(snapshot.error()); }
   if (!snapshot->SourceFacts) { return std::unexpected("original source facts unavailable"); }
-  if (snapshot->SourceWayCount != 1557 || snapshot->SourceGeneration != 1 ||
+  if (snapshot->SourceWayCount != 1557 || snapshot->SourceGeneration != publications ||
       snapshot->InputConnections != 9344 || snapshot->Network->Topology().Nodes().size() != 4433 ||
       snapshot->Network->Topology().Edges().size() != 8623) {
     return std::unexpected("original native source topology changed");

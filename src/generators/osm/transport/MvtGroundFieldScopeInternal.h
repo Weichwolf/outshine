@@ -35,5 +35,6 @@ struct State {
 [[nodiscard]] Checked<void> Qualify(State &state);
 [[nodiscard]] Checked<void> Coverage(State &state);
 void Bind(State &state);
+[[nodiscard]] Checked<void> BindContent(State &state);
 }
 #endif

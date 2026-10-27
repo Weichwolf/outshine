@@ -54,6 +54,7 @@ struct GroundPortBodies {
   std::shared_ptr<const World::TransportNetworkSnapshot> Source;
   std::array<TransportInputReference, 2> Inputs;
   std::array<uint8_t, 32> ProcedureAndTerrainBinding;
+  std::array<uint8_t, 32> ContentBinding{};
   GroundPortBodyRecipe Recipe;
   std::optional<GroundPortFieldScopeInfo> Scope;
   std::vector<GroundPortBody> Bodies;

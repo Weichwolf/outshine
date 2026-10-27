@@ -26,6 +26,7 @@ struct MvtGroundFieldLimits {
 struct MvtGroundFieldWork {
   size_t OriginalMemberVisits = 0;
   size_t QualifiedMemberVisits = 0;
+  size_t ContentMemberVisits = 0;
   size_t CoverageTests = 0;
   size_t ContainerCapacityBytes = 0;
 };

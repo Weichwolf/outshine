@@ -143,9 +143,12 @@ void CheckGeometry(const GroundPortBodies &original, const GroundPortBodies &ref
         "reframing neither invents nor drops original finite scope qualification");
   if (reframed.Scope && original.Scope) {
     CHECK(reframed.Scope->Input.Content == original.Scope->Input.Content &&
+              reframed.Scope->ContentBinding == original.Scope->ContentBinding &&
               reframed.Scope->Exits == original.Scope->Exits,
           "scope identity and actual typed exits stay in the original source contract");
   }
+  CHECK(reframed.ContentBinding == original.ContentBinding,
+        "the physical body content identity is independent of the consuming core frame");
   std::println("GROUND_FRAME maximum_ecef_error_m={}", maximumErrorM);
 }
 

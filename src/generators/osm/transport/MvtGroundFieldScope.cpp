@@ -92,6 +92,7 @@ BindMvtGroundFieldScope(const MvtTransportSnapshot &snapshot,
   if (auto coverage = Coverage(state); !coverage) { return std::unexpected(coverage.error()); }
   if (auto qualified = Qualify(state); !qualified) { return std::unexpected(qualified.error()); }
   Bind(state);
+  if (auto bound = BindContent(state); !bound) { return std::unexpected(bound.error()); }
   if (state.Output.Work.ContainerCapacityBytes > limits.ContainerBytes) {
     return std::unexpected(Error::CapacityExceeded);
   }

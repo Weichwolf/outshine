@@ -1,5 +1,7 @@
 #include "GroundPortBodies.h"
 #include "TransportNetworkSnapshot.h"
+#include "ByteArchive.h"
+#include "Sha256.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,6 +12,7 @@
 #include <optional>
 #include <span>
 #include <stop_token>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -27,6 +30,38 @@ auto Key(const World::TransportEdgeId &edge) {
 size_t InputBytes(const TransportInputReference &input) {
   return input.DatasetId.capacity() + input.Version.capacity() + input.Revision.capacity() +
          input.ItemId.capacity() + 4;
+}
+
+std::array<uint8_t, 32> ContentBinding(const GroundPortField &field,
+                                       const GroundPortBodies &bodies) {
+  constexpr std::string_view kVersion = "outshine/canonical-ground-bodies/1";
+  Sha256Prefix hash(kVersion.data(), kVersion.size());
+  const auto word = [&hash](auto value) {
+    const auto encoded = LittleEndian(value);
+    hash.Append(&encoded, sizeof(encoded));
+  };
+  const auto &source = bodies.Source->SourceIdentity();
+  for (const auto *text : {&source.DatasetId, &source.Revision}) {
+    word(static_cast<uint64_t>(text->size()));
+    hash.Append(text->data(), text->size());
+  }
+  hash.Append(bodies.ProcedureAndTerrainBinding.data(), bodies.ProcedureAndTerrainBinding.size());
+  word(field.Source().WidthM);
+  word(field.Source().MaximumGradient);
+  word(bodies.Recipe.ThicknessM);
+  word(bodies.Recipe.ApronM);
+  word(bodies.Recipe.ReliefM);
+  word(static_cast<uint8_t>(bodies.Scope.has_value()));
+  if (bodies.Scope) {
+    hash.Append(bodies.Scope->ContentBinding.data(), bodies.Scope->ContentBinding.size());
+  }
+  word(static_cast<uint64_t>(bodies.Bodies.size()));
+  for (const auto &body : bodies.Bodies) {
+    word(body.Source.PathId);
+    word(body.Source.SegmentOrdinal);
+    word(static_cast<uint8_t>(body.Source.Direction));
+  }
+  return hash.Digest(nullptr, 0);
 }
 
 std::optional<size_t> ContainerBound(const GroundPortField &field) {
@@ -303,6 +338,7 @@ BuildGroundPortBodies(const GroundPortField &field,
       return std::unexpected(capacity.error());
     }
   }
+  output.ContentBinding = ContentBinding(field, output);
   return output;
 }
 }

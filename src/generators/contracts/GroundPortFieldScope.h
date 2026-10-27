@@ -4,6 +4,7 @@
 #include "GroundPortSourceChain.h"
 #include "TransportPlan.h"
 #include "TransportTopology.h"
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -23,6 +24,7 @@ struct GroundPortFieldExit {
 
 struct GroundPortFieldScopeInfo {
   TransportInputReference Input;
+  std::array<uint8_t, 32> ContentBinding{};
   std::vector<GroundPortFieldExit> Exits;
 };
 

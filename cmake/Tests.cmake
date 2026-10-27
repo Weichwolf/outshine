@@ -77,6 +77,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundMesh/FiniteBandsPreserveTheirOriginalDomainAndWholePorts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OwnedFieldProductsServeTheActualPorts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalFactsQualifyFiniteGroundFields"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalContentSurvivesActualRepublication"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/WholeBodiesEnterPlanFramesWithoutNewStorage"
       OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/OriginalFactsRejectUnqualifiedGroundFields"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/CapturedSourcesReachTheBoundDemAndC1Field"
@@ -126,7 +127,7 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
-    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/(OwnedFieldProductsServeTheActualPorts|OriginalFactsQualifyFiniteGroundFields|WholeBodiesEnterPlanFramesWithoutNewStorage)$")
+    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/(OwnedFieldProductsServeTheActualPorts|OriginalFactsQualifyFiniteGroundFields|OriginalContentSurvivesActualRepublication|WholeBodiesEnterPlanFramesWithoutNewStorage)$")
       set(owner generators/transport/ground)
     elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
       set(owner generators/transport)
@@ -186,6 +187,7 @@ foreach(source IN LISTS cases)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
   if(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalFactsQualifyFiniteGroundFields"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalContentSurvivesActualRepublication"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/WholeBodiesEnterPlanFramesWithoutNewStorage")
     target_link_libraries(${target} PRIVATE outshine_generators_osm)
   endif()
