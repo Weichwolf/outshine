@@ -43,7 +43,7 @@ void CheckZoomBounds(outshine::Ground::TilePool &pool,
     ::outshine::Generators::Osm::OsmField edge(zoom, layers);
     CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = 180}).has_value(),
           "east dateline accepted");
-    const auto last = (int64_t{1} << zoom) - 1;
+    const auto last = static_cast<int64_t>((uint64_t{1} << static_cast<unsigned>(zoom)) - 1u);
     CHECK(edge.CentreX() == last, "east dateline selects last valid signed column");
     CHECK(edge.Declare(input, LongitudeLatitude{.LongitudeDeg = -180}).has_value() &&
               edge.CentreX() == 0,

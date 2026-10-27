@@ -8,7 +8,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 
-void CheckSourceRevisions(Generators::Osm::OsmField &vectors,
+void CheckSourceRevisions(const Generators::Osm::OsmField &vectors,
                           Generators::Osm::BuildingField &footprints) {
   const StructureBuildQueue::BakeRevision sourceRevision{
       .Vectors = vectors.Generation(),
