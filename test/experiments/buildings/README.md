@@ -1,5 +1,11 @@
 # Buildings experiments
 
+The [indoor-floor reference](indoor_floors.md) chooses metric storeys from
+complete provider volumes and fixed indoor constraints, emits checked closed
+plates and preserves all31 original transport requests with contacts or local
+reasons. Four alternatives compare coverage and construction costs; rooms,
+doors, stairs and native World admission remain separate work.
+
 Run from the repository root with `.venv`. Install the reference library as well
 as the experiment dependencies:
 
