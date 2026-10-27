@@ -36,6 +36,10 @@ int main() {
         material.DiffuseTransmissionMap.Image =
             *mesh.addImage(1, 1, std::array<uint8_t, 4>{64, 128, 64, 255});
         break;
+      default:
+        CHECK(false, "every fixture variant defines an unsupported material");
+        SDL_Quit();
+        return Report();
     }
     const auto surface = *mesh.addSurface("unsupported", material);
     const auto part = *mesh.addPart("triangle", surface);
@@ -53,7 +57,7 @@ int main() {
     capture.Sources.push_back({.Mesh = std::move(mesh), .Instances = {Mat4{}}});
     std::string error;
     CHECK(!Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = 8, .Views = 1}, error) &&
-              error.find("retain native geometry") != std::string::npos,
+              error.contains("retain native geometry"),
           "unsupported light response or coverage is rejected explicitly for native fallback");
   }
   SDL_Quit();

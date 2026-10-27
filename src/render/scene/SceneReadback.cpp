@@ -1,13 +1,18 @@
 #include "SceneRenderer.h"
 #include "DepthPyramid.h"
 #include "EnvironmentSpecularLayout.h"
+#include "ReadbackTransfer.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace outshine::Render {
@@ -329,6 +334,71 @@ ReadState SceneRenderer::ReadSurfaceMetalRough(std::vector<float> &rg) {
                         {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                         2,
                         rg);
+}
+
+ReadState SceneRenderer::ReadSurface(SurfaceReadback &surface) {
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  constexpr std::array resources{Resource::SceneDepth,
+                                 Resource::SceneShadingNormal,
+                                 Resource::SceneSurfaceIdentity,
+                                 Resource::SceneSurfaceBase,
+                                 Resource::SceneSurfaceMetalRough};
+  constexpr std::array formats{Native::Format::Depth32Float,
+                               Native::Format::Rgba16Float,
+                               Native::Format::Rgba32Float,
+                               Native::Format::Rgba16Float,
+                               Native::Format::Rg16Float};
+  const Native::TextureRegion region{.Width = static_cast<uint32_t>(ActiveFrame().Width),
+                                     .Height = static_cast<uint32_t>(ActiveFrame().Height)};
+  std::array<TextureReadback, resources.size()> sources;
+  std::array<ReadbackSlice, resources.size()> slices;
+  for (size_t at = 0; at < resources.size(); ++at) {
+    const auto *source = ActiveFrame().Targets.Get(resources[at]);
+    if (source == nullptr || source->Description().Texels != formats[at]) {
+      return ReadState::Failed;
+    }
+    sources[at] = {.Source = source, .Region = region};
+  }
+  surface.Reset();
+  auto transfer = ReadbackTransfer::Start(*Device_, sources, slices);
+  if (!transfer) { return ReadState::Failed; }
+  const auto ready = transfer->Wait(*Device_, std::chrono::seconds(5));
+  if (!ready || !*ready) { return ReadState::Failed; }
+  surface.Transfer_ = std::move(*transfer);
+  surface.Bytes_ = **ready;
+  surface.Slices_ = slices;
+  surface.Pixels_ = static_cast<size_t>(region.Width) * region.Height;
+  return ReadState::Ready;
+}
+
+void SurfaceReadback::Reset() noexcept {
+  Bytes_ = {};
+  Pixels_ = 0;
+  Transfer_.reset();
+}
+
+SurfacePixel SurfaceReadback::Read(size_t pixel) const noexcept {
+  assert(pixel < Pixels_);
+  const auto single = [&](size_t image, size_t component) {
+    float value = 0;
+    std::memcpy(&value,
+                Bytes_.data() + Slices_[image].Range.Offset + component * sizeof(float),
+                sizeof value);
+    return value;
+  };
+  const auto half = [&](size_t image, size_t component) {
+    uint16_t bits = 0;
+    std::memcpy(&bits,
+                Bytes_.data() + Slices_[image].Range.Offset + component * sizeof(uint16_t),
+                sizeof bits);
+    return HalfToFloat(bits);
+  };
+  return {.Normal = {{half(1, pixel * 4), half(1, pixel * 4 + 1), half(1, pixel * 4 + 2)}},
+          .Depth = single(0, pixel),
+          .Identity = single(2, pixel * 4),
+          .Base = {{half(3, pixel * 4), half(3, pixel * 4 + 1), half(3, pixel * 4 + 2)}},
+          .Metalness = half(4, pixel * 2),
+          .Roughness = half(4, pixel * 2 + 1)};
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {

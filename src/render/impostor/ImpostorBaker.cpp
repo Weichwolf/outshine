@@ -33,16 +33,6 @@ constexpr auto Readback = "impostor atlas readback has incomplete attachments";
 constexpr auto Surface = "impostor atlas material identity is outside its source table";
 }
 
-struct AtlasReadback {
-  std::span<const float> Depth;
-  std::span<const float> Normal;
-  std::span<const float> Identity;
-  std::span<const float> Base;
-  std::span<const float> MetalRough;
-  size_t PixelCount;
-  size_t MaterialCount;
-};
-
 struct NativePiece {
   std::vector<StoredVertex> Vertices;
   std::vector<uint32_t> Indices;
@@ -51,36 +41,25 @@ struct NativePiece {
   std::vector<float> Uv1;
 };
 
-std::optional<ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
-                                                   std::string &error) {
-  const size_t count = readback.PixelCount;
-  if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
-      readback.Identity.size() != count * 4 || readback.Base.size() != count * 4 ||
-      readback.MetalRough.size() != count * 2) {
-    error = Says::Readback;
-    return std::nullopt;
-  }
+std::optional<ImpostorAtlas::View>
+ConvertReadback(const SurfaceReadback &readback, size_t materialCount, std::string &error) {
+  const size_t count = readback.Pixels();
   ImpostorAtlas::View view;
   view.Texels.resize(count);
   view.Materials.resize(count);
   for (size_t pixel = 0; pixel < count; ++pixel) {
-    const float surface = readback.Identity[pixel * 4];
+    const auto sample = readback.Read(pixel);
+    const float surface = sample.Identity;
     if (!std::isfinite(surface) || surface < 0 ||
-        static_cast<double>(surface) > static_cast<double>(readback.MaterialCount) ||
+        static_cast<double>(surface) > static_cast<double>(materialCount) ||
         surface != std::floor(surface)) {
       error = Says::Surface;
       return std::nullopt;
     }
-    view.Texels[pixel] = {.Normal = {{readback.Normal[pixel * 4],
-                                      readback.Normal[pixel * 4 + 1],
-                                      readback.Normal[pixel * 4 + 2]}},
-                          .Depth = readback.Depth[pixel],
-                          .Surface = static_cast<uint32_t>(surface)};
-    view.Materials[pixel] = {.BaseColour = {{readback.Base[pixel * 4],
-                                             readback.Base[pixel * 4 + 1],
-                                             readback.Base[pixel * 4 + 2]}},
-                             .Roughness = readback.MetalRough[pixel * 2 + 1],
-                             .Metalness = readback.MetalRough[pixel * 2]};
+    view.Texels[pixel] = {
+        .Normal = sample.Normal, .Depth = sample.Depth, .Surface = static_cast<uint32_t>(surface)};
+    view.Materials[pixel] = {
+        .BaseColour = sample.Base, .Roughness = sample.Roughness, .Metalness = sample.Metalness};
   }
   return view;
 }
@@ -217,12 +196,7 @@ std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &rend
                                                              std::string &error) {
   std::vector<ImpostorAtlas::View> views;
   views.reserve(shape.Views);
-  std::vector<float> depth;
-  std::vector<float> normal;
-  std::vector<float> identity;
-  std::vector<float> base;
-  std::vector<float> metalRough;
-  const size_t count = static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels);
+  SurfaceReadback surface;
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2 * std::numbers::pi * at / shape.Views;
     const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
@@ -246,23 +220,11 @@ std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &rend
       error = std::move(rendered.error());
       return std::nullopt;
     }
-    renderer.WaitForGpu();
-    if (renderer.ReadDepth(depth) != ReadState::Ready ||
-        renderer.ReadShadingNormal(normal) != ReadState::Ready ||
-        renderer.ReadSurfaceIdentity(identity) != ReadState::Ready ||
-        renderer.ReadSurfaceBase(base) != ReadState::Ready ||
-        renderer.ReadSurfaceMetalRough(metalRough) != ReadState::Ready) {
+    if (renderer.ReadSurface(surface) != ReadState::Ready) {
       error = Says::Readback;
       return std::nullopt;
     }
-    auto view = ConvertReadback({.Depth = depth,
-                                 .Normal = normal,
-                                 .Identity = identity,
-                                 .Base = base,
-                                 .MetalRough = metalRough,
-                                 .PixelCount = count,
-                                 .MaterialCount = materialCount},
-                                error);
+    auto view = ConvertReadback(surface, materialCount, error);
     if (!view) { return std::nullopt; }
     view->TowardEye = direction;
     views.push_back(std::move(*view));
