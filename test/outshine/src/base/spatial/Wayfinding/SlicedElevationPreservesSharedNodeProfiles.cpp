@@ -50,6 +50,7 @@ int main() {
       return HeightAt(at);
     });
     CHECK(!std::move(job).Take().has_value(), "incomplete elevation cannot publish");
+    // NOLINTNEXTLINE(bugprone-use-after-move): failed Take preserves job.
     CHECK(!job.Advance(0).has_value(), "zero work budget is rejected");
     bool done = false;
     for (size_t step = 0; step < 100 && !done; ++step) {
