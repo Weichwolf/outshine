@@ -237,7 +237,8 @@ add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
   test/experiments/render/export_building_selection.cpp
   test/experiments/render/building_capture_inputs.cpp)
 target_compile_options(test_harness_building_selection_export PRIVATE -fno-exceptions)
-target_link_libraries(test_harness_building_selection_export PRIVATE outshine_generators_osm)
+target_link_libraries(test_harness_building_selection_export PRIVATE
+  outshine_generators_osm PkgConfig::nlohmann_json)
 add_dependencies(outshine_tests test_harness_building_selection_export)
 add_custom_target(test_experiments_render_BuildingCellControl
   DEPENDS test_harness_building_selection_export)
