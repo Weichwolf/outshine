@@ -81,7 +81,6 @@ constexpr int kFrameUnsaidHighPx = 720;
 
 inline constexpr size_t kBakesLandedPerFrame = 2;
 inline constexpr size_t kBakesLandedInPreload = size_t{1} << 20u;
-inline constexpr size_t kMostSaveBytes = 1u << 20u;
 
 class Collecting : public Sink {
 public:
