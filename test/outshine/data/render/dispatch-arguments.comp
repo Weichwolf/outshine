@@ -3,7 +3,8 @@ layout(local_size_x = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Input { uint xyz[]; };
 layout(std430, set = 1, binding = 0) buffer Arguments { uint arguments[]; };
 void main() {
-  arguments[4] = xyz[0];
-  arguments[5] = xyz[1];
-  arguments[6] = xyz[2];
+  uint first = xyz[3];
+  arguments[first] = xyz[0];
+  arguments[first + 1] = xyz[1];
+  arguments[first + 2] = xyz[2];
 }

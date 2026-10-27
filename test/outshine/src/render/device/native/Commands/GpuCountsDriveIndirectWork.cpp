@@ -15,6 +15,7 @@
 #include <memory>
 #include <print>
 #include <span>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -66,7 +67,7 @@ Upload(Device &gpu, Commands &commands, std::span<const uint32_t> words, bool in
   auto use = BufferUse::Storage | BufferUse::CopySource | BufferUse::CopyDestination;
   if (indirect) { use = use | BufferUse::Indirect; }
   auto resident = Require(gpu.CreateBuffer({.Bytes = words.size_bytes(), .Use = use}));
-  auto mapped = Require(gpu.MapWrite(*host, {.Bytes = words.size_bytes()}));
+  const auto mapped = Require(gpu.MapWrite(*host, {.Bytes = words.size_bytes()}));
   std::memcpy(mapped.data(), words.data(), words.size_bytes());
   Require(gpu.Unmap(*host));
   Require(commands.Copy(*host, *resident, {.Bytes = words.size_bytes()}));
@@ -85,16 +86,21 @@ struct Pipelines {
   const ComputePipeline &Producer, &Consumer;
 };
 
-void Counts(Device &gpu, const Pipelines &pipelines, Workgroups groups, Chain chain) {
+void Counts(Device &gpu,
+            const Pipelines &pipelines,
+            Workgroups groups,
+            Chain chain,
+            uint64_t argumentOffset = kArgumentOffset) {
   const auto &producer = pipelines.Producer;
   const auto &consumer = pipelines.Consumer;
   const bool sharedBuffer = chain == Chain::DisjointStorage;
   auto commands = Require(gpu.Begin());
-  const std::array xyz{groups.X, groups.Y, groups.Z};
+  const std::array xyz{
+      groups.X, groups.Y, groups.Z, static_cast<uint32_t>(argumentOffset / sizeof(uint32_t))};
   const std::vector<uint32_t> initial(kBufferBytes / sizeof(uint32_t), kSentinel);
   auto input = Upload(gpu, *commands, xyz);
   auto arguments = Upload(gpu, *commands, initial, true);
-  auto output = Upload(gpu, *commands, initial);
+  const auto output = Upload(gpu, *commands, initial);
   auto readback = Require(gpu.CreateBuffer(
       {.Bytes = kBufferBytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
   const std::array writes{Storage(0, 0, *input, {.Bytes = sizeof(xyz)}),
@@ -105,9 +111,9 @@ void Counts(Device &gpu, const Pipelines &pipelines, Workgroups groups, Chain ch
     commands = Require(gpu.Begin());
   }
   const auto range =
-      sharedBuffer ? ByteRange{.Bytes = kArgumentOffset} : ByteRange{.Bytes = kBufferBytes};
+      sharedBuffer ? ByteRange{.Bytes = argumentOffset} : ByteRange{.Bytes = kBufferBytes};
   const std::array reads{Storage(1, 0, sharedBuffer ? *arguments : *output, range)};
-  Require(commands->DispatchIndirect(consumer, reads, *arguments, kArgumentOffset));
+  Require(commands->DispatchIndirect(consumer, reads, *arguments, argumentOffset));
   const auto busy = gpu.MapWrite(*arguments, {.Bytes = kBufferBytes});
   CHECK(!busy, "device-local argument buffers cannot be rewritten by CPU mapping");
   Require(commands->Copy(sharedBuffer ? *arguments : *output, *readback, {.Bytes = kBufferBytes}));
@@ -121,9 +127,9 @@ void Counts(Device &gpu, const Pipelines &pipelines, Workgroups groups, Chain ch
   const uint32_t invocations = groups.X * groups.Y * groups.Z * consumer.Layout().LocalSize[0];
   for (uint32_t at = 0; at < invocations; ++at) { expected[at] = at + 1; }
   if (sharedBuffer) {
-    expected[kArgumentOffset / sizeof(uint32_t)] = groups.X;
-    expected[kArgumentOffset / sizeof(uint32_t) + 1] = groups.Y;
-    expected[kArgumentOffset / sizeof(uint32_t) + 2] = groups.Z;
+    expected[argumentOffset / sizeof(uint32_t)] = groups.X;
+    expected[argumentOffset / sizeof(uint32_t) + 1] = groups.Y;
+    expected[argumentOffset / sizeof(uint32_t) + 2] = groups.Z;
   }
   CHECK(actual == expected,
         "GPU-written XYZ drives exact work, zero dimensions preserve sentinels, caller destruction "
@@ -135,8 +141,8 @@ void Refuses(Device &gpu, const ComputePipeline &consumer) {
   auto commands = Require(gpu.Begin());
   auto arguments = Require(
       gpu.CreateBuffer({.Bytes = kBufferBytes, .Use = BufferUse::Indirect | BufferUse::Storage}));
-  auto plain = Require(gpu.CreateBuffer({.Bytes = kBufferBytes, .Use = BufferUse::Storage}));
-  auto shortBuffer = Require(gpu.CreateBuffer({.Bytes = 8, .Use = BufferUse::Indirect}));
+  const auto plain = Require(gpu.CreateBuffer({.Bytes = kBufferBytes, .Use = BufferUse::Storage}));
+  const auto shortBuffer = Require(gpu.CreateBuffer({.Bytes = 8, .Use = BufferUse::Indirect}));
   const std::array output{Storage(1, 0, *plain, {.Bytes = kBufferBytes})};
   for (const auto offset :
        {uint64_t{2}, kBufferBytes - 4, std::numeric_limits<uint64_t>::max() - 3}) {
@@ -152,9 +158,31 @@ void Refuses(Device &gpu, const ComputePipeline &consumer) {
   CHECK(!commands->DispatchIndirect(consumer, overlap, *arguments, kArgumentOffset),
         "an invocation cannot write over its own indirect argument range");
   auto other = Require(CreateDevice());
-  auto foreign = Require(other->CreateBuffer({.Bytes = kBufferBytes, .Use = BufferUse::Indirect}));
+  const auto foreign =
+      Require(other->CreateBuffer({.Bytes = kBufferBytes, .Use = BufferUse::Indirect}));
   CHECK(!commands->DispatchIndirect(consumer, output, *foreign, 0),
         "foreign-device arguments are rejected");
+  const auto foreignPipeline =
+      Require(other->CreateComputePipeline(Spirv(OUTSHINE_DISPATCH_COUNT_SHADER)));
+  const auto wrongPipeline = commands->DispatchIndirect(*foreignPipeline, output, *arguments, 0);
+  CHECK(!wrongPipeline && wrongPipeline.error().Kind == ErrorKind::Invalid,
+        "foreign-device pipelines are rejected before indirect encoding");
+  bool wrongThreadRejected = false;
+  std::thread worker([&] {
+    const auto wrongThread = commands->DispatchIndirect(consumer, output, *arguments, 0);
+    wrongThreadRejected = !wrongThread && wrongThread.error().Kind == ErrorKind::Invalid;
+  });
+  worker.join();
+  CHECK(wrongThreadRejected, "indirect encoding belongs to the recording thread");
+  const auto colour =
+      Require(gpu.CreateTexture({.Width = 1, .Height = 1, .Use = TextureUse::ColourAttachment}));
+  const std::array attachments{ColourAttachment{
+      .Image = {.Image = colour.get()}, .Begin = Load::Clear, .End = Store::Discard}};
+  Require(commands->BeginRenderPass({.Colours = attachments, .Depth = {}}));
+  const auto inRender = commands->DispatchIndirect(consumer, output, *arguments, 0);
+  CHECK(!inRender && inRender.error().Kind == ErrorKind::Invalid,
+        "indirect compute cannot interrupt an active render pass");
+  Require(commands->EndRenderPass());
 }
 }
 
@@ -177,5 +205,8 @@ int main() {
          {.X = 2, .Y = 3, .Z = 1},
          Chain::AcrossSubmissions);
   Refuses(*gpu, *consumer);
+  for (const auto offset : {uint64_t{4}, kBufferBytes - sizeof(Workgroups)}) {
+    Counts(*gpu, {.Producer = *producer, .Consumer = *consumer}, {}, Chain::SameRecording, offset);
+  }
   return Report();
 }
