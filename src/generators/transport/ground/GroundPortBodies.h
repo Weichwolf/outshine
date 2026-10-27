@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <variant>
 #include <vector>
@@ -52,6 +53,7 @@ struct GroundPortBodies {
   std::array<TransportInputReference, 2> Inputs;
   std::array<uint8_t, 32> ProcedureAndTerrainBinding;
   GroundPortBodyRecipe Recipe;
+  std::optional<GroundPortFieldScopeInfo> Scope;
   std::vector<GroundPortBody> Bodies;
   GroundPortBodyWork Work;
 };

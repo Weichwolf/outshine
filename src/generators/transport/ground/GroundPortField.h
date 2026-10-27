@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_TRANSPORT_GROUND_GROUNDPORTFIELD_H
 
 #include "GroundPortSources.h"
+#include "GroundPortFieldScope.h"
 #include "GroundPortTerrain.h"
 #include "RoadGroundFit.h"
 #include "RoadGroundMesh.h"
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <variant>
@@ -39,6 +41,11 @@ public:
           RoadGroundBudget groundBudget = {},
           const std::stop_token &stop = {});
 
+  [[nodiscard]] static std::expected<GroundPortFieldRequest, GroundPortFieldError>
+  PrepareScoped(GroundPortFieldScope scope,
+                RoadGroundBudget groundBudget = {},
+                const std::stop_token &stop = {});
+
   [[nodiscard]] std::span<const LongitudeLatitude> TerrainQueries() const noexcept {
     return Strip_.TerrainQueries;
   }
@@ -47,9 +54,17 @@ public:
 
 private:
   friend class GroundPortField;
-  GroundPortFieldRequest(GroundPortSourceChain source, RoadGroundStrip strip);
+  [[nodiscard]] static std::expected<GroundPortFieldRequest, GroundPortFieldError>
+  PrepareSource(GroundPortSourceChain source,
+                std::optional<GroundPortFieldScopeInfo> scope,
+                RoadGroundBudget groundBudget,
+                const std::stop_token &stop);
+  GroundPortFieldRequest(GroundPortSourceChain source,
+                         RoadGroundStrip strip,
+                         std::optional<GroundPortFieldScopeInfo> scope);
   GroundPortSourceChain Source_;
   RoadGroundStrip Strip_;
+  std::optional<GroundPortFieldScopeInfo> Scope_;
 };
 
 struct GroundPortFieldBudget {
@@ -113,6 +128,11 @@ public:
 
   [[nodiscard]] std::expected<World::TransportEdgeId, RoadGroundError>
   SourceEdgeOfFace(size_t face) const noexcept;
+
+  [[nodiscard]] const std::optional<GroundPortFieldScopeInfo> &Scope() const noexcept {
+    return Data_.Scope;
+  }
+
   [[nodiscard]] std::expected<GroundPortFieldSamples, GroundPortFieldError>
   Sample(std::span<const GroundPortFieldRequestPoint> points,
          GroundPortFieldQueryLimits limits = {},
@@ -127,6 +147,7 @@ private:
     RoadGroundMesh Geometry;
     std::array<uint8_t, 32> ProcedureAndTerrainBinding;
     std::vector<uint32_t> Members;
+    std::optional<GroundPortFieldScopeInfo> Scope;
   };
 
   explicit GroundPortField(Data data);

@@ -74,6 +74,9 @@ CaptureSourceFacts(const Sources &sources,
                    size_t bytesMost,
                    const std::stop_token &stop);
 void BindSourceFacts(MvtTransportSourceFacts &facts);
+[[nodiscard]] std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts);
+[[nodiscard]] std::array<uint8_t, 32>
+GroundInputOmissionDigest(std::span<const MvtTransportOmission> omissions);
 
 [[nodiscard]] std::expected<Connections, std::string>
 ReadConnections(const Sources &sources, const Path::Network &network, const std::stop_token &stop);

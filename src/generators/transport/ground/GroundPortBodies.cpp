@@ -52,6 +52,10 @@ std::optional<size_t> ContainerBound(const GroundPortField &field) {
       !fits(InputBytes(field.Terrain().Input()), growth)) {
     return {};
   }
+  if (field.Scope() && (!fits(field.Scope()->Exits.size(), growth * sizeof(GroundPortFieldExit)) ||
+                        !fits(InputBytes(field.Scope()->Input), growth))) {
+    return {};
+  }
   return std::numeric_limits<size_t>::max() - remaining;
 }
 
@@ -232,12 +236,18 @@ BuildGroundPortBodies(const GroundPortField &field,
                           .Inputs = {field.Fit().RecipeInput, field.Terrain().Input()},
                           .ProcedureAndTerrainBinding = field.ProcedureAndTerrainBinding(),
                           .Recipe = recipe,
+                          .Scope = field.Scope(),
                           .Bodies = {},
                           .Work = {}};
   Scratch scratch;
   output.Bodies.reserve(count);
   output.Work.ContainerCapacityBytes = output.Bodies.capacity() * sizeof(GroundPortBody) +
                                        InputBytes(output.Inputs[0]) + InputBytes(output.Inputs[1]);
+  if (output.Scope) {
+    output.Work.ContainerCapacityBytes +=
+        output.Scope->Exits.capacity() * sizeof(GroundPortFieldExit) +
+        InputBytes(output.Scope->Input);
+  }
   output.Work.ContainerBoundBytes = *bound;
   scratch.Owners.reserve(faces);
   scratch.Remap.resize(points, kAbsent);

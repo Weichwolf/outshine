@@ -1,4 +1,4 @@
-#include "MvtGroundPortInputs.h"
+#include "MvtGroundPortInputsInternal.h"
 #include "MvtTransportSnapshotInternal.h"
 #include "OsmField.h"
 #include "Sha256.h"
@@ -27,6 +27,7 @@ struct Omission {
   uint32_t Source = 0;
   Signature Feature{};
   bool Matched = false;
+  uint8_t Reasons = 0;
 };
 
 auto OmissionKey(const Omission &one) {
@@ -203,6 +204,7 @@ struct ProfileBindings {
   std::vector<double> Widths;
   std::vector<uint8_t> Omitted;
   size_t CapacityBytes = 0;
+  size_t UnrepresentedIncidences = 0;
 };
 
 std::expected<ProfileBindings, Error> ReadProfiles(const MvtTransportSnapshot &snapshot,
@@ -217,14 +219,23 @@ std::expected<ProfileBindings, Error> ReadProfiles(const MvtTransportSnapshot &s
   std::vector<Omission> omissions;
   omissions.reserve(snapshot.Omissions.size());
   for (const auto &one : snapshot.Omissions) {
-    if (one.Reason == MvtTransportOmissionReason::UnqualifiedLevelConnection ||
-        one.Reason == MvtTransportOmissionReason::MissingTopology) {
-      omissions.push_back({.Source = one.Source, .Feature = one.Feature});
-    }
+    const auto reason = static_cast<uint8_t>(one.Reason);
+    if (reason > 5) { return std::unexpected(Error::InvalidBinding); }
+    omissions.push_back({.Source = one.Source,
+                         .Feature = one.Feature,
+                         .Matched = false,
+                         .Reasons = static_cast<uint8_t>(1U << reason)});
   }
   std::ranges::sort(omissions, {}, OmissionKey);
-  const auto duplicate = std::ranges::unique(omissions, {}, OmissionKey);
-  omissions.erase(duplicate.begin(), duplicate.end());
+  size_t unique = 0;
+  for (size_t at = 0; at < omissions.size(); ++at) {
+    if (unique != 0 && OmissionKey(omissions[unique - 1]) == OmissionKey(omissions[at])) {
+      omissions[unique - 1].Reasons |= omissions[at].Reasons;
+    } else {
+      omissions[unique++] = omissions[at];
+    }
+  }
+  omissions.resize(unique);
   ProfileBindings result;
   auto &widths = result.Widths;
   auto &omitted = result.Omitted;
@@ -243,7 +254,7 @@ std::expected<ProfileBindings, Error> ReadProfiles(const MvtTransportSnapshot &s
     const auto found = std::ranges::lower_bound(omissions, key, {}, OmissionKey);
     const bool unknown = found != omissions.end() && OmissionKey(*found) == key;
     if (unknown) { found->Matched = true; }
-    omitted.push_back(static_cast<uint8_t>(unknown));
+    omitted.push_back(unknown ? found->Reasons : uint8_t{0});
     if (binding->MaximumGradient > 0) {
       out.Profiles.push_back(
           {.PathId = paths[at].PathId, .MaximumGradient = binding->MaximumGradient});
@@ -251,8 +262,10 @@ std::expected<ProfileBindings, Error> ReadProfiles(const MvtTransportSnapshot &s
       ++out.Work.MissingProfiles;
     }
   }
-  if (std::ranges::any_of(omissions, [](const Omission &one) { return !one.Matched; })) {
-    return std::unexpected(Error::MissingIncidence);
+  for (const auto &one : omissions) {
+    if (!one.Matched && (one.Reasons & ((1U << 4U) | (1U << 5U))) != 0) {
+      ++result.UnrepresentedIncidences;
+    }
   }
   result.CapacityBytes = omissions.capacity() * sizeof(Omission) +
                          widths.capacity() * sizeof(double) + omitted.capacity();
@@ -275,7 +288,7 @@ std::expected<size_t, Error> ReadUnknownNodes(const MvtTransportSnapshot &snapsh
         edge.WidthM != profiles.Widths[path]) {
       return std::unexpected(Error::InvalidBinding);
     }
-    if (profiles.Omitted[path] != 0) {
+    if ((profiles.Omitted[path] & ((1U << 4U) | (1U << 5U))) != 0) {
       const auto from = MarkUnknown(edge.FromNodeId, graph, unknown, out.Work);
       const auto to = MarkUnknown(edge.ToNodeId, graph, unknown, out.Work);
       if (!from || !to) { return std::unexpected(Error::InvalidBinding); }
@@ -290,12 +303,12 @@ std::expected<size_t, Error> ReadUnknownNodes(const MvtTransportSnapshot &snapsh
 
 }
 
-std::expected<MvtGroundPortInputs, MvtGroundPortInputError>
-BindMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
-                        const OsmField &field,
-                        const StreetField &streets,
-                        MvtGroundPortInputLimits limits,
-                        const std::stop_token &stop) {
+std::expected<MvtGroundPortInputNormalization, MvtGroundPortInputError>
+NormalizeMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
+                             const OsmField &field,
+                             const StreetField &streets,
+                             MvtGroundPortInputLimits limits,
+                             const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
   if (!snapshot.Network) { return std::unexpected(Error::MissingSource); }
   if (snapshot.SourceOrigin.get() != field.OriginToken() ||
@@ -320,8 +333,7 @@ BindMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
   MvtGroundPortInputs out;
   out.Network = snapshot.Network;
   out.Work.SourceTiles = field.Tiles().size();
-  const auto profiles =
-      ReadProfiles(snapshot, field, streets, *actual, sourceKeys, limits, out, stop);
+  auto profiles = ReadProfiles(snapshot, field, streets, *actual, sourceKeys, limits, out, stop);
   if (!profiles) { return std::unexpected(profiles.error()); }
   const auto unknownBytes = ReadUnknownNodes(snapshot, *profiles, out, stop);
   if (!unknownBytes) { return std::unexpected(unknownBytes.error()); }
@@ -337,6 +349,21 @@ BindMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
     return std::unexpected(Error::CapacityExceeded);
   }
   if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-  return out;
+  return MvtGroundPortInputNormalization{.Ports = std::move(out),
+                                         .PathOmissions = std::move(profiles->Omitted),
+                                         .UnrepresentedIncidences =
+                                             profiles->UnrepresentedIncidences};
+}
+
+std::expected<MvtGroundPortInputs, MvtGroundPortInputError>
+BindMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
+                        const OsmField &field,
+                        const StreetField &streets,
+                        MvtGroundPortInputLimits limits,
+                        const std::stop_token &stop) {
+  auto normalized = NormalizeMvtGroundPortInputs(snapshot, field, streets, limits, stop);
+  if (!normalized) { return std::unexpected(normalized.error()); }
+  if (normalized->UnrepresentedIncidences != 0) { return std::unexpected(Error::MissingIncidence); }
+  return std::move(normalized->Ports);
 }
 }

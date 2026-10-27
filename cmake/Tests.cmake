@@ -48,7 +48,8 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
-  if(name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain")
+  if(name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/OriginalFactsRejectUnqualifiedGroundFields")
     target_link_libraries(${target} PRIVATE ZLIB::ZLIB)
   endif()
   if(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
@@ -75,6 +76,8 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundFacetAudit/ContinuousFieldsStillNeedFiniteContactChecks"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundMesh/FiniteBandsPreserveTheirOriginalDomainAndWholePorts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OwnedFieldProductsServeTheActualPorts"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalFactsQualifyFiniteGroundFields"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/OriginalFactsRejectUnqualifiedGroundFields"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/CapturedSourcesReachTheBoundDemAndC1Field"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
@@ -122,7 +125,7 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
-    elseif(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OwnedFieldProductsServeTheActualPorts")
+    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/(OwnedFieldProductsServeTheActualPorts|OriginalFactsQualifyFiniteGroundFields)$")
       set(owner generators/transport/ground)
     elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
       set(owner generators/transport)
@@ -181,6 +184,9 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
+  if(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalFactsQualifyFiniteGroundFields")
+    target_link_libraries(${target} PRIVATE outshine_generators_osm)
+  endif()
   if(name MATCHES "^outshine/integration/transport/SurfaceEarthworks/")
     target_link_libraries(${target} PRIVATE outshine_generators_terrain)
   endif()

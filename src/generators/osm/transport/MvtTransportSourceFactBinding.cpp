@@ -1,7 +1,9 @@
 #include "MvtTransportSnapshotInternal.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
+#include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace outshine::Generators::Osm::MvtTransport {
@@ -12,7 +14,7 @@ template <class T> void Append(Sha256Prefix &hash, T value) {
 }
 }
 
-void BindSourceFacts(MvtTransportSourceFacts &facts) {
+std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
   constexpr std::string_view kVersion = "outshine/mvt-source-facts/2";
   Sha256Prefix hash(kVersion.data(), kVersion.size());
   const auto &revision = facts.Network->SourceIdentity().Revision;
@@ -55,6 +57,22 @@ void BindSourceFacts(MvtTransportSourceFacts &facts) {
     }
     for (const bool owns : way.OwnsEnds) { Append(hash, static_cast<uint8_t>(owns)); }
   }
-  facts.Digest = hash.Digest(nullptr, 0);
+  return hash.Digest(nullptr, 0);
+}
+
+void BindSourceFacts(MvtTransportSourceFacts &facts) {
+  facts.Digest = SourceFactDigest(facts);
+}
+
+std::array<uint8_t, 32> GroundInputOmissionDigest(std::span<const MvtTransportOmission> omissions) {
+  constexpr std::string_view kVersion = "outshine/mvt-ground-omissions/1";
+  Sha256Prefix hash(kVersion.data(), kVersion.size());
+  Append(hash, static_cast<uint64_t>(omissions.size()));
+  for (const auto &omission : omissions) {
+    Append(hash, omission.Source);
+    hash.Append(omission.Feature.data(), omission.Feature.size());
+    Append(hash, static_cast<uint8_t>(omission.Reason));
+  }
+  return hash.Digest(nullptr, 0);
 }
 }

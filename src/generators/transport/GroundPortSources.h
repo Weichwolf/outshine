@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_TRANSPORT_GROUNDPORTSOURCES_H
 
 #include "GroundPortSourceProfile.h"
+#include "GroundPortSourceChain.h"
 #include "TransportTopology.h"
 #include <array>
 #include <cstddef>
@@ -45,15 +46,6 @@ struct GroundPortSourceWork {
   size_t ContainerCapacityBytes = 0;
 };
 
-struct GroundPortChainWork {
-  size_t SelectedSegments = 0;
-  size_t IncidenceVisits = 0;
-  size_t NodesVisited = 0;
-  size_t ProfileSegmentsChecked = 0;
-  size_t OrderedSegments = 0;
-  size_t ContainerCapacityBytes = 0;
-};
-
 enum class GroundPortSourceError : uint8_t {
   MissingSource,
   InvalidSource,
@@ -70,15 +62,6 @@ enum class GroundPortSourceError : uint8_t {
   MixedProfiles,
   BranchedOrClosed,
   AmbiguousParallel
-};
-
-struct GroundPortSourceChain {
-  std::shared_ptr<const World::TransportNetworkSnapshot> Source;
-  std::vector<uint32_t> Nodes;
-  std::vector<uint32_t> SourceEdges;
-  double WidthM = 0;
-  double MaximumGradient = 0;
-  GroundPortChainWork Work;
 };
 
 class GroundPortSources {
@@ -100,6 +83,11 @@ public:
         GroundPortChainLimits limits = {},
         const std::stop_token &stop = {}) const;
 
+  [[nodiscard]] std::expected<GroundPortSourceChain, GroundPortSourceError>
+  Candidate(World::TransportEdgeId seed,
+            GroundPortChainLimits limits = {},
+            const std::stop_token &stop = {}) const;
+
   [[nodiscard]] GroundPortSourceWork Work() const noexcept { return Work_; }
 
 private:
@@ -118,6 +106,11 @@ private:
     GroundPortChainWork Work;
     bool Unknown = false;
   };
+
+  [[nodiscard]] std::expected<Traversal, GroundPortSourceError> Collect(
+      World::TransportEdgeId seed, GroundPortChainLimits limits, const std::stop_token &stop) const;
+  [[nodiscard]] std::expected<GroundPortSourceChain, GroundPortSourceError>
+  Complete(Traversal state, GroundPortChainLimits limits) const;
 
   [[nodiscard]] size_t CapacityBytes() const noexcept;
   [[nodiscard]] std::expected<void, GroundPortSourceError>

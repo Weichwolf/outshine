@@ -8,14 +8,17 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 namespace outshine::Generators {
-GroundPortFieldRequest::GroundPortFieldRequest(GroundPortSourceChain source, RoadGroundStrip strip)
-    : Source_(std::move(source)), Strip_(std::move(strip)) {}
+GroundPortFieldRequest::GroundPortFieldRequest(GroundPortSourceChain source,
+                                               RoadGroundStrip strip,
+                                               std::optional<GroundPortFieldScopeInfo> scope)
+    : Source_(std::move(source)), Strip_(std::move(strip)), Scope_(std::move(scope)) {}
 
 std::expected<GroundPortFieldRequest, GroundPortFieldError>
 GroundPortFieldRequest::Prepare(const GroundPortSources &sources,
@@ -25,23 +28,59 @@ GroundPortFieldRequest::Prepare(const GroundPortSources &sources,
                                 const std::stop_token &stop) {
   auto chain = sources.Chain(seed, chainLimits, stop);
   if (!chain) { return std::unexpected(GroundPortFieldError{chain.error()}); }
-  if (chain->Nodes.size() > groundBudget.AxisPoints ||
-      chain->Nodes.size() > groundBudget.ContainerBytes / sizeof(LongitudeLatitude)) {
+  return PrepareSource(std::move(*chain), {}, groundBudget, stop);
+}
+
+std::expected<GroundPortFieldRequest, GroundPortFieldError> GroundPortFieldRequest::PrepareScoped(
+    GroundPortFieldScope scope, RoadGroundBudget groundBudget, const std::stop_token &stop) {
+  if (stop.stop_requested()) {
+    return std::unexpected(GroundPortFieldError{RoadGroundError::Canceled});
+  }
+  if (!scope.Source.Source || scope.Info.Input.DatasetId.empty() ||
+      scope.Info.Input.Version.empty() || scope.Info.Input.ItemId.empty() ||
+      scope.Info.Input.Revision != scope.Source.Source->SourceIdentity().Revision) {
+    return std::unexpected(GroundPortFieldError{GroundPortSourceError::InvalidSource});
+  }
+  const auto &input = scope.Info.Input;
+  const size_t bytes = scope.Info.Exits.capacity() * sizeof(GroundPortFieldExit) +
+                       input.DatasetId.capacity() + input.Version.capacity() +
+                       input.Revision.capacity() + input.ItemId.capacity() + 4;
+  if (bytes > groundBudget.ContainerBytes) {
     return std::unexpected(GroundPortFieldError{RoadGroundError::CapacityExceeded});
   }
-  const auto nodes = chain->Source->Topology().Nodes();
+  groundBudget.ContainerBytes -= bytes;
+  return PrepareSource(std::move(scope.Source), std::move(scope.Info), groundBudget, stop);
+}
+
+std::expected<GroundPortFieldRequest, GroundPortFieldError>
+GroundPortFieldRequest::PrepareSource(GroundPortSourceChain source,
+                                      std::optional<GroundPortFieldScopeInfo> scope,
+                                      RoadGroundBudget groundBudget,
+                                      const std::stop_token &stop) {
+  if (!source.Source || source.SourceEdges.empty() ||
+      source.Nodes.size() != source.SourceEdges.size() + 1) {
+    return std::unexpected(GroundPortFieldError{GroundPortSourceError::InvalidSource});
+  }
+  if (source.Nodes.size() > groundBudget.AxisPoints ||
+      source.Nodes.size() > groundBudget.ContainerBytes / sizeof(LongitudeLatitude)) {
+    return std::unexpected(GroundPortFieldError{RoadGroundError::CapacityExceeded});
+  }
+  const auto nodes = source.Source->Topology().Nodes();
   std::vector<LongitudeLatitude> axis;
-  axis.reserve(chain->Nodes.size());
-  for (const auto at : chain->Nodes) {
+  axis.reserve(source.Nodes.size());
+  for (const auto at : source.Nodes) {
     if (stop.stop_requested()) {
       return std::unexpected(GroundPortFieldError{RoadGroundError::Canceled});
+    }
+    if (at >= nodes.size()) {
+      return std::unexpected(GroundPortFieldError{GroundPortSourceError::InvalidSource});
     }
     axis.push_back({.LongitudeDeg = nodes[at].LongitudeDeg, .LatitudeDeg = nodes[at].LatitudeDeg});
   }
   auto strip =
-      PrepareRoadGroundStrip(axis, chain->WidthM, chain->MaximumGradient, groundBudget, stop);
+      PrepareRoadGroundStrip(axis, source.WidthM, source.MaximumGradient, groundBudget, stop);
   if (!strip) { return std::unexpected(GroundPortFieldError{strip.error()}); }
-  return GroundPortFieldRequest(std::move(*chain), std::move(*strip));
+  return GroundPortFieldRequest(std::move(source), std::move(*strip), std::move(scope));
 }
 
 GroundPortField::GroundPortField(Data data) : Data_(std::move(data)) {}
@@ -113,7 +152,8 @@ GroundPortField::Make(GroundPortFieldRequest request,
                           .Fit = std::move(*fitted),
                           .Geometry = std::move(*geometry),
                           .ProcedureAndTerrainBinding = *binding,
-                          .Members = std::move(members)});
+                          .Members = std::move(members),
+                          .Scope = std::move(request.Scope_)});
 }
 
 std::expected<World::TransportEdgeId, RoadGroundError>

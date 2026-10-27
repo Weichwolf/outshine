@@ -9,6 +9,7 @@
 #include <span>
 #include <stop_token>
 #include <vector>
+#include <utility>
 
 namespace outshine::Generators {
 
@@ -35,7 +36,7 @@ GroundPortSources::Expand(uint32_t node, Traversal &state, GroundPortChainLimits
   return {};
 }
 
-std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::Chain(
+std::expected<GroundPortSources::Traversal, GroundPortSourceError> GroundPortSources::Collect(
     World::TransportEdgeId seed, GroundPortChainLimits limits, const std::stop_token &stop) const {
   if (stop.stop_requested()) { return std::unexpected(GroundPortSourceError::Canceled); }
   if (!Source_) { return std::unexpected(GroundPortSourceError::MissingSource); }
@@ -70,7 +71,6 @@ std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::C
   const auto first = static_cast<uint32_t>(selected - Segments_.begin());
   state.Queued[first] = 1;
   state.Queue.push_back(first);
-  GroundPortSourceChain result{.Source = Source_, .Nodes = {}, .SourceEdges = {}, .Work = {}};
   for (size_t at = 0; at < state.Queue.size(); ++at) {
     if (stop.stop_requested()) { return std::unexpected(GroundPortSourceError::Canceled); }
     ++state.Work.SelectedSegments;
@@ -79,7 +79,12 @@ std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::C
       if (!expanded) { return std::unexpected(expanded.error()); }
     }
   }
-  if (state.Unknown) { return std::unexpected(GroundPortSourceError::UnknownFrontier); }
+  return state;
+}
+
+std::expected<GroundPortSourceChain, GroundPortSourceError>
+GroundPortSources::Complete(Traversal state, GroundPortChainLimits limits) const {
+  GroundPortSourceChain result{.Source = Source_, .Nodes = {}, .SourceEdges = {}, .Work = {}};
   std::ranges::sort(state.Queue);
   result.Nodes.reserve(state.Queue.size() + 1);
   result.SourceEdges.reserve(state.Queue.size());
@@ -93,6 +98,21 @@ std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::C
     return std::unexpected(GroundPortSourceError::CapacityExceeded);
   }
   return result;
+}
+
+std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::Chain(
+    World::TransportEdgeId seed, GroundPortChainLimits limits, const std::stop_token &stop) const {
+  auto state = Collect(seed, limits, stop);
+  if (!state) { return std::unexpected(state.error()); }
+  if (state->Unknown) { return std::unexpected(GroundPortSourceError::UnknownFrontier); }
+  return Complete(std::move(*state), limits);
+}
+
+std::expected<GroundPortSourceChain, GroundPortSourceError> GroundPortSources::Candidate(
+    World::TransportEdgeId seed, GroundPortChainLimits limits, const std::stop_token &stop) const {
+  auto state = Collect(seed, limits, stop);
+  if (!state) { return std::unexpected(state.error()); }
+  return Complete(std::move(*state), limits);
 }
 
 std::expected<uint32_t, GroundPortSourceError>
