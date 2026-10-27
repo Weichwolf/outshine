@@ -7,12 +7,15 @@ import shapely
 from scipy.optimize import linprog
 
 
-def profile_cuts(ends, half, *, method="linear"):
+def profile_cuts(ends, half, *, method="linear", seconds=1.0):
     """Keep each entire cut inside the other support planes.
 
     max dot(tj, di*ti +/- hi*ni) <= dj - 0.05 is linear in the cut distances.
+    Lower cut bounds also retain the full profiles at the original source hub.
     This fits the explicit cut problem only; whole geometry is checked separately.
     """
+    if not np.isfinite(seconds) or seconds <= 0:
+        raise ValueError("three_arm_cut_time_budget")
     lengths = np.linalg.norm(ends, axis=1)
     if (
         ends.shape != (3, 2)
@@ -37,7 +40,9 @@ def profile_cuts(ends, half, *, method="linear"):
             rows.append(row)
             bounds.append(-half[a] * abs(normal[a] @ tangent[b]) - 0.05)
     matrix, bounds = np.array(rows), np.array(bounds)
-    upper, lower = lengths - 0.05, np.maximum(0.05, half / 4)
+    source_profiles = half[:, None] * np.abs(normal @ tangent.T)
+    lower = np.maximum(np.maximum(0.05, half / 4), source_profiles.max(axis=0) + 0.05)
+    upper = lengths - 0.05
     began = time.perf_counter()
     if method == "linear":
         result = linprog(
@@ -46,7 +51,7 @@ def profile_cuts(ends, half, *, method="linear"):
             b_ub=bounds,
             bounds=list(zip(lower, upper)),
             method="highs",
-            options={"time_limit": 1.0},
+            options={"time_limit": min(1.0, seconds)},
         )
         if not result.success or result.status != 0:
             raise ValueError("three_arm_cut_fit_incomplete_or_infeasible")
@@ -75,6 +80,8 @@ def profile_cuts(ends, half, *, method="linear"):
             "lengths_m": lengths.tolist(),
             "constraint_rows": len(rows),
             "constraint_nonzeros": int(np.count_nonzero(matrix)),
+            "variable_lower_bounds_m": lower.tolist(),
+            "variable_upper_bounds_m": upper.tolist(),
             "maximum_constraint_residual_m": float(np.max(matrix @ cuts - bounds)),
             "elapsed_ms": 1000 * (time.perf_counter() - began),
         },
@@ -87,7 +94,14 @@ def arm_polygons(ends, half, grades, cuts, tangent, normal, proximal):
         profiles
         + np.array([-1, 1])[None, :, None] * half[:, None, None] * normal[:, None]
     )
-    polygons = [shapely.MultiPoint(profiles.reshape(-1, 2)).convex_hull]
+    original_profiles = (
+        np.array([-1, 1])[None, :, None] * half[:, None, None] * normal[:, None]
+    )
+    polygons = [
+        shapely.MultiPoint(
+            np.vstack((profiles.reshape(-1, 2), original_profiles.reshape(-1, 2)))
+        ).convex_hull
+    ]
     frames, roles, ports, links, caps, sources, stations = (
         [np.eye(2) / min(0.025, float(grades.min()))],
         [1],
@@ -128,7 +142,7 @@ def arm_polygons(ends, half, grades, cuts, tangent, normal, proximal):
     return polygons, frames, roles, ports, links, caps, sources, stations
 
 
-def layout(ends, widths, grades, *, proximal=True, cut_method="linear"):
+def layout(ends, widths, grades, *, proximal=True, cut_method="linear", seconds=1.0):
     ends, half, grades = (
         np.asarray(ends, float),
         np.asarray(widths, float) / 2,
@@ -141,7 +155,9 @@ def layout(ends, widths, grades, *, proximal=True, cut_method="linear"):
         or np.any(grades > 1)
     ):
         raise ValueError("three bounded source gradients required")
-    cuts, tangent, normal, report = profile_cuts(ends, half, method=cut_method)
+    cuts, tangent, normal, report = profile_cuts(
+        ends, half, method=cut_method, seconds=seconds
+    )
     polygons, frames, roles, ports, links, caps, sources, stations = arm_polygons(
         ends, half, grades, cuts, tangent, normal, proximal
     )
@@ -175,7 +191,7 @@ def layout(ends, widths, grades, *, proximal=True, cut_method="linear"):
         whole_ports=len(ports),
         domain_area_m2=complete.area,
         part_source_arms=sources,
-        recipe="outshine/experimental-three-arm-ground/1",
+        recipe="outshine/experimental-three-arm-ground/2",
         proximal_profile_bands=proximal,
     )
     return {

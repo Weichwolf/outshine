@@ -1,5 +1,6 @@
 """Diagnostic original-source guards for one bounded three-arm Ground star."""
 
+import time
 from collections import Counter
 
 import numpy as np
@@ -114,7 +115,13 @@ def source_input(
     *,
     proximal=True,
     cut_method="linear",
+    deadline=None,
 ):
+    started = time.monotonic()
+    deadline = started + budget.surface.time_limit_s if deadline is None else deadline
+    geometry_deadline = min(deadline, started + budget.surface.geometry_time_limit_s)
+    if started >= deadline:
+        raise ValueError("diagnostic_ground_total_deadline")
     if index.source is not source:
         raise ValueError("diagnostic_ground_index_source_mismatch")
     if budget.requests < 3 or budget.surface.max_queries < 3:
@@ -131,7 +138,12 @@ def source_input(
     widths = [spans[e].width_m for e in edges]
     grades = [spans[e].maximum_gradient for e in edges]
     raw, geometry = layout(
-        ends, widths, grades, proximal=proximal, cut_method=cut_method
+        ends,
+        widths,
+        grades,
+        proximal=proximal,
+        cut_method=cut_method,
+        seconds=geometry_deadline - time.monotonic(),
     )
     sizes = [len(raw["xy"]), len(raw["faces"]), len(raw["roles"]), len(raw["ports"])]
     caps = [
@@ -150,14 +162,14 @@ def source_input(
         or sizes[1] > budget.surface.max_output_faces
     ):
         raise ValueError("diagnostic_ground_output_budget")
-    if (
-        budget.surface.time_limit_s <= 0
-        or budget.surface.geometry_time_limit_s <= 0
-        or budget.surface.solver_time_limit_s <= 0
-    ):
-        raise ValueError("diagnostic_ground_time_budget")
+    if time.monotonic() >= geometry_deadline:
+        raise ValueError("diagnostic_ground_geometry_deadline")
     geographic = ground_geographic_at(anchor, raw["xy"])
+    if time.monotonic() >= geometry_deadline:
+        raise ValueError("diagnostic_ground_geometry_deadline")
     heights = np.asarray(terrain(geographic), float)
+    if time.monotonic() >= deadline:
+        raise ValueError("diagnostic_ground_total_deadline")
     if (
         heights.shape != (sizes[0],)
         or not np.isfinite(heights).all()

@@ -6,6 +6,7 @@ import math
 import subprocess
 import time
 from contextlib import nullcontext
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,7 @@ def run(
     source, groups, ways, binding, _ = bundle
     budget = PortBudget() if budget is None else budget
     began = time.perf_counter()
+    deadline = time.monotonic() + budget.surface.time_limit_s
     index, edges, centre, leaves, guards = checked_star(
         source, SEED, groups, ways, binding, budget
     )
@@ -53,8 +55,23 @@ def run(
         budget,
         proximal=proximal,
         cut_method=cut_method,
+        deadline=deadline,
     )
-    field, fitting = fit_ground(inputs, prior_limit, method, budget)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise ValueError("diagnostic_ground_total_deadline")
+    local_budget = replace(
+        budget,
+        surface=replace(
+            budget.surface,
+            time_limit_s=remaining,
+            solver_time_limit_s=min(budget.surface.solver_time_limit_s, remaining),
+            geometry_time_limit_s=min(budget.surface.geometry_time_limit_s, remaining),
+        ),
+    )
+    field, fitting = fit_ground(inputs, prior_limit, method, local_budget)
+    if time.monotonic() >= deadline:
+        raise ValueError("diagnostic_ground_total_deadline")
     report = {
         "state": "Pending",
         "source_guards": guards,
@@ -73,6 +90,8 @@ def run(
             anchor, field, inputs, caps, index, budget, prior_limit=prior_limit
         )
         report.update(state="FiniteGeometryDiagnostic", terminals=checked)
+    if time.monotonic() >= deadline:
+        raise ValueError("diagnostic_ground_total_deadline")
     report["elapsed_ms"] = 1000 * (time.perf_counter() - began)
     return report, inputs, field, mesh
 
