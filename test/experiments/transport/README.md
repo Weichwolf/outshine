@@ -1714,3 +1714,43 @@ Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
 
 Bibliotheksübernahme und aktuelle Source-/Wheel-/Kosten-/Bildprüfung:
 [weighted_height_library_comparison.md](weighted_height_library_comparison.md).
+
+## Scalar graph height envelopes (#1508)
+
+`replay_graph_height_envelopes.py` compares two multi-source distance traversals
+with an independent HiGHS minimax LP on the retained bridge-source fixture.
+Positive edge budgets are original MaxGradient times fixed zero-height ENU XY
+lengths. Original DEM heights become scalar ENU observations; missing stencils
+remain absent and missing grade profiles are explicitly excluded with source IDs.
+The captured Source component remains unqualified. This graph experiment does
+not produce canonical ports, C1 surfaces, bridge geometry or World admission.
+
+For shortest-path budget distance d and observations z, define
+`U(v)=min_s(z_s+d(s,v))` and `L(v)=max_s(z_s-d(s,v))`.
+Both envelopes and their midpoint obey every edge budget. At observed nodes
+`U<=z<=L`, so the midpoint reaches error `rho=max(0,max_v(L-U))/2`.
+Every fit with error epsilon must satisfy `L-epsilon<=h<=U+epsilon`, proving
+epsilon>=rho for this scalar model. Unsampled disconnected components retain
+unbounded intervals. Edge feasibility does not prove whole-face grade or C1.
+The graph/geometry distinction follows the existing
+[SIGGRAPH transport references](../../../doc/references/transport/README.md).
+
+Bounded queries require known valid global observation extrema; this replay
+loads them first and claims no avoided IO. An additional lazy negative witness
+uses fresh DEM samples without extrema, still from an already decoded tile.
+Budget exhaustion remains incomplete. Many individual queries can cost more
+than the two full traversals; the replay checks every query against them.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -m unittest graph_height_envelope_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_graph_height_envelopes.py --output "$TRANSPORT_WORK/height-envelopes" --plot
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/measure_graph_height_envelopes.py --input "$TRANSPORT_WORK/height-envelopes" --output "$TRANSPORT_WORK/height-envelope-costs"
+```
+
+Use fresh external system-temp output paths. NumPy/SciPy are required;
+Matplotlib is optional for `--plot`, Memray for the separate cost measurement.
+Costs include traversal/midpoint or LP assembly/solve on equally prepared data,
+excluding source decode and graph preparation. Allocation traces and known
+numeric output sizes are neither complete copied bytes nor process/device peaks.
+The proof, actual findings and remaining geometry boundaries belong to
+[#1508](https://github.com/Weichwolf/outshine/issues/1508).
