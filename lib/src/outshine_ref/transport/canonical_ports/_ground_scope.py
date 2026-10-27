@@ -8,7 +8,13 @@ from types import MappingProxyType
 
 from ...contracts import immutable
 from ._end_candidates import float_word
-from ._ground_recipe import THREE_ARM_PARAMETERS, known_geometry_recipe, source_star
+from ._ground_recipe import (
+    NETWORK_RECIPE,
+    geometry_parameters,
+    known_geometry_recipe,
+    source_network,
+    source_star,
+)
 from ._ground_scope_index import (
     group_nodes,
     indexed_input_guard,
@@ -211,7 +217,7 @@ def prepare_ground_field_scope(
 
     Returns (existing index, selected members, immutable binding, reason, work).
     No DEM/solver work occurs here. Unknown never changes or becomes an ignore flag.
-    An explicit known geometry_recipe admits only its complete three-arm shape;
+    An explicit known geometry_recipe admits only its complete bounded topology;
     None keeps the original chain path. Unknown recipes never select a fallback.
     Optional scope_index owns the exact same input objects and avoids repeated
     global scans. Its construction work is separate; original admission caps hold.
@@ -259,13 +265,21 @@ def prepare_ground_field_scope(
     work.update(counted)
     if closure not in ("", "unknown_source_frontier"):
         return pending(closure)
-    _shape, reason = (
+    shape, reason = (
         source_chain(index, selected)
         if geometry_recipe is None
-        else source_star(index, selected)
+        else (
+            source_network(index, selected)
+            if geometry_recipe == NETWORK_RECIPE
+            else source_star(index, selected)
+        )
     )
     if reason:
         return pending(reason)
+    if geometry_recipe == NETWORK_RECIPE and min(
+        budget.requests, budget.surface.max_queries
+    ) < len(shape[1]):
+        return pending("ground_terminal_query_budget")
     nodes, spans, _incidence = index
     selected_nodes = {node for edge in selected for node in spans[edge].nodes}
     coverage = source.binding.get("coverage", ())
@@ -341,7 +355,7 @@ def prepare_ground_field_scope(
             ),
             "height_policy": "local DEM/recipe field fixed for this scope; outer bridge/layer must adapt or stay Pending",
             **(
-                {"geometry_recipe": THREE_ARM_PARAMETERS}
+                {"geometry_recipe": geometry_parameters(geometry_recipe)}
                 if geometry_recipe is not None
                 else {}
             ),

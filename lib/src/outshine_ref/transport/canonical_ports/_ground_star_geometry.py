@@ -5,11 +5,12 @@ import time
 import numpy as np
 import shapely
 
+from ._ground_domain import mesh_parts
 from ._ground_recipe import THREE_ARM_PARAMETERS as PARAMETERS
 from ._ground_recipe import THREE_ARM_RECIPE
 
 
-def profile_cuts(ends, half, *, method="linear", seconds=1.0):
+def profile_cuts(ends, half, *, method="linear", seconds=1.0, arm_count=3):
     """Keep each entire cut inside the other support planes.
 
     max dot(tj, di*ti +/- hi*ni) <= dj - 0.05 is linear in the cut distances.
@@ -22,8 +23,9 @@ def profile_cuts(ends, half, *, method="linear", seconds=1.0):
     tolerance = PARAMETERS["cut_residual_limit_m"]
     lengths = np.linalg.norm(ends, axis=1)
     if (
-        ends.shape != (3, 2)
-        or half.shape != (3,)
+        not 2 <= arm_count <= 6
+        or ends.shape != (arm_count, 2)
+        or half.shape != (arm_count,)
         or not np.isfinite(ends).all()
         or not np.isfinite(half).all()
         or np.any(half <= PARAMETERS["width_domain_m"][0] / 2)
@@ -35,11 +37,11 @@ def profile_cuts(ends, half, *, method="linear", seconds=1.0):
     tangent = ends / lengths[:, None]
     normal = np.c_[-tangent[:, 1], tangent[:, 0]]
     rows, bounds = [], []
-    for a in range(3):
-        for b in range(3):
+    for a in range(arm_count):
+        for b in range(arm_count):
             if a == b:
                 continue
-            row = np.zeros(3)
+            row = np.zeros(arm_count)
             row[a], row[b] = tangent[a] @ tangent[b], -1
             rows.append(row)
             bounds.append(-half[a] * abs(normal[a] @ tangent[b]) - reserve)
@@ -55,7 +57,7 @@ def profile_cuts(ends, half, *, method="linear", seconds=1.0):
         from scipy.optimize import linprog
 
         result = linprog(
-            np.ones(3),
+            np.ones(arm_count),
             A_ub=matrix,
             b_ub=bounds,
             bounds=list(zip(lower, upper)),
@@ -69,7 +71,7 @@ def profile_cuts(ends, half, *, method="linear", seconds=1.0):
         denominator = -matrix.sum(axis=1)
         if np.any(denominator <= 0):
             raise ValueError("three_arm_common_cut_direction")
-        cuts = np.full(3, max(np.max(-bounds / denominator), np.max(lower)))
+        cuts = np.full(arm_count, max(np.max(-bounds / denominator), np.max(lower)))
     else:
         raise ValueError("known experimental cut method required")
     if (
@@ -184,46 +186,14 @@ def layout(ends, widths, grades, *, proximal=True, cut_method="linear", seconds=
     polygons, frames, roles, ports, links, caps, sources, stations = arm_polygons(
         ends, half, grades, cuts, tangent, normal, proximal
     )
-    if any(p.geom_type != "Polygon" or not p.is_valid or p.area <= 0 for p in polygons):
-        raise ValueError("three_arm_invalid_polygon")
-    if not shapely.coverage_is_valid(polygons):
-        raise ValueError("three_arm_overlap_or_nonconforming_parts")
-    complete = shapely.coverage_union_all(polygons)
-    if complete.geom_type != "Polygon" or not complete.is_valid:
-        raise ValueError("three_arm_disconnected_domain")
-    triangles, owners = [], []
-    for part, polygon in enumerate(polygons):
-        tri = shapely.get_coordinates(
-            shapely.constrained_delaunay_triangles(polygon)
-        ).reshape(-1, 4, 2)[:, :3]
-        triangles.extend(tri)
-        owners.extend([part] * len(tri))
-    vertices, indices = np.unique(
-        np.array(triangles).reshape(-1, 2), axis=0, return_inverse=True
-    )
-    faces, owners = indices.reshape(-1, 3), np.asarray(owners)
-    lookup = {tuple(p): i for i, p in enumerate(vertices)}
-    indexed = lambda sections: np.array(
-        [[lookup[tuple(p)] for p in section] for section in sections], dtype=np.int64
+    raw, geometry = mesh_parts(
+        polygons, frames, roles, ports, links, caps, prefix="three_arm"
     )
     report.update(
         stations_m=stations,
-        parts=len(polygons),
-        prior_vertices=len(vertices),
-        prior_faces=len(faces),
-        whole_ports=len(ports),
-        domain_area_m2=complete.area,
+        **geometry,
         part_source_arms=sources,
         recipe=THREE_ARM_RECIPE if proximal and cut_method == "linear" else None,
         proximal_profile_bands=proximal,
     )
-    return {
-        "xy": vertices,
-        "faces": faces,
-        "owners": owners,
-        "roles": np.asarray(roles),
-        "ports": indexed(ports),
-        "links": np.asarray(links),
-        "caps": indexed(caps),
-        "frames": np.asarray(frames)[owners],
-    }, report
+    return raw, report
