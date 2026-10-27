@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <tuple>
@@ -21,6 +22,45 @@ constexpr uint32_t kAbsent = std::numeric_limits<uint32_t>::max();
 
 auto Key(const World::TransportEdgeId &edge) {
   return std::tuple{edge.PathId, edge.SegmentOrdinal, edge.Direction};
+}
+
+size_t InputBytes(const TransportInputReference &input) {
+  return input.DatasetId.capacity() + input.Version.capacity() + input.Revision.capacity() +
+         input.ItemId.capacity() + 4;
+}
+
+std::optional<size_t> ContainerBound(const GroundPortField &field) {
+  const size_t count = field.Source().SourceEdges.size();
+  const size_t faces = field.Geometry().Surface.Faces.size();
+  const size_t points = field.Geometry().Surface.Points.size();
+  size_t remaining = std::numeric_limits<size_t>::max();
+  const auto fits = [&](size_t elements, size_t width) {
+    if (elements > remaining / width) { return false; }
+    remaining -= elements * width;
+    return true;
+  };
+  constexpr size_t growth = 2;
+  constexpr size_t scratchPoint = sizeof(PlanarPoint) + sizeof(double) + sizeof(uint32_t);
+  constexpr size_t scratchFace = sizeof(PlanarFace) + sizeof(std::array<double, 3>);
+  constexpr size_t solidFace = 6 * sizeof(std::array<double, 3>) + 8 * sizeof(PlanarFace) +
+                               6 * (sizeof(uint32_t) + sizeof(HeightSolidWallKind));
+  constexpr size_t contactFace = sizeof(EarthworkStamp) + 12 * sizeof(double);
+  if (!fits(count, growth * (sizeof(GroundPortBody) + sizeof(uint32_t))) ||
+      !fits(faces, growth * (2 * sizeof(uint32_t) + scratchFace + solidFace + contactFace)) ||
+      !fits(points, growth * (sizeof(uint32_t) + scratchPoint)) ||
+      !fits(InputBytes(field.Fit().RecipeInput), growth) ||
+      !fits(InputBytes(field.Terrain().Input()), growth)) {
+    return {};
+  }
+  return std::numeric_limits<size_t>::max() - remaining;
+}
+
+HeightSolidBudget SolidLimits(HeightSolidBudget budget, size_t points, size_t faces) {
+  budget.Points = std::min(budget.Points, points);
+  budget.SurfaceFaces = std::min(budget.SurfaceFaces, faces);
+  budget.Vertices = std::min(budget.Vertices, points * 2);
+  budget.Faces = std::min(budget.Faces, faces * 8);
+  return budget;
 }
 
 struct Scratch {
@@ -178,25 +218,27 @@ BuildGroundPortBodies(const GroundPortField &field,
   const size_t count = field.Source().SourceEdges.size();
   const size_t faces = mesh.Surface.Faces.size();
   const size_t points = mesh.Surface.Points.size();
-  size_t remaining = budget.ContainerBytes;
-  const auto fits = [&](size_t elements, size_t width) {
-    if (elements > remaining / width) { return false; }
-    remaining -= elements * width;
-    return true;
-  };
   if (count > budget.Bodies || count >= kAbsent || faces > budget.SurfaceFaces ||
-      faces >= kAbsent || !fits(count, sizeof(GroundPortBody) + sizeof(uint32_t)) ||
-      !fits(faces, 2 * sizeof(uint32_t) + sizeof(EarthworkStamp) + 12 * sizeof(double)) ||
-      !fits(points, sizeof(uint32_t)) || budget.Solid.Points == 0 ||
-      budget.Solid.SurfaceFaces == 0 || budget.Solid.Vertices == 0 || budget.Solid.Faces == 0 ||
-      budget.Solid.EdgeVisits == 0) {
+      faces >= kAbsent || budget.Solid.Points == 0 || budget.Solid.SurfaceFaces == 0 ||
+      budget.Solid.Vertices == 0 || budget.Solid.Faces == 0 || budget.Solid.EdgeVisits == 0) {
     return std::unexpected(Error{RoadGroundError::CapacityExceeded});
   }
-  GroundPortBodies output{
-      .Anchor = field.Domain().Anchor, .Source = field.Source().Source, .Bodies = {}, .Work = {}};
+  const auto bound = ContainerBound(field);
+  if (!bound || *bound > budget.ContainerBytes) {
+    return std::unexpected(Error{RoadGroundError::CapacityExceeded});
+  }
+  GroundPortBodies output{.Anchor = field.Domain().Anchor,
+                          .Source = field.Source().Source,
+                          .Inputs = {field.Fit().RecipeInput, field.Terrain().Input()},
+                          .ProcedureAndTerrainBinding = field.ProcedureAndTerrainBinding(),
+                          .Recipe = recipe,
+                          .Bodies = {},
+                          .Work = {}};
   Scratch scratch;
   output.Bodies.reserve(count);
-  output.Work.ContainerCapacityBytes = output.Bodies.capacity() * sizeof(GroundPortBody);
+  output.Work.ContainerCapacityBytes = output.Bodies.capacity() * sizeof(GroundPortBody) +
+                                       InputBytes(output.Inputs[0]) + InputBytes(output.Inputs[1]);
+  output.Work.ContainerBoundBytes = *bound;
   scratch.Owners.reserve(faces);
   scratch.Remap.resize(points, kAbsent);
   if (auto partition = Partition(field, output, scratch, stop); !partition) {
@@ -214,12 +256,13 @@ BuildGroundPortBodies(const GroundPortField &field,
     if (auto capacity = Capacity(output, scratch, budget.ContainerBytes); !capacity) {
       return std::unexpected(capacity.error());
     }
-    auto closed = BuildHeightSolid({.Points = scratch.Points,
-                                    .Faces = scratch.Faces,
-                                    .TopHeights = scratch.Top,
-                                    .BottomHeights = scratch.Bottom},
-                                   budget.Solid,
-                                   stop);
+    auto closed =
+        BuildHeightSolid({.Points = scratch.Points,
+                          .Faces = scratch.Faces,
+                          .TopHeights = scratch.Top,
+                          .BottomHeights = scratch.Bottom},
+                         SolidLimits(budget.Solid, scratch.Points.size(), scratch.Faces.size()),
+                         stop);
     if (!closed) { return std::unexpected(Error{closed.error()}); }
     output.Work.FaceVisits += scratch.Faces.size();
     output.Work.RemappedVertices += scratch.Points.size();

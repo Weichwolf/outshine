@@ -140,6 +140,43 @@ void WriteBodies(const GroundPortBodies &bodies, size_t which, const char *path)
   Fixture::WriteMesh(mesh, which, filename.c_str());
 }
 
+void CheckBodyAdmission(const GroundPortField &field, const GroundPortBodies &bodies) {
+  const auto &mesh = field.Geometry();
+  const size_t oldBase =
+      field.Source().SourceEdges.size() * (sizeof(GroundPortBody) + sizeof(uint32_t)) +
+      mesh.Surface.Faces.size() *
+          (2 * sizeof(uint32_t) + sizeof(EarthworkStamp) + 12 * sizeof(double)) +
+      mesh.Surface.Points.size() * sizeof(uint32_t);
+  const size_t required = bodies.Work.ContainerBoundBytes;
+  CHECK(required > oldBase &&
+            bodies.Work.ContainerCapacityBytes + bodies.Work.ScratchCapacityBytes <= required,
+        "the conservative container bound includes body outputs and staging beyond base arrays");
+  BeginCppAllocationProbe();
+  const auto justBase = BuildGroundPortBodies(field, kBodyRecipe, {.ContainerBytes = oldBase + 1});
+  const auto justShort =
+      BuildGroundPortBodies(field, kBodyRecipe, {.ContainerBytes = required - 1});
+  const auto allocations = EndCppAllocationProbe();
+  CHECK(!justBase && !justShort && allocations.Calls == 0,
+        "both middle budgets reject before metadata, partition, scratch or solid allocation");
+  const auto exact = BuildGroundPortBodies(field, kBodyRecipe, {.ContainerBytes = required});
+  CHECK(exact && exact->Work.ContainerBoundBytes == required &&
+            exact->Work.ContainerCapacityBytes + exact->Work.ScratchCapacityBytes <= required,
+        "the exact conservative bound admits the same complete body and contact result");
+  if (exact) {
+    CHECK(exact->Bodies.size() == bodies.Bodies.size(),
+          "the exact conservative budget preserves the complete physical source set");
+    for (size_t at = 0; at < std::min(exact->Bodies.size(), bodies.Bodies.size()); ++at) {
+      const auto &a = exact->Bodies[at];
+      const auto &b = bodies.Bodies[at];
+      CHECK(a.Source == b.Source && a.FaceParents == b.FaceParents &&
+                a.Geometry.Points == b.Geometry.Points && a.Geometry.Faces == b.Geometry.Faces &&
+                a.Geometry.VolumeM3 == b.Geometry.VolumeM3 &&
+                a.TerrainContacts == b.TerrainContacts,
+            "exact-bound admission preserves the whole original geometry and terrain contacts");
+    }
+  }
+}
+
 std::optional<GroundPortBodies>
 CheckBodies(const GroundPortField &product, size_t which, const char *path) {
   CheckBodyGuards(product);
@@ -157,6 +194,10 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
     return std::nullopt;
   }
   CheckBodySurfaces(product, *bodies);
+  CheckBodyAdmission(product, *bodies);
+  CHECK(bodies->Recipe == kBodyRecipe &&
+            bodies->ProcedureAndTerrainBinding == product.ProcedureAndTerrainBinding(),
+        "the native body product retains the explicit recipe and existing field binding");
   WriteBodies(*bodies, which, path);
   const auto again = BuildGroundPortBodies(
       product, kBodyRecipe, {.Bodies = 4096, .SurfaceFaces = 32768, .ContainerBytes = 67108864});
@@ -177,7 +218,7 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
   }
   std::println("GROUND_BODIES sources={} faces={} ms={} allocations={} requested_bytes={} "
                "retained_capacity={} scratch_capacity={} face_visits={} remapped_vertices={} "
-               "copied_surface_bytes={} solid_edge_visits={} terrain_contacts={}",
+               "copied_surface_bytes={} solid_edge_visits={} terrain_contacts={} bound_bytes={}",
                bodies->Bodies.size(),
                product.Geometry().Surface.Faces.size(),
                std::chrono::duration<double, std::milli>(end - start).count(),
@@ -189,7 +230,8 @@ CheckBodies(const GroundPortField &product, size_t which, const char *path) {
                bodies->Work.RemappedVertices,
                bodies->Work.CopiedSurfaceBytes,
                bodies->Work.SolidEdgeVisits,
-               bodies->Work.TerrainContactFaces);
+               bodies->Work.TerrainContactFaces,
+               bodies->Work.ContainerBoundBytes);
   return std::move(*bodies);
 }
 
@@ -464,6 +506,11 @@ int main(int argc, char **argv) {
         "the actual native field/fit/terrain products are released before body consumption");
   for (size_t which = 0; which < bodies.size(); ++which) {
     const auto &batch = bodies[which];
+    const auto binding =
+        TransportPlanInputBinding(batch.Inputs, GroundPortFieldBudget{}.BindingBytes);
+    CHECK(binding && *binding == batch.ProcedureAndTerrainBinding && batch.Recipe == kBodyRecipe,
+          "owned procedure/terrain input records and physical recipe remain usable after every "
+          "original field/fit/DEM owner is released");
     Fixture::CheckBodyContacts(batch, which, diagnosticPath);
     for (const auto &body : batch.Bodies) {
       CHECK(batch.Source->Topology().FindEdge(body.Source) && body.Geometry.VolumeM3 > 0 &&

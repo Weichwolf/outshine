@@ -4,6 +4,7 @@
 #include "GroundPortField.h"
 #include "HeightSolid.h"
 #include "HeightSolidTerrainContact.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -24,6 +25,7 @@ struct GroundPortBodyRecipe {
   double ThicknessM = 0;
   double ApronM = 0;
   double ReliefM = 0;
+  bool operator==(const GroundPortBodyRecipe &) const = default;
 };
 
 struct GroundPortBodyBudget {
@@ -41,11 +43,15 @@ struct GroundPortBodyWork {
   size_t ScratchCapacityBytes = 0;
   size_t SolidEdgeVisits = 0;
   size_t TerrainContactFaces = 0;
+  size_t ContainerBoundBytes = 0;
 };
 
 struct GroundPortBodies {
   LongitudeLatitude Anchor;
   std::shared_ptr<const World::TransportNetworkSnapshot> Source;
+  std::array<TransportInputReference, 2> Inputs;
+  std::array<uint8_t, 32> ProcedureAndTerrainBinding;
+  GroundPortBodyRecipe Recipe;
   std::vector<GroundPortBody> Bodies;
   GroundPortBodyWork Work;
 };
