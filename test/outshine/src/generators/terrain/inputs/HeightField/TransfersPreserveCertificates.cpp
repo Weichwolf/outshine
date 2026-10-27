@@ -38,15 +38,18 @@ int main() {
       CHECK(block.Certificate.Dependencies().size() == 1 &&
                 block.Certificate.Dependencies()[0] == stamp,
             "transfer retains exact registration and delivery identity");
-      auto field = HeightField::Of(block.At.Zoom, {std::move(block)});
+      const auto zoom = block.At.Zoom;
+      auto field = HeightField::Of(zoom, {std::move(block)});
       CHECK(field && field->Certificate().IsComplete() == !partial,
             "height input never promotes a partial certificate");
       CHECK(field && index.AreCurrent(field->Certificate().Dependencies()),
             "height input retains valid metadata independently of raster representation");
     }
   }
-  HeightField::Block a, b;
-  TerrainField first(2, 2), second(2, 2);
+  HeightField::Block a;
+  HeightField::Block b;
+  TerrainField first(2, 2);
+  TerrainField second(2, 2);
   const Data::TileId neighbour{.Zoom = 1, .X = 1, .Y = 0};
   const auto other = *index.IssueDeliveryStamp(neighbour);
   first.AddSource(

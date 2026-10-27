@@ -17,9 +17,11 @@ public:
 
   outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override { return {}; }
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*spot*/) const override {
+    return {};
+  }
 
-  double PostM(double) const override { return 1; }
+  double PostM(double /*latitudeDeg*/) const override { return 1; }
 };
 }
 

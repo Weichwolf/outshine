@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "GroundSnapshot.h"
 #include "GroundPatch.h"
 #include "Check.h"
@@ -26,12 +27,12 @@ public:
 
   GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*spot*/) const override {
     ++Blocks;
     return {};
   }
 
-  double PostM(double) const override { return Region.SpanNm() / 4; }
+  double PostM(double /*latitudeDeg*/) const override { return Region.SpanNm() / 4; }
 
   int BlockZoom() const override { return Region.Zoom() + 2; }
 };
@@ -53,7 +54,8 @@ int main() {
         const EastNorth at{.EastM = column * region.SpanEm() / 4,
                            .NorthM = row * region.SpanNm() / 4};
         const auto expected = region.Geo(at);
-        const auto actual = heights.Requested[static_cast<size_t>(row * 5 + column)];
+        const auto actual =
+            heights.Requested[static_cast<size_t>(row) * 5 + static_cast<size_t>(column)];
         CHECK(actual == expected && std::abs(patch->HeightAslM(at) - expected.LatitudeDeg -
                                              expected.LongitudeDeg) < 1e-9,
               "every posting retains its geographic position and analytic height");

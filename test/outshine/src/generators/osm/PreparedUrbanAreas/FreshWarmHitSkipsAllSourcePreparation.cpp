@@ -41,6 +41,28 @@ int FreshProcess(const std::filesystem::path &directory) {
         "fresh OS process never invokes the provider, source service or urban factory");
   return Report();
 }
+
+void CheckFreshProcess(const char *program, const std::filesystem::path &directory) {
+  using namespace outshine::Test;
+  const auto child = fork();
+  CHECK(child >= 0, "fresh-process check starts without carrying fixture threads");
+  if (child == 0) {
+    auto *log = std::fopen((directory / "child.log").c_str(), "w");
+    if (log == nullptr || dup2(fileno(log), STDOUT_FILENO) < 0 ||
+        dup2(fileno(log), STDERR_FILENO) < 0) {
+      constexpr int redirectFailure = 126;
+      _exit(redirectFailure);
+    }
+    execl(program, program, directory.c_str(), static_cast<char *>(nullptr));
+    constexpr int execFailure = 127;
+    _exit(execFailure);
+  }
+  if (child > 0) {
+    int status = 0;
+    CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
+          "independent fresh-process native hit completes successfully");
+  }
+}
 }
 
 int main(int argc, char **argv) {
@@ -113,24 +135,7 @@ int main(int argc, char **argv) {
     keyOutput << originalKey;
     CHECK(keyOutput.good(), "content identity is available to the independent child");
   }
-  const auto child = fork();
-  CHECK(child >= 0, "fresh-process check starts without carrying fixture threads");
-  if (child == 0) {
-    auto *log = std::fopen((directory / "child.log").c_str(), "w");
-    if (log == nullptr || dup2(fileno(log), STDOUT_FILENO) < 0 ||
-        dup2(fileno(log), STDERR_FILENO) < 0) {
-      constexpr int redirectFailure = 126;
-      _exit(redirectFailure);
-    }
-    execl(argv[0], argv[0], directory.c_str(), static_cast<char *>(nullptr));
-    constexpr int execFailure = 127;
-    _exit(execFailure);
-  }
-  if (child > 0) {
-    int status = 0;
-    CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
-          "independent fresh-process native hit completes successfully");
-  }
+  CheckFreshProcess(argv[0], directory);
   std::error_code error;
   if (Failures.Value() == 0) { std::filesystem::remove_all(directory, error); }
   CHECK(!error, "isolated producer artifacts are removed");
