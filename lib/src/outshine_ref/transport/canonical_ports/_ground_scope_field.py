@@ -91,12 +91,15 @@ def derive_scoped_ground_field(
     maximum_prior_change_m,
     budget=None,
     method="auto",
+    scope_index=None,
 ):
     """Return (existing prepared field, reason, bound report), with no World join.
 
     The new scope can qualify geometry despite logical Unknown only through the
     original-member proof. The established strict port producer is unchanged.
     The supplied prior limit remains mandatory; no solver result increases it.
+    A scope_index may reuse the same owned source/fact indexes across fields;
+    it does not retain fitted fields or alter request/binding/quality semantics.
     """
     budget = PortBudget() if budget is None else budget
     if not isinstance(budget, PortBudget) or not callable(terrain):
@@ -137,6 +140,7 @@ def derive_scoped_ground_field(
         source_binding=source_binding,
         candidate_binding=candidate_binding,
         budget=budget,
+        scope_index=scope_index,
     )
     report.update(source_scope=scope, source_work=work)
     if reason:
