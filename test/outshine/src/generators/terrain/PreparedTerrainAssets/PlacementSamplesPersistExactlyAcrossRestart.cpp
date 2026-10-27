@@ -1,3 +1,7 @@
+#include <utility>
+#include <string>
+#include <cstdint>
+#include <cstddef>
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedGroundPatchCodec.h"
@@ -16,7 +20,7 @@ int main() {
                     ("outshine-ground-patch-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   constexpr Data::TileId at{.Zoom = 14, .X = 8937, .Y = 5683};
   const Tile region(at.Zoom, static_cast<int>(at.X), static_cast<int>(at.Y));
   const std::array<double, 9> values{123.45678901234567,
@@ -89,7 +93,7 @@ int main() {
   if (!opened) { return Test::Report(); }
   assets = std::move(*opened);
   auto loaded = assets->LoadPatch(key, at, 3);
-  CHECK(loaded && *loaded && std::ranges::equal((*loaded)->HeightsAslM(), values) &&
+  CHECK(loaded && *loaded && encoded && std::ranges::equal((*loaded)->HeightsAslM(), values) &&
             assets->Costs().PatchHits == 1 && assets->Costs().PatchMisses == 0 &&
             assets->Costs().PatchWrites == 0 && assets->Costs().PatchReadBytes == encoded->size(),
         "restart loads only the small ready sampling asset without native height-field reads");

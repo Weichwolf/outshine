@@ -1,3 +1,5 @@
+#include <utility>
+#include <string>
 #include "GroundPatchPreparation.h"
 #include "Check.h"
 #include "SourceSet.h"
@@ -11,12 +13,13 @@ int main() {
                     ("outshine-ground-patch-cancel-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto opened = Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
   CHECK(opened.has_value(), "native sampling cache opens");
   if (!opened) { return Test::Report(); }
   auto assets = std::move(*opened);
-  std::binary_semaphore entered(0), resume(0);
+  std::binary_semaphore entered(0);
+  std::binary_semaphore resume(0);
   {
     Tasks pool(1);
     CHECK(pool.PostDetached([&] {
@@ -29,7 +32,7 @@ int main() {
     if (blocked) {
       const Generators::Tile region(14, 8937, 5683);
       const auto key = assets->PatchKey({.Zoom = 14, .X = 8937, .Y = 5683}, {}, 3, 13);
-      GroundPatchPreparation canceled(pool, assets, key, region, 3);
+      const GroundPatchPreparation canceled(pool, assets, key, region, 3);
     }
     resume.release();
     const auto drained = pool.Post([] {});

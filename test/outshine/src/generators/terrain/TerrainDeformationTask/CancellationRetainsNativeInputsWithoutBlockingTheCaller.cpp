@@ -20,7 +20,7 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(path);
   Data::RawSourceCache store({.Directory = (path / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
   CHECK(cache.has_value(), "native cache opens for cancellation fixture");
   if (!cache) { return Report(); }
@@ -35,7 +35,9 @@ int main() {
   if (!identity) { return Report(); }
   const auto &key = *identity;
   Tasks pool(1);
-  std::binary_semaphore entered(0), release(0), closed(0);
+  std::binary_semaphore entered(0);
+  std::binary_semaphore release(0);
+  std::binary_semaphore closed(0);
   const auto blocker = pool.Post([&] {
     entered.release();
     release.acquire();

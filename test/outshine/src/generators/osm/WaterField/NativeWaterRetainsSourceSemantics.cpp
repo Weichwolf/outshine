@@ -26,7 +26,9 @@ Bytes Layer(bool polygon) {
   Bytes layer;
   Text(layer, 0x0a, polygon ? "water" : "waterway");
   Field(layer, 0x12, feature);
-  for (const auto key : {"class", "brunnel", "intermittent", "tunnel"}) { Text(layer, 0x1a, key); }
+  for (const auto *const key : {"class", "brunnel", "intermittent", "tunnel"}) {
+    Text(layer, 0x1a, key);
+  }
   const std::array<std::string_view, 4> values{
       polygon ? "river" : "stream", polygon ? "bridge" : "tunnel", polygon ? "yes" : "no", "yes"};
   for (const auto text : values) {
@@ -68,8 +70,9 @@ int main() {
   }
   const auto *surface = warm->InputOf(warm->Surfaces().front());
   const auto *course = warm->InputOf(warm->Courses().front());
-  CHECK(surface && course, "both geometry classes retain their source binding");
-  if (!surface || !course) { return Report(); }
+  CHECK(surface != nullptr && course != nullptr,
+        "both geometry classes retain their source binding");
+  if (surface == nullptr || course == nullptr) { return Report(); }
   CHECK(surface == warm->InputOf(warm->Surfaces().back()) && surface->Source == 0 &&
             surface->Feature == 0 && course->Source == 0 && course->Feature == 1,
         "multipolygon pieces share exact tile-local source indices");
