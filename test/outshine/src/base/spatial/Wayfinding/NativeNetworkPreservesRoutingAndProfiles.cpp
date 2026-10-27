@@ -4,15 +4,17 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  constexpr size_t bytesMost = 1024 * 1024;
+  constexpr size_t bytesMost = size_t{1024} * 1024;
   auto created = Path::Network::Create({.CellM = 1}, {});
   CHECK(created.has_value(), "network grid is valid");
   if (!created) { return Report(); }
@@ -87,7 +89,8 @@ int main() {
             (**nearest).Node == (**originalNearest).Node &&
             (**nearest).AwayM == (**originalNearest).AwayM,
         "spatial search returns the original node");
-  std::vector<size_t> nearby, expectedNearby;
+  std::vector<size_t> nearby;
+  std::vector<size_t> expectedNearby;
   CHECK(decoded->Within(goal, 100, nearby).has_value() &&
             network.Within(goal, 100, expectedNearby).has_value() && nearby == expectedNearby,
         "loaded spatial index answers radius requests");
@@ -105,7 +108,7 @@ int main() {
   CHECK(!network.EncodeAsset(encoded->size() - 1) &&
             !Path::Network::DecodeAsset(*encoded, encoded->size() - 1),
         "payload budget is enforced in both directions");
-  for (size_t length : {size_t{0}, size_t{8}, encoded->size() / 2, encoded->size() - 1}) {
+  for (const size_t length : {size_t{0}, size_t{8}, encoded->size() / 2, encoded->size() - 1}) {
     CHECK(!Path::Network::DecodeAsset(std::span(*encoded).first(length), bytesMost),
           "truncated products are refused");
   }
