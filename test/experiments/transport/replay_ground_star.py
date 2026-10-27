@@ -23,6 +23,32 @@ from replay_canonical_bridge_ports import allocations
 from replay_canonical_ports import serializable
 
 
+def finite_arrays(field, report):
+    mesh = report["surface"]
+    arrays = {
+        "vertices": mesh.vertices,
+        "faces": mesh.triangles,
+        "source_faces": report["surface_source_faces"],
+    }
+    if hasattr(field, "plan"):
+        plan = field.plan
+        arrays.update(
+            parts=plan.face_parts,
+            original_vertex_map=plan.original_vertex_map,
+            coefficients=plan.plane_coefficients,
+            datum=plan.datum_m,
+        )
+    else:
+        arrays.update(
+            parts=report["source_input"].face_parts,
+            original_vertex_map=np.arange(len(report["source_input"].surface.vertices)),
+            gradient=field.gradient,
+            origin=field.origin,
+            intercept=field.intercept,
+        )
+    return arrays
+
+
 def main(args):
     args.output.mkdir(parents=True, exist_ok=False)
     source, groups, ways, binding, reader = load_bridge_source_facts(INPUT)
@@ -88,13 +114,7 @@ def main(args):
         )
         np.savez_compressed(
             args.output / "finite.npz",
-            vertices=mesh.vertices,
-            faces=mesh.triangles,
-            parts=prepared[1].plan.face_parts,
-            source_faces=prepared[1].plan.source_faces,
-            original_vertex_map=prepared[1].plan.original_vertex_map,
-            coefficients=prepared[1].plan.plane_coefficients,
-            datum=prepared[1].plan.datum_m,
+            **finite_arrays(prepared[1], report),
         )
         if args.plot:
             plot(

@@ -1,8 +1,11 @@
 """Bound production recipe admission, whole source geometry and terminal values."""
 
 import json
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 from branched_ground_terminals import audit_sections
@@ -24,6 +27,7 @@ from outshine_ref.transport.canonical_ports._ground_terminals import (
     derive_scoped_ground_terminals,
 )
 from replay_branched_ground import INPUT, SEED
+from replay_ground_star import main as replay_star
 
 
 class GroundStarChecks(unittest.TestCase):
@@ -81,6 +85,37 @@ class GroundStarChecks(unittest.TestCase):
 
     def forbidden(self, _):
         self.fail("rejected admission reached DEM")
+
+    def test_actual_affine_auto_result_survives_the_diagnostic_export(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.ground-star-export."
+        ) as directory:
+            output = Path(directory) / "affine"
+            replay_star(
+                SimpleNamespace(
+                    output=output,
+                    allocation_trace=None,
+                    prior_limit=1000,
+                    method="auto",
+                    plot=False,
+                )
+            )
+            report = json.loads((output / "report.json").read_text())
+            self.assertEqual(report["state"], "QualifiedTerminalField")
+            self.assertEqual(len(report["terminal_values"]), 3)
+            self.assertEqual(
+                report["binding"]["procedure"]["maximum_prior_change_m"], 1000
+            )
+            with np.load(output / "finite.npz", allow_pickle=False) as arrays:
+                reconstructed = (
+                    arrays["intercept"]
+                    + (arrays["vertices"][:, :2] - arrays["origin"])
+                    @ arrays["gradient"]
+                )
+                np.testing.assert_allclose(
+                    reconstructed, arrays["vertices"][:, 2], atol=1e-8, rtol=0
+                )
+                self.assertNotIn("coefficients", arrays.files)
 
     def test_actual_whole_field_bound_recipe_and_three_own_sections(self):
         prepared, reason, report = self.positive
