@@ -30,6 +30,7 @@
 #include "Viewing.h"
 #include "Views.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "TileGeodesy.h"
 
 namespace outshine {

@@ -1,4 +1,5 @@
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
