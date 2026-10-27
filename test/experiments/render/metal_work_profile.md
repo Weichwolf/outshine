@@ -45,6 +45,7 @@ Custom plans without a sky pass remain outside this diagnostic.
 
 `receipt.json` records commands, source/binary hashes, selected native/interposer
 submission mappings, peak-frame raster/compute intervals and all raw records.
+Standard output is one compact summary; detailed tables stay in the receipt.
 `metal_work_profile_checks.py` checks overlap, missing work, preload exclusion,
 rounding, ambiguous windows and invalid benchmark measurements. Native Metal APIs:
 installed `MTLCounters.h`, `MTLRenderPass.h`, `MTLRenderCommandEncoder.h`.

@@ -314,19 +314,19 @@ def main():
             "scope": "Metal stage timestamps and submitted triangle references; instrumented diagnostic, not a device gate",
         }
     )
-    (output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")
+    receipt = output / "receipt.json"
+    receipt.write_text(json.dumps(result, indent=2) + "\n")
     print(
         json.dumps(
             {
-                key: result[key]
-                for key in (
-                    "frame_submissions",
-                    "raster_passes",
-                    "compute_encoders",
-                    "shader_triangle_references_mean",
-                )
+                "receipt": str(receipt),
+                "frames": result["frame_submissions"],
+                "peak_frame": timing["peak_frame"],
+                "peak_gpu_ms": max(frame["gpu_ms"] for frame in timing["frames"]),
+                "raster_groups": len(result["raster_passes"]),
+                "compute_groups": len(result["compute_encoders"]),
+                "truncated": result["truncated"],
             },
-            indent=2,
         )
     )
 
