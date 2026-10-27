@@ -169,10 +169,10 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
   into = {};
-  const GeometryResidency &resident = ActiveState().Content.Scene->Geometry().Resident();
+  const GeometryResidency &resident = ActiveState().Content.Geometry().Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
-  const uint32_t rows = ActiveState().Content.Scene->Geometry().ClusterBatchRows();
+  const uint32_t rows = ActiveState().Content.Geometry().ClusterBatchRows();
   if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
@@ -183,7 +183,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
-  const uint32_t jobs = ActiveState().Content.Scene->Geometry().ClusterJobs();
+  const uint32_t jobs = ActiveState().Content.Geometry().ClusterJobs();
   const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;

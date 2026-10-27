@@ -12,7 +12,7 @@ Native::Result<TerrainRenderer::DrawArguments> SceneRenderer::ReadGroundDrawArgu
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "no submitted ground frame"});
   }
   if (!state.Plan->Holds(Stage::Ground)) { return TerrainRenderer::DrawArguments{}; }
-  return state.Content.Scene->Geometry().Ground().ReadDrawArguments();
+  return state.Content.Geometry().Ground().ReadDrawArguments();
 }
 
 bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &renderer,
@@ -35,24 +35,23 @@ bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &ren
 
 Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,
                                                         const PassRecording &into) {
-  if (ActiveState().Content.Scene->Geometry().Ground().Drawn() == 0) { return {}; }
+  if (ActiveState().Content.Geometry().Ground().Drawn() == 0) { return {}; }
   return ActiveFrame().GroundPyramid.Encode(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ctx,
                                                           const PassRecording &into) {
-  const auto &geometry = ActiveState().Content.Scene->Geometry();
+  const auto &geometry = ActiveState().Content.Geometry();
   const auto &frame = ActiveFrame();
-  return ActiveState().Content.Scene->Geometry().Ground().SelectPatches(
-      ctx,
-      geometry.AnchorM(),
-      Picture(true, into),
-      *frame.GroundPyramid.Buffer(),
-      frame.GroundPyramid.Shape());
+  return ActiveState().Content.Geometry().Ground().SelectPatches(ctx,
+                                                                 geometry.AnchorM(),
+                                                                 Picture(true, into),
+                                                                 *frame.GroundPyramid.Buffer(),
+                                                                 frame.GroundPyramid.Shape());
 }
 
 Native::Result<void> SceneRenderer::EncodeGround(const FrameContext &ctx,
                                                  const PassRecording &into) {
-  return ActiveState().Content.Scene->Geometry().EncodeGround(ctx, Picture(true, into));
+  return ActiveState().Content.Geometry().EncodeGround(ctx, Picture(true, into));
 }
 }
