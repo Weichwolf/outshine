@@ -18,6 +18,8 @@ set(capture_cases
 )
 set(metal_validation_cases
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
+  outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
+  outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
   outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
@@ -25,6 +27,7 @@ set(metal_validation_cases
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
   outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
   outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
+  outshine/src/render/stages/GeometryRenderer/GroundPagesUseConfiguredUploadAdmission
   outshine/src/render/stages/GeometryRenderer/InstancesShareTheirPieceClusterSpheres
   outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
   outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
