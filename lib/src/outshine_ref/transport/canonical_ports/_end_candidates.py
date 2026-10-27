@@ -163,15 +163,6 @@ def member_guard(member, group, way, index):
     end = member.physical_end
     if type(step) is not int or not 0 <= step < way.point_count - 1:
         return None, "source_step_binding_mismatch"
-    stencil_matches = (
-        end == 0 and step == 0 and group.position == way.first_segment[0]
-    ) or (
-        end == 1
-        and step == way.point_count - 2
-        and group.position == way.last_segment[1]
-    )
-    if not stencil_matches:
-        return None, "interior_source_crossing"
     if not way.owns_ends[end]:
         return None, "unowned_source_end"
     width, gradient = (

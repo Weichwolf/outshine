@@ -200,13 +200,9 @@ class BridgeEndCandidates(unittest.TestCase):
             self.reason(self.inspect(source=source)), "interior_domain_incidence"
         )
 
-    def test_source_stencil_and_owned_end_are_separate_evidence(self):
+    def test_owned_end_and_profile_are_separate_evidence(self):
         first, second = self.ways
         cases = (
-            (
-                replace(second, point_count=3, first_segment=first.first_segment),
-                "interior_source_crossing",
-            ),
             (replace(second, owns_ends=(False, True)), "unowned_source_end"),
             (replace(second, maximum_gradient_word=None), "missing_source_profile"),
             (
@@ -221,6 +217,16 @@ class BridgeEndCandidates(unittest.TestCase):
         for way, expected in cases:
             with self.subTest(expected=expected):
                 self.assertEqual(self.reason(self.inspect(ways=(first, way))), expected)
+
+    def test_native_terminal_witness_survives_snapped_endpoint_coordinates(self):
+        first, second = self.ways
+        original = (second.first_segment[0][0] + 1e-8, second.first_segment[0][1])
+        shifted = replace(second, first_segment=(original, second.first_segment[1]))
+        self.assertNotEqual(self.group.position, shifted.first_segment[0])
+        self.assertTrue(all(member.source_terminal for member in self.group.members))
+        self.assertEqual(
+            self.reason(self.inspect(ways=(first, shifted))), "missing_ground_profile"
+        )
 
     def test_original_terminal_requires_witness_despite_matching_step_and_stencil(self):
         first, second = self.group.members
