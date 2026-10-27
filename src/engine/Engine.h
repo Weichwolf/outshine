@@ -282,10 +282,6 @@ public:
 
   [[nodiscard]] double stepSeconds() const;
 
-  [[nodiscard]] Result save(std::string_view path) const;
-
-  [[nodiscard]] Result restore(std::string_view path);
-
   void logsTo(LogSink *sink);
 
   [[nodiscard]] bool standing() const;
