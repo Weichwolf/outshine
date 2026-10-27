@@ -39,17 +39,18 @@ Der Nutzer ist Regisseur. Fachbesitzer bleiben `master`, `outshine_research` und
 Fach-Worktrees liegen neben `outshine` unter `Git/`, Branch und Verzeichnis heißen gleich. Geschützte
 Übergaben: #786. Jeder arbeitet selbstständig am höchstpriorisierten passenden offenen
 Paket weiter, ohne nach Lieferungen auf Einzelaufträge zu warten. Besitz melden,
-Überschneidungen sind für das Vier-Augen-Prinzip willkommen; gemeinsame Basis und
-Merges koordinieren. Lokale Blocker sperren nur abhängige Arbeit. Nur der Nutzer
+Der Besitzer prüft und integriert eigenverantwortlich; keine pauschale Zweitfreigabe.
+Kollegen bei konkreten Fragen, Risiken oder widersprüchlichen Befunden gezielt einbeziehen.
+Gemeinsame Basis und Merges koordinieren. Lokale Blocker sperren nur abhängige Arbeit. Nur der Nutzer
 pausiert ein Goal. Ein fertiges Paket beendet einen Arbeitsblock, nicht den Gesamtauftrag.
 
 ## Prioritäten und Design
 1. **Refactor vollständig abschließen** (#1233). Erkannte Fehler und nötige Optimierungen direkt im Paket beheben; ungeeignete Verfahren ersetzen.
-2. **Gesamte aktuelle Codebasis gemeinsam durch master und Engine architektonisch abnehmen/korrigieren** (#1320), einschließlich neuerer Teile. Erst danach neue Features integrieren.
+2. **Gesamte aktuelle Codebasis durch die verantwortlichen Besitzer architektonisch abnehmen/korrigieren** (#1320), einschließlich neuerer Teile. Erst danach neue Features integrieren.
 
 Abnahme: benannter Commit/Pfade, Zuständigkeiten, tatsächliche Verbraucher/Abhängigkeiten,
 Datenfluss, Lebensdauer, Nebenläufigkeit, Korrektheit, Einsatzgrenzen und Kosten.
-Beide Bestätigungen stehen im Fach-Issue/PR; Bestand, Umbenennung, Tests oder Merge genügen
+Der verantwortliche Besitzer dokumentiert die Entscheidung im Fach-Issue/PR; Bestand, Umbenennung, Tests oder Merge genügen
 nicht. Fehlende Zukunftsfunktionen ausweisen, nicht vorab implementieren. Scenario,
 Physik, Body/Entity, Rigging und Audio kritisch prüfen. Eignung entscheidet, nicht Alter/Herkunft.
 
@@ -82,7 +83,7 @@ Formate/Daten und laufende Lieferungen schützen. Tests allein erhalten keinen A
 - Transport liefert angepasste Grundrisse/Freiräume, Buildings baut danach, Vegetation mit Produkten beider Vorgänger; Terrain berücksichtigt Infrastrukturkontakte (#18). Rezepte und Verfahrensdetails gehören in Fach-Issues.
 - Besitz, Admission, Lebensdauer, Abbruch, Rückstau und Fehler explizit halten. Kein blockierendes IO/unbegrenztes Warten im Frame; GPU-Ressourcen nach letzter Nutzung freigeben. Hintergrundarbeit begrenzen/priorisieren; CPU/GPU/Bandbreite/Speicher getrennt budgetieren.
 - Outshine ist Szenario-Anwendung, kein SDK: Datei/JSON und generische Overrides, keine einzelnen CLI-Inhaltsschalter. `benchmark` nimmt synthetische oder generische Kamera-/Bewegungs-/Frameeingaben. Produktcode/-daten kennen keine Places/Koordinaten; diese gehören zum Testtreiber. Kein glTF/Doxygen/SDK-Gate; HTML/CSS/JS erhalten.
-- Gemeinsame Verfahren/Shader einmal implementieren; Backend-Ausführung und begründete Qualitätsprofile dürfen abweichen. Metal/Vulkan-Verträge vor Änderungen abstimmen (#48). Metallic-Roughness als Hauptpfad, Spezialeffekte ergänzen ihn. Material, Licht/Schatten und Wetter haben klare Besitzer/Kompositionsverträge.
+- Gemeinsame Verfahren/Shader einmal implementieren; Backend-Ausführung und begründete Qualitätsprofile dürfen abweichen. Unklare Metal/Vulkan-Verträge gezielt mit dem betroffenen Besitzer klären (#48). Metallic-Roughness als Hauptpfad, Spezialeffekte ergänzen ihn. Material, Licht/Schatten und Wetter haben klare Besitzer/Kompositionsverträge.
 
 ## Bild und Kosten
 Master hält **zwölf wechselnde Places** lokal unter `build/shots/places/` aktuell, je Place
@@ -130,7 +131,7 @@ botanische Referenzen bestimmen die Vegetationsabnahme (#1).
 - GitHub (`gh issue list/view/create/edit`) ist einzige Aufgabenablage. Ein oberstes aktives Parent mit 0:N tatsächlich aktiven Kindern. Labels/Beschreibung konsistent: `state:open`/`state:active`, `priority:P0`–`priority:P3`, `architecture:planned`/`architecture:ready`, Besitzer. Vor Implementierung aktivieren, nach erfüllter Abnahme schließen.
 - Fach-Issues: Ergebnis, Iststand, Besitzer, Entscheidung, fehlende Verträge, kurze Abnahme; bevorzugt höchstens 80 Zeilen/6 KiB. `Parent`/`Depends` referenzieren Issues; `Depends` bedeutet fehlenden Vertrag, keine Reihenfolge/ganzen Subsysteme. Diskussion/Belege in Kommentare/PRs; eine Aussage an einem Ort, fremde Fortschritte erhalten.
 - Kommunikation #47, Ablauf #108: `[Absenderbranch → Zielbranches]`, Fach-Link und konkrete Lieferung/Frage/Entscheidung, gewöhnlich 3–6 Zeilen. Gesamtintegration antwortet als `master`, der PR-Merger eindeutig als `master:merge` (Rollenkennung, kein eigener Fachbranch). Nur neue/bearbeitete Kommentare seit erfolgreichem Abrufmarker lesen; Historie gezielt. Kommentare über konkrete ID ändern, nie `--edit-last`; Schweigen ist keine Zustimmung.
-- Besitz vor Arbeit melden; master koordiniert Reihenfolge/Basis. Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Der zusätzliche master übernimmt die koordinierte Warteschlange und bei lokalen Blockern unabhängige Refactor-/Architekturarbeit; Autoren aktualisieren/prüfen ihre Pakete und dürfen nicht übernommene fertige PRs weiter selbst mergen. Vor jedem Merge aktuellen Paketbesitz prüfen; gemeinsame Verträge vorher abstimmen. Draft/Mergefähigkeit ersetzt keine Abnahme. Research liefert Python, Engine/master native Übernahme; Fehler reproduzierbar mit Vertrag/Bild/Kosten zurückmelden.
+- Besitz vor Arbeit melden; master koordiniert Reihenfolge/Basis. Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Der zusätzliche master übernimmt die koordinierte Warteschlange und bei lokalen Blockern unabhängige Refactor-/Architekturarbeit; Autoren aktualisieren/prüfen ihre Pakete und dürfen nicht übernommene fertige PRs weiter selbst mergen. Vor jedem Merge aktuellen Paketbesitz prüfen; konkrete Vertragsfragen gezielt klären. Der Besitzer verantwortet Abnahme und Merge ohne zusätzliche Routinefreigabe; Draft/Mergefähigkeit ersetzt keine eigene Prüfung. Research liefert Python, Engine/master native Übernahme; Fehler reproduzierbar mit Vertrag/Bild/Kosten zurückmelden.
 - Vollständig integrierte Themenbranches lokal/remote löschen, Remote-Löschung per Lease auf geprüften Stand. Dauerhafte Agentenbranches, offene PRs, belegte Worktrees/unintegrierte Commits schützen; keine globale Löschautomatik.
 
 ## Ablage und Cleanup
