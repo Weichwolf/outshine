@@ -29,7 +29,7 @@ bool ValidEnd(const TransportPlan &plan, const TransportPath &path, const Transp
     const auto &port = plan.Ports[boundary->Port];
     return port.SourceId == path.SourceId && port.Layer == path.Layer && port.Use == path.Use &&
            port.Profile == path.Profile && port.Contact.Gate.HalfWidthM == path.HalfWidthM &&
-           port.CrossfallRad == path.CrossfallRad;
+           (path.Body || port.CrossfallRad == path.CrossfallRad);
   }
   if (const auto *gate = std::get_if<TransportJunctionGateReference>(&end)) {
     if (gate->Junction >= plan.Junctions.size()) { return false; }
