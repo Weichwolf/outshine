@@ -1,13 +1,12 @@
 """Existing closed-prism builder plus independent actual floor-mesh checks."""
 
-from collections import Counter
-
 import numpy as np
 import shapely
 from building_mesh import solid
 from indoor_floor_checks import floor_clearance
 from indoor_floor_outlines import adapt_outlines
 from indoor_floor_plan import FloorLimits, plan_floors
+from indoor_mesh_checks import closed_mesh
 from outshine_ref.contracts import HeightInterval, Reservation, SourceFeature
 
 
@@ -17,23 +16,8 @@ def mesh_floor(floor):
     vertices = np.asarray(storage[0], dtype=np.float64).reshape(-1, 3)
     faces = np.asarray(storage[1], dtype=np.uint32).reshape(-1, 3)
     parts = np.asarray(storage[3], dtype=np.uint32)
-    if not len(faces) or not np.isfinite(vertices).all():
-        raise ValueError("floor_mesh_missing_or_nonfinite")
-    triangles = vertices[faces]
-    crosses = np.cross(
-        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
-    )
-    if np.any(np.linalg.norm(crosses, axis=1) == 0):
-        raise ValueError("floor_mesh_degenerate_face")
-    edges, direction = Counter(), Counter()
-    for triangle, part in zip(triangles, parts, strict=True):
-        for first, last in zip(triangle, np.roll(triangle, -1, axis=0), strict=True):
-            a, b = tuple(first), tuple(last)
-            edge = (int(part), tuple(sorted((a, b))))
-            edges[edge] += 1
-            direction[edge] += 1 if a < b else -1
-    if any(v != 2 for v in edges.values()) or any(direction.values()):
-        raise ValueError("floor_mesh_not_oriented_closed")
+    checked = closed_mesh({"vertices": vertices, "faces": faces, "parts": parts})
+    triangles = checked["triangles"]
     top = np.all(triangles[:, :, 2] == floor.upper_z_m, axis=1)
     cover = shapely.union_all(shapely.polygons(triangles[top, :, :2]))
     area_error = float(shapely.symmetric_difference(cover, floor.polygon).area)
@@ -41,15 +25,13 @@ def mesh_floor(floor):
     numerical_area = 128 * np.spacing(scale) * floor.polygon.length
     if area_error > numerical_area:
         raise ValueError("floor_mesh_top_domain_mismatch")
-    local = triangles - vertices[0]
-    products = (
-        np.einsum("ij,ij->i", local[:, 0], np.cross(local[:, 1], local[:, 2])) / 6
-    )
-    volume = float(products.sum())
+    volume = checked["signed_volume_m3"]
     expected = floor.polygon.area * (floor.upper_z_m - floor.lower_z_m)
     volume_error = abs(volume - expected)
     numerical_volume = (
-        256 * np.finfo(float).eps * max(expected, float(abs(products).sum()))
+        256
+        * np.finfo(float).eps
+        * max(expected, checked["absolute_volume_products_m3"])
     )
     if volume <= 0 or volume_error > numerical_volume:
         raise ValueError("floor_mesh_volume_mismatch")
@@ -61,7 +43,7 @@ def mesh_floor(floor):
         "signed_volume_m3": volume,
         "volume_error_m3": volume_error,
         "closed_plate_parts": len(np.unique(parts)),
-        "oriented_edge_pairs_within_plate_parts": len(edges),
+        "oriented_edge_pairs_within_plate_parts": checked["oriented_edge_pairs"],
         "scope": "Actual emitted separately closed plate parts and top domain, numerical arithmetic model. Touching parts keep separate face ownership; a shared floor label supplies no route connection. No terrain, room/door/route, structural-statical or native World/device certificate.",
     }
 
