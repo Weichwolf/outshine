@@ -1,3 +1,4 @@
+#include <vector>
 #include <Engine.h>
 #include "Check.h"
 #include <limits>

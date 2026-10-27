@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -34,7 +36,7 @@ int main() {
     Engine engine;
     Scenario::Document declaration;
     declaration.Render.Declared = true;
-    declaration.Render.Frame = {64, 64};
+    declaration.Render.Frame = {.WidthPx = 64, .HeightPx = 64};
     declaration.Render.Outputs = {"sceneLinear"};
     declaration.Lit.Declared = true;
     declaration.Lit.Key.Lux = 1;
@@ -46,9 +48,10 @@ int main() {
     view.Sees.PositionM = {{0, 0, at == 0 ? 2.0 : 8.0}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
-    if (!accepted(engine.setRenderTarget({64, 64})) || !accepted(engine.declare(declaration)) ||
-        !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
-        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+    if (!accepted(engine.setRenderTarget({.WidthPx = 64, .HeightPx = 64})) ||
+        !accepted(engine.declare(declaration)) || !accepted(engine.setGeometry(geometry)) ||
+        !accepted(engine.assemble()) || !accepted(engine.advance()) ||
+        !accepted(engine.renderer().render({})) ||
         !accepted(engine.renderer().readPixels(Buffer::Linear, frames[at]))) {
       return Report();
     }
@@ -56,7 +59,8 @@ int main() {
   CHECK(frames[0].size() == frames[1].size() && !frames[0].empty(),
         "both linear images are readable");
   if (frames[0].size() != frames[1].size() || frames[0].empty()) { return Report(); }
-  float error = 0, brightest = 0;
+  float error = 0;
+  float brightest = 0;
   for (size_t at = 0; at < frames[0].size(); ++at) {
     if (at % 4 == 3) { continue; }
     error = std::max(error, std::abs(frames[0][at] - frames[1][at]));

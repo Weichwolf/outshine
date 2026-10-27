@@ -1,3 +1,5 @@
+#include <print>
+#include <cstddef>
 #include "ImageCapture.h"
 #include <Engine.h>
 #include "NativeTriangle.h"
@@ -25,7 +27,7 @@ static_assert(noexcept(std::declval<Camera &>().setProjection(Camera::Ortho{})))
 Scenario::Document Declaration(bool carried, const std::string &path) {
   Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {64, 64};
+  scene.Render.Frame = {.WidthPx = 64, .HeightPx = 64};
   scene.Render.Outputs = {"sceneLinear", "sceneDepth", "surface"};
   Scenario::Asset asset;
   asset.Kind = "generated";
@@ -59,14 +61,14 @@ Scenario::Document Declaration(bool carried, const std::string &path) {
   add("defaults", {});
   const auto bad = [&](Camera camera) { add("bad-" + std::to_string(scene.Views.size()), camera); };
   for (const auto field : {&Camera::FovDeg, &Camera::NearM, &Camera::FarM}) {
-    for (double value : {-1.0, std::numeric_limits<double>::quiet_NaN()}) {
+    for (const double value : {-1.0, std::numeric_limits<double>::quiet_NaN()}) {
       auto camera = perspective;
       camera.*field = value;
       bad(camera);
     }
   }
   for (const auto field : {&Camera::XMagM, &Camera::YMagM}) {
-    for (double value : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN()}) {
+    for (const double value : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN()}) {
       auto camera = ortho;
       camera.*field = value;
       bad(camera);
@@ -102,17 +104,21 @@ Frame Capture(Engine &engine) {
 
 Frame CheckProjection(Engine &engine, const Camera &camera) {
   auto frame = Capture(engine);
-  CHECK(frame.Colour.size() == 64 * 64 * 4 && frame.Depth.size() == 64 * 64,
+  CHECK(frame.Colour.size() == size_t{64} * 64 * 4 && frame.Depth.size() == size_t{64} * 64,
         "both attachments cover the declared viewport");
-  if (frame.Colour.size() != 64 * 64 * 4 || frame.Depth.size() != 64 * 64) { return frame; }
+  if (frame.Colour.size() != size_t{64} * 64 * 4 || frame.Depth.size() != size_t{64} * 64) {
+    return frame;
+  }
   const double perspectiveScale = 2 * std::tan(camera.FovDeg * std::numbers::pi / 360);
   const double scaleX = camera.Orthographic ? camera.XMagM : perspectiveScale;
   const double scaleY = camera.Orthographic ? camera.YMagM : perspectiveScale;
   const double guard = 2 * std::max(scaleX, scaleY) / 64;
-  const double depth = camera.Orthographic ? (camera.FarM - 2) / (camera.FarM - camera.NearM)
-                       : camera.FarM == 0
-                           ? camera.NearM / 2
-                           : camera.NearM * (camera.FarM - 2) / (2 * (camera.FarM - camera.NearM));
+  double depth = camera.NearM / 2;
+  if (camera.Orthographic) {
+    depth = (camera.FarM - 2) / (camera.FarM - camera.NearM);
+  } else if (camera.FarM != 0) {
+    depth = camera.NearM * (camera.FarM - 2) / (2 * (camera.FarM - camera.NearM));
+  }
   size_t inside = 0;
   size_t outside = 0;
   bool coverage = true;
@@ -148,17 +154,17 @@ Frame CheckProjection(Engine &engine, const Camera &camera) {
 }
 
 std::vector<float> Exercise(bool carried, const std::string &path) {
-  NativeTriangle generator;
+  const NativeTriangle generator;
   Engine engine;
   CHECK(engine.registerGenerator(generator), "native camera fixture generator registers");
   const auto declared = Declaration(carried, path);
-  auto ready = engine.setRenderTarget(Extent{64, 64});
+  auto ready = engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64});
   if (ready) { ready = engine.declare(declared); }
   if (ready) { ready = engine.assemble(); }
   if (ready) { ready = engine.advance(); }
   CHECK(ready, "a fully declared camera binds through the public Engine API");
   if (!ready) {
-    std::printf("camera setup: %s\n", ready.error().c_str());
+    std::println("camera setup: {}", ready.error());
     return {};
   }
   CheckProjection(engine, declared.Views[0].Sees);
