@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <cmath>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -47,9 +48,9 @@ public:
 
   TerrainFieldSet() = default;
 
-  explicit TerrainFieldSet(std::vector<Entry> fields,
-                           ::outshine::Ground::TerrainRevisionIndex::Reservation metadata = nullptr)
-      : Fields_(std::move(fields)), Metadata_(std::move(metadata)) {}
+  explicit TerrainFieldSet(
+      std::vector<Entry> fields,
+      ::outshine::Ground::TerrainRevisionIndex::Reservation metadata = nullptr);
 
   [[nodiscard]] bool CopySourcedField(Data::TileId tile,
                                       ::outshine::Ground::HeightField::Block &into) const;
@@ -57,8 +58,24 @@ public:
                                  Data::TileId tile,
                                  ::outshine::Ground::HeightField::Block &into);
   [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
+
+  template <class Lookup>
   [[nodiscard]] static std::optional<double>
-  AslMAt(std::span<const Entry> fields, int zoom, LongitudeLatitude at);
+  AslMAt(int zoom, LongitudeLatitude at, const Lookup &lookup) {
+    for (int heldZoom = zoom; heldZoom >= 0; --heldZoom) {
+      const auto frac = ::outshine::Ground::ToTileFracClamped(
+          {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, heldZoom);
+      const Data::TileId tile{.Zoom = heldZoom,
+                              .X = static_cast<uint32_t>(std::floor(frac.X)),
+                              .Y = static_cast<uint32_t>(std::floor(frac.Y))};
+      const auto *field = lookup(tile);
+      if (field == nullptr || !field->Meshable()) { continue; }
+      return field->PostingM(
+          {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
+    }
+    return std::nullopt;
+  }
+
   [[nodiscard]] std::expected<HeightRange, RangeError>
   AslRangeOver(int zoom, ::outshine::Ground::GeoBounds bounds, size_t nodesMost) const;
 
