@@ -8,6 +8,7 @@
 #include "Units.h"
 #include "Mat4.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "FramePipeline.h"
 #include "AzimuthElevation.h"
 
@@ -33,6 +34,33 @@
 #include "Wgs84.h"
 
 namespace outshine::Core {
+
+Render::ReadState RuntimeScene::Pyramid(Render::PyramidDepths &into) const {
+  const auto published = Renderer_->PublishedWorld();
+  return Renderer_->ReadPyramid(into);
+}
+
+const Vec3 &RuntimeScene::ShadowCentreStanding() const {
+  const auto published = Renderer_->PublishedWorld();
+  return Renderer_->ShadowCentreM();
+}
+
+double RuntimeScene::NearStanding() const {
+  const auto published = Renderer_->PublishedWorld();
+  return static_cast<double>(Renderer_->NearMetres());
+}
+
+double RuntimeScene::NearestStandable() {
+  return static_cast<double>(Render::SceneRenderer::kNearM);
+}
+
+Holds<bool> RuntimeScene::Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+  const auto published = Renderer_->PublishedWorld();
+  auto changed = Ui_.Wheel(xPx, yPx, byPx);
+  if (changed) { return *changed; }
+  error = std::move(changed.error());
+  return std::unexpected(error);
+}
 
 namespace Says {
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
