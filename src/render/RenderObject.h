@@ -4,7 +4,7 @@
 #include "SceneLighting.h"
 #include "Mat4.h"
 #include "Vec3.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 #include "Viewing.h"
 #include <array>
 #include <cstddef>
@@ -24,7 +24,7 @@ class SceneRenderer;
 
 class RenderObject {
 public:
-  void ResetForShape(const Shape &geometry, const Vec3 &anchorEcefM);
+  void ResetGeometry(const RenderGeometryView &geometry, const Vec3 &anchorEcefM);
   void SelectParts(std::span<const std::string> names);
 
   [[nodiscard]] bool PartVisible(size_t part) const noexcept { return PartVisible_[part] != 0; }
@@ -45,7 +45,7 @@ public:
 
   void SetEnvironment(const EnvironmentLighting &environment) { Environment_ = environment; }
 
-  [[nodiscard]] const Shape *Shaped() const { return Shape_; }
+  [[nodiscard]] const RenderGeometryView *GeometryView() const { return Geometry_; }
 
   [[nodiscard]] size_t Parts() const {
     return Instances_ == 0 ? 0 : PartPlacement_.size() / Instances_;
@@ -75,7 +75,7 @@ public:
 
 private:
   Vec3 AnchorEcefM_;
-  const Shape *Shape_ = nullptr;
+  const RenderGeometryView *Geometry_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
   std::vector<uint8_t> PartVisible_;
@@ -138,8 +138,8 @@ struct RenderObjectPreparation {
   PackCursor Packing;
 
   bool Digests = false;
-  const Shape *PlannedShape = nullptr;
-  const Shape *PreparedShape = nullptr;
+  const RenderGeometryView *PlannedGeometry = nullptr;
+  const RenderGeometryView *PreparedGeometry = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
   std::vector<SceneLight> Lights;
@@ -147,7 +147,7 @@ struct RenderObjectPreparation {
 };
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
-                       const Shape &geometry,
+                       const RenderGeometryView &geometry,
                        const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);

@@ -84,7 +84,7 @@ int main() {
               .has_value(),
           "ground candidate publishes");
       if (!scene) { continue; }
-      const Render::Shape &shown = scene->Shown();
+      const Render::RenderGeometryView &shown = scene->Shown();
       CHECK(
           scene->DrivenParts() == 1 && shown.Parts.size() == 2 && shown.Surfaces.size() == 2 &&
               shown.Lamps.size() == 2 && shown.Parts[0].Name == "authored" &&

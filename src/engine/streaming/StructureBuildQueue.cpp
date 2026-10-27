@@ -25,7 +25,7 @@
 
 #include "Digest.h"
 #include "Log.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 #include "OsmLayer.h"
 #include "BuildingInputs.h"
 #include "Geodesy.h"

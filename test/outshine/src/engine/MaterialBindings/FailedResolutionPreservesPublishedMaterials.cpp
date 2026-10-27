@@ -8,7 +8,7 @@
 #include <Geometry.h>
 
 #include "Check.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "MaterialBindings.h"
 
 int main() {
@@ -28,8 +28,8 @@ int main() {
     CHECK(geometry.setTriangles(at, std::array<uint32_t, 3>{0, 1, 2}), "triangles");
   }
 
-  Render::ShapeStore storage;
-  const auto shaped = Render::PrepareShape(geometry, storage);
+  Render::RenderGeometryStorage storage;
+  const auto shaped = Render::PrepareRenderGeometry(geometry, storage);
   CHECK(shaped.has_value(), "native mesh prepares a render shape");
   if (!shaped) { return Report(); }
 
