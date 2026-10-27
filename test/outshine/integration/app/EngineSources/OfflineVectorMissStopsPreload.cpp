@@ -5,7 +5,7 @@
 #include "Check.h"
 
 #include <chrono>
-#include <cstdio>
+#include <print>
 #include <string>
 #include <memory>
 #include <expected>
@@ -28,22 +28,29 @@ public:
     Decl.Keeps = Cacheability::Never;
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::Elevation ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  [[nodiscard]] FetchStart Begin([[maybe_unused]] const Address &where,
+                                 [[maybe_unused]] SourceTransport &transport) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  [[nodiscard]] SourceResponse Collect([[maybe_unused]] const Address &where,
+                                       [[maybe_unused]] Ticket ticket,
+                                       [[maybe_unused]] SourceTransport &transport) const override {
     return SourceResponse::Delivered({0});
   }
 
-  std::expected<HeightRaster, DecodeFailure>
-  DecodeElevation(std::span<const uint8_t>) const override {
+  [[nodiscard]] std::expected<HeightRaster, DecodeFailure>
+  DecodeElevation([[maybe_unused]] std::span<const uint8_t> bytes) const override {
     HeightRaster raster;
     raster.Rows = 2;
     raster.Cols = 2;
@@ -57,10 +64,11 @@ private:
 
 class FlatTerrainProvider final : public Provider {
 public:
-  std::string_view kind() const override { return "test-terrain"; }
+  [[nodiscard]] std::string_view kind() const override { return "test-terrain"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &,
-                                                           std::string_view) const override {
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make([[maybe_unused]] const SourceProvider &declaration,
+       [[maybe_unused]] std::string_view builtinDataDirectory) const override {
     return std::make_unique<FlatTerrain>();
   }
 };
@@ -96,7 +104,7 @@ int main() {
   terrain.Kind = "test-terrain";
   terrain.Revision = "test-r1";
   scene.Providers.push_back(terrain);
-  FlatTerrainProvider terrainProvider;
+  const FlatTerrainProvider terrainProvider;
   {
     auto engine = App::CreateEngine();
     CHECK(engine.registerProvider(terrainProvider), "local terrain provider registers");
@@ -104,29 +112,26 @@ int main() {
               engine.declare(scene) && engine.assemble(),
           "offline scene queues its declared source requests");
     const auto playable = engine.preload(0.0, WorldQuality::Playable);
-    CHECK(!playable &&
-              playable.error().find("required vector input unavailable") == std::string::npos,
+    CHECK(!playable && !playable.error().contains("required vector input unavailable"),
           "playable quality retains its existing zero-budget behavior");
     constexpr double patienceS = 5.0;
     const auto started = std::chrono::steady_clock::now();
     const auto refined = engine.preload(patienceS, WorldQuality::Refined);
     const auto elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-    CHECK(!refined &&
-              refined.error().find("required vector input unavailable") != std::string::npos &&
-              refined.error().find("offline cache miss") != std::string::npos &&
-              refined.error().find("vector/") != std::string::npos &&
-              refined.error().find("source=test.offline.vector") != std::string::npos &&
-              refined.error().find("revision=test-r7") != std::string::npos &&
-              refined.error().find("key=") != std::string::npos,
+    CHECK(!refined && refined.error().contains("required vector input unavailable") &&
+              refined.error().contains("offline cache miss") &&
+              refined.error().contains("vector/") &&
+              refined.error().contains("source=test.offline.vector") &&
+              refined.error().contains("revision=test-r7") && refined.error().contains("key="),
           "refined failure reports the actual missing vector and source identity");
-    CHECK(!refined && refined.error().find("did not become resident within") == std::string::npos,
+    CHECK(!refined && !refined.error().contains("did not become resident within"),
           "a final offline vector miss does not wait for the generic timeout");
     CHECK(!engine.settled(WorldQuality::Refined),
           "failed acquisition never publishes a ready world");
-    std::printf("refined preload elapsed %.6f s, result: %s\n",
-                elapsed,
-                refined ? "ready" : refined.error().c_str());
+    std::println("refined preload elapsed {:.6f} s, result: {}",
+                 elapsed,
+                 refined ? "ready" : refined.error().c_str());
   }
   SDL_Quit();
   return Report();
