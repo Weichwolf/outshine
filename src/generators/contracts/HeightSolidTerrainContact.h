@@ -31,7 +31,11 @@ enum class SurfaceEarthworkError : uint8_t {
 
 [[nodiscard]] bool ValidSurfaceGroundSource(const SurfaceGroundSource &source) noexcept;
 
-[[nodiscard]] std::expected<EarthworkStamp, SurfaceEarthworkError> BuildHeightSolidTerrainContact(
-    const HeightSolid &body, size_t face, const SurfaceGroundSource &source, double apronM);
+[[nodiscard]] std::expected<EarthworkStamp, SurfaceEarthworkError>
+BuildHeightSolidTerrainContact(const HeightSolid &body,
+                               size_t face,
+                               const SurfaceGroundSource &source,
+                               double apronM,
+                               EarthworkStamp storage = {});
 }
 #endif

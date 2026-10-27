@@ -45,6 +45,8 @@ struct GroundPortBodyWork {
   size_t SolidEdgeVisits = 0;
   size_t TerrainContactFaces = 0;
   size_t ContainerBoundBytes = 0;
+  size_t ReframedVertices = 0;
+  size_t ReframedTerrainContacts = 0;
 };
 
 struct GroundPortBodies {
@@ -59,6 +61,14 @@ struct GroundPortBodies {
 };
 
 using GroundPortBodyError = std::variant<RoadGroundError, HeightSolidError, SurfaceEarthworkError>;
+
+[[nodiscard]] size_t GroundPortBodyCapacityBytes(const GroundPortBodies &bodies) noexcept;
+
+[[nodiscard]] std::expected<GroundPortBodies, GroundPortBodyError>
+ReframeGroundPortBodies(GroundPortBodies &&input,
+                        LongitudeLatitude anchor,
+                        GroundPortBodyBudget budget = {},
+                        const std::stop_token &stop = {});
 
 [[nodiscard]] std::expected<GroundPortBodies, GroundPortBodyError>
 BuildGroundPortBodies(const GroundPortField &field,

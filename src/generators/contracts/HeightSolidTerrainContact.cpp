@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <expected>
+#include <utility>
 
 namespace outshine::Generators {
 bool ValidSurfaceGroundSource(const SurfaceGroundSource &source) noexcept {
@@ -40,7 +41,8 @@ Checked<std::array<std::array<double, 3>, 3>> Bottom(const HeightSolid &body, si
 
 Checked<EarthworkStamp> Stamp(const std::array<std::array<double, 3>, 3> &points,
                               const SurfaceGroundSource &source,
-                              double apronM) {
+                              double apronM,
+                              EarthworkStamp storage) {
   const auto origin = points[0];
   const double aE = points[1][0] - origin[0];
   const double aN = points[1][1] - origin[1];
@@ -53,6 +55,10 @@ Checked<EarthworkStamp> Stamp(const std::array<std::array<double, 3>, 3> &points
     return std::unexpected(Error::InvalidInput);
   }
   EarthworkStamp stamp;
+  stamp.RingEastNorthM = std::move(storage.RingEastNorthM);
+  stamp.SeamEastNorthM = std::move(storage.SeamEastNorthM);
+  stamp.RingEastNorthM.clear();
+  stamp.SeamEastNorthM.clear();
   stamp.LowE = stamp.HighE = stamp.AtE = origin[0];
   stamp.LowN = stamp.HighN = stamp.AtN = origin[1];
   stamp.PlateauM = origin[2];
@@ -83,8 +89,12 @@ Checked<EarthworkStamp> Stamp(const std::array<std::array<double, 3>, 3> &points
 }
 }
 
-std::expected<EarthworkStamp, SurfaceEarthworkError> BuildHeightSolidTerrainContact(
-    const HeightSolid &body, size_t face, const SurfaceGroundSource &source, double apronM) {
+std::expected<EarthworkStamp, SurfaceEarthworkError>
+BuildHeightSolidTerrainContact(const HeightSolid &body,
+                               size_t face,
+                               const SurfaceGroundSource &source,
+                               double apronM,
+                               EarthworkStamp storage) {
   if (face >= body.SurfaceFaces || body.SurfaceFaces > body.Faces.size() / 2 ||
       !ValidSurfaceGroundSource(source) || source.Effect == SurfaceGroundEffect::NoEarthwork ||
       !std::isfinite(apronM) || apronM < 0) {
@@ -92,6 +102,6 @@ std::expected<EarthworkStamp, SurfaceEarthworkError> BuildHeightSolidTerrainCont
   }
   const auto bottom = Bottom(body, face);
   if (!bottom) { return std::unexpected(bottom.error()); }
-  return Stamp(*bottom, source, apronM);
+  return Stamp(*bottom, source, apronM, std::move(storage));
 }
 }

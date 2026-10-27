@@ -207,6 +207,21 @@ Checked<void> Contacts(GroundPortBody &body,
 }
 }
 
+size_t GroundPortBodyCapacityBytes(const GroundPortBodies &bodies) noexcept {
+  size_t bytes = bodies.Bodies.capacity() * sizeof(GroundPortBody) + InputBytes(bodies.Inputs[0]) +
+                 InputBytes(bodies.Inputs[1]);
+  if (bodies.Scope) {
+    bytes += bodies.Scope->Exits.capacity() * sizeof(GroundPortFieldExit) +
+             InputBytes(bodies.Scope->Input);
+  }
+  for (const auto &body : bodies.Bodies) {
+    bytes += Bytes(body.Geometry) + body.FaceParents.capacity() * sizeof(uint32_t) +
+             body.TerrainContacts.capacity() * sizeof(EarthworkStamp);
+    for (const auto &contact : body.TerrainContacts) { bytes += contact.HeapBytes(); }
+  }
+  return bytes;
+}
+
 std::expected<GroundPortBodies, GroundPortBodyError>
 BuildGroundPortBodies(const GroundPortField &field,
                       GroundPortBodyRecipe recipe,
