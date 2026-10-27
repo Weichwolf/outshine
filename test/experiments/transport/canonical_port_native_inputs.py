@@ -62,7 +62,7 @@ def load(root=FIXTURE):
     return source, terrain, binding, manifest
 
 
-def source_input(snapshot, recipes, manifest):
+def source_input(snapshot, recipes, manifest, *, binding=None):
     nodes = {node["SourceNodeId"]: node for node in snapshot["Nodes"]}
     paths = {path["PathId"]: path for path in snapshot["Paths"]}
     if len(nodes) != len(snapshot["Nodes"]) or len(paths) != len(snapshot["Paths"]):
@@ -154,7 +154,9 @@ def source_input(snapshot, recipes, manifest):
         source_nodes,
         tuple(spans),
         tuple(sorted(unknown)),
-        {
+        binding
+        if binding is not None
+        else {
             "native_capture": manifest["native_capture"],
             "source_identity": snapshot["SourceIdentity"],
             "sources": snapshot["Sources"],

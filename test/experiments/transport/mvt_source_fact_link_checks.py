@@ -216,11 +216,12 @@ class NativeSourceFactLinks(unittest.TestCase):
             self.check(payload)[0], "incomplete_published_source_endpoints"
         )
 
-    def test_frontier_requires_actual_terminal_unowned_end(self):
+    def test_frontier_is_not_reconstructed_from_fragment_source_step(self):
         self.payload["Ways"][1]["OwnsEnds"][0] = False
-        self.assertEqual(self.check()[0], "source_fact_frontier_mismatch")
+        self.assertEqual(self.check()[0], "")
         self.payload["Groups"][1]["Frontier"] = True
         self.assertEqual(self.check()[0], "")
+        self.assertTrue(self.payload["Groups"][1]["Frontier"])
 
     def test_revision_digest_budget_and_way_table_fail_before_admission(self):
         source = replace(

@@ -41,8 +41,7 @@ def member_link(member, spans, ways, node_groups):
         or step >= way["PointCount"] - 1
     ):
         return None, "source_member_step_mismatch"
-    terminal = step == (0 if physical == 0 else way["PointCount"] - 2)
-    return (identity, physical, terminal and not way["OwnsEnds"][physical]), ""
+    return (identity, physical), ""
 
 
 def group_links(groups, members, spans, ways, node_groups, work):
@@ -60,7 +59,7 @@ def group_links(groups, members, spans, ways, node_groups, work):
             "FilteredEndpointCount"
         ] != max(original - count, 0):
             return "source_fact_group_completeness_mismatch"
-        previous, frontier = None, False
+        previous = None
         for member in members[offset : offset + count]:
             if member["NodeGroup"] != index:
                 return "source_fact_group_member_mismatch"
@@ -77,14 +76,11 @@ def group_links(groups, members, spans, ways, node_groups, work):
             linked, reason = member_link(member, spans, ways, node_groups)
             if reason:
                 return reason
-            identity, physical, unowned = linked
+            identity, physical = linked
             if (identity, physical) in seen:
                 return "duplicate_physical_source_endpoint"
             seen.add((identity, physical))
-            frontier |= unowned
             work["validated_members"] += 1
-        if group["Frontier"] != frontier:
-            return "source_fact_frontier_mismatch"
         offset += count
         work["validated_groups"] += 1
     if offset != len(members) or len(seen) != 2 * len(spans):
@@ -99,6 +95,8 @@ def check_mvt_source_fact_links(source, partition, payload, *, budget=None):
     owner/scope comparison belongs to the forthcoming paired capture adapter.
     The supplied partition must come from read_mvt_node_groups for this source.
     No source/profile/Unknown changes, DEM, solver, pair expansion or admission.
+    Frontier is an exported native fact, not reconstructed from SourceStep:
+    woven fragments can share one original step without sharing its terminal.
     """
     budget = PortBudget() if budget is None else budget
     if (
