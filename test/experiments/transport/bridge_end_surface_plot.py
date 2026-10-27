@@ -86,5 +86,5 @@ def plot_end_surfaces(path, ground, pieces):
     fig.suptitle(
         "Metric end surfaces only; opposite Ground, bodies, clearance and whole Bridge remain Pending"
     )
-    fig.savefig(path, dpi=120)
+    fig.savefig(path, dpi=120, bbox_inches="tight")
     plt.close(fig)
