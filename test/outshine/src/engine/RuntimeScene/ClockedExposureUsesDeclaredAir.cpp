@@ -1,6 +1,8 @@
+#include <cstddef>
+#include <string>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <print>
 #include <memory>
 #include <SDL3/SDL.h>
 #include "RuntimeScene.h"
@@ -29,7 +31,7 @@ int main() {
       return Report();
     }
     measured[at] = scene->MeteredLux();
-    std::printf("haze %.0f metered %.9f lux\n", declaration.Haze, measured[at]);
+    std::println("haze {:.0f} metered {:.9f} lux", declaration.Haze, measured[at]);
     CHECK(measured[at] > 0 && std::isfinite(measured[at]),
           "daylight meters a finite positive illuminance");
     CHECK_NEAR(scene->MeteredLux(),

@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "multiplication-S11.5.1_A2.4_T3",
   "title": "Checking with undeclarated variables",
   "covers": [
@@ -12,7 +12,7 @@
     "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/multiplication/S11.5.1_A2.4_T3.js",
     "expects": "runs"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "multiplication-S11.5.1_A2.4_T3",

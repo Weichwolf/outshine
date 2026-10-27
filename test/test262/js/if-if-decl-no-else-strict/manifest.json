@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "if-if-decl-no-else-strict",
   "title": "AnnexB extension not honored in strict mode (IfStatement without an else clause in the global scope)",
   "covers": [
@@ -13,7 +13,7 @@
     "expects": "refuses",
     "phase": "parse"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "if-if-decl-no-else-strict",

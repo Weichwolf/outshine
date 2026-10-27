@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "while-S12.6.2_A6_T1",
   "title": "Checking if execution of \"while 1 break\" fails",
   "covers": [
@@ -13,7 +13,7 @@
     "expects": "refuses",
     "phase": "parse"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "while-S12.6.2_A6_T1",

@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "note": "Pinned inputs, criteria and provenance for the retained test corpora.",
   "types": {
     "text": "a non-empty string",
@@ -41,7 +41,7 @@
           "required": {
             "schemaVersion": {
               "enum": [
-                1
+                2
               ]
             },
             "id": "text",
@@ -52,9 +52,9 @@
             "criterion": {
               "object": "criterion"
             },
-            "subjects": {
+            "inputs": {
               "array": {
-                "object": "subject"
+                "object": "input"
               }
             }
           },
@@ -104,7 +104,7 @@
           }
         },
         "limits-probe": {
-          "note": "A CASE WHOSE VERDICT IS THAT THIS ENGINE DECLINES ITS SUBJECT (board:1424). `declines` names what -- an extension, a feature -- and the runner requires the engine's refusal to CONTAIN that name, so the case cannot pass on a refusal about something else: a corrupt file, a missing camera or a short buffer would all refuse, and none of them is what the case is about.",
+          "note": "A CASE WHOSE VERDICT IS THAT THIS ENGINE DECLINES ITS INPUT (board:1424). `declines` names what -- an extension, a feature -- and the runner requires the engine's refusal to CONTAIN that name, so the case cannot pass on a refusal about something else: a corrupt file, a missing camera or a short buffer would all refuse, and none of them is what the case is about.",
           "required": {
             "says": "text",
             "statedAt": "text",
@@ -185,7 +185,7 @@
         "note": "string"
       }
     },
-    "subject": {
+    "input": {
       "discriminator": "kind",
       "variants": {
         "script": {
@@ -193,7 +193,7 @@
             "id": "text",
             "name": "text",
             "source": {
-              "object": "subject-source"
+              "object": "input-source"
             },
             "files": {
               "array": {
@@ -215,7 +215,7 @@
             "id": "text",
             "name": "text",
             "source": {
-              "object": "subject-source"
+              "object": "input-source"
             },
             "files": {
               "array": {
@@ -230,14 +230,14 @@
             },
             "notes": "string"
           },
-          "note": "MARKUP AND THE FILES IT NAMES. `entry` is the document; the rest are what its own `<link>` and `<script>` elements reach for, resolved at the pin and fetched by digest like any other subject -- so a stylesheet that changed upstream is a refusal and not a quietly different picture."
+          "note": "MARKUP AND THE FILES IT NAMES. `entry` is the document; the rest are what its own `<link>` and `<script>` elements reach for, resolved at the pin and fetched by digest like any other input -- so a stylesheet that changed upstream is a refusal and not a quietly different picture."
         },
         "data": {
           "required": {
             "id": "text",
             "name": "text",
             "source": {
-              "object": "subject-source"
+              "object": "input-source"
             },
             "files": {
               "array": {
@@ -249,11 +249,11 @@
           "optional": {
             "notes": "string"
           },
-          "note": "A SUBJECT THAT IS NOT GEOMETRY. A corpus whose oracle is a table of numbers stands up no asset; the case declares the table and the scenario it feeds."
+          "note": "AN INPUT THAT IS NOT GEOMETRY. A corpus whose oracle is a table of numbers stands up no asset; the case declares the table and the scenario it feeds."
         }
       }
     },
-    "subject-source": {
+    "input-source": {
       "discriminator": "kind",
       "variants": {
         "test262": {

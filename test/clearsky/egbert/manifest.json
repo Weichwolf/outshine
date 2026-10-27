@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "clearsky/egbert",
   "title": "Kider et al.'s clear day at Egbert, Ontario, and ASTM G173",
   "covers": [
@@ -12,7 +12,7 @@
     "says": "the sky's radiance and irradiance at Egbert, Ontario on 2013-05-27 against Kider et al.'s measured full day and the ASTM G173 solar spectrum -- a measurement, so the model is the thing that can be wrong",
     "statedAt": "https://github.com/ebruneton/clear-sky-models"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "data",
       "id": "egbert",
