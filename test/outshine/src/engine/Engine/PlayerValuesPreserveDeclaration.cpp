@@ -12,9 +12,9 @@ int main() {
   const auto before = engine.writeScenario();
   for (const auto field : std::array{
            &Scenario::Player::EyeHeightM, &Scenario::Player::WalkMs, &Scenario::Player::RunMs}) {
-    for (double value : {-1.0,
-                         std::numeric_limits<double>::infinity(),
-                         std::numeric_limits<double>::quiet_NaN()}) {
+    for (const double value : {-1.0,
+                               std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::quiet_NaN()}) {
       auto candidate = original;
       candidate.Played.*field = value;
       CHECK(!engine.declare(candidate), "invalid player magnitude refused");

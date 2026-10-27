@@ -5,7 +5,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
+  const Engine engine;
   constexpr double nan = std::numeric_limits<double>::quiet_NaN();
   constexpr double inf = std::numeric_limits<double>::infinity();
   for (const double value : {nan, inf, -inf, 181.0, -181.0}) {

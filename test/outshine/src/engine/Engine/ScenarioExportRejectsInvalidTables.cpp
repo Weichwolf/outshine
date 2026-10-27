@@ -27,8 +27,7 @@ int main() {
   }
   CHECK(engine.declare(valid).has_value(), "valid declaration replaces invalid candidate");
   const auto exported = engine.writeScenario();
-  CHECK(exported && exported->find("<tables>") != std::string::npos,
-        "valid retry returns serialized table data");
+  CHECK(exported && exported->contains("<tables>"), "valid retry returns serialized table data");
   CHECK(&engine.entities() == simulation, "successful export does not reassemble simulation");
   return Report();
 }

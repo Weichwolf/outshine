@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include <array>
 #include <vector>
 
@@ -28,11 +30,17 @@ outshine::Geometry Triangle() {
   material.BaseColour = {{0.8F, 0.1F, 0.2F, 1}};
   material.Unlit = true;
   const auto surface = geometry.addSurface("red", material);
-  const int part = geometry.addPart("triangle", *surface).value();
-  (void)geometry.setPositions(part,
-                              std::array<float, 9>{-0.8F, -0.6F, 0, 0.8F, -0.6F, 0, 0, 0.8F, 0});
-  (void)geometry.setNormals(part, std::array<float, 9>{0, 0, 1, 0, 0, 1, 0, 0, 1});
-  (void)geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2});
+  CHECK(surface, "triangle material is valid");
+  if (!surface) { return {}; }
+  const auto part = geometry.addPart("triangle", *surface);
+  CHECK(part, "triangle part is valid");
+  if (!part) { return {}; }
+  CHECK(geometry.setPositions(*part,
+                              std::array<float, 9>{-0.8F, -0.6F, 0, 0.8F, -0.6F, 0, 0, 0.8F, 0}),
+        "triangle positions");
+  CHECK(geometry.setNormals(*part, std::array<float, 9>{0, 0, 1, 0, 0, 1, 0, 0, 1}),
+        "triangle normals");
+  CHECK(geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}), "triangle indices");
   return geometry;
 }
 
@@ -48,7 +56,7 @@ int main() {
   constexpr Extent kFirst{.WidthPx = 64, .HeightPx = 64};
   constexpr Extent kOther{.WidthPx = 96, .HeightPx = 64};
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes before configuring an engine target");
-  if (!SDL_WasInit(SDL_INIT_VIDEO)) { return Report(); }
+  if (SDL_WasInit(SDL_INIT_VIDEO) == 0) { return Report(); }
 
   struct VideoSession {
     ~VideoSession() { SDL_QuitSubSystem(SDL_INIT_VIDEO); }
@@ -61,11 +69,11 @@ int main() {
             engine.setGeometry(triangle) && engine.assemble(),
         "a static native world prepares on the first target");
   std::vector<float> first;
-  CHECK(Draw(engine, first) && first.size() == 64u * 64u * 4u,
+  CHECK(Draw(engine, first) && first.size() == size_t{64} * 64 * 4,
         "the first target produces the expected static readback");
   CHECK(engine.setRenderTarget(kOther), "the unrelated wider offscreen target publishes");
   std::vector<float> wider;
-  CHECK(Draw(engine, wider) && wider.size() == 96u * 64u * 4u,
+  CHECK(Draw(engine, wider) && wider.size() == size_t{96} * 64 * 4,
         "the static world rebinds to the wider target");
   CHECK(engine.setRenderTarget(kFirst), "the original target extent publishes again");
   std::vector<float> restored;

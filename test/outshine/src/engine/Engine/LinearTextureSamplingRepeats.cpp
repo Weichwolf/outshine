@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <array>
 #include <vector>
 
@@ -38,7 +39,7 @@ int main() {
   if (!part) { return Report(); }
   Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {128, 128};
+  scene.Render.Frame = {.WidthPx = 128, .HeightPx = 128};
   scene.Render.Outputs = {"sceneLinear"};
   Scenario::View view;
   view.Id = "linear";
@@ -48,10 +49,11 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scene.Views.push_back(view);
   Engine engine;
-  CHECK(engine.setRenderTarget({128, 128}) && engine.declare(scene) &&
+  CHECK(engine.setRenderTarget({.WidthPx = 128, .HeightPx = 128}) && engine.declare(scene) &&
             engine.setGeometry(geometry) && engine.assemble() && engine.advance(),
         "linear texture scene assembles");
-  std::vector<float> first, repeated;
+  std::vector<float> first;
+  std::vector<float> repeated;
   CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),
         "first linear texture frame renders");
   CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, repeated),
