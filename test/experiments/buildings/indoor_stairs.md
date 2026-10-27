@@ -92,3 +92,10 @@ templates as Outshine requirements.
 Scope remains chosen local source-snapshot geometry. Whole-terrain support,
 statics, rails, walls/doors/access, jointly qualified multiple stairs, original
 OSM topology/native Source→World integration and A18/Iris/p99 are open.
+
+The [joint follow-up](indoor_stair_batch.md) composes multiple sources/plates.
+It retains the individual procedure, adds explicit candidate staging and final
+whole-width endpoint checks, and shares source/floor preparation. Landings are
+stair solids; after cutting, the final host must cover the complete endpoint
+interface, while the pad can bridge its own opening guard. Joint geometry still
+does not supply rooms, access or native World qualification.

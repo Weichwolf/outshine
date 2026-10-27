@@ -1,5 +1,7 @@
 """Provider endpoint candidates bound to explicit chosen floor products (#1553)."""
 
+import json
+from dataclasses import asdict
 from fractions import Fraction
 
 
@@ -82,3 +84,35 @@ def bind_stairs(inputs, floors):
             }
         )
     return result
+
+
+def group_stair_aliases(bindings, receipts, limits):
+    if len({b["source_id"] for b in bindings}) != len(bindings):
+        raise ValueError("Distinct source identities required before stair grouping")
+    scope = json.dumps(asdict(limits), sort_keys=True)
+    groups, lookup = [], {}
+    for binding in sorted(bindings, key=lambda b: b["source_id"]):
+        if binding["reason"]:
+            groups.append({"primary": binding, "members": [binding]})
+            continue
+        request = binding["request"]
+        nodes = source_nodes(request, receipts)
+        ends = tuple((e["floor_id"], e["z_m"]) for e in binding["ends"])
+        if nodes[::-1] < nodes:
+            nodes, ends = nodes[::-1], ends[::-1]
+        key = (
+            request.frame.identifier,
+            request.purpose,
+            nodes,
+            ends,
+            request.original["width_m"],
+            json.dumps(request.original["properties"], sort_keys=True),
+            scope,
+        )
+        if key in lookup:
+            lookup[key]["members"].append(binding)
+        else:
+            group = {"primary": binding, "members": [binding]}
+            lookup[key] = group
+            groups.append(group)
+    return tuple(groups)

@@ -13,10 +13,7 @@ from pathlib import Path
 
 import numpy as np
 from compare_indoor_floors import DATA, allocations, json_value
-from indoor_floor_geometry import produce_floor_contacts
-from indoor_floor_inputs import load_inputs
-from indoor_floor_plan import FloorLimits
-from indoor_stair_contacts import bind_stairs
+from indoor_stair_inputs import load_stair_context
 from indoor_stair_recipe import StairLimits
 from indoor_stair_site import build_stair
 
@@ -46,43 +43,10 @@ def signature(result):
 
 def compare(args):
     args.output.mkdir(parents=True, exist_ok=False)
-    cpu, wall = time.process_time(), time.perf_counter()
-    inputs = load_inputs(args.inputs)
-    source_cost = {
-        "cpu_s": time.process_time() - cpu,
-        "wall_s": time.perf_counter() - wall,
-    }
-    cpu, wall = time.process_time(), time.perf_counter()
-    original = {r.identifier: r for r in inputs.requests}
-    requests = tuple(
-        original.get(r.identifier, r)
-        for r in inputs.constraints
-        if r.purpose == "flat_indoor_walkway"
-    )
-    floors = produce_floor_contacts(
-        inputs.parts,
-        requests,
-        inputs.ground,
-        method="adapted",
-        constraints=inputs.constraints,
-        limits=FloorLimits(max_requests=128),
-    )
-    context_cost = {
-        "cpu_s": time.process_time() - cpu,
-        "wall_s": time.perf_counter() - wall,
-    }
-    old = produce_floor_contacts(
-        inputs.parts,
-        inputs.requests,
-        inputs.ground,
-        method="adapted",
-        constraints=inputs.constraints,
-    )
+    context = load_stair_context(args.inputs)
+    inputs, requests, floors = context.inputs, context.requests, context.floors
     choices = {r["source_id"]: r for r in floors["choices"]}
-    old_ready = [r for r in old["choices"] if r["status"] == "ready"]
-    for row in old_ready:
-        np.testing.assert_array_equal(row["xyz"], choices[row["source_id"]]["xyz"])
-    bindings = bind_stairs(inputs, floors)
+    bindings = context.bindings
     binding = next((b for b in bindings if b["source_id"] == args.source), None)
     if binding is None:
         raise ValueError("Requested source is not in the declared raw stair snapshot")
@@ -184,8 +148,8 @@ def compare(args):
         },
         "input": inputs.metadata,
         "limits": asdict(limits),
-        "source_cost": source_cost,
-        "expanded_floor_context_cost": context_cost,
+        "source_cost": context.source_cost,
+        "expanded_floor_context_cost": context.floor_cost,
         "source_id": binding["source_id"],
         "ends": binding["ends"],
         "recipe": result["recipe"],
@@ -212,8 +176,8 @@ def compare(args):
         "openings": result["openings"],
         "final_floor_models": floor_index,
         "existing_floor_choices": floors["choices"],
-        "original_request_responses": old["choices"],
-        "old_ready_xyz_exact": len(old_ready),
+        "original_request_responses": context.original_responses,
+        "old_ready_xyz_exact": context.old_ready_count,
         "expanded_ready_corridors_preserved": sum(
             r["status"] == "ready" for r in floors["choices"]
         ),
