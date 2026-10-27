@@ -3,6 +3,7 @@
 #include "FlatMap.h"
 #include "Units.h"
 #include "EarthworkDeformation.h"
+#include "EarthworkStampIndex.h"
 #include "CorridorApronBlend.h"
 #include "ProfiledCorridorPress.h"
 #include "Vec3.h"
@@ -27,123 +28,6 @@ namespace outshine {
 
 namespace {
 
-constexpr size_t kMostDenseCells = 1u << 22u;
-
-constexpr double kBucketM = 32.0;
-
-class CellGrid {
-public:
-  static constexpr int64_t kBias = 0x20000000LL;
-  static constexpr int64_t kSpreadsAnywhere = std::numeric_limits<int64_t>::max();
-
-  struct Sized {
-    double CellM = 1.0;
-    int64_t MostCells = kSpreadsAnywhere;
-  };
-
-  explicit CellGrid(Sized over) : CellM_(over.CellM), MostCells_(over.MostCells) {}
-
-  [[nodiscard]] int64_t CellOf(double metres) const {
-    return static_cast<int64_t>(std::floor(metres / CellM_));
-  }
-
-  static constexpr uint64_t KeyOf(int64_t cellE, int64_t cellN) {
-    return (static_cast<uint64_t>(cellE + kBias) << 32U) | static_cast<uint64_t>(cellN + kBias);
-  }
-
-  [[nodiscard]] uint64_t KeyAt(EastNorth at) const {
-    return KeyOf(CellOf(at.EastM), CellOf(at.NorthM));
-  }
-
-  void Expects(size_t entries) {
-    Held_.reserve(entries);
-    What_.reserve(entries);
-  }
-
-  void Spread(EastNorth low, EastNorth high, uint32_t what) {
-    const int64_t fromE = CellOf(low.EastM);
-    const int64_t toE = CellOf(high.EastM);
-    const int64_t fromN = CellOf(low.NorthM);
-    const int64_t toN = CellOf(high.NorthM);
-    if ((toE - fromE + 1) * (toN - fromN + 1) > MostCells_) { return; }
-    for (int64_t cellE = fromE; cellE <= toE; ++cellE) {
-      for (int64_t cellN = fromN; cellN <= toN; ++cellN) {
-        Held_.push_back(KeyOf(cellE, cellN));
-        What_.push_back(what);
-      }
-    }
-    Settled_ = false;
-  }
-
-  void Settles() {
-    Settled_ = true;
-    First_.clear();
-    Seats_.clear();
-    Wide_ = 0;
-    if (Held_.empty()) { return; }
-    LowE_ = std::numeric_limits<int64_t>::max();
-    LowN_ = std::numeric_limits<int64_t>::max();
-    int64_t highE = std::numeric_limits<int64_t>::min();
-    int64_t highN = std::numeric_limits<int64_t>::min();
-    for (const uint64_t key : Held_) {
-      const auto cellE = static_cast<int64_t>(key >> 32U) - kBias;
-      const auto cellN = static_cast<int64_t>(key & 0xffffffffU) - kBias;
-      LowE_ = std::min(LowE_, cellE);
-      LowN_ = std::min(LowN_, cellN);
-      highE = std::max(highE, cellE);
-      highN = std::max(highN, cellN);
-    }
-    const int64_t wide = highE - LowE_ + 1;
-    const size_t cells = static_cast<size_t>(wide) * static_cast<size_t>(highN - LowN_ + 1);
-    if (cells > kMostDenseCells) { return; }
-    Wide_ = wide;
-    First_.assign(cells + 1u, 0u);
-    for (const uint64_t key : Held_) { ++First_[SeatOf(key) + 1u]; }
-    for (size_t cell = 1; cell < First_.size(); ++cell) { First_[cell] += First_[cell - 1u]; }
-    Seats_.resize(Held_.size());
-    std::vector<uint32_t> at(First_.begin(), First_.end() - 1);
-    for (size_t entry = 0; entry < Held_.size(); ++entry) {
-      Seats_[at[SeatOf(Held_[entry])]++] = What_[entry];
-    }
-  }
-
-  [[nodiscard]] std::span<const uint32_t> At(EastNorth where) const {
-    if (Wide_ == 0) { return {}; }
-    const int64_t cellE = CellOf(where.EastM) - LowE_;
-    const int64_t cellN = CellOf(where.NorthM) - LowN_;
-    if (cellE < 0 || cellN < 0 || cellE >= Wide_) { return {}; }
-    const size_t cell =
-        static_cast<size_t>(cellN) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
-    if (cell + 1u >= First_.size()) { return {}; }
-    return {Seats_.data() + First_[cell], First_[cell + 1u] - First_[cell]};
-  }
-
-  [[nodiscard]] bool Empty() const { return Held_.empty(); }
-
-  [[nodiscard]] size_t HeapBytes() const noexcept {
-    return (Held_.capacity() * sizeof(uint64_t)) + (What_.capacity() * sizeof(uint32_t)) +
-           (First_.capacity() * sizeof(uint32_t)) + (Seats_.capacity() * sizeof(uint32_t));
-  }
-
-private:
-  [[nodiscard]] size_t SeatOf(uint64_t key) const {
-    const int64_t cellE = static_cast<int64_t>(key >> 32U) - kBias - LowE_;
-    const int64_t cellN = static_cast<int64_t>(key & 0xffffffffU) - kBias - LowN_;
-    return static_cast<size_t>(cellN) * static_cast<size_t>(Wide_) + static_cast<size_t>(cellE);
-  }
-
-  double CellM_;
-  int64_t MostCells_;
-  bool Settled_ = false;
-  int64_t LowE_ = 0;
-  int64_t LowN_ = 0;
-  int64_t Wide_ = 0;
-  std::vector<uint64_t> Held_;
-  std::vector<uint32_t> What_;
-  std::vector<uint32_t> First_;
-  std::vector<uint32_t> Seats_;
-};
-
 constexpr double kSmoothstepPeakDerivative = 1.875;
 constexpr double kContactToleranceM = 1.e-6;
 
@@ -159,19 +43,6 @@ double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
                           kSmoothstepPeakDerivative *
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
              : stamp.ApronM;
-}
-
-CellGrid BucketOver(std::span<const EarthworkStamp> these, std::span<const double> widthsM) {
-  CellGrid out({.CellM = kBucketM});
-  for (size_t at = 0; at < these.size(); ++at) {
-    const EarthworkStamp &one = these[at];
-    const double apronM = widthsM[at] + one.PlanarSupportM.value_or(0.0);
-    out.Spread({.EastM = one.LowE - apronM, .NorthM = one.LowN - apronM},
-               {.EastM = one.HighE + apronM, .NorthM = one.HighN + apronM},
-               static_cast<uint32_t>(at));
-  }
-  out.Settles();
-  return out;
 }
 
 double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
@@ -372,6 +243,7 @@ struct NearestProfile {
 };
 
 struct PressWorkspace {
+  EarthworkStampQuery Query;
   std::vector<NearestProfile> Profiles;
   std::vector<double> WidthsM;
   std::vector<double> ReliefM;
@@ -406,7 +278,8 @@ struct PressWorkspace {
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Profiles.capacity() * sizeof(NearestProfile) +
-           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes();
+           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes() +
+           Query.HeapBytes();
   }
 };
 
@@ -561,14 +434,14 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
 }
 
 void RejectAt(std::span<const EarthworkStamp> these,
-              const CellGrid &buckets,
+              const EarthworkStampIndex &buckets,
               std::span<const EastNorth> at,
               std::span<const double> upM,
               std::span<uint8_t> structures,
               double mostEarthworkM,
               size_t one,
               PressWorkspace &workspace) {
-  for (const uint32_t which : buckets.At(at[one])) {
+  for (const uint32_t which : buckets.At(at[one], workspace.Query)) {
     const EarthworkStamp &stamp = these[which];
     double outsideM = OutsideRingM(stamp, at[one]);
     double bedM = RoadBedAt(stamp, at[one]);
@@ -597,7 +470,7 @@ void RejectAt(std::span<const EarthworkStamp> these,
 }
 
 void ApplyAt(std::span<const EarthworkStamp> these,
-             const CellGrid &buckets,
+             const EarthworkStampIndex &buckets,
              std::span<const EastNorth> at,
              std::span<double> upM,
              std::span<const uint8_t> structures,
@@ -606,7 +479,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
              size_t one,
              PressWorkspace &workspace) {
   const Pressing under = PressesAt(these,
-                                   buckets.At(at[one]),
+                                   buckets.At(at[one], workspace.Query),
                                    structures,
                                    at[one],
                                    upM[one],
@@ -647,7 +520,7 @@ struct EarthworkDeformationJob::State {
   double MostEarthworkM;
   std::chrono::steady_clock::time_point Began = std::chrono::steady_clock::now();
   PressWorkspace Workspace;
-  CellGrid Buckets;
+  EarthworkStampIndex Buckets;
   std::vector<uint8_t> Structures;
   EarthworkDeformationResult Result;
   size_t Next = 0;
@@ -662,7 +535,7 @@ struct EarthworkDeformationJob::State {
         UpM(upM),
         MostEarthworkM(mostEarthworkM),
         Workspace(these, mostEarthworkM),
-        Buckets(BucketOver(these, Workspace.WidthsM)),
+        Buckets(these, Workspace.WidthsM),
         Structures(these.size(), 0u) {
     if (these.empty() || at.size() != upM.size()) {
       Current = Phase::Done;
@@ -716,7 +589,7 @@ bool EarthworkDeformationJob::Advance(size_t pointsMost) {
     if (state.Next < state.At.size()) { return false; }
     const auto planning = std::chrono::steady_clock::now();
     if (state.Workspace.PlanAprons(state.These, state.MostEarthworkM)) {
-      state.Buckets = BucketOver(state.These, state.Workspace.WidthsM);
+      state.Buckets = EarthworkStampIndex(state.These, state.Workspace.WidthsM);
     }
     state.Result.BucketMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planning)
