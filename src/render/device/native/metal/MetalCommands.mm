@@ -92,59 +92,6 @@ Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, Buff
   }
 }
 
-Result<void> MetalCommands::Dispatch(const ComputePipeline &pipeline,
-                                     std::span<const Binding> bindings,
-                                     Workgroups groups) {
-  if (!OnOwner() || Render) {
-    return Failure(ErrorKind::Invalid, "Metal dispatch requires its owner outside a render pass");
-  }
-  @autoreleasepool {
-    const auto *const metal = dynamic_cast<const MetalPipeline *>(&pipeline);
-    if (metal == nullptr || metal->State->Device != Device || groups.X == 0 || groups.Y == 0 ||
-        groups.Z == 0) {
-      return Failure(ErrorKind::Invalid, "invalid Metal compute pipeline, ownership or workgroups");
-    }
-    const std::array counts{groups.X, groups.Y, groups.Z};
-    for (size_t axis = 0; axis < counts.size(); ++axis) {
-      if (uint64_t{counts[axis]} * pipeline.Layout().LocalSize[axis] >
-          std::numeric_limits<uint32_t>::max()) {
-        return Failure(ErrorKind::Invalid, "Metal dispatch exceeds 32-bit shader coordinates");
-      }
-    }
-    const ArgumentScope argumentScope(ArgumentBuffers);
-    const auto arguments = Arguments(*metal->State, bindings, Device, ArgumentBuffers[0]);
-    if (!arguments) { return std::unexpected(arguments.error()); }
-    std::vector<id<MTLResource>> hazards;
-    const auto prepared = PrepareResources(*arguments, hazards);
-    if (!prepared) { return prepared; }
-    if (Compute == nil && Profile) {
-      MTLComputePassDescriptor *const description =
-          [MTLComputePassDescriptor computePassDescriptor];
-      ProfileComputeEncoder(*Profile, description, metal->State->Native.label);
-      Compute = [Native computeCommandEncoderWithDescriptor:description];
-    } else if (Compute == nil) {
-      Compute = [Native computeCommandEncoder];
-    }
-    if (Compute == nil) {
-      return Failure(ErrorKind::Driver, "Metal compute encoder creation failed");
-    }
-    if (!hazards.empty()) {
-      [Compute memoryBarrierWithResources:hazards.data() count:hazards.size()];
-      std::erase_if(Accesses, [&](const TrackedResource &buffer) {
-        return std::ranges::find(hazards, buffer.Resource) != hazards.end();
-      });
-    }
-    [Compute setComputePipelineState:metal->State->Native];
-    const auto bound = Bind(Compute, metal->State->Translated, *arguments);
-    if (!bound) { return bound; }
-    const auto size = pipeline.Layout().LocalSize;
-    [Compute dispatchThreadgroups:MTLSizeMake(groups.X, groups.Y, groups.Z)
-            threadsPerThreadgroup:MTLSizeMake(size[0], size[1], size[2])];
-    UpdateAccesses(*arguments);
-    return {};
-  }
-}
-
 void MetalCommands::TrackHazard(id<MTLResource> resource,
                                 Access usage,
                                 std::vector<id<MTLResource>> &hazards) const {

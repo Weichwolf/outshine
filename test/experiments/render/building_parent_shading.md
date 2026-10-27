@@ -70,6 +70,34 @@ and component full/two on one ROI and original rest; same-recipe T is exact.
 Without fit roots the previous opaque/full comparison remains unchanged.
 Price the complete producer separately from shader work and dense stored weights.
 No new recipe parameter, quality threshold or native format is selected here.
+For the fixed native four-cell comparison, `replay_building_parent_native_reference.py`
+uses the same loaders and full/two-lobe states with exactly one center sample per
+pixel. It requires the existing `az0-64000`, `az0-240000`, `az1-64000` and
+`az1-240000` queries, preserves their1280×720 cameras/ROI offsets, and runs no fit.
+Use the same `--input`, `--fits`, `--source`, `--controls` and fresh `--output`
+arguments as the comparator above. Outputs reuse its raw `model__C`/`model__T`
+NPZ fields and display-only PNGs, including original and opaque-parent controls.
+
+The transfer reference keeps one nearest front-facing hit per parent group and
+one nearest available opaque original-rest hit. Normals are flat geometric
+normals in the source-tree frame; signed `nz>0.5` selects roof role1, otherwise
+wall role0. For stored coverage `[q_xy,q_xz,q_yz]`, opacity is
+`(|nx|q_yz+|ny|q_xz+|nz|q_xy)/sum(abs(n))`. This is fractional projected coverage,
+not volume density or an opaque depth/occlusion certificate. Two lobes means two
+active roughness-palette entries per group/role, with unchanged palette/albedo.
+
+The reference raster uses closed canonical edge equations, not an exclusive
+top-left rule. Equal inverse-depth hits within a group choose the smallest local
+face ordinal; the existing sorted group face lists map this to the smallest
+candidate face ordinal. Across groups, composition sorts by ray, negative inverse
+depth, then global candidate face ordinal. Start with `C=0,T=1`; each layer adds
+`T*alpha*RGB` to C and multiplies T by `1-alpha`. C is already premultiplied.
+Raw fields omit background; PNGs display `C+0.1*T`. Full/two-lobe T must be
+word-equal. A1×center reference is not a filtered pixel integral, captured native
+PBR, a whole-world result, or a device timing. Originals3825/3827 remain required
+and unpriced in every query. Actual native background/coverage/composition costs
+and edge-rule differences remain part of the native comparison.
+
 For existing larger population checks use the same producer with `--cell-count
 16` or `64`, both fixed recipes and unchanged queries. Source/material checks do
 not replace missing native images for those populations. To inspect the worst

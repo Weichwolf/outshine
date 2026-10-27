@@ -321,7 +321,7 @@ std::optional<double> TerrainInputPreparation::FieldUpM(int zoom, EastNorth at) 
 
 std::optional<double> TerrainInputPreparation::AslMAt(int zoom, LongitudeLatitude at) const {
   if (!Framed_) { return std::nullopt; }
-  return TerrainFieldSet::AslMAt(Fields_, zoom, at);
+  return TerrainFieldSet::AslMAt(zoom, at, [this](Data::TileId tile) { return FieldAt(tile); });
 }
 
 size_t TerrainInputPreparation::HeapBytes() const noexcept {

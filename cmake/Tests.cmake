@@ -255,6 +255,38 @@ add_test(NAME experiments/transport/NativeSourceFactsExport
 set_tests_properties(experiments/transport/NativeSourceFactsExport PROPERTIES
   TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/transport;world-gate")
 
+add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_parents.cpp)
+target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE
+  outshine_diagnostics_calibration PkgConfig::nlohmann_json)
+set(native_parent_shader_dir "${PROJECT_BINARY_DIR}/test-shaders/native_building_parents")
+set(native_parent_shaders)
+foreach(shader parent.vert parent.frag compose.comp parent-audit.frag)
+  set(source_shader "${shader}")
+  set(shader_definitions)
+  if(shader STREQUAL "parent-audit.frag")
+    set(source_shader parent.frag)
+    set(shader_definitions -DPARENT_AUDIT=1)
+  endif()
+  set(shader_source "${PROJECT_SOURCE_DIR}/test/experiments/render/native_building_parents/${source_shader}")
+  set(shader_output "${native_parent_shader_dir}/${shader}.spv")
+  add_custom_command(OUTPUT "${shader_output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${native_parent_shader_dir}"
+    COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0 ${shader_definitions}
+      "-I${PROJECT_SOURCE_DIR}/src/render/shaders" "-I${PROJECT_BINARY_DIR}/shaders"
+      "${shader_source}" -o "${shader_output}"
+    DEPENDS "${shader_source}" "${PROJECT_BINARY_DIR}/shaders/brdfTables.glsl"
+      "${PROJECT_SOURCE_DIR}/src/render/shaders/metalRoughBrdf.glsl"
+      "${PROJECT_SOURCE_DIR}/src/render/shaders/microfacetEnergy.glsl"
+    VERBATIM)
+  list(APPEND native_parent_shaders "${shader_output}")
+endforeach()
+add_custom_target(test_experiments_render_NativeBuildingParentShaders
+  DEPENDS ${native_parent_shaders})
+add_dependencies(test_experiments_render_NativeBuildingParents
+  test_experiments_render_NativeBuildingParentShaders)
+
 add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
   test/experiments/render/export_building_selection.cpp
   test/experiments/render/building_capture_inputs.cpp)
