@@ -4,14 +4,14 @@ import json
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import shapely
 from bridge_source_fact_inputs import load_bridge_source_facts
 from canonical_port_native_inputs import FIXTURE, terrain_input
 from outshine_ref.contracts import Mesh
-from outshine_ref.transport.canonical_ports import PortBudget
+from outshine_ref.transport.canonical_ports import PortBudget, _ground_terminal_geometry
 from outshine_ref.transport.canonical_ports._geodesy import frame, positions_in_frame
 from outshine_ref.transport.canonical_ports._ground_scope_field import (
     derive_scoped_ground_field,
@@ -318,6 +318,31 @@ class ActualGroundTerminals(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "query budget"):
             limited.part_at(np.array([0.25, 0.25]))
         self.assertEqual(limited.face_bounds_tests, 1)
+
+    def test_cost_counters_separate_triangle_edges_from_actual_boundary_scans(self):
+        original = _ground_terminal_geometry.cap_path
+        visits = []
+
+        def counted(boundary, *args):
+            visits.append(0)
+            position = len(visits) - 1
+
+            def edges():
+                for edge in boundary:
+                    visits[position] += 1
+                    yield edge
+
+            return original(edges(), *args)
+
+        with patch.object(_ground_terminal_geometry, "cap_path", counted):
+            prepared, reason, report = self.derive()
+        self.assertEqual(reason, "")
+        self.assertIsNotNone(prepared)
+        self.assertEqual(visits, [30, 30])
+        self.assertEqual(
+            report["terminal_work"]["boundary_edge_scan_visits"], sum(visits)
+        )
+        self.assertEqual(report["terminal_work"]["triangle_edge_visits"], 84)
 
     def test_subdivided_cap_keeps_its_original_face_provenance(self):
         prepared, reason, report = derive_scoped_ground_field(

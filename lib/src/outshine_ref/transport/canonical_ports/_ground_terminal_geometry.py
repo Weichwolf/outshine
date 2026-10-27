@@ -163,7 +163,9 @@ def rebuild_terminal_caps(prepared, report, scope_index):
         Mesh(vertices, mesh.triangles),
         tuple(descriptors),
         {
-            "boundary_edge_visits": 3 * len(mesh.triangles),
+            "triangle_edge_visits": 3 * len(mesh.triangles),
+            "boundary_edge_scan_visits": len(boundary) * len(descriptors),
+            "edge_work_scope": "Triangle-edge enumeration and full cap-path boundary scans only; BFS, numerical quality and coverage work are not counted here. Queries have separate counters.",
             "construction_payload_copy_bytes": 2 * vertices.nbytes
             + mesh.triangles.nbytes
             + 24 * sum(len(d["cap_vertices"]) for d in descriptors),
