@@ -38,6 +38,7 @@ BuildingPageView::BuildingPageView(const Generators::BakedTile &baked,
   Parts_[1] = BuildingPart(built.RoofCorners, built.RoofRun, baked.Roofs, materials.Roofs);
   Page_ = {.Parts = {},
            .Digest = baked.Digest,
+           .AssetKey = baked.GeometryAssetKey,
            .FallbackHeights = baked.FallbackHeights,
            .SelectedView = baked.SelectedView,
            .RequestedDetail = baked.RequestedDetail,

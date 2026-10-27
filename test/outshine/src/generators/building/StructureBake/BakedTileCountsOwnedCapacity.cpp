@@ -19,5 +19,8 @@ int main() {
       baked.FootprintDetails.capacity() * sizeof(LevelOfDetail) +
       baked.SeatSpreadM.capacity() * sizeof(double) + baked.AcrossM.capacity() * sizeof(double);
   CHECK(baked.HeapBytes() == expected, "baked structure products count each owned capacity once");
+  baked.GeometryAssetKey.assign(64, 'a');
+  CHECK(baked.HeapBytes() == expected + baked.GeometryAssetKey.capacity() + 1u,
+        "published products also count the complete owned asset key and its terminator");
   return Report();
 }

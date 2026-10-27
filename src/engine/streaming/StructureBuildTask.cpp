@@ -335,8 +335,12 @@ struct StructureBuildTask::NativeProducts {
     if (!output.Tile || Current != Phase::Generating || stopping.load(std::memory_order_relaxed)) {
       return;
     }
-    const auto stored = Cache->StoreGeometry(Key, base, raw, *output.Tile);
-    if (!stored) { output.Status = std::unexpected(stored.error()); }
+    auto stored = Cache->StoreGeometry(Key, base, raw, *output.Tile);
+    if (stored) {
+      output.Tile->GeometryAssetKey = std::move(*stored);
+    } else {
+      output.Status = std::unexpected(stored.error());
+    }
     Current = Phase::Complete;
   }
 
