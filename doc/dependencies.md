@@ -32,7 +32,7 @@ Commitaktivität allein beweist keine Fehlerfreiheit oder künftige Wartung.
 | SPIRV-Cross | Native Shaderübersetzung/Reflexion; bleibt. glslang ist ein Buildwerkzeug. |
 | Vulkan-Header / Loader | Linux-Backend; Header müssen `VK_KHR_internally_synchronized_queues` enthalten (geprüft mit 1.4.363). Runtimefähigkeiten werden unabhängig am Gerät geprüft. |
 | QuickJS-NG | JavaScript-Semantik und VM statt eigenem Parser/Interpreter; MIT, keine transitiven Laufzeitpakete. Speicher, Stack und kooperative Ausführung begrenzt; kein JS-Datei-/Netzwerkmodul eingebunden. |
-| nlohmann/json | Benchmarkberichte; eigenen JSON-Ausgabepfad als Ersatz prüfen. |
+| nlohmann/json | Native Benchmarkberichte; vorhandene Systembibliothek weiterverwenden. JSON-Eingaben verwenden derzeit den eigenen Parser unter `src/base/format/`; dessen Ablösung braucht die Vertragsprüfung aus #1320. |
 
 Die Installation oben betrifft die numerischen/Assetpakete, nicht das gesamte Toolchain-
 Setup. Plattform-SDK, SDL/Codecs/Shaderwerkzeuge stehen in den Buildprofilen und
@@ -42,13 +42,13 @@ SDL3_shadercross ist keine Produkt- oder Buildabhängigkeit.
 ## Installation
 
 ```sh
-brew install ccache geos osqp highs sqlite zstd quickjs-ng
+brew install ccache geos osqp highs sqlite zstd quickjs-ng nlohmann-json
 ```
 
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev libssl-dev
+sudo apt install ccache libgeos-dev libsqlite3-dev libzstd-dev libssl-dev nlohmann-json3-dev
 ```
 
 Linux verwendet für Einmal-SHA-256 die Systembibliothek libcrypto; `libssl-dev`
@@ -122,7 +122,11 @@ GEOS bleibt für robuste Polygonoperationen, OSQP für den beschränkten Wasser-
 Der frühere ArtifactStore samt LZ4-Container und optionalem Taskpfad ist ohne
 Produktkonsumenten entfernt (#1032). Aktive Gebäudeprodukte verwenden AssetCache
 mit SQLite/Zstd; ihre Formate und gespeicherten Pakete bleiben unverändert.
-Weitere Kandidaten: nlohmann/json für native Benchmarkberichte und Bildcodecs.
+JSON vereinheitlichen, soweit die tatsächlichen Eingabeverträge erhalten bleiben:
+doppelte Schlüssel erkennen, Quelltextausschnitte/Schlüsselreihenfolge erhalten,
+Zahlengrenzen und maximale Verschachtelung prüfen, Fehler ohne Exceptions liefern.
+Ein DOM-Austausch allein belegt das nicht; bestehende atomare Fälle und echte
+Szenario-/Rezeptverbraucher gegenprüfen (#1320). Weitere Reduktionskandidaten: Bildcodecs.
 Bestehende Formate und Inhalte dürfen bei einer Reduktion nicht unlesbar werden.
 
 Python-Experimente prüfen native Umsetzungen. Shapely/GEOS und Python-OSQP/native OSQP
