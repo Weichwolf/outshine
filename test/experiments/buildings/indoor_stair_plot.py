@@ -11,7 +11,7 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
-def draw(binding, before, after, output):
+def section_geometry(binding, mesh):
     points = np.asarray(binding["request"].axis.coords)
     if binding["ends"][0]["z_m"] > binding["ends"][1]["z_m"]:
         points = points[::-1]
@@ -19,7 +19,6 @@ def draw(binding, before, after, output):
     tangent = (points[1] - points[0]) / np.linalg.norm(points[1] - points[0])
     normal = np.array([-tangent[1], tangent[0]])
     rotation = np.array([[*tangent, 0], [*normal, 0], [0, 0, 1]])
-    mesh = after["mesh"]
     local = (mesh["vertices"] - origin) @ rotation.T
     triangles = local[mesh["faces"]]
     cross = np.cross(
@@ -29,6 +28,23 @@ def draw(binding, before, after, output):
     length = float(np.linalg.norm(points[1] - points[0]))
     height = max(e["z_m"] for e in binding["ends"]) - origin[2]
     line = shapely.LineString([points[0] - 3 * tangent, points[1] + 3 * tangent])
+    return {
+        "origin": origin,
+        "rotation": rotation,
+        "triangles": triangles,
+        "side": side,
+        "length": length,
+        "height": height,
+        "line": line,
+    }
+
+
+def draw(binding, before, after, output):
+    geometry = section_geometry(binding, after["mesh"])
+    origin, rotation = geometry["origin"], geometry["rotation"]
+    triangles, side = geometry["triangles"], geometry["side"]
+    length, height, line = (geometry[k] for k in ("length", "height", "line"))
+    tangent = rotation[0, :2]
     figure, axes = plt.subplots(2, 1, figsize=(13, 9), sharex=True, sharey=True)
     for axis, floors, title in zip(
         axes,
@@ -46,7 +62,7 @@ def draw(binding, before, after, output):
                 coordinates = shapely.get_coordinates(piece)
                 if len(coordinates) < 2:
                     continue
-                extent = (coordinates - points[0]) @ tangent
+                extent = (coordinates - origin[:2]) @ tangent
                 axis.add_patch(
                     Rectangle(
                         (extent.min(), floor.lower_z_m - origin[2]),
