@@ -13,6 +13,8 @@ namespace {
 constexpr size_t kWays = 1025;
 constexpr size_t kTotalWays = kWays + 2u;
 constexpr double kStepDeg = 0.0001;
+constexpr outshine::LongitudeLatitude kStart{.LongitudeDeg = 0, .LatitudeDeg = 0};
+constexpr outshine::LongitudeLatitude kFinish{.LongitudeDeg = kWays * kStepDeg, .LatitudeDeg = 0};
 
 std::expected<outshine::Path::Network, std::string_view> Fixture(bool reversed) {
   using namespace outshine;
@@ -35,13 +37,45 @@ std::expected<outshine::Path::Network, std::string_view> Fixture(bool reversed) 
   return made;
 }
 
+void CheckSlice(const outshine::Path::Network &oracle,
+                const outshine::Path::Route &route,
+                bool reversed,
+                size_t budget) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  auto input = Fixture(reversed);
+  CHECK(input.has_value(), "large sliced input is accepted");
+  if (!input) { return; }
+  auto job = Path::NetworkWeaveJob::Begin(std::move(*input));
+  CHECK(job.has_value(), "large sliced weave starts");
+  if (!job) { return; }
+  bool done = false;
+  for (size_t step = 0; step < 100000 && !done; ++step) {
+    auto advanced = job->Advance(budget);
+    CHECK(advanced.has_value(), "large sliced weave advances");
+    if (!advanced) { break; }
+    done = *advanced;
+  }
+  CHECK(done, "all bounded ordering, merge and copy phases finish");
+  if (!done) { return; }
+  auto woven = std::move(*job).Take();
+  CHECK(woven.has_value(), "complete large graph transfers");
+  if (!woven) { return; }
+  bool sameTags = true;
+  for (size_t at = 0; at < kTotalWays; ++at) {
+    sameTags = sameTags && woven->TagOf(at) == oracle.TagOf(at);
+  }
+  const Path::Route actual = woven->Plan(kStart, kFinish, 0);
+  CHECK(sameTags && woven->NodeCount() == oracle.NodeCount() &&
+            woven->EdgeCount() == oracle.EdgeCount() && actual.Found == route.Found &&
+            actual.LengthM == route.LengthM && actual.Legs.size() == route.Legs.size(),
+        "sliced graph IDs, topology and route match one-shot across three sort runs");
+}
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const LongitudeLatitude start{.LongitudeDeg = 0, .LatitudeDeg = 0};
-  const LongitudeLatitude finish{.LongitudeDeg = kWays * kStepDeg, .LatitudeDeg = 0};
   for (const bool reversed : {false, true}) {
     auto oracle = Fixture(reversed);
     CHECK(oracle.has_value(), "large line fixture is accepted");
@@ -51,36 +85,10 @@ int main() {
     CHECK(oracle->TagOf(511) == 512 && oracle->TagOf(512) == kWays + 1u &&
               oracle->TagOf(513) == kWays + 2u,
           "duplicate geometry at a sort-run boundary has deterministic tag order");
-    const Path::Route route = oracle->Plan(start, finish, 0);
+    const Path::Route route = oracle->Plan(kStart, kFinish, 0);
     CHECK(route.Found, "one-shot graph follows the full line");
     for (const size_t budget : {size_t{1}, size_t{31}, size_t{4096}}) {
-      auto input = Fixture(reversed);
-      CHECK(input.has_value(), "large sliced input is accepted");
-      if (!input) { continue; }
-      auto job = Path::NetworkWeaveJob::Begin(std::move(*input));
-      CHECK(job.has_value(), "large sliced weave starts");
-      if (!job) { continue; }
-      bool done = false;
-      for (size_t step = 0; step < 100000 && !done; ++step) {
-        auto advanced = job->Advance(budget);
-        CHECK(advanced.has_value(), "large sliced weave advances");
-        if (!advanced) { break; }
-        done = *advanced;
-      }
-      CHECK(done, "all bounded ordering, merge and copy phases finish");
-      if (!done) { continue; }
-      auto woven = std::move(*job).Take();
-      CHECK(woven.has_value(), "complete large graph transfers");
-      if (!woven) { continue; }
-      bool sameTags = true;
-      for (size_t at = 0; at < kTotalWays; ++at) {
-        sameTags = sameTags && woven->TagOf(at) == oracle->TagOf(at);
-      }
-      const Path::Route actual = woven->Plan(start, finish, 0);
-      CHECK(sameTags && woven->NodeCount() == oracle->NodeCount() &&
-                woven->EdgeCount() == oracle->EdgeCount() && actual.Found == route.Found &&
-                actual.LengthM == route.LengthM && actual.Legs.size() == route.Legs.size(),
-            "sliced graph IDs, topology and route match one-shot across three sort runs");
+      CheckSlice(*oracle, route, reversed, budget);
     }
   }
   return Report();
