@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string_view>
 
 namespace outshine::Render {
 struct GeometryPagePartView {
@@ -22,6 +23,7 @@ struct GeometryPagePartView {
 struct GeometryPageView {
   std::span<const GeometryPagePartView> Parts;
   uint64_t Digest = 0;
+  std::string_view AssetKey;
   bool FallbackHeights = false;
   std::optional<ViewReuseDomain> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;

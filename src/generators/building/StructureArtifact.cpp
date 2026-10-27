@@ -232,6 +232,7 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
     if (currentSourceKey == 0) { return std::nullopt; }
     tile.SurfaceError->Upper.SourceKey = currentSourceKey;
   }
+  tile.GeometryAssetKey = inputKey;
   return tile;
 }
 }

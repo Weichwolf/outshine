@@ -53,19 +53,16 @@ def differentials(curve, stations, *, side="right", lateral_m=None):
     )
     curvature = curve.curvature_start[i] + curve.curvature_rate[i] * distance
     grade_controls = 3 * np.diff(curve.height[i], axis=1) / curve.lengths[i, None]
-    bank_controls = 3 * np.diff(curve.bank[i], axis=1) / curve.lengths[i, None]
     grade = bezier(grade_controls, t)
-    bank = bezier(curve.bank[i], t)
-    bank_rate = bezier(bank_controls, t)
+    crossfall = curve.crossfall(i, t)
+    crossfall_rate = curve.crossfall(i, t, derivative=1)
     factor = 1 - curvature[:, None] * across
     longitudinal = np.empty((len(i), len(across), 3))
     longitudinal[:, :, 0] = factor * np.cos(heading[:, None])
     longitudinal[:, :, 1] = factor * np.sin(heading[:, None])
-    longitudinal[:, :, 2] = (
-        grade[:, None] - across * (bank_rate / np.cos(bank) ** 2)[:, None]
-    )
+    longitudinal[:, :, 2] = grade[:, None] - across * crossfall_rate[:, None]
     lateral = np.broadcast_to(
-        np.c_[-np.sin(heading), np.cos(heading), -np.tan(bank)][:, None, :],
+        np.c_[-np.sin(heading), np.cos(heading), -crossfall][:, None, :],
         longitudinal.shape,
     )
     if not np.isfinite(longitudinal).all() or not np.isfinite(lateral).all():

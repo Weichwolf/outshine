@@ -192,6 +192,17 @@ class Curve:
             for bound, defect in zip(self.integration_bounds_m, defects, strict=True)
         )
 
+    def crossfall(self, indices, parameter, *, derivative=0):
+        bank = bezier(self.bank[indices], parameter)
+        if derivative == 0:
+            return np.tan(bank)
+        if derivative == 1:
+            rates = (
+                3 * np.diff(self.bank[indices], axis=1) / self.lengths[indices, None]
+            )
+            return bezier(rates, parameter) / np.cos(bank) ** 2
+        raise ValueError("Crossfall value or first derivative required")
+
     def at(self, stations):
         stations = np.asarray(stations, dtype=float)
         if (
@@ -211,13 +222,13 @@ class Curve:
         t = distance / self.lengths[i]
         planar = self._planar(distance, i)
         height = bezier(self.height[i], t)
-        bank = bezier(self.bank[i], t)
+        crossfall = self.crossfall(i, t)
         heading = (
             self.poses[i, 4]
             + self.curvature_start[i] * distance
             + self.curvature_rate[i] * distance**2 / 2
         )
-        direction = np.c_[-np.sin(heading), np.cos(heading), -np.tan(bank)]
+        direction = np.c_[-np.sin(heading), np.cos(heading), -crossfall]
         center = np.c_[planar, height]
         exact = stations == self.stations[np.minimum(i + 1, len(self.stations) - 1)]
         if np.any(exact):

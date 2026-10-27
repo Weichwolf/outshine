@@ -38,7 +38,8 @@ Der Nutzer ist Regisseur. Fachbesitzer bleiben `master`, `outshine_research` und
 `outshine_engine`; der zusätzliche master trägt dieselbe Integrationsverantwortung.
 Fach-Worktrees liegen neben `outshine` unter `Git/`, Branch und Verzeichnis heißen gleich. Geschützte
 Übergaben: #786. Jeder arbeitet selbstständig am höchstpriorisierten passenden offenen
-Paket weiter, ohne nach Lieferungen auf Einzelaufträge zu warten. Besitz melden,
+Paket weiter, ohne nach Lieferungen auf Einzelaufträge zu warten. Besitz melden.
+Research priorisiert Infrastruktur → Gebäude → Vegetation → Wetter.
 Der Besitzer prüft und integriert eigenverantwortlich; keine pauschale Zweitfreigabe.
 Kollegen bei konkreten Fragen, Risiken oder widersprüchlichen Befunden gezielt einbeziehen.
 Gemeinsame Basis und Merges koordinieren. Lokale Blocker sperren nur abhängige Arbeit. Nur der Nutzer
