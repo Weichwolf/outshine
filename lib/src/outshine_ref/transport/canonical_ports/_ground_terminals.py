@@ -175,6 +175,7 @@ def derive_scoped_ground_terminals(
         binding=binding,
         surface=mesh,
         terminal_values=values,
+        finite_quality=checked,
         terminal_quality=checked,
         terminal_work=work,
     )
