@@ -20,7 +20,7 @@ using Pixel = std::array<float, 4>;
 struct Scenario {
   Lens Projection;
   CameraBasis Basis;
-  SkyStanding Sky;
+  SkyParameters Sky;
   Viewport Area;
   float AlongViewM;
 };
