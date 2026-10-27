@@ -14,12 +14,30 @@ from ._types import PortBudget, PortSource
 
 
 def inside_coverage(point, coverage):
+    """Interior of the rectangle union on wrapped longitude, including cell seams.
+
+    Each of the four open local quadrants needs a rectangle extending into it.
+    For a finite axis-aligned union this is equivalent to a covered neighborhood;
+    merely belonging to one or more closed rectangles would admit outer edges.
+    """
     lon, lat = point
-    return any(
-        box["WestDeg"] < lon < box["EastDeg"]
-        and box["SouthDeg"] < lat < box["NorthDeg"]
-        for box in coverage
-    )
+    quadrants = 0
+    for box in coverage:
+        south = box["SouthDeg"] < lat <= box["NorthDeg"]
+        north = box["SouthDeg"] <= lat < box["NorthDeg"]
+        for offset in (-360, 0, 360):
+            west, east = box["WestDeg"] + offset, box["EastDeg"] + offset
+            left = west < lon <= east
+            right = west <= lon < east
+            quadrants |= (
+                int(left and south)
+                | (int(left and north) << 1)
+                | (int(right and south) << 2)
+                | (int(right and north) << 3)
+            )
+            if quadrants == 15:
+                return True
+    return False
 
 
 def segment_covered(a, b, coverage):

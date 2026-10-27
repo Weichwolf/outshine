@@ -14,6 +14,7 @@ from bridge_source_fact_inputs import load_bridge_source_facts
 from canonical_port_native_inputs import FIXTURE, terrain_input
 from outshine_ref.transport.canonical_ports import PortBudget
 from outshine_ref.transport.canonical_ports._ground_scope import (
+    inside_coverage,
     prepare_ground_field_scope,
     segment_covered,
 )
@@ -384,6 +385,41 @@ class ActualGroundFieldScope(unittest.TestCase):
             {"WestDeg": -180.0, "EastDeg": -170.0, "SouthDeg": 0.0, "NorthDeg": 1.0},
         )
         self.assertTrue(segment_covered((179.0, 0.5), (-179.0, 0.5), wrap))
+
+    def test_coverage_union_interior_accepts_seams_but_not_outer_edges(self):
+        def box(west, east, south=0.0, north=1.0):
+            return {
+                "WestDeg": west,
+                "EastDeg": east,
+                "SouthDeg": south,
+                "NorthDeg": north,
+            }
+
+        adjacent = (box(0, 1), box(1, 2))
+        self.assertTrue(inside_coverage((1, 0.5), adjacent))
+        for point in ((0, 0.5), (2, 0.5), (1, 0), (1, 1)):
+            with self.subTest(outer=point):
+                self.assertFalse(inside_coverage(point, adjacent))
+        self.assertFalse(inside_coverage((1, 0.5), (adjacent[0], box(1.1, 2))))
+        self.assertFalse(inside_coverage((1.05, 0.5), (adjacent[0], box(1.1, 2))))
+        quadrants = (box(0, 1, 0, 1), box(1, 2, 0, 1), box(0, 1, 1, 2), box(1, 2, 1, 2))
+        self.assertTrue(inside_coverage((1, 1), quadrants))
+        for missing in range(4):
+            with self.subTest(missing_quadrant=missing):
+                self.assertFalse(
+                    inside_coverage(
+                        (1, 1), quadrants[:missing] + quadrants[missing + 1 :]
+                    )
+                )
+        wrap = (box(170, 180), box(-180, -170))
+        for longitude in (-180, 180):
+            with self.subTest(dateline=longitude):
+                self.assertTrue(inside_coverage((longitude, 0.5), wrap))
+                self.assertFalse(inside_coverage((longitude, 0.5), wrap[:1]))
+                self.assertFalse(
+                    inside_coverage((longitude, 0.5), (wrap[0], box(-179.9, -170)))
+                )
+                self.assertFalse(inside_coverage((longitude, 0), wrap))
 
 
 if __name__ == "__main__":
