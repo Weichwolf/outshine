@@ -3,7 +3,7 @@
 #include "ExecutionPlan.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "StoredVertex.h"
 
 #include <algorithm>
@@ -85,7 +85,7 @@ std::optional<ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback
   return view;
 }
 
-std::optional<NativePiece> BuildPiece(const ShapePart &part,
+std::optional<NativePiece> BuildPiece(const RenderGeometryPart &part,
                                       std::span<const uint32_t> indices,
                                       const Material &material,
                                       std::string &error) {
@@ -164,8 +164,8 @@ bool InstallSource(SceneRenderer &renderer,
     error = Says::Geometry;
     return false;
   }
-  ShapeStore storage;
-  const auto shaped = PrepareShape(source.Mesh, storage);
+  RenderGeometryStorage storage;
+  const auto shaped = PrepareRenderGeometry(source.Mesh, storage);
   if (!shaped) {
     error = Describe(shaped.error());
     return false;
@@ -183,7 +183,7 @@ bool InstallSource(SceneRenderer &renderer,
     error = std::move(firstSurface).error();
     return false;
   }
-  for (const ShapePart &part : shaped->Parts) {
+  for (const RenderGeometryPart &part : shaped->Parts) {
     if (part.Material < 0 || static_cast<size_t>(part.Material) >= shaped->Surfaces.size()) {
       error = Says::Geometry;
       return false;

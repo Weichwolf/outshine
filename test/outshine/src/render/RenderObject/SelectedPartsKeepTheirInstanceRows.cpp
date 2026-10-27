@@ -18,7 +18,7 @@ void CheckSelection() {
   if (!target) { return; }
   constexpr std::array<float, 9> positions{-1, -1, -2, 1, -1, -2, 0, 1, -2};
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 3, 4, 5};
-  std::array<ShapePart, 2> parts;
+  std::array<RenderGeometryPart, 2> parts;
   for (size_t at = 0; at < parts.size(); ++at) {
     parts[at].Name = at == 0 ? "other" : "streets";
     parts[at].FirstVertex = 3 * at;
@@ -27,11 +27,11 @@ void CheckSelection() {
     parts[at].IndexCount = 3;
     parts[at].PositionsM = positions;
   }
-  Shape shape;
+  RenderGeometryView shape;
   shape.Parts = parts;
   shape.Indices = indices;
   RenderObject proxy;
-  proxy.ResetForShape(shape, {});
+  proxy.ResetGeometry(shape, {});
   CHECK(proxy.ResizeInstances(2), "each original part retains two instance rows");
   MaterialBinding material;
   constexpr std::array<uint32_t, 2> slots{0, 0};

@@ -1,6 +1,6 @@
 #include "MeshClusterBuildJob.h"
 #include <expected>
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "Mat4.h"
 #include "Geometry.h"
 
@@ -25,7 +25,7 @@ bool NeedsOwnedAttributes(const Geometry &from, int part) {
 }
 
 void ReserveGeometry(const Geometry &from,
-                     ShapeStore &into,
+                     RenderGeometryStorage &into,
                      AttributePacking attributes = AttributePacking::Copy) {
   if (!into.Parts.empty()) { return; }
   size_t vertices = into.PositionsM.size() / 3;
@@ -67,7 +67,7 @@ void ReserveGeometry(const Geometry &from,
 }
 
 void AppendAttribute(std::span<const float> source,
-                     const ShapePart &part,
+                     const RenderGeometryPart &part,
                      size_t components,
                      std::span<const uint32_t> corners,
                      std::vector<float> &destination) {
@@ -88,7 +88,7 @@ void AppendAttribute(std::span<const float> source,
 }
 
 [[nodiscard]] std::span<const float> Attribute(const std::vector<float> &source,
-                                               const ShapePart &part,
+                                               const RenderGeometryPart &part,
                                                size_t components,
                                                bool present) {
   if (!present) { return {}; }
@@ -96,7 +96,8 @@ void AppendAttribute(std::span<const float> source,
                                                 part.VertexCount * components);
 }
 
-[[nodiscard]] bool AttributesFit(const ShapePart &part, const ShapeStore &store) {
+[[nodiscard]] bool AttributesFit(const RenderGeometryPart &part,
+                                 const RenderGeometryStorage &store) {
   const auto fits = [&part](size_t size, size_t components, bool present) {
     if (!present) { return true; }
     const size_t vertices = size / components;
@@ -108,7 +109,7 @@ void AppendAttribute(std::span<const float> source,
          fits(store.Uv1.size(), 2, part.HasUv1) && fits(store.Colours.size(), 4, part.HasColour);
 }
 
-void BindPartStorage(ShapePart &part, const ShapeStore &store) {
+void BindPartStorage(RenderGeometryPart &part, const RenderGeometryStorage &store) {
   part.PositionsM = Attribute(store.PositionsM, part, 3, true);
   part.Normals = Attribute(store.Normals, part, 3, part.HasNormal);
   part.Tangents = Attribute(store.Tangents, part, 4, part.HasTangent);
@@ -117,7 +118,7 @@ void BindPartStorage(ShapePart &part, const ShapeStore &store) {
   part.Colours = Attribute(store.Colours, part, 4, part.HasColour);
 }
 
-bool PartViewsFit(const ShapePart &part) {
+bool PartViewsFit(const RenderGeometryPart &part) {
   const auto fits = [&part](std::span<const float> values, size_t components, bool present) {
     return present
                ? values.size() % components == 0 && values.size() / components == part.VertexCount
@@ -128,33 +129,33 @@ bool PartViewsFit(const ShapePart &part) {
          fits(part.Uv1, 2, part.HasUv1) && fits(part.Colours, 4, part.HasColour);
 }
 
-void MaterializeAttributes(ShapeStore &into) {
+void MaterializeAttributes(RenderGeometryStorage &into) {
   const size_t vertices =
       into.Parts.empty() ? 0 : into.Parts.back().FirstVertex + into.Parts.back().VertexCount;
   const auto materialize = [&into, vertices](auto member, size_t components) {
     std::vector<float> values;
     const bool present = std::ranges::any_of(
-        into.Parts, [member](const ShapePart &part) { return !(part.*member).empty(); });
+        into.Parts, [member](const RenderGeometryPart &part) { return !(part.*member).empty(); });
     if (!present) { return values; }
     values.resize(vertices * components);
-    for (const ShapePart &part : into.Parts) {
+    for (const RenderGeometryPart &part : into.Parts) {
       std::ranges::copy(part.*member,
                         values.begin() +
                             static_cast<std::ptrdiff_t>(part.FirstVertex * components));
     }
     return values;
   };
-  into.PositionsM = materialize(&ShapePart::PositionsM, 3);
-  into.Normals = materialize(&ShapePart::Normals, 3);
-  into.Tangents = materialize(&ShapePart::Tangents, 4);
-  into.Uv = materialize(&ShapePart::Uv, 2);
-  into.Uv1 = materialize(&ShapePart::Uv1, 2);
-  into.Colours = materialize(&ShapePart::Colours, 4);
-  for (ShapePart &part : into.Parts) { BindPartStorage(part, into); }
+  into.PositionsM = materialize(&RenderGeometryPart::PositionsM, 3);
+  into.Normals = materialize(&RenderGeometryPart::Normals, 3);
+  into.Tangents = materialize(&RenderGeometryPart::Tangents, 4);
+  into.Uv = materialize(&RenderGeometryPart::Uv, 2);
+  into.Uv1 = materialize(&RenderGeometryPart::Uv1, 2);
+  into.Colours = materialize(&RenderGeometryPart::Colours, 4);
+  for (RenderGeometryPart &part : into.Parts) { BindPartStorage(part, into); }
   into.AttributeSource.reset();
 }
 
-void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
+void GenerateFlatNormals(RenderGeometryPart &part, RenderGeometryStorage &into) {
   into.Normals.resize(into.PositionsM.size());
   const auto position = [&](size_t vertex) {
     const size_t at = vertex * 3;
@@ -174,7 +175,8 @@ void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
   part.HasNormal = true;
 }
 
-[[nodiscard]] bool TransformPart(const Mat4 &placement, const ShapePart &part, ShapeStore &into) {
+[[nodiscard]] bool
+TransformPart(const Mat4 &placement, const RenderGeometryPart &part, RenderGeometryStorage &into) {
   if (placement == Mat4{}) { return false; }
   const Vec3 x = {{placement[0], placement[1], placement[2]}};
   const Vec3 y = {{placement[4], placement[5], placement[6]}};
@@ -214,8 +216,8 @@ void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
   return sign < 0;
 }
 
-ShapePart DescribePart(const Geometry &from, int part) {
-  ShapePart packed;
+RenderGeometryPart DescribePart(const Geometry &from, int part) {
+  RenderGeometryPart packed;
   packed.Name = from.nameOf(part);
   packed.Material = from.materialOf(part).index();
   packed.VertexCount = from.positionsOf(part).size() / 3;
@@ -228,8 +230,9 @@ ShapePart DescribePart(const Geometry &from, int part) {
   return packed;
 }
 
-[[nodiscard]] ShapePart AppendGeometryPart(const Geometry &from, int part, ShapeStore &into) {
-  ShapePart packed = DescribePart(from, part);
+[[nodiscard]] RenderGeometryPart
+AppendGeometryPart(const Geometry &from, int part, RenderGeometryStorage &into) {
+  RenderGeometryPart packed = DescribePart(from, part);
   packed.FirstVertex = into.PositionsM.size() / 3;
   const auto indices = from.trianglesOf(part);
   const bool flatNormals = from.normalsOf(part).empty() && !indices.empty();
@@ -265,7 +268,7 @@ ShapePart DescribePart(const Geometry &from, int part) {
   return packed;
 }
 
-void AppendMaterialsAndLamps(const Geometry &from, ShapeStore &into) {
+void AppendMaterialsAndLamps(const Geometry &from, RenderGeometryStorage &into) {
   for (int surface = 0; surface < from.surfaces(); ++surface) {
     into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
   }
@@ -285,8 +288,9 @@ void AppendMaterialsAndLamps(const Geometry &from, ShapeStore &into) {
   }
 }
 
-ShapePart ViewGeometryPart(const Geometry &from, int part, ShapeStore &into, size_t firstVertex) {
-  ShapePart view = DescribePart(from, part);
+RenderGeometryPart
+ViewGeometryPart(const Geometry &from, int part, RenderGeometryStorage &into, size_t firstVertex) {
+  RenderGeometryPart view = DescribePart(from, part);
   view.FirstVertex = firstVertex;
   view.FirstIndex = into.Indices.size();
   assert(firstVertex <= std::numeric_limits<uint32_t>::max());
@@ -305,7 +309,7 @@ ShapePart ViewGeometryPart(const Geometry &from, int part, ShapeStore &into, siz
 
 }
 
-void AppendGeometry(const Geometry &from, ShapeStore &into) {
+void AppendGeometry(const Geometry &from, RenderGeometryStorage &into) {
   if (into.AttributeSource) {
     const auto retained = into.AttributeSource;
     MaterializeAttributes(into);
@@ -317,27 +321,27 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
   AppendMaterialsAndLamps(from, into);
   into.Parts.reserve(into.Parts.size() + static_cast<size_t>(from.parts()));
   for (int part = 0; part < from.parts(); ++part) {
-    ShapePart packed = AppendGeometryPart(from, part, into);
+    RenderGeometryPart packed = AppendGeometryPart(from, part, into);
     if (packed.Material >= 0) { packed.Material += firstSurface; }
     into.Parts.push_back(std::move(packed));
   }
 }
 
-std::expected<void, ClusterError> BindShapeStorage(ShapeStore &into) {
+std::expected<void, ClusterError> BindRenderGeometryStorage(RenderGeometryStorage &into) {
   if (into.AttributeSource) {
     return std::ranges::all_of(into.Parts, PartViewsFit)
                ? std::expected<void, ClusterError>{}
                : std::unexpected(ClusterError::InvalidLayout);
   }
-  for (ShapePart &part : into.Parts) {
+  for (RenderGeometryPart &part : into.Parts) {
     if (!AttributesFit(part, into)) { return std::unexpected(ClusterError::InvalidLayout); }
     BindPartStorage(part, into);
   }
   return {};
 }
 
-std::expected<void, ClusterError> PrepareShapeStorage(std::shared_ptr<const Geometry> from,
-                                                      ShapeStore &into) {
+std::expected<void, ClusterError> PrepareRenderGeometryStorage(std::shared_ptr<const Geometry> from,
+                                                               RenderGeometryStorage &into) {
   into.Clear();
   if (!from) { return {}; }
   bool shares = false;
@@ -346,7 +350,7 @@ std::expected<void, ClusterError> PrepareShapeStorage(std::shared_ptr<const Geom
   }
   if (!shares) {
     AppendGeometry(*from, into);
-    return BindShapeStorage(into);
+    return BindRenderGeometryStorage(into);
   }
   into.AttributeSource = std::move(from);
   const Geometry &source = *into.AttributeSource;
@@ -361,7 +365,7 @@ std::expected<void, ClusterError> PrepareShapeStorage(std::shared_ptr<const Geom
   into.Parts.reserve(static_cast<size_t>(source.parts()));
   size_t firstVertex = 0;
   for (int part = 0; part < source.parts(); ++part) {
-    ShapePart prepared;
+    RenderGeometryPart prepared;
     if (NeedsOwnedAttributes(source, part)) {
       prepared = AppendGeometryPart(source, part, into);
       const size_t ownedFirst = prepared.FirstVertex;
@@ -379,18 +383,18 @@ std::expected<void, ClusterError> PrepareShapeStorage(std::shared_ptr<const Geom
     firstVertex += prepared.VertexCount;
     into.Parts.push_back(std::move(prepared));
   }
-  return BindShapeStorage(into);
+  return BindRenderGeometryStorage(into);
 }
 
-Shape ViewShape(const ShapeStore &store) noexcept {
-  Shape view;
+RenderGeometryView MakeRenderGeometryView(const RenderGeometryStorage &store) noexcept {
+  RenderGeometryView view;
   view.Parts = store.Parts;
   view.Surfaces = store.Surfaces;
   view.Lamps = store.Lamps;
   view.Indices = store.Indices;
   view.Clusters = store.Clusters;
   view.ClusterSpheres = store.ClusterSpheres;
-  for (const ShapePart &part : store.Parts) {
+  for (const RenderGeometryPart &part : store.Parts) {
     view.CarriesUv = view.CarriesUv || part.HasUv;
     view.CarriesUv1 = view.CarriesUv1 || part.HasUv1;
     view.CarriesNormal = view.CarriesNormal || part.HasNormal;
@@ -400,31 +404,35 @@ Shape ViewShape(const ShapeStore &store) noexcept {
   return view;
 }
 
-std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
-  if (auto bound = BindShapeStorage(into); !bound) { return std::unexpected(bound.error()); }
+std::expected<RenderGeometryView, ClusterError>
+FinalizeRenderGeometry(RenderGeometryStorage &into) {
+  if (auto bound = BindRenderGeometryStorage(into); !bound) {
+    return std::unexpected(bound.error());
+  }
   const auto cooked = BuildMeshClusters(into, into.Surfaces);
   if (!cooked) { return std::unexpected(cooked.error()); }
-  return ViewShape(into);
+  return MakeRenderGeometryView(into);
 }
 
-std::expected<Shape, ClusterError> PrepareShape(const Geometry &from, ShapeStore &into) {
+std::expected<RenderGeometryView, ClusterError> PrepareRenderGeometry(const Geometry &from,
+                                                                      RenderGeometryStorage &into) {
   if (into.AttributeSource && into.AttributeSource.get() == &from) {
-    return PrepareShape(into.AttributeSource, into);
+    return PrepareRenderGeometry(into.AttributeSource, into);
   }
   into.Clear();
   AppendGeometry(from, into);
-  return FinalizeShape(into);
+  return FinalizeRenderGeometry(into);
 }
 
-std::expected<Shape, ClusterError> PrepareShape(std::shared_ptr<const Geometry> from,
-                                                ShapeStore &into) {
-  if (auto prepared = PrepareShapeStorage(std::move(from), into); !prepared) {
+std::expected<RenderGeometryView, ClusterError>
+PrepareRenderGeometry(std::shared_ptr<const Geometry> from, RenderGeometryStorage &into) {
+  if (auto prepared = PrepareRenderGeometryStorage(std::move(from), into); !prepared) {
     return std::unexpected(prepared.error());
   }
   if (auto cooked = BuildMeshClusters(into, into.Surfaces); !cooked) {
     return std::unexpected(cooked.error());
   }
-  return ViewShape(into);
+  return MakeRenderGeometryView(into);
 }
 
 }

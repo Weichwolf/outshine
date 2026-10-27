@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <Geometry.h>
 #include <algorithm>
 #include <array>
@@ -47,16 +47,16 @@ Geometry Fixture() {
   return geometry;
 }
 
-void Equivalent(const Render::Shape &left, const Render::Shape &right) {
+void Equivalent(const Render::RenderGeometryView &left, const Render::RenderGeometryView &right) {
   CHECK(left.Parts.size() == right.Parts.size() && left.Lamps.size() == right.Lamps.size(),
         "part and lamp counts preserve the complete product");
   CHECK(std::ranges::equal(left.Indices, right.Indices), "owned cook indices match exactly");
-  constexpr std::array attributes{&Render::ShapePart::PositionsM,
-                                  &Render::ShapePart::Normals,
-                                  &Render::ShapePart::Tangents,
-                                  &Render::ShapePart::Uv,
-                                  &Render::ShapePart::Uv1,
-                                  &Render::ShapePart::Colours};
+  constexpr std::array attributes{&Render::RenderGeometryPart::PositionsM,
+                                  &Render::RenderGeometryPart::Normals,
+                                  &Render::RenderGeometryPart::Tangents,
+                                  &Render::RenderGeometryPart::Uv,
+                                  &Render::RenderGeometryPart::Uv1,
+                                  &Render::RenderGeometryPart::Colours};
   for (size_t at = 0; at < std::min(left.Parts.size(), right.Parts.size()); ++at) {
     const auto &first = left.Parts[at];
     const auto &second = right.Parts[at];
@@ -90,10 +90,10 @@ int main() {
   using namespace outshine::Test;
   auto original = std::make_shared<const Geometry>(Fixture());
   const std::weak_ptr<const Geometry> weak = original;
-  Render::ShapeStore copied;
-  Render::ShapeStore shared;
-  const auto expected = Render::PrepareShape(*original, copied);
-  const auto actual = Render::PrepareShape(original, shared);
+  Render::RenderGeometryStorage copied;
+  Render::RenderGeometryStorage shared;
+  const auto expected = Render::PrepareRenderGeometry(*original, copied);
+  const auto actual = Render::PrepareRenderGeometry(original, shared);
   CHECK(expected && actual, "owned and retained products both cook successfully");
   if (!expected || !actual || shared.Parts.size() != 4) { return Report() + 1; }
   Equivalent(*expected, *actual);
@@ -116,7 +116,7 @@ int main() {
   CHECK(!weak.expired() && shared.Parts[3].PositionsM[0] == 12,
         "views retain their real immutable product after the caller releases it");
   Render::AppendGeometry(*shared.AttributeSource, shared);
-  const auto appended = Render::FinalizeShape(shared);
+  const auto appended = Render::FinalizeRenderGeometry(shared);
   CHECK(appended && shared.Parts.size() == 8 && !shared.AttributeSource && weak.expired(),
         "append promotes mixed views before releasing their owner, including source aliasing");
   if (appended) {

@@ -14,12 +14,12 @@ struct Material;
 }
 
 namespace outshine::Render {
-struct ShapeStore;
-struct ShapePart;
+struct RenderGeometryStorage;
+struct RenderGeometryPart;
 
 class MeshClusterBuildJob {
 public:
-  MeshClusterBuildJob(ShapeStore &into, std::span<const Material> surfaces) noexcept;
+  MeshClusterBuildJob(RenderGeometryStorage &into, std::span<const Material> surfaces) noexcept;
 
   [[nodiscard]] std::expected<bool, ClusterError> Advance(size_t itemsMost);
 
@@ -30,7 +30,7 @@ private:
   enum class Flow { Continue, Yield, Complete };
 
   [[nodiscard]] ClusterError Fail(ClusterError error) noexcept;
-  [[nodiscard]] bool KeepsClusters(const ShapePart &part) const;
+  [[nodiscard]] bool KeepsClusters(const RenderGeometryPart &part) const;
   [[nodiscard]] std::expected<Flow, ClusterError> PlanParts(size_t &itemsLeft);
   [[nodiscard]] std::expected<Flow, ClusterError> AdvanceStage(size_t &itemsLeft);
   [[nodiscard]] std::expected<Flow, ClusterError> AdvanceWork(size_t &itemsLeft);
@@ -41,7 +41,7 @@ private:
   [[nodiscard]] Flow PublishClusters(size_t &itemsLeft);
   void Completes() noexcept;
 
-  ShapeStore *Into_ = nullptr;
+  RenderGeometryStorage *Into_ = nullptr;
   std::span<const Material> Surfaces_;
   std::optional<ClusterCookJob> Cook_;
   ClusteredMesh Built_;
@@ -57,7 +57,7 @@ private:
 };
 
 [[nodiscard]] std::expected<void, ClusterError>
-BuildMeshClusters(ShapeStore &into, std::span<const Material> surfaces);
+BuildMeshClusters(RenderGeometryStorage &into, std::span<const Material> surfaces);
 
 }
 #endif

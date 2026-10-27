@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <Geometry.h>
 #include <algorithm>
 #include <array>
@@ -54,9 +54,9 @@ template <typename T> void CheckCapacity(const std::vector<T> &values) {
 
 int main() {
   const Geometry source = Fixture();
-  Render::ShapeStore packed;
+  Render::RenderGeometryStorage packed;
   Render::AppendGeometry(source, packed);
-  CHECK(Render::BindShapeStorage(packed).has_value(), "packed attribute views are valid");
+  CHECK(Render::BindRenderGeometryStorage(packed).has_value(), "packed attribute views are valid");
   if (packed.Parts.size() != 2 || packed.Indices.size() != kVertices + 3) { return Report() + 1; }
   CheckCapacity(packed.PositionsM);
   CheckCapacity(packed.Normals);
@@ -78,17 +78,17 @@ int main() {
         "late and absent attributes retain their original flags, offsets and zero fill");
   const auto positions = packed.PositionsM;
   Render::AppendGeometry(source, packed);
-  CHECK(Render::BindShapeStorage(packed).has_value() && packed.Parts.size() == 4 &&
+  CHECK(Render::BindRenderGeometryStorage(packed).has_value() && packed.Parts.size() == 4 &&
             packed.Indices.size() == 2 * (kVertices + 3),
         "appending to an existing product retains its complete earlier and new geometry");
   CHECK(std::equal(positions.begin(), positions.end(), packed.PositionsM.begin()),
         "appending preserves every previous position");
-  const auto shaped = Render::FinalizeShape(packed);
+  const auto shaped = Render::FinalizeRenderGeometry(packed);
   CHECK(shaped.has_value() && shaped->TriangleCount() == 2 * (kTriangles + 1),
         "cluster preparation accepts the complete combined product");
   packed.Clear();
   Render::AppendGeometry(source, packed);
-  CHECK(Render::BindShapeStorage(packed).has_value() && packed.PositionsM == positions,
+  CHECK(Render::BindRenderGeometryStorage(packed).has_value() && packed.PositionsM == positions,
         "cleared reusable storage packs the same product exactly");
   return Report();
 }

@@ -1,19 +1,19 @@
 #include "Check.h"
 #include "MeshClusterBuildJob.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
 namespace {
-void Fill(outshine::Render::ShapeStore &store) {
+void Fill(outshine::Render::RenderGeometryStorage &store) {
   for (uint32_t i = 0; i < 260; ++i) {
     const auto x = static_cast<float>(i % 17);
     store.PositionsM.insert(store.PositionsM.end(), {x, 0, 0, x + .5f, 0, 0, x, 1, 0});
     store.Indices.insert(store.Indices.end(), {i * 3, i * 3 + 1, i * 3 + 2});
   }
-  outshine::Render::ShapePart part;
+  outshine::Render::RenderGeometryPart part;
   part.VertexCount = store.PositionsM.size() / 3;
   part.IndexCount = store.Indices.size();
   part.PositionsM = store.PositionsM;
@@ -24,8 +24,8 @@ void Fill(outshine::Render::ShapeStore &store) {
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  ShapeStore reference;
-  ShapeStore sliced;
+  RenderGeometryStorage reference;
+  RenderGeometryStorage sliced;
   Fill(reference);
   Fill(sliced);
   CHECK(BuildMeshClusters(reference, {}).has_value(), "the complete reference build succeeds");

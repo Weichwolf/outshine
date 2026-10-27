@@ -1,6 +1,6 @@
 #include "MeshClusterBuildJob.h"
 #include "Check.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -19,17 +19,17 @@ int main() {
     shapeIndices.insert(shapeIndices.end(),
                         {triangleAt * 3, triangleAt * 3 + 1, triangleAt * 3 + 2});
   }
-  const auto fillsShape = [&](Render::ShapeStore &store) {
+  const auto fillsShape = [&](Render::RenderGeometryStorage &store) {
     store.PositionsM = shapePositions;
     store.Indices = shapeIndices;
-    Render::ShapePart part;
+    Render::RenderGeometryPart part;
     part.VertexCount = shapePositions.size() / 3;
     part.IndexCount = shapeIndices.size();
     part.PositionsM = store.PositionsM;
     store.Parts.push_back(part);
   };
-  Render::ShapeStore uninterrupted;
-  Render::ShapeStore interrupted;
+  Render::RenderGeometryStorage uninterrupted;
+  Render::RenderGeometryStorage interrupted;
   fillsShape(uninterrupted);
   fillsShape(interrupted);
   CHECK(Render::BuildMeshClusters(uninterrupted, {}).has_value(),
@@ -49,33 +49,34 @@ int main() {
             interrupted.Clustering.RootClusters == uninterrupted.Clustering.RootClusters &&
             interrupted.Clustering.Clusters == uninterrupted.Clustering.Clusters,
         "paced shape cooking reproduces part ranges and aggregate counts exactly");
-  Render::ShapeStore shape;
+  Render::RenderGeometryStorage shape;
   shape.PositionsM.assign(vertices.begin(), vertices.end());
   shape.Indices = {0, 1, 9};
-  Render::ShapePart part;
+  Render::RenderGeometryPart part;
   part.VertexCount = 3;
   part.IndexCount = 3;
   shape.Parts.push_back(part);
-  const auto rejectedShape = Render::FinalizeShape(shape);
+  const auto rejectedShape = Render::FinalizeRenderGeometry(shape);
   CHECK(!rejectedShape && rejectedShape.error() == ClusterError::InvalidIndex,
         "render shape finalization propagates invalid-index failure even on the small-mesh path");
   shape.Indices = {0, 1, 2};
-  CHECK(Render::FinalizeShape(shape).has_value(),
+  CHECK(Render::FinalizeRenderGeometry(shape).has_value(),
         "a corrected input can be retried after failed shape preparation");
   CHECK(shape.Clustering.Clusters == 1 && shape.Clustering.RootClusters == 1,
         "cluster metrics belong to the shape that owns the geometry");
-  Render::ShapeStore cameraShape;
-  CHECK(Render::FinalizeShape(cameraShape).has_value() && cameraShape.Clustering.Clusters == 0,
+  Render::RenderGeometryStorage cameraShape;
+  CHECK(Render::FinalizeRenderGeometry(cameraShape).has_value() &&
+            cameraShape.Clustering.Clusters == 0,
         "an empty camera helper has its own empty cluster metrics");
   CHECK(shape.Clustering.Clusters == 1 && shape.Clustering.RootClusters == 1,
         "preparing a second shape cannot overwrite the first shape's metrics");
   shape.Parts[0].FirstVertex = std::numeric_limits<size_t>::max();
-  const auto invalidRange = Render::FinalizeShape(shape);
+  const auto invalidRange = Render::FinalizeRenderGeometry(shape);
   CHECK(!invalidRange && invalidRange.error() == ClusterError::InvalidLayout,
         "vertex ranges are checked before constructing attribute spans");
   shape.Parts[0].FirstVertex = 0;
   shape.Parts[0].HasNormal = true;
-  const auto missingNormals = Render::FinalizeShape(shape);
+  const auto missingNormals = Render::FinalizeRenderGeometry(shape);
   CHECK(!missingNormals && missingNormals.error() == ClusterError::InvalidLayout,
         "a declared attribute cannot reference missing storage");
   return Report();

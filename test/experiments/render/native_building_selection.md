@@ -27,7 +27,7 @@ eye/optional ECEF position and pixel-error projection. It requires automatic
 detail selection. Every original shape is assigned exactly once in index order,
 and the production `CompatiblePreparedSurface` check validates it against its
 index header. Missing, duplicate or incompatible forms fail. The cluster size is
-an explicit input; the current runtime assigns128 (`render/Shape.h`,
+an explicit input; the current runtime assigns128 (`render/geometry/RenderGeometryView.h`,
 `StructureBuildQueue.cpp`). A mismatched setting is not a controlled comparison.
 
 The original `BuildingMesh` supplies source bounds and shell errors. A delegating

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_EXPERIMENT_SCENE_STORAGE_ROWS_H
 #define OUTSHINE_EXPERIMENT_SCENE_STORAGE_ROWS_H
 
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "Geometry.h"
 
 #include <cstddef>
@@ -42,7 +42,7 @@ inline void Report(const char *phase,
                    const void *owner,
                    const Geometry &held,
                    const Geometry &driven,
-                   const Render::ShapeStore &shape) {
+                   const Render::RenderGeometryStorage &shape) {
   const auto bytes = [](const auto &values) { return values.capacity() * sizeof(values[0]); };
   const size_t total = bytes(shape.Parts) + bytes(shape.PositionsM) + bytes(shape.Normals) +
                        bytes(shape.Tangents) + bytes(shape.Uv) + bytes(shape.Uv1) +
