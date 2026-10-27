@@ -15,15 +15,38 @@
 
 namespace outshine::PlanarStations {
 namespace {
+std::optional<SourceEdge> OriginalEdge(const CutState &state, uint32_t a, uint32_t b) {
+  if (state.Roots.empty()) { return {}; }
+  const auto &first = state.Roots[a];
+  const auto &second = state.Roots[b];
+  const uint32_t low = std::min({first[0], first[1], second[0], second[1]});
+  const uint32_t high = std::max({first[0], first[1], second[0], second[1]});
+  if (high == std::numeric_limits<uint32_t>::max() || low == high) { return {}; }
+  for (const auto point : std::array{first[0], first[1], second[0], second[1]}) {
+    if (point != low && point != high) { return {}; }
+  }
+  return SourceEdge{low, high};
+}
+
+}
+
 Checked<uint32_t> Crossing(CutState &state, uint32_t a, uint32_t b) {
   auto &mesh = state.Output.Mesh;
   auto &stations = state.Output.Stations[state.Axis];
   if (stations[a] == state.Station) { return a; }
   if (stations[b] == state.Station) { return b; }
   if (a > b) { std::swap(a, b); }
+  const uint64_t current = (uint64_t{a} << 32) | b;
+  const auto original = OriginalEdge(state, a, b);
+  if (original) {
+    a = (*original)[0];
+    b = (*original)[1];
+  }
   const uint64_t edge = (uint64_t{a} << 32) | b;
   if (const auto found = state.Edges.find(edge); found != state.Edges.end()) {
-    return found->second;
+    const auto index = found->second;
+    if (current != edge) { state.Edges.emplace(current, index); }
+    return index;
   }
   if (mesh.Points.size() >= state.Budget.Vertices ||
       mesh.Points.size() >= std::numeric_limits<uint32_t>::max()) {
@@ -46,11 +69,14 @@ Checked<uint32_t> Crossing(CutState &state, uint32_t a, uint32_t b) {
   stations.back() = state.Station;
   const auto index = static_cast<uint32_t>(mesh.Points.size());
   mesh.Points.push_back(point);
+  if (!state.Roots.empty()) {
+    constexpr auto absent = std::numeric_limits<uint32_t>::max();
+    state.Roots.push_back(original.value_or(SourceEdge{absent, absent}));
+  }
   state.Edges.emplace(edge, index);
+  if (current != edge) { state.Edges.emplace(current, index); }
   ++state.Output.Work.EdgeIntersections;
   return index;
-}
-
 }
 
 Checked<void> Emit(CutState &state, PlanarFace face, uint32_t parent) {
@@ -113,12 +139,14 @@ Checked<void> Cut(PlanarStationMesh &output,
                   size_t axis,
                   double station,
                   std::optional<std::span<const uint8_t>> selectedParents,
+                  std::vector<SourceEdge> &roots,
                   PlanarStationBudget budget,
                   const std::stop_token &stop) {
   CutState state{.Output = output,
                  .Axis = axis,
                  .Station = station,
                  .Budget = budget,
+                 .Roots = roots,
                  .Edges = {},
                  .Faces = {},
                  .Parents = {},

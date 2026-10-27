@@ -129,7 +129,8 @@ bool ValidBody(const HeightSolid &body) {
                              [&](uint32_t parent) { return parent < body.SurfaceFaces; }) &&
          std::ranges::all_of(body.WallKinds, [](auto kind) {
            return kind == HeightSolidWallKind::Boundary ||
-                  kind == HeightSolidWallKind::Discontinuity;
+                  kind == HeightSolidWallKind::Discontinuity ||
+                  kind == HeightSolidWallKind::Interface;
          });
 }
 

@@ -16,6 +16,7 @@ struct PlanarStationAxis {
   PlanarPoint Direction{};
   std::vector<double> Cuts;
   std::optional<std::vector<uint32_t>> InitialFaces = std::nullopt;
+  std::optional<std::span<const double>> Values = std::nullopt;
 };
 
 struct PlanarStationBudget {
@@ -34,6 +35,7 @@ struct PlanarStationWork {
 struct PlanarStationMesh {
   PlanarMesh Mesh;
   std::vector<std::vector<double>> Stations;
+  std::vector<std::array<uint32_t, 2>> SourceEdges;
   PlanarStationWork Work;
 };
 
@@ -43,5 +45,13 @@ CutPlanarStations(std::span<const PlanarPoint> points,
                   std::span<const PlanarStationAxis> axes,
                   PlanarStationBudget budget = {},
                   const std::stop_token &stop = {});
+
+[[nodiscard]] std::expected<PlanarStationMesh, PlanarMeshError>
+ClipPlanarStations(std::span<const PlanarPoint> points,
+                   std::span<const PlanarFace> faces,
+                   std::span<const PlanarStationAxis> axes,
+                   std::span<const bool> above,
+                   PlanarStationBudget budget = {},
+                   const std::stop_token &stop = {});
 }
 #endif

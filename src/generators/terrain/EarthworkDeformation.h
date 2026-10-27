@@ -14,6 +14,9 @@ namespace outshine {
 inline constexpr uint32_t kNoStamp = 0xFFFFFFFFu;
 inline constexpr uint32_t kHeldStamp = 0xFFFFFFFEu;
 
+[[nodiscard]] double EarthworkApronWidthM(const EarthworkStamp &stamp,
+                                          double mostEarthworkM) noexcept;
+
 struct EarthworkPointClaim {
   uint32_t Point = 0;
   uint32_t Stamp = 0;

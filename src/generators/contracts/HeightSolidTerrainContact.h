@@ -3,6 +3,7 @@
 
 #include "EarthworkStamp.h"
 #include "HeightSolid.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -30,6 +31,12 @@ enum class SurfaceEarthworkError : uint8_t {
 };
 
 [[nodiscard]] bool ValidSurfaceGroundSource(const SurfaceGroundSource &source) noexcept;
+
+[[nodiscard]] std::expected<EarthworkStamp, SurfaceEarthworkError>
+BuildTriangleTerrainContact(const std::array<std::array<double, 3>, 3> &points,
+                            const SurfaceGroundSource &source,
+                            double apronM,
+                            EarthworkStamp storage = {});
 
 [[nodiscard]] std::expected<EarthworkStamp, SurfaceEarthworkError>
 BuildHeightSolidTerrainContact(const HeightSolid &body,

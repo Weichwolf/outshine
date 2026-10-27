@@ -90,6 +90,23 @@ Checked<EarthworkStamp> Stamp(const std::array<std::array<double, 3>, 3> &points
 }
 
 std::expected<EarthworkStamp, SurfaceEarthworkError>
+BuildTriangleTerrainContact(const std::array<std::array<double, 3>, 3> &points,
+                            const SurfaceGroundSource &source,
+                            double apronM,
+                            EarthworkStamp storage) {
+  if (!ValidSurfaceGroundSource(source) || source.Effect == SurfaceGroundEffect::NoEarthwork ||
+      !std::isfinite(apronM) || apronM < 0) {
+    return std::unexpected(SurfaceEarthworkError::InvalidInput);
+  }
+  for (const auto &point : points) {
+    for (const double value : point) {
+      if (!std::isfinite(value)) { return std::unexpected(SurfaceEarthworkError::InvalidInput); }
+    }
+  }
+  return Stamp(points, source, apronM, std::move(storage));
+}
+
+std::expected<EarthworkStamp, SurfaceEarthworkError>
 BuildHeightSolidTerrainContact(const HeightSolid &body,
                                size_t face,
                                const SurfaceGroundSource &source,
@@ -102,6 +119,6 @@ BuildHeightSolidTerrainContact(const HeightSolid &body,
   }
   const auto bottom = Bottom(body, face);
   if (!bottom) { return std::unexpected(bottom.error()); }
-  return Stamp(*bottom, source, apronM, std::move(storage));
+  return BuildTriangleTerrainContact(*bottom, source, apronM, std::move(storage));
 }
 }

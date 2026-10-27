@@ -54,8 +54,11 @@ Checked<void> Admit(const GroundPortBodies &bodies, GroundPortBodyBudget budget)
     }
     remaining -= geometry.SurfaceFaces;
     if (bodies.Source->Topology().FindEdge(body.Source) == nullptr ||
+        !std::isfinite(body.SourceBegin) || !std::isfinite(body.SourceEnd) ||
+        body.SourceBegin < 0 || body.SourceEnd > 1 || body.SourceBegin >= body.SourceEnd ||
+        (!bodies.Core && (body.SourceBegin != 0 || body.SourceEnd != 1)) ||
         body.FaceParents.size() != geometry.SurfaceFaces ||
-        body.TerrainContacts.size() != geometry.SurfaceFaces) {
+        (!bodies.Core && body.TerrainContacts.size() != geometry.SurfaceFaces)) {
       return std::unexpected(Error{HeightSolidError::InvalidInput});
     }
     for (const auto &contact : body.TerrainContacts) {
@@ -67,9 +70,25 @@ Checked<void> Admit(const GroundPortBodies &bodies, GroundPortBodyBudget budget)
   return {};
 }
 
+Checked<EarthworkStamp> ReframeContact(EarthworkStamp &&contact,
+                                       const FrameChange &change,
+                                       const SurfaceGroundSource &source,
+                                       double apronM) {
+  std::array<std::array<double, 3>, 3> points{};
+  for (size_t at = 0; at < 3; ++at) {
+    const EastNorth point{.EastM = contact.RingEastNorthM[2 * at],
+                          .NorthM = contact.RingEastNorthM[2 * at + 1]};
+    points[at] = change.At({point.EastM, point.NorthM, contact.WantsAt(point)});
+  }
+  auto transformed = BuildTriangleTerrainContact(points, source, apronM, std::move(contact));
+  if (!transformed) { return std::unexpected(Error{transformed.error()}); }
+  return std::move(*transformed);
+}
+
 Checked<void> Reframe(GroundPortBody &body,
                       const FrameChange &change,
                       GroundPortBodyRecipe recipe,
+                      bool sliced,
                       GroundPortBodyWork &work,
                       const std::stop_token &stop) {
   for (auto &point : body.Geometry.Points) {
@@ -86,10 +105,17 @@ Checked<void> Reframe(GroundPortBody &body,
                                    .ReliefM = recipe.ReliefM};
   for (size_t face = 0; face < body.TerrainContacts.size(); ++face) {
     if (stop.stop_requested()) { return std::unexpected(Error{RoadGroundError::Canceled}); }
-    auto contact = BuildHeightSolidTerrainContact(
-        body.Geometry, face, source, recipe.ApronM, std::move(body.TerrainContacts[face]));
-    if (!contact) { return std::unexpected(Error{contact.error()}); }
-    body.TerrainContacts[face] = std::move(*contact);
+    if (sliced) {
+      auto contact =
+          ReframeContact(std::move(body.TerrainContacts[face]), change, source, recipe.ApronM);
+      if (!contact) { return std::unexpected(contact.error()); }
+      body.TerrainContacts[face] = std::move(*contact);
+    } else {
+      auto contact = BuildHeightSolidTerrainContact(
+          body.Geometry, face, source, recipe.ApronM, std::move(body.TerrainContacts[face]));
+      if (!contact) { return std::unexpected(Error{contact.error()}); }
+      body.TerrainContacts[face] = std::move(*contact);
+    }
     ++work.ReframedTerrainContacts;
   }
   return {};
@@ -103,6 +129,7 @@ ReframeGroundPortBodies(GroundPortBodies &&input,
                         const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(Error{RoadGroundError::Canceled}); }
   if (!input.Source || !Valid(input.Anchor) || !Valid(anchor) ||
+      (input.Core && !input.Core->Valid()) ||
       (input.Scope && input.Scope->Input.Revision != input.Source->SourceIdentity().Revision)) {
     return std::unexpected(Error{HeightSolidError::InvalidInput});
   }
@@ -111,7 +138,9 @@ ReframeGroundPortBodies(GroundPortBodies &&input,
   if (bodies.Anchor == anchor) { return bodies; }
   const FrameChange change(bodies.Anchor, TangentFrame::At(anchor));
   for (auto &body : bodies.Bodies) {
-    if (auto result = Reframe(body, change, bodies.Recipe, bodies.Work, stop); !result) {
+    if (auto result =
+            Reframe(body, change, bodies.Recipe, bodies.Core.has_value(), bodies.Work, stop);
+        !result) {
       return std::unexpected(result.error());
     }
   }

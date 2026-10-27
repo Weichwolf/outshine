@@ -1,4 +1,6 @@
 #include "GroundPortBodies.h"
+#include "GroundPortBodyInterfaces.h"
+#include "GroundPortBodyIdentity.h"
 #include "TransportNetworkSnapshot.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
@@ -32,9 +34,11 @@ size_t InputBytes(const TransportInputReference &input) {
          input.ItemId.capacity() + 4;
 }
 
-std::array<uint8_t, 32> ContentBinding(const GroundPortField &field,
-                                       const GroundPortBodies &bodies) {
-  constexpr std::string_view kVersion = "outshine/canonical-ground-bodies/1";
+}
+
+std::array<uint8_t, 32> GroundPortBodyContentBinding(const GroundPortField &field,
+                                                     const GroundPortBodies &bodies) {
+  constexpr std::string_view kVersion = "outshine/canonical-ground-bodies/2";
   Sha256Prefix hash(kVersion.data(), kVersion.size());
   const auto word = [&hash](auto value) {
     const auto encoded = LittleEndian(value);
@@ -64,6 +68,8 @@ std::array<uint8_t, 32> ContentBinding(const GroundPortField &field,
   return hash.Digest(nullptr, 0);
 }
 
+namespace {
+
 std::optional<size_t> ContainerBound(const GroundPortField &field) {
   const size_t count = field.Source().SourceEdges.size();
   const size_t faces = field.Geometry().Surface.Faces.size();
@@ -81,6 +87,7 @@ std::optional<size_t> ContainerBound(const GroundPortField &field) {
                                6 * (sizeof(uint32_t) + sizeof(HeightSolidWallKind));
   constexpr size_t contactFace = sizeof(EarthworkStamp) + 12 * sizeof(double);
   if (!fits(count, growth * (sizeof(GroundPortBody) + sizeof(uint32_t))) ||
+      !fits(faces, GroundFieldInterfaceBytesMost(1)) ||
       !fits(faces, growth * (2 * sizeof(uint32_t) + scratchFace + solidFace + contactFace)) ||
       !fits(points, growth * (sizeof(uint32_t) + scratchPoint)) ||
       !fits(InputBytes(field.Fit().RecipeInput), growth) ||
@@ -338,7 +345,11 @@ BuildGroundPortBodies(const GroundPortField &field,
       return std::unexpected(capacity.error());
     }
   }
-  output.ContentBinding = ContentBinding(field, output);
+  scratch = {};
+  if (auto interfaces = MarkGroundFieldInterfaces(field, output, stop); !interfaces) {
+    return std::unexpected(interfaces.error());
+  }
+  output.ContentBinding = GroundPortBodyContentBinding(field, output);
   return output;
 }
 }

@@ -151,7 +151,9 @@ bool HasSoftApron(const EarthworkStamp &stamp) {
   return stamp.Kind != EarthworkKind::Basin;
 }
 
-double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
+}
+
+double EarthworkApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) noexcept {
   return stamp.ApronM > 0.0 &&
                  (stamp.Kind == EarthworkKind::Corridor || stamp.Kind == EarthworkKind::Pad ||
                   stamp.Kind == EarthworkKind::Clearance)
@@ -160,6 +162,8 @@ double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
              : stamp.ApronM;
 }
+
+namespace {
 
 CellGrid BucketOver(std::span<const EarthworkStamp> these, std::span<const double> widthsM) {
   CellGrid out({.CellM = kBucketM});
@@ -382,7 +386,7 @@ struct PressWorkspace {
     WidthsM.reserve(stamps.size());
     ReliefM.reserve(stamps.size());
     for (const auto &stamp : stamps) {
-      WidthsM.push_back(ApronWidthM(stamp, mostEarthworkM));
+      WidthsM.push_back(EarthworkApronWidthM(stamp, mostEarthworkM));
       ReliefM.push_back(std::min(std::abs(stamp.YieldM), mostEarthworkM));
     }
   }

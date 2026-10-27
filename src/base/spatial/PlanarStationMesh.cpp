@@ -1,4 +1,5 @@
 #include "PlanarStationMeshInternal.h"
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -39,22 +40,31 @@ ValidateSelection(const PlanarStationAxis &axis, size_t faces, const std::stop_t
 
 Checked<void> ValidateAxes(std::span<const PlanarStationAxis> axes,
                            PlanarStationBudget budget,
-                           size_t faces,
+                           std::span<const PlanarPoint> points,
+                           std::span<const PlanarFace> faces,
                            const std::stop_token &stop) {
   size_t cuts = 0;
   for (const auto &axis : axes) {
     if (!Finite(axis.Origin) || !Finite(axis.Direction) ||
-        (axis.Direction[0] == 0 && axis.Direction[1] == 0)) {
+        (!axis.Values && axis.Direction[0] == 0 && axis.Direction[1] == 0) ||
+        (axis.Values && axis.Values->size() != points.size())) {
       return std::unexpected(Error::InvalidInput);
+    }
+    if (axis.Values) {
+      for (const auto value : *axis.Values) {
+        if (!std::isfinite(value)) { return std::unexpected(Error::InvalidInput); }
+      }
     }
     if (axis.Cuts.size() > budget.Cuts - cuts) { return std::unexpected(Error::CapacityExceeded); }
     cuts += axis.Cuts.size();
     for (const double station : axis.Cuts) {
       if (!std::isfinite(station)) { return std::unexpected(Error::InvalidInput); }
     }
-    if (const auto valid = ValidateSelection(axis, faces, stop); !valid) { return valid; }
+    if (const auto valid = ValidateSelection(axis, faces.size(), stop); !valid) { return valid; }
   }
   return {};
+}
+
 }
 
 Checked<void> Validate(std::span<const PlanarPoint> points,
@@ -79,7 +89,7 @@ Checked<void> Validate(std::span<const PlanarPoint> points,
     const double area = Area(points[face[0]], points[face[1]], points[face[2]]);
     if (!std::isfinite(area) || area <= 0) { return std::unexpected(Error::InvalidInput); }
   }
-  return ValidateAxes(axes, budget, faces.size(), stop);
+  return ValidateAxes(axes, budget, points, faces, stop);
 }
 
 Checked<PlanarStationMesh> Prepare(std::span<const PlanarPoint> points,
@@ -97,6 +107,10 @@ Checked<PlanarStationMesh> Prepare(std::span<const PlanarPoint> points,
   for (size_t at = 0; at < axes.size(); ++at) {
     const auto &axis = axes[at];
     auto &stations = output.Stations[at];
+    if (axis.Values) {
+      stations.assign(axis.Values->begin(), axis.Values->end());
+      continue;
+    }
     stations.reserve(points.size());
     for (const auto point : points) {
       const double station = (point[0] - axis.Origin[0]) * axis.Direction[0] +
@@ -106,7 +120,6 @@ Checked<PlanarStationMesh> Prepare(std::span<const PlanarPoint> points,
     }
   }
   return output;
-}
 }
 }
 
@@ -123,6 +136,11 @@ CutPlanarStations(std::span<const PlanarPoint> points,
   }
   auto output = PlanarStations::Prepare(points, faces, axes);
   if (!output) { return output; }
+  std::vector<PlanarStations::SourceEdge> roots;
+  if (std::ranges::any_of(axes, [](const auto &axis) { return axis.Values.has_value(); })) {
+    roots.reserve(points.size());
+    for (uint32_t point = 0; point < points.size(); ++point) { roots.push_back({point, point}); }
+  }
   for (size_t axis = 0; axis < axes.size(); ++axis) {
     const auto &current = axes[axis];
     std::vector<uint8_t> selected;
@@ -134,11 +152,13 @@ CutPlanarStations(std::span<const PlanarPoint> points,
       selection = selected;
     }
     for (const double cut : current.Cuts) {
-      if (auto result = PlanarStations::Cut(*output, axis, cut, selection, budget, stop); !result) {
+      if (auto result = PlanarStations::Cut(*output, axis, cut, selection, roots, budget, stop);
+          !result) {
         return std::unexpected(result.error());
       }
     }
   }
+  output->SourceEdges = std::move(roots);
   return output;
 }
 }

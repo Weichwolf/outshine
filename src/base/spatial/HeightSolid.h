@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <vector>
@@ -36,7 +37,7 @@ struct HeightSolidWork {
   size_t IndexCapacityBytes = 0;
 };
 
-enum class HeightSolidWallKind : uint8_t { Boundary, Discontinuity };
+enum class HeightSolidWallKind : uint8_t { Boundary, Discontinuity, Interface };
 
 struct HeightSolid {
   std::vector<std::array<double, 3>> Points;
@@ -47,6 +48,11 @@ struct HeightSolid {
   double VolumeM3 = 0;
   HeightSolidWork Work;
 };
+
+[[nodiscard]] bool HeightSolidExposesFace(const HeightSolid &body, size_t face) noexcept;
+
+[[nodiscard]] std::optional<std::array<uint32_t, 2>>
+HeightSolidWallSurfaceEdge(const HeightSolid &body, size_t wall) noexcept;
 
 enum class HeightSolidError : uint8_t {
   InvalidInput,

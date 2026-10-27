@@ -4,6 +4,8 @@
 #include "GroundPortField.h"
 #include "HeightSolid.h"
 #include "HeightSolidTerrainContact.h"
+#include "TransportCoreSelection.h"
+#include "Box.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +19,8 @@
 namespace outshine::Generators {
 struct GroundPortBody {
   World::TransportEdgeId Source;
+  double SourceBegin = 0;
+  double SourceEnd = 1;
   HeightSolid Geometry;
   std::vector<uint32_t> FaceParents;
   std::vector<EarthworkStamp> TerrainContacts;
@@ -57,13 +61,30 @@ struct GroundPortBodies {
   std::array<uint8_t, 32> ContentBinding{};
   GroundPortBodyRecipe Recipe;
   std::optional<GroundPortFieldScopeInfo> Scope;
+  std::optional<GeoCellId> Core = std::nullopt;
   std::vector<GroundPortBody> Bodies;
   GroundPortBodyWork Work;
 };
 
-using GroundPortBodyError = std::variant<RoadGroundError, HeightSolidError, SurfaceEarthworkError>;
+using GroundPortBodyError = std::variant<RoadGroundError,
+                                         HeightSolidError,
+                                         SurfaceEarthworkError,
+                                         GroundPortSourceError,
+                                         GroundPortTerrainError,
+                                         RoadProfiles::HeightFitError,
+                                         RoadPortQueryError,
+                                         TransportPlanCodecError>;
 
 [[nodiscard]] size_t GroundPortBodyCapacityBytes(const GroundPortBodies &bodies) noexcept;
+
+[[nodiscard]] Box GroundPortBodyBoundsEcef(const GroundPortBodies &bodies) noexcept;
+
+[[nodiscard]] std::expected<GroundPortBodies, GroundPortBodyError>
+SliceGroundPortBodies(const GroundPortField &field,
+                      const GroundPortBodies &source,
+                      const TransportCoreSelection &selection,
+                      GroundPortBodyBudget budget = {},
+                      const std::stop_token &stop = {});
 
 [[nodiscard]] std::expected<GroundPortBodies, GroundPortBodyError>
 ReframeGroundPortBodies(GroundPortBodies &&input,
