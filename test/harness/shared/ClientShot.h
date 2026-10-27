@@ -163,8 +163,10 @@ struct PlaceProcessProperties {
 [[nodiscard]] inline int
 CapturePlace(const char *place, const char *catalog, unsigned rateHz, std::string &output) {
   const std::string rate = std::to_string(rateHz);
+  const std::string shots =
+      (std::filesystem::path("build/shots") / std::filesystem::path(catalog).filename()).string();
   const char *binary = SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_CLIENT");
-  std::array<const char *, 13> arguments{"python3",
+  std::array<const char *, 15> arguments{"python3",
                                          "-B",
                                          "test/scripts/places.py",
                                          "--catalog",
@@ -173,6 +175,8 @@ CapturePlace(const char *place, const char *catalog, unsigned rateHz, std::strin
                                          binary != nullptr ? binary : "build/outshine",
                                          "--fps",
                                          rate.c_str(),
+                                         "--shots",
+                                         shots.c_str(),
                                          "--preload-seconds",
                                          "600",
                                          place,
