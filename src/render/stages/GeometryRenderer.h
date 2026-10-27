@@ -237,7 +237,8 @@ public:
     RowsStale_ = true;
   }
 
-  void CarryFrame() { ++Frame_; }
+  // Only successful submission advances placement history and retires GPU motion.
+  void CarryFrame();
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
@@ -617,6 +618,7 @@ private:
   GeometryPipelineBinding *Binding_ = &OwnedBinding_;
   bool Shadowed_ = false;
   bool RowsStale_ = false;
+  bool RowsHaveMotion_ = false;
   bool TablesStale_ = false;
   bool PiecesVisible_ = true;
 
