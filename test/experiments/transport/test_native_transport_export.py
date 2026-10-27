@@ -1,6 +1,7 @@
 """Native capture protocol checks; creates controlled inputs, never reference oracles."""
 
 import argparse
+import gzip
 import hashlib
 import json
 import math
@@ -311,6 +312,26 @@ class NativeExport(unittest.TestCase):
         (directory / "source-facts.json").write_text(json.dumps(facts))
         with self.assertRaisesRegex(ValueError, "source fact binding"):
             check_capture(directory)
+
+    def test_retained_actual_source_pair(self):
+        fixture = Path(__file__).with_name("fixtures") / "bridge-source-facts"
+        manifest = json.loads((fixture / "manifest.json").read_text())
+        for name, metadata in manifest["files"].items():
+            compressed = (fixture / name).read_bytes()
+            self.assertEqual(len(compressed), metadata["bytes"])
+            self.assertEqual(hashlib.sha256(compressed).hexdigest(), metadata["sha256"])
+            raw = gzip.decompress(compressed)
+            self.assertEqual(len(raw), metadata["raw_bytes"])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), metadata["raw_sha256"])
+            (self.root / name.removesuffix(".gz")).write_bytes(raw)
+        native, facts = check_capture(self.root)
+        self.assertEqual(native["SourceIdentity"], manifest["source_identity"])
+        self.assertEqual(
+            facts["InputSha256"],
+            hashlib.sha256((self.root / "source.mvt").read_bytes()).hexdigest(),
+        )
+        self.assertEqual(facts["SourceGeneration"], manifest["source_generation"])
+        self.assertEqual(facts["SourceWayCount"], manifest["source_way_count"])
 
     def test_invalid_requests_and_output_preservation(self):
         directory = self.root / "existing"
