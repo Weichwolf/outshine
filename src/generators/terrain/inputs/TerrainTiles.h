@@ -128,6 +128,8 @@ public:
   [[nodiscard]] std::shared_ptr<const TerrainField> Take(Data::TileId of);
   void Store(Data::TileId of, const TerrainField &field);
   [[nodiscard]] size_t Bytes() const;
+  // Reclaims unused LRU payloads while existing reader leases remain valid.
+  [[nodiscard]] size_t EvictUnused(size_t bytes);
   [[nodiscard]] Counters ReadCounters() const;
   void RejectRead();
 
