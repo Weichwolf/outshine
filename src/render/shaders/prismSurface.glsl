@@ -1,5 +1,17 @@
 #include "prismView.glsl"
 #include "prismTrace.glsl"
+#include "prismDifferentials.glsl"
+
+SurfaceDifferential prismSurfaceDifferential(vec3 localChange, mat3 current, vec3 u, vec3 v) {
+  SurfaceDifferential result;
+  result.uv = vec2(dot(localChange, u), dot(localChange, v));
+  result.uv1 = result.uv;
+  result.facade = result.uv;
+  result.localPosition = localChange;
+  result.position = current * localChange;
+  result.metric = vec3(result.position.x, result.position.y, -result.position.z);
+  return result;
+}
 
 bool readPrismSurface() {
   vec3 point, localNormal;
@@ -31,6 +43,11 @@ bool readPrismSurface() {
   prismShadowReceiver = prismReceiverPlane(mat3(prismView.lightFromWorld),
                                           mat3(gridPatch.current), localNormal);
 #endif
+  vec3 localDx, localDy;
+  prismPositionDifferentials(prismLocalFromClip, point, localNormal, u, v, clip.w,
+                             prismViewport.area.zw, localDx, localDy);
+  surfaceDx = prismSurfaceDifferential(localDx, mat3(gridPatch.current), u, v);
+  surfaceDy = prismSurfaceDifferential(localDy, mat3(gridPatch.current), u, v);
   uv = vec2(dot(point, u), dot(point, v));
   uv1 = uv;
   facadeBay = uv.x;
