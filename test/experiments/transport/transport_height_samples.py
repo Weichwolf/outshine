@@ -27,8 +27,8 @@ def sample(sources, origin, xy, zoom=11):
         tiles, indices = np.unique(np.floor(coordinates).astype(int), axis=0, return_inverse=True)
         for tile, cell in enumerate(tiles):
             x,y = cell
-            subject = f'mapterhorn.terrarium\n1\n\nelevation\n{level}/{x}/{y}\nhttps://tiles.mapterhorn.com/{{z}}/{{x}}/{{y}}.webp'
-            path = sources / hashlib.sha256(subject.encode()).hexdigest()
+            cache_key = f'mapterhorn.terrarium\n1\n\nelevation\n{level}/{x}/{y}\nhttps://tiles.mapterhorn.com/{{z}}/{{x}}/{{y}}.webp'
+            path = sources / hashlib.sha256(cache_key.encode()).hexdigest()
             if not path.is_file():
                 continue
             rgb = np.asarray(Image.open(path).convert('RGB'), dtype=float)

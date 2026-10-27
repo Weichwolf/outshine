@@ -35,7 +35,7 @@ def providers(root):
     return definitions
 
 
-def subjects(camera, definitions, *, vector_radius_m, terrain_radius_m):
+def source_requests(camera, definitions, *, vector_radius_m, terrain_radius_m):
     vectors = covering_tiles(
         camera.latitude_deg, camera.longitude_deg, vector_radius_m, 14
     ) + covering_tiles(camera.latitude_deg, camera.longitude_deg, terrain_radius_m, 8)
@@ -89,7 +89,7 @@ def run(
         raise ValueError("explicit bounded near vector and far terrain radii required")
     definitions, requests, places = providers(root), {}, []
     for camera in selected_cameras(root):
-        selected = subjects(
+        selected = source_requests(
             camera,
             definitions,
             vector_radius_m=vector_radius_m,
@@ -113,10 +113,10 @@ def run(
                 receipt_bytes(row)
                 shared[row["url"]] = row
 
-    def load(subject):
-        if subject[2] in shared:
-            return shared[subject[2]] | {"origin": "explicit-shared-receipt"}
-        return acquire(subject, Path(output) / "sources", fetch=fetch)
+    def load(request):
+        if request[2] in shared:
+            return shared[request[2]] | {"origin": "explicit-shared-receipt"}
+        return acquire(request, Path(output) / "sources", fetch=fetch)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         receipts = list(pool.map(load, sorted(requests.values())))
