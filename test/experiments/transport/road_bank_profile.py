@@ -155,7 +155,7 @@ def residual(curve, limits, prior, candidate):
     k1 = k0 + curve.curvature_rate * curve.lengths
     curvature = np.c_[k0, (k0 + k1) / 2, k1]
     physical = max(
-        float(np.max(abs(grade - u * rates) - limits.grade * (1 - u * curvature)))
+        float(np.max(abs(grade - u * rates) / (1 - u * curvature) - limits.grade))
         for u in (-curve.width, curve.width)
     )
     return float(

@@ -48,8 +48,13 @@ def diagnose(row, curve, control, arrays):
     np.testing.assert_allclose(
         ends, fitted.at(curve.stations[[0, -1]]), rtol=0, atol=1e-10
     )
-    plan = prepare(fitted, 0.01)
+    display = {}
     if row["ordinal"] in (4013, 55171):
+        plan = prepare(fitted, 0.01)
+        display = {
+            "display_model_bound_m": plan["maximum_stored_bound_m"],
+            "display_triangles": len(plan["indices"]),
+        }
         for name, data in {
             "stations": stations,
             "original": original,
@@ -65,8 +70,7 @@ def diagnose(row, curve, control, arrays):
         "corrected_sampled_maximum_grade": float(new_grade.max()),
         "maximum_observed_height_change_m": float(abs(original - after).max()),
         "diagnostic_stations": len(stations),
-        "display_model_bound_m": plan["maximum_stored_bound_m"],
-        "display_triangles": len(plan["indices"]),
+        **display,
     }
 
 

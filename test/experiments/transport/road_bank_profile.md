@@ -58,6 +58,9 @@ even if they carry a candidate. Output is rechecked independently of solver rows
 including actual unscaled C1 rates; outer controls are restored exactly before
 rechecking. Residual checks allow1e-9 in each constraint's own units (grade/q and
 q-rate in1/m). This numerical model is not an IEEE interval-arithmetic proof.
+Grade coefficients are divided by their positive Jacobian coefficients before
+the residual check. A tiny raw LP residual near a folded inner edge must not
+amplify into a large physical grade error; a dedicated counterexample covers it.
 
 ## Actual input and comparison
 
@@ -99,8 +102,10 @@ Set `PYTHONPATH=lib/src:test/experiments/transport`, `OPENBLAS_NUM_THREADS=1` an
 .venv/bin/python -B -W error test/experiments/transport/plot_road_bank.py /tmp/outshine-bank-profiles/profiles.npz --output /tmp/outshine-bank-profiles/profiles.png --grade .35
 ```
 
-`--trace` adds separately timed-outside-planning Memray captures on prepared input;
-the three ordinary round times are measured before tracing. Images stay local.
+`--trace` adds separate Memray captures on prepared input; ordinary round times
+are measured before tracing. Only the two actual display witnesses build their
+1cm display meshes; all ready profiles receive the grade/contact diagnostics.
+Images stay local.
 The shared evaluator exposes `crossfall()` so the old angular recipe and the new
 crossfall recipe use the same geometry/normal consumers. Old frame/geometry
 parity and original tests remain required; no old tolerance or pin is changed.

@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from road_bank_profile import BankLimits, plan_bank, prior_controls
+from road_bank_profile import BankLimits, plan_bank, prior_controls, residual
 from road_banked_surface import BankedSurface
 from road_surface_frames import differentials
 from road_surface_lod import prepare
@@ -20,6 +20,14 @@ def bump():
 
 
 class BankProfileTests(unittest.TestCase):
+    def test_small_jacobian_does_not_amplify_allowed_solver_residual(self):
+        curve = Curve(recipe(curvature=0.4999999999, knots=4))
+        prior = prior_controls(curve)
+        candidate = prior.copy()
+        candidate[1, 1] = 2e-10
+        error = residual(curve, BankLimits(0.35, 0.12, 0.025), prior, candidate)
+        self.assertGreater(error, 0.24)
+
     def test_inner_bank_adjustment_preserves_outer_sections_and_c1(self):
         source = bump()
         limits = BankLimits(0.02, 0.1, 0.04)
