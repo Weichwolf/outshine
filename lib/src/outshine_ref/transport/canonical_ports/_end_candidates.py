@@ -226,6 +226,7 @@ def inspect_bridge_end_candidates(
     The export adapter verifies candidate content/version binding before this
     call. SourceOrigin is an identity token, never a retained native-array owner.
     No adjacency pairs, proximity groups, World mutation or Unknown clearing.
+    Groups are source records bounded by input_nodes, not PortDemand requests.
     """
     if budget is None:
         budget = PortBudget()
@@ -253,7 +254,7 @@ def inspect_bridge_end_candidates(
             "qualified_contacts": 0,
         }
 
-    if len(groups) > budget.requests or len(ways) > budget.input_spans:
+    if len(groups) > budget.input_nodes or len(ways) > budget.input_spans:
         return result((), "candidate_work_budget")
     if any(not isinstance(group, CandidateGroup) for group in groups):
         raise TypeError("immutable retained candidate groups required")

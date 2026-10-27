@@ -237,11 +237,18 @@ class BridgeEndCandidates(unittest.TestCase):
             spans=self.source.spans + spans,
         )
         forward = self.inspect(
-            (self.group, group), source=source, ways=self.ways + ways
+            (self.group, group),
+            source=source,
+            ways=self.ways + ways,
+            budget=PortBudget(requests=1),
         )
         backward = self.inspect(
-            (group, self.group), source=source, ways=ways + self.ways
+            (group, self.group),
+            source=source,
+            ways=ways + self.ways,
+            budget=PortBudget(requests=1),
         )
+        self.assertEqual(len(forward["groups"]), 2)
         self.assertEqual(forward["groups"], backward["groups"][::-1])
         self.assertEqual(forward["work"], backward["work"])
         self.assertEqual(forward["work"]["indexed_spans"], 4)
