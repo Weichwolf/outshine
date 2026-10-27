@@ -1785,3 +1785,53 @@ the new preflight for its baseline. It requires equal decisions/reasons and exac
 positive affine/finite-plan arrays. Source/DEM/geometry preparation and backend
 warmup precede both measured fits. Optional Memray traces remain external temp
 artifacts; shared-host single timings prove no native/device or frame budget.
+
+## Bound local Bridge end surfaces (#1514)
+
+`bound_bridge_end_surface.py` consumes the existing qualified Ground terminal
+field, original group/Way facts and owned index. The actual Source-/candidate-
+binding, directed member, terminal recipe and reconstructed source-frame anchor
+must agree. Missing profiles, incomplete incidence, Frontier and budgets remain
+explicit failures. This experiment adds no shared library API or World authority.
+
+For each supported Bridge/Ground pair, the original entire two-point Ground cap
+is retained byte for byte. Its unique adjacent original Ground triangle identifies
+the interior side; cap orientation is derived from that face, independently of
+the requested Bridge direction. Missing/ambiguous boundary incidence and an
+inward Bridge direction are rejected. A short axis follows the Ground outgoing direction,
+uses a cubic transition, and ends along the actual first Bridge span. The
+versioned recipe limits its length to min(8m, first-span-length/4). Existing
+constant-width miters and direct strip triangles continue the same fitted affine
+terminal plane. Width, full footprint, finite gradient continuity and profile
+grades are checked in the named source and port-ENU charts. The actual two
+groups belong to different Bridge components; no opposite Ground is invented.
+
+The output is `MetricEndSurface`: body cross-section/thickness, terrain/crossing
+clearance, physical-frame continuation of the whole Bridge and the opposite
+Ground remain unqualified. Neither a qualified contact nor a route/World join
+follows from a valid surface. Ground mesh and original Unknown remain unchanged.
+The new triangulation generates no Terrain contacts or replacement contact areas.
+
+Method context: retained graph versus generated geometry in SIGGRAPH2008,
+Figure2/page2, and Galin et al., profile/trajectory/terrain separation,
+Figures17–18/page8 of the existing
+[transport references](../../../doc/references/transport/README.md).
+Both pages were inspected visually. This small affine/cubic strip control is
+neither paper's complete road/network or terrain algorithm.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest bridge_end_surface_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_bridge_end_surfaces.py --output "$TRANSPORT_WORK/bridge-end-auto" --plot --allocations
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_bridge_end_surfaces.py --method lp --output "$TRANSPORT_WORK/bridge-end-lp" --plot
+```
+
+Outputs require fresh external system-temp paths. Plotting and Memray are optional.
+Preparation/decode, index and Ground fitting are recorded separately from each
+end stage. Whole-stage counters include binding checks in time/allocations;
+explicit member and Ground-cap-face visit counts exclude structured metadata equality and numeric/kernel
+work. Known mesh/cap payload bytes are not all copied bytes or process peaks.
+A second comparison validates GEOS constrained Delaunay against the same prepared
+footprint, original shared cap and whole plane gradients. Its mapping/orientation
+costs are included; common polygon preparation/independent validation are excluded
+from both timings. The specialized strip needs no geometry-kernel triangulation.
+These single shared-host calls provide no native/device or frame-budget proof.
