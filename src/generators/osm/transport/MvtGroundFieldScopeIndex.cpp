@@ -52,39 +52,19 @@ Checked<void> Candidate(State &state) {
 }
 
 Checked<void> Groups(State &state) {
-  const auto &graph = state.Source().Source->Topology();
-  size_t next = 0;
-  for (uint32_t at = 0; at < state.Facts.Groups.size(); ++at) {
-    const auto &group = state.Facts.Groups[at];
-    if (group.FirstMember != next || group.MemberCount > state.Facts.Members.size() - next) {
+  const auto groups = state.Inputs.OriginalGroups();
+  for (size_t at = 0; at < state.Source().Nodes.size(); ++at) {
+    if (state.Stop.stop_requested()) { return std::unexpected(Error::Canceled); }
+    ++state.Output.Work.OriginalNodeLookups;
+    const auto group = groups[state.Source().Nodes[at]];
+    if (group == MvtGroundFieldCandidateInputs::MissingGroup) {
+      return std::unexpected(Error::IncompleteIncidence);
+    }
+    if (group == MvtGroundFieldCandidateInputs::AmbiguousGroup ||
+        group >= state.Facts.Groups.size()) {
       return std::unexpected(Error::InvalidBinding);
     }
-    const auto &partition = state.Facts.NodeGroups->Groups[at];
-    const auto &ids = state.Facts.NodeGroups->Nodes;
-    if (partition.FirstNode > ids.size() ||
-        partition.NodeCount > ids.size() - partition.FirstNode) {
-      return std::unexpected(Error::InvalidBinding);
-    }
-    for (size_t member = next; member < next + group.MemberCount; ++member) {
-      if (state.Stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-      const auto &value = state.Facts.Members[member];
-      const auto *node = graph.FindNode(value.DomainNode);
-      if (node == nullptr || value.NodeGroup != at || value.End > 1) {
-        return std::unexpected(Error::InvalidBinding);
-      }
-      ++state.Output.Work.OriginalMemberVisits;
-      const auto owner = state.NodeOwners[static_cast<size_t>(node - graph.Nodes().data())];
-      if (owner == kAbsent) { continue; }
-      if (state.Groups[owner] != kAbsent && state.Groups[owner] != at) {
-        return std::unexpected(Error::InvalidBinding);
-      }
-      state.Groups[owner] = at;
-    }
-    next += group.MemberCount;
-  }
-  if (next != state.Facts.Members.size() ||
-      std::ranges::find(state.Groups, kAbsent) != state.Groups.end()) {
-    return std::unexpected(Error::IncompleteIncidence);
+    state.Groups[at] = group;
   }
   std::ranges::sort(state.Groups);
   const auto tail = std::ranges::unique(state.Groups);
@@ -95,19 +75,9 @@ Checked<void> Groups(State &state) {
 
 Checked<void> Index(State &state) {
   if (auto candidate = Candidate(state); !candidate) { return candidate; }
-  state.Ways.assign(state.Snapshot.SourceWayCount, kAbsent);
-  for (uint32_t at = 0; at < state.Facts.Ways.size(); ++at) {
-    const auto way = state.Facts.Ways[at].StreetWay;
-    if (way >= state.Ways.size() || state.Ways[way] != kAbsent ||
-        state.Facts.Ways[at].PointCount < 2) {
-      return std::unexpected(Error::InvalidBinding);
-    }
-    state.Ways[way] = at;
-  }
   state.Output.Work.ContainerCapacityBytes =
-      (state.NodeOwners.capacity() + state.EdgeOwners.capacity() + state.Ways.capacity() +
-       state.Groups.capacity() + state.Source().Nodes.capacity() +
-       state.Source().SourceEdges.capacity()) *
+      (state.NodeOwners.capacity() + state.EdgeOwners.capacity() + state.Groups.capacity() +
+       state.Source().Nodes.capacity() + state.Source().SourceEdges.capacity()) *
           sizeof(uint32_t) +
       state.Seen.capacity() + state.KnownUnknown.capacity();
   return Groups(state);

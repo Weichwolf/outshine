@@ -81,6 +81,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/GeographicCoresShareActualFieldPorts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/WholeBodiesEnterPlanFramesWithoutNewStorage"
       OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/OriginalFactsRejectUnqualifiedGroundFields"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/PreparedOriginalGroupsRemainLocalToEachField"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/CapturedSourcesReachTheBoundDemAndC1Field"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"

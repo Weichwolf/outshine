@@ -24,7 +24,9 @@ struct State {
   const MvtGroundFieldLimits &Limits;
   const std::stop_token &Stop;
   MvtGroundFieldScope Output;
-  std::vector<uint32_t> NodeOwners, EdgeOwners, Ways, Groups;
+  std::vector<uint32_t> NodeOwners, EdgeOwners;
+  std::span<const uint32_t> Ways;
+  std::vector<uint32_t> Groups;
   std::vector<uint8_t> Seen;
   std::vector<uint8_t> KnownUnknown;
 

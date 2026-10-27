@@ -30,8 +30,7 @@ bool Fits(const MvtTransportSnapshot &snapshot,
     remaining -= count * width;
     return true;
   };
-  return charge(graph.Nodes().size() + graph.Edges().size() + snapshot.SourceWayCount +
-                    source.Nodes.size(),
+  return charge(graph.Nodes().size() + graph.Edges().size() + source.Nodes.size(),
                 sizeof(uint32_t)) &&
          charge(source.Nodes.size(), sizeof(uint8_t)) &&
          charge(source.SourceEdges.size(), 2 * sizeof(uint8_t)) &&
@@ -66,6 +65,10 @@ BindMvtGroundFieldScope(const MvtTransportSnapshot &snapshot,
       inputs.PathOmissions().size() != snapshot.Network->Provenance().Paths.size()) {
     return std::unexpected(Error::InvalidBinding);
   }
+  if (inputs.OriginalGroups().size() != snapshot.Network->Topology().Nodes().size() ||
+      inputs.WayFacts().size() != snapshot.SourceWayCount) {
+    return std::unexpected(Error::InvalidBinding);
+  }
   if (!Fits(snapshot, candidate, limits)) { return std::unexpected(Error::CapacityExceeded); }
   if (candidate.SourceEdges.empty() || candidate.Nodes.size() != candidate.SourceEdges.size() + 1 ||
       !std::isfinite(candidate.WidthM) || candidate.WidthM <= 0 ||
@@ -84,7 +87,7 @@ BindMvtGroundFieldScope(const MvtTransportSnapshot &snapshot,
               .Output = {.Field = {.Source = std::move(candidate), .Info = {}}, .Work = {}},
               .NodeOwners = {},
               .EdgeOwners = {},
-              .Ways = {},
+              .Ways = inputs.WayFacts(),
               .Groups = {},
               .Seen = {},
               .KnownUnknown = {}};

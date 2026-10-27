@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <stop_token>
 #include <span>
 #include <vector>
@@ -42,6 +43,7 @@ struct MvtGroundPortInputWork {
   size_t AttributeWords = 0;
   size_t MissingProfiles = 0;
   size_t OmissionLookups = 0;
+  size_t OriginalMemberVisits = 0;
   size_t ContainerCapacityBytes = 0;
 };
 
@@ -65,6 +67,8 @@ struct MvtGroundPortInputs {
 
 class MvtGroundFieldCandidateInputs {
 public:
+  static constexpr uint32_t MissingGroup = std::numeric_limits<uint32_t>::max();
+  static constexpr uint32_t AmbiguousGroup = MissingGroup - 1;
   MvtGroundFieldCandidateInputs() = default;
 
   [[nodiscard]] const MvtGroundPortInputs &Ports() const noexcept { return Ports_; }
@@ -81,10 +85,16 @@ public:
     return OmissionBinding_;
   }
 
+  [[nodiscard]] std::span<const uint32_t> OriginalGroups() const noexcept { return Groups_; }
+
+  [[nodiscard]] std::span<const uint32_t> WayFacts() const noexcept { return Ways_; }
+
 private:
   MvtGroundFieldCandidateInputs(MvtGroundPortInputs ports,
                                 std::shared_ptr<const MvtTransportSourceFacts> facts,
                                 std::vector<uint8_t> omissions,
+                                std::vector<uint32_t> groups,
+                                std::vector<uint32_t> ways,
                                 size_t unrepresented,
                                 std::array<uint8_t, 32> binding);
   friend std::expected<MvtGroundFieldCandidateInputs, MvtGroundPortInputError>
@@ -96,6 +106,7 @@ private:
   MvtGroundPortInputs Ports_;
   std::shared_ptr<const MvtTransportSourceFacts> Facts_;
   std::vector<uint8_t> PathOmissions_;
+  std::vector<uint32_t> Groups_, Ways_;
   size_t UnrepresentedIncidences_ = 0;
   std::array<uint8_t, 32> OmissionBinding_{};
 };

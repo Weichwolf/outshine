@@ -15,6 +15,14 @@ struct MvtGroundPortInputNormalization {
   size_t UnrepresentedIncidences = 0;
 };
 
+struct MvtGroundFieldIndex {
+  std::vector<uint32_t> Groups, Ways;
+  size_t MemberVisits = 0;
+};
+
+[[nodiscard]] std::expected<MvtGroundFieldIndex, MvtGroundPortInputError> IndexMvtGroundFieldFacts(
+    const MvtTransportSourceFacts &facts, size_t ways, const std::stop_token &stop);
+
 [[nodiscard]] std::expected<MvtGroundPortInputNormalization, MvtGroundPortInputError>
 NormalizeMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
                              const OsmField &field,
