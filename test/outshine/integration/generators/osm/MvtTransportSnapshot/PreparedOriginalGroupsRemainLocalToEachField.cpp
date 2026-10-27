@@ -142,6 +142,13 @@ int main() {
         "the unchanged pinned original MVT reaches actual native input preparation");
   if (!source) { return Report(); }
   const auto &inputs = source->Inputs;
+  CHECK(std::ranges::is_sorted(inputs.Ports().UnknownNodes),
+        "private normalized input owns sorted unknown source-node identities");
+  CHECK(std::ranges::all_of(inputs.Ports().UnknownNodes,
+                            [&](uint64_t id) {
+                              return inputs.Ports().Network->Topology().FindNode(id) != nullptr;
+                            }),
+        "every normalized unknown belongs to the immutable native graph before field queries");
   CHECK(inputs.OriginalGroups().size() == source->Snapshot.Network->Topology().Nodes().size() &&
             inputs.WayFacts().size() == source->Snapshot.SourceWayCount &&
             inputs.Ports().Work.OriginalMemberVisits ==

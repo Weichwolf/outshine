@@ -185,11 +185,10 @@ Checked<void> Qualify(State &state) {
     return std::unexpected(Error::IncompleteIncidence);
   }
   const auto &graph = state.Source().Source->Topology();
-  for (const auto unknown : state.Inputs.Ports().UnknownNodes) {
-    const auto *node = graph.FindNode(unknown);
-    if (node == nullptr) { return std::unexpected(Error::InvalidBinding); }
-    const auto owner = state.NodeOwners[static_cast<size_t>(node - graph.Nodes().data())];
-    if (owner != kAbsent && state.KnownUnknown[owner] == 0) {
+  for (size_t owner = 0; owner < state.Source().Nodes.size(); ++owner) {
+    const auto id = graph.Nodes()[state.Source().Nodes[owner]].SourceNodeId;
+    if (std::ranges::binary_search(state.Inputs.Ports().UnknownNodes, id) &&
+        state.KnownUnknown[owner] == 0) {
       return std::unexpected(Error::Frontier);
     }
   }
