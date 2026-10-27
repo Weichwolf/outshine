@@ -1,7 +1,7 @@
-#ifndef OUTSHINE_RENDER_DEVICE_GPU_H
-#define OUTSHINE_RENDER_DEVICE_GPU_H
+#ifndef OUTSHINE_RENDER_FRAME_GPU_H
+#define OUTSHINE_RENDER_FRAME_GPU_H
 
-#include "native/Device.h"
+#include "Device.h"
 
 #include "RenderCatalogue.h"
 

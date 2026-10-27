@@ -9,7 +9,7 @@ set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
   outshine/integration/render/material/MaterialResolution/NativeImagesReachTheRenderer
-  outshine/integration/render/device/GpuSubmission/WindowFramesCloseAfterDrawing
+  outshine/integration/engine/frame/FrameCoordinator/WindowFramesCloseAfterDrawing
   outshine/src/engine/Engine/CameraFollowsItsNamedEntity
   outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
   outshine/src/engine/Engine/PerspectiveNativeMipImagesRepeatLinearPixels
@@ -99,7 +99,7 @@ foreach(source IN LISTS cases)
   if(owner STREQUAL "")
     if(name MATCHES "^outshine/integration/app/")
       set(owner app)
-    elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene)/")
+    elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene|device)/")
       set(owner render)
     elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
