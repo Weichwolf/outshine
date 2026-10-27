@@ -17,7 +17,7 @@ from compare_building_regional_hierarchy import rest_price
 from compare_mass_appearance import read
 from fit_building_brdf import validate_fit_receipt
 from native_building_cell_reference import load_cells
-from triangle_image_reference import projected_bounds
+from triangle_image_reference import visible_pixel_bounds
 
 
 def reference_query(args, case, tree, query, original, fields, provenance, tables):
@@ -25,15 +25,8 @@ def reference_query(args, case, tree, query, original, fields, provenance, table
     two, fitted_bytes = fitted_cut(args.input, args.fits / "2", case, query, full, 2)
     mesh, geometry = complete(original, product)
     camera = view(query)
-    bounds = projected_bounds(
+    box = visible_pixel_bounds(
         np.vstack((original["positions"], mesh["positions"])), camera
-    )
-    box = np.array(
-        [
-            np.maximum(np.floor(bounds[0]) - 1, [0, 0]),
-            np.minimum(np.ceil(bounds[1]) + 1, camera[3:]),
-        ],
-        int,
     )
     if np.any(box[1] <= box[0]) or np.prod(box[1] - box[0]) > 1048576:
         raise ValueError("bounded visible existing-query ROI required")
