@@ -59,7 +59,7 @@ int main() {
                                                      .Surface = {}});
     CHECK(piece.has_value(), "static piece becomes resident");
     if (!piece) { return Report(); }
-    const auto depthAtCentre = [&]() {
+    const auto depthAtCentre = [&] {
       std::vector<float> depth;
       if (!scene->Draw(error)) { return -1.0f; }
       renderer.WaitForGpu();
