@@ -16,37 +16,50 @@ import numpy as np
 from compare_road_bank import diagnose, load
 from road_bank_profile import BankLimits, prior_controls
 from road_joint_profile import plan_joint
+from road_shared_profile import ProfileRecipe
 
 
-def run(cases, limits, height_change, rounds):
+def run(
+    cases,
+    limits,
+    height_change,
+    rounds,
+    *,
+    methods=("staged", "coupled"),
+    planner=plan_joint,
+    witnesses=(7977, 666),
+):
     rows, arrays = [], {}
     for index, (source, curve) in enumerate(cases):
         row = {"ordinal": source["ordinal"], "methods": {}}
         for repeat in range(rounds):
-            methods = (
-                ("staged", "coupled")
-                if (index + repeat) % 2 == 0
-                else ("coupled", "staged")
-            )
-            for method in methods:
+            order = methods if (index + repeat) % 2 == 0 else methods[::-1]
+            for method in order:
                 started = time.process_time_ns()
-                value, note = plan_joint(curve, limits, height_change, method=method)
+                value, note = planner(curve, limits, height_change, method=method)
                 elapsed = time.process_time_ns() - started
                 if repeat == 0:
                     note["cpu_ns"] = [elapsed]
                     row["methods"][method] = note
                     if value is not None:
-                        h, q = value
+                        h, q = (
+                            (value.height, value.bank)
+                            if isinstance(value, ProfileRecipe)
+                            else value
+                        )
                         arrays[f"curve_{source['ordinal']}_{method}_height"] = h
                         arrays[f"curve_{source['ordinal']}_{method}_bank"] = q
-                        if method == "staged":
+                        if method == methods[0]:
                             row["geometry"] = diagnose(
                                 source,
                                 curve,
                                 q,
                                 arrays,
                                 height_controls=h,
-                                witnesses=(7977, 666),
+                                witnesses=witnesses,
+                                surface=value.surface(source)
+                                if isinstance(value, ProfileRecipe)
+                                else None,
                             )
                             assert (
                                 row["geometry"]["corrected_sampled_maximum_grade"]
@@ -62,7 +75,14 @@ def run(cases, limits, height_change, rounds):
                         "reason"
                     ) == note.get("reason")
                     if value is not None:
-                        for field, a in zip(("height", "bank"), value, strict=True):
+                        coefficients = (
+                            (value.height, value.bank)
+                            if isinstance(value, ProfileRecipe)
+                            else value
+                        )
+                        for field, a in zip(
+                            ("height", "bank"), coefficients, strict=True
+                        ):
                             np.testing.assert_array_equal(
                                 a, arrays[f"curve_{source['ordinal']}_{method}_{field}"]
                             )
@@ -71,21 +91,70 @@ def run(cases, limits, height_change, rounds):
     return rows, arrays
 
 
-def traces(cases, limits, height_change, output):
+def traces(
+    cases,
+    limits,
+    height_change,
+    output,
+    *,
+    methods=("staged", "coupled"),
+    planner=plan_joint,
+):
     import memray
     from replay_canonical_bridge_ports import allocations
 
     result = {}
-    for method in ("staged", "coupled"):
+    for method in methods:
         file = output / (method + ".bin")
         with memray.Tracker(str(file), trace_python_allocators=True):
             for _, curve in cases:
-                plan_joint(curve, limits, height_change, method=method)
+                planner(curve, limits, height_change, method=method)
         result[method] = allocations(file)
         result[method]["scope"] = (
             "Warm prepared-input planning only, including bank-only fallback for staged. No diagnostic/geometry retention, copied-byte, runtime-UMA or device claim."
         )
     return result
+
+
+def metrics(rows, arrays, methods, rounds):
+    return {
+        "counts": {
+            m: dict(
+                collections.Counter(
+                    row["methods"][m].get("selected", row["methods"][m].get("reason"))
+                    for row in rows
+                )
+            )
+            for m in methods
+        },
+        "cpu_ns": {
+            m: [
+                sum(row["methods"][m]["cpu_ns"][n] for row in rows)
+                for n in range(rounds)
+            ]
+            for m in methods
+        },
+        "lp_calls": {
+            m: sum(
+                row["methods"][m]["coupled_lp_calls"]
+                + row["methods"][m]["base_lp_calls"]
+                for row in rows
+            )
+            for m in methods
+        },
+        "lp_rows": {
+            m: sum(
+                row["methods"][m].get("inequalities", 0)
+                + row["methods"][m].get("base", {}).get("inequalities", 0)
+                for row in rows
+            )
+            for m in methods
+        },
+        "retained_control_bytes": {
+            m: sum(a.nbytes for k, a in arrays.items() if "_" + m + "_" in k)
+            for m in methods
+        },
+    }
 
 
 def main():
@@ -128,42 +197,7 @@ def main():
                 "compare_road_bank.py",
             )
         },
-        "counts": {
-            m: dict(
-                collections.Counter(
-                    row["methods"][m].get("selected", row["methods"][m].get("reason"))
-                    for row in rows
-                )
-            )
-            for m in ("staged", "coupled")
-        },
-        "cpu_ns": {
-            m: [
-                sum(row["methods"][m]["cpu_ns"][n] for row in rows)
-                for n in range(args.rounds)
-            ]
-            for m in ("staged", "coupled")
-        },
-        "lp_calls": {
-            m: sum(
-                row["methods"][m]["coupled_lp_calls"]
-                + row["methods"][m]["base_lp_calls"]
-                for row in rows
-            )
-            for m in ("staged", "coupled")
-        },
-        "lp_rows": {
-            m: sum(
-                row["methods"][m].get("inequalities", 0)
-                + row["methods"][m].get("base", {}).get("inequalities", 0)
-                for row in rows
-            )
-            for m in ("staged", "coupled")
-        },
-        "retained_control_bytes": {
-            m: sum(a.nbytes for k, a in arrays.items() if "_" + m + "_" in k)
-            for m in ("staged", "coupled")
-        },
+        **metrics(rows, arrays, ("staged", "coupled"), args.rounds),
         "loop_peak_rss_bytes": loop_peak,
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
