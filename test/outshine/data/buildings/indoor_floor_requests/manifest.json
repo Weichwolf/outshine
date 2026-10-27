@@ -1,0 +1,911 @@
+{
+  "schema": "outshine/indoor-floor-inputs/1",
+  "origin_lat_lon": [
+    48.21,
+    16.37
+  ],
+  "original_request_fixture": "test/experiments/transport/fixtures/bridge-continuations-vienna.json",
+  "original_request_fixture_sha256": "fcc91443d76d69223c8173061cf1f2f69d78446a9cc26fd58d9482c3e4f68db4",
+  "request_frame": "locally-scaled-Web-Mercator-as-produced-by-capture_transport_tile",
+  "source_receipts": [
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8939/5680.pbf",
+      "tile": [
+        14,
+        8939,
+        5680
+      ],
+      "sha256": "3dcb92070a132167d6a4ee7a06eb25a97c12879581a3730e5d8e2bb8a5965c66",
+      "bytes": 142379,
+      "archive": "vector-14-8939-5680.pbf.xz",
+      "kind": "vector"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8938/5680.pbf",
+      "tile": [
+        14,
+        8938,
+        5680
+      ],
+      "sha256": "873e52b2f377517a83be090cc8c329c2d8871fdb8f87913fd2c9620ca7ed7c86",
+      "bytes": 310805,
+      "archive": "vector-14-8938-5680.pbf.xz",
+      "kind": "vector"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8939/5681.pbf",
+      "tile": [
+        14,
+        8939,
+        5681
+      ],
+      "sha256": "7298151902680bbdc28062298b845df323f6da694fdb43fce7bed901e6011ce3",
+      "bytes": 142775,
+      "archive": "vector-14-8939-5681.pbf.xz",
+      "kind": "vector"
+    },
+    {
+      "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+      "tile": [
+        11,
+        1117,
+        710
+      ],
+      "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+      "bytes": 49798,
+      "archive": "elevation-11-1117-710.webp",
+      "kind": "elevation"
+    }
+  ],
+  "requests": [
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:0",
+      "xy": [
+        [
+          3324.4179568645345,
+          472.7608765870264
+        ],
+        [
+          3313.275309774946,
+          458.03666436008007
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:5",
+      "xy": [
+        [
+          3679.7888087484735,
+          150.02206261434023
+        ],
+        [
+          3673.819533521199,
+          144.05278738706565
+        ],
+        [
+          3673.0236301587206,
+          139.6753188872298
+        ],
+        [
+          3666.656403248966,
+          133.70604365995518
+        ],
+        [
+          3661.8809830666496,
+          132.91014029623582
+        ],
+        [
+          3655.911707839375,
+          127.73676843143933
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:6",
+      "xy": [
+        [
+          3780.868535937109,
+          8.351263879741095
+        ],
+        [
+          3780.4705842546286,
+          24.66728283536742
+        ],
+        [
+          3778.87877752719,
+          26.657041244045196
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:7",
+      "xy": [
+        [
+          3790.021424619261,
+          17.1062008806541
+        ],
+        [
+          3774.501309027354,
+          18.698007608092826
+        ],
+        [
+          3772.5115506174348,
+          20.6877660167706
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:10",
+      "xy": [
+        [
+          3776.491067437273,
+          -1.1995764848912707
+        ],
+        [
+          3800.3681683463715,
+          21.483669380489964
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:2",
+      "xy": [
+        [
+          3287.408450453446,
+          483.50557199785845
+        ],
+        [
+          3289.7961605458454,
+          486.2912337702556
+        ],
+        [
+          3293.775677363201,
+          491.06665395257176
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:3",
+      "xy": [
+        [
+          3697.2986827502996,
+          124.15520329532282
+        ],
+        [
+          3692.9212142504634,
+          120.175686476726
+        ],
+        [
+          3690.1355524780665,
+          117.39002470432887
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:6",
+      "xy": [
+        [
+          3680.5847121134343,
+          108.23713602217681
+        ],
+        [
+          3684.56422893079,
+          112.61460452201268
+        ],
+        [
+          3687.3498907031867,
+          115.00231461317077
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:7",
+      "xy": [
+        [
+          3758.185290072969,
+          25.065234516606466
+        ],
+        [
+          3762.562758572805,
+          29.442703017683602
+        ],
+        [
+          3765.348420345202,
+          31.830413108841697
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:10",
+      "xy": [
+        [
+          3774.8992607098344,
+          41.38125347223279
+        ],
+        [
+          3770.5217922099982,
+          37.00378497239692
+        ],
+        [
+          3767.736130435119,
+          34.61607488123883
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "buildings_floor_surface_not_planned"
+    },
+    {
+      "source_id": "openfreemap:14/8938/5680:transportation:3308048600:14",
+      "xy": [
+        [
+          3170.808607675386,
+          567.8713285471459
+        ],
+        [
+          3181.9512547674576,
+          582.5955407753336
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8938/5680:transportation:4040549820:1",
+      "xy": [
+        [
+          3199.063177086803,
+          551.5553095915196
+        ],
+        [
+          3202.6447422216784,
+          556.3307297738359
+        ],
+        [
+          3205.0324523140775,
+          559.1163915474742
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088860:3",
+      "xy": [
+        [
+          4537.374683115747,
+          -419.84474578141635
+        ],
+        [
+          4533.395166298391,
+          -422.6304075538135
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "steps",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:0",
+      "xy": [
+        [
+          3776.491067437273,
+          -1.1995764848912707
+        ],
+        [
+          3800.3681683463715,
+          21.483669380489964
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:1",
+      "xy": [
+        [
+          3790.021424619261,
+          17.1062008806541
+        ],
+        [
+          3774.501309027354,
+          18.698007608092826
+        ],
+        [
+          3772.5115506174348,
+          20.6877660167706
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:2",
+      "xy": [
+        [
+          3780.868535937109,
+          8.351263879741095
+        ],
+        [
+          3780.4705842546286,
+          24.66728283536742
+        ],
+        [
+          3778.87877752719,
+          26.657041244045196
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:5",
+      "xy": [
+        [
+          4545.731668435421,
+          -413.4775188716614
+        ],
+        [
+          4537.374683115747,
+          -419.84474578141635
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:6",
+      "xy": [
+        [
+          4533.395166298391,
+          -422.6304075538135
+        ],
+        [
+          4513.497582204166,
+          -437.35461978200107
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:9",
+      "xy": [
+        [
+          4515.089388931605,
+          -428.20173109984904
+        ],
+        [
+          4517.477099024004,
+          -429.39558614480745
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:11",
+      "xy": [
+        [
+          4521.85456752384,
+          -435.76281305456234
+        ],
+        [
+          4527.425891068634,
+          -438.15052314572046
+        ],
+        [
+          4531.405407888472,
+          -436.95666809952075
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:12",
+      "xy": [
+        [
+          4522.25251920632,
+          -438.5484748269595
+        ],
+        [
+          4521.85456752384,
+          -435.76281305456234
+        ],
+        [
+          4517.477099024004,
+          -429.39558614480745
+        ],
+        [
+          4516.681195659044,
+          -423.4263109175328
+        ],
+        [
+          4519.466857433923,
+          -419.84474578141635
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:16",
+      "xy": [
+        [
+          4590.70020848122,
+          -377.26391582429227
+        ],
+        [
+          4586.720691663865,
+          -380.4475292791697
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031088870:17",
+      "xy": [
+        [
+          4583.537078208988,
+          -376.86596414181196
+        ],
+        [
+          4586.720691663865,
+          -380.4475292791697
+        ],
+        [
+          4589.904305118742,
+          -384.82499777900557
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:0",
+      "xy": [
+        [
+          3762.1648068903246,
+          29.044751335203287
+        ],
+        [
+          3758.185290072969,
+          25.065234516606466
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:4",
+      "xy": [
+        [
+          4531.405407888472,
+          -436.95666809952075
+        ],
+        [
+          4536.578779750786,
+          -430.9873928722462
+        ],
+        [
+          4536.976731433267,
+          -425.0181176449716
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:5",
+      "xy": [
+        [
+          4552.098895342693,
+          -421.8345041900941
+        ],
+        [
+          4554.088653752612,
+          -420.24269746265537
+        ],
+        [
+          4550.109136935256,
+          -415.0693255991002
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:6",
+      "xy": [
+        [
+          4539.364441525666,
+          -404.7225818707484
+        ],
+        [
+          4541.354199933103,
+          -403.52872682579
+        ],
+        [
+          4544.935765070461,
+          -408.3041470068649
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:8",
+      "xy": [
+        [
+          4519.466857433923,
+          -419.84474578141635
+        ],
+        [
+          4526.629987706156,
+          -417.45703569025824
+        ],
+        [
+          4531.803359570952,
+          -418.2529390539776
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:10",
+      "xy": [
+        [
+          4589.506353436262,
+          -382.0393360053672
+        ],
+        [
+          4593.4858702561005,
+          -387.61065955140276
+        ],
+        [
+          4595.475628663537,
+          -386.018852823964
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:11",
+      "xy": [
+        [
+          4585.128884936426,
+          -376.86596414181196
+        ],
+        [
+          4581.1493681190705,
+          -372.4884956419761
+        ],
+        [
+          4583.139126526507,
+          -370.8966889145374
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5681:transportation:4031089170:13",
+      "xy": [
+        [
+          4610.199840892966,
+          -376.86596414181196
+        ],
+        [
+          4612.189599302885,
+          -375.27415741437324
+        ],
+        [
+          4605.82237239313,
+          -368.11102714214024
+        ]
+      ],
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe",
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    }
+  ],
+  "scope": "Fixed original provider bytes/requests; no chosen floor heights, floor oracle, place-specific product code or automatic source acquisition. OSM-derived OpenFreeMap data; URLs/digests retained."
+}
