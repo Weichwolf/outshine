@@ -243,6 +243,7 @@ struct NearestProfile {
 };
 
 struct PressWorkspace {
+  EarthworkStampQuery Query;
   std::vector<NearestProfile> Profiles;
   std::vector<double> WidthsM;
   std::vector<double> ReliefM;
@@ -277,7 +278,8 @@ struct PressWorkspace {
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Profiles.capacity() * sizeof(NearestProfile) +
-           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes();
+           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes() +
+           Query.HeapBytes();
   }
 };
 
@@ -439,7 +441,7 @@ void RejectAt(std::span<const EarthworkStamp> these,
               double mostEarthworkM,
               size_t one,
               PressWorkspace &workspace) {
-  for (const uint32_t which : buckets.At(at[one])) {
+  for (const uint32_t which : buckets.At(at[one], workspace.Query)) {
     const EarthworkStamp &stamp = these[which];
     double outsideM = OutsideRingM(stamp, at[one]);
     double bedM = RoadBedAt(stamp, at[one]);
@@ -477,7 +479,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
              size_t one,
              PressWorkspace &workspace) {
   const Pressing under = PressesAt(these,
-                                   buckets.At(at[one]),
+                                   buckets.At(at[one], workspace.Query),
                                    structures,
                                    at[one],
                                    upM[one],

@@ -3,6 +3,7 @@
 
 #include "Earth.h"
 #include "EarthworkStamp.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -10,27 +11,51 @@
 
 namespace outshine {
 
+struct EarthworkStampQuery {
+  std::vector<uint32_t> Candidates;
+  std::vector<uint32_t> CoarseCandidates;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return (Candidates.capacity() + CoarseCandidates.capacity()) * sizeof(uint32_t);
+  }
+};
+
 class EarthworkStampIndex {
 public:
   EarthworkStampIndex(std::span<const EarthworkStamp> stamps, std::span<const double> widthsM);
 
-  [[nodiscard]] std::span<const uint32_t> At(EastNorth point) const;
+  // Results borrow index storage or caller scratch until its next query.
+  [[nodiscard]] std::span<const uint32_t> At(EastNorth point, EarthworkStampQuery &scratch) const;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
-  [[nodiscard]] static int64_t CellOf(double metres);
-  [[nodiscard]] static uint64_t KeyOf(int64_t east, int64_t north);
-  [[nodiscard]] size_t CellOffset(uint64_t key) const;
-  void Spread(EastNorth low, EastNorth high, uint32_t stamp);
-  void Build();
-  void BuildSparse();
+  struct CellBounds {
+    int64_t LowE = 0, HighE = 0, LowN = 0, HighN = 0;
+    uint32_t Stamp = 0;
+  };
 
-  int64_t LowE_ = 0;
-  int64_t LowN_ = 0;
-  int64_t ColumnCount_ = 0;
-  std::vector<uint64_t> CellKeys_;
-  std::vector<uint32_t> CellOffsets_;
-  std::vector<uint32_t> StampIndices_;
+  struct CellLevel {
+    explicit CellLevel(uint32_t shift = 0) : Shift(shift) {}
+
+    void Add(const CellBounds &bounds, uint32_t stamp);
+    void Build();
+    void BuildSparse();
+    [[nodiscard]] size_t CellOffset(uint64_t key) const;
+    [[nodiscard]] std::span<const uint32_t> At(std::array<int64_t, 2> cell) const;
+    [[nodiscard]] size_t HeapBytes() const noexcept;
+
+    uint32_t Shift = 0;
+    int64_t LowE = 0, LowN = 0, ColumnCount = 0;
+    std::vector<uint64_t> CellKeys;
+    std::vector<uint32_t> CellOffsets;
+    std::vector<uint32_t> StampIndices;
+  };
+
+  [[nodiscard]] static uint32_t ShiftFor(const CellBounds &bounds);
+
+  CellLevel Base_;
+  std::vector<CellLevel> CoarseLevels_;
+  std::vector<CellBounds> CoarseSupports_;
 };
 
 }

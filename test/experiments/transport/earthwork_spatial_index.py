@@ -12,6 +12,7 @@ from outshine_ref.transport.canonical_ports._geodesy import positions_in_frame
 
 CELL_M = 32.0
 MAX_DENSE_CELLS = 1 << 22
+MAX_SUPPORT_ENTRIES = 64
 
 
 def entries(bounds):
@@ -37,6 +38,75 @@ def sorted_lookup(keys, stamps, points):
         high = bisect.bisect_right(ordered_keys, key)
         output.append(tuple(ordered_stamps[low:high]))
     return output
+
+
+def bounded_lookup(bounds, points):
+    lower = np.floor(bounds[:, :2] / CELL_M).astype(np.int64)
+    upper = np.floor(bounds[:, 2:] / CELL_M).astype(np.int64)
+    levels = {}
+    for stamp, (low, high) in enumerate(zip(lower, upper, strict=True)):
+        level = 0
+        while int(np.prod((high >> level) - (low >> level) + 1)) > MAX_SUPPORT_ENTRIES:
+            level += 1
+            if level >= 63:
+                raise ValueError("support exceeds the signed cell-coordinate range")
+        keys, owners = levels.setdefault(level, ([], []))
+        first, last = low >> level, high >> level
+        for east in range(int(first[0]), int(last[0]) + 1):
+            for north in range(int(first[1]), int(last[1]) + 1):
+                keys.append((east, north))
+                owners.append(stamp)
+    indexed = {}
+    for level, (keys, owners) in levels.items():
+        order = sorted(range(len(keys)), key=lambda i: (keys[i], i))
+        indexed[level] = sorted(keys), [owners[i] for i in order]
+    output, visits = [], 0
+    for point in points:
+        cell = np.floor(point / CELL_M).astype(np.int64)
+        candidates = []
+        for level, (keys, owners) in indexed.items():
+            key = tuple(cell >> level)
+            first = bisect.bisect_left(keys, key)
+            last = bisect.bisect_right(keys, key)
+            if level == 0:
+                candidates.extend(owners[first:last])
+                visits += last - first
+                continue
+            for stamp in owners[first:last]:
+                visits += 1
+                if np.all(lower[stamp] <= cell) and np.all(cell <= upper[stamp]):
+                    candidates.append(stamp)
+        output.append(tuple(sorted(candidates)))
+    return output, {
+        "levels": sorted(levels),
+        "bounded_entries": sum(len(keys) for keys, _owners in levels.values()),
+        "coarse_candidate_visits": visits,
+    }
+
+
+def compare_bounded(name, bounds, points):
+    began = time.perf_counter()
+    actual, work = bounded_lookup(bounds, points)
+    elapsed = time.perf_counter() - began
+    lower = np.floor(bounds[:, :2] / CELL_M).astype(np.int64)
+    upper = np.floor(bounds[:, 2:] / CELL_M).astype(np.int64)
+    for point, candidates in zip(points, actual, strict=True):
+        cell = np.floor(point / CELL_M).astype(np.int64)
+        expected = tuple(
+            np.flatnonzero(np.all((lower <= cell) & (cell <= upper), axis=1))
+        )
+        assert candidates == expected, (name, point, candidates, expected)
+    assert work["bounded_entries"] <= MAX_SUPPORT_ENTRIES * len(bounds)
+    return {
+        "name": name,
+        "stamps": len(bounds),
+        "queries": len(points),
+        "fine_materialized_entries": sum(map(int, np.prod(upper - lower + 1, axis=1))),
+        "candidate_visits": sum(map(len, actual)),
+        "sorted_mismatched_queries": 0,
+        "python_bounded_build_and_query_ms": elapsed * 1000,
+        **work,
+    }
 
 
 def compare(name, bounds, points):
@@ -120,6 +190,16 @@ def run():
     reports.append(compare("world-radius-boundaries", bounds, points))
     bounds, points, source_hash = actual_source()
     reports.append(compare("actual-source-segment-aabbs", bounds, points))
+    bounded = [compare_bounded("actual-source-segment-aabbs", bounds, points)]
+    large = np.array(
+        [[0, 0, 70000, 70000], [-100000, -100000, -30000, -30000], [0, 0, 4, 4]]
+    )
+    queries = np.array(
+        [[1, 1], [69999, 69999], [70016, 1], [-99999, -99999], [-29984, -30000], [0, 0]]
+    )
+    bounded.append(compare_bounded("large-supports", large, queries))
+    bounded.append(compare_bounded("large-supports-reversed", large[::-1], queries))
+    bounded.append(compare_bounded("empty", np.empty((0, 4)), np.array([[0, 0]])))
     output = {
         "cell_m": CELL_M,
         "max_dense_cells": MAX_DENSE_CELLS,
@@ -127,6 +207,8 @@ def run():
         "actual_input_scope": "native source axis bounds, half width plus explicit 20m apron",
         "limits": "candidate lookup only; no height solver, native timing or allocator peak",
         "reports": reports,
+        "max_entries_per_support": MAX_SUPPORT_ENTRIES,
+        "bounded_reports": bounded,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(output, indent=2) + "\n")
