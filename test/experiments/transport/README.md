@@ -1271,6 +1271,13 @@ und die bestehenden Rundungs-/Ausgabebudgets bleiben erhalten.
 Vertex-/Rundungstreffer, Flächenabdeckung, Orientierung und ursprüngliche
 Kantenprioren. Verfahrensvergleich und Kosten stehen im verlinkten Fach-Issue.
 
+```sh
+SLICE_COMPARE=$(mktemp -d "${TMPDIR:-/tmp}/outshine-slice-1519.XXXXXX")
+git show 0fc5fe227:lib/src/outshine_ref/transport/port_heights/_slices.py > "$SLICE_COMPARE/baseline_slices.py"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/compare_port_slice_work.py \
+  --baseline "$SLICE_COMPARE/baseline_slices.py" --output "$SLICE_COMPARE/comparison"
+```
+
 Der Solververgleich [#217](https://github.com/Weichwolf/outshine/issues/217) ersetzt
 versuchsweise ausschließlich den Fit-Aufruf: `port_highs_experiment.py` bindet
 HiGHS 1.15.1 mit nachträglichen Konus-Stützebenen in denselben öffentlichen
