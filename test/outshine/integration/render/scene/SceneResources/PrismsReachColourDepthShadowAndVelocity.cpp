@@ -204,6 +204,7 @@ void CheckFacadePartitioning(Core::RuntimeScene &scene,
   CHECK(renderer.SetGeometryLights(std::span(&light, 1), error),
         "the facade has a fixed frontal key");
   Image baseline;
+  std::shared_ptr<const PrismGrid> lastSource;
   for (const uint32_t columns : {1u, 2u, 8u, 128u}) {
     const auto source = std::make_shared<const PrismGrid>(
         PrismGrid{.Samples = std::make_shared<const std::vector<PrismSpan>>(
@@ -214,12 +215,24 @@ void CheckFacadePartitioning(Core::RuntimeScene &scene,
                                .PitchZ = 2}}});
     CHECK(renderer.ReplacePrismGrid(handle, source, instances, *slot),
           "only the cells partitioning one continuous facade change");
+    lastSource = source;
     const auto image = Draw(scene, renderer);
     if (columns == 1) { baseline = image; }
     CHECK(image.Colour == baseline.Colour && image.Normal == baseline.Normal &&
               image.Depth == baseline.Depth,
           "facade filtering and shading are byte stable across 1/2/8/128 coplanar cells");
   }
+  Geometry plainMaterials;
+  CHECK(plainMaterials.addSurface("plain-reference", Material{}),
+        "the reference disables only the facade pattern");
+  const auto plainSlot = renderer.RegisterPieceMaterials(std::move(plainMaterials));
+  CHECK(plainSlot, "the independent plain material is registered");
+  if (!plainSlot) { return; }
+  CHECK(renderer.ReplacePrismGrid(handle, lastSource, instances, *plainSlot),
+        "the pattern comparison retains actual geometry, pose, camera and light");
+  const auto plain = Draw(scene, renderer);
+  CHECK(plain.Colour != baseline.Colour && plain.Depth == baseline.Depth,
+        "the actual coating filter changes colour independently of lighting and geometry");
   CHECK(baseline.Colour.size() == kPixels * 4 && baseline.Depth.size() == kPixels,
         "the actual facade control has complete outputs");
   if (baseline.Colour.size() != kPixels * 4 || baseline.Depth.size() != kPixels) { return; }
@@ -233,7 +246,7 @@ void CheckFacadePartitioning(Core::RuntimeScene &scene,
     maximum = std::max(maximum, baseline.Colour[i * 4]);
   }
   CHECK(visible > 0 && maximum - minimum > 1e-4f,
-        "the visible facade signal has actual filtered contrast rather than a flat substitute");
+        "the visible lit facade has nontrivial colour contrast");
 }
 
 Geometry NativeMaterialOwner() {
