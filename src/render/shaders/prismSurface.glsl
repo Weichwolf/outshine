@@ -1,6 +1,7 @@
 #include "prismView.glsl"
 #include "prismTrace.glsl"
 #include "prismDifferentialVaryings.glsl"
+#include "surfaceNormal.glsl"
 
 SurfaceDifferential prismSurfaceDifferential(vec3 localChange, mat3 current, vec3 u, vec3 v) {
   SurfaceDifferential result;
@@ -28,7 +29,7 @@ bool readPrismSurface() {
   groundWorldM = vec3(stable.x, stable.y, -stable.z);
   lightSpace = prismView.lightFromWorld * world;
   colour = vec4(1.0);
-  normal = normalize(transpose(inverse(mat3(gridPatch.current))) * localNormal);
+  normal = transformedSurfaceNormal(mat3(gridPatch.current), localNormal);
   vec3 u, v;
   prismSurfaceAxes(localNormal, u, v);
 #if SURFACE_BASE_LOCATION == 0
