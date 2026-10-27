@@ -16,7 +16,7 @@
 #include <vector>
 
 namespace {
-class DelayedWire final : public outshine::Data::Transport {
+class DelayedWire final : public outshine::Data::SourceTransport {
 public:
   std::atomic<double> ClockMs{0};
   std::atomic<bool> Released{false};

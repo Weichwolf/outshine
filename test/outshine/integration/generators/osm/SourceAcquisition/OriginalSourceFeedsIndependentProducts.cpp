@@ -6,6 +6,7 @@
 
 #include <array>
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -46,7 +47,10 @@ int main() {
       .Missing = Data::MissingDataPolicy::Fail,
       .Dataset = "original",
       .Location = path.string(),
-      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
+      .Endpoint = {},
+      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1},
+      .PayloadSha256 = {},
+      .Schema = {}}};
   Tasks tasks(1);
   Tasks io(1);
   outshine::Generators::Osm::SourceAcquisition loader({.Compute = tasks, .Io = io});

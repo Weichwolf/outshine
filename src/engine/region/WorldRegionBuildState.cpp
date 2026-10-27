@@ -130,7 +130,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   build.RimsMissing = static_cast<size_t>(region.MissingRims);
   build.GroundSurface = MaterialInstance(region.GroundSurface);
   build.GroundMaterial = build.Ground.surfaceAt(build.GroundSurface);
-  build.Sheets.Framed(TangentFrame::At(region.Anchor));
+  build.TerrainSurface.SetFrame(TangentFrame::At(region.Anchor));
   Candidate_.Grounding(region.GroundAlbedo);
   return true;
 }

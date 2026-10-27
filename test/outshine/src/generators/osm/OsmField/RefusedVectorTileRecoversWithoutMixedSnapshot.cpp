@@ -1,3 +1,5 @@
+#include <utility>
+#include <cstdint>
 #include "TilePool.h"
 #include "OsmField.h"
 #include "SourceSet.h"
@@ -16,15 +18,15 @@ namespace {
 using namespace outshine;
 using namespace outshine::Data;
 
-class ClockTransport final : public Transport {
+class ClockTransport final : public SourceTransport {
 public:
   std::atomic<double> Now{0.0};
 
-  FetchStart Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
   double NowMs() override { return Now.load(); }
 };
@@ -41,20 +43,27 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
-
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
-    return Calls.fetch_add(1) == 0 ? SourceResponse::Meant(Meaning::Refused)
-                                   : SourceResponse::Delivered(Bytes);
+  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
   }
 
-  mutable std::atomic<int> Calls{0};
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
+    return Calls_.fetch_add(1) == 0 ? SourceResponse::Meant(Meaning::Refused)
+                                    : SourceResponse::Delivered(Bytes);
+  }
+
+  [[nodiscard]] int Attempts() const noexcept { return Calls_.load(); }
 
 private:
+  mutable std::atomic<int> Calls_{0};
   SourceDecl Decl;
   std::vector<uint8_t> Bytes;
 };
@@ -109,7 +118,7 @@ int main() {
   transport.Now.store(5000.0);
   CHECK(BuildUntil(field, pool, [&] { return field.Settled(1, 1); }),
         "the new centre recovers after backoff");
-  CHECK(probe->Calls.load() == 2 && field.Generation() > prior && field.Tiles().size() == 1 &&
+  CHECK(probe->Attempts() == 2 && field.Generation() > prior && field.Tiles().size() == 1 &&
             field.Tiles()[0].X == 1 && field.Tiles()[0].Y == 1 && field.OfTile(0).size() == 1 &&
             field.Tiles()[0].Source.From == Data::TileSourceIdentity::Origin::Provider &&
             field.Tiles()[0].Source.Revision == "r1" && field.PendingTiles() == 0 &&

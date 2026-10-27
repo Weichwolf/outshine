@@ -1,3 +1,4 @@
+#include <utility>
 #include "TilePool.h"
 #include "SourceSet.h"
 #include "Check.h"
@@ -11,15 +12,15 @@
 namespace {
 using namespace outshine::Data;
 
-class PendingTransport final : public Transport {
+class PendingTransport final : public SourceTransport {
 public:
-  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(1); }
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(1); }
 
-  Wire Collect(Ticket) override { return Wire::Never(); }
+  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 
-  bool Await(double) override {
+  bool Await(double /*deadlineMs*/) override {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     return false;
   }
@@ -37,15 +38,19 @@ public:
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address & /*address*/, SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     ++Polls;
     return SourceResponse::Working();
   }

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include "Check.h"
 #include "TreeMesher.h"
 
@@ -27,7 +28,9 @@ int main() {
       {.First = 0, .Count = 2, .Sides = 8, .Reach = 1.1f},
       {.Parent = 0, .ParentNode = 1, .First = 2, .Count = 2, .Sides = 8, .Reach = 0.31f}};
   TreeMesher mesher;
-  TreeMesh coarse, fine, unbounded;
+  TreeMesh coarse;
+  TreeMesh fine;
+  TreeMesh unbounded;
   mesher.Draw(plant, 0.001f, coarse);
   mesher.Draw(plant, 0.00001f, fine);
   mesher.Draw(plant, 0, unbounded);

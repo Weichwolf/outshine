@@ -64,13 +64,14 @@ std::string CopernicusDemSource::Url(const Data::Address &at) const {
   return Decl_.Endpoint + name + '/' + name + ".tif";
 }
 
-Data::FetchStart CopernicusDemSource::Begin([[maybe_unused]] const Data::Address &at,
-                                            [[maybe_unused]] Data::Transport &transport) const {
+Data::FetchStart
+CopernicusDemSource::Begin([[maybe_unused]] const Data::Address &at,
+                           [[maybe_unused]] Data::SourceTransport &transport) const {
   return std::unexpected(Data::SourceFailureReason::InvalidRequest);
 }
 
 Data::FetchStart CopernicusDemSource::Begin(const Data::SourceRequest &request,
-                                            Data::Transport &transport) const {
+                                            Data::SourceTransport &transport) const {
   const auto &range = request.Range();
   if (!range || Covers(request) != Data::Coverage::Inside || !range->Valid() ||
       (!request.EntityTag().empty() && !Data::StrongEntityTag(request.EntityTag()))) {
@@ -84,7 +85,7 @@ Data::FetchStart CopernicusDemSource::Begin(const Data::SourceRequest &request,
 
 Data::SourceResponse CopernicusDemSource::Collect([[maybe_unused]] const Data::Address &at,
                                                   Data::Ticket ticket,
-                                                  Data::Transport &transport) const {
+                                                  Data::SourceTransport &transport) const {
   auto wire = transport.Collect(ticket);
   switch (wire.Where()) {
     case Data::Wire::State::Working: return Data::SourceResponse::Working();

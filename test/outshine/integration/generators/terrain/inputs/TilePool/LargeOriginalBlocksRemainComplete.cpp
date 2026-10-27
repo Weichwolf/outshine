@@ -10,32 +10,39 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Ground;
 
-class OriginalBlocks final : public Transport {
+class OriginalBlocks final : public SourceTransport {
 public:
   explicit OriginalBlocks(Test::NativeCogProfile profile)
-      : Bytes_(Test::NativeCog({47, 10}, false, profile)) {}
+      : Bytes_(Test::NativeCog({.SouthDeg = 47, .WestDeg = 10}, false, profile)) {}
 
-  FetchStart Begin(const std::string &) override {
+  FetchStart Begin(const std::string & /*url*/) override {
     return std::unexpected(SourceFailureReason::InvalidRequest);
   }
 
   FetchStart Begin(const std::string &url, ByteRange range, std::string_view tag) override {
     const std::scoped_lock lock(Mutex_);
-    CHECK(url.find("Copernicus_DSM_COG_10_N47_00_E010_00_DEM") != std::string::npos &&
+    CHECK(url.contains("Copernicus_DSM_COG_10_N47_00_E010_00_DEM") &&
               (tag.empty() || tag == "\"original-native\""),
           "built-in provider uses the original cell and pins subsequent ranges");
-    LargestRange.store(std::max(LargestRange.load(), range.Length));
-    const Ticket ticket{static_cast<uint64_t>(++Begins)};
+    LargestRange_.store(std::max(LargestRange_.load(), range.Length));
+    const Ticket ticket{static_cast<uint64_t>(++Begins_)};
     Requests_.emplace(ticket, range);
     return ticket;
   }
@@ -60,10 +67,13 @@ public:
     Requests_.erase(ticket);
   }
 
-  std::atomic<int> Begins{0};
-  std::atomic<uint64_t> LargestRange{0};
+  [[nodiscard]] int Begins() const noexcept { return Begins_.load(); }
+
+  [[nodiscard]] uint64_t LargestRange() const noexcept { return LargestRange_.load(); }
 
 private:
+  std::atomic<int> Begins_{0};
+  std::atomic<uint64_t> LargestRange_{0};
   std::mutex Mutex_;
   std::map<Ticket, ByteRange> Requests_;
   const std::vector<uint8_t> Bytes_;
@@ -88,13 +98,16 @@ int main() {
   using namespace outshine::Test;
   for (const auto profile :
        {NativeCogProfile::LargeBlock, NativeCogProfile::LargeBlockOverlapsHeader}) {
-    RawSourceCache store({.Using = RawSourceCache::Use::Off});
+    RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>()) ==
               SourceSet::Registration::Accepted,
           "large original native fixture registers through the public provider contract");
     OriginalBlocks http(profile);
-    TilePool pool({.ByteBudget = 8u * 1024 * 1024, .DecodedBytes = 8u * 1024 * 1024, .Carriers = 1},
+    TilePool pool({.ByteBudget = static_cast<size_t>(8u * 1024) * 1024,
+                   .DecodedBytes = static_cast<size_t>(8u * 1024) * 1024,
+                   .Carriers = 1,
+                   .PreparedFields = {}},
                   sources,
                   http);
     const TileId at{.Zoom = 14, .X = 8652, .Y = 5745};
@@ -102,7 +115,7 @@ int main() {
     std::optional<SourceFailure> failure;
     CHECK(Field(pool, at, field, failure) == TilePool::Reply::Ready && field && !failure,
           "terrain accepts a valid block larger than libtiff's individual reads");
-    CHECK(http.LargestRange > 1024u * 1024,
+    CHECK(http.LargestRange() > uint64_t{1024} * 1024,
           "acquisition batches the complete missing encoded block interval");
     if (!field) { continue; }
     double largest = 0;
@@ -118,9 +131,10 @@ int main() {
     }
     CHECK(largest < 0.0001,
           "complete block decoding retains the independently defined geographic plane");
-    const int before = http.Begins;
+    const int before = http.Begins();
     std::shared_ptr<const TerrainField> warm;
-    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm && http.Begins == before,
+    CHECK(Field(pool, at, warm, failure) == TilePool::Reply::Ready && warm &&
+              http.Begins() == before,
           "resident decoded terrain starts no additional source IO");
   }
   return Report();

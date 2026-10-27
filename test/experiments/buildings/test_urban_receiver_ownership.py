@@ -11,6 +11,7 @@ from urban_parent_conditional import grid
 from urban_parent_layer import render_layer
 from urban_parent_light import light_at
 from urban_receiver_test_scenes import fixture, one_box
+from urban_sampled_layer import render_sampled_layer
 
 
 class ReceiverOwnershipTest(unittest.TestCase):
@@ -263,6 +264,21 @@ class ReceiverOwnershipTest(unittest.TestCase):
             before,
             {k: a.tobytes() for k, a in resolved.items() if isinstance(a, np.ndarray)},
         )
+
+    def test_sampled_consumer_preserves_the_same_receiver_fact(self):
+        parent, _, o, d, profile = one_box()
+        whole = np.array([[[0, 0], [1, 1]]])
+        args = {
+            "receiver_normals": np.array([[0.0, 0.0, 1.0]]),
+            "primary_covered": whole,
+            "receiver_cells": np.array([[0, 0]]),
+        }
+        actual = render_sampled_layer(
+            parent, o, d, profile, np.array([44.0]), samples=4, **args
+        )
+        np.testing.assert_array_equal(actual[0], 0)
+        np.testing.assert_array_equal(actual[1], 1)
+        np.testing.assert_array_equal(actual[2], 1)
 
 
 if __name__ == "__main__":

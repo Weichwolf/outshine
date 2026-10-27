@@ -1,3 +1,8 @@
+#include <utility>
+#include <string>
+#include <memory>
+#include <cstdint>
+#include <cstddef>
 #include "GroundPatchPreparation.h"
 #include "Check.h"
 #include "SourceSet.h"
@@ -20,17 +25,18 @@ public:
 
   GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*spot*/) const override {
     ++Blocks;
     return {};
   }
 
-  double PostM(double) const override { return Region.SpanNm() / 4; }
+  double PostM(double /*latitudeDeg*/) const override { return Region.SpanNm() / 4; }
 
   int BlockZoom() const override { return Region.Zoom() + 1; }
 
   Tile Region;
-  mutable size_t Samples = 0, Blocks = 0;
+  mutable size_t Samples = 0;
+  mutable size_t Blocks = 0;
   bool Waiting = false;
 };
 
@@ -57,7 +63,7 @@ int main() {
                     ("outshine-ground-patch-job-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   const auto region = Tile::Of(14, {.LongitudeDeg = 16.3738, .LatitudeDeg = 48.2082});
   const Data::TileId at{.Zoom = region.Zoom(),
                         .X = static_cast<uint32_t>(region.X()),
@@ -70,7 +76,7 @@ int main() {
   std::shared_ptr<const GroundPatch> reference;
   {
     Tasks pool(1);
-    Heights heights(region);
+    const Heights heights(region);
     GroundPatchPreparation cold(pool, assets, key, region, 5);
     reference = Await(cold, heights);
     CHECK(reference && heights.Samples == 25 && heights.Blocks == 0 &&

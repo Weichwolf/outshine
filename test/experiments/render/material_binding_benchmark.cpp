@@ -11,12 +11,12 @@ namespace {
 void Measure(size_t count, std::string_view mode) {
   using namespace outshine;
   std::vector<Material> surfaces(count);
-  std::vector<Render::ShapePart> parts(mode == "unused" ? 0 : count);
+  std::vector<Render::RenderGeometryPart> parts(mode == "unused" ? 0 : count);
   for (size_t at = 0; at < parts.size(); ++at) {
     parts[at].Material = static_cast<int>(mode == "repeated" ? at % 8 : (at * 17) % count);
   }
   Render::SurfaceTable table;
-  Render::Shape shape;
+  Render::RenderGeometryView shape;
   shape.Parts = parts;
   shape.Surfaces = surfaces;
   const auto began = std::chrono::steady_clock::now();

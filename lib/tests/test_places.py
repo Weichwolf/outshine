@@ -162,23 +162,23 @@ class PlaceHeightTests(unittest.TestCase):
 
 class PlaceSourceTests(unittest.TestCase):
     def test_retained_bytes_no_automatic_network_refresh_and_pinned_hash(self):
-        subject = "vector", (1, 1, 1), "https://example.test/1/1/1.pbf"
+        source = "vector", (1, 1, 1), "https://example.test/1/1/1.pbf"
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             with patch(
                 "outshine_ref.places.sources.subprocess.check_output",
                 return_value=b"source\n200",
             ) as network:
-                first = acquire(subject, root, fetch=True)
+                first = acquire(source, root, fetch=True)
                 self.assertEqual(network.call_count, 1)
             with patch(
                 "outshine_ref.places.sources.subprocess.check_output"
             ) as network:
-                second = acquire(subject, root, fetch=True)
+                second = acquire(source, root, fetch=True)
                 network.assert_not_called()
             self.assertEqual(first["sha256"], second["sha256"])
             self.assertEqual(receipt_bytes(second), b"source")
             with self.assertRaises(ValueError):
-                acquire(subject, root, max_bytes=2)
+                acquire(source, root, max_bytes=2)
 
     def test_explicit_404_and_failure_budget_leave_no_payload(self):
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
@@ -198,17 +198,19 @@ class PlaceSourceTests(unittest.TestCase):
                         root,
                         fetch=True,
                     )
-            with patch(
-                "outshine_ref.places.sources.subprocess.check_output",
-                return_value=b"long source\n200",
+            with (
+                patch(
+                    "outshine_ref.places.sources.subprocess.check_output",
+                    return_value=b"long source\n200",
+                ),
+                self.assertRaises(ValueError),
             ):
-                with self.assertRaises(ValueError):
-                    acquire(
-                        ("vector", (0, 0, 0), "https://example.test/map"),
-                        root,
-                        fetch=True,
-                        max_bytes=2,
-                    )
+                acquire(
+                    ("vector", (0, 0, 0), "https://example.test/map"),
+                    root,
+                    fetch=True,
+                    max_bytes=2,
+                )
             self.assertEqual(list(Path(root).rglob("*.pbf")), [])
 
     def test_geography_retains_buffered_extent_and_source_windows_wrap(self):

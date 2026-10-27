@@ -9,11 +9,6 @@
 #include <string_view>
 
 namespace outshine::Generators {
-struct RoadPagePartAppearance {
-  RoadPagePart Part;
-  Vec3f WearsLinear;
-};
-
 // Borrows a validated complete plan during meshing; the result owns its buffers.
 [[nodiscard]] std::expected<RoadPageGeometry, std::string_view>
 MeshTransportRoadPage(const RoadMesher &mesher,

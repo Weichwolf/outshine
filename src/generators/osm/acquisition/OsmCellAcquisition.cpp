@@ -20,7 +20,7 @@ struct CellAcquisition::Impl {
 
   Data::SourceProvider Catalogue;
   Data::RawSourceCache &Store;
-  Data::Transport &Wire;
+  Data::SourceTransport &Wire;
   const Data::ProviderRegistry *Registry;
   std::string ShippedRoot;
   std::vector<Pending> Queries;
@@ -28,7 +28,7 @@ struct CellAcquisition::Impl {
 
 CellAcquisition::CellAcquisition(Data::SourceProvider catalogue,
                                  Data::RawSourceCache &store,
-                                 Data::Transport &wire,
+                                 Data::SourceTransport &wire,
                                  const Data::ProviderRegistry *registry,
                                  std::string shippedRoot)
     : Impl_(std::make_unique<Impl>(Impl{.Catalogue = std::move(catalogue),

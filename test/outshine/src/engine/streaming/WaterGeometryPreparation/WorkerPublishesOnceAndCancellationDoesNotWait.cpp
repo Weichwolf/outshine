@@ -12,7 +12,12 @@ int main() {
   Tasks pool(1);
   const Generators::WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 10}},
                                        .Rings = {{.FirstPoint = 0, .PointCount = 3}},
-                                       .Points = {-.001, -.001, -.001, .001, .001, 0}});
+                                       .Courses = {},
+                                       .Levels = {},
+                                       .Points = {-.001, -.001, -.001, .001, .001, 0},
+                                       .Tiles = {},
+                                       .Sources = {},
+                                       .Inputs = {}});
   WaterGeometryPreparation worker(pool, source, TangentFrame::At({}));
   CHECK(worker.Matches(source) && !worker.Matches(Generators::WaterAsset{}),
         "a worker cannot publish for a replaced input snapshot");
@@ -24,7 +29,8 @@ int main() {
             result->value().Water.SharesInputsWith(source) && result->value().WorkerMs >= 0,
         "worker publishes ready geometry bound to its immutable source snapshot");
   CHECK(!worker.Collect(), "the completed product is collected exactly once");
-  std::binary_semaphore started(0), release(0);
+  std::binary_semaphore started(0);
+  std::binary_semaphore release(0);
   const auto blocker = pool.Post([&] {
     started.release();
     release.acquire();

@@ -16,7 +16,12 @@ WaterAsset Source(bool hole = false) {
   WaterAsset::Data data{
       .Surfaces = {{.FirstRing = 0, .RingCount = 1}, {.FirstRing = 0, .RingCount = 1}},
       .Rings = {{.FirstPoint = 0, .PointCount = 4}},
-      .Points = {-1, -1, -1, 1, 1, 1, 1, -1}};
+      .Courses = {},
+      .Levels = {},
+      .Points = {-1, -1, -1, 1, 1, 1, 1, -1},
+      .Tiles = {},
+      .Sources = {},
+      .Inputs = {}};
   if (hole) {
     data.Surfaces[0].RingCount = 2;
     data.Rings.push_back({.FirstPoint = 4, .PointCount = 4});
@@ -27,11 +32,12 @@ WaterAsset Source(bool hole = false) {
 
 WaterSurfaceTopology Topology(std::array<double, 2> origin = {1, 0}) {
   const double next = std::nextafter(origin[0], std::numeric_limits<double>::infinity());
-  return {.VerticesXY = {origin,
+  return {.Anchor = {},
+          .VerticesXY = {origin,
                          {next, origin[1]},
                          {origin[0] + 1, origin[1] + 1},
                          {origin[0] - 1, origin[1] + 1}},
-          .Faces = {{{0, 1, 2}, 0}, {{0, 2, 3}, 0}},
+          .Faces = {{.Vertices = {0, 1, 2}, .Surface = 0}, {.Vertices = {0, 2, 3}, .Surface = 0}},
           .FaceSourceOffsets = {0, 1, 2},
           .FaceSources = {0, 0}};
 }
@@ -75,7 +81,8 @@ int main() {
   CHECK(exponent && exponent->ContractedEdges == 0,
         "two binary64 steps below a power of two cannot use the wider spacing above it");
   topology = Topology();
-  const auto bounded = ContractWaterRoundoffEdges(water, frame, topology, {.Edges = 0});
+  const auto bounded =
+      ContractWaterRoundoffEdges(water, frame, topology, {.Edges = 0, .ProtectedVertices = {}});
   CHECK(!bounded && bounded.error() == WaterTopologyError::CapacityExceeded,
         "needed repair cannot silently exceed the declared work limit");
   const auto island = Source(true);

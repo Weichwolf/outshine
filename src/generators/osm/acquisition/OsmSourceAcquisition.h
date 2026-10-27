@@ -4,7 +4,7 @@
 #include "OsmSourceSnapshot.h"
 #include "OsmCellProduct.h"
 #include "OsmChunkSetLoader.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Tasks.h"
 #include <SourceProvider.h>
 #include <Provider.h>
@@ -52,7 +52,7 @@ public:
   };
 
   explicit SourceAcquisition(Workers workers,
-                             Data::Transport *wire = nullptr,
+                             Data::SourceTransport *wire = nullptr,
                              std::string cacheDirectory = {},
                              std::shared_ptr<const CellCompiler> compiler = {});
 

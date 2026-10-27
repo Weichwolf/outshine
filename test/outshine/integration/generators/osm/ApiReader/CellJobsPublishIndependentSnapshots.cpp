@@ -1,19 +1,22 @@
 #include "OsmProviderValidation.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "Sha256.h"
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 
@@ -27,7 +30,7 @@ std::string Xml(size_t version) {
          "<tag k='type' v='multipolygon'/></relation></osm>";
 }
 
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   size_t Starts = 0, Peak = 0, Canceled = 0;
   double ClockMs = 0;
@@ -35,7 +38,7 @@ public:
   std::stop_source *Stop = nullptr;
   std::map<outshine::Data::Ticket, double> Active;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     const auto ticket = static_cast<outshine::Data::Ticket>(++Starts);
     Active.emplace(ticket, ClockMs + (Starts % 2 == 0 ? 5 : 10));
     Peak = std::max(Peak, Active.size());
@@ -59,7 +62,7 @@ public:
 
   bool Await(double ms) override {
     ClockMs += ms;
-    if (Stop) { (void)Stop->request_stop(); }
+    if (Stop != nullptr) { (void)Stop->request_stop(); }
     return false;
   }
 };
@@ -107,12 +110,15 @@ int main() {
                                 .Revision = "cell-job-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
   const auto cold =
@@ -121,13 +127,13 @@ int main() {
             cold->ElapsedMs == 10,
         "one finite cell job uses two overlapping requests and wall-clock acquisition time");
   if (cold && cold->Chunks.size() == 2) { CheckSnapshots(*cold, cells, false); }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm = outshine::Generators::Osm::ReadCells(
       provider, cells, store, offline, offline.NowMs() + 1000, {}, &registry);
   CHECK(warm && warm->Chunks.size() == 2, "received cell bytes reload offline");
   if (warm && warm->Chunks.size() == 2) { CheckSnapshots(*warm, cells, true); }
 
-  RawSourceCache uncached({.Using = RawSourceCache::Use::Off});
+  RawSourceCache uncached({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const std::array excessive{cells[0], cells[1], GeoCellId{.Level = 9, .X = 271, .Y = 411}};
   const std::array duplicate{cells[0], cells[0]};
   const std::array invalid{cells[0], GeoCellId{.Level = 8}};

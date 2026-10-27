@@ -1,3 +1,6 @@
+#include <string>
+#include <cstdint>
+#include <array>
 #include "Check.h"
 #include "ClippedWaterFixture.h"
 
@@ -13,8 +16,8 @@ int main() {
   for (const uint64_t id : {uint64_t{0}, std::numeric_limits<uint64_t>::max()}) {
     for (const bool reverse : {false, true}) {
       OsmField field(2, layers);
-      const auto left = VectorTile(id, "dock", leftShape),
-                 right = VectorTile(id, "dock", rightShape);
+      const auto left = VectorTile(id, "dock", {.Exterior = leftShape, .Hole = {}});
+      const auto right = VectorTile(id, "dock", {.Exterior = rightShape, .Hole = {}});
       const auto first = reverse ? field.Accept(2, 1, right) : field.Accept(1, 1, left);
       const auto second = reverse ? field.Accept(1, 1, left) : field.Accept(2, 1, right);
       CHECK(first && second, "neighboring clipped water fragments decode in either arrival order");
@@ -35,8 +38,10 @@ int main() {
   }
   for (const bool buffered : {false, true}) {
     OsmField field(2, layers);
-    const auto left = VectorTile(42, "lake", Rectangle(20, 10, buffered ? 80 : 64, 50));
-    const auto right = VectorTile(42, "lake", Rectangle(buffered ? -8 : 0, 20, 30, 40));
+    const auto left =
+        VectorTile(42, "lake", {.Exterior = Rectangle(20, 10, buffered ? 80 : 64, 50), .Hole = {}});
+    const auto right =
+        VectorTile(42, "lake", {.Exterior = Rectangle(buffered ? -8 : 0, 20, 30, 40), .Hole = {}});
     CHECK(field.Accept(1, 1, left) && field.Accept(2, 1, right), "buffered source accepted");
     WaterField water;
     Finish(water, field);
@@ -45,8 +50,8 @@ int main() {
           "buffer overlap and exact clipping edges both preserve physical connectivity");
   }
   OsmField horizontal(2, layers);
-  const auto north = VectorTile(42, "lake", Rectangle(10, 20, 50, 64));
-  const auto south = VectorTile(42, "lake", Rectangle(20, 0, 40, 30));
+  const auto north = VectorTile(42, "lake", {.Exterior = Rectangle(10, 20, 50, 64), .Hole = {}});
+  const auto south = VectorTile(42, "lake", {.Exterior = Rectangle(20, 0, 40, 30), .Hole = {}});
   CHECK(horizontal.Accept(1, 1, north) && horizontal.Accept(1, 2, south),
         "north and south fragments accepted");
   WaterField acrossLatitude;

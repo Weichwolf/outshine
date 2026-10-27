@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "streaming/TerrainResidency.h"
 #include "RuntimeScene.h"
@@ -34,7 +35,7 @@ int main() {
                               .Postings = Render::TerrainLattice::kSide});
       TerrainResidency terrain;
       terrain.Into(&renderer);
-      CHECK(terrain.Publish(patch, frame, error), error.c_str());
+      CHECK(PublishTerrain(terrain, patch, frame, error), error.c_str());
       const auto initial = terrain.SurfaceIdentity(tile, 1);
       const auto height = terrain.HeightMAt(point);
       CHECK(initial && height, "published samples provide both content identity and local height");
@@ -54,7 +55,7 @@ int main() {
               "copying a pending publication preserves old queries and pending visibility");
       }
       patch.Sheets.front().Nodes.assign(Render::TerrainLattice::kPageNodes, 9);
-      CHECK(terrain.Publish(patch, frame, error), error.c_str());
+      CHECK(PublishTerrain(terrain, patch, frame, error), error.c_str());
       CHECK(terrain.SurfaceIdentity(tile, 1) != initial && terrain.HeightMAt(point) != height,
             "replacement publishes its own changed sample buffer");
       CHECK(snapshot.SurfaceIdentity(tile, 1) == initial && snapshot.HeightMAt(point) == height,

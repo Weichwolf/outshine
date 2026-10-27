@@ -2,7 +2,9 @@
 #include "TerrainTiles.h"
 
 #include <array>
+#include <cstdint>
 #include <limits>
+#include <utility>
 #include <variant>
 
 namespace {
@@ -40,7 +42,8 @@ int main() {
   TerrainField original(4, 4);
   original.SetM(1, 2, Meters::Height(at, 1, 2));
   const auto *allocation = original.Data();
-  auto delivered = TerrainBytes::From(at, std::move(original), {.Tile = at});
+  auto delivered =
+      TerrainBytes::From(at, std::move(original), {.Tile = at, .SourceId = {}, .Revision = {}});
   auto payload = delivered.Take();
   CHECK(payload && std::get<TerrainField>(payload->Samples).Data() == allocation,
         "native terrain delivery transfers its float allocation without encoding or copying");
@@ -50,7 +53,7 @@ int main() {
   const auto *field = stitched.TryField();
   CHECK(field && field->Rows() == 4 && field->Cols() == 4 && !field->HasMissingBoundary(),
         "native meters use the existing complete-neighbour terrain stitching path");
-  if (field) {
+  if (field != nullptr) {
     for (uint32_t row = 0; row < 4; ++row) {
       for (uint32_t col = 0; col < 4; ++col) {
         CHECK(field->AtM(row, col) == Meters::Height(at, row, col),

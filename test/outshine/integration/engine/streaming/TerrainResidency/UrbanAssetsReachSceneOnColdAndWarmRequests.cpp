@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include <cstdint>
 #include "TerrainLattice.h"
 #include "Check.h"
@@ -67,7 +68,8 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
   TerrainResidency terrain;
   terrain.Into(&renderer);
   std::string error;
-  CHECK(terrain.Publish(patch, frame, error), "the consumer uses a published terrain surface");
+  CHECK(PublishTerrain(terrain, patch, frame, error),
+        "the consumer uses a published terrain surface");
   const auto database = (directory / "assets.sqlite").string();
   {
     Fixture fixture(directory, Availability::Ready);

@@ -6,9 +6,15 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  const std::array events{Scenario::Event{.Name = "dwelled"}};
-  const std::array volumes{Scenario::Volume{
-      .Shape = "box", .ExtentM = {1, 1, 1}, .Fires = "dwelled", .When = "dwell", .DwellS = 2}};
+  const std::array events{Scenario::Event{.Name = "dwelled", .Carries = {}}};
+  const std::array volumes{Scenario::Volume{.Id = {},
+                                            .In = {},
+                                            .Shape = "box",
+                                            .AtM = {},
+                                            .ExtentM = {1, 1, 1},
+                                            .Fires = "dwelled",
+                                            .When = "dwell",
+                                            .DwellS = 2}};
   auto field = TriggerField::Stand(volumes, events);
   CHECK(field.has_value(), "dwell field prepared");
   if (!field) { return Report(); }
@@ -16,13 +22,13 @@ int main() {
   CHECK(field->Probe(body, {}, 1).has_value(), "occupancy begins at time one");
   const double nan = std::numeric_limits<double>::quiet_NaN();
   const double infinity = std::numeric_limits<double>::infinity();
-  for (double bad : {nan, infinity, -1.0, 0.5}) {
+  for (const double bad : {nan, infinity, -1.0, 0.5}) {
     const auto result = field->Probe(body, {10, 0, 0}, bad);
     CHECK(!result && result.error() == TriggerField::ProbeError::InvalidTime,
           "invalid time cannot remove an occupant");
   }
   for (int axis = 0; axis < 3; ++axis) {
-    for (double bad : {nan, infinity, -infinity}) {
+    for (const double bad : {nan, infinity, -infinity}) {
       Vec3 position;
       position[axis] = bad;
       const auto result = field->Probe(body, position, 100);

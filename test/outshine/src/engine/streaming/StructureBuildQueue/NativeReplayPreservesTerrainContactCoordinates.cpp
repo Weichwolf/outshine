@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
@@ -54,7 +54,7 @@ outshine::Test::Mvt::Bytes BuildingTile(bool twoCells) {
   return tile;
 }
 
-class Transport final : public outshine::Data::Transport {
+class ReplaySourceTransport final : public outshine::Data::SourceTransport {
 public:
   bool TwoCells = false;
 
@@ -227,7 +227,7 @@ void CheckPublication(SurfacePreparation &stack,
   const bool warm = terrain.Warm;
   const size_t coordinateCount = initialCells ? 20 : 12;
   const size_t sourceCount = initialCells ? 2 : 1;
-  auto &prints = stack.Footprints();
+  const auto &prints = stack.Footprints();
   CHECK(landed && prints.FootprintCount() == sourceCount, "the complete footprints land once");
   CHECK(warm || terrain.Fields.size() > 1,
         "cold input crosses multiple height fields delivered on separate pumps");
@@ -270,13 +270,13 @@ void Replay(const std::filesystem::path &directory,
   providers[1].Kind = "vector";
   providers[1].Dataset = "fixture.native-replay";
   providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
-  Transport wire;
+  ReplaySourceTransport wire;
   wire.TwoCells = initialCells;
   SilentSink sink;
   Tasks compute(1);
   SurfacePreparation stack;
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   CHECK(stack.Open({.BuiltinData = "data",
                     .Sources = (directory / "sources").string(),
                     .Assets = (directory / "assets").string()},

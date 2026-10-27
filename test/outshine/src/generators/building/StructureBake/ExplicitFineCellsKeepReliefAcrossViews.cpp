@@ -3,6 +3,7 @@
 #include "src/generators/building/BuildingMesh.h"
 #include "src/generators/building/StructureBake.h"
 #include <array>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
@@ -15,7 +16,8 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "housing receives a valid native cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 9});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 9, .WallColour = {}, .Facade = {}});
   raw.RequestedDetail = LevelOfDetail::Fine;
   raw.RequestedCell = cell->Index;
   raw.TileSpanM = 1000;
@@ -25,7 +27,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   std::array<size_t, 3> triangles{};
   for (size_t mode = 0; mode < triangles.size(); ++mode) {
     raw.Eye = {.LongitudeDeg = mode == 0 ? 9 : 9.02, .LatitudeDeg = 47};

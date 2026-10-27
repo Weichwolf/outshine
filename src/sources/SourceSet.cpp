@@ -151,7 +151,7 @@ SourceSet::Query SourceSet::Ask(const SourceRequest &request) const {
   return query;
 }
 
-SourceDelivery SourceSet::Collect(Query &query, Transport &transport) {
+SourceDelivery SourceSet::Collect(Query &query, SourceTransport &transport) {
   if (query.Phase_ == Query::Phase::Finished) { return SourceDelivery::Consumed(); }
   if (query.Owner_ != this) { return SourceDelivery::WireAfter(kRetryCapMs); }
   if (query.Phase_ == Query::Phase::Backoff) { return ResumeRetry(query, transport); }
@@ -183,7 +183,7 @@ SourceDelivery SourceSet::Collect(Query &query, Transport &transport) {
   }
 }
 
-std::optional<SourceDelivery> SourceSet::StartNext(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::StartNext(Query &query, SourceTransport &transport) {
   if (query.Next_ >= query.Candidates_.size()) {
     const std::scoped_lock lock(LedgerMutex_);
     query.Finish();
@@ -203,7 +203,7 @@ std::optional<SourceDelivery> SourceSet::StartNext(Query &query, Transport &tran
 }
 
 std::optional<SourceDelivery>
-SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus) {
+SourceSet::ProcessAbsence(Query &query, SourceTransport &transport, std::optional<int> httpStatus) {
   const auto &decl = query.Current_->Declaration();
   const auto tile = query.At_.Tile();
   if (decl.TileAbsence == TileAbsencePolicy::Parent && tile && !query.Request_.Range() &&
@@ -226,7 +226,7 @@ SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int>
   return std::nullopt;
 }
 
-std::optional<SourceDelivery> SourceSet::ReadStored(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::ReadStored(Query &query, SourceTransport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
   const auto &range = query.Request_.Range();
@@ -259,7 +259,7 @@ std::optional<SourceDelivery> SourceSet::ReadStored(Query &query, Transport &tra
       decl.Id, decl.Revision, query.At_, std::move(kept.Bytes), SourceKey(decl), std::move(origin));
 }
 
-SourceDelivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
+SourceDelivery SourceSet::ResumeRetry(Query &query, SourceTransport &transport) {
   const double nowMs = transport.NowMs();
   if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
   if (nowMs < query.RetryAtMs_) { return SourceDelivery::Waiting(); }
@@ -268,7 +268,7 @@ SourceDelivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
   return SourceDelivery::Waiting();
 }
 
-std::optional<SourceDelivery> SourceSet::StartCurrent(Query &query, Transport &transport) {
+std::optional<SourceDelivery> SourceSet::StartCurrent(Query &query, SourceTransport &transport) {
   const auto &range = query.Request_.Range();
   const SourceRequest served =
       range ? SourceRequest(
@@ -349,7 +349,7 @@ SourceDelivery SourceSet::Deliver(Query &query, SourceResponse::Settled response
 std::optional<SourceDelivery> SourceSet::ProcessResponse(Query &query,
                                                          SourceResponse::Settled response,
                                                          double retryAfterS,
-                                                         Transport &transport) {
+                                                         SourceTransport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
   const double retryAfterMs = retryAfterS * kMsPerS;
   const bool validDelay = std::isfinite(retryAfterMs) && retryAfterMs >= 0.0;
@@ -413,7 +413,7 @@ SourceDelivery SourceSet::Refuse(Query &query,
   return SourceDelivery::WireAfter(afterMs, sourceId, sourceRevision, std::move(failure));
 }
 
-void SourceSet::Abandon(Query &query, Transport &transport) {
+void SourceSet::Abandon(Query &query, SourceTransport &transport) {
   if (query.Ticket_ != Ticket::None && query.Current_ != nullptr) {
     query.Current_->Cancel(query.Ticket_, transport);
   }

@@ -11,7 +11,7 @@ using namespace outshine::Data;
 constexpr Ticket kTransportTicket{17};
 constexpr Ticket kProviderTicket{23};
 
-class WireProbe final : public Transport {
+class WireProbe final : public SourceTransport {
 public:
   int Cancelled = 0;
 
@@ -36,16 +36,17 @@ struct OwnedWork final : Source {
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
     return kProviderTicket;
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Working();
   }
 
-  void Cancel(Ticket ticket, Transport & /*transport*/) const override {
+  void Cancel(Ticket ticket, SourceTransport & /*transport*/) const override {
     ++Cancelled;
     Last = ticket;
   }

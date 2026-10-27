@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "does-not-equals-bigint-and-object",
   "title": "Non-strict inequality comparison of BigInt values and non-primitive objects",
   "covers": [
@@ -12,7 +12,7 @@
     "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/does-not-equals/bigint-and-object.js",
     "expects": "runs"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "does-not-equals-bigint-and-object",

@@ -20,7 +20,7 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Generators::Osm;
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -50,13 +50,13 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*address*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
   SourceResponse Collect(const Address & /*address*/,
                          Ticket /*ticket*/,
-                         Transport & /*transport*/) const override {
+                         SourceTransport & /*transport*/) const override {
     ++Calls_;
     return SourceResponse::Delivered(Bytes_);
   }

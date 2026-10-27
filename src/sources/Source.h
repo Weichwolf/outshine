@@ -11,7 +11,7 @@
 #include "SourceResponse.h"
 #include "SourceRequest.h"
 #include "SourceDecl.h"
-#include "Transport.h"
+#include "SourceTransport.h"
 
 namespace outshine::Data {
 
@@ -29,15 +29,16 @@ public:
 
   [[nodiscard]] virtual Address Serves(const SourceRequest &request) const noexcept = 0;
 
-  [[nodiscard]] virtual FetchStart Begin(const Address &at, Transport &transport) const = 0;
+  [[nodiscard]] virtual FetchStart Begin(const Address &at, SourceTransport &transport) const = 0;
 
-  [[nodiscard]] virtual FetchStart Begin(const SourceRequest &request, Transport &transport) const {
+  [[nodiscard]] virtual FetchStart Begin(const SourceRequest &request,
+                                         SourceTransport &transport) const {
     if (request.Range()) { return std::unexpected(SourceFailureReason::ProviderRefused); }
     return Begin(request.Where(), transport);
   }
 
   [[nodiscard]] virtual SourceResponse
-  Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;
+  Collect(const Address &at, Ticket ticket, SourceTransport &transport) const = 0;
 
   [[nodiscard]] virtual std::expected<HeightRaster, DecodeFailure>
   DecodeElevation([[maybe_unused]] std::span<const uint8_t> bytes) const {
@@ -50,7 +51,7 @@ public:
     return std::unexpected(DecodeFailure::Unsupported);
   }
 
-  virtual void Cancel(Ticket ticket, Transport &transport) const { transport.Cancel(ticket); }
+  virtual void Cancel(Ticket ticket, SourceTransport &transport) const { transport.Cancel(ticket); }
 };
 
 }

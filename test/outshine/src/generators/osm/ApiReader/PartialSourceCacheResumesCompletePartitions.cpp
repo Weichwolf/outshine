@@ -1,13 +1,15 @@
 #include "OsmProviderValidation.h"
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -18,17 +20,17 @@ namespace {
 using namespace outshine::Data;
 const std::string kXml = "<osm version='0.6'><node id='1' lat='48' lon='16'/></osm>";
 
-class Network final : public Transport {
+class Network final : public SourceTransport {
 public:
   size_t Starts = 0;
 
-  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(++Starts); }
+  FetchStart Begin(const std::string & /*url*/) override { return static_cast<Ticket>(++Starts); }
 
-  Wire Collect(Ticket) override {
+  Wire Collect(Ticket /*ticket*/) override {
     return Wire::Answered(200, std::vector<uint8_t>(kXml.begin(), kXml.end()));
   }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 std::array<GeoCellId, 4> Children(GeoCellId cell) {
@@ -50,8 +52,11 @@ int main() {
                                 .Revision = "partial-source",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   auto source = ApiSource::Create(provider, 0);
   CHECK(source.has_value(), "official original source configured");
   if (!source) { return Report(); }
@@ -69,12 +74,14 @@ int main() {
           "one received leaf cannot certify the remaining world");
   }
   Network online;
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
     RawSourceCache fresh({.Directory = directory});
-    Transport &wire = pass == 0 ? static_cast<Transport &>(online) : offline;
+    SourceTransport &wire = pass == 0 ? static_cast<SourceTransport &>(online) : offline;
     std::vector<GeoCellId> pending{root};
-    size_t delivered = 0, refined = 0, cached = 0;
+    size_t delivered = 0;
+    size_t refined = 0;
+    size_t cached = 0;
     for (size_t at = 0; at < pending.size() && at < 16; ++at) {
       const std::array wanted{pending[at]};
       const auto startsBefore = online.Starts;

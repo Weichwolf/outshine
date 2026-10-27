@@ -71,9 +71,9 @@ public:
 
   [[nodiscard]] Query Ask(const SourceRequest &request) const;
 
-  [[nodiscard]] SourceDelivery Collect(Query &query, Transport &transport);
+  [[nodiscard]] SourceDelivery Collect(Query &query, SourceTransport &transport);
 
-  static void Abandon(Query &query, Transport &transport);
+  static void Abandon(Query &query, SourceTransport &transport);
 
   struct Ledger {
     struct UsedSource {
@@ -104,17 +104,18 @@ public:
   [[nodiscard]] std::array<Ledger::ProviderCost, Ledger::KindCount> ProviderCosts() const;
 
 private:
-  [[nodiscard]] std::optional<SourceDelivery> ReadStored(Query &query, Transport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> ReadStored(Query &query, SourceTransport &transport);
   [[nodiscard]] SourceDelivery Deliver(Query &query, SourceResponse::Settled response);
-  [[nodiscard]] std::optional<SourceDelivery>
-  ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus = std::nullopt);
+  [[nodiscard]] std::optional<SourceDelivery> ProcessAbsence(
+      Query &query, SourceTransport &transport, std::optional<int> httpStatus = std::nullopt);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
   void RecordProviderCall(DataKind kind, std::chrono::steady_clock::time_point began);
 
-  [[nodiscard]] SourceDelivery ResumeRetry(Query &query, Transport &transport);
-  [[nodiscard]] std::optional<SourceDelivery> StartCurrent(Query &query, Transport &transport);
-  [[nodiscard]] std::optional<SourceDelivery> StartNext(Query &query, Transport &transport);
+  [[nodiscard]] SourceDelivery ResumeRetry(Query &query, SourceTransport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> StartCurrent(Query &query,
+                                                           SourceTransport &transport);
+  [[nodiscard]] std::optional<SourceDelivery> StartNext(Query &query, SourceTransport &transport);
 
   [[nodiscard]] SourceDelivery
   Refuse(Query &query,
@@ -125,7 +126,7 @@ private:
   [[nodiscard]] std::optional<SourceDelivery> ProcessResponse(Query &query,
                                                               SourceResponse::Settled response,
                                                               double retryAfterS,
-                                                              Transport &transport);
+                                                              SourceTransport &transport);
 
   RawSourceCache &Store_;
   mutable std::mutex RegistryMutex_;

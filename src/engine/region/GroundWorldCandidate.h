@@ -18,7 +18,7 @@
 
 namespace outshine {
 struct GroundBuildProducts {
-  HeightSheets Sheets;
+  TerrainSurfacePublication TerrainSurface;
   ::outshine::Generators::Osm::BuildingField Footprints;
   Render::GeometryPageResidency Pieces;
   Geometry Ground;
@@ -157,7 +157,7 @@ private:
   bool WorldPrepared_ = false;
   bool Prepared_ = false;
   PublicationMetrics PublicationMetrics_;
-  static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
+  static_assert(std::is_nothrow_move_assignable_v<TerrainSurfacePublication>);
   static_assert(std::is_nothrow_move_assignable_v<::outshine::Generators::Osm::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<Render::GeometryPageResidency>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);

@@ -38,7 +38,7 @@ int main() {
       CHECK(block.Certificate.Dependencies().size() == 1 &&
                 block.Certificate.Dependencies()[0] == stamp,
             "transfer retains exact registration and delivery identity");
-      const int zoom = block.At.Zoom;
+      const auto zoom = block.At.Zoom;
       auto field = HeightField::Of(zoom, {std::move(block)});
       CHECK(field && field->Certificate().IsComplete() == !partial,
             "height input never promotes a partial certificate");

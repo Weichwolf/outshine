@@ -3,7 +3,9 @@
 
 #include <array>
 #include <cstddef>
+#include <expected>
 #include <string>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -13,9 +15,9 @@ int main() {
   constexpr TerrainPageLayout layout{.Side = 33, .Halo = 1};
   constexpr Data::TileId tile{.Zoom = 10, .X = 512, .Y = 512};
   const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = 33};
-  Ground::TerrainField flat(65, 65);
+  const Ground::TerrainField flat(65, 65);
   const std::array flatSource{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
-  const TerrainRefinementDetail detail{.OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
+  const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const auto coarse = RefineTerrain(flatSource, TangentFrame::At({}), layout, detail, 8);
   CHECK(coarse && coarse->size() == 1 && coarse->front().Tile == tile && !coarse->front().Virtual &&
             coarse->front().SourceZoom == tile.Zoom,
@@ -30,14 +32,15 @@ int main() {
   if (refined) {
     for (size_t child = 0; child < refined->size(); ++child) {
       const Sheet &selected = (*refined)[child];
-      CHECK(selected.Tile.Zoom == tile.Zoom + 1 && selected.Tile.X == tile.X * 2 + child % 2 &&
-                selected.Tile.Y == tile.Y * 2 + child / 2 && selected.Virtual &&
+      CHECK(selected.Tile.Zoom == tile.Zoom + 1 &&
+                selected.Tile.X == size_t{tile.X} * 2 + child % 2 &&
+                selected.Tile.Y == size_t{tile.Y} * 2 + child / 2 && selected.Virtual &&
                 selected.SourceZoom == tile.Zoom,
             "child identity and source ownership remain deterministic");
     }
   }
   const auto overBudget = RefineTerrain(spikeSource, TangentFrame::At({}), layout, detail, 3);
-  CHECK(!overBudget && overBudget.error().find("needs 4 height patches") != std::string::npos,
+  CHECK(!overBudget && overBudget.error().contains("needs 4 height patches"),
         "a complete over-budget result is rejected instead of truncated");
 
   const Sheet nativeChild{
@@ -90,7 +93,7 @@ int main() {
       TerrainRefinementSource{.Page = &virtualPage, .Heights = nullptr},
       TerrainRefinementSource{.Page = &virtualPage, .Heights = nullptr}};
   const auto ambiguous = RefineTerrain(ambiguousOverlap, TangentFrame::At({}), layout, detail, 1);
-  CHECK(!ambiguous && ambiguous.error().find("equally authoritative") != std::string::npos,
+  CHECK(!ambiguous && ambiguous.error().contains("equally authoritative"),
         "two equal sources for one patch are rejected");
   return Report();
 }

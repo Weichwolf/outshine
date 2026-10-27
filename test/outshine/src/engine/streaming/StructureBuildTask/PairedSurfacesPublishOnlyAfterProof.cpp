@@ -3,6 +3,9 @@
 #include "BuildingMesh.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <memory>
 #include <utility>
 
@@ -15,10 +18,12 @@ class Planes final : public StructureMesher {
 public:
   explicit Planes(bool refuse = false) : Refuse_(refuse) {}
 
-  std::unique_ptr<MeshScratch> Scratch() const override { return std::make_unique<::Scratch>(); }
+  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override {
+    return std::make_unique<::Scratch>();
+  }
 
   std::expected<void, StructureMeshError>
-  Mesh(const StructurePlan &plan, MeshScratch &, Raised &into) const noexcept override {
+  Mesh(const StructurePlan &plan, MeshScratch & /*scratch*/, Raised &into) const noexcept override {
     if (Refuse_) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
     const float z = plan.Coarseness == LevelOfDetail::Fine ? 0.0f : 2.0f;
     const auto first = static_cast<uint32_t>(into.RoofCorners.size());
@@ -46,7 +51,10 @@ std::unique_ptr<Generators::RawTile> Raw(LevelOfDetail detail) {
   raw->LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   const auto cell = Generators::StructureCellOf(
       {.MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.008, .MaxLatDeg = 47.008}, raw->LatLon);
-  raw->Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 12});
+  CHECK(cell.has_value(), "fixture ring has a native structure cell");
+  if (!cell) { return {}; }
+  raw->Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 12, .WallColour = {}, .Facade = {}});
   raw->RequestedCell = cell->Index;
   raw->RequestedDetail = detail;
   raw->TileSpanM = 1000;
@@ -64,7 +72,7 @@ StructureBuildTask Task(const StructureMesher &mesher,
           Heights(),
           std::make_unique<StructureBuildTask::Output>(),
           mesher.Scratch(),
-          StructureBuildTask::ProofRequest{.SourceKey = key}};
+          StructureBuildTask::ProofRequest{.SourceKey = key, .Limits = {}}};
 }
 
 void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesher) {
@@ -80,7 +88,7 @@ void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesh
 int main() {
   using namespace outshine::Test;
   Tasks pool(1);
-  Planes mesher;
+  const Planes mesher;
   for (const auto detail : {LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     auto task = Task(mesher, detail);
     task.Start(pool, mesher);
@@ -90,6 +98,8 @@ int main() {
     task.Resume(pool, mesher);
     StructureBuildTask moved(std::move(task));
     moved.Join(pool);
+    // The guaranteed empty source is part of the move contract being tested.
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
     CHECK(!moved.Result().Tile && moved.Result().Status && !task.Running(),
           "running reference ownership moves without publishing a variant or cancelling work");
     moved.Resume(pool, mesher);
@@ -122,31 +132,34 @@ int main() {
     CHECK(!task.Result().Status && !task.Result().Tile,
           "cancellation before reference or proof cannot expose a private variant");
   }
-  Planes unsupported(true);
+  const Planes unsupported(true);
   for (const bool invalidRing : {false, true}) {
     const StructureMesher &chosen = invalidRing ? mesher : unsupported;
     auto task = Task(chosen, LevelOfDetail::Shell, 71, invalidRing);
     task.Start(pool, chosen);
     task.Join(pool);
-    CHECK(task.Result().Tile && !task.Result().Tile->SurfaceError &&
-              task.Result().Tile->SurfaceFailure ==
+    const auto &result = task.Result();
+    CHECK(result.Tile && !result.Tile->SurfaceError &&
+              result.Tile->SurfaceFailure ==
                   Generators::StructureSurfaceErrorFailure::InvalidGeometry,
           "identical missing surfaces from refused meshes or skipped rings never certify zero");
   }
   auto unknown = Task(mesher, LevelOfDetail::Shell, 0);
   unknown.Start(pool, mesher);
   unknown.Join(pool);
-  CHECK(unknown.Result().Tile && !unknown.Result().Tile->SurfaceError &&
-            unknown.Result().Tile->SurfaceFailure ==
+  const auto &unknownResult = unknown.Result();
+  CHECK(unknownResult.Tile && !unknownResult.Tile->SurfaceError &&
+            unknownResult.Tile->SurfaceFailure ==
                 Generators::StructureSurfaceErrorFailure::InvalidSource,
         "missing source identity retains a variant without claiming a certificate");
-  Generators::BuildingMesh native;
+  const Generators::BuildingMesh native;
   auto task = Task(native);
   task.Start(pool, native);
   task.Join(pool);
   Complete(task, pool, native);
-  CHECK(task.Result().Status && task.Result().Tile && task.Result().Tile->SurfaceError &&
-            task.Result().Tile->SurfaceError->UpperDistanceM() >= 0,
+  const auto &result = task.Result();
+  CHECK(result.Status && result.Tile && result.Tile->SurfaceError &&
+            result.Tile->SurfaceError->UpperDistanceM() >= 0,
         "native cell generation traverses the paired worker path to a finite certificate");
   return Report();
 }

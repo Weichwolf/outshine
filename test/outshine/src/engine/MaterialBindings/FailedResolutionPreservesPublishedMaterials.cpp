@@ -8,7 +8,7 @@
 #include <Geometry.h>
 
 #include "Check.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "MaterialBindings.h"
 
 int main() {
@@ -28,13 +28,13 @@ int main() {
     CHECK(geometry.setTriangles(at, std::array<uint32_t, 3>{0, 1, 2}), "triangles");
   }
 
-  Render::ShapeStore storage;
-  const auto shaped = Render::PrepareShape(geometry, storage);
-  CHECK(shaped.has_value(), "native subject prepares a render shape");
+  Render::RenderGeometryStorage storage;
+  const auto shaped = Render::PrepareRenderGeometry(geometry, storage);
+  CHECK(shaped.has_value(), "native mesh prepares a render shape");
   if (!shaped) { return Report(); }
 
   Core::MaterialBindings materials;
-  auto resolved = materials.Resolve(geometry, *shaped, {}, {}, -1, "subject");
+  auto resolved = materials.Resolve(geometry, *shaped, {}, {}, -1, "mesh");
   CHECK(resolved.has_value(), "valid native materials resolve");
   const auto published = materials.Slots();
   CHECK(published.size() == 1 && published[0].Colour.Rgba == geometry.imageAt(image).Rgba.data(),
@@ -47,7 +47,7 @@ int main() {
   override.Surface.BaseColour = {{1, 0, 0, 1}};
   override.Surface.Unlit = true;
   resolved = materials.Resolve(
-      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "subject");
+      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "mesh");
   CHECK(resolved.has_value(), "part override resolves");
   CHECK(materials.PartSlots().size() == 2 && materials.PartSlots()[0] != materials.PartSlots()[1],
         "part override splits a material shared by two parts");
@@ -62,7 +62,7 @@ int main() {
   const Material committedSurface = materials.Slots()[overridden].Row;
   override.PartIndex = 7;
   resolved = materials.Resolve(
-      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "subject");
+      geometry, *shaped, {}, std::span<const Core::MaterialOverride>{&override, 1}, -1, "mesh");
   CHECK(!resolved.has_value(), "unmatched override rejects resolution");
   CHECK(materials.PartSlots().size() == committedSlots.size() &&
             materials.PartSlots()[1] == committedSlots[1],
@@ -78,7 +78,7 @@ int main() {
   shared.Surface.BaseColour = {{0, 1, 0, 1}};
   std::array overrides{shared, override};
   for (int order = 0; order < 2; ++order) {
-    resolved = materials.Resolve(geometry, *shaped, {}, overrides, -1, "subject");
+    resolved = materials.Resolve(geometry, *shaped, {}, overrides, -1, "mesh");
     CHECK(resolved.has_value(), "valid retry accepts both selector orderings");
     if (!resolved || materials.PartSlots().size() != 2) { return Report(); }
     const auto first = materials.PartSlots()[0];

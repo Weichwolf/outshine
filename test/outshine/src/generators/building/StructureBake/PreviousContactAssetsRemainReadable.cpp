@@ -2,8 +2,10 @@
 #include "PreparedStructureCodec.h"
 #include "Sha256.h"
 #include "StructureArtifact.h"
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <optional>
 #include <span>
 #include <string>
@@ -36,7 +38,7 @@ int main() {
   const auto prepared = DecodePreparedStructureTile(Read("prepared-v10.bin"), 8u << 20u);
   CHECK(PreviousContacts(prepared), "the unchanged original full model format remains readable");
   const auto index = DecodePreparedStructureIndex(Read("index-v9.bin"), 8u << 20u);
-  CHECK(PreviousContacts(index) && index->Surfaces.front().PreparedSelection(),
+  CHECK(index && PreviousContacts(index) && index->Surfaces.front().PreparedSelection(),
         "the unchanged original metadata-only format retains its legacy physical plane");
   const auto lod =
       DecodeStructureArtifact(Read("lod-v11.bin"), Sha256Hex("ground-contact-asset"), 1);

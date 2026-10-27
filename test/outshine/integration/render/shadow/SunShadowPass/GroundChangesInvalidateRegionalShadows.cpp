@@ -109,14 +109,14 @@ int main() {
                                         .Up = {{0, 1, 0}}};
       renderer.SetShadowFrame(sun.ToSun, sun.Up, 256, true, 0);
       const bool drawn = scene->Draw(error);
-      CHECK(drawn, "a world with no subject vertex buffer casts its ground");
+      CHECK(drawn, "a world with no geometry vertex buffer casts its ground");
       if (!drawn) { return Report(); }
       renderer.WaitForGpu();
       std::vector<float> first;
       const bool completeAtlas = renderer.ReadShadowAtlas(first) == ReadState::Ready &&
                                  first.size() == size_t{kShadowAtlasPx} * kShadowAtlasPx;
       CHECK(completeAtlas && std::ranges::any_of(first, [](float depth) { return depth > 0.0f; }),
-            "terrain has real caster depth independently of subject geometry");
+            "terrain has real caster depth independently of mesh geometry");
       if (!completeAtlas) { return Report(); }
       SunShadowPass projection;
       projection.Declare(sun, 256, true);
@@ -124,7 +124,7 @@ int main() {
       const Mat4 &matrix = projection.RegionProjection(0);
       CheckPhysicalSheet(first, matrix);
       CHECK(renderer.SetTerrainTiles({}, {}, error),
-            "ground is removed without replacing subjects");
+            "ground is removed without replacing render objects");
       CHECK(scene->Draw(error), "the modified ground world renders");
       renderer.WaitForGpu();
       std::vector<float> second;

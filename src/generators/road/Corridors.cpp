@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "RoadLaneColour.h"
 #include "SurfaceBody.h"
 #include "RoadBodyMesh.h"
 #include "JunctionFootprint.h"
@@ -93,15 +94,6 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
 
 }
 
-Vec3f Corridors::LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                            const RegionSurfaceRecipes &vegetation) {
-  if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
-    return {{0.5f, 0.5f, 0.5f}};
-  }
-  const Vec4f &cover = vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
-  return {{cover[0], cover[1], cover[2]}};
-}
-
 double Corridors::RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept {
   return way.MaxGradient > 0.0f ? double{way.MaxGradient} : kDefaultGradient;
 }
@@ -111,7 +103,7 @@ double Corridors::LeastSeen(double held, double seen) {
   return held > 0.0 ? std::min(held, seen) : seen;
 }
 
-void Corridors::NotesFit(Paved &into, const Fitted &got) {
+void Corridors::NotesFit(Paved &into, const CurveFitResult &got) {
   ++into.FitLaid;
   ++into.FitsMeasured;
   into.FitRadiusTightestM = LeastSeen(into.FitRadiusTightestM, got.TightestRadiusM);
@@ -123,12 +115,12 @@ void Corridors::FitAlongLane(Paved &into) {
   bool wholeWay = true;
   while (from * 2u + 6u <= into.FitEastNorth.size()) {
     ReferenceLine fitted;
-    const Fitted got = Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u,
-                                                   into.FitEastNorth.size() - from * 2u),
-                           kFitWithinM,
-                           kFitTightestM,
-                           fitted);
-    if (got.Laid) {
+    const CurveFitResult got = Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u,
+                                                           into.FitEastNorth.size() - from * 2u),
+                                   kFitWithinM,
+                                   kFitTightestM,
+                                   fitted);
+    if (got.Succeeded) {
       NotesFit(into, got);
       into.FitUndrivable += got.Undrivable;
       break;
@@ -142,12 +134,12 @@ void Corridors::FitAlongLane(Paved &into) {
     const size_t upTo = got.TightestDemandedAtVertex;
     if (upTo + 1u >= 3u) {
       ReferenceLine piece;
-      const Fitted head =
+      const CurveFitResult head =
           Fit(std::span<const double>(into.FitEastNorth.data() + from * 2u, (upTo + 1u) * 2u),
               kFitWithinM,
               kFitTightestM,
               piece);
-      if (head.Laid) {
+      if (head.Succeeded) {
         NotesFit(into, head);
       } else {
         ++into.FitUnsplittable;
@@ -973,12 +965,13 @@ void Corridors::GatesOf(const Paving &on,
 
 Vec3f Corridors::JunctionColour(const Paving &on, std::span<const Leg> legs, const Paved &into) {
   const Vec3f firstColour =
-      LaneColour(on.Ways.Ways()[into.Edges[legs.front().Edge].Lane], on.Vegetation);
+      RoadLaneColour(on.Ways.Ways()[into.Edges[legs.front().Edge].Lane].CoverRow, on.Vegetation);
   std::array<double, 3> sum{};
   double widthM = 0.0;
   bool uniformColour = true;
   for (const Leg &leg : legs) {
-    const Vec3f colour = LaneColour(on.Ways.Ways()[into.Edges[leg.Edge].Lane], on.Vegetation);
+    const Vec3f colour =
+        RoadLaneColour(on.Ways.Ways()[into.Edges[leg.Edge].Lane].CoverRow, on.Vegetation);
     uniformColour = uniformColour && colour == firstColour;
     const double weightM = std::max(0.0, leg.HalfM);
     for (size_t channel = 0; channel < sum.size(); ++channel) {

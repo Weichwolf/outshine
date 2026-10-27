@@ -1,10 +1,13 @@
+#include <cstddef>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "WorldCandidate.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 int main() {
@@ -46,21 +49,29 @@ int main() {
         StoredVertex::Of({{0.5f, -0.5f, 0}}, {{1, 0}}, {{0, 0, 1}}),
         StoredVertex::Of({{0, 0.5f, 0}}, {{0, 1}}, {{0, 0, 1}})};
     const std::array<uint32_t, 3> indices{0, 1, 2};
-    const auto piece = renderer.PlaceStructurePiece({.Verts = vertices, .Indices = indices});
+    const auto piece = renderer.PlaceStructurePiece({.Tangents = {},
+                                                     .Verts = vertices,
+                                                     .Indices = indices,
+                                                     .Clusters = {},
+                                                     .Colours = {},
+                                                     .Uv1 = {},
+                                                     .Instances = {},
+                                                     .Surface = {}});
     CHECK(piece.has_value(), "static piece becomes resident");
     if (!piece) { return Report(); }
-    const auto depthAtCentre = [&]() {
+    const auto depthAtCentre = [&] {
       std::vector<float> depth;
       if (!scene->Draw(error)) { return -1.0f; }
       renderer.WaitForGpu();
-      if (renderer.ReadDepth(depth) != Render::ReadState::Ready || depth.size() != 32u * 32u) {
+      if (renderer.ReadDepth(depth) != Render::ReadState::Ready ||
+          depth.size() != static_cast<size_t>(32u) * 32u) {
         return -1.0f;
       }
       return depth[16u * 32u + 16u];
     };
     CHECK(depthAtCentre() > 0, "visible piece covers the depth probe");
     const auto visibleCalls = renderer.GeometryDrawCallCount();
-    CHECK(visibleCalls > 0, "probe has recorded subject work");
+    CHECK(visibleCalls > 0, "probe has recorded geometry work");
     std::array<Mat4, 1> rows{};
     rows[0].SetTranslation({{100, 0, 0}});
     CHECK(renderer.SetPieceInstances(*piece, rows, error) && depthAtCentre() == 0 &&
@@ -81,7 +92,14 @@ int main() {
           "moving back refreshes its bound and restores the draw");
     renderer.ReleasePiece(*piece);
     for (auto &vertex : vertices) { vertex.pos[0] += 100; }
-    const auto reused = renderer.PlaceStructurePiece({.Verts = vertices, .Indices = indices});
+    const auto reused = renderer.PlaceStructurePiece({.Tangents = {},
+                                                      .Verts = vertices,
+                                                      .Indices = indices,
+                                                      .Clusters = {},
+                                                      .Colours = {},
+                                                      .Uv1 = {},
+                                                      .Instances = {},
+                                                      .Surface = {}});
     CHECK(reused && reused->Slot == piece->Slot, "new geometry reuses the released source slot");
     if (!reused) { return Report(); }
     rows[0].SetTranslation({{-100, 0, 0}});

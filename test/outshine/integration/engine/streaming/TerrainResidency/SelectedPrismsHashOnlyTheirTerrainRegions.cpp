@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
@@ -42,7 +43,8 @@ void Probe(Render::SceneRenderer &renderer) {
   TerrainResidency terrain;
   terrain.Into(&renderer);
   std::string error;
-  CHECK(terrain.Publish(patchwork, frame, error), "all three independent terrain regions publish");
+  CHECK(PublishTerrain(terrain, patchwork, frame, error),
+        "all three independent terrain regions publish");
   Generators::Osm::UrbanArea area;
   const double pitch = area.Recipe.ProjectedPitchM;
   area.FirstCell = {
@@ -58,12 +60,12 @@ void Probe(Render::SceneRenderer &renderer) {
   const auto identity = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity, "selected terrain identity fits without widening that budget");
   patchwork.Sheets[1].Nodes.front() = kUnrelatedHeightM;
-  CHECK(terrain.Publish(patchwork, frame, error), "an unrelated page changes");
+  CHECK(PublishTerrain(terrain, patchwork, frame, error), "an unrelated page changes");
   const auto unrelated = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity && unrelated && *identity == *unrelated,
         "unrelated source-region changes do not invalidate the selected cached game asset");
   patchwork.Sheets[0].Nodes.front() = kSelectedHeightM;
-  CHECK(terrain.Publish(patchwork, frame, error), "a contributing native page changes");
+  CHECK(PublishTerrain(terrain, patchwork, frame, error), "a contributing native page changes");
   const auto changed = UrbanPrismTerrainIdentity(area, selected, terrain, limits);
   CHECK(identity && changed && *identity != *changed,
         "a contributing published page changes the selected terrain identity");

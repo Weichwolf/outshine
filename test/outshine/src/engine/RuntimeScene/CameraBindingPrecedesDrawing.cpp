@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <Engine.h>
 #include <array>
 #include <filesystem>
@@ -16,7 +17,7 @@ namespace {
 outshine::Scenario::Document Declaration(bool withView) {
   outshine::Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {32, 32};
+  scene.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
   scene.Render.Outputs = {"surface"};
   if (withView) {
     outshine::Scenario::View view;
@@ -44,7 +45,8 @@ int main() {
     const auto target = engine.swapChain();
     CHECK(target.extent().WidthPx == 0 && target.extent().HeightPx == 0,
           "internal default dimensions are not advertised as a configured target");
-    CHECK(engine.setRenderTarget(Extent{32, 32}).has_value(), "configure an offscreen target");
+    CHECK(engine.setRenderTarget(Extent{.WidthPx = 32, .HeightPx = 32}).has_value(),
+          "configure an offscreen target");
     CHECK(engine.declare(Declaration(false)).has_value(),
           "an empty scene can be declared before a camera is prepared");
     auto renderer = engine.renderer();
@@ -61,9 +63,13 @@ int main() {
     if (ready) {
       CHECK(!renderer.readPixels(pixels), "readback requires an explicitly rendered frame");
       CHECK(renderer.render({}).has_value(), "render prepared camera");
-      CHECK(renderer.readPixels(pixels).has_value() && pixels.size() == 32u * 32u * 4u,
+      CHECK(renderer.readPixels(pixels).has_value() && pixels.size() == size_t{32} * 32u * 4u,
             "the same renderer recovers and produces a complete RGBA frame");
-      constexpr std::array<Extent, 5> invalid = {{{-1, 32}, {0, 32}, {32, 0}, {32, -1}, {48, 32}}};
+      constexpr std::array<Extent, 5> invalid = {{{.WidthPx = -1, .HeightPx = 32},
+                                                  {.WidthPx = 0, .HeightPx = 32},
+                                                  {.WidthPx = 32, .HeightPx = 0},
+                                                  {.WidthPx = 32, .HeightPx = -1},
+                                                  {.WidthPx = 48, .HeightPx = 32}}};
       for (const Extent frame : invalid) {
         CHECK(!renderer.render(frame),
               "partial, negative and mismatched extents cannot masquerade as the default target");

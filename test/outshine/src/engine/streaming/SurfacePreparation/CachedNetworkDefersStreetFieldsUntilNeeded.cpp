@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "Sink.h"
 #include "SurfacePreparation.h"
@@ -16,7 +16,7 @@
 
 namespace {
 
-class StreetTransport final : public outshine::Data::Transport {
+class StreetTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
@@ -99,7 +99,7 @@ int main() {
   const std::array providers{source};
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   constexpr LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};

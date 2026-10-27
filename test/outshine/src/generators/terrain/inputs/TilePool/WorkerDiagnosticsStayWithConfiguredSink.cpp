@@ -2,61 +2,73 @@
 #include "TilePool.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
 namespace {
 
-class RefusingTransport final : public outshine::Data::Transport {
+class RefusingTransport final : public outshine::Data::SourceTransport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 class RefusingSource final : public outshine::Data::Source {
 public:
-  const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const outshine::Data::SourceDecl &Declaration() const noexcept override {
+    return Decl_;
+  }
 
-  outshine::Data::Coverage Covers(const outshine::Data::SourceRequest &) const noexcept override {
+  [[nodiscard]] outshine::Data::Coverage
+  Covers(const outshine::Data::SourceRequest & /*request*/) const noexcept override {
     return outshine::Data::Coverage::Inside;
   }
 
-  outshine::Data::Address
+  [[nodiscard]] outshine::Data::Address
   Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
-  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
-                                   outshine::Data::Transport &transport) const override {
+  outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
+                                   outshine::Data::SourceTransport &transport) const override {
     return transport.Begin("fixture");
   }
 
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
-                                         outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
+  outshine::Data::SourceResponse
+  Collect(const outshine::Data::Address & /*at*/,
+          outshine::Data::Ticket /*ticket*/,
+          outshine::Data::SourceTransport & /*transport*/) const override {
     return outshine::Data::SourceResponse::Meant(outshine::Data::Meaning::Refused);
   }
 
 private:
-  outshine::Data::SourceDecl Decl_{
-      .Id = "refusing", .Revision = "fixture-1", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl_{.Id = "refusing",
+                                   .Revision = "fixture-1",
+                                   .Endpoint = {},
+                                   .Keeps = outshine::Data::Cacheability::Never,
+                                   .PayloadSha256 = {},
+                                   .Schema = {}};
 };
 
 class RecordingSink final : public outshine::LogSink {
 public:
-  void Write(double,
-             outshine::LogLevel,
+  void Write(double /*simTimeS*/,
+             outshine::LogLevel /*level*/,
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
     const std::scoped_lock lock(Mutex_);
@@ -93,14 +105,16 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   CHECK(sources.Add(std::make_unique<RefusingSource>()) == SourceSet::Registration::Accepted,
         "the refusing worker source registers");
   RefusingTransport transport;
   RecordingSink sink;
   {
-    TilePool pool({.Threads = 1, .Carriers = 1, .Diagnostics = &sink}, sources, transport);
+    TilePool pool({.Threads = 1, .Carriers = 1, .Diagnostics = &sink, .PreparedFields = {}},
+                  sources,
+                  transport);
     TilePool::Landing landing;
     const SourceRequest request(DataKind::Elevation, Address::Whole(0));
     TilePool::Reply reply = pool.Bytes(request, &landing);

@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include <cstdint>
 #include <cstddef>
 #include "TerrainLattice.h"
@@ -55,7 +56,7 @@ int main() {
            .Virtual = true});
       TerrainResidency terrain;
       terrain.Into(&renderer);
-      CHECK(terrain.Publish(patch, frame, error), "final native heights publish");
+      CHECK(PublishTerrain(terrain, patch, frame, error), "final native heights publish");
       const auto heightM = terrain.HeightMAt(
           {.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg});
       CHECK(heightM && std::abs(*heightM - kGroundHeightM) < kHeightToleranceM,
@@ -65,7 +66,8 @@ int main() {
       for (int row = 0; row < kPageSide; ++row) {
         patch.Sheets[0].Nodes[static_cast<size_t>(row) * kPageSide + kRidgeColumn] = kRidgeHeightM;
       }
-      CHECK(terrain.Publish(patch, frame, error), "deformed native heights replace the page");
+      CHECK(PublishTerrain(terrain, patch, frame, error),
+            "deformed native heights replace the page");
       CHECK(terrain.Occludes(across, kNearM, 400, frame),
             "final deformed ridge blocks without a triangle mesh");
       CHECK(!terrain.Occludes(across, kNearM, kGroundHeightM, frame),
@@ -92,7 +94,7 @@ int main() {
                   kPostingIntervals;
         }
       }
-      CHECK(terrain.Publish(patch, frame, error), "nonuniform posting layout publishes");
+      CHECK(PublishTerrain(terrain, patch, frame, error), "nonuniform posting layout publishes");
       const Ground::Geo sloped =
           Ground::TileFracToGeo({.X = centre + kSlopeFraction, .Y = centre + 0.456}, zoom);
       const auto slopeM = terrain.HeightMAt(

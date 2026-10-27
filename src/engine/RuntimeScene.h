@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_ENGINE_RUNTIMESCENE_H
 #define OUTSHINE_ENGINE_RUNTIMESCENE_H
 
+#include "MeshClusterBuildJob.h"
+
 #include "SceneLighting.h"
 #include <algorithm>
 #include <expected>
@@ -9,7 +11,7 @@
 #include <array>
 #include "Box.h"
 #include "Mat4.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -26,6 +28,7 @@
 #include "Layout.h"
 #include "Pointer.h"
 #include "SceneRenderer.h"
+#include "SceneCandidateEdit.h"
 #include "Material.h"
 #include "GroundAtmosphere.h"
 #include "MaterialResolution.h"
@@ -220,13 +223,13 @@ public:
                                                                               size_t pagesMost);
 
   [[nodiscard]] bool GeometryBuildActive() const noexcept {
-    return ShapeCooking_.has_value() || BuildStage_ != GeometryBuildStage::Idle;
+    return ClusterBuild_.has_value() || BuildStage_ != GeometryBuildStage::Idle;
   }
 
   [[nodiscard]] bool Reshape(std::string &error);
 
   [[nodiscard]] const Render::ClusterBuildMetrics &Clustering() const noexcept {
-    return ShapeParts_.Clustering;
+    return GeometryStorage_.Clustering;
   }
 
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built,
@@ -282,7 +285,7 @@ public:
     return Stood_.IndirectLight();
   }
 
-  void StopsEditingCandidate() noexcept { CandidateEditor_.reset(); }
+  void StopEditingCandidate() noexcept { CandidateEdit_.reset(); }
 
   [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
 
@@ -336,7 +339,7 @@ public:
 
   [[nodiscard]] size_t PlanPasses() const { return Plan_ ? Plan_->Passes().size() : 0u; }
 
-  [[nodiscard]] const Render::Shape &Shown() const { return Shaped_; }
+  [[nodiscard]] const Render::RenderGeometryView &Shown() const { return GeometryView_; }
 
   [[nodiscard]] size_t DrivenParts() const noexcept { return DrivenParts_; }
 
@@ -439,11 +442,11 @@ private:
   std::shared_ptr<const Render::ExecutionPlan> Plan_;
   std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
-  std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
+  std::optional<Render::SceneCandidateEdit> CandidateEdit_;
   Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
-  void CoverShapedParts();
+  void CoverGeometryParts();
   void PreparePartBounds();
   MaterialBindings Materials_;
 
@@ -455,17 +458,17 @@ private:
   Render::RenderObject Stood_;
   Render::RenderObjectPreparation Scratch_;
 
-  Render::ShapeStore ShapeParts_;
-  Render::Shape Shaped_;
+  Render::RenderGeometryStorage GeometryStorage_;
+  Render::RenderGeometryView GeometryView_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
   Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
-  std::optional<Render::ShapeCookJob> ShapeCooking_;
+  std::optional<Render::MeshClusterBuildJob> ClusterBuild_;
   std::vector<Material> GeometryBuildSurfaces_;
   int GroundSurface_ = -1;
   void WearsPieces();
-  uint64_t ShapedAt_ = 0;
-  bool EverShaped_ = false;
+  uint64_t GeometryRevision_ = 0;
+  bool GeometryPrepared_ = false;
   double BuildMs_ = 0.0, PlanMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double ReshapeMs_ = 0.0, ComposeMs_ = 0.0;
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;

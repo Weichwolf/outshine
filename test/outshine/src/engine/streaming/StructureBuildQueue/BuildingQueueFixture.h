@@ -3,8 +3,8 @@
 
 #include "BuildingMesh.h"
 #include "Check.h"
-#include "OfflineTransport.h"
-#include "ShippedProviders.h"
+#include "OfflineSourceTransport.h"
+#include "BuiltinSourceProviders.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
 #include "StructureCell.h"
@@ -57,7 +57,7 @@ struct BuildingQueueCache {
 struct BuildingQueueFixture {
   BuildingQueueCache Cache;
   BuildingQueueSink Sink;
-  Data::OfflineTransport Wire;
+  Data::OfflineSourceTransport Wire;
   Tasks SourceCompute{1};
   Ground::SurfacePreparation Stack;
   const LongitudeLatitude Eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
@@ -91,7 +91,7 @@ struct BuildingQueueFixture {
     terrain.Kind = "terrain";
     const std::array providers{terrain};
     Data::ProviderRegistry registry;
-    Generators::RegisterShippedProviders(registry);
+    Generators::RegisterBuiltinSourceProviders(registry);
     CHECK(Stack.Open({.BuiltinData = "data", .Sources = Cache.Path.string(), .Assets = {}},
                      providers,
                      registry,

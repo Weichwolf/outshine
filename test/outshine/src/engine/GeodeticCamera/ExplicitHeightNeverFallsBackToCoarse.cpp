@@ -7,16 +7,18 @@ class CoarseGround final : public outshine::GroundQuery {
 public:
   mutable int Calls = 0;
 
-  outshine::GroundSample At(outshine::LongitudeLatitude) const override {
+  outshine::GroundSample At(outshine::LongitudeLatitude /*at*/) const override {
     ++Calls;
     return outshine::GroundSample::At(42);
   }
 
   outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
 
-  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override { return {}; }
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot /*spot*/) const override {
+    return {};
+  }
 
-  double PostM(double) const override { return 1; }
+  double PostM(double /*latitudeDeg*/) const override { return 1; }
 };
 }
 

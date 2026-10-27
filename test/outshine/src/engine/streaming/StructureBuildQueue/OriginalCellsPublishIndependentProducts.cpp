@@ -1,13 +1,13 @@
 #include "SourceBuildingFixture.h"
 #include <cstddef>
 #include <cstdint>
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "BuildingMesh.h"
 #include "BuildingFoundationJob.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "GroundSnapshot.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmXmlReader.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
@@ -296,7 +296,7 @@ int main() {
   const auto sources = ReadSources();
   if (!sources[0] || !sources[1]) { return Report(); }
   SilentSink sink;
-  Data::OfflineTransport wire;
+  Data::OfflineSourceTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
                      ("outshine-original-cell-products-" +
                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -306,7 +306,7 @@ int main() {
   terrainProvider.Kind = "terrain";
   const std::array providers{terrainProvider};
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.string(), .Assets = {}},
                    providers,
                    registry,

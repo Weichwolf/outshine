@@ -55,7 +55,7 @@ private:
            RingCap cap,
            uint32_t seed);
 
-  struct Fitted {
+  struct BranchCollarLimits {
     int Sides = 0;
     float RoomM = 0.0f;
   };
@@ -63,7 +63,7 @@ private:
   [[nodiscard]] bool Collar(int face,
                             const TreeSkeleton::Node &anchor,
                             const TreeSkeleton::Node &first,
-                            Fitted within,
+                            BranchCollarLimits within,
                             std::span<int> out);
   [[nodiscard]] static float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot);
   void SelectShoots(const TreeSkeleton &plant);

@@ -2,31 +2,36 @@
 #include "TerrainPathPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "Check.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <numbers>
 #include <set>
+#include <span>
+#include <string>
 #include <tuple>
+#include <vector>
 
 using namespace outshine;
 
 namespace {
-class NoNetwork final : public Data::Transport {
+class NoNetwork final : public Data::SourceTransport {
 public:
   size_t Starts = 0;
 
-  Data::FetchStart Begin(const std::string &) override {
+  Data::FetchStart Begin(const std::string & /*url*/) override {
     ++Starts;
     return Data::Ticket::None;
   }
 
-  Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
+  Data::Wire Collect(Data::Ticket /*ticket*/) override { return Data::Wire::Never(); }
 
-  void Cancel(Data::Ticket) override {}
+  void Cancel(Data::Ticket /*ticket*/) override {}
 };
 
 using Key = std::tuple<int, uint32_t, uint32_t>;
@@ -38,9 +43,17 @@ Keys KeysOf(std::span<const Data::TileId> tiles) {
   return result;
 }
 
-void Rectangle(Keys &keys, int zoom, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) {
-  for (uint32_t y = y0; y <= y1; ++y) {
-    for (uint32_t x = x0; x <= x1; ++x) { keys.emplace(zoom, x, y); }
+struct TileRectangle {
+  int Zoom;
+  uint32_t Left;
+  uint32_t Right;
+  uint32_t Top;
+  uint32_t Bottom;
+};
+
+void Rectangle(Keys &keys, TileRectangle area) {
+  for (uint32_t y = area.Top; y <= area.Bottom; ++y) {
+    for (uint32_t x = area.Left; x <= area.Right; ++x) { keys.emplace(area.Zoom, x, y); }
   }
 }
 
@@ -58,34 +71,34 @@ Around Point(double column) {
 
 int main() {
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   Ground::TilePool pool({}, sources, transport);
-  Ground::GroundStream ground(pool, {.Z = 5, .Grid = 4});
+  const Ground::GroundStream ground(pool, {.Z = 5, .Grid = 4});
   const std::array path{Point(20.25), Point(22.25)};
   const std::array classification{
       Ground::ClassificationPreparation::SourceWindow{.Zoom = 5, .Ring = 1}};
-  const auto planned =
-      PlanTerrainPath(path, ground, {.VectorZoom = 6, .Classification = classification});
+  const auto planned = PlanTerrainPath(
+      path, ground, {.VectorZoom = 6, .Classification = classification, .RoadTiles = {}});
   CHECK(planned, "two camera positions produce an admitted data plan without IO");
   if (!planned) { return Report(); }
   // Mesh blocks are [18,21] and [20,23], both at rows [18,21].
   // A one-cell field halo yields 8x6 fine fields and 5x4 parents.
   Keys fields;
-  Rectangle(fields, 6, 17, 24, 17, 22);
-  Rectangle(fields, 5, 8, 12, 8, 11);
+  Rectangle(fields, {.Zoom = 6, .Left = 17, .Right = 24, .Top = 17, .Bottom = 22});
+  Rectangle(fields, {.Zoom = 5, .Left = 8, .Right = 12, .Top = 8, .Bottom = 11});
   fields.emplace(2, 1, 1);
   CHECK(KeysOf(planned->Fields) == fields && planned->Fields.size() == 48 + 20 + 1,
         "independent rectangles prove mesh halos, parent fields and sampler fallback coverage");
   Keys vectors;
-  Rectangle(vectors, 6, 17, 25, 17, 23);
-  Rectangle(vectors, 5, 9, 12, 9, 11);
+  Rectangle(vectors, {.Zoom = 6, .Left = 17, .Right = 25, .Top = 17, .Bottom = 23});
+  Rectangle(vectors, {.Zoom = 5, .Left = 9, .Right = 12, .Top = 9, .Bottom = 11});
   CHECK(KeysOf(planned->Vectors) == vectors && planned->Vectors.size() == 63 + 12,
         "geometry and classifier windows form independently derived source unions");
   const std::array repeated{path[1], path[0], path[1]};
-  const auto shuffled =
-      PlanTerrainPath(repeated, ground, {.VectorZoom = 6, .Classification = classification});
+  const auto shuffled = PlanTerrainPath(
+      repeated, ground, {.VectorZoom = 6, .Classification = classification, .RoadTiles = {}});
   CHECK(shuffled && shuffled->Fields == planned->Fields && shuffled->Vectors == planned->Vectors,
         "path order and repeated positions cannot change canonical data demand");
   const std::array seam{Point(32.25)};
@@ -106,7 +119,7 @@ int main() {
   CHECK(!PlanTerrainPath(invalid, ground, {}), "invalid geography is refused");
   const std::array hugeWindow{
       Ground::ClassificationPreparation::SourceWindow{.Zoom = 14, .Ring = 1000}};
-  CHECK(!PlanTerrainPath(path, ground, {.Classification = hugeWindow}),
+  CHECK(!PlanTerrainPath(path, ground, {.Classification = hugeWindow, .RoadTiles = {}}),
         "oversized windows are refused before enumerating millions of cells");
   CHECK(pool.Counters().Posts == 0 && pool.Counters().Fetches == 0 && transport.Starts == 0,
         "path planning starts neither provider requests nor workers");

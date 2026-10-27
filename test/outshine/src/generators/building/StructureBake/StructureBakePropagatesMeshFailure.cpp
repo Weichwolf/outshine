@@ -1,5 +1,9 @@
 #include <atomic>
 #include <algorithm>
+#include <cstddef>
+#include <expected>
+#include <memory>
+#include <variant>
 
 #include "src/generators/building/StructureBake.h"
 #include "Check.h"
@@ -17,151 +21,85 @@ public:
 
   std::expected<void, outshine::StructureMeshError>
   Mesh(const outshine::StructurePlan &plan,
-       outshine::MeshScratch &,
-       outshine::Raised &) const noexcept override {
-    ++Calls;
-    LastCoarseness = plan.Coarseness;
+       outshine::MeshScratch & /*scratch*/,
+       outshine::Raised & /*into*/) const noexcept override {
+    ++Calls_;
+    LastCoarseness_ = plan.Coarseness;
     return std::unexpected(Error_);
   }
 
-  mutable size_t Calls = 0;
-  mutable outshine::LevelOfDetail LastCoarseness = outshine::LevelOfDetail::Fine;
+  size_t Calls() const noexcept { return Calls_; }
+
+  outshine::LevelOfDetail LastCoarseness() const noexcept { return LastCoarseness_; }
 
 private:
+  mutable size_t Calls_ = 0;
+  mutable outshine::LevelOfDetail LastCoarseness_ = outshine::LevelOfDetail::Fine;
   outshine::StructureMeshError Error_;
 };
-}
 
-int main() {
+void CheckSlicedBake(const outshine::Generators::RawTile &raw,
+                     const outshine::Ground::HeightField &heights) {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::RawTile raw;
-  raw.LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
-  raw.Structures.push_back({.PointCount = 4, .Cell = {.Index = 1}, .HeightM = 6});
-  raw.Projection.FocalPx = 1000;
-  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
-  raw.TileSpanM = 1000;
-  Ground::HeightField::Block block;
-  block.At = {.Zoom = 0, .X = 0, .Y = 0};
-  block.Raster = {.Side = 2, .Postings = 2};
-  block.Nodes.assign(4, 0);
-  const auto heights = Ground::HeightField::Of(0, {block});
-  for (auto error : {StructureMeshError::InvalidPlan,
-                     StructureMeshError::IncompatibleScratch,
-                     StructureMeshError::BuildFailed}) {
-    RefusingMesher mesher(error);
-    auto scratch = mesher.Scratch();
-    Generators::BakedTile output;
-    const auto result = Generators::BakeStructures(raw, *heights, mesher, *scratch, output);
-    CHECK(mesher.Calls == 1, "fixture reaches actual per-building mesher");
-    CHECK(!result, "mesh rejection cannot become a successful tile bake");
-    if (!result) {
-      const auto *reason = std::get_if<StructureMeshError>(&result.error());
-      CHECK(reason && *reason == error, "specific mesher error reaches bake boundary");
-      CHECK(!Generators::Describe(result.error()).empty(),
-            "diagnostic is available without allocation");
-    }
-  }
-  raw.Structures.push_back(raw.Structures.front());
-  RefusingMesher unsupported(StructureMeshError::UnsupportedFootprint);
-  auto scratch = unsupported.Scratch();
-  Generators::BakedTile output;
-  const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
-  CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
-        "unsupported forms are counted and processing continues to the next building");
-  CHECK(output.CellShellErrorM[0] == -1.0 &&
-            !unsupported.ShellSurfaceErrorM(output.Built.WallCorners),
-        "unproven or omitted producer geometry cannot advertise a tighter shell");
-  raw.LatLon.insert(raw.LatLon.end(), {47, 8.9998, 47.0001, 8.9998});
-  raw.Ways.push_back({.LocalFirst = 4, .PointCount = 2, .HalfWidthM = 4});
-  RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);
-  auto frontedScratch = frontedMesher.Scratch();
-  Generators::BakedTile fronted;
-  const auto frontedResult =
-      Generators::BakeStructures(raw, *heights, frontedMesher, *frontedScratch, fronted);
-  CHECK(frontedResult && fronted.Fronted == 2,
-        "a nearby road line gives every building in its tile a known frontage");
-
-  Generators::RawTile distant = raw;
-  distant.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 0};
-  RefusingMesher distantMesher(StructureMeshError::UnsupportedFootprint);
-  auto distantScratch = distantMesher.Scratch();
-  Generators::BakedTile distantOutput;
-  const auto distantResult =
-      Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
-  CHECK(distantResult, "a distant tile finishes its bake");
-  CHECK(distantMesher.Calls == 2 && distantMesher.LastCoarseness == LevelOfDetail::Fine,
-        "a mesher without source bounds keeps individual plans instead of inventing a mass bound");
-  CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
-  CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Fine,
-        "unknown source bounds cannot authorize a coarse parent");
-
-  Generators::RawTile threshold = raw;
-  threshold.LatLon = {47, 9.0047, 47, 9.0048, 47.0001, 9.0048, 47.0001, 9.0047};
-  threshold.Structures.resize(1);
-  threshold.Ways.clear();
-  RefusingMesher thresholdMesher(StructureMeshError::UnsupportedFootprint);
-  auto thresholdScratch = thresholdMesher.Scratch();
-  Generators::BakedTile thresholdOutput;
-  const auto thresholdResult = Generators::BakeStructures(
-      threshold, *heights, thresholdMesher, *thresholdScratch, thresholdOutput);
-  CHECK(thresholdResult && thresholdOutput.Prints.size() == 1 &&
-            thresholdOutput.FootprintDetails.front() == LevelOfDetail::Fine,
-        "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
-
-  RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();
   Generators::BakedTile oneShot;
   const auto oneShotResult =
-      Generators::BakeStructures(raw, *heights, oneShotMesher, *oneShotScratch, oneShot);
-  RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
+      Generators::BakeStructures(raw, heights, oneShotMesher, *oneShotScratch, oneShot);
+  const RefusingMesher slicedMesher(StructureMeshError::UnsupportedFootprint);
   auto slicedScratch = slicedMesher.Scratch();
   Generators::StructureBakeProgress progress;
-  const auto first = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
+  const auto first = progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
   CHECK(progress.BakedStructures() == 1,
         "a completed range exposes its exact structure count after the worker boundary");
-  const auto second = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls == 0,
+  const auto second = progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
+  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls() == 0,
         "bounded source planning finishes before geometry emission starts");
   const auto firstEmission =
-      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
+      progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
   const auto lastEmission =
-      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
+      progress.AdvanceStructures(raw, heights, slicedMesher, *slicedScratch, 1);
   CHECK(firstEmission && !*firstEmission && lastEmission && *lastEmission,
         "bounded emission completes only after all selected products are built");
   auto sliced = progress.Finalize(raw, slicedMesher, *slicedScratch);
-  CHECK(sliced && slicedMesher.Calls == oneShotMesher.Calls &&
+  CHECK(sliced && slicedMesher.Calls() == oneShotMesher.Calls() &&
             sliced->Prints.size() == oneShot.Prints.size() &&
             sliced->UnsupportedMeshes == oneShot.UnsupportedMeshes &&
             sliced->Built.WallRun == oneShot.Built.WallRun &&
             sliced->Built.RoofRun == oneShot.Built.RoofRun,
         "one-structure ranges produce the same complete tile as one uninterrupted bake");
+}
 
+void CheckLargeSlicedBake(const outshine::Generators::RawTile &raw,
+                          const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Test;
   Generators::RawTile many = raw;
   many.Ways.clear();
   many.Structures.assign(257, raw.Structures.front());
-  RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
+  const RefusingMesher manyOneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto manyOneShotScratch = manyOneShotMesher.Scratch();
   Generators::BakedTile manyOneShot;
   const auto manyOneShotResult = Generators::BakeStructures(
-      many, *heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
-  RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
+      many, heights, manyOneShotMesher, *manyOneShotScratch, manyOneShot);
+  const RefusingMesher manySlicedMesher(StructureMeshError::UnsupportedFootprint);
   auto manySlicedScratch = manySlicedMesher.Scratch();
   Generators::StructureBakeProgress manyProgress;
   for (size_t range = 0; range < 4; ++range) {
     const auto incomplete =
-        manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
+        manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
     CHECK(incomplete && !*incomplete && manyProgress.BakedStructures() == (range + 1) * 64,
           "each complete 64-structure range retains the private aggregate");
   }
   const auto manyStructuresComplete =
-      manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls == 0,
+      manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
+  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls() == 0,
         "the final source range selects representations without building geometry");
   bool allEmitted = false;
   for (size_t slice = 0; slice < 5; ++slice) {
     const auto emitted =
-        manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
+        manyProgress.AdvanceStructures(many, heights, manySlicedMesher, *manySlicedScratch, 64);
     CHECK(emitted, "each bounded emission range succeeds");
     if (emitted && *emitted) {
       allEmitted = true;
@@ -173,7 +111,7 @@ int main() {
   CHECK(manyOneShotResult && manyFinalized &&
             manyProgress.BakedStructures() == many.Structures.size(),
         "the final short range and finalization complete a 257-structure aggregate");
-  CHECK(manyFinalized && manySlicedMesher.Calls == manyOneShotMesher.Calls &&
+  CHECK(manyFinalized && manySlicedMesher.Calls() == manyOneShotMesher.Calls() &&
             manyFinalized->Prints.size() == manyOneShot.Prints.size() &&
             std::ranges::equal(manyFinalized->Prints,
                                manyOneShot.Prints,
@@ -205,16 +143,21 @@ int main() {
             manyFinalized->Built.WallRun == manyOneShot.Built.WallRun &&
             manyFinalized->Built.RoofRun == manyOneShot.Built.RoofRun,
         "five bounded ranges equal one uninterrupted 257-structure bake");
+}
 
-  RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
+void CheckCancellation(const outshine::Generators::RawTile &raw,
+                       const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const RefusingMesher cancelledMesher(StructureMeshError::UnsupportedFootprint);
   auto cancelledScratch = cancelledMesher.Scratch();
   Generators::StructureBakeProgress cancelled;
   std::atomic_bool stopping{false};
   const auto beforeCancel =
-      cancelled.AdvanceStructures(raw, *heights, cancelledMesher, *cancelledScratch, 1, &stopping);
+      cancelled.AdvanceStructures(raw, heights, cancelledMesher, *cancelledScratch, 1, &stopping);
   stopping.store(true);
   const auto afterCancel =
-      cancelled.AdvanceStructures(raw, *heights, cancelledMesher, *cancelledScratch, 1, &stopping);
+      cancelled.AdvanceStructures(raw, heights, cancelledMesher, *cancelledScratch, 1, &stopping);
   CHECK(beforeCancel && !*beforeCancel && !afterCancel,
         "cancelling between ranges cannot report a complete tile");
   if (!afterCancel) {
@@ -222,5 +165,93 @@ int main() {
     CHECK(reason && *reason == Generators::StructureBakeErrorKind::Cancelled,
           "cancellation reaches the generator boundary as its explicit error");
   }
+}
+
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  Generators::RawTile raw;
+  raw.LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
+  raw.Structures.push_back({.PointCount = 4,
+                            .Cell = {.Index = 1, .Footprint = {}},
+                            .HeightM = 6,
+                            .WallColour = {},
+                            .Facade = {}});
+  raw.Projection.FocalPx = 1000;
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
+  raw.TileSpanM = 1000;
+  Ground::HeightField::Block block;
+  block.At = {.Zoom = 0, .X = 0, .Y = 0};
+  block.Raster = {.Side = 2, .Postings = 2};
+  block.Nodes.assign(4, 0);
+  const auto heights = Ground::HeightField::Of(0, {block});
+  for (auto error : {StructureMeshError::InvalidPlan,
+                     StructureMeshError::IncompatibleScratch,
+                     StructureMeshError::BuildFailed}) {
+    const RefusingMesher mesher(error);
+    auto scratch = mesher.Scratch();
+    Generators::BakedTile output;
+    const auto result = Generators::BakeStructures(raw, *heights, mesher, *scratch, output);
+    CHECK(mesher.Calls() == 1, "fixture reaches actual per-building mesher");
+    CHECK(!result, "mesh rejection cannot become a successful tile bake");
+    if (!result) {
+      const auto *reason = std::get_if<StructureMeshError>(&result.error());
+      CHECK(reason && *reason == error, "specific mesher error reaches bake boundary");
+      CHECK(!Generators::Describe(result.error()).empty(),
+            "diagnostic is available without allocation");
+    }
+  }
+  raw.Structures.push_back(raw.Structures.front());
+  const RefusingMesher unsupported(StructureMeshError::UnsupportedFootprint);
+  auto scratch = unsupported.Scratch();
+  Generators::BakedTile output;
+  const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
+  CHECK(result && unsupported.Calls() == 2 && output.UnsupportedMeshes == 2,
+        "unsupported forms are counted and processing continues to the next building");
+  CHECK(output.CellShellErrorM[0] == -1.0 &&
+            !unsupported.ShellSurfaceErrorM(output.Built.WallCorners),
+        "unproven or omitted producer geometry cannot advertise a tighter shell");
+  raw.LatLon.insert(raw.LatLon.end(), {47, 8.9998, 47.0001, 8.9998});
+  raw.Ways.push_back({.LocalFirst = 4, .PointCount = 2, .HalfWidthM = 4});
+  const RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);
+  auto frontedScratch = frontedMesher.Scratch();
+  Generators::BakedTile fronted;
+  const auto frontedResult =
+      Generators::BakeStructures(raw, *heights, frontedMesher, *frontedScratch, fronted);
+  CHECK(frontedResult && fronted.Fronted == 2,
+        "a nearby road line gives every building in its tile a known frontage");
+
+  Generators::RawTile distant = raw;
+  distant.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 0};
+  const RefusingMesher distantMesher(StructureMeshError::UnsupportedFootprint);
+  auto distantScratch = distantMesher.Scratch();
+  Generators::BakedTile distantOutput;
+  const auto distantResult =
+      Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
+  CHECK(distantResult, "a distant tile finishes its bake");
+  CHECK(distantMesher.Calls() == 2 && distantMesher.LastCoarseness() == LevelOfDetail::Fine,
+        "a mesher without source bounds keeps individual plans instead of inventing a mass bound");
+  CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
+  CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Fine,
+        "unknown source bounds cannot authorize a coarse parent");
+
+  Generators::RawTile threshold = raw;
+  threshold.LatLon = {47, 9.0047, 47, 9.0048, 47.0001, 9.0048, 47.0001, 9.0047};
+  threshold.Structures.resize(1);
+  threshold.Ways.clear();
+  const RefusingMesher thresholdMesher(StructureMeshError::UnsupportedFootprint);
+  auto thresholdScratch = thresholdMesher.Scratch();
+  Generators::BakedTile thresholdOutput;
+  const auto thresholdResult = Generators::BakeStructures(
+      threshold, *heights, thresholdMesher, *thresholdScratch, thresholdOutput);
+  CHECK(thresholdResult && thresholdOutput.Prints.size() == 1 &&
+            thresholdOutput.FootprintDetails.front() == LevelOfDetail::Fine,
+        "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
+
+  CheckSlicedBake(raw, *heights);
+  CheckLargeSlicedBake(raw, *heights);
+  CheckCancellation(raw, *heights);
   return Report();
 }

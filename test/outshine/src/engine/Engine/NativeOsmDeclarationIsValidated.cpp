@@ -2,7 +2,9 @@
 #include <Generator.h>
 #include "Check.h"
 #include <limits>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace {
 class Probe final : public outshine::Generators::Generator {
@@ -11,7 +13,7 @@ public:
 
   std::string_view kind() const override { return "native-osm-probe"; }
 
-  Product make(const outshine::Generators::Request &) const override {
+  Product make(const outshine::Generators::Request & /*asked*/) const override {
     ++Calls;
     return outshine::Geometry{};
   }
@@ -21,7 +23,7 @@ class Receiver final : public outshine::Host {
 public:
   std::string Last;
 
-  bool calls(std::string_view name, std::span<const outshine::Argument>) override {
+  bool calls(std::string_view name, std::span<const outshine::Argument> /*args*/) override {
     Last = name;
     return true;
   }
@@ -32,7 +34,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Receiver receiver;
-  Probe probe;
+  const Probe probe;
   Engine engine;
   engine.setInputHost(&receiver);
   CHECK(engine.registerGenerator(probe), "fixture generator registers");
@@ -50,7 +52,7 @@ int main() {
       candidate.Motion.Declared = true;
       candidate.Motion.StepS = 0.125;
       candidate.Ground.Declared = world;
-      candidate.Generators.push_back({.Kind = "native-osm-probe"});
+      candidate.Generators.push_back({.Kind = "native-osm-probe", .Parameters = {}});
       candidate.Ground.Osm = {valid, valid};
       auto &feature = candidate.Ground.Osm.back();
       switch (bad) {
@@ -64,7 +66,7 @@ int main() {
         case 7: feature.LatLon[1] = 181; break;
         case 8: feature.LatLon[2] = std::numeric_limits<double>::quiet_NaN(); break;
         case 9: feature.LatLon[3] = std::numeric_limits<double>::infinity(); break;
-        default: feature.LatLon.resize(2 * 65537); break;
+        default: feature.LatLon.resize(static_cast<long>(2) * 65537); break;
       }
       const auto declared = engine.declare(candidate);
       CHECK(!declared && !declared.error().empty(), "native malformed OSM is diagnosed");
@@ -83,7 +85,7 @@ int main() {
                          {.Kind = "building", .Area = true, .LatLon = {-90, -180, 90, 180, 0, 0}}};
   CHECK(engine.declare(accepted).has_value(),
         "valid native ways and areas pass angular boundaries");
-  accepted.Ground.Osm.front().LatLon.resize(2 * 65536);
+  accepted.Ground.Osm.front().LatLon.resize(static_cast<long>(2) * 65536);
   CHECK(engine.declare(accepted).has_value(), "the native path accepts the exact point budget");
   return Report();
 }

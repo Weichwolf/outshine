@@ -17,7 +17,7 @@ int main() {
                                                 .Exposure = {},
                                                 .Display = {},
                                                 .Precision = {}});
-  CHECK(compiled, "the existing subjects declaration includes terrain and its current visibility");
+  CHECK(compiled, "the existing geometry declaration includes terrain and its current visibility");
   if (!compiled) { return Report(); }
   const auto &plan = **compiled;
   const auto at = [&plan](Stage stage) {

@@ -1,8 +1,11 @@
 #include "TerrainDelivery.h"
 #include "Check.h"
 #include <Source.h>
+#include <cstdint>
+#include <expected>
 #include <limits>
 #include <memory>
+#include <span>
 #include <variant>
 
 namespace {
@@ -14,23 +17,28 @@ class Native final : public Source {
 public:
   explicit Native(Payload payload) : Payload_(payload) {}
 
-  SourceDecl Decl;
-  mutable const float *Allocation = nullptr;
+  [[nodiscard]] const float *Allocation() const noexcept { return Allocation_; }
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Meant(Meaning::Refused);
   }
 
   std::expected<HeightRaster, DecodeFailure>
-  DecodeElevation(std::span<const uint8_t>) const override {
+  DecodeElevation(std::span<const uint8_t> /*bytes*/) const override {
     if (Payload_ == Payload::Refused) { return std::unexpected(DecodeFailure::CorruptPayload); }
     HeightRaster raster{.Rows = 2, .Cols = 2, .Meters = {-1.5f, 0.0f, 1.25f, 172.875f}};
     if (Payload_ == Payload::OneRow) {
@@ -41,11 +49,13 @@ public:
     if (Payload_ == Payload::Nonfinite) {
       raster.Meters[3] = std::numeric_limits<float>::quiet_NaN();
     }
-    Allocation = raster.Meters.data();
+    Allocation_ = raster.Meters.data();
     return raster;
   }
 
 private:
+  SourceDecl Decl;
+  mutable const float *Allocation_ = nullptr;
   Payload Payload_;
 };
 }
@@ -65,7 +75,9 @@ int main() {
                                                 .SourceId = "actual-source",
                                                 .SourceRevision = "actual-revision",
                                                 .SourceKey = "actual-key",
-                                                .At = Address::At(at)},
+                                                .At = Address::At(at),
+                                                .Failure = {},
+                                                .TerrainStamp = {}},
                                                &source);
     if (payload == Payload::Valid) {
       auto native = decoded.Take();
@@ -73,7 +85,7 @@ int main() {
             "opaque source bytes become only the provider's native height product");
       if (native) {
         const auto &field = std::get<Ground::TerrainField>(native->Samples);
-        CHECK(field.Data() == source.Allocation,
+        CHECK(field.Data() == source.Allocation(),
               "provider's float allocation transfers without copying");
         CHECK(field.AtM(0, 0) == -1.5f && field.AtM(1, 1) == 172.875f,
               "negative and fractional native samples are unchanged");

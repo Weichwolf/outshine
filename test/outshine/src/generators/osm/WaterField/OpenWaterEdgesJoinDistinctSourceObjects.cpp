@@ -1,3 +1,5 @@
+#include <string>
+#include <array>
 #include "Check.h"
 #include "ClippedWaterFixture.h"
 
@@ -9,8 +11,9 @@ int main() {
   for (const bool marine : {false, true}) {
     for (const bool reverse : {false, true}) {
       OsmField field(2, layers);
-      const auto left = VectorTile(42, "lake", Rectangle(20, 10, 64, 30));
-      const auto right = VectorTile(43, marine ? "ocean" : "lake", Rectangle(0, 10, 30, 30));
+      const auto left = VectorTile(42, "lake", {.Exterior = Rectangle(20, 10, 64, 30), .Hole = {}});
+      const auto right = VectorTile(
+          43, marine ? "ocean" : "lake", {.Exterior = Rectangle(0, 10, 30, 30), .Hole = {}});
       const auto first = reverse ? field.Accept(2, 1, right) : field.Accept(1, 1, left);
       const auto second = reverse ? field.Accept(1, 1, left) : field.Accept(2, 1, right);
       CHECK(first && second, "distinct source objects share a complete open boundary edge");

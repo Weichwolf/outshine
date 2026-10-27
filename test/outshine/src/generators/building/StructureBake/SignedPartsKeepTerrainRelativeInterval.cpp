@@ -1,3 +1,4 @@
+#include <span>
 #include "BuildingMesh.h"
 #include "BuildingScratch.h"
 #include "BuildingShape.h"
@@ -10,6 +11,24 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <optional>
+
+namespace {
+std::array<double, 2> ProjectedInterval(const outshine::Raised &mesh,
+                                        const outshine::Vec3 &vertical) {
+  double lower = std::numeric_limits<double>::infinity();
+  double upper = -lower;
+  for (const auto &vertices : {std::span(mesh.WallCorners), std::span(mesh.RoofCorners)}) {
+    for (const auto &vertex : vertices) {
+      double up = 0;
+      for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * vertical[axis]; }
+      lower = std::min(lower, up);
+      upper = std::max(upper, up);
+    }
+  }
+  return {lower, upper};
+}
+}
 
 int main() {
   using namespace outshine;
@@ -24,6 +43,8 @@ int main() {
   raw.Structures.push_back({.PointCount = 4,
                             .Cell = *cell,
                             .Pitched = 0,
+                            .WallColour = {},
+                            .Facade = {},
                             .HeightOrigin = Ground::BuildingHeightOrigin::Generated});
   raw.TileSpanM = 1000;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 100}, raw.AnchorEcef);
@@ -33,7 +54,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 100);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BuildingScratch shapeScratch;
   const auto key = Sha256Hex("signed-height-interval");
@@ -56,17 +77,7 @@ int main() {
                 product.Prints[0].MinimumHeightM == interval[1] && product.Lumped == 0 &&
                 product.DefaultHeights == 1 && product.OsmHeights == 0,
             "native product preserves signed endpoints and estimated provenance");
-      double lower = std::numeric_limits<double>::infinity();
-      double upper = -lower;
-      for (const auto &vertices :
-           {std::span(product.Built.WallCorners), std::span(product.Built.RoofCorners)}) {
-        for (const auto &vertex : vertices) {
-          double up = 0;
-          for (int axis = 0; axis < 3; ++axis) { up += vertex.pos[axis] * axes.Up[axis]; }
-          lower = std::min(lower, up);
-          upper = std::max(upper, up);
-        }
-      }
+      const auto [lower, upper] = ProjectedInterval(product.Built, axes.Up);
       CHECK(std::isfinite(lower) && std::abs(lower - interval[1]) < 0.02,
             "independent ENU projection verifies the original below-grade lower surface");
       if (level != LevelOfDetail::Fine) {

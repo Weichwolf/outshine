@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
@@ -66,10 +68,10 @@ int main() {
         "curved 3D arc length exceeds chord sum and retains DEM provenance");
   const RoadAlignmentEdge *firstEdge = alignment->FindEdge(first);
   const RoadAlignmentEdge *secondEdge = alignment->FindEdge(second);
-  CHECK(firstEdge && secondEdge && firstEdge->SourceWidthM == 6.0 &&
+  CHECK(firstEdge != nullptr && secondEdge != nullptr && firstEdge->SourceWidthM == 6.0 &&
             secondEdge->SourceWidthM == 8.0 && firstEdge->EndStationM == secondEdge->StartStationM,
         "each source edge maps to one monotonic interval and keeps its declared width");
-  if (!firstEdge || !secondEdge) { return Report(); }
+  if (firstEdge == nullptr || secondEdge == nullptr) { return Report(); }
   const auto left = alignment->AtEdgeStation(first, firstEdge->EndStationM);
   const auto right = alignment->AtEdgeStation(second, 0.0);
   CHECK(left && right, "both sides of the OSM seam are queryable by source edge ID");
@@ -80,13 +82,14 @@ int main() {
             Dot(left->TangentEnu, right->TangentEnu) > 1.0 - 1e-10 &&
             std::abs(left->WidthM - 7.0) < 1e-10 && std::abs(right->WidthM - 7.0) < 1e-10,
         "position, tangent and width are continuous at the logical join");
-  CHECK(alignment->AtStation(firstEdge->EndStationM) &&
-            alignment->AtStation(firstEdge->EndStationM)->SourceEdge == second &&
-            !alignment->AtStation(-1.0) && !alignment->AtStation(alignment->LengthM() + 1.0),
+  const auto join = alignment->AtStation(firstEdge->EndStationM);
+  CHECK(join && join->SourceEdge == second && !alignment->AtStation(-1.0) &&
+            !alignment->AtStation(alignment->LengthM() + 1.0),
         "global station advances to the next edge and rejects open-chain overshoot");
   double independentlyMeasuredM = 0.0;
   auto previous = alignment->AtStation(0.0);
-  for (double stationM = 0.25; stationM < alignment->LengthM(); stationM += 0.25) {
+  for (size_t step = 1; static_cast<double>(step) * 0.25 < alignment->LengthM(); ++step) {
+    const double stationM = static_cast<double>(step) * 0.25;
     const auto current = alignment->AtStation(stationM);
     if (!previous || !current) { break; }
     independentlyMeasuredM += std::hypot(current->PositionM.EastM - previous->PositionM.EastM,

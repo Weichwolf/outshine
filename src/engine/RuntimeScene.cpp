@@ -104,7 +104,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  candidate->StopsEditingCandidate();
+  candidate->StopEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;
@@ -130,12 +130,12 @@ bool RuntimeScene::PrepareWithPlan(Render::SceneRenderer &renderer,
     error = Says::InvalidInitialGeometry;
     return false;
   }
-  auto editing = renderer.EditsWorldCandidate();
+  auto editing = renderer.EditWorldCandidate();
   std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
   scene->GroundAir_ = atmosphere;
   scene->PreparationPlan_ = std::move(plan);
   if (!scene->Build(error)) { return false; }
-  scene->CandidateEditor_.emplace(std::move(editing));
+  scene->CandidateEdit_.emplace(std::move(editing));
   out = std::move(scene);
   return true;
 }
@@ -295,7 +295,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
   if (out != nullptr) {
     candidate->Camera_ = out->Camera_;
     candidate->Camera_.Invalidate();
-    if (candidate->Camera_.HasOverride() || candidate->Shaped_.TriangleCount() > 0) {
+    if (candidate->Camera_.HasOverride() || candidate->GeometryView_.TriangleCount() > 0) {
       if (!candidate->Look(error)) { return false; }
       candidate->Camera_.MarkBound();
     }
@@ -308,7 +308,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
     return false;
   }
   if (out != nullptr) { candidate->Ui_ = std::move(out->Ui_); }
-  candidate->StopsEditingCandidate();
+  candidate->StopEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;
@@ -335,21 +335,21 @@ bool RuntimeScene::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::st
 }
 
 bool RuntimeScene::Reshape(std::string &error) {
-  if (ShapeCooking_) {
+  if (ClusterBuild_) {
     error = Says::GeometryBuildAlreadyActive;
     return false;
   }
-  if (EverShaped_ && ShapedAt_ == Held_.Revision()) { return true; }
-  EverShaped_ = false;
-  Shaped_ = {};
-  const auto shaped = Render::PrepareShape(Held_.Retain(), ShapeParts_);
-  if (!shaped) {
-    error = Describe(shaped.error());
+  if (GeometryPrepared_ && GeometryRevision_ == Held_.Revision()) { return true; }
+  GeometryPrepared_ = false;
+  GeometryView_ = {};
+  const auto geometryView = Render::PrepareRenderGeometry(Held_.Retain(), GeometryStorage_);
+  if (!geometryView) {
+    error = Describe(geometryView.error());
     return false;
   }
-  Shaped_ = *shaped;
-  ShapedAt_ = Held_.Revision();
-  EverShaped_ = true;
+  GeometryView_ = *geometryView;
+  GeometryRevision_ = Held_.Revision();
+  GeometryPrepared_ = true;
   return true;
 }
 
@@ -409,7 +409,7 @@ bool RuntimeScene::PrepareGeometry(std::string &error) {
           .count();
   const auto resolvedFrom = std::chrono::steady_clock::now();
   auto resolved = Materials_.Resolve(Held_.Snapshot(),
-                                     Shaped_,
+                                     GeometryView_,
                                      Declared_.Materials.front(),
                                      Declared_.Overriding,
                                      GroundSurface_,
@@ -450,9 +450,9 @@ void RuntimeScene::WearsPieces() {
 
 void RuntimeScene::StandsShadowRadius() {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (ShadowRadiusStoodM_ > 0.0 || Shaped_.TriangleCount() == 0) { return; }
+  if (ShadowRadiusStoodM_ > 0.0 || GeometryView_.TriangleCount() == 0) { return; }
   const auto boundedFrom = std::chrono::steady_clock::now();
-  const Box bounded = Shaped_.BoundsOf(DrivenParts_);
+  const Box bounded = GeometryView_.BoundsOf(DrivenParts_);
   BoundsMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
           .count();
@@ -501,7 +501,7 @@ void RuntimeScene::StandsKeyLight() {
                      .EyeHeightM = 0.0f});
   if (ShadowRadiusStoodM_ > 0.0) {
     Renderer_->SetShadowFrame(
-        toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0, Shaped_.Lamps.size());
+        toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0, GeometryView_.Lamps.size());
   }
 }
 
@@ -577,7 +577,7 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 
   if (!Reshape(error)) { return std::unexpected(std::move(error)); }
   Renderer_->SetContentSelection(Declared_.Content);
-  DrivenParts_ = Shaped_.Parts.size();
+  DrivenParts_ = GeometryView_.Parts.size();
   if (PendingDrivenParts_) { DrivenParts_ = *PendingDrivenParts_; }
   StandsShadowRadius();
 
@@ -594,7 +594,7 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
-  if (Shaped_.TriangleCount() == 0) {
+  if (GeometryView_.TriangleCount() == 0) {
     if (!Renderer_->SetGeometryMesh(Render::MeshInput{}, error) ||
         !Renderer_->SetGeometryPlacements(nullptr, 0, error)) {
       return std::unexpected(std::move(error));
@@ -605,7 +605,7 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
     }
     Renderer_->SetPictureRegion({});
     Stood_ = Render::RenderObject{};
-    Stood_.ResetForShape(Shaped_, Vec3{});
+    Stood_.ResetGeometry(GeometryView_, Vec3{});
     Stood_.SelectParts(Declared_.Content.MeshParts);
     StandsLighting();
     if (!Render::BindIllumination(*Renderer_, Stood_, Scratch_, error)) {
@@ -621,7 +621,7 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
                                .Y = Declared_.PictureTopFrac,
                                .Width = Declared_.PictureWidthFrac,
                                .Height = Declared_.PictureHeightFrac});
-  Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
+  Renderer_->CastsBelow(static_cast<uint32_t>(GeometryView_.Parts.size()));
   const auto standFrom = std::chrono::steady_clock::now();
   if (!Stand(error)) { return std::unexpected(std::move(error)); }
   StandMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - standFrom)
@@ -701,8 +701,8 @@ std::expected<bool, std::string> RuntimeScene::AdvanceBuild(size_t itemsMost) {
       break;
     case GeometryBuildStage::Bind:
       advanced = BindBuild();
-      BuildStage_ =
-          Shaped_.TriangleCount() == 0 ? GeometryBuildStage::Finalize : GeometryBuildStage::Prepare;
+      BuildStage_ = GeometryView_.TriangleCount() == 0 ? GeometryBuildStage::Finalize
+                                                       : GeometryBuildStage::Prepare;
       break;
     case GeometryBuildStage::Prepare:
       advanced = PrepareBuild();
@@ -751,9 +751,9 @@ void RuntimeScene::Eye(const Render::Viewpoint &from) noexcept {
   Camera_.Override(from);
 }
 
-void RuntimeScene::CoverShapedParts() {
-  for (size_t part = 0; part < PartBounds_.size() && part < Shaped_.Parts.size(); ++part) {
-    const Render::ShapePart &one = Shaped_.Parts[part];
+void RuntimeScene::CoverGeometryParts() {
+  for (size_t part = 0; part < PartBounds_.size() && part < GeometryView_.Parts.size(); ++part) {
+    const Render::RenderGeometryPart &one = GeometryView_.Parts[part];
     Box &held = PartBounds_[part];
     for (size_t vertex = 0; vertex < one.VertexCount && (vertex + 1) * 3 <= one.PositionsM.size();
          ++vertex) {
@@ -765,10 +765,10 @@ void RuntimeScene::CoverShapedParts() {
 
 void RuntimeScene::PreparePartBounds() {
   if (!PartBounds_.empty()) { return; }
-  const size_t parts = Shaped_.Parts.size();
+  const size_t parts = GeometryView_.Parts.size();
   if (parts == 0) { return; }
   PartBounds_.assign(parts, Box{});
-  CoverShapedParts();
+  CoverGeometryParts();
 }
 
 Extents RuntimeScene::PlacedBounds() {
@@ -793,7 +793,7 @@ bool RuntimeScene::Look(std::string &error) {
   if (Camera_.HasOverride()) {
     Camera_.Prepared().Eye = Camera_.Override();
     Camera_.Prepared().HasExplicitCamera = true;
-    return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
+    return Render::Aim(*Renderer_, GeometryView_, Camera_.Prepared(), Stood_.Anchor(), error);
   }
   const Extents placed = PlacedBounds();
   const Vec3 &least = placed.LeastM;
@@ -813,7 +813,7 @@ bool RuntimeScene::Look(std::string &error) {
   framed.Right = spun(framed.Right);
   framed.Up = spun(framed.Up);
   Camera_.Prepare(framed, false, DrivenParts_);
-  return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
+  return Render::Aim(*Renderer_, GeometryView_, Camera_.Prepared(), Stood_.Anchor(), error);
 }
 
 void RuntimeScene::StandsEnvironment() {
@@ -884,7 +884,7 @@ bool RuntimeScene::Stand(std::string &error) {
   const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
   if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();
-  Stood_.ResetForShape(Shaped_, anchorEcefM);
+  Stood_.ResetGeometry(GeometryView_, anchorEcefM);
   Stood_.SelectParts(Declared_.Content.MeshParts);
   ProxyStandsMs_ = sinceStand();
   const Mat4 unmoved;
@@ -909,7 +909,7 @@ bool RuntimeScene::Stand(std::string &error) {
   Camera_.Prepared().Eye = eye;
   if (!Camera_.HasOverride()) {
     const auto boundedFrom = std::chrono::steady_clock::now();
-    const Box bounded = Shaped_.BoundsOf(DrivenParts_);
+    const Box bounded = GeometryView_.BoundsOf(DrivenParts_);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
@@ -921,7 +921,7 @@ bool RuntimeScene::Stand(std::string &error) {
 }
 
 void RuntimeScene::StandsLighting() {
-  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.AddLight(placed); }
+  for (const PunctualLight &placed : GeometryView_.Lamps) { Stood_.AddLight(placed); }
   if (DeclaresKeyLight()) { Stood_.AddLight(KeyLight()); }
   StandsEnvironment();
 }
@@ -993,7 +993,7 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
             "stands where the world put it";
     return false;
   }
-  const size_t parts = Shaped_.Parts.size();
+  const size_t parts = GeometryView_.Parts.size();
   if (Stood_.Parts() != parts) {
     error = "the geometry proxy stands over " + std::to_string(Stood_.Parts()) +
             " parts and the geometry carries " + std::to_string(parts) +
@@ -1025,7 +1025,7 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
     }
   }
   PartBounds_.clear();
-  Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
+  Renderer_->CastsBelow(static_cast<uint32_t>(GeometryView_.Parts.size()));
 
   if ((bodyMoved && joined > 0) &&
       (!Render::Moved(*Renderer_,
@@ -1137,14 +1137,14 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
   PendingDrivenParts_ = drivenParts;
   GeometrySlices_ = {};
   const auto phaseAt = std::chrono::steady_clock::now();
-  Shaped_ = {};
-  EverShaped_ = false;
-  ShapeParts_.Clear();
-  if (auto bound = Render::PrepareShapeStorage(Held_.Retain(), ShapeParts_); !bound) {
+  GeometryView_ = {};
+  GeometryPrepared_ = false;
+  GeometryStorage_.Clear();
+  if (auto bound = Render::PrepareRenderGeometryStorage(Held_.Retain(), GeometryStorage_); !bound) {
     RestoreGeometryBuildState();
     return std::unexpected(std::string(Describe(bound.error())));
   }
-  ShapeCooking_.emplace(ShapeParts_, ShapeParts_.Surfaces);
+  ClusterBuild_.emplace(GeometryStorage_, GeometryStorage_.Surfaces);
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   return {};
@@ -1169,8 +1169,8 @@ std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
 std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {
   if (!GeometryBuildActive()) { return std::unexpected(Says::NoGeometryBuild); }
   const auto phaseAt = std::chrono::steady_clock::now();
-  if (ShapeCooking_) {
-    auto cooked = ShapeCooking_->Advance(itemsMost);
+  if (ClusterBuild_) {
+    auto cooked = ClusterBuild_->Advance(itemsMost);
     const double sliceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
             .count();
@@ -1182,10 +1182,10 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
       return std::unexpected(error);
     }
     if (!*cooked) { return false; }
-    Shaped_ = Render::ViewShape(ShapeParts_);
-    ShapedAt_ = Held_.Revision();
-    EverShaped_ = true;
-    ShapeCooking_.reset();
+    GeometryView_ = Render::MakeRenderGeometryView(GeometryStorage_);
+    GeometryRevision_ = Held_.Revision();
+    GeometryPrepared_ = true;
+    ClusterBuild_.reset();
     BuildStage_ = GeometryBuildStage::Plan;
     return false;
   }
@@ -1205,7 +1205,7 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
 }
 
 void RuntimeScene::RestoreGeometryBuildState() noexcept {
-  ShapeCooking_.reset();
+  ClusterBuild_.reset();
   BuildStage_ = GeometryBuildStage::Idle;
   BuildTicket_ = {};
   PendingDrivenParts_.reset();
@@ -1221,7 +1221,7 @@ bool RuntimeScene::Advance(std::string &error) {
   const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
 
-  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
+  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && GeometryView_.TriangleCount() > 0;
   if (orbits) { Camera_.AdvanceOrbit(Declared_.OrbitDegPerFrame); }
   if (orbits || Camera_.NeedsBinding()) {
     const size_t beforeAim = Heap::TakenUnder("runtime-scene-aim");

@@ -105,12 +105,12 @@ Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t>
   return out;
 }
 
-Fitted Fit(std::span<const double> eastNorthM,
-           double withinM,
-           double tightestM,
-           ReferenceLine &into,
-           std::span<const double> withinAtM) {
-  Fitted out;
+CurveFitResult Fit(std::span<const double> eastNorthM,
+                   double withinM,
+                   double tightestM,
+                   ReferenceLine &into,
+                   std::span<const double> withinAtM) {
+  CurveFitResult out;
   const size_t points = eastNorthM.size() / 2;
   out.Vertices = points;
 
@@ -140,7 +140,7 @@ Fitted Fit(std::span<const double> eastNorthM,
     out.Straights = 1;
     out.LengthM = into.LengthM();
     out.Passes = 1;
-    out.Laid = true;
+    out.Succeeded = true;
     return out;
   }
 
@@ -150,7 +150,6 @@ Fitted Fit(std::span<const double> eastNorthM,
     out.TightestDemandedM = aligned.error().DemandedM;
     out.TightestDemandedAtVertex = aligned.error().AtVertex;
     out.Undrivable = aligned.error().Undrivable;
-    out.UndrivableAtM = static_cast<double>(aligned.error().AtVertex);
     return out;
   }
   const auto laid = LayAligned(eastNorthM, *aligned, into);
@@ -170,7 +169,7 @@ Fitted Fit(std::span<const double> eastNorthM,
   out.LengthM = into.LengthM();
   out.Straights = laid->Straights;
 
-  out.Laid = true;
+  out.Succeeded = true;
   return out;
 }
 

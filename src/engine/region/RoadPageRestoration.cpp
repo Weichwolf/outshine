@@ -40,7 +40,7 @@ RoadPageRestoration::Begin(Tasks &pool,
   if (!pages || !manifest || manifest->Materials.surfaces() != 1 ||
       manifest->Materials.parts() != 0 || manifest->Materials.images() != 0 ||
       manifest->Pages.size() > std::numeric_limits<uint32_t>::max() || limits.PendingMost == 0 ||
-      limits.NativeBytesMost == 0) {
+      limits.NativeBytesMost == 0 || !Generators::ValidRoadPageAppearance(manifest->Appearance)) {
     return std::unexpected("road restoration needs complete native page and material metadata");
   }
   auto result = std::unique_ptr<RoadPageRestoration>(
@@ -59,7 +59,12 @@ RoadPageRestoration::Begin(Tasks &pool,
         "road restoration selection is duplicated, unordered or outside its manifest");
   }
   for (const auto index : result->Selected_) {
-    const auto bytes = result->Manifest_->Pages[index].ByteCount;
+    const auto &reference = result->Manifest_->Pages[index];
+    if (!Generators::ValidRoadPageAppearance(reference.Appearance) ||
+        reference.Appearance.index() != result->Manifest_->Appearance.index()) {
+      return std::unexpected("road restoration page appearance differs from its manifest");
+    }
+    const auto bytes = reference.ByteCount;
     if (bytes == 0 || bytes > kPageBytesMost) {
       return std::unexpected("road restoration page exceeds its native payload ceiling");
     }
@@ -144,12 +149,13 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
   Loaded_ = std::move(loaded->Page);
   if (!Loaded_ || Loaded_->Address.PlanKey != Manifest_->PlanKey ||
       Loaded_->Address.MaterialKey != Manifest_->MaterialKey ||
-      Loaded_->Address.MaterialIndex != 0 ||
+      Loaded_->Address.Appearance != reference.Appearance || Loaded_->Address.MaterialIndex != 0 ||
       Loaded_->Address.Anchor.LongitudeDeg != Manifest_->Anchor.LongitudeDeg ||
       Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
       loaded->NativeBytes != reference.ByteCount) {
-    return std::unexpected("road restoration product differs from its plan, material or frame");
+    return std::unexpected(
+        "road restoration product differs from its plan, material, appearance or frame");
   }
   NativeBytes_ += loaded->NativeBytes;
   Meshing_ += Loaded_->Geometry.Swept;

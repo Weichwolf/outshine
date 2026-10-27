@@ -1,3 +1,4 @@
+#include <utility>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "WorldCandidate.h"
@@ -37,7 +38,7 @@ int main() {
                 geometry.setTriangles(part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3}),
             "two independent surfaces have valid geometry");
     }
-    for (bool transmissive : {true, false}) {
+    for (const bool transmissive : {true, false}) {
       Render::SceneRenderer renderer;
       Core::Declaration declaration;
       declaration.InitialGeometry = &geometry;
@@ -58,7 +59,7 @@ int main() {
         return pixels;
       };
       const auto before = draw();
-      for (bool publish : {false, true}) {
+      for (const bool publish : {false, true}) {
         Core::WorldCandidate candidate(renderer);
         const auto prepared = candidate.Prepare(*scene, nullptr);
         CHECK(prepared.has_value(), "candidate borrows the published world");

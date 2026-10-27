@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -28,10 +29,10 @@ int main() {
                                                      .HeightM = 0.0});
     return EastNorth{.EastM = local.EastM, .NorthM = local.NorthM};
   };
-  const Sheet page{.Tile = tile, .Side = layout.Side, .Postings = layout.Side};
-  Ground::TerrainField flat(129, 129);
+  const Sheet page{.Tile = tile, .Nodes = {}, .Side = layout.Side, .Postings = layout.Side};
+  const Ground::TerrainField flat(129, 129);
   const std::array sources{TerrainRefinementSource{.Page = &page, .Heights = &flat}};
-  const TerrainRefinementDetail detail{.OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
+  const TerrainRefinementDetail detail{.EyeM = {}, .OrthographicPxPerM = 1.0, .ErrorPx = 0.1};
   const TerrainRefinementCorridor road{
       .Start = eastNorth(0.15), .End = eastNorth(0.35), .HalfWidthM = 1.0, .MaximumPostingM = 4.0};
   const std::array corridors{road};
@@ -46,21 +47,21 @@ int main() {
     size_t finest = 0;
     size_t coarse = 0;
     for (const Sheet &sheet : *refined) {
-      finest += sheet.Tile.Zoom == tile.Zoom + 2;
-      coarse += sheet.Tile.Zoom == tile.Zoom + 1;
+      finest += static_cast<size_t>(sheet.Tile.Zoom == tile.Zoom + 2);
+      coarse += static_cast<size_t>(sheet.Tile.Zoom == tile.Zoom + 1);
     }
     CHECK(finest > 0 && coarse > 0,
           "selected ground has fine road patches and coarse distant patches");
   }
   const auto overBudget = RefineTerrain(sources, frame, layout, detail, 4, corridors);
-  CHECK(!overBudget && overBudget.error().find("height patches") != std::string::npos,
+  CHECK(!overBudget && overBudget.error().contains("height patches"),
         "a corridor that exceeds page capacity fails explicitly");
 
   TerrainRefinementCorridor invalid = road;
   invalid.MaximumPostingM = std::numeric_limits<double>::quiet_NaN();
   const std::array invalidCorridors{invalid};
   const auto rejected = RefineTerrain(sources, frame, layout, detail, 32, invalidCorridors);
-  CHECK(!rejected && rejected.error().find("invalid corridor") != std::string::npos,
+  CHECK(!rejected && rejected.error().contains("invalid corridor"),
         "non-finite corridor input fails before refinement");
 
   TerrainRefinementJob paced(sources, frame, layout, detail, 32, corridors);

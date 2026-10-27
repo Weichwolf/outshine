@@ -41,7 +41,7 @@ bool CaptureTerrainShadow(double anchorZ, std::vector<float> &depth) {
   if (!scene) { return false; }
   MeshInput mesh;
   mesh.Anchor = {{0, 0, anchorZ}};
-  CHECK(renderer.SetGeometryMesh(mesh, error), "empty subjects retain the terrain anchor");
+  CHECK(renderer.SetGeometryMesh(mesh, error), "empty geometry retains the terrain anchor");
   const std::vector<float> nodes(TerrainLattice::kPageNodes, 3.0f);
   const auto page = renderer.PlaceHeightPage(nodes);
   CHECK(page.has_value(), "terrain heights upload");

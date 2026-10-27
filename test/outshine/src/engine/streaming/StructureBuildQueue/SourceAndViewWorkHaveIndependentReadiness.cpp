@@ -123,7 +123,7 @@ int CheckReadiness() {
         "view-independent source readiness cannot certify the missing rendered view");
   CHECK(prints.Revision() == revision && prints.OfTile(0).data() == physical,
         "view demand preserves physical product ownership and semantic revision");
-  auto otherOwner = prints.SnapshotAccepted();
+  const auto otherOwner = prints.SnapshotAccepted();
   CHECK(otherOwner.SourceRefinementComplete() &&
             !fixture.Queue.SourcesComplete(fixture.Stack, otherOwner),
         "a view task with a different reservation owner cannot certify a source snapshot");

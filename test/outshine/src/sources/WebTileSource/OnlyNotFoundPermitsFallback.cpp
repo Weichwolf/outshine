@@ -2,7 +2,7 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +19,7 @@ constexpr int kForbidden = 403;
 constexpr int kNotFound = 404;
 constexpr uint8_t kSecondByte = 22;
 
-class HttpTransport final : public Transport {
+class HttpTransport final : public SourceTransport {
 public:
   int Status = kForbidden;
   std::vector<std::string> Urls;

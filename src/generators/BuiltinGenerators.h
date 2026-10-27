@@ -1,0 +1,78 @@
+#ifndef OUTSHINE_GENERATORS_BUILTINGENERATORS_H
+#define OUTSHINE_GENERATORS_BUILTINGENERATORS_H
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <Generator.h>
+
+#include "DrawSet.h"
+#include "GeneratorSet.h"
+
+namespace outshine {
+class GroundMesher;
+class RoadMesher;
+class StructureMesher;
+}
+
+namespace outshine::Generators {
+
+class Corridors;
+class TreeSpecies;
+class RegionSurfaceRecipes;
+
+class BuiltinGenerators {
+public:
+  BuiltinGenerators();
+  ~BuiltinGenerators();
+  BuiltinGenerators(const BuiltinGenerators &) = delete;
+  BuiltinGenerators &operator=(const BuiltinGenerators &) = delete;
+
+  [[nodiscard]] bool EnsureCatalogue(const RegionSurfaceRecipes &declared,
+                                     std::string_view speciesDir,
+                                     std::string &error,
+                                     bool vegetation = true,
+                                     std::string_view mixturesPath = {});
+
+  [[nodiscard]] bool Ready() const { return !Made_.empty(); }
+
+  [[nodiscard]] const TreeSpecies *TreeFor(ClusterId cluster) const;
+
+  [[nodiscard]] const GeneratorSet &Placing() const { return Placing_; }
+
+  [[nodiscard]] const DrawSet &Drawing() const { return Drawing_; }
+
+  [[nodiscard]] const StructureMesher &Shaping() const { return *Shaper_; }
+
+  [[nodiscard]] const RoadMesher &Paving() const { return *Paver_; }
+
+  [[nodiscard]] const Corridors &Corridors() const { return *Corridors_; }
+
+  [[nodiscard]] const Generator &Offered() const { return *Offered_; }
+
+  [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
+
+private:
+  [[nodiscard]] bool BuildCatalogue(const RegionSurfaceRecipes &declared,
+                                    std::string_view speciesDir,
+                                    std::string &error,
+                                    bool vegetation,
+                                    std::string_view mixturesPath);
+  bool VegetationEnabled_ = true;
+  std::string SpeciesDirectory_, MixturesPath_;
+  std::vector<TreeSpecies> Species_;
+  std::unique_ptr<Generator> Offered_;
+  std::unique_ptr<GroundMesher> Coverer_;
+  std::unique_ptr<StructureMesher> Shaper_;
+  std::unique_ptr<RoadMesher> Paver_;
+  std::unique_ptr<Generators::Corridors> Corridors_;
+  std::vector<std::unique_ptr<Making>> Made_;
+  std::vector<std::unique_ptr<DrawSource>> Draws_;
+  GeneratorSet Placing_;
+  DrawSet Drawing_;
+};
+
+}
+#endif

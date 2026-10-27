@@ -62,7 +62,7 @@ bool Engine::State::AdvanceUrbanAreas() {
     return true;
   }
   const auto &revision = World.GroundPublished.Current();
-  const auto *terrain = World.Sheets.PublishedSurface();
+  const auto *terrain = World.TerrainSurface.PublishedSurface();
   const auto eye = CurrentGeographicEyeEcef();
   if (!revision || revision->Quality != GroundQuality::Refined || terrain == nullptr || !eye) {
     return true;

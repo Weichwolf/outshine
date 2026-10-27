@@ -99,6 +99,20 @@ def connection_candidate(branch, end, segment, reach_m, min_sine):
     }
 
 
+def endpoint_nodes(contacts, source_id):
+    result = {}
+    for index, contact in enumerate(contacts):
+        endpoint = contact.get("source_endpoints", {}).get(source_id)
+        if endpoint is None and contact.get("source_id") == source_id:
+            endpoint = contact.get("source_endpoint")
+        if endpoint is None:
+            continue
+        if endpoint not in (0, -1) or endpoint in result:
+            raise ValueError("one explicit node per original source endpoint required")
+        result[endpoint] = index
+    return result
+
+
 def constructed_axes(rows, connections):
     insertions, extensions = defaultdict(lambda: defaultdict(list)), defaultdict(list)
     for contact in connections:

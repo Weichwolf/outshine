@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "PreparedGroundRegions.h"
@@ -15,7 +15,7 @@
 #include <system_error>
 
 namespace {
-class NoRequests final : public outshine::Data::Transport {
+class NoRequests final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Begins;
@@ -91,7 +91,7 @@ int main() {
   NoRequests wire;
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
     return stack.Open({.BuiltinData = "data",
