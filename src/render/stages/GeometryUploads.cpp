@@ -279,11 +279,12 @@ Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
     const auto flushed = SubmitPendingUploads();
     if (!flushed) { return flushed; }
   }
-  uint32_t widened = stood > 0 ? stood : need.Bytes;
-  while (widened < need.Bytes) {
-    widened = static_cast<uint32_t>(
-        std::min(uint64_t{widened} * 2u, uint64_t{std::numeric_limits<uint32_t>::max()}));
-  }
+  const uint32_t widened =
+      stood >= need.Bytes
+          ? stood
+          : static_cast<uint32_t>(std::max(
+                uint64_t{need.Bytes},
+                std::min(uint64_t{stood} * 2u, uint64_t{std::numeric_limits<uint32_t>::max()})));
   ++BufferAttempts_;
   auto fresh = Device_->CreateBuffer(
       {.Bytes = widened,
