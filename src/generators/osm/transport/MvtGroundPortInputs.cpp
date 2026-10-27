@@ -194,7 +194,7 @@ size_t SourceCapacity(const MvtTransport::Sources &sources) {
                  sources.Provenance.Sources.capacity() * sizeof(World::TransportSource);
   for (const auto &source : sources.Provenance.Sources) {
     bytes += source.Identity.DatasetId.capacity() + source.Identity.Revision.capacity() +
-             source.Item.capacity();
+             source.Item.capacity() + 3;
   }
   return bytes;
 }
@@ -325,15 +325,17 @@ BindMvtGroundPortInputs(const MvtTransportSnapshot &snapshot,
   if (!profiles) { return std::unexpected(profiles.error()); }
   const auto unknownBytes = ReadUnknownNodes(snapshot, *profiles, out, stop);
   if (!unknownBytes) { return std::unexpected(unknownBytes.error()); }
-  out.Work.ContainerCapacityBytes = SourceCapacity(*actual) +
-                                    sourceKeys.capacity() * sizeof(Signature) +
-                                    profiles->CapacityBytes + *unknownBytes +
-                                    out.Profiles.capacity() * sizeof(GroundPortSourceProfile) +
-                                    out.UnknownNodes.capacity() * sizeof(uint64_t);
+  BindProfileInput(out, sourceKeys);
+  out.Work.ContainerCapacityBytes =
+      SourceCapacity(*actual) + sourceKeys.capacity() * sizeof(Signature) +
+      profiles->CapacityBytes + *unknownBytes +
+      out.Profiles.capacity() * sizeof(GroundPortSourceProfile) +
+      out.UnknownNodes.capacity() * sizeof(uint64_t) + out.ProfileInput.DatasetId.capacity() +
+      out.ProfileInput.Version.capacity() + out.ProfileInput.Revision.capacity() +
+      out.ProfileInput.ItemId.capacity() + 4;
   if (out.Work.ContainerCapacityBytes > limits.ContainerBytes) {
     return std::unexpected(Error::CapacityExceeded);
   }
-  BindProfileInput(out, sourceKeys);
   if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
   return out;
 }
