@@ -3,21 +3,22 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <numbers>
 #include <string>
 #include <vector>
 
 namespace {
-double Distance(outshine::LongitudeLatitude a, outshine::LongitudeLatitude b) {
+double Distance(std::array<outshine::LongitudeLatitude, 2> positions) {
   constexpr double radians = std::numbers::pi / 180.0;
   const auto xyz = [&](outshine::LongitudeLatitude p) {
     const double lat = p.LatitudeDeg * radians;
     const double lon = p.LongitudeDeg * radians;
     return std::array{std::cos(lat) * std::cos(lon), std::cos(lat) * std::sin(lon), std::sin(lat)};
   };
-  const auto x = xyz(a);
-  const auto y = xyz(b);
+  const auto x = xyz(positions[0]);
+  const auto y = xyz(positions[1]);
   const double cross =
       std::hypot(x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]);
   const double dot = x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
@@ -69,8 +70,8 @@ int main() {
                         LongitudeLatitude{.LatitudeDeg = 90},
                         LongitudeLatitude{.LongitudeDeg = 60, .LatitudeDeg = 89}}) {
     for (const double radius : {0.0, 0.1, 2.0, 1000.0, std::numeric_limits<double>::max()}) {
-      const auto expected =
-          std::ranges::count_if(points, [&](auto point) { return Distance(at, point) <= radius; });
+      const auto expected = std::ranges::count_if(
+          points, [&](auto point) { return Distance({at, point}) <= radius; });
       CHECK(network.Within(at, radius, found).has_value(),
             "valid search succeeds including maximum finite radius");
       CHECK(found.size() == static_cast<size_t>(expected),
@@ -78,7 +79,7 @@ int main() {
     }
     const auto nearest = network.Nearest(at);
     double expected = std::numeric_limits<double>::max();
-    for (const auto point : points) { expected = std::min(expected, Distance(at, point)); }
+    for (const auto point : points) { expected = std::min(expected, Distance({at, point})); }
     CHECK(nearest && *nearest && std::abs((*nearest)->AwayM - expected) < 1e-5,
           "nearest distance matches independent global minimum");
   }

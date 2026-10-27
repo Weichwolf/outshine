@@ -4,9 +4,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <stop_token>
 #include <string>
 #include <tuple>
+#include <utility>
 
 namespace outshine::Generators::Osm::MvtTransport {
 std::expected<Connections, std::string>
@@ -29,9 +31,13 @@ ReadConnections(const Sources &sources, const Path::Network &network, const std:
         return std::unexpected("MVT transport connection exceeds its actual source ring");
       }
       if (edge.Source.Reverse() || !sources.Ways[way].Usable || edge.To == from) { continue; }
+      if (std::cmp_greater(way, std::numeric_limits<uint32_t>::max())) {
+        return std::unexpected("MVT transport source way exceeds the local index range");
+      }
       const uint32_t step = edge.Source.Step() - 1;
       out.Segments.push_back({.Key = SegmentSignature(sources.Ways[way].Key, step),
-                              .Way = way,
+                              .Way = static_cast<uint32_t>(way),
+                              .NativeWay = edge.Source.Way,
                               .From = from,
                               .To = edge.To,
                               .SourceStep = step});

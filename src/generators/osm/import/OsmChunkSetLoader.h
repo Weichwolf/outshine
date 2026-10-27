@@ -32,7 +32,7 @@ public:
 
   [[nodiscard]] static std::expected<std::vector<SourceChunk>, std::string>
   ReadRegion(std::span<const Data::SourceProvider> providers,
-             std::string_view shippedRoot,
+             std::string_view builtinDataDirectory,
              const std::stop_token &stop = {},
              const RemoteRead &remoteRead = {});
 
@@ -44,12 +44,12 @@ public:
 
   [[nodiscard]] static std::expected<SourceSnapshot, std::string>
   LoadRegion(std::span<const Data::SourceProvider> providers,
-             std::string_view shippedRoot,
+             std::string_view builtinDataDirectory,
              const std::stop_token &stop = {});
 
   [[nodiscard]] static std::expected<SourceSnapshot, std::string>
   Load(std::span<const Data::SourceProvider> providers,
-       std::string_view shippedRoot,
+       std::string_view builtinDataDirectory,
        const std::stop_token &stop = {});
 
 private:

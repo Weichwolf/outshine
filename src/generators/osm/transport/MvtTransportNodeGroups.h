@@ -2,7 +2,6 @@
 #define OUTSHINE_GENERATORS_OSM_TRANSPORT_MVTTRANSPORTNODEGROUPS_H
 
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -10,10 +9,6 @@
 namespace outshine::Generators::Osm {
 
 enum class MvtTransportNodeGroupState : uint8_t { NotRequested, Captured, BudgetExceeded };
-
-struct MvtTransportCapture {
-  size_t NodeGroupPayloadBytesMost = 0;
-};
 
 struct MvtTransportNodeGroup {
   uint32_t FirstNode = 0;

@@ -14,7 +14,7 @@ public:
 
   [[nodiscard]] std::expected<std::unique_ptr<outshine::Data::Source>, std::string>
   make([[maybe_unused]] const outshine::Data::SourceProvider &declaration,
-       [[maybe_unused]] std::string_view shippedRoot) const override {
+       [[maybe_unused]] std::string_view builtinDataDirectory) const override {
     return std::unexpected("injected unavailable source");
   }
 };
@@ -30,7 +30,7 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider), "fixture source factory registers before declaration");
     Roots roots;
-    roots.Shipped = "data";
+    roots.BuiltinDataDirectory = "data";
     roots.Offline = true;
     CHECK(engine.setRoots(roots).has_value(), "roots are accepted before declaration");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target configured");
@@ -47,7 +47,7 @@ int main() {
     CHECK(ready, "initial simulation assembled");
     if (!ready) { return Report(); }
     World::EntityRegistry *const previous = &engine.entities();
-    roots.Shipped = "wrong";
+    roots.BuiltinDataDirectory = "wrong";
     roots.Offline = false;
     const auto changedRoots = engine.setRoots(std::move(roots));
     CHECK(!changedRoots && changedRoots.error().contains("roots"),

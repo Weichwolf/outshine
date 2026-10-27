@@ -16,7 +16,7 @@ build/outshine run --scenario-overrides '{"world":{"vegetation":false}}' /path/t
 Objekte ergänzen vorhandene Felder, Arrays ersetzen Sammlungen, `null` entfernt Felder.
 Overrides bestimmen zuerst die Layerwahl und gewinnen anschließend gegenüber geladenen
 Layern. Relative Layerpfade beziehen sich bei Dateien auf deren Verzeichnis, bei Inline-JSON
-auf das Shipped-Verzeichnis. Eingabe, Overrides und geladene Layer zusammen: maximal 16 MiB.
+auf das Verzeichnis der mitgelieferten Daten. Eingabe, Overrides und geladene Layer zusammen: maximal 16 MiB.
 Unbekannte Felder, doppelte Schlüssel und ungültige Werte werden abgewiesen.
 Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 

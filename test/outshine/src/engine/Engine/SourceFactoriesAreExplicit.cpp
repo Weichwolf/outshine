@@ -24,7 +24,7 @@ public:
 
   [[nodiscard]] std::expected<std::unique_ptr<outshine::Data::Source>, std::string>
   make([[maybe_unused]] const outshine::Data::SourceProvider &declaration,
-       [[maybe_unused]] std::string_view shippedRoot) const override {
+       [[maybe_unused]] std::string_view builtinDataDirectory) const override {
     ++Constructions;
     return std::unexpected("fixture forbids source construction");
   }

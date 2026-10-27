@@ -64,7 +64,9 @@ int main() {
     Receiver receiver;
     Engine engine = TestEngine::WithGpu({.Create = SubmissionFaultDevice::Create});
     engine.setInputHost(&receiver);
-    CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .AssetCache = {}}),
+    CHECK(engine.setRoots({.BuiltinDataDirectory = "data",
+                           .SourceCacheDirectory = {},
+                           .AssetCacheDirectory = {}}),
           "data roots are accepted");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;

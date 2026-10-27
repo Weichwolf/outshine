@@ -421,7 +421,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
-    config.Cache.Directory = Session.Under.AssetCache;
+    config.Cache.Directory = Session.Under.AssetCacheDirectory;
     const auto bytesMost = ImpostorAtlas::EncodedBytesMost(config.Shape);
     if (!bytesMost) {
       Error = "vegetation atlas shape has no valid package bound";

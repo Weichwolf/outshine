@@ -19,7 +19,7 @@ constexpr Native::Viewport kInsetViewport{
 
 void CheckProjection(Lens lens, Native::Viewport area) {
   const CameraBasis basis;
-  const SkyStanding sky{
+  const SkyParameters sky{
       .SunDir = {{0, 1, 0}}, .WorldUp = {{0, 1, 0}}, .IlluminanceLux = 4, .EyeHeightM = kHeightM};
   const auto frame = MakeMediumViewParameters(lens, area, basis, sky, kEarthAir);
   CHECK(frame, "valid lens and actual viewport produce a medium frame");
@@ -84,7 +84,7 @@ void CheckProjection(Lens lens, Native::Viewport area) {
 void Rejected() {
   const Lens lens{.WidePx = 1280, .HighPx = 720, .FovDeg = 60, .NearM = 1, .FarM = 1000};
   const CameraBasis basis;
-  const SkyStanding sky{.SunDir = {{0, 1, 0}}, .WorldUp = {{0, 1, 0}}};
+  const SkyParameters sky{.SunDir = {{0, 1, 0}}, .WorldUp = {{0, 1, 0}}};
   const Native::Viewport area{.Width = 1280, .Height = 720};
   for (const auto bad :
        {Native::Viewport{},

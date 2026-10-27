@@ -5,12 +5,16 @@ int main() {
   using namespace outshine::Test;
   const auto first = outshine::App::WithCacheDirectories({});
   const auto second = outshine::App::WithCacheDirectories({});
-  CHECK(first && second && !first->Cache.empty() && first->Cache == second->Cache,
+  CHECK(first && second && !first->SourceCacheDirectory.empty() &&
+            first->SourceCacheDirectory == second->SourceCacheDirectory,
         "separate client roots select the same persistent source cache");
-  const auto explicitRoots = outshine::App::WithCacheDirectories(
-      {.Shipped = "shipped", .Cache = "/tmp/explicit-cache", .Offline = true, .AssetCache = {}});
-  CHECK(explicitRoots && explicitRoots->Shipped == "shipped" &&
-            explicitRoots->Cache == "/tmp/explicit-cache" && explicitRoots->Offline,
+  const auto explicitRoots =
+      outshine::App::WithCacheDirectories({.BuiltinDataDirectory = "shipped",
+                                           .SourceCacheDirectory = "/tmp/explicit-cache",
+                                           .Offline = true,
+                                           .AssetCacheDirectory = {}});
+  CHECK(explicitRoots && explicitRoots->BuiltinDataDirectory == "shipped" &&
+            explicitRoots->SourceCacheDirectory == "/tmp/explicit-cache" && explicitRoots->Offline,
         "explicit content roots and offline policy are preserved");
   return Report();
 }

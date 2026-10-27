@@ -1,7 +1,7 @@
 # Shared medium camera frame (#266)
 
 `MakeMediumViewParameters` builds one224-byte snapshot from the actual Lens,
-camera basis, SkyStanding, Medium80 and native Viewport. Build it once per
+camera basis, SkyParameters, Medium80 and native Viewport. Build it once per
 camera/viewport/environment update; passing a prepared snapshot to many draws
 does not require repeating the factory. No allocation, IO or device call occurs
 in the factory. The new shared helpers are consumed by the actual native raster
