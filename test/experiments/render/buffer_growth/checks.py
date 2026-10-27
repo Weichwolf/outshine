@@ -23,6 +23,18 @@ class GrowthChecks(unittest.TestCase):
         self.assertEqual(arena.copied, 64)
         self.assertEqual(arena.allocations, 2)
 
+    def test_original_doubling_preserves_unaligned_byte_reservations(self):
+        for initial in (3, 5, 65):
+            with self.subTest(initial=initial):
+                arena = Arena()
+                for required in (initial, initial * 2):
+                    arena.request(
+                        ("G", "0", 0, required, 8, 0, 1, 0, 0, 0, 0),
+                        "doubling",
+                        False,
+                    )
+                self.assertEqual(arena.buffers[0].capacity, initial * 2)
+
     def test_small_requests_keep_geometric_headroom_and_amortized_copy_bound(self):
         arena = Arena()
         for required in range(4, 65540, 4):

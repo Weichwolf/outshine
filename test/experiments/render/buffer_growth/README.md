@@ -18,7 +18,8 @@ capacity, use mask, presence and copy counter. `doubling_max` reserves
 capacity on usage changes. This is also the installed libc++ `vector::__recommend`
 strategy; the C++ standard does not prescribe a vector growth factor.
 
-Other controls use factors3/2 and5/4 with four-byte alignment, or exact demand.
+The baseline preserves unaligned byte requests exactly. Only the fractional
+controls use four-byte alignment. Other controls use factors3/2 and5/4, or exact demand.
 All policies replay **all** requests, including those where the original did not grow.
 Cross replacements clear/replace the specified stream, rather than pretending every
 allocation goes through Grow. Deferred/fence retirement is deliberately not modeled.

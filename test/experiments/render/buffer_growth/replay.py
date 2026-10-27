@@ -71,18 +71,13 @@ class Arena:
                     "five_quarters": (5, 4),
                 }[policy]
                 while capacity < required:
-                    capacity = min(
-                        MAX_BYTES,
-                        (
-                            max(
-                                capacity + 1,
-                                (capacity * numerator + denominator - 1) // denominator,
-                            )
-                            + 3
-                        )
-                        // 4
-                        * 4,
+                    step = max(
+                        capacity + 1,
+                        (capacity * numerator + denominator - 1) // denominator,
                     )
+                    if policy != "doubling":
+                        step = (step + 3) // 4 * 4
+                    capacity = min(MAX_BYTES, step)
             if buffer.present and preserve:
                 self.copied += buffer.capacity
             self.growths.append((slot, buffer.capacity, required, capacity))
