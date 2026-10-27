@@ -1,5 +1,6 @@
 #include "ReadbackTransfer.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -73,20 +74,53 @@ Native::Result<ReadbackTransfer> ReadbackTransfer::Allocate(Native::Device &devi
 Native::Result<ReadbackTransfer> ReadbackTransfer::Start(Native::Device &device,
                                                          const Native::Texture &source,
                                                          Native::TextureRegion region) {
-  const auto row = TextureRow(source, region);
-  if (!row) { return std::unexpected(row.error()); }
-  if (*row > std::numeric_limits<uint64_t>::max() / region.Height) {
+  const std::array sources{TextureReadback{.Source = &source, .Region = region}};
+  std::array<ReadbackSlice, 1> slices;
+  auto transfer = Start(device, sources, slices);
+  if (transfer) { transfer->RowBytes_ = slices[0].RowBytes; }
+  return transfer;
+}
+
+Native::Result<ReadbackTransfer> ReadbackTransfer::Start(Native::Device &device,
+                                                         std::span<const TextureReadback> sources,
+                                                         std::span<ReadbackSlice> slices) {
+  if (sources.empty() || sources.size() != slices.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "readback image size overflow"});
+                                         .Message = "readback batch has invalid slices"});
   }
-  auto transfer = Allocate(device, *row * region.Height);
+  uint64_t bytes = 0;
+  constexpr uint64_t alignment = 4 * sizeof(float);
+  for (size_t at = 0; at < sources.size(); ++at) {
+    const auto &source = sources[at];
+    if (source.Source == nullptr) {
+      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                           .Message = "readback batch has no source texture"});
+    }
+    const auto row = TextureRow(*source.Source, source.Region);
+    if (!row) { return std::unexpected(row.error()); }
+    const uint64_t padding = (alignment - bytes % alignment) % alignment;
+    if (bytes > std::numeric_limits<uint64_t>::max() - padding ||
+        *row > (std::numeric_limits<uint64_t>::max() - bytes - padding) / source.Region.Height) {
+      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                           .Message = "readback batch size overflow"});
+    }
+    slices[at] = {.Range = {.Offset = bytes + padding, .Bytes = *row * source.Region.Height},
+                  .RowBytes = *row};
+    bytes = slices[at].Range.Offset + slices[at].Range.Bytes;
+  }
+  auto transfer = Allocate(device, bytes);
   if (!transfer) { return std::unexpected(transfer.error()); }
-  transfer->RowBytes_ = *row;
+  transfer->RowBytes_ = 0;
   auto commands = device.Begin();
   if (!commands) { return std::unexpected(commands.error()); }
-  const auto copied =
-      (*commands)->Copy(source, *transfer->Buffer_, {.RowBytes = *row, .Region = region});
-  if (!copied) { return std::unexpected(copied.error()); }
+  for (size_t at = 0; at < sources.size(); ++at) {
+    const auto copied = (*commands)->Copy(*sources[at].Source,
+                                          *transfer->Buffer_,
+                                          {.BufferOffset = slices[at].Range.Offset,
+                                           .RowBytes = slices[at].RowBytes,
+                                           .Region = sources[at].Region});
+    if (!copied) { return std::unexpected(copied.error()); }
+  }
   const auto submitted = device.Submit(std::move(*commands));
   if (!submitted) { return std::unexpected(submitted.error()); }
   transfer->Completion_ = *submitted;

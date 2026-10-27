@@ -160,6 +160,7 @@ def indoor_constraints(inputs, receipt, layers):
                 "properties": properties.copy(),
                 "source_sha256": receipt["sha256"],
                 "raw_tile_coordinates": raw,
+                "raw_tile_extent": extent,
                 "width_m": 1.5,
                 "width_origin": "explicit indoor footway/step recipe",
             }
