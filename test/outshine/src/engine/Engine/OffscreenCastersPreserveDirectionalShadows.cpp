@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <ios>
 #include <numbers>
@@ -88,7 +89,7 @@ bool Accepted(const outshine::Result &result, const char *claim) {
 
 std::vector<float> CaptureReceiver(Caster caster, outshine::AlphaMode alpha, const char *prefix) {
   using namespace outshine;
-  auto geometry = World(caster, alpha);
+  const auto geometry = World(caster, alpha);
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
@@ -164,7 +165,7 @@ void Verify(const std::vector<float> &clear,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc > 2) { return 2; }
   using namespace outshine;
   using namespace outshine::Test;

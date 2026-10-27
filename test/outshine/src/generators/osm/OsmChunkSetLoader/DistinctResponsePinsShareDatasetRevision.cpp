@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <utility>
 
 int main() {
   using namespace outshine;
@@ -104,7 +105,7 @@ int main() {
   wrong[1].Revision = "sha256:" + providers[0].PayloadSha256;
   CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
         "contradictory legacy and response pins are rejected");
-  wrong = providers;
+  wrong = std::move(providers);
   wrong[1].Kind = "terrain";
   CHECK(!outshine::Generators::Osm::ValidateProviders(wrong),
         "response pins are reserved for original OSM chunks");

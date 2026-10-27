@@ -27,7 +27,7 @@ int main() {
     CHECK(engine.renderer().resetMeasurements().has_value(),
           "an assembled scene starts an explicit frame measurement interval");
     {
-      auto capture = engine.beginCapture();
+      const auto capture = engine.beginCapture();
       CHECK(capture.has_value(), "capture accepts an assembled scene without ground");
       if (!capture) { return Report(); }
       CHECK(engine.renderer().render({}).has_value(), "capture permits rendering");
