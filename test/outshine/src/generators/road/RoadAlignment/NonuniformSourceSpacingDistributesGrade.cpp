@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstddef>
 #include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
@@ -15,6 +17,49 @@ double Grade(const outshine::Vec3 &direction) {
 
 outshine::Vec3 Position(const outshine::Generators::RoadConstraintPoint &point) {
   return {{point.TerrainLocalM.EastM, point.TerrainLocalM.NorthM, point.TerrainLocalM.UpM}};
+}
+
+void CheckEqualSpacing(const outshine::Ground::HeightField &heights) {
+  using namespace outshine;
+  using namespace outshine::Data;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  using namespace outshine::World;
+  constexpr std::string_view equalXml =
+      "<osm version='0.6'>"
+      "<node id='11' lat='0.01' lon='0.01'/>"
+      "<node id='12' lat='0.01' lon='0.0101'/>"
+      "<node id='13' lat='0.01007' lon='0.01017'/>"
+      "<way id='20'><nd ref='11'/><nd ref='12'/><nd ref='13'/>"
+      "<tag k='highway' v='primary'/><tag k='width' v='6'/></way></osm>";
+  const auto equalSource = outshine::Generators::Osm::XmlReader::Read(
+      equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
+  CHECK(equalSource.has_value(), "the near-equal-spaced road source parses");
+  if (!equalSource) { return; }
+  const auto equalTopology = outshine::Generators::Osm::TransportBuilder::Build(*equalSource);
+  CHECK(equalTopology.has_value(), "the near-equal-spaced road has motor topology");
+  if (!equalTopology) { return; }
+  const std::array equalRoute{
+      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
+      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
+  const auto equalConstraints = RoadConstraintChain::Build(
+      *equalTopology, equalSource->SourceIdentity(), equalRoute, heights);
+  CHECK(equalConstraints.has_value(), "both near-equal source chords have DEM constraints");
+  if (!equalConstraints) { return; }
+  const auto equalAlignment = RoadAlignmentBuilder::Build(*equalConstraints);
+  CHECK(equalAlignment.has_value(), "near-equal source chords build a native alignment");
+  if (!equalAlignment) { return; }
+  const auto equalPoints = equalConstraints->Points();
+  Vec3 equalIncoming = Position(equalPoints[1]) - Position(equalPoints[0]);
+  Vec3 equalOutgoing = Position(equalPoints[2]) - Position(equalPoints[1]);
+  CHECK(std::abs(Length(equalIncoming) - Length(equalOutgoing)) < 0.02 * Length(equalIncoming),
+        "the control source chords differ in length by less than two percent");
+  const bool normalized = Normalise(equalIncoming) && Normalise(equalOutgoing);
+  const auto equalSeam =
+      equalAlignment->AtEdgeStation(equalRoute[0], equalAlignment->Edges()[0].EndStationM);
+  CHECK(normalized && equalSeam &&
+            std::abs(Grade(equalSeam->TangentEnu) - Grade(equalIncoming + equalOutgoing)) < 0.001,
+        "near-equal chord spacing retains the ordinary bisector grade");
 }
 
 }
@@ -111,40 +156,6 @@ int main() {
           "the short edge does not absorb half of the long edge's grade transition");
   }
 
-  constexpr std::string_view equalXml =
-      "<osm version='0.6'>"
-      "<node id='11' lat='0.01' lon='0.01'/>"
-      "<node id='12' lat='0.01' lon='0.0101'/>"
-      "<node id='13' lat='0.01007' lon='0.01017'/>"
-      "<way id='20'><nd ref='11'/><nd ref='12'/><nd ref='13'/>"
-      "<tag k='highway' v='primary'/><tag k='width' v='6'/></way></osm>";
-  const auto equalSource = outshine::Generators::Osm::XmlReader::Read(
-      equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
-  CHECK(equalSource.has_value(), "the near-equal-spaced road source parses");
-  if (!equalSource) { return Report(); }
-  const auto equalTopology = outshine::Generators::Osm::TransportBuilder::Build(*equalSource);
-  CHECK(equalTopology.has_value(), "the near-equal-spaced road has motor topology");
-  if (!equalTopology) { return Report(); }
-  const std::array equalRoute{
-      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
-      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
-  const auto equalConstraints = RoadConstraintChain::Build(
-      *equalTopology, equalSource->SourceIdentity(), equalRoute, *heights);
-  CHECK(equalConstraints.has_value(), "both near-equal source chords have DEM constraints");
-  if (!equalConstraints) { return Report(); }
-  const auto equalAlignment = RoadAlignmentBuilder::Build(*equalConstraints);
-  CHECK(equalAlignment.has_value(), "near-equal source chords build a native alignment");
-  if (!equalAlignment) { return Report(); }
-  const auto equalPoints = equalConstraints->Points();
-  Vec3 equalIncoming = Position(equalPoints[1]) - Position(equalPoints[0]);
-  Vec3 equalOutgoing = Position(equalPoints[2]) - Position(equalPoints[1]);
-  CHECK(std::abs(Length(equalIncoming) - Length(equalOutgoing)) < 0.02 * Length(equalIncoming),
-        "the control source chords differ in length by less than two percent");
-  const bool normalized = Normalise(equalIncoming) && Normalise(equalOutgoing);
-  const auto equalSeam =
-      equalAlignment->AtEdgeStation(equalRoute[0], equalAlignment->Edges()[0].EndStationM);
-  CHECK(normalized && equalSeam &&
-            std::abs(Grade(equalSeam->TangentEnu) - Grade(equalIncoming + equalOutgoing)) < 0.001,
-        "near-equal chord spacing retains the ordinary bisector grade");
+  CheckEqualSpacing(*heights);
   return Report();
 }

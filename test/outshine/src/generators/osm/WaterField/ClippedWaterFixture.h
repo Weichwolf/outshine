@@ -1,4 +1,5 @@
-#pragma once
+#ifndef OUTSHINE_TEST_GENERATORS_OSM_WATERFIELD_CLIPPEDWATERFIXTURE_H
+#define OUTSHINE_TEST_GENERATORS_OSM_WATERFIELD_CLIPPEDWATERFIXTURE_H
 
 #include "OsmField.h"
 #include "TerrainLoader.h"
@@ -7,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <optional>
 #include <span>
 #include <string>
@@ -49,14 +51,16 @@ inline void Ring(Bytes &geometry, std::span<const Point> points, Point &previous
   Varint(geometry, 15);
 }
 
-inline Bytes VectorTile(std::optional<uint64_t> id,
-                        std::string_view kind,
-                        std::span<const Point> exterior,
-                        std::span<const Point> hole = {}) {
+struct PolygonRings {
+  std::span<const Point> Exterior;
+  std::span<const Point> Hole;
+};
+
+inline Bytes VectorTile(std::optional<uint64_t> id, std::string_view kind, PolygonRings rings) {
   Bytes geometry;
   Point previous{};
-  Ring(geometry, exterior, previous);
-  if (!hole.empty()) { Ring(geometry, hole, previous); }
+  Ring(geometry, rings.Exterior, previous);
+  if (!rings.Hole.empty()) { Ring(geometry, rings.Hole, previous); }
   Bytes feature;
   if (id) {
     feature.push_back(8);
@@ -86,18 +90,18 @@ class Heights final : public GroundQuery {
 public:
   bool AlongLatitude = false;
 
-  GroundSample At(LongitudeLatitude at) const override {
+  [[nodiscard]] GroundSample At(LongitudeLatitude at) const override {
     const bool lower = AlongLatitude ? at.LatitudeDeg > 10 : at.LongitudeDeg < -20;
     return GroundSample::At(lower ? 10.0 : 100.0);
   }
 
-  GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
+  [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
 
-  Ground::GroundBlock BlockAt(Ground::TileSpot) const override {
+  [[nodiscard]] Ground::GroundBlock BlockAt(Ground::TileSpot /*spot*/) const override {
     return Ground::GroundBlock::Waiting();
   }
 
-  double PostM(double) const override { return 1.0; }
+  [[nodiscard]] double PostM(double /*latitudeDeg*/) const override { return 1.0; }
 };
 
 inline void Finish(Generators::Osm::WaterField &water,
@@ -105,9 +109,11 @@ inline void Finish(Generators::Osm::WaterField &water,
                    bool alongLatitude = false) {
   Heights ground;
   ground.AlongLatitude = alongLatitude;
-  outshine::Generators::RegionSurfaceRecipes materials;
+  const outshine::Generators::RegionSurfaceRecipes materials;
   for (unsigned step = 0; step < 32 && !water.Ingested(field); ++step) {
     (void)water.Ingest(ground, field, materials);
   }
 }
 }
+
+#endif
