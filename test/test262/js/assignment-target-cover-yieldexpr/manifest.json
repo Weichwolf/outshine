@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "assignment-target-cover-yieldexpr",
   "title": "Applied to a \"covered\" YieldExpression",
   "covers": [
@@ -13,7 +13,7 @@
     "expects": "refuses",
     "phase": "parse"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "assignment-target-cover-yieldexpr",
