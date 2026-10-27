@@ -93,8 +93,8 @@ def scene_objects(source, surfaces, direction, light):
         "span_m": distance * 3.2,
         "target": centre.tolist(),
         "layout": "left original; right connected32; top +light; bottom -light",
-        "source_triangles_per_subject": len(source["faces"]),
-        "candidate_triangles_per_subject": sum(
+        "source_triangles_per_instance": len(source["faces"]),
+        "candidate_triangles_per_instance": sum(
             len(s["mesh"]["faces"]) for s in surfaces
         ),
     }

@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "inline-flexbox-wrap-vertically-width-calculation",
   "title": "CSS Flexbox: Inline flexbox width calculation with flex-direction: column and flex-wrap",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "inline-flexbox-wrap-vertically-width-calculation",

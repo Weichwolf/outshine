@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "table-as-item-cross-size",
   "title": "CSS Flexbox: Correct cross size of Table with 'align-self: stretch'",
   "covers": [
@@ -16,7 +16,7 @@
     "heightPx": 600,
     "note": "the reftest viewport WPT lays its own references out in"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "document",
       "id": "table-as-item-cross-size",

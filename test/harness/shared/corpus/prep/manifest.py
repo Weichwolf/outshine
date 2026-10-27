@@ -25,36 +25,36 @@ class Manifest:
         self.title = self.document["title"]
         self.covers = self.document["covers"]
         self.criterion = self.document["criterion"]
-        self.subjects = _subjects(self.document["subjects"])
+        self.inputs = _inputs(self.document["inputs"])
         self.viewport = self.document.get("viewport")
-        _check_names(self.subjects)
+        _check_names(self.inputs)
 
-def _check_names(subjects):
+def _check_names(inputs):
     """One file per name in a case directory, whatever produced it."""
     seen = {}
-    for subject in subjects:
-        for file in subject.files:
+    for corpus_input in inputs:
+        for file in corpus_input.files:
             if file["as"] in RESERVED_OUTPUT_NAMES:
-                raise Refusal("manifest.subjects", expected="a name outside the reserved set",
+                raise Refusal("manifest.inputs", expected="a name outside the reserved set",
                               observed=file["as"])
             if file["as"] in seen:
                 raise Refusal(
-                    "manifest.subjects",
+                    "manifest.inputs",
                     expected="one file per name in the test directory",
-                    observed="%s is claimed by both %s and %s" % (file["as"], seen[file["as"]], subject.id),
+                    observed="%s is claimed by both %s and %s" % (file["as"], seen[file["as"]], corpus_input.id),
                 )
-            seen[file["as"]] = subject.id
+            seen[file["as"]] = corpus_input.id
 
-def _subjects(value):
-    subjects = [_Subject(i, v) for i, v in enumerate(value)]
-    identifiers = [s.id for s in subjects]
+def _inputs(value):
+    inputs = [CorpusInput(i, v) for i, v in enumerate(value)]
+    identifiers = [s.id for s in inputs]
     if len(set(identifiers)) != len(identifiers):
-        raise Refusal("manifest.subjects", expected="distinct ids", observed=", ".join(identifiers))
-    return subjects
+        raise Refusal("manifest.inputs", expected="distinct ids", observed=", ".join(identifiers))
+    return inputs
 
-class _Subject:
+class CorpusInput:
     def __init__(self, index, field):
-        where = "manifest.subjects[%d]" % index
+        where = "manifest.inputs[%d]" % index
         self.id = field["id"]
         self.kind = field["kind"]
         self.name = field["name"]
