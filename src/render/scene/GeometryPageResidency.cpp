@@ -24,8 +24,10 @@ namespace outshine::Render {
 namespace {
 constexpr uint32_t kGeometryPageCellsMost = std::numeric_limits<uint64_t>::digits;
 
-std::expected<PieceHandle, std::string>
-UploadPart(SceneRenderer &renderer, const GeometryPagePartView &part, const Mat4 &row) {
+std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
+                                                   const GeometryPagePartView &part,
+                                                   const Mat4 &row,
+                                                   std::array<uint64_t, 3> productOrder) {
   if (part.Indices.empty()) { return PieceHandle{}; }
   if (part.Textured && (std::ranges::any_of(part.Verts,
                                             [](const StoredVertex &v) {
@@ -46,7 +48,8 @@ UploadPart(SceneRenderer &renderer, const GeometryPagePartView &part, const Mat4
                                        .Row = row,
                                        .Instances = {},
                                        .Surface = part.Surface,
-                                       .Textured = part.Textured});
+                                       .Textured = part.Textured,
+                                       .ProductOrder = productOrder});
 }
 
 void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,
@@ -160,8 +163,9 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .Visible = visible,
                              .Parts = {}};
   stood.Parts.reserve(baked.Parts.size());
-  for (const auto &part : baked.Parts) {
-    const auto uploaded = UploadPart(*Renderer_, part, row);
+  for (size_t at = 0; at < baked.Parts.size(); ++at) {
+    const auto uploaded =
+        UploadPart(*Renderer_, baked.Parts[at], row, {sourceKey, baked.Digest, at});
     if (!uploaded) {
       Releases(stood);
       ++Refused_;

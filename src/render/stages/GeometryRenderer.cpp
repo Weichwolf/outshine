@@ -677,6 +677,7 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   held.T = t;
   held.IndexCount = indices;
   held.Surface = piece.Surface;
+  held.ProductOrder = piece.ProductOrder;
   held.Emitted.reset();
   held.MaxInstances = piece.MaxInstances;
   held.Rows.reserve(piece.MaxInstances);
@@ -886,6 +887,7 @@ void GeometryRenderer::OrderPieces() {
       return MaterialSlotFor(left) < MaterialSlotFor(right);
     }
     if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
+    if (left.ProductOrder != right.ProductOrder) { return left.ProductOrder < right.ProductOrder; }
     return a < b;
   });
 }

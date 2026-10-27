@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SCENE_PIECEMESH_H
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -41,6 +42,8 @@ struct PieceMesh {
   uint32_t MaxInstances = 0;
   PieceSurface Surface;
   bool Textured = false;
+  // Stable product/part order within one material/layout; all-zero retains slot order.
+  std::array<uint64_t, 3> ProductOrder{};
 };
 
 inline constexpr auto kPieceUv1Error =
