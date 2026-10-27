@@ -281,6 +281,16 @@ add_test(NAME experiments/transport/NativeSourceFactsExport
 set_tests_properties(experiments/transport/NativeSourceFactsExport PROPERTIES
   TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/transport;world-gate")
 
+if(APPLE)
+  add_library(test_harness_metal_work_profile SHARED EXCLUDE_FROM_ALL
+    test/harness/render/MetalWorkProfile.mm)
+  target_compile_options(test_harness_metal_work_profile PRIVATE -fno-exceptions)
+  target_link_libraries(test_harness_metal_work_profile PRIVATE outshine_compiler
+    "-framework Metal" "-framework Foundation")
+  set_target_properties(test_harness_metal_work_profile PROPERTIES PREFIX "" SUFFIX ".dylib"
+    OUTPUT_NAME "metal-work-profile" LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/probes")
+endif()
+
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)

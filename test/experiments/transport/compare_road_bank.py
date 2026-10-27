@@ -26,8 +26,21 @@ def sample_grade(curve, stations):
     return abs(ds[:, :, 2]) / np.linalg.norm(ds[:, :, :2], axis=2)
 
 
-def diagnose(row, curve, control, arrays):
-    fitted = BankedSurface(row, control)
+def diagnose(
+    row,
+    curve,
+    control,
+    arrays,
+    *,
+    height_controls=None,
+    witnesses=(4013, 55171),
+    surface=None,
+):
+    fitted = (
+        BankedSurface(row, control, height_controls=height_controls)
+        if surface is None
+        else surface
+    )
     stations = np.unique(
         np.r_[
             np.linspace(*curve.stations[[0, -1]], 1001),
@@ -49,7 +62,7 @@ def diagnose(row, curve, control, arrays):
         ends, fitted.at(curve.stations[[0, -1]]), rtol=0, atol=1e-10
     )
     display = {}
-    if row["ordinal"] in (4013, 55171):
+    if row["ordinal"] in witnesses:
         plan = prepare(fitted, 0.01)
         display = {
             "display_model_bound_m": plan["maximum_stored_bound_m"],

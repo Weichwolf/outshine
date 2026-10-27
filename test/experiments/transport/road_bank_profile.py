@@ -44,7 +44,7 @@ def prior_controls(curve):
     return controls(q[:-1], q[1:], rate[:-1], rate[1:], curve.lengths).T
 
 
-def preflight(curve, limits):
+def preflight(curve, limits, *, fixed_height=True):
     if len(curve.lengths) > limits.max_spans:
         return "source_span_budget"
     if np.any(curve.width * curve.curvature_max >= 1):
@@ -64,7 +64,7 @@ def preflight(curve, limits):
         np.maximum(abs(a), abs(c)),
         abs(a * (1 - t) ** 2 + 2 * b * t * (1 - t) + c * t * t),
     )
-    if np.any(peak > limits.grade):
+    if fixed_height and np.any(peak > limits.grade):
         return "fixed_center_grade"
     rate = curve.poses[[0, -1], 10] / np.cos(curve.poses[[0, -1], 9]) ** 2
     curvature = [
@@ -146,18 +146,46 @@ def contacts(curve, prior):
     )
 
 
-def residual(curve, limits, prior, candidate):
-    x = candidate.reshape(-1)
-    rates = 3 * np.diff(candidate, axis=1) / curve.lengths[:, None]
-    original_rates = 3 * np.diff(prior, axis=1) / curve.lengths[:, None]
-    grade = 3 * np.diff(curve.height, axis=1) / curve.lengths[:, None]
+def quadratic_minimum(values):
+    a, b, c = np.asarray(values, dtype=float).T
+    denominator = a - 2 * b + c
+    t = np.clip(
+        np.divide(a - b, denominator, out=np.zeros_like(a), where=denominator > 0), 0, 1
+    )
+    return np.minimum(
+        np.minimum(a, c), a * (1 - t) ** 2 + 2 * b * t * (1 - t) + c * t * t
+    )
+
+
+def grade_residual(curve, limits, height, rates, mode):
     k0 = curve.curvature_start
     k1 = k0 + curve.curvature_rate * curve.lengths
     curvature = np.c_[k0, (k0 + k1) / 2, k1]
-    physical = max(
-        float(np.max(abs(grade - u * rates) / (1 - u * curvature) - limits.grade))
-        for u in (-curve.width, curve.width)
-    )
+    errors = []
+    for u in (-curve.width, curve.width):
+        denominator = 1 - u * curvature
+        numerator = height - u * rates
+        if mode == "bernstein":
+            errors.append(float(np.max(abs(numerator) / denominator - limits.grade)))
+        elif mode == "quadratic":
+            minimum_denominator = np.minimum(denominator[:, 0], denominator[:, -1])
+            for sign in (-1, 1):
+                lower = quadratic_minimum(limits.grade * denominator - sign * numerator)
+                errors.append(float(np.max(-lower / minimum_denominator)))
+        else:
+            raise ValueError("Known whole-interval grade certificate required")
+    return max(errors)
+
+
+def residual(
+    curve, limits, prior, candidate, *, height_controls=None, grade_mode="bernstein"
+):
+    x = candidate.reshape(-1)
+    rates = 3 * np.diff(candidate, axis=1) / curve.lengths[:, None]
+    original_rates = 3 * np.diff(prior, axis=1) / curve.lengths[:, None]
+    height = curve.height if height_controls is None else height_controls
+    grade = 3 * np.diff(height, axis=1) / curve.lengths[:, None]
+    physical = grade_residual(curve, limits, grade, rates, grade_mode)
     return float(
         max(
             physical,
@@ -177,14 +205,20 @@ def residual(curve, limits, prior, candidate):
     )
 
 
+def outer_cubic(curve, prior):
+    start, end = curve.stations[[0, -1]]
+    length = end - start
+    rate_start = 3 * (prior[0, 1] - prior[0, 0]) / curve.lengths[0]
+    rate_end = 3 * (prior[-1, 3] - prior[-1, 2]) / curve.lengths[-1]
+    return controls(prior[0, 0], prior[-1, 3], rate_start, rate_end, length)
+
+
 def global_cubic(curve, prior):
     from road_surface_model import bezier
 
     start, end = curve.stations[[0, -1]]
     length = end - start
-    rate_start = 3 * (prior[0, 1] - prior[0, 0]) / curve.lengths[0]
-    rate_end = 3 * (prior[-1, 3] - prior[-1, 2]) / curve.lengths[-1]
-    control = controls(prior[0, 0], prior[-1, 3], rate_start, rate_end, length)
+    control = outer_cubic(curve, prior)
     t = (curve.stations - start) / length
     q = bezier(control, t)
     rate = bezier(3 * np.diff(control) / length, t)

@@ -53,6 +53,7 @@ void CheckPages() {
   }
   GeometryPageView page{.Parts = parts,
                         .Digest = 1,
+                        .AssetKey = {},
                         .FallbackHeights = false,
                         .SelectedView = {},
                         .RequestedDetail = LevelOfDetail::Fine,

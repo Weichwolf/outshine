@@ -12,6 +12,12 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Gemeinsame skalare Straßenprofile](road_shared_profile.md): mikroskopische
+  Zwischenanschlüsse mit direkt geprüften Kubiken vermeiden, alte gültige
+  Produkte erhalten und verbleibende Fälle begrenzt lokal lösen (#1542).
+- [Gekoppelte Höhen- und Querneigungskorrektur](road_joint_profile.md): ganze
+  Intervalle genauer prüfen, zusätzliche Profile ohne Änderung erhalten und
+  verbleibende innere Höhe/Querneigung bei festen Außenprofilen begrenzen (#1539).
 - [Ganze Querneigungsübergänge vor dem Mesh](road_bank_profile.md): feste äußere
   Profile, ganze Randsteigungen und begrenzte Anpassung innerer Querneigungen;
   unmögliche kurze Endbindungen vor dem Solver erkennen (#1533/#20).

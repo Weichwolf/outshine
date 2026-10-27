@@ -47,10 +47,16 @@ def main():
     parser.add_argument("input", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--grade", type=float, required=True)
+    parser.add_argument("--witnesses", type=int, nargs=2, default=(4013, 55171))
+    parser.add_argument("--after-label", default="Constrained cubic-crossfall recipe")
+    parser.add_argument(
+        "--title",
+        default="Actual fixed-source sweeps: unchanged plan/height/outer sections",
+    )
     args = parser.parse_args()
     data = np.load(args.input, allow_pickle=False)
     fig = plt.figure(figsize=(15, 9), layout="constrained")
-    for i, ordinal in enumerate((4013, 55171)):
+    for i, ordinal in enumerate(args.witnesses):
         prefix = f"witness_{ordinal}_"
         original, after = data[prefix + "original"], data[prefix + "corrected"]
         joined = np.concatenate((original.reshape(-1, 3), after.reshape(-1, 3)))
@@ -58,7 +64,7 @@ def main():
         for j, (points, title) in enumerate(
             (
                 (original, "Original angular-bank model"),
-                (after, "Constrained cubic-crossfall recipe"),
+                (after, args.after_label),
             )
         ):
             ax = fig.add_subplot(2, 3, 3 * i + j + 1, projection="3d")
@@ -78,7 +84,8 @@ def main():
         ax.legend(fontsize=8)
         ax.grid(alpha=0.2)
     fig.suptitle(
-        "Actual fixed-source sweeps: unchanged plan/height/outer sections\nUnexaggerated geometry, Lambert diagnostic; limits are experiment inputs, no native/World/PBR admission."
+        args.title
+        + "\nUnexaggerated geometry, Lambert diagnostic; limits are experiment inputs, no native/World/PBR admission."
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=120)
