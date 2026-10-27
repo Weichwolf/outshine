@@ -3,7 +3,7 @@
 
 #include "Lens.h"
 #include "MediumViewParameters.h"
-#include "SkyPass.h"
+#include "SkyParameters.h"
 #include "native/Render.h"
 #include <expected>
 
@@ -15,7 +15,7 @@ enum class MediumViewError { InvalidViewport, InvalidProjection, InvalidBasis, I
 MakeMediumViewParameters(const Lens &lens,
                          Native::Viewport viewport,
                          const CameraBasis &basis,
-                         SkyStanding sky,
+                         SkyParameters sky,
                          const Medium &air) noexcept;
 
 }

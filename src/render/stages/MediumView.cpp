@@ -35,7 +35,7 @@ std::expected<MediumViewParameters, MediumViewError>
 MakeMediumViewParameters(const Lens &lens,
                          Native::Viewport viewport,
                          const CameraBasis &basis,
-                         SkyStanding sky,
+                         SkyParameters sky,
                          const Medium &air) noexcept {
   if (!ValidViewport(viewport)) { return std::unexpected(MediumViewError::InvalidViewport); }
   const bool projected = lens.OrthoM > 0 || lens.FovDeg > 0;

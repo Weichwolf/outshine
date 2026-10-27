@@ -831,11 +831,11 @@ void SceneRenderer::ApplyWorldDeclarations() {
        .EyeHeightM = ActiveState().EyeHeightM,
        .GroundAlbedo = ActiveState().Content.Geometry.Environment().GroundAlbedo});
   if (ActiveState().SkyDeclared) {
-    const SkyStanding stands = {.SunDir = ActiveState().SkyToSun,
-                                .WorldUp = ActiveState().SkyUp,
-                                .IlluminanceLux = ActiveState().SkyIlluminanceLux,
-                                .EyeHeightM = ActiveState().EyeHeightM};
-    ActiveFrame().Sky.Declare(ActiveState().Medium, stands);
+    const SkyParameters parameters = {.SunDir = ActiveState().SkyToSun,
+                                      .WorldUp = ActiveState().SkyUp,
+                                      .IlluminanceLux = ActiveState().SkyIlluminanceLux,
+                                      .EyeHeightM = ActiveState().EyeHeightM};
+    ActiveFrame().Sky.Declare(ActiveState().Medium, parameters);
   }
   const GeometryRenderer::Reflections reflections{
       .Atlas = ActiveState().MediumDeclared && ActiveState().SkyDeclared
@@ -1265,10 +1265,10 @@ SceneRenderer::EncodeAerialPerspective([[maybe_unused]] const FrameContext &ctx,
                                        const PassRecording &into) {
   if (!ActiveState().SkyDeclared) { return {}; }
   const PassRecording picture = Picture(true, into);
-  const SkyStanding sky{.SunDir = ActiveState().SkyToSun,
-                        .WorldUp = ActiveState().SkyUp,
-                        .IlluminanceLux = ActiveState().SkyIlluminanceLux,
-                        .EyeHeightM = ActiveState().EyeHeightM};
+  const SkyParameters sky{.SunDir = ActiveState().SkyToSun,
+                          .WorldUp = ActiveState().SkyUp,
+                          .IlluminanceLux = ActiveState().SkyIlluminanceLux,
+                          .EyeHeightM = ActiveState().EyeHeightM};
   const auto view = MakeMediumViewParameters(
       Through(), picture.Area, ActiveState().Camera, sky, ActiveState().Medium);
   if (!view) {

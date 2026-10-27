@@ -1,11 +1,11 @@
-#ifndef OUTSHINE_RENDER_STAGES_SKYPASS_H
-#define OUTSHINE_RENDER_STAGES_SKYPASS_H
+#ifndef OUTSHINE_RENDER_STAGES_SKYPARAMETERS_H
+#define OUTSHINE_RENDER_STAGES_SKYPARAMETERS_H
 
 #include "Vec3.h"
 
 namespace outshine::Render {
 
-struct SkyStanding {
+struct SkyParameters {
   Vec3f SunDir;
   Vec3f WorldUp;
   float IlluminanceLux = 0.0f;
