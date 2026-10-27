@@ -1754,3 +1754,34 @@ excluding source decode and graph preparation. Allocation traces and known
 numeric output sizes are neither complete copied bytes nor process/device peaks.
 The proof, actual findings and remaining geometry boundaries belong to
 [#1508](https://github.com/Weichwolf/outshine/issues/1508).
+
+The separate `canonical_ports._ground_prior` optimization uses only complete
+original port edges of the actual finite input. Slice welding protects both
+original XY endpoints; the existing finite-port check requires that whole edge
+and two road faces. Each possible face inherits a frame from its original part.
+For an adjacent part, take the largest `gamma*||F^-T*deltaXY||` over every frame
+it could inherit (`gamma=1.0000001`). A valid edge must respect this allowance.
+If the difference of its original height priors exceeds the allowance plus twice
+the requested prior reserve, the fit is impossible. The implementation verifies
+the squared inequality with exact rational arithmetic on the supplied floats,
+using a further 1µm per-endpoint prior reserve and no rounded inverse/square root.
+It never rejects based on only the smallest or currently adjacent parent frame.
+
+The check follows the unchanged affine attempt and precedes a C1 solve. A proven
+contradiction retains `ground_prior_error_limit`; no conclusion continues through
+the existing fit. Zero-time/input-budget failures retain their existing checks.
+The optional optimization skips inputs above4096faces/ports and stops after at
+most512frame checks (also bounded by max_queries), without rejecting such inputs.
+No persistent index, Source admission, new port authority or native path is added.
+Later geodetic endcap reconstruction may move XY; it is outside this pre-fit bound.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest ground_prior_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/measure_ground_prior.py --output "$TRANSPORT_WORK/ground-prior" --allocations
+```
+
+The paired comparison uses the same actual chain/star inputs and only bypasses
+the new preflight for its baseline. It requires equal decisions/reasons and exact
+positive affine/finite-plan arrays. Source/DEM/geometry preparation and backend
+warmup precede both measured fits. Optional Memray traces remain external temp
+artifacts; shared-host single timings prove no native/device or frame budget.
