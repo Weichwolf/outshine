@@ -9,6 +9,9 @@
 #endif
 layout(location = 0) flat out mat4 prismLocalFromClip;
 layout(location = 4) flat out uint prismPatchIndex;
+#if !PRISM_DEPTH
+#include "prismDifferentialVaryings.glsl"
+#endif
 
 void main() {
   const uint corners[36] = uint[36](0,4,6,0,6,2,1,3,7,1,7,5,
@@ -34,4 +37,7 @@ void main() {
   gl_Position = clipFromLocal * vec4(point, 1.0);
   prismLocalFromClip = inverse(clipFromLocal);
   prismPatchIndex = uint(gl_InstanceIndex);
+#if !PRISM_DEPTH
+  writePrismDifferentials(prismLocalFromClip);
+#endif
 }

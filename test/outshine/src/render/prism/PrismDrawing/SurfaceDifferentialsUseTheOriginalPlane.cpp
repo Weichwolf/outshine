@@ -2,6 +2,7 @@
 #include "CapturedPrismPlanes.h"
 #include "math/Mat4.h"
 #include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeImageReadback.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -10,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
@@ -138,7 +140,7 @@ void CheckDifferentials(Device &device) {
   std::vector<uint32_t> words(inputs.size() * sizeof(Input) / sizeof(uint32_t));
   std::memcpy(words.data(), inputs.data(), inputs.size() * sizeof(Input));
   const auto pipeline =
-      Require(device.CreateComputePipeline(Spirv(OUTSHINE_PRISM_DIFFERENTIAL_SHADER)));
+      Require(device.CreateComputePipeline(Spirv(OUTSHINE_PRISM_DIFFERENTIAL_COMP_SHADER)));
   auto commands = Require(device.Begin());
   const auto source = Upload(device, *commands, words);
   const auto output = Upload(device, *commands, std::vector<uint32_t>(inputs.size() * 8, kPoison));
@@ -158,10 +160,69 @@ void CheckDifferentials(Device &device) {
   Require(device.Unmap(*download));
   Compare(values, inputs);
 }
+
+void CheckFragmentDifferentials(Device &device) {
+  const auto inputs = Controls();
+  const auto width = static_cast<uint32_t>(inputs.size());
+  const std::array formats{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
+                           ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
+  std::array<std::unique_ptr<Texture>, 2> targets;
+  for (auto &target : targets) {
+    target = Require(
+        device.CreateTexture({.Width = width,
+                              .Height = 1,
+                              .Texels = Format::Rgba32Float,
+                              .Use = TextureUse::ColourAttachment | TextureUse::CopySource}));
+  }
+  const auto vertex = Spirv(OUTSHINE_PRISM_DIFFERENTIAL_VERT_SHADER);
+  const auto fragment = Spirv(OUTSHINE_PRISM_DIFFERENTIAL_FRAG_SHADER);
+  const auto pipeline =
+      Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
+                                             .Fragment = ShaderCode{.Spirv = fragment},
+                                             .Streams = {},
+                                             .Attributes = {},
+                                             .Colours = formats,
+                                             .Depth = {},
+                                             .Culling = Cull::None,
+                                             .Label = "prism differential stage transfer"}));
+  auto commands = Require(device.Begin());
+  std::vector<uint32_t> words(inputs.size() * sizeof(Input) / sizeof(uint32_t));
+  std::memcpy(words.data(), inputs.data(), inputs.size() * sizeof(Input));
+  const auto source = Upload(device, *commands, words);
+  const std::array bindings{Storage(0, 0, *source)};
+  const std::array colours{
+      ColourAttachment{
+          .Image = {.Image = targets[0].get()}, .Begin = Load::Clear, .End = Store::Store},
+      ColourAttachment{
+          .Image = {.Image = targets[1].get()}, .Begin = Load::Clear, .End = Store::Store}};
+  Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
+  Require(commands->Draw({.State = {.Pipeline = pipeline.get(),
+                                    .Bindings = bindings,
+                                    .Vertices = {},
+                                    .Area = {.Width = static_cast<float>(width), .Height = 1},
+                                    .Clip = {.Width = width, .Height = 1}},
+                          .Range = {.Count = 6, .Instances = width}}));
+  Require(commands->EndRenderPass());
+  const auto complete = Require(device.Submit(std::move(commands)));
+  CHECK(Require(device.Wait(complete, std::chrono::seconds(10))) == CompletionStatus::Ready,
+        "the actual flat vertex-to-fragment differential pipeline completes");
+  std::vector<float> values(inputs.size() * 8);
+  for (size_t derivative = 0; derivative < targets.size(); ++derivative) {
+    const auto image = ReadImage(device, *targets[derivative], {.Width = width, .Height = 1});
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      std::memcpy(values.data() + i * 8 + derivative * 4,
+                  image.Rows.data() + i * sizeof(float) * 4,
+                  sizeof(float) * 4);
+    }
+  }
+  Compare(values, inputs);
+}
+
 }
 
 int main() {
   auto device = Require(CreateDevice({.Validation = true}));
   CheckDifferentials(*device);
+  CheckFragmentDifferentials(*device);
   return Report();
 }

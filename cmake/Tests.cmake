@@ -68,19 +68,22 @@ foreach(source IN LISTS cases)
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/SurfaceDifferentialsUseTheOriginalPlane")
-    set(differential_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-differentials.comp.spv")
-    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
-    add_custom_command(OUTPUT "${differential_shader}"
-      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
-        "-I${PROJECT_SOURCE_DIR}/src" --depfile "${differential_shader}.d"
-        "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.comp"
-        -o "${differential_shader}"
-      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.comp"
-      DEPFILE "${differential_shader}.d" VERBATIM)
-    add_custom_target(test_prism_differential_shader DEPENDS "${differential_shader}")
-    add_dependencies(${target} test_prism_differential_shader)
-    target_compile_definitions(${target} PRIVATE
-      "OUTSHINE_PRISM_DIFFERENTIAL_SHADER=\"${differential_shader}\"")
+    foreach(stage IN ITEMS comp vert frag)
+      set(differential_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-differentials.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${differential_shader}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "-I${PROJECT_SOURCE_DIR}/src" --depfile "${differential_shader}.d"
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+          -o "${differential_shader}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+        DEPFILE "${differential_shader}.d" VERBATIM)
+      add_custom_target(test_prism_differential_${stage}_shader DEPENDS "${differential_shader}")
+      add_dependencies(${target} test_prism_differential_${stage}_shader)
+      string(TOUPPER "${stage}" stage_define)
+      target_compile_definitions(${target} PRIVATE
+        "OUTSHINE_PRISM_DIFFERENTIAL_${stage_define}_SHADER=\"${differential_shader}\"")
+    endforeach()
   endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"

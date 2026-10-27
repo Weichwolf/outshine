@@ -1,4 +1,14 @@
+#ifndef OUTSHINE_PRISM_DIFFERENTIALS
+#define OUTSHINE_PRISM_DIFFERENTIALS
 #include "prismPlane.glsl"
+struct PrismDifferentialFrame {
+  vec3 xy;
+  vec3 xw;
+  vec3 yw;
+  mat3 weight;
+  vec4 camera;
+};
+
 vec4 prismDifferenceOfProducts(vec4 a, vec4 b, vec4 c, vec4 d) {
   precise vec4 cd = c * d;
   precise vec4 error = fma(-c, d, cd);
@@ -7,37 +17,38 @@ vec4 prismDifferenceOfProducts(vec4 a, vec4 b, vec4 c, vec4 d) {
   return result;
 }
 
-void prismPositionDifferentials(mat4 b, vec3 normal, float height, vec3 u, vec3 v,
-                                vec2 ndc, vec2 viewportSize, out vec3 dx, out vec3 dy) {
+PrismDifferentialFrame preparePrismDifferentials(mat4 b) {
   // Power-of-two scaling preserves the projective query while bounding intermediate products.
   vec4 maximum = max(max(abs(b[0]), abs(b[1])), max(abs(b[2]), abs(b[3])));
   float largest = max(max(maximum.x, maximum.y), max(maximum.z, maximum.w));
   int exponent;
   frexp(largest, exponent);
   for (int i = 0; i < 4; ++i) { b[i] = ldexp(b[i], ivec4(-exponent)); }
-  uint axis = prismPlaneAxis(normal);
-  vec4 n = vec4(b[0][axis], b[1][axis], b[2][axis], b[3][axis]);
-  vec4 w = vec4(b[0].w, b[1].w, b[2].w, b[3].w);
-  vec2 t0 = vec2(dot(u, b[0].xyz), dot(v, b[0].xyz));
-  vec2 t1 = vec2(dot(u, b[1].xyz), dot(v, b[1].xyz));
-  vec2 t2 = vec2(dot(u, b[2].xyz), dot(v, b[2].xyz));
-  vec2 t3 = vec2(dot(u, b[3].xyz), dot(v, b[3].xyz));
-  // Factor the plane homography minors before rounding translated coordinate coefficients.
-  vec4 m0 = prismDifferenceOfProducts(vec4(t0, t0), vec4(w.yy, w.zz),
-                                      vec4(t1, t2), vec4(w.x));
-  vec4 m1 = prismDifferenceOfProducts(vec4(t1, t0), vec4(w.zz, w.ww),
-                                      vec4(t2, t3), vec4(w.yy, w.xx));
-  vec4 m2 = prismDifferenceOfProducts(vec4(t1, t3), vec4(w.ww, w.zz),
-                                      vec4(t3, t2), vec4(w.yy, w.ww));
-  vec3 denominator = prismDifferenceOfProducts(vec4(n.z), vec4(w.xyw, 0.0),
-                                               vec4(n.xyw, 0.0), vec4(w.z)).xyz;
-  precise vec2 k01 = fma(vec2(n.z), m0.xy, fma(vec2(-n.y), m0.zw, n.x * m1.xy));
-  precise vec2 k03 = fma(vec2(n.z), m1.zw, fma(vec2(-n.w), m0.zw, n.x * m2.zw));
-  precise vec2 k13 = fma(vec2(n.z), m2.xy, fma(vec2(-n.w), m1.xy, n.y * m2.zw));
-  precise float weight = fma(denominator.x, ndc.x, fma(denominator.y, ndc.y, denominator.z));
-  precise float incidence = fma(-height, w.z, n.z);
-  precise vec2 localDx = (fma(k01, vec2(ndc.y), k03) / weight) * (incidence / weight) * (2.0 / viewportSize.x);
-  precise vec2 localDy = (fma(-k01, vec2(ndc.x), k13) / weight) * (incidence / weight) * (-2.0 / viewportSize.y);
-  dx = u * localDx.x + v * localDx.y;
-  dy = u * localDy.x + v * localDy.y;
+  vec3 m01 = prismDifferenceOfProducts(b[0], vec4(b[1].w), b[1], vec4(b[0].w)).xyz;
+  vec3 m02 = prismDifferenceOfProducts(b[0], vec4(b[2].w), b[2], vec4(b[0].w)).xyz;
+  vec3 m12 = prismDifferenceOfProducts(b[1], vec4(b[2].w), b[2], vec4(b[1].w)).xyz;
+  vec3 m03 = prismDifferenceOfProducts(b[0], vec4(b[3].w), b[3], vec4(b[0].w)).xyz;
+  vec3 m13 = prismDifferenceOfProducts(b[1], vec4(b[3].w), b[3], vec4(b[1].w)).xyz;
+  vec3 m32 = prismDifferenceOfProducts(b[3], vec4(b[2].w), b[2], vec4(b[3].w)).xyz;
+  // Store the three independent entries of each antisymmetric plane-homography minor.
+  precise vec3 xy = fma(b[2].zxy, m01.yzx, fma(-b[1].zxy, m02.yzx, b[0].zxy * m12.yzx));
+  precise vec3 xw = fma(b[2].zxy, m03.yzx, fma(-b[3].zxy, m02.yzx, b[0].zxy * m32.yzx));
+  precise vec3 yw = fma(b[2].zxy, m13.yzx, fma(-b[3].zxy, m12.yzx, b[1].zxy * m32.yzx));
+  vec3 w0 = prismDifferenceOfProducts(b[2], vec4(b[0].w), b[0], vec4(b[2].w)).xyz;
+  vec3 w1 = prismDifferenceOfProducts(b[2], vec4(b[1].w), b[1], vec4(b[2].w)).xyz;
+  vec3 w3 = prismDifferenceOfProducts(b[2], vec4(b[3].w), b[3], vec4(b[2].w)).xyz;
+  return PrismDifferentialFrame(xy, xw, yw, mat3(w0, w1, w3), b[2]);
 }
+
+void prismPositionDifferentials(PrismDifferentialFrame frame, vec3 normal, float height,
+                                vec2 ndc, vec2 viewportSize, out vec3 dx, out vec3 dy) {
+  uint axis = prismPlaneAxis(normal);
+  precise float weight = fma(frame.weight[0][axis], ndc.x,
+                              fma(frame.weight[1][axis], ndc.y, frame.weight[2][axis]));
+  precise float incidence = fma(-height, frame.camera.w, frame.camera[axis]);
+  precise vec3 localDx = cross(abs(normal), fma(frame.xy, vec3(ndc.y), frame.xw));
+  precise vec3 localDy = cross(abs(normal), fma(-frame.xy, vec3(ndc.x), frame.yw));
+  dx = (localDx / weight) * (incidence / weight) * (2.0 / viewportSize.x);
+  dy = (localDy / weight) * (incidence / weight) * (-2.0 / viewportSize.y);
+}
+#endif

@@ -1,6 +1,6 @@
 #include "prismView.glsl"
 #include "prismTrace.glsl"
-#include "prismDifferentials.glsl"
+#include "prismDifferentialVaryings.glsl"
 
 SurfaceDifferential prismSurfaceDifferential(vec3 localChange, mat3 current, vec3 u, vec3 v) {
   SurfaceDifferential result;
@@ -38,7 +38,7 @@ bool readPrismSurface() {
   vec3 localDx, localDy;
   vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
   vec2 ndc = vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
-  prismPositionDifferentials(prismLocalFromClip, localNormal, height, u, v, ndc,
+  prismPositionDifferentials(readPrismDifferentials(), localNormal, height, ndc,
                              prismViewport.area.zw, localDx, localDy);
   surfaceDx = prismSurfaceDifferential(localDx, mat3(gridPatch.current), u, v);
   surfaceDy = prismSurfaceDifferential(localDy, mat3(gridPatch.current), u, v);

@@ -14,9 +14,7 @@ void main() {
   vec3 dx = vec3(uintBitsToFloat(0x7fc00001u));
   vec3 dy = dx;
   if (projected) {
-    vec3 u, v;
-    prismSurfaceAxes(entry.plane.xyz, u, v);
-    prismPositionDifferentials(entry.b, entry.plane.xyz, entry.plane.w, u, v,
+    prismPositionDifferentials(preparePrismDifferentials(entry.b), entry.plane.xyz, entry.plane.w,
                                entry.pixel.xy, entry.pixel.zw, dx, dy);
   }
   results[id].dx = vec4(dx, projected ? 1.0 : 0.0);
