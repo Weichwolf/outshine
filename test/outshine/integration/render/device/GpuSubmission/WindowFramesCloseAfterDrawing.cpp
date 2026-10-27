@@ -65,8 +65,7 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
 void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixels) {
   auto renderer = engine.renderer();
   auto copied = renderer;
-  auto target = engine.swapChain();
-  CHECK(renderer.beginFrame(target).has_value(), "window scope begins");
+  CHECK(renderer.beginFrame().has_value(), "window scope begins");
   CHECK(renderer.render({}).has_value(), "explicit window draw succeeds");
   unsigned before = swapchainCalls;
   double framesBefore = RenderFrames(engine);
@@ -75,14 +74,14 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(RenderFrames(engine) == framesBefore,
         "closing an explicitly drawn frame does not publish another render");
 
-  CHECK(renderer.beginFrame(target).has_value(), "empty window scope begins");
+  CHECK(renderer.beginFrame().has_value(), "empty window scope begins");
   before = swapchainCalls;
   CHECK(renderer.endFrame().has_value() && swapchainCalls == before + 1,
         "an empty window scope still draws once when closed");
   CHECK(RenderFrames(engine) == framesBefore + 1,
         "the closing fallback publishes its successfully submitted render");
 
-  CHECK(renderer.beginFrame(target).has_value(), "skipped window scope begins");
+  CHECK(renderer.beginFrame().has_value(), "skipped window scope begins");
   skipSwapchain = true;
   CHECK(renderer.render({}).has_value() && !skipSwapchain,
         "minimized acquisition skips successfully");
@@ -90,7 +89,7 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(renderer.endFrame().has_value() && swapchainCalls == before,
         "a skipped draw is not immediately retried by endFrame");
 
-  CHECK(renderer.beginFrame(target).has_value(), "failed draw scope begins");
+  CHECK(renderer.beginFrame().has_value(), "failed draw scope begins");
   failSwapchain = true;
   CHECK(!renderer.render({}) && !failSwapchain,
         "failed draw reaches the real acquisition boundary");
@@ -101,7 +100,7 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(RenderFrames(engine) == framesBefore + 1,
         "recovery after a failed draw publishes the successful fallback");
 
-  CHECK(renderer.beginFrame(target).has_value(), "failed fallback scope begins");
+  CHECK(renderer.beginFrame().has_value(), "failed fallback scope begins");
   failSwapchain = true;
   framesBefore = RenderFrames(engine);
   CHECK(!renderer.endFrame() && !failSwapchain,
@@ -112,7 +111,7 @@ void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixe
   CHECK(RenderFrames(engine) == framesBefore,
         "a failed fallback does not publish a successful render");
 
-  CHECK(renderer.beginFrame(target).has_value(), "readback scope begins");
+  CHECK(renderer.beginFrame().has_value(), "readback scope begins");
   before = swapchainCalls;
   const auto pixels = renderer.readPixels(windowPixels);
   if (!pixels) { std::println(stderr, "window readback: {}", pixels.error()); }
@@ -132,14 +131,13 @@ void CheckReadbackFailures(outshine::Engine &engine) {
   using namespace outshine;
   std::vector<uint8_t> windowPixels;
   auto renderer = engine.renderer();
-  auto target = engine.swapChain();
   unsigned before = 0;
   const std::vector<uint8_t> untouched{17, 19, 23};
   for (const auto failure : {DownloadFailure::Acquire,
                              DownloadFailure::Copy,
                              DownloadFailure::Map,
                              DownloadFailure::Wait}) {
-    CHECK(renderer.beginFrame(target).has_value(), "failed readback scope begins");
+    CHECK(renderer.beginFrame().has_value(), "failed readback scope begins");
     auto preserved = untouched;
     const unsigned failuresBefore = downloadFailures;
     downloadFailure = failure;
@@ -157,7 +155,7 @@ void CheckReadbackFailures(outshine::Engine &engine) {
           "readback success and failure release staging buffers, recordings and completed "
           "observations");
   }
-  CHECK(renderer.beginFrame(target).has_value(), "float readback scope begins");
+  CHECK(renderer.beginFrame().has_value(), "float readback scope begins");
   std::vector<float> linear;
   CHECK(renderer.readPixels(Buffer::Linear, linear).has_value(), "scene-linear readback succeeds");
   before = swapchainCalls;
@@ -170,7 +168,7 @@ void CheckReadbackFailures(outshine::Engine &engine) {
     file << "not a directory";
     CHECK(file.good(), "file failure fixture exists");
   }
-  CHECK(renderer.beginFrame(target).has_value(), "file failure scope begins");
+  CHECK(renderer.beginFrame().has_value(), "file failure scope begins");
   CHECK(!outshine::App::SaveImage(engine, (blocked / "image.png").string()),
         "screenshot reports a directory error");
   before = swapchainCalls;
@@ -188,8 +186,7 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
           Prepare(offscreen),
       "offscreen scene is ready");
   auto offscreenRenderer = offscreen.renderer();
-  auto offscreenTarget = offscreen.swapChain();
-  CHECK(offscreenRenderer.beginFrame(offscreenTarget).has_value(), "offscreen scope begins");
+  CHECK(offscreenRenderer.beginFrame().has_value(), "offscreen scope begins");
   const unsigned commandsBefore = commandAcquires;
   CHECK(offscreenRenderer.endFrame().has_value() && commandAcquires == commandsBefore,
         "empty offscreen scope creates no GPU work");

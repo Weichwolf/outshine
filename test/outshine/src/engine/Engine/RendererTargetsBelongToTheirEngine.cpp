@@ -20,8 +20,6 @@ int main() {
     CHECK(render.flushAndWait().has_value(), "waiting without a scene is a successful no-op");
     auto copied = render;
     auto other = second.renderer();
-    auto target = first.swapChain();
-    auto foreign = second.swapChain();
     CHECK(first.setRenderTarget({.WidthPx = 32, .HeightPx = 32}).has_value(),
           "first offscreen target");
     CHECK(second.setRenderTarget({.WidthPx = 32, .HeightPx = 32}).has_value(),
@@ -33,30 +31,30 @@ int main() {
     CHECK(first.declare(scenario).has_value(), "first scenario");
     CHECK(second.declare(scenario).has_value(), "second scenario");
     CHECK(render.flushAndWait().has_value(), "initialized owner can wait for GPU work");
-    const auto refused = copied.beginFrame(foreign);
-    CHECK(!refused && refused.error().contains("another engine"),
-          "a copied renderer refuses a foreign target by owner identity, not dimensions");
-    CHECK(!render.endFrame(), "refusal did not begin a frame on the first Engine");
-    CHECK(!other.endFrame(), "refusal did not begin a frame on the second Engine");
-    CHECK(render.beginFrame(target).has_value(), "the first owner remains usable");
-    CHECK(!render.beginFrame(target), "an already open frame rejects a repeated begin");
-    CHECK(!copied.beginFrame(target), "facade copies cannot nest their owner's frame");
+    CHECK(!render.endFrame(), "the first Engine begins with a closed frame");
+    CHECK(!other.endFrame(), "the second Engine begins with an independent closed frame");
+    CHECK(render.beginFrame().has_value(), "the first owner remains usable");
+    CHECK(!render.beginFrame(), "an already open frame rejects a repeated begin");
+    CHECK(!copied.beginFrame(), "facade copies cannot nest their owner's frame");
+    CHECK(!other.endFrame(), "beginning the first frame cannot open the second owner");
+    CHECK(other.beginFrame().has_value(), "another Engine can hold an independent frame");
+    CHECK(!other.beginFrame(), "the second frame also refuses its own nested begin");
     CHECK(!first.setRenderTarget({.WidthPx = 48, .HeightPx = 32}),
           "rejected nested begin preserves the original open scope");
     CHECK(copied.endFrame().has_value(), "copied facades share their owner's frame state");
     CHECK(!render.endFrame(), "exactly one close consumes the original frame");
-    CHECK(other.beginFrame(foreign).has_value(), "the second owner remains usable");
+    CHECK(!second.setRenderTarget({.WidthPx = 48, .HeightPx = 32}),
+          "closing the first frame cannot release the second Engine scope");
     CHECK(other.endFrame().has_value(), "second frame ends independently");
     CHECK(first.setRenderTarget({.WidthPx = 48, .HeightPx = 32}).has_value(),
           "target can change without moving the Engine");
-    CHECK(target.extent().WidthPx == 48 && foreign.extent().WidthPx == 32,
-          "borrowed targets observe only their own Engine's changes");
-    CHECK(copied.beginFrame(target).has_value(),
-          "retained facade remains valid after target change");
+    CHECK(first.frameExtent().WidthPx == 48 && second.frameExtent().WidthPx == 32,
+          "target state changes remain local to their Engine");
+    CHECK(copied.beginFrame().has_value(), "retained facade remains valid after target change");
     CHECK(render.endFrame().has_value(), "frame closes after target change");
   }
   SDL_Quit();
-  Covers("stable nonmovable owners; cross-owner refusal without frame "
-         "mutation; facade copies and target changes preserve owner identity");
+  Covers("stable owners; independent simultaneous frame scopes; copied renderer references, "
+         "nested begin refusal and target changes preserve per-Engine state");
   return Report();
 }

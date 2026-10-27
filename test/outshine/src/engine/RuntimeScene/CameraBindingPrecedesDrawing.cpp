@@ -42,8 +42,7 @@ int main() {
   if (!initialized) { return Report(); }
   {
     Engine engine;
-    const auto target = engine.swapChain();
-    CHECK(target.extent().WidthPx == 0 && target.extent().HeightPx == 0,
+    CHECK(engine.frameExtent().WidthPx == 0 && engine.frameExtent().HeightPx == 0,
           "internal default dimensions are not advertised as a configured target");
     CHECK(engine.setRenderTarget(Extent{.WidthPx = 32, .HeightPx = 32}).has_value(),
           "configure an offscreen target");
@@ -86,10 +85,9 @@ int main() {
       CHECK(engine.setRenderTarget(window).has_value(), "the Engine borrows the window");
       CHECK(engine.declare(Declaration(false)).has_value(),
             "a presentation scene starts without a bound camera");
-      auto target = engine.swapChain();
       auto renderer = engine.renderer();
       for (int attempt = 0; attempt < 2; ++attempt) {
-        const auto begun = renderer.beginFrame(target);
+        const auto begun = renderer.beginFrame();
         CHECK(begun.has_value(), "frame setup remains independent of camera selection");
         if (begun) {
           CHECK(!renderer.endFrame(),
@@ -100,7 +98,7 @@ int main() {
       const bool ready = engine.declare(Declaration(true)) && engine.assemble() && engine.advance();
       CHECK(ready, "camera preparation recovers the existing window target");
       if (ready) {
-        const auto begun = renderer.beginFrame(target);
+        const auto begun = renderer.beginFrame();
         CHECK(begun.has_value(), "a new frame opens after recovery");
         if (begun) {
           CHECK(renderer.endFrame().has_value(), "the prepared camera presents successfully");

@@ -43,7 +43,7 @@ SaveImage(std::span<const uint8_t> rgba, Extent frame, std::string_view path) {
 std::expected<void, std::string> SaveImage(Engine &engine, std::string_view path) {
   std::vector<uint8_t> rgba;
   if (const auto read = engine.renderer().readPixels(rgba); !read) { return read; }
-  return SaveImage(rgba, engine.swapChain().extent(), path);
+  return SaveImage(rgba, engine.frameExtent(), path);
 }
 
 std::expected<void, std::string>

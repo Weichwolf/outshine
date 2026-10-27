@@ -95,7 +95,7 @@ ReportPixel(Engine &engine, std::string_view name, PixelCoordinate at) {
   if (engine.declaration().Ground.Declared && !engine.settled(WorldQuality::Refined)) {
     return std::unexpected("probe requires a refined published world");
   }
-  const Extent extent = engine.swapChain().extent();
+  const Extent extent = engine.frameExtent();
   if (at.X < 0 || at.Y < 0 || at.X >= extent.WidthPx || at.Y >= extent.HeightPx) {
     return std::unexpected("probe pixel lies outside the current render target");
   }
@@ -149,7 +149,7 @@ ReportPixel(Engine &engine, std::string_view name, PixelCoordinate at) {
 std::expected<void, std::string> SaveLinearImage(Engine &engine, std::string_view path) {
   static_assert(std::endian::native == std::endian::little);
   static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
-  const Extent extent = engine.swapChain().extent();
+  const Extent extent = engine.frameExtent();
   if (path.empty() || extent.WidthPx <= 0 || extent.HeightPx <= 0) {
     return std::unexpected("linear output needs a path and positive frame extent");
   }
