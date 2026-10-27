@@ -53,7 +53,7 @@ std::vector<uint8_t> Rendered(Engine &engine) {
 }
 
 void Retains(Engine &engine, Extent extent, const std::vector<uint8_t> &expected) {
-  const auto actual = engine.swapChain().extent();
+  const auto actual = engine.frameExtent();
   CHECK(actual.WidthPx == extent.WidthPx && actual.HeightPx == extent.HeightPx,
         "a rejected candidate keeps both active dimensions");
   std::vector<uint8_t> pixels;
@@ -64,9 +64,8 @@ void Retains(Engine &engine, Extent extent, const std::vector<uint8_t> &expected
 void Unconfigured() {
   Engine engine;
   CHECK(!engine.setRenderTarget(Extent{0, 32}), "invalid first configuration is rejected");
-  auto target = engine.swapChain();
-  CHECK(!engine.renderer().beginFrame(target) && target.extent().WidthPx == 0 &&
-            target.extent().HeightPx == 0,
+  CHECK(!engine.renderer().beginFrame() && engine.frameExtent().WidthPx == 0 &&
+            engine.frameExtent().HeightPx == 0,
         "a rejected first target leaves no drawable extent");
 }
 
@@ -92,9 +91,9 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
   Engine contender =
       TestEngine::WithGpu({.Context = &contenderFault, .Create = NativeTargetFaultDevice::Create});
   CHECK(owner.setRenderTarget(first).has_value(), "the owner claims its real window");
-  const Extent original = owner.swapChain().extent();
+  const Extent original = owner.frameExtent();
   CHECK(!contender.setRenderTarget(first), "a second Engine cannot claim the same window");
-  CHECK(owner.swapChain().presents() && !contender.swapChain().presents(),
+  CHECK(owner.presenting() && !contender.presenting(),
         "a refused claim preserves both owner identities");
   rejectExtent = true;
   const auto refusedExtent = owner.setRenderTarget(candidate);
@@ -110,9 +109,9 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
     fault.Arm(TargetFailure::None);
     CHECK(!result && fault.Rejected == rejected + 1 && result.error().contains("injected"),
           "native claim and post-claim resource failures reach the public caller");
-    const auto retained = owner.swapChain().extent();
-    CHECK(fault.Window == first && owner.swapChain().presents() &&
-              retained.WidthPx == original.WidthPx && retained.HeightPx == original.HeightPx,
+    const auto retained = owner.frameExtent();
+    CHECK(fault.Window == first && owner.presenting() && retained.WidthPx == original.WidthPx &&
+              retained.HeightPx == original.HeightPx,
           "failed configuration restores the actual original window and physical extent");
     CHECK(!contender.setRenderTarget(first), "the retained original claim remains exclusive");
     CHECK(ClaimReleased(contender, contenderFault, candidate).has_value(),
@@ -120,9 +119,8 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
     CHECK(contender.setRenderTarget(kOriginal).has_value(),
           "the contender can release the candidate");
   }
-  auto target = owner.swapChain();
   auto renderer = owner.renderer();
-  const bool begun = renderer.beginFrame(target).has_value();
+  const bool begun = renderer.beginFrame().has_value();
   CHECK(begun, "a frame opens on the retained window");
   if (begun) {
     CHECK(!owner.setRenderTarget(candidate) && !owner.setRenderTarget(kOriginal),
@@ -130,8 +128,7 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
     CHECK(renderer.endFrame().has_value(), "the retained window still presents that frame");
   }
   CHECK(ClaimReleased(owner, fault, candidate).has_value(), "a closed frame permits replacement");
-  auto replacement = owner.swapChain();
-  CHECK(renderer.beginFrame(replacement).has_value() && renderer.endFrame().has_value(),
+  CHECK(renderer.beginFrame().has_value() && renderer.endFrame().has_value(),
         "the replacement window opens and presents a complete frame");
   CHECK(ClaimReleased(contender, contenderFault, first).has_value(),
         "successful replacement releases the former native window claim");
@@ -183,7 +180,7 @@ void RejectTargets(Engine &engine, TargetFault &fault) {
             !engine.setRenderTarget(static_cast<SDL_Window *>(nullptr)),
         "invalid inputs cannot replace an existing target");
   CHECK(engine.setRenderTarget(kOriginal).has_value(), "same-extent retry succeeds");
-  CHECK(engine.setRenderTarget(kWidened).has_value() && engine.swapChain().extent().WidthPx == 48,
+  CHECK(engine.setRenderTarget(kWidened).has_value() && engine.frameExtent().WidthPx == 48,
         "a complete candidate publishes its new extent");
   CHECK(Rendered(engine).size() == kWidenedRgbaBytes,
         "the published target renders complete pixels at its new extent");
@@ -218,7 +215,7 @@ void EveryCreation(Engine &engine, TargetFault &fault, const std::array<unsigned
                               TargetFailure::Pipeline};
   for (size_t family = 0; family < points.size(); ++family) {
     for (unsigned at = 1; at <= counts[family]; ++at) {
-      const Extent retained = engine.swapChain().extent();
+      const Extent retained = engine.frameExtent();
       const Extent next = retained.WidthPx == kOriginal.WidthPx ? kWidened : kOriginal;
       const auto pixels = Rendered(engine);
       const unsigned rejected = fault.Rejected;
