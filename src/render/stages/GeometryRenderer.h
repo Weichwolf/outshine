@@ -21,7 +21,7 @@
 #include <memory>
 #include <cstddef>
 
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "DrawList.h"
 #include "TerrainRenderer.h"
 #include "PrismResidency.h"

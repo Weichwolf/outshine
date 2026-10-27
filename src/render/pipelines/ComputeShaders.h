@@ -1,7 +1,7 @@
-#ifndef OUTSHINE_RENDER_STAGES_COMPUTESHADERS_H
-#define OUTSHINE_RENDER_STAGES_COMPUTESHADERS_H
+#ifndef OUTSHINE_RENDER_PIPELINES_COMPUTESHADERS_H
+#define OUTSHINE_RENDER_PIPELINES_COMPUTESHADERS_H
 
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

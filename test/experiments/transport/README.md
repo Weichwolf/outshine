@@ -12,6 +12,12 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Analytische Straßen-Beleuchtungsreferenz](road_surface_frames.md): metrische
+  Flächenableitungen und Texturrahmen ohne Fine-Mesh; reale Gegenfälle gegen
+  bloß interpolierte Vertexnormalen (#1531/#964).
+- [Kleine verbundene Boden-Netze](ground_network.md): gemeinsame ganze Knotenkerne,
+  Zweierverbinder und mehrteilige Arme; tatsächliche fünfteilige Geometrie und
+  getrennte Quellen-/Endqualifikation (#1527/#1402).
 - [Installierter gemeinsamer Höhenkern](stair_level_library_comparison.md):
   gleiche ganze 90er Produkte und pixelgleiche 720p-Bilder, neue begrenzte
   Bibliotheksfunktion statt numerischer Experimentkopien (#732/#50).
@@ -1261,6 +1267,22 @@ Analytisch C1, endliche Faces und Boden C0; kein vollständiger Dynamik-/LOD-Bel
 Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
 `transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
 bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
+
+Die Unterteilung nach [#1519](https://github.com/Weichwolf/outshine/issues/1519)
+erzeugt beide Hälften eines Parameterschnitts gemeinsam und verarbeitet die
+verbleibende Hälfte beim nächsten Schnitt weiter. Schnittpunkte werden weiterhin
+direkt an ursprünglichen Kanten berechnet; ganze Ports, Reihenfolge, Vertexmaps
+und die bestehenden Rundungs-/Ausgabebudgets bleiben erhalten.
+`port_slice_partition_checks.py` prüft unabhängig rationale/schiefe Schnitte,
+Vertex-/Rundungstreffer, Flächenabdeckung, Orientierung und ursprüngliche
+Kantenprioren. Verfahrensvergleich und Kosten stehen im verlinkten Fach-Issue.
+
+```sh
+SLICE_COMPARE=$(mktemp -d "${TMPDIR:-/tmp}/outshine-slice-1519.XXXXXX")
+git show 0fc5fe227:lib/src/outshine_ref/transport/port_heights/_slices.py > "$SLICE_COMPARE/baseline_slices.py"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/compare_port_slice_work.py \
+  --baseline "$SLICE_COMPARE/baseline_slices.py" --output "$SLICE_COMPARE/comparison"
+```
 
 Der Solververgleich [#217](https://github.com/Weichwolf/outshine/issues/217) ersetzt
 versuchsweise ausschließlich den Fit-Aufruf: `port_highs_experiment.py` bindet

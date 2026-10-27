@@ -13,6 +13,11 @@ namespace outshine::Render::Native::Vulkan {
 
 namespace {
 
+static_assert(sizeof(VkDispatchIndirectCommand) == sizeof(Workgroups));
+static_assert(offsetof(VkDispatchIndirectCommand, x) == offsetof(Workgroups, X));
+static_assert(offsetof(VkDispatchIndirectCommand, y) == offsetof(Workgroups, Y));
+static_assert(offsetof(VkDispatchIndirectCommand, z) == offsetof(Workgroups, Z));
+
 struct ImageUse {
   TextureView View;
   bool Writes = false;
@@ -55,23 +60,45 @@ Result<void> CheckImageAliases(const ComputeLayout &layout, std::span<const Bind
   return {};
 }
 
+Result<void> CheckIndirectAliases(const Context &context,
+                                  const ComputeLayout &layout,
+                                  std::span<const Binding> bindings,
+                                  const BufferState &arguments,
+                                  ByteRange range) {
+  for (const auto &declared : layout.Bindings) {
+    if (declared.Kind != BindingKind::StorageBuffer || declared.Usage == Access::Read) { continue; }
+    const auto binding = std::ranges::find_if(bindings, [&declared](const Binding &one) {
+      return one.Set == declared.Set && one.Slot == declared.Slot;
+    });
+    if (binding == bindings.end()) { continue; }
+    const auto *storage = std::get_if<StorageBuffer>(&binding->Value);
+    if (storage == nullptr || storage->Data == nullptr) { continue; }
+    const auto buffer = BufferFrom(*storage->Data, context);
+    if (!buffer) { return std::unexpected(buffer.error()); }
+    if (buffer->get() != &arguments) { continue; }
+    const auto &written = storage->Range;
+    if (!Contains(arguments.Description.Bytes, written)) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid, .Message = "invalid writable indirect buffer range"});
+    }
+    if (written.Offset < range.Offset + range.Bytes &&
+        range.Offset < written.Offset + written.Bytes) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid,
+                .Message = "indirect argument range overlaps writable compute storage"});
+    }
+  }
+  return {};
 }
 
-Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
-                                 std::span<const Binding> bindings,
-                                 Workgroups groups) {
-  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+}
+
+Result<void> Recording::BindCompute(const ComputePipeline &pipeline,
+                                    std::span<const Binding> bindings) {
   const auto *const native = dynamic_cast<const VulkanPipeline *>(&pipeline);
   if (native == nullptr || native->State()->Owner != Context_ || Finished_ || Render_) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "invalid compute pipeline or command state"});
-  }
-  const std::array counts{groups.X, groups.Y, groups.Z};
-  for (std::size_t at = 0; at < counts.size(); ++at) {
-    if (counts[at] == 0 || counts[at] > Context_->Limits.MaxWorkgroupCount[at]) {
-      return std::unexpected(Error{.Kind = ErrorKind::Invalid,
-                                   .Message = "compute dispatch exceeds device workgroup limit"});
-    }
   }
   if (auto valid = CheckImageAliases(native->Layout(), bindings); !valid) { return valid; }
   if (std::ranges::find(Pipelines_, native->State()) == Pipelines_.end()) {
@@ -93,9 +120,56 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
                             0,
                             nullptr);
   }
+  return {};
+}
+
+Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
+                                 std::span<const Binding> bindings,
+                                 Workgroups groups) {
+  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  const std::array counts{groups.X, groups.Y, groups.Z};
+  for (size_t at = 0; at < counts.size(); ++at) {
+    if (counts[at] == 0 || counts[at] > Context_->Limits.MaxWorkgroupCount[at]) {
+      return std::unexpected(Error{.Kind = ErrorKind::Invalid,
+                                   .Message = "compute dispatch exceeds device workgroup limit"});
+    }
+  }
+  if (auto bound = BindCompute(pipeline, bindings); !bound) { return bound; }
   const auto query = Timings_.Begin(Commands_);
   if (!query) { return std::unexpected(query.error()); }
   vkCmdDispatch(Commands_, groups.X, groups.Y, groups.Z);
+  Timings_.End(Commands_, *query);
+  return {};
+}
+
+Result<void> Recording::DispatchIndirect(const ComputePipeline &pipeline,
+                                         std::span<const Binding> bindings,
+                                         const Buffer &arguments,
+                                         uint64_t offset) {
+  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  const auto buffer = BufferFrom(arguments, *Context_);
+  if (!buffer) { return std::unexpected(buffer.error()); }
+  const ByteRange range{.Offset = offset, .Bytes = sizeof(VkDispatchIndirectCommand)};
+  if (offset % alignof(uint32_t) != 0 || !Contains((*buffer)->Description.Bytes, range) ||
+      (static_cast<uint32_t>((*buffer)->Description.Use) &
+       static_cast<uint32_t>(BufferUse::Indirect)) == 0) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid,
+              .Message = "invalid indirect compute argument range, alignment or usage"});
+  }
+  if (auto valid = CheckIndirectAliases(*Context_, pipeline.Layout(), bindings, **buffer, range);
+      !valid) {
+    return valid;
+  }
+  if (auto bound = BindCompute(pipeline, bindings); !bound) { return bound; }
+  if (auto held = Hold(*buffer); !held) { return held; }
+  Use(**buffer,
+      range,
+      {.Stage = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+       .Access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT});
+  const auto query = Timings_.Begin(Commands_);
+  if (!query) { return std::unexpected(query.error()); }
+  vkCmdDispatchIndirect(Commands_, (*buffer)->Handle, offset);
   Timings_.End(Commands_, *query);
   return {};
 }

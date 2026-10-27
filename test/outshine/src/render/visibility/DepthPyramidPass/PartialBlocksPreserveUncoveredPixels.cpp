@@ -2,7 +2,7 @@
 #include "DepthPyramidPass.h"
 #include "GpuPlacement.h"
 #include "ReadbackTransfer.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "StageSubmission.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include <algorithm>

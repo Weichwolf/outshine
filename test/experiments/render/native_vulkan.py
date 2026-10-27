@@ -66,7 +66,7 @@ def main():
         flags += shlex.split(run(['sh', 'test/run.sh', '--native-link-flags'], log).stdout)
         run(['make', 'db'], log)
         database = json.loads((ROOT / 'compile_commands.json').read_text())
-        stage = next(item for item in database if Path(item['file']).name == 'StagePipelines.cpp')
+        stage = next(item for item in database if Path(item['file']).name == 'PresentStage.cpp')
         arguments = stage.get('arguments') or shlex.split(stage['command'])
         compiler = arguments[:1]
         toolchain = []
@@ -241,8 +241,8 @@ def main():
         headers.append(ROOT / 'test/harness/render/NativeSdr.h')
         report['sources'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                              for path in [*native, *headers, *consumers, *sources, Path(__file__),
-                                          ROOT / 'src/render/stages/StagePipelines.cpp',
-                                          ROOT / 'src/render/stages/StagePipelines.h',
+                                          ROOT / 'src/render/pipelines/PipelineFactory.cpp',
+                                          *(ROOT / 'src/render/pipelines').glob('*.h'),
                                           ROOT / 'src/render/device/ReadbackTransfer.h',
                                           ROOT / 'src/render/device/ReadbackTransfer.cpp',
                                           model, trace, ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}

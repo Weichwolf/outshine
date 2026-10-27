@@ -67,6 +67,15 @@ public:
                                               Workgroups groups) = 0;
 
   [[nodiscard]] virtual Result<void>
+  DispatchIndirect([[maybe_unused]] const ComputePipeline &pipeline,
+                   [[maybe_unused]] std::span<const Binding> bindings,
+                   [[maybe_unused]] const Buffer &arguments,
+                   [[maybe_unused]] uint64_t offset) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native indirect compute unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void>
   BeginRenderPass([[maybe_unused]] const RenderPassDescription &description) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});

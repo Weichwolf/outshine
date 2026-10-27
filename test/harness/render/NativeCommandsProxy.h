@@ -48,6 +48,14 @@ public:
   }
 
   [[nodiscard]] Render::Native::Result<void>
+  DispatchIndirect(const Render::Native::ComputePipeline &pipeline,
+                   std::span<const Render::Native::Binding> bindings,
+                   const Render::Native::Buffer &arguments,
+                   uint64_t offset) override {
+    return Backing_->DispatchIndirect(pipeline, bindings, arguments, offset);
+  }
+
+  [[nodiscard]] Render::Native::Result<void>
   BeginRenderPass(const Render::Native::RenderPassDescription &description) override {
     return Backing_->BeginRenderPass(description);
   }

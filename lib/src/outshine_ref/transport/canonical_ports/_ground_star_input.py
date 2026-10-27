@@ -80,6 +80,7 @@ def lift_star_input(
     leaves,
     deadline,
     geometry_deadline,
+    cap_edges=None,
 ):
     """Observe a generated finite input; this helper grants no scope authority."""
     sizes = [len(raw["xy"]), len(raw["faces"]), len(raw["roles"]), len(raw["ports"])]
@@ -128,7 +129,9 @@ def lift_star_input(
             "ground_edge": edge,
             "original_vertices": tuple(map(int, cap)),
         }
-        for node, edge, cap in zip(leaves, edges, raw["caps"])
+        for node, edge, cap in zip(
+            leaves, edges if cap_edges is None else cap_edges, raw["caps"], strict=True
+        )
     ]
     geometry.update(
         source_anchor=anchor,
@@ -136,8 +139,15 @@ def lift_star_input(
         source_end_nodes=leaves,
         terrain_samples=sizes[0],
         original_caps=original_caps,
-        part_source_edges=[
-            edges if a == -1 else (edges[a],) for a in geometry["part_source_arms"]
-        ],
+        part_source_edges=(
+            [
+                tuple(edges[i] for i in row)
+                for row in geometry["part_source_edge_indices"]
+            ]
+            if "part_source_edge_indices" in geometry
+            else [
+                edges if a == -1 else (edges[a],) for a in geometry["part_source_arms"]
+            ]
+        ),
     )
     return anchor, inputs, original_caps, geometry
