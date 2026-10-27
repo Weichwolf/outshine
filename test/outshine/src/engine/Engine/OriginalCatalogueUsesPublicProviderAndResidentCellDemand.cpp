@@ -1,3 +1,7 @@
+#include <cstdint>
+#include <expected>
+#include <string_view>
+#include <vector>
 #include <Engine.h>
 #include "Check.h"
 #include <atomic>
@@ -20,17 +24,23 @@ public:
     Decl_.Keeps = Cacheability::Never;
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const SourceRequest &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const SourceRequest &request) const noexcept override {
     return request.Kind() == DataKind::OriginalOsm ? Coverage::Inside : Coverage::Outside;
   }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*address*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     ++Calls_;
     const std::string xml = "<osm version='0.6'><node id='1' lat='54.78' lon='9.43'>"
                             "<tag k='custom:unknown' v='retained'/></node></osm>";
@@ -48,8 +58,8 @@ public:
 
   std::string_view kind() const override { return "osm"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &provider,
-                                                           std::string_view) const override {
+  std::expected<std::unique_ptr<Source>, std::string>
+  make(const SourceProvider &provider, std::string_view /*directory*/) const override {
     return std::make_unique<OriginalSource>(provider, Acquired);
   }
 };
@@ -58,7 +68,7 @@ public:
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  OriginalProvider provider;
+  const OriginalProvider provider;
   Scenario::Document document;
   document.Ground.Origin = {.LatitudeDeg = 54.781286, .LongitudeDeg = 9.433995};
   document.Ground.SightM = 1.0;

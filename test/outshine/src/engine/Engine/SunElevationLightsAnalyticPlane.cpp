@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include <Engine.h>
 #include <Scenario.h>
 #include <Geometry.h>
@@ -7,7 +9,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <print>
 #include <numbers>
 #include <vector>
 
@@ -38,7 +40,7 @@ std::vector<float>
 Capture(outshine::Engine &engine, const outshine::Geometry &geometry, double elevationDeg) {
   outshine::Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {kWidth, kHeight};
+  scenario.Render.Frame = {.WidthPx = kWidth, .HeightPx = kHeight};
   scenario.Render.Outputs = {"sceneLinear"};
   scenario.Render.Exposure = 0.00005208;
   scenario.Lit.Declared = true;
@@ -63,10 +65,15 @@ Capture(outshine::Engine &engine, const outshine::Geometry &geometry, double ele
   return pixels;
 }
 
-double Average(const std::vector<float> &pixels, int from, int until) {
+struct RowRange {
+  int First;
+  int Limit;
+};
+
+double Average(const std::vector<float> &pixels, RowRange rows) {
   double sum = 0.0;
   int count = 0;
-  for (int row = from; row < until; ++row) {
+  for (int row = rows.First; row < rows.Limit; ++row) {
     for (int column = kWidth / 4; column < kWidth * 3 / 4; ++column) {
       const size_t at = (static_cast<size_t>(row) * kWidth + column) * 4;
       if (at + 2 >= pixels.size()) { continue; }
@@ -87,7 +94,7 @@ int main() {
   }
   const outshine::Geometry receiver = Receiver();
   outshine::Engine engine;
-  if (!engine.setRenderTarget({kWidth, kHeight})) {
+  if (!engine.setRenderTarget({.WidthPx = kWidth, .HeightPx = kHeight})) {
     Unprepared("analytic target could not be created");
     return Report();
   }
@@ -103,10 +110,10 @@ int main() {
     return Report();
   }
   CHECK(low == lowAgain, "returning to the same analytic scene reproduces every linear pixel");
-  const double lowGround = Average(low, kHeight / 2, kHeight * 3 / 4);
-  const double middleGround = Average(middle, kHeight / 2, kHeight * 3 / 4);
-  const double highGround = Average(high, kHeight / 2, kHeight * 3 / 4);
-  std::printf("plane sun 5 %.4f 30 %.4f 75 %.4f\n", lowGround, middleGround, highGround);
+  const double lowGround = Average(low, {.First = kHeight / 2, .Limit = kHeight * 3 / 4});
+  const double middleGround = Average(middle, {.First = kHeight / 2, .Limit = kHeight * 3 / 4});
+  const double highGround = Average(high, {.First = kHeight / 2, .Limit = kHeight * 3 / 4});
+  std::println("plane sun 5 {:.4f} 30 {:.4f} 75 {:.4f}", lowGround, middleGround, highGround);
   CHECK(highGround > middleGround && middleGround > lowGround,
         "horizontal diffuse receiver brightens monotonically with sun elevation");
   if (lowGround > 0.0) {

@@ -147,7 +147,7 @@ void Verify(const std::vector<float> &clear,
   const double expected = kReflectance * kLux / std::numbers::pi;
   for (int y = first; y < last; ++y) {
     for (int x = first; x < last; ++x) {
-      const size_t at = (size_t(y) * kSide + size_t(x)) * kChannels;
+      const size_t at = (static_cast<size_t>(y) * kSide + static_cast<size_t>(x)) * kChannels;
       for (size_t channel = 0; channel < 3; ++channel) {
         const double removed = clear[at + channel] - inside[at + channel];
         worstRelative = std::max(worstRelative, std::abs(removed - expected) / expected);

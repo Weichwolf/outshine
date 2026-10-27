@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include <array>
 #include <cmath>
 #include <vector>
@@ -41,7 +43,7 @@ int main() {
     Engine engine;
     Scenario::Document declaration;
     declaration.Render.Declared = true;
-    declaration.Render.Frame = {65, 65};
+    declaration.Render.Frame = {.WidthPx = 65, .HeightPx = 65};
     declaration.Render.Outputs = {"sceneLinear"};
     declaration.Lit.Declared = true;
     declaration.Lit.Key.Lux = 0;
@@ -53,15 +55,16 @@ int main() {
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
     std::vector<float> frame;
-    if (!accepted(engine.setRenderTarget({65, 65})) || !accepted(engine.declare(declaration)) ||
-        !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
-        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+    if (!accepted(engine.setRenderTarget({.WidthPx = 65, .HeightPx = 65})) ||
+        !accepted(engine.declare(declaration)) || !accepted(engine.setGeometry(geometry)) ||
+        !accepted(engine.assemble()) || !accepted(engine.advance()) ||
+        !accepted(engine.renderer().render({})) ||
         !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
       return Report();
     }
-    CHECK(frame.size() == 65u * 65u * 4u, "linear image dimensions");
-    if (frame.size() != 65u * 65u * 4u) { return Report(); }
-    radiance[at] = frame[(32u * 65u + 32u) * 4u];
+    CHECK(frame.size() == size_t{65} * 65 * 4, "linear image dimensions");
+    if (frame.size() != size_t{65} * 65 * 4) { return Report(); }
+    radiance[at] = frame[(size_t{32} * 65 + 32) * 4];
   }
   CHECK(radiance[0] > 0 && std::isfinite(radiance[0]), "point control illuminates the receiver");
   if (!(radiance[0] > 0)) { return Report(); }

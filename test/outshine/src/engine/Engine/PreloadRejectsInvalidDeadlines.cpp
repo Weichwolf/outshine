@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <Engine.h>
 #include "Check.h"
 #include <chrono>
@@ -9,11 +10,11 @@ int main() {
   using namespace outshine::Test;
   Engine engine;
   size_t callbacks = 0;
-  for (double seconds : {-1.0,
-                         std::numeric_limits<double>::max(),
-                         std::numeric_limits<double>::quiet_NaN(),
-                         std::numeric_limits<double>::infinity(),
-                         -std::numeric_limits<double>::infinity()}) {
+  for (const double seconds : {-1.0,
+                               std::numeric_limits<double>::max(),
+                               std::numeric_limits<double>::quiet_NaN(),
+                               std::numeric_limits<double>::infinity(),
+                               -std::numeric_limits<double>::infinity()}) {
     const auto result = engine.preload(seconds, [&](const Loading &) { ++callbacks; });
     CHECK(!result, "invalid deadline is rejected even when there is no ground to load");
     CHECK(callbacks == 0, "invalid deadline performs no progress callback");

@@ -13,7 +13,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video is available for native camera publication");
   Scenario::Document scene;
   scene.Render.Declared = true;
-  scene.Render.Frame = {32, 32};
+  scene.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
   scene.Render.Outputs = {"surface"};
   scene.Motion.StepS = 1.0 / 60.0;
   scene.Ground.GravityMs2 = 2;
@@ -41,8 +41,8 @@ int main() {
   view.Sees.FovDeg = 70;
   scene.Views.push_back(view);
   Engine engine;
-  const auto stood = engine.setRenderTarget({32, 32}) && engine.declare(scene) &&
-                     engine.assemble() && engine.setView(view.Id);
+  const auto stood = engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}) &&
+                     engine.declare(scene) && engine.assemble() && engine.setView(view.Id);
   CHECK(stood, "a native scene is prepared without a measured frame");
   if (!stood) { return Report(); }
   const auto fired = [&engine] {
