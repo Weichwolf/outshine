@@ -22,6 +22,7 @@
 #include "SceneGeometry.h"
 #include "CameraState.h"
 #include "RenderObject.h"
+#include "GeometryUploadTicket.h"
 #include "MaterialBindings.h"
 #include "ObjectTransformHistory.h"
 #include "SurfaceSession.h"
@@ -451,7 +452,7 @@ private:
   Render::RenderGeometryStorage GeometryStorage_;
   Render::RenderGeometryView GeometryView_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
-  Render::GeometryRenderer::MeshTicket BuildTicket_;
+  Render::GeometryUploadTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::MeshClusterBuildJob> ClusterBuild_;
   std::vector<Material> GeometryBuildSurfaces_;

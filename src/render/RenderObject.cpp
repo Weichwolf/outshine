@@ -708,7 +708,7 @@ void RecordsMeshUpload(const SceneRenderer &renderer, RenderObjectPreparation &s
 
 }
 
-std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
+std::expected<GeometryUploadTicket, std::string> BeginPlacementUpload(
     SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch) {
   const RenderGeometryView *const source = PreparedGeometry(proxy, scratch);
   if (source == nullptr) {
@@ -729,7 +729,7 @@ std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
 bool FinishPlacementUpload(SceneRenderer &renderer,
                            const RenderObject &proxy,
                            RenderObjectPreparation &scratch,
-                           GeometryRenderer::MeshTicket ticket,
+                           GeometryUploadTicket ticket,
                            std::string &error) {
   const RenderGeometryView *const source = PreparedGeometry(proxy, scratch);
   if (source == nullptr) {

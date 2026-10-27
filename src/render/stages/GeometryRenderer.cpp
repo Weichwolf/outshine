@@ -345,7 +345,7 @@ bool GeometryRenderer::SetMesh(const MeshInput &mesh, std::string &error) {
   return FinishMesh(*began, mesh, error);
 }
 
-std::expected<GeometryRenderer::MeshTicket, std::string>
+std::expected<GeometryUploadTicket, std::string>
 GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   std::string error;
   LastMeshUpload_ = {};
@@ -396,7 +396,7 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
       Bound().SetMainMeshRanges({}, {}, {}, {});
     }
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
-    return MeshTicket{.Generation = Reshaped_};
+    return GeometryUploadTicket{.Generation = Reshaped_};
   }
   MainMeshBatches_ = mesh.Draws->Batches();
   for (const DrawBatch &batch : MainMeshBatches_) {
@@ -405,7 +405,7 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
 
   if (IsTransmission()) {
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
-    return MeshTicket{.Generation = Reshaped_};
+    return GeometryUploadTicket{.Generation = Reshaped_};
   }
 
   LastMeshUpload_.AdmissionMs =
@@ -459,7 +459,9 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   return PendingMesh_;
 }
 
-bool GeometryRenderer::FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error) {
+bool GeometryRenderer::FinishMesh(GeometryUploadTicket ticket,
+                                  const MeshInput &mesh,
+                                  std::string &error) {
   if (!ticket.NeedsFinish) {
     if (ticket.Generation != 0 && ticket.Generation == Reshaped_ && !PendingMesh_.NeedsFinish) {
       return true;

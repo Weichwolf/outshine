@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
 
 #include "MeshInput.h"
+#include "GeometryUploadTicket.h"
 #include <span>
 #include <optional>
 #include <array>
@@ -88,11 +89,6 @@ public:
   GeometryRenderer &operator=(const GeometryRenderer &) = delete;
   GeometryRenderer(GeometryRenderer &&) = delete;
   GeometryRenderer &operator=(GeometryRenderer &&) = delete;
-
-  struct MeshTicket {
-    uint64_t Generation = 0;
-    bool NeedsFinish = false;
-  };
 
   using SourceOptions = SurfaceOutputs;
 
@@ -296,8 +292,9 @@ public:
 
   [[nodiscard]] bool ValidateMesh(const MeshInput &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const MeshInput &mesh, std::string &error);
-  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const MeshInput &mesh);
-  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error);
+  [[nodiscard]] std::expected<GeometryUploadTicket, std::string> BeginMesh(const MeshInput &mesh);
+  [[nodiscard]] bool
+  FinishMesh(GeometryUploadTicket ticket, const MeshInput &mesh, std::string &error);
 
   [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
 
@@ -623,7 +620,7 @@ private:
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
   GeometryUploadMetrics LastMeshUpload_;
-  MeshTicket PendingMesh_;
+  GeometryUploadTicket PendingMesh_;
   const DrawList *PendingDraws_ = nullptr;
   const uint32_t *PendingIndices_ = nullptr;
   uint32_t PendingIndexCount_ = 0;
