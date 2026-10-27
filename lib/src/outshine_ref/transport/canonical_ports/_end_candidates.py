@@ -20,6 +20,7 @@ class CandidateMember:
     end: int
     domain_node: int
     source_way: int
+    source_terminal: bool | None = None
 
     def __post_init__(self):
         if not isinstance(self.edge, tuple) or len(self.edge) != 3:
@@ -32,6 +33,10 @@ class CandidateMember:
         node_id(self.domain_node)
         if type(self.source_way) is not int or not 0 <= self.source_way < 2**32:
             raise ValueError("actual local StreetWay index required")
+        if self.source_terminal is not None and type(self.source_terminal) is not bool:
+            raise ValueError(
+                "actual original source-terminal witness or missing required"
+            )
 
     @property
     def physical_end(self):
@@ -120,6 +125,10 @@ def group_guard(group):
     physical = {(member.edge[:2], member.physical_end) for member in group.members}
     if len(physical) != 2 or len({member.edge[:2] for member in group.members}) != 2:
         return "duplicate_physical_member"
+    if any(member.source_terminal is None for member in group.members):
+        return "missing_source_terminal"
+    if any(not member.source_terminal for member in group.members):
+        return "interior_source_crossing"
     return ""
 
 
@@ -154,12 +163,14 @@ def member_guard(member, group, way, index):
     end = member.physical_end
     if type(step) is not int or not 0 <= step < way.point_count - 1:
         return None, "source_step_binding_mismatch"
-    terminal = (end == 0 and step == 0 and group.position == way.first_segment[0]) or (
+    stencil_matches = (
+        end == 0 and step == 0 and group.position == way.first_segment[0]
+    ) or (
         end == 1
         and step == way.point_count - 2
         and group.position == way.last_segment[1]
     )
-    if not terminal:
+    if not stencil_matches:
         return None, "interior_source_crossing"
     if not way.owns_ends[end]:
         return None, "unowned_source_end"

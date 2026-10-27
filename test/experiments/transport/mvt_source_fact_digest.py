@@ -30,8 +30,22 @@ def boolean(value):
     return int(value)
 
 
+def version_from_schema(schema):
+    if schema == "outshine/native-mvt-source-facts/1":
+        return 1
+    if schema == "outshine/native-mvt-source-facts/2":
+        return 2
+    raise ValueError("known native source fact schema required")
+
+
 def native_source_fact_digest(
-    revision, partition_digest, payload, *, member_limit=65536, row_limit=16384
+    revision,
+    partition_digest,
+    payload,
+    *,
+    member_limit=65536,
+    row_limit=16384,
+    version=None,
 ):
     """Hash only actual MvtTransportSourceFacts fields in native order.
 
@@ -48,12 +62,21 @@ def native_source_fact_digest(
     if not isinstance(partition_digest, bytes) or len(partition_digest) != 32:
         raise ValueError("validated node-partition digest required")
     record(payload)
+    declared = version_from_schema(payload["schema"]) if "schema" in payload else None
+    if version is None:
+        version = 1 if declared is None else declared
+    if type(version) is not int or version not in (1, 2):
+        raise ValueError("actual native fact protocol version required")
+    if declared is not None and declared != version:
+        raise ValueError("native schema and byte protocol version disagree")
     groups = sequence(payload.get("Groups"), "Groups")
     members = sequence(payload.get("Members"), "Members")
     ways = sequence(payload.get("Ways"), "Ways")
     if len(groups) > row_limit or len(ways) > row_limit or len(members) > member_limit:
         raise ValueError("source fact input budget")
-    hasher = hashlib.sha256(b"outshine/mvt-source-facts/1")
+    hasher = hashlib.sha256(
+        b"outshine/mvt-source-facts/" + str(version).encode("ascii")
+    )
     hasher.update(revision.encode("ascii"))
     hasher.update(partition_digest)
 
@@ -99,6 +122,8 @@ def native_source_fact_digest(
             integer(member.get("SourceStep"), 32),
             end,
         )
+        if version == 2:
+            append("B", boolean(member.get("SourceTerminal")))
     for raw in ways:
         way = record(raw)
         append(

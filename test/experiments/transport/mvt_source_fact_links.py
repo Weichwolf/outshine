@@ -7,7 +7,7 @@ ownership proof, a profile conversion or any metric/end-contact qualification.
 from collections.abc import Mapping
 
 from mvt_node_group_inputs import NodeGroupPartition
-from mvt_source_fact_digest import native_source_fact_digest
+from mvt_source_fact_digest import native_source_fact_digest, version_from_schema
 from outshine_ref.transport.canonical_ports import PortBudget, PortSource
 
 
@@ -138,6 +138,9 @@ def check_mvt_source_fact_links(source, partition, payload, *, budget=None):
             payload,
             member_limit=budget.incidence_visits,
             row_limit=max(budget.input_nodes, budget.input_spans),
+            version=version_from_schema(payload["schema"])
+            if "schema" in payload
+            else 1,
         )
         stored = payload.get("Digest")
         if (

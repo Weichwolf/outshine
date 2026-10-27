@@ -76,7 +76,7 @@ def pair(offset=0):
             )
         )
         end = 0 if bridge else 1
-        members.append(CandidateMember((path, ordinal, 0), end, ids[end], way))
+        members.append(CandidateMember((path, ordinal, 0), end, ids[end], way, True))
     group = CandidateGroup(
         f"controlled/{offset}", anchor, tuple(members), 2, 0, True, False
     )
@@ -221,6 +221,25 @@ class BridgeEndCandidates(unittest.TestCase):
         for way, expected in cases:
             with self.subTest(expected=expected):
                 self.assertEqual(self.reason(self.inspect(ways=(first, way))), expected)
+
+    def test_original_terminal_requires_witness_despite_matching_step_and_stencil(self):
+        first, second = self.group.members
+        for witness, expected in (
+            (None, "missing_source_terminal"),
+            (False, "interior_source_crossing"),
+        ):
+            group = replace(
+                self.group, members=(replace(first, source_terminal=witness), second)
+            )
+            result = self.inspect((group,))
+            self.assertEqual(self.reason(result), expected)
+            self.assertFalse(any(result["work"].values()))
+            self.assertFalse(result["groups"][0]["selected"])
+
+    def test_terminal_witness_is_native_bool_not_truthy_integer(self):
+        for value in (0, 1, "true", ()):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                replace(self.group.members[0], source_terminal=value)
 
     def test_profile_double_is_not_silently_used_for_float_word(self):
         span = replace(self.source.spans[1], maximum_gradient=0.12)

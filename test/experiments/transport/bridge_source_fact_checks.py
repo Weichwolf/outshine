@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import bridge_source_fact_inputs as inputs
+from mvt_node_group_inputs import read_mvt_node_groups
+from mvt_source_fact_digest import native_source_fact_digest
 from outshine_ref.transport.canonical_ports import PortBudget
 from outshine_ref.transport.canonical_ports._end_candidates import (
     float_word,
@@ -100,6 +102,95 @@ class ActualBridgeSourceFacts(unittest.TestCase):
                 ),
             )
         self.assertGreater(sum(g.frontier for g in self.groups), 0)
+        if self.facts["schema"] == "outshine/native-mvt-source-facts/2":
+            self.assertEqual(
+                tuple(m.source_terminal for g in self.groups for m in g.members),
+                tuple(m["SourceTerminal"] for m in self.facts["Members"]),
+            )
+            self.assertTrue(
+                any(
+                    not m["SourceTerminal"]
+                    and m["SourceStep"] == 0
+                    and m["End"] ^ m["Edge"]["Direction"] == 0
+                    for m in self.facts["Members"]
+                )
+            )
+
+    def test_v1_extra_terminal_fields_are_not_digest_bound_witnesses(self):
+        facts = copy.deepcopy(self.facts)
+        facts["schema"] = "outshine/native-mvt-source-facts/1"
+        for member in facts["Members"]:
+            member["SourceTerminal"] = True
+        true_digest = native_source_fact_digest(
+            self.native["SourceIdentity"]["Revision"],
+            bytes(facts["NodeGroups"]["Digest"]),
+            facts,
+        )
+        for member in facts["Members"]:
+            member["SourceTerminal"] = False
+        self.assertEqual(
+            true_digest,
+            native_source_fact_digest(
+                self.native["SourceIdentity"]["Revision"],
+                bytes(facts["NodeGroups"]["Digest"]),
+                facts,
+            ),
+        )
+        partition, reason, _work = read_mvt_node_groups(
+            self.source, 1, facts["NodeGroups"]
+        )
+        self.assertEqual(reason, "")
+        groups, ways = inputs.candidate_values(self.source, partition, facts)
+        self.assertTrue(
+            all(
+                member.source_terminal is None
+                for group in groups
+                for member in group.members
+            )
+        )
+        result = inspect_bridge_end_candidates(
+            self.source,
+            groups,
+            ways,
+            source_binding=self.source.binding,
+            candidate_binding=self.binding,
+        )
+        self.assertFalse(any(row["selected"] for row in result["groups"]))
+
+    def test_v2_terminal_bit_is_hash_bound_before_source_preparation(self):
+        facts = copy.deepcopy(self.facts)
+        if facts["schema"] == "outshine/native-mvt-source-facts/1":
+            self.assertTrue(
+                all(m.source_terminal is None for g in self.groups for m in g.members)
+            )
+            return
+        facts["Members"][0]["SourceTerminal"] = not facts["Members"][0][
+            "SourceTerminal"
+        ]
+        with self.assertRaisesRegex(ValueError, "native fact digest"):
+            inputs.check_scope(self.native, facts, self.manifest, PortBudget())
+
+    def test_v2_native_readattribute_witness_is_checked_against_original_source(self):
+        native = copy.deepcopy(self.native)
+        if self.facts["schema"] == "outshine/native-mvt-source-facts/1":
+            self.assertEqual(
+                self.work["profiles"]["checked_height_profile_tag_records"], 0
+            )
+            return
+        tag = next(
+            t
+            for p in native["Paths"]
+            for t in p["LocalWayBinding"]["HeightProfileTags"].values()
+            if t is not None
+        )
+        tag["NumberWord"] ^= 1
+        raw = gzip.decompress((self.root / "source.mvt.gz").read_bytes())
+        with self.assertRaisesRegex(ValueError, "height tag value mismatch"):
+            inputs.native_recipes(native, self.facts, raw)
+        self.assertEqual(
+            self.work["profiles"]["checked_height_profile_tag_records"],
+            2 * len(self.native["Paths"]),
+        )
 
     def test_actual_transition_candidates_stay_pending_without_ground(self):
         before = self.source.nodes, self.source.spans, self.source.unknown_nodes
@@ -109,7 +200,14 @@ class ActualBridgeSourceFacts(unittest.TestCase):
         self.assertEqual(result["qualified_contacts"], 0)
         self.assertEqual(result["work"]["expanded_pairs"], 0)
         selected = [row for row in result["groups"] if row["selected"]]
-        self.assertGreater(len(selected), 0)
+        if self.facts["schema"] == "outshine/native-mvt-source-facts/1":
+            self.assertEqual(selected, [])
+            self.assertIn(
+                "missing_source_terminal", {row["reason"] for row in result["groups"]}
+            )
+            self.assertFalse(any(result["work"].values()))
+        else:
+            self.assertGreater(len(selected), 0)
         for row in selected:
             self.assertEqual(row["reason"], "missing_ground_profile")
             self.assertEqual(len(row["selected"]), 2)

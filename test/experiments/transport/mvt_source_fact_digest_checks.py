@@ -76,6 +76,37 @@ class NativeSourceFactDigest(unittest.TestCase):
             "d164e6c09ebe88437b71737252b0dab0f1f5eebdae5581d2286f9ad3ab740391",
         )
 
+    def test_v2_literal_protocol_has_terminal_byte_after_end(self):
+        payload = copy.deepcopy(self.payload)
+        payload["schema"] = "outshine/native-mvt-source-facts/2"
+        payload["Members"][0]["SourceTerminal"] = True
+        # Independent literal uint.to_bytes/array('d') wire, OpenSSL checked:
+        # 314 bytes with terminal byte directly after End; empty is 163 bytes.
+        self.assertEqual(
+            self.digest(payload).hex(),
+            "dcfedd87efaa7a5c703f45dacbddef9fe0924b0a645af8b88b275693983e313e",
+        )
+        payload["Members"][0]["SourceTerminal"] = False
+        self.assertNotEqual(
+            self.digest(payload).hex(),
+            "dcfedd87efaa7a5c703f45dacbddef9fe0924b0a645af8b88b275693983e313e",
+        )
+        self.assertEqual(
+            self.digest(dict(payload, Groups=[], Members=[], Ways=[])).hex(),
+            "a3fda7530f702007a39c655416ef49cf1fd3c423f4c4d2505848fe5fc1c0efdc",
+        )
+
+    def test_v2_requires_native_terminal_bool_and_matching_schema_version(self):
+        payload = copy.deepcopy(self.payload)
+        payload["schema"] = "outshine/native-mvt-source-facts/2"
+        for invalid in (None, 0, 1, "true"):
+            payload["Members"][0]["SourceTerminal"] = invalid
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                self.digest(payload)
+        payload["Members"][0]["SourceTerminal"] = True
+        with self.assertRaisesRegex(ValueError, "version disagree"):
+            self.digest(payload, version=1)
+
     def test_network_partition_generation_and_way_scope_are_bound(self):
         original = self.digest()
         self.assertNotEqual(

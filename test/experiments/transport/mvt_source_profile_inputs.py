@@ -2,8 +2,40 @@
 
 import hashlib
 import struct
+from collections.abc import Mapping
 
 from osm_provider_inventory import fields, packed
+
+
+def check_height_profile_tags(captured, properties):
+    """Compare V2 ReadAttribute witnesses with the original feature-body input."""
+    if not isinstance(captured, Mapping) or set(captured) != {"indoor", "level"}:
+        raise ValueError("actual captured HeightProfileTags required")
+    for key in ("indoor", "level"):
+        tag = captured[key]
+        if key not in properties:
+            if tag is not None:
+                raise ValueError("absent original height tag mismatch")
+            continue
+        if (
+            not isinstance(tag, Mapping)
+            or type(tag.get("IsNumber")) is not bool
+            or type(tag.get("NumberWord")) is not int
+            or not 0 <= tag["NumberWord"] < 2**64
+            or not isinstance(tag.get("String"), str)
+        ):
+            raise ValueError("typed captured height tag required")
+        value = properties[key]
+        numeric = not isinstance(value, str)
+        word = struct.unpack("<Q", struct.pack("<d", float(value) if numeric else 0.0))[
+            0
+        ]
+        if (
+            tag["IsNumber"] != numeric
+            or tag["NumberWord"] != word
+            or tag["String"] != ("" if numeric else value)
+        ):
+            raise ValueError("original/native height tag value mismatch")
 
 
 def native_value(body):

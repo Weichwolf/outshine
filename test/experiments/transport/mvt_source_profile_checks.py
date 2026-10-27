@@ -3,7 +3,11 @@
 import hashlib
 import unittest
 
-from mvt_source_profile_inputs import native_value, profile_properties
+from mvt_source_profile_inputs import (
+    check_height_profile_tags,
+    native_value,
+    profile_properties,
+)
 
 
 def varint(value):
@@ -77,6 +81,30 @@ class NativeFeatureProfileSemantics(unittest.TestCase):
             profile_properties(raw, byte_limit=len(raw) - 1)
         with self.assertRaisesRegex(ValueError, "tag budget"):
             profile_properties(raw, tag_word_limit=5)
+
+    def test_captured_numeric_word_preserves_signed_zero_and_numeric_type(self):
+        captured = {
+            "indoor": {"IsNumber": True, "NumberWord": 2**63, "String": ""},
+            "level": None,
+        }
+        check_height_profile_tags(captured, {"indoor": -0.0})
+        captured["indoor"]["NumberWord"] = 0
+        with self.assertRaisesRegex(ValueError, "value mismatch"):
+            check_height_profile_tags(captured, {"indoor": -0.0})
+        captured["indoor"]["IsNumber"] = False
+        with self.assertRaises(ValueError):
+            check_height_profile_tags(captured, {"indoor": 0.0})
+
+    def test_absent_tags_are_explicit_and_strings_keep_native_values(self):
+        captured = {
+            "indoor": {"IsNumber": False, "NumberWord": 0, "String": "no"},
+            "level": {"IsNumber": False, "NumberWord": 0, "String": "0"},
+        }
+        check_height_profile_tags(captured, {"indoor": "no", "level": "0"})
+        with self.assertRaisesRegex(ValueError, "absent original"):
+            check_height_profile_tags(captured, {"indoor": "no"})
+        with self.assertRaises(ValueError):
+            check_height_profile_tags({}, {})
 
 
 if __name__ == "__main__":
