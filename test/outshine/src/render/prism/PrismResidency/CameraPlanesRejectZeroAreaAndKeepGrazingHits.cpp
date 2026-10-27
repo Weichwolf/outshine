@@ -121,6 +121,11 @@ void Probe(Device &device) {
     const auto view = View(focal, -distance, 0);
     Compare(Draw(device, *pipelines.Depth(), *target, view, 0), distance, focal);
   }
+  for (const int exponent : {-64, -32, 32, 64}) {
+    auto view = View(64, -0x1p-8f, 0);
+    for (float &value : view.ClipFromWorld.Column) { value = std::ldexp(value, exponent); }
+    Compare(Draw(device, *pipelines.Depth(), *target, view, 0), 0x1p-8, 64);
+  }
 }
 }
 

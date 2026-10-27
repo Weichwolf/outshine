@@ -33,7 +33,8 @@ bool tracePrism(out vec3 point, out vec3 normal, out float height) {
   vec4 start = prismLocalFromClip * vec4(ndc, 1.0, 1.0);
   vec4 finish = prismLocalFromClip * vec4(ndc, 0.0, 1.0);
   vec3 origin = start.xyz / start.w;
-  vec3 direction = normalize(finish.xyz - origin * finish.w);
+  // Slabs and DDA share one ray parameter; keeping its scale avoids length overflow.
+  vec3 direction = finish.xyz - origin * finish.w;
   vec3 inverseDirection = 1.0 / direction;
   float begin, end;
   vec3 unused;
