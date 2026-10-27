@@ -63,7 +63,7 @@ public:
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view);
-  [[nodiscard]] std::expected<void, StructureBakeError>
+  [[nodiscard]] std::expected<std::string, StructureBakeError>
   StoreGeometry(const std::string &baseKey,
                 const PreparedStructureTile &base,
                 const RawTile &view,
