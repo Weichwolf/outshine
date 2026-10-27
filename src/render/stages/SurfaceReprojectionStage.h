@@ -3,7 +3,7 @@
 
 #include "Gpu.h"
 #include <memory>
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "Lens.h"
 #include "Viewing.h"
 

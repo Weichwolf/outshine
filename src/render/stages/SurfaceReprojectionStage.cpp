@@ -1,6 +1,6 @@
 #include "SurfaceReprojectionStage.h"
 
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include <span>
 #include "TransformMatrix.h"
 #include "Vec4.h"

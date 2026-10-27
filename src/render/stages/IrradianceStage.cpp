@@ -1,5 +1,5 @@
 #include "IrradianceStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "Vec2.h"
 #include <array>
 #include <cstddef>

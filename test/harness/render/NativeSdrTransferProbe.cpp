@@ -1,4 +1,4 @@
-#include "src/render/stages/StagePipelines.h"
+#include "src/render/pipelines/PipelineFactory.h"
 #include "src/render/stages/PresentStage.h"
 #include "src/render/stages/StageSubmission.h"
 #include "src/render/device/SpirvFile.h"

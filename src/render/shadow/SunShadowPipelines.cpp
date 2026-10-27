@@ -1,5 +1,5 @@
 #include "SunShadowPass.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "SpirvFile.h"
 #include <array>
 #include <cstddef>

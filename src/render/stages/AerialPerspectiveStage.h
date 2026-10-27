@@ -2,7 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 
 #include "MediumViewParameters.h"
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "Gpu.h"
 #include <memory>
 

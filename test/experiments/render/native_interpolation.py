@@ -70,9 +70,9 @@ def git(root, *args):
 
 def compile_command(checkout, output, source):
     database = json.loads((checkout / "compile_commands.json").read_text())
-    entry = next((row for row in database if Path(row["file"]).name == "StagePipelines.cpp"), None)
+    entry = next((row for row in database if Path(row["file"]).name == "PipelineFactory.cpp"), None)
     if entry is None:
-        raise ValueError("compilation database has no native StagePipelines.cpp record")
+        raise ValueError("compilation database has no native PipelineFactory.cpp record")
     if Path(entry["directory"]).resolve() != checkout:
         raise ValueError("compilation database belongs to a different checkout")
     args = entry.get("arguments") or shlex.split(entry["command"])

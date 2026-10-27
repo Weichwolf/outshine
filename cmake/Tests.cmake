@@ -17,6 +17,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
   outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
@@ -338,7 +339,7 @@ outshine_corpus(test262/js outshine_scripting ScoreEveryScriptCase)
 target_link_libraries(test_harness_test262_js PRIVATE outshine_base)
 outshine_corpus(geographiclib/geodesic outshine_world ScoreEveryGeodesic)
 
-set_tests_properties(outshine/src/render/stages/StagePipelines/NativePipelinesKeepDeclaredBindings
+set_tests_properties(outshine/src/render/pipelines/PipelineFactory/NativePipelinesKeepDeclaredBindings
   PROPERTIES WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 add_test(NAME render/shader-artifacts COMMAND Python3::Interpreter
   "${PROJECT_SOURCE_DIR}/test/scripts/shader_artifacts.py"

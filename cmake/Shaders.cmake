@@ -106,7 +106,7 @@ file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/shader-artifacts.txt"
   CONTENT "$<JOIN:${shader_names},\n>\n")
 add_executable(compute-shader-contracts EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/test/scripts/compute-shader-contracts.cpp")
 target_link_libraries(compute-shader-contracts PRIVATE outshine_compiler)
-target_include_directories(compute-shader-contracts PRIVATE "${PROJECT_SOURCE_DIR}/src/render/stages")
+target_include_directories(compute-shader-contracts PRIVATE "${PROJECT_SOURCE_DIR}/src/render/pipelines")
 add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/compute-shaders.json"
   COMMAND compute-shader-contracts > "${PROJECT_BINARY_DIR}/compute-shaders.json"
   DEPENDS compute-shader-contracts VERBATIM)

@@ -13,7 +13,7 @@
 
 #include "Gpu.h"
 #include "FrameContext.h"
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "Vec3.h"
 #include "GroundTile.h"
 #include "MaterialBinding.h"
