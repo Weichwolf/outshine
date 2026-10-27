@@ -1032,12 +1032,12 @@ bool SceneRenderer::BeginGroundClasses(GroundClassificationSource source,
     error = "ground classification upload has an active or unowned source";
     return false;
   }
-  content.PendingGroundClasses.emplace(std::move(source));
-  auto begun = content.Scene().GroundMaterials().BeginReplace(
-      ActiveFrame().Handles.Device,
-      content.PendingGroundClasses->ClassSpan(),
-      content.PendingGroundClasses->PaletteSpan(),
-      metrics != nullptr ? &metrics->Storage : nullptr);
+  const auto &pending = content.PendingGroundClasses.emplace(std::move(source));
+  auto begun = content.Scene().GroundMaterials().BeginReplace(ActiveFrame().Handles.Device,
+                                                              pending.ClassSpan(),
+                                                              pending.PaletteSpan(),
+                                                              metrics != nullptr ? &metrics->Storage
+                                                                                 : nullptr);
   if (!begun) {
     error = std::move(begun.error().Message);
     content.PendingGroundClasses.reset();
@@ -1053,6 +1053,7 @@ SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *
   if (!content.PendingGroundClasses) {
     return std::unexpected("ground classification upload has no source");
   }
+  auto &source = *content.PendingGroundClasses;
   auto advanced = content.Scene().GroundMaterials().AdvanceReplace(
       bytesMost, metrics != nullptr ? &metrics->Storage : nullptr);
   if (!advanced) {
@@ -1065,7 +1066,7 @@ SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *
   content.Transmission().GroundFrom({.Classes = content.Scene().GroundMaterials().Classes(),
                                      .Palette = content.Scene().GroundMaterials().Palette()});
   const auto retainAt = std::chrono::steady_clock::now();
-  content.Scene().Resources().SetGroundClassification(std::move(*content.PendingGroundClasses));
+  content.Scene().Resources().SetGroundClassification(std::move(source));
   content.PendingGroundClasses.reset();
   if (metrics != nullptr) {
     metrics->RestoreSourceMs =
