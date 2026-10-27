@@ -5,8 +5,13 @@ from road_surface_model import Curve, bezier
 
 
 class BankedSurface(Curve):
-    def __init__(self, source, crossfall_controls):
+    def __init__(self, source, crossfall_controls, *, height_controls=None):
         super().__init__(source)
+        if height_controls is not None:
+            height = np.array(height_controls, dtype=float, copy=True)
+            if height.shape != self.height.shape or not np.isfinite(height).all():
+                raise ValueError("One finite cubic height per original span required")
+            self.height = height
         self.crossfall_controls = np.array(crossfall_controls, dtype=float, copy=True)
         if (
             self.crossfall_controls.shape != self.bank.shape
