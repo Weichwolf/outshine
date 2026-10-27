@@ -71,6 +71,20 @@ def coarse_input(axis, width, maximum_gradient, terrain_positions, budget):
     stations = np.unique(np.r_[boundaries, original])
     if 2 * len(stations) > budget.terrain_samples:
         raise ValueError("terrain_sample_budget")
+    vertices, faces, ports = (
+        2 * len(stations),
+        2 * (len(stations) - 1),
+        len(boundaries) - 2,
+    )
+    if (
+        vertices > budget.surface.max_vertices
+        or faces > budget.surface.max_faces
+        or len(roles) > budget.surface.max_parts
+        or ports > budget.surface.max_ports
+        or vertices > budget.surface.max_output_vertices
+        or faces > budget.surface.max_output_faces
+    ):
+        raise ValueError("ground_input_or_output_budget")
     centres = np.column_stack(
         [np.interp(stations, original, axis[:, i]) for i in (0, 1)]
     )
