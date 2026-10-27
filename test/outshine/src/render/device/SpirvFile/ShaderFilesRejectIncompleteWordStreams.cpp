@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <span>
 #include <string>
 #include <unistd.h>
@@ -22,7 +23,8 @@ int main() {
   const std::array<uint32_t, 5> words{0x07230203, 0x00010000, 0, 1, 0};
   const auto write = [&](std::span<const uint32_t> input, bool trailing = false) {
     std::ofstream file(path, std::ios::binary);
-    file.write(reinterpret_cast<const char *>(input.data()), input.size_bytes());
+    file.write(reinterpret_cast<const char *>(input.data()),
+               static_cast<std::streamsize>(input.size_bytes()));
     if (trailing) { file.put('x'); }
   };
   CHECK(!ReadSpirv(path), "missing shader is refused");

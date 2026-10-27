@@ -38,15 +38,15 @@ ReadbackTransfer Transfer(Device &device, ByteRange range) {
 void Ownership(Device &device) {
   auto original = Transfer(device, kRange);
   auto reader = std::move(original);
-  original = Transfer(device, kRange);
-  const auto reused = Require(original.Wait(device, std::chrono::seconds(5)));
-  CHECK(reused.has_value(), "a moved-from source can receive and complete a new transfer");
-  if (reused) { Matches(*reused); }
   CHECK(reader.RowBytes() == kRange.Bytes, "moving preserves the transfer extent");
   const auto first = Require(reader.Wait(device, std::chrono::seconds(5)));
   CHECK(first.has_value(), "moved transfer completes within its offline wait budget");
   if (!first) { return; }
   Matches(*first);
+  original = Transfer(device, kRange);
+  const auto reused = Require(original.Wait(device, std::chrono::seconds(5)));
+  CHECK(reused.has_value(), "a moved-from source can receive and complete a new transfer");
+  if (reused) { Matches(*reused); }
   const auto repeated = Require(reader.Poll(device));
   CHECK(repeated && repeated->data() == first->data(),
         "repeated polling reuses the owned mapping instead of attempting a second map");
