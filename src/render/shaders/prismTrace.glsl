@@ -1,4 +1,5 @@
 #include "prismData.glsl"
+#include "prismPlane.glsl"
 layout(location = 0) flat in mat4 prismLocalFromClip;
 layout(location = 4) flat in uint prismPatchIndex;
 
@@ -25,7 +26,7 @@ bool prismInterval(vec3 origin, vec3 inverseDirection, vec3 low, vec3 high,
   return entry <= leave && leave >= 0.0;
 }
 
-bool tracePrism(out vec3 point, out vec3 normal) {
+bool tracePrism(out vec3 point, out vec3 normal, out float height) {
   PrismPatch gridPatch = prismPatches[prismPatchIndex];
   vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
   vec2 ndc = vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
@@ -64,8 +65,14 @@ bool tracePrism(out vec3 point, out vec3 normal) {
       float entry, leave;
       if (prismInterval(origin, inverseDirection, vec3(low.x, span.x, low.y),
                            vec3(high.x, span.y, high.y), entry, leave, normal) && entry >= 0.0) {
-        point = origin + direction * entry;
-        return true;
+        vec3 lowFace = vec3(low.x, span.x, low.y);
+        vec3 highFace = vec3(high.x, span.y, high.y);
+        height = dot(abs(normal), mix(lowFace, highFace, greaterThan(normal, vec3(0.0))));
+        float incidence = prismPlaneIncidence(prismLocalFromClip, normal, height);
+        if (incidence != 0.0) {
+          point = origin + direction * entry;
+          return true;
+        }
       }
     }
     float crossing = min(next.x, next.y);
@@ -77,4 +84,9 @@ bool tracePrism(out vec3 point, out vec3 normal) {
     }
   }
   return false;
+}
+
+bool tracePrism(out vec3 point, out vec3 normal) {
+  float height;
+  return tracePrism(point, normal, height);
 }
