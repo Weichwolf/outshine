@@ -11,6 +11,16 @@
 
 namespace outshine::Render {
 
+struct TextureReadback {
+  const Native::Texture *Source = nullptr;
+  Native::TextureRegion Region;
+};
+
+struct ReadbackSlice {
+  Native::ByteRange Range;
+  uint64_t RowBytes = 0;
+};
+
 class ReadbackTransfer final {
 public:
   ReadbackTransfer(ReadbackTransfer &&) noexcept = default;
@@ -22,6 +32,10 @@ public:
   Start(Native::Device &device, const Native::Texture &source, Native::TextureRegion region);
   [[nodiscard]] static Native::Result<ReadbackTransfer>
   Start(Native::Device &device, const Native::Buffer &source, Native::ByteRange range);
+  [[nodiscard]] static Native::Result<ReadbackTransfer>
+  Start(Native::Device &device,
+        std::span<const TextureReadback> sources,
+        std::span<ReadbackSlice> slices);
 
   [[nodiscard]] Native::Result<std::optional<std::span<const std::byte>>>
   Poll(Native::Device &device);
