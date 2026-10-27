@@ -11,6 +11,7 @@ from compare_mass_appearance import errors
 from urban_parent_light import display
 
 MODELS = ("original", "opaque-full", "full", "two")
+QUERIES = ("az0-64000", "az0-240000", "az1-64000", "az1-240000")
 LUMINANCE = np.array([0.2126, 0.7152, 0.0722])
 
 
@@ -24,7 +25,9 @@ def read_fields(path, shape):
             raise ValueError("Finite saved pixel fields required")
         if np.any((image["T"] < 0) | (image["T"] > 1)):
             raise ValueError("Transmittance must be bounded")
-    np.testing.assert_array_equal(fields["full"]["T"], fields["two"]["T"])
+    a, b = fields["full"]["T"], fields["two"]["T"]
+    if a.dtype != b.dtype or a.tobytes() != b.tobytes():
+        raise ValueError("Full/two transmittance must be word-identical")
     return fields
 
 
@@ -49,7 +52,10 @@ def review(center, filtered):
     integrated = json.loads((filtered / "report.json").read_text())
     if one["provenance"] != integrated["provenance"]:
         raise ValueError("The saved original/control provenance must match")
-    if len(one["comparisons"]) != 4 or len(integrated["comparisons"]) != 4:
+    if any(
+        tuple(row["query"]["name"] for row in r["comparisons"]) != QUERIES
+        for r in (one, integrated)
+    ):
         raise ValueError("Exactly the existing four comparisons required")
     rows, panels, paths = [], [], [center / "report.json", filtered / "report.json"]
     for first, existing in zip(

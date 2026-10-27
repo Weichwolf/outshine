@@ -150,7 +150,7 @@ SS1 even reports zero T error, while SS32 exposes0.977/0.988px². A favorable ce
 sample therefore cannot admit silhouette or coverage. SS16 and32 keep the same
 bias direction; their empirical difference is not a continuous-integral bound.
 
-The strongest remaining color counter is az1-64000, pixel(641,357), followed by
+The strongest remaining per-pixel color counter is az1-64000, pixel(641,357), followed by
 az1-240000 at(640,359). The footprint is recognizable but too weak/transparent,
 and the bright patch distribution differs. Opaque color happens to be closer at
 az1-64000 while its area is much too large: color-only selection would hide the
