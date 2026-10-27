@@ -256,6 +256,7 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
 add_dependencies(outshine_tests test_harness_transport_source_export)
+add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport
   COMMAND "${Python3_EXECUTABLE}" -B
   "${PROJECT_SOURCE_DIR}/test/experiments/transport/test_native_transport_export.py"
