@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 import time
+from contextlib import nullcontext
 from dataclasses import fields
 from functools import partial
 from pathlib import Path
@@ -104,22 +105,32 @@ def main():
                 "preflight": prior_contradiction(inputs, limit, PortBudget()),
             }
             for enabled in (False, True):
-                began = time.perf_counter()
-                field, report = call(inputs, limit, method, enabled)
                 label = "with_preflight" if enabled else "baseline"
-                row[label] = {
-                    "total_ms": 1000 * (time.perf_counter() - began),
-                    "rejected": field is None,
-                    "reason": report.get("reason", ""),
-                    "fit_rounds": len(report.get("rounds", [])),
-                    "digest": digest(field),
-                    "report": report,
-                }
-                if args.allocations and name == "chain" and limit == 0.5:
-                    row[label]["allocations"] = allocations(
-                        args.output / f"{name}-{method}-{label}.bin",
-                        partial(call, inputs, limit, method, enabled),
+                context = (
+                    nullcontext()
+                    if enabled
+                    else patch(
+                        "outshine_ref.transport.canonical_ports._ground.prior_contradiction",
+                        new=lambda _inputs, _limit, _budget: (None, {}),
                     )
+                )
+                invoke = partial(fit_ground, inputs, limit, method, PortBudget())
+                with context:
+                    began = time.perf_counter()
+                    field, report = invoke()
+                    row[label] = {
+                        "total_ms": 1000 * (time.perf_counter() - began),
+                        "rejected": field is None,
+                        "reason": report.get("reason", ""),
+                        "fit_rounds": len(report.get("rounds", [])),
+                        "digest": digest(field),
+                        "report": report,
+                    }
+                    if args.allocations and name == "chain" and limit == 0.5:
+                        row[label]["allocations"] = allocations(
+                            args.output / f"{name}-{method}-{label}.bin",
+                            invoke,
+                        )
             assert row["baseline"]["rejected"] == row["with_preflight"]["rejected"]
             assert row["baseline"]["reason"] == row["with_preflight"]["reason"]
             assert row["baseline"]["digest"] == row["with_preflight"]["digest"]
@@ -128,7 +139,7 @@ def main():
         "runtime_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True, cwd=Path(__file__).parent
         ).strip(),
-        "scope": "Same prepared actual inputs; baseline only bypasses the new necessary preflight. Source/index/DEM/geometry preparation and warmup excluded. Single shared-host diagnostics, no stable/native/device timing. Allocation bytes are not total copied bytes or process peaks. Original Source/ports/World admission unchanged.",
+        "scope": "Same prepared actual inputs; baseline only replaces the new preflight with a no-op function. Replacement setup, Source/index/DEM/geometry preparation, budget construction, backend warmup and the preliminary exact-preflight probe are excluded from both timed/tracked calls. Single shared-host diagnostics, no stable/native/device timing. Allocation bytes are not total copied bytes or process peaks. Original Source/ports/World admission unchanged.",
         "records": records,
     }
     (args.output / "report.json").write_text(
