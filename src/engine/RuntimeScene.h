@@ -11,7 +11,7 @@
 #include <array>
 #include "Box.h"
 #include "Mat4.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -229,7 +229,7 @@ public:
   [[nodiscard]] bool Reshape(std::string &error);
 
   [[nodiscard]] const Render::ClusterBuildMetrics &Clustering() const noexcept {
-    return ShapeParts_.Clustering;
+    return GeometryStorage_.Clustering;
   }
 
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built,
@@ -339,7 +339,7 @@ public:
 
   [[nodiscard]] size_t PlanPasses() const { return Plan_ ? Plan_->Passes().size() : 0u; }
 
-  [[nodiscard]] const Render::Shape &Shown() const { return Shaped_; }
+  [[nodiscard]] const Render::RenderGeometryView &Shown() const { return GeometryView_; }
 
   [[nodiscard]] size_t DrivenParts() const noexcept { return DrivenParts_; }
 
@@ -446,7 +446,7 @@ private:
   Render::ObjectTransformHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
-  void CoverShapedParts();
+  void CoverGeometryParts();
   void PreparePartBounds();
   MaterialBindings Materials_;
 
@@ -458,8 +458,8 @@ private:
   Render::RenderObject Stood_;
   Render::RenderObjectPreparation Scratch_;
 
-  Render::ShapeStore ShapeParts_;
-  Render::Shape Shaped_;
+  Render::RenderGeometryStorage GeometryStorage_;
+  Render::RenderGeometryView GeometryView_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
   Render::GeometryRenderer::MeshTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
@@ -467,8 +467,8 @@ private:
   std::vector<Material> GeometryBuildSurfaces_;
   int GroundSurface_ = -1;
   void WearsPieces();
-  uint64_t ShapedAt_ = 0;
-  bool EverShaped_ = false;
+  uint64_t GeometryRevision_ = 0;
+  bool GeometryPrepared_ = false;
   double BuildMs_ = 0.0, PlanMs_ = 0.0, StandMs_ = 0.0, SubmitMs_ = 0.0;
   double ReshapeMs_ = 0.0, ComposeMs_ = 0.0;
   double ReshapeAgainMs_ = 0.0, ProxyStandsMs_ = 0.0, PlacesMs_ = 0.0, WearsMs_ = 0.0;

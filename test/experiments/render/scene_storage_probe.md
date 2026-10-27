@@ -73,7 +73,7 @@ ownership/image evidence, not an uninstrumented frame gate.
 
 | Tag | Fields after tag |
 |---|---|
-| `OWNER` | phase, RuntimeScene pointer, `held`, Geometry.storageBytes, `driven`, Geometry.storageBytes, `shape`, owned ShapeStore vector-capacity bytes |
+| `OWNER` | phase, RuntimeScene pointer, `held`, Geometry.storageBytes, `driven`, Geometry.storageBytes, `shape`, owned RenderGeometryStorage vector-capacity bytes |
 | `ARRAY` | phase, RuntimeScene pointer, stream, used bytes, capacity bytes, data pointer |
 | `PART` | RuntimeScene pointer, part index, position floats, index elements, normal floats, tangent floats, UV0 floats, UV1 floats, colour floats |
 | `PLACEMENT` | RuntimeScene pointer, part index, identity flag, 16 placement-matrix components |
@@ -93,7 +93,7 @@ the previous shape. The template also compiles against older stores without a le
 Control-block/allocator overhead is not included in Geometry.storageBytes.
 
 The original Geometry and its renderer representation are distinct owners. Shared
-attribute spans own no bytes; a reduced ShapeStore total says nothing about their
+attribute spans own no bytes; a reduced RenderGeometryStorage total says nothing about their
 retaining owner's lifetime. Geometry storage, nested material/image payloads, allocator
 overhead and GPU restore sources may have different accounting boundaries. Do not add
 overlapping world/region/building counters. Default reporting excludes global heap/RSS,

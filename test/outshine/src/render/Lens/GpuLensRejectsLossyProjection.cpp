@@ -8,7 +8,7 @@
 #include "Check.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 #include "RenderObject.h"
 #include "Viewing.h"
 
@@ -124,12 +124,12 @@ void FailedAimPreservesLens() {
   view.Eye.ZNearM = 0.05;
   view.Eye.ZFarM = 10;
   view.HasExplicitCamera = true;
-  Shape shape;
+  RenderGeometryView shape;
   std::string error;
   CHECK(Aim(renderer, shape, view, {}, error), "bind an initial valid lens");
   const float original = renderer.NearMetres();
   const std::array<float, 3> positions = {0, 0, -0.1f};
-  ShapePart part;
+  RenderGeometryPart part;
   part.VertexCount = 1;
   part.PositionsM = positions;
   shape.Parts = {&part, 1};

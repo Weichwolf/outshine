@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "OsmField.h"
-#include "Shape.h"
+#include "RenderGeometryStorage.h"
 #include "MaterialBindings.h"
 #include "TangentFrame.h"
 #include "TerrainLoader.h"
@@ -90,8 +90,8 @@ int main() {
     CHECK(std::abs(positions[at] - kWaterLevelM) < kHeightToleranceM,
           "water geometry retains the source level instead of clamping to sea level");
   }
-  Render::ShapeStore storage;
-  const auto shape = Render::PrepareShape(geometry, storage);
+  Render::RenderGeometryStorage storage;
+  const auto shape = Render::PrepareRenderGeometry(geometry, storage);
   CHECK(shape.has_value(), "mixed terrain and water geometry prepares");
   if (!shape) { return Report(); }
   Core::MaterialBindings materials;

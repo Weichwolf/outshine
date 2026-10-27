@@ -18,11 +18,11 @@ int main() {
   }
   Material fallback;
   fallback.Roughness = 0.9f;
-  std::array<ShapePart, 7> parts;
+  std::array<RenderGeometryPart, 7> parts;
   constexpr std::array ids{2, 0, 2, -1, INT_MAX, -1, -7};
   for (size_t at = 0; at < parts.size(); ++at) { parts[at].Material = ids[at]; }
   SurfaceTable table;
-  Shape shape;
+  RenderGeometryView shape;
   shape.Parts = parts;
   shape.Surfaces = surfaces;
   ResolveDeclaredSurface(shape, fallback, table);
