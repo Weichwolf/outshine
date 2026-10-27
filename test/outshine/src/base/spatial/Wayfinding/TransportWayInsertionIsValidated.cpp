@@ -1,5 +1,6 @@
 #include "Wayfinding.h"
 #include "Check.h"
+#include <cstddef>
 #include <array>
 #include <limits>
 #include <span>
@@ -18,7 +19,7 @@ int main() {
   std::vector<size_t> found{123};
   const auto needsBuild = [&] {
     const auto nearest = network.Nearest({});
-    CHECK(!nearest && nearest.error().find("rebuilt") != std::string_view::npos,
+    CHECK(!nearest && nearest.error().contains("rebuilt"),
           "unbuilt sources cannot appear as an empty or stale nearest result");
     CHECK(!network.Within({}, 1000, found) && found == std::vector<size_t>{123},
           "unbuilt source query preserves the destination");

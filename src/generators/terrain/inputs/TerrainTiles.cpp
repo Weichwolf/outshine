@@ -174,6 +174,29 @@ size_t DecodedCache::Bytes() const {
   return bytes;
 }
 
+size_t DecodedCache::EvictUnused(size_t bytes) {
+  if (bytes == 0) { return 0; }
+  const std::scoped_lock lock(Lock_);
+  std::ranges::sort(Held_, {}, &Entry::Seq);
+  size_t freed = 0;
+  size_t kept = 0;
+  for (size_t at = 0; at < Held_.size(); ++at) {
+    Entry &entry = Held_[at];
+    if (freed < bytes && entry.Field.use_count() == 1) {
+      const size_t payload = entry.Field->Bytes();
+      const std::weak_ptr<const TerrainField> released = entry.Field;
+      entry.Field.reset();
+      if (released.expired()) { freed += payload; }
+      ++Counters_.Evictions;
+    } else {
+      if (kept != at) { Held_[kept] = std::move(entry); }
+      ++kept;
+    }
+  }
+  Held_.resize(kept);
+  return freed;
+}
+
 DecodedCache::Counters DecodedCache::ReadCounters() const {
   const std::scoped_lock lock(Lock_);
   return Counters_;

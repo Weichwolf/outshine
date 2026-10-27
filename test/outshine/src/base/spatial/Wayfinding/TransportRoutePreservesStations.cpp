@@ -1,5 +1,6 @@
 #include "Wayfinding.h"
 #include "Check.h"
+#include <cstddef>
 #include <array>
 #include <cmath>
 #include <numbers>

@@ -1,0 +1,67 @@
+{
+  "schema": "outshine/native-mvt-source-reference/1",
+  "exporter_commit": "70303d13c88a44ef11b274736faf725cf8f72d3c",
+  "native_producer_commit": "70303d13c88a44ef11b274736faf725cf8f72d3c",
+  "native_schema": "outshine/native-mvt-snapshot-dump/1",
+  "source_facts_schema": "outshine/native-mvt-source-facts/2",
+  "tile": [
+    14,
+    8937,
+    5678
+  ],
+  "input_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "source_identity": {
+    "DatasetId": "outshine/mvt/transport",
+    "Revision": "1f4d8d2d6fc3999d6e1bd32881aab20df052b6a0cb0aae76853ba859f159f3df"
+  },
+  "source_generation": 1,
+  "source_way_count": 1557,
+  "files": {
+    "native.json.gz": {
+      "bytes": 806683,
+      "sha256": "a8014636c7c730daac889cd6dfe396c7d522ba2e01e6d4702bb37f571303a598",
+      "raw_bytes": 5554755,
+      "raw_sha256": "1acd9b5593e121cbff3aaa2406222791d66634cf00e3eae84c573d30e68d4f31"
+    },
+    "source-facts.json.gz": {
+      "bytes": 373297,
+      "sha256": "448fd4a207280dda74632b083b4f9316c2303b8536d78c912db53da081d2d25d",
+      "raw_bytes": 3270118,
+      "raw_sha256": "2834144b81e23d8801fc155630185124996c41de4ec67c8030964531d2c2c36e"
+    },
+    "source.mvt.gz": {
+      "bytes": 132522,
+      "sha256": "d09f13d5b6aaa59f30e22df825e3ea6204ee8ef5c326fdb075e46f0dbe27c83d",
+      "raw_bytes": 218795,
+      "raw_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8"
+    }
+  },
+  "recipe_inputs": {
+    "data/world/vegetation.json": "aa45e156d194479404beff997b81201331e27ec983f27952fe23c77432dbca9b",
+    "data/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658"
+  },
+  "terrain_reference": {
+    "path": "../canonical-ports/dem.webp",
+    "tile": [
+      14,
+      8937,
+      5678
+    ],
+    "source_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+    "source_url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+    "source_datum": "Mapterhorn values as supplied; no measured geoid/ellipsoid equivalence",
+    "height_mapping": "source signed metres as model geodetic heights/1",
+    "sampling": "bilinear boundary posts, side-1",
+    "bytes": 56194,
+    "sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177"
+  },
+  "credits": "Vectors: OpenMapTiles/OpenStreetMap contributors; elevation: Mapterhorn. Original source tables and capture receipts retained.",
+  "scope": [
+    "Actual original OpenFreeMap payload and current native DTOs, no expected solver/port outputs",
+    "Physical incidence completeness is relative to the supplied native Network, not global source closure",
+    "Profiles are actual native class-recipe binary32 words, not observed slopes",
+    "Captured without manufactured zero DEM, qualified Ground lease or contact admission",
+    "Separate from the older dd5 legacy-negative fixture; never combine their different Snapshot revisions",
+    "V2 SourceTerminal is bound to original native point identity; indoor/level tags retain actual typed values and IEEE754 NumberWord"
+  ]
+}
