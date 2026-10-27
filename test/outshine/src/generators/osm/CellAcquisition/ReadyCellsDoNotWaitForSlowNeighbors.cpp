@@ -2,19 +2,22 @@
 #include "Check.h"
 #include "OsmCellAcquisition.h"
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <system_error>
+#include <vector>
 
 using outshine::GeoCellId;
 
 namespace {
-class DelayedOsmTransport final : public outshine::Data::Transport {
+class DelayedOsmTransport final : public outshine::Data::SourceTransport {
 public:
   int Starts = 0, Canceled = 0;
   bool BlockFirst = true, CapacityRefusal = false;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
@@ -31,7 +34,7 @@ public:
                                           std::vector<uint8_t>(xml.begin(), xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 };
 }
 
@@ -48,8 +51,12 @@ int main() {
                                   .Revision = "independent",
                                   .Missing = MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",
+                                  .Location = {},
                                   .Endpoint =
-                                      std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                      std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                  .Coverage = {},
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
     DelayedOsmTransport wire;
     std::array<GeoCellId, outshine::Generators::Osm::CellAcquisition::MaximumPendingCells> cells{};
     outshine::Generators::Osm::CellAcquisition reader(provider, store, wire);
@@ -64,7 +71,7 @@ int main() {
       auto ready = reader.TakeReady();
       CHECK(ready && *ready && (**ready).Chunks.size() == 1 &&
                 (**ready).Chunks.front().Cell == cells[index] &&
-                (**ready).Chunks.front().Xml.find("custom:unknown") != std::string::npos,
+                (**ready).Chunks.front().Xml.contains("custom:unknown"),
             "a completed original cell is transferred without waiting for the first request");
     }
     auto pending = reader.TakeReady();

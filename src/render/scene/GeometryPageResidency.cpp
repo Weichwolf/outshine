@@ -17,7 +17,7 @@
 
 #include "Digest.h"
 #include "SceneRenderer.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 
 namespace outshine::Render {
 

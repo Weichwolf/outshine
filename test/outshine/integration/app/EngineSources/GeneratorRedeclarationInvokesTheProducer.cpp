@@ -1,9 +1,10 @@
 #include "EngineFactory.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include <Engine.h>
 #include <SDL3/SDL.h>
 #include <Generator.h>
 #include "Check.h"
+#include <expected>
 #include <string>
 #include <string_view>
 
@@ -52,7 +53,11 @@ int main() {
           "a newly refusing producer cannot be reported as successful reuse");
     probe.Accepts = true;
     scenario.Generators.clear();
-    scenario.Assets.push_back({.Uri = "redeclare-probe", .Kind = "generated"});
+    scenario.Assets.push_back({.Uri = "redeclare-probe",
+                               .Digest = {},
+                               .Kind = "generated",
+                               .Variant = {},
+                               .Surfaces = {}});
     CHECK(engine.declare(scenario) && probe.Calls == 5 && probe.Value.empty(),
           "generated asset invocation uses its own empty parameters");
     CHECK(engine.declare(scenario) && probe.Calls == 6,
@@ -61,7 +66,7 @@ int main() {
     CHECK(engine.declare(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
     Scenario::Document earth;
-    const auto sources = Generators::ShippedProviders();
+    const auto sources = Generators::DefaultSourceProviders();
     earth.Providers.assign(sources.begin(), sources.end());
     earth.Ground.Declared = true;
     earth.Ground.VegetationEnabled = false;
@@ -87,7 +92,7 @@ int main() {
     CHECK(earthBuilt,
           earthBuilt ? "Earth with an explicit view opens after invalid auto framing"
                      : earthBuilt.error().c_str());
-    scenario.Generators.push_back({.Kind = "redeclare-probe"});
+    scenario.Generators.push_back({.Kind = "redeclare-probe", .Parameters = {}});
     Scenario::View spaceView;
     spaceView.Id = "space";
     spaceView.Person = "first";

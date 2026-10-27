@@ -31,7 +31,7 @@ constexpr size_t kMaxChunks = 4;
 }
 
 SourceAcquisition::SourceAcquisition(Workers workers,
-                                     Data::Transport *wire,
+                                     Data::SourceTransport *wire,
                                      std::string cacheDirectory,
                                      std::shared_ptr<const CellCompiler> compiler)
     : Compiler_(std::move(compiler)),

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include <expected>
@@ -12,7 +12,7 @@ constexpr int kNotFound = 404;
 constexpr int kUnavailable = 503;
 constexpr double kAfterRetryMs = 100000;
 
-class AdmissionTransport final : public Transport {
+class AdmissionTransport final : public SourceTransport {
 public:
   SourceFailureReason Reason = SourceFailureReason::CapacityRefused;
   int Begins = 0, Collects = 0, Cancels = 0;
@@ -101,7 +101,7 @@ int main() {
               transport.Begins == 2 && transport.Collects == 1 && transport.Cancels == 0,
           "retry admission failure settles with its own cause before another collect");
   }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto start = offline.Begin("https://example.test/tile");
   CHECK(!start && start.error() == SourceFailureReason::OfflineMiss,
         "offline transport identifies refusal at admission");

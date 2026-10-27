@@ -27,10 +27,29 @@ WaterAsset Source(float lastLevel = 99) {
       .Sources = {{.Identity = {.Kind = Data::DataKind::VectorMap,
                                 .SourceId = "fixture",
                                 .Revision = "r1"},
+                   .InputDigest = {},
                    .FeatureCount = 3}},
-      .Inputs = {{.Source = 0, .Feature = 0, .Layer = "water_polygons", .Kind = "river"},
-                 {.Source = 0, .Feature = 1, .Layer = "water_polygons", .Kind = "river"},
-                 {.Source = 0, .Feature = 2, .Layer = "water_lines", .Kind = "river"}}};
+      .Inputs = {{.Source = 0,
+                  .Feature = 0,
+                  .FeatureId = {},
+                  .Layer = "water_polygons",
+                  .Kind = "river",
+                  .Crossing = {},
+                  .Intermittent = {}},
+                 {.Source = 0,
+                  .Feature = 1,
+                  .FeatureId = {},
+                  .Layer = "water_polygons",
+                  .Kind = "river",
+                  .Crossing = {},
+                  .Intermittent = {}},
+                 {.Source = 0,
+                  .Feature = 2,
+                  .FeatureId = {},
+                  .Layer = "water_lines",
+                  .Kind = "river",
+                  .Crossing = {},
+                  .Intermittent = {}}}};
   return WaterAsset(std::move(data));
 }
 

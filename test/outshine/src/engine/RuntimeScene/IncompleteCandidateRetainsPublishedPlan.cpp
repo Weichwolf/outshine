@@ -145,7 +145,7 @@ void Exercise(bool glass) {
     CHECK(next.Prepare(*scene,
                        nullptr,
                        SceneResources::PieceSources::Copy,
-                       Core::SubjectGeometrySources::Driven,
+                       Core::GeometryRetention::Driven,
                        Core::ResourceRestoreMode::Deferred)
               .has_value(),
           "empty next candidate prepares privately");

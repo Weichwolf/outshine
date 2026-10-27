@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstddef>
 #include "AssetCache.h"
 #include "Check.h"
 #include "RawSourceCache.h"
@@ -18,15 +20,16 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const auto directory = (path / "assets").string();
   Data::RawSourceCache store({.Directory = (path / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   PreparedTerrainDeformation product;
   for (uint32_t index = 0; index < 18; ++index) {
-    product.Pages.push_back({.Tile = {.Zoom = 20, .X = (1u << 19u) + index, .Y = 1u << 19u},
-                             .Nodes = std::vector<float>(1024 * 1024, static_cast<float>(index)),
-                             .Side = 1024,
-                             .Postings = 1024,
-                             .Virtual = false,
-                             .SourceZoom = 20});
+    product.Pages.push_back(
+        {.Tile = {.Zoom = 20, .X = (1u << 19u) + index, .Y = 1u << 19u},
+         .Nodes = std::vector<float>(size_t{1024} * 1024, static_cast<float>(index)),
+         .Side = 1024,
+         .Postings = 1024,
+         .Virtual = false,
+         .SourceZoom = 20});
   }
   product.Effects.Nodes = 42;
   const std::string key(64, '7');

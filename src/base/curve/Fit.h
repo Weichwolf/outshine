@@ -15,8 +15,8 @@ namespace outshine {
 [[nodiscard]] std::vector<double>
 Simplify(std::span<const double> eastNorthM, double withinM, std::vector<size_t> &kept);
 
-struct Fitted {
-  bool Laid = false;
+struct CurveFitResult {
+  bool Succeeded = false;
   size_t Vertices = 0;
   size_t Corners = 0;
   size_t Straights = 0;
@@ -26,16 +26,15 @@ struct Fitted {
   size_t TightestDemandedAtVertex = 0;
   size_t Passes = 0;
   size_t Undrivable = 0;
-  double UndrivableAtM = 0.0;
   size_t Runs = 0;
   std::string Error;
 };
 
-[[nodiscard]] Fitted Fit(std::span<const double> eastNorthM,
-                         double withinM,
-                         double tightestM,
-                         ReferenceLine &into,
-                         std::span<const double> withinAtM = {});
+[[nodiscard]] CurveFitResult Fit(std::span<const double> eastNorthM,
+                                 double withinM,
+                                 double tightestM,
+                                 ReferenceLine &into,
+                                 std::span<const double> withinAtM = {});
 
 }
 

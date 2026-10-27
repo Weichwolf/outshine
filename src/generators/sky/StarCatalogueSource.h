@@ -26,9 +26,10 @@ public:
   }
 
   [[nodiscard]] Data::FetchStart Begin(const Data::Address &at,
-                                       Data::Transport &transport) const override;
-  [[nodiscard]] Data::SourceResponse
-  Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport &transport) const override;
+                                       Data::SourceTransport &transport) const override;
+  [[nodiscard]] Data::SourceResponse Collect(const Data::Address &at,
+                                             Data::Ticket ticket,
+                                             Data::SourceTransport &transport) const override;
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 

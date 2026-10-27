@@ -309,39 +309,39 @@ void Engine::State::PublishGroundMemoryMeasurements() {
                          "bytes");
   if (Picture.Standing) {
     const auto memory = Picture.Device.PieceAllocations();
-    constexpr std::array names{"world: subject position buffer",
-                               "world: subject emitted buffer",
-                               "world: subject normal buffer",
-                               "world: subject tangent buffer",
-                               "world: subject uv buffer",
-                               "world: subject uv1 buffer",
-                               "world: subject colour buffer",
-                               "world: subject previous position buffer",
-                               "world: subject placement buffer",
-                               "world: subject index buffer",
-                               "world: subject cluster sphere buffer",
-                               "world: subject cluster job buffer",
-                               "world: subject cluster batch buffer",
-                               "world: subject cluster kept buffer",
-                               "world: subject cluster slot buffer",
-                               "world: subject draw index buffer",
-                               "world: subject draw argument buffer"};
+    constexpr std::array names{"world: geometry position buffer",
+                               "world: geometry emitted buffer",
+                               "world: geometry normal buffer",
+                               "world: geometry tangent buffer",
+                               "world: geometry uv buffer",
+                               "world: geometry uv1 buffer",
+                               "world: geometry colour buffer",
+                               "world: geometry previous position buffer",
+                               "world: geometry placement buffer",
+                               "world: geometry index buffer",
+                               "world: geometry cluster sphere buffer",
+                               "world: geometry cluster job buffer",
+                               "world: geometry cluster batch buffer",
+                               "world: geometry cluster kept buffer",
+                               "world: geometry cluster slot buffer",
+                               "world: geometry draw index buffer",
+                               "world: geometry draw argument buffer"};
     static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
     for (size_t stream = 0; stream < names.size(); ++stream) {
       Published.RecordMetric(
           names[stream], static_cast<double>(memory.StreamBytes[stream]), "bytes");
     }
-    Published.RecordMetric("world: subject transfer buffer capacity",
+    Published.RecordMetric("world: geometry transfer buffer capacity",
                            static_cast<double>(memory.TransferBytes),
                            "bytes");
     Published.RecordMetric(
-        "world: subject vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
+        "world: geometry vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
     Published.RecordMetric(
-        "world: subject free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
+        "world: geometry free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
     Published.RecordMetric(
-        "world: subject index arena extent", static_cast<double>(memory.IndexSlots), "slots");
+        "world: geometry index arena extent", static_cast<double>(memory.IndexSlots), "slots");
     Published.RecordMetric(
-        "world: subject free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
+        "world: geometry free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
   }
   Published.RecordMetric(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");

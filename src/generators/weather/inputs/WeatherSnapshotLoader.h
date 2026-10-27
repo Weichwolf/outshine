@@ -10,7 +10,7 @@
 
 namespace outshine::Data {
 class SourceSession;
-class Transport;
+class SourceTransport;
 }
 
 namespace outshine::Generators::Weather {
@@ -24,7 +24,7 @@ public:
   };
 
   WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
-                        Data::Transport &transport,
+                        Data::SourceTransport &transport,
                         Workers workers,
                         int64_t utcS);
   ~WeatherSnapshotLoader();
@@ -51,7 +51,7 @@ private:
   void Decode();
   void Abandon();
   void Publish();
-  Data::Transport &Transport_;
+  Data::SourceTransport &Transport_;
   Tasks &Io_;
   Tasks &Compute_;
   Tasks *ActivePool_ = nullptr;

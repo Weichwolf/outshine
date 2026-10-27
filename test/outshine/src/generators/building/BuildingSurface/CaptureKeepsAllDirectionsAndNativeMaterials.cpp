@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <print>
 #include <vector>
 
 int main() {
@@ -18,20 +19,26 @@ int main() {
   GeoToEcef({.LongitudeDeg = 16, .LatitudeDeg = 48, .HeightM = 100}, anchor);
   const auto axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48});
   for (size_t at = 0; at < rings.size(); ++at) {
-    const double lat = 48 + static_cast<double>(at / 8) * 0.0002;
+    const size_t row = at / 8;
+    const double lat = 48 + static_cast<double>(row) * 0.0002;
     const double lon = 16 + static_cast<double>(at % 8) * 0.0003;
     rings[at] = {lat, lon, lat, lon + 0.00015, lat + 0.0001, lon + 0.00015, lat + 0.0001, lon};
     plans.push_back({.RingLatLon = rings[at],
+                     .InnerRings = {},
+                     .RingPointsLatLon = {},
                      .BaseAslM = 100,
                      .SeatAslM = 100,
                      .FootAslM = 100,
+                     .CornerAslM = {},
                      .HeightM = 10,
                      .HeightMeasured = true,
+                     .Street = {},
                      .AnchorEcef = anchor,
                      .Coarseness = LevelOfDetail::Shell,
                      .RecessedOpenings = false,
                      .PitchedShare = 0.0,
-                     .WallColour = Vec3f{{0.4f, 0.3f, 0.2f}}});
+                     .WallColour = Vec3f{{0.4f, 0.3f, 0.2f}},
+                     .Facade = {}});
   }
   const BuildingMesh mesher;
   BuildingScratch scratch;
@@ -58,10 +65,10 @@ int main() {
       CHECK(std::isfinite(vertex.uv()[0]) && std::isfinite(vertex.uv()[1]),
             "captured facades retain native material coordinates");
     }
-    std::printf("shell %zu triangles, captured %zu triangles, %zu wall vertices\n",
-                (shells.WallRun.size() + shells.RoofRun.size()) / 3,
-                (mesh.WallRun.size() + mesh.RoofRun.size()) / 3,
-                mesh.WallCorners.size());
+    std::println("shell {} triangles, captured {} triangles, {} wall vertices",
+                 (shells.WallRun.size() + shells.RoofRun.size()) / 3,
+                 (mesh.WallRun.size() + mesh.RoofRun.size()) / 3,
+                 mesh.WallCorners.size());
   }
   return Report();
 }

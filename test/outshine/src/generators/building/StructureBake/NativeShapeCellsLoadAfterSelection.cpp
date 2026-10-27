@@ -14,8 +14,12 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
 
 namespace {
 using namespace outshine;
@@ -46,6 +50,7 @@ RawTile Inputs() {
          .Cell = *cell,
          .HeightM = 12,
          .Pitched = 0,
+         .WallColour = {},
          .Facade = index == 2 ? std::optional(FacadeStyle::Tower) : std::nullopt});
   }
   return raw;
@@ -68,7 +73,11 @@ void MissingCellIsGenerated(const std::filesystem::path &root,
   const auto parent = (*database)->Find(key);
   CHECK(parent && *parent, "parent metadata has spatial bounds");
   if (!parent || !*parent) { return; }
-  const auto child = (*database)->Select({.Bounds = (**parent).Bounds, .Kind = "building-forms"});
+  const auto child = (*database)->Select({.Bounds = (**parent).Bounds,
+                                          .Kind = "building-forms",
+                                          .Level = {},
+                                          .Radius = {},
+                                          .Planes = {}});
   CHECK(child.has_value() && child->size() == 3, "each occupied native cell has its own package");
   if (!child || child->empty()) { return; }
   const auto erased = (*database)->Remove(child->front().Key);
@@ -76,7 +85,7 @@ void MissingCellIsGenerated(const std::filesystem::path &root,
   const auto metadata = cache.Load(key);
   CHECK(metadata && *metadata, "complete plan/contact parent survives a missing shape child");
   if (!metadata || !*metadata) { return; }
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   RawTile view;
   view.RequestedDetail = LevelOfDetail::Shell;
@@ -115,7 +124,7 @@ void OriginalStorageIsReused(const std::filesystem::path &root,
   CHECK(stored && *stored &&
             DecodePreparedStructureIndex((**stored).Bytes(), size_t{1} * 1024 * 1024),
         "same logical key now names the atomically published new index format");
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   auto referenceScratch = mesher.Scratch();
   RawTile view;
@@ -133,7 +142,7 @@ int main() {
                     ("outshine-building-cells-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
-  Data::SourceSet sources(store);
+  const Data::SourceSet sources(store);
   auto cache = PreparedBuildingAssets::Open(root.string(), sources);
   CHECK(cache.has_value(), "native building cache opens");
   if (!cache) { return Report(); }
@@ -179,7 +188,7 @@ int main() {
         "cached source contacts are ready without opening any fine form cell");
   raw = {};
   heights.reset();
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   const auto &one = (*base)->Structures.front();
   auto plan = PreparedStructurePlan(

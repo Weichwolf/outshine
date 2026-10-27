@@ -1,9 +1,10 @@
 #ifndef OUTSHINE_RENDER_RENDEROBJECT_H
 #define OUTSHINE_RENDER_RENDEROBJECT_H
 
+#include "SceneLighting.h"
 #include "Mat4.h"
 #include "Vec3.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 #include "Viewing.h"
 #include <array>
 #include <cstddef>
@@ -23,7 +24,7 @@ class SceneRenderer;
 
 class RenderObject {
 public:
-  void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
+  void ResetGeometry(const RenderGeometryView &geometry, const Vec3 &anchorEcefM);
   void SelectParts(std::span<const std::string> names);
 
   [[nodiscard]] bool PartVisible(size_t part) const noexcept { return PartVisible_[part] != 0; }
@@ -42,9 +43,9 @@ public:
 
   void AddLight(const outshine::PunctualLight &light) { Lights_.push_back(light); }
 
-  void SetEnvironment(const SubjectEnvironment &environment) { Environment_ = environment; }
+  void SetEnvironment(const EnvironmentLighting &environment) { Environment_ = environment; }
 
-  [[nodiscard]] const Shape *Shaped() const { return Shape_; }
+  [[nodiscard]] const RenderGeometryView *GeometryView() const { return Geometry_; }
 
   [[nodiscard]] size_t Parts() const {
     return Instances_ == 0 ? 0 : PartPlacement_.size() / Instances_;
@@ -70,11 +71,11 @@ public:
 
   [[nodiscard]] std::span<const outshine::PunctualLight> Lights() const { return Lights_; }
 
-  [[nodiscard]] const SubjectEnvironment &IndirectLight() const { return Environment_; }
+  [[nodiscard]] const EnvironmentLighting &IndirectLight() const { return Environment_; }
 
 private:
   Vec3 AnchorEcefM_;
-  const Shape *Shape_ = nullptr;
+  const RenderGeometryView *Geometry_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
   std::vector<uint8_t> PartVisible_;
@@ -84,7 +85,7 @@ private:
   std::vector<MaterialBinding> Surfaces_;
   std::span<const float> Previous_;
   std::vector<outshine::PunctualLight> Lights_;
-  SubjectEnvironment Environment_;
+  EnvironmentLighting Environment_;
 };
 
 [[nodiscard]] bool Placed(SceneRenderer &renderer, const RenderObject &proxy, std::string &error);
@@ -137,17 +138,17 @@ struct RenderObjectPreparation {
   PackCursor Packing;
 
   bool Digests = false;
-  const Shape *PlannedShape = nullptr;
-  const Shape *PreparedShape = nullptr;
+  const RenderGeometryView *PlannedGeometry = nullptr;
+  const RenderGeometryView *PreparedGeometry = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
-  std::vector<SubjectLight> Lights;
+  std::vector<SceneLight> Lights;
   DrawList Draws;
 };
 
 [[nodiscard]] bool Aim(SceneRenderer &renderer,
-                       const Shape &subject,
-                       const SubjectView &view,
+                       const RenderGeometryView &geometry,
+                       const PreparedView &view,
                        const Vec3 &anchorEcefM,
                        std::string &error);
 
@@ -158,13 +159,13 @@ struct RenderObjectPreparation {
 
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
                            const RenderObject &proxy,
-                           const SubjectView &view,
+                           const PreparedView &view,
                            RenderObjectPreparation &scratch,
                            std::string &error);
 
 [[nodiscard]] bool PlanPlacement(SceneRenderer &renderer,
                                  const RenderObject &proxy,
-                                 const SubjectView &view,
+                                 const PreparedView &view,
                                  RenderObjectPreparation &scratch,
                                  std::string &error);
 
@@ -176,7 +177,7 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
                                     const RenderObject &proxy,
-                                    const SubjectView &view,
+                                    const PreparedView &view,
                                     RenderObjectPreparation &scratch,
                                     std::string &error);
 
@@ -196,13 +197,13 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,
                          const RenderObject &proxy,
-                         const SubjectView &view,
+                         const PreparedView &view,
                          RenderObjectPreparation &scratch,
                          std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
                         const RenderObject &proxy,
-                        const SubjectView &view,
+                        const PreparedView &view,
                         RenderObjectPreparation &scratch,
                         std::string &error);
 

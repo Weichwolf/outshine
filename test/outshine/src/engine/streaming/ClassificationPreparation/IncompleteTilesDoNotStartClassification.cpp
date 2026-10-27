@@ -2,7 +2,7 @@
 #include "ClassificationPreparation.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "RegionSurfaceRecipes.h"
 #include "Check.h"
 
@@ -12,7 +12,7 @@
 namespace {
 using namespace outshine::Data;
 
-class NoTransport final : public Transport {
+class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
 
@@ -40,12 +40,13 @@ public:
     return request.Where();
   }
 
-  FetchStart Begin(const Address & /*at*/, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
     return Ticket::None;
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Working();
   }
 };
@@ -57,8 +58,8 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "materials load");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "classification rules load");
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoTransport transport;

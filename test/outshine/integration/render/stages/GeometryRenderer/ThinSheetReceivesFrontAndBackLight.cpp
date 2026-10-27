@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstddef>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -78,10 +80,11 @@ outshine::Vec3 LightResponse(const outshine::Geometry &geometry, double elevatio
   CHECK(scene->Draw(error), "current light reaches the thin-sheet shader");
   renderer.WaitForGpu();
   std::vector<float> pixels;
-  CHECK(renderer.ReadSceneLinear(pixels) == ReadState::Ready && pixels.size() == 64u * 64u * 4u,
+  CHECK(renderer.ReadSceneLinear(pixels) == ReadState::Ready &&
+            pixels.size() == size_t{64} * 64u * 4u,
         "linear GPU radiance is readable without tone mapping");
-  if (pixels.size() != 64u * 64u * 4u) { return {}; }
-  constexpr size_t centre = (32u * 64u + 32u) * 4u;
+  if (pixels.size() != size_t{64} * 64u * 4u) { return {}; }
+  constexpr size_t centre = (size_t{32} * 64u + 32u) * 4u;
   return {{pixels[centre], pixels[centre + 1], pixels[centre + 2]}};
 }
 

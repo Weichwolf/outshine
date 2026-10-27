@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   std::atomic<int> Starts{0};
   std::atomic<int> Canceled{0};

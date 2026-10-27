@@ -377,7 +377,7 @@ void PublishConfiguration(ScenarioSession &session,
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
-  const auto shipped = registerGenerator(S_->World.Shipping.Offered());
+  const auto shipped = registerGenerator(S_->World.Builtins.Offered());
   if (!shipped) { std::terminate(); }
 }
 
@@ -624,7 +624,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.UrbanAreas.reset();
   S_->World.UrbanChildrenRevision.reset();
   S_->World.UrbanChildren.clear();
-  S_->World.Sheets.Clear();
+  S_->World.TerrainSurface.Clear();
   S_->World.PiecesFramed = false;
   S_->World.GroundPublished.Reset();
   S_->World.Region.reset();
@@ -671,7 +671,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!geometry.wellFormed()) {
-    S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
+    S_->Error = "the geometry stands no whole part, and a geometry of nothing is a refusal rather "
                 "than an empty picture";
     return std::unexpected(S_->Error);
   }

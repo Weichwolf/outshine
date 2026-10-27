@@ -9,7 +9,7 @@
 #include "Material.h"
 #include "Geometry.h"
 #include "material/MaterialBinding.h"
-#include "Shape.h"
+#include "RenderGeometryView.h"
 
 namespace outshine::Render {
 
@@ -28,7 +28,7 @@ struct SurfaceTable {
                                          std::span<MaterialBinding> surfaces,
                                          std::string &error);
 
-void ResolveDeclaredSurface(const Shape &geometry,
+void ResolveDeclaredSurface(const RenderGeometryView &geometry,
                             const outshine::Material &row,
                             SurfaceTable &out);
 

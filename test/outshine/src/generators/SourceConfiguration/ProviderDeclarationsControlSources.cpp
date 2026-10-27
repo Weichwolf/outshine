@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "Check.h"
 #include <array>
@@ -7,23 +7,41 @@
 
 int main() {
   outshine::Data::ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   const std::array<SourceProvider, 3> declared = {{
-      {.Kind = "terrain", .Revision = "dem-older", .Priority = 8},
+      {.Kind = "terrain",
+       .Revision = "dem-older",
+       .Priority = 8,
+       .Dataset = {},
+       .Location = {},
+       .Endpoint = {},
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
       {.Kind = "terrain",
        .Revision = "dem-2026-09",
        .Priority = -9,
-       .Missing = MissingDataPolicy::Fail},
+       .Missing = MissingDataPolicy::Fail,
+       .Dataset = {},
+       .Location = {},
+       .Endpoint = {},
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
       {.Kind = "vector",
        .Revision = "osm-2026-09",
        .Priority = std::numeric_limits<int>::max(),
        .Dataset = "test.vector",
-       .Endpoint = "https://fixture.invalid/{z}/{x}/{y}"},
+       .Location = {},
+       .Endpoint = "https://fixture.invalid/{z}/{x}/{y}",
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
   }};
   std::string error;
   CHECK(RegisterSources(sources, declared, {}, error, registry), error.c_str());
@@ -52,14 +70,36 @@ int main() {
   }
   SourceSet rejected(store);
   const std::array<SourceProvider, 2> invalid = {{
-      {.Kind = "terrain"},
-      {.Kind = "vector", .Missing = static_cast<MissingDataPolicy>(255)},
+      {.Kind = "terrain",
+       .Revision = {},
+       .Dataset = {},
+       .Location = {},
+       .Endpoint = {},
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
+      {.Kind = "vector",
+       .Revision = {},
+       .Missing = static_cast<MissingDataPolicy>(255),
+       .Dataset = {},
+       .Location = {},
+       .Endpoint = {},
+       .Coverage = {},
+       .PayloadSha256 = {},
+       .Schema = {}},
   }};
   error.clear();
   CHECK(!RegisterSources(rejected, invalid, {}, error, registry) && !error.empty() &&
             rejected.Count() == 0,
         "unknown absence policy is rejected before registration");
-  const std::array<SourceProvider, 1> retry = {{{.Kind = "terrain"}}};
+  const std::array<SourceProvider, 1> retry = {{{.Kind = "terrain",
+                                                 .Revision = {},
+                                                 .Dataset = {},
+                                                 .Location = {},
+                                                 .Endpoint = {},
+                                                 .Coverage = {},
+                                                 .PayloadSha256 = {},
+                                                 .Schema = {}}}};
   error.clear();
   CHECK(RegisterSources(rejected, retry, {}, error, registry) && error.empty() &&
             rejected.Count() == 1,

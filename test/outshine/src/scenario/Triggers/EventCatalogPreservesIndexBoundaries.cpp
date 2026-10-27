@@ -1,7 +1,10 @@
 #include "Triggers.h"
 #include "Check.h"
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <vector>
 
 int main() {
@@ -11,10 +14,15 @@ int main() {
   std::vector<Scenario::Event> events;
   events.reserve(capacity + 1);
   for (size_t at = 0; at <= capacity; ++at) {
-    events.push_back({.Name = "event-" + std::to_string(at)});
+    events.push_back({.Name = "event-" + std::to_string(at), .Carries = {}});
   }
-  std::vector<Scenario::Volume> volumes{
-      {.Id = "first", .Shape = "box", .Fires = events.front().Name, .When = "enter"}};
+  std::vector<Scenario::Volume> volumes{{.Id = "first",
+                                         .In = {},
+                                         .Shape = "box",
+                                         .AtM = {},
+                                         .ExtentM = {},
+                                         .Fires = events.front().Name,
+                                         .When = "enter"}};
   volumes.push_back(volumes.front());
   volumes.back().Id = "last";
   volumes.back().Fires = events[capacity - 1].Name;
@@ -44,7 +52,8 @@ int main() {
   volumes[0].Fires = events.back().Name;
   CHECK(!TriggerField::Stand(volumes, events), "one event beyond capacity cannot wrap its target");
   CHECK(!TriggerField::Stand({}, events), "oversized catalogs are rejected even without volumes");
-  const std::vector<Scenario::Event> duplicate{{.Name = "same"}, {.Name = "same"}};
+  const std::vector<Scenario::Event> duplicate{{.Name = "same", .Carries = {}},
+                                               {.Name = "same", .Carries = {}}};
   CHECK(!TriggerField::Stand({}, duplicate), "duplicate event names are rejected");
   const std::vector<Scenario::Event> unnamed(1);
   CHECK(!TriggerField::Stand({}, unnamed), "empty event names are rejected");

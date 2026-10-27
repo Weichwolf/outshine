@@ -1,6 +1,6 @@
 #ifndef OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #define OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
-#include "SubjectTypes.h"
+#include "PieceMesh.h"
 #include "LevelOfDetail.h"
 #include "ViewReuseDomain.h"
 #include <cstdint>

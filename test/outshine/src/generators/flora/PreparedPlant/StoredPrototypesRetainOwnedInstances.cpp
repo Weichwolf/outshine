@@ -69,7 +69,9 @@ int main() {
       return GeneratedAssetPackage{.Records = {{.Key = key,
                                                 .Kind = "plant-prototype",
                                                 .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                                                .ByteCount = encoded->size()}},
+                                                .Package = {},
+                                                .ByteCount = encoded->size(),
+                                                .Parent = {}}},
                                    .Bytes = *encoded};
     };
     const auto built = ResolveAsset(**cache, key, kBudget, generate);

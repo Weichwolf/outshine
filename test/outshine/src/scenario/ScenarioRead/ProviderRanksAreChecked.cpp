@@ -9,7 +9,15 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document document;
   document.Named.Name = "previous";
-  document.Providers.push_back({.Kind = "previous", .Priority = 7});
+  document.Providers.push_back({.Kind = "previous",
+                                .Revision = {},
+                                .Priority = 7,
+                                .Dataset = {},
+                                .Location = {},
+                                .Endpoint = {},
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}});
   std::string error;
   for (const std::string_view rank : {"2147483648",
                                       "-2147483649",

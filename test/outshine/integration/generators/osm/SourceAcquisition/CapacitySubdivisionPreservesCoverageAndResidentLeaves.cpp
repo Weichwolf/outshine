@@ -1,5 +1,5 @@
 #include "OsmProviderValidation.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
 #include "RawSourceCache.h"
@@ -9,14 +9,17 @@
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <system_error>
 #include <map>
 #include <thread>
+#include <vector>
 
 namespace {
-class CapacityLimitedOsmTransport final : public outshine::Data::Transport {
+class CapacityLimitedOsmTransport final : public outshine::Data::SourceTransport {
 public:
   std::atomic<int> Starts{0}, Blocked{0};
   std::atomic<bool> BlockLeaves{false};
@@ -80,6 +83,78 @@ bool Settled(outshine::Generators::Osm::SourceAcquisition &loader) {
            loader.PendingCount() == 0;
   });
 }
+
+bool CheckCoverage(const outshine::Generators::Osm::SourceAcquisition &loader,
+                   outshine::GeoCellId root) {
+  using namespace outshine::Test;
+  double area = 0;
+  for (const auto &entry : loader.CurrentCells()) {
+    const auto snapshot = entry.Snapshot;
+    CHECK(snapshot && snapshot->Cell, "each published source snapshot names its geographic cell");
+    if (!snapshot || !snapshot->Cell) { return false; }
+    const auto cell = *snapshot->Cell;
+    const auto bounds = cell.Bounds();
+    CHECK(bounds, "published child cell has finite geographic bounds");
+    if (!bounds) { return false; }
+    area += (bounds->EastDeg - bounds->WestDeg) * (bounds->NorthDeg - bounds->SouthDeg);
+    CHECK(cell.Level == 10 && cell.X / 2 == root.X && cell.Y / 2 == root.Y,
+          "each source belongs to a distinct direct child of the requested root");
+  }
+  const auto parent = root.Bounds();
+  CHECK(parent, "requested root has finite geographic bounds");
+  if (!parent) { return false; }
+  CHECK(area == (parent->EastDeg - parent->WestDeg) * (parent->NorthDeg - parent->SouthDeg),
+        "published child coverage has the complete requested area");
+  return true;
+}
+
+void CheckInterruptedRegions(outshine::Generators::Osm::SourceAcquisition::Workers workers,
+                             const std::string &directory,
+                             outshine::Data::SourceProvider revision,
+                             outshine::GeoCellId root,
+                             outshine::Generators::Osm::SourceAcquisition::CellLimits limits) {
+  using namespace outshine;
+  using namespace outshine::Data;
+  using namespace outshine::Test;
+  CapacityLimitedOsmTransport interrupted;
+  const std::array demand{
+      root, GeoCellId{.Level = 9, .X = 271, .Y = 411}, GeoCellId{.Level = 9, .X = 272, .Y = 411}};
+  const auto lastBounds = demand.back().Bounds();
+  CHECK(lastBounds, "the deliberately blocked region has geographic bounds");
+  if (!lastBounds) { return; }
+  interrupted.BlockFromWest = lastBounds->WestDeg;
+  revision.Revision = "adaptive-interrupted";
+  RawSourceCache acquired({.Directory = directory});
+  ProviderRegistry registry;
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
+  auto catalogue = ConfigureSource(revision, ".", registry);
+  CHECK(catalogue, "the original catalogue supplies the same cache identity");
+  if (!catalogue) { return; }
+  outshine::Generators::Osm::SourceAcquisition preparing(workers, &interrupted, directory);
+  CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
+            Await(preparing,
+                  [&] {
+                    return interrupted.BlockedLaterRegion != 0 &&
+                           acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
+                                                             demand[0]) &&
+                           acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
+                                                             demand[1]);
+                  }) &&
+            preparing.CurrentCells().empty(),
+        "an unfinished later region prevents global publication");
+  CapacityLimitedOsmTransport cached;
+  cached.BlockLeaves = true;
+  outshine::Generators::Osm::SourceAcquisition resumed(workers, &cached, directory);
+  CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
+            Settled(resumed) &&
+            resumed.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
+            resumed.CurrentCells().size() == 8 && cached.Starts == 0,
+        "complete source regions remain reusable while an independent later root is blocked");
+  interrupted.BlockFromWest = 1000;
+  CHECK(Settled(preparing) && preparing.CurrentCells().size() == 12 && interrupted.Starts == 15,
+        "prioritization retains all twelve leaves and performs each original request once");
+}
+
 }
 
 int main() {
@@ -90,11 +165,14 @@ int main() {
                                 .Revision = "adaptive",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array roots{GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
-      .CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};
+      .CellsMost = 32, .SnapshotBytesMost = static_cast<long>(1024) * 1024};
   auto directory =
       (std::filesystem::temp_directory_path() / "outshine-adaptive-cells-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated adaptive source cache created");
@@ -109,17 +187,7 @@ int main() {
             loader.CurrentCells().size() == 4 && wire.Starts == 5,
         "one overloaded parent is replaced by all four children without retrying its request");
   if (loader.CurrentCells().size() != 4) { return Report(); }
-  double area = 0;
-  for (const auto &entry : loader.CurrentCells()) {
-    const auto cell = *entry.Snapshot->Cell;
-    const auto bounds = *cell.Bounds();
-    area += (bounds.EastDeg - bounds.WestDeg) * (bounds.NorthDeg - bounds.SouthDeg);
-    CHECK(cell.Level == 10 && cell.X / 2 == roots[0].X && cell.Y / 2 == roots[0].Y,
-          "each source belongs to a distinct direct child of the requested root");
-  }
-  const auto parent = *roots[0].Bounds();
-  CHECK(area == (parent.EastDeg - parent.WestDeg) * (parent.NorthDeg - parent.SouthDeg),
-        "published child coverage has the complete requested area");
+  if (!CheckCoverage(loader, roots[0])) { return Report(); }
   const auto retained = loader.CurrentCells().front().Snapshot;
   CHECK(loader.RequestCells(provider, roots, limits, ".") && loader.PendingCount() == 0 &&
             wire.Starts == 5 && loader.CurrentCells().front().Snapshot == retained,
@@ -140,20 +208,21 @@ int main() {
   auto revision = provider;
   revision.Revision = "adaptive-capacity";
   CHECK(loader.RequestCells(
-            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = 1024 * 1024}, ".") &&
+            revision, roots, {.CellsMost = 3, .SnapshotBytesMost = size_t{1024} * 1024}, ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
-            loader.Error().find("cell budget") != std::string_view::npos &&
+            loader.Error().contains("cell budget") &&
             loader.CurrentCells().front().Snapshot == retained,
         "exhausting subdivision capacity preserves the previous world and reports failure");
   revision.Revision = "adaptive-depth";
-  CHECK(loader.RequestCells(revision,
-                            roots,
-                            {.CellsMost = 32, .SnapshotBytesMost = 1024 * 1024, .LevelMost = 9},
-                            ".") &&
+  CHECK(loader.RequestCells(
+            revision,
+            roots,
+            {.CellsMost = 32, .SnapshotBytesMost = size_t{1024} * 1024, .LevelMost = 9},
+            ".") &&
             Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
-            loader.Error().find("level budget") != std::string_view::npos,
+            loader.Error().contains("level budget"),
         "the depth bound terminates overloaded demand explicitly");
   CapacityLimitedOsmTransport nested;
   nested.WidthMost = 0.2;
@@ -179,46 +248,8 @@ int main() {
           "a new source revision reconstructs nested cached leaves without retrying overloaded "
           "parents");
   }
-  {
-    CapacityLimitedOsmTransport interrupted;
-    const std::array demand{roots[0],
-                            GeoCellId{.Level = 9, .X = 271, .Y = 411},
-                            GeoCellId{.Level = 9, .X = 272, .Y = 411}};
-    interrupted.BlockFromWest = demand.back().Bounds()->WestDeg;
-    revision.Revision = "adaptive-interrupted";
-    RawSourceCache acquired({.Directory = directory});
-    ProviderRegistry registry;
-    outshine::Generators::RegisterShippedProviders(registry);
-    auto catalogue = ConfigureSource(revision, ".", registry);
-    CHECK(catalogue, "the original catalogue supplies the same cache identity");
-    if (!catalogue) { return Report(); }
-    outshine::Generators::Osm::SourceAcquisition preparing(
-        {.Compute = compute, .Io = io}, &interrupted, directory);
-    CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
-              Await(preparing,
-                    [&] {
-                      return interrupted.BlockedLaterRegion != 0 &&
-                             acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
-                                                               demand[0]) &&
-                             acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
-                                                               demand[1]);
-                    }) &&
-              preparing.CurrentCells().empty(),
-          "an unfinished later region prevents global publication");
-    CapacityLimitedOsmTransport cached;
-    cached.BlockLeaves = true;
-    outshine::Generators::Osm::SourceAcquisition resumed(
-        {.Compute = compute, .Io = io}, &cached, directory);
-    CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
-              Settled(resumed) &&
-              resumed.CurrentPhase() ==
-                  outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
-              resumed.CurrentCells().size() == 8 && cached.Starts == 0,
-          "complete source regions remain reusable while an independent later root is blocked");
-    interrupted.BlockFromWest = 1000;
-    CHECK(Settled(preparing) && preparing.CurrentCells().size() == 12 && interrupted.Starts == 15,
-          "prioritization retains all twelve leaves and performs each original request once");
-  }
+  CheckInterruptedRegions({.Compute = compute, .Io = io}, directory, revision, roots[0], limits);
+
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated adaptive source cache removed");

@@ -1,5 +1,8 @@
 #include <Generator.h>
+#include <cstddef>
+#include <expected>
 #include <string>
+#include <string_view>
 #include <utility>
 #include "Check.h"
 
@@ -14,7 +17,8 @@ public:
     return Name;
   }
 
-  [[nodiscard]] Product make(const outshine::Generators::Request &) const override {
+  [[nodiscard]] Product
+  make([[maybe_unused]] const outshine::Generators::Request &request) const override {
     return std::unexpected("unused");
   }
 };
@@ -44,11 +48,13 @@ int main() {
         "duplicate cannot replace existing registration after the provider renames itself");
   CHECK(registry.named("Structures") == nullptr && registry.named("") == nullptr,
         "lookup is case sensitive and unknown names have no fallback");
-  Registry moved(std::move(registry));
+  const Registry moved(std::move(registry));
   CHECK(moved.named("structures") == &first && moved.count() == 1,
         "move transfers names and preserves borrowed generator addresses");
-  CHECK(nameOf(Shipped::Structures) == "structures", "known built-in resolves its declared name");
-  for (const auto invalid : {Shipped::kCount, static_cast<Shipped>(255)}) {
+  CHECK(nameOf(BuiltinGeneratorKind::Structures) == "structures",
+        "known built-in resolves its declared name");
+  for (const auto invalid :
+       {BuiltinGeneratorKind::kCount, static_cast<BuiltinGeneratorKind>(255)}) {
     CHECK(nameOf(invalid).empty(), "invalid catalogue values are rejected without array access");
   }
   return Report();

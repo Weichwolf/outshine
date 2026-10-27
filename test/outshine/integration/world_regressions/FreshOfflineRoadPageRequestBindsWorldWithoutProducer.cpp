@@ -1,6 +1,9 @@
 #include "Earth.h"
 #include "PreparedRoadPages.h"
-#include "RoadPageProducer.h"
+#include "RoadPageMeshProducer.h"
+#include "TransportRoadPageProducer.h"
+#include "TransportPlanCodec.h"
+#include "TransportPlanFixture.h"
 #include "RoadPageRestoration.h"
 #include "GeometryProductCodec.h"
 #include "Sha256.h"
@@ -25,6 +28,8 @@
 #include <system_error>
 #include <thread>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -92,6 +97,51 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
       .Manifest = std::move(*key), .Request = request.RequestKey, .Payload = cold->Package};
 }
 
+std::optional<Fixture> SeedBound(const std::filesystem::path &directory) {
+  auto source = outshine::Test::TransportPlanFixture();
+  auto opened = PreparedRoadPages::Open(directory.string());
+  if (!source || !opened) { return std::nullopt; }
+  const auto plan = std::make_shared<const TransportPlan>(std::move(*source));
+  const auto planKey = TransportPlanContentKey(plan->Definition, plan->InputBinding);
+  if (!planKey) { return std::nullopt; }
+  RoadPageManifest manifest;
+  manifest.PlanKey = *planKey;
+  manifest.Anchor = plan->Anchor;
+  if (!manifest.Materials.addSurface("streets", Material{})) { return std::nullopt; }
+  const auto material = EncodeGeometryProduct(manifest.Materials, 4096);
+  if (!material) { return std::nullopt; }
+  manifest.MaterialKey = Sha256Hex(material->data(), material->size());
+  const std::vector<RoadPagePartAppearance> selected{
+      {.Part = {.Kind = RoadPagePartKind::Interval, .Index = 1},
+       .WearsLinear = {{0.5f, 0.5f, 0.5f}}}};
+  const RoadPageRequest request{
+      .Address = {.PlanKey = manifest.PlanKey,
+                  .MaterialKey = manifest.MaterialKey,
+                  .MaterialIndex = 0,
+                  .Anchor = manifest.Anchor,
+                  .Level = 0,
+                  .Parts = {selected[0].Part},
+                  .Appearance = RoadPageAppearanceV2{RoadPageAppearanceKey(selected)}},
+      .Parent = {},
+      .RequestKey = std::string(64, 'd'),
+      .NativeBytesMost = kLimit};
+  const auto producer = TransportRoadPageProducer::Bind(plan, request.Address, selected);
+  if (!producer) { return std::nullopt; }
+  const auto cold = (*opened)->Prepare(request, &*producer);
+  if (!cold || cold->ByteCount == 0) { return std::nullopt; }
+  manifest.Pages.push_back({.Key = cold->Key,
+                            .Bounds = cold->Bounds,
+                            .ByteCount = cold->ByteCount,
+                            .Level = 0,
+                            .Parts = request.Address.Parts,
+                            .Appearance = request.Address.Appearance});
+  manifest.Appearance = RoadPageAppearanceV2{RoadPageManifestAppearanceKey(manifest.Pages)};
+  auto key = (*opened)->StoreManifest(manifest);
+  if (!key) { return std::nullopt; }
+  return Fixture{
+      .Manifest = std::move(*key), .Request = request.RequestKey, .Payload = cold->Package};
+}
+
 bool Finish(RoadPageRestoration &restore, Geometry &world) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (std::chrono::steady_clock::now() < until) {
@@ -101,6 +151,31 @@ bool Finish(RoadPageRestoration &restore, Geometry &world) {
     std::this_thread::yield();
   }
   return false;
+}
+
+void CheckAppearance(Tasks &pool,
+                     const std::shared_ptr<PreparedRoadPages> &pages,
+                     const std::shared_ptr<const RoadPageManifest> &manifest) {
+  using namespace outshine::Test;
+  auto foreign =
+      std::make_shared<RoadPageManifest>(RoadPageManifest{.PlanKey = manifest->PlanKey,
+                                                          .MaterialKey = manifest->MaterialKey,
+                                                          .Anchor = manifest->Anchor,
+                                                          .Materials = manifest->Materials.clone(),
+                                                          .Pages = manifest->Pages,
+                                                          .Appearance = manifest->Appearance});
+  const bool legacy = std::holds_alternative<LegacyRoadPageV1>(manifest->Appearance);
+  foreign->Pages[0].Appearance =
+      legacy ? RoadPageAppearance(RoadPageAppearanceV2{std::string(64, 'f')})
+             : RoadPageAppearance(LegacyRoadPageV1{});
+  CHECK(!RoadPageRestoration::Begin(pool, pages, foreign),
+        "mixed appearance versions are rejected before page IO");
+  if (legacy) { return; }
+  foreign->Pages[0].Appearance = RoadPageAppearanceV2{std::string(64, 'f')};
+  auto rejected = RoadPageRestoration::Begin(pool, pages, foreign);
+  Geometry world;
+  CHECK(rejected && !Finish(**rejected, world) && world.parts() == 0,
+        "a valid cached leaf cannot replace the appearance declared by its reference");
 }
 
 int ChildResult() {
@@ -134,6 +209,7 @@ int Offline(const char *directory, const Fixture &fixture) {
             std::ranges::equal(world.coloursOf(0), mesh.ColourRgba) &&
             std::ranges::equal(world.trianglesOf(0), mesh.Index),
         "world positions, normals, colours and indices equal the finished native lease");
+  CheckAppearance(pool, pages, **manifest);
   std::println("ROADPAGE_OFFLINE pages={} native_bytes={} world_parts={}",
                restore ? (*restore)->Pages() : 0,
                (**hit).NativeBytes,
@@ -172,11 +248,17 @@ int main(int argc, char **argv) {
       ("outshine-roadpage-product-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(directory);
-  const auto fixture = Seed(directory);
-  CHECK(fixture, "the generator-owned typed producer commits a complete native page and manifest");
-  CHECK(fixture &&
-            Spawn(std::filesystem::absolute(arguments[0]).string(), directory.string(), *fixture),
-        "a separate offline process restores and binds the committed product without generation");
+  constexpr std::array versions{false, true};
+  for (const bool bound : versions) {
+    const auto path = directory / (bound ? "v2" : "v1");
+    std::filesystem::create_directories(path);
+    const auto fixture = bound ? SeedBound(path) : Seed(path);
+    CHECK(fixture,
+          "the generator-owned typed producer commits a complete native page and manifest");
+    CHECK(fixture &&
+              Spawn(std::filesystem::absolute(arguments[0]).string(), path.string(), *fixture),
+          "a separate offline process restores and binds the committed product without generation");
+  }
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "the completed process-boundary fixture is removed");

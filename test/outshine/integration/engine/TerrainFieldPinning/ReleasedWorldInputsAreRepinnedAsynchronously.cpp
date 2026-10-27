@@ -1,7 +1,8 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "DelayedTerrainSource.h"
-#include "HeightSheets.h"
+#include "TerrainSurfacePublication.h"
 #include "TerrainInputPreparation.h"
 #include "TerrainFieldPinning.h"
 #include "RuntimeScene.h"
@@ -28,7 +29,7 @@ template <typename Poll> bool UntilReady(Poll poll) {
 }
 
 void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
-                         HeightSheets &published,
+                         TerrainSurfacePublication &published,
                          const Ground::GroundStream &ground,
                          const Ground::TilePool &pool,
                          DelayedTerrainSource &source,
@@ -61,9 +62,10 @@ void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
         "world preparation owns its complete source coverage");
   CHECK(inputs.ShareSourcedField(tile, retained), "a worker pins a consumed world input");
   inputs.Framed(TangentFrame::At({}));
-  published.Framed(TangentFrame::At({}));
+  published.SetFrame(TangentFrame::At({}));
   std::string error;
-  CHECK(inputs.Halos(candidate, 4) == candidate.Sheets.size() && published.Hands(candidate, error),
+  CHECK(inputs.Halos(candidate, 4) == candidate.Sheets.size() &&
+            PublishTerrain(published, candidate, error),
         "the sampled inputs become an independent published terrain surface");
   const LongitudeLatitude camera{.LongitudeDeg = 1.0, .LatitudeDeg = -1.0};
   const auto cameraHeight = published.HeightMAt(camera);
@@ -120,8 +122,8 @@ int main() {
       Ground::TilePool pool(config, sources, transport);
       const Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
       Generators::TerrainInputPreparation inputs;
-      HeightSheets published;
-      published.Into(&renderer);
+      TerrainSurfacePublication published;
+      published.SetRenderer(&renderer);
       CheckReleasedInputs(inputs, published, ground, pool, *probe, retained);
     }
   }

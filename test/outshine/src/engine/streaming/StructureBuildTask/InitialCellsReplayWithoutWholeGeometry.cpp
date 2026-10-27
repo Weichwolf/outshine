@@ -93,6 +93,43 @@ void CheckCosts(const PreparedBuildingAssets &cache, const CountingMesh &mesher,
         "cold writes only children; a fresh warm producer never loads plans or invokes meshing");
 }
 
+bool CollectChildren(StructureBuildTask &task,
+                     Tasks &pool,
+                     const CountingMesh &mesher,
+                     const std::weak_ptr<const PreparedBuildingBasis> &warmBasis,
+                     bool warm,
+                     size_t sourceCount) {
+  StructureCellAssembly assembly(task.InitialCells());
+  for (;;) {
+    const auto &tile = task.Result().Tile;
+    if (!tile) { return false; }
+    const auto &child = *tile;
+    CHECK(child.RequestedCell && !child.RequestedDetail && child.Prints.size() == 1 &&
+              child.SelectedView && child.Coordinates && !child.Coordinates->Points().empty(),
+          "each bounded product owns complete coordinates and adaptive source selection");
+    CHECK(task.Result().CacheHit == warm, "fresh replay uses the exact child cache identity");
+    if (warm) {
+      const auto basis = warmBasis.lock();
+      CHECK(basis && child.Coordinates->Points().data() == basis->PointsLatLon.data() &&
+                child.Coordinates->Rings().data() == basis->Holes.data(),
+            "each warm child leases complete immutable basis arrays without duplicate copies");
+    }
+    assembly.Collect(child);
+    assembly.Collect(child);
+    if (assembly.Remaining() == 0) { break; }
+    CHECK(assembly.Metadata().Prints.size() == 1 && assembly.Metadata().Built.UsedBytes() == 0,
+          "incomplete source metadata neither duplicates retries nor retains uploaded geometry");
+    task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(assembly.Remaining())) + 1u);
+    Complete(task, pool, mesher);
+    CHECK(task.Result().Status && task.Result().Tile, "the next child completes independently");
+    if (!task.Result().Status || !task.Result().Tile) { return false; }
+  }
+  CHECK(assembly.Metadata().Prints.size() == sourceCount &&
+            assembly.Metadata().OccupiedCells == task.InitialCells() && assembly.Triangles() > 0,
+        "only the complete source set supplies all contact metadata and triangle counts");
+  return true;
+}
+
 void Replay(const std::filesystem::path &root, bool warm) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
@@ -131,34 +168,7 @@ void Replay(const std::filesystem::path &root, bool warm) {
   CHECK(task.Result().Status && task.Result().Tile && std::popcount(task.InitialCells()) == 2,
         "initial production chooses children before emitting any whole geometry");
   if (!task.Result().Status || !task.Result().Tile) { return; }
-  StructureCellAssembly assembly(task.InitialCells());
-  for (;;) {
-    const auto &tile = task.Result().Tile;
-    if (!tile) { return; }
-    const auto &child = *tile;
-    CHECK(child.RequestedCell && !child.RequestedDetail && child.Prints.size() == 1 &&
-              child.SelectedView && child.Coordinates && !child.Coordinates->Points().empty(),
-          "each bounded product owns complete coordinates and adaptive source selection");
-    CHECK(task.Result().CacheHit == warm, "fresh replay uses the exact child cache identity");
-    if (warm) {
-      const auto basis = warmBasis.lock();
-      CHECK(basis && child.Coordinates->Points().data() == basis->PointsLatLon.data() &&
-                child.Coordinates->Rings().data() == basis->Holes.data(),
-            "each warm child leases complete immutable basis arrays without duplicate copies");
-    }
-    assembly.Collect(child);
-    assembly.Collect(child);
-    if (assembly.Remaining() == 0) { break; }
-    CHECK(assembly.Metadata().Prints.size() == 1 && assembly.Metadata().Built.UsedBytes() == 0,
-          "incomplete source metadata neither duplicates retries nor retains uploaded geometry");
-    task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(assembly.Remaining())) + 1u);
-    Complete(task, pool, mesher);
-    CHECK(task.Result().Status && task.Result().Tile, "the next child completes independently");
-    if (!task.Result().Status || !task.Result().Tile) { return; }
-  }
-  CHECK(assembly.Metadata().Prints.size() == raw.Structures.size() &&
-            assembly.Metadata().OccupiedCells == task.InitialCells() && assembly.Triangles() > 0,
-        "only the complete source set supplies all contact metadata and triangle counts");
+  if (!CollectChildren(task, pool, mesher, warmBasis, warm, raw.Structures.size())) { return; }
   CheckCosts(*cache, mesher, warm);
   task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(task.InitialCells())) + 1u);
   task.RequestStop();

@@ -132,7 +132,7 @@ def case(commit, path, pinned_on, pin_reason, harness=None):
         criterion["kind"] = "script-expectation"
     return {
         "schema": "outshine/declared-case-manifest",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "id": identity,
         "title": declared["description"][:200] or identity,
         "covers": ["ecma262"],
@@ -140,7 +140,7 @@ def case(commit, path, pinned_on, pin_reason, harness=None):
         "viewport": {"widthPx": 0, "heightPx": 0,
                      "note": "a script draws nothing, and a viewport of no pixels says so rather "
                              "than inventing a surface a case never asked for"},
-        "subjects": [{
+        "inputs": [{
             "kind": "script",
             "id": identity,
             "name": name,

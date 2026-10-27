@@ -12,7 +12,7 @@
 #include "Vec3.h"
 #include "HttpTransport.h"
 #include "HeapProbe.h"
-#include "Shipped.h"
+#include "BuiltinGenerators.h"
 #include "VegetationStreaming.h"
 #include "UrbanAreaStreaming.h"
 #include "WorldReadiness.h"
@@ -22,7 +22,7 @@
 #include "RigidBodyState.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
-#include "HeightSheets.h"
+#include "TerrainSurfacePublication.h"
 #include "Wayfinding.h"
 #include "GeometryPageResidency.h"
 #include "BuildingPageAdapter.h"
@@ -181,7 +181,7 @@ inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
   if (scenario.Motion.Declared) { carried.emplace_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.emplace_back("a clock"); }
   if (scenario.Assets.size() > 1) {
-    carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the subject");
+    carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the geometry");
   }
   carried.insert(carried.end(), quiet.begin(), quiet.end());
   return carried;
@@ -226,12 +226,12 @@ struct WorldRegionState {
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.BindRenderer(&renderer);
-    Sheets.Into(&renderer);
+    TerrainSurface.SetRenderer(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
 
-  std::unique_ptr<Data::Transport> Wire;
+  std::unique_ptr<Data::SourceTransport> Wire;
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;
@@ -243,7 +243,7 @@ struct WorldRegionState {
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
-  Generators::Shipping Shipping;
+  Generators::BuiltinGenerators Builtins;
 
   using Standing = WorldInstance;
 
@@ -268,7 +268,7 @@ struct WorldRegionState {
 
   Render::GeometryPageResidency Pieces;
   std::optional<BuildingPageMaterials> StructureSurfaces;
-  HeightSheets Sheets;
+  TerrainSurfacePublication TerrainSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
   std::vector<NamedRoadAlignment> RoadAlignments;

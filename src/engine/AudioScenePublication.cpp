@@ -75,7 +75,7 @@ bool Engine::State::IsAudioOccluded(const Vec3 &sourceM) const {
   const Ray ray{.OriginM = fromM, .Toward = along};
   const auto distanceM = static_cast<float>(awayM);
   return World.AudioOcclusion.Occludes(ray, kNearestOccluderM, distanceM) ||
-         World.Sheets.Occludes(ray, kNearestOccluderM, distanceM);
+         World.TerrainSurface.Occludes(ray, kNearestOccluderM, distanceM);
 }
 
 }

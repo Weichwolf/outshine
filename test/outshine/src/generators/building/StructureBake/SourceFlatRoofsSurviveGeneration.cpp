@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace {
@@ -68,7 +69,8 @@ int main() {
                                     raw.LatLon);
   CHECK(cell.has_value(), "the source building belongs to a native cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .Cell = *cell, .HeightM = 9.0});
+  raw.Structures.push_back(
+      {.PointCount = 4, .Cell = *cell, .HeightM = 9.0, .WallColour = {}, .Facade = {}});
   raw.TileSpanM = 1000.0;
   GeoToEcef({.LongitudeDeg = longitude, .LatitudeDeg = latitude, .HeightM = 0.0}, raw.AnchorEcef);
   const auto axes = EnuAxesEcef({.LongitudeDeg = longitude, .LatitudeDeg = latitude});
@@ -77,7 +79,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell}) {
     raw.RequestedDetail = detail;
     for (const int pitched : {0, 1}) {

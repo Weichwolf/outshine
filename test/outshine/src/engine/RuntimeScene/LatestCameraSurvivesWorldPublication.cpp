@@ -136,7 +136,7 @@ int main() {
     CHECK(scene->Aimed().EyeM == valid.EyeM && scene->Draw(error),
           "successful retry binds the corrected view without losing the candidate");
     AnchorChanges(renderer, scene, geometry);
-    scene->FrameItself();
+    scene->FrameGeometry();
     CHECK(scene->Advance(error) && scene->Draw(error),
           "automatic framing draws before preparation");
     Core::WorldCandidate orbit(renderer);

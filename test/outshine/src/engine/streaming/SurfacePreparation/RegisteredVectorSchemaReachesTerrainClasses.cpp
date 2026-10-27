@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "Sink.h"
@@ -28,7 +28,7 @@ outshine::Test::Mvt::Bytes WaterTile() {
   return tile;
 }
 
-class VectorTransport final : public outshine::Data::Transport {
+class VectorTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return static_cast<outshine::Data::Ticket>(1);
@@ -85,10 +85,10 @@ int main() {
   const std::array providers{source};
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
-  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    focus,

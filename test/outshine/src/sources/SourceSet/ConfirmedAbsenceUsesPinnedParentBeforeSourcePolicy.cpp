@@ -1,6 +1,6 @@
 #include "SourceSet.h"
 #include "WebTileSource.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Check.h"
 #include <cstdint>
 #include <cstdlib>
@@ -33,7 +33,7 @@ public:
                       "https://tiles.example/{z}/{x}/{y}") {}
 };
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   std::vector<std::string> Requested;
   int Status = 404;
@@ -82,7 +82,7 @@ int main() {
     SourceSet sources(store);
     CHECK(sources.Add(std::make_unique<Tiles>()) == SourceSet::Registration::Accepted,
           "fresh process source state configured");
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, offline).Take();
     CHECK(answer && answer->At == Address::At({.Zoom = 1, .X = 1, .Y = 1}) &&

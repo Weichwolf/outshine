@@ -110,9 +110,9 @@ int main() {
   WriteSpecies(directory);
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
-  CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "vegetation rules load");
-  Generators::Shipping catalogue;
+  CHECK(materials.Load("data/world/ground-materials.json"), "materials load");
+  CHECK(vegetation.Load("data/world/vegetation.json", materials), "vegetation rules load");
+  Generators::BuiltinGenerators catalogue;
   std::string error;
   CHECK(catalogue.EnsureCatalogue(vegetation, (directory / "species").string(), error),
         "two clusters load");

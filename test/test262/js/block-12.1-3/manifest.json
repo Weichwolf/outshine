@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "block-12.1-3",
   "title": "\"12.1 - block '{ StatementListopt };' is not allowed: try-finally\"",
   "covers": [
@@ -13,7 +13,7 @@
     "expects": "refuses",
     "phase": "parse"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "block-12.1-3",

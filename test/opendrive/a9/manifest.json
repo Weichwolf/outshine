@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "opendrive/a9",
   "title": "Two surveyed sections of the German Autobahn A9, in ASAM OpenDRIVE 1.4",
   "covers": [
@@ -12,7 +12,7 @@
     "says": "a road this tree derives from OpenStreetMap is measured against the SURVEYED reference line, lane widths, gradient and superelevation of the same kilometres of the A9, in ASAM OpenDRIVE 1.4 -- a measurement carried further than any derivation, so the corpus can never be the thing that is wrong",
     "statedAt": "https://github.com/tum-gis/opendrive-testfeld-a9"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "data",
       "id": "a9",

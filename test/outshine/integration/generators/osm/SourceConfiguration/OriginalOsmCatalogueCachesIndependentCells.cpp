@@ -1,13 +1,14 @@
 #include "OsmProviderValidation.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SourceConfiguration.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmApiReader.h"
 #include "OsmXmlReader.h"
 #include "SourceSet.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
@@ -15,12 +16,13 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 using outshine::GeoCellId;
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   std::vector<std::string> Urls;
   const std::string Xml = "<osm version='0.6'><node id='1' lat='54.78' lon='9.43'/>"
@@ -34,11 +36,11 @@ public:
     return static_cast<outshine::Data::Ticket>(Urls.size());
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 }
 
@@ -53,15 +55,18 @@ int main() {
                                 .Revision = "original-source-cells",
                                 .Missing = MissingDataPolicy::Fail,
                                 .Dataset = "openstreetmap.original",
-                                .Endpoint =
-                                    std::string(outshine::Generators::Osm::kOfficialOsmApi)};
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = {},
+                                .PayloadSha256 = {},
+                                .Schema = {}};
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   std::array<std::string, 2> keys;
   ApiWire network;
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
     RawSourceCache store({.Directory = directory});
     SourceSet sources(store);
@@ -77,7 +82,7 @@ int main() {
     CHECK(sources.Add(std::move(*made)) == SourceSet::Registration::Accepted,
           "catalogue registration uses the same source registry");
     sources.Seal();
-    Transport &wire = pass == 0 ? static_cast<Transport &>(network) : offline;
+    SourceTransport &wire = pass == 0 ? static_cast<SourceTransport &>(network) : offline;
     for (size_t at = 0; at < cells.size(); ++at) {
       const Address address = Address::AtGeoCell(cells[at]);
       auto query = sources.Ask(SourceRequest(DataKind::OriginalOsm, address));
@@ -115,11 +120,10 @@ int main() {
       "https://api.openstreetmap.org/api/0.6/map?bbox=9.84375,54.4921875,10.546875,54.84375"};
   CHECK(keys[0] != keys[1] && network.Urls == expectedUrls,
         "adjacent original cells use separate bounded official queries and cache identities");
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   const auto global =
       outshine::Generators::Osm::ReadRegion(provider, noCache, network, network.NowMs() + 1000, {});
-  CHECK(!global && global.error().find("geographic cell demand") != std::string::npos &&
-            network.Urls.size() == 2,
+  CHECK(!global && global.error().contains("geographic cell demand") && network.Urls.size() == 2,
         "a catalogue cannot masquerade as a complete bounded regional source");
   auto invalid = provider;
   invalid.PayloadSha256.assign(64, 'a');

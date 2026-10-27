@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -15,20 +16,20 @@ using namespace outshine::Test;
 
 BuildingShape Source() {
   BuildingShape shape;
-  shape.Ring = {{0, -15.882787891137582},
-                {6.3638537185468431, -15.882787891137582},
-                {8.3525580055927318, -17.471069120240031},
-                {8.3525580055927318, -19.456421281223612},
-                {11.93222572227533, -19.456421281223612},
-                {11.93222572227533, -17.471069120240031},
-                {13.92093000932122, -15.882787891137582},
-                {28.239600876051615, -15.485717653350321},
-                {28.239600876051615, -18.662280334233799},
-                {31.819268592734215, -18.662280334233799},
-                {31.819268592734215, -7.1472490598528964},
-                {30.626046020506681, -7.1472490598528964},
-                {30.495876117199739, 0},
-                {0, 0}};
+  shape.Ring = {{.EastM = 0, .NorthM = -15.882787891137582},
+                {.EastM = 6.3638537185468431, .NorthM = -15.882787891137582},
+                {.EastM = 8.3525580055927318, .NorthM = -17.471069120240031},
+                {.EastM = 8.3525580055927318, .NorthM = -19.456421281223612},
+                {.EastM = 11.93222572227533, .NorthM = -19.456421281223612},
+                {.EastM = 11.93222572227533, .NorthM = -17.471069120240031},
+                {.EastM = 13.92093000932122, .NorthM = -15.882787891137582},
+                {.EastM = 28.239600876051615, .NorthM = -15.485717653350321},
+                {.EastM = 28.239600876051615, .NorthM = -18.662280334233799},
+                {.EastM = 31.819268592734215, .NorthM = -18.662280334233799},
+                {.EastM = 31.819268592734215, .NorthM = -7.1472490598528964},
+                {.EastM = 30.626046020506681, .NorthM = -7.1472490598528964},
+                {.EastM = 30.495876117199739, .NorthM = 0},
+                {.EastM = 0, .NorthM = 0}};
   shape.Roof = RoofKind::Hip;
   shape.RiseM = 1;
   return shape;
@@ -42,7 +43,9 @@ void Complete(const BuildingShape &shape) {
         "real roof is fully emitted despite coincident skeleton nodes");
   double area = 0;
   for (size_t at = 0; at + 2 < triangles.size(); at += 3) {
-    const auto a = triangles[at], b = triangles[at + 1], c = triangles[at + 2];
+    const auto a = triangles[at];
+    const auto b = triangles[at + 1];
+    const auto c = triangles[at + 2];
     const double cross =
         (b.EastM - a.EastM) * (c.NorthM - a.NorthM) - (b.NorthM - a.NorthM) * (c.EastM - a.EastM);
     CHECK(cross > 0, "every emitted triangle has positive finite projected area");
@@ -59,7 +62,7 @@ StructureBinary::Writer Legacy(const HipRoofPlan &plan) {
   bool inserted = false;
   for (auto &facet : facets) {
     if (facet.SourceRing != 0 || facet.SourceEdge != 2) { continue; }
-    const EastNorth duplicate{10.14239186393403, -0.7271358494688549};
+    const EastNorth duplicate{.EastM = 10.14239186393403, .NorthM = -0.7271358494688549};
     const auto node = std::ranges::find_if(facet.Ring, [&](EastNorth p) {
       return std::hypot(p.EastM - duplicate.EastM, p.NorthM - duplicate.NorthM) <=
              plan.PrecisionM();

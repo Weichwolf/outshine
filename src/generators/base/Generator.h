@@ -66,31 +66,31 @@ protected:
   Generator() = default;
 };
 
-enum class Shipped : uint8_t {
+enum class BuiltinGeneratorKind : uint8_t {
 
   Structures,
   kCount
 };
 
-inline constexpr std::array<std::string_view, static_cast<size_t>(Shipped::kCount)> kShipped = {
-    "structures"};
+inline constexpr std::array<std::string_view, static_cast<size_t>(BuiltinGeneratorKind::kCount)>
+    kBuiltinGeneratorNames = {"structures"};
 
-[[nodiscard]] constexpr std::string_view nameOf(Shipped which) noexcept {
+[[nodiscard]] constexpr std::string_view nameOf(BuiltinGeneratorKind which) noexcept {
   const auto index = static_cast<size_t>(which);
-  return index < kShipped.size() ? kShipped[index] : std::string_view{};
+  return index < kBuiltinGeneratorNames.size() ? kBuiltinGeneratorNames[index] : std::string_view{};
 }
 
-[[nodiscard]] constexpr bool EveryShippedKindIsSpelled() noexcept {
-  for (size_t at = 0; at < static_cast<size_t>(Shipped::kCount); ++at) {
-    if (kShipped[at].empty()) { return false; }
-    for (size_t over = at + 1; over < static_cast<size_t>(Shipped::kCount); ++over) {
-      if (kShipped[at] == kShipped[over]) { return false; }
+[[nodiscard]] constexpr bool EveryBuiltinKindIsSpelled() noexcept {
+  for (size_t at = 0; at < static_cast<size_t>(BuiltinGeneratorKind::kCount); ++at) {
+    if (kBuiltinGeneratorNames[at].empty()) { return false; }
+    for (size_t over = at + 1; over < static_cast<size_t>(BuiltinGeneratorKind::kCount); ++over) {
+      if (kBuiltinGeneratorNames[at] == kBuiltinGeneratorNames[over]) { return false; }
     }
   }
   return true;
 }
 
-static_assert(EveryShippedKindIsSpelled(),
+static_assert(EveryBuiltinKindIsSpelled(),
               "a shipped kind is spelled once and is never empty -- a catalogue that carries a "
               "blank or a repeat resolves a declaration by whichever entry it reaches first");
 

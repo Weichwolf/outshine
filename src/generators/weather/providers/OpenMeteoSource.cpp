@@ -59,14 +59,15 @@ Data::Coverage OpenMeteoSource::Covers(const Data::SourceRequest &request) const
              : Data::Coverage::Outside;
 }
 
-Data::FetchStart OpenMeteoSource::Begin(const Data::Address &at, Data::Transport &transport) const {
+Data::FetchStart OpenMeteoSource::Begin(const Data::Address &at,
+                                        Data::SourceTransport &transport) const {
   if (at.Index() != 0) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
   return transport.Begin(Decl_.Endpoint);
 }
 
 Data::SourceResponse OpenMeteoSource::Collect(const Data::Address &at,
                                               Data::Ticket ticket,
-                                              Data::Transport &transport) const {
+                                              Data::SourceTransport &transport) const {
   if (at.Index() != 0) {
     return Data::SourceResponse::Meant(Data::Meaning::Refused,
                                        Data::SourceFailureReason::InvalidRequest);

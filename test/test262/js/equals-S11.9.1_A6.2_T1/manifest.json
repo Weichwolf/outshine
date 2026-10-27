@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "equals-S11.9.1_A6.2_T1",
   "title": "x is null or undefined, y is not",
   "covers": [
@@ -12,7 +12,7 @@
     "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/equals/S11.9.1_A6.2_T1.js",
     "expects": "runs"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "equals-S11.9.1_A6.2_T1",

@@ -31,7 +31,10 @@ int main() {
       .Revision = "r1",
       .Dataset = "original",
       .Location = path.string(),
-      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
+      .Endpoint = {},
+      .Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1},
+      .PayloadSha256 = {},
+      .Schema = {}}};
   const auto region = outshine::Generators::Osm::ChunkSetLoader::LoadRegion(providers, ".");
   CHECK(region.has_value(), "spatial source retains an unrelated open relation");
   if (region) {

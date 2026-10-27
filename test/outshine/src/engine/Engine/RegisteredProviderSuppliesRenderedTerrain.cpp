@@ -101,9 +101,9 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     ++Calls_.Acquired;
     if (Encoding_ == Encoding::OpaqueFixture) { return SourceResponse::Delivered({42, 17}); }
     return SourceResponse::Delivered(std::vector<uint8_t>(kPlane42.begin(), kPlane42.end()));
@@ -156,7 +156,7 @@ int main() {
     CHECK(engine.registerProvider(provider), "external provider registers through the public API");
     CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
     Roots roots;
-    roots.Shipped = "src/assets";
+    roots.Shipped = "data";
     roots.Offline = true;
     CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
     CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");

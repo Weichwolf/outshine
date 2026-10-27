@@ -108,11 +108,21 @@ def external_profiles(plan, samplers):
     if "native_cut_context" in plan:
         return native_external_profiles(plan, samplers)
     result = []
+    roles = {
+        (r["source_id"], r["endpoint"]): r["status"]
+        for r in plan.get("region_context", {}).get("endpoint_roles", [])
+    }
     for owner, row in enumerate(plan["rows"]):
-        if row["original"]["source"]["feature"]["properties"]["subclass"] == "steps":
+        if (
+            row["original"]["source"]["feature"]["properties"]["subclass"] == "steps"
+            and not roles
+        ):
             continue
         triangles = shapely.polygons(plan["xy"][plan["parts"][owner]])
         for end, adjacent in ((0, 1), (-1, -2)):
+            role = roles.get((row["source_id"], end))
+            if role in ("joint_observed_contact", "joint_construction_proposal"):
+                continue
             point = row["xy"][end]
             tangent = point - row["xy"][adjacent]
             tangent /= np.linalg.norm(tangent)
@@ -125,6 +135,7 @@ def external_profiles(plan, samplers):
                     "endpoint": end,
                     "profile_xyz_m": xyz,
                     "profile_status": "proposed_pending_actual_neighbour_contact",
+                    **({"boundary_role": role} if role is not None else {}),
                 }
             )
     return result
@@ -200,6 +211,21 @@ def _source_stair_levels(plan, body_data):
     }
 
 
+def stair_level_ranges(plan, body_data):
+    owners = body_data.get("stair_owners", np.array([plan["stairs"][0][0]]))
+    offsets = body_data.get(
+        "stair_level_offsets", np.array([0, len(body_data["levels_m"])])
+    )
+    return [
+        {
+            "source_id": plan["rows"][int(owner)]["source_id"],
+            "begin": int(begin),
+            "end": int(end),
+        }
+        for owner, begin, end in zip(owners, offsets[:-1], offsets[1:], strict=True)
+    ]
+
+
 def shared_products(plan, heights, body_data, *, terrain_declarations=None):
     require_owned_lofts(plan)
     terrain_effects = (
@@ -272,6 +298,16 @@ def shared_products(plan, heights, body_data, *, terrain_declarations=None):
         ),
         "source_id_scope": "fixture native parts; no provider-node identity claim",
         **({"consumer_sampling_tolerance_m": tolerance} if tolerance else {}),
+        **(
+            {"compact_flights": plan["compact_flights"]}
+            if plan.get("compact_flights")
+            else {}
+        ),
+        **(
+            {"region_context": plan["region_context"]}
+            if "region_context" in plan
+            else {}
+        ),
         "stair_flights": [
             {
                 "source_id": flight["source_id"],
@@ -298,6 +334,7 @@ def shared_products(plan, heights, body_data, *, terrain_declarations=None):
             "axis_profiles_xyz_m": profiles,
             "stair_levels_m": body_data["levels_m"].tolist(),
             "stair_levels_by_source_m": source_levels,
+            "stair_level_ranges": stair_level_ranges(plan, body_data),
             "scope": "height-envelope graph with explicit stair levels; no full swept walking route",
         },
         "terrain_reservations": [

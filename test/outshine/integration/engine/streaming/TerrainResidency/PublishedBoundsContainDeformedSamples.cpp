@@ -1,3 +1,4 @@
+#include "TerrainPublicationFixture.h"
 #include "TerrainLattice.h"
 #include "Check.h"
 #include "RuntimeScene.h"
@@ -135,7 +136,8 @@ int main() {
            .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, kFlatAslM),
            .Side = Render::TerrainLattice::kSide,
            .Virtual = true});
-      CHECK(terrain.Publish(patch, frame, error), "uniform virtual terrain publishes");
+      CHECK(Test::PublishTerrain(terrain, patch, frame, error),
+            "uniform virtual terrain publishes");
       CheckSamples(terrain, tile);
       const auto flatSamples = terrain.SampleAslBoundsM();
       const auto flatMesh = terrain.AslBoundsM();
@@ -150,7 +152,8 @@ int main() {
       CHECK(!terrain.AslBoundsM() && !terrain.SampleAslBoundsM(),
             "an incomplete publication cannot lend stale bounds");
       CheckSelectedInstances(terrain, focus, frame, false);
-      CHECK(terrain.Publish(patch, frame, error), "deformation replaces the resident page");
+      CHECK(Test::PublishTerrain(terrain, patch, frame, error),
+            "deformation replaces the resident page");
       CheckSamples(terrain, tile);
       CheckSelectedInstances(terrain, focus, frame, true);
       const auto deformed = terrain.AslBoundsM();
@@ -165,10 +168,12 @@ int main() {
       for (size_t at = 0; at < sheet.Nodes.size(); ++at) {
         sheet.Nodes[at] = kAlternatingAslM[at % 2];
       }
-      CHECK(terrain.Publish(patch, frame, error), "nonuniform source-posting terrain publishes");
+      CHECK(Test::PublishTerrain(terrain, patch, frame, error),
+            "nonuniform source-posting terrain publishes");
       CheckSamples(terrain, tile);
       sheet.Nodes.clear();
-      CHECK(terrain.Publish(patch, frame, error), "a page without native nodes falls back");
+      CHECK(Test::PublishTerrain(terrain, patch, frame, error),
+            "a page without native nodes falls back");
       CHECK(!terrain.HeightMAt(
                 {.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg}),
             "an omitted page cannot supply its previous published height");

@@ -1,5 +1,8 @@
+#include <cstddef>
 #include "TerrainTiles.h"
 #include "Check.h"
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -14,7 +17,8 @@ public:
         field.SetM(row, col, static_cast<float>((at.X + col) * (at.Y + row)));
       }
     }
-    return Ground::TerrainBytes::From(at, std::move(field), {.Tile = at});
+    return Ground::TerrainBytes::From(
+        at, std::move(field), {.Tile = at, .SourceId = {}, .Revision = {}});
   }
 };
 }
@@ -32,9 +36,9 @@ int main() {
   CHECK(terrain.SampleNodeHeights(at, 64, &heights, &identities, &postings, &side) ==
             Ground::TerrainGrid::State::Decoded,
         "a valid coarse source produces a renderable requested mesh");
-  CHECK(side == 65 && postings == 65 && heights.size() == 65 * 65,
+  CHECK(side == 65 && postings == 65 && heights.size() == size_t{65} * 65,
         "source resolution never shrinks the renderer's required lattice");
-  if (heights.size() == 65 * 65) {
+  if (heights.size() == static_cast<long>(65) * 65) {
     for (uint32_t row = 0; row < 65; ++row) {
       for (uint32_t col = 0; col < 65; ++col) {
         const double expected =

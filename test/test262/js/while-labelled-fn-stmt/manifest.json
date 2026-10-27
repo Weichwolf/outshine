@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "while-labelled-fn-stmt",
   "title": "It is a Syntax Error if IsLabelledFunction(Statement) is true.",
   "covers": [
@@ -13,7 +13,7 @@
     "expects": "refuses",
     "phase": "parse"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "while-labelled-fn-stmt",

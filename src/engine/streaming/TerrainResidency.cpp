@@ -195,25 +195,6 @@ bool TerrainResidency::ReindexPages(std::string &error) {
   return true;
 }
 
-bool TerrainResidency::Publish(const Patchwork &patchwork,
-                               const TangentFrame &frame,
-                               std::string &error) {
-  if (!BeginPublish(patchwork, error)) { return false; }
-  for (;;) {
-    const size_t previous = NextSheet_;
-    const auto advanced = AdvancePublish(patchwork, frame, Render::kHeightPageBatchMost);
-    if (!advanced) {
-      error = advanced.error();
-      return false;
-    }
-    if (*advanced) { return true; }
-    if (NextSheet_ == previous) {
-      error = "height pages are waiting for GPU upload";
-      return false;
-    }
-  }
-}
-
 bool TerrainResidency::HasNativePage(const Sheet &sheet) noexcept {
   return sheet.Side == Render::TerrainLattice::kSide &&
          sheet.Nodes.size() == Render::TerrainLattice::kPageNodes;

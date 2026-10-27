@@ -31,8 +31,8 @@ def reflection(colour, roughness, samples):
 
 
 def main():
-    paths = [ROOT / 'src/assets/world/ground-materials.json',
-             ROOT / 'src/assets/world/vegetation.json']
+    paths = [ROOT / 'data/world/ground-materials.json',
+             ROOT / 'data/world/vegetation.json']
     materials, recipes = [json.loads(path.read_text()) for path in paths]
     classes = {row['name']: row for row in materials['classes']}
     samples = light_samples()

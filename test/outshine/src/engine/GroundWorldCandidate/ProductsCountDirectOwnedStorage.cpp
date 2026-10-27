@@ -1,5 +1,7 @@
 #include "GroundWorldCandidate.h"
 #include "Check.h"
+#include <cstddef>
+#include <cstdint>
 
 int main() {
   using namespace outshine;

@@ -10,7 +10,7 @@
 
 namespace outshine::Render {
 
-struct SubjectView {
+struct PreparedView {
   Viewpoint Eye;
   bool HasExplicitCamera = false;
   size_t FramedParts = 0;
@@ -23,7 +23,7 @@ public:
     Binding_ = BindingState::Dirty;
   }
 
-  void FrameSubject() noexcept {
+  void FrameGeometry() noexcept {
     Override_.reset();
     Binding_ = BindingState::Dirty;
   }
@@ -35,9 +35,9 @@ public:
     return *Override_;
   }
 
-  [[nodiscard]] SubjectView &Prepared() noexcept { return Prepared_; }
+  [[nodiscard]] PreparedView &Prepared() noexcept { return Prepared_; }
 
-  [[nodiscard]] const SubjectView &Prepared() const noexcept { return Prepared_; }
+  [[nodiscard]] const PreparedView &Prepared() const noexcept { return Prepared_; }
 
   void Prepare(Viewpoint viewpoint, bool explicitCamera, size_t framedParts) noexcept {
     Prepared_ = {.Eye = viewpoint, .HasExplicitCamera = explicitCamera, .FramedParts = framedParts};
@@ -63,7 +63,7 @@ private:
   enum class BindingState : uint8_t { Unbound, Bound, Dirty };
 
   std::optional<Viewpoint> Override_;
-  SubjectView Prepared_;
+  PreparedView Prepared_;
   BindingState Binding_ = BindingState::Unbound;
   double OrbitDegrees_ = 0.0;
 };

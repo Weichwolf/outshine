@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
-#include "SubjectTypes.h"
+#include "MaterialBinding.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>

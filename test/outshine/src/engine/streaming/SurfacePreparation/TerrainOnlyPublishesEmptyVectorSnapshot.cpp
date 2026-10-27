@@ -1,7 +1,7 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Sink.h"
 
 #include <array>
@@ -49,17 +49,17 @@ int main() {
   using namespace outshine::Test;
   const TemporaryCache cache;
   SilentSink sink;
-  Data::OfflineTransport wire;
+  Data::OfflineSourceTransport wire;
   Data::SourceProvider terrain;
   terrain.Kind = "terrain";
   const std::array providers{terrain};
   Tasks sourceCompute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
-  CHECK(stack.Open({.BuiltinData = "src/assets", .Sources = cache.Path.string(), .Assets = {}},
+  CHECK(stack.Open({.BuiltinData = "data", .Sources = cache.Path.string(), .Assets = {}},
                    providers,
                    registry,
                    first,

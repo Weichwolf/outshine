@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -89,7 +90,7 @@ Geometry NativeMaterialOwner() {
 
 void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
                               SceneRenderer &renderer,
-                              const SubjectLight &light) {
+                              const SceneLight &light) {
   std::array<MaterialBinding, 2> materials;
   materials[1].Row.Unlit = true;
   std::string error;
@@ -148,7 +149,7 @@ void CheckScene() {
   const auto handle = renderer.PlacePrismGrid(Source(1), instances, *slot);
   CHECK(handle.has_value(), "one prism becomes resident through the scene handle API");
   if (!handle) { return; }
-  SubjectLight light;
+  SceneLight light;
   light.Light.Intensity = kKeyLux;
   light.Light.Direction = {{0, 0, -1}};
   CHECK(renderer.SetGeometryLights(std::span(&light, 1), error),

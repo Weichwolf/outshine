@@ -1,5 +1,5 @@
 #include "EngineState.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -54,8 +54,9 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   }
   if (!World.Wire) {
     World.Wire = Session.Under.Offline
-                     ? std::unique_ptr<Data::Transport>(std::make_unique<Data::OfflineTransport>())
-                     : std::unique_ptr<Data::Transport>(
+                     ? std::unique_ptr<Data::SourceTransport>(
+                           std::make_unique<Data::OfflineSourceTransport>())
+                     : std::unique_ptr<Data::SourceTransport>(
                            std::make_unique<HttpTransport>(HttpTransport::Config{}));
   }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }

@@ -30,7 +30,7 @@ coverage chunk or alternative schema is accepted. This pinned point/capture
 occupies `DataKind::Weather`, `WireFormat::ProviderDefined`, `Address::Whole(0)`.
 It makes no claim about another position/address and performs no automatic refresh.
 
-The source uses existing `SourceSet`, `Transport` and `RawSourceCache` ownership,
+The source uses existing `SourceSet`, `SourceTransport` and `RawSourceCache` ownership,
 cache identity, payload cap and cancellation. A changed revision/endpoint/digest
 has a different existing cache key. HTTP absence/failure remains explicit;
 invalid original bytes cannot publish a snapshot. Partial byte ranges are refused.
@@ -73,7 +73,7 @@ sh test/run.sh outshine/src/world/weather/CloudLayer
 
 The executable actually consumes the source snapshot through the native low-cloud
 optical-depth kernel. Its controls first prepare the original capture through the
-ordinary SourceSet/Transport/cache path, then launch 24 fresh offline processes
+ordinary SourceSet/SourceTransport/cache path, then launch 24 fresh offline processes
 from a receipt-only directory without the original payload. They verify exact UTC,
 source digest, known-zero extinction, one cache hit and zero provider starts each.
 Absent/invalid UTC and an empty offline cache stay explicit failures. Unit tests

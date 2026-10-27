@@ -22,7 +22,7 @@ namespace outshine {
       alignmentBytes += sizeof(Generators::RoadSurface) + route.Surface->OwnedHeapBytes();
     }
   }
-  return Sheets.HeapBytes(TerrainHeapScope::Additional) +
+  return TerrainSurface.HeapBytes(TerrainHeapScope::Additional) +
          Footprints.HeapBytes(::outshine::Generators::Osm::BuildingField::HeapScope::Additional) +
          Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() +
          PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
@@ -34,7 +34,7 @@ GroundWorldCandidate::GroundWorldCandidate(
     const WorldRegionState &world,
     const ::outshine::Generators::Osm::BuildingField &footprints,
     Render::SceneResources::PieceSources pieces)
-    : Products_{.Sheets = world.Sheets,
+    : Products_{.TerrainSurface = world.TerrainSurface,
                 .Footprints = footprints.SnapshotAccepted(),
                 .Pieces = world.Pieces,
                 .Ground = {},
@@ -108,7 +108,7 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
     auto prepared = World_.Prepare(previous,
                                    font,
                                    PieceSources_,
-                                   Core::SubjectGeometrySources::Driven,
+                                   Core::GeometryRetention::Driven,
                                    Core::ResourceRestoreMode::Deferred);
     if (!prepared) { return std::unexpected(std::move(prepared.error())); }
     WorldPrepared_ = true;
@@ -120,7 +120,7 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
   auto ground = World_.AdvanceGroundResourceRestore(NextHeightPage_, budget.HeightPages);
   if (!ground) { return std::unexpected(std::move(ground.error())); }
   if (!*ground) { return false; }
-  Products_.Sheets.Into(&World_.Renderer());
+  Products_.TerrainSurface.SetRenderer(&World_.Renderer());
   Products_.Pieces.BindRenderer(&World_.Renderer());
   if (PieceSources_ == Render::SceneResources::PieceSources::Omit) {
     Products_.Pieces.Clear();
@@ -150,7 +150,7 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   phaseAt = std::chrono::steady_clock::now();
   footprints = std::move(Products_.Footprints);
-  world.Sheets = std::move(Products_.Sheets);
+  world.TerrainSurface = std::move(Products_.TerrainSurface);
   world.GroundPositionsM = std::move(Products_.PositionsM);
   world.GroundIndex = std::move(Products_.Indices);
   world.StreetGraph = std::move(Products_.StreetGraph);

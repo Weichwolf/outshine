@@ -295,7 +295,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 void Engine::State::HandsPiecesOver() {
   World.BindSceneResources(Picture.Device);
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  World.StructureBuilds.Opens(World.Pool.get(), &World.Shipping.Shaping());
+  World.StructureBuilds.Opens(World.Pool.get(), &World.Builtins.Shaping());
   if (World.PiecesFramed) { return; }
   World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
@@ -417,7 +417,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
 
 bool Engine::State::UpdateVegetation(bool prepare) {
   if (!Session.Declared.Ground.VegetationEnabled) { return true; }
-  if (!Picture.Standing || !World.Grown || !World.Shipping.Ready()) { return true; }
+  if (!Picture.Standing || !World.Grown || !World.Builtins.Ready()) { return true; }
   if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
@@ -432,7 +432,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
     World.Vegetation = VegetationStreaming::Create(
-        Picture.Device, *World.Pool, World.Shipping, World.Instances, frame, config, Error);
+        Picture.Device, *World.Pool, World.Builtins, World.Instances, frame, config, Error);
     if (!World.Vegetation) { return false; }
   }
   const auto &eye =
@@ -653,7 +653,7 @@ void Engine::State::Drew() {
                          "stages");
   Published.RecordMetric(
       "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
-  Published.RecordMetric("vertex uniform pushes the subject stages make",
+  Published.RecordMetric("vertex uniform pushes the geometry stages make",
                          static_cast<double>(Picture.Device.GeometryUniformPushes()),
                          "pushes");
   Published.RecordMetric(
@@ -661,7 +661,7 @@ void Engine::State::Drew() {
   Published.RecordMetric("placement rows the renderer has been sent",
                          static_cast<double>(Picture.Device.GeometryPlacementsMoved()),
                          "rows");
-  Published.RecordMetric("frames the subject drew shadowed",
+  Published.RecordMetric("frames the geometry drew shadowed",
                          static_cast<double>(Picture.Device.ShadowedFrames()),
                          "frames");
   if (Heap::ProcessInstrumentationEnabled()) {

@@ -112,8 +112,8 @@ def _retain(path, data):
             temporary.unlink(missing_ok=True)
 
 
-def acquire(subject, root, *, fetch=False, max_bytes=16 * 1024**2, timeout_s=60):
-    kind, tile, url = subject
+def acquire(source, root, *, fetch=False, max_bytes=16 * 1024**2, timeout_s=60):
+    kind, tile, url = source
     tile = tile_tuple(tile)
     if kind not in ("vector", "elevation") or not isinstance(url, str) or not url:
         raise ValueError("explicit vector/elevation source URI required")

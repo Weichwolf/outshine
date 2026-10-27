@@ -94,7 +94,7 @@ struct Fixture {
     return values[size_t{16} * 32 + 16];
   }
 
-  auto Visible() const {
+  [[nodiscard]] auto Visible() const {
     std::vector<Render::GeometryPageResidency::DigestRecord> records;
     pieces.ForEachDigest(
         [&](Render::GeometryPageResidency::DigestRecord record) { records.push_back(record); });

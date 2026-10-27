@@ -1,0 +1,26 @@
+{
+  "scope": "Additional fixed input from a newly computed GEOS3.14.1 CDT of the frozen native union; not a full native mesh replay or render oracle.",
+  "original_fixture_sha256": "a797fe0995bb575eaf4f933e452cb8391c6be410ded573721d3c5798d77fba82",
+  "triangle_xy_m": [
+    [
+      -1270.0396222217912,
+      4344.059071791123
+    ],
+    [
+      -1304.5322550556493,
+      4382.341464436686
+    ],
+    [
+      -1304.5004704002401,
+      4382.341458283038
+    ]
+  ],
+  "derivation": "constrained_delaunay_triangles of captured union, original diagnostic face34; face number is provenance only",
+  "observed_numeric_members": [
+    28
+  ],
+  "exact_positive_members": [
+    28,
+    38
+  ]
+}

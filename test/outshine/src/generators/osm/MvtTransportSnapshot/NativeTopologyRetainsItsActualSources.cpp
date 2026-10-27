@@ -251,8 +251,8 @@ int main() {
   using namespace outshine::Test;
   Generators::GroundMaterialCatalog materials;
   Generators::RegionSurfaceRecipes recipes;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            recipes.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            recipes.Load("data/world/vegetation.json", materials),
         "actual transport recipes load");
   if (!recipes.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};

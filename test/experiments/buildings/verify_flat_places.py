@@ -26,8 +26,8 @@ class FlatPlaces(unittest.TestCase):
             self.assertEqual(camera.scenario_sha256, original.scenario_sha256)
 
     def test_acquisition_requests_only_vectors_including_tokyo(self):
-        def source(subject, _fetch):
-            kind, tile, url = subject
+        def source(request, _fetch):
+            kind, tile, url = request
             self.assertEqual(kind, "vector")
             return {"kind": kind, "tile": tile, "url": url}
 

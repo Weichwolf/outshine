@@ -26,7 +26,7 @@ int main() {
   CHECK(replacement.OrbitDegrees() == 2.5 && replacement.NeedsBinding(),
         "world replacement copies orbit and binding state");
 
-  replacement.FrameSubject();
+  replacement.FrameGeometry();
   CHECK(!replacement.HasOverride() && replacement.NeedsBinding(),
         "automatic framing clears the override and invalidates the binding");
   return Report();

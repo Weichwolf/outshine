@@ -13,7 +13,7 @@
 #include <vector>
 #include <thread>
 
-#include <Transport.h>
+#include <SourceTransport.h>
 
 namespace outshine {
 
@@ -21,7 +21,7 @@ constexpr long kDefaultHttpTimeoutS = 20;
 constexpr size_t kDefaultHttpBodyMiB = 64u;
 constexpr unsigned kHttpMiBShift = 20u;
 
-class HttpTransport : public Data::Transport {
+class HttpTransport : public Data::SourceTransport {
 public:
   struct Config {
     int ConcurrentTransfers = 8;

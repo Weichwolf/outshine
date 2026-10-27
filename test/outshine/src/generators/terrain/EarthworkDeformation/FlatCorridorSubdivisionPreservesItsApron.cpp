@@ -3,19 +3,24 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace {
 std::vector<outshine::EarthworkStamp> Strip(size_t parts) {
   std::vector<outshine::EarthworkStamp> result;
   for (size_t part = 0; part < parts; ++part) {
-    const double low = -100 + 200.0 * part / parts;
-    const double high = -100 + 200.0 * (part + 1) / parts;
+    const double low = -100 + 200.0 * static_cast<double>(part) / static_cast<double>(parts);
+    const double high = -100 + 200.0 * static_cast<double>(part + 1) / static_cast<double>(parts);
     result.push_back({.RingEastNorthM = {low, -1, high, -1, high, 1, low, 1},
+                      .HoleRingsEastNorthM = {},
                       .LowE = low,
                       .HighE = high,
                       .LowN = -1,
                       .HighN = 1,
+                      .SeamEastNorthM = {},
+                      .Profile = {},
+                      .PlanarSupportM = {},
                       .CorridorKey = 42,
                       .ApronM = 4.644284786900105,
                       .YieldM = 2.1628565246000697,

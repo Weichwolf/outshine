@@ -21,7 +21,7 @@
 
 namespace outshine::Data {
 class SourceSet;
-class Transport;
+class SourceTransport;
 }
 
 namespace outshine::Ground {

@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "CopernicusDemSource.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 
 #include <array>
@@ -17,7 +17,7 @@
 namespace {
 using namespace outshine::Data;
 
-class Http final : public Transport {
+class Http final : public SourceTransport {
 public:
   int Begins = 0, WholeBegins = 0, Status = kHttpPartialContent;
   bool Waiting = false, WithoutReceipt = false;
@@ -96,7 +96,7 @@ int main() {
     RawSourceCache store(config);
     SourceSet sources(store);
     Add(sources);
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     auto query = sources.Ask(request);
     const auto answer = sources.Collect(query, offline).Take();
     CHECK(answer && answer->Range && answer->At == at && answer->Range->Bytes == *request.Range() &&

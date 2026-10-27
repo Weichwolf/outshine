@@ -33,7 +33,7 @@ class LogSink;
 
 namespace outshine::Data {
 class SourceSet;
-class Transport;
+class SourceTransport;
 }
 
 namespace outshine::Ground {
@@ -94,7 +94,7 @@ public:
     TerrainTiles::FieldResolver PreparedFields;
   };
 
-  TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
+  TilePool(const Config &config, Data::SourceSet &sources, Data::SourceTransport &transport);
   ~TilePool() override;
   TilePool(const TilePool &) = delete;
   TilePool &operator=(const TilePool &) = delete;
@@ -308,7 +308,7 @@ private:
 
   Data::SourceSet &Sources_;
   bool NativeTerrain_ = false;
-  Data::Transport &Wire_;
+  Data::SourceTransport &Wire_;
   const double OriginLatDeg_, OriginLonDeg_;
   const size_t ByteBudget_;
   std::unique_ptr<TerrainRevisionIndex> TerrainRevisions_;

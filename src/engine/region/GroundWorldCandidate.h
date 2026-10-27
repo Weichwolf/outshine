@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_REGION_GROUNDWORLDCANDIDATE_H
 #define OUTSHINE_ENGINE_REGION_GROUNDWORLDCANDIDATE_H
 
+#include "SceneLighting.h"
 #include "EngineState.h"
 #include "WorldCandidate.h"
 #include "TerrainClassificationMap.h"
@@ -17,7 +18,7 @@
 
 namespace outshine {
 struct GroundBuildProducts {
-  HeightSheets Sheets;
+  TerrainSurfacePublication TerrainSurface;
   ::outshine::Generators::Osm::BuildingField Footprints;
   Render::GeometryPageResidency Pieces;
   Geometry Ground;
@@ -86,7 +87,7 @@ public:
 
   [[nodiscard]] const Vec3 &GroundAlbedo() { return World_.GroundAlbedo(); }
 
-  [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
+  [[nodiscard]] const Render::EnvironmentLighting &AmbientStanding() {
     return World_.AmbientStanding();
   }
 
@@ -156,7 +157,7 @@ private:
   bool WorldPrepared_ = false;
   bool Prepared_ = false;
   PublicationMetrics PublicationMetrics_;
-  static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
+  static_assert(std::is_nothrow_move_assignable_v<TerrainSurfacePublication>);
   static_assert(std::is_nothrow_move_assignable_v<::outshine::Generators::Osm::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<Render::GeometryPageResidency>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);

@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace {
-class DelayedCellTransport final : public outshine::Data::Transport {
+class DelayedCellTransport final : public outshine::Data::SourceTransport {
 public:
   std::atomic<int> Starts{0}, Active{0}, Peak{0};
   std::atomic<bool> ReleaseFirst{false}, MainIo{false};

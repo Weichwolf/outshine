@@ -1,3 +1,5 @@
+#include "SceneLighting.h"
+#include "MeshInput.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
@@ -39,6 +41,7 @@ struct SDL_Window;
 #include "Readback.h"
 #include "scene/SceneResources.h"
 #include "scene/RenderScene.h"
+#include "scene/SceneCandidateEdit.h"
 #include "Viewing.h"
 #include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
@@ -54,10 +57,6 @@ struct SDL_Window;
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/TonemapStage.h"
-
-namespace outshine::Core {
-class RuntimeScene;
-}
 
 namespace outshine::Render {
 
@@ -500,7 +499,7 @@ public:
                     error);
   }
 
-  [[nodiscard]] bool SetGeometryMesh(const SubjectMesh &mesh, std::string &error) {
+  [[nodiscard]] bool SetGeometryMesh(const MeshInput &mesh, std::string &error) {
     const Heap::Tagged relaying("mesh-relay");
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
@@ -511,7 +510,7 @@ public:
   }
 
   [[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string>
-  BeginGeometryMesh(const SubjectMesh &mesh) {
+  BeginGeometryMesh(const MeshInput &mesh) {
     std::string error;
     if (ActiveState().Content.DrawsGlass &&
         !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
@@ -521,7 +520,7 @@ public:
   }
 
   [[nodiscard]] bool FinishGeometryMesh(GeometryRenderer::MeshTicket ticket,
-                                        const SubjectMesh &mesh,
+                                        const MeshInput &mesh,
                                         std::string &error) {
     return ActiveState().Content.Geometry.FinishMesh(ticket, mesh, error) &&
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
@@ -572,9 +571,10 @@ public:
             ActiveState().Content.Glass.SetPlacements(models, rows, error));
   }
 
-  [[nodiscard]] bool SetGeometryPose(const SubjectPose &pose, std::string &error) {
-    return ActiveState().Content.Geometry.SetPose(pose, error) &&
-           (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetPose(pose, error));
+  [[nodiscard]] bool SetGeometryVertexInput(const VertexInput &pose, std::string &error) {
+    return ActiveState().Content.Geometry.SetVertexInput(pose, error) &&
+           (!ActiveState().Content.DrawsGlass ||
+            ActiveState().Content.Glass.SetVertexInput(pose, error));
   }
 
   [[nodiscard]] bool SetGeometryMaterials(std::span<const MaterialBinding> materials,
@@ -596,7 +596,7 @@ public:
             ActiveState().Content.Glass.AppendMaterials(materials, error));
   }
 
-  [[nodiscard]] bool SetGeometryLights(std::span<const SubjectLight> lights, std::string &error) {
+  [[nodiscard]] bool SetGeometryLights(std::span<const SceneLight> lights, std::string &error) {
     return ActiveState().Content.Geometry.SetLights(lights, error) &&
            (!ActiveState().Content.DrawsGlass ||
             ActiveState().Content.Glass.SetLights(lights, error));
@@ -648,7 +648,7 @@ public:
     return ActiveFrame().Atmosphere.Texture(Resource::TransmittanceLut);
   }
 
-  void SetGeometryEnvironment(const SubjectEnvironment &environment) {
+  void SetGeometryEnvironment(const EnvironmentLighting &environment) {
     ActiveState().Content.Geometry.SetEnvironment(environment);
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.SetEnvironment(environment);
@@ -809,7 +809,6 @@ public:
 
 private:
   [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
-  friend class Core::RuntimeScene;
 
   [[nodiscard]] bool UploadGroundClasses(std::span<const uint32_t> classes,
                                          std::span<const float> palette,
@@ -1186,45 +1185,12 @@ public:
 
   [[nodiscard]] PublishedWorldScope PublishedWorld() noexcept { return PublishedWorldScope(*this); }
 
-private:
-  class CandidateEditorScope {
-  public:
-    explicit CandidateEditorScope(SceneRenderer &renderer) noexcept : Renderer_(&renderer) {
-      assert(Renderer_->Candidate_);
-      ++Renderer_->CandidateEditorDepth_;
-    }
-
-    CandidateEditorScope(const CandidateEditorScope &) = delete;
-    CandidateEditorScope &operator=(const CandidateEditorScope &) = delete;
-
-    CandidateEditorScope(CandidateEditorScope &&other) noexcept
-        : Renderer_(std::exchange(other.Renderer_, nullptr)) {}
-
-    CandidateEditorScope &operator=(CandidateEditorScope &&other) noexcept {
-      if (this != &other) {
-        Release();
-        Renderer_ = std::exchange(other.Renderer_, nullptr);
-      }
-      return *this;
-    }
-
-    ~CandidateEditorScope() { Release(); }
-
-  private:
-    void Release() noexcept {
-      if (Renderer_ == nullptr) { return; }
-      assert(Renderer_->CandidateEditorDepth_ > 0);
-      --Renderer_->CandidateEditorDepth_;
-      Renderer_ = nullptr;
-    }
-
-    SceneRenderer *Renderer_ = nullptr;
-  };
-
-  [[nodiscard]] CandidateEditorScope EditsWorldCandidate() noexcept {
-    return CandidateEditorScope(*this);
+  [[nodiscard]] SceneCandidateEdit EditWorldCandidate() noexcept {
+    assert(Candidate_);
+    return SceneCandidateEdit(CandidateEditorDepth_);
   }
 
+private:
   [[nodiscard]] SceneStateCore &ActiveState() noexcept {
     return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0
                ? static_cast<SceneStateCore &>(*Candidate_)

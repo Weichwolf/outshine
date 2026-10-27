@@ -5,9 +5,12 @@
 #include "WorldCandidate.h"
 #include <SDL3/SDL.h>
 #include <array>
-#include <cstdio>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <print>
 #include <string>
+#include <utility>
 #include <vector>
 
 int main() {
@@ -31,7 +34,7 @@ int main() {
     eye.ZNearM = 0.1;
     eye.ZFarM = 10;
     scene->Eye(eye);
-    constexpr size_t imageBytes = 1024 * 1024 * 4;
+    constexpr size_t imageBytes = size_t{1024} * 1024 * 4;
     Geometry materials;
     {
       std::vector<uint8_t> pixels(imageBytes, 255);
@@ -74,7 +77,7 @@ int main() {
         begun = renderer.BeginsWorldCandidate(error);
       }
       const size_t bytes = Heap::TakenUnder("candidate-material-test") - taken;
-      std::printf("candidate CPU allocations: %zu bytes for %zu image bytes\n", bytes, imageBytes);
+      std::println("candidate CPU allocations: {} bytes for {} image bytes", bytes, imageBytes);
       CHECK(begun, "candidate snapshots the registered resources");
       CHECK(bytes < imageBytes / 8,
             "candidate metadata cannot allocate another copy of immutable image pixels");

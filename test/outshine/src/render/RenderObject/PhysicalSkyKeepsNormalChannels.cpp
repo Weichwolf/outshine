@@ -1,3 +1,4 @@
+#include "SceneLighting.h"
 #include "Check.h"
 #include "SceneRenderer.h"
 #include "RenderObject.h"
@@ -16,18 +17,18 @@ void CheckLayouts() {
   constexpr std::array<float, 9> positions{-1, -1, -2, 1, -1, -2, 0, 1, -2};
   constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
   constexpr std::array<uint32_t, 3> indices{0, 1, 2};
-  ShapePart part;
+  RenderGeometryPart part;
   part.VertexCount = part.IndexCount = 3;
   part.PositionsM = positions;
   part.Normals = normals;
   part.HasNormal = true;
-  Shape shape;
+  RenderGeometryView shape;
   shape.Parts = {&part, 1};
   shape.Indices = indices;
   shape.CarriesNormal = true;
   RenderObject proxy;
-  proxy.ResetForShape(shape, {});
-  SubjectView view;
+  proxy.ResetGeometry(shape, {});
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   view.Eye.ZNearM = 0.05;
@@ -40,7 +41,7 @@ void CheckLayouts() {
     material.Row.Unlit = unlit;
     CHECK(proxy.SetMaterials(slots, {&material, 1}, error), "the native material binds");
     for (const double skyLux : {0.0, 10000.0}) {
-      SubjectEnvironment environment;
+      EnvironmentLighting environment;
       environment.SkyLux = skyLux;
       proxy.SetEnvironment(environment);
       CHECK(proxy.Lights().empty(), "no direct light enables the normal stream");

@@ -1,21 +1,23 @@
 #include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
 #include "OsmApiSource.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "OsmXmlReader.h"
 #include "Sha256.h"
 #include "Check.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <limits>
+#include <stop_token>
 #include <string>
 #include <system_error>
 #include <vector>
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   std::string Xml = "<osm version='0.6'><node id='1' lat='54.79' lon='9.44'/>"
                     "<way id='1'><nd ref='1'/><tag k='man_made' v='chimney'/>"
@@ -33,12 +35,12 @@ public:
     return static_cast<outshine::Data::Ticket>(Urls.size());
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (Stall) { return outshine::Data::Wire::Working(); }
     return outshine::Data::Wire::Answered(Status, std::vector<uint8_t>(Xml.begin(), Xml.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 
   bool Await(double ms) override {
     ClockMs += ms;
@@ -59,16 +61,18 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
-  SourceProvider provider{.Kind = "osm",
-                          .Revision = "r1",
-                          .Missing = MissingDataPolicy::Fail,
-                          .Dataset = "openstreetmap.original",
-                          .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
-                          .Coverage = GeographicBounds{.WestDeg = 9.433,
-                                                       .SouthDeg = 54.785,
-                                                       .EastDeg = 9.445,
-                                                       .NorthDeg = 54.8},
-                          .PayloadSha256 = Sha256Hex(wire.Xml)};
+  const SourceProvider provider{.Kind = "osm",
+                                .Revision = "r1",
+                                .Missing = MissingDataPolicy::Fail,
+                                .Dataset = "openstreetmap.original",
+                                .Location = {},
+                                .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
+                                .Coverage = GeographicBounds{.WestDeg = 9.433,
+                                                             .SouthDeg = 54.785,
+                                                             .EastDeg = 9.445,
+                                                             .NorthDeg = 54.8},
+                                .PayloadSha256 = Sha256Hex(wire.Xml),
+                                .Schema = {}};
   const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==
@@ -84,7 +88,7 @@ int main() {
             parsed->Chunks.size() == 1 && parsed->Chunks[0].PinVerified,
         "original object kinds, unknown tags and verified response provenance reach the snapshot");
   }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm =
       outshine::Generators::Osm::ReadRegion(provider, store, offline, offline.NowMs() + 1000, {});
   CHECK(cold && warm && warm->FromStore && warm->Xml == wire.Xml && warm->Origin == cold->Origin,
@@ -105,7 +109,7 @@ int main() {
   changed.Coverage = GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
   CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegion(provider, noCache, stalled, 110, {}) &&
@@ -136,7 +140,7 @@ int main() {
   const auto refused = outshine::Generators::Osm::ReadRegion(changed, store, forbidden, 1100, {});
   CHECK(!refused && store.Counters().Writes == absentWrites,
         "a forbidden response is not cached as original data or confirmed absence");
-  CHECK(!refused && refused.error().find("HTTP 403 after 0 retries") != std::string::npos,
+  CHECK(!refused && refused.error().contains("HTTP 403 after 0 retries"),
         "the client diagnostic retains the actual HTTP refusal without retrying it");
   auto api = outshine::Generators::Osm::ApiSource::Create(provider, 0);
   CHECK(api.has_value(), "official bounded source created for refusal classification");

@@ -1,6 +1,6 @@
 #include "TilePool.h"
 #include "ClassificationPreparation.h"
-#include <Transport.h>
+#include <SourceTransport.h>
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "RegionSurfaceRecipes.h"
@@ -11,7 +11,7 @@
 #include <thread>
 
 namespace {
-class NoTransport final : public outshine::Data::Transport {
+class NoTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
@@ -42,8 +42,8 @@ int main() {
   using namespace outshine::Test;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes templates;
-  CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
-  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "classification rules load");
+  CHECK(materials.Load("data/world/ground-materials.json"), "materials load");
+  CHECK(templates.Load("data/world/vegetation.json", materials), "classification rules load");
   if (!templates.Ready()) { return Report(); }
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);

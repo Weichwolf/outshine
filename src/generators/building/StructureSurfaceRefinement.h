@@ -41,6 +41,7 @@ public:
   ~StructureSurfaceRefinementTask() = default;
   StructureSurfaceRefinementTask(const StructureSurfaceRefinementTask &) = default;
   StructureSurfaceRefinementTask &operator=(const StructureSurfaceRefinementTask &) = default;
+  // Non-self moves cancel the source; querying, cancelling and resetting it remain valid.
   StructureSurfaceRefinementTask(StructureSurfaceRefinementTask &&other) noexcept;
   StructureSurfaceRefinementTask &operator=(StructureSurfaceRefinementTask &&other) noexcept;
 

@@ -10,7 +10,7 @@ namespace outshine {
 
 void Engine::State::PublishCameraHeightMeasurements(LongitudeLatitude at) {
   const auto source = World.Stack.Ground().At(at).AslM();
-  const auto published = World.Sheets.HeightMAt(at);
+  const auto published = World.TerrainSurface.HeightMAt(at);
   const auto fine = World.Stack.Ground().At(at, World.Stack.TerrainRenderZoom()).AslM();
   if (fine) { Published.RecordMetric("camera: fine source terrain height", *fine, "m"); }
   if (source) { Published.RecordMetric("camera: source terrain height", *source, "m"); }
@@ -158,7 +158,7 @@ void Engine::State::PublishGroundRenderMeasurements(std::chrono::steady_clock::t
   const Core::GeometryBuildSliceMetrics &slices = Picture.Standing->GeometrySlices();
   Published.RecordMetric("geometry slice: shape cooking", slices.CookMs, "ms");
   Published.RecordMetric("geometry slice: scene planning", slices.PlanMs, "ms");
-  Published.RecordMetric("geometry slice: subject binding", slices.BindMs, "ms");
+  Published.RecordMetric("geometry slice: geometry binding", slices.BindMs, "ms");
   Published.RecordMetric("geometry slice: draw planning", slices.DrawPlanMs, "ms");
   Published.RecordMetric("geometry slice: CPU packing", slices.PackMs, "ms");
   Published.RecordMetric("geometry slice: index upload", slices.IndexMs, "ms");
@@ -166,7 +166,7 @@ void Engine::State::PublishGroundRenderMeasurements(std::chrono::steady_clock::t
   Published.RecordMetric("geometry slice: finalization", slices.FinalizeMs, "ms");
   Published.RecordMetric("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");
   Published.RecordMetric(
-      "rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
+      "rebuild: of THAT, copying the geometry", Picture.Standing->CarryMs(), "ms");
   Published.RecordMetric(
       "rebuild: standing and submitting INSIDE Build", Picture.Standing->InsideMs(), "ms");
   Published.RecordMetric("rebuild: shaping what was built", Picture.Standing->ReshapeMs(), "ms");

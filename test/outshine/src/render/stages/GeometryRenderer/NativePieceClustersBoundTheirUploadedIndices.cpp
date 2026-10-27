@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "Check.h"
 #include "ClusterCook.h"
@@ -25,7 +26,7 @@ bool ReplaceMain(outshine::Render::GeometryRenderer &draw, std::string &error) {
   constexpr std::array<float, 9> points{-100, 0, 0, -100, 1, 0, -99, 0, 0};
   constexpr std::array<float, 9> emitted{};
   constexpr std::array<uint32_t, 3> indices{0, 1, 2};
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Verts.From = points.data();
   mesh.Positions = points;
   mesh.Emitted.From = emitted.data();

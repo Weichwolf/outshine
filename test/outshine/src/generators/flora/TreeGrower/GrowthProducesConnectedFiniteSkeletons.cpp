@@ -6,12 +6,15 @@
 #include "Check.h"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -100,7 +103,7 @@ void NearlyParallelFramesRemainOrthogonal() {
   using namespace outshine::Test;
   const Vec3f along = DirectionOrUp(Vec3f{{0.2f, 0.7f, -0.3f}});
   for (float offset : {0.0f, 1e-7f, 1e-6f, 1e-5f, 1e-4f, 1e-3f}) {
-    for (float sign : {-1.0f, 1.0f}) {
+    for (const float sign : {-1.0f, 1.0f}) {
       const auto frame =
           FrameFrom({.Along = along, .Reference = along * sign + Vec3f{{offset, 0, 0}}});
       CHECK(Finite(frame.Normal) && Finite(frame.Binormal) &&
@@ -121,14 +124,14 @@ bool Connected(const TreeSkeleton &tree) {
     const auto &shoot = tree.Shoots[at];
     if (shoot.Count < 0 || shoot.First < 0) { return false; }
     if (shoot.Count > 0) {
-      if (static_cast<size_t>(shoot.First) != covered ||
+      if (std::cmp_not_equal(shoot.First, covered) ||
           static_cast<size_t>(shoot.Count) > tree.Nodes.size() - covered) {
         return false;
       }
       covered += static_cast<size_t>(shoot.Count);
     }
     if (shoot.Parent < 0) { continue; }
-    if (static_cast<size_t>(shoot.Parent) >= at) { return false; }
+    if (std::cmp_greater_equal(shoot.Parent, at)) { return false; }
     const auto &parent = tree.Shoots[static_cast<size_t>(shoot.Parent)];
     if (shoot.ParentNode < parent.First || shoot.ParentNode >= parent.First + parent.Count) {
       return false;
@@ -144,7 +147,7 @@ int main() {
   using namespace outshine::Test;
   NearlyParallelFramesRemainOrthogonal();
   std::vector<std::filesystem::path> paths;
-  for (const auto &entry : std::filesystem::directory_iterator("src/assets/world/species")) {
+  for (const auto &entry : std::filesystem::directory_iterator("data/world/species")) {
     if (entry.path().extension() == ".json") { paths.push_back(entry.path()); }
   }
   std::ranges::sort(paths);

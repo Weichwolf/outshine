@@ -1,28 +1,45 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 #include <string>
 
 int main() {
   outshine::Data::ProviderRegistry registry;
-  outshine::Generators::RegisterShippedProviders(registry);
+  outshine::Generators::RegisterBuiltinSourceProviders(registry);
   using namespace outshine::Data;
   using namespace outshine::Test;
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   SourceSet sources(store);
   std::string error;
-  CHECK(RegisterSources(sources, outshine::Generators::ShippedProviders(), {}, error, registry),
-        error.c_str());
+  CHECK(
+      RegisterSources(sources, outshine::Generators::DefaultSourceProviders(), {}, error, registry),
+      error.c_str());
   for (size_t i = 0; i < sources.Count(); ++i) {
     CHECK(sources.At(i).Declaration().Kind != DataKind::VectorMap,
           "shipped source set has no reduced vector-map source");
   }
-  const std::array providers{SourceProvider{.Kind = "terrain"}, SourceProvider{.Kind = "vector"}};
+  const std::array providers{SourceProvider{.Kind = "terrain",
+                                            .Revision = {},
+                                            .Dataset = {},
+                                            .Location = {},
+                                            .Endpoint = {},
+                                            .Coverage = {},
+                                            .PayloadSha256 = {},
+                                            .Schema = {}},
+                             SourceProvider{.Kind = "vector",
+                                            .Revision = {},
+                                            .Dataset = {},
+                                            .Location = {},
+                                            .Endpoint = {},
+                                            .Coverage = {},
+                                            .PayloadSha256 = {},
+                                            .Schema = {}}};
   SourceSet rejected(store);
   CHECK(!RegisterSources(rejected, providers, {}, error, registry) && rejected.Count() == 0 &&
-            error.find("no default") != std::string::npos,
+            error.contains("no default"),
         "implicit map-tile input fails atomically without registering another source");
   return Report();
 }

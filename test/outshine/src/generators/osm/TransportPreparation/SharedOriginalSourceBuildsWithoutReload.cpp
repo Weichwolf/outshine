@@ -16,7 +16,8 @@ std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::str
       {.DatasetId = "shared-original", .Revision = "r1"});
   if (!parsed) { return {}; }
   return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
-      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*parsed)});
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*parsed), .Coverage = {}, .Chunks = {}});
 }
 
 bool WaitFor(outshine::Generators::Osm::TransportPreparation &loader, outshine::Tasks &tasks) {

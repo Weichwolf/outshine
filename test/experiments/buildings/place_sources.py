@@ -13,15 +13,15 @@ from samples import SOURCES
 from special_sources import endpoint
 
 
-def acquire(subject, fetch):
-    return acquire_source(subject, SOURCES.parent, fetch=fetch)
+def acquire(request, fetch):
+    return acquire_source(request, SOURCES.parent, fetch=fetch)
 
 
 def run(output, fetch, radius_m):
     if not 1000 <= radius_m <= 20000:
         raise ValueError("Explicit Place source radius requires 1000..20000 metres")
     vector, vector_path, vector_sha = endpoint()
-    subjects, places = {}, []
+    requests, places = {}, []
     for name in PLACES:
         reference = flat(name)
         selected = []
@@ -30,7 +30,7 @@ def run(output, fetch, radius_m):
         )
         for tile in vector_tiles:
             url = vector.format(z=tile[0], x=tile[1], y=tile[2])
-            subjects[url] = "vector", tile, url
+            requests[url] = "vector", tile, url
             selected.append(url)
         places.append(
             {
@@ -41,7 +41,7 @@ def run(output, fetch, radius_m):
         )
     print(
         "Acquiring",
-        len(subjects),
+        len(requests),
         "source tiles for",
         len(places),
         "fixed Place cameras",
@@ -49,7 +49,7 @@ def run(output, fetch, radius_m):
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         receipts = list(
-            pool.map(lambda subject: acquire(subject, fetch), subjects.values())
+            pool.map(lambda request: acquire(request, fetch), requests.values())
         )
     result = {
         "places": places,

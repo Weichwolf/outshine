@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstddef>
 #include "RuntimeScene.h"
 #include "WorldCandidate.h"
 #include "Check.h"
@@ -25,7 +27,7 @@ int main() {
     CHECK(geometry.setPositions(*part, std::array<float, 9>{0, 0, 0, 1, 0, 0, 0, 1, 0}),
           "native positions stand");
     CHECK(geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}), "native indices stand");
-    for (bool withGeometry : {false, true}) {
+    for (const bool withGeometry : {false, true}) {
       Render::SceneRenderer renderer;
       Core::Declaration declaration;
       declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 16;

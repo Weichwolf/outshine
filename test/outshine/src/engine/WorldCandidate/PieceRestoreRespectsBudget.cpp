@@ -62,7 +62,7 @@ int main() {
         const auto prepared = candidate.Prepare(*scene,
                                                 nullptr,
                                                 Render::SceneResources::PieceSources::Copy,
-                                                Core::SubjectGeometrySources::All,
+                                                Core::GeometryRetention::All,
                                                 Core::ResourceRestoreMode::Deferred);
         CHECK(prepared.has_value(), "candidate copies immutable piece sources");
         if (prepared) {

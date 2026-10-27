@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
@@ -28,7 +29,7 @@ int main() {
   plan.HeightM = 9;
   plan.HeightMeasured = true;
   plan.Coarseness = LevelOfDetail::Fine;
-  BuildingMesh generator;
+  const BuildingMesh generator;
   auto scratch = generator.Scratch();
   for (const double pitch : {0.0, 1.0}) {
     plan.PitchedShare = pitch;

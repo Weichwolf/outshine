@@ -18,7 +18,7 @@ public:
   [[nodiscard]] static std::expected<std::unique_ptr<ApiRegion>, std::string>
   Create(const Data::SourceProvider &provider,
          Data::RawSourceCache &store,
-         Data::Transport &wire,
+         Data::SourceTransport &wire,
          const Data::ProviderRegistry *registry,
          std::string_view shippedRoot,
          std::optional<GeoCellId> cell);
@@ -29,9 +29,9 @@ public:
   [[nodiscard]] std::expected<Collected, std::string> Collect(SourceChunk &chunk, double beganMs);
 
 private:
-  ApiRegion(Data::RawSourceCache &store, Data::Transport &wire, Data::Address at);
+  ApiRegion(Data::RawSourceCache &store, Data::SourceTransport &wire, Data::Address at);
   Data::SourceSet Sources_;
-  Data::Transport &Wire_;
+  Data::SourceTransport &Wire_;
   Data::Address Address_;
   std::optional<Data::SourceSet::Query> Query_;
 };

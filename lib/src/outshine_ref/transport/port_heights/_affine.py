@@ -102,6 +102,7 @@ def affine_prior(model, product, captured, original, budget, began):
                 "reason": "",
                 "method": "direct",
                 "status": "affine_prior",
+                "termination_complete": True,
                 "iterations": 0,
                 "global_plane_residual_m": residual,
                 "maximum_original_prior_error_m": prior_error,

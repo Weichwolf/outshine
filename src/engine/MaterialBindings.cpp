@@ -57,7 +57,7 @@ size_t OverrideNativeMaterials(Render::SurfaceTable &table,
 }
 
 size_t OverrideNativeParts(Render::SurfaceTable &table,
-                           const Render::Shape &shaped,
+                           const Render::RenderGeometryView &geometryView,
                            const Geometry &native,
                            std::span<const MaterialOverride> overrides) {
   size_t applied = 0;
@@ -72,10 +72,10 @@ size_t OverrideNativeParts(Render::SurfaceTable &table,
   table.NativeMaterial.reserve(table.NativeMaterial.size() + count);
   for (size_t part = 0; part < count; ++part) {
     const uint32_t slot = table.PartSlot[part];
-    if (slot >= table.Slots.size() || part >= shaped.Parts.size()) { continue; }
+    if (slot >= table.Slots.size() || part >= geometryView.Parts.size()) { continue; }
     for (const MaterialOverride &override : overrides) {
       const bool byName =
-          !override.PartName.empty() && override.PartName == shaped.Parts[part].Name;
+          !override.PartName.empty() && override.PartName == geometryView.Parts[part].Name;
       const bool byIndex = override.PartIndex >= 0 && std::cmp_equal(override.PartIndex, part);
       if (!byName && !byIndex) { continue; }
       OverridePart(table, part, slot, override, users);
@@ -94,23 +94,23 @@ void MaterialBindings::Clear() {
 
 std::expected<void, std::string>
 MaterialBindings::Resolve(const Geometry &native,
-                          const Render::Shape &shaped,
+                          const Render::RenderGeometryView &geometryView,
                           const Material &fallback,
                           std::span<const MaterialOverride> overrides,
                           int groundSurface,
                           std::string_view objectName) {
   Render::SurfaceTable candidate;
-  Render::ResolveDeclaredSurface(shaped, fallback, candidate);
+  Render::ResolveDeclaredSurface(geometryView, fallback, candidate);
   candidate.NativeMaterial = candidate.Material;
   std::string error;
   if (!Render::ResolveNativeTextures(native, candidate.Slots, error)) {
     return std::unexpected(std::move(error));
   }
   size_t applied = OverrideNativeMaterials(candidate, native, overrides);
-  applied += OverrideNativeParts(candidate, shaped, native, overrides);
+  applied += OverrideNativeParts(candidate, geometryView, native, overrides);
   if (!overrides.empty() && applied == 0) {
     return std::unexpected(std::format(
-        "this declaration names {} surface(s) of '{}' and the subject carries neither those "
+        "this declaration names {} surface(s) of '{}' and the geometry carries neither those "
         "material names, those part names nor those part indices -- a surface declared onto "
         "nothing changes no pixel and says it did",
         overrides.size(),

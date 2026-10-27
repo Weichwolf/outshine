@@ -4,16 +4,23 @@
 #include "Check.h"
 #include <chrono>
 #include <memory>
+#include <string>
 
 namespace {
 class SingleTileSource final : public outshine::Data::Source {
 public:
-  outshine::Data::SourceDecl Decl{
-      .Id = "single-tile", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl{.Id = "single-tile",
+                                  .Revision = "r1",
+                                  .Endpoint = {},
+                                  .Keeps = outshine::Data::Cacheability::Never,
+                                  .PayloadSha256 = {},
+                                  .Schema = {}};
 
-  const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const outshine::Data::SourceDecl &Declaration() const noexcept override {
+    return Decl;
+  }
 
-  outshine::Data::Coverage
+  [[nodiscard]] outshine::Data::Coverage
   Covers(const outshine::Data::SourceRequest &request) const noexcept override {
     const auto tile = request.Where().Tile();
     return tile && tile->Zoom == 6 && tile->X == 32 && tile->Y == 32
@@ -21,19 +28,20 @@ public:
                : outshine::Data::Coverage::Outside;
   }
 
-  outshine::Data::Address
+  [[nodiscard]] outshine::Data::Address
   Serves(const outshine::Data::SourceRequest &request) const noexcept override {
     return request.Where();
   }
 
-  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
-                                   outshine::Data::Transport &) const override {
+  outshine::Data::FetchStart Begin(const outshine::Data::Address & /*at*/,
+                                   outshine::Data::SourceTransport & /*transport*/) const override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::SourceResponse Collect(const outshine::Data::Address &,
-                                         outshine::Data::Ticket,
-                                         outshine::Data::Transport &) const override {
+  outshine::Data::SourceResponse
+  Collect(const outshine::Data::Address & /*at*/,
+          outshine::Data::Ticket /*ticket*/,
+          outshine::Data::SourceTransport & /*transport*/) const override {
     return outshine::Data::SourceResponse::Delivered(
         {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
          4,   0,   0,   0,   4,   8,  2,   0,   0,  0,   38, 147, 9,   41, 0,  0,  0,   16, 73,
@@ -42,31 +50,31 @@ public:
   }
 };
 
-class NoNetwork final : public outshine::Data::Transport {
+class NoNetwork final : public outshine::Data::SourceTransport {
 public:
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     return outshine::Data::Wire::Never();
   }
 
-  void Cancel(outshine::Data::Ticket) override {}
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Data::RawSourceCache store({.Using = Data::RawSourceCache::Use::Off});
+  Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;
   CHECK(sources.Add(std::make_unique<SingleTileSource>()) ==
             Data::SourceSet::Registration::Accepted,
         "single terrain tile registered");
-  Ground::TilePool pool({.PollAttempts = 100}, sources, transport);
-  Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
+  Ground::TilePool pool({.PollAttempts = 100, .PreparedFields = {}}, sources, transport);
+  const Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   const LongitudeLatitude point{.LongitudeDeg = 2.8, .LatitudeDeg = -2.8};
   auto sample = GroundSample::Waiting();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);

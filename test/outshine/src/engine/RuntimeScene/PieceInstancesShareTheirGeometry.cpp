@@ -1,3 +1,4 @@
+#include "test/harness/render/SrgbColour.h"
 #include <cstddef>
 #include <algorithm>
 #include <array>
@@ -326,14 +327,9 @@ struct PieceFixture {
       CHECK(after[newPixel + 1] > 0.4f && after[newPixel] < 0.1f && after[newPixel + 2] < 0.1f,
             "the first appended slot samples its green texture without a partial rejected batch");
       for (size_t channel = 0; channel < 3; ++channel) {
-        const double encoded = green[channel] / 255.0;
-        const double linear =
-            encoded <= 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
-        CHECK_NEAR(after[newPixel + channel],
-                   linear * arriving.Row.BaseColour[channel],
-                   1.0 / 4096,
-                   "linear",
-                   "unlit instance retains the decoded texture value within half-float rounding");
+        CHECK(EncodeSrgb8(after[newPixel + channel] / arriving.Row.BaseColour[channel]) ==
+                  green[channel],
+              "unlit instance preserves each source colour code after its material factor");
       }
     }
     CHECK(Screenshot("build/instance-native/material-after.png", error),
@@ -400,14 +396,9 @@ struct PieceFixture {
     if (registeredBefore.size() == size_t{320} * 320 * 4u) {
       for (const size_t x : {80u, 240u}) {
         for (size_t channel = 0; channel < 3; ++channel) {
-          const double encoded = green[channel] / 255.0;
-          const double linear =
-              encoded <= 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
-          CHECK_NEAR(registeredBefore[(size_t{160} * 320 + x) * 4u + channel],
-                     linear,
-                     1.0 / 4096,
-                     "linear",
-                     "RuntimeScene-owned prototype images preserve decoded RGB in each instance");
+          CHECK(EncodeSrgb8(registeredBefore[(size_t{160} * 320 + x) * 4u + channel]) ==
+                    green[channel],
+                "RuntimeScene-owned prototype images preserve each source RGB code");
         }
       }
     }

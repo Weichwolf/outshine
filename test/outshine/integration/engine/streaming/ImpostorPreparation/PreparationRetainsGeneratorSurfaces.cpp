@@ -1,3 +1,6 @@
+#include "GroundMaterialCatalog.h"
+#include "RegionSurfaceRecipes.h"
+#include "MeshInput.h"
 #include "ImageCapture.h"
 #include "Check.h"
 #include "ImpostorPreparation.h"
@@ -722,7 +725,7 @@ bool OpenInstances(InstanceScene &scene, const ImpostorAtlas &atlas) {
   CHECK(Core::RuntimeScene::Open(scene.Renderer, declaration, nullptr, scene.Live, scene.Error),
         "crown piece Live opens with the reference lighting");
   if (!scene.Live) { return false; }
-  Render::SubjectMesh empty;
+  Render::MeshInput empty;
   empty.Anchor = {{kWgs84A, 0, 0}};
   CHECK(scene.Renderer.SetGeometryMesh(empty, scene.Error),
         "reference mesh leaves while the Live coordinate anchor remains");
@@ -857,7 +860,7 @@ void CheckInstanceViews(InstanceScene &scene,
   }
 }
 
-uint32_t FindBirch(const Generators::Shipping &catalogue, const TreeSpecies &species) {
+uint32_t FindBirch(const Generators::BuiltinGenerators &catalogue, const TreeSpecies &species) {
   uint32_t birch = 0;
   while (const auto *tree = catalogue.TreeFor(Generators::ClusterId{birch})) {
     if (tree->Definition() == species.Definition()) { break; }
@@ -893,7 +896,7 @@ void CheckWorldCoverage(InstanceScene &scene, const ImpostorAtlas &atlas) {
 
 void CheckMissing(InstanceScene &scene,
                   Tasks &worker,
-                  const Generators::Shipping &catalogue,
+                  const Generators::BuiltinGenerators &catalogue,
                   std::span<const WorldInstance> placements,
                   const TangentFrame &frame,
                   VegetationStreaming::Config config) {
@@ -924,10 +927,10 @@ void CheckWorld(InstanceScene &scene,
                 Tasks &worker) {
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes vegetation;
-  Generators::Shipping catalogue;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials) &&
-            catalogue.EnsureCatalogue(vegetation, "src/assets/world/species", scene.Error),
+  Generators::BuiltinGenerators catalogue;
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            vegetation.Load("data/world/vegetation.json", materials) &&
+            catalogue.EnsureCatalogue(vegetation, "data/world/species", scene.Error),
         "world crown catalogue loads through the production species path");
   const auto birch = FindBirch(catalogue, species);
   const std::array<WorldInstance, 2> placements{
@@ -1001,7 +1004,7 @@ void CheckInstances(const ImpostorAtlas &atlas, const TreeSpecies &species, Task
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  std::ifstream input("src/assets/world/species/birch.json");
+  std::ifstream input("data/world/species/birch.json");
   const std::string text{std::istreambuf_iterator<char>(input), {}};
   TreeSpecies species;
   CHECK(species.Parse(text.data(), text.size()), "the atlas uses the shipped birch generator");

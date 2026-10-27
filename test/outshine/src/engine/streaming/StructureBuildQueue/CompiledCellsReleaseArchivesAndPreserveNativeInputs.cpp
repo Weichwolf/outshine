@@ -4,7 +4,7 @@
 #include "OsmStructureCell.h"
 #include "OsmSourceCapture.h"
 #include "StructureBuildQueue.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include <array>
 #include <algorithm>
 #include <cstdlib>
@@ -30,7 +30,7 @@ constexpr int kUnconsumedNodeFirst = 100;
 constexpr int kUnconsumedNodeCount = 80;
 constexpr int kMaximumAttempts = 100;
 
-class ApiWire final : public Data::Transport {
+class ApiWire final : public Data::SourceTransport {
 public:
   std::string Xml;
   std::atomic<int> Starts{0};
@@ -98,7 +98,7 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "native input test owns an isolated source cache");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   Tasks compute(1);
   Tasks io(1);
   ApiWire wire;

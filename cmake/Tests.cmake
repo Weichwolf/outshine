@@ -17,6 +17,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
   outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
@@ -34,8 +35,13 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
+  outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
+  outshine/src/render/terrain/TerrainRenderer/SharedInputsPreserveIndependentGrids
+  outshine/src/render/terrain/TerrainRenderer/SurfacePatchesPreserveRasterAndFractions
   outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels
+
 )
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
@@ -91,7 +97,7 @@ foreach(source IN LISTS cases)
       set(owner app)
     elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene)/")
       set(owner render)
-    elseif(name MATCHES "^outshine/integration/generators/osm/(PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
+    elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
@@ -99,6 +105,12 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
+    elseif(name MATCHES "^outshine/integration/generators/transport/AppearancePages/")
+      set(owner generators/road/pages)
+    elseif(name MATCHES "^outshine/integration/generators/transport/PlanRoadPages/")
+      set(owner generators/road/meshing)
+    elseif(name MATCHES "^outshine/integration/transport/RoadStepBody/")
+      set(owner generators/road)
     elseif(name MATCHES "^outshine/integration/generators/terrain/inputs/")
       set(owner generators/terrain/inputs)
     elseif(name MATCHES "^outshine/integration/storage/")
@@ -148,6 +160,9 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
+  if(name MATCHES "^outshine/integration/generators/transport/PlanRoadPages/")
+    target_link_libraries(${target} PRIVATE outshine_generators_transport)
+  endif()
   if(name MATCHES "^outshine/integration/places")
     add_dependencies(${target} outshine)
   endif()
@@ -292,3 +307,10 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
+
+add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
+target_include_directories(outshine_ggx_fragment_probe PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared" "${PROJECT_SOURCE_DIR}/test/harness/render")
+target_compile_options(outshine_ggx_fragment_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_ggx_fragment_probe PRIVATE outshine_render)

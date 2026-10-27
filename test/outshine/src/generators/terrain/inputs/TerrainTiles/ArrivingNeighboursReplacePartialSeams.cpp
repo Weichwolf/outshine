@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <array>
 #include "TerrainTiles.h"
 #include "Check.h"
 #include <cstdint>
@@ -5,7 +7,7 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Ground;
-constexpr uint8_t kPng[]{
+constexpr std::array<uint8_t, 75> kPng{
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
     0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x02, 0x00, 0x00, 0x00, 0x4b,
     0x6d, 0x29, 0xdc, 0x00, 0x00, 0x00, 0x12, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x68,
@@ -19,7 +21,7 @@ public:
   TerrainBytes Take(Data::TileId at) override {
     if (!Ready && at != Data::TileId{.Zoom = 2, .X = 1, .Y = 1}) { return TerrainBytes::Nothing(); }
     return TerrainBytes::From(at,
-                              {kPng, kPng + sizeof(kPng)},
+                              {kPng.begin(), kPng.end()},
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = at,
                                .SourceId = "arriving-dem",
@@ -35,7 +37,10 @@ int main() {
   ArrivingNeighbours source;
   TerrainTiles tiles(source,
                      EnuFrame::At(Geo{}),
-                     {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u});
+                     {.DemCacheBytes = static_cast<size_t>(1024u) * 1024u,
+                      .Shared = {},
+                      .StitchedFieldBytes = static_cast<size_t>(1024u) * 1024u,
+                      .PreparedFields = {}});
   const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
   const auto partial = tiles.StitchedField(at.Zoom, at.X, at.Y);
   CHECK(partial && partial->Sources().size() == 1,

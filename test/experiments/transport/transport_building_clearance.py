@@ -94,8 +94,8 @@ def polygon_parts(rings):
 
 def source_tile(args, z, x, y):
     revision = args.endpoint.split('/planet/')[1].split('/')[0]
-    subject = f'openfreemap.openmaptiles\n2\n{revision}\nvector\n{z}/{x}/{y}\n{args.endpoint}'
-    path = args.sources / hashlib.sha256(subject.encode()).hexdigest()
+    cache_key = f'openfreemap.openmaptiles\n2\n{revision}\nvector\n{z}/{x}/{y}\n{args.endpoint}'
+    path = args.sources / hashlib.sha256(cache_key.encode()).hexdigest()
     data = path.read_bytes()
     if len(data) > 4 * 1024**2:
         raise ValueError('MVT exceeds experiment byte limit')
@@ -406,7 +406,7 @@ def main():
             or not math.isfinite(args.side_room) or args.repeats < 1):
         parser.error('finite positive dimensions/repeats and a fraction in (0, 1] required')
     verify()
-    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
+    templates = json.loads(Path('data/world/vegetation.json').read_text())['templates']
     rules = [r for t in templates for r in t.get('osm', [])
              if r.get('layer') == 'streets' and r.get('widthM', 0) > 0]
     widths = {r['kind']: r['widthM'] for r in sorted(rules, key=lambda r: r.get('rank', 0))}

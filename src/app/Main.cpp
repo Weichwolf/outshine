@@ -1,5 +1,5 @@
 #include "EngineFactory.h"
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "ScenarioJson.h"
 #include "CommandLine.h"
 #include "CacheCommand.h"
@@ -789,7 +789,7 @@ constexpr auto kHeightCoordinates =
   auto engine = outshine::App::CreateEngine();
   if (!InitializeApplicationEngine(engine)) { return 2; }
   outshine::Scenario::Document stands;
-  const auto sources = outshine::Generators::ShippedProviders();
+  const auto sources = outshine::Generators::DefaultSourceProviders();
   stands.Providers.assign(sources.begin(), sources.end());
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;

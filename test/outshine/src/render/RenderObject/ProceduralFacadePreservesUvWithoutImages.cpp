@@ -20,7 +20,7 @@ void CheckLayouts() {
   constexpr std::array<float, 9> positions{-1, -1, -2, 1, -1, -2, 0, 1, -2};
   constexpr std::array<float, 6> uv{0, -1, 1, -1, 0, -2};
   constexpr std::array<uint32_t, 3> indices{0, 1, 2};
-  ShapePart part;
+  RenderGeometryPart part;
   part.VertexCount = 3;
   part.IndexCount = 3;
   part.PositionsM = positions;
@@ -28,13 +28,13 @@ void CheckLayouts() {
   part.Uv1 = uv;
   part.HasUv1 = true;
   part.HasUv = true;
-  Shape shape;
+  RenderGeometryView shape;
   shape.Parts = {&part, 1};
   shape.Indices = indices;
   shape.CarriesUv = true;
   RenderObject proxy;
-  proxy.ResetForShape(shape, {});
-  SubjectView view;
+  proxy.ResetGeometry(shape, {});
+  PreparedView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
   constexpr double kNearM = 0.05;

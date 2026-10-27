@@ -12,10 +12,10 @@ int main() {
   using namespace outshine::Test;
   constexpr size_t count = 2048;
   std::vector<Material> materials(count);
-  std::vector<ShapePart> parts(count);
+  std::vector<RenderGeometryPart> parts(count);
   for (size_t at = 0; at < count; ++at) { parts[at].Material = static_cast<int>(count - at - 1); }
   SurfaceTable table;
-  Shape shape;
+  RenderGeometryView shape;
   shape.Parts = parts;
   shape.Surfaces = materials;
   BeginCppAllocationProbe();

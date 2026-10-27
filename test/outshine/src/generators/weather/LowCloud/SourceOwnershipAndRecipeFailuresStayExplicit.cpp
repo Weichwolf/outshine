@@ -8,7 +8,7 @@
 #include <utility>
 
 namespace {
-class WorkingTransport final : public outshine::Data::Transport {
+class WorkingTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     Active = static_cast<outshine::Data::Ticket>(++Begins);

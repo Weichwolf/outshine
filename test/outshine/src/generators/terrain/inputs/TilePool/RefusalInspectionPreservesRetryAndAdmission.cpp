@@ -17,7 +17,7 @@ constexpr int kRefusalInspections = 20;
 constexpr double kAfterRetryDeadlineMs = 1000000.0;
 using namespace outshine::Data;
 
-class ClockTransport final : public Transport {
+class ClockTransport final : public SourceTransport {
 public:
   std::atomic<double> Now = 0.0;
 
@@ -51,7 +51,7 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &at, Transport & /*transport*/) const override {
+  FetchStart Begin(const Address &at, SourceTransport & /*transport*/) const override {
     ++Starts;
     if (Ready.load()) { return Ticket::None; }
     const auto tile = at.Tile();
@@ -60,8 +60,9 @@ public:
                                         : SourceFailureReason::Unavailable);
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Delivered({7});
   }
 };

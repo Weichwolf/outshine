@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
@@ -308,12 +309,13 @@ int main() {
                             .Width = 32,
                             .Height = 32,
                             .SceneColours = {}};
-  CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the fixture uses the existing subject pipeline");
+  CHECK(gpu.SceneColours.Add(Resource::SceneHdr),
+        "the fixture uses the existing geometry pipeline");
   RenderScene geometryStorage;
   GeometryRenderer geometry{geometryStorage};
   Require(geometry.Configure(gpu));
   std::string error;
-  SubjectMesh mesh;
+  MeshInput mesh;
   mesh.Anchor = kAnchor;
   CheckSceneUpload(geometry.SetMesh(mesh, error), error);
   MaterialBinding material;

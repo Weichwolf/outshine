@@ -117,3 +117,16 @@ OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:lib/tests:test/experiments/water \
 Wheel-Bau, Installationsziel, Vergleichsbilder und Logs gehören ausschließlich ins
 System-Tempverzeichnis. Der Replay-Treiber kopiert keine Quelle/Assets ins Paket.
 Quellenepoch/Provider-IDs bleiben beim Originalfixture; kein Anbieter- oder Cachezugriff.
+
+`vertex_up_bounds_m` kann eine endliche NumPy-Matrix der Form `(N, 2)` mit
+vertexweisen ENU-Up-Unter-/Obergrenzen liefern. Sie liegt vollständig in
+`up_bounds_m`; der globale Bereich bleibt die Domäne der physikalischen
+Normalenschranke. Beide Arten sind Modellkoordinaten, keine geodätischen Pegel.
+Die vorhandenen oberen/unteren Identitätszeilen verwenden dann die einzelnen
+Werte. Ohne Argument bleibt das bisherige Problem unverändert. Ein fester
+Kontakt außerhalb seiner Vertexbox liefert begrenzte Abwesenheit statt Geometrie.
+Die Rückprüfung erfasst die Vertexboxen zusätzlich zu Facetten und Kontakten.
+Das erlaubt prozedurale Bettziele unter einer vorgegebenen Wasserfläche, ohne
+eine globale Höhenbox als lokale Nichtdurchdringungsbedingung auszugeben.
+Ufer-/Quellbesitz, Bettmeshes, tatsächliche Terrainänderung und native Übernahme
+werden dadurch nicht automatisch zugelassen.

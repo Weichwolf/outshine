@@ -1,4 +1,4 @@
-#include "ShippedProviders.h"
+#include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "PreparedGroundRegions.h"
@@ -15,7 +15,7 @@
 #include <system_error>
 
 namespace {
-class NoRequests final : public outshine::Data::Transport {
+class NoRequests final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Begins;
@@ -68,8 +68,8 @@ int main() {
   CHECK(!directoryError, "the private asset-cache directory exists");
   if (directoryError) { return Report(); }
   constexpr size_t bytesMost = size_t{1024} * 1024;
-  auto materialRules = ReadTextFile("src/assets/world/ground-materials.json", bytesMost);
-  auto vegetationRules = ReadTextFile("src/assets/world/vegetation.json", bytesMost);
+  auto materialRules = ReadTextFile("data/world/ground-materials.json", bytesMost);
+  auto vegetationRules = ReadTextFile("data/world/vegetation.json", bytesMost);
   CHECK(materialRules && vegetationRules, "shipped material inputs are available");
   if (!materialRules || !vegetationRules) { return Report(); }
   materialRules->push_back('\0');
@@ -91,10 +91,10 @@ int main() {
   NoRequests wire;
   Tasks compute(1);
   Data::ProviderRegistry registry;
-  Generators::RegisterShippedProviders(registry);
+  Generators::RegisterBuiltinSourceProviders(registry);
   Ground::SurfacePreparation stack;
   const auto open = [&] {
-    return stack.Open({.BuiltinData = "src/assets",
+    return stack.Open({.BuiltinData = "data",
                        .Sources = (cache.Path / "sources").string(),
                        .Assets = (cache.Path / "assets").string()},
                       {},

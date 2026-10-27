@@ -3,39 +3,40 @@
 #include "OsmApiReader.h"
 
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
 
-using outshine::GeoCellId;
 using outshine::GeographicBounds;
 
 namespace {
-class DelayedWire final : public outshine::Data::Transport {
+class DelayedWire final : public outshine::Data::SourceTransport {
 public:
   double ClockMs = 0;
   size_t Starts = 0, Canceled = 0;
   std::atomic<double> *Deadline = nullptr;
   double ChangedDeadlineMs = 0;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     ++Starts;
     return static_cast<outshine::Data::Ticket>(Starts);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket) override {
+  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
     if (ClockMs < 15) { return outshine::Data::Wire::Working(); }
     const std::string body = "<osm version='0.6'><node id='1' lat='0' lon='0'/></osm>";
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(body.begin(), body.end()));
   }
 
-  void Cancel(outshine::Data::Ticket) override { ++Canceled; }
+  void Cancel(outshine::Data::Ticket /*ticket*/) override { ++Canceled; }
 
   double NowMs() override { return ClockMs; }
 
   bool Await(double ms) override {
     ClockMs += ms;
-    if (Deadline && ClockMs >= 5) { Deadline->store(ChangedDeadlineMs); }
+    if ((Deadline != nullptr) && ClockMs >= 5) { Deadline->store(ChangedDeadlineMs); }
     return false;
   }
 };
@@ -49,10 +50,13 @@ int main() {
        .Revision = "bounded",
        .Missing = MissingDataPolicy::Fail,
        .Dataset = "openstreetmap.original",
+       .Location = {},
        .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
        .Coverage =
-           GeographicBounds{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
-  RawSourceCache store({.Using = RawSourceCache::Use::Off});
+           GeographicBounds{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1},
+       .PayloadSha256 = {},
+       .Schema = {}}};
+  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
   DelayedWire fixed;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, store, fixed, 10, {}) &&
             fixed.ClockMs == 10 && fixed.Canceled == 1,

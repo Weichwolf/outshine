@@ -36,8 +36,8 @@ struct Fixture {
     Spheres[12] = 10;
   }
 
-  std::span<const ShadowCasterRange> Prepare(bool current = true, uint32_t subjects = 1) {
-    Selection.Prepare(Batches, Jobs, Spheres, Rows, subjects, current);
+  std::span<const ShadowCasterRange> Prepare(bool current = true, uint32_t mainMeshRows = 1) {
+    Selection.Prepare(Batches, Jobs, Spheres, Rows, mainMeshRows, current);
     return Selection.Ranges(0);
   }
 };
@@ -50,8 +50,8 @@ void Coverage() {
   f.Selection.Invalidate();
   CHECK(!f.Selection.Ready() && f.Selection.Ranges(0).empty(),
         "invalidated bounds cannot suppress any draw");
-  CHECK(f.Prepare(false).empty(), "a vertex pose invalidates subject bounds");
-  CHECK(f.Prepare(false, 0).size() == 2, "independent piece bounds survive a subject pose");
+  CHECK(f.Prepare(false).empty(), "a vertex pose invalidates main-mesh bounds");
+  CHECK(f.Prepare(false, 0).size() == 2, "independent piece bounds survive a main-mesh pose");
   f.Jobs[6] = kUncoveredStart;
   CHECK(f.Prepare().empty(), "an uncovered interval cannot drop unknown geometry");
   f.Jobs[6] = 15;

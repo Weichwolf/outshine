@@ -1,6 +1,6 @@
 {
   "schema": "outshine/declared-case-manifest",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "modulus-bigint-modulo-zero",
   "title": "BigInt modulo 0 throws a range error",
   "covers": [
@@ -12,7 +12,7 @@
     "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/modulus/bigint-modulo-zero.js",
     "expects": "runs"
   },
-  "subjects": [
+  "inputs": [
     {
       "kind": "script",
       "id": "modulus-bigint-modulo-zero",

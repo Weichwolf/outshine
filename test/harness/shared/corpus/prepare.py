@@ -152,7 +152,7 @@ def _prepare(manifest_path, arguments):
 
     report = {}
     if arguments.job in ("fetch", "all"):
-        report["fetch"] = jobs.fetch_subjects(declared, store, destination, force=arguments.force)
+        report["fetch"] = jobs.fetch_inputs(declared, store, destination, force=arguments.force)
 
     report["store"] = {"directory": store.directory, "hits": store.hits, "misses": store.misses,
                        "writes": store.writes}

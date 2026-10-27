@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include "Shape.h"
+#include "RenderGeometryView.h"
 #include "MaterialResolution.h"
 #include "Geometry.h"
 #include "Material.h"
@@ -29,7 +29,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string>
   Resolve(const Geometry &native,
-          const Render::Shape &shaped,
+          const Render::RenderGeometryView &geometryView,
           const Material &fallback,
           std::span<const MaterialOverride> overrides,
           int groundSurface,

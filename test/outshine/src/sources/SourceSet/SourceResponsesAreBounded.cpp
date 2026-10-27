@@ -16,7 +16,7 @@ constexpr double kMillisecondsPerSecond = 1000;
 constexpr double kClockOriginMs = 100;
 constexpr double kServerDeadlineMs = 10100;
 
-class ClockTransport final : public Transport {
+class ClockTransport final : public SourceTransport {
 public:
   double Now = 0;
   int Begins = 0;
@@ -45,12 +45,13 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address & /*at*/, Transport &transport) const override {
+  FetchStart Begin(const Address & /*at*/, SourceTransport &transport) const override {
     return transport.Begin(Decl.Id);
   }
 
-  SourceResponse
-  Collect(const Address & /*at*/, Ticket /*ticket*/, Transport & /*transport*/) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     const size_t at = Calls++;
     return at < Answers.size() ? std::move(Answers[at]) : SourceResponse::Meant(Meaning::Refused);
   }

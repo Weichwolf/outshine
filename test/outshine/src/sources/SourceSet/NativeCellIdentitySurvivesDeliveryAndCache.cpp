@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "RawSourceCache.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "SourceSet.h"
 
 #include <array>
@@ -35,12 +35,12 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, Transport &) const override {
+  FetchStart Begin(const Address &, SourceTransport &) const override {
     ++Starts;
     return Ticket::None;
   }
 
-  SourceResponse Collect(const Address &, Ticket, Transport &) const override {
+  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
     return SourceResponse::Delivered({1, 2, 3});
   }
 
@@ -66,7 +66,7 @@ int main() {
     const Native *provider = native.get();
     CHECK(sources.Add(std::move(native)) == SourceSet::Registration::Accepted,
           "same public provider registry accepts native source cells");
-    OfflineTransport offline;
+    OfflineSourceTransport offline;
     for (size_t i = 0; i < cells.size(); ++i) {
       const Address at = Address::AtCell(cells[i]);
       const SourceRequest request(DataKind::Elevation, at);

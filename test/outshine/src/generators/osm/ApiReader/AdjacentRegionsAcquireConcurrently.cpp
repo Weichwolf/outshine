@@ -1,18 +1,20 @@
 #include "OsmProviderValidation.h"
 #include "OsmApiReader.h"
-#include "OfflineTransport.h"
+#include "OfflineSourceTransport.h"
 #include "Sha256.h"
 #include "Check.h"
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <stop_token>
 #include <string>
 #include <system_error>
+#include <vector>
 
-using outshine::GeoCellId;
 using outshine::GeographicBounds;
 
 namespace {
@@ -21,14 +23,14 @@ std::string Xml(size_t id) {
          "' lat='0' lon='0'><tag k='custom:unknown' v='preserved'/></node></osm>";
 }
 
-class ApiWire final : public outshine::Data::Transport {
+class ApiWire final : public outshine::Data::SourceTransport {
 public:
   size_t Starts = 0, Peak = 0, Canceled = 0;
   double ClockMs = 0;
   bool Stall = false, Refuse = false;
   std::map<outshine::Data::Ticket, double> Active;
 
-  outshine::Data::FetchStart Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
     const auto ticket = static_cast<outshine::Data::Ticket>(++Starts);
     Active.emplace(ticket, ClockMs + (Starts % 2 == 0 ? 5 : 10));
     Peak = std::max(Peak, Active.size());
@@ -70,12 +72,14 @@ int main() {
                      .Priority = static_cast<int>(at),
                      .Missing = MissingDataPolicy::Fail,
                      .Dataset = "openstreetmap.original",
+                     .Location = {},
                      .Endpoint = std::string(outshine::Generators::Osm::kOfficialOsmApi),
                      .Coverage = GeographicBounds{.WestDeg = static_cast<double>(at) * 0.01,
                                                   .SouthDeg = 0,
                                                   .EastDeg = static_cast<double>(at + 1) * 0.01,
                                                   .NorthDeg = 0.01},
-                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1))};
+                     .PayloadSha256 = outshine::Sha256Hex(Xml(at + 1)),
+                     .Schema = {}};
   }
   RawSourceCache store({.Directory = directory});
   ApiWire wire;
@@ -96,14 +100,14 @@ int main() {
     CHECK(parsed && parsed->Chunks.size() == 4 && parsed->Elements.FindNode(4),
           "independently pinned responses merge as one consistent original dataset");
   }
-  OfflineTransport offline;
+  OfflineSourceTransport offline;
   const auto warm =
       outshine::Generators::Osm::ReadRegions(providers, store, offline, offline.NowMs() + 1000, {});
   CHECK(warm && warm->Chunks.size() == 4 &&
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
 
-  RawSourceCache noCache({.Using = RawSourceCache::Use::Off});
+  RawSourceCache noCache({.Directory = {}, .Using = RawSourceCache::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
   CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&

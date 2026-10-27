@@ -5,7 +5,7 @@
 their original catalogue index. Half-open intervals skip zero support. Common
 weight scaling preserves selection, including very large and subnormal inputs.
 
-Shipping binds the explicit vegetation-definition file to ground-template rows.
+`BuiltinGenerators` binds the explicit vegetation-definition file to ground-template rows.
 Unknown names, duplicate keys and invalid weights fail transactionally. Empty
 support stays empty. The standalone Forest constructor without mixtures remains
 an unconstrained stem sampler; the engine always supplies its declared mixtures.

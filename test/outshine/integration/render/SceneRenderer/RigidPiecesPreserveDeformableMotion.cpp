@@ -1,3 +1,4 @@
+#include "MeshInput.h"
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -54,14 +55,14 @@ int main() {
     const auto surface = base.addSurface("wall", Material{});
     CHECK(surface.has_value(), "material is available");
     if (!surface) { return Report(); }
-    const auto part = base.addPart("subject", *surface);
+    const auto part = base.addPart("mesh", *surface);
     constexpr std::array<float, 9> positions{-1.5f, -0.5f, 0, -0.5f, -0.5f, 0, -1, 0.5f, 0};
     constexpr std::array<float, 9> previous{-1.75f, -0.5f, 0, -0.75f, -0.5f, 0, -1.25f, 0.5f, 0};
     constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
     constexpr std::array<float, 9> emitted{};
     constexpr std::array<uint32_t, 3> indices{0, 1, 2};
     CHECK(part && base.setPositions(*part, positions) && base.setTriangles(*part, indices),
-          "subject geometry is complete");
+          "mesh geometry is complete");
     Core::Declaration declaration;
     declaration.InitialGeometry = &base;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 64;
@@ -86,7 +87,7 @@ int main() {
       batch.Layout = VertexLayout::PositionNormal;
       CHECK(draws.Add(batch, error), "deforming draw uses the rigid piece's pipeline layout");
       draws.Compile();
-      SubjectMesh mesh;
+      MeshInput mesh;
       mesh.Anchor = renderer.LastSubmittedCamera().Basis.EyeM - eye.EyeM;
       mesh.Verts.From = positions.data();
       mesh.Positions = positions;
@@ -142,9 +143,10 @@ int main() {
               "stationary rigid geometry has zero motion after the deforming draw");
       }
       for (const bool deforming : {false, true}) {
-        SubjectPose pose = mesh;
+        VertexInput pose = mesh;
         if (!deforming) { pose.PrevVerts = {}; }
-        CHECK(renderer.SetGeometryPose(pose, error), "pose changes without replacing the mesh");
+        CHECK(renderer.SetGeometryVertexInput(pose, error),
+              "pose changes without replacing the mesh");
         CHECK(scene->Draw(error), "transitioned pose renders alongside rigid geometry");
         CheckMotion(renderer, deforming ? kDeformationM / 2.0f : 0.0f);
       }

@@ -1,7 +1,9 @@
+#include <cstdint>
+#include <cstddef>
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <print>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -21,16 +23,16 @@ float Side(Vec2f a, Vec2f b, float x, float y) {
   return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
 }
 
-float Coverage(int x, int y) {
+float Coverage(std::array<int, 2> pixel) {
   int inside = 0;
   constexpr int kSamples = 32;
   for (int row = 0; row < kSamples; ++row) {
     for (int col = 0; col < kSamples; ++col) {
-      const float u = static_cast<float>(x) + (static_cast<float>(col) + 0.5f) / kSamples;
-      const float v = static_cast<float>(y) + (static_cast<float>(row) + 0.5f) / kSamples;
-      inside += Side(kCorners[0], kCorners[1], u, v) >= 0 &&
-                Side(kCorners[1], kCorners[2], u, v) >= 0 &&
-                Side(kCorners[2], kCorners[0], u, v) >= 0;
+      const float u = static_cast<float>(pixel[0]) + (static_cast<float>(col) + 0.5f) / kSamples;
+      const float v = static_cast<float>(pixel[1]) + (static_cast<float>(row) + 0.5f) / kSamples;
+      inside += static_cast<int>(Side(kCorners[0], kCorners[1], u, v) >= 0 &&
+                                 Side(kCorners[1], kCorners[2], u, v) >= 0 &&
+                                 Side(kCorners[2], kCorners[0], u, v) >= 0);
     }
   }
   return static_cast<float>(inside) / (kSamples * kSamples);
@@ -64,7 +66,7 @@ std::vector<float> RenderTriangle(bool temporal, double panPxPerFrame = 0) {
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
         "the coverage scene opens");
   if (!scene) {
-    std::printf("setup: %s\n", error.c_str());
+    std::println("setup: {}", error);
     return {};
   }
   Viewpoint eye;
@@ -91,25 +93,29 @@ int main() {
   const auto baseline = RenderTriangle(false);
   for (const double pan : {0.0, 0.25}) {
     const auto temporal = RenderTriangle(true, pan);
-    const size_t count = kExtent * kExtent * 4u;
+    const size_t count = static_cast<size_t>(kExtent) * kExtent * 4u;
     CHECK(baseline.size() == count && temporal.size() == count, "both frames contain every pixel");
     if (baseline.size() == count && temporal.size() == count) {
-      double baselineError = 0, temporalError = 0, temporalAlphaError = 0;
+      double baselineError = 0;
+      double temporalError = 0;
+      double temporalAlphaError = 0;
       size_t fractionalAlpha = 0;
       for (int y = 0; y < kExtent; ++y) {
         for (int x = 0; x < kExtent; ++x) {
           const size_t at = (static_cast<size_t>(y) * kExtent + static_cast<size_t>(x)) * 4u;
-          const double expected = Coverage(x, y);
+          const double expected = Coverage({x, y});
           baselineError += std::pow(baseline[at] - expected, 2);
           temporalError += std::pow(temporal[at] - expected, 2);
           temporalAlphaError += std::pow(temporal[at + 3] - expected, 2);
-          fractionalAlpha += temporal[at + 3] > 0.001f && temporal[at + 3] < 0.999f;
+          fractionalAlpha +=
+              static_cast<size_t>(temporal[at + 3] > 0.001f && temporal[at + 3] < 0.999f);
         }
       }
-      std::printf("coverage squared error: pan %.2f px/frame, single sample %.6f, temporal %.6f\n",
-                  pan,
-                  baselineError,
-                  temporalError);
+      std::println(
+          "coverage squared error: pan {:.2f} px/frame, single sample {:.6f}, temporal {:.6f}",
+          pan,
+          baselineError,
+          temporalError);
       CHECK(baselineError > 1, "the analytical silhouette exposes single-sample aliasing");
       CHECK(fractionalAlpha > 0, "coverage alpha accumulates actual subpixel samples");
       CHECK(temporalAlphaError < baselineError * 0.6,

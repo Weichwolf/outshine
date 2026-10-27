@@ -70,7 +70,7 @@ void Unconfigured() {
         "a rejected first target leaves no drawable extent");
 }
 
-Result ClaimReleased(Engine &engine, TargetFault &fault, SDL_Window *window) {
+Result ClaimReleased(Engine &engine, const TargetFault &fault, SDL_Window *window) {
   const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(1);
   unsigned attempts = fault.PresentAttempts;
   auto result = engine.setRenderTarget(window);

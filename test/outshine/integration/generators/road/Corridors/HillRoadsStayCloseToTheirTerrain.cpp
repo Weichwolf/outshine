@@ -30,8 +30,8 @@ int main() {
   constexpr double latitudeStepDeg = .0036;
   outshine::Generators::GroundMaterialCatalog materials;
   outshine::Generators::RegionSurfaceRecipes recipes;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            recipes.Load("src/assets/world/vegetation.json", materials),
+  CHECK(materials.Load("data/world/ground-materials.json") &&
+            recipes.Load("data/world/vegetation.json", materials),
         "the hillside uses the actual built-in road recipes");
   if (!recipes.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};

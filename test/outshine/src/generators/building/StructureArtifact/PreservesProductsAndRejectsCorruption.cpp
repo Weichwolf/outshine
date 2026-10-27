@@ -4,7 +4,10 @@
 #include "Check.h"
 #include "Geodesy.h"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <optional>
 
 int main() {
   using namespace outshine;
@@ -17,7 +20,12 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "fixture has a valid cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back({.PointCount = 4, .SourceFirst = 12, .Cell = *cell, .HeightM = 12.0});
+  raw.Structures.push_back({.PointCount = 4,
+                            .SourceFirst = 12,
+                            .Cell = *cell,
+                            .HeightM = 12.0,
+                            .WallColour = {},
+                            .Facade = {}});
   raw.Structures.front().WallColour = Vec3f{{0.2f, 0.4f, 0.6f}};
   raw.RequestedDetail = LevelOfDetail::Shell;
   raw.RequestedCell = cell->Index;
@@ -27,7 +35,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   BakedTile product;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, product).has_value(),
@@ -78,7 +86,7 @@ int main() {
       std::string_view("outshine-structure").size() + sizeof(uint32_t) + 64;
   std::fill_n(corrupt.begin() + firstVectorCount, sizeof(uint64_t), uint8_t{255});
   const auto checksum = Sha256Hex(corrupt.data(), corrupt.size() - 64);
-  std::copy(checksum.begin(), checksum.end(), corrupt.end() - 64);
+  std::ranges::copy(checksum, corrupt.end() - 64);
   CHECK(!DecodeStructureArtifact(corrupt, key, 29),
         "valid checksum cannot bypass bounded allocation");
   product.Built.WallRun.push_back(std::numeric_limits<uint32_t>::max());

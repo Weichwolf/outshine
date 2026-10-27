@@ -102,7 +102,7 @@ def case(commit, directory, test, pinned_on, pin_reason, viewport):
     files += _companions(commit, document, directory, {directory + "/" + test})
     return {
         "schema": "outshine/declared-case-manifest",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "id": name,
         "title": (title.group(1).strip().replace("\n", " ") if title else name),
         "covers": ["css-flexbox-1"],
@@ -114,7 +114,7 @@ def case(commit, directory, test, pinned_on, pin_reason, viewport):
         },
         "viewport": {"widthPx": viewport[0], "heightPx": viewport[1],
                      "note": "the reftest viewport WPT lays its own references out in"},
-        "subjects": [{
+        "inputs": [{
             "kind": "document",
             "id": name,
             "name": name,
