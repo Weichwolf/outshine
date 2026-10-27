@@ -1,5 +1,5 @@
 #include "TonemapStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "TransformMatrix.h"
 #include <array>
 #include <cstddef>

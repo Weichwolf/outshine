@@ -5,6 +5,10 @@ file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/s
 add_custom_target(outshine_tests)
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
+set(pipeline_test_shaders ${OUTSHINE_SHADER_ARTIFACTS})
+list(FILTER pipeline_test_shaders INCLUDE REGEX
+  "/([^/]*\\.comp|fullscreen[^/]*\\.vert|present[^/]*\\.frag)\\.spv$")
+add_custom_target(test_pipeline_shaders DEPENDS ${pipeline_test_shaders})
 set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
@@ -17,6 +21,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
   outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
@@ -182,6 +187,9 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
+  if(name MATCHES "^outshine/src/render/pipelines/")
+    add_dependencies(${target} test_pipeline_shaders)
+  endif()
   if(name MATCHES "^outshine/integration/generators/transport/PlanRoadPages/")
     target_link_libraries(${target} PRIVATE outshine_generators_transport)
   endif()
@@ -338,7 +346,7 @@ outshine_corpus(test262/js outshine_scripting ScoreEveryScriptCase)
 target_link_libraries(test_harness_test262_js PRIVATE outshine_base)
 outshine_corpus(geographiclib/geodesic outshine_world ScoreEveryGeodesic)
 
-set_tests_properties(outshine/src/render/stages/StagePipelines/NativePipelinesKeepDeclaredBindings
+set_tests_properties(outshine/src/render/pipelines/PipelineFactory/NativePipelinesKeepDeclaredBindings
   PROPERTIES WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 add_test(NAME render/shader-artifacts COMMAND Python3::Interpreter
   "${PROJECT_SOURCE_DIR}/test/scripts/shader_artifacts.py"

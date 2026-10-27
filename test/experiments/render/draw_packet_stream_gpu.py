@@ -4,12 +4,12 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 
 def digest(path):
@@ -36,7 +36,7 @@ def main():
     flags = shlex.split(subprocess.check_output(
         ["sh", "test/run.sh", "--native-compile-flags"], cwd=root, text=True))
     database = json.loads((root / 'compile_commands.json').read_text())
-    entry = next(row for row in database if Path(row['file']).name == 'StagePipelines.cpp')
+    entry = next(row for row in database if Path(row['file']).name == 'PipelineFactory.cpp')
     includes = [flag for flag in entry.get('arguments', shlex.split(entry.get('command', '')))
                 if flag.startswith('-I')]
     libraries = shlex.split(subprocess.check_output(
@@ -47,16 +47,22 @@ def main():
     command = [*compiler, *flags, '-fno-exceptions', '-I.', '-Isrc/render/device/native',
                '-Itest/harness/shared', '-Itest/harness/render', *includes, str(source),
                str(archive), *libraries, '-o', str(binary)]
-    manifest = dict(checkout=str(root), commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                    cwd=root, text=True).strip(), dirty=subprocess.check_output(
-                    ['git', 'status', '--porcelain'], cwd=root, text=True),
-                    archive_sha256=digest(archive), probe_sha256=digest(source),
-                    source_checkout=str(here.parents[2]), source_commit=subprocess.check_output(
-                    ['git', 'rev-parse', 'HEAD'], cwd=here.parents[2], text=True).strip(),
-                    source_dirty=subprocess.check_output(['git', 'status', '--porcelain'],
-                    cwd=here.parents[2], text=True), compile_command=command,
-                    validation=args.validation, heap_diagnostic=args.heap_usage,
-                    status='building')
+    manifest = {
+        'checkout': str(root),
+        'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
+        'dirty': subprocess.check_output(['git', 'status', '--porcelain'], cwd=root, text=True),
+        'archive_sha256': digest(archive),
+        'probe_sha256': digest(source),
+        'source_checkout': str(here.parents[2]),
+        'source_commit': subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=here.parents[2], text=True).strip(),
+        'source_dirty': subprocess.check_output(
+            ['git', 'status', '--porcelain'], cwd=here.parents[2], text=True),
+        'compile_command': command,
+        'validation': args.validation,
+        'heap_diagnostic': args.heap_usage,
+        'status': 'building',
+    }
     (output / 'report.json').write_text(json.dumps(manifest, indent=2) + '\n')
     try:
         with (output / 'build.log').open('w') as log:

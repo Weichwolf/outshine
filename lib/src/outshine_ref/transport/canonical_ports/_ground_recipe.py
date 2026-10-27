@@ -29,9 +29,54 @@ THREE_ARM_PARAMETERS = immutable(
     }
 )
 
+NETWORK_RECIPE = "outshine/coarse-ground-tree/1"
+NETWORK_PARAMETERS = immutable(
+    {
+        **dict(THREE_ARM_PARAMETERS),
+        "version": NETWORK_RECIPE,
+        "topology": "complete-source-tree-maximum8-spans-degree2-through6",
+        "maximum_spans": 8,
+        "maximum_degree": 6,
+        "cut_method": "degree2-checked-common-otherwise-highs-linear",
+        "interior_plane": "symmetric-proximal-width-bands-only-with-positive-reserve",
+        "junction_anchor": "lowest-original-branch-node-identifier",
+    }
+)
+
 
 def known_geometry_recipe(value):
-    return value is None or (isinstance(value, str) and value == THREE_ARM_RECIPE)
+    return value is None or (
+        isinstance(value, str) and value in (THREE_ARM_RECIPE, NETWORK_RECIPE)
+    )
+
+
+def geometry_parameters(value):
+    return NETWORK_PARAMETERS if value == NETWORK_RECIPE else THREE_ARM_PARAMETERS
+
+
+def source_network(index, selected):
+    _, spans, _ = index
+    degree = Counter(n for edge in selected for n in spans[edge].nodes)
+    if (
+        not 3 <= len(selected) <= NETWORK_PARAMETERS["maximum_spans"]
+        or len(degree) != len(selected) + 1
+        or max(degree.values(), default=0) > NETWORK_PARAMETERS["maximum_degree"]
+        or not any(count >= 3 for count in degree.values())
+    ):
+        return None, "bounded_ground_tree_topology_required"
+    for edge in selected:
+        span = spans[edge]
+        if span.bridge or span.tunnel or span.layer != 0:
+            return None, "ground_tree_profile_required"
+        if (
+            span.maximum_gradient is None
+            or not 0 < span.maximum_gradient <= 1.0
+            or not 0 < span.width_m <= 30.0
+        ):
+            return None, "missing_source_profile_recipe"
+    branches = sorted(node for node, count in degree.items() if count >= 3)
+    leaves = tuple(sorted(node for node, count in degree.items() if count == 1))
+    return (branches[0], leaves), ""
 
 
 def source_star(index, selected):

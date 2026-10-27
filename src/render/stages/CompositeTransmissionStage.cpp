@@ -1,5 +1,5 @@
 #include "CompositeTransmissionStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include <array>
 #include <expected>
 #include <span>

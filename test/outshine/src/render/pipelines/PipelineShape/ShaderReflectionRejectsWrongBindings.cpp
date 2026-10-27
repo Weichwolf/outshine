@@ -1,7 +1,7 @@
 #include "Check.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "ComputeShaders.h"
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "Device.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "src/render/device/ReadbackTransfer.h"
@@ -38,15 +38,15 @@ void Graphics(Device &device) {
             binding.Resource.Kind == BindingKind::SampledTexture &&
             static_cast<uint32_t>(binding.Stages) == static_cast<uint32_t>(ShaderStage::Fragment),
         "the reflected sampler belongs to the fragment stage at its authored set and slot");
-  auto source =
+  const auto source =
       Require(device.CreateTexture({.Width = kSide,
                                     .Height = kSide,
                                     .Use = TextureUse::Sampled | TextureUse::ColourAttachment}));
-  auto target =
+  const auto target =
       Require(device.CreateTexture({.Width = kSide,
                                     .Height = kSide,
                                     .Use = TextureUse::CopySource | TextureUse::ColourAttachment}));
-  auto sampler = Require(device.CreateSampler({}));
+  const auto sampler = Require(device.CreateSampler({}));
   auto commands = Require(device.Begin());
   const std::array sourceAttachment{ColourAttachment{
       .Image = {.Image = source.get()}, .Begin = Load::Clear, .Clear = {1, 0, 0, 1}}};
@@ -107,27 +107,27 @@ void Compute(Device &device) {
   }
   for (const auto id : {ComputeShaderId::Count, std::bit_cast<ComputeShaderId>(~uint32_t{0})}) {
     const auto rejected = CreateComputePipeline(device, id);
-    CHECK(!rejected && rejected.error().Message.find("unknown built-in") != std::string::npos,
+    CHECK(!rejected && rejected.error().Message.contains("unknown built-in"),
           "invalid builtin IDs are rejected before reading an artifact");
   }
   const auto *descriptor = FindComputeShader(ComputeShaderId::DepthPyramid);
   CHECK(descriptor != nullptr, "the production depth-pyramid descriptor exists");
   if (descriptor == nullptr) { return; }
   Require(CompileComputePipeline(device, *descriptor));
-  for (auto field : {&ComputeShape::Samplers,
-                     &ComputeShape::ReadOnlyTextures,
-                     &ComputeShape::ReadWriteTextures,
-                     &ComputeShape::ReadOnlyBuffers,
-                     &ComputeShape::ReadWriteBuffers,
-                     &ComputeShape::UniformBuffers,
-                     &ComputeShape::GroupX,
-                     &ComputeShape::GroupY,
-                     &ComputeShape::GroupZ}) {
+  for (const auto field : {&ComputeShape::Samplers,
+                           &ComputeShape::ReadOnlyTextures,
+                           &ComputeShape::ReadWriteTextures,
+                           &ComputeShape::ReadOnlyBuffers,
+                           &ComputeShape::ReadWriteBuffers,
+                           &ComputeShape::UniformBuffers,
+                           &ComputeShape::GroupX,
+                           &ComputeShape::GroupY,
+                           &ComputeShape::GroupZ}) {
     auto wrong = *descriptor;
     ++(wrong.Shape.*field);
     const auto pipeline = CompileComputePipeline(device, wrong);
     CHECK(!pipeline && pipeline.error().Kind == ErrorKind::Invalid &&
-              pipeline.error().Message.find("declared compute bindings") != std::string::npos,
+              pipeline.error().Message.contains("declared compute bindings"),
           "each incorrect compute binding count or workgroup dimension is refused");
   }
 }

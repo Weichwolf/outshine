@@ -1,5 +1,5 @@
 #include "GeometryCullStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "Units.h"
 #include <array>
 #include <atomic>
