@@ -8,6 +8,7 @@ from types import MappingProxyType
 
 from ...contracts import immutable
 from ._end_candidates import float_word
+from ._ground_recipe import THREE_ARM_PARAMETERS, known_geometry_recipe, source_star
 from ._ground_scope_index import (
     group_nodes,
     indexed_input_guard,
@@ -204,11 +205,14 @@ def prepare_ground_field_scope(
     candidate_binding,
     budget=None,
     scope_index=None,
+    geometry_recipe=None,
 ):
     """Prepare the existing ground component with an explicit original-fact proof.
 
     Returns (existing index, selected members, immutable binding, reason, work).
     No DEM/solver work occurs here. Unknown never changes or becomes an ignore flag.
+    An explicit known geometry_recipe admits only its complete three-arm shape;
+    None keeps the original chain path. Unknown recipes never select a fallback.
     Optional scope_index owns the exact same input objects and avoids repeated
     global scans. Its construction work is separate; original admission caps hold.
     """
@@ -225,6 +229,12 @@ def prepare_ground_field_scope(
     def pending(reason):
         return None, (), None, reason, work
 
+    if not known_geometry_recipe(geometry_recipe):
+        return pending("unsupported_ground_geometry_recipe")
+    if geometry_recipe is not None and (
+        budget.requests < 3 or budget.surface.max_queries < 3
+    ):
+        return pending("ground_terminal_query_budget")
     if scope_index is None:
         reason, fact_visits = input_guard(
             source, groups, ways, source_binding, candidate_binding, budget
@@ -249,7 +259,11 @@ def prepare_ground_field_scope(
     work.update(counted)
     if closure not in ("", "unknown_source_frontier"):
         return pending(closure)
-    _chain, reason = source_chain(index, selected)
+    _shape, reason = (
+        source_chain(index, selected)
+        if geometry_recipe is None
+        else source_star(index, selected)
+    )
     if reason:
         return pending(reason)
     nodes, spans, _incidence = index
@@ -326,6 +340,11 @@ def prepare_ground_field_scope(
                 sorted(g.identifier for g in set(by_node.values()))
             ),
             "height_policy": "local DEM/recipe field fixed for this scope; outer bridge/layer must adapt or stay Pending",
+            **(
+                {"geometry_recipe": THREE_ARM_PARAMETERS}
+                if geometry_recipe is not None
+                else {}
+            ),
         }
     )
     return index, selected, binding, "", work

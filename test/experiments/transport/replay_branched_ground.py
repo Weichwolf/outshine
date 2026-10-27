@@ -96,7 +96,7 @@ def run(
     return report, inputs, field, mesh
 
 
-def plot(output, inputs, mesh, report):
+def plot(output, inputs, mesh, report, *, title=None):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -129,7 +129,8 @@ def plot(output, inputs, mesh, report):
     axis.scatter(*inputs.surface.vertices.T, color="black", s=9)
     axis.set(xlabel="East [m]", ylabel="North [m]", zlabel="Source height [m]")
     fig.suptitle(
-        "Actual V2 / DEM experimental three-arm field; no shared source/World admission"
+        title
+        or "Actual V2 / DEM experimental three-arm field; no canonical variant/World binding"
     )
     fig.savefig(output / "geometry.png", dpi=110)
     plt.close(fig)

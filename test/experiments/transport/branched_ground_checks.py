@@ -201,8 +201,11 @@ class BranchedGroundChecks(unittest.TestCase):
             patch(
                 "branched_ground_source.time.monotonic", side_effect=lambda: clock[0]
             ),
-            patch("branched_ground_source.layout", side_effect=expired_layout),
-            self.assertRaisesRegex(ValueError, "diagnostic_ground_geometry_deadline"),
+            patch(
+                "outshine_ref.transport.canonical_ports._ground_star_input.layout",
+                side_effect=expired_layout,
+            ),
+            self.assertRaisesRegex(ValueError, "three_arm_ground_geometry_deadline"),
         ):
             source_input(source, index, edges, centre, leaves, forbidden, budget)
 
@@ -224,7 +227,7 @@ class BranchedGroundChecks(unittest.TestCase):
                 "replay_branched_ground.time.monotonic", side_effect=lambda: clock[0]
             ),
             patch("replay_branched_ground.checked_star", side_effect=expired_guards),
-            self.assertRaisesRegex(ValueError, "diagnostic_ground_total_deadline"),
+            self.assertRaisesRegex(ValueError, "three_arm_ground_total_deadline"),
         ):
             run(self.bundle, forbidden, budget=budget)
 
@@ -244,7 +247,7 @@ class BranchedGroundChecks(unittest.TestCase):
             ),
             patch("replay_branched_ground.fit_ground") as fitting,
         ):
-            with self.assertRaisesRegex(ValueError, "diagnostic_ground_total_deadline"):
+            with self.assertRaisesRegex(ValueError, "three_arm_ground_total_deadline"):
                 run(self.bundle, slow_terrain, budget=budget)
             fitting.assert_not_called()
 
