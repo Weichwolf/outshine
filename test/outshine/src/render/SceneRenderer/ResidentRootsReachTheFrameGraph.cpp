@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "SceneRenderer.h"
 #include "GeometryCullStage.h"
+#include "GpuSubmission.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -22,7 +23,10 @@ bool Draw(SceneRenderer &renderer) {
 }
 
 void Exercise() {
-  SceneRenderer renderer;
+  SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
+    options.Validation = true;
+    return Native::CreateDevice(options);
+  }});
   const auto plan =
       ExecutionPlan::Compile({.Outputs = {Resource::SceneLinear, Resource::SceneDepth},
                               .Content = {Stage::OpaqueGeometry},
@@ -74,13 +78,35 @@ void Exercise() {
   CHECK(lens.has_value(), "the camera has a valid physical projection");
   if (!lens) { return; }
   renderer.SetCamera(eye, *lens);
+  KeptDraws counters;
+  counters.Indices = 99;
+  counters.RootWork.Visited = 99;
+  counters.DrawIndex = {99};
+  CHECK(renderer.ReadGeometrySelection(counters, GeometryReadback::Counters) == ReadState::Failed &&
+            counters.Indices == 0 && counters.RootWork.Visited == 0 && counters.DrawIndex.empty(),
+        "an unavailable selection clears old counters and payloads");
   if (!Draw(renderer)) { return; }
   KeptDraws visible;
   std::vector<float> first;
-  CHECK(renderer.ReadKeptIndices(visible) == ReadState::Ready && visible.Indices == 3 &&
-            visible.Visibility == std::vector<uint32_t>({0, 3}) &&
+  CHECK(renderer.ReadGeometrySelection(visible, outshine::Render::GeometryReadback::Indices) ==
+                ReadState::Ready &&
+            visible.Indices == 3 && visible.Visibility == std::vector<uint32_t>({0, 3}) &&
             visible.DrawIndex == std::vector<uint32_t>({0, 1, 2}),
         "the actual frame graph selects and copies the original triangle");
+  CHECK(renderer.ReadGeometrySelection(counters, GeometryReadback::Counters) == ReadState::Ready &&
+            counters.Indices == visible.Indices && counters.Batches == visible.Batches,
+        "the small diagnostic query agrees with the complete original draw selection");
+  CHECK(counters.RootWork.Visited == 2 && counters.RootWork.Accepted == 1 &&
+            counters.RootWork.Requested == 1 && counters.RootWork.LogicalWork == 1 &&
+            counters.RootWork.Overflow == 0 && counters.ClusterWork.Visited == 1 &&
+            counters.ClusterWork.Accepted == 1 && counters.ClusterWork.Requested == 1 &&
+            counters.ClusterWork.LogicalWork == 3 && counters.ClusterWork.Overflow == 0,
+        "actual GPU counters distinguish two root visits from one expanded and selected leaf");
+  CHECK(counters.Arguments.empty() && counters.Visibility.empty() && counters.DrawIndex.empty() &&
+            counters.ReadbackBytes ==
+                sizeof(GeometryQueueState) * 2 + visible.Arguments.size() * sizeof(uint32_t) &&
+            counters.ReadbackBytes < visible.ReadbackBytes,
+        "counter-only diagnostics copy queue states and arguments without detailed payloads");
   std::vector<float> depth;
   CHECK(renderer.ReadSceneLinear(first) == ReadState::Ready &&
             renderer.ReadDepth(depth) == ReadState::Ready &&
@@ -95,9 +121,15 @@ void Exercise() {
   CHECK(renderer.SetPieceInstances(id, rows, error), "instance movement updates the resident view");
   if (!Draw(renderer)) { return; }
   KeptDraws hidden;
-  CHECK(renderer.ReadKeptIndices(hidden) == ReadState::Ready && hidden.Indices == 0 &&
-            hidden.Visibility == std::vector<uint32_t>({0, 0}),
+  CHECK(renderer.ReadGeometrySelection(hidden, outshine::Render::GeometryReadback::Indices) ==
+                ReadState::Ready &&
+            hidden.Indices == 0 && hidden.Visibility == std::vector<uint32_t>({0, 0}),
         "a rejected root cannot expose the preceding frame's stale Kept values");
+  CHECK(renderer.ReadGeometrySelection(counters, GeometryReadback::Counters) == ReadState::Ready &&
+            counters.Indices == 0 && counters.Batches == 0 && counters.RootWork.Visited == 2 &&
+            counters.RootWork.Accepted == 0 && counters.ClusterWork.Visited == 0 &&
+            counters.ClusterWork.Accepted == 0 && counters.ClusterWork.LogicalWork == 0,
+        "a later empty selection replaces the preceding nonzero GPU work snapshot");
   rows[1][12] = 0;
   CHECK(renderer.SetPieceInstances(id, rows, error),
         "the same instance returns without rebuilding its product");

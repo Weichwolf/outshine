@@ -3,6 +3,7 @@
 #include "EnvironmentSpecularLayout.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -10,6 +11,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace outshine::Render {
 namespace {
@@ -24,6 +26,23 @@ constexpr int kSingleExponentBias = 127;
 constexpr unsigned kSingleMantissaBits = 23u;
 constexpr unsigned kMantissaWiden = kSingleMantissaBits - kHalfMantissaBits;
 constexpr uint32_t kSingleInfinity = 0x7F800000u;
+
+bool ReadSelectionQueues(Native::Device *device,
+                         const GeometryResidency &resident,
+                         KeptDraws &into) {
+  for (const auto &[stream, state] :
+       std::array{std::pair{GeometryResidency::Stream::ClusterChunkState, &into.RootWork},
+                  std::pair{GeometryResidency::Stream::ClusterSelectedState, &into.ClusterWork}}) {
+    Readback queue;
+    const auto *buffer = resident.Buffer(stream).get();
+    if (buffer == nullptr || queue.FromBuffer(device, buffer, sizeof(*state)) != ReadState::Ready) {
+      return false;
+    }
+    std::memcpy(state, queue.Rows(), sizeof(*state));
+    into.ReadbackBytes += sizeof(*state);
+  }
+  return true;
+}
 
 bool MaskRejectedRoots(Native::Device *device,
                        const GeometryResidency &resident,
@@ -188,22 +207,36 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
+ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
   into = {};
   const GeometryResidency &resident = ActiveContent().Geometry().Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
   const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
-  if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
+  if (!ActiveState().Ready || !ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr ||
+      rows == 0) {
+    return ReadState::Failed;
+  }
+  if (!ReadSelectionQueues(Device_.get(), resident, into)) {
+    into = {};
+    return ReadState::Failed;
+  }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
-  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
+  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) {
+    into = {};
+    return ReadState::Failed;
+  }
   const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
-  into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  into.ReadbackBytes += bytes;
+  if (detail == GeometryReadback::Indices) {
+    into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  }
   for (uint32_t at = 0; at < rows; ++at) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
+  if (detail == GeometryReadback::Counters) { return ReadState::Ready; }
   const uint32_t jobs = ActiveContent().Geometry().ClusterJobs();
   const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
@@ -215,11 +248,13 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     }
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
+    into.ReadbackBytes += keptBytes;
     if (!MaskRejectedRoots(
             Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.Visibility)) {
       into = {};
       return ReadState::Failed;
     }
+    into.ReadbackBytes += rows * sizeof(uint32_t);
   }
   const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
@@ -239,6 +274,7 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     return ReadState::Failed;
   }
   const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.ReadbackBytes += indexBytes;
   into.DrawIndex.reserve(into.Indices);
   for (size_t at = 0; at < rows; ++at) {
     const auto first = into.Arguments[at * 5 + 2];

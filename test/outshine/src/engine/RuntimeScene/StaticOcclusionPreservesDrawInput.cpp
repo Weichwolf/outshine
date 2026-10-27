@@ -78,7 +78,8 @@ int main() {
   CHECK(renderer.ReadDepth(completeDepth) == Render::ReadState::Ready,
         "complete first-frame depth reads back");
   Render::KeptDraws initial;
-  CHECK(renderer.ReadKeptIndices(initial) == Render::ReadState::Ready,
+  CHECK(renderer.ReadGeometrySelection(initial, outshine::Render::GeometryReadback::Indices) ==
+            Render::ReadState::Ready,
         "complete first-frame draw input reads back");
   std::array<Render::KeptDraws, 2> kept;
   std::array<std::vector<float>, 2> pixels;
@@ -86,7 +87,8 @@ int main() {
   for (size_t frame = 0; frame < kept.size(); ++frame) {
     CHECK(scene->Draw(error), "static scene draws");
     renderer.WaitForGpu();
-    CHECK(renderer.ReadKeptIndices(kept[frame]) == Render::ReadState::Ready,
+    CHECK(renderer.ReadGeometrySelection(
+              kept[frame], outshine::Render::GeometryReadback::Indices) == Render::ReadState::Ready,
           "clustered draw input reads back");
     CHECK(renderer.ReadSceneLinear(pixels[frame]) == Render::ReadState::Ready,
           "linear target reads back");

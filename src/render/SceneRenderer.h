@@ -5,6 +5,7 @@
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
 #include "Mat4.h"
+#include "GeometryHierarchy.h"
 #include "Vec2.h"
 #include "Vec3.h"
 #include "Extent.h"
@@ -84,9 +85,14 @@ struct RenderFrameTiming {
   double TotalMs = 0.0;
 };
 
+enum class GeometryReadback { Counters, Indices };
+
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
+  GeometryQueueState RootWork;
+  GeometryQueueState ClusterWork;
+  uint64_t ReadbackBytes = 0;
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
   std::vector<uint32_t> Visibility;
@@ -209,7 +215,8 @@ public:
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
-  [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
+  // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
+  [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
 
   [[nodiscard]] Native::Result<TerrainRenderer::DrawArguments> ReadGroundDrawArguments() const;
 

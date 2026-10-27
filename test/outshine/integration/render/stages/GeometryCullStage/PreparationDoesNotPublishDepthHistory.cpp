@@ -93,7 +93,9 @@ void Exercise() {
   renderer.WaitForGpu();
   CHECK(renderer.WorldResourcesComplete(*prepared), "prepared GPU selection is complete");
   KeptDraws first;
-  CHECK(renderer.ReadKeptIndices(first) == ReadState::Ready && first.Indices > 0,
+  CHECK(renderer.ReadGeometrySelection(first, outshine::Render::GeometryReadback::Indices) ==
+                ReadState::Ready &&
+            first.Indices > 0,
         "prepared draw arguments and indices exist before any frame");
   const auto repeated = renderer.PrepareWorldResources();
   CHECK(repeated && GeometryCullStage::JobsAdmittedTaken() == 0,

@@ -55,11 +55,13 @@ void RefineStaticView(outshine::Core::RuntimeScene &scene,
   KeptDraws refined;
   std::vector<float> before;
   std::vector<float> after;
-  CHECK(renderer.ReadKeptIndices(initial) == ReadState::Ready &&
+  CHECK(renderer.ReadGeometrySelection(initial, outshine::Render::GeometryReadback::Indices) ==
+                ReadState::Ready &&
             renderer.ReadSceneLinear(before) == ReadState::Ready,
         "first-frame draw input and pixels are readable");
   CHECK(scene.Draw(error), "an unchanged view refines against its genuine depth history");
-  CHECK(renderer.ReadKeptIndices(refined) == ReadState::Ready &&
+  CHECK(renderer.ReadGeometrySelection(refined, outshine::Render::GeometryReadback::Indices) ==
+                ReadState::Ready &&
             renderer.ReadSceneLinear(after) == ReadState::Ready,
         "refined draw input and pixels are readable");
   CHECK(refined.Indices < initial.Indices,

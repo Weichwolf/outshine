@@ -8,6 +8,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace outshine {
@@ -35,11 +37,30 @@ void InspectShadow(EngineRenderState &picture, Core::DiagnosticLedger &published
 
 void InspectCulling(EngineRenderState &picture, Core::DiagnosticLedger &published) {
   Render::KeptDraws kept;
-  if (picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
+  const bool available = picture.Device.ReadGeometrySelection(
+                             kept, Render::GeometryReadback::Counters) == Render::ReadState::Ready;
+  published.RecordMetric("cull snapshot: available", available ? 1.0 : 0.0, "");
+  if (available) {
     published.RecordMetric(
         "cull: indices the geometry cull kept", static_cast<double>(kept.Indices), "indices");
     published.RecordMetric(
         "cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
+    const std::array values{
+        std::pair{"root pass visits", kept.RootWork.Visited},
+        std::pair{"expanded roots", kept.RootWork.Accepted},
+        std::pair{"chunk queue requests", kept.RootWork.Requested},
+        std::pair{"chunk queue overflow", kept.RootWork.Overflow},
+        std::pair{"logical clusters under kept roots", kept.RootWork.LogicalWork},
+        std::pair{"leaf visits", kept.ClusterWork.Visited},
+        std::pair{"selected clusters", kept.ClusterWork.Accepted},
+        std::pair{"cluster queue requests", kept.ClusterWork.Requested},
+        std::pair{"cluster queue overflow", kept.ClusterWork.Overflow},
+        std::pair{"selected index references", kept.ClusterWork.LogicalWork}};
+    for (const auto &[name, value] : values) {
+      published.RecordMetric("cull snapshot: " + std::string(name), static_cast<double>(value), "");
+    }
+    published.RecordMetric(
+        "cull snapshot: readback payload", static_cast<double>(kept.ReadbackBytes), "bytes");
   }
 }
 
