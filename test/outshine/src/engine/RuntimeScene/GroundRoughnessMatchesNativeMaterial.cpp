@@ -1,4 +1,5 @@
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WorldCandidate.h"
 #include "GeometryCullStage.h"
 #include "Check.h"

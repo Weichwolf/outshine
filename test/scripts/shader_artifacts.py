@@ -1,20 +1,20 @@
-#!/usr/bin/env python3
 """Audit the CMake shader inventory against SPIR-V and native resource contracts.
 
-This proves package coverage, unique native bindings and compute conventions, not renderer
+This proves package coverage, unique native bindings, explicit prism derivatives and compute conventions, not renderer
 graphics selection, host struct layout, interface linkage or backend execution.
 """
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import math
-from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGES = {'vert', 'frag', 'comp'}
@@ -26,7 +26,7 @@ COMPUTE_FIELDS = ('samplers', 'readonly_textures', 'readwrite_textures', 'readon
 
 def validate_reflection(document, stage):
     if not isinstance(document, dict):
-        raise ValueError('reflection is not an object')
+        raise TypeError('reflection is not an object')
     entries = document.get('entryPoints', [])
     if len(entries) != 1 or entries[0].get('name') != 'main' or entries[0].get('mode') != stage:
         raise ValueError(f'expected exactly main in stage {stage}')
@@ -97,6 +97,18 @@ def inventory(manifest):
     return sorted(names), [f'undeclared shader artifact: {name}' for name in unexpected]
 
 
+def validate_prism_derivatives(data):
+    words = struct.unpack('<' + 'I' * (len(data) // 4), data)
+    offset = 5
+    while offset < len(words):
+        count, opcode = words[offset] >> 16, words[offset] & 0xffff
+        if not count or offset + count > len(words):
+            raise ValueError('invalid prism instruction extent')
+        if opcode in (87, 89, 91, 93) or 207 <= opcode <= 215:
+            raise ValueError('prism materials require explicit gradients after trace misses')
+        offset += count
+
+
 def inspect_artifact(root, name, tool, timeout, report):
     started = time.monotonic()
     stage = Path(name).stem.rsplit('.', 1)[-1]
@@ -106,8 +118,10 @@ def inspect_artifact(root, name, tool, timeout, report):
         record['sha256'] = hashlib.sha256(data).hexdigest()
         if len(data) < 20 or len(data) % 4 or data[:4] != b'\x03\x02\x23\x07':
             raise ValueError('not a complete SPIR-V word stream with header')
+        if name.startswith('prismLit-') and stage == 'frag':
+            validate_prism_derivatives(data)
         result = subprocess.run([tool, str(root / name), '--reflect'],
-                                capture_output=True, text=True, timeout=timeout)
+                                capture_output=True, text=True, timeout=timeout, check=False)
         record['returncode'] = result.returncode
         (report / (Path(name).name + '.stderr')).write_text(result.stderr)
         if result.returncode:

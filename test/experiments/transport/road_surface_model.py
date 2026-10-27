@@ -192,6 +192,15 @@ class Curve:
             for bound, defect in zip(self.integration_bounds_m, defects, strict=True)
         )
 
+    def height_at(self, indices, parameter, *, derivative=0):
+        height = self.height[indices]
+        if derivative == 0:
+            return bezier(height, parameter)
+        if derivative == 1:
+            rates = 3 * np.diff(height, axis=1) / self.lengths[indices, None]
+            return bezier(rates, parameter)
+        raise ValueError("Height value or first derivative required")
+
     def crossfall(self, indices, parameter, *, derivative=0):
         bank = bezier(self.bank[indices], parameter)
         if derivative == 0:
@@ -221,7 +230,7 @@ class Curve:
         distance = stations - self.stations[i]
         t = distance / self.lengths[i]
         planar = self._planar(distance, i)
-        height = bezier(self.height[i], t)
+        height = self.height_at(i, t)
         crossfall = self.crossfall(i, t)
         heading = (
             self.poses[i, 4]

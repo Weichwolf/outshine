@@ -1,4 +1,5 @@
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "ReadbackTransfer.h"
 #include "Check.h"
 #include "test/harness/render/NativeCommandsProxy.h"

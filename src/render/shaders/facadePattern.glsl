@@ -1,3 +1,4 @@
+#include "surfaceDifferential.glsl"
 #include "periodicBand.glsl"
 #include "roofTiles.glsl"
 #include "facadeOpenings.glsl"
@@ -22,34 +23,36 @@ void applyFacadeGlazedWindow(vec2 at, vec2 fractions, vec2 dx, vec2 dy,
   roughness = window.roughness;
 }
 
-void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
-                      inout float roughness, out vec2 heightChange) {
+void applyRoofCourses(vec2 encoded, vec3 localM, vec3 n, inout vec3 albedo,
+                      inout float roughness, SurfaceDifferential derivativeX, SurfaceDifferential derivativeY,
+                      out vec2 heightChange) {
   heightChange = vec2(0.0);
-  float slope = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM),
-                                       dFdx(encoded.y), dFdy(encoded.y)));
+  float slope = length(surfaceGradient(n, derivativeX.position, derivativeY.position,
+                                       derivativeX.facade.y, derivativeY.facade.y));
   if (slope < 0.05) { return; }
   float course = encoded.y / (0.32 * slope);
-  vec2 courseChange = vec2(dFdx(encoded.y), dFdy(encoded.y)) / (0.32 * slope);
+  vec2 courseChange = vec2(derivativeX.facade.y, derivativeY.facade.y) / (0.32 * slope);
   float width = abs(courseChange.x) + abs(courseChange.y);
-  vec3 axis = roofTileAxis(dFdx(localM), dFdy(localM), dFdx(encoded.y), dFdy(encoded.y));
+  vec3 axis = roofTileAxis(derivativeX.localPosition, derivativeY.localPosition, derivativeX.facade.y, derivativeY.facade.y);
   float tile = dot(localM, axis) / 0.26;
-  vec2 tileChange = vec2(dot(dFdx(localM), axis), dot(dFdy(localM), axis)) / 0.26;
+  vec2 tileChange = vec2(dot(derivativeX.localPosition, axis), dot(derivativeY.localPosition, axis)) / 0.26;
   RoofTileJoint joint = roofTileJoint(course, tile, width, abs(tileChange.x) + abs(tileChange.y));
   albedo *= mix(vec3(1.0), vec3(0.68, 0.70, 0.73), joint.coverage);
   roughness = mix(roughness, 1.0, joint.coverage);
   heightChange = -0.004 * (joint.courseSlope * courseChange + joint.tileSlope * tileChange);
 }
 
-void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
-                 bool metreMaterial, vec2 materialM, inout vec3 albedo, inout float roughness, out vec2 heightChange) {
+void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 localM, vec3 metricM, vec3 n,
+                 bool metreMaterial, vec2 materialM, SurfaceDifferential derivativeX,
+                 SurfaceDifferential derivativeY, inout vec3 albedo, inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
-  vec2 dx = dFdx(coordinates);
-  vec2 materialDx = dFdx(materialM);
-  vec2 materialDy = dFdy(materialM);
-  vec2 dy = dFdy(coordinates);
-  vec3 dxM = dFdx(metricM);
-  vec3 dyM = dFdy(metricM);
-  float storeysPerM = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM), dx.y, dy.y));
+  vec2 dx = derivativeX.facade;
+  vec2 materialDx = derivativeX.uv1;
+  vec2 materialDy = derivativeY.uv1;
+  vec2 dy = derivativeY.facade;
+  vec3 dxM = derivativeX.metric;
+  vec3 dyM = derivativeY.metric;
+  float storeysPerM = length(surfaceGradient(n, derivativeX.position, derivativeY.position, dx.y, dy.y));
   if (code < 0) {
     float trim = float((-code - 1) % 16);
     float ident = float((-code - 1) / 16);
@@ -77,7 +80,7 @@ void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 lo
           tint = vec3(0.65, 0.90, 1.12);
         }
         albedo *= tint;
-        applyRoofCourses(coordinates, positionM, localM, n, albedo, roughness, heightChange);
+        applyRoofCourses(coordinates, localM, n, albedo, roughness, derivativeX, derivativeY, heightChange);
       }
       return;
     }
@@ -128,10 +131,4 @@ void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 lo
   }
   albedo = wall.albedo;
   roughness = wall.roughness;
-}
-
-void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
-                 inout vec3 albedo, inout float roughness, out vec2 heightChange) {
-  applyFacade(code, coordinates, paint, positionM, localM, metricM, n,
-               false, vec2(0.0), albedo, roughness, heightChange);
 }

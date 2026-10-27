@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
 """Compile native resource fixtures, then break the actual package and reflection tool."""
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKER = ROOT / 'test/scripts/shader_artifacts.py'
@@ -65,13 +64,13 @@ class ShaderArtifacts(unittest.TestCase):
         path.write_text(source)
         result = subprocess.run([GLSLANG, '-V', '--target-env', 'vulkan1.0', str(path), '-o',
                                  str(self.package / ('fixture.' + stage + '.spv'))],
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=30, check=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def check(self, accepted, *options):
         result = subprocess.run([sys.executable, str(CHECKER), '--root', str(self.root),
                                  '--report', str(self.root / 'report'), *options],
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=30, check=False)
         self.assertEqual(result.returncode, 0 if accepted else 1, result.stdout + result.stderr)
         return json.loads((self.root / 'report/shader-audit.json').read_text())
 
@@ -118,6 +117,26 @@ class ShaderArtifacts(unittest.TestCase):
                 path.write_bytes(content)
                 self.assertEqual(self.check(False)['valid'], 2)
         path.write_bytes(original)
+
+    def test_prism_materials_require_explicit_gradients(self):
+        original = self.package / 'fixture.frag.spv'
+        self.names[1] = 'prismLit-000.frag.spv'
+        target = self.package / self.names[1]
+        self.manifest.write_text('\n'.join(self.names) + '\n')
+        original.rename(target)
+        self.assertEqual(self.check(False)['valid'], 2)
+        sampling = 'textureGrad(sampled, gl_FragCoord.xy, vec2(1, 0), vec2(0, 1))'
+        explicit = FRAGMENT.replace('texture(sampled, vec2(0))', sampling)
+        self.compile('frag', explicit)
+        original.rename(target)
+        self.assertEqual(self.check(True)['valid'], 3)
+        for operation in ('dFdx', 'dFdy', 'fwidth', 'dFdxFine', 'dFdyFine',
+                          'fwidthFine', 'dFdxCoarse', 'dFdyCoarse', 'fwidthCoarse'):
+            with self.subTest(operation=operation):
+                self.compile('frag', explicit.replace(sampling, sampling +
+                             f' + vec4({operation}(gl_FragCoord.x))'))
+                original.rename(target)
+                self.assertEqual(self.check(False)['valid'], 2)
 
     def test_wrong_sets_gaps_duplicate_bindings_and_resource_order(self):
         mutations = [

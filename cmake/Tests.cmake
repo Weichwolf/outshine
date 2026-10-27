@@ -90,6 +90,24 @@ foreach(source IN LISTS cases)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
   endif()
+  if(name STREQUAL "outshine/src/render/prism/PrismDrawing/SurfaceDifferentialsUseTheOriginalPlane")
+    foreach(stage IN ITEMS comp vert frag)
+      set(differential_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-differentials.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${differential_shader}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "-I${PROJECT_SOURCE_DIR}/src" --depfile "${differential_shader}.d"
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+          -o "${differential_shader}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+        DEPFILE "${differential_shader}.d" VERBATIM)
+      add_custom_target(test_prism_differential_${stage}_shader DEPENDS "${differential_shader}")
+      add_dependencies(${target} test_prism_differential_${stage}_shader)
+      string(TOUPPER "${stage}" stage_define)
+      target_compile_definitions(${target} PRIVATE
+        "OUTSHINE_PRISM_DIFFERENTIAL_${stage_define}_SHADER=\"${differential_shader}\"")
+    endforeach()
+  endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
@@ -256,6 +274,7 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
 add_dependencies(outshine_tests test_harness_transport_source_export)
+add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport
   COMMAND "${Python3_EXECUTABLE}" -B
   "${PROJECT_SOURCE_DIR}/test/experiments/transport/test_native_transport_export.py"

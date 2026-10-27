@@ -27,9 +27,20 @@ def sample_grade(curve, stations):
 
 
 def diagnose(
-    row, curve, control, arrays, *, height_controls=None, witnesses=(4013, 55171)
+    row,
+    curve,
+    control,
+    arrays,
+    *,
+    height_controls=None,
+    witnesses=(4013, 55171),
+    surface=None,
 ):
-    fitted = BankedSurface(row, control, height_controls=height_controls)
+    fitted = (
+        BankedSurface(row, control, height_controls=height_controls)
+        if surface is None
+        else surface
+    )
     stations = np.unique(
         np.r_[
             np.linspace(*curve.stations[[0, -1]], 1001),
