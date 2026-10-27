@@ -142,7 +142,7 @@ class ActualGroundTerminals(unittest.TestCase):
             self.source.spans,
             self.source.unknown_nodes,
         )
-        for method in ("auto", "cone"):
+        for method in ("auto", "cone", "lp"):
             with self.subTest(method=method):
                 prepared, reason, report = self.derive(method=method)
                 self.assertEqual(reason, "")
@@ -178,7 +178,7 @@ class ActualGroundTerminals(unittest.TestCase):
         self.assertEqual(len(unknown), 3348)
 
     def test_request_order_and_larger_caps_preserve_values_mesh_and_binding(self):
-        for method in ("auto", "cone"):
+        for method in ("auto", "cone", "lp"):
             a, ra, x = self.derive(method=method)
             b, rb, y = self.derive(
                 method=method,
