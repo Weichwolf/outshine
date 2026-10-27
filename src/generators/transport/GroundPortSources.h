@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TRANSPORT_GROUNDPORTSOURCES_H
 #define OUTSHINE_GENERATORS_TRANSPORT_GROUNDPORTSOURCES_H
 
+#include "GroundPortSourceProfile.h"
 #include "TransportTopology.h"
 #include <array>
 #include <cstddef>
@@ -16,11 +17,6 @@ class TransportNetworkSnapshot;
 }
 
 namespace outshine::Generators {
-struct GroundPortSourceProfile {
-  uint64_t PathId = 0;
-  double MaximumGradient = 0;
-};
-
 struct GroundPortSourceLimits {
   size_t Nodes = 16384;
   size_t DirectedEdges = 16384;

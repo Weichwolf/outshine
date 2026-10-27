@@ -78,6 +78,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/ActualNativeComponentsKeepTheirWholeSourceChain"
       OR name STREQUAL "outshine/src/generators/transport/GroundPortSources/UnqualifiedComponentsNeverBecomePartialHeightInputs"
       OR name STREQUAL "outshine/src/generators/road/height/RoadPortFieldQuery/PortsKeepTheirOwnFrameAndSourceOrientation"
+      OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/MvtProfilesReachGroundSources"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
