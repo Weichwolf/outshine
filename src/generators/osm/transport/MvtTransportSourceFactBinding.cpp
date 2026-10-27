@@ -13,7 +13,7 @@ template <class T> void Append(Sha256Prefix &hash, T value) {
 }
 
 void BindSourceFacts(MvtTransportSourceFacts &facts) {
-  constexpr std::string_view kVersion = "outshine/mvt-source-facts/1";
+  constexpr std::string_view kVersion = "outshine/mvt-source-facts/2";
   Sha256Prefix hash(kVersion.data(), kVersion.size());
   const auto &revision = facts.Network->SourceIdentity().Revision;
   hash.Append(revision.data(), revision.size());
@@ -40,6 +40,7 @@ void BindSourceFacts(MvtTransportSourceFacts &facts) {
     Append(hash, member.StreetWay);
     Append(hash, member.SourceStep);
     Append(hash, member.End);
+    Append(hash, static_cast<uint8_t>(member.SourceTerminal));
   }
   for (const auto &way : facts.Ways) {
     Append(hash, way.StreetWay);

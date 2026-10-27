@@ -26,6 +26,7 @@ struct MvtTransportSourceMember {
   uint32_t StreetWay = 0;
   uint32_t SourceStep = 0;
   uint8_t End = 0;
+  bool SourceTerminal = false;
 };
 
 struct MvtTransportSourceGroup {

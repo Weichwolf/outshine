@@ -79,9 +79,6 @@ Edges(Sources &sources, std::vector<Segment> &segments) {
       return std::unexpected("MVT transport path identity collision");
     }
     if (id != previous) {
-      if (std::cmp_greater(segment.Way, std::numeric_limits<uint32_t>::max())) {
-        return std::unexpected("MVT transport source way exceeds the local index range");
-      }
       if (sources.Provenance.References.size() >= std::numeric_limits<uint32_t>::max()) {
         return std::unexpected("MVT transport has too many source references");
       }
@@ -91,7 +88,7 @@ Edges(Sources &sources, std::vector<Segment> &segments) {
            .ReferenceCount = 1,
            .SuppliedFields = way.Supplied,
            .DerivedFields = way.Derived});
-      sources.StreetWays.push_back(static_cast<uint32_t>(segment.Way));
+      sources.StreetWays.push_back(segment.Way);
       auto reference = way.Source;
       reference.SegmentOrdinal = segment.SourceStep;
       sources.Provenance.References.push_back(reference);

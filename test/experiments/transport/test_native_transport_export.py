@@ -37,7 +37,7 @@ def group_digest(native, facts):
 
 
 def fact_digest(native, facts):
-    result = hashlib.sha256(b"outshine/mvt-source-facts/1")
+    result = hashlib.sha256(b"outshine/mvt-source-facts/2")
     result.update(native["SourceIdentity"]["Revision"].encode("ascii"))
     result.update(bytes(facts["NodeGroups"]["Digest"]))
     words(
@@ -64,7 +64,7 @@ def fact_digest(native, facts):
         edge = member["Edge"]
         words(
             result,
-            "QIBQIIIB",
+            "QIBQIIIBB",
             edge["PathId"],
             edge["SegmentOrdinal"],
             edge["Direction"],
@@ -73,6 +73,7 @@ def fact_digest(native, facts):
             member["StreetWay"],
             member["SourceStep"],
             member["End"],
+            member["SourceTerminal"],
         )
     for way in facts["Ways"]:
         words(
@@ -195,12 +196,11 @@ def check_members(native, facts):
                 and edges[key]["WidthM"] == 2 * width,
                 "wrong native half-width word",
             )
-            terminal = (
-                member["SourceStep"] == 0
-                if physical[2] == 0
-                else member["SourceStep"] == way["PointCount"] - 2
+            require(
+                type(member["SourceTerminal"]) is bool,
+                "missing native terminal witness",
             )
-            frontier |= terminal and not way["OwnsEnds"][physical[2]]
+            frontier |= member["SourceTerminal"] and not way["OwnsEnds"][physical[2]]
             seen[physical] = member["DomainNode"]
         require(group["Frontier"] == frontier, "frontier binding changed")
         offset += group["MemberCount"]
@@ -218,7 +218,7 @@ def check_capture(directory):
     facts = json.loads((directory / "source-facts.json").read_text())
     require(
         native["schema"] == "outshine/native-mvt-snapshot-dump/1"
-        and facts["schema"] == "outshine/native-mvt-source-facts/1",
+        and facts["schema"] == "outshine/native-mvt-source-facts/2",
         "unsupported native capture",
     )
     require(
@@ -253,16 +253,21 @@ def message(field, value):
     return varint(field * 8 + 2) + varint(len(value)) + value
 
 
-def controlled_tile():
+def controlled_tile(profile_tags=False):
     layer = message(1, b"transportation") + bytes((120, 2, 40, 64))
-    for key in (b"class", b"layer", b"bridge"):
+    for key in (b"class", b"layer", b"bridge", b"indoor", b"level"):
         layer += message(3, key)
     for value in (b"path", b"0", b"1", b"yes"):
         layer += message(4, message(1, value))
+    if profile_tags:
+        layer += message(4, bytes((25,)) + struct.pack("<d", -0.0))
+        layer += message(4, message(1, b"1"))
     for identity, tags, geometry in (
         (None, (0, 0, 1, 1), (9, 0, 0, 10, 48, 0)),
         (0, (0, 0, 1, 2, 2, 3), (9, 48, 0, 10, 32, 0)),
     ):
+        if profile_tags and identity is None:
+            tags = (*tags, 3, 4, 4, 5)
         feature = bytes((24, 2)) + message(2, bytes(tags)) + message(4, bytes(geometry))
         if identity is not None:
             feature += bytes((8, identity))
@@ -312,6 +317,22 @@ class NativeExport(unittest.TestCase):
         (directory / "source-facts.json").write_text(json.dumps(facts))
         with self.assertRaisesRegex(ValueError, "source fact binding"):
             check_capture(directory)
+
+    def test_original_height_tags_remain_typed(self):
+        self.input.write_bytes(controlled_tile(profile_tags=True))
+        directory = self.root / "typed-tags"
+        result = self.run_export(directory)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        native, _ = check_capture(directory)
+        rows = [p["LocalWayBinding"]["HeightProfileTags"] for p in native["Paths"]]
+        typed = [r for r in rows if r["indoor"] is not None]
+        absent = [r for r in rows if r["indoor"] is None]
+        self.assertEqual(len(typed), 1)
+        self.assertTrue(typed[0]["indoor"]["IsNumber"])
+        self.assertEqual(typed[0]["indoor"]["NumberWord"], 1 << 63)
+        self.assertFalse(typed[0]["level"]["IsNumber"])
+        self.assertEqual(typed[0]["level"]["String"], "1")
+        self.assertEqual(absent, [{"indoor": None, "level": None}])
 
     def test_retained_actual_source_pair(self):
         fixture = Path(__file__).with_name("fixtures") / "bridge-source-facts"

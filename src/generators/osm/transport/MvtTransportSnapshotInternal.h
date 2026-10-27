@@ -35,7 +35,8 @@ struct Sources {
 
 struct Segment {
   Signature Key{};
-  size_t Way = 0;
+  uint32_t Way = 0;
+  uint32_t NativeWay = 0;
   size_t From = 0;
   size_t To = 0;
   uint32_t SourceStep = 0;

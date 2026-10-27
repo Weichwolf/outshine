@@ -3,7 +3,9 @@
 #include "OsmField.h"
 #include "StreetField.h"
 #include <array>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <print>
 #include <string_view>
@@ -107,6 +109,29 @@ void Sources(std::FILE *file, const World::TransportProvenance &provenance) {
   std::print(file, "]");
 }
 
+void HeightProfileTags(std::FILE *file, const OsmField &field, const OsmField::Feature &feature) {
+  std::print(file, R"(,"HeightProfileTags":{{)");
+  bool first = true;
+  for (const auto key : {std::string_view("indoor"), std::string_view("level")}) {
+    if (!first) { std::print(file, ","); }
+    first = false;
+    String(file, key);
+    std::print(file, ":");
+    const auto tag = field.ReadAttribute(feature, key);
+    if (!tag) {
+      std::print(file, "null");
+      continue;
+    }
+    std::print(file,
+               R"({{"IsNumber":{},"NumberWord":{},"String":)",
+               tag->IsNumber,
+               std::bit_cast<uint64_t>(tag->Number));
+    String(file, tag->String);
+    std::print(file, "}}");
+  }
+  std::print(file, "}}");
+}
+
 bool Paths(std::FILE *file,
            const MvtTransportSnapshot &snapshot,
            const OsmField &field,
@@ -135,6 +160,7 @@ bool Paths(std::FILE *file,
     String(file, field.LayerName(feature.Layer));
     std::print(file, R"(,"FeatureContent":)");
     WriteBytes(file, feature.ContentDigest);
+    HeightProfileTags(file, field, feature);
     std::print(file, "}}}}");
   }
   std::print(file, "]");

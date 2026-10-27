@@ -59,9 +59,9 @@ std::expected<void, std::string> FillSourceWayFacts(MvtTransportSourceFacts &fac
     const auto way = std::ranges::lower_bound(
         facts.Ways, member.StreetWay, {}, &MvtTransportWayFacts::StreetWay);
     const size_t physical = member.End ^ static_cast<uint8_t>(member.Edge.Direction);
-    const bool terminal =
-        physical == 0 ? member.SourceStep == 0 : member.SourceStep == way->PointCount - 2;
-    if (terminal && !way->OwnsEnds[physical]) { facts.Groups[member.NodeGroup].Frontier = true; }
+    if (member.SourceTerminal && !way->OwnsEnds[physical]) {
+      facts.Groups[member.NodeGroup].Frontier = true;
+    }
   }
   return {};
 }

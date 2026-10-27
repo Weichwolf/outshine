@@ -35,7 +35,7 @@ void WriteSourceFacts(std::FILE *f,
   const auto &identity = facts.Network->SourceIdentity();
   std::print(
       f,
-      R"({{"schema":"outshine/native-mvt-source-facts/1","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
+      R"({{"schema":"outshine/native-mvt-source-facts/2","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
       field.Tiles().front().InputDigest,
       tile[0],
       tile[1],
@@ -81,7 +81,7 @@ void WriteSourceFacts(std::FILE *f,
   for (const auto &m : facts.Members) {
     std::print(
         f,
-        R"({}{{"Edge":{{"PathId":{},"SegmentOrdinal":{},"Direction":{}}},"DomainNode":{},"NodeGroup":{},"StreetWay":{},"SourceStep":{},"End":{}}})",
+        R"({}{{"Edge":{{"PathId":{},"SegmentOrdinal":{},"Direction":{}}},"DomainNode":{},"NodeGroup":{},"StreetWay":{},"SourceStep":{},"End":{},"SourceTerminal":{}}})",
         at++ != 0 ? "," : "",
         m.Edge.PathId,
         m.Edge.SegmentOrdinal,
@@ -90,7 +90,8 @@ void WriteSourceFacts(std::FILE *f,
         m.NodeGroup,
         m.StreetWay,
         m.SourceStep,
-        static_cast<unsigned>(m.End));
+        static_cast<unsigned>(m.End),
+        m.SourceTerminal);
   }
   std::print(f, R"(],"Ways":[)");
   at = 0;

@@ -78,6 +78,10 @@ void AddMembers(MvtTransportSourceFacts &facts,
     const auto &way = input.SourceRows.Ways[segment.Way];
     const bool reverse = way.Attributes.Travel == OsmWayTravel::Reverse;
     for (const bool end : {false, true}) {
+      const size_t originalPoint = end ? way.PointCount - 1 : 0;
+      const auto originalNode = input.Network.NodeOfWayPoint(segment.NativeWay, originalPoint);
+      const bool originalStep =
+          end ? segment.SourceStep == way.PointCount - 2 : segment.SourceStep == 0;
       facts.Members.push_back(
           {.Edge = {.PathId = Identifier(segment.Key),
                     .SegmentOrdinal = segment.FragmentOrdinal,
@@ -85,9 +89,11 @@ void AddMembers(MvtTransportSourceFacts &facts,
                         reverse ? World::EdgeDirection::Reverse : World::EdgeDirection::Forward},
            .DomainNode = end ? segment.ToId : segment.FromId,
            .NodeGroup = static_cast<uint32_t>(mapped[end ? segment.To : segment.From] - 1),
-           .StreetWay = static_cast<uint32_t>(segment.Way),
+           .StreetWay = segment.Way,
            .SourceStep = segment.SourceStep,
-           .End = static_cast<uint8_t>(end != reverse)});
+           .End = static_cast<uint8_t>(end != reverse),
+           .SourceTerminal =
+               originalStep && originalNode && *originalNode == (end ? segment.To : segment.From)});
     }
   }
   std::ranges::sort(facts.Members, {}, [](const MvtTransportSourceMember &member) {
