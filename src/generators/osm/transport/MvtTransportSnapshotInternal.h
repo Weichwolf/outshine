@@ -48,6 +48,14 @@ struct Connections {
   size_t InputCount = 0;
 };
 
+struct NodeGroupCapture {
+  size_t BytesMost = 0;
+  MvtTransportNodeGroupState State = MvtTransportNodeGroupState::NotRequested;
+  std::shared_ptr<MvtTransportNodeGroups> Data;
+};
+
+void CanonicalizeNodeGroups(MvtTransportNodeGroups &groups, std::string_view revision);
+
 [[nodiscard]] std::expected<Connections, std::string>
 ReadConnections(const Sources &sources, const Path::Network &network, const std::stop_token &stop);
 [[nodiscard]] std::expected<void, std::string> RecordMissingTopology(Sources &sources,
@@ -56,6 +64,7 @@ ReadConnections(const Sources &sources, const Path::Network &network, const std:
 AssignNodes(Sources &sources,
             std::vector<Segment> &segments,
             const Path::Network &network,
+            NodeGroupCapture &capture,
             const std::stop_token &stop);
 
 [[nodiscard]] std::expected<Sources, std::string> SourceRows(const OsmField &field);
@@ -74,6 +83,7 @@ PrepareSources(const OsmField &field, const StreetField &streets, const std::sto
 Publish(Sources sources,
         const Path::Network &network,
         std::span<const GeographicBounds> coverage,
-        const std::stop_token &stop);
+        const std::stop_token &stop,
+        MvtTransportCapture capture);
 }
 #endif

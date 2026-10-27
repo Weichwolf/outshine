@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <memory>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -101,14 +102,63 @@ void BindEndpoints(Sources &sources,
   }
 }
 
+std::expected<void, std::string> PrepareNodeGroups(NodeGroupCapture &capture,
+                                                   std::span<const Endpoint> endpoints,
+                                                   const std::stop_token &stop) {
+  if (capture.BytesMost == 0) { return {}; }
+  capture.State = MvtTransportNodeGroupState::BudgetExceeded;
+  size_t groups = 0;
+  size_t nodes = 0;
+  for (size_t at = 0; at < endpoints.size(); ++at) {
+    if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
+    groups += static_cast<size_t>(at == 0 || endpoints[at - 1].Node != endpoints[at].Node);
+    nodes += static_cast<size_t>(at == 0 || Domain(endpoints[at - 1]) != Domain(endpoints[at]));
+  }
+  if (groups > std::numeric_limits<uint32_t>::max() ||
+      nodes > std::numeric_limits<uint32_t>::max() ||
+      capture.BytesMost < sizeof(MvtTransportNodeGroups)) {
+    return {};
+  }
+  size_t left = capture.BytesMost - sizeof(MvtTransportNodeGroups);
+  if (groups > left / sizeof(MvtTransportNodeGroup)) { return {}; }
+  left -= groups * sizeof(MvtTransportNodeGroup);
+  if (nodes > left / (sizeof(uint64_t) * 2)) { return {}; }
+  capture.Data = std::make_shared<MvtTransportNodeGroups>();
+  capture.Data->Groups.reserve(groups);
+  capture.Data->Nodes.reserve(nodes);
+  capture.State = MvtTransportNodeGroupState::Captured;
+  return {};
+}
+
+void RecordNodeGroup(const NodeGroupCapture &capture,
+                     std::span<const Endpoint> endpoints,
+                     size_t first,
+                     uint64_t id,
+                     const Path::Network &network) {
+  if (!capture.Data) { return; }
+  auto &data = *capture.Data;
+  if (first == 0 || endpoints[first - 1].Node != endpoints[first].Node) {
+    data.Groups.push_back({.FirstNode = static_cast<uint32_t>(data.Nodes.size()),
+                           .NodeCount = 0,
+                           .SourceConnectionCount = static_cast<uint64_t>(
+                               network.ConnectionsFrom(endpoints[first].Node).size())});
+  }
+  data.Nodes.push_back(id);
+  ++data.Groups.back().NodeCount;
+}
+
 }
 
 std::expected<std::vector<World::TransportNode>, std::string>
 AssignNodes(Sources &sources,
             std::vector<Segment> &segments,
             const Path::Network &network,
+            NodeGroupCapture &capture,
             const std::stop_token &stop) {
   const auto endpoints = Endpoints(sources, segments);
+  if (auto prepared = PrepareNodeGroups(capture, endpoints, stop); !prepared) {
+    return std::unexpected(std::move(prepared.error()));
+  }
   std::vector<World::TransportNode> nodes;
   std::vector<std::pair<uint64_t, Signature>> keys;
   for (size_t at = 0; at < endpoints.size();) {
@@ -128,6 +178,7 @@ AssignNodes(Sources &sources,
     const bool ambiguous = (at > 0 && endpoints[at - 1].Node == endpoints[at].Node) ||
                            (to < endpoints.size() && endpoints[to].Node == endpoints[at].Node);
     BindEndpoints(sources, segments, group, id, ambiguous);
+    RecordNodeGroup(capture, endpoints, at, id, network);
     at = to;
   }
   std::ranges::sort(keys);
