@@ -1,12 +1,14 @@
 #ifndef OUTSHINE_PRISM_DIFFERENTIALS
 #define OUTSHINE_PRISM_DIFFERENTIALS
 #include "prismPlane.glsl"
+#include "prismProjectiveMath.glsl"
 struct PrismDifferentialFrame {
   vec3 xy;
   vec3 xw;
   vec3 yw;
   mat3 weight;
   vec4 camera;
+  ivec3 scale;
 };
 
 vec4 prismDifferenceOfProducts(vec4 a, vec4 b, vec4 c, vec4 d) {
@@ -18,12 +20,9 @@ vec4 prismDifferenceOfProducts(vec4 a, vec4 b, vec4 c, vec4 d) {
 }
 
 PrismDifferentialFrame preparePrismDifferentials(mat4 b) {
-  // Power-of-two scaling preserves the projective query while bounding intermediate products.
-  vec4 maximum = max(max(abs(b[0]), abs(b[1])), max(abs(b[2]), abs(b[3])));
-  float largest = max(max(maximum.x, maximum.y), max(maximum.z, maximum.w));
-  int exponent;
-  frexp(largest, exponent);
-  for (int i = 0; i < 4; ++i) { b[i] = ldexp(b[i], ivec4(-exponent)); }
+  // Balance local chart axes independently so small representable gradients survive the minors.
+  ivec4 exponent;
+  b = prismNormalizeRows(b, exponent);
   vec3 m01 = prismDifferenceOfProducts(b[0], vec4(b[1].w), b[1], vec4(b[0].w)).xyz;
   vec3 m02 = prismDifferenceOfProducts(b[0], vec4(b[2].w), b[2], vec4(b[0].w)).xyz;
   vec3 m12 = prismDifferenceOfProducts(b[1], vec4(b[2].w), b[2], vec4(b[1].w)).xyz;
@@ -37,7 +36,7 @@ PrismDifferentialFrame preparePrismDifferentials(mat4 b) {
   vec3 w0 = prismDifferenceOfProducts(b[2], vec4(b[0].w), b[0], vec4(b[2].w)).xyz;
   vec3 w1 = prismDifferenceOfProducts(b[2], vec4(b[1].w), b[1], vec4(b[2].w)).xyz;
   vec3 w3 = prismDifferenceOfProducts(b[2], vec4(b[3].w), b[3], vec4(b[2].w)).xyz;
-  return PrismDifferentialFrame(xy, xw, yw, mat3(w0, w1, w3), b[2]);
+  return PrismDifferentialFrame(xy, xw, yw, mat3(w0, w1, w3), b[2], exponent.xyz - ivec3(exponent.w));
 }
 
 void prismPositionDifferentials(PrismDifferentialFrame frame, vec3 normal, float height,
@@ -45,10 +44,11 @@ void prismPositionDifferentials(PrismDifferentialFrame frame, vec3 normal, float
   uint axis = prismPlaneAxis(normal);
   precise float weight = fma(frame.weight[0][axis], ndc.x,
                               fma(frame.weight[1][axis], ndc.y, frame.weight[2][axis]));
-  precise float incidence = fma(-height, frame.camera.w, frame.camera[axis]);
+  float localHeight = ldexp(height, -frame.scale[axis]);
+  precise float incidence = fma(-localHeight, frame.camera.w, frame.camera[axis]);
   precise vec3 localDx = cross(abs(normal), fma(frame.xy, vec3(ndc.y), frame.xw));
   precise vec3 localDy = cross(abs(normal), fma(-frame.xy, vec3(ndc.x), frame.yw));
-  dx = (localDx / weight) * (incidence / weight) * (2.0 / viewportSize.x);
-  dy = (localDy / weight) * (incidence / weight) * (-2.0 / viewportSize.y);
+  dx = ldexp((localDx / weight) * (incidence / weight) * (2.0 / viewportSize.x), frame.scale);
+  dy = ldexp((localDy / weight) * (incidence / weight) * (-2.0 / viewportSize.y), frame.scale);
 }
 #endif

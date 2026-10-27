@@ -13,6 +13,7 @@ layout(location = 4) flat out uint prismPatchIndex;
 #include "prismDifferentialVaryings.glsl"
 #endif
 #include "prismProxy.glsl"
+#include "prismProjectiveMath.glsl"
 
 void main() {
   PrismPatch gridPatch = prismPatches[gl_InstanceIndex];
@@ -24,7 +25,7 @@ void main() {
   mat4 clipFromLocal = s.viewProj * model;
 #endif
   gl_Position = prismProxyPosition(gridPatch, clipFromLocal, uint(gl_VertexIndex));
-  prismLocalFromClip = inverse(clipFromLocal);
+  prismLocalFromClip = prismInverseProjection(clipFromLocal);
   prismPatchIndex = uint(gl_InstanceIndex);
 #if !PRISM_DEPTH
   writePrismDifferentials(prismLocalFromClip);

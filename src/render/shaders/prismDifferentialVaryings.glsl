@@ -9,6 +9,7 @@ layout(location = 6) flat PRISM_DIFFERENTIAL_VARYING vec3 prismDifferentialXW;
 layout(location = 7) flat PRISM_DIFFERENTIAL_VARYING vec3 prismDifferentialYW;
 layout(location = 8) flat PRISM_DIFFERENTIAL_VARYING mat3 prismDifferentialWeight;
 layout(location = 11) flat PRISM_DIFFERENTIAL_VARYING vec4 prismDifferentialCamera;
+layout(location = 12) flat PRISM_DIFFERENTIAL_VARYING ivec3 prismDifferentialScale;
 #undef PRISM_DIFFERENTIAL_VARYING
 #if PRISM_VERTEX
 void writePrismDifferentials(mat4 localFromClip) {
@@ -18,11 +19,12 @@ void writePrismDifferentials(mat4 localFromClip) {
   prismDifferentialYW = frame.yw;
   prismDifferentialWeight = frame.weight;
   prismDifferentialCamera = frame.camera;
+  prismDifferentialScale = frame.scale;
 }
 #else
 PrismDifferentialFrame readPrismDifferentials() {
   return PrismDifferentialFrame(prismDifferentialXY, prismDifferentialXW,
                                   prismDifferentialYW, prismDifferentialWeight,
-                                  prismDifferentialCamera);
+                                  prismDifferentialCamera, prismDifferentialScale);
 }
 #endif

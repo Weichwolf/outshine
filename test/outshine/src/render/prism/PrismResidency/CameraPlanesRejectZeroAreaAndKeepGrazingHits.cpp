@@ -115,7 +115,7 @@ void Probe(Device &device) {
     const auto view = View(0x1p24f, axis == 0 ? 1.f : 0.f, axis == 1 ? 1.f : 0.f);
     Compare(Draw(device, *pipelines.Depth(), *target, view, -1), 0, 0);
   }
-  for (const int exponent : {8, 16, 24, 32}) {
+  for (const int exponent : {8, 16, 24, 32, 68, 100}) {
     const float distance = std::ldexp(1.f, -exponent);
     const float focal = .25f / distance;
     const auto view = View(focal, -distance, 0);

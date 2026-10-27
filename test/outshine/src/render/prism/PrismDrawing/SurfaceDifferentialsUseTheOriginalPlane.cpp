@@ -29,6 +29,7 @@ using Complex = std::complex<double>;
 using Vector = std::array<Complex, 4>;
 constexpr double kComplexStep = 1e-20;
 constexpr uint32_t kPoison = 0x7fc00001u;
+constexpr std::array kSmallExponents{62, 66, 82, 100};
 
 size_t Axis(const Input &input) {
   for (size_t axis = 0; axis < 3; ++axis) {
@@ -88,6 +89,18 @@ std::vector<Input> Controls() {
       result.push_back(scaled);
     }
   }
+  for (const int exponent : kSmallExponents) {
+    Input small;
+    small.B.Column.fill(0);
+    const float step = std::ldexp(1.f, -exponent);
+    small.B.At(0, 0) = small.B.At(1, 1) = step;
+    small.B.At(0, 2) = -step;
+    small.B.At(2, 2) = small.B.At(3, 2) = 4;
+    small.B.At(2, 3) = -1;
+    small.Plane = {-1, 0, 0, 0};
+    small.Pixel = {.5f, .25f, 96, 80};
+    result.push_back(small);
+  }
   return result;
 }
 
@@ -120,6 +133,11 @@ void Compare(std::span<const float> values, std::span<const Input> inputs) {
         const float actual = row[derivative * 4 + component];
         CHECK(std::isfinite(actual) && std::isfinite(expected[component]),
               "actual plane differential is finite");
+        if (i >= inputs.size() - kSmallExponents.size() && expected[component] != 0) {
+          CHECK(actual != 0 &&
+                    std::abs(static_cast<double>(actual) / expected[component] - 1) < 2e-5,
+                "each small representable gradient component survives before UV scaling");
+        }
         squaredError += std::pow(static_cast<double>(actual) - expected[component], 2);
         squaredNorm += expected[component] * expected[component];
       }
@@ -130,7 +148,7 @@ void Compare(std::span<const float> values, std::span<const Input> inputs) {
             "the normal derivative is exactly zero in the original local chart");
     }
   }
-  CHECK(projected == 390 && degenerate == 45,
+  CHECK(projected == 390 + kSmallExponents.size() && degenerate == 45,
         "real captures, translated charts, homogeneous scales and nonzero adjacent planes are "
         "exercised");
 }
