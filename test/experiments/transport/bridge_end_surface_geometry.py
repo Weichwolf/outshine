@@ -46,7 +46,18 @@ def strip_faces(rows):
     )
 
 
-def end_geometry(anchor, port_anchor, near, gradient, intercept, other, width, budget):
+def end_geometry(
+    anchor,
+    port_anchor,
+    near,
+    gradient,
+    intercept,
+    other,
+    width,
+    budget,
+    *,
+    ground_inside,
+):
     origin, axes = frame(anchor)
     target, target_axes = frame(port_anchor)
     rotation = target_axes.T @ axes
@@ -63,7 +74,12 @@ def end_geometry(anchor, port_anchor, near, gradient, intercept, other, width, b
     if not 0.25 <= length or len(near) != 2:
         raise ValueError("bridge_end_extent_or_cap_recipe")
     left = np.array([-direction[1], direction[0]])
-    order = np.argsort(cap[:, :2] @ left)
+    inside = ground_inside @ rotation.T + translation
+    edge, inward = cap[1, :2] - cap[0, :2], inside[:2] - cap[0, :2]
+    side = edge[0] * inward[1] - edge[1] * inward[0]
+    if not math.isfinite(side) or side == 0:
+        raise ValueError("bridge_end_ground_cap_boundary")
+    order = np.array([0, 1] if side > 0 else [1, 0])
     cap, near = cap[order], near[order]
     axis = end_axis(cap[:, :2], direction, length)
     vertices, faces = 2 * len(axis), 2 * (len(axis) - 1)

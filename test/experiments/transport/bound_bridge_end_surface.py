@@ -85,9 +85,25 @@ def build_end_surface(prepared, report, index, group_id, *, budget=None):
     other = index.index[0][node]
     anchor, field = prepared
     gradient, intercept = terminal_plane(field, cap["part"])
-    near = report["surface"].vertices[list(cap["cap_vertices"])]
+    surface = report["surface"]
+    cap_ids = set(cap["cap_vertices"])
+    adjacent = [f for f in surface.triangles if cap_ids.issubset(f)]
+    if len(cap_ids) != 2 or len(adjacent) != 1:
+        raise ValueError("bridge_end_ground_cap_boundary")
+    interior = [v for v in adjacent[0] if v not in cap_ids]
+    if len(interior) != 1:
+        raise ValueError("bridge_end_ground_cap_boundary")
+    near = surface.vertices[list(cap["cap_vertices"])]
     mesh, quality = end_geometry(
-        anchor, group.position, near, gradient, intercept, other, span.width_m, budget
+        anchor,
+        group.position,
+        near,
+        gradient,
+        intercept,
+        other,
+        span.width_m,
+        budget,
+        ground_inside=surface.vertices[interior[0]],
     )
     longs = quality["longitudinal_grade_by_axis_segment"]
     crosses = quality["cross_grade_by_axis_segment"]
@@ -124,6 +140,7 @@ def build_end_surface(prepared, report, index, group_id, *, budget=None):
         "work": {
             **work,
             "ground_terminal_rows": len(values),
+            "ground_cap_face_visits": len(surface.triangles),
             "frame_source_spans": len(scope["members"]),
             "additional_DEM_samples": 0,
         },

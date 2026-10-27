@@ -6,9 +6,11 @@ from unittest.mock import patch
 
 import numpy as np
 from bound_bridge_end_surface import build_end_surface
+from bridge_end_surface_geometry import end_geometry
 from bridge_end_surface_inputs import actual_end_inputs
+from outshine_ref.contracts import Mesh
 from outshine_ref.transport.canonical_ports import PortBudget
-from outshine_ref.transport.canonical_ports._geodesy import frame
+from outshine_ref.transport.canonical_ports._geodesy import frame, positions_in_frame
 from outshine_ref.transport.port_heights._world import normal_gradients
 
 
@@ -106,6 +108,49 @@ class ActualBridgeEndSurfaces(unittest.TestCase):
             expected, _ = self.outputs[group]
             np.testing.assert_array_equal(actual.vertices, expected.vertices)
             np.testing.assert_array_equal(actual.triangles, expected.triangles)
+
+    def test_reflected_helper_direction_cannot_enter_actual_ground(self):
+        # Reverse only the internal direction query, not captured Source facts.
+        def reflected(*args, **kwargs):
+            return -positions_in_frame(*args, **kwargs)
+
+        for group in self.groups:
+            with (
+                self.subTest(group=group),
+                patch("bridge_end_surface_geometry.positions_in_frame", reflected),
+                self.assertRaisesRegex(ValueError, "bridge_entry_direction_recipe"),
+            ):
+                self.build(group=group)
+
+    def test_cap_input_order_keeps_outward_surface(self):
+        def swapped(anchor, port, near, *args, **kwargs):
+            original, row = end_geometry(anchor, port, near, *args, **kwargs)
+            mesh, _ = end_geometry(anchor, port, near[::-1], *args, **kwargs)
+            np.testing.assert_array_equal(mesh.vertices, original.vertices)
+            np.testing.assert_array_equal(mesh.triangles, original.triangles)
+            return original, row
+
+        for group in self.groups:
+            with patch("bound_bridge_end_surface.end_geometry", swapped):
+                mesh, _ = self.build(group=group)
+            original, _ = self.outputs[group]
+            np.testing.assert_array_equal(mesh.vertices, original.vertices)
+            np.testing.assert_array_equal(mesh.triangles, original.triangles)
+
+    def test_missing_or_ambiguous_original_cap_face_is_rejected(self):
+        ground = self.report["surface"]
+        for group in self.groups:
+            cap = self.outputs[group][1]["near_ground_vertices"]
+            touches = np.isin(ground.triangles, cap).sum(axis=1) == 2
+            for faces in (
+                ground.triangles[~touches],
+                np.vstack((ground.triangles, ground.triangles[touches])),
+            ):
+                with self.assertRaisesRegex(ValueError, "ground_cap_boundary"):
+                    self.build(
+                        group=group,
+                        report={**self.report, "surface": Mesh(ground.vertices, faces)},
+                    )
 
     def test_wrong_prepared_frame_is_rejected(self):
         anchor, field = self.prepared

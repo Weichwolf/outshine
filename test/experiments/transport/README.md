@@ -1795,7 +1795,10 @@ must agree. Missing profiles, incomplete incidence, Frontier and budgets remain
 explicit failures. This experiment adds no shared library API or World authority.
 
 For each supported Bridge/Ground pair, the original entire two-point Ground cap
-is retained byte for byte. A short axis follows the Ground outgoing direction,
+is retained byte for byte. Its unique adjacent original Ground triangle identifies
+the interior side; cap orientation is derived from that face, independently of
+the requested Bridge direction. Missing/ambiguous boundary incidence and an
+inward Bridge direction are rejected. A short axis follows the Ground outgoing direction,
 uses a cubic transition, and ends along the actual first Bridge span. The
 versioned recipe limits its length to min(8m, first-span-length/4). Existing
 constant-width miters and direct strip triangles continue the same fitted affine
@@ -1825,7 +1828,7 @@ PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/t
 Outputs require fresh external system-temp paths. Plotting and Memray are optional.
 Preparation/decode, index and Ground fitting are recorded separately from each
 end stage. Whole-stage counters include binding checks in time/allocations;
-explicit member counts exclude structured metadata equality and numeric/kernel
+explicit member and Ground-cap-face visit counts exclude structured metadata equality and numeric/kernel
 work. Known mesh/cap payload bytes are not all copied bytes or process peaks.
 A second comparison validates GEOS constrained Delaunay against the same prepared
 footprint, original shared cap and whole plane gradients. Its mapping/orientation
