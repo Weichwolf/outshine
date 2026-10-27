@@ -9,6 +9,7 @@ from ...contracts import Mesh
 from ..port_heights import PortHeightInput, plan_port_heights
 from ._affine import AffineGround
 from ._geodesy import ground_geographic_at, positions_in_frame
+from ._ground_prior import prior_contradiction
 from ._queries import CoarseFieldQuery
 
 
@@ -150,6 +151,14 @@ def fit_ground(inputs, error_limit_m, method, budget):
         if method == "affine":
             return None, {"reason": "ground_prior_error_limit", **affine_report}
     backend = "lp" if method == "lp" else "cone"
+    witness, work = prior_contradiction(inputs, error_limit_m, budget)
+    if witness is not None:
+        return None, {
+            "reason": "ground_prior_error_limit",
+            "selected_method": backend,
+            "affine_control": affine_report,
+            "prior_preflight": {"witness": witness, "work": work},
+        }
     fit = plan_port_heights(inputs, budget=budget.surface, method=backend)
     report = dict(fit.report)
     report.update(selected_method=backend, affine_control=affine_report)
