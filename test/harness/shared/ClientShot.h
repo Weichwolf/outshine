@@ -2,17 +2,22 @@
 #define OUTSHINE_TEST_CLIENTSHOT_H
 
 #include "Check.h"
-#include "ClientCommand.h"
 #include "format/Json.h"
 #include "io/PngImage.h"
 #include "io/ReadTextFile.h"
 
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_process.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <limits>
+#include <memory>
 #include <print>
 #include <string>
 #include <utility>
@@ -103,7 +108,6 @@ inline void CheckPlaceTiming(const PlaceCapture &capture, unsigned rateHz) {
   const auto report = capture.Report.Root();
   constexpr double kBudgetRoundingMs = 1e-6;
   constexpr double kClockRoundingS = 1e-12;
-  constexpr double kMinimumPacedWindowMs = 999.0;
   constexpr double kCurrentCpuBudgetMs = 10.0;
   const auto profile = report["profile"];
   const auto motion = report["motion"];
@@ -122,8 +126,12 @@ inline void CheckPlaceTiming(const PlaceCapture &capture, unsigned rateHz) {
             motion["frames"].Int() == static_cast<int>(rateHz) &&
             std::abs(motion["time_step_s"].Num(missing) * rateHz - 1.0) < kClockRoundingS,
         "exactly one second of target-rate simulation frames completes the camera turn");
-  CHECK(phases["paced_window"].Num(missing) >= kMinimumPacedWindowMs,
-        "the measured turn is paced over a complete second of actual wall time");
+  CHECK(profile["pacing"].StrEquals("unpaced") &&
+            std::isfinite(phases["unpaced_window"].Num(missing)) &&
+            phases["unpaced_window"].Num(missing) > 0 &&
+            std::isfinite(report["wall_throughput_fps"].Num(missing)) &&
+            report["wall_throughput_fps"].Num(missing) > 0,
+        "the complete target-rate simulation turn measures maximum completed wall throughput");
   CHECK(std::isfinite(phases["preload"].Num(missing)) && phases["preload"].Num(missing) >= 0,
         "complete cached world preload reports its actual duration");
   CHECK(report["measurement_complete"].Bool() && report["world_complete"].Bool() &&
@@ -142,15 +150,69 @@ inline void CheckPlaceTiming(const PlaceCapture &capture, unsigned rateHz) {
         "GPU maximum and p99 fit the requested frame budget");
 }
 
+struct PlaceProcessProperties {
+  PlaceProcessProperties() = default;
+  PlaceProcessProperties(const PlaceProcessProperties &) = delete;
+  PlaceProcessProperties &operator=(const PlaceProcessProperties &) = delete;
+
+  SDL_PropertiesID Id = SDL_CreateProperties();
+
+  ~PlaceProcessProperties() { SDL_DestroyProperties(Id); }
+};
+
+[[nodiscard]] inline int
+CapturePlace(const char *place, const char *catalog, unsigned rateHz, std::string &output) {
+  const std::string rate = std::to_string(rateHz);
+  const char *binary = SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_CLIENT");
+  std::array<const char *, 13> arguments{"python3",
+                                         "-B",
+                                         "test/scripts/places.py",
+                                         "--catalog",
+                                         catalog,
+                                         "--client",
+                                         binary != nullptr ? binary : "build/outshine",
+                                         "--fps",
+                                         rate.c_str(),
+                                         "--preload-seconds",
+                                         "600",
+                                         place,
+                                         nullptr};
+  const PlaceProcessProperties properties;
+  if (properties.Id == 0 ||
+      !SDL_SetPointerProperty(properties.Id,
+                              SDL_PROP_PROCESS_CREATE_ARGS_POINTER,
+                              static_cast<void *>(arguments.data())) ||
+      !SDL_SetNumberProperty(
+          properties.Id, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL) ||
+      !SDL_SetNumberProperty(
+          properties.Id, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP) ||
+      !SDL_SetBooleanProperty(
+          properties.Id, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true)) {
+    return -1;
+  }
+  const std::unique_ptr<SDL_Process, decltype(&SDL_DestroyProcess)> process(
+      SDL_CreateProcessWithProperties(properties.Id), SDL_DestroyProcess);
+  if (!process) { return -1; }
+  size_t bytes = 0;
+  int status = -1;
+  const std::unique_ptr<void, decltype(&SDL_free)> text(
+      SDL_ReadProcess(process.get(), &bytes, &status), SDL_free);
+  if (!text) {
+    const bool stopped = SDL_KillProcess(process.get(), true);
+    const bool reaped = SDL_WaitProcess(process.get(), true, nullptr);
+    if (!stopped && !reaped) { output.append(SDL_GetError()); }
+    return -1;
+  }
+  output.append(static_cast<const char *>(text.get()), bytes);
+  return status;
+}
+
 inline int ScorePlace(const char *place,
                       const char *catalog = "test/outshine/data/places",
                       unsigned rateHz = kPlaceRateHz) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const auto command = "python3 -B test/scripts/places.py --catalog " + ShellArgument(catalog) +
-                       " --client " + ClientCommand() + " --fps " + std::to_string(rateHz) +
-                       " --preload-seconds 600 " + ShellArgument(place) + " 2>&1";
   std::string output;
-  const int status = Run(command, output);
+  const int status = CapturePlace(place, catalog, rateHz, output);
   std::print("{}", output);
   PlaceCapture capture;
   if (status != 0 || !capture.Summary.Parse(output.data(), output.size())) {
@@ -165,7 +227,7 @@ inline int ScorePlace(const char *place,
     return Report();
   }
   CHECK(capture.Summary.Root()["place"].StrEquals(place), "the requested place was captured");
-  CHECK(capture.Report.Root()["benchmark_version"].Int() == 1 &&
+  CHECK(capture.Report.Root()["benchmark_version"].Int() == 2 &&
             capture.Report.Root()["mode"].StrEquals("scenario"),
         "the native scenario benchmark provides the measurement");
   CheckPlaceTiming(capture, rateHz);

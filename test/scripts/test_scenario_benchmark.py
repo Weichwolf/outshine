@@ -79,18 +79,17 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertAlmostEqual(metrics[f'render last submitted camera: eye {axis}'],
                                        value, places=9)
 
-    def test_unpaced_preserves_motion_image_and_avoids_target_waits(self):
+    def test_benchmark_always_runs_without_target_waits(self):
         scene = dict(SCENE, render={'widthPx': 32, 'heightPx': 32, 'fps': 2})
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-throughput-') as folder:
             reports = []
             images = []
-            for unpaced in (False, True):
-                image = Path(folder) / f'{unpaced}.png'
-                args = ('--unpaced',) if unpaced else ()
+            for repeat in (0, 1):
+                image = Path(folder) / f'{repeat}.png'
                 result = self.invoke('--scenario', json.dumps(scene), '--frames', '6',
                                      '--linear-velocity', '1,-2,3',
                                      '--angular-velocity', '0,-90,0', '--offline',
-                                     '--image', str(image), *args)
+                                     '--image', str(image))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 report = json.loads(result.stdout)
                 self.assertTrue(report['world_complete'])
@@ -103,12 +102,15 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(reports[0]['motion'], reports[1]['motion'])
             self.assertEqual(reports[0]['declaration_sha256'], reports[1]['declaration_sha256'])
             self.assertEqual(images[0], images[1])
-            self.assertEqual(reports[0]['profile']['pacing'], 'target_fps')
-            self.assertEqual(reports[1]['profile']['pacing'], 'unpaced')
-            self.assertGreaterEqual(reports[0]['phases_ms']['paced_window'], 2999)
-            self.assertLess(reports[1]['phases_ms']['unpaced_window'], 1500)
-            for report, phase in zip(reports, ('paced_window', 'unpaced_window'), strict=True):
-                duration_ms = report['phases_ms'][phase] + report['phases_ms']['final_gpu_flush']
+            for report in reports:
+                self.assertEqual(report['benchmark_version'], 2)
+                self.assertEqual(report['profile']['pacing'], 'unpaced')
+                self.assertNotIn('paced_window', report['phases_ms'])
+                self.assertLess(report['phases_ms']['unpaced_window'], 1500)
+                self.assertAlmostEqual(report['motion']['time_step_s'], 0.5)
+                self.assertEqual(report['motion']['finish']['position_m'], [3, -6, 13])
+                duration_ms = (report['phases_ms']['unpaced_window'] +
+                               report['phases_ms']['final_gpu_flush'])
                 self.assertAlmostEqual(report['wall_throughput_fps'], 6000 / duration_ms)
 
     def test_file_input_overrides_and_stdout(self):
@@ -122,6 +124,25 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(report['profile']['fps'], 30)
             self.assertEqual(len(report['cpu_times']['samples']), 1)
             self.assertEqual(report['gpu_times']['rendered_frames'], 1)
+
+    def test_shared_resolution_rate_profiles_drive_real_frames(self):
+        for height, width in ((720, 1280), (1080, 1920), (1440, 2560), (2160, 3840)):
+            for rate in (30, 60):
+                with self.subTest(height=height, fps=rate):
+                    profile = ROOT / 'data/profiles' / f'{height}p{rate}.json'
+                    result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1',
+                                         '--offline', '--scenario-overrides', profile.read_text())
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    report = json.loads(result.stdout)
+                    actual = report['profile']
+                    self.assertEqual((actual['width_px'], actual['height_px'], actual['fps']),
+                                     (width, height, rate))
+                    self.assertEqual(actual['pacing'], 'unpaced')
+                    self.assertAlmostEqual(actual['budget_ms'], 1000 / rate)
+                    self.assertAlmostEqual(report['motion']['time_step_s'], 1 / rate)
+                    self.assertEqual(report['gpu_times']['rendered_frames'], 1)
+                    self.assertTrue(report['measurement_complete'])
+                    self.assertTrue(report['world_complete'])
 
     def test_large_translation_preserves_submitted_orientation(self):
         result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1',

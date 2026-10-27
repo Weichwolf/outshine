@@ -60,12 +60,24 @@ stehen im Szenario. Ohne deklarierte Bildgröße gilt 1280×720. `--frames` ford
 einen rechtshändigen Weltachsenvektor in Grad pro Sekunde. Geografische Weltachsen sind
 Ost/Oben/Süd. Die Kamera folgt der Startpose bei `(i+1)/fps`; ihre Linse bleibt erhalten.
 
-Standardmäßig taktet das Messfenster auf die Ziel-fps. `--unpaced` misst stattdessen
-maximalen Durchsatz ohne diese Wartezeiten; Simulationsschritte, Kamera und Framezahl
-bleiben gleich. `profile.pacing` unterscheidet `target_fps` und `unpaced`, die Phase
-heißt entsprechend `paced_window` oder `unpaced_window`. `wall_throughput_fps` zählt
-Frames pro tatsächlicher Fensterzeit einschließlich abschließendem GPU-Warten.
-Der ungepacete Vergleich ersetzt kein zeitlich getaktetes Places-/Geräte-Gate.
+Benchmarks laufen immer mit maximalem Durchsatz ohne künstliche FPS-Wartezeit.
+Die Ziel-fps bestimmen Simulationsschritt und Budget; Framezahl, Kamera und Linse bleiben
+explizit. Berichtversion2 kennzeichnet `profile.pacing` als `unpaced` und die Messphase
+als `unpaced_window`. `wall_throughput_fps` zählt vollständig abgearbeitete Frames pro
+Fensterzeit einschließlich abschließendem GPU-Warten. Das gilt auch für Places-Messungen;
+deren Ziel-fps-Sekunde bezeichnet exakt diese Zahl Simulationsschritte.
+
+Fertige gemeinsame Overrides unter `data/profiles/` bieten720p/1080p/1440p/2160p,
+jeweils30oder60fps, z.B. `720p30.json` oder `2160p60.json`. Derselbe Inhalt gilt für
+`run` und `benchmark`; im laufenden Szenario gilt die Zielrate, im Benchmark maximaler
+Durchsatz. Verbindliches Auslegungsprofil bleibt720p60; die anderen Dateien sind
+Vergleichsprofile. Ein Profil setzt nur Bildgröße/Zielrate und reduziert keine Inhalte:
+
+```sh
+build/outshine run --scenario-overrides "$(cat data/profiles/1080p60.json)" /path/to/world.json
+build/outshine benchmark --scenario /path/to/world.json --frames 60 \
+  --scenario-overrides "$(cat data/profiles/1080p60.json)" --offline
+```
 
 Vor dem Fenster wird die gewählte Ansicht vollständig in Refined-Qualität vorbereitet.
 `--preload-seconds` setzt deren Deadline, standardmäßig zehn Sekunden. Es gibt keine
@@ -78,7 +90,7 @@ vollständige Framezahl, Weltvollständigkeit und vollständige GPU-Stichproben.
 enthält synchrone Warteanteile. GPU-Erfassung fügt keine Abfragen oder Warteoperationen
 hinzu; ihr begrenzter Speicher wird vor dem Fenster angelegt. Fehlende GPU-Zeit bleibt
 unbewiesen: keine vollständigen GPU-Perzentile und kein grünes Budget-Gate.
-Aufbau, Preload, getaktetes Fenster, abschließendes GPU-Warten und PNG liegen getrennt vor.
+Aufbau, Preload, ungepacetes Fenster, abschließendes GPU-Warten und PNG liegen getrennt vor.
 Der SHA-256 der effektiven Szenariodeklaration bindet Overrides und Providerkonfiguration;
 er ersetzt keinen Inhaltsnachweis extern geladener Assets. Quellen-/Cachekosten und
 Hardware-/Build-/Lastangaben bleiben im Bericht erhalten.

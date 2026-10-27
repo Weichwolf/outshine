@@ -72,7 +72,9 @@ class PlaceProfiles(unittest.TestCase):
                     self.assertEqual(
                         report["motion"]["angular_velocity_deg_s"], [0, -360, 0]
                     )
-                    self.assertGreaterEqual(report["phases_ms"]["paced_window"], 999.0)
+                    self.assertEqual(report["profile"]["pacing"], "unpaced")
+                    self.assertGreater(report["phases_ms"]["unpaced_window"], 0.0)
+                    self.assertAlmostEqual(report["motion"]["frames"] * report["motion"]["time_step_s"], 1.0)
                     profile = report["profile"]
                     self.assertEqual(
                         (profile["width_px"], profile["height_px"], profile["fps"]),

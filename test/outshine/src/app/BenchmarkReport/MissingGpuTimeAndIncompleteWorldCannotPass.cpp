@@ -40,10 +40,9 @@ int main() {
         "CPU and GPU retain their own nearest-rank durations without adding asynchronous phases");
   CHECK(json["build"]["host_load_before"].is_null(),
         "unavailable host load is not fabricated as zero");
-  CHECK(json["profile"]["pacing"] == "target_fps" && json["phases_ms"].contains("paced_window") &&
+  CHECK(json["profile"]["pacing"] == "unpaced" && json["phases_ms"].contains("unpaced_window") &&
             json["wall_throughput_fps"].is_null(),
-        "default pacing stays explicit and missing window durations do not imply throughput");
-  report.Unpaced = true;
+        "maximum-throughput execution is explicit and missing durations do not imply throughput");
   report.WindowMs = 20;
   report.FlushMs = 5;
   json = decode();
@@ -51,6 +50,26 @@ int main() {
             !json["phases_ms"].contains("paced_window") && json["wall_throughput_fps"] == 80 &&
             json["profile"]["fps"] == 60 && json["motion"]["frames"] == 2,
         "unpaced throughput includes final GPU completion and preserves simulation timing");
+  for (const double invalid :
+       {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    report.WindowMs = invalid;
+    CHECK(decode()["wall_throughput_fps"].is_null(),
+          "invalid measurement duration never fabricates throughput");
+    report.WindowMs = 20;
+    report.FlushMs = invalid;
+    CHECK(decode()["wall_throughput_fps"].is_null(),
+          "invalid GPU completion duration never fabricates throughput");
+    report.FlushMs = 5;
+  }
+  report.WindowMs = 0;
+  CHECK(decode()["wall_throughput_fps"].is_null(),
+        "a flush duration alone cannot stand in for the missing measured window");
+  report.WindowMs = std::numeric_limits<double>::max();
+  report.FlushMs = std::numeric_limits<double>::max();
+  CHECK(decode()["wall_throughput_fps"].is_null(),
+        "duration overflow never implies zero-cost completed work");
+  report.WindowMs = 20;
+  report.FlushMs = 5;
   report.GpuSamples.pop_back();
   report.Measures[1].Value = 1;
   report.Measures[4].Value = 1;

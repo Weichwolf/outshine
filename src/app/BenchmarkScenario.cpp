@@ -3,7 +3,6 @@
 #include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkReport.h"
-#include "FrameSchedule.h"
 #include "FrameTiming.h"
 #include "GpuFrameTiming.h"
 #include "HostProcessor.h"
@@ -59,7 +58,6 @@ Result MeasureFrames(Engine &engine,
   auto renderer = engine.renderer();
   if (const auto reset = renderer.resetMeasurements(report.Motion.Frames); !reset) { return reset; }
   const auto began = Clock::now();
-  const FrameSchedule schedule(SDL_GetTicksNS(), timing);
   for (size_t frame = 0; frame < report.Motion.Frames; ++frame) {
     const auto frameAt = Clock::now();
     const auto pose = motion.At(frame);
@@ -79,7 +77,6 @@ Result MeasureFrames(Engine &engine,
                              .AdvanceMs = advanceMs,
                              .RenderMs = renderMs,
                              .Refined = refined});
-    if (!report.Unpaced) { schedule.Wait(frame + 1); }
   }
   report.WindowMs = ElapsedMs(began);
   if (!renderer.camera(report.Finish)) {
@@ -131,7 +128,6 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   if (!declaration) { return std::unexpected(declaration.error()); }
   report.DeclarationSha256 = Sha256Hex(*declaration);
   report.Motion = options.Motion;
-  report.Unpaced = options.Unpaced;
   report.Motion.RateHz = document.Render.FrameRateHz;
   const auto timing = FrameTiming::At(report.Motion.RateHz);
   if (!timing) { return std::unexpected(timing.error()); }

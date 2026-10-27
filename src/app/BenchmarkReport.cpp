@@ -150,6 +150,10 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   const bool measurementComplete =
       !report.Frames.empty() && report.Frames.size() == report.Motion.Frames &&
       gpu["rendered_frames"].get<double>() == static_cast<double>(report.Motion.Frames);
+  const double completedMs = report.WindowMs + report.FlushMs;
+  const bool completedWindow = measurementComplete && std::isfinite(report.WindowMs) &&
+                               report.WindowMs > 0 && std::isfinite(report.FlushMs) &&
+                               report.FlushMs >= 0 && std::isfinite(completedMs);
   const auto unrefined =
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
@@ -167,13 +171,12 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   constexpr std::string_view backend = "Vulkan";
 #endif
   const ReportJson json{
-      {"benchmark_version", 1},
+      {"benchmark_version", 2},
       {"mode", "scenario"},
       {"measurement_complete", measurementComplete},
       {"wall_throughput_fps",
-       measurementComplete && report.WindowMs + report.FlushMs > 0
-           ? ReportJson(static_cast<double>(report.Frames.size()) * 1000.0 /
-                        (report.WindowMs + report.FlushMs))
+       completedWindow
+           ? ReportJson(static_cast<double>(report.Frames.size()) * 1000.0 / completedMs)
            : ReportJson(nullptr)},
       {"scenario", report.Scenario},
       {"declaration_sha256", report.DeclarationSha256},
@@ -193,7 +196,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
        {{"width_px", report.Frame.WidthPx},
         {"height_px", report.Frame.HeightPx},
         {"fps", report.Motion.RateHz},
-        {"pacing", report.Unpaced ? "unpaced" : "target_fps"},
+        {"pacing", "unpaced"},
         {"budget_ms", budgetMs}}},
       {"motion",
        {{"frames", report.Motion.Frames},
@@ -207,7 +210,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"phases_ms",
        {{"setup", report.SetupMs},
         {"preload", report.PreloadMs},
-        {report.Unpaced ? "unpaced_window" : "paced_window", report.WindowMs},
+        {"unpaced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},
