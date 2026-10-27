@@ -58,7 +58,7 @@ def derive_scoped_ground_terminals(
 ):
     """Fit the existing field and construct its actual source terminal sections.
 
-    The default retains two chain ends; the explicit three-arm recipe has three.
+    The default retains two chain ends; explicit recipes retain every source leaf.
 
     Terminal heights come from intersecting the fitted end planes with their bound
     geodetic source cuts. The existing bounded query then checks the constructed

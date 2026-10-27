@@ -12,6 +12,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Kleine verbundene Boden-Netze](ground_network.md): gemeinsame ganze Knotenkerne,
+  Zweierverbinder und mehrteilige Arme; tatsächliche fünfteilige Geometrie und
+  getrennte Quellen-/Endqualifikation (#1527/#1402).
 - [Installierter gemeinsamer Höhenkern](stair_level_library_comparison.md):
   gleiche ganze 90er Produkte und pixelgleiche 720p-Bilder, neue begrenzte
   Bibliotheksfunktion statt numerischer Experimentkopien (#732/#50).

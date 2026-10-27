@@ -11,7 +11,7 @@ import numpy as np
 from ...contracts import Mesh, immutable
 from ..port_heights._world import finite_ports, normal_gradients
 from ._ground import fit_ground, prepare_ground
-from ._ground_recipe import known_geometry_recipe
+from ._ground_recipe import NETWORK_RECIPE, known_geometry_recipe
 from ._ground_scope import prepare_ground_field_scope
 from ._source import source_chain
 from ._types import PortBudget
@@ -64,7 +64,12 @@ def fit_scope_field(
         else:
             from ._ground_star_input import prepare_star_ground
 
-            anchor, inputs, caps, geometry = prepare_star_ground(
+            prepare = prepare_star_ground
+            if geometry_recipe == NETWORK_RECIPE:
+                from ._ground_network_input import prepare_network_ground
+
+                prepare = prepare_network_ground
+            anchor, inputs, caps, geometry = prepare(
                 index, selected, sample, budget, deadline=deadline
             )
             report.update(source_terminal_cuts=tuple(caps), geometry=geometry)
@@ -131,7 +136,7 @@ def derive_scoped_ground_field(
     The new scope can qualify geometry despite logical Unknown only through the
     original-member proof. The established strict port producer is unchanged.
     The supplied prior limit remains mandatory; no solver result increases it.
-    geometry_recipe explicitly selects the versioned three-arm construction;
+    geometry_recipe explicitly selects a versioned star or small-tree construction;
     the default keeps the established chain geometry and binding.
     A scope_index may reuse the same owned source/fact indexes across fields;
     it does not retain fitted fields or alter request/binding/quality semantics.
