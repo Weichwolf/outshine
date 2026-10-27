@@ -1,4 +1,5 @@
 #include "SceneRenderer.h"
+#include "SceneRenderState.h"
 #include "GeometryRenderer.h"
 #include "TerrainRenderer.h"
 #include "Lens.h"
@@ -17,6 +18,10 @@ void SetNear(SceneRenderer &renderer, float nearM) {
 }
 
 void PassesKeepTheirAddresses() {
+  CHECK(!std::is_move_constructible_v<SceneRenderState>,
+        "scene and pass addresses remain stable behind the published ownership lease");
+  CHECK(!std::is_move_assignable_v<SceneRenderState>,
+        "publication transfers ownership without moving a pass or its scene residency");
   CHECK(!std::is_move_constructible_v<GeometryRenderer>, "geometry pass cannot copy self-pointers");
   CHECK(!std::is_move_assignable_v<GeometryRenderer>, "geometry pass cannot replace its address");
   CHECK(!std::is_move_constructible_v<TerrainRenderer>, "terrain pass cannot copy self-pointers");

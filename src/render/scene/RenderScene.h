@@ -2,7 +2,6 @@
 #define OUTSHINE_RENDER_SCENE_RENDERSCENE_H
 
 #include "GeometryResidency.h"
-#include "GeometryRenderer.h"
 #include "PrismResidency.h"
 #include "terrain/TerrainResidency.h"
 #include "SceneResources.h"
@@ -12,7 +11,7 @@ namespace outshine::Render {
 
 class RenderScene {
 public:
-  RenderScene() : Geometry_(*this), Transmission_(*this, GeometryPassKind::Transmission) {}
+  RenderScene() = default;
 
   RenderScene(const RenderScene &) = delete;
   RenderScene &operator=(const RenderScene &) = delete;
@@ -43,22 +42,12 @@ public:
 
   [[nodiscard]] const SceneResources &Resources() const noexcept { return Resources_; }
 
-  [[nodiscard]] GeometryRenderer &Geometry() noexcept { return Geometry_; }
-
-  [[nodiscard]] const GeometryRenderer &Geometry() const noexcept { return Geometry_; }
-
-  [[nodiscard]] GeometryRenderer &Transmission() noexcept { return Transmission_; }
-
-  [[nodiscard]] const GeometryRenderer &Transmission() const noexcept { return Transmission_; }
-
 private:
   GeometryResidency Meshes_;
   PrismResidency Prisms_;
   TerrainResidency Terrain_;
   TerrainMaterialBuffers GroundMaterials_;
   SceneResources Resources_;
-  GeometryRenderer Geometry_;
-  GeometryRenderer Transmission_;
 };
 }
 #endif
