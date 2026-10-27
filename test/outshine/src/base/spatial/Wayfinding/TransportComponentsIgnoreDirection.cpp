@@ -10,7 +10,7 @@ int main() {
   auto emptyResult = Path::Network::Create({.CellM = 1}, {});
   CHECK(emptyResult.has_value(), "valid network configuration accepted");
   if (!emptyResult) { return Report(); }
-  auto &empty = *emptyResult;
+  const auto &empty = *emptyResult;
   const auto none = empty.WeakComponents();
   CHECK(none.Count == 0 && none.Largest == 0 && none.UnderFour == 0 && none.InUnderFour == 0,
         "empty graph has no components");
@@ -19,11 +19,11 @@ int main() {
     CHECK(networkResult.has_value(), "valid network configuration accepted");
     if (!networkResult) { return Report(); }
     auto &network = *networkResult;
-    std::array ways{std::array<double, 4>{-0.01, -0.01, 0, 0},
-                    std::array<double, 4>{-0.01, 0.01, 0, 0},
-                    std::array<double, 4>{0.01, 0, 0, 0},
-                    std::array<double, 4>{10, 10, 10, 10.01},
-                    std::array<double, 4>{20, 20, 20, 20}};
+    const std::array ways{std::array<double, 4>{-0.01, -0.01, 0, 0},
+                          std::array<double, 4>{-0.01, 0.01, 0, 0},
+                          std::array<double, 4>{0.01, 0, 0, 0},
+                          std::array<double, 4>{10, 10, 10, 10.01},
+                          std::array<double, 4>{20, 20, 20, 20}};
     for (auto way : ways) {
       if (reverse) {
         std::swap(way[0], way[2]);

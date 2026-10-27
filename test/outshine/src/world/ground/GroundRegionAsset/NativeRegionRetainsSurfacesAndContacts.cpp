@@ -13,7 +13,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  constexpr size_t bytesMost = 1024 * 1024;
+  constexpr size_t bytesMost = size_t{1024} * 1024;
   GroundRegionAsset region;
   region.Anchor = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   region.GroundAlbedo = {{0.2, 0.3, 0.1}};
@@ -36,7 +36,7 @@ int main() {
   CHECK(part && region.Surfaces.setPositions(*part, positions) &&
             region.Surfaces.setTriangles(*part, indices),
         "native transport geometry is created");
-  auto grid = std::make_shared<TerrainClassificationMap::Grid>();
+  const auto grid = std::make_shared<TerrainClassificationMap::Grid>();
   grid->W = 1;
   grid->H = 1;
   grid->BoundaryHaloM = .75;

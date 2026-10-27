@@ -38,8 +38,7 @@ int main() {
         "overflow fixture remains a single directed chain");
   const auto route = created->Plan(
       {.LongitudeDeg = -80, .LatitudeDeg = -50}, {.LongitudeDeg = 80, .LatitudeDeg = 49}, 0);
-  CHECK(!route.Found && route.Legs.empty() &&
-            route.Error.find("finite metre range") != std::string::npos,
+  CHECK(!route.Found && route.Legs.empty() && route.Error.contains("finite metre range"),
         "unrepresentable search costs are distinct from a disconnected graph");
   return Report();
 }

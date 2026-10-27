@@ -4,6 +4,8 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <numbers>
 
@@ -64,10 +66,10 @@ int main() {
   CHECK(part && region.Surfaces.setPositions(*part, positions) &&
             region.Surfaces.setTriangles(*part, triangles),
         "the complete region fixture includes native ground geometry");
-  const auto encoded = EncodeGroundRegionAsset(region, 4 * 1024 * 1024);
+  const auto encoded = EncodeGroundRegionAsset(region, size_t{4} * 1024 * 1024);
   CHECK(encoded, "a complete large-reference classification persists");
   if (encoded) {
-    const auto decoded = DecodeGroundRegionAsset(*encoded, 4 * 1024 * 1024);
+    const auto decoded = DecodeGroundRegionAsset(*encoded, size_t{4} * 1024 * 1024);
     CHECK(decoded && decoded->Classes && decoded->Classes->Fine().Seeds == built->Grid->Seeds &&
               decoded->Classes->Evaluate(4, 4, nullptr, nullptr) == 7,
           "cache transfer preserves full reference counts and classification");
