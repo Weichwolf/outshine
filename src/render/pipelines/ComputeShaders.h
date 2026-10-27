@@ -25,6 +25,10 @@ enum class ComputeShaderId : uint32_t {
   TerrainPatchCompact,
   CalibrationFma,
   CalibrationTriad,
+  GeometryRootCull,
+  GeometryLeafCull,
+  GeometryRootScan,
+  GeometrySelectedCompact,
   Count
 };
 
@@ -93,7 +97,23 @@ inline constexpr std::array kComputeShaders = {
                             .Shape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 1, .GroupX = 256}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::CalibrationTriad,
                             .Path = "calibrationTriad.comp.spv",
-                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .GroupX = 256}}};
+                            .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryRootCull,
+        .Path = "geometryRootCull.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryLeafCull,
+        .Path = "geometryLeafCull.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 8, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryRootScan,
+        .Path = "geometryRootScan.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 3, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 32}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometrySelectedCompact,
+        .Path = "geometrySelectedCompact.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 8, .ReadWriteBuffers = 1, .UniformBuffers = 2, .GroupX = 64}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }

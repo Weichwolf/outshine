@@ -1,0 +1,58 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+#include "geometryHierarchy.glsl"
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_roots { GeometryRoot roots[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_templates { uvec4 templates[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_spheres { vec4 spheres[]; };
+#define PLACEMENT_BINDING 3
+#include "geometryPlacements.glsl"
+layout(std430, set = 0, binding = 4) readonly buffer Buffer_chunks { uvec2 chunks[]; };
+layout(std430, set = 0, binding = 5) readonly buffer Buffer_chunkState { GeometryQueueState chunkState; };
+layout(std430, set = 0, binding = 6) readonly buffer Buffer_prefix { uint prefix[]; };
+layout(std430, set = 0, binding = 7) readonly buffer Buffer_pyramid { float pyramid[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
+layout(std430, set = 1, binding = 1) buffer Buffer_clusters { uvec2 clusters[]; };
+layout(std430, set = 1, binding = 2) buffer Buffer_clusterState { GeometryQueueState clusterState; };
+#include "geometryClusterSelection.glsl"
+#include "geometryRootSelection.glsl"
+
+uvec2 geometryChunk(uint group) {
+  if (chunkState.counts.y == 0u) { return chunks[group]; }
+  uint lo = 0u;
+  uint hi = hierarchy.counts.x;
+  while (lo + 1u < hi) {
+    const uint mid = lo + (hi - lo) / 2u;
+    if (prefix[mid] <= group) { lo = mid; }
+    else { hi = mid; }
+  }
+  return uvec2(lo, (group - prefix[lo]) * kGeometryChunkClusters);
+}
+
+void main() {
+  const uint group = geometryGroup();
+  const bool fallback = chunkState.counts.y != 0u;
+  const uint work = fallback ? hierarchy.work.x : chunkState.counts.x;
+  if (group >= work) { return; }
+  const uvec2 chunk = geometryChunk(group);
+  const GeometryRoot root = roots[chunk.x];
+  if (fallback && !geometryRootVisible(root)) { return; }
+  const uint ordinal = chunk.y + gl_LocalInvocationID.x;
+  if (ordinal >= root.cluster.y) { return; }
+  atomicAdd(clusterState.counts.z, 1u);
+  const uvec4 item = templates[root.cluster.x + ordinal];
+  const uint count = geometryClusterCount(placements[root.instance.x].current, item.x, item.z);
+  kept[root.cluster.z + ordinal] = count;
+  if (count == 0u) { return; }
+  atomicAdd(clusterState.counts.w, 1u);
+  atomicAdd(clusterState.dispatch.w, count);
+  const uint at = atomicAdd(clusterState.counts.x, 1u);
+  const uint end = at + 1u;
+  const bool overflow = at >= hierarchy.counts.w;
+  if (overflow) { atomicOr(clusterState.counts.y, 1u); }
+  const uint groups = overflow ? view.jobs : end;
+  atomicMax(clusterState.dispatch.x, min(groups, hierarchy.work.y));
+  atomicMax(clusterState.dispatch.y, geometryCeil(groups, hierarchy.work.y));
+  if (!overflow) { clusters[at] = uvec2(chunk.x, ordinal); }
+}

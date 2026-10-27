@@ -1,6 +1,7 @@
 #include "BatchVisibility.h"
 #include "Check.h"
 #include "GpuPlacement.h"
+#include "GeometryHierarchy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOfflineDevice.h"
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <print>
 #include <span>
 #include <utility>
@@ -173,6 +175,55 @@ void CheckResults(const Inputs &inputs, std::span<const uint32_t> kept, bool reb
         "rounded workgroups do not overwrite the output guard range");
 }
 
+std::unique_ptr<Buffer> HierarchyBounds(Device &device,
+                                        Commands &commands,
+                                        const Inputs &inputs,
+                                        const View &view,
+                                        const Buffer &placements) {
+  std::vector<GeometryRoot> roots;
+  for (uint32_t at = 0; at < inputs.Cases.size(); ++at) {
+    const size_t first = size_t{at} * 3 * kSphereFloats;
+    roots.push_back({.LocalSphere = {inputs.Spheres[first],
+                                     inputs.Spheres[first + 1],
+                                     inputs.Spheres[first + 2],
+                                     inputs.Spheres[first + 3]},
+                     .TemplateCount = 1,
+                     .LogicalFirst = at,
+                     .BatchRow = at,
+                     .ModelSlot = at,
+                     .Flags = kGeometryRootBound});
+  }
+  auto rootBuffer = Upload(device, commands, Words(std::span<const GeometryRoot>(roots)));
+  const auto count = static_cast<uint32_t>(roots.size());
+  const std::vector<uint32_t> initial(count + 16, kRejected);
+  auto visible = Upload(device, commands, initial);
+  auto chunks = Upload(device, commands, std::vector<uint32_t>(size_t{count} * 2, kRejected));
+  const std::array<GeometryQueueState, 1> state{};
+  auto queueState = Upload(device, commands, Words(std::span<const GeometryQueueState>(state)));
+  const GeometryHierarchyView hierarchy{
+      .RootCount = count, .ChunkCapacity = count, .WorstChunks = count, .GridWidth = 7};
+  auto pipeline = Require(device.CreateComputePipeline(Shader("geometryRootCull.comp.spv")));
+  const std::array bindings{
+      Storage(0, 0, *rootBuffer),
+      Storage(0, 1, placements),
+      Storage(1, 0, *chunks),
+      Storage(1, 1, *queueState),
+      Storage(1, 2, *visible),
+      Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&view, 1))}},
+      Binding{.Set = 2, .Slot = 1, .Value = Uniform{std::as_bytes(std::span(&hierarchy, 1))}}};
+  const uint32_t groups = count / 64 + uint32_t{count % 64 != 0};
+  Require(commands.Dispatch(
+      *pipeline,
+      bindings,
+      {.X = std::min(groups, hierarchy.GridWidth),
+       .Y = groups / hierarchy.GridWidth + uint32_t{groups % hierarchy.GridWidth != 0}}));
+  auto readback = Require(device.CreateBuffer({.Bytes = visible->Description().Bytes,
+                                               .Use = BufferUse::CopyDestination,
+                                               .Placement = Memory::Readback}));
+  Require(commands.Copy(*visible, *readback, {.Bytes = visible->Description().Bytes}));
+  return readback;
+}
+
 void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift = {}) {
   auto pipeline = Require(device.CreateComputePipeline(Shader("geometryCull.comp.spv")));
   auto commands = Require(device.Begin());
@@ -198,6 +249,7 @@ void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift
       Storage(1, 0, *kept),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&view, 1))}}};
   Require(commands->Dispatch(*pipeline, bindings, {.X = (view.Jobs + 63u) / 64u}));
+  auto hierarchyReadback = HierarchyBounds(device, *commands, inputs, view, *placements);
   auto readback = Require(device.CreateBuffer({.Bytes = kept->Description().Bytes,
                                                .Use = BufferUse::CopyDestination,
                                                .Placement = Memory::Readback}));
@@ -209,6 +261,19 @@ void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift
   std::vector<uint32_t> actual(bytes.size() / sizeof(uint32_t));
   std::memcpy(actual.data(), bytes.data(), bytes.size());
   Require(device.Unmap(*readback));
+  const auto rootBytes = Require(
+      device.MapRead(*hierarchyReadback, {.Bytes = hierarchyReadback->Description().Bytes}));
+  std::vector<uint32_t> roots(rootBytes.size() / sizeof(uint32_t));
+  std::memcpy(roots.data(), rootBytes.data(), rootBytes.size());
+  Require(device.Unmap(*hierarchyReadback));
+  for (size_t at = 0; at < inputs.Cases.size(); ++at) {
+    CHECK(roots[at] <= 1 && roots[at] * 6 == actual[at * 3],
+          "the actual Root80 kernel agrees with the qualified guarded sphere selector");
+    actual[at * 3] = roots[at] * 6;
+  }
+  CHECK(std::ranges::all_of(std::span(roots).subspan(inputs.Cases.size()),
+                            [](uint32_t word) { return word == kRejected; }),
+        "the two-dimensional root grid preserves its output guard");
   CheckResults(inputs, actual, shift != std::array<float, 4>{});
 }
 }

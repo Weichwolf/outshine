@@ -1,0 +1,39 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+#include "geometryHierarchy.glsl"
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_roots { GeometryRoot roots[]; };
+#define PLACEMENT_BINDING 1
+#include "geometryPlacements.glsl"
+layout(std430, set = 1, binding = 0) buffer Buffer_chunks { uvec2 chunks[]; };
+layout(std430, set = 1, binding = 1) buffer Buffer_chunkState { GeometryQueueState chunkState; };
+layout(std430, set = 1, binding = 2) buffer Buffer_visible { uint visible[]; };
+
+#include "cullAffine.glsl"
+#include "geometryRootSelection.glsl"
+
+void main() {
+  const uint id = geometryGroup() * 64u + gl_LocalInvocationID.x;
+  if (id >= hierarchy.counts.x) { return; }
+  atomicAdd(chunkState.counts.z, 1u);
+  const GeometryRoot root = roots[id];
+  const bool keep = geometryRootVisible(root);
+  visible[id] = uint(keep);
+  if (!keep || root.cluster.y == 0u) { return; }
+  atomicAdd(chunkState.counts.w, 1u);
+  atomicAdd(chunkState.dispatch.w, root.cluster.y);
+  const uint count = geometryCeil(root.cluster.y, kGeometryChunkClusters);
+  const uint first = atomicAdd(chunkState.counts.x, count);
+  const uint end = first + count;
+  const bool overflow = end > hierarchy.counts.z;
+  if (overflow) { atomicOr(chunkState.counts.y, 1u); }
+  const uint work = overflow ? hierarchy.work.x : end;
+  atomicMax(chunkState.dispatch.x, min(work, hierarchy.work.y));
+  atomicMax(chunkState.dispatch.y, geometryCeil(work, hierarchy.work.y));
+  for (uint at = 0u; at < count; ++at) {
+    if (first < hierarchy.counts.z && at < hierarchy.counts.z - first) {
+      chunks[first + at] = uvec2(id, at * kGeometryChunkClusters);
+    }
+  }
+}
