@@ -24,7 +24,6 @@ class EarthworkStampIndex {
 public:
   EarthworkStampIndex(std::span<const EarthworkStamp> stamps, std::span<const double> widthsM);
 
-  // Results borrow index storage or caller scratch until its next query.
   [[nodiscard]] std::span<const uint32_t> At(EastNorth point, EarthworkStampQuery &scratch) const;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
