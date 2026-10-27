@@ -12,6 +12,11 @@ namespace outshine::Render {
 namespace {
 constexpr size_t kSphereFloats = 12;
 
+struct SourceRange {
+  uint32_t First;
+  uint32_t Count;
+};
+
 std::optional<BatchSphere> WorldBounds(std::span<const float> spheres,
                                        uint32_t which,
                                        const std::optional<SphereTransform> &transform) {
@@ -25,27 +30,19 @@ std::optional<BatchSphere> WorldBounds(std::span<const float> spheres,
 }
 
 bool Append(std::vector<ShadowCasterRange> &into,
-            const DrawBatch &batch,
+            SourceRange source,
             size_t batchIndex,
             std::span<const uint32_t> jobs,
             std::span<const float> spheres,
-            std::span<const GpuPlacement> placements) {
-  if (batch.JobCount == 0 || batch.Instances != 1 || batch.ModelSlot >= placements.size() ||
-      batch.FirstJob > jobs.size() / DrawList::kJobWords ||
-      batch.JobCount > jobs.size() / DrawList::kJobWords - batch.FirstJob) {
-    return false;
-  }
-  Mat4 model{};
-  std::ranges::copy(placements[batch.ModelSlot].Current, model.begin());
-  const auto transform = SphereTransform::From(model);
-  const uint64_t end = uint64_t{batch.FirstIndex} + batch.IndexCount;
-  uint64_t covered = batch.FirstIndex;
-  uint32_t previous = batch.FirstIndex;
-  for (size_t at = batch.FirstJob; at < size_t{batch.FirstJob} + batch.JobCount; ++at) {
+            const std::optional<SphereTransform> &transform) {
+  const uint64_t end = uint64_t{source.First} + source.Count;
+  uint64_t covered = source.First;
+  uint32_t previous = source.First;
+  for (size_t at = 0; at < jobs.size() / DrawList::kJobWords; ++at) {
     const auto job = jobs.subspan(at * DrawList::kJobWords, DrawList::kJobWords);
     const uint64_t next = uint64_t{job[2]} + job[3];
     if (job[1] != batchIndex || job[2] < previous || job[2] > covered || next > end ||
-        job[3] == 0 || job[3] % 3 != 0 || (job[2] - batch.FirstIndex) % 3 != 0) {
+        job[3] == 0 || job[3] % 3 != 0 || (job[2] - source.First) % 3 != 0) {
       return false;
     }
     into.push_back(
@@ -57,32 +54,63 @@ bool Append(std::vector<ShadowCasterRange> &into,
 }
 }
 
+void ShadowCasterSelection::Invalidate() noexcept {
+  Ready_ = false;
+  Source_ = {};
+}
+
 void ShadowCasterSelection::Prepare(std::span<const DrawBatch> batches,
                                     std::span<const uint32_t> jobs,
                                     std::span<const float> spheres,
                                     std::span<const GpuPlacement> placements,
                                     uint32_t mainMeshRows,
                                     bool mainMeshBoundsCurrent) {
+  Source_ = {.Batches = batches,
+             .Jobs = jobs,
+             .Spheres = spheres,
+             .Placements = placements,
+             .MainMeshRows = mainMeshRows,
+             .MainMeshBoundsCurrent = mainMeshBoundsCurrent};
   Batches_.assign(batches.size(), {});
   Ranges_.clear();
-  Ranges_.reserve(jobs.size() / DrawList::kJobWords);
-  for (size_t at = 0; at < batches.size(); ++at) {
-    const auto &batch = batches[at];
-    if (batch.ModelSlot < mainMeshRows && !mainMeshBoundsCurrent) { continue; }
-    const size_t first = Ranges_.size();
-    if (!Append(Ranges_, batch, at, jobs, spheres, placements)) {
-      Ranges_.resize(first);
-      continue;
-    }
-    Batches_[at] = {.First = first, .Count = Ranges_.size() - first};
-  }
   Ready_ = true;
 }
 
-std::span<const ShadowCasterRange> ShadowCasterSelection::Ranges(size_t batch) const noexcept {
+std::span<const ShadowCasterRange> ShadowCasterSelection::Ranges(size_t batch) {
   if (!Ready_ || batch >= Batches_.size()) { return {}; }
-  const auto range = Batches_[batch];
-  return std::span(Ranges_).subspan(range.First, range.Count);
+  auto &held = Batches_[batch];
+  if (held.Resolved) { return std::span(Ranges_).subspan(held.First, held.Count); }
+  held.Resolved = true;
+  const auto &source = Source_.Batches[batch];
+  if ((source.ModelSlot < Source_.MainMeshRows && !Source_.MainMeshBoundsCurrent) ||
+      source.JobCount == 0 || source.Instances != 1 ||
+      source.ModelSlot >= Source_.Placements.size() ||
+      source.FirstJob > Source_.Jobs.size() / DrawList::kJobWords ||
+      source.JobCount > Source_.Jobs.size() / DrawList::kJobWords - source.FirstJob) {
+    return {};
+  }
+  const auto jobs = Source_.Jobs.subspan(size_t{source.FirstJob} * DrawList::kJobWords,
+                                         size_t{source.JobCount} * DrawList::kJobWords);
+  const size_t first = Ranges_.size();
+  Ranges_.reserve(Source_.Jobs.size() / DrawList::kJobWords);
+  Mat4 model{};
+  std::ranges::copy(Source_.Placements[source.ModelSlot].Current, model.begin());
+  if (!Append(Ranges_,
+              {.First = source.FirstIndex, .Count = source.IndexCount},
+              batch,
+              jobs,
+              Source_.Spheres,
+              SphereTransform::From(model))) {
+    Ranges_.resize(first);
+    return {};
+  }
+  held.First = first;
+  held.Count = static_cast<uint32_t>(Ranges_.size() - first);
+  return std::span(Ranges_).subspan(held.First, held.Count);
+}
+
+size_t ShadowCasterSelection::CachedRanges() const noexcept {
+  return Ready_ ? Ranges_.size() : 0;
 }
 
 size_t ShadowCasterSelection::HeapBytes() const noexcept {

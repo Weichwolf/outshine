@@ -410,7 +410,7 @@ public:
                                                       size_t batchIndex,
                                                       const BatchFrustum &visible,
                                                       uint32_t instances,
-                                                      std::span<const std::byte> view) const;
+                                                      std::span<const std::byte> view);
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t Layouts() const;

@@ -19,7 +19,7 @@ struct ShadowCasterRange {
 
 class ShadowCasterSelection {
 public:
-  void Invalidate() noexcept { Ready_ = false; }
+  void Invalidate() noexcept;
 
   [[nodiscard]] bool Ready() const noexcept { return Ready_; }
 
@@ -29,16 +29,28 @@ public:
                std::span<const GpuPlacement> placements,
                uint32_t mainMeshRows,
                bool mainMeshBoundsCurrent);
-  [[nodiscard]] std::span<const ShadowCasterRange> Ranges(size_t batch) const noexcept;
+  [[nodiscard]] std::span<const ShadowCasterRange> Ranges(size_t batch);
+  [[nodiscard]] size_t CachedRanges() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
   struct BatchRange {
     size_t First = 0;
-    size_t Count = 0;
+    uint32_t Count = 0;
+    bool Resolved = false;
+  };
+
+  struct Source {
+    std::span<const DrawBatch> Batches;
+    std::span<const uint32_t> Jobs;
+    std::span<const float> Spheres;
+    std::span<const GpuPlacement> Placements;
+    uint32_t MainMeshRows = 0;
+    bool MainMeshBoundsCurrent = false;
   };
 
   bool Ready_ = false;
+  Source Source_;
   std::vector<BatchRange> Batches_;
   std::vector<ShadowCasterRange> Ranges_;
 };
