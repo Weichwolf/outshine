@@ -41,6 +41,7 @@ struct RoadGroundStrip {
   LongitudeLatitude Anchor;
   std::vector<LongitudeLatitude> TerrainQueries;
   std::vector<std::array<uint32_t, 3>> Triangles;
+  std::vector<uint32_t> TriangleAxisSegments;
   std::vector<uint32_t> FacePatches;
   std::vector<std::array<double, 4>> GradeFrames;
   std::vector<uint32_t> Boundaries;
@@ -51,6 +52,7 @@ struct RoadGroundField {
   LongitudeLatitude Anchor;
   std::vector<EastNorthUp> Vertices;
   std::vector<std::array<uint32_t, 3>> Triangles;
+  std::vector<uint32_t> TriangleAxisSegments;
   std::vector<RoadPortField::Plane> Planes;
   std::vector<RoadPortField::Patch> Patches;
   std::vector<RoadPortPrior> Priors;

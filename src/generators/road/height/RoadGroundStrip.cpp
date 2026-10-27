@@ -68,6 +68,7 @@ void Faces(RoadGroundStrip &strip,
   const size_t intervals = stations.size() - 1;
   strip.Triangles.reserve(2 * intervals);
   strip.FacePatches.reserve(2 * intervals);
+  strip.TriangleAxisSegments.reserve(2 * intervals);
   strip.GradeFrames.reserve(2 * intervals);
   for (size_t group = 0; group < 2; ++group) {
     for (size_t at = 0; at < intervals; ++at) {
@@ -77,7 +78,9 @@ void Faces(RoadGroundStrip &strip,
       const double midpoint = std::midpoint(stations[at], stations[at + 1]);
       const auto owner = std::ranges::upper_bound(boundaries, midpoint) - boundaries.begin() - 1;
       strip.FacePatches.push_back(static_cast<uint32_t>(owner));
-      const auto tangent = axis.Tangents[SegmentAt(axis.Stations, midpoint)];
+      const size_t segment = SegmentAt(axis.Stations, midpoint);
+      strip.TriangleAxisSegments.push_back(static_cast<uint32_t>(segment));
+      const auto tangent = axis.Tangents[segment];
       strip.GradeFrames.push_back({tangent.EastM / maximumGradient,
                                    tangent.NorthM / maximumGradient,
                                    -tangent.NorthM / kCrossfall,
@@ -121,13 +124,14 @@ PrepareRoadGroundStrip(std::span<const LongitudeLatitude> geographic,
   }
   constexpr size_t kStationBytes =
       2 * sizeof(LongitudeLatitude) +
-      2 * (sizeof(std::array<uint32_t, 3>) + sizeof(uint32_t) + sizeof(std::array<double, 4>));
+      2 * (sizeof(std::array<uint32_t, 3>) + 2 * sizeof(uint32_t) + sizeof(std::array<double, 4>));
   if (stations.size() > budget.ContainerBytes / kStationBytes) {
     return std::unexpected(RoadGroundError::CapacityExceeded);
   }
   RoadGroundStrip strip{.Anchor = geographic.front(),
                         .TerrainQueries = {},
                         .Triangles = {},
+                        .TriangleAxisSegments = {},
                         .FacePatches = {},
                         .GradeFrames = {},
                         .Boundaries = {},
@@ -144,11 +148,12 @@ PrepareRoadGroundStrip(std::span<const LongitudeLatitude> geographic,
                 .Controls = boundaries->size() / 2,
                 .TerrainSamples = strip.TerrainQueries.size(),
                 .Faces = strip.Triangles.size()};
-  strip.Work.ContainerCapacityBytes = strip.TerrainQueries.capacity() * sizeof(LongitudeLatitude) +
-                                      strip.Triangles.capacity() * sizeof(std::array<uint32_t, 3>) +
-                                      strip.FacePatches.capacity() * sizeof(uint32_t) +
-                                      strip.GradeFrames.capacity() * sizeof(std::array<double, 4>) +
-                                      strip.Boundaries.capacity() * sizeof(uint32_t);
+  strip.Work.ContainerCapacityBytes =
+      strip.TerrainQueries.capacity() * sizeof(LongitudeLatitude) +
+      strip.Triangles.capacity() * sizeof(std::array<uint32_t, 3>) +
+      (strip.FacePatches.capacity() + strip.TriangleAxisSegments.capacity()) * sizeof(uint32_t) +
+      strip.GradeFrames.capacity() * sizeof(std::array<double, 4>) +
+      strip.Boundaries.capacity() * sizeof(uint32_t);
   if (strip.Work.ContainerCapacityBytes > budget.ContainerBytes) {
     return std::unexpected(RoadGroundError::CapacityExceeded);
   }

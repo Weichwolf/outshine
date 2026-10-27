@@ -17,13 +17,34 @@ constexpr double kModelHeightMostM = 1e6;
 constexpr size_t kControlsMost = 256;
 constexpr size_t kSamplesMost = 4096;
 
+bool ValidTriangleSegments(const RoadGroundStrip &strip) {
+  if (strip.Triangles.size() % 2 != 0 || strip.TriangleAxisSegments.empty() ||
+      strip.TriangleAxisSegments.size() != strip.Triangles.size() ||
+      strip.TriangleAxisSegments.front() != 0) {
+    return false;
+  }
+  const size_t intervals = strip.Triangles.size() / 2;
+  for (size_t at = 0; at < strip.TriangleAxisSegments.size(); ++at) {
+    const uint32_t segment = strip.TriangleAxisSegments[at];
+    if (segment >= intervals || segment != strip.TriangleAxisSegments[at % intervals]) {
+      return false;
+    }
+    if (at != 0 && at < intervals &&
+        (segment < strip.TriangleAxisSegments[at - 1] ||
+         segment - strip.TriangleAxisSegments[at - 1] > 1)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool ValidStrip(const RoadGroundStrip &strip) {
   const size_t points = strip.TerrainQueries.size();
   if (!RoadGround::Valid(strip.Anchor) || points < 4 || points % 2 != 0 ||
       strip.Boundaries.size() < 4 || strip.Boundaries.size() % 2 != 0 ||
       strip.Boundaries.front() != 0 || strip.Boundaries.back() != points / 2 - 1 ||
       strip.Triangles.size() != points - 2 || strip.FacePatches.size() != strip.Triangles.size() ||
-      strip.GradeFrames.size() != strip.Triangles.size()) {
+      strip.GradeFrames.size() != strip.Triangles.size() || !ValidTriangleSegments(strip)) {
     return false;
   }
   for (size_t at = 1; at < strip.Boundaries.size(); ++at) {
@@ -48,6 +69,7 @@ bool ValidStrip(const RoadGroundStrip &strip) {
 size_t Capacity(const RoadGroundField &field) {
   return field.Vertices.capacity() * sizeof(EastNorthUp) +
          field.Triangles.capacity() * sizeof(std::array<uint32_t, 3>) +
+         field.TriangleAxisSegments.capacity() * sizeof(uint32_t) +
          field.Planes.capacity() * sizeof(RoadPortField::Plane) +
          field.Patches.capacity() * sizeof(RoadPortField::Patch) +
          field.Priors.capacity() * sizeof(RoadPortPrior) +
@@ -115,7 +137,8 @@ BindRoadGroundField(const RoadGroundStrip &strip,
   if (!ValidStrip(strip)) { return std::unexpected(RoadGroundError::InvalidGeometry); }
   const size_t capacity =
       modelHeightsM.size() * (sizeof(EastNorthUp) + sizeof(RoadPortPrior)) +
-      strip.Triangles.size() * (sizeof(std::array<uint32_t, 3>) + sizeof(RoadPortFace)) +
+      strip.Triangles.size() *
+          (sizeof(std::array<uint32_t, 3>) + sizeof(uint32_t) + sizeof(RoadPortFace)) +
       (2 * controls - 1) * sizeof(RoadPortField::Patch) +
       controls * (sizeof(RoadPortField::Plane) + 2 * sizeof(uint32_t) + sizeof(size_t));
   if (capacity > budget.ContainerBytes) {
@@ -124,6 +147,7 @@ BindRoadGroundField(const RoadGroundStrip &strip,
   RoadGroundField field{.Anchor = strip.Anchor,
                         .Vertices = {},
                         .Triangles = {},
+                        .TriangleAxisSegments = {},
                         .Planes = {},
                         .Patches = {},
                         .Priors = {},
@@ -144,6 +168,7 @@ BindRoadGroundField(const RoadGroundStrip &strip,
                                                     .HeightM = height}));
   }
   field.Triangles = strip.Triangles;
+  field.TriangleAxisSegments = strip.TriangleAxisSegments;
   const auto faces = Faces(strip, field);
   if (!faces) { return std::unexpected(faces.error()); }
   const auto layout = RoadGround::Layout(strip, field);

@@ -54,6 +54,32 @@ bool Same(const RoadPortFrameSample &a, const RoadPortFrameSample &b) {
   return words(a) == words(b);
 }
 
+void CheckFaceSources(const GroundPortField &product) {
+  const auto &source = product.Source();
+  const auto edges = source.Source->Topology().Edges();
+  std::vector<size_t> visits(source.SourceEdges.size());
+  BeginCppAllocationProbe();
+  for (size_t face = 0; face < product.Geometry().Surface.Faces.size(); ++face) {
+    const auto id = product.SourceEdgeOfFace(face);
+    CHECK(id.has_value(),
+          "each actual finite face resolves its retained native physical source edge");
+    if (!id) { continue; }
+    const auto member = std::ranges::find_if(
+        source.SourceEdges, [&](uint32_t index) { return edges[index].Id == *id; });
+    CHECK(member != source.SourceEdges.end(),
+          "finite source lineage never substitutes an unrelated edge or blend-patch identity");
+    if (member != source.SourceEdges.end()) {
+      ++visits[static_cast<size_t>(member - source.SourceEdges.begin())];
+    }
+  }
+  const auto allocations = EndCppAllocationProbe();
+  CHECK(allocations.Calls == 0, "finite face-to-source lookup allocates no storage");
+  CHECK(std::ranges::all_of(visits, [](size_t count) { return count > 0; }),
+        "both actual source chains retain every original segment in their complete finite surface");
+  CHECK(!product.SourceEdgeOfFace(product.Geometry().Surface.Faces.size()),
+        "an absent finite face cannot acquire fabricated source provenance");
+}
+
 void CheckSamples(const GroundPortField &product, std::span<const Fixture::Demand> demands) {
   std::vector<GroundPortFieldRequestPoint> points;
   for (const auto &demand : demands) {
@@ -282,6 +308,9 @@ int main(int argc, char **argv) {
       retained.push_back({.Field = std::move(product), .Demands = std::move(demands)});
     }
   }
-  for (const auto &held : retained) { CheckSamples(*held.Field, held.Demands); }
+  for (const auto &held : retained) {
+    CheckFaceSources(*held.Field);
+    CheckSamples(*held.Field, held.Demands);
+  }
   return Report();
 }

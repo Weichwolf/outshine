@@ -86,6 +86,11 @@ GroundPortField::Make(GroundPortFieldRequest request,
   }
   auto domain = BindRoadGroundField(request.Strip_, heights, budget.Ground, stop);
   if (!domain) { return std::unexpected(GroundPortFieldError{domain.error()}); }
+  if (domain->TriangleAxisSegments.empty() ||
+      static_cast<size_t>(domain->TriangleAxisSegments.back()) + 1 !=
+          request.Source_.SourceEdges.size()) {
+    return std::unexpected(GroundPortFieldError{RoadGroundError::InvalidGeometry});
+  }
   auto fitted = FitRoadGround(*domain, maximumPriorChangeM, budget.Ground, budget.Fit, stop);
   if (!fitted) { return std::unexpected(GroundPortFieldError{fitted.error()}); }
   auto geometry = BuildRoadGroundMesh(*domain, fitted->Field(), budget.Mesh, stop);
@@ -110,4 +115,24 @@ GroundPortField::Make(GroundPortFieldRequest request,
                           .ProcedureAndTerrainBinding = *binding,
                           .Members = std::move(members)});
 }
+
+std::expected<World::TransportEdgeId, RoadGroundError>
+GroundPortField::SourceEdgeOfFace(size_t face) const noexcept {
+  if (face >= Data_.Geometry.Surface.FaceParents.size()) {
+    return std::unexpected(RoadGroundError::InvalidGeometry);
+  }
+  const uint32_t original = Data_.Geometry.Surface.FaceParents[face];
+  if (original >= Data_.Domain.TriangleAxisSegments.size()) {
+    return std::unexpected(RoadGroundError::InvalidGeometry);
+  }
+  const uint32_t segment = Data_.Domain.TriangleAxisSegments[original];
+  if (segment >= Data_.Source.SourceEdges.size()) {
+    return std::unexpected(RoadGroundError::InvalidGeometry);
+  }
+  const auto edges = Data_.Source.Source->Topology().Edges();
+  const uint32_t edge = Data_.Source.SourceEdges[segment];
+  if (edge >= edges.size()) { return std::unexpected(RoadGroundError::InvalidGeometry); }
+  return edges[edge].Id;
+}
+
 }

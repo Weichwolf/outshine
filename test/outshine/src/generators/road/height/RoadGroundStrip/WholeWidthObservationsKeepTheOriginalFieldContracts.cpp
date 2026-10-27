@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <span>
 #include <stop_token>
@@ -31,6 +32,26 @@ void CheckField() {
   CHECK(field && field->Priors.size() == heights.size() && field->Patches.size() > 1,
         "the original observations remain the height objective rather than being recooked");
   if (!field) { return; }
+  CHECK(field->TriangleAxisSegments == strip->TriangleAxisSegments &&
+            field->TriangleAxisSegments.size() == field->Triangles.size(),
+        "each coarse triangle retains its original source-axis segment through terrain binding");
+  for (size_t face = 0; face < strip->Triangles.size(); ++face) {
+    double longitude = 0;
+    for (const auto vertex : strip->Triangles[face]) {
+      longitude += strip->TerrainQueries[vertex].LongitudeDeg;
+    }
+    const uint32_t expected = longitude / 3 < kAxis[1].LongitudeDeg ? 0 : 1;
+    CHECK(field->TriangleAxisSegments[face] == expected,
+          "geographic position independently identifies both original straight source intervals");
+  }
+  auto brokenLineage = *strip;
+  brokenLineage.TriangleAxisSegments.clear();
+  CHECK(!BindRoadGroundField(brokenLineage, heights),
+        "terrain binding cannot silently discard missing original axis lineage");
+  brokenLineage = *strip;
+  brokenLineage.TriangleAxisSegments[0] = std::numeric_limits<uint32_t>::max();
+  CHECK(!BindRoadGroundField(brokenLineage, heights),
+        "out-of-range axis lineage is refused before a fitted field is published");
   const auto fitted = FitRoadPortField(field->FitInput(.1), {});
   CHECK(
       fitted && fitted->MaximumPriorErrorM <= .1 && fitted->MaximumNormalizedGrade <= 1,

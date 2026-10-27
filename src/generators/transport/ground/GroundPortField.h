@@ -111,6 +111,8 @@ public:
     return Data_.ProcedureAndTerrainBinding;
   }
 
+  [[nodiscard]] std::expected<World::TransportEdgeId, RoadGroundError>
+  SourceEdgeOfFace(size_t face) const noexcept;
   [[nodiscard]] std::expected<GroundPortFieldSamples, GroundPortFieldError>
   Sample(std::span<const GroundPortFieldRequestPoint> points,
          GroundPortFieldQueryLimits limits = {},
