@@ -61,6 +61,7 @@ def fit_scope_field(index, selected, sample, limit, method, budget, report):
     report["field"] = fitting
     report["source_prior_surface"] = inputs.surface
     report["source_grade_frames"] = inputs.grade_frames
+    report["source_input"] = inputs
     if field is None:
         return None, "ground_field_unavailable:" + fitting.get("reason", "unresolved")
     if hasattr(field, "plan"):
