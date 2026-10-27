@@ -1,9 +1,9 @@
 {
   "schema": "outshine/native-mvt-source-reference/1",
-  "exporter_commit": "f47132b48487488a59594694e7296e14febcc070",
-  "native_producer_commit": "8b8384fa8707e07260962e909d5e2bd2dbfccda8",
+  "exporter_commit": "70303d13c88a44ef11b274736faf725cf8f72d3c",
+  "native_producer_commit": "70303d13c88a44ef11b274736faf725cf8f72d3c",
   "native_schema": "outshine/native-mvt-snapshot-dump/1",
-  "source_facts_schema": "outshine/native-mvt-source-facts/1",
+  "source_facts_schema": "outshine/native-mvt-source-facts/2",
   "tile": [
     14,
     8937,
@@ -18,16 +18,16 @@
   "source_way_count": 1557,
   "files": {
     "native.json.gz": {
-      "bytes": 798848,
-      "sha256": "a7a44168a8a9e233055909c8856857d1e8578919622716e3e18d94e06719fe8f",
-      "raw_bytes": 5340054,
-      "raw_sha256": "607125b33862b5e60e9d6f2584482e01d4d09a0ec99672f3130354fd7dca879f"
+      "bytes": 806683,
+      "sha256": "a8014636c7c730daac889cd6dfe396c7d522ba2e01e6d4702bb37f571303a598",
+      "raw_bytes": 5554755,
+      "raw_sha256": "1acd9b5593e121cbff3aaa2406222791d66634cf00e3eae84c573d30e68d4f31"
     },
     "source-facts.json.gz": {
-      "bytes": 370160,
-      "sha256": "9377ac9f5589708fb197c15a14804f4dc675ee9047547b669926d3d6a1d94edd",
-      "raw_bytes": 3054904,
-      "raw_sha256": "642437192758dd9c0e59581e59a64162683eae47586407dc12d29282d12064ca"
+      "bytes": 373297,
+      "sha256": "448fd4a207280dda74632b083b4f9316c2303b8536d78c912db53da081d2d25d",
+      "raw_bytes": 3270118,
+      "raw_sha256": "2834144b81e23d8801fc155630185124996c41de4ec67c8030964531d2c2c36e"
     },
     "source.mvt.gz": {
       "bytes": 132522,
@@ -61,6 +61,7 @@
     "Physical incidence completeness is relative to the supplied native Network, not global source closure",
     "Profiles are actual native class-recipe binary32 words, not observed slopes",
     "Captured without manufactured zero DEM, qualified Ground lease or contact admission",
-    "Separate from the older dd5 legacy-negative fixture; never combine their different Snapshot revisions"
+    "Separate from the older dd5 legacy-negative fixture; never combine their different Snapshot revisions",
+    "V2 SourceTerminal is bound to original native point identity; indoor/level tags retain actual typed values and IEEE754 NumberWord"
   ]
 }
