@@ -35,6 +35,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
   outshine/src/render/stages/GeometryResidency/DeferredImagesSurviveBackpressureAndRejectedSubmission
   outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
+  outshine/src/render/stages/GeometryResidency/LargeReservationsFitAdmissionAndPreserveAcceptedData
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
