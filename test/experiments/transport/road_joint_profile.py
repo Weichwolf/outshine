@@ -10,6 +10,7 @@ from road_bank_profile import (
     prior_controls,
     residual,
 )
+from road_shared_profile import ProfileRecipe, shared_candidate
 from scipy import sparse
 from scipy.optimize import linprog
 
@@ -126,6 +127,18 @@ def program(curve, limits, height_change, bank_prior):
 
 
 def plan_joint(curve, limits, height_change, *, method="staged"):
+    return _plan(curve, limits, height_change, method=method, shared=False)
+
+
+def plan_profile(curve, limits, height_change):
+    value, note = _plan(curve, limits, height_change, method="staged", shared=True)
+    if value is None:
+        return None, note
+    basis = "shared-cubic" if note["selected"] == "shared_cubic" else "source-cubics"
+    return ProfileRecipe(basis, *value), note
+
+
+def _plan(curve, limits, height_change, *, method, shared):
     if (
         method not in ("staged", "coupled")
         or not np.isfinite(height_change)
@@ -184,6 +197,19 @@ def plan_joint(curve, limits, height_change, *, method="staged"):
             "reason": "fixed_cubic_family",
             "maximum_numeric_residual": error,
         }
+    if shared:
+        candidate, certificate = shared_candidate(curve, limits, height_change)
+        note["shared_candidate"] = certificate
+        if candidate is not None:
+            return candidate, note | {
+                "status": "ready",
+                "reason": "",
+                "selected": "shared_cubic",
+            }
+    return fit_local(curve, limits, height_change, prior_bank, note)
+
+
+def fit_local(curve, limits, height_change, prior_bank, note):
     matrix, bound, fixed, targets, variable_bounds = program(
         curve, limits, height_change, prior_bank
     )

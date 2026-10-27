@@ -205,14 +205,20 @@ def residual(
     )
 
 
+def outer_cubic(curve, prior):
+    start, end = curve.stations[[0, -1]]
+    length = end - start
+    rate_start = 3 * (prior[0, 1] - prior[0, 0]) / curve.lengths[0]
+    rate_end = 3 * (prior[-1, 3] - prior[-1, 2]) / curve.lengths[-1]
+    return controls(prior[0, 0], prior[-1, 3], rate_start, rate_end, length)
+
+
 def global_cubic(curve, prior):
     from road_surface_model import bezier
 
     start, end = curve.stations[[0, -1]]
     length = end - start
-    rate_start = 3 * (prior[0, 1] - prior[0, 0]) / curve.lengths[0]
-    rate_end = 3 * (prior[-1, 3] - prior[-1, 2]) / curve.lengths[-1]
-    control = controls(prior[0, 0], prior[-1, 3], rate_start, rate_end, length)
+    control = outer_cubic(curve, prior)
     t = (curve.stations - start) / length
     q = bezier(control, t)
     rate = bezier(3 * np.diff(control) / length, t)

@@ -6,6 +6,9 @@
 profiles stay fixed. Inner height and crossfall controls may change within
 explicit metre/dimensionless allowances. No native/default/asset-format change.
 
+The optional [shared scalar recipe](road_shared_profile.md) avoids microscopic
+scalar seams; this original local-control entry point and its defaults remain.
+
 ## Preserve good products, then do only needed work
 
 `plan_joint` first retains a qualified existing bank-only result. It next checks

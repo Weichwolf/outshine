@@ -1,7 +1,6 @@
 """Recipe-derived Upper shading frames, independent of display triangles (#1531)."""
 
 import numpy as np
-from road_surface_model import bezier
 
 
 def parameters(curve, stations, side):
@@ -52,8 +51,7 @@ def differentials(curve, stations, *, side="right", lateral_m=None):
         + curve.curvature_rate[i] * distance**2 / 2
     )
     curvature = curve.curvature_start[i] + curve.curvature_rate[i] * distance
-    grade_controls = 3 * np.diff(curve.height[i], axis=1) / curve.lengths[i, None]
-    grade = bezier(grade_controls, t)
+    grade = curve.height_at(i, t, derivative=1)
     crossfall = curve.crossfall(i, t)
     crossfall_rate = curve.crossfall(i, t, derivative=1)
     factor = 1 - curvature[:, None] * across
