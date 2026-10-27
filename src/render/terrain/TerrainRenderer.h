@@ -60,6 +60,11 @@ public:
   explicit TerrainRenderer(TerrainResidency &resident) noexcept
       : Resident_(&resident), Selection_(resident.Patches_) {}
 
+  TerrainRenderer(const TerrainRenderer &) = delete;
+  TerrainRenderer &operator=(const TerrainRenderer &) = delete;
+  TerrainRenderer(TerrainRenderer &&) = delete;
+  TerrainRenderer &operator=(TerrainRenderer &&) = delete;
+
   void UploadsFrom(UploadQueue *queue) noexcept { Resident_->UploadsFrom(queue); }
 
   static constexpr DrawShape LitShape{.VertexSamplers = 1,

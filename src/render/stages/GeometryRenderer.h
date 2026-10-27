@@ -83,6 +83,11 @@ public:
   explicit GeometryRenderer(RenderScene &scene,
                             GeometryPassKind pass = GeometryPassKind::Opaque) noexcept;
 
+  GeometryRenderer(const GeometryRenderer &) = delete;
+  GeometryRenderer &operator=(const GeometryRenderer &) = delete;
+  GeometryRenderer(GeometryRenderer &&) = delete;
+  GeometryRenderer &operator=(GeometryRenderer &&) = delete;
+
   struct MeshTicket {
     uint64_t Generation = 0;
     bool NeedsFinish = false;
