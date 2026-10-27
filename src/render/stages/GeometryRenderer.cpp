@@ -724,9 +724,25 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
   piece.Rows.assign(rows.begin(), rows.end());
   piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
   RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
-  RowsStale_ = TablesStale_ = true;
+  RowsStale_ = true;
+  if (previousRows != piece.Rows.size()) {
+    TablesStale_ = true;
+  } else if (!TablesStale_) {
+    UpdatePieceBounds(piece);
+  }
+  ShadowCasters_.Invalidate();
   ++Reshaped_;
   return true;
+}
+
+void GeometryRenderer::UpdatePieceBounds(const Piece &piece) {
+  if (!piece.FirstBatch) { return; }
+  const size_t runs = piece.Clusters.empty() ? 1u : piece.Rows.size();
+  for (size_t instance = 0; instance < runs; ++instance) {
+    Batches[*piece.FirstBatch + instance].WorldSphere =
+        runs == 1 ? piece.WorldSphere
+                  : WorldSphereOf(piece.LocalSphere, std::span(&piece.Rows[instance], 1));
+  }
 }
 
 void GeometryRenderer::ReleasePiece(PieceId which) {
@@ -865,6 +881,7 @@ void GeometryRenderer::OrderPieces() {
   auto nextRow =
       static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(MainMeshRows_)));
   for (Piece &piece : Pieces_) {
+    piece.FirstBatch.reset();
     piece.FirstRow = nextRow;
     nextRow += static_cast<uint32_t>(piece.Rows.size());
   }
@@ -939,13 +956,11 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
                     0.0f});
   }
   const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
+  one.FirstBatch = static_cast<uint32_t>(Batches.size());
   for (size_t instance = 0; instance < runs; ++instance) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
-    batch.WorldSphere = runs == 1
-                            ? one.WorldSphere
-                            : WorldSphereOf(one.LocalSphere, std::span(&one.Rows[instance], 1));
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
@@ -963,6 +978,7 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
     Batches.push_back(batch);
     BatchLayout.push_back(layout);
   }
+  UpdatePieceBounds(one);
   return true;
 }
 

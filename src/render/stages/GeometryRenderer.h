@@ -565,6 +565,7 @@ private:
     std::optional<std::array<float, 3>> Emitted;
     std::vector<Mat4> Rows;
     uint32_t FirstRow = 0;
+    std::optional<uint32_t> FirstBatch;
     uint32_t MaxInstances = 0;
     std::vector<DagCluster> Clusters;
     std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
@@ -607,6 +608,7 @@ private:
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
+  void UpdatePieceBounds(const Piece &piece);
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
