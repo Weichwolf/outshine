@@ -5,6 +5,10 @@ file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/s
 add_custom_target(outshine_tests)
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
+set(pipeline_test_shaders ${OUTSHINE_SHADER_ARTIFACTS})
+list(FILTER pipeline_test_shaders INCLUDE REGEX
+  "/([^/]*\\.comp|fullscreen[^/]*\\.vert|present[^/]*\\.frag)\\.spv$")
+add_custom_target(test_pipeline_shaders DEPENDS ${pipeline_test_shaders})
 set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
@@ -183,6 +187,9 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
+  if(name MATCHES "^outshine/src/render/pipelines/")
+    add_dependencies(${target} test_pipeline_shaders)
+  endif()
   if(name MATCHES "^outshine/integration/generators/transport/PlanRoadPages/")
     target_link_libraries(${target} PRIVATE outshine_generators_transport)
   endif()

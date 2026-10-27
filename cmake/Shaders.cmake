@@ -113,4 +113,9 @@ add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/compute-shaders.json"
 add_custom_target(compute_contracts DEPENDS "${PROJECT_BINARY_DIR}/compute-shaders.json")
 add_dependencies(outshine_shaders compute_contracts)
 
+set(calibration_shader_artifacts ${OUTSHINE_SHADER_ARTIFACTS})
+list(FILTER calibration_shader_artifacts INCLUDE REGEX "/calibration[^/]*\\.spv$")
+add_custom_target(outshine_calibration_shaders DEPENDS ${calibration_shader_artifacts})
+add_dependencies(outshine_diagnostics_calibration outshine_calibration_shaders)
+
 add_dependencies(outshine_render outshine_shaders)
