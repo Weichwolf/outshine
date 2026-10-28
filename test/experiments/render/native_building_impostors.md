@@ -16,6 +16,9 @@ and writes `result.json` plus fixed original/card controls. Cached-world mode ne
 `input.json` with `atlas_sha256`, the SHA-256 of those exact encoded atlas bytes.
 On a miss it verifies/decodes `atlas.bin` once and creates only requested view/mip
 products in the existing AssetCache, under `$input/world-view-assets.sqlite`.
+`atlas_provenance` defaults to `native-original-impostor-1`; source-plane captures
+declare `native-source-planes-impostor-1` explicitly. Provenance and content digest
+both enter the metadata namespace; old products cannot be reinterpreted.
 It does not reconstruct original meshes or invoke another GPU capture.
 
 The metadata index contains fixed capture directions and source extent. Selection

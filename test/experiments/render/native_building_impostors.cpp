@@ -386,6 +386,7 @@ Json ClippedFlatControl(const ImpostorAtlas &atlas,
 struct CapturedAtlas {
   Fs::path File;
   std::string Digest;
+  std::string Provenance;
   std::optional<ImpostorAtlas> Held = std::nullopt;
   size_t ReadBytes = 0;
   size_t Decodes = 0;
@@ -403,7 +404,7 @@ struct CapturedAtlas {
       ReadMs += Milliseconds(began);
       const auto decodeAt = Clock::now();
       std::string error;
-      Held = ImpostorAtlas::Decode(bytes, "native-original-impostor-1", error);
+      Held = ImpostorAtlas::Decode(bytes, Provenance, error);
       if (!Held) { Fail(error); }
       ReadBytes += bytes.size();
       ++Decodes;
@@ -415,7 +416,7 @@ struct CapturedAtlas {
 
 Content::ImpostorViewAssets OpenViewAssets(AssetCache &cache, CapturedAtlas &source, Box bounds) {
   using Content::ImpostorViewAssets;
-  const auto provenance = "native-original-impostor-1/" + source.Digest;
+  const auto provenance = source.Provenance + "/" + source.Digest;
   auto opened = ImpostorViewAssets::Open(cache, provenance);
   if (!opened) { Fail("native world metadata read failed"); }
   if (*opened) { return std::move(**opened); }
@@ -437,8 +438,10 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
   auto cache = AssetCache::Open((root / "world-view-assets.sqlite").string());
   const double databaseOpenMs = Milliseconds(openedAt);
   if (!cache) { Fail("native world asset database unavailable"); }
-  CapturedAtlas source{.File = root / "atlas.bin",
-                       .Digest = input.at("atlas_sha256").get<std::string>()};
+  CapturedAtlas source{
+      .File = root / "atlas.bin",
+      .Digest = input.at("atlas_sha256").get<std::string>(),
+      .Provenance = input.value("atlas_provenance", std::string("native-original-impostor-1"))};
   const auto metadataAt = Clock::now();
   const auto products = OpenViewAssets(
       **cache, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
