@@ -50,13 +50,18 @@ to reconstruct the outline from original corners with exact original-edge
 support, then falls back to the same complete witness when necessary. They are
 two execution orders of the same qualification, not independent global proofs.
 Neither unions incomplete fragments into a newly invented building. Holes stay
-part of the checked polygon. Canonical winding, cyclic ring starts and hole
+part of the checked polygon. Every fragment must stay within the candidate's
+coordinate envelope, including points on clipping boundaries. Clipping a common
+source geometry on the same grid cannot enlarge its coordinate range. This is
+an exact necessary bound, not a complete certificate for quantized cut edges.
+Canonical winding, cyclic ring starts and hole
 ordering determine a geometry digest; source tile/input digests independently
 determine its dependency digest.
 
 The controls cover the actual clipped/full Rosenheim pair, distinct houses
 sharing a container, different container IDs, revision changes, ring ordering,
-conflicts, crossing footprints, courtyards and missing neighbours. In the saved
+conflicts, crossing footprints, courtyards, missing neighbours and incompatible
+cut points outside a complete footprint's envelope. In the saved
 whole batch the current procedure yields 2663 candidates in 2759 components and
 leaves 96 unresolved. This is not worldwide coverage or a dateline test. Missing
 original corners, quantized diagonals and ambiguous overlaps still require

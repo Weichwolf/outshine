@@ -140,7 +140,12 @@ def resolve(observations, method='whole-first'):
             candidate, proof_kind = full[0], 'whole-source-witness-after-proposal'
         if candidate is None:
             return dict(base, status=proof_kind)
+    left, bottom, right, top = candidate.bounds
     for observation in observations:
+        observed_left, observed_bottom, observed_right, observed_top = observation.polygon.bounds
+        if (observed_left < left or observed_bottom < bottom
+                or observed_right > right or observed_top > top):
+            return dict(base, status='fragment-outside-candidate-envelope')
         if observation.polygon.area > candidate.area:
             return dict(base, status='fragment-larger-than-whole')
         for vertex in real_vertices(observation):
