@@ -224,17 +224,70 @@ Json CaptureStatistics(const ImpostorAtlas &atlas) {
   return result;
 }
 
+void ApplyMomentImages(Geometry &surface, const ImpostorAtlas &atlas, size_t view) {
+  const auto id = surface.materialOf(0);
+  auto material = surface.surfaceAt(id);
+  if (!Render::AddOpticalCardImages(surface, material, atlas, atlas.Views()[view])) {
+    Fail("source atlas has no moment images");
+  }
+  material.Alpha = AlphaMode::Blended;
+  if (!surface.setSurface(id, material)) { Fail("moment material rejected"); }
+}
+
 Geometry
 MomentSurface(const ImpostorAtlas &atlas, size_t view, Render::ImpostorSurfaceDetail detail) {
   auto surface = Render::BuildImpostorSurface(atlas, view, detail);
   if (!surface) { Fail("source atlas has no moment geometry"); }
-  const auto id = surface->materialOf(0);
-  auto material = surface->surfaceAt(id);
-  if (!Render::AddOpticalCardImages(*surface, material, atlas, atlas.Views()[view])) {
-    Fail("source atlas has no moment images");
+  ApplyMomentImages(*surface, atlas, view);
+  return std::move(*surface);
+}
+
+ImpostorAtlas ExtendedDepth(const ImpostorAtlas &atlas, size_t selected) {
+  auto view = atlas.Views()[selected];
+  const size_t count = view.Texels.size();
+  const auto width = static_cast<size_t>(atlas.Pixels());
+  std::vector<size_t> owner(count, count);
+  std::vector<size_t> queue;
+  queue.reserve(count);
+  for (size_t at = 0; at < count; ++at) {
+    if (view.Texels[at].Surface == 0) { continue; }
+    owner[at] = at;
+    queue.push_back(at);
   }
-  material.Alpha = AlphaMode::Blended;
-  if (!surface->setSurface(id, material)) { Fail("moment material rejected"); }
+  if (queue.empty()) { Fail("extended depth has no source"); }
+  for (size_t next = 0; next < queue.size(); ++next) {
+    const size_t at = queue[next];
+    const auto extend = [&](size_t to) {
+      if (owner[to] != count) { return; }
+      owner[to] = owner[at];
+      queue.push_back(to);
+    };
+    if (at % width > 0) { extend(at - 1); }
+    if (at % width + 1 < width) { extend(at + 1); }
+    if (at >= width) { extend(at - width); }
+    if (at + width < count) { extend(at + width); }
+  }
+  const auto &original = atlas.Views()[selected];
+  for (size_t at = 0; at < count; ++at) {
+    view.Texels[at] = original.Texels[owner[at]];
+    if (!view.Materials.empty()) { view.Materials[at] = original.Materials[owner[at]]; }
+  }
+  std::string error;
+  auto extended = ImpostorAtlas::Create(atlas.Pixels(),
+                                        atlas.CentreM(),
+                                        atlas.HalfExtentM(),
+                                        atlas.Surfaces(),
+                                        {std::move(view)},
+                                        error);
+  if (!extended) { Fail(error); }
+  return std::move(*extended);
+}
+
+Geometry SupportedMomentSurface(const ImpostorAtlas &atlas, size_t view) {
+  const auto extended = ExtendedDepth(atlas, view);
+  auto surface = Render::BuildImpostorSurface(extended, 0, Render::ImpostorSurfaceDetail::Depth);
+  if (!surface) { Fail("extended depth has no geometry"); }
+  ApplyMomentImages(*surface, atlas, view);
   return std::move(*surface);
 }
 
@@ -341,6 +394,12 @@ int main(int argc, char *const *argv) {
     }
     record["clipped-flat-moments"] =
         ClippedFlatControl(*atlas, selected, query, root / (name + "-clipped-flat-moments"));
+    const auto supportBegan = Clock::now();
+    const auto supported = SupportedMomentSurface(*atlas, selected);
+    const double supportMs = Milliseconds(supportBegan);
+    record["supported-depth-moments"] =
+        Draw(supported, query, root / (name + "-supported-depth-moments"));
+    record["supported-depth-moments"]["product_ms"] = supportMs;
     results["cases"].push_back(std::move(record));
   }
   std::ofstream report(root / "result.json");

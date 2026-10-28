@@ -31,6 +31,7 @@ MODES = (
     "flat-moments",
     "depth-moments",
     "clipped-flat-moments",
+    "supported-depth-moments",
 )
 
 
