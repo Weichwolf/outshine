@@ -2,7 +2,6 @@
 #define OUTSHINE_TEST_ENGINE_NATIVEBUILDINGREPLAY_H
 #include "Check.h"
 #include "SurfacePreparation.h"
-#include "Sink.h"
 #include "MvtWireFixture.h"
 #include <chrono>
 #include <cstdint>
@@ -52,21 +51,6 @@ public:
   }
 
   void Cancel(outshine::Data::Ticket /*ticket*/) override {}
-};
-
-class SilentSink final : public outshine::Sink {
-public:
-  void Number(const char * /*name*/, double /*value*/, const char * /*unit*/) override {}
-
-  void Claim(bool /*passed*/, const char * /*claim*/) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string & /*uri*/) override {}
 };
 
 using namespace outshine;

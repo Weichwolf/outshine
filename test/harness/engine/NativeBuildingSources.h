@@ -27,7 +27,7 @@ inline constexpr double kSpan = 1000;
 struct Fixture {
   BuildingQueueCache Directory;
   ReplaySourceTransport Wire;
-  SilentSink Sink;
+
   Tasks Compute{1};
   Ground::SurfacePreparation Stack;
   Tasks Worker{1};
@@ -51,7 +51,6 @@ struct Fixture {
                     Eye,
                     Wire,
                     Compute,
-                    Sink,
                     nullptr,
                     1.0)) {
       return false;

@@ -2,7 +2,6 @@
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
-#include "Sink.h"
 #include "StructureBuildQueue.h"
 #include "TerrainRevisionIndex.h"
 #include "TangentFrame.h"
@@ -187,7 +186,7 @@ void Replay(const std::filesystem::path &directory,
   providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
   ReplaySourceTransport wire;
   wire.TwoCells = initialCells;
-  SilentSink sink;
+
   Tasks compute(1);
   SurfacePreparation stack;
   Data::ProviderRegistry registry;
@@ -200,7 +199,6 @@ void Replay(const std::filesystem::path &directory,
                    eye,
                    wire,
                    compute,
-                   sink,
                    nullptr,
                    1.0),
         "native replay opens the real vector and asset services");

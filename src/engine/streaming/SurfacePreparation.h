@@ -36,7 +36,6 @@
 
 namespace outshine {
 class LogSink;
-class Sink;
 }
 
 namespace outshine::Ground {
@@ -71,23 +70,23 @@ public:
   SurfacePreparation(const SurfacePreparation &) = delete;
   SurfacePreparation &operator=(const SurfacePreparation &) = delete;
 
-  [[nodiscard]] bool Open(const ContentDirectories &under,
-                          std::span<const Data::SourceProvider> providers,
-                          const Data::ProviderRegistry &registry,
-                          LongitudeLatitude focus,
-                          Data::SourceTransport &wire,
-                          Tasks &compute,
-                          Sink &say,
-                          LogSink *diagnostics,
-                          double patienceS = 0.0);
-  [[nodiscard]] bool OpenSession(const ContentDirectories &under,
-                                 std::shared_ptr<Data::SourceSession> session,
-                                 LongitudeLatitude focus,
-                                 Data::SourceTransport &wire,
-                                 Tasks &compute,
-                                 Sink &say,
-                                 LogSink *diagnostics,
-                                 double patienceS = 0.0);
+  [[nodiscard]] std::expected<void, std::string>
+  Open(const ContentDirectories &under,
+       std::span<const Data::SourceProvider> providers,
+       const Data::ProviderRegistry &registry,
+       LongitudeLatitude focus,
+       Data::SourceTransport &wire,
+       Tasks &compute,
+       LogSink *diagnostics,
+       double patienceS = 0.0);
+  [[nodiscard]] std::expected<void, std::string>
+  OpenSession(const ContentDirectories &under,
+              std::shared_ptr<Data::SourceSession> session,
+              LongitudeLatitude focus,
+              Data::SourceTransport &wire,
+              Tasks &compute,
+              LogSink *diagnostics,
+              double patienceS = 0.0);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
