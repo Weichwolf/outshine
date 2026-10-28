@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def draw(output, results):
+def draw(output, results, *, title=None):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -30,10 +30,12 @@ def draw(output, results):
         axis.scatter(*xy.T, s=12, color="black")
         axis.autoscale()
         axis.set_aspect("equal")
+        holes = len(geometry["source_cycle_faces_wkb"])
+        hole_count = "two" if holes == 2 else str(holes)
         axis.set(
             xlabel="source east m",
             ylabel="source north m",
-            title=f"Original component {key}\n12 complete spans, two preserved source holes",
+            title=f"Original component {key}\n{len(geometry['source_edges_local'])} complete spans, {hole_count} preserved source holes",
         )
         view = figure.add_subplot(len(accepted), 2, row * 2 + 2, projection="3d")
         origin = float(mesh.vertices[:, 2].mean())
@@ -60,7 +62,8 @@ def draw(output, results):
         )
         view.legend(fontsize=7)
     figure.suptitle(
-        "Two original bounded ground components: complete shared sections and full C1/finite-grade checks\nNo original-qualified ends, canonical Source/World/terrain/device admission"
+        title
+        or "Two original bounded ground components: complete shared sections and full C1/finite-grade checks\nNo original-qualified ends, canonical Source/World/terrain/device admission"
     )
     figure.savefig(output / "geometry.png", dpi=135)
     plt.close(figure)
