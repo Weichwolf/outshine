@@ -2,6 +2,7 @@
 #define OUTSHINE_SOURCES_SOURCETRANSPORT_H
 
 #include <chrono>
+#include <cstddef>
 #include <thread>
 #include <optional>
 #include <cstdint>
@@ -18,8 +19,12 @@ namespace outshine::Data {
 inline constexpr int kHttpPartialContent = 206;
 
 inline constexpr size_t MaximumEntityTagBytes = 1024;
+inline constexpr size_t MaximumResponseHeaderBytes = size_t{16} * 1024;
 
 [[nodiscard]] bool StrongEntityTag(std::string_view tag) noexcept;
+// A duplicate or folded field cannot establish a single response identity.
+[[nodiscard]] std::optional<std::string_view> SingleResponseHeader(std::string_view headers,
+                                                                   std::string_view name) noexcept;
 
 enum class Ticket : uint64_t { None = 0 };
 
@@ -54,6 +59,7 @@ public:
         Body_(std::move(other.Body_)),
         RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
         Range_(std::move(other.Range_)),
+        Headers_(std::move(other.Headers_)),
         Reason_(other.Reason_) {}
 
   Wire &operator=(Wire &&other) noexcept {
@@ -63,23 +69,27 @@ public:
     Body_ = std::move(other.Body_);
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
     Range_ = std::move(other.Range_);
+    Headers_ = std::move(other.Headers_);
     Reason_ = other.Reason_;
     return *this;
   }
 
   [[nodiscard]] static Wire Working() { return {State::Working, 0, {}, 0.0}; }
 
-  [[nodiscard]] static Wire Answered(int status, std::vector<uint8_t> body) {
-    return {State::Answered, status, std::move(body), 0.0};
+  [[nodiscard]] static Wire Answered(int status,
+                                     std::vector<uint8_t> body,
+                                     double retryAfterS = 0.0,
+                                     std::string headers = {}) {
+    Wire wire(State::Answered, status, std::move(body), retryAfterS);
+    wire.Headers_ = std::move(headers);
+    return wire;
   }
 
-  [[nodiscard]] static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
-    return {State::Answered, status, std::move(body), retryAfterS};
-  }
-
-  [[nodiscard]] static Wire Answered(std::vector<uint8_t> body, RangeResponse range) {
+  [[nodiscard]] static Wire
+  Answered(std::vector<uint8_t> body, RangeResponse range, std::string headers = {}) {
     Wire wire(State::Answered, kHttpPartialContent, std::move(body), 0.0);
     wire.Range_ = std::move(range);
+    wire.Headers_ = std::move(headers);
     return wire;
   }
 
@@ -107,12 +117,16 @@ public:
     int Status = 0;
     std::vector<uint8_t> Body;
     std::optional<RangeResponse> Range;
+    std::string Headers;
   };
 
   [[nodiscard]] std::optional<Response> Take() {
     if (Where_ != State::Answered) { return std::nullopt; }
     Where_ = State::Consumed;
-    return Response{.Status = Status_, .Body = std::move(Body_), .Range = std::move(Range_)};
+    return Response{.Status = Status_,
+                    .Body = std::move(Body_),
+                    .Range = std::move(Range_),
+                    .Headers = std::move(Headers_)};
   }
 
 private:
@@ -124,6 +138,7 @@ private:
   std::vector<uint8_t> Body_;
   double RetryAfterS_;
   std::optional<RangeResponse> Range_;
+  std::string Headers_;
   SourceFailureReason Reason_ = SourceFailureReason::ProviderRefused;
 };
 

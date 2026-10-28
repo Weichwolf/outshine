@@ -127,9 +127,12 @@ RawSourceCache::Entry RawSourceCache::Lookup(std::string_view key, size_t mostBy
     Hits_.fetch_add(1, std::memory_order_relaxed);
     return {.Where = Presence::Bytes, .Bytes = std::move(*bytes)};
   }
-  if (ValidKey(key) && HasAbsence(key)) {
-    Hits_.fetch_add(1, std::memory_order_relaxed);
-    return {.Where = Presence::Absent, .Bytes = {}};
+  if (ValidKey(key)) {
+    const auto status = ReadStatus(key);
+    if (status != Presence::Unknown) {
+      Hits_.fetch_add(1, std::memory_order_relaxed);
+      return {.Where = status, .Bytes = {}};
+    }
   }
   Misses_.fetch_add(1, std::memory_order_relaxed);
   return {};
@@ -147,7 +150,7 @@ bool RawSourceCache::Keep(std::string_view key, const uint8_t *data, size_t byte
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
-  ForgetAbsence(key);
+  ForgetStatus(key);
   ObserveUsage(key, bytes, true);
   Writes_.fetch_add(1, std::memory_order_relaxed);
   return true;

@@ -39,6 +39,13 @@ protected:
 
   [[nodiscard]] Meaning Classify(Replied said) const noexcept;
 
+  [[nodiscard]] virtual bool
+  AcceptsIdentity([[maybe_unused]] const Wire::Response &response) const noexcept {
+    return true;
+  }
+
+  [[nodiscard]] virtual bool AcceptsEmptyPayload() const noexcept { return false; }
+
   [[nodiscard]] virtual bool CountsAbsent(int status) const noexcept {
     return status == kHttpNotFound;
   }
