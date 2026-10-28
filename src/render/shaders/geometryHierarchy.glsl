@@ -2,8 +2,6 @@ struct GeometryRoot {
   vec4 localSphere;
   uvec4 cluster;
   uvec4 instance;
-  uvec4 product;
-  uvec4 residency;
 };
 struct GeometryQueueState {
   uvec4 counts;

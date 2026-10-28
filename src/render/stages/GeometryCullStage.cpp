@@ -1,4 +1,6 @@
 #include "GeometryCullStage.h"
+#include "GeometryHierarchy.h"
+#include "RenderCatalogue.h"
 #include "PipelineFactory.h"
 #include "Units.h"
 #include <array>
@@ -12,6 +14,8 @@
 #include <utility>
 
 namespace outshine::Render {
+static_assert(sizeof(GeometryRoot) == kHierarchyRootStride);
+
 namespace {
 constexpr size_t kPlaneFloats = 24;
 std::atomic<uint32_t> gJobsAdmitted{0};

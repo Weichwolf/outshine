@@ -62,8 +62,6 @@ bool GeometryRenderer::AppendRoot(GeometryRoot root, std::string &error) {
     return false;
   }
   root.LogicalFirst = Jobs_;
-  root.ResidencyRevision = {static_cast<uint32_t>(TableRevision_),
-                            static_cast<uint32_t>(TableRevision_ >> 32u)};
   TableRoots_.push_back(root);
   Jobs_ = static_cast<uint32_t>(logical);
   return true;

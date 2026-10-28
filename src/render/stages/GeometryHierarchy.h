@@ -8,7 +8,6 @@
 
 namespace outshine::Render {
 
-inline constexpr size_t kGeometryRootBytes = 80;
 inline constexpr uint32_t kGeometryChunkClusters = 64;
 inline constexpr uint32_t kGeometryRootBound = 1;
 inline constexpr uint32_t kGeometryUnboundedDeformation = 2;
@@ -23,9 +22,6 @@ struct alignas(16) GeometryRoot {
   uint32_t IndexBase = 0;
   uint32_t IndexCapacity = 0;
   uint32_t Flags = 0;
-  std::array<uint32_t, 4> Product{};
-  std::array<uint32_t, 2> ResidencyRevision{};
-  std::array<uint32_t, 2> Coverage{};
 };
 
 struct alignas(16) GeometryClusterTemplate {
@@ -55,7 +51,7 @@ struct alignas(16) GeometryHierarchyView {
 };
 
 static_assert(std::is_trivially_copyable_v<GeometryRoot>);
-static_assert(sizeof(GeometryRoot) == kGeometryRootBytes && alignof(GeometryRoot) == 16);
+static_assert(sizeof(GeometryRoot) == 48 && alignof(GeometryRoot) == 16);
 static_assert(offsetof(GeometryRoot, LocalSphere) == 0);
 static_assert(offsetof(GeometryRoot, TemplateFirst) == 16);
 static_assert(offsetof(GeometryRoot, TemplateCount) == 16 + sizeof(uint32_t));
@@ -65,9 +61,6 @@ static_assert(offsetof(GeometryRoot, ModelSlot) == 32);
 static_assert(offsetof(GeometryRoot, IndexBase) == 32 + sizeof(uint32_t));
 static_assert(offsetof(GeometryRoot, IndexCapacity) == 32 + 2 * sizeof(uint32_t));
 static_assert(offsetof(GeometryRoot, Flags) == 32 + 3 * sizeof(uint32_t));
-static_assert(offsetof(GeometryRoot, Product) == size_t{3} * 16);
-static_assert(offsetof(GeometryRoot, ResidencyRevision) == 64);
-static_assert(offsetof(GeometryRoot, Coverage) == 64 + 2 * sizeof(uint32_t));
 static_assert(sizeof(GeometryClusterTemplate) == 16 && alignof(GeometryClusterTemplate) == 16);
 static_assert(offsetof(GeometryClusterTemplate, SphereIndex) == 0);
 static_assert(offsetof(GeometryClusterTemplate, RelativeFirstIndex) == 4);

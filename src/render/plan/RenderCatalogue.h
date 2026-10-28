@@ -234,7 +234,7 @@ private:
   size_t Count_ = 0;
 };
 
-inline constexpr uint32_t kHierarchyRootStride = 80;
+inline constexpr uint32_t kHierarchyRootStride = 48;
 inline constexpr uint32_t kPlacementStride = 144;
 
 inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> kResources = {{
