@@ -65,8 +65,10 @@ std::optional<Geometry> GeometryOf(const Raised &raised, const EnuAxes &frame) {
   return geometry;
 }
 
-std::optional<ImpostorAtlas>
-Capture(const Raised &raised, const EnuAxes &frame, const Box &bounds) {
+std::optional<ImpostorAtlas> Capture(Render::ImpostorBaker &baker,
+                                     const Raised &raised,
+                                     const EnuAxes &frame,
+                                     const Box &bounds) {
   auto geometry = GeometryOf(raised, frame);
   CHECK(geometry, "source material streams form native capture geometry");
   if (!geometry) { return std::nullopt; }
@@ -76,8 +78,7 @@ Capture(const Raised &raised, const EnuAxes &frame, const Box &bounds) {
   capture.ViewDirections = {{{0, 0, 1}}};
   capture.Sources.push_back({.Mesh = std::move(*geometry), .Instances = {Mat4{}}});
   std::string error;
-  auto atlas =
-      Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = kPixels, .Views = 1}, error);
+  auto atlas = baker.Capture(std::move(capture), {.Pixels = kPixels, .Views = 1}, error);
   CHECK(atlas, error.c_str());
   return atlas;
 }
@@ -161,12 +162,13 @@ int main() {
         {.Samples = uint64_t{kPixels} * kPixels, .SourceTests = uint64_t{kPixels} * kPixels});
     CHECK(sampled && sampled->Covered > 100, "source-only producer returns visible native patches");
     if (!sampled) { return Report(); }
-    const auto candidate = Capture(sampled->Mesh, frame, bounds);
+    Render::ImpostorBaker baker;
+    const auto candidate = Capture(baker, sampled->Mesh, frame, bounds);
     Raised reference;
     const BuildingMesh mesher;
     CHECK(mesher.Mesh(plan, scratch, reference),
           "independent native reference shell builds afterwards");
-    const auto original = Capture(reference, frame, bounds);
+    const auto original = Capture(baker, reference, frame, bounds);
     if (candidate && original) { Compare(*candidate, *original); }
   }
   SDL_Quit();
