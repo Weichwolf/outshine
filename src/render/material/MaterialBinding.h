@@ -3,11 +3,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "Material.h"
 #include "../SurfaceState.h"
 #include "Texture.h"
 #include "UvTransform.h"
+#include "RadianceImage.h"
 
 namespace outshine::Render {
 
@@ -37,6 +39,11 @@ struct MaterialTexture {
 
 enum class SurfaceDomain : std::uint8_t { Geometry, Ground };
 
+struct MaterialRadiance {
+  uint32_t Material = 0;
+  std::shared_ptr<const RadianceImage> Image;
+};
+
 inline constexpr std::size_t kSurfaceDomains = 2;
 
 struct MaterialBinding {
@@ -54,6 +61,7 @@ struct MaterialBinding {
   MaterialTexture Emissive;
 
   float NormalScale = 1.0f;
+  std::shared_ptr<const RadianceImage> Radiance;
 
   [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
 
@@ -69,10 +77,10 @@ struct MaterialBinding {
   }
 
   [[nodiscard]] bool ReadsAnyImage() const {
-    return (Colour.Rgba != nullptr) || (Normal.Rgba != nullptr) || (MetalRough.Rgba != nullptr) ||
-           (Emissive.Rgba != nullptr) || (SpecularStrength.Rgba != nullptr) ||
-           (SpecularTint.Rgba != nullptr) || (DiffuseReflection.Rgba != nullptr) ||
-           (DiffuseTransmission.Rgba != nullptr);
+    return Radiance || (Colour.Rgba != nullptr) || (Normal.Rgba != nullptr) ||
+           (MetalRough.Rgba != nullptr) || (Emissive.Rgba != nullptr) ||
+           (SpecularStrength.Rgba != nullptr) || (SpecularTint.Rgba != nullptr) ||
+           (DiffuseReflection.Rgba != nullptr) || (DiffuseTransmission.Rgba != nullptr);
   }
 };
 

@@ -21,6 +21,7 @@ BuildImpostorSurface(const ImpostorAtlas &atlas,
 // Fractional coverage provides colour support, never opaque depth or shadow depth.
 [[nodiscard]] std::optional<Geometry>
 BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view, size_t firstMip = 0);
+[[nodiscard]] std::optional<Geometry> BuildRadianceSupport(const ImpostorAtlas &atlas, size_t view);
 
 [[nodiscard]] std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas,
                                                                 std::string &error);

@@ -202,9 +202,12 @@ bool SceneResources::HasMaterialRegistration(const MaterialRegistration &materia
   return Materials_.Contains(material);
 }
 
-std::expected<MaterialRegistration, std::string> SceneResources::RegisterPieceMaterials(
-    GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source) {
-  return Materials_.Register(geometry, glass, std::move(source));
+std::expected<MaterialRegistration, std::string>
+SceneResources::RegisterPieceMaterials(GeometryRenderer &geometry,
+                                       GeometryRenderer *glass,
+                                       Geometry source,
+                                       std::span<const MaterialRadiance> images) {
+  return Materials_.Register(geometry, glass, std::move(source), images);
 }
 
 bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,

@@ -204,6 +204,8 @@ struct GeometryResidency {
          Transfer decode,
          TexelKind kind,
          ImageUploadMode mode = ImageUploadMode::Immediate);
+  [[nodiscard]] Native::Result<BoundImage> Bind(const RadianceImage &image,
+                                                ImageUploadMode mode = ImageUploadMode::Immediate);
 
 private:
   [[nodiscard]] Native::Result<void> Submit(std::span<Crossing> what, uint32_t total);

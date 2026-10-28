@@ -147,7 +147,7 @@ void GeometryRenderer::OrderPieces() {
 
 bool GeometryRenderer::UploadTables(std::string &error) {
   if (Jobs_ == 0 || TableSpheres_.empty()) { return true; }
-  auto *device = Bound().Device();
+  const auto *device = Bound().Device();
   uint64_t placements = std::max(Placed_.size() / 16u, size_t{MainMeshRows_});
   for (const auto &one : Pieces_) { placements += one.Rows.size(); }
   if (device == nullptr || placements > std::numeric_limits<uint32_t>::max()) {

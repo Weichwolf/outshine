@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from ground_refinement import refine_ground
+from ground_refinement import METHODS, refine_ground
 from ground_surface import ground_layout
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.heights import _face_gradients
@@ -164,11 +164,20 @@ def contact_input(road, road_dem_z, limits):
 
 
 def build_contact(
-    road, road_dem_z, sample_z, *, limits=None, method="coverage", whole_profiles=False
+    road,
+    road_dem_z,
+    sample_z,
+    *,
+    limits=None,
+    method="coverage",
+    whole_profiles=False,
+    refinement_method="midpoint",
 ):
     limits = ContactLimits() if limits is None else limits
     if method not in ("coverage", "general"):
         raise ValueError("Known exact road-domain union procedure required")
+    if refinement_method not in METHODS:
+        raise ValueError("Known terrain refinement procedure required")
     road_dem_z, allowed = contact_input(road, road_dem_z, limits)
     if not allowed:
         return {
@@ -213,20 +222,37 @@ def build_contact(
         if profile_guard is not None:
             result["profile_proof_work"] = profile_guard.work
         return result
-    result = finish_contact(road, chosen, candidates, sample_z, limits, road_grade)
+    result = finish_contact(
+        road,
+        chosen,
+        candidates,
+        sample_z,
+        limits,
+        road_grade,
+        refinement_method=refinement_method,
+    )
     if profile_guard is not None:
         result["profile_proof_work"] = profile_guard.work
     return result
 
 
-def finish_contact(road, chosen, candidates, sample_z, limits, road_grade):
+def finish_contact(
+    road,
+    chosen,
+    candidates,
+    sample_z,
+    limits,
+    road_grade,
+    *,
+    refinement_method="midpoint",
+):
     coarse = chosen["mesh"]
     mesh, roots, refinement = refine_ground(
         coarse,
         sample_z,
         protected_faces=len(road.triangles),
         grade=limits.soil_grade,
-        method="midpoint",
+        method=refinement_method,
         max_new_vertices=limits.maximum_new_vertices,
         max_faces=limits.maximum_faces,
         max_passes=limits.maximum_passes,

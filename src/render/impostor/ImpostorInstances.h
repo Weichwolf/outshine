@@ -16,6 +16,7 @@
 namespace outshine::Render {
 
 class SceneRenderer;
+struct RadianceImage;
 
 class ImpostorInstances {
 public:
@@ -23,10 +24,12 @@ public:
                                                                  const ImpostorAtlas &atlas,
                                                                  uint32_t maxInstances,
                                                                  std::string &error);
-  [[nodiscard]] static std::unique_ptr<ImpostorInstances> Create(SceneRenderer &renderer,
-                                                                 const ImpostorCards &cards,
-                                                                 uint32_t maxInstances,
-                                                                 std::string &error);
+  [[nodiscard]] static std::unique_ptr<ImpostorInstances>
+  Create(SceneRenderer &renderer,
+         const ImpostorCards &cards,
+         uint32_t maxInstances,
+         std::string &error,
+         std::span<const std::shared_ptr<const RadianceImage>> colours = {});
   ~ImpostorInstances();
   ImpostorInstances(const ImpostorInstances &) = delete;
   ImpostorInstances &operator=(const ImpostorInstances &) = delete;

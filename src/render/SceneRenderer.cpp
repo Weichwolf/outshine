@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "SceneRenderer.h"
+#include "RadianceFilter.h"
 #include "Vec3.h"
 
 #include <cstdint>
@@ -32,6 +33,13 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+SceneRenderer::SceneRenderer(GpuSubmission submission) : Submission_(submission) {}
+
+SceneRenderer::~SceneRenderer() {
+  WaitForGpu();
+  StopShowing();
+}
+
 namespace {
 bool DepthPyramidNeeded(const ExecutionPlan &plan) {
   return !plan.Holds(Stage::TemporalResolve) ||
