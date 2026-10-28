@@ -53,7 +53,7 @@ void DeferredRetry(Native::Device *device) {
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> expected{17, 23, 31, 47};
-  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterTemplates;
   std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
                                                         .Usage = Native::BufferUse::Storage,
                                                         .From = initial.data(),
@@ -93,7 +93,7 @@ void DeferredRetry(Native::Device *device) {
 void FailedReplacement(Native::Device *device) {
   GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
-  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterTemplates;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
   std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
@@ -130,11 +130,11 @@ void FailedBatchReplacement(Native::Device *device) {
   using Stream = GeometryResidency::Stream;
   const std::vector<uint32_t> initial{17, 23, 31, 47};
   const std::vector<uint32_t> replacement{53, 59, 61, 67, 71, 73, 79, 83};
-  std::array<GeometryResidency::Crossing, 2> crossing{{{.Which = Stream::ClusterJobs,
+  std::array<GeometryResidency::Crossing, 2> crossing{{{.Which = Stream::ClusterTemplates,
                                                         .Usage = Native::BufferUse::Storage,
                                                         .From = initial.data(),
                                                         .Bytes = 16},
-                                                       {.Which = Stream::ClusterBatches,
+                                                       {.Which = Stream::ClusterRoots,
                                                         .Usage = Native::BufferUse::Storage,
                                                         .From = initial.data(),
                                                         .Bytes = 16}}};
@@ -189,7 +189,7 @@ void FailedBatchReplacement(Native::Device *device) {
 void MixedUploads(Native::Device *device) {
   GeometryResidency residency;
   CHECK(residency.StandsOn(device), "residency binds the native fixture device");
-  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterTemplates;
   const std::vector<uint32_t> initial{0, 0, 0, 0};
   const std::vector<uint32_t> staged{17, 23, 31, 47};
   const std::vector<uint32_t> latest{53, 59, 61, 67};
@@ -239,7 +239,7 @@ void MixedUploads(Native::Device *device) {
 }
 
 void Growth(Native::Device *device) {
-  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterTemplates;
   constexpr auto usage = Native::BufferUse::Storage;
   const std::vector<uint32_t> expected{17, 23, 31, 47};
   for (const Failure point : {Failure::Acquire, Failure::Copy, Failure::Submit}) {
@@ -353,10 +353,11 @@ struct TableRetry {
           "retry submits the complete tables without another scene mutation");
     CHECK(Draw.ClusterJobs() == 2 && Draw.ClusterBatchRows() == 2,
           "both instance jobs remain present after recovery");
-    const std::vector<uint32_t> expected{0, 0, 0, 3, 0, 1, 0, 3};
-    CHECK(Read(Device, Draw.Resident().Buffer(GeometryResidency::Stream::ClusterJobs).get(), 8) ==
-              expected,
-          "submitted GPU jobs share the source sphere and retain distinct instance batches");
+    const std::vector<uint32_t> expected{0, 0, 3, 0};
+    CHECK(Read(Device,
+               Draw.Resident().Buffer(GeometryResidency::Stream::ClusterTemplates).get(),
+               4) == expected,
+          "submitted GPU templates share the immutable source sphere and index interval");
   }
 };
 

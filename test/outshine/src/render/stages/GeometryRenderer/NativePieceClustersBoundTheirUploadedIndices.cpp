@@ -53,7 +53,7 @@ void Compare(const outshine::Render::GeometryRenderer &draw,
   Readback spheres;
   CHECK(read(GeometryResidency::Stream::Vertex, vertices) &&
             read(GeometryResidency::Stream::Index, indices) &&
-            read(GeometryResidency::Stream::ClusterJobs, jobs) &&
+            read(GeometryResidency::Stream::ClusterTemplates, jobs) &&
             read(GeometryResidency::Stream::ClusterSpheres, spheres),
         "actual uploaded native vertex, index, job and sphere buffers are readable");
   if (vertices.Rows() == nullptr || indices.Rows() == nullptr || jobs.Rows() == nullptr ||
@@ -62,14 +62,14 @@ void Compare(const outshine::Render::GeometryRenderer &draw,
   }
   const auto *points = reinterpret_cast<const float *>(vertices.Rows());
   const auto *run = reinterpret_cast<const uint32_t *>(indices.Rows());
-  const auto *tasks = reinterpret_cast<const uint32_t *>(jobs.Rows());
+  const auto *tasks = reinterpret_cast<const GeometryClusterTemplate *>(jobs.Rows());
   const auto *bounds = reinterpret_cast<const float *>(spheres.Rows());
   bool contained = true;
-  for (size_t at = 0; at < draw.ClusterJobs(); ++at) {
-    const uint32_t *job = tasks + at * 4;
-    const float *sphere = bounds + static_cast<size_t>(job[0]) * 12;
-    for (size_t corner = 0; corner < job[3]; ++corner) {
-      const float *point = points + static_cast<size_t>(run[job[2] + corner]) * 3;
+  for (size_t at = 0; at < draw.Hierarchy().View.TemplateCount; ++at) {
+    const auto &job = tasks[at];
+    const float *sphere = bounds + static_cast<size_t>(job.SphereIndex) * 12;
+    for (size_t corner = 0; corner < job.IndexCount; ++corner) {
+      const float *point = points + static_cast<size_t>(run[job.RelativeFirstIndex + corner]) * 3;
       double squared = 0;
       for (size_t axis = 0; axis < 3; ++axis) {
         const double delta = static_cast<double>(point[axis]) - sphere[axis];

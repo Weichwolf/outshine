@@ -5,6 +5,7 @@
 #include "PipelineFactory.h"
 #include "StageSubmission.h"
 #include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeLeafSelection.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -97,34 +98,28 @@ Selected(Device &device, const Buffer *pyramid, PyramidShape shape, Texels exten
   const float py = 1.0f - 2.0f * (static_cast<float>(y) + 0.5f) / static_cast<float>(height);
   const std::array<float, 12> spheres{
       px, py, 0.5f, radius, px, py, 0.5f, radius, 0, std::numeric_limits<float>::infinity(), 0, 0};
-  constexpr std::array<uint32_t, 4> jobs{0, 0, 0, 3};
+  constexpr std::array roots{GeometryRoot{.TemplateCount = 1}};
+  constexpr std::array templates{GeometryClusterTemplate{.IndexCount = 3}};
   GpuPlacement placement;
   placement.Current = kIdentity;
-  constexpr std::array<uint32_t, 5> arguments{3, 1, 0, 0, 0};
   auto commands = Require(device.Begin());
   const auto bounds = Upload(device, *commands, spheres.data(), sizeof(spheres));
-  const auto work = Upload(device, *commands, jobs.data(), sizeof(jobs));
   const auto model = Upload(device, *commands, &placement, sizeof(placement));
-  const auto args = Upload(device, *commands, arguments.data(), sizeof(arguments));
-  const auto kept = Require(device.CreateBuffer(
-      {.Bytes = sizeof(uint32_t), .Use = BufferUse::Storage | BufferUse::CopySource}));
-  const auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::GeometryCull));
   CullInput view;
   view.Wide = shape.Wide;
   view.High = shape.High;
   view.At = shape.At;
   view.Source = {width, height, 0};
-  const std::array bindings{
-      Storage(0, 0, *bounds),
-      Storage(0, 1, *work),
-      Storage(0, 2, *model),
-      Storage(0, 3, *args),
-      Storage(0, 4, *pyramid),
-      Storage(1, 0, *kept),
-      Binding{.Set = 2,
-              .Slot = 0,
-              .Value = Uniform{.Bytes = std::as_bytes(std::span{&view, size_t{1}})}}};
-  Require(commands->Dispatch(*pipeline, bindings, {.X = 1, .Y = 1, .Z = 1}));
+  constexpr std::array<uint32_t, 1> initial{~uint32_t{0}};
+  const auto kept = SelectAllLeaves(device,
+                                    *commands,
+                                    {.Roots = roots,
+                                     .Templates = templates,
+                                     .Spheres = *bounds,
+                                     .Placements = *model,
+                                     .Pyramid = *pyramid,
+                                     .View = std::as_bytes(std::span(&view, 1)),
+                                     .Initial = initial});
   Land(device, std::move(commands));
   auto readback = Require(ReadbackTransfer::Start(device, *kept, {.Bytes = sizeof(uint32_t)}));
   const auto result = Require(readback.Wait(device, std::chrono::seconds(5)));

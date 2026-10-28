@@ -1,15 +1,3 @@
-#version 450
-#extension GL_GOOGLE_include_directive : require
-#include "cullView.glsl"
-
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-layout(std430, set = 0, binding = 0) readonly buffer Buffer_spheres { vec4 spheres[]; };
-layout(std430, set = 0, binding = 1) readonly buffer Buffer_jobs { uvec4 jobs[]; };
-#define PLACEMENT_BINDING 2
-#include "geometryPlacements.glsl"
-layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; };
-layout(std430, set = 0, binding = 4) readonly buffer Buffer_pyramid { float pyramid[]; };
-layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
 #include "depthRectangle.glsl"
 #include "cullAffine.glsl"
 const uint kClusterFloat4s = 3u;
@@ -18,20 +6,15 @@ float projectedError(float error, vec3 centre, float radius) {
   return error * view.errorPerMetre / away;
 }
 
-void main() {
-  uint id = gl_GlobalInvocationID.x;
-  if (id >= view.jobs) { return; }
-  const uvec4 job = jobs[id];
-  const mat4 model = placements[args[5u * job.y + 4u]].current;
-  const vec4 sphere = spheres[job.x * kClusterFloat4s];
-  const vec4 parent = spheres[job.x * kClusterFloat4s + 1u];
-  const vec4 errs = spheres[job.x * kClusterFloat4s + 2u];
+uint geometryClusterCount(mat4 model, uint sphereIndex, uint indexCount) {
+  const vec4 sphere = spheres[sphereIndex * kClusterFloat4s];
+  const vec4 parent = spheres[sphereIndex * kClusterFloat4s + 1u];
+  const vec4 errs = spheres[sphereIndex * kClusterFloat4s + 2u];
   float widest;
   vec4 worldSphere;
   if (!cullAffineScale(model, widest) ||
       !cullAffineSphere(model, sphere, view.shift.xyz, widest, worldSphere)) {
-    kept[id] = job.w;
-    return;
+    return indexCount;
   }
   const vec3 centre = worldSphere.xyz;
   const float radius = worldSphere.w;
@@ -40,22 +23,19 @@ void main() {
     const vec4 plane = view.planes[at];
     if (dot(plane.xyz, plane.xyz) < 0.5) { continue; }
     if (cullAffineOutside(plane, centre, radius)) {
-      kept[id] = 0u;
-      return;
+      return 0u;
     }
   }
 
   if (view.errorPerMetre > 0.0) {
     vec4 parentSphere;
     if (!cullAffineSphere(model, parent, view.shift.xyz, widest, parentSphere)) {
-      kept[id] = job.w;
-      return;
+      return indexCount;
     }
     const float mine = projectedError(errs.x * widest, centre, radius);
     const float theirs = projectedError(errs.y * widest, parentSphere.xyz, parentSphere.w);
     if (!(mine <= 1.0 && theirs > 1.0)) {
-      kept[id] = 0u;
-      return;
+      return 0u;
     }
   }
   if (view.occludes != 0u && view.sourceWide != 0u && view.sourceHigh != 0u) {
@@ -92,11 +72,10 @@ void main() {
       const vec2 source = vec2(view.sourceWide, view.sourceHigh);
       if (depthRectangleOccluded(lo, hi, nearest, source,
                                     view.pyramidWide, view.pyramidHigh, view.pyramidAt)) {
-        kept[id] = 0u;
-        return;
+        return 0u;
       }
 
     }
   }
-  kept[id] = job.w;
+  return indexCount;
 }
