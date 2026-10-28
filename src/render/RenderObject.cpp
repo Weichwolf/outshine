@@ -1,3 +1,4 @@
+#include "GeometryChannel.h"
 #include "SceneLighting.h"
 #include "MeshInput.h"
 #include "Digest.h"
@@ -283,29 +284,6 @@ Agrees(const RenderObject &proxy, const RenderGeometryView &geometry, std::strin
   return true;
 }
 
-struct ChannelPack {
-  const RenderGeometryView *From = nullptr;
-  std::span<const float> RenderGeometryPart::*Channel = nullptr;
-  uint32_t Wide = 0;
-};
-
-void PackChannel(const void *carrying, float *into, uint32_t floats) {
-  const ChannelPack &what = *static_cast<const ChannelPack *>(carrying);
-  uint32_t at = 0;
-  for (const RenderGeometryPart &one : what.From->Parts) {
-    const std::span<const float> held = one.*what.Channel;
-    const auto want = static_cast<uint32_t>(one.VertexCount * what.Wide);
-    if (at + want > floats) { break; }
-    if (held.size() >= one.VertexCount * what.Wide) {
-      std::memcpy(into + at, held.data(), static_cast<size_t>(want) * sizeof(float));
-    } else {
-      std::memset(into + at, 0, static_cast<size_t>(want) * sizeof(float));
-    }
-    at += want;
-  }
-  if (at < floats) { std::memset(into + at, 0, static_cast<size_t>(floats - at) * sizeof(float)); }
-}
-
 struct EmitPack {
   const RenderGeometryView *From = nullptr;
   const RenderObject *Proxy = nullptr;
@@ -358,7 +336,7 @@ PlaceLights(const RenderObject &proxy, std::vector<SceneLight> &out, std::string
       placed.Light.Direction[axis] = static_cast<float>(direction[axis] / length);
     }
     const Vec3 gltfPosition = {{declared.Position[0], declared.Position[1], declared.Position[2]}};
-    placed.PositionEcefM = gltfPosition + proxy.Anchor();
+    placed.PositionM = gltfPosition + proxy.Anchor();
     out.push_back(placed);
   }
   return true;
@@ -647,12 +625,12 @@ const RenderGeometryView *PreparedGeometry(const RenderObject &proxy,
 }
 
 struct PlacementMeshInput {
-  ChannelPack Positions;
-  ChannelPack Uv;
-  ChannelPack Uv1;
-  ChannelPack Normals;
-  ChannelPack Tangents;
-  ChannelPack Colours;
+  GeometryChannel Positions;
+  GeometryChannel Uv;
+  GeometryChannel Uv1;
+  GeometryChannel Normals;
+  GeometryChannel Tangents;
+  GeometryChannel Colours;
   EmitPack Emitted;
   MeshInput Mesh;
 
@@ -666,21 +644,25 @@ struct PlacementMeshInput {
         Tangents{.From = &geometry, .Channel = &RenderGeometryPart::Tangents, .Wide = 4},
         Colours{.From = &geometry, .Channel = &RenderGeometryPart::Colours, .Wide = 4},
         Emitted{.From = &geometry, .Proxy = &proxy} {
-    Mesh.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Positions};
+    Mesh.Verts =
+        VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Positions};
     if (geometry.CarriesUv) {
-      Mesh.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv};
+      Mesh.Uv = VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Uv};
     }
     if (geometry.CarriesUv1) {
-      Mesh.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv1};
+      Mesh.Uv1 = VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Uv1};
     }
     if (geometry.CarriesNormal) {
-      Mesh.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Normals};
+      Mesh.Normals =
+          VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Normals};
     }
     if (geometry.CarriesTangent) {
-      Mesh.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Tangents};
+      Mesh.Tangents =
+          VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Tangents};
     }
     if (geometry.CarriesColour) {
-      Mesh.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &Colours};
+      Mesh.Colours =
+          VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &Colours};
     }
     Mesh.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &Emitted};
     Mesh.Positions = scratch.Vertices;
@@ -796,35 +778,42 @@ bool Move(SceneRenderer &renderer,
   scratch.Metrics = {};
   const auto packingFrom = std::chrono::steady_clock::now();
   VertexInput pose;
-  const ChannelPack positions{
+  const GeometryChannel positions{
       .From = &geometry, .Channel = &RenderGeometryPart::PositionsM, .Wide = 3};
-  const ChannelPack uv{.From = &geometry, .Channel = &RenderGeometryPart::Uv, .Wide = 2};
-  const ChannelPack uv1{.From = &geometry, .Channel = &RenderGeometryPart::Uv1, .Wide = 2};
-  const ChannelPack normals{.From = &geometry, .Channel = &RenderGeometryPart::Normals, .Wide = 3};
-  const ChannelPack tangents{
+  const GeometryChannel uv{.From = &geometry, .Channel = &RenderGeometryPart::Uv, .Wide = 2};
+  const GeometryChannel uv1{.From = &geometry, .Channel = &RenderGeometryPart::Uv1, .Wide = 2};
+  const GeometryChannel normals{
+      .From = &geometry, .Channel = &RenderGeometryPart::Normals, .Wide = 3};
+  const GeometryChannel tangents{
       .From = &geometry, .Channel = &RenderGeometryPart::Tangents, .Wide = 4};
-  const ChannelPack colours{.From = &geometry, .Channel = &RenderGeometryPart::Colours, .Wide = 4};
+  const GeometryChannel colours{
+      .From = &geometry, .Channel = &RenderGeometryPart::Colours, .Wide = 4};
   const EmitPack emitted{.From = &geometry, .Proxy = &proxy};
 
-  pose.Verts = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
+  pose.Verts =
+      VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &positions};
   if (geometry.CarriesUv) {
-    pose.Uv = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
+    pose.Uv = VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &uv};
   }
   if (geometry.CarriesUv1) {
-    pose.Uv1 = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
+    pose.Uv1 = VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &uv1};
   }
   if (geometry.CarriesNormal) {
-    pose.Normals = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
+    pose.Normals =
+        VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &normals};
   }
   if (geometry.CarriesTangent) {
-    pose.Tangents = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
+    pose.Tangents =
+        VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &tangents};
   }
   if (geometry.CarriesColour) {
-    pose.Colours = VertexSource{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
+    pose.Colours =
+        VertexSource{.From = nullptr, .Writes = GeometryChannel::Write, .Carrying = &colours};
   }
   pose.Emitted = VertexSource{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
   scratch.Vertices.resize(geometry.VertexCount() * 3u);
-  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
+  GeometryChannel::Write(
+      &positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   scratch.Metrics.PackingMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
           .count();

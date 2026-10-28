@@ -62,7 +62,7 @@ python test/experiments/render/masonry_facade_cost.py \
 ```
 
 Harness sources are `NativeWallMetresProbe.cpp`, `NativeFacadeProbe.cpp`,
-`NativeGroundLitterProbe.cpp` and `NativeMasonrySceneProbe.cpp` under
+`NativeMaterialComputeProbe.cpp` and `NativeMasonrySceneProbe.cpp` under
 `test/harness/render/`. The common compute probe's optional `--gpu-timing`
 enables existing public timestamps for32 sequential dispatches; default operation
 still performs one dispatch with timing disabled. Unavailable/truncated timing

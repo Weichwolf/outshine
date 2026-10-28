@@ -3,16 +3,17 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "RadianceImage.h"
-#include <nlohmann/json_fwd.hpp>
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <vector>
 
 namespace outshine::Render {
 class SceneRenderer;
-}
+class ResidentMaterialField;
+} // namespace outshine::Render
 
 namespace outshine::Test {
 struct BuildingRadianceField {
@@ -20,6 +21,13 @@ struct BuildingRadianceField {
   double PrepareMs = 0;
   double GpuMs = 0;
   double SetupGpuMs = 0;
+  double ConfigureMs = 0;
+  double SourcePrepareMs = 0;
+  double SourceUploadMs = 0;
+  double RelightEncodeMs = 0;
+  double WaitMs = 0;
+  double ReadbackMs = 0;
+  std::shared_ptr<const Render::ResidentMaterialField> Source;
   std::vector<float> SourceLinear;
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
@@ -29,6 +37,7 @@ PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         const ImpostorAtlas &atlas,
                         size_t view,
                         const nlohmann::json &query,
-                        const Geometry *original = nullptr);
-}
+                        const Geometry *original = nullptr,
+                        const std::shared_ptr<const Render::ResidentMaterialField> &source = {});
+} // namespace outshine::Test
 #endif

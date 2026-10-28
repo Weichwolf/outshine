@@ -20,7 +20,17 @@ class FacadeProducts:
         self.prepared = prepared
         self.portals = tuple(portals)
         self.legacy_trim = legacy_trim
-        self.coarse = compact(prepared, portals=self.portals, legacy_trim=legacy_trim)
+        self.recess_components = None
+        if prepared.recesses:
+            from facade_recess_geometry import build
+
+            self.recess_components = build(prepared.recesses)
+        self.coarse = compact(
+            prepared,
+            portals=self.portals,
+            legacy_trim=legacy_trim,
+            recess_components=self.recess_components,
+        )
         self.near = None
         mass = prepared.mass
         self.source_polygon = shapely.from_wkb(mass.source_wkb)
@@ -52,6 +62,7 @@ class FacadeProducts:
                 prepared=self.prepared,
                 portals=self.portals,
                 legacy_trim=self.legacy_trim,
+                recess_components=self.recess_components,
             )
         return self.near
 

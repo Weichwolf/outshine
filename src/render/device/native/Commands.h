@@ -12,7 +12,7 @@
 
 namespace outshine::Render::Native {
 
-enum class ErrorKind { Invalid, Unsupported, Busy, OutOfMemory, DeviceLost, Driver };
+enum class ErrorKind { Invalid, Unsupported, Busy, OutOfMemory, DeviceLost, Driver, Cancelled };
 
 struct Error {
   ErrorKind Kind = ErrorKind::Driver;

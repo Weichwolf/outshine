@@ -79,6 +79,7 @@ struct GeometryUploadMetrics {
 };
 
 enum class GeometryPassKind : uint8_t { Opaque, Transmission };
+enum class GeometryPipelineScope : uint8_t { Meshes, Scene };
 
 class GeometryRenderer {
 public:
@@ -104,11 +105,13 @@ public:
   static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
 
   [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu);
-  [[nodiscard]] Native::Result<void> Configure(GeometryPipelineBinding &binding,
-                                               const Gpu &gpu,
-                                               Native::Texture *behind,
-                                               Native::Sampler *exact,
-                                               bool separateTransmission);
+  [[nodiscard]] Native::Result<void>
+  Configure(GeometryPipelineBinding &binding,
+            const Gpu &gpu,
+            Native::Texture *behind,
+            Native::Sampler *exact,
+            bool separateTransmission,
+            GeometryPipelineScope scope = GeometryPipelineScope::Scene);
   [[nodiscard]] Native::Result<void> AttachPipelines(GeometryPipelineBinding &binding,
                                                      const Gpu &gpu);
   [[nodiscard]] Native::Result<void> PrepareTerrainMaterialBuffers(const Gpu &gpu);
@@ -344,7 +347,8 @@ private:
                 SurfaceKind kind,
                 PipelineShaders &shaders,
                 std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-                uint32_t &built);
+                uint32_t &built,
+                GeometryPipelineScope scope);
   [[nodiscard]] static Native::Result<void>
   ConfigureVariant(SurfaceKind kind,
                    SurfaceDomain domain,

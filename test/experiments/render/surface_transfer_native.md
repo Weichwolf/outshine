@@ -32,7 +32,7 @@ to a private copy of the valid palette, preserving its prefix. Both records keep
 the existing32-byte size and set/slot/access contract. NumPy is required.
 
 ```sh
-python3 test/experiments/render/surface_transfer_native.py --binary /path/to/native_ground_litter --palette /path/to/ground-litter.palette --output /tmp/outshine-material-transfer
+python3 test/experiments/render/surface_transfer_native.py --binary /path/to/outshine_material_compute_probe --palette /path/to/ground-litter.palette --output /tmp/outshine-material-transfer
 ```
 
 Build the consumer against the regular platform `build/liboutshine.a` using the
