@@ -1,6 +1,11 @@
 #include "ImpostorBaker.h"
 #include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
+#include "ImpostorViewAssets.h"
+#include "ImpostorInstances.h"
+#include "WorldCandidate.h"
+#include "AssetCache.h"
+#include "Sha256.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include <SDL3/SDL.h>
@@ -18,10 +23,14 @@
 #include <ios>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <numbers>
 #include <print>
 #include <ratio>
 #include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -126,7 +135,52 @@ void Filtered(Render::SceneRenderer &renderer,
   Write<float>(output.string() + ".ss16", average);
 }
 
-Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
+std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &renderer,
+                                                       std::unique_ptr<Core::RuntimeScene> &scene,
+                                                       const ImpostorCards &cards,
+                                                       const Vec3 &eye) {
+  Core::WorldCandidate candidate(renderer);
+  if (const auto prepared = candidate.Prepare(*scene, nullptr); !prepared) {
+    Fail(prepared.error());
+  }
+  std::string error;
+  if (!candidate.SetGeometry(Geometry{}, 0, error)) { Fail(error); }
+  std::unique_ptr<Render::ImpostorInstances> instances;
+  {
+    const auto edit = renderer.EditWorldCandidate();
+    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error);
+    const Mat4 model;
+    if (!instances || !instances->Update(std::span(&model, 1), eye, error)) { Fail(error); }
+  }
+  if (const auto published = candidate.Publish(scene); !published) { Fail(published.error()); }
+  return instances;
+}
+
+Json MeshStatistics(const Geometry &mesh) {
+  size_t triangles = 0;
+  size_t vertices = 0;
+  size_t imageBytes = 0;
+  for (int part = 0; part < mesh.parts(); ++part) {
+    triangles += mesh.trianglesOf(part).size() / 3;
+    vertices += mesh.positionsOf(part).size() / 3;
+  }
+  for (int image = 0; image < mesh.images(); ++image) {
+    const auto data = mesh.imageAt(image);
+    imageBytes += data.Rgba.size();
+    for (const auto &mip : data.LowerMips) {
+      if (mip) { imageBytes += mip->size(); }
+    }
+  }
+  return {{"images", mesh.images()},
+          {"image_storage_bytes", imageBytes},
+          {"triangles", triangles},
+          {"vertices", vertices}};
+}
+
+Json Draw(const Geometry &mesh,
+          const Json &query,
+          const Fs::path &output,
+          const ImpostorCards *cards = nullptr) {
   const auto began = Clock::now();
   Render::GpuSubmission submission;
   submission.Create = [](void *, Render::Native::DeviceOptions options) {
@@ -135,7 +189,7 @@ Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
   };
   Render::SceneRenderer renderer{submission};
   Core::Declaration declaration;
-  declaration.InitialGeometry = &mesh;
+  declaration.InitialGeometry = mesh.parts() > 0 ? &mesh : nullptr;
   declaration.SurfaceWidthPx = 1280;
   declaration.SurfaceHeightPx = 720;
   declaration.KeyLux = 100;
@@ -143,6 +197,9 @@ Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
   declaration.Haze = 0;
   declaration.Exposure = 1;
   declaration.Stages = {"opaqueGeometry"};
+  if (cards != nullptr) {
+    declaration.Stages = {"opaqueGeometry", "transmissiveGeometry", "compositeTransmission"};
+  }
   declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
@@ -156,6 +213,12 @@ Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
   camera.ZNearM = 0.1;
   scene->Eye(camera);
   if (!scene->Draw(error)) { Fail(error); }
+  const auto instances =
+      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM) : nullptr;
+  if (instances) {
+    scene->Eye(camera);
+    if (!scene->Draw(error)) { Fail(error); }
+  }
   renderer.WaitForGpu();
   const double setupMs = Milliseconds(began);
   renderer.ResetMeasurements();
@@ -184,33 +247,18 @@ Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
   }
   if (samples.size() != 24) { Fail("missing GPU samples"); }
   Filtered(renderer, camera, output);
-  size_t triangles = 0;
-  size_t vertices = 0;
-  for (int part = 0; part < mesh.parts(); ++part) {
-    triangles += mesh.trianglesOf(part).size() / 3;
-    vertices += mesh.positionsOf(part).size() / 3;
-  }
+  const auto &drawn = cards != nullptr ? cards->Views.front().Surface : mesh;
   std::array<double, 3> normalSum{};
   for (size_t pixel = 0; pixel < depth.size(); ++pixel) {
     if (depth[pixel] == 0) { continue; }
     for (size_t axis = 0; axis < 3; ++axis) { normalSum[axis] += normal[pixel * 4 + axis]; }
   }
-  size_t imageBytes = 0;
-  for (int image = 0; image < mesh.images(); ++image) {
-    const auto data = mesh.imageAt(image);
-    imageBytes += data.Rgba.size();
-    for (const auto &mip : data.LowerMips) {
-      if (mip) { imageBytes += mip->size(); }
-    }
-  }
-  return {{"normal_sum", normalSum},
-          {"setup_ms", setupMs},
-          {"device", renderer.GpuName()},
-          {"gpu_ms", samples},
-          {"images", mesh.images()},
-          {"image_storage_bytes", imageBytes},
-          {"triangles", triangles},
-          {"vertices", vertices}};
+  Json result = MeshStatistics(drawn);
+  result.update({{"normal_sum", normalSum},
+                 {"setup_ms", setupMs},
+                 {"device", renderer.GpuName()},
+                 {"gpu_ms", samples}});
+  return result;
 }
 
 Json CaptureStatistics(const ImpostorAtlas &atlas) {
@@ -335,14 +383,117 @@ Json ClippedFlatControl(const ImpostorAtlas &atlas,
   return record;
 }
 
+struct CapturedAtlas {
+  Fs::path File;
+  std::string Digest;
+  std::optional<ImpostorAtlas> Held = std::nullopt;
+  size_t ReadBytes = 0;
+  size_t Decodes = 0;
+  double ReadMs = 0;
+  double DecodeMs = 0;
+
+  const ImpostorAtlas &Require() {
+    if (!Held) {
+      const auto began = Clock::now();
+      std::error_code fileError;
+      const auto size = Fs::file_size(File, fileError);
+      if (fileError) { Fail("source atlas unavailable: " + fileError.message()); }
+      const auto bytes = Read<uint8_t>(File, size);
+      if (Sha256Hex(bytes.data(), bytes.size()) != Digest) { Fail("source atlas digest mismatch"); }
+      ReadMs += Milliseconds(began);
+      const auto decodeAt = Clock::now();
+      std::string error;
+      Held = ImpostorAtlas::Decode(bytes, "native-original-impostor-1", error);
+      if (!Held) { Fail(error); }
+      ReadBytes += bytes.size();
+      ++Decodes;
+      DecodeMs += Milliseconds(decodeAt);
+    }
+    return *Held;
+  }
+};
+
+Content::ImpostorViewAssets OpenViewAssets(AssetCache &cache, CapturedAtlas &source, Box bounds) {
+  using Content::ImpostorViewAssets;
+  const auto provenance = "native-original-impostor-1/" + source.Digest;
+  auto opened = ImpostorViewAssets::Open(cache, provenance);
+  if (!opened) { Fail("native world metadata read failed"); }
+  if (*opened) { return std::move(**opened); }
+  const auto &atlas = source.Require();
+  ImpostorViewAssets::Description description{.Centre = atlas.CentreM(),
+                                              .HalfExtentM = atlas.HalfExtentM(),
+                                              .Pixels = static_cast<uint32_t>(atlas.Pixels()),
+                                              .Directions = {}};
+  for (const auto &view : atlas.Views()) { description.Directions.push_back(view.TowardEye); }
+  auto published = ImpostorViewAssets::Publish(cache, provenance, std::move(description), bounds);
+  if (!published) { Fail("native world metadata publication failed"); }
+  return std::move(*published);
 }
 
-int main(int argc, char *const *argv) {
-  if (argc != 2) { Fail("expected a prepared input directory"); }
-  const Fs::path root(argv[1]);
-  std::ifstream file(root / "input.json");
-  const auto input = Json::parse(file, nullptr, false);
-  if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
+void CachedWorldViews(const Fs::path &root, const Json &input) {
+  using Content::ImpostorViewAssets;
+  constexpr size_t limit = size_t{64} * 1024 * 1024;
+  const auto openedAt = Clock::now();
+  auto cache = AssetCache::Open((root / "world-view-assets.sqlite").string());
+  const double databaseOpenMs = Milliseconds(openedAt);
+  if (!cache) { Fail("native world asset database unavailable"); }
+  CapturedAtlas source{.File = root / "atlas.bin",
+                       .Digest = input.at("atlas_sha256").get<std::string>()};
+  const auto metadataAt = Clock::now();
+  const auto products = OpenViewAssets(
+      **cache, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+  size_t writes = 0;
+  Json results{{"mode", "cached-world"},
+               {"database_open_ms", databaseOpenMs},
+               {"metadata_ms", Milliseconds(metadataAt)},
+               {"cases", Json::array()}};
+  for (const auto &query : input.at("queries")) {
+    const Vec3 toward = Vector(query.at("eye")) - products.Metadata().Centre;
+    const double radius = products.Metadata().HalfExtentM * std::numbers::sqrt3;
+    const double nearestM = std::max(1.0, Length(toward) - radius);
+    const double diameter = 2 * radius * query.at("focal_px").get<double>() / nearestM;
+    const auto selected = products.Select(toward, diameter);
+    if (!selected) { Fail("native world view selection failed"); }
+    const auto began = Clock::now();
+    auto loaded = products.Load(*selected, limit);
+    if (!loaded) { Fail("native world view read failed"); }
+    const bool hit = loaded->has_value();
+    if (!hit) {
+      auto geometry =
+          Render::BuildFractionalImpostorSurface(source.Require(), selected->View, selected->Mip);
+      if (!geometry || !products.Publish(*selected, std::move(*geometry), limit)) {
+        Fail("native world view publication failed");
+      }
+      ++writes;
+      loaded = products.Load(*selected, limit);
+    }
+    if (!loaded || !*loaded) { Fail("native world view is not a ready cached product"); }
+    const double loadMs = Milliseconds(began);
+    const auto record = (*cache)->Find(products.Key(*selected));
+    if (!record || !*record) { Fail("native world product has no metadata"); }
+    const auto name = query.at("name").get<std::string>();
+    Json result = Draw(Geometry{}, query, root / (name + "-cached-world"), &**loaded);
+    result.update({{"query", name},
+                   {"selected_view", selected->View},
+                   {"selected_mip", selected->Mip},
+                   {"projected_support_px", diameter},
+                   {"hit", hit},
+                   {"asset_load_ms", loadMs},
+                   {"package_bytes", (**record).ByteCount},
+                   {"asset_key", (**record).Key}});
+    results["cases"].push_back(std::move(result));
+  }
+  results.update({{"source_read_bytes", source.ReadBytes},
+                  {"source_decodes", source.Decodes},
+                  {"writes", writes},
+                  {"source_read_ms", source.ReadMs},
+                  {"source_decode_ms", source.DecodeMs}});
+  std::ofstream report(root / "world-result.json");
+  report << results.dump(2) << '\n';
+  if (!report) { Fail("native world report write failed"); }
+}
+
+void CompareOriginals(const Fs::path &root, const Json &input) {
   const auto sourceStarted = Clock::now();
   const auto original = Source(root, input);
   const double sourceMs = Milliseconds(sourceStarted);
@@ -419,6 +570,23 @@ int main(int argc, char *const *argv) {
   }
   std::ofstream report(root / "result.json");
   report << results.dump(2) << '\n';
+}
+
+}
+
+int main(int argc, char *const *argv) {
+  const bool cachedWorld = argc == 3 && std::string_view(argv[2]) == "--cached-world";
+  if (argc != 2 && !cachedWorld) { Fail("expected a prepared input directory [--cached-world]"); }
+  const Fs::path root(argv[1]);
+  std::ifstream file(root / "input.json");
+  const auto input = Json::parse(file, nullptr, false);
+  if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
+  if (cachedWorld) {
+    CachedWorldViews(root, input);
+    SDL_Quit();
+    return 0;
+  }
+  CompareOriginals(root, input);
   SDL_Quit();
   return 0;
 }
