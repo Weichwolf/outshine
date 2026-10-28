@@ -77,3 +77,51 @@ metadata time includes any source import. Never sum overlapping intervals.
 The 24 GPU submission samples and 16 physical microcamera samples are component
 measurements; they do not replace Places' rotation/p99 protocol. Open actual crops,
 compare against original SS16 controls, and retain visible error/cost limitations.
+
+## Lighting before spatial filtering
+
+`--radiance-world` accepts the same `source_input` / `source_request` inputs as
+cached-world mode. It explicitly compares a different order: render the selected
+full-resolution material field with the current light, filter premultiplied linear
+radiance/coverage to the selected screen support, then publish the unlit optical
+card through the existing WorldCandidate. It uses nearest reconstruction of the
+selected level, not another material/normal average. Nothing switches the general
+World path or changes stored view products. There is no source-free warm-hit claim
+for this diagnostic: it currently creates local GPU contexts, reads back, filters
+on the CPU and uploads again. These are charged prototype costs, not a runtime design.
+
+Reproduce with the existing prepared original-part arrays and fixed source archive:
+
+```sh
+python test/experiments/render/replay_building_radiance.py \
+  --client "$build/test_experiments_render_NativeBuildingImpostors" \
+  --source-input "$source/input.json" --original-input "$original/input.json" \
+  --field-control --output "$new_system_temp_directory"
+```
+
+The driver binds the fixed queries/recipe and all supplied original arrays by SHA,
+checks finite positive outputs, reports coverage/RGB errors and compresses raw
+artifacts losslessly after reading them. `--query` selects an existing control;
+`--filter-axis-samples` requests a denser finite comparison. It creates no oracle
+or pin and makes no new admission decision. Prepare the source from the versioned
+`original-inputs.tar.gz`; original part preparation remains in
+`native_building_cell_controls.md`. No API data is acquired by this driver.
+
+Optional `field_original` names the prepared original geometry's `input.json`.
+That control shades the complete original geometry with the same orthographic
+capture frame instead of shading its captured material field. Outputs are
+`radiance-result.json`, `<query>-source-field.f32` (128² linear RGBA for the fixed
+input), and `<query>-radiance-world.{linear,depth,rgba,ss16}`. `field_setup_gpu_ms`
+includes initial renderer work; `field_gpu_ms` is the following unchanged field
+render. `field_prepare_ms` includes context creation, waits, readback, CPU filtering
+and assembly. Do not add these overlapping scopes or treat the repeated render
+as a changed-light update. Retained unused moment images are included in image bytes.
+
+A query's diagnostic `filter_axis_samples` selects 1..128 physical samples per axis;
+default 4 retains the existing `.ss16` output. Other counts write `.ss<N²>`.
+This is a component convergence control, independent of the Places frame protocol.
+In very small original geometry, SS16 can be far from the denser finite averages.
+Compare SS16/1024/4096 before attributing a discrepancy to the new representation;
+none is a continuous-integral bound or permission to regenerate existing pins.
+Movement/history, angular error, changed-light scheduling, bounded residency,
+shared GPU execution and whole-frame costs remain open under #1570/#1127/#1524.

@@ -7,6 +7,7 @@
 #include "AssetPublication.h"
 #include "Tasks.h"
 #include "BuildingSourceCapture.h"
+#include "BuildingRadianceField.h"
 #include "ImpostorInstances.h"
 #include "WorldCandidate.h"
 #include "AssetCache.h"
@@ -112,18 +113,27 @@ Geometry Source(const Fs::path &root, const Json &input) {
   return mesh;
 }
 
+int FilterSamples(const Json &query) {
+  const int samples = query.value("filter_axis_samples", 4);
+  if (samples < 1 || samples > 128) { Fail("filter samples require 1..128 per axis"); }
+  return samples;
+}
+
 void Filtered(Render::SceneRenderer &renderer,
               const Render::Viewpoint &camera,
-              const Fs::path &output) {
+              const Fs::path &output,
+              int samplesAxis) {
   constexpr size_t pixels = size_t{1280} * 720;
   std::vector<float> average(pixels * 4);
   auto lens = Render::Lens::From(camera, 1280, 720);
   if (!lens) { Fail("filtered camera has no projection"); }
   const auto basis = renderer.LastSubmittedCamera().Basis;
-  for (int y = 0; y < 4; ++y) {
-    for (int x = 0; x < 4; ++x) {
-      const double dx = (static_cast<double>(x) + 0.5) / 4 - 0.5;
-      const double dy = (static_cast<double>(y) + 0.5) / 4 - 0.5;
+  std::vector<float> values;
+  const auto sampleCount = static_cast<float>(samplesAxis * samplesAxis);
+  for (int y = 0; y < samplesAxis; ++y) {
+    for (int x = 0; x < samplesAxis; ++x) {
+      const double dx = (static_cast<double>(x) + 0.5) / samplesAxis - 0.5;
+      const double dy = (static_cast<double>(y) + 0.5) / samplesAxis - 0.5;
       const double focal = 360 / std::tan(camera.YfovRad * 0.5);
       auto sampled = basis;
       sampled.Forward = basis.Forward + basis.Right * (dx / focal) + basis.Up * (dy / focal);
@@ -133,15 +143,14 @@ void Filtered(Render::SceneRenderer &renderer,
       sampled.Up = Cross(sampled.Right, sampled.Forward);
       renderer.SetCamera(sampled, *lens);
       if (auto rendered = renderer.RenderFrame(); !rendered) { Fail(rendered.error()); }
-      std::vector<float> values;
       if (renderer.ReadSceneLinear(values) != Render::ReadState::Ready ||
           values.size() != average.size()) {
         Fail("filtered native colour readback incomplete");
       }
-      for (size_t at = 0; at < average.size(); ++at) { average[at] += values[at] / 16; }
+      for (size_t at = 0; at < average.size(); ++at) { average[at] += values[at] / sampleCount; }
     }
   }
-  Write<float>(output.string() + ".ss16", average);
+  Write<float>(output.string() + ".ss" + std::to_string(samplesAxis * samplesAxis), average);
 }
 
 std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &renderer,
@@ -190,6 +199,7 @@ Json Draw(const Geometry &mesh,
           const Json &query,
           const Fs::path &output,
           const ImpostorCards *cards = nullptr) {
+  const int samplesAxis = FilterSamples(query);
   const auto began = Clock::now();
   Render::GpuSubmission submission;
   submission.Create = [](void *, Render::Native::DeviceOptions options) {
@@ -255,7 +265,7 @@ Json Draw(const Geometry &mesh,
     samples.push_back(sample.ElapsedMs);
   }
   if (samples.size() != 24) { Fail("missing GPU samples"); }
-  Filtered(renderer, camera, output);
+  Filtered(renderer, camera, output, samplesAxis);
   const auto &drawn = cards != nullptr ? cards->Views.front().Surface : mesh;
   std::array<double, 3> normalSum{};
   for (size_t pixel = 0; pixel < depth.size(); ++pixel) {
@@ -266,7 +276,8 @@ Json Draw(const Geometry &mesh,
   result.update({{"normal_sum", normalSum},
                  {"setup_ms", setupMs},
                  {"device", renderer.GpuName()},
-                 {"gpu_ms", samples}});
+                 {"gpu_ms", samples},
+                 {"filter_axis_samples", samplesAxis}});
   return result;
 }
 
@@ -483,6 +494,54 @@ struct BuildingViewSource {
     return *CurrentAtlas;
   }
 };
+
+void RadianceViews(const Fs::path &root, const Json &input) {
+  BuildingViewSource source{
+      .AtlasFile = root / "atlas.bin",
+      .AtlasDigest = input.value("atlas_sha256", std::string{}),
+      .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
+      .SourceInput = input.value("source_input", std::string{}),
+      .Recipe = input.value("source_request", Json(nullptr))};
+  const auto metadata = source.Description();
+  Geometry original;
+  if (input.contains("field_original")) {
+    const Fs::path path(input.at("field_original").get<std::string>());
+    std::ifstream file(path);
+    const auto document = Json::parse(file, nullptr, false);
+    if (!document.is_object()) { Fail("original field geometry unavailable"); }
+    original = Source(path.parent_path(), document);
+  }
+  Json report{{"mode", "radiance-world"}, {"cases", Json::array()}};
+  for (const auto &query : input.at("queries")) {
+    const Vec3 toward = Vector(query.at("eye")) - metadata.Centre;
+    size_t view = 0;
+    for (size_t at = 1; at < metadata.Directions.size(); ++at) {
+      if (Dot(toward, metadata.Directions[at]) > Dot(toward, metadata.Directions[view])) {
+        view = at;
+      }
+    }
+    const auto &atlas = source.Require(view);
+    auto field = Test::PrepareBuildingRadiance(atlas,
+                                               source.Recipe.is_object() ? 0 : view,
+                                               query,
+                                               original.parts() > 0 ? &original : nullptr);
+    if (!field) { Fail(field.error()); }
+    const auto name = query.at("name").get<std::string>();
+    Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
+    auto result = Draw(Geometry{}, query, root / (name + "-radiance-world"), &field->Cards);
+    result.update({{"query", name},
+                   {"selected_view", view},
+                   {"field_prepare_ms", field->PrepareMs},
+                   {"field_gpu_ms", field->GpuMs},
+                   {"field_setup_gpu_ms", field->SetupGpuMs}});
+    report["cases"].push_back(std::move(result));
+  }
+  report["captures"] = source.Captures;
+  if (source.Producer) { report["source_capture"] = source.Producer->Report(); }
+  std::ofstream file(root / "radiance-result.json");
+  file << report.dump(2) << '\n';
+  if (!file) { Fail("radiance report write failed"); }
+}
 
 Content::ImpostorViewAssets
 OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
@@ -739,14 +798,20 @@ void CompareOriginals(const Fs::path &root, const Json &input) {
 int main(int argc, char *const *argv) {
   const bool cachedWorld = argc == 3 && std::string_view(argv[2]) == "--cached-world";
   const bool sourceMesh = argc == 3 && std::string_view(argv[2]) == "--source-mesh";
-  if (argc != 2 && !cachedWorld && !sourceMesh) {
-    Fail("expected a prepared input directory [--cached-world|--source-mesh]");
+  const bool radianceWorld = argc == 3 && std::string_view(argv[2]) == "--radiance-world";
+  if (argc != 2 && !cachedWorld && !sourceMesh && !radianceWorld) {
+    Fail("expected a prepared input directory [--cached-world|--source-mesh|--radiance-world]");
   }
   const Fs::path root(argv[1]);
   std::ifstream file(root / "input.json");
   const auto input = Json::parse(file, nullptr, false);
   if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
-  if (cachedWorld || sourceMesh) {
+  if (cachedWorld || sourceMesh || radianceWorld) {
+    if (radianceWorld) {
+      RadianceViews(root, input);
+      SDL_Quit();
+      return 0;
+    }
     if (sourceMesh) {
       SourceMeshViews(root, input);
     } else {
