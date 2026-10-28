@@ -33,11 +33,11 @@ void CheckRecords(const std::filesystem::path &root) {
   CHECK(store.KeepEmpty(kMissingKey) &&
             store.Lookup(kMissingKey).Where == RawSourceCache::Presence::Bytes,
         "an explicitly stored empty payload replaces an absence marker without inventing bytes");
-  { std::ofstream truncated(root / kTruncatedKey, std::ios::binary); }
+  { const std::ofstream truncated(root / kTruncatedKey, std::ios::binary); }
   CHECK(store.Lookup(kTruncatedKey).Where == RawSourceCache::Presence::Unknown,
         "a zero-length raw file cannot impersonate a verified empty payload");
   CHECK(store.KeepEmpty(kAmbiguousKey), "a second explicit empty record is available");
-  { std::ofstream truncated(root / kAmbiguousKey, std::ios::binary); }
+  { const std::ofstream truncated(root / kAmbiguousKey, std::ios::binary); }
   CHECK(store.Lookup(kAmbiguousKey).Where == RawSourceCache::Presence::Unknown,
         "a conflicting unreadable raw file cannot fall through to an old status record");
   const std::array<uint8_t, 2> bytes{1, 2};
