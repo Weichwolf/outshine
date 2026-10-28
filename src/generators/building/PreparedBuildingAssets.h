@@ -45,8 +45,11 @@ public:
                                 const ::outshine::Ground::ShapedGround &shape,
                                 double spanM,
                                 std::string_view inputDigest = {}) const;
-  [[nodiscard]] std::string
-  RequestKey(Data::TileId tile, const ::outshine::Ground::ShapedGround &shape, double spanM) const;
+  // Pin demand lookup to the same source-input digest as the content key.
+  [[nodiscard]] std::string RequestKey(Data::TileId tile,
+                                       const ::outshine::Ground::ShapedGround &shape,
+                                       double spanM,
+                                       std::string_view inputDigest) const;
   [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
   LoadBasisRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
