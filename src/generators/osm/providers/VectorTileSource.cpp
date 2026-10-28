@@ -63,12 +63,16 @@ VectorTileSource::VectorTileSource(std::string revision,
       origin.starts_with("https://tiles.openfreemap.com:") ||
       origin.starts_with("http://tiles.openfreemap.com:")) {
     ExpectedRelease_ = "";
+    if (origin.empty()) { return; }
     const auto path = std::string_view(endpoint).substr(0, endpoint.find_first_of("?#"));
     const auto suffix = "/" + declared.Revision + "/{z}/{x}/{y}.pbf";
     if (!path.ends_with(suffix)) { return; }
     const auto prefix = path.substr(0, path.size() - suffix.size());
     const auto slash = prefix.rfind('/');
-    if (slash == std::string_view::npos || slash + 1 == prefix.size()) { return; }
+    if (slash == std::string_view::npos || slash <= endpoint.find("://") + 2 ||
+        slash + 1 == prefix.size()) {
+      return;
+    }
     ExpectedRelease_ =
         "specific PBF " + std::string(prefix.substr(slash + 1)) + " " + declared.Revision;
     RevisionEndpoint_ = true;

@@ -134,6 +134,16 @@ void CheckRenamedProvider() {
   const auto wrong = mismatched.Collect(at, static_cast<Ticket>(1), wire).Take();
   CHECK(wrong && wrong->What == Meaning::Refused,
         "a matching response header cannot repair a differently bound request URL");
+  const Generators::Osm::VectorTileSource missingArea(
+      kRevision,
+      Rank{0},
+      AbsencePolicy::Fail,
+      kDataset,
+      "https://example.test/pinned/{z}/{x}/{y}.pbf");
+  wire.Headers = "x-ofm-debug: specific PBF example.test pinned\r\n";
+  const auto absentArea = missingArea.Collect(at, static_cast<Ticket>(1), wire).Take();
+  CHECK(absentArea && absentArea->What == Meaning::Refused,
+        "the URL authority is never mistaken for a source area");
 }
 
 void CheckOtherOutcomes() {
