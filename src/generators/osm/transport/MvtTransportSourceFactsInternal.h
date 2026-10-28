@@ -19,7 +19,17 @@ struct SourceFactInput {
   const StreetField &Streets;
 };
 
-[[nodiscard]] bool FitsSourceFacts(const SourceFactInput &input, size_t groups, size_t bytesMost);
+[[nodiscard]] bool FitsSourceFacts(const SourceFactInput &input,
+                                   size_t groups,
+                                   size_t bytesMost,
+                                   const std::stop_token &stop);
+[[nodiscard]] bool
+FitsMissingSourceWays(const SourceFactInput &input, size_t bytesMost, const std::stop_token &stop);
+[[nodiscard]] std::expected<void, std::string> FillMissingSourceWays(MvtTransportSourceFacts &facts,
+                                                                     const SourceFactInput &input,
+                                                                     const std::stop_token &stop);
+[[nodiscard]] std::expected<MvtTransportWayFacts, std::string>
+SourceWayFacts(const SourceFactInput &input, uint32_t at);
 [[nodiscard]] std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
                                                                const SourceFactInput &input,
                                                                const std::stop_token &stop);

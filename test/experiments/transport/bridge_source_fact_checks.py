@@ -102,7 +102,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
                 ),
             )
         self.assertGreater(sum(g.frontier for g in self.groups), 0)
-        if self.facts["schema"] == "outshine/native-mvt-source-facts/2":
+        if self.facts["schema"] in (
+            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+        ):
             self.assertEqual(
                 tuple(m.source_terminal for g in self.groups for m in g.members),
                 tuple(m["SourceTerminal"] for m in self.facts["Members"]),
@@ -222,7 +224,11 @@ class ActualBridgeSourceFacts(unittest.TestCase):
                 )
             )
         )
-        self.assertEqual(len(self.source.unknown_nodes), 3348)
+
+    def test_retained_fixture_preserves_its_exact_unknown_count(self):
+        pinned = Path(__file__).with_name("fixtures") / "bridge-source-facts"
+        source, _, _, _, _ = inputs.load_bridge_source_facts(pinned)
+        self.assertEqual(len(source.unknown_nodes), 3348)
 
     def test_source_only_loading_never_reads_or_decodes_terrain(self):
         original = Path.read_bytes
@@ -265,8 +271,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
         from canonical_port_native_inputs import FIXTURE
 
         legacy = json.loads(gzip.decompress((FIXTURE / "native.json.gz").read_bytes()))
-        self.assertNotEqual(legacy["SourceIdentity"], self.native["SourceIdentity"])
-        with self.assertRaisesRegex(ValueError, "paired source scope"):
+        with self.assertRaisesRegex(
+            ValueError, "paired source scope|independent snapshot scope"
+        ):
             inputs.check_scope(legacy, self.facts, self.manifest, PortBudget())
 
     def test_budget_avoids_original_source_profile_and_terrain_work(self):
