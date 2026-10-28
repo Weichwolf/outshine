@@ -36,6 +36,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
+constexpr std::string_view kInputDigest = "prepared-native-building-fixture-input";
 
 RawTile Inputs() {
   RawTile raw;
@@ -254,8 +255,8 @@ void NativeCache(const std::filesystem::path &root) {
   if (!opened) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
-  const auto request = (*opened)->RequestKey(tile, shape, 1000);
-  const auto key = (*opened)->Key(tile, 17, shape, 1000);
+  const auto request = (*opened)->RequestKey(tile, shape, 1000, kInputDigest);
+  const auto key = (*opened)->Key(tile, 17, shape, 1000, kInputDigest);
   const auto miss = (*opened)->Load(key);
   CHECK(miss && !*miss, "native base miss is distinct from storage failure");
   const std::atomic_bool stopping{false};
@@ -304,16 +305,18 @@ void NativeCache(const std::filesystem::path &root) {
         "explicit Shell is the same intrinsic asset after camera movement");
   auto changed = shape;
   changed.Gradient = 0.1;
-  CHECK((*restarted)->Key(tile, 17, changed, 1000) != key &&
-            (*restarted)->Key(tile, 18, shape, 1000) != key &&
-            (*restarted)->Key(tile, 17, shape, 2000) != key &&
+  CHECK((*restarted)->Key(tile, 17, changed, 1000, kInputDigest) != key &&
+            (*restarted)->Key(tile, 18, shape, 1000, kInputDigest) != key &&
+            (*restarted)->Key(tile, 17, shape, 2000, kInputDigest) != key &&
             (*restarted)->Key(tile, 17, shape, 1000, "new-vector-bytes") != key,
         "terrain shaping, street inputs, payload and scale bind separate base keys");
-  const auto changedRequest = (*restarted)->RequestKey(tile, changed, 1000);
-  CHECK(changedRequest != request && (*restarted)->RequestKey(tile, shape, 2000) != request &&
-            !(*restarted)->LoadBasisRequest(changedRequest)->has_value() &&
-            (*restarted)->RequestKey({.Zoom = -1, .X = 0, .Y = 0}, shape, 1000).empty(),
-        "native demand separates configuration and rejects invalid cells before any inputs");
+  const auto changedRequest = (*restarted)->RequestKey(tile, changed, 1000, kInputDigest);
+  CHECK(
+      changedRequest != request &&
+          (*restarted)->RequestKey(tile, shape, 2000, kInputDigest) != request &&
+          !(*restarted)->LoadBasisRequest(changedRequest)->has_value() &&
+          (*restarted)->RequestKey({.Zoom = -1, .X = 0, .Y = 0}, shape, 1000, kInputDigest).empty(),
+      "native demand separates configuration and rejects invalid cells before any inputs");
   if (hit && *hit) { IntrinsicLODs(root, **restarted, key, **hit); }
   NativeLODWithoutPlans(root, key, *restarted, view, *geometry);
 }
@@ -326,8 +329,8 @@ void RequestMigration(const std::filesystem::path &root) {
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
-  const auto request = (*cache)->RequestKey(tile, shape, 1000);
-  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const auto request = (*cache)->RequestKey(tile, shape, 1000, kInputDigest);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000, kInputDigest);
   const std::atomic_bool stopping{false};
   CHECK((*cache)->Generate(key, Inputs(), *Heights(), stopping).has_value(),
         "legacy producer stores an unbound complete base");
@@ -368,7 +371,7 @@ void RequestMigration(const std::filesystem::path &root) {
   const int writable = sqlite3_exec(database.get(), unprotect, nullptr, nullptr, nullptr);
   CHECK(writable == SQLITE_OK, "later replacement and repair retain normal package publication");
   if (writable != SQLITE_OK) { return; }
-  const auto replacement = (*cache)->Key(tile, 18, shape, 1000);
+  const auto replacement = (*cache)->Key(tile, 18, shape, 1000, kInputDigest);
   CHECK((*cache)->Generate(replacement, Inputs(), *Heights(), stopping, request).has_value(),
         "explicit changed input publishes a complete replacement binding");
   const auto current = (*cache)->LoadBasisRequest(request);
@@ -457,8 +460,8 @@ void ResidentRequests(const std::filesystem::path &root) {
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
-  const auto request = (*cache)->RequestKey(tile, shape, 1000);
-  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const auto request = (*cache)->RequestKey(tile, shape, 1000, kInputDigest);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000, kInputDigest);
   const std::atomic_bool stopping{false};
   const auto generated = (*cache)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated, "resident fixture publishes real complete building inputs");
@@ -502,7 +505,7 @@ void ResidentRequests(const std::filesystem::path &root) {
   const auto invalidated = (*cache)->LoadBasisRequest(request);
   CHECK(invalidated && !*invalidated && !weak.expired(),
         "explicit invalidation remains a miss while old geometry still owns its basis");
-  const auto replacementKey = (*cache)->Key(tile, 18, shape, 1000);
+  const auto replacementKey = (*cache)->Key(tile, 18, shape, 1000, kInputDigest);
   CHECK((*cache)->Generate(replacementKey, Inputs(), *Heights(), stopping, request).has_value(),
         "changed physical input publishes a complete replacement binding");
   auto replacement = (*cache)->LoadBasisRequest(request);
@@ -530,8 +533,8 @@ void ResidentRequestLimit(const std::filesystem::path &root) {
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
-  const auto request = (*cache)->RequestKey(tile, shape, 1000);
-  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const auto request = (*cache)->RequestKey(tile, shape, 1000, kInputDigest);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000, kInputDigest);
   const std::atomic_bool stopping{false};
   CHECK((*cache)->Generate(key, Inputs(), *Heights(), stopping, request).has_value(),
         "bounded fixture publishes one real native basis");
