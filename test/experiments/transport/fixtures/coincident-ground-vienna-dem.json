@@ -1,0 +1,31 @@
+{
+  "schema": "outshine/experimental-coincident-ground-dem/1",
+  "tile": [
+    14,
+    8937,
+    5679
+  ],
+  "source_url": "https://tiles.mapterhorn.com/14/8937/5679.webp",
+  "source_sha256": "fdcdbcdc1a23efbf059e49c7b6877d360af14e7c4c18ea78c50d32ea45b7a800",
+  "source_bytes": 60344,
+  "retained_source_receipt": "stair-cycle-south-vienna.json:elevation[2]",
+  "window_file": "coincident-ground-vienna-dem.npz",
+  "window_sha256": "5ad0dfe3f79893ec02c8b095bfaa9196608d6e7c758a4dc3d3ff116a9393669e",
+  "window_bytes": 752,
+  "origin_pixel_xy": [
+    222,
+    3
+  ],
+  "window_shape": [
+    12,
+    12
+  ],
+  "raster_shape": [
+    512,
+    512
+  ],
+  "sampling": "bilinear boundary posts, side-1; outside the actual window rejected",
+  "source_datum": "Mapterhorn values as supplied; no measured geoid/ellipsoid equivalence",
+  "height_mapping": "source signed metres as model geodetic heights/1",
+  "scope": "Additional fixed window from the already retained, hash-matched southern DEM tile. No original source capture or historical pin replaced."
+}

@@ -1,3 +1,8 @@
+#include <array>
+#include <string_view>
+#include <cstdint>
+#include <stop_token>
+#include <string>
 #include "HttpTransport.h"
 #include "Check.h"
 #include <arpa/inet.h>
@@ -21,7 +26,7 @@ public:
   ResponseMode Responses;
   int Listener = socket(AF_INET, SOCK_STREAM, 0);
   uint16_t Port = 0;
-  std::atomic<unsigned> Accepted{0};
+  mutable std::atomic<unsigned> Accepted{0};
   std::jthread Worker;
 
   explicit Server(ResponseMode response = ResponseMode::SecondOnly) : Responses(response) {
@@ -36,7 +41,7 @@ public:
     socklen_t size = sizeof(address);
     if (getsockname(Listener, reinterpret_cast<sockaddr *>(&address), &size) != 0) { return; }
     Port = ntohs(address.sin_port);
-    Worker = std::jthread([this](std::stop_token stop) {
+    Worker = std::jthread([this](const std::stop_token &stop) {
       std::vector<int> stalled;
       while (!stop.stop_requested()) {
         pollfd descriptor{.fd = Listener, .events = POLLIN, .revents = 0};
@@ -46,11 +51,13 @@ public:
         const unsigned count = ++Accepted;
         if (count == 2 || Responses == ResponseMode::Always) {
           pollfd request{.fd = client, .events = POLLIN, .revents = 0};
-          char headers[4096];
-          if (poll(&request, 1, 1000) > 0) { (void)recv(client, headers, sizeof(headers), 0); }
-          constexpr char response[] =
+          std::array<char, 4096> headers;
+          if (poll(&request, 1, 1000) > 0) {
+            (void)recv(client, headers.data(), headers.size(), 0);
+          }
+          constexpr std::string_view response =
               "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK";
-          (void)send(client, response, sizeof(response) - 1, 0);
+          (void)send(client, response.data(), response.size(), 0);
           close(client);
         } else {
           stalled.push_back(client);
@@ -90,7 +97,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   std::signal(SIGPIPE, SIG_IGN);
-  Server server;
+  const Server server;
   CHECK(server.Port != 0, "local HTTP fixture listens");
   if (server.Port == 0) { return Report(); }
   const auto url = "http://127.0.0.1:" + std::to_string(server.Port) + "/tile";
@@ -129,7 +136,8 @@ int main() {
   const auto started = Clock::now();
   {
     HttpTransport transport({.ConcurrentTransfers = 1, .TimeoutS = 10});
-    (void)transport.Begin(url);
+    const auto running = transport.Begin(url);
+    CHECK(running.has_value(), "the fixture admits its running transfer");
     CHECK(server.AwaitConnections(3), "shutdown fixture has a running transfer");
   }
   CHECK(Clock::now() - started < 3s,
@@ -145,7 +153,8 @@ int main() {
   }
   {
     HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
-    (void)transport.Begin(url);
+    const auto running = transport.Begin(url);
+    CHECK(running.has_value(), "the fixture admits its running transfer");
     CHECK(server.AwaitConnections(5), "sole active slot prevents queued requests from starting");
     std::vector<Data::Ticket> cancelled;
     for (int i = 0; i < 5; ++i) {
@@ -164,7 +173,7 @@ int main() {
           "newest queued cancellation retains its cause without a transfer");
   }
   {
-    Server response(Server::ResponseMode::Always);
+    const Server response(Server::ResponseMode::Always);
     CHECK(response.Port != 0, "body-budget fixture listens");
     HttpTransport transport({.TimeoutS = 2, .MaxBodyBytes = 1});
     const auto ticket =

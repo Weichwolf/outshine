@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Check.h"
 
 #include <SourceRequest.h>
@@ -11,7 +12,7 @@
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
-  const auto at = Address::AtCell({54, 9});
+  const auto at = Address::AtCell({.SouthDeg = 54, .WestDeg = 9});
   const ByteRange range{.First = 100, .Length = 3};
   std::string pin = "\"revision-1\"";
   const SourceRequest partial(DataKind::Elevation, at, range, pin);
@@ -48,8 +49,11 @@ int main() {
             reply->Range->Bytes == range && reply->Range->TotalBytes == 1000 &&
             reply->Range->EntityTag == partial.EntityTag(),
         "receipt and original allocation survive both moves and a single ownership transfer");
-  CHECK(received.Where() == SourceResponse::State::Consumed &&
-            moved.Where() == SourceResponse::State::Consumed && !assigned.Take(),
+  CHECK(std::exchange(received, SourceResponse::Working()).Where() ==
+                SourceResponse::State::Consumed &&
+            std::exchange(moved, SourceResponse::Working()).Where() ==
+                SourceResponse::State::Consumed &&
+            !assigned.Take(),
         "moved and consumed replies cannot transfer source bytes twice");
   return Report();
 }

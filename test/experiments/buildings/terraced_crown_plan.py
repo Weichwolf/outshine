@@ -41,6 +41,7 @@ class RoofedPlan:
     source_top_m: float
     attempts: int
     reason: str
+    access: object = None
 
 
 def roof(body, top, kind, guard):

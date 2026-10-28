@@ -1,30 +1,29 @@
-#include <system_error>
-#include <span>
-#include <memory>
-#include <filesystem>
-#include <array>
 #include "SourceSet.h"
 #include "OfflineSourceTransport.h"
 #include "RawSourceCache.h"
 #include "CopernicusDemSource.h"
 #include "CopernicusRaster.h"
 #include "HttpTransport.h"
+#include "LoopbackHttpServer.h"
 #include "Check.h"
-
-#include <arpa/inet.h>
+#include <array>
 #include <chrono>
 #include <csignal>
-#include <cstdio>
+#include <cstdint>
 #include <cstdlib>
+#include <expected>
+#include <filesystem>
+#include <format>
 #include <limits>
-#include <mutex>
+#include <memory>
 #include <optional>
-#include <poll.h>
+#include <print>
+#include <ratio>
+#include <span>
 #include <string>
 #include <string_view>
-#include <sys/socket.h>
+#include <system_error>
 #include <thread>
-#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -35,95 +34,47 @@ using outshine::Data::ByteRange;
 using outshine::Data::SourceFailureReason;
 using outshine::Data::Wire;
 
-class Server {
-public:
-  int Listener = socket(AF_INET, SOCK_STREAM, 0);
-  uint16_t Port = 0;
-  std::mutex Mutex;
-  std::vector<std::string> Requests;
-  std::jthread Worker;
-
-  Server() {
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (Listener < 0 ||
-        bind(Listener, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0 ||
-        listen(Listener, 8) != 0) {
-      return;
-    }
-    socklen_t size = sizeof(address);
-    if (getsockname(Listener, reinterpret_cast<sockaddr *>(&address), &size) != 0) { return; }
-    Port = ntohs(address.sin_port);
-    Worker = std::jthread([this](std::stop_token stop) {
-      while (!stop.stop_requested()) {
-        pollfd pending{.fd = Listener, .events = POLLIN, .revents = 0};
-        if (poll(&pending, 1, 20) <= 0) { continue; }
-        const int client = accept(Listener, nullptr, nullptr);
-        if (client < 0) { continue; }
-        std::string request;
-        const auto deadline = Clock::now() + 1s;
-        while (request.size() < 8192 && !request.contains("\r\n\r\n") && Clock::now() < deadline) {
-          pollfd readable{.fd = client, .events = POLLIN, .revents = 0};
-          if (poll(&readable, 1, 20) <= 0) { continue; }
-          char bytes[1024];
-          const auto count = recv(client, bytes, sizeof(bytes), 0);
-          if (count <= 0) { break; }
-          request.append(bytes, static_cast<size_t>(count));
-        }
-        {
-          const std::scoped_lock lock(Mutex);
-          Requests.push_back(request);
-        }
-        const auto first = request.find(' ');
-        const auto last = request.find(' ', first + 1);
-        const auto path = request.substr(first + 1, last - first - 1);
-        std::string headers = "Content-Range: bytes 4-7/64\r\nETag: \"v1\"\r\n";
-        std::string body = "DATA";
-        int status = 206;
-        if (path == "/full") {
-          status = 200;
-          headers.clear();
-        }
-        if (path == "/offset") { headers = "Content-Range: bytes 3-6/64\r\nETag: \"v1\"\r\n"; }
-        if (path == "/length") { body = "DAT"; }
-        if (path == "/large") { body = "EXTRA"; }
-        if (path == "/weak") { headers = "Content-Range: bytes 4-7/64\r\nETag: W/\"v1\"\r\n"; }
-        if (path == "/revision") { headers = "Content-Range: bytes 4-7/64\r\nETag: \"v2\"\r\n"; }
-        if (path == "/noetag") { headers = "Content-Range: bytes 4-7/64\r\n"; }
-        if (path == "/norange") { headers = "ETag: \"v1\"\r\n"; }
-        if (path == "/unknown") { headers = "Content-Range: bytes 4-7/*\r\nETag: \"v1\"\r\n"; }
-        if (path == "/total") { headers = "Content-Range: bytes 4-7/7\r\nETag: \"v1\"\r\n"; }
-        if (path == "/duplicate") { headers += "Content-Range: bytes 4-7/64\r\n"; }
-        if (path == "/encoding") { headers += "Content-Encoding: gzip\r\n"; }
-        if (path == "/precondition") {
-          status = 412;
-          headers.clear();
-          body.clear();
-        }
-        if (path == "/redirect") {
-          status = 302;
-          headers = "Location: /valid\r\nContent-Range: bytes 9-12/64\r\nETag: \"old\"\r\n";
-          body.clear();
-        }
-        std::string response = "HTTP/1.1 " + std::to_string(status) + " Fixture\r\n" + headers +
-                               "Content-Length: " + std::to_string(body.size()) +
-                               "\r\nConnection: close\r\n\r\n" + body;
-        if (path == "/continue") {
-          response.insert(0, "HTTP/1.1 100 Continue\r\nETag: \"old\"\r\n\r\n");
-        }
-        (void)send(client, response.data(), response.size(), 0);
-        close(client);
-      }
-    });
+std::string RangeReply(const std::string &request) {
+  const auto first = request.find(' ');
+  const auto last = request.find(' ', first + 1);
+  const auto path = request.substr(first + 1, last - first - 1);
+  std::string headers = "Content-Range: bytes 4-7/64\r\nETag: \"v1\"\r\n";
+  std::string body = "DATA";
+  int status = 206;
+  if (path == "/full") {
+    status = 200;
+    headers.clear();
   }
-
-  ~Server() {
-    Worker.request_stop();
-    if (Worker.joinable()) { Worker.join(); }
-    if (Listener >= 0) { close(Listener); }
+  if (path == "/offset") { headers = "Content-Range: bytes 3-6/64\r\nETag: \"v1\"\r\n"; }
+  if (path == "/length") { body = "DAT"; }
+  if (path == "/large") { body = "EXTRA"; }
+  if (path == "/weak") { headers = "Content-Range: bytes 4-7/64\r\nETag: W/\"v1\"\r\n"; }
+  if (path == "/revision") { headers = "Content-Range: bytes 4-7/64\r\nETag: \"v2\"\r\n"; }
+  if (path == "/noetag") { headers = "Content-Range: bytes 4-7/64\r\n"; }
+  if (path == "/norange") { headers = "ETag: \"v1\"\r\n"; }
+  if (path == "/unknown") { headers = "Content-Range: bytes 4-7/*\r\nETag: \"v1\"\r\n"; }
+  if (path == "/total") { headers = "Content-Range: bytes 4-7/7\r\nETag: \"v1\"\r\n"; }
+  if (path == "/duplicate") { headers += "Content-Range: bytes 4-7/64\r\n"; }
+  if (path == "/encoding") { headers += "Content-Encoding: gzip\r\n"; }
+  if (path == "/precondition") {
+    status = 412;
+    headers.clear();
+    body.clear();
   }
-};
+  if (path == "/redirect") {
+    status = 302;
+    headers = "Location: /valid\r\nContent-Range: bytes 9-12/64\r\nETag: \"old\"\r\n";
+    body.clear();
+  }
+  std::string response =
+      std::format("HTTP/1.1 {} Fixture\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                  status,
+                  headers,
+                  body.size(),
+                  body);
+  if (path == "/continue") { response.insert(0, "HTTP/1.1 100 Continue\r\nETag: \"old\"\r\n\r\n"); }
+  return response;
+}
 
 Wire Await(outshine::HttpTransport &transport,
            outshine::Data::Ticket ticket,
@@ -169,7 +120,7 @@ void RealOriginal(const char *url) {
   const RawSourceCache::Config config{.Directory = directory};
   RawSourceCache store(config);
   SourceSet sources(store);
-  const auto at = Address::AtCell({54, 9});
+  const auto at = Address::AtCell({.SouthDeg = 54, .WestDeg = 9});
   auto provider = std::make_unique<outshine::Generators::Terrain::CopernicusDemSource>();
   CHECK(provider->Url(at) == url, "probe uses the official native N54/E009 source address");
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
@@ -210,11 +161,11 @@ void RealOriginal(const char *url) {
   if (!block) { return; }
   const auto height = block->HeightM(781, 20);
   CHECK(height, "Flensburg diagnostic sample is present");
-  std::printf(
-      "ORIGINAL received=%zu total=%llu revision=%s sample(1044,781)=%g m EGM2008 decode=%.3f ms\n",
+  std::println(
+      "ORIGINAL received={} total={} revision={} sample(1044,781)={} m EGM2008 decode={:.3f} ms",
       header->Bytes.size() + bytes->Bytes.size(),
-      static_cast<unsigned long long>(source.TotalBytes),
-      header->Range->EntityTag.c_str(),
+      source.TotalBytes,
+      header->Range->EntityTag,
       height.value_or(std::numeric_limits<float>::quiet_NaN()),
       decodeMs);
   RawSourceCache reopened(config);
@@ -242,16 +193,50 @@ void RealOriginal(const char *url) {
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "probe cache fixture removed");
 }
+
+void RangeProbe(const char *probe) {
+  HttpTransport remote({.ConcurrentTransfers = 1, .TimeoutS = 25, .MaxBodyBytes = 16384});
+  const auto started = remote.Begin(probe, ByteRange{.First = 0, .Length = 16384});
+  CHECK(started.has_value(), "explicit real COG probe starts");
+  if (started) {
+    const auto response = Await(remote, *started, 30s).Take();
+    CHECK(response && response->Range && response->Range->TotalBytes > response->Body.size() &&
+              response->Body.size() == 16384 && response->Body[0] == 'I' &&
+              response->Body[1] == 'I',
+          "real Copernicus header arrives without downloading the complete raster");
+    if (response && response->Range) {
+      std::println("COG probe: {}/{} bytes; ETag {}",
+                   response->Body.size(),
+                   response->Range->TotalBytes,
+                   response->Range->EntityTag);
+    }
+  }
 }
 
-int main() {
+int ExplicitProbe(int argc, char **argv) {
+  CHECK(argc == 3, "an explicit live probe requires its mode and source URL");
+  if (argc != 3) { return Report(); }
+  const std::string_view mode(argv[1]);
+  if (mode == "--range-probe") {
+    RangeProbe(argv[2]);
+  } else if (mode == "--raster-probe") {
+    RealOriginal(argv[2]);
+  } else {
+    CHECK(false, "live probe mode must be --range-probe or --raster-probe");
+  }
+  return Report();
+}
+}
+
+int main(int argc, char **argv) {
   using namespace outshine;
   using namespace outshine::Test;
   std::signal(SIGPIPE, SIG_IGN);
-  Server server;
-  CHECK(server.Port != 0, "local byte-range fixture listens");
-  if (server.Port == 0) { return Report(); }
-  const std::string url = "http://127.0.0.1:" + std::to_string(server.Port);
+  if (argc > 1) { return ExplicitProbe(argc, argv); }
+  const LoopbackHttpServer server(RangeReply);
+  CHECK(server.Ready(), "local byte-range fixture listens");
+  if (!server.Ready()) { return Report(); }
+  const std::string url = server.Url("127.0.0.1");
   HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 32, .MaxBodyBytes = 8});
   const ByteRange range{.First = 4, .Length = 4};
   for (const std::string_view path : {"/valid", "/redirect", "/continue"}) {
@@ -318,32 +303,11 @@ int main() {
     CHECK(response && response->Status == 200 && response->Body.size() == 4 && !response->Range,
           "ordinary acquisition retains its existing response contract");
   }
-  {
-    const std::scoped_lock lock(server.Mutex);
-    CHECK(server.Requests.size() == 18, "invalid starts issue no hidden network work");
-    CHECK(!server.Requests.empty() && server.Requests.front().contains("Range: bytes=4-7\r\n") &&
-              server.Requests.front().contains("If-Match: \"v1\"\r\n") &&
-              server.Requests.front().contains("Accept-Encoding: identity\r\n"),
-          "actual HTTP request pins the unencoded byte interval and object revision");
-  }
-  if (const char *probe = std::getenv("OUTSHINE_COG_RANGE_PROBE")) {
-    HttpTransport remote({.ConcurrentTransfers = 1, .TimeoutS = 25, .MaxBodyBytes = 16384});
-    const auto started = remote.Begin(probe, ByteRange{.First = 0, .Length = 16384});
-    CHECK(started.has_value(), "explicit real COG probe starts");
-    if (started) {
-      const auto response = Await(remote, *started, 30s).Take();
-      CHECK(response && response->Range && response->Range->TotalBytes > response->Body.size() &&
-                response->Body.size() == 16384 && response->Body[0] == 'I' &&
-                response->Body[1] == 'I',
-            "real Copernicus header arrives without downloading the complete raster");
-      if (response && response->Range) {
-        std::printf("COG probe: %zu/%llu bytes; ETag %s\n",
-                    response->Body.size(),
-                    static_cast<unsigned long long>(response->Range->TotalBytes),
-                    response->Range->EntityTag.c_str());
-      }
-    }
-  }
-  if (const char *original = std::getenv("OUTSHINE_GLO30_RASTER_PROBE")) { RealOriginal(original); }
+  const auto requests = server.Requests();
+  CHECK(requests.size() == 18, "invalid starts issue no hidden network work");
+  CHECK(!requests.empty() && requests.front().Text.contains("Range: bytes=4-7\r\n") &&
+            requests.front().Text.contains("If-Match: \"v1\"\r\n") &&
+            requests.front().Text.contains("Accept-Encoding: identity\r\n"),
+        "actual HTTP request pins the unencoded byte interval and object revision");
   return Report();
 }

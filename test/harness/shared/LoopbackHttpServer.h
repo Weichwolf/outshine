@@ -4,9 +4,11 @@
 #include <arpa/inet.h>
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <poll.h>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
@@ -100,7 +102,7 @@ private:
   uint16_t Port_ = 0;
   Respond Respond_;
   mutable std::mutex Mutex_;
-  std::vector<Request> Requests_;
+  mutable std::vector<Request> Requests_;
   std::jthread Worker_;
 };
 }

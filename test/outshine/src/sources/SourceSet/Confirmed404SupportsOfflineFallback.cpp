@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "OfflineSourceTransport.h"
@@ -38,7 +39,7 @@ public:
     return Clock;
   }
 
-  void Cancel(Ticket) override {}
+  void Cancel(Ticket /*ticket*/) override {}
 };
 
 class UnprovenAbsence final : public Source {
@@ -48,15 +49,23 @@ public:
     Decl.Keeps = Cacheability::Forever;
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl; }
 
-  Coverage Covers(const SourceRequest &) const noexcept override { return Coverage::Inside; }
+  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
+    return Coverage::Inside;
+  }
 
-  Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    return Ticket::None;
+  }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Meant(Meaning::Absent);
   }
 
@@ -64,7 +73,7 @@ public:
 };
 
 void Add(SourceSet &sources,
-         std::string revision = {},
+         const std::string &revision = {},
          AbsencePolicy policy = AbsencePolicy::Continue) {
   using namespace outshine::Test;
   CHECK(sources.Add(std::make_unique<outshine::Test::WebTileFixture>(

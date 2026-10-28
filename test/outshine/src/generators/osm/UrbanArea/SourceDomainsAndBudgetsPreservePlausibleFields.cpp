@@ -146,7 +146,7 @@ void Budgets() {
   Osm::UrbanAreaLimits limited;
   limited.CellsMost = 1;
   const auto rejected = Osm::GenerateUrbanArea(inputs, {}, limited);
-  CHECK(!rejected && rejected.error().find("before geometry work") != std::string::npos,
+  CHECK(!rejected && rejected.error().contains("before geometry work"),
         "cell budget rejects before GEOS/source-domain work");
   limited = {};
   limited.SourceVerticesMost = 1;

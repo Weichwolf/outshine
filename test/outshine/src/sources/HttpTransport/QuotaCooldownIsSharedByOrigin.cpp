@@ -32,14 +32,14 @@ int main() {
   using namespace std::chrono_literals;
   std::signal(SIGPIPE, SIG_IGN);
   for (const int status : std::array{429, 509}) {
-    LoopbackHttpServer limited([status](const std::string &request) {
+    const LoopbackHttpServer limited([status](const std::string &request) {
       if (request.starts_with("GET /limit ")) {
         return "HTTP/1.1 " + std::to_string(status) +
                " Limited\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
       }
       return std::string("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK");
     });
-    LoopbackHttpServer other([](const std::string &) {
+    const LoopbackHttpServer other([](const std::string &) {
       return std::string("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK");
     });
     CHECK(limited.Ready() && other.Ready(), "independent loopback origins are available");
