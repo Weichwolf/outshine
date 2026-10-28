@@ -42,11 +42,14 @@ def flat(polygon, height, material, *, reverse=False):
 
 def direct(crown):
     polygon = shapely.from_wkb(crown.domain_wkb)
-    coping = next(p.volume.polygon for p in crown.parts if p.role == "coping")
-    pieces = [
-        flat(coping, crown.top_m, 10),
-        flat(polygon.difference(coping), crown.top_m, ROOF_MATERIAL),
-    ]
+    if crown.kind == "hip":
+        pieces = [flat(polygon, crown.top_m, ROOF_MATERIAL)]
+    else:
+        coping = next(p.volume.polygon for p in crown.parts if p.role == "coping")
+        pieces = [
+            flat(coping, crown.top_m, 10),
+            flat(polygon.difference(coping), crown.top_m, ROOF_MATERIAL),
+        ]
     points = []
     for ring in (polygon.exterior, *polygon.interiors):
         for a, b in pairwise(np.asarray(ring.coords)):
@@ -137,6 +140,7 @@ class RoofedProducts:
             )
         self.body = TerraceProducts(terraces, legacy_trim=legacy_trim)
         self.roof_components, self.roof_skin = None, None
+        self.roof_crown, self.roof_failure = plan.crown, None
         self.coarse_roof = (
             world_surface(direct(plan.crown), plan.body.core)
             if plan.crown is not None
@@ -149,10 +153,27 @@ class RoofedProducts:
         if self.plan.crown is None:
             return None
         if self.roof_components is None:
-            local = tuple(union_prisms((p.volume,)) for p in self.plan.crown.parts)
-            self.roof_skin = world_surface(
-                visible(self.plan.crown, local), self.plan.body.core
-            )
+            crown = self.plan.crown
+            if crown.kind == "hip":
+                from hip_crown_geometry import build
+                from outshine_ref.buildings.modelling import SkeletonBudgetExceeded
+
+                try:
+                    local, skin = build(crown)
+                except (
+                    ValueError,
+                    SkeletonBudgetExceeded,
+                    shapely.errors.GEOSException,
+                ) as error:
+                    self.roof_failure = str(error)
+                    crown = crown.fallback
+                    self.coarse_roof = world_surface(direct(crown), self.plan.body.core)
+                    self.draws.pop(False, None)
+            if crown.kind != "hip":
+                local = tuple(union_prisms((p.volume,)) for p in crown.parts)
+                skin = visible(crown, local)
+            self.roof_crown = crown
+            self.roof_skin = world_surface(skin, self.plan.body.core)
             self.roof_components = tuple(placed(p, self.plan.body.core) for p in local)
         return self.roof_components
 
