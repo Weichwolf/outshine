@@ -79,6 +79,9 @@ WebTileSource::Collect(const Address &at, Ticket ticket, SourceTransport &transp
     return SourceResponse::Meant(Meaning::Refused, SourceFailureReason::SourceChanged);
   }
   if (answered->Status == kHttpNotFound) { return SourceResponse::NotFound(); }
+  if (answered->Status == kHttpOk && answered->Body.empty() && AcceptsEmptyPayload()) {
+    return SourceResponse::Delivered({});
+  }
   const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
   if (what != Meaning::Bytes) {
     const auto reason = answered->Status == kHttpTimeout ? SourceFailureReason::TimedOut

@@ -22,6 +22,7 @@ public:
 
 protected:
   [[nodiscard]] bool AcceptsIdentity(const Wire::Response &response) const noexcept override;
+  [[nodiscard]] bool AcceptsEmptyPayload() const noexcept override;
 
 private:
   std::optional<std::string> ExpectedRelease_;

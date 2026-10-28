@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "OfflineSourceTransport.h"
+#include "OsmField.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "VectorTileSource.h"
@@ -108,6 +109,48 @@ void CheckMissAndHit(const std::filesystem::path &root) {
         "a reopened offline hit adds no verification request or source mutation");
 }
 
+void CheckEmptyMissAndOfflineHit(const std::filesystem::path &root) {
+  const auto at = Address::At(kAddress);
+  const SourceRequest request(DataKind::VectorMap, at);
+  {
+    RawSourceCache cache({.Directory = root.string()});
+    SourceSet sources(cache);
+    auto source = MakeSource();
+    const auto key = ContentKey(source->Declaration(), at);
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
+          "the specifically empty source registers normally");
+    Replies wire;
+    wire.Body.clear();
+    wire.Headers = "x-ofm-debug: empty tile\r\n";
+    auto query = sources.Ask(request);
+    const auto delivered = sources.Collect(query, wire).Take();
+    CHECK(delivered && delivered->Bytes.empty() && delivered->SourceId == kDataset,
+          "a qualified empty tile is delivered rather than retried or ranked as absent");
+    const auto kept = cache.Lookup(key);
+    CHECK(kept.Where == RawSourceCache::Presence::Bytes && kept.Bytes.empty(),
+          "only the specifically confirmed empty payload enters the empty-input cache");
+    CHECK(wire.Starts == 1 && sources.Counters().HandedOver == 0,
+          "a valid empty tile starts one request and never falls back to another source");
+  }
+  RawSourceCache reopened({.Directory = root.string()});
+  SourceSet warm(reopened);
+  CHECK(warm.Add(MakeSource()) == SourceSet::Registration::Accepted,
+        "a fresh owner reopens the exact empty source declaration");
+  OfflineSourceTransport offline;
+  auto query = warm.Ask(request);
+  const auto hit = warm.Collect(query, offline).Take();
+  CHECK(hit && hit->Bytes.empty() && warm.Counters().FromStore == 1 &&
+            warm.Counters().ProviderStarts == 0,
+        "a fresh offline process restores complete empty bytes without another HTTP request");
+  if (!hit) { return; }
+  const std::array<std::string, 1> layers{"buildings"};
+  Generators::Osm::OsmField field(kAddress.Zoom, layers, Generators::Osm::MvtSchema::OpenMapTiles);
+  const auto accepted =
+      field.Accept(static_cast<int>(kAddress.X), static_cast<int>(kAddress.Y), hit->Bytes);
+  CHECK(accepted && field.Tiles().size() == 1 && field.Features().empty(),
+        "the actual MVT consumer accepts the complete zero-feature tile");
+}
+
 void CheckRenamedProvider() {
   Replies wire;
   const auto at = Address::At(kAddress);
@@ -153,8 +196,8 @@ void CheckOtherOutcomes() {
   wire.Headers = "x-ofm-debug: empty tile\r\n";
   wire.Body.clear();
   const auto empty = source->Collect(at, static_cast<Ticket>(1), wire).Take();
-  CHECK(empty && empty->What == Meaning::Retry,
-        "the specific empty route retains the existing empty-payload retry contract");
+  CHECK(empty && empty->What == Meaning::Bytes && empty->Bytes.empty(),
+        "the specifically confirmed empty vector tile is a valid zero-feature input");
   wire.Headers.clear();
   wire.Status = kTooMany;
   const auto limited = source->Collect(at, static_cast<Ticket>(1), wire).Take();
@@ -185,6 +228,7 @@ int main() {
   std::filesystem::create_directories(root, error);
   CHECK(!error, "the isolated raw cache is available");
   CheckMissAndHit(root);
+  CheckEmptyMissAndOfflineHit(root / "empty");
   CheckOtherOutcomes();
   CheckRenamedProvider();
   std::filesystem::remove_all(root, error);

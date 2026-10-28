@@ -44,6 +44,8 @@ protected:
     return true;
   }
 
+  [[nodiscard]] virtual bool AcceptsEmptyPayload() const noexcept { return false; }
+
   [[nodiscard]] virtual bool CountsAbsent(int status) const noexcept {
     return status == kHttpNotFound;
   }

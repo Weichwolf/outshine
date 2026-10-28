@@ -86,4 +86,8 @@ bool VectorTileSource::AcceptsIdentity(const Wire::Response &response) const noe
          (*field == *ExpectedRelease_ || (*field == "empty tile" && response.Body.empty()));
 }
 
+bool VectorTileSource::AcceptsEmptyPayload() const noexcept {
+  return ExpectedRelease_.has_value() && RevisionEndpoint_;
+}
+
 }

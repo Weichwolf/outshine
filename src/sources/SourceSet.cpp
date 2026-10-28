@@ -328,6 +328,8 @@ SourceDelivery SourceSet::Deliver(Query &query, SourceResponse::Settled response
       const auto cell = query.At_.GeoCell();
       if (cell) {
         (void)Store_.KeepCell(decl, *cell, response.Bytes);
+      } else if (response.Bytes.empty()) {
+        (void)Store_.KeepEmpty(query.CacheKey());
       } else {
         (void)Store_.Keep(query.CacheKey(), response.Bytes.data(), response.Bytes.size());
       }
