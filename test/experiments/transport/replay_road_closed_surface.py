@@ -64,13 +64,17 @@ def original_cases():
     }
 
 
-def stage(cases, method, payload):
+def stage(cases, method, payload, *, refine_normal_bound=False):
     began, wall = time.process_time(), time.perf_counter()
     results = {}
     for case in cases:
         try:
             body = prepare_closed(
-                case["recipe"], 0.25, max_payload_bytes=payload, method=method
+                case["recipe"],
+                0.25,
+                max_payload_bytes=payload,
+                method=method,
+                refine_normal_bound=refine_normal_bound,
             )
         except (ValueError, RuntimeError) as error:
             results[case["ordinal"]] = {
@@ -132,12 +136,15 @@ def replay(args):
     args.output.mkdir(parents=True, exist_ok=False)
     cases, inputs = original_cases()
     names = ("adaptive", "uniform")
-    results = {name: stage(cases, name, args.max_payload_bytes)[0] for name in names}
+    options = {"refine_normal_bound": args.refine_normal_bound}
+    results = {
+        name: stage(cases, name, args.max_payload_bytes, **options)[0] for name in names
+    }
     expected = {name: fingerprint(values) for name, values in results.items()}
     runs = {name: [] for name in names}
     for turn in range(args.rounds):
         for name in names if turn % 2 == 0 else reversed(names):
-            values, cost = stage(cases, name, args.max_payload_bytes)
+            values, cost = stage(cases, name, args.max_payload_bytes, **options)
             if fingerprint(values) != expected[name]:
                 raise ValueError("Timed complete corpus output changed")
             runs[name].append(cost)
@@ -150,7 +157,7 @@ def replay(args):
             with memray.Tracker(
                 str(path), trace_python_allocators=True, native_traces=True
             ):
-                values, _ = stage(cases, name, args.max_payload_bytes)
+                values, _ = stage(cases, name, args.max_payload_bytes, **options)
             if fingerprint(values) != expected[name]:
                 raise ValueError("Profiled complete corpus output changed")
             traces[name] = allocations(path) | {
@@ -177,6 +184,13 @@ def replay(args):
         "inputs": inputs,
         "complete_body_error_m": 0.25,
         "per_body_payload_budget_bytes": args.max_payload_bytes,
+        **(
+            {
+                "normal_bound_refinement": "one exact Bernstein half-split on failed admission"
+            }
+            if args.refine_normal_bound
+            else {}
+        ),
         "methods": {
             name: {
                 "artifact_sha256": expected[name],
@@ -215,6 +229,7 @@ def main():
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--max-payload-bytes", type=int, default=8 * 1024 * 1024)
     parser.add_argument("--trace", action="store_true")
+    parser.add_argument("--refine-normal-bound", action="store_true")
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.rounds <= 16 or args.max_payload_bytes <= 0:
