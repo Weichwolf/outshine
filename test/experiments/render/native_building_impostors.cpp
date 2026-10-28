@@ -195,10 +195,20 @@ Json Draw(const Geometry &mesh, const Json &query, const Fs::path &output) {
     if (depth[pixel] == 0) { continue; }
     for (size_t axis = 0; axis < 3; ++axis) { normalSum[axis] += normal[pixel * 4 + axis]; }
   }
+  size_t imageBytes = 0;
+  for (int image = 0; image < mesh.images(); ++image) {
+    const auto data = mesh.imageAt(image);
+    imageBytes += data.Rgba.size();
+    for (const auto &mip : data.LowerMips) {
+      if (mip) { imageBytes += mip->size(); }
+    }
+  }
   return {{"normal_sum", normalSum},
           {"setup_ms", setupMs},
           {"device", renderer.GpuName()},
           {"gpu_ms", samples},
+          {"images", mesh.images()},
+          {"image_storage_bytes", imageBytes},
           {"triangles", triangles},
           {"vertices", vertices}};
 }
@@ -236,6 +246,11 @@ void ApplyMomentImages(Geometry &surface, const ImpostorAtlas &atlas, size_t vie
 
 Geometry
 MomentSurface(const ImpostorAtlas &atlas, size_t view, Render::ImpostorSurfaceDetail detail) {
+  if (detail == Render::ImpostorSurfaceDetail::Flat) {
+    auto surface = Render::BuildFractionalImpostorSurface(atlas, view);
+    if (!surface) { Fail("source atlas has no fractional surface"); }
+    return std::move(*surface);
+  }
   auto surface = Render::BuildImpostorSurface(atlas, view, detail);
   if (!surface) { Fail("source atlas has no moment geometry"); }
   ApplyMomentImages(*surface, atlas, view);

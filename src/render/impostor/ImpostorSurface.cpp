@@ -194,24 +194,23 @@ bool AddOpaqueCardImages(Geometry &geometry,
   return AddPreparedCardImages(geometry, into, atlas.Pixels(), images);
 }
 
-}
-
 std::optional<Geometry>
-BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+SurfaceOf(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail, AlphaMode alpha) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
   const ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Metalness = material.Roughness = 1;
-  material.Alpha = AlphaMode::Masked;
-  const bool optical = std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
-    return row.Scattering == ScatteringModel::DiffuseThinSheet;
-  });
+  const bool optical =
+      alpha == AlphaMode::Blended || std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
+        return row.Scattering == ScatteringModel::DiffuseThinSheet;
+      });
   if (optical ? !AddOpticalCardImages(geometry, material, atlas, source)
               : !AddOpaqueCardImages(geometry, material, atlas, source)) {
     return std::nullopt;
   }
+  material.Alpha = alpha;
   const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
   const auto createdPart = geometry.addPart("impostor", *surface);
@@ -225,6 +224,16 @@ BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDet
     return std::nullopt;
   }
   return geometry;
+}
+}
+
+std::optional<Geometry>
+BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+  return SurfaceOf(atlas, view, detail, AlphaMode::Masked);
+}
+
+std::optional<Geometry> BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view) {
+  return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended);
 }
 
 std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas, std::string &error) {
