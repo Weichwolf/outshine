@@ -4,6 +4,7 @@
 #include "SourceSet.h"
 #include "VectorTileSource.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -71,7 +72,7 @@ void CheckMissAndHit(const std::filesystem::path &root) {
         "x-ofm-debug: empty tile wildcard\r\n",
         "x-ofm-debug: empty tile\r\n",
         "x-ofm-debug: specific PBF planet pinned\r\nx-ofm-debug: specific PBF planet pinned\r\n"};
-    for (const auto headers : badHeaders) {
+    for (const auto *const headers : badHeaders) {
       wire.Headers = headers;
       auto query = sources.Ask(request);
       auto reply = sources.Collect(query, wire);
@@ -123,7 +124,7 @@ void CheckOtherOutcomes() {
         "a temporary rate limit needs no fabricated source-identity header");
   wire.Status = 200;
   wire.Body = {1, 2};
-  Generators::Osm::VectorTileSource generic(
+  const Generators::Osm::VectorTileSource generic(
       kRevision, Rank{0}, AbsencePolicy::Fail, "fixture.vector", kEndpoint);
   const auto other = generic.Collect(at, static_cast<Ticket>(1), wire).Take();
   CHECK(other && other->What == Meaning::Bytes && other->Bytes == wire.Body,

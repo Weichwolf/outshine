@@ -3,6 +3,7 @@
 #include "LoopbackHttpServer.h"
 #include "SourceTransport.h"
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,11 +45,11 @@ Wire Await(HttpTransport &wire, Ticket ticket) {
 
 int main() {
   using namespace outshine::Test;
-  LoopbackHttpServer server(Respond);
+  const LoopbackHttpServer server(Respond);
   CHECK(server.Ready(), "the real loopback HTTP server starts");
   if (!server.Ready()) { return Report(); }
   HttpTransport wire({.ConcurrentTransfers = 1});
-  for (const auto path : {"/final", "/redirect", "/interim"}) {
+  for (const auto *const path : {"/final", "/redirect", "/interim"}) {
     const auto ticket = wire.Begin(server.Url() + path);
     CHECK(ticket, "an actual non-range request starts");
     if (!ticket) { continue; }

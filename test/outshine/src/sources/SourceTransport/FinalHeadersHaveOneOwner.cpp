@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "SourceTransport.h"
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,10 +25,14 @@ int main() {
   CHECK(!SingleResponseHeader(excessive, "x-identity"), "header parsing has a fixed byte limit");
   auto first = Wire::Answered(200, {1, 2}, 0.0, headers);
   auto moved = std::move(first);
-  CHECK(first.Where() == Wire::State::Consumed, "moving consumes the original response owner");
+  first = Wire::Answered(200, {3}, 0.0, "X-Identity: replacement\r\n");
+  const auto replacement = first.Take();
+  CHECK(replacement && SingleResponseHeader(replacement->Headers, "x-identity") == "replacement",
+        "the relinquished owner can receive independent response metadata");
   auto assigned = Wire::Working();
   assigned = std::move(moved);
-  CHECK(moved.Where() == Wire::State::Consumed, "assignment transfers the same ownership");
+  moved = Wire::Working();
+  CHECK(!moved.Take(), "reusing the second relinquished owner cannot consume the final response");
   const auto response = assigned.Take();
   CHECK(response && response->Body == std::vector<uint8_t>({1, 2}) &&
             SingleResponseHeader(response->Headers, "x-identity") == "pinned",

@@ -20,9 +20,10 @@ public:
                    const std::string &endpoint,
                    MvtSchema schema = MvtSchema::Shortbread);
 
-private:
+protected:
   [[nodiscard]] bool AcceptsIdentity(const Wire::Response &response) const noexcept override;
 
+private:
   std::optional<std::string> ExpectedRelease_;
   bool RevisionEndpoint_ = false;
 };

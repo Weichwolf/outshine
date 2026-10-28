@@ -2,11 +2,13 @@
 #define OUTSHINE_TEST_LOOPBACKHTTPSERVER_H
 
 #include <arpa/inet.h>
+#include <array>
 #include <chrono>
 #include <functional>
 #include <mutex>
 #include <poll.h>
 #include <string>
+#include <string_view>
 #include <sys/socket.h>
 #include <thread>
 #include <utility>
@@ -38,7 +40,7 @@ public:
     socklen_t size = sizeof(address);
     if (getsockname(Listener_, reinterpret_cast<sockaddr *>(&address), &size) != 0) { return; }
     Port_ = ntohs(address.sin_port);
-    Worker_ = std::jthread([this](std::stop_token stop) { Serve(stop); });
+    Worker_ = std::jthread([this](const std::stop_token &stop) { Serve(stop); });
   }
 
   ~LoopbackHttpServer() {
@@ -65,14 +67,14 @@ private:
     while (request.size() < 8192 && !request.contains("\r\n\r\n") && Clock::now() < deadline) {
       pollfd readable{.fd = client, .events = POLLIN, .revents = 0};
       if (poll(&readable, 1, 20) <= 0) { continue; }
-      char bytes[1024];
-      const auto count = recv(client, bytes, sizeof(bytes), 0);
+      std::array<char, 1024> bytes;
+      const auto count = recv(client, bytes.data(), bytes.size(), 0);
       if (count <= 0) { return; }
-      request.append(bytes, static_cast<size_t>(count));
+      request.append(bytes.data(), static_cast<size_t>(count));
     }
     {
       const std::scoped_lock lock(Mutex_);
-      Requests_.push_back({request, Clock::now()});
+      Requests_.push_back({.Text = request, .At = Clock::now()});
     }
     const auto response = Respond_(request);
     size_t sent = 0;
@@ -83,7 +85,7 @@ private:
     }
   }
 
-  void Serve(std::stop_token stop) {
+  void Serve(const std::stop_token &stop) {
     while (!stop.stop_requested()) {
       pollfd pending{.fd = Listener_, .events = POLLIN, .revents = 0};
       if (poll(&pending, 1, 20) <= 0) { continue; }

@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string_view>
 
 namespace outshine::Data {
