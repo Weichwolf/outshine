@@ -329,6 +329,7 @@ Native::Result<void> GeometryResidency::RecordCrossings(Native::Commands &comman
 void GeometryResidency::CommitCrossings() {
   for (const auto &image : StagedImages_) { UploadBytes_ += image.Staging->Description().Bytes; }
   StagedImages_.clear();
+  StagedImageAt_.clear();
   StagedCount_ = 0;
   StagingUsed_ = 0;
   PendingUploadBytes_ = 0;

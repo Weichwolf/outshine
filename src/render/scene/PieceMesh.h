@@ -34,7 +34,7 @@ struct PieceSurface {
 
   [[nodiscard]] static PieceSurface Registered(const MaterialRegistration &registration,
                                                uint32_t offset = 0) noexcept {
-    PieceSurface result = Registered(registration.First + offset);
+    PieceSurface result = Registered(registration.At(offset));
     result.MaterialOwner = registration.Source;
     return result;
   }

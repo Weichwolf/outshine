@@ -7,6 +7,7 @@
 #include "GroundTile.h"
 #include "MaterialBinding.h"
 #include "MaterialSource.h"
+#include "MaterialRegistry.h"
 #include "TerrainTile.h"
 #include "PrismInstance.h"
 #include <PrismGrid.h>
@@ -73,6 +74,8 @@ public:
   RegisterPieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source);
   [[nodiscard]] bool
   RestorePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
+  [[nodiscard]] bool
+  PreparePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
@@ -159,18 +162,6 @@ private:
 
   [[nodiscard]] bool HasMaterialRegistration(const MaterialRegistration &material) const noexcept;
 
-  struct MaterialSourceRecord {
-    std::weak_ptr<const MaterialSource> Source;
-    uint32_t Count = 0;
-  };
-
-  [[nodiscard]] static std::expected<MaterialSource, std::string>
-  ResolvePieceMaterials(Geometry source);
-  [[nodiscard]] bool AppendPieceMaterials(GeometryRenderer &geometry,
-                                          GeometryRenderer *glass,
-                                          const MaterialSource &materials,
-                                          std::string &error);
-
   struct HeightPage {
     ResourceSlotState State{};
     std::shared_ptr<const std::vector<float>> Nodes;
@@ -194,9 +185,7 @@ private:
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
-  std::vector<MaterialSourceRecord> PieceMaterials_;
-  std::vector<uint32_t> RegisteredPieceSlots_;
-  std::vector<std::weak_ptr<const MaterialSource>> RegisteredMaterialOwners_;
+  MaterialRegistry Materials_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
   std::vector<PrismSource> PrismGrids_;
