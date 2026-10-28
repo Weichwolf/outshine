@@ -226,6 +226,7 @@ def replay(args):
         "source_acquisition_cpu_s": acquisition,
         "source_receipt": receipt,
         "source_context": context,
+        "rejected": [dict(row) for row in first["compact"][0].rejected],
         "equality": equality,
         "methods": {
             name: {

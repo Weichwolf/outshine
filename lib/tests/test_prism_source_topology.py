@@ -1,10 +1,12 @@
 """Exact original prism triangles and retained separate point-contact fans."""
 
 import unittest
+from unittest.mock import patch
 
+import manifold3d
 import numpy as np
 import shapely
-from outshine_ref.buildings.modelling import PrismVolume
+from outshine_ref.buildings.modelling import PrismVolume, prism_cut
 from outshine_ref.buildings.modelling.prism_source_topology import (
     fan_topology,
     topology,
@@ -42,6 +44,35 @@ class PrismSourceTopology(unittest.TestCase):
                     mesh["vertices"][mesh["faces"]].tobytes(),
                 )
                 self.assertEqual(len(np.unique(old_roots)), 8)
+                bounds = np.asarray(candidate.bounds)
+                origin = np.r_[(bounds[:2] + bounds[2:]) / 2, 0]
+                identifier = manifold3d.Manifold.reserve_ids(1)
+                channels = tuple(["uv"] + ["uv" + str(i) for i in range(1, 10)])
+                with patch.object(prism_cut, "topology", fan_topology):
+                    before, count = prism_cut.prism_source(
+                        source, origin, identifier, channels
+                    )
+                after, new_count = prism_cut.prism_source(
+                    source, origin, identifier, channels
+                )
+                self.assertEqual(count, new_count)
+                np.testing.assert_allclose(
+                    [before.volume(), after.volume()],
+                    candidate.area * 3,
+                    rtol=0,
+                    atol=1e-9,
+                )
+                np.testing.assert_allclose(
+                    [before.surface_area(), after.surface_area()],
+                    2 * candidate.area + candidate.length * 3,
+                    rtol=0,
+                    atol=1e-9,
+                )
+                encoded = after.to_mesh64()
+                self.assertEqual(encoded.vert_properties.shape[1], 23)
+                self.assertTrue(np.all(encoded.vert_properties[:, 3:] == 0))
+                self.assertTrue(np.all(np.asarray(encoded.face_id) >= 0))
+                self.assertTrue(np.all(np.asarray(encoded.face_id) < count))
 
     def test_holes_many_corners_and_repeated_corner_keep_exact_original_fan_path(self):
         polygons = (
