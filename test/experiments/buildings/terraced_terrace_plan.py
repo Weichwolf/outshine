@@ -58,11 +58,41 @@ class TerracePlan:
     terraces: tuple
     portals: tuple
     replaced_window_ids: tuple
+    route_work: tuple = ()
 
 
-def portal_for(prepared, index, terrace, guard, interior):
+@dataclass(frozen=True)
+class PortalResolution:
+    portal: object
+    reason: object
+    work: tuple = ()
+    mesh: object = None
+
+
+def portal_descriptor(mass, index, window, line, opening, access):
+    return Portal(
+        mass.storeys[index].identifier
+        + "/terrace-portal/"
+        + window.identifier.rsplit("/", 1)[-1]
+        + f"/{window.edge[0]}/{window.edge[1]}",
+        index,
+        window.edge,
+        window.centre,
+        window.tangent,
+        mass.storeys[index].bottom_m + FLOOR_M,
+        PORTAL_HEIGHT_M,
+        PORTAL_WIDTH_M,
+        opening.wkb,
+        window.identifier,
+        line.wkb,
+        access.wkb,
+    )
+
+
+def portal_for(
+    prepared, index, terrace, guard, interior, *, routing="grid", route_mesh=None
+):
     mass = prepared.local
-    storey = mass.storeys[index]
     core = shapely.from_wkb(mass.core.footprint_wkb)
     front = shapely.from_wkb(mass.core.front_wkb)
     root = np.asarray(mass.core.path[0][:2])
@@ -73,6 +103,7 @@ def portal_for(prepared, index, terrace, guard, interior):
         (w for w in prepared.facade.windows if w.storey == index),
         key=lambda w: (np.linalg.norm(np.asarray(w.centre) - root), w.identifier),
     )
+    failed = []
     for w in choices:
         centre, tangent = np.asarray(w.centre), np.asarray(w.tangent)
         normal = np.array([tangent[1], -tangent[0]])
@@ -87,28 +118,61 @@ def portal_for(prepared, index, terrace, guard, interior):
             continue
         access = core_route(space, root, inside, mass.core)
         if access is None:
+            if routing == "triangulated":
+                failed.append((w, inside, line, opening))
             continue
-        return Portal(
-            mass.storeys[index].identifier
-            + "/terrace-portal/"
-            + w.identifier.rsplit("/", 1)[-1]
-            + f"/{w.edge[0]}/{w.edge[1]}",
-            index,
-            w.edge,
-            w.centre,
-            w.tangent,
-            storey.bottom_m + FLOOR_M,
-            PORTAL_HEIGHT_M,
-            PORTAL_WIDTH_M,
-            opening.wkb,
-            w.identifier,
-            line.wkb,
-            access.wkb,
+        return PortalResolution(
+            portal_descriptor(mass, index, w, line, opening, access),
+            None,
+            mesh=route_mesh,
         )
-    return None
+    reason = "no aligned portal with supported actor-clear core/terrace route"
+    if not failed:
+        return PortalResolution(None, reason, mesh=route_mesh)
+    from terraced_route_mesh import CoreRouteMesh
+
+    mesh = CoreRouteMesh(space, root, mass.core) if route_mesh is None else route_mesh
+    before = dict(mesh.work)
+
+    def work():
+        counts = {
+            key: mesh.work[key] - before[key]
+            for key in (
+                "mesh_builds",
+                "route_queries",
+                "expanded_triangles",
+                "containment_queries",
+            )
+        }
+        counts.update(
+            {
+                key: mesh.work[key]
+                for key in ("input_vertices", "triangles", "shared_edges")
+            }
+        )
+        counts["mesh_reused"] = before["mesh_builds"] > 0
+        return tuple(counts.items())
+
+    for w, inside, line, opening in failed:
+        try:
+            access = mesh.route(inside)
+        except (ValueError, shapely.errors.GEOSException) as error:
+            mesh.reason = str(error)
+            mesh.mesh_failure = mesh.reason
+            access = None
+        if access is not None:
+            return PortalResolution(
+                portal_descriptor(mass, index, w, line, opening, access),
+                None,
+                work(),
+                mesh,
+            )
+    return PortalResolution(None, reason + "; " + str(mesh.reason), work(), mesh)
 
 
-def plan(mass):
+def plan(mass, *, routing="grid"):
+    if routing not in ("grid", "triangulated"):
+        raise ValueError("Terrace routing requires grid or triangulated")
     prepared = prepare(mass)
     active = tuple(
         i
@@ -116,8 +180,9 @@ def plan(mass):
         if i and not shapely.from_wkb(s.terrace_wkb).is_empty
     )
     world = world_prepared(prepared, active)
-    terraces, portals = [], []
+    terraces, portals, route_work = [], [], []
     for index in active:
+        route_mesh = None
         storey = mass.storeys[index]
         original_lower = shapely.from_wkb(mass.storeys[index - 1].footprint_wkb)
         previous = resolved(original_lower)
@@ -135,7 +200,25 @@ def plan(mass):
             guard = polygon.difference(
                 original_lower.buffer(-GUARD_M, join_style="mitre")
             )
-            portal = portal_for(world, index, polygon, guard, interior)
+            selection = portal_for(
+                world,
+                index,
+                polygon,
+                guard,
+                interior,
+                routing=routing,
+                route_mesh=route_mesh,
+            )
+            route_mesh = selection.mesh
+            portal = selection.portal
+            if selection.work:
+                route_work.append(
+                    (
+                        storey.identifier + f"/terrace/{number}",
+                        selection.reason,
+                        selection.work,
+                    )
+                )
             if portal:
                 portal = local_portal(portal, mass.core)
             terraces.append(
@@ -146,9 +229,7 @@ def plan(mass):
                     guard.wkb,
                     storey.bottom_m + FLOOR_M,
                     portal,
-                    None
-                    if portal
-                    else "no aligned portal with supported actor-clear core/terrace route",
+                    None if portal else selection.reason,
                 )
             )
             if portal:
@@ -161,5 +242,9 @@ def plan(mass):
         ),
     )
     return TerracePlan(
-        replace(prepared, facade=facade), tuple(terraces), tuple(portals), removed
+        replace(prepared, facade=facade),
+        tuple(terraces),
+        tuple(portals),
+        removed,
+        tuple(route_work),
     )

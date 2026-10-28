@@ -1,0 +1,11 @@
+{
+  "url": "https://mkallmann.github.io/papers/10-sca-tripath.pdf",
+  "publication": "https://diglib.eg.org/items/e786d320-db4c-408e-9f44-f0fa81e80a6d",
+  "doi": "10.2312/SCA/SCA10/159-168",
+  "title": "Shortest Paths with Arbitrary Clearance from Navigation Meshes",
+  "authors": ["Marcelo Kallmann"],
+  "venue": "Eurographics/ACM SIGGRAPH Symposium on Computer Animation 2010",
+  "sha256": "8d5829534637980f83c9ef0d7ce8c33fbee21ee64ed06e9d8bbb432f45ba43c2",
+  "inspected_pages": [3],
+  "scope": "Triangulated domains and adjacent-triangle channels only. The Outshine experiment uses an already actor-eroded free space, bounded midpoint channels and containment-checked greedy shortcuts; it does not implement Local Clearance Triangulations, extended funnel search or global shortest-path guarantees."
+}
