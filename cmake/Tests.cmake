@@ -21,6 +21,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
   outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
@@ -30,6 +31,7 @@ set(metal_validation_cases
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
   outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/GeometryCullStage/RootBoundsKeepVisibleDescendants
   outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
   outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
   outshine/src/render/stages/GeometryRenderer/GroundPagesUseConfiguredUploadAdmission
@@ -44,6 +46,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/stages/ShadowCasterSelection/ClusterQueriesMatchCompleteShadowPixels
   outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
   outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
