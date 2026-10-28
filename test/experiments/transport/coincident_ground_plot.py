@@ -60,7 +60,12 @@ def render(result, output):
                 + (section - result["field"].origin) @ result["field"].gradient
             )
             view.plot(*section.T, height - datum, color="navy", linewidth=2)
-    view.set_box_aspect(np.maximum(np.ptp(xyz, axis=0), 0.1))
+    complete = np.vstack((xyz, observations))
+    size = np.maximum(np.ptp(complete, axis=0), 1e-6)
+    centre = (complete.min(axis=0) + complete.max(axis=0)) / 2
+    for i, set_limit in enumerate((view.set_xlim, view.set_ylim, view.set_zlim)):
+        set_limit(centre[i] - 0.55 * size[i], centre[i] + 0.55 * size[i])
+    view.set_box_aspect(size)
     view.set(
         xlabel="east m",
         ylabel="north m",

@@ -147,7 +147,7 @@ def replay(output, rounds):
             for name, result in products.items()
         },
         "exact_equal_fields": len(captured["fresh"]),
-        "process_peak_rss": process_peak(),
+        "process_peak_rss_before_plot": process_peak(),
         "total_internal_copied_bytes": None,
         "scope": "Same complete source/physical product. All original-band/source preparation, bounded union/triangulation, twelve DEM observations, affine construction and finite quality inside timed calls; source-index acquisition, independent audit/export/render and trace processing outside. Numeric costs only, no native/device/p99 or routing admission.",
     }
@@ -162,7 +162,7 @@ def replay(output, rounds):
         for p in paths
     }
     (output / "report.json").write_text(
-        json.dumps(report, indent=2, allow_nan=False) + "\n"
+        json.dumps(serializable(report), indent=2, allow_nan=False) + "\n"
     )
     render(products["shared"], output)
     print(
