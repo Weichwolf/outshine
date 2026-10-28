@@ -1,0 +1,55 @@
+#ifndef OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORVIEWASSETS_H
+#define OUTSHINE_CONTENT_IMPOSTOR_IMPOSTORVIEWASSETS_H
+
+#include "AssetCache.h"
+#include "ImpostorCards.h"
+#include "Geometry.h"
+#include "Vec3.h"
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace outshine::Content {
+class ImpostorViewAssets {
+public:
+  struct Description {
+    Vec3 Centre;
+    double HalfExtentM = 0;
+    uint32_t Pixels = 0;
+    std::vector<Vec3> Directions;
+  };
+
+  struct Selection {
+    size_t View = 0;
+    uint32_t Mip = 0;
+    [[nodiscard]] bool operator==(const Selection &) const = default;
+  };
+
+  [[nodiscard]] static std::expected<ImpostorViewAssets, AssetCacheError>
+  Publish(AssetCache &cache, std::string_view provenance, Description description, Box bounds);
+  [[nodiscard]] static std::expected<std::optional<ImpostorViewAssets>, AssetCacheError>
+  Open(AssetCache &cache, std::string_view provenance);
+
+  [[nodiscard]] const Description &Metadata() const noexcept { return Description_; }
+
+  [[nodiscard]] std::optional<Selection> Select(Vec3 towardEye, double diameterPx) const noexcept;
+  [[nodiscard]] std::string Key(Selection selection) const;
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  Publish(Selection selection, Geometry geometry, size_t bytesMost) const;
+  [[nodiscard]] std::expected<std::optional<ImpostorCards>, AssetCacheError>
+  Load(Selection selection, size_t bytesMost) const;
+
+private:
+  ImpostorViewAssets(AssetCache &cache, AssetRecord record, Description description);
+  [[nodiscard]] uint32_t Pixels(Selection selection) const noexcept;
+  [[nodiscard]] bool Matches(const ImpostorCards &cards, Selection selection) const;
+  AssetCache &Cache_;
+  AssetRecord Record_;
+  Description Description_;
+};
+}
+#endif
