@@ -176,7 +176,8 @@ void Run(const std::filesystem::path &root) {
   const BuildingImpostorSource::Recipe recipe{
       .BaseKey = key,
       .Cells = {1},
-      .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}), .Origin = {}},
+      .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
+                .Origin = {{3, 4, 5}}},
       .Directions = {{{0, 0, -1}}},
       .WallRoofMetreMaterials = {},
       .Pixels = 32};
@@ -198,6 +199,11 @@ void Run(const std::filesystem::path &root) {
   CHECK(assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "native source selection publishes metadata before form reads");
   if (!metadata) { return; }
+  const auto &world = metadata->Metadata().WorldFromField;
+  const Vec3 local{{2.5, 7, 11.5}};
+  const Vec3 expected = raw.AnchorEcef + recipe.Frame.Origin + recipe.Frame.SourceDirection(local);
+  CHECK(world && Length(world->TransformPoint(local) - expected) < 1e-9,
+        "native metadata maps captured local coordinates back to the prepared World frame");
   Resolve(cache, *metadata, source, 1);
   CHECK(assets->Costs().SurfaceReadBytes > before.SurfaceReadBytes,
         "the field miss loads its native source forms");
@@ -205,10 +211,31 @@ void Run(const std::filesystem::path &root) {
   const auto offline = std::make_shared<BuildingImpostorSource>(recipe, nullptr);
   auto warm = offline->ResolveMetadata(*cache);
   CHECK(warm.has_value(), "a new source owner resolves metadata with no source store");
+  CHECK(warm && warm->Metadata().WorldFromField && world &&
+            warm->Metadata().WorldFromField->Column == world->Column &&
+            Length(warm->Metadata().WorldFromField->TransformPoint(local) - expected) < 1e-9,
+        "source-free warm placement preserves the complete intrinsic World frame");
   if (warm) { Resolve(cache, *warm, offline, 0); }
   CHECK(assets->Costs().ReadBytes == after.ReadBytes &&
             assets->Costs().SurfaceReadBytes == after.SurfaceReadBytes,
         "stored fields repeat no native source decode or form generation");
+  if (warm) {
+    auto unframed = warm->Metadata();
+    unframed.WorldFromField.reset();
+    const Vec3 padding{{1000, 1000, 1000}};
+    CHECK(Content::ImpostorViewAssets::Publish(
+              *cache,
+              source->Provenance(),
+              std::move(unframed),
+              {.Min = raw.AnchorEcef - padding, .Max = raw.AnchorEcef + padding}),
+          "an unframed index supplies the independent stale-source counterexample");
+    CHECK(!offline->ResolveMetadata(*cache),
+          "an unframed native hit cannot invent a World placement without its source");
+    const auto repaired = source->ResolveMetadata(*cache);
+    CHECK(repaired && repaired->Metadata().WorldFromField && world &&
+              repaired->Metadata().WorldFromField->Column == world->Column,
+          "the retained native source can repair a missing intrinsic World frame");
+  }
 }
 
 void Partial(const std::filesystem::path &root, std::string_view index) {

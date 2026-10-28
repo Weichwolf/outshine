@@ -6,6 +6,7 @@
 #include "ImpostorAtlas.h"
 #include "Geometry.h"
 #include "Vec3.h"
+#include "Mat4.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -23,6 +24,7 @@ public:
     double HalfExtentM = 0;
     uint32_t Pixels = 0;
     std::vector<Vec3> Directions;
+    std::optional<Mat4> WorldFromField = std::nullopt;
   };
 
   struct Selection {

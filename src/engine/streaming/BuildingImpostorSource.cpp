@@ -48,10 +48,19 @@ BuildingImpostorSource::Description(const Generators::BuildingSourceView &source
        .Views = static_cast<unsigned>(Recipe_.Directions.size())},
       error);
   if (!projection) { return {}; }
+  Mat4 worldFromField;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    Vec3 unit;
+    unit[axis] = 1;
+    const Vec3 direction = Recipe_.Frame.SourceDirection(unit);
+    for (size_t row = 0; row < 3; ++row) { worldFromField.At(row, axis) = direction[row]; }
+  }
+  worldFromField.SetTranslation(AnchorEcef_ + Recipe_.Frame.Origin);
   return {.Centre = projection->Centre,
           .HalfExtentM = projection->HalfExtentM,
           .Pixels = Recipe_.Pixels,
-          .Directions = Recipe_.Directions};
+          .Directions = Recipe_.Directions,
+          .WorldFromField = worldFromField};
 }
 
 std::expected<Content::ImpostorViewAssets, std::string>
@@ -61,7 +70,7 @@ BuildingImpostorSource::ResolveMetadata(AssetCache &cache, const std::stop_token
   }
   auto opened = Content::ImpostorViewAssets::Open(cache, Provenance_);
   if (!opened) { return std::unexpected("building source metadata lookup failed"); }
-  if (*opened) { return std::move(**opened); }
+  if (*opened && (**opened).Metadata().WorldFromField) { return std::move(**opened); }
   const auto source = Source();
   if (!source) { return std::unexpected(source.error()); }
   const auto description = Description(**source);
