@@ -1,0 +1,42 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cullView.glsl"
+#include "geometryHierarchy.glsl"
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_roots { GeometryRoot roots[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_templates { uvec4 templates[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_clusters { uvec2 clusters[]; };
+layout(std430, set = 0, binding = 3) readonly buffer Buffer_clusterState { GeometryQueueState clusterState; };
+layout(std430, set = 0, binding = 4) readonly buffer Buffer_slot { uint slot[]; };
+layout(std430, set = 0, binding = 5) readonly buffer Buffer_args { uint args[]; };
+layout(std430, set = 0, binding = 6) readonly buffer Buffer_source { uint source[]; };
+layout(std430, set = 0, binding = 7) readonly buffer Buffer_visible { uint visible[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_drawIndex { uint drawIndex[]; };
+
+uvec2 geometryCluster(uint group) {
+  if (clusterState.counts.y == 0u) { return clusters[group]; }
+  uint lo = 0u;
+  uint hi = hierarchy.counts.x;
+  while (lo + 1u < hi) {
+    const uint mid = lo + (hi - lo) / 2u;
+    if (roots[mid].cluster.z <= group) { lo = mid; }
+    else { hi = mid; }
+  }
+  return uvec2(lo, group - roots[lo].cluster.z);
+}
+
+void main() {
+  const uint group = geometryGroup();
+  const uint work = clusterState.counts.y == 0u ? clusterState.counts.x : view.jobs;
+  if (group >= work) { return; }
+  const uvec2 selected = geometryCluster(group);
+  if (visible[selected.x] == 0u) { return; }
+  const GeometryRoot root = roots[selected.x];
+  const uint at = slot[root.cluster.z + selected.y];
+  if (at == 0xffffffffu) { return; }
+  const uvec4 item = templates[root.cluster.x + selected.y];
+  const uint base = args[5u * root.cluster.w + 2u] + at;
+  for (uint one = gl_LocalInvocationID.x; one < item.z; one += 64u) {
+    drawIndex[base + one] = source[root.instance.y + item.y + one];
+  }
+}

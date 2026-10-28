@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 #include "native/Device.h"
 
@@ -22,6 +23,8 @@ struct GeometryResidency {
   void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
 
   [[nodiscard]] size_t TakeUploadAttempts();
+  void DiscardUnusedImage(const std::shared_ptr<Native::Texture> &image);
+  void DiscardUnreferencedImages();
 
   [[nodiscard]] size_t TotalUploadAttempts() const;
 
@@ -42,8 +45,15 @@ struct GeometryResidency {
     Placements,
     Index,
     ClusterSpheres,
-    ClusterJobs,
-    ClusterBatches,
+    ClusterTemplates,
+    ClusterRoots,
+    ClusterPrefix,
+    ClusterVisible,
+    ClusterChunks,
+    ClusterChunkState,
+    ClusterSelected,
+    ClusterSelectedState,
+    ClusterReset,
     ClusterKept,
     ClusterSlot,
     DrawIndex,
@@ -218,6 +228,8 @@ private:
   [[nodiscard]] static Native::Result<void> RecordImage(Native::Commands &commands,
                                                         const StagedImage &image);
   std::vector<StagedImage> StagedImages_;
+  std::unordered_map<const Native::Texture *, size_t> StagedImageAt_;
+  void EraseStagedImage(size_t which);
 
   struct DefaultImageKey {
     Transfer Decode;

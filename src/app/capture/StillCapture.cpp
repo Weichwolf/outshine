@@ -231,7 +231,7 @@ StillCaptureResult CaptureStill(Engine &engine,
       shot.Why = read.error();
       return shot;
     }
-    const Extent frame = engine.swapChain().extent();
+    const Extent frame = engine.frameExtent();
     shot.VariationAlongRows = VariationAlongRows(pixels, frame.WidthPx, frame.HeightPx);
     if (const auto saved = SaveCaptureImage(pixels, frame, name, shot, outputDirectory); !saved) {
       shot.Why = saved.error();

@@ -77,7 +77,7 @@ bool Accepted(const outshine::Result &result, const char *claim) {
 std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   using namespace outshine;
   using namespace outshine::Test;
-  auto geometry = World(fills);
+  const auto geometry = World(fills);
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
@@ -161,7 +161,7 @@ void Compare(const std::vector<float> &base, const std::vector<float> &withFill)
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc > 2) { return 2; }
   const char *outputPrefix = argc == 2 ? argv[1] : nullptr;
   using namespace outshine::Test;

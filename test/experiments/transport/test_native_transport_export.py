@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mvt_source_fact_digest import native_source_fact_digest, validate_missing_source_ways
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -37,64 +39,9 @@ def group_digest(native, facts):
 
 
 def fact_digest(native, facts):
-    result = hashlib.sha256(b"outshine/mvt-source-facts/2")
-    result.update(native["SourceIdentity"]["Revision"].encode("ascii"))
-    result.update(bytes(facts["NodeGroups"]["Digest"]))
-    words(
-        result,
-        "QQQQQ",
-        facts["SourceGeneration"],
-        facts["SourceWayCount"],
-        len(facts["Groups"]),
-        len(facts["Members"]),
-        len(facts["Ways"]),
-    )
-    for group in facts["Groups"]:
-        words(
-            result,
-            "IIQQBB",
-            group["FirstMember"],
-            group["MemberCount"],
-            group["OriginalEndpointCount"],
-            group["FilteredEndpointCount"],
-            group["Complete"],
-            group["Frontier"],
-        )
-    for member in facts["Members"]:
-        edge = member["Edge"]
-        words(
-            result,
-            "QIBQIIIBB",
-            edge["PathId"],
-            edge["SegmentOrdinal"],
-            edge["Direction"],
-            member["DomainNode"],
-            member["NodeGroup"],
-            member["StreetWay"],
-            member["SourceStep"],
-            member["End"],
-            member["SourceTerminal"],
-        )
-    for way in facts["Ways"]:
-        words(
-            result,
-            "IIIIII",
-            *(
-                way[key]
-                for key in (
-                    "StreetWay",
-                    "Feature",
-                    "Ring",
-                    "PointCount",
-                    "HalfWidthWord",
-                    "MaximumGradientWord",
-                )
-            ),
-        )
-        for point in way["EndStencil"]:
-            words(result, "dd", point["LongitudeDeg"], point["LatitudeDeg"])
-        words(result, "BB", *way["OwnsEnds"])
-    return list(result.digest())
+    return list(native_source_fact_digest(
+        native["SourceIdentity"]["Revision"], bytes(facts["NodeGroups"]["Digest"]), facts
+    ))
 
 
 def edge_key(edge):
@@ -218,7 +165,9 @@ def check_capture(directory):
     facts = json.loads((directory / "source-facts.json").read_text())
     require(
         native["schema"] == "outshine/native-mvt-snapshot-dump/1"
-        and facts["schema"] == "outshine/native-mvt-source-facts/2",
+        and facts["schema"] in (
+            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+        ),
         "unsupported native capture",
     )
     require(
@@ -236,6 +185,7 @@ def check_capture(directory):
     require(
         facts["Digest"] == fact_digest(native, facts), "source fact binding changed"
     )
+    validate_missing_source_ways(native, facts)
     check_members(native, facts)
     return native, facts
 
@@ -253,10 +203,12 @@ def message(field, value):
     return varint(field * 8 + 2) + varint(len(value)) + value
 
 
-def controlled_tile(profile_tags=False):
+def controlled_tile(profile_tags=False, omitted_tunnel=False):
     layer = message(1, b"transportation") + bytes((120, 2, 40, 64))
     for key in (b"class", b"layer", b"bridge", b"indoor", b"level"):
         layer += message(3, key)
+    if omitted_tunnel:
+        layer += message(3, b"tunnel")
     for value in (b"path", b"0", b"1", b"yes"):
         layer += message(4, message(1, value))
     if profile_tags:
@@ -271,6 +223,10 @@ def controlled_tile(profile_tags=False):
         feature = bytes((24, 2)) + message(2, bytes(tags)) + message(4, bytes(geometry))
         if identity is not None:
             feature += bytes((8, identity))
+        layer += message(2, feature)
+    if omitted_tunnel:
+        feature = bytes((24, 2)) + message(2, bytes((0, 0, 5, 3)))
+        feature += message(4, bytes((9, 16, 32, 10, 16, 0)))
         layer += message(2, feature)
     return message(3, layer)
 
@@ -333,6 +289,22 @@ class NativeExport(unittest.TestCase):
         self.assertFalse(typed[0]["level"]["IsNumber"])
         self.assertEqual(typed[0]["level"]["String"], "1")
         self.assertEqual(absent, [{"indoor": None, "level": None}])
+
+    def test_way_identity_and_feature_wide_omission_scope_survive_export(self):
+        self.input.write_bytes(controlled_tile(omitted_tunnel=True))
+        directory = self.root / "omissions"
+        result = self.run_export(directory)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        native, _ = check_capture(directory)
+        ambiguous = [row for row in native["Omissions"] if row["Reason"] == 4]
+        self.assertEqual(len(ambiguous), 2)
+        self.assertEqual(
+            {tuple(row["Fragment"]) for row in ambiguous},
+            {tuple(row["Fragment"]) for row in native["References"]},
+        )
+        feature_wide = [row for row in native["Omissions"] if row["Reason"] == 1]
+        self.assertEqual(len(feature_wide), 1)
+        self.assertIsNone(feature_wide[0]["Fragment"])
 
     def test_retained_actual_source_pair(self):
         fixture = Path(__file__).with_name("fixtures") / "bridge-source-facts"

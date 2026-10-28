@@ -39,6 +39,7 @@
 #include "VegetationStreaming.h"
 #include "FrameReadback.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "Units.h"
 #include <limits>
 #include <memory>

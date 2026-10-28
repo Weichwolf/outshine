@@ -1,0 +1,230 @@
+{
+  "schema": "outshine/buffer-demand-trace/1",
+  "source_commit": "12ad8389ff04e88e4f2bf32ad6301b6bb0780573",
+  "producer": "Private A18 Pro/Metal Grow/Cross requests, original power-loop policy; no timing oracle",
+  "fields": [
+    "kind",
+    "owner",
+    "stream",
+    "required_bytes",
+    "usage",
+    "preserve",
+    "deferred",
+    "present_or_source",
+    "observed_capacity",
+    "observed_usage",
+    "observed_copy_bytes"
+  ],
+  "kinds": {
+    "R": "new device/owner incarnation",
+    "G": "Grow request; present is actual buffer presence",
+    "X": "Cross request; present means source bytes exist"
+  },
+  "profile": {
+    "width": 1280,
+    "height": 720,
+    "fps": 60,
+    "frames": 60,
+    "vegetation": false
+  },
+  "fixtures": [
+    {
+      "file": "Tokyo.csv.gz",
+      "sha256": "c63e2b103463ff5612d5a398ab1a08298a38b251952234307082e70ca2629951",
+      "decoded_sha256": "11291879be2bec0c96e6ba8e36dbd8e8e846aca4ef46af1180c5eb0ccf9fc74b",
+      "events": {
+        "G": 27965,
+        "X": 27968,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 799119024,
+      "streams": [
+        214106112,
+        0,
+        71368704,
+        0,
+        142737408,
+        71368704,
+        117571584,
+        0,
+        1182816,
+        105578496,
+        2425536,
+        808512,
+        65712,
+        202128,
+        202128,
+        71336904,
+        164280
+      ],
+      "observed_copy_bytes": 661157160,
+      "image_sha256": "63984328901e2cc637287f1fab65818eb8a5736e14492a25498ab6df7c8e8f9f"
+    },
+    {
+      "file": "Wien.csv.gz",
+      "sha256": "a3bba6088459ca634e88cf63f6e64c6f4e0b022c4c2f86073ba2778569e36f7b",
+      "decoded_sha256": "5fef7520ad30ff24e4581e0b45d1819002caa9513eb0916af24f88f84ae19a2e",
+      "events": {
+        "G": 24940,
+        "X": 24943,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 562553680,
+      "streams": [
+        111673344,
+        0,
+        37224448,
+        0,
+        74448896,
+        70778880,
+        133844992,
+        0,
+        1124928,
+        66060288,
+        2189952,
+        729984,
+        62496,
+        182496,
+        182496,
+        63894240,
+        156240
+      ],
+      "observed_copy_bytes": 411382128,
+      "image_sha256": "7192d26c87be79ae8e21d2ca61e96fcaddc6c57f7e65372e568a088ceb631aca"
+    },
+    {
+      "file": "CentralPark.csv.gz",
+      "sha256": "15813666c80d5a0dedb00357884e23fa98624b7ba3df0bf5448fadfba0ba47ae",
+      "decoded_sha256": "6b5ac09dd896643d48694ff45511be1067b6dc5fafceb677d1d71d0bd486f0e7",
+      "events": {
+        "G": 23070,
+        "X": 23073,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 460328564,
+      "streams": [
+        125829120,
+        0,
+        41943040,
+        0,
+        83886080,
+        44929024,
+        53526528,
+        0,
+        988992,
+        62914560,
+        1541328,
+        513776,
+        54944,
+        128444,
+        128444,
+        43806924,
+        137360
+      ],
+      "observed_copy_bytes": 372284432,
+      "image_sha256": "2dc8d675c0cd02ad6b5a870a7332cf23a8a64ad0684c75c11324b11b11d1b6f1"
+    },
+    {
+      "file": "Jura.csv.gz",
+      "sha256": "c86f0caba4f629940025532b5bc2fafe5a3b3bfc17f750f8bfb78653df001505",
+      "decoded_sha256": "95fc280a1831fb5b3609af65f246b483c30819ba72272e81bc1fc4df29997444",
+      "events": {
+        "G": 10388,
+        "X": 10391,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 86178072,
+      "streams": [
+        16515072,
+        0,
+        5505024,
+        0,
+        11010048,
+        12812288,
+        9453568,
+        0,
+        434592,
+        18874368,
+        422208,
+        140736,
+        24144,
+        35184,
+        35184,
+        10855296,
+        60360
+      ],
+      "observed_copy_bytes": 67033352,
+      "image_sha256": "e4c580dc8fb0ee876ea09d302dd01b845ebff4e014e49eeeffbb71f8be93d73c"
+    },
+    {
+      "file": "Koerbersee.csv.gz",
+      "sha256": "eb9fc4685b0620acdc3c15b1dc2b96fec137b66446e1e5d86746fc795b6f0e90",
+      "decoded_sha256": "312b34419f3485345d6820c76e52a2a9def49a414226f9512805b234fd3549c8",
+      "events": {
+        "G": 3526,
+        "X": 3529,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 25498504,
+      "streams": [
+        3932160,
+        0,
+        1310720,
+        0,
+        2621440,
+        1196032,
+        4194304,
+        0,
+        163584,
+        7864320,
+        161184,
+        53728,
+        9088,
+        13432,
+        13432,
+        3942360,
+        22720
+      ],
+      "observed_copy_bytes": 10040976,
+      "image_sha256": "f65e0be747ad815b41277c10231e837b4ffacae9fe17b540d5f6c65c52f4c0c1"
+    },
+    {
+      "file": "Malcesine.csv.gz",
+      "sha256": "51c2fcfaa33b77db6c43045fb691f0b5f1ab74aaefc98f6c58f35c846eeb4ceb",
+      "decoded_sha256": "be8f2f7704e0e61ae693f4cbdc20683d18a61285cac2fb746be494d8bd848a97",
+      "events": {
+        "G": 5539,
+        "X": 5542,
+        "R": 2
+      },
+      "primary_owner": "1",
+      "capacity": 43957604,
+      "streams": [
+        8650752,
+        0,
+        2883584,
+        0,
+        5767168,
+        2883584,
+        6635520,
+        0,
+        249264,
+        9830400,
+        257520,
+        85840,
+        13848,
+        21460,
+        21460,
+        6622584,
+        34620
+      ],
+      "observed_copy_bytes": 24920208,
+      "image_sha256": "2d2bcd640e32d22a6bf9370911ad696e843b856d9cdfd90f636f82cbbc15bfbc"
+    }
+  ]
+}

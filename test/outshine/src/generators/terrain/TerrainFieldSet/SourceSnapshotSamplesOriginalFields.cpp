@@ -20,8 +20,9 @@ int main() {
       east->SetM(row, column, kEastHeightM);
     }
   }
-  std::vector<Generators::TerrainFieldSet::Entry> fields{{{.Zoom = 1, .X = 0, .Y = 0}, west},
-                                                         {{.Zoom = 1, .X = 1, .Y = 0}, east}};
+  std::vector<Generators::TerrainFieldSet::Entry> fields{{{.Zoom = 1, .X = 1, .Y = 0}, east},
+                                                         {{.Zoom = 1, .X = 0, .Y = 0}, west},
+                                                         {{.Zoom = 1, .X = 0, .Y = 0}, east}};
   const Generators::TerrainFieldSet snapshot(fields);
   fields.clear();
   west.reset();

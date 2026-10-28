@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "geometryView.glsl"
+#include "surfaceNormal.glsl"
 #define VARYING out
 #define SURFACE_VERTEX_STAGE 1
 #if LIT_UVS == 0
@@ -51,7 +52,7 @@ void main() {
   localPosition = p;
   lightSpace = s.lightFromWorld * world;
   vec3 vertexNormal = unpackedNormal(vertexNormalWord);
-  normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);
+  normal = transformedSurfaceNormal(mat3(m), vertexNormal);
   uv = vec2(0.0);
   facadeBay = 0.0;
   facadeCode = 0.0;

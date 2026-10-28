@@ -1,17 +1,21 @@
 #include "ImpostorBaker.h"
+#include "ImpostorViewFrame.h"
 
 #include "ExecutionPlan.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
 #include "RenderGeometryStorage.h"
 #include "StoredVertex.h"
+#include "MaterialBinding.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <optional>
 #include <span>
@@ -33,16 +37,6 @@ constexpr auto Readback = "impostor atlas readback has incomplete attachments";
 constexpr auto Surface = "impostor atlas material identity is outside its source table";
 }
 
-struct AtlasReadback {
-  std::span<const float> Depth;
-  std::span<const float> Normal;
-  std::span<const float> Identity;
-  std::span<const float> Base;
-  std::span<const float> MetalRough;
-  size_t PixelCount;
-  size_t MaterialCount;
-};
-
 struct NativePiece {
   std::vector<StoredVertex> Vertices;
   std::vector<uint32_t> Indices;
@@ -51,36 +45,40 @@ struct NativePiece {
   std::vector<float> Uv1;
 };
 
-std::optional<ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
-                                                   std::string &error) {
-  const size_t count = readback.PixelCount;
-  if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
-      readback.Identity.size() != count * 4 || readback.Base.size() != count * 4 ||
-      readback.MetalRough.size() != count * 2) {
-    error = Says::Readback;
-    return std::nullopt;
+struct CapturePieces {
+  SceneRenderer &Renderer;
+  std::vector<PieceHandle> Handles;
+  std::vector<uint32_t> Materials;
+
+  ~CapturePieces() {
+    for (const auto handle : Handles) { Renderer.ReleasePiece(handle); }
   }
+};
+
+std::optional<ImpostorAtlas::View> ConvertReadback(const SurfaceReadback &readback,
+                                                   std::span<const uint32_t> materials,
+                                                   std::string &error) {
+  const size_t count = readback.Pixels();
   ImpostorAtlas::View view;
   view.Texels.resize(count);
   view.Materials.resize(count);
   for (size_t pixel = 0; pixel < count; ++pixel) {
-    const float surface = readback.Identity[pixel * 4];
+    const auto sample = readback.Read(pixel);
+    const float surface = sample.Identity;
     if (!std::isfinite(surface) || surface < 0 ||
-        static_cast<double>(surface) > static_cast<double>(readback.MaterialCount) ||
+        static_cast<double>(surface) > static_cast<double>(materials.size()) ||
         surface != std::floor(surface)) {
       error = Says::Surface;
       return std::nullopt;
     }
-    view.Texels[pixel] = {.Normal = {{readback.Normal[pixel * 4],
-                                      readback.Normal[pixel * 4 + 1],
-                                      readback.Normal[pixel * 4 + 2]}},
-                          .Depth = readback.Depth[pixel],
-                          .Surface = static_cast<uint32_t>(surface)};
-    view.Materials[pixel] = {.BaseColour = {{readback.Base[pixel * 4],
-                                             readback.Base[pixel * 4 + 1],
-                                             readback.Base[pixel * 4 + 2]}},
-                             .Roughness = readback.MetalRough[pixel * 2 + 1],
-                             .Metalness = readback.MetalRough[pixel * 2]};
+    const uint32_t local = surface == 0 ? 0 : materials[static_cast<uint32_t>(surface) - 1];
+    if (surface > 0 && local == 0) {
+      error = Says::Surface;
+      return std::nullopt;
+    }
+    view.Texels[pixel] = {.Normal = sample.Normal, .Depth = sample.Depth, .Surface = local};
+    view.Materials[pixel] = {
+        .BaseColour = sample.Base, .Roughness = sample.Roughness, .Metalness = sample.Metalness};
   }
   return view;
 }
@@ -155,10 +153,11 @@ std::optional<Material> CapturedMaterial(const Material &source) {
   return supported;
 }
 
-bool InstallSource(SceneRenderer &renderer,
+bool InstallSource(CapturePieces &pieces,
                    ImpostorCaptureSource source,
                    std::vector<Material> &surfaces,
                    std::string &error) {
+  auto &renderer = pieces.Renderer;
   if (!source.Mesh.wellFormed() || source.Mesh.parts() == 0 || source.Mesh.surfaces() == 0 ||
       source.Instances.empty() || source.Instances.size() > std::numeric_limits<uint32_t>::max()) {
     error = Says::Geometry;
@@ -170,6 +169,7 @@ bool InstallSource(SceneRenderer &renderer,
     error = Describe(shaped.error());
     return false;
   }
+  const size_t firstAtlasSurface = surfaces.size();
   for (int at = 0; at < source.Mesh.surfaces(); ++at) {
     auto material = CapturedMaterial(source.Mesh.surfaceAt(MaterialInstance(at)));
     if (!material) {
@@ -182,6 +182,15 @@ bool InstallSource(SceneRenderer &renderer,
   if (!firstSurface) {
     error = std::move(firstSurface).error();
     return false;
+  }
+  for (size_t at = 0; at < shaped->Surfaces.size(); ++at) {
+    const uint32_t row = firstSurface->At(static_cast<uint32_t>(at));
+    if (row == kNoMaterialSlot || firstAtlasSurface + at >= std::numeric_limits<uint32_t>::max()) {
+      error = Says::Surface;
+      return false;
+    }
+    if (row >= pieces.Materials.size()) { pieces.Materials.resize(size_t{row} + 1); }
+    pieces.Materials[row] = static_cast<uint32_t>(firstAtlasSurface + at + 1);
   }
   for (const RenderGeometryPart &part : shaped->Parts) {
     if (part.Material < 0 || static_cast<size_t>(part.Material) >= shaped->Surfaces.size()) {
@@ -199,43 +208,58 @@ bool InstallSource(SceneRenderer &renderer,
     piece.Uv1 = native->Uv1;
     piece.Instances = source.Instances;
     piece.MaxInstances = static_cast<uint32_t>(source.Instances.size());
-    piece.Surface = PieceSurface::Registered(*firstSurface + static_cast<uint32_t>(part.Material));
+    piece.Surface = PieceSurface::Registered(*firstSurface, static_cast<uint32_t>(part.Material));
     piece.Textured = !part.Uv.empty();
-    if (auto placed = renderer.PlacePiece(piece); !placed) {
+    auto placed = renderer.PlacePiece(piece);
+    if (!placed) {
       error = std::move(placed.error());
       return false;
     }
+    pieces.Handles.push_back(*placed);
   }
   return true;
+}
+
+std::optional<Viewpoint>
+MakeCaptureView(const Vec3 &centre, const Vec3 &direction, double halfExtent, bool ring) {
+  auto camera =
+      Viewpoint::LookAt({.EyeM = centre + direction * (3 * halfExtent), .AimM = centre}, 0);
+  if (!ring) {
+    const auto frame = ImpostorViewFrame::From(direction);
+    if (!frame) { return std::nullopt; }
+    camera = Viewpoint{};
+    camera->EyeM = centre + direction * (3 * halfExtent);
+    camera->Forward = direction * -1.0;
+    camera->Right = frame->Right;
+    camera->Up = frame->Up;
+  }
+  if (!camera) { return std::nullopt; }
+  camera->Kind = CameraKind::Orthographic;
+  camera->XMagM = camera->YMagM = halfExtent;
+  camera->ZNearM = halfExtent;
+  camera->ZFarM = 5 * halfExtent;
+  return camera;
 }
 
 std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &renderer,
                                                              const Vec3 &centre,
                                                              double halfExtent,
                                                              ImpostorAtlasShape shape,
-                                                             size_t materialCount,
+                                                             std::span<const uint32_t> materials,
+                                                             std::span<const Vec3> directions,
                                                              std::string &error) {
   std::vector<ImpostorAtlas::View> views;
   views.reserve(shape.Views);
-  std::vector<float> depth;
-  std::vector<float> normal;
-  std::vector<float> identity;
-  std::vector<float> base;
-  std::vector<float> metalRough;
-  const size_t count = static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels);
+  SurfaceReadback surface;
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2 * std::numbers::pi * at / shape.Views;
-    const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
-    auto camera =
-        Viewpoint::LookAt({.EyeM = centre + direction * (3 * halfExtent), .AimM = centre}, 0);
+    const Vec3 direction =
+        directions.empty() ? Vec3{{std::sin(angle), 0, std::cos(angle)}} : directions[at];
+    const auto camera = MakeCaptureView(centre, direction, halfExtent, directions.empty());
     if (!camera) {
       error = Says::Bounds;
       return std::nullopt;
     }
-    camera->Kind = CameraKind::Orthographic;
-    camera->XMagM = camera->YMagM = halfExtent;
-    camera->ZNearM = halfExtent;
-    camera->ZFarM = 5 * halfExtent;
     const auto lens = Lens::From(*camera, shape.Pixels, shape.Pixels);
     if (!lens) {
       error = Says::Bounds;
@@ -246,23 +270,11 @@ std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &rend
       error = std::move(rendered.error());
       return std::nullopt;
     }
-    renderer.WaitForGpu();
-    if (renderer.ReadDepth(depth) != ReadState::Ready ||
-        renderer.ReadShadingNormal(normal) != ReadState::Ready ||
-        renderer.ReadSurfaceIdentity(identity) != ReadState::Ready ||
-        renderer.ReadSurfaceBase(base) != ReadState::Ready ||
-        renderer.ReadSurfaceMetalRough(metalRough) != ReadState::Ready) {
+    if (renderer.ReadSurface(surface) != ReadState::Ready) {
       error = Says::Readback;
       return std::nullopt;
     }
-    auto view = ConvertReadback({.Depth = depth,
-                                 .Normal = normal,
-                                 .Identity = identity,
-                                 .Base = base,
-                                 .MetalRough = metalRough,
-                                 .PixelCount = count,
-                                 .MaterialCount = materialCount},
-                                error);
+    auto view = ConvertReadback(surface, materials, error);
     if (!view) { return std::nullopt; }
     view->TowardEye = direction;
     views.push_back(std::move(*view));
@@ -289,8 +301,9 @@ std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &rend
 
 }
 
-std::optional<ImpostorAtlas>
-ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
+std::optional<ImpostorCaptureProjection> ImpostorBaker::ProjectionFor(
+    const ImpostorCapture &capture, ImpostorAtlasShape shape, std::string &error) {
+  error.clear();
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
       static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels) * shape.Views >
           kMostAtlasTexels) {
@@ -299,40 +312,108 @@ ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::stri
   }
   const Vec3 centre = (capture.LeastM + capture.MostM) * 0.5;
   const Vec3 half = (capture.MostM - capture.LeastM) * 0.5;
-  const double halfExtent = std::max(std::hypot(half[0], half[2]), half[1]) *
-                            static_cast<double>(shape.Pixels) /
-                            static_cast<double>(shape.Pixels - 2);
-  if (capture.Sources.empty() || !(halfExtent > 0.0) || !std::isfinite(halfExtent)) {
+  if (!std::ranges::all_of(half, [](double value) { return std::isfinite(value) && value >= 0; }) ||
+      !std::ranges::all_of(centre, [](double value) { return std::isfinite(value); })) {
     error = Says::Bounds;
     return std::nullopt;
   }
-  PlanSpec specification;
-  specification.Outputs = {Resource::SceneHdr,
-                           Resource::SceneDepth,
-                           Resource::SceneShadingNormal,
-                           Resource::SceneSurfaceIdentity,
-                           Resource::SceneSurfaceBase,
-                           Resource::SceneSurfaceMetalRough};
-  specification.Content = {Stage::OpaqueGeometry};
-  auto plan = ExecutionPlan::Compile(specification);
-  if (!plan) {
-    error = std::move(plan.error());
+  double radius = std::max(std::hypot(half[0], half[2]), half[1]);
+  if (!capture.ViewDirections.empty()) {
+    if (capture.ViewDirections.size() != shape.Views) {
+      error = Says::Shape;
+      return std::nullopt;
+    }
+    radius = 0;
+    for (const auto &direction : capture.ViewDirections) {
+      const auto frame = ImpostorViewFrame::From(direction);
+      if (!frame) {
+        error = Says::Bounds;
+        return std::nullopt;
+      }
+      const auto projected = [&](const Vec3 &axis) {
+        return std::abs(axis[0]) * half[0] + std::abs(axis[1]) * half[1] +
+               std::abs(axis[2]) * half[2];
+      };
+      radius = std::max(
+          {radius, projected(frame->Right), projected(frame->Up), projected(direction) * 0.5});
+    }
+  }
+  const double halfExtent =
+      radius * static_cast<double>(shape.Pixels) / static_cast<double>(shape.Pixels - 2);
+  if (!(halfExtent > 0.0) || !std::isfinite(halfExtent)) {
+    error = Says::Bounds;
     return std::nullopt;
   }
-  SceneRenderer renderer;
-  if (auto initialized = renderer.Init({.WidthPx = shape.Pixels, .HeightPx = shape.Pixels}, *plan);
-      !initialized) {
-    error = std::move(initialized.error());
+  const double requested = capture.HalfExtentM.value_or(halfExtent);
+  if (!std::isfinite(requested) || requested < halfExtent) {
+    error = Says::Bounds;
     return std::nullopt;
   }
+  return ImpostorCaptureProjection{.Centre = centre, .HalfExtentM = requested};
+}
+
+std::optional<ImpostorAtlas>
+ImpostorBaker::Capture(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
+  const auto projection = ProjectionFor(capture, shape, error);
+  if (!projection) { return std::nullopt; }
+  if (capture.Sources.empty()) {
+    error = Says::Geometry;
+    return std::nullopt;
+  }
+  const auto &centre = projection->Centre;
+  const double halfExtent = projection->HalfExtentM;
+  if (!Prepare(shape.Pixels, error)) { return std::nullopt; }
+  auto &renderer = *Renderer_;
+  const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
+  CapturePieces pieces{.Renderer = renderer, .Handles = {}, .Materials = {}};
   std::vector<Material> surfaces;
   for (auto &source : capture.Sources) {
-    if (!InstallSource(renderer, std::move(source), surfaces, error)) { return std::nullopt; }
+    if (!InstallSource(pieces, std::move(source), surfaces, error)) { return std::nullopt; }
   }
-  auto views = CaptureViews(renderer, centre, halfExtent, shape, surfaces.size(), error);
+  auto views = CaptureViews(
+      renderer, centre, halfExtent, shape, pieces.Materials, capture.ViewDirections, error);
   if (!views) { return std::nullopt; }
   return ImpostorAtlas::Create(
       shape.Pixels, centre, halfExtent, std::move(surfaces), std::move(*views), error);
+}
+
+ImpostorBaker::ImpostorBaker(GpuSubmission submission)
+    : Renderer_(std::make_unique<SceneRenderer>(submission)) {}
+
+ImpostorBaker::~ImpostorBaker() = default;
+
+bool ImpostorBaker::Prepare(int pixels, std::string &error) {
+  if (Pixels_ == pixels && Renderer_->DeviceUsable()) { return true; }
+  if (!Plan_) {
+    PlanSpec specification;
+    specification.Outputs = {Resource::SceneHdr,
+                             Resource::SceneDepth,
+                             Resource::SceneShadingNormal,
+                             Resource::SceneSurfaceIdentity,
+                             Resource::SceneSurfaceBase,
+                             Resource::SceneSurfaceMetalRough};
+    specification.Content = {Stage::OpaqueGeometry};
+    auto plan = ExecutionPlan::Compile(specification);
+    if (!plan) {
+      error = std::move(plan.error());
+      return false;
+    }
+    Plan_ = std::move(*plan);
+  }
+  if (auto initialized = Renderer_->Init({.WidthPx = pixels, .HeightPx = pixels}, Plan_);
+      !initialized) {
+    Pixels_ = 0;
+    error = std::move(initialized.error());
+    return false;
+  }
+  Pixels_ = pixels;
+  return true;
+}
+
+std::optional<ImpostorAtlas>
+ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
+  ImpostorBaker baker;
+  return baker.Capture(std::move(capture), shape, error);
 }
 
 }

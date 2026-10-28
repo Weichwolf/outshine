@@ -265,6 +265,10 @@ public:
   Result<void> Dispatch(const ComputePipeline &pipeline,
                         std::span<const Binding> bindings,
                         Workgroups groups) override;
+  Result<void> DispatchIndirect(const ComputePipeline &pipeline,
+                                std::span<const Binding> bindings,
+                                const Buffer &arguments,
+                                uint64_t offset) override;
   Result<void> BeginRenderPass(const RenderPassDescription &description) override;
   Result<void> EndRenderPass() override;
   Result<void> Draw(const DrawDescription &description) override;
@@ -303,6 +307,10 @@ private:
                                          std::span<const std::shared_ptr<BufferState>> reads = {});
   [[nodiscard]] Result<void> PrepareResources(std::span<const ShaderArgument> arguments,
                                               std::vector<id<MTLResource>> &hazards);
+  [[nodiscard]] Result<void> PrepareCompute(const MetalPipeline &pipeline,
+                                            std::span<const Binding> bindings,
+                                            const MetalBuffer *indirect = nullptr,
+                                            uint64_t offset = 0);
   void
   TrackHazard(id<MTLResource> resource, Access usage, std::vector<id<MTLResource>> &hazards) const;
 

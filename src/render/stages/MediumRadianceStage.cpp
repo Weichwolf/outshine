@@ -1,5 +1,5 @@
 #include "MediumRadianceStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "Vec2.h"
 #include <array>
 #include <cmath>
@@ -53,24 +53,24 @@ Native::Result<void> MediumRadianceStage::Configure(const Gpu &gpu,
 }
 
 void MediumRadianceStage::Declare(const Medium &medium, float cosSunZenith, float eyeHeightM) {
-  const Standing wanted = {
+  const InputKey wanted = {
       .Declared = medium, .CosSunZenith = cosSunZenith, .EyeHeightM = eyeHeightM};
-  if (Cache_.Submitted() && Standing_ == wanted) { return; }
-  Standing_ = wanted;
+  if (Cache_.Submitted() && Inputs_ == wanted) { return; }
+  Inputs_ = wanted;
   Cache_.Invalidate();
 }
 
 Native::Result<void> MediumRadianceStage::Encode(const PassRecording &into) {
   if (!Cache_.NeedsRecording()) { return {}; }
-  if (!Pipe || !Standing_ || Transmittance == nullptr || MultiScatter == nullptr ||
-      Lut == nullptr || Into == nullptr || into.Commands == nullptr) {
+  if (!Pipe || !Inputs_ || Transmittance == nullptr || MultiScatter == nullptr || Lut == nullptr ||
+      Into == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "sky radiance is not configured"});
   }
-  const Pushed pushed{.Declared = Standing_->Declared,
-                      .CosSunZenith = Standing_->CosSunZenith,
-                      .EyeRadiusKm = Standing_->Declared.BottomRadiusKm + kMediumGroundLiftKm +
-                                     std::fmax(0.0f, Standing_->EyeHeightM) / kMPerKmF,
+  const Pushed pushed{.Declared = Inputs_->Declared,
+                      .CosSunZenith = Inputs_->CosSunZenith,
+                      .EyeRadiusKm = Inputs_->Declared.BottomRadiusKm + kMediumGroundLiftKm +
+                                     std::fmax(0.0f, Inputs_->EyeHeightM) / kMPerKmF,
                       .Pad = {}};
   const std::array bindings{
       Native::Binding{

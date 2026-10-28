@@ -9,6 +9,14 @@
 #include <string_view>
 
 namespace outshine {
+namespace Render {
+class ImpostorBaker;
+}
+
+[[nodiscard]] std::optional<ImpostorAtlas> BakeImpostorAtlas(Render::ImpostorBaker &baker,
+                                                             const Generators::TreePrototype &tree,
+                                                             ImpostorAtlasShape shape,
+                                                             std::string &error);
 
 [[nodiscard]] std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
                                                              ImpostorAtlasShape shape,

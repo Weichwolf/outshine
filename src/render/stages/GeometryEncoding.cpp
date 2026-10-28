@@ -265,7 +265,7 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
                                                     const FrameUniforms &uniforms) const {
   if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return {}; }
   for (const auto &surface : Slots) {
-    if (surface.Domain != SurfaceDomain::Ground) { continue; }
+    if (surface.Colour.Image == nullptr || surface.Domain != SurfaceDomain::Ground) { continue; }
     std::array<Native::Binding, 7> bindings;
     size_t count = 0;
     if (!Binding().CapturesMaterial) {
@@ -330,7 +330,7 @@ Native::Result<uint32_t> GeometryRenderer::EncodeShadow(const PassRecording &int
                                                         size_t batchIndex,
                                                         const BatchFrustum &visible,
                                                         uint32_t instances,
-                                                        std::span<const std::byte> view) const {
+                                                        std::span<const std::byte> view) {
   if (instances == 0) { return 0u; }
   if (batchIndex >= Batches.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,

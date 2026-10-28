@@ -106,7 +106,7 @@ def main():
         shaders.append(target)
     entries = json.loads(database.read_text())
     entry = next(
-        row for row in entries if Path(row["file"]).name == "StagePipelines.cpp"
+        row for row in entries if Path(row["file"]).name == "GeometryRenderer.cpp"
     )
     command = list(entry.get("arguments") or shlex.split(entry["command"]))
     command[command.index(entry["file"])] = str(source)

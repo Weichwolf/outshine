@@ -73,8 +73,6 @@ constexpr uint32_t kPositionFloats = 3;
 constexpr uint32_t kPairFloats = 2;
 constexpr uint32_t kQuadFloats = 4;
 constexpr uint32_t kSphereFloats = 12;
-constexpr uint32_t kArgWords = 5;
-constexpr uint32_t kBatchWords = 2;
 constexpr auto kIndexUse = Native::BufferUse::Index | Native::BufferUse::Storage;
 
 struct RebasedRun {
@@ -347,7 +345,7 @@ bool GeometryRenderer::SetMesh(const MeshInput &mesh, std::string &error) {
   return FinishMesh(*began, mesh, error);
 }
 
-std::expected<GeometryRenderer::MeshTicket, std::string>
+std::expected<GeometryUploadTicket, std::string>
 GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   std::string error;
   LastMeshUpload_ = {};
@@ -398,7 +396,7 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
       Bound().SetMainMeshRanges({}, {}, {}, {});
     }
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
-    return MeshTicket{.Generation = Reshaped_};
+    return GeometryUploadTicket{.Generation = Reshaped_};
   }
   MainMeshBatches_ = mesh.Draws->Batches();
   for (const DrawBatch &batch : MainMeshBatches_) {
@@ -407,7 +405,7 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
 
   if (IsTransmission()) {
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
-    return MeshTicket{.Generation = Reshaped_};
+    return GeometryUploadTicket{.Generation = Reshaped_};
   }
 
   LastMeshUpload_.AdmissionMs =
@@ -461,7 +459,9 @@ GeometryRenderer::BeginMesh(const MeshInput &mesh) {
   return PendingMesh_;
 }
 
-bool GeometryRenderer::FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error) {
+bool GeometryRenderer::FinishMesh(GeometryUploadTicket ticket,
+                                  const MeshInput &mesh,
+                                  std::string &error) {
   if (!ticket.NeedsFinish) {
     if (ticket.Generation != 0 && ticket.Generation == Reshaped_ && !PendingMesh_.NeedsFinish) {
       return true;
@@ -724,9 +724,25 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
   piece.Rows.assign(rows.begin(), rows.end());
   piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
   RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
-  RowsStale_ = TablesStale_ = true;
+  RowsStale_ = true;
+  if (previousRows != piece.Rows.size()) {
+    TablesStale_ = true;
+  } else if (!TablesStale_) {
+    UpdatePieceBounds(piece);
+  }
+  ShadowCasters_.Invalidate();
   ++Reshaped_;
   return true;
+}
+
+void GeometryRenderer::UpdatePieceBounds(const Piece &piece) {
+  if (!piece.FirstBatch) { return; }
+  const size_t runs = piece.Clusters.empty() ? 1u : piece.Rows.size();
+  for (size_t instance = 0; instance < runs; ++instance) {
+    Batches[*piece.FirstBatch + instance].WorldSphere =
+        runs == 1 ? piece.WorldSphere
+                  : WorldSphereOf(piece.LocalSphere, std::span(&piece.Rows[instance], 1));
+  }
 }
 
 void GeometryRenderer::ReleasePiece(PieceId which) {
@@ -739,6 +755,7 @@ void GeometryRenderer::ReleasePiece(PieceId which) {
   Bound().GiveTangents(held.T);
   PieceTriangles_ -= held.IndexCount / 3u;
   held.Live = false;
+  held.Surface = {};
   held.Clusters.clear();
   held.Rows.clear();
   Spare_.push_back(which);
@@ -775,7 +792,7 @@ void GeometryRenderer::SetRegisteredPieceSurfaces(std::span<const uint32_t> slot
 }
 
 bool GeometryRenderer::HandTables(std::string &error) {
-  if (!TablesStale_) { return true; }
+  if (!TablesStale_) { return HandRootBounds(error); }
   if (!Retable(error)) {
     Args_.clear();
     Jobs_ = 0;
@@ -794,9 +811,12 @@ bool GeometryRenderer::Retable(std::string &error) {
   BatchLayout.clear();
   Args_.clear();
   Jobs_ = 0;
+  TableRoots_.clear();
+  Hierarchy_ = {};
+  ++TableRevision_;
   if (!BuildMainMeshBatches(error)) { return false; }
   if (IsTransmission()) { return true; }
-  PrepareMainMeshTables();
+  if (!PrepareMainMeshTables(error)) { return false; }
   OrderPieces();
   for (const uint32_t at : TableOrder_) {
     if (!AppendPieceBatches(Pieces_[at], error)) { return false; }
@@ -831,68 +851,15 @@ bool GeometryRenderer::BuildMainMeshBatches(std::string &error) {
   return true;
 }
 
-void GeometryRenderer::PrepareMainMeshTables() {
-  const uint32_t mainIndexFirst = Bound().MainIndexRange().First;
-  std::vector<uint32_t> &jobs = TableJobs_;
-  std::vector<float> &spheres = TableSpheres_;
-  jobs.assign(MainMeshClusterJobs_.begin(), MainMeshClusterJobs_.end());
-  spheres.assign(MainMeshClusterSpheres_.begin(), MainMeshClusterSpheres_.end());
-  for (size_t at = 2; at < jobs.size(); at += DrawList::kJobWords) { jobs[at] += mainIndexFirst; }
-  const bool hasMainClusters = !jobs.empty() && !spheres.empty();
-  if (!hasMainClusters) {
-    jobs.clear();
-    spheres.clear();
-    for (DrawBatch &batch : Batches) {
-      batch.FirstJob = 0;
-      batch.JobCount = 0;
-    }
-  }
-}
-
 uint32_t GeometryRenderer::MaterialSlotFor(const Piece &piece) const {
   const auto &slots =
       piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
   return piece.Surface.Index < slots.size() ? slots[piece.Surface.Index] : kNoMaterialSlot;
 }
 
-void GeometryRenderer::OrderPieces() {
-  auto &jobs = TableJobs_;
-  auto &spheres = TableSpheres_;
-  std::vector<uint32_t> &order = TableOrder_;
-  order.clear();
-  size_t clusters = 0;
-  size_t uniqueClusters = 0;
-  auto nextRow =
-      static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(MainMeshRows_)));
-  for (Piece &piece : Pieces_) {
-    piece.FirstRow = nextRow;
-    nextRow += static_cast<uint32_t>(piece.Rows.size());
-  }
-  for (uint32_t at = 0; at < Pieces_.size(); ++at) {
-    if (Pieces_[at].Live && !Pieces_[at].Rows.empty() &&
-        MaterialSlotFor(Pieces_[at]) != kNoMaterialSlot &&
-        MaterialSlotFor(Pieces_[at]) < Slots.size()) {
-      order.push_back(at);
-      clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
-      uniqueClusters += Pieces_[at].Clusters.size();
-    }
-  }
-  jobs.reserve(jobs.size() + clusters * DrawList::kJobWords);
-  spheres.reserve(spheres.size() + uniqueClusters * kSphereFloats);
-  std::ranges::sort(order, [this](uint32_t a, uint32_t b) {
-    const Piece &left = Pieces_[a];
-    const Piece &right = Pieces_[b];
-    if (MaterialSlotFor(left) != MaterialSlotFor(right)) {
-      return MaterialSlotFor(left) < MaterialSlotFor(right);
-    }
-    if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
-    return a < b;
-  });
-}
-
 bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
   if (!PiecesVisible_) { return true; }
-  auto &jobs = TableJobs_;
+  auto &templates = TableTemplates_;
   auto &spheres = TableSpheres_;
   VertexLayout layout = one.Layout;
   const auto &unlit = Slots[MaterialSlotFor(one)].Unlit;
@@ -938,14 +905,25 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
                     0.0f,
                     0.0f});
   }
+  const auto firstTemplate = static_cast<uint32_t>(templates.size());
+  uint64_t capacity = 0;
+  auto sphere = firstSphere;
+  for (const DagCluster &cluster : one.Clusters) {
+    templates.push_back({.SphereIndex = sphere++,
+                         .RelativeFirstIndex = one.I.First + cluster.First,
+                         .IndexCount = cluster.Count});
+    capacity += cluster.Count;
+  }
+  if (capacity > std::numeric_limits<uint32_t>::max()) {
+    error = "resident cluster index capacity exceeds GPU addressing";
+    return false;
+  }
   const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
+  one.FirstBatch = static_cast<uint32_t>(Batches.size());
   for (size_t instance = 0; instance < runs; ++instance) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
-    batch.WorldSphere = runs == 1
-                            ? one.WorldSphere
-                            : WorldSphereOf(one.LocalSphere, std::span(&one.Rows[instance], 1));
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
@@ -954,93 +932,23 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
     batch.Draws = 1;
     batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
     batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
-    batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
-    auto sphere = firstSphere;
-    for (const DagCluster &cluster : one.Clusters) {
-      jobs.insert(jobs.end(), {sphere++, row, one.I.First + cluster.First, cluster.Count});
+    batch.FirstJob = firstTemplate;
+    batch.JobCount = static_cast<uint32_t>(one.Clusters.size());
+    if (!AppendRoot({.LocalSphere = one.LocalSphere.value_or(BatchSphere{}),
+                     .TemplateFirst = batch.FirstJob,
+                     .TemplateCount = batch.JobCount,
+                     .BatchRow = row,
+                     .ModelSlot = batch.ModelSlot,
+                     .IndexCapacity = static_cast<uint32_t>(capacity),
+                     .Flags = one.LocalSphere ? kGeometryRootBound : 0u},
+                    error)) {
+      return false;
     }
-    batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
     Batches.push_back(batch);
     BatchLayout.push_back(layout);
   }
+  UpdatePieceBounds(one);
   return true;
-}
-
-bool GeometryRenderer::UploadTables(std::string &error) {
-  auto &jobs = TableJobs_;
-  auto &spheres = TableSpheres_;
-  if (jobs.empty() || spheres.empty()) { return true; }
-  Args_.assign(Batches.size() * kArgWords, 0u);
-  std::vector<uint32_t> &rows = TableRows_;
-  rows.assign(Batches.size() * kBatchWords, 0u);
-  uint32_t base = 0;
-  for (size_t at = 0; at < Batches.size(); ++at) {
-    const DrawBatch &batch = Batches[at];
-    Args_[at * kArgWords + 1u] = batch.Instances;
-    Args_[at * kArgWords + 2u] = base;
-    Args_[at * kArgWords + 4u] = batch.ModelSlot;
-    rows[at * kBatchWords] = batch.FirstJob;
-    rows[at * kBatchWords + 1u] = batch.JobCount;
-    for (uint32_t one = 0; one < batch.JobCount; ++one) {
-      base += jobs[(static_cast<size_t>(batch.FirstJob) + one) * DrawList::kJobWords + 3u];
-    }
-  }
-  Jobs_ = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
-  if (base == 0) {
-    Args_.clear();
-    Jobs_ = 0;
-    return true;
-  }
-
-  const auto read = Native::BufferUse::Storage;
-  std::array cut = {
-      GeometryResidency::Crossing{.Which = GeometryResidency::Stream::ClusterSpheres,
-                                  .Usage = read,
-                                  .From = spheres.data(),
-                                  .Bytes = static_cast<uint32_t>(spheres.size() * sizeof(float))},
-      GeometryResidency::Crossing{.Which = GeometryResidency::Stream::ClusterJobs,
-                                  .Usage = read,
-                                  .From = jobs.data(),
-                                  .Bytes = static_cast<uint32_t>(jobs.size() * sizeof(uint32_t))},
-      GeometryResidency::Crossing{.Which = GeometryResidency::Stream::ClusterBatches,
-                                  .Usage = read,
-                                  .From = rows.data(),
-                                  .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
-  };
-  if (!Uploaded(Bound().Cross(cut, true), error)) {
-    Args_.clear();
-    Jobs_ = 0;
-    return false;
-  }
-
-  constexpr auto kCullUse = Native::BufferUse::Storage;
-  const uint32_t jobBytes = Jobs_ * static_cast<uint32_t>(sizeof(uint32_t));
-  constexpr auto discard = GeometryResidency::ExistingContents::Discard;
-  if (!Uploaded(Bound().Grow(
-                    GeometryResidency::Stream::ClusterKept,
-                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard, .Deferred = true}),
-                error) ||
-      !Uploaded(Bound().Grow(
-                    GeometryResidency::Stream::ClusterSlot,
-                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard, .Deferred = true}),
-                error) ||
-      !Uploaded(Bound().Grow(GeometryResidency::Stream::DrawIndex,
-                             {.Usage = Native::BufferUse::Index | Native::BufferUse::Storage,
-                              .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t)),
-                              .Existing = discard,
-                              .Deferred = true}),
-                error) ||
-      !Uploaded(Bound().Grow(GeometryResidency::Stream::DrawArguments,
-                             {.Usage = Native::BufferUse::Indirect | Native::BufferUse::Storage,
-                              .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)),
-                              .Existing = discard,
-                              .Deferred = true}),
-                error)) {
-    Args_.clear();
-    Jobs_ = 0;
-    return false;
-  }
-  return HandDrawArguments(true, error);
 }
 
 bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
@@ -1056,6 +964,7 @@ bool GeometryRenderer::HandDrawArguments(bool deferred, std::string &error) {
 
 bool GeometryRenderer::SetVertexInput(const VertexInput &pose, std::string &error) {
   MainMeshBoundsCurrent_ = false;
+  RootBoundsStale_ = true;
   ShadowCasters_.Invalidate();
   ShadowChanges_.Unknown();
   ++Reshaped_;
@@ -1081,7 +990,7 @@ bool GeometryRenderer::SetVertexInput(const VertexInput &pose, std::string &erro
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
   RowsStale_ = true;
-  return HandStreams(pose, true, error);
+  return HandStreams(pose, true, error) && HandRootBounds(error);
 }
 
 uint32_t GeometryRenderer::DrawCount() const {

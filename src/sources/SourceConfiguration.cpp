@@ -9,8 +9,10 @@
 #include <vector>
 
 namespace outshine::Data {
-std::expected<std::unique_ptr<Source>, std::string> ConfigureSource(
-    const SourceProvider &provider, std::string_view root, const ProviderRegistry &registry) {
+std::expected<std::unique_ptr<Source>, std::string>
+ConfigureSource(const SourceProvider &provider,
+                std::string_view builtinDataDirectory,
+                const ProviderRegistry &registry) {
   if (auto valid = ValidateSourceProviders(std::span(&provider, 1), registry); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -19,14 +21,14 @@ std::expected<std::unique_ptr<Source>, std::string> ConfigureSource(
     return std::unexpected("the scenario declares an unavailable provider of kind '" +
                            provider.Kind + "'");
   }
-  auto source = factory->make(provider, root);
+  auto source = factory->make(provider, builtinDataDirectory);
   if (source && !*source) { return std::unexpected("provider factory returned a null source"); }
   return source;
 }
 
 bool RegisterSources(SourceSet &set,
                      std::span<const SourceProvider> providers,
-                     std::string_view shippedRoot,
+                     std::string_view builtinDataDirectory,
                      std::string &error,
                      const ProviderRegistry &registry) {
   if (const auto valid = ValidateSourceProviders(providers, registry); !valid) {
@@ -36,7 +38,7 @@ bool RegisterSources(SourceSet &set,
   std::vector<std::unique_ptr<Source>> candidates;
   candidates.reserve(providers.size());
   for (const SourceProvider &provider : providers) {
-    auto made = registry.named(provider.Kind)->make(provider, shippedRoot);
+    auto made = registry.named(provider.Kind)->make(provider, builtinDataDirectory);
     if (!made) {
       error = std::move(made.error());
       return false;

@@ -47,7 +47,6 @@ constexpr auto kPendingOsmSource = "original OSM source pending";
 constexpr auto kInvalidHeightCoordinate =
     "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
 constexpr auto kHeightOutsideCoverage = "height query is outside Mercator terrain coverage";
-constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
 constexpr auto kNullWindow = "the target window is null";
 constexpr auto kWindowExtentFailed = "could not read the target window extent: ";
@@ -522,21 +521,9 @@ Renderer Engine::renderer() {
   return Renderer(*this);
 }
 
-SwapChain Engine::swapChain() {
-  return SwapChain(*this);
-}
-
-Extent SwapChain::extent() const {
-  return Of_->canvas();
-}
-
-bool SwapChain::presents() const {
-  return Of_->presenting();
-}
-
-Result Renderer::beginFrame(SwapChain &into) {
-  if (into.Of_ != Of_) { return std::unexpected(std::string(Says::kForeignSwapChain)); }
-  if (into.extent().WidthPx <= 0 || into.extent().HeightPx <= 0) {
+Result Renderer::beginFrame() {
+  const Extent frame = Of_->frameExtent();
+  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
     return std::unexpected(
         std::string("cannot begin a frame without a render target with positive pixel dimensions"));
   }

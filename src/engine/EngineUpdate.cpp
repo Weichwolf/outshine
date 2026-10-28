@@ -30,6 +30,7 @@
 #include "Viewing.h"
 #include "Views.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "TileGeodesy.h"
 
 namespace outshine {
@@ -319,18 +320,18 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   World.Stack.Footprints().ViewedFrom(CurrentGeographicEyeEcef());
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
-    const auto resumeAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.ResumeCompletedTasks();
-    Cost.BakeResume.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+    const auto collectionAt = std::chrono::steady_clock::now();
+    World.StructureBuilds.PollCompletedTasks();
+    Cost.BakeCollection.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
     return StagesGroundBakes(landsMost);
   }
   if (!World.GroundPublished.Current()) {
-    const auto resumeAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.ResumeCompletedTasks();
-    Cost.BakeResume.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+    const auto collectionAt = std::chrono::steady_clock::now();
+    World.StructureBuilds.PollCompletedTasks();
+    Cost.BakeCollection.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
     if (World.Stack.Ingested()) {
       const auto postingAt = std::chrono::steady_clock::now();
@@ -344,7 +345,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   }
   if (!World.Region ||
       !World.Region->MatchesLiveSources(World.Stack.Vectors(), World.Stack.Footprints())) {
-    World.StructureBuilds.ResumeCompletedTasks();
+    World.StructureBuilds.PollCompletedTasks();
     return true;
   }
   const auto landingAt = std::chrono::steady_clock::now();
@@ -421,7 +422,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
-    config.Cache.Directory = Session.Under.AssetCache;
+    config.Cache.Directory = Session.Under.AssetCacheDirectory;
     const auto bytesMost = ImpostorAtlas::EncodedBytesMost(config.Shape);
     if (!bytesMost) {
       Error = "vegetation atlas shape has no valid package bound";

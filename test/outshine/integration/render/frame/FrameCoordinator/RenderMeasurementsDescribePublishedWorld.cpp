@@ -43,6 +43,7 @@ void Exercise() {
         "an offscreen engine assembles its declared published view");
   Geometry geometry;
   const auto surface = geometry.addSurface("fixture", Material{});
+  CHECK(surface.has_value(), "the native fixture owns its declared material");
   if (!surface) { return; }
   const auto part = geometry.addPart("fixture", *surface);
   CHECK(part && geometry.setPositions(*part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
@@ -55,6 +56,12 @@ void Exercise() {
   const auto pushes = state.Picture.Device.GeometryUniformPushes();
   CHECK(batches > 0 && pushes > 0 && Metric(engine, "batches the picture draws") == batches,
         "the initial render measurements match the actual native published world");
+  CHECK(Metric(engine, "opaqueGeometry, direct input triangles") +
+                Metric(engine, "opaqueGeometry, indirect input triangles") ==
+            1,
+        "the first successful submission publishes its one actual input triangle");
+  CHECK(Metric(engine, "pictures drawn") == 1,
+        "the first render publishes its successful frame count immediately");
   state.Picture.Device.WaitForGpu();
   std::vector<float> before;
   CHECK(engine.renderer().readPixels(Buffer::Linear, before) && !before.empty(),
@@ -86,6 +93,12 @@ void Exercise() {
               Metric(engine, "geometry draw records") > 0 &&
               Metric(engine, "vertex uniform pushes the geometry stages make") > pushes,
           "published frame diagnostics describe the world that actually drew");
+    CHECK(Metric(engine, "opaqueGeometry, direct input triangles") +
+                  Metric(engine, "opaqueGeometry, indirect input triangles") ==
+              1,
+          "stage counters describe the submitted world despite an empty editing candidate");
+    CHECK(Metric(engine, "pictures drawn") == 2,
+          "rendering without another simulation step publishes the next submitted frame");
     CHECK(state.Picture.Device.HasWorldCandidate() &&
               state.Picture.Device.GeometryBatchCount() == candidateBatches &&
               state.Picture.Device.GeometryUniformPushes() == candidatePushes,
@@ -103,6 +116,15 @@ void Exercise() {
         "abandoning the candidate retains the published world and normal diagnostics");
   CHECK(Metric(engine, "batches the picture draws") == batches,
         "ordinary rendering remains correct after candidate abandonment");
+  CHECK(geometry.setTriangles(*part, std::array<uint32_t, 6>{0, 1, 2, 0, 1, 2}) &&
+            engine.setGeometry(geometry) && engine.advance() && engine.renderer().render({}),
+        "a new native submission records two declared input triangles");
+  CHECK(Metric(engine, "opaqueGeometry, direct input triangles") +
+                Metric(engine, "opaqueGeometry, indirect input triangles") ==
+            2,
+        "changed geometry publishes current stage counters without a later simulation step");
+  CHECK(Metric(engine, "pictures drawn") == 4,
+        "replacement geometry publishes the fourth successful frame instead of the third");
 }
 }
 

@@ -1,4 +1,5 @@
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WorldCandidate.h"
 #include "GeometryCullStage.h"
 #include "Check.h"
@@ -14,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -129,31 +131,35 @@ struct MaterialFixture {
     CHECK(geometry.setTexture(*part, std::array<float, 8>{-1, -1, 1, -1, 1, 1, -1, 1}),
           "metric ground coordinates");
     CHECK(geometry.setTriangles(*part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3}), "triangles");
-    Core::WorldCandidate candidate(renderer);
-    const auto prepared = candidate.Prepare(*scene, nullptr);
-    CHECK(prepared.has_value(), "private world prepared");
-    if (!prepared) { return std::vector<float>{}; }
-    candidate.GroundIs(ground ? surface->index() : -1);
-    if (paletteFirst) {
-      UploadPalette(renderer, roughness, mode, error);
-      Geometry intermediate = geometry.clone();
-      Material clear;
-      clear.Transmission = 1.0f;
-      CHECK(intermediate.addSurface("transmission-plan", clear).has_value(),
-            "candidate temporarily requires a transmission plan");
-      if (!candidate.SetGeometry(std::move(intermediate), 0, material, error)) {
+    {
+      const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
+      Core::WorldCandidate candidate(renderer);
+      const auto prepared = candidate.Prepare(*scene, nullptr);
+      CHECK(prepared.has_value(), prepared ? "private world prepared" : prepared.error().c_str());
+      if (!prepared) { return std::vector<float>{}; }
+      candidate.GroundIs(ground ? surface->index() : -1);
+      if (paletteFirst) {
+        UploadPalette(renderer, roughness, mode, error);
+        Geometry intermediate = geometry.clone();
+        Material clear;
+        clear.Transmission = 1.0f;
+        CHECK(intermediate.addSurface("transmission-plan", clear).has_value(),
+              "candidate temporarily requires a transmission plan");
+        if (!candidate.SetGeometry(std::move(intermediate), 0, material, error)) {
+          CHECK(false, error.c_str());
+          return std::vector<float>{};
+        }
+      }
+      if (!candidate.SetGeometry(std::move(geometry), 0, material, error)) {
         CHECK(false, error.c_str());
         return std::vector<float>{};
       }
+      if (!paletteFirst) { UploadPalette(renderer, roughness, mode, error); }
+      const auto published = candidate.Publish(scene);
+      CHECK(published.has_value(),
+            published ? "complete fixture published" : published.error().c_str());
+      if (!published) { return std::vector<float>{}; }
     }
-    if (!candidate.SetGeometry(std::move(geometry), 0, material, error)) {
-      CHECK(false, error.c_str());
-      return std::vector<float>{};
-    }
-    if (!paletteFirst) { UploadPalette(renderer, roughness, mode, error); }
-    const auto published = candidate.Publish(scene);
-    CHECK(published.has_value(), "complete fixture published");
-    if (!published) { return std::vector<float>{}; }
     Render::Viewpoint eye;
     eye.EyeM = {{0, 2, 0}};
     eye.Forward = {{0, -1, 0}};
@@ -166,7 +172,7 @@ struct MaterialFixture {
     scene->Eye(eye);
     for (int frame = 0; frame < 3; ++frame) {
       CHECK(scene->Advance(error) && scene->Draw(error), "fixture rendered");
-      CHECK((Render::GeometryCullStage::JobsSweptTaken() > 0) == (frame < 2),
+      CHECK((Render::GeometryCullStage::JobsAdmittedTaken() > 0) == (frame < 2),
             "new worlds cull, refine with previous depth, then reuse unchanged visibility");
     }
     std::vector<float> pixels;

@@ -136,12 +136,12 @@ PreparedBuildingAssets::LoadGeometry(const std::string &baseKey, Basis basis, co
   return loaded;
 }
 
-std::expected<void, StructureBakeError>
+std::expected<std::string, StructureBakeError>
 PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
                                       const PreparedStructureTile &base,
                                       const RawTile &view,
                                       const BakedTile &tile) {
-  const auto key = GeometryKey(baseKey, view);
+  auto key = GeometryKey(baseKey, view);
   if (key.empty() || !ValidCeilings(tile, base.PointsLatLon.size() / 2u)) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
@@ -167,6 +167,6 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
   const auto stored = Cache_->Publish(std::span(&record, 1), *encoded);
   if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   ++GeometryWrites_;
-  return {};
+  return key;
 }
 }

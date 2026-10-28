@@ -580,8 +580,8 @@ int CaptureView(outshine::Engine &engine,
   if (!options.RenderMotion) { return 0; }
   std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
                named,
-               engine.swapChain().extent().WidthPx,
-               engine.swapChain().extent().HeightPx,
+               engine.frameExtent().WidthPx,
+               engine.frameExtent().HeightPx,
                captured->Timing.RateHz,
                captured->Timing.BudgetMs());
   if (options.Rows) {
@@ -665,7 +665,7 @@ int CaptureView(outshine::Engine &engine,
   auto input = outshine::App::ReadScenarioInput(
       options.Argv[0],
       options.ScenarioOverrides,
-      MakeApplicationRoots(options.CacheDirectory, options.Offline).Shipped);
+      MakeApplicationRoots(options.CacheDirectory, options.Offline).BuiltinDataDirectory);
   if (!input) {
     std::println("outshine: {} -- {}", sourceName, input.error());
     return 1;

@@ -5,11 +5,15 @@ file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/s
 add_custom_target(outshine_tests)
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
+set(pipeline_test_shaders ${OUTSHINE_SHADER_ARTIFACTS})
+list(FILTER pipeline_test_shaders INCLUDE REGEX
+  "/([^/]*\\.comp|fullscreen[^/]*\\.vert|present[^/]*\\.frag)\\.spv$")
+add_custom_target(test_pipeline_shaders DEPENDS ${pipeline_test_shaders})
 set(capture_cases
   outshine/integration/engine/streaming/ImpostorPreparation/PreparationRetainsGeneratorSurfaces
   outshine/integration/generators/flora/TreePrototype/TreeGeometryUsesNativeMaterials
   outshine/integration/render/material/MaterialResolution/NativeImagesReachTheRenderer
-  outshine/integration/render/device/GpuSubmission/WindowFramesCloseAfterDrawing
+  outshine/integration/engine/frame/FrameCoordinator/WindowFramesCloseAfterDrawing
   outshine/src/engine/Engine/CameraFollowsItsNamedEntity
   outshine/src/engine/Engine/NativeMipImagesReachTheRenderer
   outshine/src/engine/Engine/PerspectiveNativeMipImagesRepeatLinearPixels
@@ -17,14 +21,20 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
+  outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
+  outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
+  outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
   outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
   outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/GeometryCullStage/RootBoundsKeepVisibleDescendants
   outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
   outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
+  outshine/src/render/stages/GeometryRenderer/GroundPagesUseConfiguredUploadAdmission
   outshine/src/render/stages/GeometryRenderer/InstancesShareTheirPieceClusterSpheres
   outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
   outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
@@ -32,9 +42,11 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
   outshine/src/render/stages/GeometryResidency/DeferredImagesSurviveBackpressureAndRejectedSubmission
   outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
+  outshine/src/render/stages/GeometryResidency/LargeReservationsFitAdmissionAndPreserveAcceptedData
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/stages/ShadowCasterSelection/ClusterQueriesMatchCompleteShadowPixels
   outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
   outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
@@ -56,6 +68,24 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road_height
       outshine_generators_terrain outshine_generators_terrain_inputs outshine_generators_terrain_providers ZLIB::ZLIB)
   endif()
+  if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
+    set(indirect_shaders "")
+    foreach(shader dispatch-arguments dispatch-count)
+      set(output "${PROJECT_BINARY_DIR}/test-shaders/${shader}.comp.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${output}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/${shader}.comp" -o "${output}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/${shader}.comp"
+        VERBATIM)
+      list(APPEND indirect_shaders "${output}")
+    endforeach()
+    add_custom_target(test_indirect_dispatch_shaders DEPENDS ${indirect_shaders})
+    add_dependencies(${target} test_indirect_dispatch_shaders)
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_DISPATCH_ARGUMENTS_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/dispatch-arguments.comp.spv\""
+      "OUTSHINE_DISPATCH_COUNT_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/dispatch-count.comp.spv\"")
+  endif()
   if(name STREQUAL "outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth")
     set(receiver_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-receiver.comp.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
@@ -70,6 +100,24 @@ foreach(source IN LISTS cases)
     add_dependencies(${target} test_prism_receiver_shader)
     target_compile_definitions(${target} PRIVATE
       "OUTSHINE_PRISM_RECEIVER_SHADER=\"${receiver_shader}\"")
+  endif()
+  if(name STREQUAL "outshine/src/render/prism/PrismDrawing/SurfaceDifferentialsUseTheOriginalPlane")
+    foreach(stage IN ITEMS comp vert frag)
+      set(differential_shader "${PROJECT_BINARY_DIR}/test-shaders/prism-differentials.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${differential_shader}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "-I${PROJECT_SOURCE_DIR}/src" --depfile "${differential_shader}.d"
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+          -o "${differential_shader}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/prism-differentials.${stage}"
+        DEPFILE "${differential_shader}.d" VERBATIM)
+      add_custom_target(test_prism_differential_${stage}_shader DEPENDS "${differential_shader}")
+      add_dependencies(${target} test_prism_differential_${stage}_shader)
+      string(TOUPPER "${stage}" stage_define)
+      target_compile_definitions(${target} PRIVATE
+        "OUTSHINE_PRISM_DIFFERENTIAL_${stage_define}_SHADER=\"${differential_shader}\"")
+    endforeach()
   endif()
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/road/height/RoadGroundStrip/WholeWidthObservationsKeepTheOriginalFieldContracts"
@@ -100,6 +148,12 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
+  if(name STREQUAL "outshine/src/render/impostor/ImpostorBaker/RepeatedCapturesReuseTheDeviceAndRetireSources")
+    target_sources(${target} PRIVATE src/diagnostics/ProcessHeap.cpp)
+    if(APPLE)
+      target_sources(${target} PRIVATE test/experiments/render/NativeMaterialMemory.mm)
+    endif()
+  endif()
   if(name STREQUAL "outshine/src/app/ProcessBoundary/FatalErrorsAreContained")
     target_compile_options(${target} PRIVATE -fexceptions)
   else()
@@ -122,7 +176,7 @@ foreach(source IN LISTS cases)
   if(owner STREQUAL "")
     if(name MATCHES "^outshine/integration/app/")
       set(owner app)
-    elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene)/")
+    elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene|device)/")
       set(owner render)
     elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
@@ -203,6 +257,9 @@ foreach(source IN LISTS cases)
   if(name MATCHES "^outshine/integration/transport/SurfaceEarthworks/")
     target_link_libraries(${target} PRIVATE outshine_generators_terrain)
   endif()
+  if(name MATCHES "^outshine/src/render/pipelines/")
+    add_dependencies(${target} test_pipeline_shaders)
+  endif()
   if(name MATCHES "^outshine/integration/generators/transport/PlanRoadPages/")
     target_link_libraries(${target} PRIVATE outshine_generators_transport)
   endif()
@@ -262,6 +319,12 @@ foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snaps
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
+add_executable(test_harness_building_source_counter EXCLUDE_FROM_ALL
+  test/experiments/buildings/source_polygons/native_buffered_buildings.cpp)
+target_compile_options(test_harness_building_source_counter PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_building_source_counter PRIVATE
+  outshine_generators_osm)
+
 add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_export.cpp
   test/experiments/transport/native_transport_snapshot_json.cpp
@@ -269,6 +332,7 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
 add_dependencies(outshine_tests test_harness_transport_source_export)
+add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport
   COMMAND "${Python3_EXECUTABLE}" -B
   "${PROJECT_SOURCE_DIR}/test/experiments/transport/test_native_transport_export.py"
@@ -276,11 +340,81 @@ add_test(NAME experiments/transport/NativeSourceFactsExport
 set_tests_properties(experiments/transport/NativeSourceFactsExport PROPERTIES
   TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/transport;world-gate")
 
+if(APPLE)
+  add_library(test_harness_metal_work_profile SHARED EXCLUDE_FROM_ALL
+    test/harness/render/MetalWorkProfile.mm)
+  target_compile_options(test_harness_metal_work_profile PRIVATE -fno-exceptions)
+  target_link_libraries(test_harness_metal_work_profile PRIVATE outshine_compiler
+    "-framework Metal" "-framework Foundation")
+  set_target_properties(test_harness_metal_work_profile PROPERTIES PREFIX "" SUFFIX ".dylib"
+    OUTPUT_NAME "metal-work-profile" LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/probes")
+endif()
+
+add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_parents.cpp)
+add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_impostors.cpp
+  test/experiments/render/BuildingSourceCapture.cpp
+  test/experiments/render/BuildingRadianceField.cpp)
+add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_source_planes.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
+add_dependencies(test_experiments_render_NativeBuildingSourcePlanes outshine_shaders)
+target_compile_options(test_experiments_render_NativeBuildingSourcePlanes PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingSourcePlanes PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
+  test/experiments/render/native_material_residency.cpp)
+if(APPLE)
+  target_sources(test_experiments_render_NativeMaterialResidency PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+  target_sources(test_experiments_render_NativeBuildingImpostors PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+endif()
+add_dependencies(test_experiments_render_NativeMaterialResidency outshine_shaders)
+target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeMaterialResidency PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_dependencies(test_experiments_render_NativeBuildingImpostors outshine_shaders)
+target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE
+  outshine_diagnostics_calibration PkgConfig::nlohmann_json)
+set(native_parent_shader_dir "${PROJECT_BINARY_DIR}/test-shaders/native_building_parents")
+set(native_parent_shaders)
+foreach(shader parent.vert parent.frag compose.comp parent-audit.frag)
+  set(source_shader "${shader}")
+  set(shader_definitions)
+  if(shader STREQUAL "parent-audit.frag")
+    set(source_shader parent.frag)
+    set(shader_definitions -DPARENT_AUDIT=1)
+  endif()
+  set(shader_source "${PROJECT_SOURCE_DIR}/test/experiments/render/native_building_parents/${source_shader}")
+  set(shader_output "${native_parent_shader_dir}/${shader}.spv")
+  add_custom_command(OUTPUT "${shader_output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${native_parent_shader_dir}"
+    COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0 ${shader_definitions}
+      "-I${PROJECT_SOURCE_DIR}/src/render/shaders" "-I${PROJECT_BINARY_DIR}/shaders"
+      "${shader_source}" -o "${shader_output}"
+    DEPENDS "${shader_source}" "${PROJECT_BINARY_DIR}/shaders/brdfTables.glsl"
+      "${PROJECT_SOURCE_DIR}/src/render/shaders/metalRoughBrdf.glsl"
+      "${PROJECT_SOURCE_DIR}/src/render/shaders/microfacetEnergy.glsl"
+    VERBATIM)
+  list(APPEND native_parent_shaders "${shader_output}")
+endforeach()
+add_custom_target(test_experiments_render_NativeBuildingParentShaders
+  DEPENDS ${native_parent_shaders})
+add_dependencies(test_experiments_render_NativeBuildingParents
+  test_experiments_render_NativeBuildingParentShaders)
+
 add_executable(test_harness_building_selection_export EXCLUDE_FROM_ALL
   test/experiments/render/export_building_selection.cpp
   test/experiments/render/building_capture_inputs.cpp)
 target_compile_options(test_harness_building_selection_export PRIVATE -fno-exceptions)
-target_link_libraries(test_harness_building_selection_export PRIVATE outshine_generators_osm)
+target_link_libraries(test_harness_building_selection_export PRIVATE
+  outshine_generators_osm PkgConfig::nlohmann_json)
 add_dependencies(outshine_tests test_harness_building_selection_export)
 add_custom_target(test_experiments_render_BuildingCellControl
   DEPENDS test_harness_building_selection_export)
@@ -326,7 +460,7 @@ outshine_corpus(test262/js outshine_scripting ScoreEveryScriptCase)
 target_link_libraries(test_harness_test262_js PRIVATE outshine_base)
 outshine_corpus(geographiclib/geodesic outshine_world ScoreEveryGeodesic)
 
-set_tests_properties(outshine/src/render/stages/StagePipelines/NativePipelinesKeepDeclaredBindings
+set_tests_properties(outshine/src/render/pipelines/PipelineFactory/NativePipelinesKeepDeclaredBindings
   PROPERTIES WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 add_test(NAME render/shader-artifacts COMMAND Python3::Interpreter
   "${PROJECT_SOURCE_DIR}/test/scripts/shader_artifacts.py"

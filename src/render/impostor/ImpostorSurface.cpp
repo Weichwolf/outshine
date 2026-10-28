@@ -1,4 +1,5 @@
 #include "ImpostorSurface.h"
+#include "ImpostorViewFrame.h"
 #include "DepthSurfacePatches.h"
 #include "ImpostorOptics.h"
 #include "ImageMips.h"
@@ -105,6 +106,8 @@ bool AddDepthSurface(Geometry &geometry,
                      Vec3 toward,
                      Vec3 right,
                      ImpostorSurfaceDetail detail) {
+  const auto frame = ImpostorViewFrame::From(toward);
+  if (!frame) { return false; }
   const Vec3 centre = atlas.CentreM();
   const double halfExtent = atlas.HalfExtentM();
   const auto pixels = static_cast<uint32_t>(atlas.Pixels());
@@ -130,7 +133,7 @@ bool AddDepthSurface(Geometry &geometry,
       const double u = static_cast<double>(pixelX) / pixels;
       const double v = static_cast<double>(pixelY) / pixels;
       const Vec3 point = centre + right * ((2.0 * u - 1.0) * halfExtent) +
-                         Vec3{{0, (1.0 - 2.0 * v) * halfExtent, 0}} +
+                         frame->Up * ((1.0 - 2.0 * v) * halfExtent) +
                          toward * ((4.0 * patch.At(pixelX, pixelY) - 2.0) * halfExtent);
       for (size_t axis = 0; axis < 3; ++axis) {
         positions.push_back(static_cast<float>(point[axis]));
@@ -158,7 +161,9 @@ bool AddOpaqueCardImages(Geometry &geometry,
   const auto owner = NearestCoveredTexels(source, atlas.Pixels());
   if (owner.empty()) { return false; }
   const Vec3 toward = source.TowardEye;
-  const Vec3 right{{toward[2], 0, -toward[0]}};
+  const auto frame = ImpostorViewFrame::From(toward);
+  if (!frame) { return false; }
+  const Vec3 right = frame->Right;
   std::array<std::vector<uint8_t>, 3> images;
   for (auto &image : images) { image.resize(count * 4); }
   for (size_t at = 0; at < count; ++at) {
@@ -178,7 +183,7 @@ bool AddOpaqueCardImages(Geometry &geometry,
     }
     images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? kOpaqueByte : 0;
     images[1][at * 4] = Byte(static_cast<float>(0.5 * (Dot(n, right) + 1.0)));
-    images[1][at * 4 + 1] = Byte(static_cast<float>(0.5 * (1.0 - n[1])));
+    images[1][at * 4 + 1] = Byte(static_cast<float>(0.5 * (1.0 - Dot(n, frame->Up))));
     images[1][at * 4 + 2] = Byte(static_cast<float>(0.5 * (Dot(n, toward) + 1.0)));
     images[1][at * 4 + 3] = kOpaqueByte;
     images[2][at * 4] = kOpaqueByte;
@@ -189,35 +194,50 @@ bool AddOpaqueCardImages(Geometry &geometry,
   return AddPreparedCardImages(geometry, into, atlas.Pixels(), images);
 }
 
-}
-
-std::optional<Geometry>
-BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+std::optional<Geometry> SurfaceOf(const ImpostorAtlas &atlas,
+                                  size_t view,
+                                  ImpostorSurfaceDetail detail,
+                                  AlphaMode alpha,
+                                  size_t firstMip = 0) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
   const ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Metalness = material.Roughness = 1;
-  material.Alpha = AlphaMode::Masked;
-  const bool optical = std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
-    return row.Scattering == ScatteringModel::DiffuseThinSheet;
-  });
-  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source)
+  const bool optical =
+      alpha == AlphaMode::Blended || std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
+        return row.Scattering == ScatteringModel::DiffuseThinSheet;
+      });
+  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source, firstMip)
               : !AddOpaqueCardImages(geometry, material, atlas, source)) {
     return std::nullopt;
   }
+  material.Alpha = alpha;
   const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
   const auto createdPart = geometry.addPart("impostor", *surface);
   if (!createdPart) { return std::nullopt; }
   const int part = *createdPart;
   const Vec3 toward = source.TowardEye;
-  const Vec3 right{{toward[2], 0, -toward[0]}};
+  const auto frame = ImpostorViewFrame::From(toward);
+  if (!frame) { return std::nullopt; }
+  const Vec3 right = frame->Right;
   if (!AddDepthSurface(geometry, part, atlas, source, toward, right, detail)) {
     return std::nullopt;
   }
   return geometry;
+}
+}
+
+std::optional<Geometry>
+BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+  return SurfaceOf(atlas, view, detail, AlphaMode::Masked);
+}
+
+std::optional<Geometry>
+BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view, size_t firstMip) {
+  return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended, firstMip);
 }
 
 std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas, std::string &error) {

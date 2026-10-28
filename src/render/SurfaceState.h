@@ -16,7 +16,11 @@ class SurfaceState {
 public:
   [[nodiscard]] constexpr SurfaceKind Kind() const { return Kind_; }
 
-  [[nodiscard]] constexpr bool WritesDepth() const { return WritesDepth_; }
+  [[nodiscard]] static constexpr bool WritesDepth(SurfaceKind kind) {
+    return kind != SurfaceKind::Blended && kind != SurfaceKind::Refractive;
+  }
+
+  [[nodiscard]] constexpr bool WritesDepth() const { return WritesDepth(Kind_); }
 
   [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
 
@@ -31,7 +35,6 @@ private:
   friend constexpr SurfaceState StateOf(const Material &material);
 
   SurfaceKind Kind_ = SurfaceKind::Opaque;
-  bool WritesDepth_ = true;
   bool CullsBack_ = true;
   bool Blends_ = false;
   bool Emits_ = false;
@@ -47,7 +50,6 @@ constexpr SurfaceState StateOf(const Material &material) {
 
   if (material.Transmission > 0.0f && material.Thickness > 0.0f) {
     s.Kind_ = SurfaceKind::Refractive;
-    s.WritesDepth_ = false;
     s.Blends_ = true;
     return s;
   }
@@ -62,7 +64,6 @@ constexpr SurfaceState StateOf(const Material &material) {
 
     case AlphaMode::Blended:
       s.Kind_ = SurfaceKind::Blended;
-      s.WritesDepth_ = false;
       s.Blends_ = true;
       break;
   }

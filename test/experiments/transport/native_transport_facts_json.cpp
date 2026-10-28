@@ -28,6 +28,30 @@ void WriteBytes(std::FILE *f, std::span<const uint8_t> bytes) {
   std::print(f, "]");
 }
 
+namespace {
+void WriteWay(std::FILE *f, const MvtTransportWayFacts &w) {
+  std::print(
+      f,
+      R"({{"StreetWay":{},"Feature":{},"Ring":{},"PointCount":{},"HalfWidthWord":{},"MaximumGradientWord":{},"OwnsEnds":[{},{}],"EndStencil":[)",
+      w.StreetWay,
+      w.Feature,
+      w.Ring,
+      w.PointCount,
+      w.HalfWidthWord,
+      w.MaximumGradientWord,
+      w.OwnsEnds[0],
+      w.OwnsEnds[1]);
+  for (size_t i = 0; i < w.EndStencil.size(); ++i) {
+    std::print(f, R"({}{{"LongitudeDeg":)", i != 0 ? "," : "");
+    WriteCoordinate(f, w.EndStencil[i].LongitudeDeg);
+    std::print(f, R"(,"LatitudeDeg":)");
+    WriteCoordinate(f, w.EndStencil[i].LatitudeDeg);
+    std::print(f, "}}");
+  }
+  std::print(f, "]}}");
+}
+}
+
 void WriteSourceFacts(std::FILE *f,
                       const MvtTransportSourceFacts &facts,
                       const OsmField &field,
@@ -35,7 +59,7 @@ void WriteSourceFacts(std::FILE *f,
   const auto &identity = facts.Network->SourceIdentity();
   std::print(
       f,
-      R"({{"schema":"outshine/native-mvt-source-facts/2","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
+      R"({{"schema":"outshine/native-mvt-source-facts/3","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
       field.Tiles().front().InputDigest,
       tile[0],
       tile[1],
@@ -96,23 +120,26 @@ void WriteSourceFacts(std::FILE *f,
   std::print(f, R"(],"Ways":[)");
   at = 0;
   for (const auto &w : facts.Ways) {
-    std::print(
-        f,
-        R"({}{{"StreetWay":{},"Feature":{},"Ring":{},"PointCount":{},"HalfWidthWord":{},"MaximumGradientWord":{},"OwnsEnds":[{},{}],"EndStencil":[)",
-        at++ != 0 ? "," : "",
-        w.StreetWay,
-        w.Feature,
-        w.Ring,
-        w.PointCount,
-        w.HalfWidthWord,
-        w.MaximumGradientWord,
-        w.OwnsEnds[0],
-        w.OwnsEnds[1]);
-    for (size_t i = 0; i < w.EndStencil.size(); ++i) {
+    std::print(f, "{}", at++ != 0 ? "," : "");
+    WriteWay(f, w);
+  }
+  std::print(f, R"(],"OmissionsDigest":)");
+  WriteBytes(f, facts.OmissionsDigest);
+  std::print(f, R"(,"MissingWays":[)");
+  at = 0;
+  for (const auto &missing : facts.MissingWays) {
+    std::print(f, R"({}{{"Omission":{},"Way":)", at++ != 0 ? "," : "", missing.Omission);
+    WriteWay(f, missing.Way);
+    std::print(f,
+               R"(,"Layer":{},"Bridge":{},"Tunnel":{},"Points":[)",
+               missing.Layer,
+               missing.Bridge,
+               missing.Tunnel);
+    for (size_t i = 0; i < missing.Points.size(); ++i) {
       std::print(f, R"({}{{"LongitudeDeg":)", i != 0 ? "," : "");
-      WriteCoordinate(f, w.EndStencil[i].LongitudeDeg);
+      WriteCoordinate(f, missing.Points[i].LongitudeDeg);
       std::print(f, R"(,"LatitudeDeg":)");
-      WriteCoordinate(f, w.EndStencil[i].LatitudeDeg);
+      WriteCoordinate(f, missing.Points[i].LatitudeDeg);
       std::print(f, "}}");
     }
     std::print(f, "]}}");

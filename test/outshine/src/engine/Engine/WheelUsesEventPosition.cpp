@@ -8,7 +8,9 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts for UI composition");
   {
     Engine engine;
-    CHECK(engine.setRoots({.Shipped = "data", .Cache = {}, .AssetCache = {}}),
+    CHECK(engine.setRoots({.BuiltinDataDirectory = "data",
+                           .SourceCacheDirectory = {},
+                           .AssetCacheDirectory = {}}),
           "data roots are accepted");
     CHECK(engine.setRenderTarget(Extent{128, 128}).has_value(), "offscreen target is configured");
     Scenario::Document scene;

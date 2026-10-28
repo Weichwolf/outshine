@@ -6,14 +6,14 @@
 #include "Vec3.h"
 #include <string>
 
-#include "KernelShape.h"
+#include "PipelineShape.h"
 
 #include "FrameContext.h"
 #include "Gpu.h"
 #include <memory>
 #include <cstddef>
 #include "Atmosphere.h"
-#include "SkyPass.h"
+#include "SkyParameters.h"
 
 namespace outshine::Render {
 
@@ -29,7 +29,7 @@ public:
 
   [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu, Tables from);
 
-  void Declare(const Medium &medium, SkyStanding stands);
+  void Declare(const Medium &medium, SkyParameters parameters);
 
   void Eye(const Medium &medium, float eyeHeightM);
 

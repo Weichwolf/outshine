@@ -41,7 +41,10 @@ int main() {
        .Schema = {}});
   {
     auto sourceOnly = App::CreateEngine();
-    CHECK(sourceOnly.setRoots({.Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(sourceOnly.setRoots({.BuiltinDataDirectory = {},
+                               .SourceCacheDirectory = {},
+                               .Offline = true,
+                               .AssetCacheDirectory = {}}) &&
               sourceOnly.declare(document) && sourceOnly.assemble(),
           "renderer-free source declaration queues original data");
     CHECK(!sourceOnly.settled() && sourceOnly.unsettledReasons(WorldQuality::Playable)
@@ -62,7 +65,10 @@ int main() {
           "actual source bytes publish without an unused graph job");
     document.Routes.push_back({.Id = "incomplete", .OsmRelationId = 20});
     auto routed = App::CreateEngine();
-    CHECK(routed.setRoots({.Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}) &&
+    CHECK(routed.setRoots({.BuiltinDataDirectory = {},
+                           .SourceCacheDirectory = {},
+                           .Offline = true,
+                           .AssetCacheDirectory = {}}) &&
               routed.declare(document) && routed.assemble(),
           "the same original data admits an explicit route request");
     const auto loaded = routed.preload(2.0);

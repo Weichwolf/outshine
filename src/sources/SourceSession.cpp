@@ -12,14 +12,14 @@ namespace outshine::Data {
 std::expected<std::shared_ptr<SourceSession>, std::string>
 SourceSession::Open(const RawSourceCache::Config &config,
                     std::span<const SourceProvider> providers,
-                    std::string_view shippedRoot,
+                    std::string_view builtinDataDirectory,
                     const ProviderRegistry &registry) {
   if (auto valid = ValidateSourceProviders(providers, registry); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
   auto session = std::shared_ptr<SourceSession>(new SourceSession(config));
   std::string error;
-  if (!RegisterSources(session->Sources_, providers, shippedRoot, error, registry)) {
+  if (!RegisterSources(session->Sources_, providers, builtinDataDirectory, error, registry)) {
     return std::unexpected(std::move(error));
   }
   session->Sources_.Seal();

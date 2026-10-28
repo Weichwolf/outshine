@@ -108,14 +108,18 @@ void AddMembers(MvtTransportSourceFacts &facts,
 
 }
 
-bool FitsSourceFacts(const SourceFactInput &input, size_t groups, size_t bytesMost) {
+bool FitsSourceFacts(const SourceFactInput &input,
+                     size_t groups,
+                     size_t bytesMost,
+                     const std::stop_token &stop) {
   return Consume(1, sizeof(MvtTransportSourceFacts), bytesMost) &&
          Consume(groups, sizeof(MvtTransportSourceGroup), bytesMost) &&
          Consume(input.Segments.size(), 2 * sizeof(MvtTransportSourceMember), bytesMost) &&
          Consume(input.SourceRows.StreetWays.size(), sizeof(MvtTransportWayFacts), bytesMost) &&
          Consume(input.SourceRows.StreetWays.size(), sizeof(uint32_t), bytesMost) &&
          Consume(input.Network.NodeCount(), sizeof(uint64_t), bytesMost) &&
-         Consume(input.Network.EdgeCount(), sizeof(RawSpan), bytesMost);
+         Consume(input.Network.EdgeCount(), sizeof(RawSpan), bytesMost) &&
+         FitsMissingSourceWays(input, bytesMost, stop);
 }
 
 std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
@@ -137,6 +141,7 @@ std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
                                       ? group.OriginalEndpointCount - group.MemberCount
                                       : 0;
   }
-  return FillSourceWayFacts(facts, input, stop);
+  if (auto ways = FillSourceWayFacts(facts, input, stop); !ways) { return ways; }
+  return FillMissingSourceWays(facts, input, stop);
 }
 }

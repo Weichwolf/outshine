@@ -37,9 +37,9 @@ ApiRegion::Create(const Data::SourceProvider &provider,
                   Data::RawSourceCache &store,
                   Data::SourceTransport &wire,
                   const Data::ProviderRegistry *registry,
-                  std::string_view shippedRoot,
+                  std::string_view builtinDataDirectory,
                   std::optional<GeoCellId> cell) {
-  auto source = ConfiguredSource(provider, shippedRoot, registry);
+  auto source = ConfiguredSource(provider, builtinDataDirectory, registry);
   if (!source) { return std::unexpected(std::move(source.error())); }
   if ((*source)->Declaration().Kind != Data::DataKind::OriginalOsm ||
       (*source)->Declaration().Wire != Data::WireFormat::OsmXml) {

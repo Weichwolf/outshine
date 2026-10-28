@@ -1,4 +1,5 @@
 #include "ImpostorAtlas.h"
+#include "ImpostorViewFrame.h"
 
 #include "Digest.h"
 #include "MaterialValidation.h"
@@ -34,7 +35,6 @@ constexpr size_t kAtlasSampleBytes = 5 * sizeof(float);
 constexpr size_t kAtlasChecksumBytes = sizeof(uint64_t);
 constexpr size_t kMostAtlasTexels = 1u << 24u;
 constexpr size_t kMostAtlasSurfaces = 64;
-constexpr double kUnitDirectionSquaredTolerance = 1e-12;
 constexpr float kCapturedNormalSquaredTolerance = 0.003f;
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
 static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
@@ -163,9 +163,7 @@ bool ValidSample(const ImpostorAtlas::SurfaceSample &sample) {
 
 bool ValidView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) {
   const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
-  const double norm = Dot(view.TowardEye, view.TowardEye);
-  if (!std::isfinite(norm) || std::abs(norm - 1) > kUnitDirectionSquaredTolerance ||
-      view.TowardEye[1] != 0 || view.Texels.size() != texels ||
+  if (!ImpostorViewFrame::From(view.TowardEye) || view.Texels.size() != texels ||
       (!view.Materials.empty() &&
        (view.Materials.size() != texels || !std::ranges::all_of(view.Materials, ValidSample)))) {
     return false;
@@ -234,6 +232,11 @@ std::optional<size_t> ImpostorAtlas::EncodedBytesMost(ImpostorAtlasShape shape) 
 
 std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view provenance,
                                                           std::string &error) const {
+  return Encode(provenance, std::numeric_limits<size_t>::max(), error);
+}
+
+std::optional<std::vector<uint8_t>>
+ImpostorAtlas::Encode(std::string_view provenance, size_t bytesMost, std::string &error) const {
   if (provenance.empty() || !Valid(*this)) {
     error = "impostor artifact requires provenance, valid samples and supported materials";
     return std::nullopt;
@@ -245,12 +248,17 @@ std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view prove
   const uint32_t version = (composed ? kAtlasVersion : 1) + (optical ? 2u : 0u);
   const size_t materialBytes = optical ? kOpticalMaterialBytes : kAtlasMaterialBytes;
   const size_t texelBytes = kAtlasTexelBytes + (composed ? kAtlasSampleBytes : 0);
+  const size_t bytes =
+      kAtlasHeaderBytes + Surfaces_.size() * materialBytes +
+      Views_.size() * (kAtlasViewBytes +
+                       static_cast<size_t>(Pixels_) * static_cast<size_t>(Pixels_) * texelBytes) +
+      kAtlasChecksumBytes;
+  if (bytes > bytesMost) {
+    error = "impostor artifact exceeds its byte budget";
+    return std::nullopt;
+  }
   AtlasWriter out;
-  out.Bytes.reserve(kAtlasHeaderBytes + Surfaces_.size() * materialBytes +
-                    Views_.size() *
-                        (kAtlasViewBytes +
-                         static_cast<size_t>(Pixels_) * static_cast<size_t>(Pixels_) * texelBytes) +
-                    kAtlasChecksumBytes);
+  out.Bytes.reserve(bytes);
   out.Put(kAtlasMagic);
   out.Put(version);
   out.Put(Provenance(provenance));

@@ -14,7 +14,7 @@ struct BuildingPageMaterials {
 
 class BuildingPageView {
 public:
-  BuildingPageView(const Generators::BakedTile &baked, BuildingPageMaterials materials);
+  BuildingPageView(const Generators::BakedTile &baked, const BuildingPageMaterials &materials);
   [[nodiscard]] Render::GeometryPageView View() const noexcept;
 
 private:

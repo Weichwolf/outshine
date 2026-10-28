@@ -35,8 +35,10 @@ set(OUTSHINE_COMPONENT_ROOTS
   generators/weather/inputs
   generators/weather/providers
   render
+  render/device
   render/device/native
   render/frame
+  render/pipelines
   render/plan
   render/temporal
   render/view
@@ -110,7 +112,8 @@ target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_stor
   PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
 target_link_libraries(outshine_content_shade PUBLIC outshine_base PRIVATE PkgConfig::sdl3)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
-target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render)
+target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render_pipelines
+  PRIVATE PkgConfig::sdl3)
 target_link_libraries(outshine_engine_scenario PUBLIC outshine_base outshine_scenario outshine_world_entity)
 target_link_libraries(outshine_engine PUBLIC outshine_engine_scenario outshine_base outshine_content outshine_world outshine_generators outshine_simulation outshine_render outshine_scenario outshine_scripting outshine_ui outshine_audio outshine_diagnostics outshine_sources outshine_engine_streaming)
 target_link_libraries(outshine_engine_streaming PUBLIC outshine_base outshine_content outshine_world outshine_generators outshine_render outshine_sources)
@@ -139,9 +142,11 @@ target_link_libraries(outshine_generators_weather_providers PUBLIC outshine_base
 target_link_libraries(outshine_scripting PRIVATE qjs Threads::Threads)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3)
-target_link_libraries(outshine_render PUBLIC outshine_base outshine_content_shade outshine_world outshine_ui_paint outshine_render_device_native outshine_render_frame outshine_render_plan outshine_render_view)
+target_link_libraries(outshine_render PUBLIC outshine_base outshine_content_shade outshine_world outshine_ui_paint outshine_render_device outshine_render_frame outshine_render_pipelines outshine_render_plan outshine_render_view)
+target_link_libraries(outshine_render_device PUBLIC outshine_base outshine_render_device_native)
 target_link_libraries(outshine_render_device_native PUBLIC outshine_render_device_api
   PRIVATE Threads::Threads PkgConfig::sdl3 PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
+target_link_libraries(outshine_render_pipelines PUBLIC outshine_base outshine_render_device)
 target_link_libraries(outshine_render_plan PUBLIC outshine_base outshine_render_device_api)
 target_link_libraries(outshine_render_frame PUBLIC outshine_render_plan)
 target_link_libraries(outshine_render_temporal PUBLIC outshine_base)

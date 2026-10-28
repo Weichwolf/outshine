@@ -1,5 +1,7 @@
 #include "GeometryCullStage.h"
-#include "StagePipelines.h"
+#include "GeometryHierarchy.h"
+#include "RenderCatalogue.h"
+#include "PipelineFactory.h"
 #include "Units.h"
 #include <array>
 #include <atomic>
@@ -12,9 +14,11 @@
 #include <utility>
 
 namespace outshine::Render {
+static_assert(sizeof(GeometryRoot) == kHierarchyRootStride);
+
 namespace {
 constexpr size_t kPlaneFloats = 24;
-std::atomic<uint32_t> gJobsSwept{0};
+std::atomic<uint32_t> gJobsAdmitted{0};
 
 void PlanesOf(const Mat4f &mvp, std::span<float, kPlaneFloats> out, const Vec2f &guard = {}) {
   const auto row = [mvp](int r, int c) { return mvp[c * 4 + r]; };
@@ -62,6 +66,8 @@ Native::Result<void> GeometryCullStage::Configure(Source source, const Gpu &gpu)
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "culling requires a device"});
   }
+  const auto root = EnsurePipeline(*gpu.Device, RootShader, Root_);
+  if (!root) { return root; }
   const auto cull = EnsurePipeline(*gpu.Device, CullShader, Cull_);
   if (!cull) { return cull; }
   const auto scan = EnsurePipeline(*gpu.Device, ScanShader, Scan_);
@@ -74,14 +80,15 @@ Native::Result<void> GeometryCullStage::Configure(Source source, const Gpu &gpu)
 
 void GeometryCullStage::Binds(Source source) noexcept {
   if (Source_.Resident != source.Resident || Source_.AnchorM != source.AnchorM ||
-      Source_.Jobs != source.Jobs || Source_.BatchRows != source.BatchRows) {
+      Source_.Jobs != source.Jobs || Source_.BatchRows != source.BatchRows ||
+      Source_.Hierarchy != source.Hierarchy) {
     Invalidate();
   }
   Source_ = source;
 }
 
-uint32_t GeometryCullStage::JobsSweptTaken() {
-  return gJobsSwept.load(std::memory_order_relaxed);
+uint32_t GeometryCullStage::JobsAdmittedTaken() {
+  return gJobsAdmitted.load(std::memory_order_relaxed);
 }
 
 void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProjection &projection) {
@@ -112,9 +119,9 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
   }
 }
 
-Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
-                                                   const PassRecording &into,
-                                                   const SelectionProjection &projection) {
+Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
+                                                    const PassRecording &into,
+                                                    const SelectionProjection &projection) {
   Swept_ = 0;
   const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
@@ -126,49 +133,46 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
                    (!unchanged || (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {
-    gJobsSwept.store(0, std::memory_order_relaxed);
+    gJobsAdmitted.store(0, std::memory_order_relaxed);
     return {};
   }
   Cache_.Invalidate();
-  if (!Cull_ || into.Commands == nullptr) {
+  if (!Root_ || Source_.Hierarchy == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "culling stage is not configured"});
   }
   const auto &resident = *Source_.Resident;
   using S = GeometryResidency::Stream;
-  const std::array read{resident.Buffer(S::ClusterSpheres).get(),
-                        resident.Buffer(S::ClusterJobs).get(),
+  const std::array read{resident.Buffer(S::ClusterRoots).get(),
                         resident.Buffer(S::Placements).get(),
-                        resident.Buffer(S::DrawArguments).get(),
-                        PyramidBuffer_ != nullptr ? PyramidBuffer_
-                                                  : resident.Buffer(S::ClusterSpheres).get()};
+                        resident.Buffer(S::ClusterReset).get(),
+                        resident.Buffer(S::ClusterChunks).get(),
+                        resident.Buffer(S::ClusterChunkState).get(),
+                        resident.Buffer(S::ClusterVisible).get()};
   for (const auto *buffer : read) {
     if (buffer == nullptr) {
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                           .Message = "culling source buffer is missing"});
+                                           .Message = "root culling buffer is missing"});
     }
   }
-  const auto *kept = resident.Buffer(S::ClusterKept).get();
-  if (kept == nullptr) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "culling output buffer is missing"});
-  }
+  auto *chunkState = resident.Buffer(S::ClusterChunkState).get();
+  const auto reset =
+      into.Commands->Copy(*read[2], *chunkState, {.Bytes = sizeof(GeometryQueueState)});
+  if (!reset) { return reset; }
   Standing(ctx, projection);
+  const auto &hierarchy = *Source_.Hierarchy;
   const std::array bindings{
       Storage(0, 0, *read[0]),
       Storage(0, 1, *read[1]),
-      Storage(0, 2, *read[2]),
-      Storage(0, 3, *read[3]),
-      Storage(0, 4, *read[4]),
-      Storage(1, 0, *kept),
+      Storage(1, 0, *read[3]),
+      Storage(1, 1, *read[4]),
+      Storage(1, 2, *read[5]),
+      Native::Binding{
+          .Set = 2, .Slot = 0, .Value = Native::Uniform{std::as_bytes(std::span(&View_, 1))}},
       Native::Binding{.Set = 2,
-                      .Slot = 0,
-                      .Value =
-                          Native::Uniform{.Bytes = std::as_bytes(std::span{&View_, size_t{1}})}}};
-  const auto encoded = into.Commands->Dispatch(
-      *Cull_,
-      bindings,
-      {.X = (Source_.Jobs + CullShape.GroupX - 1u) / CullShape.GroupX, .Y = 1, .Z = 1});
+                      .Slot = 1,
+                      .Value = Native::Uniform{std::as_bytes(std::span(&hierarchy.View, 1))}}};
+  const auto encoded = into.Commands->Dispatch(*Root_, bindings, hierarchy.RootGroups);
   if (!encoded) { return encoded; }
   LastProjection_ = projection;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
@@ -176,68 +180,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const FrameContext &ctx,
   LastGroundGeneration_ = Source_.GroundGeneration;
   Refined_ = OccludeThisFrame_;
   Swept_ = Source_.Jobs;
-  gJobsSwept.store(Swept_, std::memory_order_relaxed);
-  return {};
-}
-
-Native::Result<void> GeometryCullStage::EncodeScan(const PassRecording &into) {
-  if (!CullThisFrame_) { return {}; }
-  if (!Scan_ || Source_.Resident == nullptr || into.Commands == nullptr || Source_.BatchRows == 0) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "cull scan is not configured"});
-  }
-  const auto &resident = *Source_.Resident;
-  using S = GeometryResidency::Stream;
-  const std::array buffers{resident.Buffer(S::ClusterKept).get(),
-                           resident.Buffer(S::ClusterBatches).get(),
-                           resident.Buffer(S::ClusterSlot).get(),
-                           resident.Buffer(S::DrawArguments).get()};
-  for (const auto *buffer : buffers) {
-    if (buffer == nullptr) {
-      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                           .Message = "cull scan buffer is missing"});
-    }
-  }
-  const std::array bindings{Storage(0, 0, *buffers[0]),
-                            Storage(0, 1, *buffers[1]),
-                            Storage(1, 0, *buffers[2]),
-                            Storage(1, 1, *buffers[3])};
-  return into.Commands->Dispatch(*Scan_, bindings, {.X = Source_.BatchRows, .Y = 1, .Z = 1});
-}
-
-Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into) {
-  if (!CullThisFrame_) { return {}; }
-  if (!Compact_ || Source_.Resident == nullptr || into.Commands == nullptr) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "cull compaction is not configured"});
-  }
-  const auto &resident = *Source_.Resident;
-  using S = GeometryResidency::Stream;
-  const std::array buffers{resident.Buffer(S::ClusterJobs).get(),
-                           resident.Buffer(S::Index).get(),
-                           resident.Buffer(S::ClusterSlot).get(),
-                           resident.Buffer(S::DrawArguments).get(),
-                           resident.Buffer(S::DrawIndex).get()};
-  for (const auto *buffer : buffers) {
-    if (buffer == nullptr) {
-      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                           .Message = "cull compaction buffer is missing"});
-    }
-  }
-  const std::array bindings{
-      Storage(0, 0, *buffers[0]),
-      Storage(0, 1, *buffers[1]),
-      Storage(0, 2, *buffers[2]),
-      Storage(0, 3, *buffers[3]),
-      Storage(1, 0, *buffers[4]),
-      Native::Binding{.Set = 2,
-                      .Slot = 0,
-                      .Value =
-                          Native::Uniform{.Bytes = std::as_bytes(std::span{&View_, size_t{1}})}}};
-  const auto encoded =
-      into.Commands->Dispatch(*Compact_, bindings, {.X = Source_.Jobs, .Y = 1, .Z = 1});
-  if (!encoded) { return encoded; }
-  into.Submission.Record(Stage::GeometryCompact, Cache_);
+  gJobsAdmitted.store(Swept_, std::memory_order_relaxed);
   return {};
 }
 

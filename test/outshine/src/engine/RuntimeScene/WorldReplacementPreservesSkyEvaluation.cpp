@@ -1,6 +1,8 @@
+#include <chrono>
 #include <cstdint>
 #include <cstddef>
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WorldCandidate.h"
 #include "Check.h"
 
@@ -29,6 +31,7 @@ int main() {
     CHECK(geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}), "native indices stand");
     for (const bool withGeometry : {false, true}) {
       Render::SceneRenderer renderer;
+      const auto uploads = renderer.OfflineUploads(std::chrono::seconds(5));
       Core::Declaration declaration;
       declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 16;
       declaration.KeyFromClock = true;

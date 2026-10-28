@@ -113,7 +113,7 @@ void Exercise(DepthRequest requestedDepth) {
   eye.ZFarM = kFarM;
   eye.YfovRad = 1;
   scene->Eye(eye);
-  CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(scene->Draw(error) && GeometryCullStage::JobsAdmittedTaken() > 0,
         "the initial selection is actually generated");
   std::vector<float> initial;
   CHECK(renderer.ReadDepth(initial) == ReadState::Ready &&
@@ -121,7 +121,7 @@ void Exercise(DepthRequest requestedDepth) {
         "the clustered triangle produces real depth");
   bool rasterChanged = false;
   for (unsigned at = 0; at < 32; ++at) {
-    CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() == 0,
+    CHECK(scene->Draw(error) && GeometryCullStage::JobsAdmittedTaken() == 0,
           "two complete jitter periods reuse selection without GPU cull/scan/compact");
     std::vector<float> depth;
     CHECK(renderer.ReadDepth(depth) == ReadState::Ready, "jittered depth is readable");
@@ -132,13 +132,13 @@ void Exercise(DepthRequest requestedDepth) {
   scene->Eye(eye);
   reject = true;
   CHECK(!scene->Draw(error) && !reject, "a moved frame can be rejected after selection recording");
-  CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(scene->Draw(error) && GeometryCullStage::JobsAdmittedTaken() > 0,
         "retry never reuses an unsubmitted selection");
-  CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() == 0,
+  CHECK(scene->Draw(error) && GeometryCullStage::JobsAdmittedTaken() == 0,
         "the accepted moved view settles again");
   eye.YfovRad = kNarrowFovRad;
   scene->Eye(eye);
-  CHECK(scene->Draw(error) && GeometryCullStage::JobsSweptTaken() > 0,
+  CHECK(scene->Draw(error) && GeometryCullStage::JobsAdmittedTaken() > 0,
         "projection changes invalidate the selection");
   PlanTransitions(renderer, *scene, error);
 }

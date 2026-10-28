@@ -5,7 +5,7 @@
 
 #include "Extent.h"
 #include "UiPaint.h"
-#include "KernelShape.h"
+#include "PipelineShape.h"
 
 #include "FrameContext.h"
 #include "Gpu.h"

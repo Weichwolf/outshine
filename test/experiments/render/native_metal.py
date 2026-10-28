@@ -29,8 +29,8 @@ def run(command, log=None):
 
 def native_api(output, glslang, toolchain, link_flags):
     shaders = []
-    inputs = [ROOT / "src/render/shaders" / name
-              for name in ("geometryScan.comp", "geometryCompact.comp")]
+    inputs = [ROOT / "src/render/shaders/geometryScan.comp",
+              Path(__file__).with_name("native_scatter.comp")]
     inputs.append(Path(__file__).with_name("native_buffer_lengths.comp"))
     for source in inputs:
         name = source.name
@@ -41,7 +41,7 @@ def native_api(output, glslang, toolchain, link_flags):
         shaders.append(str(destination))
     run(["make", "db"])
     database = json.loads((ROOT / "compile_commands.json").read_text())
-    stage = next(item for item in database if Path(item["file"]).name == "StagePipelines.cpp")
+    stage = next(item for item in database if Path(item["file"]).name == "PresentStage.cpp")
     arguments = stage.get("arguments") or shlex.split(stage["command"])
     includes = [flag for flag in arguments if flag.startswith("-I")]
     backend = ROOT / "src/render/device/native/metal"
@@ -241,8 +241,8 @@ def main():
                for stage in ("glsl", "vert", "frag", "comp")),
              Path(__file__).with_name("native_depth_clamp.vert"),
              Path(__file__).with_name("native_depth_clamp.frag"),
-             ROOT / "src/render/stages/StagePipelines.cpp",
-             ROOT / "src/render/stages/StagePipelines.h",
+             ROOT / "src/render/pipelines/PipelineFactory.cpp",
+             *(ROOT / "src/render/pipelines").glob("*.h"),
              ROOT / "src/render/device/SpirvFile.cpp",
              ROOT / "src/render/device/SpirvFile.h",
              ROOT / "src/render/device/ReadbackTransfer.cpp",
@@ -264,8 +264,8 @@ def main():
              ROOT / "test/harness/render/NativeSubmissionTimingProbe.cpp",
              Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/geometryScan.comp",
-             ROOT / "src/render/shaders/geometryCompact.comp",
-             ROOT / "src/render/shaders/cullView.glsl", *backend_sources,
+             Path(__file__).with_name("native_scatter.comp"),
+             *backend_sources,
              Path(__file__).with_name("native_buffer_lengths.comp"),
              *(ROOT / "src/render/device/native").glob("*.h"),
              *(ROOT / "src/render/device/native/metal").glob("*.h")]

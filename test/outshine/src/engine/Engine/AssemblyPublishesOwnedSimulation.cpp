@@ -1,13 +1,23 @@
 #include <Engine.h>
 #include "Check.h"
-#include <array>
+#include "TestEngine.h"
 #include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <limits>
-#include <string>
-#include <unistd.h>
+
+namespace {
+void CheckPublishedTraits(outshine::Engine &engine) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto &runtime = *TestEngine::StateOf(engine).ScenarioState;
+  CHECK(&runtime.Entities.Registry() == &engine.entities(),
+        "published component columns refer to the live World::EntityRegistry");
+  const auto holder = runtime.Stood.InstanceNamed("kept");
+  const auto key = runtime.Stood.TraitKey("health");
+  const auto *traits = runtime.Attributes.Get(holder);
+  const auto *value = traits == nullptr ? nullptr : traits->Named(key);
+  CHECK(value != nullptr && *value == 23, "native component value survives publication");
+}
+}
 
 int main() {
   using namespace outshine;
@@ -22,7 +32,6 @@ int main() {
   instance.Of = "actor";
   instance.Id = "kept";
   scene.Instances.push_back(instance);
-  scene.State.push_back({.What = "kept.health"});
   Scenario::Body body;
   body.Name = "template";
   scene.Bodies.push_back(body);
@@ -42,17 +51,7 @@ int main() {
   CHECK(marker.has_value(), "spare entity capacity remains usable after publication");
   if (!marker) { return Report(); }
   CHECK(original->alive(*marker), "spare entity capacity remains usable after publication");
-  const auto path = std::filesystem::temp_directory_path() /
-                    ("outshine-assembly-owner-" + std::to_string(getpid()) + ".save");
-  const auto saved = engine.save(path.string());
-  CHECK(saved.has_value(),
-        "published component columns still refer to the live World::EntityRegistry");
-  if (saved) {
-    std::ifstream file(path);
-    const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    CHECK(text.contains("kept.health 23\n"), "native component value survives publication");
-  }
-  std::filesystem::remove(path);
+  CheckPublishedTraits(engine);
   auto invalid = scene;
   invalid.Instances[0].Of = "missing";
   CHECK(engine.declare(invalid).has_value(), "new declaration awaits assembly validation");
@@ -62,6 +61,7 @@ int main() {
   if (&engine.entities() != original) { return Report(); }
   CHECK(original->alive(*marker),
         "failed assembly preserves existing entities and spare allocations");
+  CheckPublishedTraits(engine);
   for (const size_t reserve : {size_t{65536}, std::numeric_limits<size_t>::max()}) {
     auto excessive = scene;
     excessive.Room = reserve;
@@ -69,11 +69,10 @@ int main() {
     CHECK(!engine.assemble(), "capacity budget and arithmetic overflow rejected");
     CHECK(&engine.entities() == original && original->alive(*marker),
           "budget rejection preserves live scene");
+    CheckPublishedTraits(engine);
   }
   CHECK(engine.declare(scene) && engine.assemble(), "valid reassembly recovers after rejection");
-  CHECK(engine.save(path.string()).has_value(),
-        "replacement component columns retain valid ownership");
-  std::filesystem::remove(path);
+  CheckPublishedTraits(engine);
   CHECK(engine.declare({}) && engine.assemble(), "empty simulation assembles without a renderer");
   CHECK(engine.entities().capacity() == 0, "empty assembly removes previous entity storage");
   return Report();

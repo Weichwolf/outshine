@@ -1,6 +1,7 @@
 #include <utility>
 #include "Check.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WorldCandidate.h"
 
 #include <SDL3/SDL.h>

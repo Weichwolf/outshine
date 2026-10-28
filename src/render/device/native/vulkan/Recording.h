@@ -60,6 +60,10 @@ public:
   [[nodiscard]] Result<void> Dispatch(const ComputePipeline &pipeline,
                                       std::span<const Binding> bindings,
                                       Workgroups groups) override;
+  [[nodiscard]] Result<void> DispatchIndirect(const ComputePipeline &pipeline,
+                                              std::span<const Binding> bindings,
+                                              const Buffer &arguments,
+                                              uint64_t offset) override;
   [[nodiscard]] Result<void> BeginRenderPass(const RenderPassDescription &description) override;
   [[nodiscard]] Result<void> Draw(const DrawDescription &description) override;
   [[nodiscard]] Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
@@ -88,6 +92,8 @@ private:
                                                   TextureView view);
   [[nodiscard]] Result<void> FinalizePresentation();
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &buffer);
+  [[nodiscard]] Result<void> BindCompute(const ComputePipeline &pipeline,
+                                         std::span<const Binding> bindings);
   [[nodiscard]] Result<void>
   UseImage(const std::shared_ptr<ImageState> &image, TextureView view, ImageAccess access);
   void ForgetImageRead(const ImageState &image) noexcept;

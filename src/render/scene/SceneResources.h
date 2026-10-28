@@ -6,6 +6,8 @@
 #include "PieceMesh.h"
 #include "GroundTile.h"
 #include "MaterialBinding.h"
+#include "MaterialSource.h"
+#include "MaterialRegistry.h"
 #include "TerrainTile.h"
 #include "PrismInstance.h"
 #include <PrismGrid.h>
@@ -68,10 +70,12 @@ public:
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePieceRestore(GeometryRenderer &geometry, size_t &nextPiece, size_t piecesMost);
 
-  [[nodiscard]] std::expected<uint32_t, std::string>
+  [[nodiscard]] std::expected<MaterialRegistration, std::string>
   RegisterPieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source);
   [[nodiscard]] bool
   RestorePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
+  [[nodiscard]] bool
+  PreparePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
@@ -81,12 +85,12 @@ public:
   PlacePrismGrid(GeometryRenderer &geometry,
                  std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 uint32_t material);
+                 const MaterialRegistration &material);
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &geometry,
                                                       PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
-                                                      uint32_t material);
+                                                      const MaterialRegistration &material);
   [[nodiscard]] Native::Result<void> SetPrismGridInstances(
       GeometryRenderer &geometry, PrismGridHandle which, std::span<const PrismInstance> instances);
   void ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandle which);
@@ -156,17 +160,7 @@ private:
     [[nodiscard]] PieceMesh Mesh() const noexcept;
   };
 
-  struct PieceMaterials {
-    Geometry Source;
-    std::vector<MaterialBinding> Slots;
-  };
-
-  [[nodiscard]] static std::expected<PieceMaterials, std::string>
-  ResolvePieceMaterials(Geometry source);
-  [[nodiscard]] bool AppendPieceMaterials(GeometryRenderer &geometry,
-                                          GeometryRenderer *glass,
-                                          const PieceMaterials &materials,
-                                          std::string &error);
+  [[nodiscard]] bool HasMaterialRegistration(const MaterialRegistration &material) const noexcept;
 
   struct HeightPage {
     ResourceSlotState State{};
@@ -178,7 +172,7 @@ private:
     ResourceSlotState State{};
     std::shared_ptr<const PrismGrid> Source;
     std::vector<PrismInstance> Instances;
-    uint32_t Material = 0;
+    MaterialRegistration Material;
     uint64_t Resident = 0;
   };
 
@@ -191,8 +185,7 @@ private:
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
-  std::vector<std::shared_ptr<const PieceMaterials>> PieceMaterials_;
-  std::vector<uint32_t> RegisteredPieceSlots_;
+  MaterialRegistry Materials_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
   std::vector<PrismSource> PrismGrids_;

@@ -45,7 +45,7 @@ void SameWorld(const MvtTransportSnapshot &a, const MvtTransportSnapshot &b) {
                     e.Access);
   };
   const auto omission = [](const MvtTransportOmission &o) {
-    return std::tie(o.Source, o.Feature, o.Reason);
+    return std::tie(o.Source, o.Feature, o.Fragment, o.Reason);
   };
   CHECK(a.Network->SourceIdentity() == b.Network->SourceIdentity() &&
             std::ranges::equal(

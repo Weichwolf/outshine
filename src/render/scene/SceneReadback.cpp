@@ -1,13 +1,19 @@
 #include "SceneRenderer.h"
 #include "DepthPyramid.h"
 #include "EnvironmentSpecularLayout.h"
+#include "ReadbackTransfer.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace outshine::Render {
@@ -23,6 +29,43 @@ constexpr int kSingleExponentBias = 127;
 constexpr unsigned kSingleMantissaBits = 23u;
 constexpr unsigned kMantissaWiden = kSingleMantissaBits - kHalfMantissaBits;
 constexpr uint32_t kSingleInfinity = 0x7F800000u;
+
+bool ReadSelectionQueues(Native::Device *device,
+                         const GeometryResidency &resident,
+                         KeptDraws &into) {
+  for (const auto &[stream, state] :
+       std::array{std::pair{GeometryResidency::Stream::ClusterChunkState, &into.RootWork},
+                  std::pair{GeometryResidency::Stream::ClusterSelectedState, &into.ClusterWork}}) {
+    Readback queue;
+    const auto *buffer = resident.Buffer(stream).get();
+    if (buffer == nullptr || queue.FromBuffer(device, buffer, sizeof(*state)) != ReadState::Ready) {
+      return false;
+    }
+    std::memcpy(state, queue.Rows(), sizeof(*state));
+    into.ReadbackBytes += sizeof(*state);
+  }
+  return true;
+}
+
+bool MaskRejectedRoots(Native::Device *device,
+                       const GeometryResidency &resident,
+                       std::span<const DrawBatch> batches,
+                       std::span<uint32_t> into) {
+  Readback roots;
+  const auto *visible = resident.Buffer(GeometryResidency::Stream::ClusterVisible).get();
+  const auto bytes = static_cast<uint32_t>(batches.size() * sizeof(uint32_t));
+  if (visible == nullptr || roots.FromBuffer(device, visible, bytes) != ReadState::Ready) {
+    return false;
+  }
+  const auto *status = reinterpret_cast<const uint32_t *>(roots.Rows());
+  size_t logical = 0;
+  for (size_t at = 0; at < batches.size(); ++at) {
+    if (batches[at].JobCount > into.size() - logical) { return false; }
+    if (status[at] == 0) { std::ranges::fill(into.subspan(logical, batches[at].JobCount), 0u); }
+    logical += batches[at].JobCount;
+  }
+  return logical == into.size();
+}
 
 float HalfToFloat(uint16_t bits) {
   const auto held = static_cast<uint32_t>(bits);
@@ -167,23 +210,37 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
+ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
   into = {};
-  const GeometryResidency &resident = ActiveState().Content.Geometry().Resident();
+  const GeometryResidency &resident = ActiveContent().Geometry().Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
-  const uint32_t rows = ActiveState().Content.Geometry().ClusterBatchRows();
-  if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
+  const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
+  if (!ActiveState().Ready || !ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr ||
+      rows == 0) {
+    return ReadState::Failed;
+  }
+  if (!ReadSelectionQueues(Device_.get(), resident, into)) {
+    into = {};
+    return ReadState::Failed;
+  }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
-  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
+  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) {
+    into = {};
+    return ReadState::Failed;
+  }
   const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
-  into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  into.ReadbackBytes += bytes;
+  if (detail == GeometryReadback::Indices) {
+    into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  }
   for (uint32_t at = 0; at < rows; ++at) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
-  const uint32_t jobs = ActiveState().Content.Geometry().ClusterJobs();
+  if (detail == GeometryReadback::Counters) { return ReadState::Ready; }
+  const uint32_t jobs = ActiveContent().Geometry().ClusterJobs();
   const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;
@@ -194,17 +251,41 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     }
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
+    into.ReadbackBytes += keptBytes;
+    if (!MaskRejectedRoots(
+            Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.Visibility)) {
+      into = {};
+      return ReadState::Failed;
+    }
+    into.ReadbackBytes += rows * sizeof(uint32_t);
   }
   const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
-  const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
-  if (drawn.FromBuffer(Device_.get(), index, indexBytes) != ReadState::Ready) {
+  uint64_t end = 0;
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
+  }
+  const uint64_t indexBytes = end * sizeof(uint32_t);
+  if (indexBytes > index->Description().Bytes ||
+      indexBytes > std::numeric_limits<uint32_t>::max() ||
+      drawn.FromBuffer(Device_.get(), index, static_cast<uint32_t>(indexBytes)) !=
+          ReadState::Ready) {
     into = {};
     return ReadState::Failed;
   }
-  const auto *const indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
-  into.DrawIndex.assign(indices, indices + into.Indices);
+  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.ReadbackBytes += indexBytes;
+  into.DrawIndex.reserve(into.Indices);
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) {
+      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
+    }
+  }
   return ReadState::Ready;
 }
 
@@ -329,6 +410,71 @@ ReadState SceneRenderer::ReadSurfaceMetalRough(std::vector<float> &rg) {
                         {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
                         2,
                         rg);
+}
+
+ReadState SceneRenderer::ReadSurface(SurfaceReadback &surface) {
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  constexpr std::array resources{Resource::SceneDepth,
+                                 Resource::SceneShadingNormal,
+                                 Resource::SceneSurfaceIdentity,
+                                 Resource::SceneSurfaceBase,
+                                 Resource::SceneSurfaceMetalRough};
+  constexpr std::array formats{Native::Format::Depth32Float,
+                               Native::Format::Rgba16Float,
+                               Native::Format::Rgba32Float,
+                               Native::Format::Rgba16Float,
+                               Native::Format::Rg16Float};
+  const Native::TextureRegion region{.Width = static_cast<uint32_t>(ActiveFrame().Width),
+                                     .Height = static_cast<uint32_t>(ActiveFrame().Height)};
+  std::array<TextureReadback, resources.size()> sources;
+  std::array<ReadbackSlice, resources.size()> slices;
+  for (size_t at = 0; at < resources.size(); ++at) {
+    const auto *source = ActiveFrame().Targets.Get(resources[at]);
+    if (source == nullptr || source->Description().Texels != formats[at]) {
+      return ReadState::Failed;
+    }
+    sources[at] = {.Source = source, .Region = region};
+  }
+  surface.Reset();
+  auto transfer = ReadbackTransfer::Start(*Device_, sources, slices);
+  if (!transfer) { return ReadState::Failed; }
+  const auto ready = transfer->Wait(*Device_, std::chrono::seconds(5));
+  if (!ready || !*ready) { return ReadState::Failed; }
+  surface.Transfer_ = std::move(*transfer);
+  surface.Bytes_ = **ready;
+  surface.Slices_ = slices;
+  surface.Pixels_ = static_cast<size_t>(region.Width) * region.Height;
+  return ReadState::Ready;
+}
+
+void SurfaceReadback::Reset() noexcept {
+  Bytes_ = {};
+  Pixels_ = 0;
+  Transfer_.reset();
+}
+
+SurfacePixel SurfaceReadback::Read(size_t pixel) const noexcept {
+  assert(pixel < Pixels_);
+  const auto single = [&](size_t image, size_t component) {
+    float value = 0;
+    std::memcpy(&value,
+                Bytes_.data() + Slices_[image].Range.Offset + component * sizeof(float),
+                sizeof value);
+    return value;
+  };
+  const auto half = [&](size_t image, size_t component) {
+    uint16_t bits = 0;
+    std::memcpy(&bits,
+                Bytes_.data() + Slices_[image].Range.Offset + component * sizeof(uint16_t),
+                sizeof bits);
+    return HalfToFloat(bits);
+  };
+  return {.Normal = {{half(1, pixel * 4), half(1, pixel * 4 + 1), half(1, pixel * 4 + 2)}},
+          .Depth = single(0, pixel),
+          .Identity = single(2, pixel * 4),
+          .Base = {{half(3, pixel * 4), half(3, pixel * 4 + 1), half(3, pixel * 4 + 2)}},
+          .Metalness = half(4, pixel * 2),
+          .Roughness = half(4, pixel * 2 + 1)};
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {

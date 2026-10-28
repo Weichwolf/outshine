@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_STAGES_GEOMETRYRENDERER_H
 
 #include "MeshInput.h"
+#include "GeometryUploadTicket.h"
 #include <span>
 #include <optional>
 #include <array>
@@ -21,12 +22,13 @@
 #include <memory>
 #include <cstddef>
 
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "DrawList.h"
 #include "TerrainRenderer.h"
 #include "PrismResidency.h"
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
+#include "GeometryHierarchyAdmission.h"
 #include "GpuPlacement.h"
 #include "MaterialPacking.h"
 #include "SceneLighting.h"
@@ -87,11 +89,6 @@ public:
   GeometryRenderer &operator=(const GeometryRenderer &) = delete;
   GeometryRenderer(GeometryRenderer &&) = delete;
   GeometryRenderer &operator=(GeometryRenderer &&) = delete;
-
-  struct MeshTicket {
-    uint64_t Generation = 0;
-    bool NeedsFinish = false;
-  };
 
   using SourceOptions = SurfaceOutputs;
 
@@ -195,6 +192,8 @@ public:
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
+  [[nodiscard]] const GeometryHierarchyAdmission &Hierarchy() const noexcept { return Hierarchy_; }
+
   [[nodiscard]] uint32_t ClusterBatchRows() const {
     return Args_.empty() ? 0u : static_cast<uint32_t>(Batches.size());
   }
@@ -241,7 +240,8 @@ public:
     RowsStale_ = true;
   }
 
-  void CarryFrame() { ++Frame_; }
+  // Only successful submission advances placement history and retires GPU motion.
+  void CarryFrame();
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
@@ -289,12 +289,23 @@ public:
 
   [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
 
+  [[nodiscard]] size_t NativeMaterialSlots() const noexcept { return NativeMaterialSlots_; }
+
+  [[nodiscard]] uint64_t MaterialRevision() const noexcept { return MaterialRevision_; }
+
+  [[nodiscard]] bool WriteMaterialRows(std::span<const MaterialBinding> materials,
+                                       std::span<const uint32_t> rows,
+                                       std::string &error);
+  void ClearMaterialRow(size_t which);
+  void SetRegisteredPieceSurface(uint32_t logical, uint32_t physical);
+
   void TruncateMaterials(size_t count) noexcept;
 
   [[nodiscard]] bool ValidateMesh(const MeshInput &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const MeshInput &mesh, std::string &error);
-  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const MeshInput &mesh);
-  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const MeshInput &mesh, std::string &error);
+  [[nodiscard]] std::expected<GeometryUploadTicket, std::string> BeginMesh(const MeshInput &mesh);
+  [[nodiscard]] bool
+  FinishMesh(GeometryUploadTicket ticket, const MeshInput &mesh, std::string &error);
 
   [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
 
@@ -410,7 +421,7 @@ public:
                                                       size_t batchIndex,
                                                       const BatchFrustum &visible,
                                                       uint32_t instances,
-                                                      std::span<const std::byte> view) const;
+                                                      std::span<const std::byte> view);
 
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t Layouts() const;
@@ -509,6 +520,8 @@ private:
   PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
   std::vector<SurfaceSlot> Slots;
+  size_t NativeMaterialSlots_ = 0;
+  uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
 
   std::vector<VertexLayout> BatchLayout;
@@ -565,6 +578,7 @@ private:
     std::optional<std::array<float, 3>> Emitted;
     std::vector<Mat4> Rows;
     uint32_t FirstRow = 0;
+    std::optional<uint32_t> FirstBatch;
     uint32_t MaxInstances = 0;
     std::vector<DagCluster> Clusters;
     std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
@@ -574,7 +588,12 @@ private:
   std::vector<DrawBatch> MainMeshBatches_;
   std::vector<uint32_t> MainMeshClusterJobs_;
   std::vector<float> MainMeshClusterSpheres_;
-  std::vector<uint32_t> TableJobs_, TableOrder_, TableRows_;
+  std::vector<uint32_t> TableOrder_;
+  std::vector<GeometryClusterTemplate> TableTemplates_;
+  std::vector<GeometryRoot> TableRoots_;
+  GeometryHierarchyAdmission Hierarchy_;
+  uint64_t TableRevision_ = 0;
+  bool RootBoundsStale_ = false;
   std::vector<float> TableSpheres_;
   ShadowCasterSelection ShadowCasters_;
   bool MainMeshBoundsCurrent_ = false;
@@ -602,16 +621,19 @@ private:
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildMainMeshBatches(std::string &error);
-  void PrepareMainMeshTables();
+  [[nodiscard]] bool PrepareMainMeshTables(std::string &error);
+  [[nodiscard]] bool AppendRoot(GeometryRoot root, std::string &error);
+  [[nodiscard]] bool HandRootBounds(std::string &error);
   void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
+  void UpdatePieceBounds(const Piece &piece);
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
   GeometryUploadMetrics LastMeshUpload_;
-  MeshTicket PendingMesh_;
+  GeometryUploadTicket PendingMesh_;
   const DrawList *PendingDraws_ = nullptr;
   const uint32_t *PendingIndices_ = nullptr;
   uint32_t PendingIndexCount_ = 0;
@@ -620,6 +642,7 @@ private:
   GeometryPipelineBinding *Binding_ = &OwnedBinding_;
   bool Shadowed_ = false;
   bool RowsStale_ = false;
+  bool RowsHaveMotion_ = false;
   bool TablesStale_ = false;
   bool PiecesVisible_ = true;
 

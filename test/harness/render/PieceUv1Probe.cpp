@@ -91,7 +91,7 @@ void GpuOwnership(Native::Device &device) {
     piece.Indices = indices;
     piece.Uv1 = coordinates;
     piece.Textured = true;
-    piece.Surface = PieceSurface::Registered(*first + 1u);
+    piece.Surface = PieceSurface::Registered(*first, 1u);
     const auto placed = resources.PlacePiece(renderer, piece);
     CHECK(placed.has_value(), "the real piece path admits finite UV1 data");
     if (!placed) { return; }

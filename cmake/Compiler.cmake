@@ -5,14 +5,16 @@ check_cxx_source_compiles("#include <version>
 #endif
 int main() {}" OUTSHINE_USES_LIBCPP)
 set(OUTSHINE_COMPILE_OPTIONS -Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter
-  -ffp-contract=off -fstack-protector-strong -Wformat=2 -Werror=format-security -fPIE)
+  -ffp-contract=off -fstack-protector-strong -Wformat=2 -Werror=format-security
+  "$<$<NOT:$<OR:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>,$<STREQUAL:$<TARGET_PROPERTY:TYPE>,MODULE_LIBRARY>>>:-fPIE>")
 if(APPLE)
   set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=2)
-  set(OUTSHINE_LINK_OPTIONS -Wl,-pie)
+  set(OUTSHINE_LINK_OPTIONS "$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-Wl,-pie>")
 else()
   set(OUTSHINE_COMPILE_DEFINITIONS _FORTIFY_SOURCE=3)
   list(APPEND OUTSHINE_COMPILE_OPTIONS -fstack-clash-protection)
-  set(OUTSHINE_LINK_OPTIONS -pie -Wl,-z,relro,-z,now,-z,noexecstack)
+  set(OUTSHINE_LINK_OPTIONS "$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-pie>"
+    -Wl,-z,relro,-z,now,-z,noexecstack)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$")
     list(APPEND OUTSHINE_COMPILE_OPTIONS -fcf-protection=full)
   endif()

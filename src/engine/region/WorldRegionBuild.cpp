@@ -425,8 +425,8 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
     }
     build.Surfaces =
         BuildingPageMaterials{.Walls = Render::PieceSurface::Registered(*first),
-                              .Roofs = Render::PieceSurface::Registered(*first + 1u),
-                              .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
+                              .Roofs = Render::PieceSurface::Registered(*first, 1u),
+                              .MetreWalls = Render::PieceSurface::Registered(*first, 2u)};
   }
   Published.RecordMetric(
       "rebuild: the ground ring took",

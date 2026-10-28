@@ -34,13 +34,13 @@ std::string HostLoad() {
 }
 
 Native::Result<Report> Run(bool gpuValidation) {
-  constexpr std::array files{"build/shaders/calibrationFma.comp.spv",
-                             "build/shaders/calibrationTriad.comp.spv",
-                             "build/shaders/calibrationRaster.vert.spv",
-                             "build/shaders/calibrationRaster.frag.spv"};
+  constexpr std::array files{"calibrationFma.comp.spv",
+                             "calibrationTriad.comp.spv",
+                             "calibrationRaster.vert.spv",
+                             "calibrationRaster.frag.spv"};
   std::array<std::vector<uint32_t>, files.size()> words;
   for (size_t at = 0; at < files.size(); ++at) {
-    auto loaded = Render::ReadSpirv(files[at]);
+    auto loaded = Render::ReadShaderSpirv(files[at]);
     if (!loaded) {
       return std::unexpected(
           Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = loaded.error()});

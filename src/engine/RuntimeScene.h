@@ -22,16 +22,24 @@
 #include "SceneGeometry.h"
 #include "CameraState.h"
 #include "RenderObject.h"
+#include "GeometryUploadTicket.h"
 #include "MaterialBindings.h"
 #include "ObjectTransformHistory.h"
 #include "SurfaceSession.h"
 #include "Layout.h"
 #include "Pointer.h"
-#include "SceneRenderer.h"
+#include "Readback.h"
+#include "SceneResources.h"
+#include "ExecutionPlan.h"
 #include "SceneCandidateEdit.h"
 #include "Material.h"
 #include "GroundAtmosphere.h"
 #include "MaterialResolution.h"
+
+namespace outshine::Render {
+class SceneRenderer;
+struct PyramidDepths;
+}
 
 namespace outshine::Core {
 
@@ -241,15 +249,9 @@ public:
 
   [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
 
-  [[nodiscard]] Render::ReadState Pyramid(Render::PyramidDepths &into) const {
-    const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ReadPyramid(into);
-  }
+  [[nodiscard]] Render::ReadState Pyramid(Render::PyramidDepths &into) const;
 
-  [[nodiscard]] const Vec3 &ShadowCentreStanding() const {
-    const auto published = Renderer_->PublishedWorld();
-    return Renderer_->ShadowCentreM();
-  }
+  [[nodiscard]] const Vec3 &ShadowCentreStanding() const;
 
   struct Bearing {
     Mat4 WorldFromBodyM;
@@ -291,14 +293,9 @@ public:
 
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
 
-  [[nodiscard]] double NearStanding() const {
-    const auto published = Renderer_->PublishedWorld();
-    return static_cast<double>(Renderer_->NearMetres());
-  }
+  [[nodiscard]] double NearStanding() const;
 
-  [[nodiscard]] static double NearestStandable() {
-    return static_cast<double>(Render::SceneRenderer::kNearM);
-  }
+  [[nodiscard]] static double NearestStandable();
 
   [[nodiscard]] const double *PlacementStanding(size_t part) const {
     return Stood_.Placement(part).data();
@@ -312,13 +309,7 @@ public:
     return Ui_.Under(xPx, yPx, surface);
   }
 
-  [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error) {
-    const auto published = Renderer_->PublishedWorld();
-    auto changed = Ui_.Wheel(xPx, yPx, byPx);
-    if (changed) { return *changed; }
-    error = std::move(changed.error());
-    return std::unexpected(error);
-  }
+  [[nodiscard]] Holds<bool> Wheeled(double xPx, double yPx, double byPx, std::string &error);
 
   [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
     return Ui_.ScrollState();
@@ -461,7 +452,7 @@ private:
   Render::RenderGeometryStorage GeometryStorage_;
   Render::RenderGeometryView GeometryView_;
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
-  Render::GeometryRenderer::MeshTicket BuildTicket_;
+  Render::GeometryUploadTicket BuildTicket_;
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::MeshClusterBuildJob> ClusterBuild_;
   std::vector<Material> GeometryBuildSurfaces_;

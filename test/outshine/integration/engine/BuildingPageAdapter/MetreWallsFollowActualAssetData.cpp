@@ -26,6 +26,14 @@ void CheckSelection(outshine::Render::SceneRenderer &renderer) {
   CHECK(first.has_value(), "the wall material table registers");
   if (!first) { return; }
   Generators::BakedTile baked;
+  CHECK(BuildingPageView(baked, {}).View().AssetKey.empty(),
+        "an unpublished direct product remains unknown at the renderer boundary");
+  baked.GeometryAssetKey.assign(64, 'a');
+  const BuildingPageView adapted(baked, {});
+  const auto page = adapted.View();
+  CHECK(page.AssetKey == baked.GeometryAssetKey &&
+            page.AssetKey.data() == baked.GeometryAssetKey.data(),
+        "the generic page borrows the complete producer-owned asset key without another copy");
   baked.Digest = 1;
   baked.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0, 1}}, {{0, 0, 1}}),
                              StoredVertex::Of({{1, 0, 0}}, {{1, 1}}, {{0, 0, 1}}),
@@ -37,7 +45,7 @@ void CheckSelection(outshine::Render::SceneRenderer &renderer) {
   constexpr uint32_t kMissingSurface = 99;
   bindings = {.Walls = Render::PieceSurface::Registered(*first),
               .Roofs = Render::PieceSurface::Registered(*first),
-              .MetreWalls = Render::PieceSurface::Registered(*first + kMissingSurface)};
+              .MetreWalls = Render::PieceSurface::Registered(*first, kMissingSurface)};
   CHECK(pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
             renderer.PiecesStanding() == 1,
         "an absent optional stream uses legacy walls even with an unavailable metre surface");
@@ -49,7 +57,7 @@ void CheckSelection(outshine::Render::SceneRenderer &renderer) {
         "actual metric data select the metre surface and failed admission keeps the old tile");
   bindings = {.Walls = Render::PieceSurface::Registered(*first),
               .Roofs = Render::PieceSurface::Registered(*first),
-              .MetreWalls = Render::PieceSurface::Registered(*first + 1u)};
+              .MetreWalls = Render::PieceSurface::Registered(*first, 1u)};
   CHECK(pieces.Upload(1, BuildingPageView(baked, bindings).View(), {}, error) &&
             renderer.PiecesStanding() == 1,
         "the explicit metre material consumes the real UV1 stream without images");

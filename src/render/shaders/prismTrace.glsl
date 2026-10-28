@@ -1,4 +1,5 @@
 #include "prismData.glsl"
+#include "prismPlane.glsl"
 layout(location = 0) flat in mat4 prismLocalFromClip;
 layout(location = 4) flat in uint prismPatchIndex;
 
@@ -25,14 +26,23 @@ bool prismInterval(vec3 origin, vec3 inverseDirection, vec3 low, vec3 high,
   return entry <= leave && leave >= 0.0;
 }
 
-bool tracePrism(out vec3 point, out vec3 normal) {
+bool tracePrism(out vec3 point, out vec3 normal, out float height) {
   PrismPatch gridPatch = prismPatches[prismPatchIndex];
   vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
   vec2 ndc = vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
   vec4 start = prismLocalFromClip * vec4(ndc, 1.0, 1.0);
   vec4 finish = prismLocalFromClip * vec4(ndc, 0.0, 1.0);
   vec3 origin = start.xyz / start.w;
-  vec3 direction = normalize(finish.xyz - origin * finish.w);
+  vec3 ray = finish.xyz - origin * finish.w;
+  float squaredLength = dot(ray, ray);
+  // Preserve ordinary rays; rescale a squared length that is zero or infinite.
+  if (!(squaredLength > 0.0) || isinf(squaredLength)) {
+    vec3 magnitude = abs(ray);
+    float largest = max(magnitude.x, max(magnitude.y, magnitude.z));
+    if (largest == 0.0) { return false; }
+    ray /= largest;
+  }
+  vec3 direction = normalize(ray);
   vec3 inverseDirection = 1.0 / direction;
   float begin, end;
   vec3 unused;
@@ -64,8 +74,14 @@ bool tracePrism(out vec3 point, out vec3 normal) {
       float entry, leave;
       if (prismInterval(origin, inverseDirection, vec3(low.x, span.x, low.y),
                            vec3(high.x, span.y, high.y), entry, leave, normal) && entry >= 0.0) {
-        point = origin + direction * entry;
-        return true;
+        vec3 lowFace = vec3(low.x, span.x, low.y);
+        vec3 highFace = vec3(high.x, span.y, high.y);
+        height = dot(abs(normal), mix(lowFace, highFace, greaterThan(normal, vec3(0.0))));
+        float incidence = prismPlaneIncidence(prismLocalFromClip, normal, height);
+        if (incidence != 0.0) {
+          point = origin + direction * entry;
+          return true;
+        }
       }
     }
     float crossing = min(next.x, next.y);
@@ -77,4 +93,9 @@ bool tracePrism(out vec3 point, out vec3 normal) {
     }
   }
   return false;
+}
+
+bool tracePrism(out vec3 point, out vec3 normal) {
+  float height;
+  return tracePrism(point, normal, height);
 }

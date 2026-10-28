@@ -1,7 +1,7 @@
 #include "EnvironmentSpecularStage.h"
 #include "EnvironmentSpecularLayout.h"
 #include "IrradianceLayout.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "Vec2.h"
 #include "Vec4.h"
 #include <algorithm>
@@ -52,31 +52,31 @@ void EnvironmentSpecularStage::Declare(const Medium &medium,
                                        float cosSunZenith,
                                        float eyeHeightM,
                                        Vec3 groundAlbedo) {
-  const Standing wanted{.Air = medium,
+  const InputKey wanted{.Air = medium,
                         .CosSunZenith = cosSunZenith,
                         .EyeHeightM = eyeHeightM,
                         .GroundAlbedo = groundAlbedo};
-  if (Cache_.Submitted() && Standing_ == wanted) { return; }
-  Standing_ = wanted;
+  if (Cache_.Submitted() && Inputs_ == wanted) { return; }
+  Inputs_ = wanted;
   Cache_.Invalidate();
 }
 
 Native::Result<void> EnvironmentSpecularStage::Encode(const PassRecording &into) {
   if (!Cache_.NeedsRecording()) { return {}; }
-  if (!Pipe_ || !Standing_ || Sources_.Sky == nullptr || Sources_.Irradiance == nullptr ||
+  if (!Pipe_ || !Inputs_ || Sources_.Sky == nullptr || Sources_.Irradiance == nullptr ||
       Sources_.Sampler == nullptr || Sources_.Target == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "environment specular is not configured"});
   }
   constexpr float metresPerKm = 1000.0f;
-  Pushed pushed{.Air = Standing_->Air,
-                .CosSunZenith = Standing_->CosSunZenith,
-                .EyeRadiusKm = Standing_->Air.BottomRadiusKm + kMediumGroundLiftKm +
-                               std::max(0.0f, Standing_->EyeHeightM) / metresPerKm,
+  Pushed pushed{.Air = Inputs_->Air,
+                .CosSunZenith = Inputs_->CosSunZenith,
+                .EyeRadiusKm = Inputs_->Air.BottomRadiusKm + kMediumGroundLiftKm +
+                               std::max(0.0f, Inputs_->EyeHeightM) / metresPerKm,
                 .Pad = {},
                 .GroundAlbedo = {}};
   for (size_t axis = 0; axis < 3; ++axis) {
-    pushed.GroundAlbedo[axis] = static_cast<float>(Standing_->GroundAlbedo[axis]);
+    pushed.GroundAlbedo[axis] = static_cast<float>(Inputs_->GroundAlbedo[axis]);
   }
   const std::array bindings{
       Native::Binding{.Set = 0,

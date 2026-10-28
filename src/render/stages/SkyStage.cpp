@@ -8,7 +8,7 @@
 #include <string>
 
 #include "SceneTargets.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include <expected>
 #include <span>
 #include <utility>
@@ -69,14 +69,14 @@ Native::Result<void> SkyStage::Configure(const Gpu &gpu, Tables from) {
   return {};
 }
 
-void SkyStage::Declare(const Medium &medium, SkyStanding stands) {
+void SkyStage::Declare(const Medium &medium, SkyParameters parameters) {
   for (int axis = 0; axis < 3; ++axis) {
-    Pushed_.SunDir[axis] = stands.SunDir[axis];
-    Pushed_.WorldUp[axis] = stands.WorldUp[axis];
+    Pushed_.SunDir[axis] = parameters.SunDir[axis];
+    Pushed_.WorldUp[axis] = parameters.WorldUp[axis];
   }
-  Pushed_.Illuminance = stands.IlluminanceLux;
+  Pushed_.Illuminance = parameters.IlluminanceLux;
   Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (stands.EyeHeightM > 0.0f ? stands.EyeHeightM : 0.0f) / kMPerKmF;
+                        (parameters.EyeHeightM > 0.0f ? parameters.EyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.BottomRadiusKm = medium.BottomRadiusKm;
   Pushed_.SunHalfAngleRad = kSunHalfAngleRad;
   Pushed_.Air = medium;

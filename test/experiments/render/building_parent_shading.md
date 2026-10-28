@@ -70,6 +70,34 @@ and component full/two on one ROI and original rest; same-recipe T is exact.
 Without fit roots the previous opaque/full comparison remains unchanged.
 Price the complete producer separately from shader work and dense stored weights.
 No new recipe parameter, quality threshold or native format is selected here.
+For the fixed native four-cell comparison, `replay_building_parent_native_reference.py`
+uses the same loaders and full/two-lobe states with exactly one center sample per
+pixel. It requires the existing `az0-64000`, `az0-240000`, `az1-64000` and
+`az1-240000` queries, preserves their1280×720 cameras/ROI offsets, and runs no fit.
+Use the same `--input`, `--fits`, `--source`, `--controls` and fresh `--output`
+arguments as the comparator above. Outputs reuse its raw `model__C`/`model__T`
+NPZ fields and display-only PNGs, including original and opaque-parent controls.
+
+The transfer reference keeps one nearest front-facing hit per parent group and
+one nearest available opaque original-rest hit. Normals are flat geometric
+normals in the source-tree frame; signed `nz>0.5` selects roof role1, otherwise
+wall role0. For stored coverage `[q_xy,q_xz,q_yz]`, opacity is
+`(|nx|q_yz+|ny|q_xz+|nz|q_xy)/sum(abs(n))`. This is fractional projected coverage,
+not volume density or an opaque depth/occlusion certificate. Two lobes means two
+active roughness-palette entries per group/role, with unchanged palette/albedo.
+
+The reference raster uses closed canonical edge equations, not an exclusive
+top-left rule. Equal inverse-depth hits within a group choose the smallest local
+face ordinal; the existing sorted group face lists map this to the smallest
+candidate face ordinal. Across groups, composition sorts by ray, negative inverse
+depth, then global candidate face ordinal. Start with `C=0,T=1`; each layer adds
+`T*alpha*RGB` to C and multiplies T by `1-alpha`. C is already premultiplied.
+Raw fields omit background; PNGs display `C+0.1*T`. Full/two-lobe T must be
+word-equal. A1×center reference is not a filtered pixel integral, captured native
+PBR, a whole-world result, or a device timing. Originals3825/3827 remain required
+and unpriced in every query. Actual native background/coverage/composition costs
+and edge-rule differences remain part of the native comparison.
+
 For existing larger population checks use the same producer with `--cell-count
 16` or `64`, both fixed recipes and unchanged queries. Source/material checks do
 not replace missing native images for those populations. To inspect the worst
@@ -92,3 +120,66 @@ binding/default switch or global cache architecture. Procedure, findings, exact
 counterexamples, bytes/work and terminal checks belong in the PR. The eventual
 limited native comparison needs agreed bindings/ownership and actual device
 times; Python does not admit whole scenes, general highlights/normals or p99.
+
+## Filtered four-query review
+
+`review_building_parent_filters.py` reads the existing center/SS16/SS32 pixel fields
+without rendering, producing assets, fitting or selecting new poses. It requires
+identical camera/query/ROI and original provenance, reproduces all24 recorded
+filtered error dictionaries exactly and checks full/two T equality at all12 query
+rates. C and T stay separate; appearance uses the existing neutral background0.1
+and display transform. Nearest enlargement changes only the diagnostic image size.
+
+The old filtered producer7e669b13b and center replay9d71aa0f4 use104 exact equal
+geometry/material/coverage/source/fit arrays. Ten whole-policy/raw-container digest
+fields differ after the documented strict binding rebuild; no binding is bypassed.
+The shading/transfer/material/raster programs are unchanged; the newer projection
+file adds only the shared ROI helper. Original binding receipts remain available.
+
+| Query | Original / opaque / fractional SS32 coverage, px² | Full RGB L1, SS1 / SS32 | Two versus full RGB L1, SS32 |
+|---|---:|---:|---:|
+| az0-64000 |24.834961 /34.759766 /19.024458|5.577252 /1.108610|0.002550|
+| az1-64000 |23.590820 /34.204102 /18.644556|8.951043 /3.296325|0.002877|
+| az0-240000 |1.768555 /2.745117 /1.224408|1.245819 /0.105757|0.000098|
+| az1-240000 |1.671875 /2.660156 /1.186903|1.502907 /0.315298|0.000137|
+
+Single-center facets and bright/dark isolated pixels largely disappear after
+filtering. The coverage error does not: fractional parents retain21–31% less
+integrated coverage; opaque parents have40–59% more. For both far opaque controls,
+SS1 even reports zero T error, while SS32 exposes0.977/0.988px². A favorable center
+sample therefore cannot admit silhouette or coverage. SS16 and32 keep the same
+bias direction; their empirical difference is not a continuous-integral bound.
+
+The strongest remaining per-pixel color counter is az1-64000, pixel(641,357), followed by
+az1-240000 at(640,359). The footprint is recognizable but too weak/transparent,
+and the bright patch distribution differs. Opaque color happens to be closer at
+az1-64000 while its area is much too large: color-only selection would hide the
+coverage error. Full/two material differences are small in these four filtered
+states, and T is exact. The original-to-parent difference still couples geometry,
+normals, material selection and composited layers; these contrasts are not additive
+causal shares. No separated specular channel is stored, so the remaining error
+cannot be attributed uniquely to gloss. The existing fixed two-lobe held-out
+receipt still reaches12.4244% relative channel error at node945/group0/wall; these
+day views do not qualify all highlights or normals.
+
+For the bounded native integration use fractional two-lobe C/T with the same
+available original remainder as the comparison candidate. Carry both C/T and
+opaque/original controls through the four existing queries, then the actual
+Depth/History consumers owned by #1524. Prioritize the measured footprint/coverage
+and associated radiance loss before another material-fit or lobe-count campaign.
+Fractional coverage is not an opaque depth/occlusion certificate. The native
+component-cost result #1127 remains separate from image acceptance; unknown
+originals3825/3827, larger populations, motion and whole-world/device budgets remain.
+
+Reproduce with the existing module path/venv and saved inputs:
+
+```sh
+python -B -W error test/experiments/render/review_building_parent_filters.py \
+  --center <existing-center-reference> --filtered <existing-SS16-32-view> \
+  --output <fresh-system-temp-review>
+```
+
+Open `appearance.png` and `coverage.png`. `review.json` records raw-file hashes,
+matched provenance, every rate's separate C/T/area/luminance metrics and pixel
+counterexamples. No quality tolerance, new reference pin or repository image is
+introduced; all figures are local diagnostics of the existing saved fields.

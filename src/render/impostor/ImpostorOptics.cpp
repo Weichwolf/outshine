@@ -1,4 +1,5 @@
 #include "ImpostorOptics.h"
+#include "ImpostorViewFrame.h"
 #include "TexelChain.h"
 #include "HalfTexels.h"
 #include "math/Srgb.h"
@@ -20,6 +21,16 @@ constexpr float kByteSteps = 255;
 using OpticalFields = std::array<std::vector<float>, kOpticalImages>;
 using OpticalImages = std::array<std::vector<uint8_t>, kOpticalImages>;
 
+Core::Texels HalveFields(OpticalFields &fields, Core::Texels extent) {
+  Core::Texels smaller;
+  for (auto &field : fields) {
+    std::vector<float> filtered;
+    smaller = Core::HalveInPlace(field, extent, filtered, Core::TexelKind::Value);
+    field = std::move(filtered);
+  }
+  return smaller;
+}
+
 uint8_t Byte(float value) {
   return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * kByteSteps));
 }
@@ -27,7 +38,9 @@ uint8_t Byte(float value) {
 OpticalFields FieldsOf(const ImpostorAtlas &atlas, const ImpostorAtlas::View &source) {
   OpticalFields fields;
   for (auto &field : fields) { field.resize(source.Texels.size() * 4); }
-  const Vec3 right{{source.TowardEye[2], 0, -source.TowardEye[0]}};
+  const auto frame = ImpostorViewFrame::From(source.TowardEye);
+  if (!frame) { return {}; }
+  const Vec3 right = frame->Right;
   for (size_t at = 0; at < source.Texels.size(); ++at) {
     const auto &pixel = source.Texels[at];
     if (pixel.Surface == 0) { continue; }
@@ -44,7 +57,7 @@ OpticalFields FieldsOf(const ImpostorAtlas &atlas, const ImpostorAtlas::View &so
     const size_t offset = at * 4;
     fields[0][offset + 3] = fields[1][offset + 3] = 1;
     fields[1][offset] = static_cast<float>(Dot(n, right));
-    fields[1][offset + 1] = static_cast<float>(-n[1]);
+    fields[1][offset + 1] = static_cast<float>(-Dot(n, frame->Up));
     fields[1][offset + 2] = static_cast<float>(Dot(n, source.TowardEye));
     if (row.Scattering == ScatteringModel::DiffuseThinSheet) {
       for (size_t channel = 0; channel < 3; ++channel) {
@@ -109,7 +122,13 @@ std::expected<OpticalImages, Core::HalfTexelError> Encoded(const OpticalFields &
 bool AddOpticalCardImages(Geometry &geometry,
                           Material &material,
                           const ImpostorAtlas &atlas,
-                          const ImpostorAtlas::View &source) {
+                          const ImpostorAtlas::View &source,
+                          size_t firstMip) {
+  int pixels = atlas.Pixels();
+  for (size_t at = 0; at < firstMip; ++at) {
+    if (pixels <= 1) { return false; }
+    pixels /= 2;
+  }
   if (std::ranges::none_of(source.Texels, [](const auto &pixel) { return pixel.Surface > 0; })) {
     return false;
   }
@@ -117,17 +136,12 @@ bool AddOpticalCardImages(Geometry &geometry,
   if (fields[0].empty()) { return false; }
   Core::Texels extent{.WidthPx = static_cast<uint32_t>(atlas.Pixels()),
                       .HeightPx = static_cast<uint32_t>(atlas.Pixels())};
+  for (size_t at = 0; at < firstMip; ++at) { extent = HalveFields(fields, extent); }
   const auto base = Encoded(fields, extent);
   if (!base) { return false; }
   OpticalImages lower;
   while (extent.WidthPx > 1 || extent.HeightPx > 1) {
-    Core::Texels smaller;
-    for (auto &field : fields) {
-      std::vector<float> filtered;
-      smaller = Core::HalveInPlace(field, extent, filtered, Core::TexelKind::Value);
-      field = std::move(filtered);
-    }
-    extent = smaller;
+    extent = HalveFields(fields, extent);
     const auto level = Encoded(fields, extent);
     if (!level) { return false; }
     for (size_t at = 0; at < lower.size(); ++at) {
@@ -149,8 +163,8 @@ bool AddOpticalCardImages(Geometry &geometry,
     ImageMipData mips;
     mips[static_cast<size_t>(kind)] = std::move(lower[at]);
     const auto image =
-        geometry.addImage({.WidthPx = atlas.Pixels(),
-                           .HeightPx = atlas.Pixels(),
+        geometry.addImage({.WidthPx = pixels,
+                           .HeightPx = pixels,
                            .Format = at == kMaterialMomentImage ? ImagePixelFormat::Rgba16Float
                                                                 : ImagePixelFormat::Rgba8Unorm,
                            .Rgba = (*base)[at],

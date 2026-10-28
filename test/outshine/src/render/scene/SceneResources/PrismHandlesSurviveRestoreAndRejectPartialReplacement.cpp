@@ -1,6 +1,9 @@
 #include "RenderScene.h"
 #include "Check.h"
 #include "GeometryRenderer.h"
+#include "Geometry.h"
+#include "Material.h"
+#include "MaterialRegistration.h"
 #include "Gpu.h"
 #include "SceneResources.h"
 #include "test/harness/render/NativeGpuCheck.h"
@@ -30,14 +33,26 @@ void Configure(GeometryRenderer &draw, Native::Device &device) {
   gpu.Width = gpu.Height = 32;
   CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "the fixture has one HDR attachment");
   Require(draw.Configure(gpu));
-  std::array<MaterialBinding, 4> materials{};
-  materials[1].Row.Alpha = AlphaMode::Masked;
-  materials[2].Row.Alpha = AlphaMode::Blended;
-  materials[3].Row.Unlit = true;
-  std::string error;
-  CheckSceneUpload(draw.AppendMaterials(materials, error), error);
-  const std::array<uint32_t, 4> registered{0, 1, 2, 3};
-  draw.SetRegisteredPieceSurfaces(registered);
+}
+
+std::array<MaterialRegistration, 4> RegisterMaterials(SceneResources &resources,
+                                                      GeometryRenderer &draw) {
+  std::array<Material, 4> materials{};
+  materials[1].Alpha = AlphaMode::Masked;
+  materials[2].Alpha = AlphaMode::Blended;
+  materials[3].Unlit = true;
+  std::array<MaterialRegistration, 4> registrations{};
+  for (size_t at = 0; at < materials.size(); ++at) {
+    Geometry source;
+    const auto added = source.addSurface("prism material", materials[at]);
+    CHECK(added, "the actual prism material source has one surface");
+    if (!added) { Failed(); }
+    auto registered = resources.RegisterPieceMaterials(draw, nullptr, std::move(source));
+    CHECK(registered, "the actual prism material source registers");
+    if (!registered) { Failed(); }
+    registrations[at] = std::move(*registered);
+  }
+  return registrations;
 }
 
 std::shared_ptr<const PrismGrid> Source() {
@@ -52,16 +67,17 @@ void RejectedReplacement(SceneResources &resources,
                          PrismGridHandle handle,
                          const std::shared_ptr<const PrismGrid> &source,
                          UploadFailure &failure,
-                         std::span<const PrismInstance> rows) {
+                         std::span<const PrismInstance> rows,
+                         const MaterialRegistration &material) {
   const auto generation = draw.Generation();
   const auto old = draw.Prisms().Products()[0].Id;
   const auto invalid = std::make_shared<PrismGrid>(*source);
   invalid->Patches[0].Columns = 0;
-  CHECK(!resources.ReplacePrismGrid(draw, handle, invalid, rows, 0),
+  CHECK(!resources.ReplacePrismGrid(draw, handle, invalid, rows, material),
         "an invalid source cannot replace the current logical or GPU resource");
   const auto replacement = std::make_shared<const PrismGrid>(*source);
   failure.Armed = true;
-  const auto rejected = resources.ReplacePrismGrid(draw, handle, replacement, rows, 0);
+  const auto rejected = resources.ReplacePrismGrid(draw, handle, replacement, rows, material);
   failure.Armed = false;
   CHECK(!rejected && rejected.error().Kind == Native::ErrorKind::Driver,
         "a rejected native upload preserves its actual error");
@@ -79,22 +95,29 @@ void Probe(Native::Device &device, UploadFailure &failure) {
   Configure(candidate, device);
   SceneResources original;
   SceneResources copied;
+  const auto materials = RegisterMaterials(original, published);
+  const auto &opaque = materials[0];
   const auto source = Source();
   std::array<PrismInstance, 1> rows{};
   for (const uint32_t slot : {1u, 2u, 3u}) {
-    const auto rejected = original.PlacePrismGrid(published, source, rows, slot);
+    const auto rejected = original.PlacePrismGrid(published, source, rows, materials[slot]);
     CHECK(!rejected && rejected.error().Kind == Native::ErrorKind::Unsupported,
           "masked, blended and unlit materials are rejected before native upload");
   }
-  CHECK(!original.PlacePrismGrid(published, source, rows, std::numeric_limits<uint32_t>::max()) &&
-            published.Prisms().Products().empty(),
-        "unregistered materials cannot allocate logical or native prism products");
-  const auto first = Require(original.PlacePrismGrid(published, source, rows, 0));
-  const auto live = Require(original.PlacePrismGrid(published, source, rows, 0));
+  CHECK(
+      !original.PlacePrismGrid(
+          published, source, rows, {.First = std::numeric_limits<uint32_t>::max(), .Source = {}}) &&
+          published.Prisms().Products().empty(),
+      "unregistered materials cannot allocate logical or native prism products");
+  const auto first = Require(original.PlacePrismGrid(published, source, rows, opaque));
+  const auto live = Require(original.PlacePrismGrid(published, source, rows, opaque));
   original.ReleasePrismGrid(published, first);
   copied.CopySourcesFrom(original, SceneResources::PieceSources::Copy);
   CHECK(copied.HasPrismGrid(live) && !copied.HasPrismGrid(first),
         "a snapshot preserves live and released logical generations");
+  std::string error;
+  CHECK(copied.RestorePieceMaterials(candidate, nullptr, error),
+        "copied material sources restore before native prism resources");
   size_t next = 0;
   const auto firstSlice = copied.AdvancePieceRestore(candidate, next, 1);
   CHECK(firstSlice && !*firstSlice && next == 1 && candidate.Prisms().Products().empty(),
@@ -109,11 +132,11 @@ void Probe(Native::Device &device, UploadFailure &failure) {
   const auto stable = candidate.Generation();
   Require(copied.SetPrismGridInstances(candidate, live, rows));
   CHECK(candidate.Generation() == stable, "unchanged instances preserve shadow reuse");
-  RejectedReplacement(copied, candidate, live, source, failure, rows);
+  RejectedReplacement(copied, candidate, live, source, failure, rows, opaque);
   const auto replacement = std::make_shared<PrismGrid>(*source);
   replacement->Samples = std::make_shared<const std::vector<PrismSpan>>(
       std::vector<PrismSpan>{{.Lower = -1, .Upper = 8}, {.Lower = 0, .Upper = 0}});
-  Require(copied.ReplacePrismGrid(candidate, live, replacement, rows, 0));
+  Require(copied.ReplacePrismGrid(candidate, live, replacement, rows, opaque));
   CHECK(copied.HasPrismGrid(live) && candidate.Prisms().Products().size() == 1 &&
             candidate.Prisms().Products()[0].Source == replacement,
         "a complete replacement preserves the logical handle and publishes its new source");
@@ -122,7 +145,7 @@ void Probe(Native::Device &device, UploadFailure &failure) {
   Require(copied.SetPrismGridInstances(candidate, live, rows));
   CHECK(candidate.Generation() != beforeMotion, "changed instances invalidate cached casters");
   copied.ReleasePrismGrid(candidate, live);
-  const auto reused = Require(copied.PlacePrismGrid(candidate, source, rows, 0));
+  const auto reused = Require(copied.PlacePrismGrid(candidate, source, rows, opaque));
   CHECK(reused.Slot == live.Slot && reused.Generation == live.Generation + 1 &&
             !copied.SetPrismGridInstances(candidate, live, rows),
         "a recycled slot cannot be mutated through its stale handle");

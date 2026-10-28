@@ -11,22 +11,39 @@
 #include <limits>
 #include <ranges>
 #include <span>
+#include <tuple>
+#include <vector>
 
 namespace outshine::Generators {
 namespace {
 enum class SourceUse { Qualified, Sampling };
+enum class FieldOrder { Original, Sorted };
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 constexpr float kFloatInfinity = std::numeric_limits<float>::infinity();
+
+auto TileKey(Data::TileId tile) {
+  return std::tuple(tile.Zoom, tile.X, tile.Y);
+}
+
+auto OrderedField(std::span<const TerrainFieldSet::Entry> fields, Data::TileId tile) {
+  const auto found = std::ranges::lower_bound(
+      fields, TileKey(tile), {}, [](const auto &entry) { return TileKey(entry.first); });
+  return found != fields.end() && found->first == tile ? found : fields.end();
+}
 
 std::span<const TerrainFieldSet::Entry>::iterator
 SourceFor(std::span<const TerrainFieldSet::Entry> fields,
           Data::TileId tile,
-          SourceUse use = SourceUse::Qualified) {
+          SourceUse use = SourceUse::Qualified,
+          FieldOrder order = FieldOrder::Original) {
   for (int zoom = tile.Zoom; zoom >= 0; --zoom) {
     const auto drop = static_cast<uint32_t>(tile.Zoom - zoom);
     const Data::TileId source{.Zoom = zoom, .X = tile.X >> drop, .Y = tile.Y >> drop};
-    const auto found =
-        std::ranges::find_if(fields, [source](const auto &entry) { return entry.first == source; });
+    const auto found = order == FieldOrder::Sorted
+                           ? OrderedField(fields, source)
+                           : std::ranges::find_if(fields, [source](const auto &entry) {
+                               return entry.first == source;
+                             });
     if (found != fields.end() && found->second && found->second->Meshable() &&
         (use == SourceUse::Sampling || !found->second->Sources().empty())) {
       return found;
@@ -104,6 +121,13 @@ std::expected<void, RangeError> IncludeRange(const TerrainFieldSet::Entry &sourc
 
 }
 
+TerrainFieldSet::TerrainFieldSet(std::vector<Entry> fields,
+                                 ::outshine::Ground::TerrainRevisionIndex::Reservation metadata)
+    : Fields_(std::move(fields)), Metadata_(std::move(metadata)) {
+  const auto key = [](const Entry &entry) { return TileKey(entry.first); };
+  if (!std::ranges::is_sorted(Fields_, {}, key)) { std::ranges::stable_sort(Fields_, {}, key); }
+}
+
 bool TerrainFieldSet::ShareOriginalField(Data::TileId tile,
                                          ::outshine::Ground::HeightField::Block &into) const {
   if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
@@ -160,26 +184,11 @@ bool TerrainFieldSet::CopySourcedField(Data::TileId tile,
 }
 
 std::optional<double> TerrainFieldSet::AslMAt(int zoom, LongitudeLatitude at) const {
-  return AslMAt(Fields_, zoom, at);
-}
-
-std::optional<double>
-TerrainFieldSet::AslMAt(std::span<const Entry> fields, int zoom, LongitudeLatitude at) {
-  for (int heldZoom = zoom; heldZoom >= 0; --heldZoom) {
-    const ::outshine::Ground::TileFrac frac = ::outshine::Ground::ToTileFracClamped(
-        {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, heldZoom);
-    const Data::TileId tile{.Zoom = heldZoom,
-                            .X = static_cast<uint32_t>(std::floor(frac.X)),
-                            .Y = static_cast<uint32_t>(std::floor(frac.Y))};
-    const auto found =
-        std::ranges::find_if(fields, [tile](const Entry &entry) { return entry.first == tile; });
-    const ::outshine::Ground::TerrainField *field =
-        found == fields.end() ? nullptr : found->second.get();
-    if (field == nullptr || !field->Meshable()) { continue; }
-    return field->PostingM(
-        {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
-  }
-  return std::nullopt;
+  return AslMAt(zoom, at, [this](Data::TileId tile) {
+    const std::span<const Entry> fields = Fields_;
+    const auto found = OrderedField(fields, tile);
+    return found == fields.end() ? nullptr : found->second.get();
+  });
 }
 
 std::expected<TerrainFieldSet::HeightRange, TerrainFieldSet::RangeError>
@@ -198,7 +207,8 @@ TerrainFieldSet::AslRangeOver(int zoom,
   HeightRange range{.AslM = {kInfinity, -kInfinity}};
   for (uint32_t y = firstY; y <= lastY; ++y) {
     for (uint32_t x = firstX; x <= lastX; ++x) {
-      const auto source = SourceFor(fields, {.Zoom = zoom, .X = x, .Y = y}, SourceUse::Sampling);
+      const auto source = SourceFor(
+          fields, {.Zoom = zoom, .X = x, .Y = y}, SourceUse::Sampling, FieldOrder::Sorted);
       if (source == fields.end()) { return std::unexpected(RangeError::MissingSource); }
       const SampleRectangle part{
           .First = {.X = std::max(rectangle->First.X, static_cast<double>(x)),

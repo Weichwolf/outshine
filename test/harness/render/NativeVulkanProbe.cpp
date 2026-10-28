@@ -52,19 +52,9 @@ std::vector<uint32_t> ReadShader(const char *path) {
   return words;
 }
 
-struct alignas(16) Job {
-  uint32_t Unused = 0;
-  uint32_t Batch = 0;
-  uint32_t First = 0;
-  uint32_t Count = 0;
-};
-
-static_assert(sizeof(Job) == 16 && alignof(Job) == 16);
-static_assert(offsetof(Job, Batch) == 4 && offsetof(Job, First) == 8 && offsetof(Job, Count) == 12);
-
 struct Inputs {
-  std::vector<Job> Jobs;
   std::vector<uint32_t> Source;
+  std::vector<std::array<uint32_t, 4>> References;
   std::vector<uint32_t> Kept;
   std::vector<uint32_t> Batches;
   std::vector<uint32_t> Arguments;
@@ -95,14 +85,12 @@ Inputs MakeInputs() {
       batchCount = 0;
     }
     const auto count = at % longEvery == 0 ? longJob : at % countVariants + 1;
-    input.Jobs.push_back({.Unused = 0,
-                          .Batch = at < split ? 0u : 2u,
-                          .First = static_cast<uint32_t>(input.Source.size()),
-                          .Count = count});
     const bool kept = at % rejectEvery != 0;
     input.Kept.push_back(kept ? count : 0);
     for (uint32_t index = 0; index < count; ++index) {
       const auto value = at * sourceStride + index;
+      input.References.push_back(
+          {at, 5 * (at < split ? 0u : 2u) + 2, static_cast<uint32_t>(input.Source.size()), index});
       input.Source.push_back(value);
       if (kept) { input.ExpectedIndices.push_back(value); }
     }
@@ -167,7 +155,7 @@ Outputs Record(Device &device,
                std::vector<std::unique_ptr<Buffer>> &staging) {
   auto kept = Upload(device, commands, Bytes(input.Kept), staging);
   auto batches = Upload(device, commands, Bytes(input.Batches), staging);
-  auto jobs = Upload(device, commands, Bytes(input.Jobs), staging);
+  auto references = Upload(device, commands, Bytes(input.References), staging);
   auto source = Upload(device, commands, Bytes(input.Source), staging);
   auto arguments = Upload(device, commands, Bytes(input.Arguments), staging);
   const std::vector<uint32_t> zeroSlots(input.Kept.size(), 0);
@@ -177,19 +165,20 @@ Outputs Record(Device &device,
   const std::array scanBindings = {
       Bind(0, 0, *kept), Bind(0, 1, *batches), Bind(1, 0, *slots), Bind(1, 1, *arguments)};
   Take(commands.Dispatch(scan, scanBindings, {.X = 3, .Y = 1, .Z = 1}));
-  constexpr std::size_t viewBytes = 256;
-  constexpr std::size_t jobsOffset = 112;
+  constexpr std::size_t viewBytes = 16;
+  constexpr std::size_t countOffset = 0;
   std::array<std::byte, viewBytes> view{};
-  const auto jobCount = static_cast<uint32_t>(input.Jobs.size());
-  std::memcpy(view.data() + jobsOffset, &jobCount, sizeof(jobCount));
+  const auto referenceCount = static_cast<uint32_t>(input.References.size());
+  std::memcpy(view.data() + countOffset, &referenceCount, sizeof(referenceCount));
   const std::array compactBindings = {
-      Bind(0, 0, *jobs),
+      Bind(0, 0, *references),
       Bind(0, 1, *source),
       Bind(0, 2, *slots),
       Bind(0, 3, *arguments),
       Bind(1, 0, *indices),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{.Bytes = view}}};
-  Take(commands.Dispatch(compact, compactBindings, {.X = jobCount, .Y = 1, .Z = 1}));
+  Take(commands.Dispatch(
+      compact, compactBindings, {.X = (referenceCount + 63) / 64, .Y = 1, .Z = 1}));
   view.fill(std::byte{});
   return {
       .Slots = std::move(slots), .Arguments = std::move(arguments), .Indices = std::move(indices)};
@@ -263,7 +252,7 @@ void CheckCancel(Device &device) {
 
 int main(int argc, char **argv) {
   if ((argc != 4 && argc != 5) || (argc == 5 && std::string(argv[4]) != "--validation")) {
-    std::println(stderr, "usage: native_vulkan scan.spv compact.spv device-name [--validation]");
+    std::println(stderr, "usage: native_vulkan scan.spv scatter.spv device-name [--validation]");
     return EXIT_FAILURE;
   }
   const bool validation = argc == 5;
@@ -274,7 +263,7 @@ int main(int argc, char **argv) {
   auto scan = Take(device->CreateComputePipeline(ReadShader(argv[1])));
   auto compact = Take(device->CreateComputePipeline(ReadShader(argv[2])));
   Check(scan->Layout().LocalSize[0] == 32, "scan workgroup reflected exactly");
-  Check(compact->Layout().LocalSize[0] == 64, "compact workgroup reflected exactly");
+  Check(compact->Layout().LocalSize[0] == 64, "scatter workgroup reflected exactly");
   auto commands = Take(device->Begin());
   const auto frame = device->AcquirePresentFrame();
   Check(!frame && frame.error().Kind == ErrorKind::Unsupported,
@@ -309,7 +298,7 @@ int main(int argc, char **argv) {
       R"({{"device":"{}","checks":{},"jobs":{},"indices":{},"validation":{},"depth_clamp":{},"gpu_timing":"unavailable","places":"unproven"}})",
       device->Limits().Name,
       gChecks,
-      input.Jobs.size(),
+      input.Kept.size(),
       input.ExpectedIndices.size(),
       validation,
       device->Limits().DepthClamp);

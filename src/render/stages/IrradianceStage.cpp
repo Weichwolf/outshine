@@ -1,5 +1,5 @@
 #include "IrradianceStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include "Vec2.h"
 #include <array>
 #include <cstddef>
@@ -51,22 +51,22 @@ Native::Result<void> IrradianceStage::Configure(const Gpu &gpu,
 }
 
 void IrradianceStage::Declare(const Medium &medium, float cosSunZenith) {
-  const Standing wanted = {.Declared = medium, .CosSunZenith = cosSunZenith};
-  if (Cache_.Submitted() && Standing_ == wanted) { return; }
-  Standing_ = wanted;
+  const InputKey wanted = {.Declared = medium, .CosSunZenith = cosSunZenith};
+  if (Cache_.Submitted() && Inputs_ == wanted) { return; }
+  Inputs_ = wanted;
   Cache_.Invalidate();
 }
 
 Native::Result<void> IrradianceStage::Encode(const PassRecording &into) {
   if (!Cache_.NeedsRecording()) { return {}; }
-  if (!Pipe || !Standing_ || Transmittance == nullptr || MultiScatter == nullptr ||
-      Lut == nullptr || Into == nullptr || into.Commands == nullptr) {
+  if (!Pipe || !Inputs_ || Transmittance == nullptr || MultiScatter == nullptr || Lut == nullptr ||
+      Into == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "irradiance is not configured"});
   }
-  const Pushed pushed{.Declared = Standing_->Declared,
-                      .CosSunZenith = Standing_->CosSunZenith,
-                      .GroundRadiusKm = Standing_->Declared.BottomRadiusKm + kMediumGroundLiftKm,
+  const Pushed pushed{.Declared = Inputs_->Declared,
+                      .CosSunZenith = Inputs_->CosSunZenith,
+                      .GroundRadiusKm = Inputs_->Declared.BottomRadiusKm + kMediumGroundLiftKm,
                       .Pad = {}};
   const std::array bindings{
       Native::Binding{

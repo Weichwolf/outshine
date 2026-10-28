@@ -8,8 +8,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <cstddef>
-#include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -25,7 +23,7 @@ using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 
 struct Data {
-  std::vector<uint32_t> Kept, Batches, Jobs, Source, Slots, Args, Draw;
+  std::vector<uint32_t> Kept, Batches, Jobs, References, Source, Slots, Args, Draw;
 };
 
 Data Inputs() {
@@ -71,6 +69,7 @@ Data Inputs() {
       data.Jobs.insert(data.Jobs.end(), {0, batch, source, indices});
       for (uint32_t index = 0; index < indices; ++index) {
         data.Source.push_back(13 * (source + index) + sourceBias);
+        data.References.insert(data.References.end(), {job, batch * 5 + 2, source + index, index});
       }
       if (visible) { kept += indices; }
       possible += indices;
@@ -88,16 +87,13 @@ Data Inputs() {
   return data;
 }
 
-constexpr size_t kJobCountOffset = 112, kCullTrailingBytes = 140;
-
-struct alignas(16) CullConstants {
-  std::array<std::byte, kJobCountOffset> PlaneAndOrigin{};
-  uint32_t Jobs = 701;
-  std::array<std::byte, kCullTrailingBytes> Rest{};
+struct alignas(16) ScatterConstants {
+  uint32_t Count = 0;
+  std::array<uint32_t, 3> Padding{};
 };
 
-static_assert(sizeof(CullConstants) == 256 && alignof(CullConstants) == 16 &&
-              offsetof(CullConstants, Jobs) == kJobCountOffset);
+static_assert(sizeof(ScatterConstants) == 16 && alignof(ScatterConstants) == 16 &&
+              offsetof(ScatterConstants, Count) == 0);
 
 void ScanCompact(Device &device, const char *scanPath, const char *compactPath) {
   auto scan = Require(device.CreateComputePipeline(Spirv(scanPath)));
@@ -106,7 +102,7 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
   auto commands = Require(device.Begin());
   auto kept = Upload(device, *commands, data.Kept);
   auto batches = Upload(device, *commands, data.Batches);
-  auto jobs = Upload(device, *commands, data.Jobs);
+  auto references = Upload(device, *commands, data.References);
   auto source = Upload(device, *commands, data.Source);
   const std::vector<uint32_t> emptySlots(data.Slots.size(), 0);
   auto slots = Upload(device, *commands, emptySlots);
@@ -124,17 +120,16 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
         "dispatch grid multiplication cannot overflow shader coordinates");
   Require(commands->Dispatch(
       *scan, scanBindings, {.X = static_cast<uint32_t>(data.Batches.size() / 2)}));
-  CullConstants constants;
-  constants.Jobs = static_cast<uint32_t>(data.Kept.size());
+  ScatterConstants constants{.Count = static_cast<uint32_t>(data.References.size() / 4)};
   const std::array compactBindings{
-      Storage(0, 0, *jobs),
+      Storage(0, 0, *references),
       Storage(0, 1, *source),
       Storage(0, 2, *slots),
       Storage(0, 3, *args),
       Storage(1, 0, *draw),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&constants, 1))}}};
-  Require(commands->Dispatch(*compact, compactBindings, {.X = constants.Jobs}));
-  constants.Jobs = 0;
+  Require(commands->Dispatch(*compact, compactBindings, {.X = (constants.Count + 63) / 64}));
+  constants.Count = 0;
   const auto bytes =
       slots->Description().Bytes + args->Description().Bytes + draw->Description().Bytes;
   auto readback = Require(device.CreateBuffer(
@@ -147,7 +142,7 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
   }
   kept.reset();
   batches.reset();
-  jobs.reset();
+  references.reset();
   source.reset();
   slots.reset();
   args.reset();

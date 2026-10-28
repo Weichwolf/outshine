@@ -9,6 +9,7 @@ from ...contracts import Mesh
 from ..port_heights import PortHeightInput, plan_port_heights
 from ._affine import AffineGround
 from ._geodesy import ground_geographic_at, positions_in_frame
+from ._ground_prior import prior_contradiction
 from ._queries import CoarseFieldQuery
 
 
@@ -71,6 +72,20 @@ def coarse_input(axis, width, maximum_gradient, terrain_positions, budget):
     stations = np.unique(np.r_[boundaries, original])
     if 2 * len(stations) > budget.terrain_samples:
         raise ValueError("terrain_sample_budget")
+    vertices, faces, ports = (
+        2 * len(stations),
+        2 * (len(stations) - 1),
+        len(boundaries) - 2,
+    )
+    if (
+        vertices > budget.surface.max_vertices
+        or faces > budget.surface.max_faces
+        or len(roles) > budget.surface.max_parts
+        or ports > budget.surface.max_ports
+        or vertices > budget.surface.max_output_vertices
+        or faces > budget.surface.max_output_faces
+    ):
+        raise ValueError("ground_input_or_output_budget")
     centres = np.column_stack(
         [np.interp(stations, original, axis[:, i]) for i in (0, 1)]
     )
@@ -136,6 +151,14 @@ def fit_ground(inputs, error_limit_m, method, budget):
         if method == "affine":
             return None, {"reason": "ground_prior_error_limit", **affine_report}
     backend = "lp" if method == "lp" else "cone"
+    witness, work = prior_contradiction(inputs, error_limit_m, budget)
+    if witness is not None:
+        return None, {
+            "reason": "ground_prior_error_limit",
+            "selected_method": backend,
+            "affine_control": affine_report,
+            "prior_preflight": {"witness": witness, "work": work},
+        }
     fit = plan_port_heights(inputs, budget=budget.surface, method=backend)
     report = dict(fit.report)
     report.update(selected_method=backend, affine_control=affine_report)

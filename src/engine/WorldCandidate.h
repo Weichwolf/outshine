@@ -3,6 +3,7 @@
 
 #include "SceneLighting.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include <cassert>
 #include <expected>
 #include <memory>

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include "TerrainLattice.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>

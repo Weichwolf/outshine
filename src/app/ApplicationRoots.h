@@ -13,23 +13,27 @@ namespace outshine::App {
 
 [[nodiscard]] inline Roots MakeApplicationRoots(std::string_view cacheDirectory = {},
                                                 bool offline = false) {
-  return {.Shipped = "data",
-          .Cache = std::string(cacheDirectory),
+  return {.BuiltinDataDirectory = "data",
+          .SourceCacheDirectory = std::string(cacheDirectory),
           .Offline = offline,
-          .AssetCache = {}};
+          .AssetCacheDirectory = {}};
 }
 
 [[nodiscard]] inline std::expected<Roots, std::string> WithCacheDirectories(Roots roots) {
-  if (roots.Cache.empty()) {
+  if (roots.SourceCacheDirectory.empty()) {
     const std::unique_ptr<char, decltype(&SDL_free)> path(SDL_GetPrefPath("outshine", "outshine"),
                                                           SDL_free);
     if (!path) {
       return std::unexpected("could not locate the source cache: " + std::string(SDL_GetError()));
     }
-    roots.Cache = std::string(path.get()) + "sources";
-    if (roots.AssetCache.empty()) { roots.AssetCache = std::string(path.get()) + "assets"; }
+    roots.SourceCacheDirectory = std::string(path.get()) + "sources";
+    if (roots.AssetCacheDirectory.empty()) {
+      roots.AssetCacheDirectory = std::string(path.get()) + "assets";
+    }
   }
-  if (roots.AssetCache.empty()) { roots.AssetCache = roots.Cache + ".assets"; }
+  if (roots.AssetCacheDirectory.empty()) {
+    roots.AssetCacheDirectory = roots.SourceCacheDirectory + ".assets";
+  }
   return roots;
 }
 
