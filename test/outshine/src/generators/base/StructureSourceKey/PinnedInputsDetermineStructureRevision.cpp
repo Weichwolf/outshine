@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <utility>
 
 int main() {
   using namespace outshine;
@@ -21,13 +20,13 @@ int main() {
                                         .SourceId = "dem",
                                         .Revision = "one"};
   const std::array heights{height};
-  const auto key = [&](std::optional<Data::TileSourceIdentity> vectorSource,
+  const auto key = [&](const std::optional<Data::TileSourceIdentity> &vectorSource,
                        std::span<const Data::TileSourceIdentity> heightSources,
                        uint64_t raster,
                        uint64_t street,
                        double spanM,
                        bool fallback) {
-    return StructureSourceKey({.Vector = std::move(vectorSource),
+    return StructureSourceKey({.Vector = vectorSource,
                                .HeightSources = heightSources,
                                .HeightDigest = raster,
                                .StreetDigest = street,
