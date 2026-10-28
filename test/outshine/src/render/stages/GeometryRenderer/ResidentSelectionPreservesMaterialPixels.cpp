@@ -4,8 +4,8 @@
 #include "GeometryCullStage.h"
 #include "StageSubmission.h"
 #include "ReadbackTransfer.h"
-#include "NativeOfflineDevice.h"
-#include "NativeGpuCheck.h"
+#include "test/harness/render/NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "Check.h"
 #include <array>
 #include <chrono>
@@ -133,7 +133,8 @@ void Draw(Device &device,
                                 .Area = {.Width = kWidth, .Height = kHeight},
                                 .Clip = {.Width = kWidth, .Height = kHeight}};
   if (cull != nullptr) {
-    Require(cull->EncodeCull(frame, recording, {.Clip = frame.Mvp}));
+    Require(cull->EncodeRoots(frame, recording, {.Clip = frame.Mvp}));
+    Require(cull->EncodeCull(recording));
     Require(cull->EncodeScan(recording));
     Require(cull->EncodeCompact(recording));
   }
@@ -191,12 +192,13 @@ void Indirect(Device &device,
                            .AnchorM = renderer.AnchorM(),
                            .Jobs = renderer.ClusterJobs(),
                            .BatchRows = renderer.ClusterBatchRows(),
+                           .Hierarchy = &renderer.Hierarchy(),
                            .Generation = renderer.Generation(),
                            .GroundGeneration = renderer.Ground().Generation()},
                           gpu));
   stage.Projects(kHeight);
   Draw(device, renderer, targets, &stage);
-  CHECK(stage.JobsSwept() == 2,
+  CHECK(stage.JobsAdmitted() == 2,
         "both real mesh clusters pass through the three native culling stages");
 }
 

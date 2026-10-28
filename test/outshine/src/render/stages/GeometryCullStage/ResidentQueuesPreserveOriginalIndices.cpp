@@ -1,10 +1,11 @@
 #include "src/render/stages/GeometryCullStage.h"
 #include "src/render/stages/GpuPlacement.h"
 #include "src/render/device/ReadbackTransfer.h"
-#include "NativeGpuCheck.h"
-#include "NativeOffline.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
 #include "Check.h"
 #include <array>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -128,11 +129,12 @@ void Run(Device &device,
   StageSubmission submission;
   const PassRecording recording{
       .Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}};
-  Require(stage.EncodeCull(ctx,
-                           recording,
-                           projection != nullptr
-                               ? *projection
-                               : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+  Require(stage.EncodeRoots(ctx,
+                            recording,
+                            projection != nullptr
+                                ? *projection
+                                : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+  Require(stage.EncodeCull(recording));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
   if (submit) {
@@ -147,6 +149,15 @@ void Compare(Device &device, GeometryResidency &resident, const Inputs &expected
   CHECK(Read(device, resident, Stream::ClusterSlot, expected.ExpectedSlots.size()) ==
             expected.ExpectedSlots,
         "all accepted and rejected jobs retain independently computed compacted slots");
+  const auto roots = Read(device, resident, Stream::ClusterChunkState, 8);
+  const auto leaves = Read(device, resident, Stream::ClusterSelectedState, 8);
+  CHECK(roots[0] == 12 && roots[1] == 0 && roots[2] == 3 && roots[3] == 2 &&
+            roots[7] == expected.Jobs.size(),
+        "the real stage resets root queue counts and statistics on every actual selection");
+  const auto selected = static_cast<uint32_t>(
+      std::ranges::count_if(expected.Kept, [](uint32_t count) { return count != 0; }));
+  CHECK(leaves[1] == 0 && leaves[2] == expected.Jobs.size() && leaves[3] == selected,
+        "the real stage resets selected queue work without accumulating previous frames");
   auto expectedArguments = expected.ExpectedArguments;
   const auto original = MakeInputs(false);
   for (size_t batch = 0; batch < 3; ++batch) {
@@ -173,14 +184,15 @@ void Reuse(GeometryCullStage &stage,
            const GeometryCullStage::SelectionProjection *projection = nullptr) {
   StageSubmission submission;
   const PassRecording recording{.Submission = submission, .Area = {}, .Clip = {}};
-  Require(stage.EncodeCull(ctx,
-                           recording,
-                           projection != nullptr
-                               ? *projection
-                               : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+  Require(stage.EncodeRoots(ctx,
+                            recording,
+                            projection != nullptr
+                                ? *projection
+                                : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+  Require(stage.EncodeCull(recording));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
-  CHECK(stage.JobsSwept() == 0,
+  CHECK(stage.JobsAdmitted() == 0,
         "an unchanged accepted view needs no command recording or GPU work");
 }
 
@@ -211,8 +223,65 @@ void JitteredSelection(Device &device,
   }
   stage.Projects(64);
   Run(device, stage, frame, true, &projection);
-  CHECK(stage.JobsSwept() == spheres.size() / 12,
+  CHECK(stage.JobsAdmitted() == spheres.size() / 12,
         "a changed pixel-error scale invalidates cached selection");
+}
+
+GeometryHierarchyAdmission
+UploadHierarchy(Device &device, GeometryResidency &resident, const Inputs &input) {
+  std::vector<GeometryClusterTemplate> templates;
+  templates.reserve(input.Jobs.size());
+  for (const auto &job : input.Jobs) {
+    templates.push_back(
+        {.SphereIndex = job.Unused, .RelativeFirstIndex = job.First, .IndexCount = job.Count});
+  }
+  std::vector<GeometryRoot> roots;
+  roots.reserve(input.Batches.size() / 2);
+  for (uint32_t at = 0; at < input.Batches.size() / 2; ++at) {
+    const auto first = input.Batches[size_t{at} * 2];
+    const auto count = input.Batches[size_t{at} * 2 + 1];
+    uint32_t capacity = 0;
+    for (const auto &one : std::span(templates).subspan(first, count)) {
+      capacity += one.IndexCount;
+    }
+    roots.push_back({.TemplateFirst = first,
+                     .TemplateCount = count,
+                     .LogicalFirst = first,
+                     .BatchRow = at,
+                     .IndexCapacity = capacity});
+  }
+  auto hierarchy = Require(
+      AdmitGeometryHierarchy({.Roots = roots,
+                              .Templates = templates,
+                              .SphereCount = static_cast<uint32_t>(input.Jobs.size()),
+                              .PlacementCount = 1,
+                              .SourceIndexCount = static_cast<uint32_t>(input.Source.size()),
+                              .BatchCount = 3},
+                             device.Limits()));
+  Upload(resident,
+         Stream::ClusterTemplates,
+         templates.data(),
+         templates.size() * sizeof(GeometryClusterTemplate));
+  Upload(resident, Stream::ClusterRoots, roots.data(), roots.size() * sizeof(GeometryRoot));
+  Upload(resident,
+         Stream::ClusterPrefix,
+         hierarchy.ChunkPrefix.data(),
+         hierarchy.ChunkPrefix.size() * sizeof(uint32_t));
+  const GeometryQueueState reset;
+  Upload(resident, Stream::ClusterReset, &reset, sizeof(reset));
+  const auto grow = [&](Stream stream, uint32_t bytes, UseMask<BufferUse> use) {
+    Require(resident.Grow(stream, {.Usage = use, .Bytes = bytes}));
+  };
+  const auto read = BufferUse::Storage;
+  const auto indirect = read | BufferUse::Indirect;
+  grow(Stream::ClusterChunks, hierarchy.View.ChunkCapacity * sizeof(std::array<uint32_t, 2>), read);
+  grow(Stream::ClusterSelected,
+       hierarchy.View.ClusterCapacity * sizeof(std::array<uint32_t, 2>),
+       read);
+  grow(Stream::ClusterVisible, hierarchy.View.RootCount * sizeof(uint32_t), read);
+  grow(Stream::ClusterChunkState, sizeof(GeometryQueueState), indirect);
+  grow(Stream::ClusterSelectedState, sizeof(GeometryQueueState), indirect);
+  return hierarchy;
 }
 
 void Exercise(Device &device) {
@@ -229,13 +298,9 @@ void Exercise(Device &device) {
   GpuPlacement placement;
   placement.Current = kIdentity;
   Upload(resident, Stream::ClusterSpheres, spheres.data(), spheres.size() * sizeof(float));
-  Upload(resident, Stream::ClusterJobs, input.Jobs.data(), input.Jobs.size() * sizeof(Job));
+  auto hierarchy = UploadHierarchy(device, resident, input);
   Upload(resident, Stream::Placements, &placement, sizeof(placement));
   Upload(resident, Stream::Index, input.Source.data(), input.Source.size() * sizeof(uint32_t));
-  Upload(resident,
-         Stream::ClusterBatches,
-         input.Batches.data(),
-         input.Batches.size() * sizeof(uint32_t));
   Upload(resident,
          Stream::DrawArguments,
          input.Arguments.data(),
@@ -254,6 +319,7 @@ void Exercise(Device &device) {
                            .AnchorM = {},
                            .Jobs = static_cast<uint32_t>(input.Jobs.size()),
                            .BatchRows = 3,
+                           .Hierarchy = &hierarchy,
                            .Generation = 1,
                            .GroundGeneration = 1},
                           {.Device = &device, .SceneColours = {}}));
@@ -261,7 +327,7 @@ void Exercise(Device &device) {
   frame.Mvp.Column = kIdentity;
   Run(device, stage, frame, false);
   Run(device, stage, frame, true);
-  CHECK(stage.JobsSwept() == input.Jobs.size(),
+  CHECK(stage.JobsAdmitted() == input.Jobs.size(),
         "an abandoned recording cannot suppress the next actual sweep");
   Compare(device, resident, input);
   Reuse(stage, frame);
@@ -282,7 +348,7 @@ void Exercise(Device &device) {
   Compare(device, resident, translated);
   Run(device, stage, frame, true);
   Compare(device, resident, translated);
-  CHECK(stage.JobsSwept() == 0,
+  CHECK(stage.JobsAdmitted() == 0,
         "repeated accepted preparation reuses selection without treating it as depth history");
   stage.DepthSubmitted(true);
   Run(device, stage, frame, true);

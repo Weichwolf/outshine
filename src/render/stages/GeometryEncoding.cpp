@@ -330,7 +330,7 @@ Native::Result<uint32_t> GeometryRenderer::EncodeShadow(const PassRecording &int
                                                         size_t batchIndex,
                                                         const BatchFrustum &visible,
                                                         uint32_t instances,
-                                                        std::span<const std::byte> view) const {
+                                                        std::span<const std::byte> view) {
   if (instances == 0) { return 0u; }
   if (batchIndex >= Batches.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,

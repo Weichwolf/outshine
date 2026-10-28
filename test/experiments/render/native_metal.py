@@ -29,8 +29,8 @@ def run(command, log=None):
 
 def native_api(output, glslang, toolchain, link_flags):
     shaders = []
-    inputs = [ROOT / "src/render/shaders" / name
-              for name in ("geometryScan.comp", "geometryCompact.comp")]
+    inputs = [ROOT / "src/render/shaders/geometryScan.comp",
+              Path(__file__).with_name("native_scatter.comp")]
     inputs.append(Path(__file__).with_name("native_buffer_lengths.comp"))
     for source in inputs:
         name = source.name
@@ -264,8 +264,8 @@ def main():
              ROOT / "test/harness/render/NativeSubmissionTimingProbe.cpp",
              Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/geometryScan.comp",
-             ROOT / "src/render/shaders/geometryCompact.comp",
-             ROOT / "src/render/shaders/cullView.glsl", *backend_sources,
+             Path(__file__).with_name("native_scatter.comp"),
+             *backend_sources,
              Path(__file__).with_name("native_buffer_lengths.comp"),
              *(ROOT / "src/render/device/native").glob("*.h"),
              *(ROOT / "src/render/device/native/metal").glob("*.h")]

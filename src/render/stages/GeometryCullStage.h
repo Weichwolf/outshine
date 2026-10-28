@@ -7,6 +7,7 @@
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 #include "GeometryResidency.h"
+#include "GeometryHierarchyAdmission.h"
 #include "Vec4.h"
 #include "Vec2.h"
 #include <array>
@@ -23,6 +24,7 @@ public:
     Vec3 AnchorM{};
     uint32_t Jobs = 0;
     uint32_t BatchRows = 0;
+    const GeometryHierarchyAdmission *Hierarchy = nullptr;
     uint64_t Generation = 0;
     uint64_t GroundGeneration = 0;
   };
@@ -43,11 +45,12 @@ public:
     Pyramid_ = shape;
   }
 
-  static constexpr ComputeShaderId CullShader = ComputeShaderId::GeometryCull;
+  static constexpr ComputeShaderId RootShader = ComputeShaderId::GeometryRootCull;
+  static constexpr ComputeShaderId CullShader = ComputeShaderId::GeometryLeafCull;
   static constexpr ComputeShape CullShape = FindComputeShader(CullShader)->Shape;
-  static constexpr ComputeShaderId ScanShader = ComputeShaderId::GeometryScan;
+  static constexpr ComputeShaderId ScanShader = ComputeShaderId::GeometryRootScan;
   static constexpr ComputeShape ScanShape = FindComputeShader(ScanShader)->Shape;
-  static constexpr ComputeShaderId CompactShader = ComputeShaderId::GeometryCompact;
+  static constexpr ComputeShaderId CompactShader = ComputeShaderId::GeometrySelectedCompact;
   static constexpr ComputeShape CompactShape = FindComputeShader(CompactShader)->Shape;
 
   [[nodiscard]] Native::Result<void> Configure(Source source, const Gpu &gpu);
@@ -62,20 +65,23 @@ public:
     DepthForSelection_ = pyramidWritten && Cache_.Submitted();
   }
 
-  [[nodiscard]] Native::Result<void> EncodeCull(const FrameContext &ctx,
-                                                const PassRecording &into,
-                                                const SelectionProjection &projection);
+  [[nodiscard]] Native::Result<void> EncodeRoots(const FrameContext &ctx,
+                                                 const PassRecording &into,
+                                                 const SelectionProjection &projection);
+  [[nodiscard]] Native::Result<void> EncodeCull(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeScan(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeCompact(const PassRecording &into);
 
-  [[nodiscard]] uint32_t JobsSwept() const { return Swept_; }
+  [[nodiscard]] uint32_t JobsAdmitted() const { return Swept_; }
+
+  [[nodiscard]] bool HasAcceptedSelection() const noexcept { return Cache_.Submitted(); }
 
   void Projects(float heightPx) {
     if (HeightPx_ != heightPx) { Invalidate(); }
     HeightPx_ = heightPx;
   }
 
-  [[nodiscard]] static uint32_t JobsSweptTaken();
+  [[nodiscard]] static uint32_t JobsAdmittedTaken();
 
 private:
   static constexpr size_t kPlaneFloats = 24;
@@ -123,7 +129,7 @@ private:
 
   Source Source_;
   CullView View_{};
-  std::unique_ptr<Native::ComputePipeline> Cull_, Scan_, Compact_;
+  std::unique_ptr<Native::ComputePipeline> Root_, Cull_, Scan_, Compact_;
   uint32_t Swept_ = 0;
   float HeightPx_ = 0;
 };

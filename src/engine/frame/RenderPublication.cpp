@@ -116,8 +116,8 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
   Published.RecordMetric("geometry clusters",
                          static_cast<double>(Picture.Standing->Shown().Clusters.size()),
                          "clusters");
-  Published.RecordMetric("cull: jobs it swept",
-                         static_cast<double>(Render::GeometryCullStage::JobsSweptTaken()),
+  Published.RecordMetric("cull: logical jobs admitted",
+                         static_cast<double>(Render::GeometryCullStage::JobsAdmittedTaken()),
                          "jobs");
   const auto &bodyPublication = ScenarioState->Entities.PublicationCost();
   Published.RecordMetric("body publication: copied payload",

@@ -23,7 +23,7 @@ void Exercise(Device *device) {
   GeometryResidency residency;
   Require(residency.StandsOn(device));
   auto values = kInitialValues;
-  constexpr auto stream = GeometryResidency::Stream::ClusterJobs;
+  constexpr auto stream = GeometryResidency::Stream::ClusterTemplates;
   std::array<GeometryResidency::Crossing, 1> crossing{{{.Which = stream,
                                                         .Usage = BufferUse::Storage,
                                                         .From = values.data(),
