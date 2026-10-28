@@ -1,4 +1,4 @@
-"""Exact witnesses for convex rings under an explicitly declared clip/round model.
+"""Exact witnesses for simple rings under an explicitly declared clip/round model.
 
 This does not model the provider's topology-repair branches or establish identity.
 An absent bounded-search witness is unresolved, not a proof of infeasibility.
@@ -31,17 +31,35 @@ def clean(points):
     return result
 
 
-def convex(points):
+def twice_area(points):
+    return sum(a[0] * b[1] - a[1] * b[0] for a, b in zip(points, points[1:] + points[:1]))
+
+
+def intersects(a, b, c, d):
+    def contains(p, q, r):
+        return all(min(p[k], q[k]) <= r[k] <= max(p[k], q[k]) for k in (0, 1))
+    ab_c, ab_d, cd_a, cd_b = cross(a, b, c), cross(a, b, d), cross(c, d, a), cross(c, d, b)
+    if ((ab_c == 0 and contains(a, b, c)) or (ab_d == 0 and contains(a, b, d))
+            or (cd_a == 0 and contains(c, d, a)) or (cd_b == 0 and contains(c, d, b))):
+        return True
+    return ab_c * ab_d < 0 and cd_a * cd_b < 0
+
+
+def simple(points):
     points = clean(points)
-    if len(points) < 3:
+    if len(points) < 3 or twice_area(points) == 0:
         return False
-    turns = [cross(points[i - 1], b, points[(i + 1) % len(points)]) for i, b in enumerate(points)]
-    # Consistent turns alone do not exclude star polygons: all vertices must lie
-    # in every oriented edge's closed half-plane as well.
-    sign = 1 if turns[0] > 0 else -1
-    return all(t * sign > 0 for t in turns) and all(
-        cross(a, b, p) * sign >= 0
-        for a, b in zip(points, points[1:] + points[:1]) for p in points)
+    count = len(points)
+    if any(cross(points[i - 1], p, points[(i + 1) % count]) == 0 for i, p in enumerate(points)):
+        return False
+    edges = list(zip(points, points[1:] + points[:1]))
+    for i, (a, b) in enumerate(edges):
+        for j in range(i + 1, count):
+            if j == i + 1 or i == 0 and j == count - 1:
+                continue
+            if intersects(a, b, *edges[j]):
+                return False
+    return True
 
 
 def token(points):
@@ -72,6 +90,10 @@ def clip(points, window):
             if ib:
                 result.append(b)
         points = clean(result)
+        if len(points) < 3 or twice_area(points) == 0:
+            return []
+        if not simple(points):
+            return None
     return points
 
 
@@ -86,20 +108,23 @@ def rounded(points):
 
 def certifies(witness, observations):
     """observations contains (unclosed ring, window) pairs in one shared grid."""
-    if not observations or not convex(witness):
+    if not observations or not simple(witness):
         return False
     for expected, window in observations:
-        if not convex(expected):
+        if not simple(expected):
             return False
-        actual = rounded(clip(witness, window))
-        if not convex(actual) or token(actual) != token(expected):
+        clipped = clip(witness, window)
+        if clipped is None:
+            return False
+        actual = rounded(clipped)
+        if not simple(actual) or token(actual) != token(expected):
             return False
     return True
 
 
 def search(complete, observations, attempts=128, seed=1578):
     """A bounded search; every positive must pass the separate exact certificate."""
-    if not convex(complete):
+    if not simple(complete):
         return None, 0
     witness = [tuple(F(x) for x in p) for p in complete]
     if certifies(witness, observations):

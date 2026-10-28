@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import time
 
-from clip_round_witness import certifies, convex, search, token
+from clip_round_witness import certifies, simple, search, token
 
 from canonical_polygons import components, load_exports, resolve, whole
 from check_reference import fixture_paths
@@ -47,8 +47,8 @@ def main(output, load_note):
         expected = [(list(token([(int(x), int(y)) for x, y in o.polygon.exterior.coords])), o.window)
                     for o in sorted(group, key=lambda o: (o.tile, o.ordinal))]
         unsupported = ('unmodelled-holes' if any(o.polygon.interiors for o in group) else
-                       'unmodelled-nonconvex-rings' if not convex(ring) or any(
-                           not convex(r) for r, _ in expected) else None)
+                       'unmodelled-nonsimple-rings' if not simple(ring) or any(
+                           not simple(r) for r, _ in expected) else None)
         packets.append((candidate['geometry_digest'], ring, expected, unsupported))
     packets.sort()
     first, first_seconds = timed(packets)
@@ -66,7 +66,7 @@ def main(output, load_note):
     negative = run(adversarial_packet)
     assert negative['status'] == 'bounded-search-unresolved'
     report = {'scope': 'All original ready components with cut observations audited. '
-                      'Only conditional convex pointwise clip/round witnesses; unsupported '
+                      'Only conditional simple pointwise clip/round witnesses; unsupported '
                       'cases and failed bounded searches remain unresolved. No historical '
                       'provider calibration, topology-repair or identity admission.',
               'original_observations': len(observations), 'cut_components': len(packets),
