@@ -12,88 +12,6 @@
 
 namespace outshine {
 
-namespace {
-
-constexpr std::array<const char *, static_cast<size_t>(Render::RenderFramePhase::Count)>
-    kSlowestRenderPhaseNames = {"render host slowest frame: prepare",
-                                "render host slowest frame: acquire",
-                                "render host slowest frame: upload",
-                                "render host slowest frame: swapchain",
-                                "render host slowest frame: cull",
-                                "render host slowest frame: encode",
-                                "render host slowest frame: fence wait",
-                                "render host slowest frame: submit",
-                                "render host slowest frame: finish"};
-
-void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
-                              const Render::SceneRenderer &device) {
-  const Render::RenderFrameTiming &slowest = device.SlowestRenderFrameTiming();
-  published.RecordMetric("render host slowest frame: total", slowest.TotalMs, "ms");
-  for (size_t phase = 0; phase < kSlowestRenderPhaseNames.size(); ++phase) {
-    published.RecordMetric(kSlowestRenderPhaseNames[phase], slowest.PhaseMs[phase], "ms");
-  }
-}
-
-void PublishStageMeasurements(Core::DiagnosticLedger &published,
-                              const Render::SceneRenderer &device) {
-  static const auto names = [] {
-    std::array<std::array<std::string, 11>, Render::kStageCount> out;
-    constexpr std::array<const char *, 11> suffixes{", took",
-                                                    ", encoded draw requests",
-                                                    ", direct input triangles",
-                                                    ", referenced surface slot limit",
-                                                    ", referenced placement slot limit",
-                                                    ", resident textured slots",
-                                                    ", resident colour images",
-                                                    ", owned device bytes",
-                                                    ", resident vertex layouts",
-                                                    ", indirect input triangles",
-                                                    ", indirect draw records"};
-    for (size_t at = 0; at < out.size(); ++at) {
-      for (size_t key = 0; key < suffixes.size(); ++key) {
-        out[at][key] = std::string(Row(static_cast<Render::Stage>(at)).Name) + suffixes[key];
-      }
-    }
-    return out;
-  }();
-  for (size_t at = 0; at < Render::kStageCount; ++at) {
-    const auto &spent = device.Spent(static_cast<Render::Stage>(at));
-    if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-    const std::array<double, 11> values{spent.TookMs,
-                                        static_cast<double>(spent.Draws),
-                                        static_cast<double>(spent.DirectTriangles),
-                                        static_cast<double>(spent.Surfaces),
-                                        static_cast<double>(spent.Placements),
-                                        static_cast<double>(spent.Textured),
-                                        static_cast<double>(spent.Palettes),
-                                        static_cast<double>(spent.DeviceBytes),
-                                        static_cast<double>(spent.Layouts),
-                                        static_cast<double>(spent.IndirectInputTriangles),
-                                        static_cast<double>(spent.IndirectRecords)};
-    constexpr std::array<const char *, 11> units{"ms",
-                                                 "draws",
-                                                 "triangles",
-                                                 "slots",
-                                                 "slots",
-                                                 "slots",
-                                                 "images",
-                                                 "bytes",
-                                                 "layouts",
-                                                 "triangles",
-                                                 "records"};
-    published.RecordMetric(names[at][0], values[0], units[0]);
-    const auto stage = static_cast<Render::Stage>(at);
-    if (stage != Render::Stage::OpaqueGeometry && stage != Render::Stage::TransmissiveGeometry) {
-      continue;
-    }
-    for (size_t key = 1; key < values.size(); ++key) {
-      published.RecordMetric(names[at][key], values[key], units[key]);
-    }
-  }
-}
-
-}
-
 void Engine::State::PublishResourcePayloadMeasurements() {
   if (!Picture.Standing) { return; }
   Published.RecordMetric("streamed piece CPU payload capacity",
@@ -378,15 +296,7 @@ void Engine::State::PublishFrameMeasurements() {
   }
   PublishAdvanceMeasurements();
   PublishUrbanMeasurements();
-  if (Picture.Standing) { PublishStageMeasurements(Published, Picture.Device); }
 
-  if (Cost.Render.Taken() > 0) {
-    Published.RecordMetric("the picture's own time, last", Cost.Render.LastMs(), "ms");
-    Published.RecordMetric("the picture's own time, least", Cost.Render.LeastMs(), "ms");
-    Published.RecordMetric("the picture's own time, most", Cost.Render.MostMs(), "ms");
-    Published.RecordMetric("pictures drawn", static_cast<double>(Cost.Render.Taken()), "pictures");
-    PublishRenderFrameTiming(Published, Picture.Device);
-  }
   {
     const std::vector<std::string> clashed = Published.ConflictingMetricNames();
     Published.RecordMetric(
