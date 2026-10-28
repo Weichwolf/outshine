@@ -18,7 +18,7 @@ size_t Vertices(const outshine::Geometry &geometry) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::Structures producer;
+  const Generators::Structures producer;
   const std::array<Generators::Parameter, 1> parameters{{{.Name = "widthM", .Value = "24"}}};
   Generators::Request request;
   request.Parameters = parameters;
