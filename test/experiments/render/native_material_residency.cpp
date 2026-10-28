@@ -1,6 +1,7 @@
 #include "Heap.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "NativeMaterialMemory.h"
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 #include <array>
@@ -128,6 +129,8 @@ int main(int argc, char *const *argv) {
       }
       Draw(renderer);
       record["cpp_heap_live_bytes"] = Heap::LiveBytes();
+      const auto deviceBytes = Test::MaterialDeviceAllocatedBytes();
+      record["native_device_allocated_bytes"] = deviceBytes ? Json(*deviceBytes) : Json(nullptr);
       records.push_back(std::move(record));
     }
     const Json result{
@@ -135,8 +138,10 @@ int main(int argc, char *const *argv) {
         {"gpu", renderer.GpuName()},
         {"cycles", records},
         {"scope",
-         "completed native draw/release cycles; instrumented C++ heap, not RSS or physical "
-         "GPU allocation; no frame-time claim"}};
+         "completed native draw/release cycles; instrumented C++ heap, not RSS; optional Metal "
+         "currentAllocatedSize for the default device includes buffers and textures, excludes "
+         "unreported driver storage and is not additive to process RSS on UMA; no frame-time "
+         "claim"}};
     std::ofstream output(argv[2]);
     output << result.dump(2) << '\n';
     if (!output) { Fail("result write failed"); }
