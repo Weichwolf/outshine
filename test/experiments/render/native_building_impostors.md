@@ -121,6 +121,17 @@ setup and then presents on its executing renderer. Shared consumers, last-consum
 cancellation, admission rejection, source-free hits and stale metadata are checked
 for both product types. This is not yet the general World demand producer.
 
+`ImpostorFieldLoad` bridges a completed asset receipt to a decoded CPU field.
+Start/Poll perform no payload IO or decode; the existing Tasks worker reads and
+validates the current metadata/key and coupled field. Pending returns no field,
+errors/cancelled generations never become ready. A CPU alias retains the publication
+ticket until its final consumer retires; dropping a pending loader cancels without
+waiting and the detached worker owns its remaining state. This stages CPU data;
+it does not choose World replacements, admit an LOD or create GPU resources.
+The byte cap bounds encoded reads, not total decoded/source/GPU working memory.
+The offline diagnostic waits for readiness before presentation; a runtime consumer
+must poll, retain valid parents and validate its current World revision at publication.
+
 The eight fixed controls generate only two raw views. A fresh process with an absent
 source path, zero source-work budget, reversed cell order and renamed queries relights
 the stored fields: all 40 raw outputs and view keys must match, with no source work
