@@ -23,7 +23,7 @@ before form IO. Only selected cells bind lazy, compatibility-checked form blocks
 The existing source hierarchy traces pixel centres; native plane patches retain
 normals, paint, UVs and material metres. There is no fine/shell mesher call or
 control-geometry input. Each view builds only its own indexed patches and uses
-one persistent native capture context. Unsupported original ordinals remain in
+a job-local native capture context shared within that capture call. Unsupported original ordinals remain in
 `remainder`; omission is not occlusion or a zero-cost native fallback.
 
 Optional request `view` selects one catalogue index before form IO and capture.
@@ -33,8 +33,10 @@ The output contains only that view at local index zero; `selected_view` records
 its catalogue identity. Invalid selection fails without reading source forms.
 This provides individual source-view production; automatic asset-miss scheduling
 and the general World producer remain separate integration work.
-The source loader and persistent capture context are shared by both native
+The source loader and capture implementation are shared by both native
 diagnostics through `BuildingSourceCapture`; there is no second source decoder.
+CPU inputs outlive individual jobs; each capture device is retired on its
+executing thread before the capture call returns (#1613).
 Its owner retains lazy inputs until capture ends and reports descriptor/index/
 form bytes plus file-read and decode time. Cached-world mode can call it directly
 on a selected product miss; see `native_building_impostors.md`.
