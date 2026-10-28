@@ -320,18 +320,18 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   World.Stack.Footprints().ViewedFrom(CurrentGeographicEyeEcef());
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
-    const auto resumeAt = std::chrono::steady_clock::now();
+    const auto collectionAt = std::chrono::steady_clock::now();
     World.StructureBuilds.PollCompletedTasks();
     Cost.BakeCollection.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
     return StagesGroundBakes(landsMost);
   }
   if (!World.GroundPublished.Current()) {
-    const auto resumeAt = std::chrono::steady_clock::now();
+    const auto collectionAt = std::chrono::steady_clock::now();
     World.StructureBuilds.PollCompletedTasks();
     Cost.BakeCollection.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
     if (World.Stack.Ingested()) {
       const auto postingAt = std::chrono::steady_clock::now();
