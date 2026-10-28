@@ -129,11 +129,11 @@ def capless(mesh, height):
 
 
 class RoofedProducts:
-    def __init__(self, plan, *, legacy_trim=True):
+    def __init__(self, plan, *, legacy_trim=True, terrace_routing="grid"):
         self.plan = plan
         self.draws = {}
         self.body_draws = {}
-        terraces = terrace_plan(plan.body)
+        terraces = terrace_plan(plan.body, routing=terrace_routing)
         if plan.access is not None:
             terraces = replace(
                 terraces, prepared=replace(terraces.prepared, roof_access=plan.access)
