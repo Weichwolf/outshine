@@ -25,7 +25,6 @@ struct Source {
   std::filesystem::file_time_type Modified;
   uint64_t Bytes = 0;
   int64_t Used = 0;
-  bool Absence = false;
 };
 
 struct SourceUsage {
@@ -51,7 +50,6 @@ std::expected<SourceUsage, std::string> OpenIndex(const std::filesystem::path &p
 
 std::expected<void, std::string> Collect(const std::filesystem::path &directory,
                                          const std::unordered_map<std::string, int64_t> &usage,
-                                         bool absence,
                                          std::vector<Source> &sources,
                                          CacheTrimResult &result) {
   std::error_code error;
@@ -76,7 +74,7 @@ std::expected<void, std::string> Collect(const std::filesystem::path &directory,
     if (bytes > std::numeric_limits<uint64_t>::max() - result.StoredBytes) {
       return std::unexpected("source cache byte count overflow");
     }
-    const auto observed = absence ? usage.end() : usage.find(key);
+    const auto observed = usage.find(key);
     const bool unknown = observed == usage.end();
     result.UnknownUse += unknown ? 1u : 0u;
     const auto fallback = std::chrono::duration_cast<std::chrono::seconds>(
@@ -85,8 +83,7 @@ std::expected<void, std::string> Collect(const std::filesystem::path &directory,
     sources.push_back({.Path = it->path(),
                        .Modified = modified,
                        .Bytes = bytes,
-                       .Used = unknown ? fallback : observed->second,
-                       .Absence = absence});
+                       .Used = unknown ? fallback : observed->second});
     result.StoredBytes += bytes;
   }
   if (error) { return std::unexpected(directory.string() + ": " + error.message()); }
@@ -102,12 +99,11 @@ std::expected<void, std::string> PruneUsage(const Sql::Database &database,
   }
   Sql::Statement insert;
   if (auto prepared =
-          Sql::Prepare(database.Handle, "INSERT INTO retained_sources VALUES(?)", insert);
+          Sql::Prepare(database.Handle, "INSERT OR IGNORE INTO retained_sources VALUES(?)", insert);
       !prepared) {
     return prepared;
   }
   for (const auto &source : sources) {
-    if (source.Absence) { continue; }
     const auto key = source.Path.filename().string();
     if (sqlite3_bind_text(insert.Handle, 1, key.c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK ||
         sqlite3_step(insert.Handle) != SQLITE_DONE || sqlite3_reset(insert.Handle) != SQLITE_OK) {
@@ -145,12 +141,9 @@ std::expected<CacheTrimResult, std::string> TrimSourceCache(const std::filesyste
   auto usage = OpenIndex(path, options.Apply);
   if (!usage) { return std::unexpected(usage.error()); }
   std::vector<Source> sources;
-  for (const bool absence : {false, true}) {
-    auto collected = Collect(absence ? directory / ".outshine-absence-v1" : directory,
-                             usage->Entries,
-                             absence,
-                             sources,
-                             result);
+  for (const bool marker : {false, true}) {
+    auto collected = Collect(
+        marker ? directory / ".outshine-absence-v1" : directory, usage->Entries, sources, result);
     if (!collected) { return std::unexpected(collected.error()); }
   }
   auto indexBytes = Sql::FileBytes(path);

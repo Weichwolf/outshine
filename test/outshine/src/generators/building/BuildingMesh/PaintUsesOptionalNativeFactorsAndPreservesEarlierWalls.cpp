@@ -1,5 +1,6 @@
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 #include "src/generators/building/BuildingMesh.h"
@@ -17,7 +18,7 @@ int main() {
   plan.HeightM = 9.0;
   plan.HeightMeasured = true;
   plan.Coarseness = LevelOfDetail::Shell;
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   Raised result;
   CHECK(mesher.Mesh(plan, *scratch, result).has_value(), "an unknown-colour shell meshes");
