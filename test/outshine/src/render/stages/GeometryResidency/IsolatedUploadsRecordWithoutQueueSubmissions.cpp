@@ -63,7 +63,7 @@ void StreamAndImage(Faults &device) {
   auto commands = Require(device.Begin());
   GeometryResidency::BoundImage image;
   {
-    auto recording = Require(source.RecordUploads(*commands));
+    const auto recording = Require(source.RecordUploads(*commands));
     const auto nested = source.RecordUploads(*commands);
     CHECK(!nested && nested.error().Kind == ErrorKind::Invalid,
           "a second recording cannot overwrite the active command owner");
@@ -128,8 +128,8 @@ void CancelAndReject(Faults &device) {
     const auto submits = device.Submits;
     std::weak_ptr<Texture> imageWrapper;
     {
-      auto recording = Require(source.RecordUploads(*commands));
-      auto image = Require(source.Upload(
+      const auto recording = Require(source.RecordUploads(*commands));
+      const auto image = Require(source.Upload(
           {.Rgba = kPixels.data(), .Width = 2, .Height = 2, .Uv = {}}, kLinear, TexelKind::Value));
       imageWrapper = image.Image;
       Require(source.SubmitPendingUploads());

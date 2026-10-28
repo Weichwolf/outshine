@@ -35,7 +35,7 @@ bool Publish(SceneRenderer &renderer) {
   if (!began) { return false; }
   {
     const auto edit = renderer.EditWorldCandidate();
-    auto initialized = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *plan);
+    const auto initialized = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *plan);
     CHECK(initialized, "the real main render targets initialize");
     if (!initialized) { return false; }
     MaterialBinding material;

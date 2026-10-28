@@ -87,7 +87,7 @@ std::vector<float> Pixels(Device &device, const RadianceImage &image) {
   return result;
 }
 
-MaterialFieldImages Relight(Tracking &device,
+MaterialFieldImages Relight(const Tracking &device,
                             MaterialFieldPass &pass,
                             const ResidentMaterialField &source,
                             const MaterialFieldView &view) {
@@ -164,7 +164,7 @@ void Exercise() {
   device.Busy = false;
   view.Target = {.WidthPx = 7, .HeightPx = 7};
   CHECK(!pass.Relight(*sourceA, view), "partial integer footprints publish no output");
-  auto empty = MaterialFieldInput::Prepare(Geometry{}, {.WidthPx = 32, .HeightPx = 32});
+  const auto empty = MaterialFieldInput::Prepare(Geometry{}, {.WidthPx = 32, .HeightPx = 32});
   CHECK(!empty, "empty source fields are refused rather than published as complete");
   if (const auto last = pass.LastSubmission()) {
     CHECK(Require(device.Wait(*last, std::chrono::seconds(5))) == CompletionStatus::Ready,

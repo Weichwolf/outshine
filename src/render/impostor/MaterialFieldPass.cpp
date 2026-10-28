@@ -30,7 +30,7 @@ MaterialFieldPass::~MaterialFieldPass() {
 }
 
 Native::Result<void> MaterialFieldPass::Configure() {
-  auto &state = *State_;
+  const auto &state = *State_;
   auto &pipelines = *state.Pipelines;
   if (!state.OnOwner() ||
       (state.Uploads != nullptr && &state.Uploads->Device() != &pipelines.Device)) {

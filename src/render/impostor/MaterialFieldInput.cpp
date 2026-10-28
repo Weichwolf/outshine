@@ -30,10 +30,10 @@ MaterialFieldInput::Prepare(Geometry source, Extent raster) {
 }
 
 std::expected<void, std::string> MaterialFieldInput::Data::Prepare() {
-  if (auto prepared = PrepareRenderGeometryStorage(Source, Storage); !prepared) {
+  if (const auto prepared = PrepareRenderGeometryStorage(Source, Storage); !prepared) {
     return std::unexpected("material field geometry cannot be prepared");
   }
-  if (auto bound = BindRenderGeometryStorage(Storage); !bound) {
+  if (const auto bound = BindRenderGeometryStorage(Storage); !bound) {
     return std::unexpected("material field geometry has invalid attribute storage");
   }
   View = MakeRenderGeometryView(Storage);
