@@ -13,8 +13,8 @@
 
 namespace outshine::Generators {
 
-std::expected<Geometry::Mesh, std::string_view> ConvertBuildingMesh(const BuildingMeshPart &part,
-                                                                    const EnuAxes &frame) {
+std::expected<Geometry::Mesh, std::string_view>
+ConvertBuildingMesh(const BuildingMeshPart &part, const EnuAxes &frame, const Vec3 &origin) {
   const size_t vertices = part.Vertices.size();
   if (vertices == 0 || vertices > std::numeric_limits<uint32_t>::max() || part.Indices.empty() ||
       part.Indices.size() % 3 != 0 ||
@@ -31,8 +31,7 @@ std::expected<Geometry::Mesh, std::string_view> ConvertBuildingMesh(const Buildi
   mesh.Indices.assign(part.Indices.begin(), part.Indices.end());
   mesh.Colours.assign(part.Colours.begin(), part.Colours.end());
   mesh.Uv1.assign(part.MaterialM.begin(), part.MaterialM.end());
-  const auto local = [&frame](const Vec3f &value) {
-    const Vec3 ecef{{value[0], value[1], value[2]}};
+  const auto local = [&frame](const Vec3 &ecef) {
     return RenderFrame::Of({.EastM = Dot(ecef, frame.East),
                             .NorthM = Dot(ecef, frame.North),
                             .UpM = Dot(ecef, frame.Up)});
@@ -40,8 +39,9 @@ std::expected<Geometry::Mesh, std::string_view> ConvertBuildingMesh(const Buildi
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
     const StoredVertex &at = part.Vertices[vertex];
     const Vec2f texture = at.uv();
-    const auto normal = local(at.norm());
-    const auto position = local(at.pos);
+    const auto n = at.norm();
+    const auto normal = local(Vec3{{n[0], n[1], n[2]}});
+    const auto position = local(Vec3{{at.pos[0], at.pos[1], at.pos[2]}} - origin);
     for (size_t axis = 0; axis < 3; ++axis) {
       mesh.PositionsM[vertex * 3 + axis] = static_cast<float>(position[axis]);
       mesh.Normals[vertex * 3 + axis] = static_cast<float>(normal[axis]);

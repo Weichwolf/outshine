@@ -18,6 +18,6 @@ struct BuildingMeshPart {
 };
 
 [[nodiscard]] std::expected<Geometry::Mesh, std::string_view>
-ConvertBuildingMesh(const BuildingMeshPart &part, const EnuAxes &frame);
+ConvertBuildingMesh(const BuildingMeshPart &part, const EnuAxes &frame, const Vec3 &origin = {});
 }
 #endif

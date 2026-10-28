@@ -42,6 +42,13 @@ int main() {
   CHECK(std::ranges::equal(mesh->Uv, texture),
         "native texture coordinates retain signed and facade-scale values exactly");
   CHECK(std::ranges::equal(mesh->Indices, indices), "triangle ordering retained");
+  const auto translated = Generators::ConvertBuildingMesh(
+      {.Vertices = vertices, .Indices = indices, .Colours = {}, .MaterialM = {}},
+      frame,
+      Vec3{{1, 1, 1}});
+  CHECK(translated && translated->PositionsM[0] == -1 && translated->PositionsM[1] == -1 &&
+            translated->PositionsM[2] == 1 && translated->Normals == mesh->Normals,
+        "local origin is subtracted before float storage and never translates normals");
 
   const std::array quad{vertices[0],
                         vertices[1],
