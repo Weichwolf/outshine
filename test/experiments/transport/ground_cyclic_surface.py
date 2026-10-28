@@ -23,6 +23,7 @@ def plan_source_surface(
     expected_holes,
     deadline,
     cut_method,
+    maximum_holes=2,
 ):
     if min(budget.requests, budget.surface.max_queries) < len(leaves):
         raise ValueError("cycle_terminal_query_budget")
@@ -45,6 +46,7 @@ def plan_source_surface(
         seconds=geometry_deadline - time.monotonic(),
         cut_method=cut_method,
         expected_holes=expected_holes,
+        maximum_holes=maximum_holes,
     )
     geometry.update(
         source_node_ids=tuple(node_ids),

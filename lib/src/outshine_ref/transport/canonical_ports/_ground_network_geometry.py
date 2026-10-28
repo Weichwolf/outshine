@@ -5,7 +5,7 @@ import time
 import numpy as np
 import shapely
 
-from ._ground_domain import mesh_parts
+from ._ground_domain import mesh_parts, validate_hole_budget
 from ._ground_recipe import NETWORK_RECIPE
 from ._ground_star_geometry import profile_cuts
 
@@ -114,8 +114,17 @@ def edge_bands(a, b, width, start_leaf, end_leaf):
 
 
 def layout(
-    xy, edges, widths, grades, *, seconds, cut_method="adaptive", expected_holes=0
+    xy,
+    edges,
+    widths,
+    grades,
+    *,
+    seconds,
+    cut_method="adaptive",
+    expected_holes=0,
+    maximum_holes=2,
 ):
+    validate_hole_budget(expected_holes, maximum_holes, "ground_network")
     deadline = time.monotonic() + seconds
     remaining = lambda: deadline - time.monotonic()
     profiles, polygons, source_edges, node_parts, cut_work = node_sections(
@@ -159,7 +168,14 @@ def layout(
                 terminal_edges.append(edge)
                 terminal_nodes.append(node)
     raw, report = mesh_parts(
-        polygons, frames, roles, ports, links, caps, expected_holes=expected_holes
+        polygons,
+        frames,
+        roles,
+        ports,
+        links,
+        caps,
+        expected_holes=expected_holes,
+        maximum_holes=maximum_holes,
     )
     if remaining() <= 0:
         raise ValueError("ground_tree_geometry_deadline")

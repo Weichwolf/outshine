@@ -4,6 +4,16 @@ import numpy as np
 import shapely
 
 
+def validate_hole_budget(expected_holes, maximum_holes, prefix):
+    if (
+        type(maximum_holes) is not int
+        or not 0 <= maximum_holes <= 8
+        or type(expected_holes) is not int
+        or not 0 <= expected_holes <= maximum_holes
+    ):
+        raise ValueError(prefix + "_hole_budget")
+
+
 def mesh_parts(
     polygons,
     frames,
@@ -14,9 +24,9 @@ def mesh_parts(
     *,
     prefix="ground_network",
     expected_holes=0,
+    maximum_holes=2,
 ):
-    if type(expected_holes) is not int or not 0 <= expected_holes <= 2:
-        raise ValueError(prefix + "_hole_budget")
+    validate_hole_budget(expected_holes, maximum_holes, prefix)
     if any(p.geom_type != "Polygon" or not p.is_valid or p.area <= 0 for p in polygons):
         raise ValueError(prefix + "_invalid_polygon")
     if not shapely.coverage_is_valid(polygons):
