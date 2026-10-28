@@ -66,8 +66,13 @@ result records retain their checked 32-byte size/alignment/offsets. Palette
 prefix/layer ranges are checked before GPU access.
 
 ```text
-outshine_material_compute_probe shader.spv palette.f32 probes.bin result.f32 unmapped
+outshine_material_compute_probe shader.spv palette.f32 probes.bin result.f32 unmapped [--gpu-timing]
 ```
+
+`--gpu-timing` requests 32 dispatches. Unsupported dispatch timing selects submission
+timing; the actual mode is printed. A batch measures uploads, dispatches and readback
+together. Missing dispatch timestamps remain unavailable; a batch is not shader time.
+Metal validation runs require `MTL_DEBUG_LAYER=1`.
 
 `unmapped` is the palette producer's explicit fallback row. Five native buffers
 request a total of `2*palette_bytes + 4*probe_bytes`; three copies transfer

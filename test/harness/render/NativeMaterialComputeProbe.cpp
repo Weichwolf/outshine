@@ -282,11 +282,17 @@ bool Run(const char *const *argv, bool timed) {
   }
   std::vector<uint32_t> words(code.size() / sizeof(uint32_t));
   std::memcpy(words.data(), code.data(), code.size());
-  auto device =
-      Gpu::CreateDevice({.Validation = true,
-                         .GpuTiming = timed ? outshine::Render::Native::GpuTimingMode::Dispatches
-                                            : outshine::Render::Native::GpuTimingMode::None});
+  auto timing = timed ? Gpu::GpuTimingMode::Dispatches : Gpu::GpuTimingMode::None;
+  auto device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timing});
+  if (!device && timed && device.error().Kind == Gpu::ErrorKind::Unsupported) {
+    timing = Gpu::GpuTimingMode::Submission;
+    device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timing});
+  }
   if (!Checked(device)) { return false; }
+  if (timed) {
+    std::println("profile_timing_mode={}",
+                 timing == Gpu::GpuTimingMode::Dispatches ? "dispatch" : "submission");
+  }
   auto pipeline =
       (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "material compute probe"});
   if (!Checked(pipeline) || !Matches((*pipeline)->Layout())) { return false; }
