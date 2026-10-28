@@ -1,4 +1,5 @@
 #include "Check.h"
+#include "HttpOrigin.h"
 #include "SourceTransport.h"
 #include <cstdint>
 #include <string>
@@ -8,6 +9,12 @@
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
+  CHECK(HttpOrigin("HTTPS://TILES.OPENFREEMAP.ORG:443/planet/pinned/0/0/0.pbf") ==
+            "https://tiles.openfreemap.org:443",
+        "provider identity uses the same normalized URL origin as the transport");
+  CHECK(HttpOrigin("https://tiles.openfreemap.org.evil.test/planet/pinned/0/0/0.pbf") !=
+            "https://tiles.openfreemap.org:443",
+        "a hostname suffix cannot masquerade as the official provider");
   constexpr auto headers = "Content-Type: application/pbf\r\nX-Identity: pinned \t\r\n\r\n";
   CHECK(SingleResponseHeader(headers, "x-identity") == "pinned",
         "a field name is case insensitive and surrounding HTTP whitespace is removed");

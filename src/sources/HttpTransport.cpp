@@ -1,5 +1,6 @@
 #include <expected>
 #include "HttpTransport.h"
+#include "HttpOrigin.h"
 
 #include <algorithm>
 #include <atomic>
@@ -33,35 +34,6 @@ constexpr int kHttpBandwidthLimitExceeded = 509;
 
 using Data::StrongEntityTag;
 
-[[nodiscard]] std::string UrlOrigin(const std::string &url) {
-  const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(curl_url(), &curl_url_cleanup);
-  if (!parsed || curl_url_set(parsed.get(), CURLUPART_URL, url.c_str(), 0) != CURLUE_OK) {
-    return {};
-  }
-  const auto part = [&](CURLUPart component, unsigned flags) {
-    char *value = nullptr;
-    if (curl_url_get(parsed.get(), component, &value, flags) != CURLUE_OK) { return std::string{}; }
-    const std::unique_ptr<char, decltype(&curl_free)> owned(value, &curl_free);
-    return std::string(owned.get());
-  };
-  auto scheme = part(CURLUPART_SCHEME, 0);
-  auto host = part(CURLUPART_HOST, 0);
-  const auto port = part(CURLUPART_PORT, CURLU_DEFAULT_PORT);
-  unsigned portNumber = 0;
-  const auto parsedPort = std::from_chars(port.data(), port.data() + port.size(), portNumber);
-  if (parsedPort.ec != std::errc{} || parsedPort.ptr != port.data() + port.size() ||
-      portNumber > std::numeric_limits<uint16_t>::max()) {
-    return {};
-  }
-  for (auto *text : {&scheme, &host}) {
-    for (char &letter : *text) {
-      if (letter >= 'A' && letter <= 'Z') { letter += 'a' - 'A'; }
-    }
-  }
-  if ((scheme != "http" && scheme != "https") || host.empty() || port.empty()) { return {}; }
-  return scheme + "://" + host + ":" + std::to_string(portNumber);
-}
-
 [[nodiscard]] std::string RetryOrigin(CURL *handle, long status, curl_off_t retryAfter) {
   if ((status != kHttpTooManyRequests && status != kHttpBandwidthLimitExceeded) ||
       retryAfter <= 0) {
@@ -69,7 +41,7 @@ using Data::StrongEntityTag;
   }
   const char *effective = nullptr;
   (void)curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &effective);
-  return effective != nullptr ? UrlOrigin(effective) : std::string{};
+  return effective != nullptr ? Data::HttpOrigin(effective) : std::string{};
 }
 
 [[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
@@ -117,6 +89,35 @@ private:
   return runtime;
 }
 
+}
+
+std::string Data::HttpOrigin(const std::string &url) {
+  const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(curl_url(), &curl_url_cleanup);
+  if (!parsed || curl_url_set(parsed.get(), CURLUPART_URL, url.c_str(), 0) != CURLUE_OK) {
+    return {};
+  }
+  const auto part = [&](CURLUPart component, unsigned flags) {
+    char *value = nullptr;
+    if (curl_url_get(parsed.get(), component, &value, flags) != CURLUE_OK) { return std::string{}; }
+    const std::unique_ptr<char, decltype(&curl_free)> owned(value, &curl_free);
+    return std::string(owned.get());
+  };
+  auto scheme = part(CURLUPART_SCHEME, 0);
+  auto host = part(CURLUPART_HOST, 0);
+  const auto port = part(CURLUPART_PORT, CURLU_DEFAULT_PORT);
+  unsigned portNumber = 0;
+  const auto parsedPort = std::from_chars(port.data(), port.data() + port.size(), portNumber);
+  if (parsedPort.ec != std::errc{} || parsedPort.ptr != port.data() + port.size() ||
+      portNumber > std::numeric_limits<uint16_t>::max()) {
+    return {};
+  }
+  for (auto *text : {&scheme, &host}) {
+    for (char &letter : *text) {
+      if (letter >= 'A' && letter <= 'Z') { letter += 'a' - 'A'; }
+    }
+  }
+  if ((scheme != "http" && scheme != "https") || host.empty() || port.empty()) { return {}; }
+  return scheme + "://" + host + ":" + std::to_string(portNumber);
 }
 
 HttpTransport::Transfer::~Transfer() {
@@ -222,7 +223,7 @@ Data::FetchStart HttpTransport::Start(const std::string &url,
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
-  const auto origin = UrlOrigin(url);
+  const auto origin = Data::HttpOrigin(url);
   if (origin.empty()) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
   uint64_t ticket = 0;
   {

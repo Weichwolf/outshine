@@ -108,6 +108,34 @@ void CheckMissAndHit(const std::filesystem::path &root) {
         "a reopened offline hit adds no verification request or source mutation");
 }
 
+void CheckRenamedProvider() {
+  Replies wire;
+  const auto at = Address::At(kAddress);
+  const Generators::Osm::VectorTileSource renamed(
+      kRevision,
+      Rank{0},
+      AbsencePolicy::Fail,
+      "renamed.vector",
+      "HTTPS://TILES.OPENFREEMAP.ORG:443/region/pinned/{z}/{x}/{y}.pbf?token=public");
+  const auto missing = renamed.Collect(at, static_cast<Ticket>(1), wire).Take();
+  CHECK(missing && missing->What == Meaning::Refused,
+        "renaming the dataset cannot bypass the actual provider's release contract");
+  wire.Headers = "x-ofm-debug: specific PBF region pinned\r\n";
+  const auto matched = renamed.Collect(at, static_cast<Ticket>(1), wire).Take();
+  CHECK(matched && matched->What == Meaning::Bytes,
+        "the configured source area and revision qualify a renamed official endpoint");
+  const Generators::Osm::VectorTileSource mismatched(
+      kRevision,
+      Rank{0},
+      AbsencePolicy::Fail,
+      kDataset,
+      "https://example.test/planet/other/{z}/{x}/{y}.pbf");
+  wire.Headers = kSpecific;
+  const auto wrong = mismatched.Collect(at, static_cast<Ticket>(1), wire).Take();
+  CHECK(wrong && wrong->What == Meaning::Refused,
+        "a matching response header cannot repair a differently bound request URL");
+}
+
 void CheckOtherOutcomes() {
   auto source = MakeSource();
   Replies wire;
@@ -140,6 +168,7 @@ int main() {
   CHECK(!error, "the isolated raw cache is available");
   CheckMissAndHit(root);
   CheckOtherOutcomes();
+  CheckRenamedProvider();
   std::filesystem::remove_all(root, error);
   CHECK(!error, "only test-owned cache files are removed after closing their owners");
   return Report();
