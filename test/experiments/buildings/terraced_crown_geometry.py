@@ -129,15 +129,40 @@ def capless(mesh, height):
 
 
 class RoofedProducts:
-    def __init__(self, plan, *, legacy_trim=True, terrace_routing="grid"):
+    def __init__(
+        self, plan, *, legacy_trim=True, terrace_routing="grid", facade_recesses=None
+    ):
         self.plan = plan
         self.draws = {}
         self.body_draws = {}
+        self.recess_work = ()
         terraces = terrace_plan(plan.body, routing=terrace_routing)
         if plan.access is not None:
             terraces = replace(
                 terraces, prepared=replace(terraces.prepared, roof_access=plan.access)
             )
+        if facade_recesses is not None:
+            from facade_recess_plan import plan as recess_plan
+
+            selection = recess_plan(terraces, facade_recesses)
+            replaced = {cell.source_window.identifier for cell in selection.cells}
+            prepared = terraces.prepared
+            facade = replace(
+                prepared.facade,
+                windows=tuple(
+                    w for w in prepared.facade.windows if w.identifier not in replaced
+                ),
+            )
+            terraces = replace(
+                terraces,
+                prepared=replace(
+                    prepared,
+                    facade=facade,
+                    recesses=selection.cells,
+                    recess_rejections=selection.rejected,
+                ),
+            )
+            self.recess_work = selection.work
         self.body = TerraceProducts(terraces, legacy_trim=legacy_trim)
         self.roof_components, self.roof_skin = None, None
         self.roof_crown, self.roof_failure = plan.crown, None

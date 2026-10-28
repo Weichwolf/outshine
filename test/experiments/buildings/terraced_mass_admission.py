@@ -43,7 +43,11 @@ def shell_sweep(owner):
             w.bottom_m,
             w.bottom_m + w.height_m,
         )
-        for w in (*prepared.facade.windows, *owner.plan.portals)
+        for w in (
+            *prepared.facade.windows,
+            *owner.plan.portals,
+            *(r.outer for r in prepared.recesses),
+        )
     )
     positive = bands(mass)
     shell = owner.facade.physical().floors.shell
