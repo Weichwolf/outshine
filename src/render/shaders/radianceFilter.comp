@@ -1,0 +1,51 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D source;
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D destination;
+const uint lanes = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+shared vec4 partial[lanes];
+
+vec4 halfRounded(vec4 value) {
+  uvec4 bits = floatBitsToUint(value);
+  uvec4 quantumExponent = max((bits & 0x7fffffffu) >> 23u, uvec4(113u)) - 10u;
+  vec4 quantum = uintBitsToFloat(quantumExponent << 23u);
+  vec4 inverseQuantum = uintBitsToFloat((uvec4(254u) - quantumExponent) << 23u);
+  vec4 rounded = roundEven(value * inverseQuantum) * quantum;
+  uvec4 signBits = bits & 0x80000000u;
+  uvec4 result = floatBitsToUint(rounded) | signBits;
+  return uintBitsToFloat(mix(result, signBits | 0x7f800000u,
+                            greaterThanEqual(abs(value), vec4(65520.0))));
+}
+
+void main() {
+  ivec2 size = imageSize(destination);
+  ivec2 span = textureSize(source, 0) / size;
+  uint count = uint(span.x * span.y);
+  if (count < lanes) {
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(at, size))) { return; }
+    vec4 sum = vec4(0.0);
+    for (int y = 0; y < span.y; ++y) {
+      for (int x = 0; x < span.x; ++x) {
+        sum += texelFetch(source, at * span + ivec2(x, y), 0);
+      }
+    }
+    imageStore(destination, at, halfRounded(sum / float(count)));
+    return;
+  }
+  ivec2 at = ivec2(gl_WorkGroupID.xy);
+  uint lane = gl_LocalInvocationIndex;
+  vec4 sum = vec4(0.0);
+  for (uint sampleIndex = lane; sampleIndex < count; sampleIndex += lanes) {
+    ivec2 offset = ivec2(sampleIndex % uint(span.x), sampleIndex / uint(span.x));
+    sum += texelFetch(source, at * span + offset, 0);
+  }
+  partial[lane] = sum;
+  barrier();
+  for (uint stride = lanes / 2u; stride > 0u; stride /= 2u) {
+    if (lane < stride) { partial[lane] += partial[lane + stride]; }
+    barrier();
+  }
+  if (lane == 0u) { imageStore(destination, at, halfRounded(partial[0] / float(count))); }
+}

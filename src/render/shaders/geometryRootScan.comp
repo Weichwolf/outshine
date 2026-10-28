@@ -1,0 +1,47 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#define GEOMETRY_HIERARCHY_BINDING 0
+#include "geometryHierarchy.glsl"
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_roots { GeometryRoot roots[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_visible { uint visible[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_kept { uint kept[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_slot { uint slot[]; };
+layout(std430, set = 1, binding = 1) buffer Buffer_args { uint args[]; };
+shared uint block[32];
+shared uint carried;
+
+void main() {
+  const uint first = geometryGroup();
+  if (first >= hierarchy.counts.x) { return; }
+  const uint batch = roots[first].cluster.w;
+  if (first != 0u && roots[first - 1u].cluster.w == batch) { return; }
+  const uint lane = gl_LocalInvocationID.x;
+  if (lane == 0u) { carried = 0u; }
+  barrier();
+  for (uint rootIndex = first; rootIndex < hierarchy.counts.x; ++rootIndex) {
+    const GeometryRoot root = roots[rootIndex];
+    if (root.cluster.w != batch) { break; }
+    if (visible[rootIndex] == 0u) { continue; }
+    for (uint from = 0u; from < root.cluster.y; from += 32u) {
+      const uint live = min(root.cluster.y - from, 32u);
+      const uint at = from + lane;
+      const uint mine = at < root.cluster.y ? kept[root.cluster.z + at] : 0u;
+      block[lane] = mine;
+      barrier();
+      for (uint step = 1u; step < live; step <<= 1u) {
+        const uint taken = lane >= step ? block[lane - step] : 0u;
+        barrier();
+        block[lane] += taken;
+        barrier();
+      }
+      if (at < root.cluster.y) {
+        slot[root.cluster.z + at] = mine == 0u ? 0xffffffffu : carried + block[lane] - mine;
+      }
+      barrier();
+      if (lane == live - 1u) { carried += block[live - 1u]; }
+      barrier();
+    }
+  }
+  if (lane == 0u) { args[5u * batch] = carried; }
+}

@@ -16,6 +16,11 @@ original sources with shared plate openings and whole final ports, retaining
 all73 selected footway corridors. It compares eager individual plate emission
 with deferred shared construction at the same final geometry and ownership.
 
+The [local railing reference](indoor_rails.md) adds continuous hollow handrails,
+supported opening guards and below-tread anchors to those six stairs. It checks
+actual complete outer envelopes against every supplied traffic/source height
+band and compares independent support meshes with two affine templates.
+
 Run from the repository root with `.venv`. Install the reference library as well
 as the experiment dependencies:
 

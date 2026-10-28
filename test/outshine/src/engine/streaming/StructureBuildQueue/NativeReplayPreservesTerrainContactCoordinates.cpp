@@ -6,8 +6,8 @@
 #include "StructureBuildQueue.h"
 #include "TerrainRevisionIndex.h"
 #include "TangentFrame.h"
-#include "MvtWireFixture.h"
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -24,98 +24,13 @@
 #include <utility>
 #include <vector>
 
+#include "test/harness/engine/NativeBuildingReplay.h"
+
 namespace {
-outshine::Test::Mvt::Bytes BuildingTile(bool twoCells) {
-  using outshine::Test::Mvt::Append;
-  using outshine::Test::Mvt::Bytes;
-  Bytes layer{0x0a, 9, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g', 's', 0x78, 2, 0x28, 64};
-  Append(layer, 0x1a, Bytes{'k', 'i', 'n', 'd'});
-  Append(layer, 0x22, Bytes{0x0a, 8, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g'});
-  Bytes feature{0x08, 1, 0x18, 3};
-  Append(feature, 0x12, Bytes{0, 0});
-  Append(feature, 0x22, Bytes{9, 62, 62, 26, 8, 0, 0, 8, 7, 0, 15});
-  Append(layer, 0x12, feature);
-  if (twoCells) {
-    Bytes second{0x08, 3, 0x18, 3};
-    Append(second, 0x12, Bytes{0, 0});
-    Append(second, 0x22, Bytes{9, 20, 20, 26, 8, 0, 0, 8, 7, 0, 15});
-    Append(layer, 0x12, second);
-  }
-  Bytes tile;
-  Append(tile, 0x1a, layer);
-  Bytes streetLayer{0x0a, 7, 's', 't', 'r', 'e', 'e', 't', 's', 0x78, 2, 0x28, 64};
-  Append(streetLayer, 0x1a, Bytes{'k', 'i', 'n', 'd'});
-  Append(streetLayer, 0x22, Bytes{0x0a, 11, 'r', 'e', 's', 'i', 'd', 'e', 'n', 't', 'i', 'a', 'l'});
-  Bytes street{0x08, 2, 0x18, 2};
-  Append(street, 0x12, Bytes{0, 0});
-  Append(street, 0x22, Bytes{9, 0, 0, 10, 120, 0});
-  Append(streetLayer, 0x12, street);
-  Append(tile, 0x1a, streetLayer);
-  return tile;
-}
-
-class ReplaySourceTransport final : public outshine::Data::SourceTransport {
-public:
-  bool TwoCells = false;
-
-  outshine::Data::FetchStart Begin(const std::string & /*uri*/) override {
-    return static_cast<outshine::Data::Ticket>(1);
-  }
-
-  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
-    return outshine::Data::Wire::Answered(200, BuildingTile(TwoCells));
-  }
-
-  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
-};
-
-class SilentSink final : public outshine::Sink {
-public:
-  void Number(const char * /*name*/, double /*value*/, const char * /*unit*/) override {}
-
-  void Claim(bool /*passed*/, const char * /*claim*/) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string & /*uri*/) override {}
-};
-
 using namespace outshine;
 using namespace outshine::Ground;
 using namespace outshine::Test;
-
-bool PrepareReplayInputs(SurfacePreparation &stack,
-                         LongitudeLatitude eye,
-                         bool warm,
-                         std::chrono::steady_clock::time_point deadline) {
-  const auto inputsReady = [&] {
-    return warm ? stack.Vectors() != nullptr && stack.Vectors()->SettledWithin(0)
-                : stack.Ingested();
-  };
-  while (!inputsReady() && std::chrono::steady_clock::now() < deadline) {
-    CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = warm ? 0u : 1u, .VectorRing = 0}).has_value(),
-          "the real vector snapshot and semantic inputs advance");
-    (void)stack.AwaitProgress(0.001);
-  }
-  CHECK(inputsReady() && stack.Vectors() != nullptr && stack.Vectors()->Tiles().size() == 1,
-        "one complete vector tile supplies the native product");
-  if (!inputsReady() || stack.Vectors() == nullptr || stack.Vectors()->Tiles().size() != 1) {
-    return false;
-  }
-  CHECK(inputsReady(), "the required source or native admission metadata is available");
-  CHECK(!warm || stack.Ways().LookedCount() == 0,
-        "warm replay starts without preparing street inputs");
-  CHECK(warm || !stack.Ways().Ways().empty(),
-        "the cold asset binds an actual street corridor instead of an empty digest");
-  CHECK(!warm || (stack.PreparedVectorCosts().Hits > 0 && stack.PreparedVectorCosts().Writes == 0 &&
-                  stack.Vectors()->TotalBuildMetrics().ParseMs == 0),
-        "fresh warm replay loads normalized native tiles before source decode");
-  return true;
-}
+using namespace outshine::Test::BuildingReplay;
 
 struct ReplayTerrain {
   ReplayTerrain(bool warm, std::unique_ptr<TerrainRevisionIndex> revisions)
@@ -310,12 +225,18 @@ void Replay(const std::filesystem::path &directory,
   StructureBuildQueue queue;
   queue.Opens(&compute, &mesher);
   if (obsoleteLookups) {
+    std::atomic_bool released{false};
+    const auto blocker = compute.Post([&released] { released.wait(false); });
     for (size_t version = 1; version <= 4; ++version) {
       prints.TilesSpan(1000.0 + static_cast<double>(version));
       CHECK(queue.Posts(stack, prints, eye, source, 1) == 0,
             "each obsolete request starts only an asynchronous native lookup");
-      compute.Wait(compute.Post([] {}));
     }
+    CHECK(queue.Queued() == 4, "in-flight obsolete lookups fill the bounded candidate window");
+    released.store(true);
+    released.notify_all();
+    compute.Wait(blocker);
+    compute.Wait(compute.Post([] {}));
     CHECK(queue.Queued() == 4, "completed obsolete lookups occupy the entire candidate window");
     prints.TilesSpan(1000.0);
   }

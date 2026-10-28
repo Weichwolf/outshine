@@ -5,7 +5,7 @@ import time
 import numpy as np
 import shapely
 
-from ._ground_domain import mesh_parts
+from ._ground_domain import mesh_parts, validate_hole_budget
 from ._ground_recipe import NETWORK_RECIPE
 from ._ground_star_geometry import profile_cuts
 
@@ -113,7 +113,18 @@ def edge_bands(a, b, width, start_leaf, end_leaf):
     return sections, roles
 
 
-def layout(xy, edges, widths, grades, *, seconds, cut_method="adaptive"):
+def layout(
+    xy,
+    edges,
+    widths,
+    grades,
+    *,
+    seconds,
+    cut_method="adaptive",
+    expected_holes=0,
+    maximum_holes=2,
+):
+    validate_hole_budget(expected_holes, maximum_holes, "ground_network")
     deadline = time.monotonic() + seconds
     remaining = lambda: deadline - time.monotonic()
     profiles, polygons, source_edges, node_parts, cut_work = node_sections(
@@ -156,14 +167,27 @@ def layout(xy, edges, widths, grades, *, seconds, cut_method="adaptive"):
                 caps.append(section)
                 terminal_edges.append(edge)
                 terminal_nodes.append(node)
-    raw, report = mesh_parts(polygons, frames, roles, ports, links, caps)
+    raw, report = mesh_parts(
+        polygons,
+        frames,
+        roles,
+        ports,
+        links,
+        caps,
+        expected_holes=expected_holes,
+        maximum_holes=maximum_holes,
+    )
     if remaining() <= 0:
         raise ValueError("ground_tree_geometry_deadline")
     report.update(
-        recipe=NETWORK_RECIPE if cut_method == "adaptive" else None,
+        recipe=NETWORK_RECIPE
+        if cut_method == "adaptive" and expected_holes == 0
+        else None,
         part_source_edge_indices=source_edges,
         terminal_edge_indices=terminal_edges,
         terminal_node_indices=terminal_nodes,
         cut_fits=cut_work,
     )
+    if expected_holes:
+        report["expected_holes"] = expected_holes
     return raw, report

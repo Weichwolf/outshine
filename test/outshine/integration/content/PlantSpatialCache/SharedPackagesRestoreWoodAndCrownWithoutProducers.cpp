@@ -101,7 +101,8 @@ int Hit(const std::string &path) {
   }
   for (const auto &limb : *limbs) {
     for (size_t at = 0; at < limb.Nodes().size(); ++at) {
-      const auto sample = limb.Sample(static_cast<double>(at) / (limb.Nodes().size() - 1));
+      const auto sample =
+          limb.Sample(static_cast<double>(at) / static_cast<double>(limb.Nodes().size() - 1));
       const auto node = limb.Nodes()[at];
       if (!sample || sample->CentreM.Axis != foliage->Skeleton().PositionsM[node]) { return 4; }
     }

@@ -372,7 +372,7 @@ def main():
         ROOT / "src/generators/building/BuildingMaterials.h",
         ROOT / "src/content/shade/FacadeProfiles.inc",
         ROOT / "test/outshine/data/materials/ground-litter.palette",
-        ROOT / "test/harness/render/NativeGroundLitterProbe.cpp",
+        ROOT / "test/harness/render/NativeMaterialComputeProbe.cpp",
         ROOT / "src/render/shaders/facadePattern.glsl",
     ]
     report = {

@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 #include <unordered_map>
@@ -31,6 +32,20 @@ public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
   enum class BuildPurpose : uint8_t { ViewDetail, SourceGeometry };
+
+  struct NativeBasisQuery {
+    enum class Phase : uint8_t { Unavailable, Pending, Missing, Ready };
+    std::string RequestKey;
+    Phase Where = Phase::Unavailable;
+    const Generators::PreparedBuildingAssets::RequestedBasis *Source = nullptr;
+  };
+
+  // The source is borrowed until the next non-const queue call; one store per Clear().
+  [[nodiscard]] std::expected<NativeBasisQuery, Generators::StructureBakeError>
+  PollNativeBasis(Ground::SurfacePreparation &stack,
+                  const Generators::Osm::BuildingField &footprints,
+                  uint32_t tile);
+  void ReleaseNativeBasis(const std::string &request);
 
   struct HeightSourceRevision {
     uint64_t Value = 0;
@@ -158,7 +173,7 @@ public:
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
                BuildPurpose purpose = BuildPurpose::ViewDetail);
-  void ResumeCompletedTasks();
+  void PollCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
   void Clear();
@@ -280,11 +295,15 @@ private:
                   Generators::StructureBakeError>
         Result;
     std::string ContentKey;
+    uint64_t BasisWrites = 0;
     uint64_t StreetDigest = 0;
     double ReadMs = 0.0;
   };
 
   [[nodiscard]] size_t PendingBasisLookups() const noexcept;
+  [[nodiscard]] NativeLookup *
+  AdvanceNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+                      const std::string &request);
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
                                        uint32_t tile,
@@ -341,6 +360,14 @@ private:
                                               size_t preceding,
                                               ::outshine::Generators::Osm::BuildingField &prints);
   void DiscardFront(::outshine::Generators::Osm::BuildingField &prints);
+  void AdvanceQueuedTasks(const ::outshine::Generators::Osm::OsmField *vectors,
+                          ::outshine::Generators::Osm::BuildingField &prints,
+                          LongitudeLatitude eye,
+                          HeightSourceRevision heightSource,
+                          HeightRequirement heights,
+                          std::optional<LevelOfDetail> detail,
+                          BuildPurpose purpose);
+
   void DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
                     ::outshine::Generators::Osm::BuildingField &prints,
                     LongitudeLatitude eye,
@@ -380,6 +407,7 @@ private:
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
   std::unordered_map<std::string, std::unique_ptr<NativeLookup>> NativeLookups_;
+  std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets_;
   std::optional<Generators::StructureBakeError> NativeFailure_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;

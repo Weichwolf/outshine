@@ -75,9 +75,10 @@ void Exercise(const std::filesystem::path &directory) {
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
-  constexpr uint64_t kInputDigest = 17;
-  const auto request = (*cache)->RequestKey(tile, shape, kSpanM);
-  const auto key = (*cache)->Key(tile, kInputDigest, shape, kSpanM);
+  constexpr uint64_t kStreetDigest = 17;
+  const std::string inputDigest(64, 'a');
+  const auto request = (*cache)->RequestKey(tile, shape, kSpanM, inputDigest);
+  const auto key = (*cache)->Key(tile, kStreetDigest, shape, kSpanM, inputDigest);
   const std::atomic_bool stopping{false};
   const auto heights = Heights();
   CHECK(heights, "the bounded native elevation fixture is valid");
@@ -94,6 +95,14 @@ void Exercise(const std::filesystem::path &directory) {
   const auto record = (*records)->FindRequest(request);
   CHECK(record && *record, "the original request owns a persistent product binding");
   if (!record || !*record) { return; }
+  CHECK(!(**first).Bounds.Empty() && (**first).Bounds == (**record).Bounds,
+        "basis demand retains its persisted source bounds before any source forms load");
+  CHECK(generated && *generated && !(*generated)->Surfaces.empty() &&
+            (**first).Bounds.Holds((*generated)->AnchorEcef +
+                                   (*generated)->Surfaces.front().Bounds().Corner(0)) &&
+            (**first).Bounds.Holds((*generated)->AnchorEcef +
+                                   (*generated)->Surfaces.front().Bounds().Corner(7)),
+        "source bounds enclose the actual building in Earth-centred coordinates");
   const std::string alias(64, 'f');
   CHECK(alias != request, "the two logical addresses are distinct");
   const auto bound = (*records)->BindRequest((**record).Key, alias);
@@ -103,15 +112,47 @@ void Exercise(const std::filesystem::path &directory) {
     const auto hit = (*cache)->LoadBasisRequest(*address);
     CHECK(hit && *hit && (**hit).BaseKey == key && (**hit).Product.get() == (**first).Product.get(),
           "both addresses retain the same immutable live basis without displacement");
+    CHECK(hit && *hit && (**hit).Bounds == (**first).Bounds,
+          "resident and alias hits retain the same source bounds");
   }
   const auto after = (*cache)->Costs();
   CHECK(after.BasisResidentHits == before.BasisResidentHits + 4 &&
             after.BasisHits == before.BasisHits && after.BasisReadBytes == before.BasisReadBytes &&
-            after.ReadBytes == before.ReadBytes,
+            after.ReadBytes == before.ReadBytes &&
+            after.SurfaceReadBytes == before.SurfaceReadBytes &&
+            after.GeometryReadBytes == before.GeometryReadBytes,
         "alternating addresses cause no native payload reads, plan reads or decoding");
   CHECK((*records)->FindRequest(request)->has_value() &&
             (*records)->FindRequest(alias)->has_value(),
         "both logical bindings remain durable after resident reuse");
+  const std::string changedDigest(64, 'b');
+  const auto changedRequest = (*cache)->RequestKey(tile, shape, kSpanM, changedDigest);
+  const auto changedKey = (*cache)->Key(tile, kStreetDigest, shape, kSpanM, changedDigest);
+  CHECK(!changedRequest.empty() && changedRequest != request && changedKey != key,
+        "changed source inputs select distinct demand and content addresses");
+  const auto missing = (*cache)->LoadBasisRequest(changedRequest);
+  CHECK(missing && !*missing,
+        "a new input demand cannot return the previous source's resident basis");
+  const auto changed = (*cache)->Generate(changedKey, Inputs(), *heights, stopping, changedRequest);
+  CHECK(changed && *changed, "the changed source publishes its own reusable basis");
+  const auto previous = (*cache)->LoadBasisRequest(request);
+  const auto current = (*cache)->LoadBasisRequest(changedRequest);
+  CHECK(previous && *previous && (**previous).BaseKey == key && current && *current &&
+            (**current).BaseKey == changedKey,
+        "publishing changed inputs preserves the previous pinned demand");
+  auto reopened = PreparedBuildingAssets::Open(directory.string(), sources);
+  CHECK(reopened, "a fresh cache connection opens the persistent demand bindings");
+  if (!reopened) { return; }
+  const auto oldHit = (*reopened)->LoadBasisRequest(request);
+  const auto newHit = (*reopened)->LoadBasisRequest(changedRequest);
+  CHECK(oldHit && *oldHit && (**oldHit).BaseKey == key && newHit && *newHit &&
+            (**newHit).BaseKey == changedKey,
+        "each source demand retains its own durable product after reopening");
+  CHECK(oldHit && *oldHit && (**oldHit).Bounds == (**first).Bounds && newHit && *newHit &&
+            (**newHit).Bounds == (**first).Bounds,
+        "a fresh cache owner restores exact bounds without a resident source owner");
+  CHECK((*cache)->RequestKey(tile, shape, kSpanM, {}).empty(),
+        "a demand with no source-input digest has no reusable request identity");
 }
 }
 

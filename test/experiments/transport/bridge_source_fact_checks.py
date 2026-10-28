@@ -62,6 +62,35 @@ class ActualBridgeSourceFacts(unittest.TestCase):
             self.binding["source_generation"], self.native["SourceGeneration"]
         )
 
+    def test_original_missing_ways_reach_immutable_scope_input(self):
+        binding = self.source.binding
+        if self.facts["schema"] != "outshine/native-mvt-source-facts/3":
+            self.assertNotIn("missing_original_ways", binding)
+            return
+        rows = binding.get("missing_original_ways")
+        self.assertIsNotNone(rows, "validated original geometry must reach the actual scope input")
+        self.assertEqual(binding["source_facts_schema"], self.facts["schema"])
+        self.assertEqual(
+            binding["source_omissions_digest"], bytes(self.facts["OmissionsDigest"]).hex()
+        )
+        self.assertEqual(rows, inputs.immutable(self.facts["MissingWays"]))
+        with self.assertRaises(TypeError):
+            binding["missing_original_ways"] = ()
+        if rows:
+            with self.assertRaises(TypeError):
+                rows[0]["Points"][0]["LatitudeDeg"] = 0.0
+
+    def test_versioned_missing_way_has_original_data_at_scope_input(self):
+        fixture = Path(__file__).with_name("fixtures") / "missing-way-source-facts"
+        source, _, _, binding, _ = inputs.load_bridge_source_facts(fixture)
+        rows = source.binding["missing_original_ways"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]["Points"]), 2)
+        self.assertEqual(rows[0]["Way"]["StreetWay"], 2)
+        self.assertEqual(source.binding["source_facts_digest"], binding["source_facts_digest"])
+        with self.assertRaises(TypeError):
+            rows[0]["Points"][0]["LatitudeDeg"] = 0.0
+
     def test_raw_binary32_profile_and_original_height_tags_are_both_required(self):
         unqualified_positive_word = 0
         for span in self.source.spans:
@@ -102,7 +131,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
                 ),
             )
         self.assertGreater(sum(g.frontier for g in self.groups), 0)
-        if self.facts["schema"] == "outshine/native-mvt-source-facts/2":
+        if self.facts["schema"] in (
+            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+        ):
             self.assertEqual(
                 tuple(m.source_terminal for g in self.groups for m in g.members),
                 tuple(m["SourceTerminal"] for m in self.facts["Members"]),
@@ -222,7 +253,11 @@ class ActualBridgeSourceFacts(unittest.TestCase):
                 )
             )
         )
-        self.assertEqual(len(self.source.unknown_nodes), 3348)
+
+    def test_retained_fixture_preserves_its_exact_unknown_count(self):
+        pinned = Path(__file__).with_name("fixtures") / "bridge-source-facts"
+        source, _, _, _, _ = inputs.load_bridge_source_facts(pinned)
+        self.assertEqual(len(source.unknown_nodes), 3348)
 
     def test_source_only_loading_never_reads_or_decodes_terrain(self):
         original = Path.read_bytes
@@ -265,8 +300,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
         from canonical_port_native_inputs import FIXTURE
 
         legacy = json.loads(gzip.decompress((FIXTURE / "native.json.gz").read_bytes()))
-        self.assertNotEqual(legacy["SourceIdentity"], self.native["SourceIdentity"])
-        with self.assertRaisesRegex(ValueError, "paired source scope"):
+        with self.assertRaisesRegex(
+            ValueError, "paired source scope|independent snapshot scope"
+        ):
             inputs.check_scope(legacy, self.facts, self.manifest, PortBudget())
 
     def test_budget_avoids_original_source_profile_and_terrain_work(self):

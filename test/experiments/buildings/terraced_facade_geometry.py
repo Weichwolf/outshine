@@ -19,12 +19,14 @@ class FacadeAsset:
     frames: object
 
 
-def build_facade(mass, *, prepared=None, portals=(), legacy_trim=True):
+def build_facade(
+    mass, *, prepared=None, portals=(), legacy_trim=True, recess_components=None
+):
     prepared = prepare(mass) if prepared is None else prepared
     if prepared.mass != mass:
         raise ValueError("Prepared facade belongs to a different source mass")
     local, facade = prepared.local, prepared.facade
-    floors = build(local)
+    floors = build(local, roof_access=prepared.roof_access)
     cuts = tuple(
         PrismVolume(
             w.identifier,
@@ -43,12 +45,16 @@ def build_facade(mass, *, prepared=None, portals=(), legacy_trim=True):
             p.bottom_m + p.height_m,
             12,
         )
-        for p in portals
+        for p in (*portals, *(r.outer for r in prepared.recesses))
     )
     shell = subtract_prisms(
         local.identifier + "/shell", floors.shell, cuts, max_triangles=65536
     )
     frames = details(local, facade, portals=portals, legacy_trim=legacy_trim)
+    if prepared.recesses:
+        from facade_recess_geometry import attach, resolved
+
+        frames = attach(frames, resolved(prepared, recess_components))
     frames = frames | {"vertices": positions(frames["vertices"], mass.core)}
     current = replace(floors, shell=shell)
     world = replace(

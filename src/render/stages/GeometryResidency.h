@@ -5,7 +5,11 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <utility>
+#include <expected>
 #include <vector>
+#include <unordered_map>
 
 #include "native/Device.h"
 
@@ -19,9 +23,30 @@ using Core::TexelKind;
 using Core::Texels;
 
 struct GeometryResidency {
+  class UploadRecording {
+  public:
+    UploadRecording(UploadRecording &&other) noexcept;
+    ~UploadRecording();
+    [[nodiscard]] const Native::Error *Failure() const noexcept;
+    UploadRecording(const UploadRecording &) = delete;
+    UploadRecording &operator=(const UploadRecording &) = delete;
+    UploadRecording &operator=(UploadRecording &&) = delete;
+
+  private:
+    friend struct GeometryResidency;
+    explicit UploadRecording(GeometryResidency &owner) noexcept;
+    GeometryResidency *Owner_;
+  };
+
+  // Isolated source construction: submit these commands before publishing, or discard the source.
+  // The residency and commands remain at stable addresses for the recording's lifetime.
+  [[nodiscard]] Native::Result<UploadRecording> RecordUploads(Native::Commands &commands);
+
   void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
 
   [[nodiscard]] size_t TakeUploadAttempts();
+  void DiscardUnusedImage(const std::shared_ptr<Native::Texture> &image);
+  void DiscardUnreferencedImages();
 
   [[nodiscard]] size_t TotalUploadAttempts() const;
 
@@ -42,8 +67,15 @@ struct GeometryResidency {
     Placements,
     Index,
     ClusterSpheres,
-    ClusterJobs,
-    ClusterBatches,
+    ClusterTemplates,
+    ClusterRoots,
+    ClusterPrefix,
+    ClusterVisible,
+    ClusterChunks,
+    ClusterChunkState,
+    ClusterSelected,
+    ClusterSelectedState,
+    ClusterReset,
     ClusterKept,
     ClusterSlot,
     DrawIndex,
@@ -194,6 +226,8 @@ struct GeometryResidency {
          Transfer decode,
          TexelKind kind,
          ImageUploadMode mode = ImageUploadMode::Immediate);
+  [[nodiscard]] Native::Result<BoundImage> Bind(const RadianceImage &image,
+                                                ImageUploadMode mode = ImageUploadMode::Immediate);
 
 private:
   [[nodiscard]] Native::Result<void> Submit(std::span<Crossing> what, uint32_t total);
@@ -218,6 +252,8 @@ private:
   [[nodiscard]] static Native::Result<void> RecordImage(Native::Commands &commands,
                                                         const StagedImage &image);
   std::vector<StagedImage> StagedImages_;
+  std::unordered_map<const Native::Texture *, size_t> StagedImageAt_;
+  void EraseStagedImage(size_t which);
 
   struct DefaultImageKey {
     Transfer Decode;
@@ -284,6 +320,14 @@ private:
 
   UploadQueue *Uploads_ = nullptr;
   Native::Device *Device_ = nullptr;
+  Native::Commands *UploadCommands_ = nullptr;
+  std::optional<Native::Error> UploadFailure_;
+
+  std::unexpected<Native::Error> UploadFailed(Native::Error error) {
+    if (UploadCommands_ != nullptr && !UploadFailure_) { UploadFailure_ = error; }
+    return std::unexpected(std::move(error));
+  }
+
   std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;

@@ -1,3 +1,6 @@
+#include <cstdint>
+#include <ios>
+#include <system_error>
 #include "RawSourceCache.h"
 #include "SourceCacheTrim.h"
 #include "Check.h"
@@ -15,7 +18,7 @@ int main() {
   auto pattern = (std::filesystem::temp_directory_path() / "outshine-cache-XXXXXX").string();
   const char *created = mkdtemp(pattern.data());
   CHECK(created != nullptr, "temporary root created");
-  if (!created) { return Report(); }
+  if (created == nullptr) { return Report(); }
   const std::filesystem::path root(created);
   const auto cache = root / "cache";
   std::filesystem::create_directory(cache);
@@ -54,7 +57,7 @@ int main() {
   std::ofstream(root / "target") << "ok";
   std::filesystem::create_symlink(root / "target", cache / key);
   {
-    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
+    const RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
     CHECK(outshine::TrimSourceCache(cache, {.BudgetBytes = 4, .Apply = true}),
           "maintenance ignores foreign files and unsupported entry types");
     CHECK(std::filesystem::exists(cache / "unrelated"), "eviction preserves foreign files");
@@ -79,7 +82,7 @@ int main() {
   std::filesystem::last_write_time(cache / key, now - std::chrono::seconds(1));
   std::filesystem::last_write_time(cache / newerKey, now);
   {
-    RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
+    const RawSourceCache store({.Directory = cache.string(), .CapBytes = 4});
     CHECK(store.Lookup(key).Where == RawSourceCache::Presence::Bytes &&
               store.Lookup(newerKey).Where == RawSourceCache::Presence::Bytes,
           "opening preserves existing source bytes even above the maintenance budget");

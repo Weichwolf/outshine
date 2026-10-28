@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "BuildingMesh.h"
-#include "Meshed.h"
+#include "BuildingMeshConversion.h"
 #include "Geodesy.h"
 
 namespace outshine::Generators {
@@ -133,22 +133,6 @@ Generator::Product Structures::make(const Request &asked) const {
   const std::unique_ptr<MeshScratch> scratch = mesher.Scratch();
   Raised raised;
   if (!mesher.Mesh(plan, *scratch, raised)) { return std::unexpected("could not mesh structure"); }
-  std::vector<StoredVertex> soup;
-  const auto spread = [&soup](const std::vector<StoredVertex> &corners,
-                              const std::vector<uint32_t> &run) {
-    for (const uint32_t corner : run) { soup.push_back(corners[corner]); }
-  };
-  spread(raised.WallCorners, raised.WallRun);
-  spread(raised.RoofCorners, raised.RoofRun);
-  if (soup.empty()) { return std::unexpected("structure mesh has no triangles"); }
-
-  Meshed made;
-  if (!made.Take("structure", MaterialInstance(0), soup, frame)) {
-    return std::unexpected("could not create structure mesh");
-  }
-  const Geometry stood = made.Handed();
-  if (stood.parts() == 0) { return std::unexpected("structure mesh has no parts"); }
-
   Material walls;
   walls.BaseColour[0] = kWallRed;
   walls.BaseColour[1] = kWallGreen;
@@ -156,18 +140,18 @@ Generator::Product Structures::make(const Request &asked) const {
   walls.Roughness = kWallRoughness;
   const auto named = into.addSurface("walls", walls);
   if (!named) { return std::unexpected("could not create structure material"); }
-  for (int part = 0; part < stood.parts(); ++part) {
-    const auto createdPart = into.addPart("structure", *named);
-    if (!createdPart) { return std::unexpected("structure part capacity exceeded"); }
-    const int here = *createdPart;
-    if (!into.setPositions(here, stood.positionsOf(part)) ||
-        !into.setTriangles(here, stood.trianglesOf(part))) {
-      return std::unexpected("could not publish structure geometry");
-    }
-    if ((!stood.normalsOf(part).empty() && !into.setNormals(here, stood.normalsOf(part))) ||
-        (!stood.textureOf(part).empty() && !into.setTexture(here, stood.textureOf(part)))) {
-      return std::unexpected("could not publish structure attributes");
-    }
+  const auto roofFirst = static_cast<uint32_t>(raised.WallCorners.size());
+  raised.WallCorners.insert(
+      raised.WallCorners.end(), raised.RoofCorners.begin(), raised.RoofCorners.end());
+  for (const uint32_t index : raised.RoofRun) { raised.WallRun.push_back(roofFirst + index); }
+  auto mesh = ConvertBuildingMesh(
+      {.Vertices = raised.WallCorners, .Indices = raised.WallRun, .Colours = {}, .MaterialM = {}},
+      frame);
+  if (!mesh) { return std::unexpected(std::string(mesh.error())); }
+  const auto created = into.addPart("structure", *named);
+  if (!created) { return std::unexpected("structure part capacity exceeded"); }
+  if (const auto adopted = into.adoptMesh(*created, *mesh); !adopted) {
+    return std::unexpected(std::string(Describe(adopted.error())));
   }
   return into;
 }

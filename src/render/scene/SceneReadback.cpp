@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <span>
 #include <string>
 #include <utility>
@@ -28,6 +29,43 @@ constexpr int kSingleExponentBias = 127;
 constexpr unsigned kSingleMantissaBits = 23u;
 constexpr unsigned kMantissaWiden = kSingleMantissaBits - kHalfMantissaBits;
 constexpr uint32_t kSingleInfinity = 0x7F800000u;
+
+bool ReadSelectionQueues(Native::Device *device,
+                         const GeometryResidency &resident,
+                         KeptDraws &into) {
+  for (const auto &[stream, state] :
+       std::array{std::pair{GeometryResidency::Stream::ClusterChunkState, &into.RootWork},
+                  std::pair{GeometryResidency::Stream::ClusterSelectedState, &into.ClusterWork}}) {
+    Readback queue;
+    const auto *buffer = resident.Buffer(stream).get();
+    if (buffer == nullptr || queue.FromBuffer(device, buffer, sizeof(*state)) != ReadState::Ready) {
+      return false;
+    }
+    std::memcpy(state, queue.Rows(), sizeof(*state));
+    into.ReadbackBytes += sizeof(*state);
+  }
+  return true;
+}
+
+bool MaskRejectedRoots(Native::Device *device,
+                       const GeometryResidency &resident,
+                       std::span<const DrawBatch> batches,
+                       std::span<uint32_t> into) {
+  Readback roots;
+  const auto *visible = resident.Buffer(GeometryResidency::Stream::ClusterVisible).get();
+  const auto bytes = static_cast<uint32_t>(batches.size() * sizeof(uint32_t));
+  if (visible == nullptr || roots.FromBuffer(device, visible, bytes) != ReadState::Ready) {
+    return false;
+  }
+  const auto *status = reinterpret_cast<const uint32_t *>(roots.Rows());
+  size_t logical = 0;
+  for (size_t at = 0; at < batches.size(); ++at) {
+    if (batches[at].JobCount > into.size() - logical) { return false; }
+    if (status[at] == 0) { std::ranges::fill(into.subspan(logical, batches[at].JobCount), 0u); }
+    logical += batches[at].JobCount;
+  }
+  return logical == into.size();
+}
 
 float HalfToFloat(uint16_t bits) {
   const auto held = static_cast<uint32_t>(bits);
@@ -172,22 +210,36 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
+ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
   into = {};
   const GeometryResidency &resident = ActiveContent().Geometry().Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
   const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
-  if (!ActiveState().Ready || args == nullptr || rows == 0) { return ReadState::Failed; }
+  if (!ActiveState().Ready || !ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr ||
+      rows == 0) {
+    return ReadState::Failed;
+  }
+  if (!ReadSelectionQueues(Device_.get(), resident, into)) {
+    into = {};
+    return ReadState::Failed;
+  }
   Readback read;
   const uint32_t bytes = rows * 5u * static_cast<uint32_t>(sizeof(uint32_t));
-  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) { return ReadState::Failed; }
+  if (read.FromBuffer(Device_.get(), args, bytes) != ReadState::Ready) {
+    into = {};
+    return ReadState::Failed;
+  }
   const auto *const held = reinterpret_cast<const uint32_t *>(read.Rows());
-  into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  into.ReadbackBytes += bytes;
+  if (detail == GeometryReadback::Indices) {
+    into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
+  }
   for (uint32_t at = 0; at < rows; ++at) {
     into.Indices += held[static_cast<size_t>(at) * 5];
     into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
   }
+  if (detail == GeometryReadback::Counters) { return ReadState::Ready; }
   const uint32_t jobs = ActiveContent().Geometry().ClusterJobs();
   const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
   if (jobs > 0 && kept != nullptr) {
@@ -199,17 +251,41 @@ ReadState SceneRenderer::ReadKeptIndices(KeptDraws &into) {
     }
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
+    into.ReadbackBytes += keptBytes;
+    if (!MaskRejectedRoots(
+            Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.Visibility)) {
+      into = {};
+      return ReadState::Failed;
+    }
+    into.ReadbackBytes += rows * sizeof(uint32_t);
   }
   const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
-  const uint32_t indexBytes = into.Indices * static_cast<uint32_t>(sizeof(uint32_t));
-  if (drawn.FromBuffer(Device_.get(), index, indexBytes) != ReadState::Ready) {
+  uint64_t end = 0;
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
+  }
+  const uint64_t indexBytes = end * sizeof(uint32_t);
+  if (indexBytes > index->Description().Bytes ||
+      indexBytes > std::numeric_limits<uint32_t>::max() ||
+      drawn.FromBuffer(Device_.get(), index, static_cast<uint32_t>(indexBytes)) !=
+          ReadState::Ready) {
     into = {};
     return ReadState::Failed;
   }
-  const auto *const indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
-  into.DrawIndex.assign(indices, indices + into.Indices);
+  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.ReadbackBytes += indexBytes;
+  into.DrawIndex.reserve(into.Indices);
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) {
+      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
+    }
+  }
   return ReadState::Ready;
 }
 

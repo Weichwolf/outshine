@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "SceneRenderer.h"
+#include "RadianceFilter.h"
 #include "Vec3.h"
 
 #include <cstdint>
@@ -32,6 +33,13 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+SceneRenderer::SceneRenderer(GpuSubmission submission) : Submission_(submission) {}
+
+SceneRenderer::~SceneRenderer() {
+  WaitForGpu();
+  StopShowing();
+}
+
 namespace {
 bool DepthPyramidNeeded(const ExecutionPlan &plan) {
   return !plan.Holds(Stage::TemporalResolve) ||
@@ -86,6 +94,7 @@ GeometryCullStage::Source CullSource(const GeometryRenderer &draw) {
           .AnchorM = draw.AnchorM(),
           .Jobs = draw.ClusterJobs(),
           .BatchRows = draw.ClusterBatchRows(),
+          .Hierarchy = &draw.Hierarchy(),
           .Generation = draw.Generation(),
           .GroundGeneration = draw.Ground().Generation()};
 }
@@ -130,6 +139,9 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Irradiance,
          .Configure = &SceneRenderer::ConfigureIrradiance,
          .Encode = &SceneRenderer::EncodeIrradiance},
+        {.Named = Stage::GeometryRootCull,
+         .Configure = &SceneRenderer::ConfigureGeometryCull,
+         .Encode = &SceneRenderer::EncodeGeometryRoots},
         {.Named = Stage::GeometryCull,
          .Configure = &SceneRenderer::ConfigureGeometryCull,
          .Encode = &SceneRenderer::EncodeGeometryCull},
@@ -500,8 +512,16 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::Surface:
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
-    case Resource::ClusterJobs:
-    case Resource::ClusterBatches:
+    case Resource::ClusterTemplates:
+    case Resource::ClusterRoots:
+    case Resource::ClusterPrefix:
+    case Resource::ClusterVisible:
+    case Resource::ClusterChunks:
+    case Resource::ClusterChunkState:
+    case Resource::ClusterSelected:
+    case Resource::ClusterSelectedState:
+    case Resource::ClusterReset:
+    case Resource::GeometryPlacements:
     case Resource::ClusterKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
@@ -526,8 +546,16 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
 
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
-    case Resource::ClusterJobs:
-    case Resource::ClusterBatches:
+    case Resource::ClusterTemplates:
+    case Resource::ClusterRoots:
+    case Resource::ClusterPrefix:
+    case Resource::ClusterVisible:
+    case Resource::ClusterChunks:
+    case Resource::ClusterChunkState:
+    case Resource::ClusterSelected:
+    case Resource::ClusterSelectedState:
+    case Resource::ClusterReset:
+    case Resource::GeometryPlacements:
     case Resource::ClusterKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
@@ -606,6 +634,7 @@ Native::Texture *SceneRenderer::DisplaySource() const {
 }
 
 Native::Texture *SceneRenderer::LinearSource() const {
+  if (!ActiveState().Plan) { return nullptr; }
   return Target(ActiveState().Plan->Bound(Resource::SceneLinear));
 }
 
@@ -1166,8 +1195,8 @@ bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
       frame.Cull.Configure(CullSource(renderer.ActiveContent().Geometry()), frame.Handles), error);
 }
 
-Native::Result<void> SceneRenderer::EncodeGeometryCull(const FrameContext &ctx,
-                                                       const PassRecording &into) {
+Native::Result<void> SceneRenderer::EncodeGeometryRoots(const FrameContext &ctx,
+                                                        const PassRecording &into) {
   ActiveFrame().Cull.Binds(CullSource(ActiveContent().Geometry()));
   ActiveFrame().Cull.Projects(static_cast<float>(ActiveFrame().Height));
   auto lens = Through();
@@ -1178,7 +1207,12 @@ Native::Result<void> SceneRenderer::EncodeGeometryCull(const FrameContext &ctx,
       .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
                                     1.0f / static_cast<float>(lens.HighPx)}}
                            : Vec2f{}};
-  return ActiveFrame().Cull.EncodeCull(ctx, into, projection);
+  return ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+}
+
+Native::Result<void> SceneRenderer::EncodeGeometryCull([[maybe_unused]] const FrameContext &ctx,
+                                                       const PassRecording &into) {
+  return ActiveFrame().Cull.EncodeCull(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeGeometryScan([[maybe_unused]] const FrameContext &ctx,
@@ -1377,6 +1411,14 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   }
   if (!ActiveState().CameraFull) { return std::unexpected(Says::kCameraNotConfigured); }
 
+  {
+    auto &content = ActiveContent();
+    std::string error;
+    if (!content.Scene().Resources().PreparePieceMaterials(
+            content.Geometry(), content.DrawsGlass ? &content.Transmission() : nullptr, error)) {
+      return std::unexpected(std::move(error));
+    }
+  }
   ActiveContent().Geometry().CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   {
@@ -1434,6 +1476,11 @@ bool SceneRenderer::WorldResourcesComplete(const Native::Completion &completion)
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
+  if (MaterialFields_) {
+    const auto retired = MaterialFields_->Collect();
+    if (!retired) { return std::unexpected(retired.error().Message); }
+  }
+
   const auto published = PublishedWorld();
   return RenderPublishedFrame();
 }

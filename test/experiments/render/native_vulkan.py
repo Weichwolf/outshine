@@ -1,6 +1,7 @@
 """Exercise the production Vulkan archive on an explicitly declared device."""
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -76,15 +77,22 @@ def main():
                 next(operands)
             elif argument not in ('-c', stage['file']):
                 toolchain.append(argument)
-        selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
-        native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
+        native_rows = [row for row in database
+                       if Path(row['file']).is_relative_to(ROOT / 'src/render/device/native')]
+        native = [Path(row['file']) for row in native_rows]
+        query = run(['ninja', '-C', str(ROOT / 'build'), '-t', 'query',
+                     str(archive.relative_to(ROOT / 'build'))], log).stdout
+        objects = {line.strip() for line in query.splitlines()
+                   if line.strip().startswith('CMakeFiles/') and line.strip().endswith('.o')}
         members = run(['ar', 't', str(archive)], log).stdout.splitlines()
-        for unit in native:
-            prefix = str(unit.relative_to(ROOT).with_suffix('')).replace('/', '-') + '.'
-            if sum(member.startswith(prefix) for member in members) != 1:
-                raise RuntimeError(f'archive does not contain exactly one selected object for {unit}')
+        if (not native_rows or not objects or
+                Counter(members) != Counter(Path(name).name for name in objects)):
+            raise RuntimeError('archive members differ from the actual CMake/Ninja inputs')
+        for row in native_rows:
+            if row['output'] not in objects:
+                raise RuntimeError(f'archive omits the selected native object: {row["file"]}')
         sources = [ROOT / 'src/render/shaders/geometryScan.comp',
-                   ROOT / 'src/render/shaders/geometryCompact.comp',
+                   Path(__file__).with_name('native_scatter.comp'),
                    Path(__file__).with_name('native_texture.comp'),
                    ROOT / 'src/render/shaders/depthPyramid.comp',
                    ROOT / 'src/render/shaders/fullscreen.vert',

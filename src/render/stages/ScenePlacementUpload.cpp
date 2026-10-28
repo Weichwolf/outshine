@@ -77,7 +77,7 @@ void GeometryRenderer::CarryFrame() {
 void GeometryRenderer::PrepareShadowCasters() {
   if (ShadowCasters_.Ready()) { return; }
   ShadowCasters_.Prepare(
-      Batches, TableJobs_, TableSpheres_, Rows_, MainMeshRows_, MainMeshBoundsCurrent_);
+      Batches, TableTemplates_, TableSpheres_, Rows_, MainMeshRows_, MainMeshBoundsCurrent_);
 }
 
 }

@@ -43,6 +43,8 @@ public:
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> Encode(std::string_view provenance,
                                                            std::string &error) const;
+  [[nodiscard]] std::optional<std::vector<uint8_t>>
+  Encode(std::string_view provenance, size_t bytesMost, std::string &error) const;
   [[nodiscard]] static std::optional<ImpostorAtlas>
   Decode(std::span<const uint8_t> bytes, std::string_view provenance, std::string &error);
 

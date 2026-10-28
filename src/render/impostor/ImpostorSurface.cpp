@@ -194,24 +194,26 @@ bool AddOpaqueCardImages(Geometry &geometry,
   return AddPreparedCardImages(geometry, into, atlas.Pixels(), images);
 }
 
-}
-
-std::optional<Geometry>
-BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+std::optional<Geometry> SurfaceOf(const ImpostorAtlas &atlas,
+                                  size_t view,
+                                  ImpostorSurfaceDetail detail,
+                                  AlphaMode alpha,
+                                  size_t firstMip = 0) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
   const ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Metalness = material.Roughness = 1;
-  material.Alpha = AlphaMode::Masked;
-  const bool optical = std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
-    return row.Scattering == ScatteringModel::DiffuseThinSheet;
-  });
-  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source)
+  const bool optical =
+      alpha == AlphaMode::Blended || std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
+        return row.Scattering == ScatteringModel::DiffuseThinSheet;
+      });
+  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source, firstMip)
               : !AddOpaqueCardImages(geometry, material, atlas, source)) {
     return std::nullopt;
   }
+  material.Alpha = alpha;
   const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
   const auto createdPart = geometry.addPart("impostor", *surface);
@@ -222,6 +224,42 @@ BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDet
   if (!frame) { return std::nullopt; }
   const Vec3 right = frame->Right;
   if (!AddDepthSurface(geometry, part, atlas, source, toward, right, detail)) {
+    return std::nullopt;
+  }
+  return geometry;
+}
+}
+
+std::optional<Geometry>
+BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail) {
+  return SurfaceOf(atlas, view, detail, AlphaMode::Masked);
+}
+
+std::optional<Geometry>
+BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view, size_t firstMip) {
+  return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended, firstMip);
+}
+
+std::optional<Geometry> BuildRadianceSupport(const ImpostorAtlas &atlas, size_t view) {
+  if (view >= atlas.Views().size()) { return std::nullopt; }
+  const auto &source = atlas.Views()[view];
+  const auto frame = ImpostorViewFrame::From(source.TowardEye);
+  if (!frame) { return std::nullopt; }
+  Geometry geometry;
+  Material material;
+  material.BaseColour = {{1, 1, 1, 1}};
+  material.Alpha = AlphaMode::Blended;
+  material.Unlit = true;
+  const auto surface = geometry.addSurface("radiance", material);
+  if (!surface) { return std::nullopt; }
+  const auto part = geometry.addPart("radiance", *surface);
+  if (!part || !AddDepthSurface(geometry,
+                                *part,
+                                atlas,
+                                source,
+                                source.TowardEye,
+                                frame->Right,
+                                ImpostorSurfaceDetail::Flat)) {
     return std::nullopt;
   }
   return geometry;

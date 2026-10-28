@@ -1,4 +1,5 @@
 #include "GeometryRenderer.h"
+#include "MaterialPacking.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -48,8 +49,20 @@ bool GeometryRenderer::BindSurface(const MaterialBinding &material,
     into = std::move(*uploaded);
     return true;
   };
-  if (!bind(material.Colour, GeometryResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
-      !bind(material.Normal,
+  if (material.Radiance) {
+    auto resident = Bound().Bind(*material.Radiance, mode);
+    if (!resident) {
+      error = std::move(resident.error().Message);
+      return false;
+    }
+    slot.Colour = std::move(*resident);
+  } else if (!bind(material.Colour,
+                   GeometryResidency::Transfer::Srgb,
+                   TexelKind::Value,
+                   slot.Colour)) {
+    return false;
+  }
+  if (!bind(material.Normal,
             GeometryResidency::Transfer::Linear,
             TexelKind::Direction,
             slot.Normal) ||
@@ -88,6 +101,7 @@ uint32_t GeometryRenderer::ColourImages() const {
   std::vector<const Native::Texture *> distinct;
   for (const SurfaceSlot &slot : Slots) {
     const Native::Texture *const colour = slot.Colour.Image.get();
+    if (colour == nullptr) { continue; }
     bool seen = false;
     for (const Native::Texture *const held : distinct) { seen = seen || held == colour; }
     if (!seen) { distinct.push_back(colour); }
@@ -120,6 +134,11 @@ bool GeometryRenderer::ValidateMaterials(std::span<const MaterialBinding> materi
     return false;
   }
   for (size_t slot = 0; slot < materials.size(); ++slot) {
+    if (materials[slot].Radiance &&
+        (!materials[slot].Row.Unlit || materials[slot].State().Kind() != SurfaceKind::Blended)) {
+      error = "resident radiance requires an unlit blended support material";
+      return false;
+    }
     const SurfaceKind kind = materials[slot].State().Kind();
 
     if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&
@@ -143,6 +162,7 @@ bool GeometryRenderer::AppendMaterials(std::span<const MaterialBinding> material
   for (const auto &material : materials) {
     if (BindSurface(material, error, mode)) { continue; }
     Slots.resize(was);
+    Bound().DiscardUnreferencedImages();
     return false;
   }
   if (!materials.empty()) { TablesStale_ = true; }
@@ -153,6 +173,7 @@ void GeometryRenderer::TruncateMaterials(size_t count) noexcept {
   if (count >= Slots.size()) { return; }
   if (TruncatesShadowMaterials(count)) { ShadowChanges_.Unknown(); }
   Slots.resize(count);
+  Bound().DiscardUnreferencedImages();
   TablesStale_ = true;
 }
 
@@ -168,12 +189,79 @@ bool GeometryRenderer::SetMaterials(std::span<const MaterialBinding> materials,
   Batches.clear();
   BatchLayout.clear();
   Bound().Shape().Indices = 0;
-  if (AppendMaterials(materials, error)) { return true; }
+  if (AppendMaterials(materials, error)) {
+    NativeMaterialSlots_ = Slots.size();
+    ++MaterialRevision_;
+    previousSlots.clear();
+    Bound().DiscardUnreferencedImages();
+    return true;
+  }
   Slots = std::move(previousSlots);
   Batches = std::move(previousBatches);
   BatchLayout = std::move(previousLayouts);
   Bound().Shape().Indices = previousIndices;
   return false;
+}
+
+bool GeometryRenderer::WriteMaterialRows(std::span<const MaterialBinding> materials,
+                                         std::span<const uint32_t> rows,
+                                         std::string &error) {
+  if (materials.size() != rows.size()) {
+    error = "material bindings and destination rows disagree";
+    return false;
+  }
+  const size_t before = Slots.size();
+  if (!AppendMaterials(materials, error, GeometryResidency::ImageUploadMode::Deferred)) {
+    return false;
+  }
+  std::vector<SurfaceSlot> prepared;
+  prepared.reserve(materials.size());
+  for (size_t at = 0; at < materials.size(); ++at) {
+    prepared.push_back(std::move(Slots[before + at]));
+  }
+  Slots.resize(before);
+  size_t capacity = before;
+  for (const uint32_t row : rows) { capacity = std::max(capacity, size_t{row} + 1); }
+  Slots.resize(capacity);
+  for (size_t at = 0; at < rows.size(); ++at) {
+    prepared[at].Row = PackMaterial(materials[at], static_cast<float>(rows[at] + 1u));
+    Slots[rows[at]] = std::move(prepared[at]);
+  }
+  TablesStale_ = true;
+  return true;
+}
+
+void GeometryRenderer::ClearMaterialRow(size_t which) {
+  if (which >= Slots.size()) { return; }
+  auto &slot = Slots[which];
+  std::array images{slot.Colour.Image,
+                    slot.Normal.Image,
+                    slot.MetalRough.Image,
+                    slot.Emissive.Image,
+                    slot.SpecularStrength.Image,
+                    slot.SpecularTint.Image,
+                    slot.DiffuseReflection.Image,
+                    slot.DiffuseTransmission.Image};
+  for (size_t at = 0; at < images.size(); ++at) {
+    for (size_t earlier = 0; earlier < at; ++earlier) {
+      if (images[at] == images[earlier]) {
+        images[at].reset();
+        break;
+      }
+    }
+  }
+  slot = {};
+  for (const auto &image : images) { Bound().DiscardUnusedImage(image); }
+  TablesStale_ = true;
+}
+
+void GeometryRenderer::SetRegisteredPieceSurface(uint32_t logical, uint32_t physical) {
+  if (logical >= RegisteredSlotOf_.size()) {
+    RegisteredSlotOf_.resize(size_t{logical} + 1, kNoMaterialSlot);
+  }
+  if (RegisteredSlotOf_[logical] == physical) { return; }
+  RegisteredSlotOf_[logical] = physical;
+  TablesStale_ = true;
 }
 
 }

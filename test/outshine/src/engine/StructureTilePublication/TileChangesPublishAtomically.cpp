@@ -25,8 +25,8 @@ void CheckWholeTiles(WorldRegionState &world,
                      std::unique_ptr<Core::RuntimeScene> &scene,
                      const Generators::BakedTile &built,
                      StructureBuildQueue::Landing &landing,
-                     Render::PieceSurface wallSurface,
-                     Render::PieceSurface roofSurface) {
+                     const Render::PieceSurface &wallSurface,
+                     const Render::PieceSurface &roofSurface) {
   const auto *const original = scene.get();
   const auto first = PublishStructureTile(world, renderer, landing);
   CHECK(first.has_value(), first ? "first tile publishes" : first.error().c_str());
@@ -136,8 +136,8 @@ void CheckCellPublication(WorldRegionState &world,
                           Render::SceneRenderer &renderer,
                           const Generators::BakedTile &built,
                           StructureBuildQueue::Landing &landing,
-                          Render::PieceSurface wallSurface,
-                          Render::PieceSurface roofSurface,
+                          const Render::PieceSurface &wallSurface,
+                          const Render::PieceSurface &roofSurface,
                           std::string &error) {
   const uint64_t legacyDigest = world.Pieces.Digest();
   Generators::BakedTile cellOne = built;

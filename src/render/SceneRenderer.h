@@ -1,3 +1,4 @@
+#include "MaterialFieldPass.h"
 #include "SceneLighting.h"
 #include "MeshInput.h"
 #include "GeometryUploadTicket.h"
@@ -6,6 +7,7 @@
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
 #include "Mat4.h"
+#include "GeometryHierarchy.h"
 #include "Vec2.h"
 #include "Vec3.h"
 #include "Extent.h"
@@ -61,6 +63,7 @@ struct SDL_Window;
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
+class RadianceFilter;
 
 struct GroundClassUploadMetrics {
   TerrainMaterialBuffersUploadMetrics Storage;
@@ -86,9 +89,14 @@ struct RenderFrameTiming {
   double TotalMs = 0.0;
 };
 
+enum class GeometryReadback { Counters, Indices };
+
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
+  GeometryQueueState RootWork;
+  GeometryQueueState ClusterWork;
+  uint64_t ReadbackBytes = 0;
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
   std::vector<uint32_t> Visibility;
@@ -175,12 +183,8 @@ public:
 
   [[nodiscard]] bool Drew() const { return ActiveState().History.HasSubmittedFrame(); }
 
-  ~SceneRenderer() {
-    WaitForGpu();
-    StopShowing();
-  }
-
-  explicit SceneRenderer(GpuSubmission submission = {}) : Submission_(submission) {}
+  ~SceneRenderer();
+  explicit SceneRenderer(GpuSubmission submission = {});
 
   SceneRenderer(const SceneRenderer &) = delete;
   SceneRenderer &operator=(const SceneRenderer &) = delete;
@@ -210,8 +214,20 @@ public:
   static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
+  [[nodiscard]] std::expected<std::shared_ptr<const RadianceImage>, std::string>
+  FilterSceneRadiance(Extent target);
 
-  [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
+  [[nodiscard]] Native::Result<void> ConfigureMaterialFields();
+  [[nodiscard]] Native::Result<std::shared_ptr<const ResidentMaterialField>>
+  PrepareMaterialField(const std::shared_ptr<const MaterialFieldInput> &input,
+                       const std::atomic_bool *stopping = nullptr);
+  [[nodiscard]] Native::Result<MaterialFieldImages>
+  RelightMaterialField(const ResidentMaterialField &source,
+                       const MaterialFieldView &view,
+                       const std::atomic_bool *stopping = nullptr);
+
+  // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
+  [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
 
   [[nodiscard]] Native::Result<TerrainRenderer::DrawArguments> ReadGroundDrawArguments() const;
 
@@ -341,7 +357,7 @@ public:
   [[nodiscard]] Native::Result<PrismGridHandle>
   PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 uint32_t material) {
+                 const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlacePrismGrid(
         content.Geometry(), std::move(source), instances, material);
@@ -350,7 +366,7 @@ public:
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
-                                                      uint32_t material) {
+                                                      const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().ReplacePrismGrid(
         content.Geometry(), which, std::move(source), instances, material);
@@ -382,12 +398,14 @@ public:
         content.Geometry(), nextPiece, piecesMost);
   }
 
-  [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
+  [[nodiscard]] std::expected<MaterialRegistration, std::string>
+  RegisterPieceMaterials(Geometry source, std::span<const MaterialRadiance> images = {}) {
     auto &content = ActiveContent();
     return content.Scene().Resources().RegisterPieceMaterials(
         content.Geometry(),
         content.DrawsGlass ? &content.Transmission() : nullptr,
-        std::move(source));
+        std::move(source),
+        images);
   }
 
   [[nodiscard]] bool RestorePieceMaterials(std::string &error) {
@@ -855,7 +873,7 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 22;
+  static constexpr size_t kExecutorCount = 23;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
@@ -987,6 +1005,8 @@ private:
                                                              const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeLightVisibility(const FrameContext &ctx,
                                                            const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryRoots(const FrameContext &ctx,
+                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryCull(const FrameContext &ctx,
                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryScan(const FrameContext &ctx,
@@ -1020,6 +1040,8 @@ private:
   [[nodiscard]] Native::Texture *DisplaySource() const;
 
   std::unique_ptr<Native::Device> Device_;
+  std::unique_ptr<RadianceFilter> RadianceFilter_;
+  std::unique_ptr<MaterialFieldPass> MaterialFields_;
   std::chrono::nanoseconds UploadBudget_{};
   std::unique_ptr<UploadQueue> Uploads_;
 

@@ -5,6 +5,7 @@
 #include "GroundMesher.h"
 #include "TangentFrame.h"
 #include "Check.h"
+#include <cstddef>
 #include <array>
 #include <cmath>
 #include <span>
@@ -17,9 +18,14 @@ using namespace outshine::Generators;
 using namespace outshine::Test;
 
 std::vector<EarthworkStamp> Stamps(bool split) {
-  WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999}},
-                     .Rings = {{.FirstPoint = 0, .PointCount = 4}},
-                     .Points = {-.001, -.001, -.001, .001, .001, .001, .001, -.001}});
+  const WaterAsset source({.Surfaces = {{.FirstRing = 0, .RingCount = 1, .LevelM = 999}},
+                           .Rings = {{.FirstPoint = 0, .PointCount = 4}},
+                           .Courses = {},
+                           .Levels = {},
+                           .Points = {-.001, -.001, -.001, .001, .001, .001, .001, -.001},
+                           .Tiles = {},
+                           .Sources = {},
+                           .Inputs = {}});
   std::vector<Vec3> vertices{
       {{-100, -100, 9}}, {{100, -100, 11}}, {{100, 100, 11}}, {{-100, 100, 9}}};
   std::vector<WaterSurfaceMesh::Face> faces{{.Vertices = {0, 1, 2}}, {.Vertices = {0, 2, 3}}};
@@ -33,7 +39,11 @@ std::vector<EarthworkStamp> Stamps(bool split) {
   auto mesh = WaterSurfaceMesh::Build({}, std::move(vertices), std::move(faces));
   CHECK(mesh, "a sloping canonical surface is valid");
   if (!mesh) { return {}; }
-  auto water = source.WithSurfaces({.Mesh = std::move(*mesh), .Rejections = {}});
+  auto water = source.WithSurfaces({.Mesh = std::move(*mesh),
+                                    .Rejections = {},
+                                    .FaceSourceOffsets = {},
+                                    .FaceSources = {},
+                                    .ProfileDeclines = {}});
   CHECK(water, "canonical facets cover the source body");
   std::vector<EarthworkStamp> stamps;
   if (water) { AppendWaterBasinStamps(*water, TangentFrame::At({}), 2, stamps); }
@@ -52,7 +62,8 @@ int main() {
     }
   }
   points.push_back({.EastM = 150, .NorthM = 0});
-  std::vector<double> first(points.size(), 30), refined(points.size(), 30);
+  std::vector<double> first(points.size(), 30);
+  std::vector<double> refined(points.size(), 30);
   const auto result = ApplyEarthworkStamps(two, points, first, 40);
   const auto refinement = ApplyEarthworkStamps(four, points, refined, 40);
   CHECK(result.Moved == 25 && refinement.Moved == 25,

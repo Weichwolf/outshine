@@ -1,4 +1,5 @@
 #include "SceneLighting.h"
+#include "HalfTexels.h"
 #include "ImpostorBaker.h"
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
@@ -22,7 +23,7 @@
 namespace {
 using namespace outshine;
 
-enum class Finish { Textured, Facade, Mapped };
+enum class Finish { Textured, Facade, Mapped, ZeroMapped };
 
 Geometry Fixture(Finish finish) {
   const bool facade = finish == Finish::Facade;
@@ -42,6 +43,17 @@ Geometry Fixture(Finish finish) {
   if (finish == Finish::Mapped) {
     material.NormalMap.Image = *mesh.addImage(1, 1, std::array<uint8_t, 4>{218, 218, 128, 255});
   }
+  if (finish == Finish::ZeroMapped) {
+    const auto rgba =
+        Core::PackHalfTexels({.WidthPx = 1, .HeightPx = 1}, std::array<float, 4>{.5f, .5f, .5f, 1});
+    CHECK(rgba, "zero normal moment has an exact native half-float encoding");
+    if (rgba) {
+      const auto image = mesh.addImage(
+          {.WidthPx = 1, .HeightPx = 1, .Format = ImagePixelFormat::Rgba16Float, .Rgba = *rgba});
+      CHECK(image, "zero normal map is a valid native material image");
+      if (image) { material.NormalMap.Image = *image; }
+    }
+  }
   const auto surface = *mesh.addSurface("composed", material);
   const auto part = *mesh.addPart("triangle", surface);
   CHECK(mesh.setPositions(part, std::array<float, 9>{-0.5f, -0.5f, 0, 0.5f, -0.5f, 0, 0, 0.5f, 0}),
@@ -56,7 +68,7 @@ Geometry Fixture(Finish finish) {
                         facade ? std::array<float, 6>{-9, 0, -9, 1, -9, 2}
                                : std::array<float, 6>{0, 0, 1, 0, 0.5f, 1}),
         "UVs");
-  if (finish == Finish::Mapped) {
+  if (finish == Finish::Mapped || finish == Finish::ZeroMapped) {
     CHECK(mesh.setTangents(part, std::array<float, 12>{1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1}),
           "mapped tangent basis");
   }
@@ -146,6 +158,12 @@ void CheckCapture(Finish finish) {
     if (finish == Finish::Mapped) {
       CHECK(view.Texels[at].Normal[0] > 0.70f && view.Texels[at].Normal[1] > 0.70f,
             "capture resolves the normal map through the uploaded tangent frame");
+    }
+    if (finish == Finish::ZeroMapped) {
+      const auto &normal = view.Texels[at].Normal;
+      CHECK(std::isfinite(normal[0]) && std::isfinite(normal[1]) && std::abs(normal[0]) < .001f &&
+                std::abs(normal[1]) < .001f && std::abs(normal[2] - 1) < .001f,
+            "zero normal moments retain the geometric normal without NaNs");
     }
     for (size_t c = 0; c < 3; ++c) {
       CHECK(
@@ -257,6 +275,7 @@ int main() {
   CheckCapture(Finish::Textured);
   CheckCapture(Finish::Facade);
   CheckCapture(Finish::Mapped);
+  CheckCapture(Finish::ZeroMapped);
   CheckMasonry();
   SDL_Quit();
   return Report();

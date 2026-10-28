@@ -21,6 +21,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
   outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
@@ -30,6 +31,7 @@ set(metal_validation_cases
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
   outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/GeometryCullStage/RootBoundsKeepVisibleDescendants
   outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
   outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
   outshine/src/render/stages/GeometryRenderer/GroundPagesUseConfiguredUploadAdmission
@@ -44,6 +46,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
+  outshine/src/render/stages/ShadowCasterSelection/ClusterQueriesMatchCompleteShadowPixels
   outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
   outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
@@ -118,6 +121,12 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
+  if(name STREQUAL "outshine/src/render/impostor/ImpostorBaker/RepeatedCapturesReuseTheDeviceAndRetireSources")
+    target_sources(${target} PRIVATE src/diagnostics/ProcessHeap.cpp)
+    if(APPLE)
+      target_sources(${target} PRIVATE test/experiments/render/NativeMaterialMemory.mm)
+    endif()
+  endif()
   if(name STREQUAL "outshine/src/app/ProcessBoundary/FatalErrorsAreContained")
     target_compile_options(${target} PRIVATE -fexceptions)
   else()
@@ -144,6 +153,8 @@ foreach(source IN LISTS cases)
       set(owner render)
     elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
+    elseif(name MATCHES "^outshine/integration/engine/streaming/building/")
+      set(owner engine/streaming/building)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
     elseif(name MATCHES "^outshine/integration/generators/water/")
@@ -267,6 +278,12 @@ foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snaps
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
+add_executable(test_harness_building_source_counter EXCLUDE_FROM_ALL
+  test/experiments/buildings/source_polygons/native_buffered_buildings.cpp)
+target_compile_options(test_harness_building_source_counter PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_building_source_counter PRIVATE
+  outshine_generators_osm)
+
 add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_export.cpp
   test/experiments/transport/native_transport_snapshot_json.cpp
@@ -294,6 +311,35 @@ endif()
 
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
+add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_impostors.cpp
+  test/experiments/render/BuildingSourceCapture.cpp
+  test/experiments/render/BuildingRadianceField.cpp)
+add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_source_planes.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
+add_dependencies(test_experiments_render_NativeBuildingSourcePlanes outshine_shaders)
+target_compile_options(test_experiments_render_NativeBuildingSourcePlanes PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingSourcePlanes PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
+  test/experiments/render/native_material_residency.cpp)
+if(APPLE)
+  target_sources(test_experiments_render_NativeMaterialResidency PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+  target_sources(test_experiments_render_NativeBuildingImpostors PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+endif()
+add_dependencies(test_experiments_render_NativeMaterialResidency outshine_shaders)
+target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeMaterialResidency PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_dependencies(test_experiments_render_NativeBuildingImpostors outshine_shaders)
+target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVATE
+  "${PROJECT_SOURCE_DIR}")
+target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE
   outshine_diagnostics_calibration PkgConfig::nlohmann_json)
@@ -413,6 +459,11 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
+
+add_executable(outshine_material_compute_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeMaterialComputeProbe.cpp")
+target_compile_options(outshine_material_compute_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_material_compute_probe PRIVATE outshine_render)
 
 add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
