@@ -335,6 +335,8 @@ target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -
 target_link_libraries(test_experiments_render_NativeMaterialResidency PRIVATE
   outshine_core PkgConfig::nlohmann_json)
 add_dependencies(test_experiments_render_NativeBuildingImpostors outshine_shaders)
+target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVATE
+  "${PROJECT_SOURCE_DIR}")
 target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
   outshine_core PkgConfig::nlohmann_json)
