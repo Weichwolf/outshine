@@ -2,6 +2,7 @@
 #include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
 #include "ImpostorViewAssets.h"
+#include "BuildingSourceCapture.h"
 #include "ImpostorInstances.h"
 #include "WorldCandidate.h"
 #include "AssetCache.h"
@@ -385,50 +386,106 @@ Json ClippedFlatControl(const ImpostorAtlas &atlas,
   return record;
 }
 
-struct CapturedAtlas {
-  Fs::path File;
-  std::string Digest;
-  std::string Provenance;
-  std::optional<ImpostorAtlas> Held = std::nullopt;
+struct BuildingViewSource {
+  Fs::path AtlasFile;
+  std::string AtlasDigest;
+  std::string AtlasProvenance;
+  Fs::path SourceInput;
+  Json Recipe = nullptr;
+  std::unique_ptr<Test::BuildingSourceCapture> Producer = nullptr;
+  std::optional<size_t> CurrentView = std::nullopt;
+  Json Captures = Json::array();
+  std::optional<ImpostorAtlas> CurrentAtlas = std::nullopt;
   size_t ReadBytes = 0;
   size_t Decodes = 0;
   double ReadMs = 0;
   double DecodeMs = 0;
+  double HeaderMs = 0;
 
-  const ImpostorAtlas &Require() {
-    if (!Held) {
+  [[nodiscard]] std::string Identity() const {
+    if (Recipe.is_object()) {
+      Json content = Json::object();
+      for (const auto *const key :
+           {"parent", "cells", "east", "north", "up", "origin", "pixels", "directions"}) {
+        if (!Recipe.contains(key)) { Fail("source recipe is incomplete"); }
+        content[key] = Recipe.at(key);
+      }
+      auto cells = content.at("cells").get<std::vector<uint32_t>>();
+      std::ranges::sort(cells);
+      cells.erase(std::ranges::unique(cells).begin(), cells.end());
+      content["cells"] = cells;
+      return "native-source-group-views-1/" + Sha256Hex(content.dump());
+    }
+    return AtlasProvenance + "/" + AtlasDigest;
+  }
+
+  Test::BuildingSourceCapture &RequireInputs() {
+    if (!Producer) {
+      const auto began = Clock::now();
+      Producer = std::make_unique<Test::BuildingSourceCapture>(SourceInput, Recipe);
+      HeaderMs += Milliseconds(began);
+    }
+    return *Producer;
+  }
+
+  Content::ImpostorViewAssets::Description Description() {
+    if (Recipe.is_object()) {
+      const auto &source = RequireInputs();
+      return {.Centre = source.Projection().Centre,
+              .HalfExtentM = source.Projection().HalfExtentM,
+              .Pixels = Recipe.at("pixels").get<uint32_t>(),
+              .Directions = source.Metadata().ViewDirections};
+    }
+    const auto &atlas = Require(0);
+    Content::ImpostorViewAssets::Description description{.Centre = atlas.CentreM(),
+                                                         .HalfExtentM = atlas.HalfExtentM(),
+                                                         .Pixels =
+                                                             static_cast<uint32_t>(atlas.Pixels()),
+                                                         .Directions = {}};
+    for (const auto &view : atlas.Views()) { description.Directions.push_back(view.TowardEye); }
+    return description;
+  }
+
+  const ImpostorAtlas &Require(size_t view) {
+    if (Recipe.is_object()) {
+      if (!CurrentAtlas || CurrentView != view) {
+        CurrentAtlas = RequireInputs().Capture(view);
+        CurrentView = view;
+        Captures.push_back({{"view", view}, {"work", RequireInputs().Report().at("views")}});
+      }
+      if (!CurrentAtlas) { Fail("selected source capture unavailable"); }
+      return *CurrentAtlas;
+    }
+    if (!CurrentAtlas) {
       const auto began = Clock::now();
       std::error_code fileError;
-      const auto size = Fs::file_size(File, fileError);
+      const auto size = Fs::file_size(AtlasFile, fileError);
       if (fileError) { Fail("source atlas unavailable: " + fileError.message()); }
-      const auto bytes = Read<uint8_t>(File, size);
-      if (Sha256Hex(bytes.data(), bytes.size()) != Digest) { Fail("source atlas digest mismatch"); }
+      const auto bytes = Read<uint8_t>(AtlasFile, size);
+      if (Sha256Hex(bytes.data(), bytes.size()) != AtlasDigest) {
+        Fail("source atlas digest mismatch");
+      }
       ReadMs += Milliseconds(began);
       const auto decodeAt = Clock::now();
       std::string error;
-      Held = ImpostorAtlas::Decode(bytes, Provenance, error);
-      if (!Held) { Fail(error); }
+      CurrentAtlas = ImpostorAtlas::Decode(bytes, AtlasProvenance, error);
+      if (!CurrentAtlas) { Fail(error); }
       ReadBytes += bytes.size();
       ++Decodes;
       DecodeMs += Milliseconds(decodeAt);
     }
-    return *Held;
+    return *CurrentAtlas;
   }
 };
 
-Content::ImpostorViewAssets OpenViewAssets(AssetCache &cache, CapturedAtlas &source, Box bounds) {
+Content::ImpostorViewAssets
+OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
   using Content::ImpostorViewAssets;
-  const auto provenance = source.Provenance + "/" + source.Digest;
+  const auto provenance = source.Identity();
   auto opened = ImpostorViewAssets::Open(cache, provenance);
   if (!opened) { Fail("native world metadata read failed"); }
   if (*opened) { return std::move(**opened); }
-  const auto &atlas = source.Require();
-  ImpostorViewAssets::Description description{.Centre = atlas.CentreM(),
-                                              .HalfExtentM = atlas.HalfExtentM(),
-                                              .Pixels = static_cast<uint32_t>(atlas.Pixels()),
-                                              .Directions = {}};
-  for (const auto &view : atlas.Views()) { description.Directions.push_back(view.TowardEye); }
-  auto published = ImpostorViewAssets::Publish(cache, provenance, std::move(description), bounds);
+  auto published = ImpostorViewAssets::Publish(cache, provenance, source.Description(), bounds);
   if (!published) { Fail("native world metadata publication failed"); }
   return std::move(*published);
 }
@@ -440,10 +497,12 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
   auto cache = AssetCache::Open((root / "world-view-assets.sqlite").string());
   const double databaseOpenMs = Milliseconds(openedAt);
   if (!cache) { Fail("native world asset database unavailable"); }
-  CapturedAtlas source{
-      .File = root / "atlas.bin",
-      .Digest = input.at("atlas_sha256").get<std::string>(),
-      .Provenance = input.value("atlas_provenance", std::string("native-original-impostor-1"))};
+  BuildingViewSource source{
+      .AtlasFile = root / "atlas.bin",
+      .AtlasDigest = input.value("atlas_sha256", std::string{}),
+      .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
+      .SourceInput = input.value("source_input", std::string{}),
+      .Recipe = input.value("source_request", Json())};
   const auto metadataAt = Clock::now();
   const auto products = OpenViewAssets(
       **cache, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
@@ -461,18 +520,18 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     if (!selected) { Fail("native world view selection failed"); }
     const auto began = Clock::now();
     bool hit = true;
-    auto loaded = products.Resolve(*selected,
-                                   limit,
-                                   [&](ImpostorViewAssets::Selection selection,
-                                       size_t) -> std::expected<Geometry, AssetCacheError> {
-                                     hit = false;
-                                     auto geometry = Render::BuildFractionalImpostorSurface(
-                                         source.Require(), selection.View, selection.Mip);
-                                     if (!geometry) {
-                                       return std::unexpected(AssetCacheError::InvalidInput);
-                                     }
-                                     return std::move(*geometry);
-                                   });
+    auto loaded = products.Resolve(
+        *selected,
+        limit,
+        [&](ImpostorViewAssets::Selection selection,
+            size_t) -> std::expected<Geometry, AssetCacheError> {
+          hit = false;
+          const auto &atlas = source.Require(selection.View);
+          auto geometry = Render::BuildFractionalImpostorSurface(
+              atlas, source.Recipe.is_object() ? 0 : selection.View, selection.Mip);
+          if (!geometry) { return std::unexpected(AssetCacheError::InvalidInput); }
+          return std::move(*geometry);
+        });
     if (!loaded) { Fail("native world view is not a ready cached product"); }
     if (!hit) { ++writes; }
     const double loadMs = Milliseconds(began);
@@ -495,6 +554,18 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
                   {"writes", writes},
                   {"source_read_ms", source.ReadMs},
                   {"source_decode_ms", source.DecodeMs}});
+  if (source.Producer) {
+    const auto &report = source.Producer->Report();
+    results["source_read_bytes"] = report.at("index_bytes").get<size_t>() +
+                                   report.at("descriptor_bytes").get<size_t>() +
+                                   report.at("form_bytes").get<size_t>();
+    results["source_decodes"] = report.at("form_reads").get<size_t>() + 2;
+    results["source_read_ms"] = report.at("source_read_ms");
+    results["source_decode_ms"] = report.at("source_decode_ms");
+    results["source_capture"] = report;
+  }
+  results["captures"] = source.Captures;
+  results["source_header_ms"] = source.HeaderMs;
   std::ofstream report(root / "world-result.json");
   report << results.dump(2) << '\n';
   if (!report) { Fail("native world report write failed"); }

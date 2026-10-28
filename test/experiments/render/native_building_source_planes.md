@@ -33,6 +33,11 @@ The output contains only that view at local index zero; `selected_view` records
 its catalogue identity. Invalid selection fails without reading source forms.
 This provides individual source-view production; automatic asset-miss scheduling
 and the general World producer remain separate integration work.
+The source loader and persistent capture context are shared by both native
+diagnostics through `BuildingSourceCapture`; there is no second source decoder.
+Its owner retains lazy inputs until capture ends and reports descriptor/index/
+form bytes plus file-read and decode time. Cached-world mode can call it directly
+on a selected product miss; see `native_building_impostors.md`.
 
 Outputs: `atlas.bin` with provenance `native-source-planes-impostor-1`,
 `source-result.json`, and view-major linear RGBA material fields `base.linear`.

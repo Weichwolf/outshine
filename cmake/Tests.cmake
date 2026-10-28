@@ -301,9 +301,11 @@ endif()
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
-  test/experiments/render/native_building_impostors.cpp)
+  test/experiments/render/native_building_impostors.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
-  test/experiments/render/native_building_source_planes.cpp)
+  test/experiments/render/native_building_source_planes.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
 add_dependencies(test_experiments_render_NativeBuildingSourcePlanes outshine_shaders)
 target_compile_options(test_experiments_render_NativeBuildingSourcePlanes PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingSourcePlanes PRIVATE

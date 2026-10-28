@@ -11,7 +11,9 @@ The native replay reproduces geometry bytes and footprint/detail metadata exactl
 | `inventory.json.gz` | All 3,066 original view records: ECEF bounds/anchor/eye, geographic cell bounds, LOD counts, geometry and encoded/wire bytes |
 | `original-inputs.tar.gz` | Unchanged native index, all original parent shape blocks, selected view and original per-package hashes |
 | `context.json` | Actual scenario, 1280×720/60 profile, 6 m/s and 360°/s sequence, projection/error, input/build hashes and frame conventions |
-| `manifest.json` | SHA256 and byte size of each delivered data file |
+| `manifest.json` | SHA256 and byte size of the original captured data |
+| `source-plane-request.json` | Fixed four-cell source capture, local frame and nine directions for #1570 |
+| `source-world-controls.json` | The same eight fixed camera/light queries and source bounds for direct miss/offline replay |
 | `native-cells/manifest.json` | Native unprojected controls for original cells25/33/34/41;33 reuses `cell.json.gz`; missing native meshes remain explicit |
 
 Inventory totals independently match the native control: 613,121 footprints and
