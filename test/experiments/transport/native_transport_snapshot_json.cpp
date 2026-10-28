@@ -216,6 +216,12 @@ bool WriteSnapshot(std::FILE *file,
                omission.Source,
                static_cast<unsigned>(omission.Reason));
     WriteBytes(file, omission.Feature);
+    std::print(file, R"(,"Fragment":)");
+    if (omission.Fragment) {
+      WriteBytes(file, *omission.Fragment);
+    } else {
+      std::print(file, "null");
+    }
     std::print(file, "}}");
   }
   std::print(
