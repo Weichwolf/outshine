@@ -529,14 +529,39 @@ void StructureBuildQueue::DiscardStale(const ::outshine::Generators::Osm::OsmFie
   }
 }
 
-void StructureBuildQueue::ResumeCompletedTasks() {
+void StructureBuildQueue::AdvanceQueuedTasks(const ::outshine::Generators::Osm::OsmField *vectors,
+                                             ::outshine::Generators::Osm::BuildingField &prints,
+                                             LongitudeLatitude eye,
+                                             HeightSourceRevision heightSource,
+                                             HeightRequirement heights,
+                                             std::optional<LevelOfDetail> detail,
+                                             BuildPurpose purpose) {
+  PollCompletedTasks();
+  DiscardStale(vectors, prints, eye, heightSource, heights, detail, purpose);
+  for (QueuedBuild &bake : Queue_) {
+    if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile &&
+        bake.ReservationOwner == prints.ReservationOwner() &&
+        bake.Revision.Matches(vectors,
+                              prints,
+                              eye,
+                              heightSource,
+                              heights,
+                              detail,
+                              purpose,
+                              InputObjectsFor(bake.Task.Tile()))) {
+      PostSlice(bake);
+    }
+  }
+}
+
+void StructureBuildQueue::PollCompletedTasks() {
   for (const auto &entry : NativeLookups_) {
     auto &lookup = *entry.second;
     if (lookup.Task != Tasks::kNoTask && Pool_->TakeCompletion(lookup.Task)) {
       lookup.Task = Tasks::kNoTask;
     }
   }
-  const auto resume = [this](std::deque<QueuedBuild> &queue) {
+  const auto collect = [this](std::deque<QueuedBuild> &queue) {
     for (QueuedBuild &bake : queue) {
       if (!bake.Finished) {
         bake.Finished = bake.Task.TakeCompletion(*Pool_);
@@ -551,12 +576,9 @@ void StructureBuildQueue::ResumeCompletedTasks() {
           SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
         }
       }
-      if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile) {
-        PostSlice(bake);
-      }
     }
   };
-  resume(Queue_);
+  collect(Queue_);
 }
 
 size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
@@ -661,7 +683,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
-  if (candidatesMost == 0) { return 0; }
+  if (candidatesMost == 0 || Pool_ == nullptr || Mesher_ == nullptr) { return 0; }
+  AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
   if (HasOriginal()) {
     for (size_t tile = 0; tile < Originals_.size(); ++tile) {
       if (const auto posted = PostsOriginal(static_cast<uint32_t>(tile),
@@ -1012,8 +1035,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   if (Pool_ == nullptr || most == 0) { return landings; }
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr && !HasOriginal()) { return landings; }
-  DiscardStale(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
-  ResumeCompletedTasks();
+  AdvanceQueuedTasks(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
   size_t count = 0;
   while (count < std::min(most, Queue_.size())) {
     QueuedBuild &bake = Queue_[count];

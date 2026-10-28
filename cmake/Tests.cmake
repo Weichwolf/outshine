@@ -294,6 +294,22 @@ endif()
 
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
+add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_impostors.cpp)
+add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
+  test/experiments/render/native_material_residency.cpp)
+if(APPLE)
+  target_sources(test_experiments_render_NativeMaterialResidency PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+endif()
+add_dependencies(test_experiments_render_NativeMaterialResidency outshine_shaders)
+target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeMaterialResidency PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_dependencies(test_experiments_render_NativeBuildingImpostors outshine_shaders)
+target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE
   outshine_diagnostics_calibration PkgConfig::nlohmann_json)

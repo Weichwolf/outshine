@@ -19,13 +19,6 @@
 #include "ImageCapture.h"
 #include "Check.h"
 
-static_assert(!std::is_convertible_v<uint32_t, outshine::Render::PieceSurface>);
-static_assert(outshine::Render::PieceSurface(7).From ==
-              outshine::Render::PieceSurface::Source::Geometry);
-static_assert(outshine::Render::PieceSurface::Registered(7).From ==
-              outshine::Render::PieceSurface::Source::Registered);
-static_assert(outshine::Render::PieceSurface::Registered(7).Index == 7);
-
 namespace {
 bool CaptureImage(outshine::Render::SceneRenderer &renderer,
                   std::string_view path,
@@ -375,7 +368,7 @@ struct PieceFixture {
 
   bool CheckRegisteredMaterials() {
     const auto registeredGreen = RegisterColour(green);
-    CHECK(registeredGreen && *registeredGreen == 0,
+    CHECK(registeredGreen && registeredGreen->First == 0,
           "refused registrations consume no stable material handles");
     if (!registeredGreen) { return false; }
     Render::PieceMesh owned;
@@ -403,7 +396,7 @@ struct PieceFixture {
       }
     }
     const auto registeredBlue = RegisterColour({32, 64, 180, 255});
-    CHECK(registeredBlue && *registeredBlue == *registeredGreen + 1,
+    CHECK(registeredBlue && registeredBlue->First == registeredGreen->First + 1,
           "another prototype receives a distinct stable handle");
     CHECK(scene->Draw(error), "new registration preserves the existing instances");
     renderer.WaitForGpu();
@@ -435,7 +428,7 @@ struct PieceFixture {
   }
 
   bool CheckSecondRegistration(Render::PieceMesh &owned,
-                               uint32_t registeredBlue,
+                               const Render::MaterialRegistration &registeredBlue,
                                std::vector<float> &registeredAfter) {
     owned.Instances = {};
     owned.Row[13] = 1;
@@ -466,6 +459,15 @@ struct PieceFixture {
 
 int main() {
   using namespace outshine::Test;
+  CHECK((!std::is_convertible_v<uint32_t, outshine::Render::PieceSurface>),
+        "material references require explicit selection of their source domain");
+  CHECK(outshine::Render::PieceSurface(7).From == outshine::Render::PieceSurface::Source::Geometry,
+        "primary material references retain the geometry source domain");
+  const auto registered = outshine::Render::PieceSurface::Registered(7);
+  CHECK(registered.From == outshine::Render::PieceSurface::Source::Registered &&
+            registered.Index == 7,
+        "registered references retain their source domain and row index");
+
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     Unprepared(SDL_GetError());
     return Report();

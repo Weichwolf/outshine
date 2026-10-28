@@ -5,6 +5,7 @@
 #include "SourceReader.h"
 #include "PrismGridViews.h"
 #include "ResourceHandle.h"
+#include "MaterialRegistration.h"
 #include "TangentFrame.h"
 #include "UrbanAreaGroups.h"
 #include "UrbanPrismSlot.h"
@@ -109,7 +110,7 @@ private:
   Generators::Osm::MvtSchema Schema_;
   std::string Database_;
   Render::SceneRenderer *Renderer_ = nullptr;
-  std::optional<uint32_t> Material_;
+  std::optional<Render::MaterialRegistration> Material_;
   std::optional<View> View_;
   std::optional<uint64_t> TerrainRevision_;
   std::vector<Source> Areas_;

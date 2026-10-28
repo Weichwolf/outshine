@@ -1,4 +1,5 @@
 #include "SceneResources.h"
+#include "MaterialSource.h"
 
 #include "GeometryRenderer.h"
 #include "MaterialResolution.h"
@@ -43,6 +44,11 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
 std::expected<PieceHandle, std::string>
 SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, PieceOwner owner) {
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
+  if (piece.Surface.From == PieceSurface::Source::Registered &&
+      !HasMaterialRegistration(
+          {.First = piece.Surface.Index, .Source = piece.Surface.MaterialOwner})) {
+    return std::unexpected("piece material reference has no matching live source");
+  }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
   }
@@ -195,12 +201,17 @@ void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources 
   GroundClassification_ = source.GroundClassification_;
   PieceMaterials_ = source.PieceMaterials_;
   RegisteredPieceSlots_.clear();
+  RegisteredMaterialOwners_.clear();
 }
 
-std::expected<SceneResources::PieceMaterials, std::string>
-SceneResources::ResolvePieceMaterials(Geometry source) {
+bool SceneResources::HasMaterialRegistration(const MaterialRegistration &material) const noexcept {
+  return material.Source && material.First < RegisteredMaterialOwners_.size() &&
+         RegisteredMaterialOwners_[material.First].lock() == material.Source;
+}
+
+std::expected<MaterialSource, std::string> SceneResources::ResolvePieceMaterials(Geometry source) {
   if (source.surfaces() == 0) { return std::unexpected(Says::NoPieceMaterials); }
-  PieceMaterials held{.Source = std::move(source), .Slots = {}};
+  MaterialSource held{.Source = std::move(source), .Slots = {}};
   held.Slots.resize(static_cast<size_t>(held.Source.surfaces()));
   for (size_t at = 0; at < held.Slots.size(); ++at) {
     held.Slots[at].Row = held.Source.surfaceAt(MaterialInstance(static_cast<int>(at)));
@@ -214,7 +225,7 @@ SceneResources::ResolvePieceMaterials(Geometry source) {
 
 bool SceneResources::AppendPieceMaterials(GeometryRenderer &geometry,
                                           GeometryRenderer *glass,
-                                          const PieceMaterials &materials,
+                                          const MaterialSource &materials,
                                           std::string &error) {
   if (materials.Slots.size() >= kNoMaterialSlot ||
       RegisteredPieceSlots_.size() >= kNoMaterialSlot ||
@@ -252,7 +263,7 @@ bool SceneResources::AppendPieceMaterials(GeometryRenderer &geometry,
   return true;
 }
 
-std::expected<uint32_t, std::string> SceneResources::RegisterPieceMaterials(
+std::expected<MaterialRegistration, std::string> SceneResources::RegisterPieceMaterials(
     GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source) {
   auto materials = ResolvePieceMaterials(std::move(source));
   if (!materials) { return std::unexpected(std::move(materials).error()); }
@@ -263,8 +274,10 @@ std::expected<uint32_t, std::string> SceneResources::RegisterPieceMaterials(
   if (!AppendPieceMaterials(geometry, glass, *materials, error)) {
     return std::unexpected(std::move(error));
   }
-  PieceMaterials_.push_back(std::make_shared<const PieceMaterials>(std::move(*materials)));
-  return first;
+  auto owner = std::make_shared<const MaterialSource>(std::move(*materials));
+  RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), owner->Slots.size(), owner);
+  PieceMaterials_.push_back({.Source = owner, .Count = static_cast<uint32_t>(owner->Slots.size())});
+  return MaterialRegistration{.First = first, .Source = std::move(owner)};
 }
 
 bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
@@ -273,8 +286,18 @@ bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
   const size_t geometryMaterialSlotsBefore = geometry.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
   RegisteredPieceSlots_.clear();
-  for (const auto &materials : PieceMaterials_) {
-    if (AppendPieceMaterials(geometry, glass, *materials, error)) { continue; }
+  RegisteredMaterialOwners_.clear();
+  for (const auto &record : PieceMaterials_) {
+    const auto materials = record.Source.lock();
+    if (!materials) {
+      RegisteredPieceSlots_.insert(RegisteredPieceSlots_.end(), record.Count, kNoMaterialSlot);
+      RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), record.Count, {});
+      continue;
+    }
+    if (AppendPieceMaterials(geometry, glass, *materials, error)) {
+      RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), record.Count, materials);
+      continue;
+    }
     geometry.TruncateMaterials(geometryMaterialSlotsBefore);
     geometry.SetRegisteredPieceSurfaces({});
     if (glass != nullptr) {
@@ -282,8 +305,11 @@ bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
       glass->SetRegisteredPieceSurfaces({});
     }
     RegisteredPieceSlots_.clear();
+    RegisteredMaterialOwners_.clear();
     return false;
   }
+  geometry.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
+  if (glass != nullptr) { glass->SetRegisteredPieceSurfaces(RegisteredPieceSlots_); }
   return true;
 }
 

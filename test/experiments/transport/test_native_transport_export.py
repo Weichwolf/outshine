@@ -253,10 +253,12 @@ def message(field, value):
     return varint(field * 8 + 2) + varint(len(value)) + value
 
 
-def controlled_tile(profile_tags=False):
+def controlled_tile(profile_tags=False, omitted_tunnel=False):
     layer = message(1, b"transportation") + bytes((120, 2, 40, 64))
     for key in (b"class", b"layer", b"bridge", b"indoor", b"level"):
         layer += message(3, key)
+    if omitted_tunnel:
+        layer += message(3, b"tunnel")
     for value in (b"path", b"0", b"1", b"yes"):
         layer += message(4, message(1, value))
     if profile_tags:
@@ -271,6 +273,10 @@ def controlled_tile(profile_tags=False):
         feature = bytes((24, 2)) + message(2, bytes(tags)) + message(4, bytes(geometry))
         if identity is not None:
             feature += bytes((8, identity))
+        layer += message(2, feature)
+    if omitted_tunnel:
+        feature = bytes((24, 2)) + message(2, bytes((0, 0, 5, 3)))
+        feature += message(4, bytes((9, 16, 32, 10, 16, 0)))
         layer += message(2, feature)
     return message(3, layer)
 
@@ -333,6 +339,22 @@ class NativeExport(unittest.TestCase):
         self.assertFalse(typed[0]["level"]["IsNumber"])
         self.assertEqual(typed[0]["level"]["String"], "1")
         self.assertEqual(absent, [{"indoor": None, "level": None}])
+
+    def test_way_identity_and_feature_wide_omission_scope_survive_export(self):
+        self.input.write_bytes(controlled_tile(omitted_tunnel=True))
+        directory = self.root / "omissions"
+        result = self.run_export(directory)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        native, _ = check_capture(directory)
+        ambiguous = [row for row in native["Omissions"] if row["Reason"] == 4]
+        self.assertEqual(len(ambiguous), 2)
+        self.assertEqual(
+            {tuple(row["Fragment"]) for row in ambiguous},
+            {tuple(row["Fragment"]) for row in native["References"]},
+        )
+        feature_wide = [row for row in native["Omissions"] if row["Reason"] == 1]
+        self.assertEqual(len(feature_wide), 1)
+        self.assertIsNone(feature_wide[0]["Fragment"])
 
     def test_retained_actual_source_pair(self):
         fixture = Path(__file__).with_name("fixtures") / "bridge-source-facts"

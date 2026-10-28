@@ -8,6 +8,7 @@
 #include <limits>
 #include <span>
 #include "Mat4.h"
+#include "MaterialRegistration.h"
 #include "StoredVertex.h"
 #include "ClusterDag.h"
 
@@ -17,14 +18,24 @@ struct PieceSurface {
   enum class Source { Geometry, Registered };
   uint32_t Index = 0;
   Source From = Source::Geometry;
+  std::shared_ptr<const MaterialSource> MaterialOwner;
+
+  [[nodiscard]] bool operator==(const PieceSurface &) const noexcept = default;
 
   PieceSurface() = default;
 
-  explicit constexpr PieceSurface(uint32_t index) noexcept : Index(index) {}
+  explicit PieceSurface(uint32_t index) noexcept : Index(index) {}
 
-  [[nodiscard]] static constexpr PieceSurface Registered(uint32_t index) noexcept {
+  [[nodiscard]] static PieceSurface Registered(uint32_t index) noexcept {
     PieceSurface result(index);
     result.From = Source::Registered;
+    return result;
+  }
+
+  [[nodiscard]] static PieceSurface Registered(const MaterialRegistration &registration,
+                                               uint32_t offset = 0) noexcept {
+    PieceSurface result = Registered(registration.First + offset);
+    result.MaterialOwner = registration.Source;
     return result;
   }
 };

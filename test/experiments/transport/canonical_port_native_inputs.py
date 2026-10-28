@@ -76,6 +76,14 @@ def source_input(snapshot, recipes, manifest, *, binding=None):
         groups.setdefault((identity["PathId"], identity["SegmentOrdinal"]), []).append(
             edge
         )
+    for omission in snapshot["Omissions"]:
+        fragment = omission.get("Fragment")
+        if fragment is not None and (
+            not isinstance(fragment, list)
+            or len(fragment) != 32
+            or any(type(word) is not int or not 0 <= word <= 255 for word in fragment)
+        ):
+            raise ValueError("native omission fragment must be a complete 32-byte identity")
     omissions = {
         (row["Source"], tuple(row["Feature"]))
         for row in snapshot["Omissions"]

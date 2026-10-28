@@ -755,6 +755,7 @@ void GeometryRenderer::ReleasePiece(PieceId which) {
   Bound().GiveTangents(held.T);
   PieceTriangles_ -= held.IndexCount / 3u;
   held.Live = false;
+  held.Surface = {};
   held.Clusters.clear();
   held.Rows.clear();
   Spare_.push_back(which);

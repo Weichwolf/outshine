@@ -27,6 +27,7 @@ std::expected<void, std::string> RecordMissingTopology(Sources &sources,
     if (at == order.end() || key(*at) != requested) {
       sources.Omissions.push_back({.Source = way.Source.Source,
                                    .Feature = way.Feature,
+                                   .Fragment = way.Key,
                                    .Reason = MvtTransportOmissionReason::MissingTopology});
     }
   }
