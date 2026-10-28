@@ -2,7 +2,6 @@
 #include "MaterialSource.h"
 
 #include "GeometryRenderer.h"
-#include "MaterialResolution.h"
 
 #include <algorithm>
 #include <cassert>
@@ -22,9 +21,6 @@ constexpr auto MissingPiece = "the piece handle names no live resource in this w
 constexpr auto RepeatedPiece = "an instance update names one piece more than once";
 constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
-constexpr auto NoPieceMaterials = "piece material registration requires native materials";
-constexpr auto PieceMaterialLimit = "piece material registration exceeds the slot index range";
-constexpr auto PieceMaterialTables = "geometry material tables disagree before piece registration";
 }
 
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
@@ -199,118 +195,28 @@ void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources 
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;
   GroundClassification_ = source.GroundClassification_;
-  PieceMaterials_ = source.PieceMaterials_;
-  RegisteredPieceSlots_.clear();
-  RegisteredMaterialOwners_.clear();
+  Materials_.CopySourcesFrom(source.Materials_);
 }
 
 bool SceneResources::HasMaterialRegistration(const MaterialRegistration &material) const noexcept {
-  return material.Source && material.First < RegisteredMaterialOwners_.size() &&
-         RegisteredMaterialOwners_[material.First].lock() == material.Source;
-}
-
-std::expected<MaterialSource, std::string> SceneResources::ResolvePieceMaterials(Geometry source) {
-  if (source.surfaces() == 0) { return std::unexpected(Says::NoPieceMaterials); }
-  MaterialSource held{.Source = std::move(source), .Slots = {}};
-  held.Slots.resize(static_cast<size_t>(held.Source.surfaces()));
-  for (size_t at = 0; at < held.Slots.size(); ++at) {
-    held.Slots[at].Row = held.Source.surfaceAt(MaterialInstance(static_cast<int>(at)));
-  }
-  std::string error;
-  if (!ResolveNativeTextures(held.Source, held.Slots, error)) {
-    return std::unexpected(std::move(error));
-  }
-  return held;
-}
-
-bool SceneResources::AppendPieceMaterials(GeometryRenderer &geometry,
-                                          GeometryRenderer *glass,
-                                          const MaterialSource &materials,
-                                          std::string &error) {
-  if (materials.Slots.size() >= kNoMaterialSlot ||
-      RegisteredPieceSlots_.size() >= kNoMaterialSlot ||
-      materials.Slots.size() > kNoMaterialSlot - RegisteredPieceSlots_.size() ||
-      geometry.MaterialSlots() >= kNoMaterialSlot ||
-      materials.Slots.size() > kNoMaterialSlot - geometry.MaterialSlots()) {
-    error = Says::PieceMaterialLimit;
-    return false;
-  }
-  if (!geometry.ValidateMaterials(materials.Slots, error) ||
-      (glass != nullptr && !glass->ValidateMaterials(materials.Slots, error))) {
-    return false;
-  }
-  const size_t geometryMaterialSlotsBefore = geometry.MaterialSlots();
-  const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
-  if (glass != nullptr && glassBefore != geometryMaterialSlotsBefore) {
-    error = Says::PieceMaterialTables;
-    return false;
-  }
-  if (!geometry.AppendMaterials(
-          materials.Slots, error, GeometryResidency::ImageUploadMode::Deferred)) {
-    return false;
-  }
-  if (glass != nullptr && !glass->AppendMaterials(materials.Slots,
-                                                  error,
-                                                  GeometryResidency::ImageUploadMode::Deferred)) {
-    geometry.TruncateMaterials(geometryMaterialSlotsBefore);
-    return false;
-  }
-  for (size_t at = 0; at < materials.Slots.size(); ++at) {
-    RegisteredPieceSlots_.push_back(static_cast<uint32_t>(geometryMaterialSlotsBefore + at));
-  }
-  geometry.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
-  if (glass != nullptr) { glass->SetRegisteredPieceSurfaces(RegisteredPieceSlots_); }
-  return true;
+  return Materials_.Contains(material);
 }
 
 std::expected<MaterialRegistration, std::string> SceneResources::RegisterPieceMaterials(
     GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source) {
-  auto materials = ResolvePieceMaterials(std::move(source));
-  if (!materials) { return std::unexpected(std::move(materials).error()); }
-  const auto first = static_cast<uint32_t>(RegisteredPieceSlots_.size());
-  PieceMaterials_.reserve(PieceMaterials_.size() + 1u);
-  RegisteredPieceSlots_.reserve(RegisteredPieceSlots_.size() + materials->Slots.size());
-  std::string error;
-  if (!AppendPieceMaterials(geometry, glass, *materials, error)) {
-    return std::unexpected(std::move(error));
-  }
-  auto owner = std::make_shared<const MaterialSource>(std::move(*materials));
-  RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), owner->Slots.size(), owner);
-  PieceMaterials_.push_back({.Source = owner, .Count = static_cast<uint32_t>(owner->Slots.size())});
-  return MaterialRegistration{.First = first, .Source = std::move(owner)};
+  return Materials_.Register(geometry, glass, std::move(source));
 }
 
 bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
                                            GeometryRenderer *glass,
                                            std::string &error) {
-  const size_t geometryMaterialSlotsBefore = geometry.MaterialSlots();
-  const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
-  RegisteredPieceSlots_.clear();
-  RegisteredMaterialOwners_.clear();
-  for (const auto &record : PieceMaterials_) {
-    const auto materials = record.Source.lock();
-    if (!materials) {
-      RegisteredPieceSlots_.insert(RegisteredPieceSlots_.end(), record.Count, kNoMaterialSlot);
-      RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), record.Count, {});
-      continue;
-    }
-    if (AppendPieceMaterials(geometry, glass, *materials, error)) {
-      RegisteredMaterialOwners_.insert(RegisteredMaterialOwners_.end(), record.Count, materials);
-      continue;
-    }
-    geometry.TruncateMaterials(geometryMaterialSlotsBefore);
-    geometry.SetRegisteredPieceSurfaces({});
-    if (glass != nullptr) {
-      glass->TruncateMaterials(glassBefore);
-      glass->SetRegisteredPieceSurfaces({});
-    }
-    RegisteredPieceSlots_.clear();
-    RegisteredMaterialOwners_.clear();
-    return false;
-  }
-  geometry.SetRegisteredPieceSurfaces(RegisteredPieceSlots_);
-  if (glass != nullptr) { glass->SetRegisteredPieceSurfaces(RegisteredPieceSlots_); }
-  return true;
+  return Materials_.Restore(geometry, glass, error);
+}
+
+bool SceneResources::PreparePieceMaterials(GeometryRenderer &geometry,
+                                           GeometryRenderer *glass,
+                                           std::string &error) {
+  return Materials_.Prepare(geometry, glass, error);
 }
 
 bool SceneResources::RestorePieces(GeometryRenderer &geometry, std::string &error) {

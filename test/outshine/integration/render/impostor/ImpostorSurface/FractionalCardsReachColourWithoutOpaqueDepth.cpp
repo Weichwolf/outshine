@@ -11,7 +11,7 @@
 #include <vector>
 
 namespace {
-void Exercise() {
+void Exercise(size_t firstMip) {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
@@ -24,7 +24,7 @@ void Exercise() {
   const auto atlas = ImpostorAtlas::Create(8, {}, 1, {material}, {view}, error);
   CHECK(atlas.has_value(), "a sparse original surface defines fractional area");
   if (!atlas) { return; }
-  const auto card = BuildFractionalImpostorSurface(*atlas, 0);
+  const auto card = BuildFractionalImpostorSurface(*atlas, 0, firstMip);
   CHECK(card.has_value(), "the native optical card is available");
   if (!card) { return; }
   Core::Declaration declaration;
@@ -79,7 +79,9 @@ void Exercise() {
 int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for actual fractional impostors");
-  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) { Exercise(); }
+  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
+    for (size_t mip = 0; mip <= 3; ++mip) { Exercise(mip); }
+  }
   SDL_Quit();
   return Report();
 }

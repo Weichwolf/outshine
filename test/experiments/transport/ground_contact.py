@@ -147,24 +147,30 @@ def candidate(
     }, record | {"status": "candidate", "reason": ""}
 
 
-def build_contact(
-    road, road_dem_z, sample_z, *, limits=None, method="coverage", whole_profiles=False
-):
-    limits = ContactLimits() if limits is None else limits
+def contact_input(road, road_dem_z, limits):
     if not isinstance(road, Mesh) or not len(road.triangles):
         raise ValueError("One nonempty immutable road mesh required")
-    if method not in ("coverage", "general"):
-        raise ValueError("Known exact road-domain union procedure required")
     road_dem_z = np.asarray(road_dem_z, dtype=float)
     if road_dem_z.shape != (len(road.vertices),) or not np.isfinite(road_dem_z).all():
         raise ValueError(
             "One finite bound DEM observation per immutable road vertex required"
         )
-    if (
+    allowed = not (
         len(road.vertices) > limits.maximum_road_vertices
         or len(road.triangles) > limits.maximum_road_faces
         or len(road.triangles) > limits.maximum_faces
-    ):
+    )
+    return road_dem_z, allowed
+
+
+def build_contact(
+    road, road_dem_z, sample_z, *, limits=None, method="coverage", whole_profiles=False
+):
+    limits = ContactLimits() if limits is None else limits
+    if method not in ("coverage", "general"):
+        raise ValueError("Known exact road-domain union procedure required")
+    road_dem_z, allowed = contact_input(road, road_dem_z, limits)
+    if not allowed:
         return {
             "status": "pending",
             "reason": "road_contact_input_budget",
@@ -207,6 +213,13 @@ def build_contact(
         if profile_guard is not None:
             result["profile_proof_work"] = profile_guard.work
         return result
+    result = finish_contact(road, chosen, candidates, sample_z, limits, road_grade)
+    if profile_guard is not None:
+        result["profile_proof_work"] = profile_guard.work
+    return result
+
+
+def finish_contact(road, chosen, candidates, sample_z, limits, road_grade):
     coarse = chosen["mesh"]
     mesh, roots, refinement = refine_ground(
         coarse,
@@ -236,6 +249,4 @@ def build_contact(
         "road_physical_grade": road_grade,
         "scope": "Fixed finite road and chosen outer DEM chord profiles; bounded local soil construction/refinement only, no original DEM-grid/World/Source/vehicle/LOD/device admission.",
     }
-    if profile_guard is not None:
-        result["profile_proof_work"] = profile_guard.work
     return result

@@ -60,6 +60,16 @@ def qualify_contact(road, result):
         raise ValueError("contact_outer_xyz_changed")
     if not set(np.unique(outer)) <= set(retained):
         raise ValueError("contact_outer_profile_repartitioned")
+    if "rim_profile" in result:
+        corners = result["rim_profile"]["corner_vertex_ids"]
+        x0, y0, x1, y1 = result["domain"].bounds
+        expected = {(x0, y0), (x1, y0), (x1, y1), (x0, y1)}
+        if (
+            len(corners) != 4
+            or set(map(tuple, mesh.vertices[corners, :2])) != expected
+            or not np.array_equal(mesh.vertices[corners, 2], result["prior_z"][corners])
+        ):
+            raise ValueError("contact_original_dem_corner_changed")
     gradient = -normal[:, :2] / normal[:, 2, None]
     soil = np.linalg.norm(gradient[count:], axis=1)
     maximum = float(soil.max(initial=0))
@@ -71,6 +81,9 @@ def qualify_contact(road, result):
     rim_prior_gap = [
         abs(result["prior_z"][i] - road.vertices[inverse[int(i)], 2]) for i in rim
     ]
+    scope = "Exact old road XYZ/faces and shared whole index edges, strict conforming full-domain triangle coverage and unchanged four outer DEM chord profiles; C0 terrain contact, not C1 terrain, original DEM-grid/World/Source/device qualification."
+    if "rim_profile" in result:
+        scope = "Exact old road XYZ/faces, whole shared index edges, strict conforming complete domain and unchanged fitted whole rim/four exact DEM corners; intermediate rim observations explicitly adjusted under the soil limit. Local C0 only, no native DEM-grid/World/Source/device qualification."
     return {
         "road_vertices_exact": len(road.vertices),
         "road_faces_exact": count,
@@ -84,5 +97,5 @@ def qualify_contact(road, result):
         "maximum_before_road_dem_gap_m": float(prior_gap.max()),
         "maximum_before_rim_dem_gap_m": float(max(rim_prior_gap)),
         "whole_shared_edge_height_gap_m": 0.0,
-        "scope": "Exact old road XYZ/faces and shared whole index edges, strict conforming full-domain triangle coverage and unchanged four outer DEM chord profiles; C0 terrain contact, not C1 terrain, original DEM-grid/World/Source/device qualification.",
+        "scope": scope,
     }

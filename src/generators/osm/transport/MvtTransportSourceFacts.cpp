@@ -32,8 +32,10 @@ CaptureSourceFacts(const Sources &sources,
                               .Network = network,
                               .Field = field,
                               .Streets = streets};
-  if (segments.size() > std::numeric_limits<uint32_t>::max() / 2 ||
-      !FitsSourceFacts(input, groups->Groups.size(), bytesMost)) {
+  const bool fits = segments.size() <= std::numeric_limits<uint32_t>::max() / 2 &&
+                    FitsSourceFacts(input, groups->Groups.size(), bytesMost, stop);
+  if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
+  if (!fits) {
     return SourceFactCapture{.State = MvtTransportSourceFactState::BudgetExceeded, .Data = {}};
   }
   auto facts = std::make_shared<MvtTransportSourceFacts>();

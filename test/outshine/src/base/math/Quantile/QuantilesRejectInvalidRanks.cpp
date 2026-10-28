@@ -1,7 +1,7 @@
 #include <Quantile.h>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <print>
 #include <limits>
 #include <string>
 #include "Check.h"
@@ -90,13 +90,12 @@ int main() {
   std::string output;
   CHECK(Run(SanitizedCommand(false), output) == 0,
         "the public header builds without exceptions and rejects NaN under UBSan");
-  std::printf("%s", output.c_str());
+  std::print("{}", output);
   output.clear();
   const int legacy = Run(SanitizedCommand(true), output);
-  CHECK(legacy != 0 && output.find("runtime error:") != std::string::npos &&
-            output.find("nan") != std::string::npos,
+  CHECK(legacy != 0 && output.contains("runtime error:") && output.contains("nan"),
         "UBSan detects the former floating-to-integer conversion in a separate process");
-  std::printf("%s", output.c_str());
+  std::print("{}", output);
 
   const std::string prefix =
       std::string(OUTSHINE_COMPILE) +
@@ -106,14 +105,14 @@ int main() {
                      "outshine::QuantileOf({}, 0.5); (void)result.has_value(); }\nCPP\n",
             output) == 0,
         "consuming the error result compiles with the same warning policy");
-  std::printf("%s", output.c_str());
+  std::print("{}", output);
   output.clear();
   const int ignored =
       Run(prefix + "#include <Quantile.h>\nvoid check() { outshine::QuantileOf({}, 0.5); }\nCPP\n",
           output);
-  CHECK(ignored != 0 && output.find("nodiscard") != std::string::npos,
+  CHECK(ignored != 0 && output.contains("nodiscard"),
         "discarding the nodiscard quantile result is a compilation error");
-  std::printf("%s", output.c_str());
+  std::print("{}", output);
   Covers("nearest-rank values, finite clamping, explicit empty/non-finite errors, constexpr and "
          "noexcept contracts; exception-free public compilation, nodiscard compiler control and "
          "UBSan legacy-conversion control; sortedness and NaN-free samples remain preconditions");

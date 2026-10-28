@@ -1402,6 +1402,14 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   }
   if (!ActiveState().CameraFull) { return std::unexpected(Says::kCameraNotConfigured); }
 
+  {
+    auto &content = ActiveContent();
+    std::string error;
+    if (!content.Scene().Resources().PreparePieceMaterials(
+            content.Geometry(), content.DrawsGlass ? &content.Transmission() : nullptr, error)) {
+      return std::unexpected(std::move(error));
+    }
+  }
   ActiveContent().Geometry().CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   {

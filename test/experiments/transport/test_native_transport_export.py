@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from mvt_source_fact_digest import native_source_fact_digest, validate_missing_source_ways
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -37,64 +39,9 @@ def group_digest(native, facts):
 
 
 def fact_digest(native, facts):
-    result = hashlib.sha256(b"outshine/mvt-source-facts/2")
-    result.update(native["SourceIdentity"]["Revision"].encode("ascii"))
-    result.update(bytes(facts["NodeGroups"]["Digest"]))
-    words(
-        result,
-        "QQQQQ",
-        facts["SourceGeneration"],
-        facts["SourceWayCount"],
-        len(facts["Groups"]),
-        len(facts["Members"]),
-        len(facts["Ways"]),
-    )
-    for group in facts["Groups"]:
-        words(
-            result,
-            "IIQQBB",
-            group["FirstMember"],
-            group["MemberCount"],
-            group["OriginalEndpointCount"],
-            group["FilteredEndpointCount"],
-            group["Complete"],
-            group["Frontier"],
-        )
-    for member in facts["Members"]:
-        edge = member["Edge"]
-        words(
-            result,
-            "QIBQIIIBB",
-            edge["PathId"],
-            edge["SegmentOrdinal"],
-            edge["Direction"],
-            member["DomainNode"],
-            member["NodeGroup"],
-            member["StreetWay"],
-            member["SourceStep"],
-            member["End"],
-            member["SourceTerminal"],
-        )
-    for way in facts["Ways"]:
-        words(
-            result,
-            "IIIIII",
-            *(
-                way[key]
-                for key in (
-                    "StreetWay",
-                    "Feature",
-                    "Ring",
-                    "PointCount",
-                    "HalfWidthWord",
-                    "MaximumGradientWord",
-                )
-            ),
-        )
-        for point in way["EndStencil"]:
-            words(result, "dd", point["LongitudeDeg"], point["LatitudeDeg"])
-        words(result, "BB", *way["OwnsEnds"])
-    return list(result.digest())
+    return list(native_source_fact_digest(
+        native["SourceIdentity"]["Revision"], bytes(facts["NodeGroups"]["Digest"]), facts
+    ))
 
 
 def edge_key(edge):
@@ -218,7 +165,9 @@ def check_capture(directory):
     facts = json.loads((directory / "source-facts.json").read_text())
     require(
         native["schema"] == "outshine/native-mvt-snapshot-dump/1"
-        and facts["schema"] == "outshine/native-mvt-source-facts/2",
+        and facts["schema"] in (
+            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+        ),
         "unsupported native capture",
     )
     require(
@@ -236,6 +185,7 @@ def check_capture(directory):
     require(
         facts["Digest"] == fact_digest(native, facts), "source fact binding changed"
     )
+    validate_missing_source_ways(native, facts)
     check_members(native, facts)
     return native, facts
 

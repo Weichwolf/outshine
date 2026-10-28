@@ -13,9 +13,8 @@
 #include <vector>
 
 namespace outshine::Generators::Osm::MvtTransport {
-namespace {
-std::expected<MvtTransportWayFacts, std::string> WayFacts(const SourceFactInput &input,
-                                                          uint32_t at) {
+std::expected<MvtTransportWayFacts, std::string> SourceWayFacts(const SourceFactInput &input,
+                                                                uint32_t at) {
   const auto &way = input.Streets.Ways()[at];
   const auto source = input.Streets.SourceOf(input.Field, at);
   const auto points = input.Field.Points();
@@ -39,7 +38,6 @@ std::expected<MvtTransportWayFacts, std::string> WayFacts(const SourceFactInput 
   }
   return facts;
 }
-}
 
 std::expected<void, std::string> FillSourceWayFacts(MvtTransportSourceFacts &facts,
                                                     const SourceFactInput &input,
@@ -51,7 +49,7 @@ std::expected<void, std::string> FillSourceWayFacts(MvtTransportSourceFacts &fac
   facts.Ways.reserve(input.SourceRows.StreetWays.size());
   for (const uint32_t way : ways) {
     if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
-    auto captured = WayFacts(input, way);
+    auto captured = SourceWayFacts(input, way);
     if (!captured) { return std::unexpected(captured.error()); }
     facts.Ways.push_back(*captured);
   }

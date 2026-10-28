@@ -192,6 +192,7 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
                      .Levels = levels,
                      .PixelBytes = static_cast<uint32_t>(pixelBytes)};
   if (mode == ImageUploadMode::Deferred) {
+    StagedImageAt_.emplace(image.get(), StagedImages_.size());
     StagedImages_.push_back(std::move(staged));
     return {};
   }
@@ -223,6 +224,32 @@ Native::Result<void> GeometryResidency::RecordImage(Native::Commands &commands,
     size.HeightPx = std::max(1u, size.HeightPx / 2u);
   }
   return {};
+}
+
+void GeometryResidency::EraseStagedImage(size_t which) {
+  StagedImageAt_.erase(StagedImages_[which].Image.get());
+  if (which + 1 != StagedImages_.size()) {
+    StagedImages_[which] = std::move(StagedImages_.back());
+    StagedImageAt_[StagedImages_[which].Image.get()] = which;
+  }
+  StagedImages_.pop_back();
+}
+
+void GeometryResidency::DiscardUnusedImage(const std::shared_ptr<Native::Texture> &image) {
+  if (!image || image.use_count() != 2) { return; }
+  const auto found = StagedImageAt_.find(image.get());
+  if (found != StagedImageAt_.end()) { EraseStagedImage(found->second); }
+}
+
+void GeometryResidency::DiscardUnreferencedImages() {
+  size_t at = 0;
+  while (at < StagedImages_.size()) {
+    if (StagedImages_[at].Image.use_count() == 1) {
+      EraseStagedImage(at);
+    } else {
+      ++at;
+    }
+  }
 }
 
 }

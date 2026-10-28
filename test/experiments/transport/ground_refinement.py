@@ -125,6 +125,15 @@ def _quality_delta(mesh, candidates, selected, delta, target, method):
     return checked, len(selected) * parents.shape[1] * len(bary)
 
 
+def vertical_lod_difference(base, mesh, roots):
+    """Maximum fine/coarse affine height difference over every child triangle."""
+    original_gradient = _face_gradients(base.vertices[:, :2], base.triangles, base.vertices[:, 2])
+    p0 = base.vertices[base.triangles[roots, 0]]
+    p = mesh.vertices[mesh.triangles]
+    baseline = p0[:, None, 2] + np.einsum("fji,fi->fj", p[:, :, :2] - p0[:, None, :2], original_gradient[roots])
+    return float(np.max(abs(p[:, :, 2] - baseline), initial=0))
+
+
 def refine_ground(mesh, target, *, protected_faces=0, method="midpoint", grade=2 / 3,
                   error_m=.25, minimum_gain_m=.05, max_new_vertices=2500, max_faces=65536, max_passes=4,
                   max_quality_queries=1000000):
@@ -190,11 +199,7 @@ def refine_ground(mesh, target, *, protected_faces=0, method="midpoint", grade=2
         steps.append(report)
     if not reason:
         reason = "pass_budget_exhausted"
-    original_gradient = _face_gradients(base.vertices[:, :2], base.triangles, base.vertices[:, 2])
-    p0 = base.vertices[base.triangles[roots, 0]]
-    p = mesh.vertices[mesh.triangles]
-    baseline = p0[:, None, 2] + np.einsum("fji,fi->fj", p[:, :, :2] - p0[:, None, :2], original_gradient[roots])
-    bound = float(np.max(abs(p[:, :, 2] - baseline), initial=0))
+    bound = vertical_lod_difference(base, mesh, roots)
     report = dict(method=method, reason=reason, steps=steps, new_vertices=inserted, faces=len(mesh.triangles),
                   quality_queries=quality_queries,
                   maximum_vertical_LOD_difference_m=bound, refinement_ms=(time.perf_counter() - began) * 1000)

@@ -10,6 +10,7 @@ struct MaterialSource;
 struct MaterialRegistration {
   uint32_t First = 0;
   std::shared_ptr<const MaterialSource> Source;
+  [[nodiscard]] uint32_t At(uint32_t offset) const noexcept;
   [[nodiscard]] bool operator==(const MaterialRegistration &) const noexcept = default;
 };
 }

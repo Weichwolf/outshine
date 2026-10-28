@@ -79,6 +79,15 @@ def programme_products(plan, planned, *, omit_trim=True):
     )
 
 
+def programme_selection(planned, selected_ids):
+    if selected_ids is None:
+        return None
+    selected = frozenset(selected_ids)
+    if not selected <= {cell.identifier for cell in planned.cells}:
+        raise ValueError("Programme selection contains a foreign component")
+    return selected
+
+
 class ProgrammeFacade:
     def __init__(self, source, planned):
         self.source, self.planned = source, planned
@@ -111,10 +120,7 @@ class ProgrammeProducts:
         self.body.facade = ProgrammeFacade(source.body.facade, planned)
 
     def draw(self, *, body_near=True, roof_near=True, selected_ids=None):
-        if selected_ids is not None:
-            selected_ids = frozenset(selected_ids)
-            if not selected_ids <= {c.identifier for c in self.plan.cells}:
-                raise ValueError("Programme selection contains a foreign component")
+        selected_ids = programme_selection(self.plan, selected_ids)
         if not self.plan.cells:
             return joined(self.source.parts(body_near, roof_near))
         facade = self.body.facade
@@ -122,15 +128,23 @@ class ProgrammeProducts:
             body = facade_draw(facade.openings(), self.source.plan.body)
         else:
             body = without_trim_surface(facade.source.coarse.mesh)
+        return self.compose(
+            body,
+            portal_frames=not body_near,
+            layer_mode="outer" if body_near else "front",
+            roof_near=roof_near,
+            selected_ids=selected_ids,
+        )
+
+    def compose(self, body, *, portal_frames, layer_mode, roof_near, selected_ids):
+        """Join an existing facade surface with the same owned layers/roof/portals."""
         pieces = (body, *self.body.additions)
-        if not body_near:
+        if portal_frames:
             pieces += (self.body.portal_frames,)
         body = joined(pieces)
         if self.source.plan.crown is not None:
             body = capless(body, self.source.plan.body.top_m)
-        addition, _owners = expand(
-            self.plan, selected_ids, mode="outer" if body_near else "front"
-        )
+        addition, _owners = expand(self.plan, selected_ids, mode=layer_mode)
         pieces = (body, addition)
         if self.source.plan.crown is not None:
             if roof_near:

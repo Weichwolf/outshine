@@ -194,8 +194,11 @@ bool AddOpaqueCardImages(Geometry &geometry,
   return AddPreparedCardImages(geometry, into, atlas.Pixels(), images);
 }
 
-std::optional<Geometry>
-SurfaceOf(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail, AlphaMode alpha) {
+std::optional<Geometry> SurfaceOf(const ImpostorAtlas &atlas,
+                                  size_t view,
+                                  ImpostorSurfaceDetail detail,
+                                  AlphaMode alpha,
+                                  size_t firstMip = 0) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
   const ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
@@ -206,7 +209,7 @@ SurfaceOf(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDetail detail,
       alpha == AlphaMode::Blended || std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
         return row.Scattering == ScatteringModel::DiffuseThinSheet;
       });
-  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source)
+  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source, firstMip)
               : !AddOpaqueCardImages(geometry, material, atlas, source)) {
     return std::nullopt;
   }
@@ -232,8 +235,9 @@ BuildImpostorSurface(const ImpostorAtlas &atlas, size_t view, ImpostorSurfaceDet
   return SurfaceOf(atlas, view, detail, AlphaMode::Masked);
 }
 
-std::optional<Geometry> BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view) {
-  return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended);
+std::optional<Geometry>
+BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view, size_t firstMip) {
+  return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended, firstMip);
 }
 
 std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas, std::string &error) {

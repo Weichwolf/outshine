@@ -289,6 +289,16 @@ public:
 
   [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
 
+  [[nodiscard]] size_t NativeMaterialSlots() const noexcept { return NativeMaterialSlots_; }
+
+  [[nodiscard]] uint64_t MaterialRevision() const noexcept { return MaterialRevision_; }
+
+  [[nodiscard]] bool WriteMaterialRows(std::span<const MaterialBinding> materials,
+                                       std::span<const uint32_t> rows,
+                                       std::string &error);
+  void ClearMaterialRow(size_t which);
+  void SetRegisteredPieceSurface(uint32_t logical, uint32_t physical);
+
   void TruncateMaterials(size_t count) noexcept;
 
   [[nodiscard]] bool ValidateMesh(const MeshInput &mesh, std::string &error) const;
@@ -510,6 +520,8 @@ private:
   PipelineAt(SurfaceDomain domain, VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
   std::vector<SurfaceSlot> Slots;
+  size_t NativeMaterialSlots_ = 0;
+  uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
 
   std::vector<VertexLayout> BatchLayout;

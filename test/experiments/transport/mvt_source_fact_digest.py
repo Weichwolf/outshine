@@ -35,6 +35,8 @@ def version_from_schema(schema):
         return 1
     if schema == "outshine/native-mvt-source-facts/2":
         return 2
+    if schema == "outshine/native-mvt-source-facts/3":
+        return 3
     raise ValueError("known native source fact schema required")
 
 
@@ -45,6 +47,7 @@ def native_source_fact_digest(
     *,
     member_limit=65536,
     row_limit=16384,
+    point_limit=65536,
     version=None,
 ):
     """Hash only actual MvtTransportSourceFacts fields in native order.
@@ -65,7 +68,7 @@ def native_source_fact_digest(
     declared = version_from_schema(payload["schema"]) if "schema" in payload else None
     if version is None:
         version = 1 if declared is None else declared
-    if type(version) is not int or version not in (1, 2):
+    if type(version) is not int or version not in (1, 2, 3):
         raise ValueError("actual native fact protocol version required")
     if declared is not None and declared != version:
         raise ValueError("native schema and byte protocol version disagree")
@@ -91,6 +94,12 @@ def native_source_fact_digest(
         len(members),
         len(ways),
     )
+    missing = sequence(payload.get("MissingWays"), "MissingWays") if version == 3 else ()
+    if version == 3:
+        if len(missing) > row_limit:
+            raise ValueError("missing original way budget")
+        hasher.update(digest_bytes(payload.get("OmissionsDigest")))
+        append("Q", len(missing))
     for raw in groups:
         group = record(raw)
         append(
@@ -122,9 +131,9 @@ def native_source_fact_digest(
             integer(member.get("SourceStep"), 32),
             end,
         )
-        if version == 2:
+        if version >= 2:
             append("B", boolean(member.get("SourceTerminal")))
-    for raw in ways:
+    def append_way(raw):
         way = record(raw)
         append(
             "IIIIII",
@@ -160,4 +169,117 @@ def native_source_fact_digest(
                 raise ValueError("actual finite geographic stencil required")
             append("dd", lon, lat)
         append("BB", *(boolean(value) for value in owns))
+    for raw in ways:
+        append_way(raw)
+    point_count = 0
+    for raw in missing:
+        row = record(raw)
+        append("I", integer(row.get("Omission"), 32))
+        append_way(row.get("Way"))
+        layer = row.get("Layer")
+        if type(layer) is not int or not -(2**31) <= layer < 2**31:
+            raise ValueError("native signed layer required")
+        points = sequence(row.get("Points"), "Points")
+        point_count += len(points)
+        if (
+            point_count > point_limit
+            or len(points) != row["Way"]["PointCount"]
+            or len(points) < 2
+        ):
+            raise ValueError("bounded complete original way points required")
+        append(
+            "iBBQ", layer, boolean(row.get("Bridge")), boolean(row.get("Tunnel")), len(points)
+        )
+        for raw_point in points:
+            point = record(raw_point)
+            lon, lat = point.get("LongitudeDeg"), point.get("LatitudeDeg")
+            if (
+                type(lon) not in (int, float)
+                or type(lat) not in (int, float)
+                or not math.isfinite(lon)
+                or not math.isfinite(lat)
+                or abs(lon) > 180
+                or abs(lat) > 90
+            ):
+                raise ValueError("actual finite original geographic points required")
+            append("dd", lon, lat)
     return hasher.digest()
+
+
+def digest_bytes(raw):
+    values = sequence(raw, "native digest")
+    if len(values) != 32:
+        raise ValueError("actual 32-byte digest required")
+    return bytes(integer(value, 8) for value in values)
+
+
+def native_omissions_digest(omissions, *, row_limit=16384):
+    rows = sequence(omissions, "Omissions")
+    if len(rows) > row_limit:
+        raise ValueError("original omission budget")
+    h = hashlib.sha256(b"outshine/mvt-source-omissions/1")
+    h.update(struct.pack("<Q", len(rows)))
+    previous = None
+    for raw in rows:
+        row = record(raw)
+        source = integer(row.get("Source"), 32)
+        feature = digest_bytes(row.get("Feature"))
+        fragment = row.get("Fragment")
+        fragment = digest_bytes(fragment) if fragment is not None else None
+        reason = integer(row.get("Reason"), 8)
+        key = (source, feature, fragment is not None, fragment or b"", reason)
+        if previous is not None and key <= previous:
+            raise ValueError("original omission order must be canonical and unique")
+        previous = key
+        h.update(struct.pack("<I", source))
+        h.update(feature)
+        h.update(struct.pack("<B", fragment is not None))
+        if fragment is not None:
+            h.update(fragment)
+        h.update(struct.pack("<B", reason))
+    return h.digest()
+
+
+def validate_missing_source_ways(native, payload, *, row_limit=16384):
+    """Check paired correspondence after native_source_fact_digest validates fields."""
+    if version_from_schema(payload["schema"]) != 3:
+        return
+    omissions = sequence(native.get("Omissions"), "Omissions")
+    if native_omissions_digest(omissions, row_limit=row_limit) != digest_bytes(
+        payload.get("OmissionsDigest")
+    ):
+        raise ValueError("paired original omission digest mismatch")
+    represented = {row["StreetWay"] for row in payload["Ways"]}
+    previous, used = -1, set()
+    missing = sequence(payload.get("MissingWays"), "MissingWays")
+    if len(missing) > row_limit:
+        raise ValueError("missing original way budget")
+    for raw in missing:
+        row = record(raw)
+        index = integer(row.get("Omission"), 32)
+        way = record(row.get("Way"))
+        street = integer(way.get("StreetWay"), 32)
+        if (
+            index >= len(omissions) or street <= previous
+            or street in represented or street >= payload["SourceWayCount"]
+        ):
+            raise ValueError("unique canonical original way and omission required")
+        omission = omissions[index]
+        if omission["Reason"] != 5 or omission.get("Fragment") is None:
+            raise ValueError("original geometry requires an exact missing topology identity")
+        points = sequence(row.get("Points"), "Points")
+        if len(points) < 2 or len(points) != way["PointCount"]:
+            raise ValueError("complete original polyline required")
+        stencil = [points[0], points[1], points[-2], points[-1]]
+        def words(point):
+            return struct.pack("<dd", point["LongitudeDeg"], point["LatitudeDeg"])
+        if [words(p) for p in stencil] != [words(p) for p in way["EndStencil"]]:
+            raise ValueError("original polyline and end stencil disagree")
+        used.add(index)
+        previous = street
+    expected = {
+        index for index, row in enumerate(omissions)
+        if row["Reason"] == 5 and row.get("Fragment") is not None
+    }
+    if used != expected:
+        raise ValueError("every exactly identified missing way requires original facts")

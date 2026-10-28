@@ -58,6 +58,19 @@ struct MvtTransportSourceFacts {
   std::vector<MvtTransportSourceGroup> Groups;
   std::vector<MvtTransportSourceMember> Members;
   std::vector<MvtTransportWayFacts> Ways;
+
+  struct MissingWay {
+    uint32_t Omission = 0;
+    MvtTransportWayFacts Way;
+    int32_t Layer = 0;
+    bool Bridge = false;
+    bool Tunnel = false;
+    std::vector<LongitudeLatitude> Points;
+  };
+
+  // Original geometry is evidence, not a certified network-influence bound.
+  std::vector<MissingWay> MissingWays;
+  std::array<uint8_t, 32> OmissionsDigest{};
   std::array<uint8_t, 32> Digest{};
 };
 

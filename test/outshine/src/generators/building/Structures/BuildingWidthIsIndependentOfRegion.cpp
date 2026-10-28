@@ -1,6 +1,7 @@
 #include "Structures.h"
 #include "Check.h"
 #include <algorithm>
+#include <cstddef>
 #include <array>
 #include <cmath>
 #include <limits>
@@ -25,7 +26,7 @@ bool HasNominalEastSides(const outshine::Geometry &geometry, double width) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::Structures producer;
+  const Generators::Structures producer;
   for (const auto [text, width] :
        {std::pair{"12", 12.0}, std::pair{"24", 24.0}, std::pair{"240", 240.0}}) {
     const std::array<Generators::Parameter, 1> parameters{{{.Name = "widthM", .Value = text}}};

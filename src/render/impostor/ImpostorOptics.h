@@ -3,11 +3,13 @@
 
 #include "ImpostorAtlas.h"
 #include "Geometry.h"
+#include <cstddef>
 
 namespace outshine::Render {
 [[nodiscard]] bool AddOpticalCardImages(Geometry &geometry,
                                         Material &material,
                                         const ImpostorAtlas &atlas,
-                                        const ImpostorAtlas::View &source);
+                                        const ImpostorAtlas::View &source,
+                                        size_t firstMip = 0);
 }
 #endif
