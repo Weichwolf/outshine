@@ -4,7 +4,19 @@ import numpy as np
 import shapely
 
 
-def mesh_parts(polygons, frames, roles, ports, links, caps, *, prefix="ground_network"):
+def mesh_parts(
+    polygons,
+    frames,
+    roles,
+    ports,
+    links,
+    caps,
+    *,
+    prefix="ground_network",
+    expected_holes=0,
+):
+    if type(expected_holes) is not int or not 0 <= expected_holes <= 1:
+        raise ValueError(prefix + "_hole_budget")
     if any(p.geom_type != "Polygon" or not p.is_valid or p.area <= 0 for p in polygons):
         raise ValueError(prefix + "_invalid_polygon")
     if not shapely.coverage_is_valid(polygons):
@@ -12,7 +24,7 @@ def mesh_parts(polygons, frames, roles, ports, links, caps, *, prefix="ground_ne
     complete = shapely.coverage_union_all(polygons)
     if complete.geom_type != "Polygon" or not complete.is_valid:
         raise ValueError(prefix + "_disconnected_domain")
-    if complete.interiors:
+    if len(complete.interiors) != expected_holes:
         raise ValueError(prefix + "_unexpected_hole")
     triangles, owners = [], []
     for part, polygon in enumerate(polygons):
