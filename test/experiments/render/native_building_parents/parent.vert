@@ -1,6 +1,7 @@
 #version 450
 layout(location = 0) in vec3 position;
 layout(location = 0) out vec3 point;
+layout(location = 1) flat out uint primitive;
 
 layout(std140, set = 1, binding = 0) uniform Frame {
   mat4 clip;
@@ -13,5 +14,6 @@ frame;
 
 void main() {
   point = position;
+  primitive = uint(gl_VertexIndex) / 3u;
   gl_Position = frame.clip * vec4(position, 1);
 }

@@ -18,7 +18,7 @@ namespace outshine::Content {
 namespace {
 constexpr uint64_t kFormat = 0x000131565046ULL;
 constexpr uint64_t kFramedFormat = 0x000231565046ULL;
-constexpr size_t kMetadataBytesMost = 4096;
+constexpr size_t kMetadataBytesMost = ImpostorViewAssets::MetadataBytesMost;
 constexpr double kDirectionNormTolerance = 1e-9;
 constexpr std::string_view kKind = "fractional-impostor-views-1";
 
@@ -104,6 +104,10 @@ Decode(std::span<const uint8_t> bytes, std::string_view provenance, const Box &b
   if (in.In.Remaining() != 0 || !Valid(description)) { return std::nullopt; }
   return description;
 }
+}
+
+std::string ImpostorViewAssets::MetadataKey(std::string_view provenance) {
+  return IndexKey(provenance);
 }
 
 ImpostorViewAssets::ImpostorViewAssets(AssetCache &cache,

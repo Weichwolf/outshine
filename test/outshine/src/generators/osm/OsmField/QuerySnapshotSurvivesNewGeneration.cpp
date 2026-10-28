@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "OsmField.h"
 #include "Check.h"
 

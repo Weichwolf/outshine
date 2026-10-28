@@ -4,6 +4,7 @@
 #include "ImpostorViewAssets.h"
 #include "ImpostorViewJob.h"
 #include "ImpostorFieldLoad.h"
+#include "ImpostorMetadataRequest.h"
 #include "AssetPipeline.h"
 #include "AssetPublication.h"
 #include "Tasks.h"
@@ -528,18 +529,6 @@ struct BuildingViewSource {
   }
 };
 
-Content::ImpostorViewAssets
-OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
-  using Content::ImpostorViewAssets;
-  const auto provenance = source.Identity();
-  auto opened = ImpostorViewAssets::Open(cache, provenance);
-  if (!opened) { Fail("native world metadata read failed"); }
-  if (*opened) { return std::move(**opened); }
-  auto published = ImpostorViewAssets::Publish(cache, provenance, source.Description(), bounds);
-  if (!published) { Fail("native world metadata publication failed"); }
-  return std::move(*published);
-}
-
 struct BuildingViewJobs {
   AssetPipeline &Pipeline;
   Tasks &Workers;
@@ -547,6 +536,38 @@ struct BuildingViewJobs {
   std::shared_ptr<AssetCache> Cache;
   std::shared_ptr<BuildingViewSource> Source;
 };
+
+Content::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
+  using Content::ImpostorViewAssets;
+  auto request = ImpostorMetadataRequest::Start(
+      jobs.Pipeline,
+      jobs.Consumer,
+      jobs.Workers,
+      jobs.Cache,
+      jobs.Source->Identity(),
+      [cache = jobs.Cache, source = jobs.Source, bounds](
+          const std::stop_token &stop) -> std::expected<ImpostorViewAssets, std::string> {
+        if (stop.stop_requested()) { return std::unexpected("metadata request cancelled"); }
+        const auto provenance = source->Identity();
+        auto opened = ImpostorViewAssets::Open(*cache, provenance);
+        if (!opened) { return std::unexpected("native world metadata read failed"); }
+        if (*opened) { return std::move(**opened); }
+        auto published =
+            ImpostorViewAssets::Publish(*cache, provenance, source->Description(), bounds);
+        if (!published) { return std::unexpected("native world metadata publication failed"); }
+        return std::move(*published);
+      },
+      256);
+  if (!request) { Fail("native metadata request admission failed"); }
+  const auto until = Clock::now() + std::chrono::seconds(30);
+  while (Clock::now() < until) {
+    const auto ready = request->Poll();
+    if (!ready) { Fail(ready.error()); }
+    if (*ready) { return **ready; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  Fail("native metadata request deadline expired");
+}
 
 AssetPipeline::RequestTicket
 ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorViewJob job) {
@@ -686,16 +707,13 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());
   if (!opened) { Fail("material field database unavailable"); }
   const std::shared_ptr<AssetCache> cache(std::move(*opened));
-  const auto products = OpenViewAssets(
-      *cache, *source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
-  const auto &metadata = products.Metadata();
   Tasks workers(2);
   AssetPipeline pipeline(workers,
-                         {.JobsMost = 1,
+                         {.JobsMost = 2,
                           .ConsumersMost = 1,
-                          .TicketsMost = 1,
-                          .InputBytesMost = 256,
-                          .ReceiptBytesMost = 2048});
+                          .TicketsMost = 2,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 8192});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { Fail("native field consumer unavailable"); }
   const BuildingViewJobs jobs{.Pipeline = pipeline,
@@ -703,6 +721,9 @@ void RadianceViews(const Fs::path &root, const Json &input) {
                               .Consumer = *consumer,
                               .Cache = cache,
                               .Source = source};
+  const auto products =
+      OpenViewAssets(jobs, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+  const auto &metadata = products.Metadata();
   Geometry original;
   if (input.contains("field_original")) {
     const Fs::path path(input.at("field_original").get<std::string>());
@@ -818,15 +839,13 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
       .SourceInput = input.value("source_input", std::string{}),
       .Recipe = input.value("source_request", Json())});
   const auto metadataAt = Clock::now();
-  const auto products = OpenViewAssets(
-      *cache, *source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   Tasks workers(2);
   AssetPipeline pipeline(workers,
-                         {.JobsMost = 1,
+                         {.JobsMost = 2,
                           .ConsumersMost = 1,
-                          .TicketsMost = 1,
-                          .InputBytesMost = 256,
-                          .ReceiptBytesMost = 2048});
+                          .TicketsMost = 2,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 8192});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { Fail("native view consumer unavailable"); }
   const BuildingViewJobs jobs{.Pipeline = pipeline,
@@ -834,6 +853,8 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
                               .Consumer = *consumer,
                               .Cache = cache,
                               .Source = source};
+  const auto products =
+      OpenViewAssets(jobs, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   size_t writes = 0;
   Json results{{"mode", "cached-world"},
                {"database_open_ms", databaseOpenMs},

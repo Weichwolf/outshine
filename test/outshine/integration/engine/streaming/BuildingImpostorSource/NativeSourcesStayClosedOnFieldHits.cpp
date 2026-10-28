@@ -1,6 +1,8 @@
 #include "BuildingImpostorSource.h"
+#include "BuildingMaterials.h"
 #include "ImpostorViewJob.h"
 #include "ImpostorFieldLoad.h"
+#include "ImpostorMetadataRequest.h"
 #include "AssetPipeline.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
@@ -68,6 +70,28 @@ void Keys(const BuildingImpostorSource::Recipe &recipe) {
   changed.WallRoofMetreMaterials[0].Alpha = AlphaMode::Blended;
   CHECK(changed.Key().empty(),
         "unsupported transmissive materials cannot enter the opaque source family");
+  changed = recipe;
+  changed.WallRoofMetreMaterials[0].Pattern = SurfacePattern::None;
+  CHECK(!changed.Key().empty() && changed.Key() != recipe.Key(),
+        "procedural capture inputs retain their pattern in the content identity");
+  changed = recipe;
+  changed.WallRoofMetreMaterials[0].Pattern = SurfacePattern::FacadeMetres;
+  CHECK(!changed.Key().empty() && changed.Key() != recipe.Key(),
+        "metre coordinates and normalized facade coordinates are different inputs");
+  for (int variant = 0; variant < 6; ++variant) {
+    changed = recipe;
+    auto &material = changed.WallRoofMetreMaterials[0];
+    switch (variant) {
+      case 0: material.BaseColourMap.Image = 0; break;
+      case 1: material.NormalMap.Image = 0; break;
+      case 2: material.MetalRoughMap.Image = 0; break;
+      case 3: material.Emission = {{0.1f, 0, 0}}; break;
+      case 4: material.Unlit = true; break;
+      case 5: material.Transmission = 0.5f; break;
+      default: CHECK(false, "every negative fixture has an unsupported material input"); return;
+    }
+    CHECK(changed.Key().empty(), "unprovided images or unsupported light response are refused");
+  }
 }
 
 AssetPublication Await(const AssetPipeline::RequestTicket &ticket) {
@@ -80,10 +104,10 @@ AssetPublication Await(const AssetPipeline::RequestTicket &ticket) {
   return {};
 }
 
-void Resolve(const std::shared_ptr<AssetCache> &cache,
-             const Content::ImpostorViewAssets &metadata,
-             const std::shared_ptr<BuildingImpostorSource> &source,
-             size_t expectedCalls) {
+std::optional<std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
+                                   const Content::ImpostorViewAssets &metadata,
+                                   const std::shared_ptr<BuildingImpostorSource> &source,
+                                   size_t expectedCalls) {
   Tasks workers(1);
   AssetPipeline pipeline(workers,
                          {.JobsMost = 1,
@@ -93,7 +117,7 @@ void Resolve(const std::shared_ptr<AssetCache> &cache,
                           .ReceiptBytesMost = 4096});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   CHECK(consumer.has_value(), "the native field consumer opens");
-  if (!consumer) { return; }
+  if (!consumer) { return std::nullopt; }
   std::atomic<size_t> calls{0};
   const auto key = metadata.FieldKey({0});
   ImpostorViewJob job{.Cache = cache,
@@ -112,7 +136,7 @@ void Resolve(const std::shared_ptr<AssetCache> &cache,
   const auto parsed = AssetProductKey::Parse(key);
   if (!parsed) {
     CHECK(false, "native metadata has a valid field key");
-    return;
+    return std::nullopt;
   }
   auto ticket = pipeline.RequestResolved(*consumer,
                                          {.Key = *parsed,
@@ -122,21 +146,21 @@ void Resolve(const std::shared_ptr<AssetCache> &cache,
                                           .ReceiptBytesMost = 4096},
                                          std::move(job));
   CHECK(ticket.has_value(), "the typed native source job admits");
-  if (!ticket) { return; }
+  if (!ticket) { return std::nullopt; }
   const auto ready = Await(*ticket);
   CHECK(ready.Finished && ready.Status == AssetPublicationStatus::Ready, ready.Message.c_str());
   CHECK(calls == expectedCalls, "only a missing field enters the native building producer");
-  if (ready.Status != AssetPublicationStatus::Ready) { return; }
+  if (ready.Status != AssetPublicationStatus::Ready) { return std::nullopt; }
   auto load = ImpostorFieldLoad::Start(
       workers, cache, source->Provenance(), {0}, kBytes, std::move(*ticket));
   CHECK(load.has_value(), "the stored native field enters the CPU-ready phase");
-  if (!load) { return; }
+  if (!load) { return std::nullopt; }
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   do {
     const auto field = load->Poll();
     if (!field) {
       CHECK(false, field.error().c_str());
-      return;
+      return std::nullopt;
     }
     if (*field) {
       CHECK((**field).Pixels() == 32 && (**field).Views().size() == 1,
@@ -144,11 +168,67 @@ void Resolve(const std::shared_ptr<AssetCache> &cache,
       CHECK(std::ranges::any_of((**field).Views()[0].Texels,
                                 [](const auto &pixel) { return pixel.Surface != 0; }),
             "the produced field contains the original building");
-      return;
+      CHECK(std::ranges::all_of(
+                (**field).Surfaces(),
+                [](const Material &material) { return material.Pattern == SurfacePattern::None; }),
+            "captured materials never apply source facade patterns twice");
+      CHECK((**field).Views()[0].Materials.size() == (**field).Views()[0].Texels.size(),
+            "the field retains coupled material samples for every captured texel");
+      bool patterned = false;
+      const auto &view = (**field).Views()[0];
+      for (size_t pixel = 0; pixel < view.Texels.size(); ++pixel) {
+        const uint32_t surface = view.Texels[pixel].Surface;
+        if (surface != 0 &&
+            view.Materials[pixel].Roughness != (**field).Surfaces()[surface - 1].Roughness) {
+          patterned = true;
+        }
+      }
+      CHECK(patterned, "the captured field includes the actual procedural facade response");
+      std::string error;
+      const auto encoded = (**field).Encode(source->Provenance(), error);
+      if (!encoded) {
+        CHECK(false, error.c_str());
+        return std::nullopt;
+      }
+      return Sha256Hex(encoded->data(), encoded->size());
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   } while (std::chrono::steady_clock::now() < until);
   CHECK(false, "native field loading terminates within the offline deadline");
+  return std::nullopt;
+}
+
+std::expected<Content::ImpostorViewAssets, std::string>
+Metadata(const std::shared_ptr<AssetCache> &cache,
+         const std::shared_ptr<BuildingImpostorSource> &source) {
+  Tasks workers(1);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 4096});
+  auto consumer = pipeline.OpenConsumer({.Identity = cache});
+  if (!consumer) { return std::unexpected("native metadata consumer unavailable"); }
+  auto request = ImpostorMetadataRequest::Start(
+      pipeline,
+      *consumer,
+      workers,
+      cache,
+      source->Provenance(),
+      [cache, source](const std::stop_token &stop) {
+        return source->ResolveMetadata(*cache, stop);
+      },
+      256);
+  if (!request) { return std::unexpected("native metadata admission failed"); }
+  const auto until = std::chrono::steady_clock::now() + kDeadline;
+  do {
+    const auto ready = request->Poll();
+    if (!ready) { return std::unexpected(ready.error()); }
+    if (*ready) { return **ready; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  } while (std::chrono::steady_clock::now() < until);
+  return std::unexpected("native metadata request deadline expired");
 }
 
 void Run(const std::filesystem::path &root) {
@@ -179,7 +259,7 @@ void Run(const std::filesystem::path &root) {
       .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
                 .Origin = {{3, 4, 5}}},
       .Directions = {{{0, 0, -1}}},
-      .WallRoofMetreMaterials = {},
+      .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),
       .Pixels = 32};
   Keys(recipe);
   auto database = AssetCache::Open((root / "views.sqlite").string());
@@ -194,7 +274,7 @@ void Run(const std::filesystem::path &root) {
   CHECK(!refused && assets->Costs().ReadBytes == before.ReadBytes &&
             assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "sample admission precedes native descriptor and form IO");
-  auto metadata = source->ResolveMetadata(*cache);
+  auto metadata = Metadata(cache, source);
   CHECK(metadata.has_value(), metadata ? "source metadata resolves" : metadata.error().c_str());
   CHECK(assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "native source selection publishes metadata before form reads");
@@ -204,18 +284,22 @@ void Run(const std::filesystem::path &root) {
   const Vec3 expected = raw.AnchorEcef + recipe.Frame.Origin + recipe.Frame.SourceDirection(local);
   CHECK(world && Length(world->TransformPoint(local) - expected) < 1e-9,
         "native metadata maps captured local coordinates back to the prepared World frame");
-  Resolve(cache, *metadata, source, 1);
+  const auto coldField = Resolve(cache, *metadata, source, 1);
   CHECK(assets->Costs().SurfaceReadBytes > before.SurfaceReadBytes,
         "the field miss loads its native source forms");
   const auto after = assets->Costs();
   const auto offline = std::make_shared<BuildingImpostorSource>(recipe, nullptr);
-  auto warm = offline->ResolveMetadata(*cache);
+  auto warm = Metadata(cache, offline);
   CHECK(warm.has_value(), "a new source owner resolves metadata with no source store");
   CHECK(warm && warm->Metadata().WorldFromField && world &&
             warm->Metadata().WorldFromField->Column == world->Column &&
             Length(warm->Metadata().WorldFromField->TransformPoint(local) - expected) < 1e-9,
         "source-free warm placement preserves the complete intrinsic World frame");
-  if (warm) { Resolve(cache, *warm, offline, 0); }
+  if (warm) {
+    const auto warmField = Resolve(cache, *warm, offline, 0);
+    CHECK(coldField && warmField && *coldField == *warmField,
+          "source-free cache hits retain exactly the captured procedural material field");
+  }
   CHECK(assets->Costs().ReadBytes == after.ReadBytes &&
             assets->Costs().SurfaceReadBytes == after.SurfaceReadBytes,
         "stored fields repeat no native source decode or form generation");
@@ -229,9 +313,9 @@ void Run(const std::filesystem::path &root) {
               std::move(unframed),
               {.Min = raw.AnchorEcef - padding, .Max = raw.AnchorEcef + padding}),
           "an unframed index supplies the independent stale-source counterexample");
-    CHECK(!offline->ResolveMetadata(*cache),
+    CHECK(!Metadata(cache, offline),
           "an unframed native hit cannot invent a World placement without its source");
-    const auto repaired = source->ResolveMetadata(*cache);
+    const auto repaired = Metadata(cache, source);
     CHECK(repaired && repaired->Metadata().WorldFromField && world &&
               repaired->Metadata().WorldFromField->Column == world->Column,
           "the retained native source can repair a missing intrinsic World frame");

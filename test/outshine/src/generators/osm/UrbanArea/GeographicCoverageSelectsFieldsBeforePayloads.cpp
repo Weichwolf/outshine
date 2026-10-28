@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <expected>
 #include "UrbanArea.h"
 #include "UrbanAreaAsset.h"
 #include "OsmField.h"
@@ -27,8 +29,10 @@ std::expected<Osm::UrbanArea, std::string> AreaAt(LongitudeLatitude focus) {
   const auto box = Ground::TileBounds(
       {.Zoom = kZoom, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
   constexpr double marginDeg = .002;
-  const double west = box.MinLonDeg - marginDeg, east = box.MaxLonDeg + marginDeg;
-  const double south = box.MinLatDeg - marginDeg, north = box.MaxLatDeg + marginDeg;
+  const double west = box.MinLonDeg - marginDeg;
+  const double east = box.MaxLonDeg + marginDeg;
+  const double south = box.MinLatDeg - marginDeg;
+  const double north = box.MaxLatDeg + marginDeg;
   const std::array<std::string, 1> layers{"sites"};
   Osm::OsmField field(kZoom, layers);
   const Osm::OsmField::Declared urban{
