@@ -4,6 +4,7 @@
 #include "AssetCache.h"
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingBasis.h"
+#include "Box.h"
 #include <cstddef>
 #include "TilePool.h"
 #include <atomic>
@@ -28,6 +29,7 @@ public:
   struct RequestedBasis {
     std::string BaseKey;
     Basis Product;
+    Box Bounds;
   };
 
   struct Counters {

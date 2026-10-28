@@ -57,7 +57,20 @@ void CheckSourceOwnership(const Generators::TerrainInputPreparation &sheets) {
                 static_cast<size_t>(exact.Raster.Side * exact.Raster.Side) * sizeof(float),
         "retained source rasters enter the height-sheet memory ledger");
   Generators::TerrainInputPreparation inputOwner = sheets;
+  const size_t beforeMove = inputOwner.HeapBytes();
   const Generators::TerrainInputPreparation transferred = std::move(inputOwner);
+  CHECK(transferred.HeapBytes() == beforeMove,
+        "moving sourced fields transfers their complete memory accounting");
+  inputOwner = {};
+  CHECK(inputOwner.HeapBytes() == 0,
+        "a reinitialized source owner counts no payload retained by its destination");
+  inputOwner = sheets;
+  CHECK(inputOwner.HeapBytes() == transferred.HeapBytes(),
+        "copy assignment restores the same immutable field ownership and accounting");
+  inputOwner.Reset();
+  inputOwner = sheets;
+  CHECK(inputOwner.HeapBytes() == transferred.HeapBytes(),
+        "reset and reacquisition do not accumulate earlier field memory");
   inputOwner = {};
   Ground::HeightField::Block publishedChild;
   CHECK(transferred.ShareSourcedField({.Zoom = 5, .X = 16, .Y = 16}, publishedChild) &&

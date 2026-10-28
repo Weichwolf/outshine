@@ -97,7 +97,7 @@ bool StructureBuildQueue::SelectNativeBasis(
       output->Result = std::unexpected(basis.error());
     } else if (*basis) {
       output->Result = Generators::PreparedBuildingAssets::RequestedBasis{
-          .BaseKey = key, .Product = std::move(*basis)};
+          .BaseKey = key, .Product = std::move(*basis), .Bounds = {}};
     } else {
       output->Result = std::optional<Generators::PreparedBuildingAssets::RequestedBasis>{};
     }

@@ -19,6 +19,10 @@
 namespace outshine::Content {
 class ImpostorViewAssets {
 public:
+  static constexpr size_t MetadataBytesMost = 4096;
+
+  [[nodiscard]] static std::string MetadataKey(std::string_view provenance);
+
   struct Description {
     Vec3 Centre;
     double HalfExtentM = 0;
@@ -41,6 +45,8 @@ public:
   Open(AssetCache &cache, std::string_view provenance);
 
   [[nodiscard]] const Description &Metadata() const noexcept { return Description_; }
+
+  [[nodiscard]] const AssetRecord &Receipt() const noexcept { return Record_; }
 
   [[nodiscard]] std::optional<Selection> Select(Vec3 towardEye, double diameterPx) const noexcept;
   [[nodiscard]] std::string Key(Selection selection) const;
