@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/native-mvt-source-reference/1",
+  "native_producer_commit": "48ca4bc42ed1035fb69084e1ccc22adbc6d73743",
+  "exporter_commit": "48ca4bc42ed1035fb69084e1ccc22adbc6d73743",
+  "native_source_tree": "108d18d8dab2130b97579b961fe0644ad2691af1",
+  "provenance": "Controlled OpenMapTiles MVT: existing controlled_tile geometry at extent4096 plus original third path with distinct points one grid unit apart (about0.6m at equator). Native Snap2m removes its connection; the original source way remains. Manually recorded native input, no image/reference oracle.",
+  "native_schema": "outshine/native-mvt-snapshot-dump/1",
+  "source_facts_schema": "outshine/native-mvt-source-facts/3",
+  "tile": [
+    14,
+    8192,
+    8192
+  ],
+  "input_sha256": "cbb9a90f88b788ceb84924f8d7269074bc973c1eb127da564703531112f69337",
+  "source_identity": {
+    "DatasetId": "outshine/mvt/transport",
+    "Revision": "c3967cb33becb65b8f1077993e4f83c120845d725964e0b551c41e84f17bb6f4"
+  },
+  "source_generation": 1,
+  "source_way_count": 3,
+  "recipe_inputs": {
+    "data/world/vegetation.json": "aa45e156d194479404beff997b81201331e27ec983f27952fe23c77432dbca9b",
+    "data/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658"
+  },
+  "files": {
+    "native.json.gz": {
+      "bytes": 1505,
+      "sha256": "7edfc2b0e1eaaf6cc880c69c1af4d7ad443ab2c3990de032cae1b41216cf475c",
+      "raw_bytes": 4437,
+      "raw_sha256": "fc7783d4c25653c0cf62425419f3a228975216714d0e826663eb961911745182"
+    },
+    "source-facts.json.gz": {
+      "bytes": 1080,
+      "sha256": "d74f3d4d506904723441e8025dc9b4dd838c240dd5b2d9c9df902875dd4f2aca",
+      "raw_bytes": 3519,
+      "raw_sha256": "a69dd6598e9e426feb3b5f2a443d3972905ca1fa3e62ca553bd84897fded8fcc"
+    },
+    "source.mvt.gz": {
+      "bytes": 144,
+      "sha256": "bf02cb94c7d8f7839534c5e47989b9077e133c3fb0e9039b53fb8eb171f3d907",
+      "raw_bytes": 146,
+      "raw_sha256": "cbb9a90f88b788ceb84924f8d7269074bc973c1eb127da564703531112f69337"
+    }
+  }
+}

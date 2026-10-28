@@ -62,6 +62,35 @@ class ActualBridgeSourceFacts(unittest.TestCase):
             self.binding["source_generation"], self.native["SourceGeneration"]
         )
 
+    def test_original_missing_ways_reach_immutable_scope_input(self):
+        binding = self.source.binding
+        if self.facts["schema"] != "outshine/native-mvt-source-facts/3":
+            self.assertNotIn("missing_original_ways", binding)
+            return
+        rows = binding.get("missing_original_ways")
+        self.assertIsNotNone(rows, "validated original geometry must reach the actual scope input")
+        self.assertEqual(binding["source_facts_schema"], self.facts["schema"])
+        self.assertEqual(
+            binding["source_omissions_digest"], bytes(self.facts["OmissionsDigest"]).hex()
+        )
+        self.assertEqual(rows, inputs.immutable(self.facts["MissingWays"]))
+        with self.assertRaises(TypeError):
+            binding["missing_original_ways"] = ()
+        if rows:
+            with self.assertRaises(TypeError):
+                rows[0]["Points"][0]["LatitudeDeg"] = 0.0
+
+    def test_versioned_missing_way_has_original_data_at_scope_input(self):
+        fixture = Path(__file__).with_name("fixtures") / "missing-way-source-facts"
+        source, _, _, binding, _ = inputs.load_bridge_source_facts(fixture)
+        rows = source.binding["missing_original_ways"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]["Points"]), 2)
+        self.assertEqual(rows[0]["Way"]["StreetWay"], 2)
+        self.assertEqual(source.binding["source_facts_digest"], binding["source_facts_digest"])
+        with self.assertRaises(TypeError):
+            rows[0]["Points"][0]["LatitudeDeg"] = 0.0
+
     def test_raw_binary32_profile_and_original_height_tags_are_both_required(self):
         unqualified_positive_word = 0
         for span in self.source.spans:
