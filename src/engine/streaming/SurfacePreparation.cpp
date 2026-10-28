@@ -19,7 +19,7 @@
 #include <numbers>
 #include <string>
 
-#include "Sink.h"
+#include "Log.h"
 #include "TileGeodesy.h"
 
 namespace outshine::Ground {
@@ -93,62 +93,41 @@ std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::
   return {};
 }
 
-bool SurfacePreparation::Open(const ContentDirectories &under,
-                              std::span<const Data::SourceProvider> providers,
-                              const Data::ProviderRegistry &registry,
-                              LongitudeLatitude focus,
-                              Data::SourceTransport &wire,
-                              Tasks &compute,
-                              Sink &say,
-                              LogSink *diagnostics,
-                              double patienceS) {
+std::expected<void, std::string>
+SurfacePreparation::Open(const ContentDirectories &under,
+                         std::span<const Data::SourceProvider> providers,
+                         const Data::ProviderRegistry &registry,
+                         LongitudeLatitude focus,
+                         Data::SourceTransport &wire,
+                         Tasks &compute,
+                         LogSink *diagnostics,
+                         double patienceS) {
   const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
-  if (!position) {
-    say.Refuse(std::string(position.error()));
-    return false;
-  }
+  if (!position) { return std::unexpected(std::string(position.error())); }
   const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
-  if (!config) {
-    say.Refuse(std::string(config.error()));
-    return false;
-  }
+  if (!config) { return std::unexpected(std::string(config.error())); }
   auto sources = Data::SourceSession::Open(
       {.Directory = under.Sources}, providers, under.BuiltinData, registry);
-  if (!sources) {
-    say.Refuse(sources.error());
-    return false;
-  }
-  return OpenSession(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
+  if (!sources) { return std::unexpected(sources.error()); }
+  return OpenSession(under, std::move(*sources), focus, wire, compute, diagnostics, patienceS);
 }
 
-bool SurfacePreparation::OpenSession(const ContentDirectories &under,
-                                     std::shared_ptr<Data::SourceSession> session,
-                                     LongitudeLatitude focus,
-                                     Data::SourceTransport &wire,
-                                     Tasks &compute,
-                                     Sink &say,
-                                     LogSink *diagnostics,
-                                     double patienceS) {
-  if (!session) {
-    say.Refuse("surface preparation requires configured sources");
-    return false;
-  }
+std::expected<void, std::string>
+SurfacePreparation::OpenSession(const ContentDirectories &under,
+                                std::shared_ptr<Data::SourceSession> session,
+                                LongitudeLatitude focus,
+                                Data::SourceTransport &wire,
+                                Tasks &compute,
+                                LogSink *diagnostics,
+                                double patienceS) {
+  if (!session) { return std::unexpected("surface preparation requires configured sources"); }
   const auto position = ::outshine::Generators::Osm::OsmField::Locate(focus, kFineZoom);
-  if (!position) {
-    say.Refuse(std::string(position.error()));
-    return false;
-  }
+  if (!position) { return std::unexpected(std::string(position.error())); }
   const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
-  if (!config) {
-    say.Refuse(std::string(config.error()));
-    return false;
-  }
+  if (!config) { return std::unexpected(std::string(config.error())); }
   Close();
   auto digest = Generators::Osm::OsmField::DeclarationDigest({});
-  if (!digest) {
-    say.Refuse(std::string(digest.error()));
-    return false;
-  }
+  if (!digest) { return std::unexpected(std::string(digest.error())); }
   Declared_.clear();
   DeclaredDigest_ = std::move(*digest);
   Cls_.Declares({}, DeclaredDigest_);
@@ -159,15 +138,19 @@ bool SurfacePreparation::OpenSession(const ContentDirectories &under,
     if (decl.Kind != Data::DataKind::VectorMap) { continue; }
     const auto schema = Generators::Osm::ParseMvtSchema(decl.Schema);
     if (!schema || (HasVectorSource_ && *schema != VectorSchema_)) {
-      say.Refuse("vector sources require one supported semantic schema");
       Close();
-      return false;
+      return std::unexpected("vector sources require one supported semantic schema");
     }
     HasVectorSource_ = true;
     VectorSchema_ = *schema;
   }
   VectorZoom_ = HasVectorSource_ ? FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
-  say.Number("sources registered", static_cast<double>(sources.Count()), "sources");
+  if (diagnostics != nullptr) {
+    const LogThreadSinkScope logs(diagnostics);
+    Log::Info(LogTag::World,
+              "sources_registered",
+              {{"sources", static_cast<long long>(sources.Count())}});
+  }
 
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
@@ -177,9 +160,8 @@ bool SurfacePreparation::OpenSession(const ContentDirectories &under,
   poolConfig.Diagnostics = diagnostics;
   if (!under.Assets.empty()) {
     if (auto bound = BindAssetCaches(under.Assets, sources, compute); !bound) {
-      say.Refuse(bound.error());
       Close();
-      return false;
+      return std::unexpected(std::move(bound.error()));
     }
     poolConfig.PreparedFields = [assets =
                                      PreparedTerrain_](Data::TileId at,
@@ -202,17 +184,15 @@ bool SurfacePreparation::OpenSession(const ContentDirectories &under,
     Cls_.SetRecipes(&Recipes_);
     auto bound = BindRegionCache(under, sources);
     if (!bound) {
-      say.Refuse(bound.error());
       Close();
-      return false;
+      return std::unexpected(std::move(bound.error()));
     }
-  } else {
-    say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
-                 "with no vegetation and no vector features",
-                 builtinData.c_str()));
+  } else if (diagnostics != nullptr) {
+    const LogThreadSinkScope logs(diagnostics);
+    Log::Warn(LogTag::World, "ground_tables_unavailable", {{"directory", builtinData}});
   }
   Opened_ = true;
-  return true;
+  return {};
 }
 
 void SurfacePreparation::Close() {

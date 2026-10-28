@@ -1,6 +1,5 @@
 #include "BuiltinSourceProviders.h"
 #include "Check.h"
-#include "Sink.h"
 #include "SurfacePreparation.h"
 #include "MvtWireFixture.h"
 
@@ -55,21 +54,6 @@ public:
   void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
-class SilentSink final : public outshine::Sink {
-public:
-  void Number(const char * /*what*/, double /*value*/, const char * /*unit*/) override {}
-
-  void Claim(bool /*held*/, const char * /*why*/) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string & /*line*/) override {}
-};
-
 struct TemporaryCache {
   std::filesystem::path Path =
       std::filesystem::temp_directory_path() /
@@ -89,7 +73,7 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   TemporaryCache cache;
-  SilentSink sink;
+
   StreetTransport wire;
   Data::SourceProvider source;
   source.Kind = "vector";
@@ -110,7 +94,6 @@ int main() {
                       focus,
                       wire,
                       compute,
-                      sink,
                       nullptr,
                       1.0);
   };

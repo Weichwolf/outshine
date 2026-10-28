@@ -13,6 +13,8 @@
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
+#include "ScenarioDiagnostics.h"
+#include <cstdio>
 #include "UiAction.h"
 #include "Ephemeris.h"
 #include "CivilTime.h"
@@ -42,6 +44,12 @@ constexpr auto kInputHostMissing = "a bound input action requires an offered hos
 }
 
 namespace {
+
+[[nodiscard]] std::string FormatLightAngle(double value) {
+  std::array<char, 32> text{};
+  std::snprintf(text.data(), text.size(), "%.5f", value);
+  return text.data();
+}
 
 [[nodiscard]] std::vector<Ui::SurfaceDeclaration>
 PrepareSurfaces(std::span<const Scenario::Surface> surfaces) {
@@ -349,7 +357,7 @@ void PublishConfiguration(ScenarioSession &session,
   ++session.DeclarationRevision;
   session.AudioBodies.clear();
   session.Sounding.reset();
-  session.Carried = Unacted(scenario);
+  session.Carried = DescribeScenarioDeclarations(scenario);
   error.clear();
   PublishConfiguration(session, views, bindings);
   return Result{};
@@ -538,8 +546,8 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
                                                     scenario.Lit.Key.BearingDeg != 0.0);
     if (scenario.Ground.Declared && anglePut && scenario.Time.Declared) {
       error = "this scenario declares a clock AND hand-sets the key light to " +
-              Said(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
-              Said(scenario.Lit.Key.BearingDeg) +
+              FormatLightAngle(scenario.Lit.Key.ElevationDeg) + " degrees up on bearing " +
+              FormatLightAngle(scenario.Lit.Key.BearingDeg) +
               " -- over a place on Earth only one of the two can be true, and a sun that does "
               "not follow the hour disagrees with its own shadows the moment the clock moves";
       return std::unexpected(error);
@@ -645,7 +653,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.AudioBodies.clear();
     S_->Session.Sounding.reset();
     S_->Session.Taken = true;
-    S_->Session.Carried = Unacted(scenario);
+    S_->Session.Carried = DescribeScenarioDeclarations(scenario);
     S_->Error.clear();
     PublishConfiguration(S_->Session, *views, bindings);
     S_->RouteCamera.reset();
@@ -659,7 +667,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->Session.AudioBodies.clear();
   S_->Session.Sounding.reset();
   S_->Session.Taken = true;
-  S_->Session.Carried = Unacted(scenario);
+  S_->Session.Carried = DescribeScenarioDeclarations(scenario);
   S_->Error.clear();
   S_->World.AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};

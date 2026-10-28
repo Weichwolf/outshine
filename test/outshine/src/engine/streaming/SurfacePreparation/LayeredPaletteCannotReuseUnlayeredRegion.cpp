@@ -3,7 +3,6 @@
 #include "SurfacePreparation.h"
 #include "PreparedGroundRegions.h"
 #include "ReadTextFile.h"
-#include "Sink.h"
 
 #include <array>
 #include <chrono>
@@ -29,21 +28,6 @@ public:
   void Cancel([[maybe_unused]] outshine::Data::Ticket ticket) override {}
 
   unsigned Begins = 0;
-};
-
-class SilentSink final : public outshine::Sink {
-public:
-  void Number([[maybe_unused]] const char *what,
-              [[maybe_unused]] double value,
-              [[maybe_unused]] const char *unit) override {}
-
-  void Claim([[maybe_unused]] bool held, [[maybe_unused]] const char *why) override {}
-
-  void Near(double got, double want, double within, const char *unit, const char *why) override {
-    CHECK_NEAR(got, want, within, unit, why);
-  }
-
-  void Say([[maybe_unused]] const std::string &line) override {}
 };
 
 struct TemporaryCache {
@@ -87,7 +71,7 @@ int main() {
     return regions.RequestKey(2, Generators::Osm::MvtSchema::Shortbread, shape, parameters, inputs);
   };
   const auto oldKey = request(**legacy);
-  SilentSink sink;
+
   NoRequests wire;
   Tasks compute(1);
   Data::ProviderRegistry registry;
@@ -102,7 +86,6 @@ int main() {
                       {},
                       wire,
                       compute,
-                      sink,
                       nullptr);
   };
   CHECK(open() && stack.RegionAssets(), "the actual engine path binds its native region recipe");

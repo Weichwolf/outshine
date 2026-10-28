@@ -52,7 +52,6 @@
 #include "InputPump.h"
 #include "Triggers.h"
 #include "Views.h"
-#include "Sink.h"
 #include "SourceConfiguration.h"
 #include "SurfacePreparation.h"
 #include "SourceSession.h"
@@ -82,110 +81,6 @@ constexpr int kFrameUnsaidHighPx = 720;
 
 inline constexpr size_t kBakesLandedPerFrame = 2;
 inline constexpr size_t kBakesLandedInPreload = size_t{1} << 20u;
-
-class Collecting : public Sink {
-public:
-  void Number(const char *what, double how, const char *unit) override {
-    std::string held = std::string(what) + " = " + Rounded(how);
-    if (unit != nullptr && unit[0] != '\0') { held += " " + std::string(unit); }
-    Held.push_back(std::move(held));
-    Took.push_back(DiagnosticSample{
-        .Name = what, .Value = how, .Unit = unit == nullptr ? std::string() : std::string(unit)});
-  }
-
-  void Claim(bool held, const char *why) override {
-    Held.push_back(std::string(held ? "HELD " : "FAILED ") + why);
-    if (!held && Why.empty()) { Why = why; }
-  }
-
-  void Near(double was, double wanted, double within, const char *unit, const char *why) override {
-    Held.push_back(std::string("NEAR ") + Rounded(was) + " of " + Rounded(wanted) + " within " +
-                   Rounded(within) + (unit == nullptr ? "" : std::string(" ") + unit) + ": " + why);
-    if (Why.empty()) { Why = why; }
-  }
-
-  void Say(const std::string &said) override { Held.push_back(said); }
-
-  void Refuse(const std::string &why) override {
-    Held.push_back("REFUSED " + why);
-    if (Why.empty()) { Why = why; }
-  }
-
-  [[nodiscard]] const std::string &WhyNot() const { return Why; }
-
-  [[nodiscard]] std::vector<std::string> &Lines() { return Held; }
-
-  [[nodiscard]] std::vector<DiagnosticSample> &Numbers() { return Took; }
-
-private:
-  std::vector<std::string> Held;
-  std::vector<DiagnosticSample> Took;
-
-  [[nodiscard]] static std::string Rounded(double how) {
-    std::array<char, 32> held{};
-    std::snprintf(held.data(), held.size(), "%.6g", how);
-    return held.data();
-  }
-
-  std::string Why;
-};
-
-[[nodiscard]] inline std::string Said(double value) {
-  std::array<char, 32> held = {{}};
-  std::snprintf(held.data(), held.size(), "%.5f", value);
-  return held.data();
-}
-
-[[nodiscard]] inline std::string Beneath(const std::string &under, const std::string &named) {
-  if (under.empty() || named.empty() || named.front() == '/' || named.contains("://")) {
-    return named;
-  }
-  return under.back() == '/' ? under + named : under + "/" + named;
-}
-
-inline std::vector<std::string> Unacted(const Scenario::Document &scenario) {
-  std::vector<std::string> quiet;
-  for (const Scenario::Asset &asset : scenario.Assets) {
-    if (asset.Animation == Scenario::AssetAnimation::Ignore) {
-      quiet.push_back("asset '" + asset.Uri +
-                      "': its own animation is IGNORED by declaration -- a still is what was "
-                      "asked for, not what the engine fell back to");
-    } else if (asset.Animation == Scenario::AssetAnimation::Driven) {
-      quiet.push_back("asset '" + asset.Uri +
-                      "': its own animation is DRIVEN by the engine -- the file's clips wait "
-                      "for the pose the simulation supplies");
-    }
-  }
-  std::vector<std::string> carried;
-  const auto note = [&carried](size_t many, const char *what) {
-    if (many > 0) { carried.push_back(std::to_string(many) + " " + what); }
-  };
-  note(scenario.Layers.size(), "layers");
-  note(scenario.Generators.size(), "generators");
-  note(scenario.Placements.size(), "placements");
-  note(scenario.Surfaces.size(), "surfaces");
-  note(scenario.Kinds.size(), "kinds");
-  note(scenario.Instances.size(), "instances");
-  note(scenario.Regions.size(), "regions");
-  note(scenario.Doors.size(), "doors");
-  note(scenario.Volumes.size(), "trigger volumes");
-  note(scenario.Sounds.size(), "sounds");
-  note(scenario.Buses.size(), "audio buses");
-  note(scenario.Tables.size(), "tables");
-  note(scenario.Events.size(), "declared events");
-  note(scenario.Bodies.size(), "bodies");
-  note(scenario.Tables.size(), "tables");
-  note(scenario.Buses.size(), "buses");
-  note(scenario.Sounds.size(), "sounds");
-  note(scenario.State.size(), "persisted values");
-  if (scenario.Motion.Declared) { carried.emplace_back("a physics dial"); }
-  if (scenario.Time.Declared) { carried.emplace_back("a clock"); }
-  if (scenario.Assets.size() > 1) {
-    carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the geometry");
-  }
-  carried.insert(carried.end(), quiet.begin(), quiet.end());
-  return carried;
-}
 
 struct EngineRenderState {
   explicit EngineRenderState(Render::GpuSubmission submission = {}) : Device(submission) {}

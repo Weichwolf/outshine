@@ -9,7 +9,6 @@
 #include "GroundSnapshot.h"
 #include "OfflineSourceTransport.h"
 #include "OsmXmlReader.h"
-#include "Sink.h"
 #include "StructureBuildQueue.h"
 #include "TangentFrame.h"
 #include "TerrainRevisionIndex.h"
@@ -24,23 +23,6 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-
-namespace {
-class SilentSink final : public outshine::Sink {
-public:
-  void Number(const char * /*what*/, double /*value*/, const char * /*unit*/) override {}
-
-  void Claim(bool /*held*/, const char * /*why*/) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string & /*line*/) override {}
-};
-}
 
 namespace {
 using namespace outshine;
@@ -173,7 +155,7 @@ int main() {
   const LongitudeLatitude eye{.LongitudeDeg = kEyeLongitudeDeg, .LatitudeDeg = kEyeLatitudeDeg};
   const auto source = ReadSources();
   if (!source) { return Report(); }
-  SilentSink sink;
+
   Data::OfflineSourceTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
                      ("outshine-original-terrain-" +
@@ -191,7 +173,6 @@ int main() {
                    eye,
                    wire,
                    sourceCompute,
-                   sink,
                    nullptr,
                    1.0),
         "analytic fixture stack opens");
