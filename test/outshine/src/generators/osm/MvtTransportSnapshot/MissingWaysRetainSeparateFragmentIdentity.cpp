@@ -8,6 +8,7 @@
 #include "Check.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <print>
@@ -58,7 +59,8 @@ int main() {
   CHECK(field.Features().size() == 1 && streets.Ways().size() == 3,
         "one feature produces three distinct source ways");
   if (streets.Ways().size() != 3) { return Report(); }
-  const auto first = streets.SourceOf(field, 0), second = streets.SourceOf(field, 1);
+  const auto first = streets.SourceOf(field, 0);
+  const auto second = streets.SourceOf(field, 1);
   CHECK(first && second && first->Feature == second->Feature && first->Ring != second->Ring,
         "the two absent ways have the same feature and different actual ring provenance");
   const auto fullGraph = StreetGraphBuilder::BuildOneShot(
