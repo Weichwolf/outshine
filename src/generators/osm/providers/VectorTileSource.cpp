@@ -57,8 +57,7 @@ VectorTileSource::VectorTileSource(std::string revision,
           endpoint) {
   const auto &declared = Declaration();
   const auto origin = HttpOrigin(endpoint);
-  if (declared.Id == "openfreemap.openmaptiles" ||
-      origin.starts_with("https://tiles.openfreemap.org:") ||
+  if (origin.starts_with("https://tiles.openfreemap.org:") ||
       origin.starts_with("http://tiles.openfreemap.org:") ||
       origin.starts_with("https://tiles.openfreemap.com:") ||
       origin.starts_with("http://tiles.openfreemap.com:")) {

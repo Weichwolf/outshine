@@ -18,7 +18,7 @@ using namespace outshine;
 using namespace outshine::Data;
 constexpr auto kDataset = "openfreemap.openmaptiles";
 constexpr auto kRevision = "pinned";
-constexpr auto kEndpoint = "https://example.test/planet/pinned/{z}/{x}/{y}.pbf";
+constexpr auto kEndpoint = "https://tiles.openfreemap.org/planet/pinned/{z}/{x}/{y}.pbf";
 constexpr auto kSpecific = "x-ofm-debug: specific PBF planet pinned\r\n";
 constexpr int kNotFound = 404;
 constexpr int kTooMany = 429;
@@ -129,7 +129,7 @@ void CheckRenamedProvider() {
       Rank{0},
       AbsencePolicy::Fail,
       kDataset,
-      "https://example.test/planet/other/{z}/{x}/{y}.pbf");
+      "https://tiles.openfreemap.org/planet/other/{z}/{x}/{y}.pbf");
   wire.Headers = kSpecific;
   const auto wrong = mismatched.Collect(at, static_cast<Ticket>(1), wire).Take();
   CHECK(wrong && wrong->What == Meaning::Refused,
@@ -139,8 +139,8 @@ void CheckRenamedProvider() {
       Rank{0},
       AbsencePolicy::Fail,
       kDataset,
-      "https://example.test/pinned/{z}/{x}/{y}.pbf");
-  wire.Headers = "x-ofm-debug: specific PBF example.test pinned\r\n";
+      "https://tiles.openfreemap.org/pinned/{z}/{x}/{y}.pbf");
+  wire.Headers = "x-ofm-debug: specific PBF tiles.openfreemap.org pinned\r\n";
   const auto absentArea = missingArea.Collect(at, static_cast<Ticket>(1), wire).Take();
   CHECK(absentArea && absentArea->What == Meaning::Refused,
         "the URL authority is never mistaken for a source area");
@@ -162,11 +162,19 @@ void CheckOtherOutcomes() {
         "a temporary rate limit needs no fabricated source-identity header");
   wire.Status = 200;
   wire.Body = {1, 2};
-  const Generators::Osm::VectorTileSource generic(
-      kRevision, Rank{0}, AbsencePolicy::Fail, "fixture.vector", kEndpoint);
+  const Generators::Osm::VectorTileSource generic(kRevision,
+                                                  Rank{0},
+                                                  AbsencePolicy::Fail,
+                                                  "fixture.vector",
+                                                  "https://fixture.example/{z}/{x}/{y}.pbf");
   const auto other = generic.Collect(at, static_cast<Ticket>(1), wire).Take();
   CHECK(other && other->What == Meaning::Bytes && other->Bytes == wire.Body,
         "an independent provider does not inherit OpenFreeMap's response protocol");
+  const Generators::Osm::VectorTileSource sameName(
+      kRevision, Rank{0}, AbsencePolicy::Fail, kDataset, "https://fixture.example/{z}/{x}/{y}.pbf");
+  const auto independent = sameName.Collect(at, static_cast<Ticket>(1), wire).Take();
+  CHECK(independent && independent->What == Meaning::Bytes,
+        "a dataset identifier alone cannot impose a different endpoint's HTTP protocol");
 }
 }
 
