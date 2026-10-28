@@ -20,6 +20,12 @@ and original generated tables are copied unchanged; a separate Float64 table
 interpolation control checks the captured energy scale. This is not an independent
 validation of those energy tables' physical accuracy.
 
+The energy probes select the call contract from the included product library, so
+historical `--source-commit` inputs remain usable after the shared-albedo refactor.
+`probe_ggx_reuse.py` compares prior and shared lookup paths on the same native
+consumer, covering view/roughness boundaries, pure/mixed thin sheets and injected
+energy-range guards. It preserves the tables and does not validate their physics.
+
 The 730 inputs include r=0…1, tiny positive r, nh=1 and the adjacent Float32 value,
 normal/grazing scalar factors, F0=0/0.04/1, actual normal/mirror-symmetric poses,
 explicit a² near Float32 normal/subnormal boundaries, and three nh overshoots.

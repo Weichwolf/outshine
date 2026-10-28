@@ -39,7 +39,9 @@ void main() {
       if (weight == 0) { continue; }
       float r = frame.palette[i / 4u][i % 4u], r2 = r * r;
       Brdf b = metalRoughBrdf(albedo, vec3(.04), 1.0, r2 * r2, nl, aNv, nh, vh);
-      response += 3.0 * weight * nl * (b.diffuse + b.specular * ggxEnergyScale(vec3(.04), r, aNv));
+      const vec2 environmentBrdf = ggxEnvironmentBrdf(aNv, r);
+      response += 3.0 * weight * nl *
+          (b.diffuse + b.specular * ggxEnergyScaleFromAlbedo(vec3(.04), r, environmentBrdf.x));
     }
   }
   colour = vec4(response, frame.control.y != 0u ? 1.0 : normal.w);
