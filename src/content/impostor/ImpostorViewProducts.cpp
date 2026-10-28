@@ -87,4 +87,21 @@ ImpostorViewAssets::Load(Selection selection, size_t bytesMost) const {
   if (!cards || !Matches(*cards, selection)) { return std::nullopt; }
   return cards;
 }
+
+std::expected<ImpostorCards, AssetCacheError>
+ImpostorViewAssets::Resolve(Selection selection, size_t bytesMost, const Factory &factory) const {
+  if (bytesMost == 0) { return std::unexpected(AssetCacheError::CapacityExceeded); }
+  auto loaded = Load(selection, bytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (*loaded) { return std::move(**loaded); }
+  if (!factory) { return std::unexpected(AssetCacheError::InvalidInput); }
+  auto generated = factory(selection, bytesMost);
+  if (!generated) { return std::unexpected(generated.error()); }
+  const auto published = Publish(selection, std::move(*generated), bytesMost);
+  if (!published) { return std::unexpected(published.error()); }
+  loaded = Load(selection, bytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (!*loaded) { return std::unexpected(AssetCacheError::Storage); }
+  return std::move(**loaded);
+}
 }

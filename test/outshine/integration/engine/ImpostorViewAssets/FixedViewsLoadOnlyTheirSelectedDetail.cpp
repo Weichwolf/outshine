@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -153,6 +154,70 @@ void ReadOffline(const std::string &path) {
             products.Load(*selection, budget)->has_value(),
         "changed fixed-view metadata cannot reinterpret old products; held readers remain valid");
 }
+
+void ResolveMisses(const std::string &path) {
+  auto cache = AssetCache::Open(path);
+  const auto atlas = Atlas();
+  CHECK(cache && atlas, "source views and a fresh cache open for lazy production");
+  if (!cache || !atlas) { return; }
+  const auto products = ImpostorViewAssets::Publish(**cache,
+                                                    kSource,
+                                                    {.Centre = atlas->CentreM(),
+                                                     .HalfExtentM = atlas->HalfExtentM(),
+                                                     .Pixels = 8,
+                                                     .Directions = {{{0, 0, 1}}, {{1, 0, 0}}}},
+                                                    kBounds);
+  CHECK(products.has_value(), "only fixed metadata precedes a missing selected product");
+  if (!products) { return; }
+  const ImpostorViewAssets::Selection selected{.View = 1, .Mip = 2};
+  size_t calls = 0;
+  const auto unavailable = [&](ImpostorViewAssets::Selection,
+                               size_t) -> std::expected<Geometry, AssetCacheError> {
+    ++calls;
+    return std::unexpected(AssetCacheError::Storage);
+  };
+  CHECK(!products->Resolve(selected, 0, unavailable) &&
+            !products->Resolve({.View = 2}, kLimit, unavailable) && calls == 0,
+        "invalid selection and zero admission never acquire source data");
+  const auto failed = products->Resolve(selected, kLimit, unavailable);
+  const auto absent = products->Load(selected, kLimit);
+  CHECK(!failed && failed.error() == AssetCacheError::Storage && calls == 1 && absent && !*absent,
+        "failed generation preserves the miss without a partial asset");
+  const auto generated =
+      products->Resolve(selected,
+                        kLimit,
+                        [&](ImpostorViewAssets::Selection requested,
+                            size_t budget) -> std::expected<Geometry, AssetCacheError> {
+                          ++calls;
+                          CHECK(requested == selected && budget == kLimit,
+                                "the factory sees exactly the admitted fixed view and mip");
+                          auto geometry = Render::BuildFractionalImpostorSurface(
+                              *atlas, requested.View, requested.Mip);
+                          if (!geometry) { return std::unexpected(AssetCacheError::InvalidInput); }
+                          return std::move(*geometry);
+                        });
+  CHECK(generated && calls == 2, "retry produces one complete selected product");
+  const auto hit = products->Resolve(selected, kLimit, unavailable);
+  CHECK(hit && calls == 2 &&
+            hit->Views.front().Direction == atlas->Views()[selected.View].TowardEye,
+        "a validated hit bypasses an unavailable source factory");
+  CHECK(!products->Resolve({.View = 0, .Mip = 2}, kLimit, {}),
+        "an unproduced view cannot become an invented empty product");
+}
+
+void ResolveOffline(const std::string &path) {
+  auto cache = AssetCache::Open(path);
+  CHECK(cache.has_value(), "a fresh connection opens without a source capture");
+  if (!cache) { return; }
+  const auto products = ImpostorViewAssets::Open(**cache, kSource);
+  CHECK(products && *products, "fixed selection metadata survives independently");
+  if (!products || !*products) { return; }
+  const auto selected = (**products).Select({{1, 0, 0}}, 2);
+  CHECK(selected.has_value(), "the existing metadata selects a warm mip before source access");
+  if (!selected) { return; }
+  CHECK((**products).Resolve(*selected, kLimit, {}).has_value(),
+        "the offline hit needs no factory or source atlas");
+}
 }
 
 int main() {
@@ -163,6 +228,9 @@ int main() {
   const auto path = (root / "assets.sqlite").string();
   PublishAll(path);
   ReadOffline(path);
+  const auto resolved = (root / "resolved.sqlite").string();
+  ResolveMisses(resolved);
+  ResolveOffline(resolved);
   std::filesystem::remove_all(root);
   return Report();
 }

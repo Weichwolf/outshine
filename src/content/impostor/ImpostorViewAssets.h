@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -29,6 +30,8 @@ public:
     [[nodiscard]] bool operator==(const Selection &) const = default;
   };
 
+  using Factory = std::function<std::expected<Geometry, AssetCacheError>(Selection, size_t)>;
+
   [[nodiscard]] static std::expected<ImpostorViewAssets, AssetCacheError>
   Publish(AssetCache &cache, std::string_view provenance, Description description, Box bounds);
   [[nodiscard]] static std::expected<std::optional<ImpostorViewAssets>, AssetCacheError>
@@ -42,6 +45,9 @@ public:
   Publish(Selection selection, Geometry geometry, size_t bytesMost) const;
   [[nodiscard]] std::expected<std::optional<ImpostorCards>, AssetCacheError>
   Load(Selection selection, size_t bytesMost) const;
+  // Run on the existing content worker; a validated hit never invokes the factory.
+  [[nodiscard]] std::expected<ImpostorCards, AssetCacheError>
+  Resolve(Selection selection, size_t bytesMost, const Factory &factory) const;
 
 private:
   ImpostorViewAssets(AssetCache &cache, AssetRecord record, Description description);

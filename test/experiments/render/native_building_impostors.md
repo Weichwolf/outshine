@@ -21,6 +21,9 @@ products in the existing AssetCache, under `$input/world-view-assets.sqlite`.
 declare `native-source-planes-impostor-1` explicitly. Provenance and content digest
 both enter the metadata namespace; old products cannot be reinterpreted.
 It does not reconstruct original meshes or invoke another GPU capture.
+The shared `ImpostorViewAssets::Resolve` validates a cached product before calling
+its selected-view factory. A failed factory publishes no partial product; a fresh
+hit needs no factory. Admission/coalescing remain with the existing content jobs.
 
 Source-mesh mode consumes the indexed geometry exported by
 `native_building_source_planes.md`, choosing the same nearest catalogue direction

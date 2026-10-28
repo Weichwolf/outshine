@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -459,24 +460,26 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     const auto selected = products.Select(toward, diameter);
     if (!selected) { Fail("native world view selection failed"); }
     const auto began = Clock::now();
-    auto loaded = products.Load(*selected, limit);
-    if (!loaded) { Fail("native world view read failed"); }
-    const bool hit = loaded->has_value();
-    if (!hit) {
-      auto geometry =
-          Render::BuildFractionalImpostorSurface(source.Require(), selected->View, selected->Mip);
-      if (!geometry || !products.Publish(*selected, std::move(*geometry), limit)) {
-        Fail("native world view publication failed");
-      }
-      ++writes;
-      loaded = products.Load(*selected, limit);
-    }
-    if (!loaded || !*loaded) { Fail("native world view is not a ready cached product"); }
+    bool hit = true;
+    auto loaded = products.Resolve(*selected,
+                                   limit,
+                                   [&](ImpostorViewAssets::Selection selection,
+                                       size_t) -> std::expected<Geometry, AssetCacheError> {
+                                     hit = false;
+                                     auto geometry = Render::BuildFractionalImpostorSurface(
+                                         source.Require(), selection.View, selection.Mip);
+                                     if (!geometry) {
+                                       return std::unexpected(AssetCacheError::InvalidInput);
+                                     }
+                                     return std::move(*geometry);
+                                   });
+    if (!loaded) { Fail("native world view is not a ready cached product"); }
+    if (!hit) { ++writes; }
     const double loadMs = Milliseconds(began);
     const auto record = (*cache)->Find(products.Key(*selected));
     if (!record || !*record) { Fail("native world product has no metadata"); }
     const auto name = query.at("name").get<std::string>();
-    Json result = Draw(Geometry{}, query, root / (name + "-cached-world"), &**loaded);
+    Json result = Draw(Geometry{}, query, root / (name + "-cached-world"), &*loaded);
     result.update({{"query", name},
                    {"selected_view", selected->View},
                    {"selected_mip", selected->Mip},
