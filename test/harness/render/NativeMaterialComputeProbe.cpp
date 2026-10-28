@@ -90,7 +90,7 @@ bool Allocate(Gpu::Device &device, uint64_t paletteBytes, uint64_t probeBytes, B
       {.Bytes = probeBytes, .Use = CopyDestination, .Placement = Gpu::Memory::Readback},
   }};
   for (size_t index = 0; index < descriptions.size(); ++index) {
-    auto buffer = device.CreateBuffer(descriptions[index], "ground litter probe");
+    auto buffer = device.CreateBuffer(descriptions[index], "material compute probe");
     if (!Checked(buffer)) { return false; }
     buffers.Owned[index] = std::move(*buffer);
   }
