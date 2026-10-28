@@ -5,6 +5,13 @@ This diagnostic uses fixed source geometry, capture directions, lighting and que
 It does not admit a World LOD, source occluder, smaller error bound or frame budget.
 Unsupported original sources retain the original manifest's unresolved status.
 
+Each draw also writes `.normal`: the already-read `sceneShadingNormal` target,
+as 1280×720 row-major Float4 values in native Float32 format (little endian on
+both target devices). XYZ contains the scene-frame shading normal; W retains
+the shader's front-facing sign. Use the matching `.depth` image for coverage.
+This preserves the half-target readback values without normalization or another
+GPU readback; `.linear`, `.depth`, `.rgba` and `normal_sum` keep their contracts.
+
 ```sh
 cmake --build "$build" --target test_experiments_render_NativeBuildingImpostors --parallel
 "$build/test_experiments_render_NativeBuildingImpostors" "$input"

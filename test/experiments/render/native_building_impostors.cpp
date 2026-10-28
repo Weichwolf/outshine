@@ -282,6 +282,7 @@ Json DrawWith(Render::SceneRenderer &renderer,
   }
   Write<float>(output.string() + ".linear", colour);
   Write<float>(output.string() + ".depth", depth);
+  Write<float>(output.string() + ".normal", normal);
   Write<uint8_t>(output.string() + ".rgba", rgba);
   Json samples = Json::array();
   for (const auto &sample : renderer.GpuSamples()) {
