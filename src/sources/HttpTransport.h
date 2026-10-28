@@ -74,6 +74,7 @@ private:
     int Status = 0;
     double RetryAfterS = 0.0;
     std::vector<uint8_t> Body;
+    std::string ResponseHeaders;
   };
 
   [[nodiscard]] size_t AddQueuedTransfers(void *multi, size_t active);

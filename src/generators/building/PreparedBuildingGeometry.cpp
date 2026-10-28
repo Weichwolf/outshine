@@ -106,7 +106,6 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
                                              size_t coordinatePoints) {
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  const std::scoped_lock lock(Lock_);
   const auto loaded = Cache_->Load(key, kGeometryBytesMost);
   if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   if (*loaded) {

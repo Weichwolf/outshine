@@ -37,7 +37,7 @@ PYTHONPATH=lib/src python3 test/experiments/render/facade_composition_range.py \
   --output /tmp/outshine-facade-range
 ```
 
-Build the existing `NativeFacadeProbe.cpp` and `NativeGroundLitterProbe.cpp`
+Build the existing `NativeFacadeProbe.cpp` and `NativeMaterialComputeProbe.cpp`
 consumers under `test/harness/render/`. `GLSLANG` and `SPIRV_CROSS` select the
 installed shader tools. Baseline must contain the pre-fix production helpers;
 the experiment compiles both actual fragment shaders and both helper versions.

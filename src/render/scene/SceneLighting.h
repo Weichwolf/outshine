@@ -8,7 +8,7 @@ namespace outshine::Render {
 
 struct SceneLight {
   outshine::PunctualLight Light;
-  Vec3 PositionEcefM = {{0, 0, 0}};
+  Vec3 PositionM = {{0, 0, 0}};
 };
 
 struct EnvironmentLighting {

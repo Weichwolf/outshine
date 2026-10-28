@@ -90,7 +90,7 @@ bool Allocate(Gpu::Device &device, uint64_t paletteBytes, uint64_t probeBytes, B
       {.Bytes = probeBytes, .Use = CopyDestination, .Placement = Gpu::Memory::Readback},
   }};
   for (size_t index = 0; index < descriptions.size(); ++index) {
-    auto buffer = device.CreateBuffer(descriptions[index], "ground litter probe");
+    auto buffer = device.CreateBuffer(descriptions[index], "material compute probe");
     if (!Checked(buffer)) { return false; }
     buffers.Owned[index] = std::move(*buffer);
   }
@@ -282,13 +282,19 @@ bool Run(const char *const *argv, bool timed) {
   }
   std::vector<uint32_t> words(code.size() / sizeof(uint32_t));
   std::memcpy(words.data(), code.data(), code.size());
-  auto device =
-      Gpu::CreateDevice({.Validation = true,
-                         .GpuTiming = timed ? outshine::Render::Native::GpuTimingMode::Dispatches
-                                            : outshine::Render::Native::GpuTimingMode::None});
+  auto timing = timed ? Gpu::GpuTimingMode::Dispatches : Gpu::GpuTimingMode::None;
+  auto device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timing});
+  if (!device && timed && device.error().Kind == Gpu::ErrorKind::Unsupported) {
+    timing = Gpu::GpuTimingMode::Submission;
+    device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timing});
+  }
   if (!Checked(device)) { return false; }
+  if (timed) {
+    std::println("profile_timing_mode={}",
+                 timing == Gpu::GpuTimingMode::Dispatches ? "dispatch" : "submission");
+  }
   auto pipeline =
-      (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "ground litter probe"});
+      (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "material compute probe"});
   if (!Checked(pipeline) || !Matches((*pipeline)->Layout())) { return false; }
   const Parameters parameters{.Count = static_cast<uint32_t>(probes.size() / kProbeStride),
                               .Unmapped = unmapped,
@@ -300,12 +306,13 @@ bool Run(const char *const *argv, bool timed) {
 int main(int argc, char *const *argv) {
   const bool timed = argc == 7 && std::string_view(argv[6]) == "--gpu-timing";
   if (argc != 6 && !timed) {
-    std::fputs("usage: native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped "
+    std::fputs("usage: outshine_material_compute_probe shader.spv palette.f32 probes.bin "
+               "result.f32 unmapped "
                "[--gpu-timing]\n",
                stderr);
     return 2;
   }
   const bool ready = Run(argv, timed);
-  if (!ready) { std::println(stderr, "native ground litter capture failed"); }
+  if (!ready) { std::println(stderr, "native material compute capture failed"); }
   return ready ? 0 : 1;
 }

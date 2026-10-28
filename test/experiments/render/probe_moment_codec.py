@@ -16,7 +16,7 @@ import numpy as np
 from material_filter import direction
 from moment_codec import MODES, decode, encode, fixtures
 from probe_material_filter import SHADER as BRDF_SHADER
-from probe_material_filter import run, sha
+from probe_material_filter import run, sha, with_energy_scale
 
 DECODE_SHADER = """#version 450
 layout(local_size_x=64) in;
@@ -187,7 +187,11 @@ def brdf_controls(decoded, metadata, out, binary, source_commit, tables):
         rows[:, :, j, 12:15] = direction(-view + offset)
         rows[:, :, j, 16:19] = direction(view)
     actual, cost = capture(
-        rows.reshape(-1, 20), BRDF_SHADER, out / "brdf", binary, shader
+        rows.reshape(-1, 20),
+        with_energy_scale(BRDF_SHADER, (shader / "microfacetEnergy.glsl").read_text()),
+        out / "brdf",
+        binary,
+        shader,
     )
     actual = actual.reshape(len(decoded), len(MODES), len(poses), 8)
     rgb = actual[..., :3] + actual[..., 4:7]

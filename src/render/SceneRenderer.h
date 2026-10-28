@@ -1,3 +1,4 @@
+#include "MaterialFieldPass.h"
 #include "SceneLighting.h"
 #include "MeshInput.h"
 #include "GeometryUploadTicket.h"
@@ -215,6 +216,15 @@ public:
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
   [[nodiscard]] std::expected<std::shared_ptr<const RadianceImage>, std::string>
   FilterSceneRadiance(Extent target);
+
+  [[nodiscard]] Native::Result<void> ConfigureMaterialFields();
+  [[nodiscard]] Native::Result<std::shared_ptr<const ResidentMaterialField>>
+  PrepareMaterialField(const std::shared_ptr<const MaterialFieldInput> &input,
+                       const std::atomic_bool *stopping = nullptr);
+  [[nodiscard]] Native::Result<MaterialFieldImages>
+  RelightMaterialField(const ResidentMaterialField &source,
+                       const MaterialFieldView &view,
+                       const std::atomic_bool *stopping = nullptr);
 
   // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
   [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
@@ -1031,6 +1041,7 @@ private:
 
   std::unique_ptr<Native::Device> Device_;
   std::unique_ptr<RadianceFilter> RadianceFilter_;
+  std::unique_ptr<MaterialFieldPass> MaterialFields_;
   std::chrono::nanoseconds UploadBudget_{};
   std::unique_ptr<UploadQueue> Uploads_;
 

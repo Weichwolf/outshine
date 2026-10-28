@@ -173,7 +173,8 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
                                                  const Gpu &gpu,
                                                  Native::Texture *behind,
                                                  Native::Sampler *exact,
-                                                 bool separateTransmission) {
+                                                 bool separateTransmission,
+                                                 GeometryPipelineScope scope) {
   if (gpu.Device == nullptr || gpu.SceneColours.Size() > kMaxColourAttachments ||
       (behind != nullptr && exact == nullptr)) {
     return std::unexpected(Native::Error{
@@ -211,7 +212,8 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
                           SurfaceKind::Refractive}) {
     const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
     if (glass != transmits) { continue; }
-    const auto configured = ConfigureKind(gpu, options, colours, kind, shaders, pipelines, built);
+    const auto configured =
+        ConfigureKind(gpu, options, colours, kind, shaders, pipelines, built, scope);
     if (!configured) { return configured; }
   }
   Bound().UploadsFrom(gpu.Uploads);
@@ -220,7 +222,7 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
   if (!attached) { return attached; }
   const auto prisms = Prisms_->Uses(*gpu.Device, gpu.Uploads);
   if (!prisms) { return prisms; }
-  if (!glass) {
+  if (!glass && scope == GeometryPipelineScope::Scene) {
     const auto targets = Targets(gpu, options, colours, false);
     const auto configured = Ground_.Configure(
         binding.Ground, *gpu.Device, options, std::span(targets).first(colours.size()));
@@ -256,9 +258,11 @@ Native::Result<void> GeometryRenderer::ConfigureKind(
     SurfaceKind kind,
     PipelineShaders &shaders,
     std::array<std::unique_ptr<Native::GraphicsPipeline>, kPipelines> &pipelines,
-    uint32_t &built) {
+    uint32_t &built,
+    GeometryPipelineScope scope) {
   const auto targets = Targets(gpu, options, colours, kind == SurfaceKind::Blended);
   for (const auto domain : {SurfaceDomain::Geometry, SurfaceDomain::Ground}) {
+    if (scope == GeometryPipelineScope::Meshes && domain != SurfaceDomain::Geometry) { continue; }
     for (const auto &row : kVertexLayouts) {
       if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
         continue;

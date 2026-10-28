@@ -58,6 +58,22 @@ def replay(args):
         True,
         False,
     ]
+    if report["field_source_uploads"] != 2:
+        raise ValueError("only the two distinct selected source fields may upload")
+    source_reused = [False] + [True] * 10 + [False]
+    if [case["field_source_reused"] for case in report["cases"]] != source_reused:
+        raise ValueError(
+            "light, eye, focal and snapshot changes must retain their GPU source"
+        )
+    for case in report["cases"]:
+        if case["field_source_reused"] and (
+            case["field_source_prepare_ms"] != 0
+            or case["field_source_upload_call_ms"] != 0
+            or case["field_source_upload_gpu_ms"] != 0
+        ):
+            raise ValueError(
+                "resident source reuse must perform no source preparation/upload"
+            )
     if [case["field_reused"] for case in report["cases"]] != expected:
         raise ValueError("field reuse did not follow all changed producer inputs")
     if (report["field_renders"], report["field_reuses"], report["field_writes"]) != (
@@ -77,8 +93,14 @@ def replay(args):
             case[key] != 0
             for key in (
                 "field_prepare_ms",
-                "field_gpu_ms",
-                "field_setup_gpu_ms",
+                "field_relight_filter_gpu_ms",
+                "field_source_upload_gpu_ms",
+                "field_configure_ms",
+                "field_source_prepare_ms",
+                "field_source_upload_call_ms",
+                "field_relight_encode_call_ms",
+                "field_offline_wait_ms",
+                "field_readback_ms",
                 "field_load_ms",
                 "source_readback_bytes",
             )
@@ -121,6 +143,7 @@ def replay(args):
     receipt = {
         "field_renders": 7,
         "field_reuses": 5,
+        "field_source_uploads": report["field_source_uploads"],
         "source_work": False,
         "pairs": hashes,
         "artifacts": compress(args.output),

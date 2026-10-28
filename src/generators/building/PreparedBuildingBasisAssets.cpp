@@ -121,7 +121,8 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
         if (auto product = resident->second.Product.lock()) {
           Cache_->UsePackage(record.Package);
           ++BasisResidentHits_;
-          return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(product)};
+          return RequestedBasis{
+              .BaseKey = record.Parent, .Product = std::move(product), .Bounds = record.Bounds};
         }
       }
       ResidentBases_.erase(resident);
@@ -130,6 +131,7 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
   auto basis = LoadBasis(record.Parent, requestKey);
   if (!basis) { return std::unexpected(basis.error()); }
   if (!*basis) { return std::optional<RequestedBasis>{}; }
-  return RequestedBasis{.BaseKey = record.Parent, .Product = std::move(*basis)};
+  return RequestedBasis{
+      .BaseKey = record.Parent, .Product = std::move(*basis), .Bounds = record.Bounds};
 }
 }

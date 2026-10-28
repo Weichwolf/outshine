@@ -73,7 +73,7 @@ terminal success or complete BRDF/normal-variance proof is claimed.
 ## Reproduction
 
 Use Python with NumPy, Matplotlib and outshine_ref; glslang, Vulkan validation,
-and the existing NativeGroundLitterProbe consumer linked to a matching native
+and the existing NativeMaterialComputeProbe consumer linked to a matching native
 archive/header closure. Its public timestamp option comes from PR368/#336.
 All outputs must be explicit system-temp paths.
 

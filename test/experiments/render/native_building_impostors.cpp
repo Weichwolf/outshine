@@ -277,11 +277,12 @@ Json DrawWith(Render::SceneRenderer &renderer,
   if (renderer.ReadSceneLinear(colour) != Render::ReadState::Ready ||
       renderer.ReadDepth(depth) != Render::ReadState::Ready ||
       renderer.ReadShadingNormal(normal) != Render::ReadState::Ready ||
-      renderer.ReadPixels(rgba) != Render::ReadState::Ready) {
+      renderer.ReadPixels(rgba) != Render::ReadState::Ready || normal.size() != depth.size() * 4) {
     Fail("incomplete readback");
   }
   Write<float>(output.string() + ".linear", colour);
   Write<float>(output.string() + ".depth", depth);
+  Write<float>(output.string() + ".normal", normal);
   Write<uint8_t>(output.string() + ".rgba", rgba);
   Json samples = Json::array();
   for (const auto &sample : renderer.GpuSamples()) {
@@ -656,6 +657,10 @@ struct RadianceRequest {
 struct RetainedRadiance {
   std::optional<Test::BuildingRadianceField> Field;
   std::string Key;
+  std::string SourceKey;
+  std::shared_ptr<const ImpostorAtlas> Atlas;
+  bool SourceReused = false;
+  size_t SourceUploads = 0;
   bool Reused = false, SourceHit = false;
   double LoadMs = 0, ResolveMs = 0;
   size_t ReadbackBytes = 0;
@@ -665,29 +670,39 @@ struct RetainedRadiance {
                                        const RadianceRequest &request) {
     const auto began = Clock::now();
     const auto &query = request.Query;
-    const auto key = Json{{"source", request.Products.FieldKey({request.View})},
+    const auto sourceKey = request.Products.FieldKey({request.View});
+    const auto key = Json{{"source", sourceKey},
                           {"eye", query.at("eye")},
                           {"focal_px", query.at("focal_px")},
                           {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
                           {"source_snapshot", query.value("dump_source_field", true)}}
                          .dump();
     Reused = false;
+    SourceReused = Field && Atlas && SourceKey == sourceKey && request.Original == nullptr;
     SourceHit = true;
     LoadMs = 0;
     if (Field && Key == key && request.Original == nullptr) {
       Reused = true;
       Field->PrepareMs = Field->GpuMs = Field->SetupGpuMs = 0;
+      Field->ConfigureMs = Field->SourcePrepareMs = Field->SourceUploadMs = 0;
+      Field->RelightEncodeMs = Field->WaitMs = Field->ReadbackMs = 0;
       ReadbackBytes = 0;
       ++Reuses;
       ResolveMs = Milliseconds(began);
       return *Field;
     }
     const auto loading = Clock::now();
-    const auto atlas = ResolveSourceField(request.Products, request.Jobs, request.View, SourceHit);
+    const auto atlas =
+        SourceReused ? Atlas
+                     : ResolveSourceField(request.Products, request.Jobs, request.View, SourceHit);
     LoadMs = Milliseconds(loading);
     if (!SourceHit) { ++Writes; }
-    auto prepared = Test::PrepareBuildingRadiance(renderer, *atlas, 0, query, request.Original);
+    auto prepared = Test::PrepareBuildingRadiance(
+        renderer, *atlas, 0, query, request.Original, SourceReused ? Field->Source : nullptr);
     if (!prepared) { Fail(prepared.error()); }
+    if (!SourceReused) { ++SourceUploads; }
+    Atlas = atlas;
+    SourceKey = sourceKey;
     auto &field = Field.emplace(std::move(*prepared));
     ReadbackBytes = field.SourceLinear.size() * sizeof(float);
     Key = key;
@@ -762,8 +777,15 @@ void RadianceViews(const Fs::path &root, const Json &input) {
         {{"query", name},
          {"selected_view", view},
          {"field_prepare_ms", field.PrepareMs},
-         {"field_gpu_ms", field.GpuMs},
-         {"field_setup_gpu_ms", field.SetupGpuMs},
+         {"field_relight_filter_gpu_ms", field.GpuMs},
+         {"field_source_upload_gpu_ms", field.SetupGpuMs},
+         {"field_configure_ms", field.ConfigureMs},
+         {"field_source_prepare_ms", field.SourcePrepareMs},
+         {"field_source_upload_call_ms", field.SourceUploadMs},
+         {"field_relight_encode_call_ms", field.RelightEncodeMs},
+         {"field_offline_wait_ms", field.WaitMs},
+         {"field_readback_ms", field.ReadbackMs},
+         {"field_source_reused", retained.SourceReused},
          {"field_reused", retained.Reused},
          {"field_hit", retained.SourceHit},
          {"field_load_ms", retained.LoadMs},
@@ -772,6 +794,8 @@ void RadianceViews(const Fs::path &root, const Json &input) {
          {"source_readback_bytes", retained.ReadbackBytes},
          {"resident_image_bytes",
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
+    result["field_filter_gpu_ms"] = nullptr;
+    result["field_gpu_scope"] = "relight_and_filter_single_submission";
     const auto allocations = renderer.FrameGraphAllocationCounts();
     result["framegraph_allocations"] = {{"textures", allocations.Textures},
                                         {"buffers", allocations.Buffers},
@@ -784,6 +808,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   }
   report["render_device_creations"] = creations;
   report["field_renders"] = retained.Renders;
+  report["field_source_uploads"] = retained.SourceUploads;
   report["field_reuses"] = retained.Reuses;
   report["field_writes"] = retained.Writes;
   report["atlas_read_bytes"] = source->ReadBytes;
