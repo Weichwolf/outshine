@@ -14,6 +14,35 @@ not downloads from an assumed current provider revision. Geometry is from
 [OpenFreeMap](https://openfreemap.org/), with
 [OpenStreetMap contributor attribution](https://www.openstreetmap.org/copyright).
 
+The two original MVT bodies are also fixed under `inputs/*.pbf`. Their SHA256
+values equal the historical JSON exports' `source_input_digest`; the manifest
+records byte counts and the cached provider declaration. That declaration does
+not independently attest the historical upstream revision or generator binary.
+The inputs and existing attribution travel with the repository; no private
+cache or network download is needed.
+
+A standalone native counter passes both original bodies together through the
+public `OsmField::Accept` and `PrepareBuildingInputs` APIs. Use a normal native
+build configured with `BUILD_TESTING=ON`, then run from the repository root:
+
+```sh
+cmake --build build/review --target test_harness_building_source_counter --parallel
+build/review/test_harness_building_source_counter \
+  test/experiments/buildings/source_polygons/inputs/tile-14-8744-5704.pbf \
+  test/experiments/buildings/source_polygons/inputs/tile-14-8744-5705.pbf
+```
+
+The JSON result currently contains two prepared structures: one whole footprint
+and its buffered cut fragment, with two original observations and two original
+controls. Exit **1** reports the unresolved #1578 requirement: one whole footprint
+and no cut duplicate. Exit **0** is reserved for that requirement with unchanged
+input controls, heights and unknown original OSM IDs; this counter invents no
+source identity. It is not registered with CTest, has no expected-failure flag
+and does not turn the product defect into a passing assertion. It does not
+qualify provider calibration, canonical dependency/cache binding or atomic
+World publication. Other exits are 2 for usage, 3 for a missing input, 4 for a
+decode refusal, 5 for wrong original bytes and 6 for changed fixture controls.
+
 Use Python with the existing buildings dependency `shapely==2.2.0` installed.
 From the repository root:
 

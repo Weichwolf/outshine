@@ -276,6 +276,12 @@ foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snaps
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
+add_executable(test_harness_building_source_counter EXCLUDE_FROM_ALL
+  test/experiments/buildings/source_polygons/native_buffered_buildings.cpp)
+target_compile_options(test_harness_building_source_counter PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_building_source_counter PRIVATE
+  outshine_generators_osm)
+
 add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_export.cpp
   test/experiments/transport/native_transport_snapshot_json.cpp
