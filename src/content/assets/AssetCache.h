@@ -57,6 +57,27 @@ private:
   std::shared_ptr<const std::vector<uint8_t>> Package_;
 };
 
+class PreparedAssetWrite {
+public:
+  PreparedAssetWrite(PreparedAssetWrite &&) noexcept = default;
+  PreparedAssetWrite &operator=(PreparedAssetWrite &&) noexcept = default;
+  PreparedAssetWrite(const PreparedAssetWrite &) = delete;
+  PreparedAssetWrite &operator=(const PreparedAssetWrite &) = delete;
+
+  [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
+
+  [[nodiscard]] size_t StoredBytes() const noexcept { return Bytes_.size(); }
+
+private:
+  friend class AssetCache;
+  PreparedAssetWrite() = default;
+  std::vector<AssetRecord> Records_;
+  std::vector<uint8_t> Bytes_;
+  std::string Key_;
+  size_t NativeBytes_ = 0;
+  bool Compressed_ = false;
+};
+
 class AssetCache {
 public:
   [[nodiscard]] static std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
@@ -67,6 +88,10 @@ public:
 
   [[nodiscard]] std::expected<void, AssetCacheError> Publish(std::span<const AssetRecord> records,
                                                              std::span<const uint8_t> payload);
+  [[nodiscard]] std::expected<PreparedAssetWrite, AssetCacheError>
+  PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload);
+  // Busy leaves the owned package intact for a later background step.
+  [[nodiscard]] std::expected<void, AssetCacheError> Publish(const PreparedAssetWrite &prepared);
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   Find(std::string_view key) const;
@@ -90,6 +115,9 @@ public:
 
 private:
   struct State;
+  struct Publication;
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  PublishPrepared(const Publication &publication);
   explicit AssetCache(std::unique_ptr<State> state);
   std::unique_ptr<State> State_;
 };
