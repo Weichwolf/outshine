@@ -1,4 +1,5 @@
 #include "ImpostorBaker.h"
+#include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
@@ -223,6 +224,49 @@ Json CaptureStatistics(const ImpostorAtlas &atlas) {
   return result;
 }
 
+Geometry
+MomentSurface(const ImpostorAtlas &atlas, size_t view, Render::ImpostorSurfaceDetail detail) {
+  auto surface = Render::BuildImpostorSurface(atlas, view, detail);
+  if (!surface) { Fail("source atlas has no moment geometry"); }
+  const auto id = surface->materialOf(0);
+  auto material = surface->surfaceAt(id);
+  if (!Render::AddOpticalCardImages(*surface, material, atlas, atlas.Views()[view])) {
+    Fail("source atlas has no moment images");
+  }
+  material.Alpha = AlphaMode::Blended;
+  if (!surface->setSurface(id, material)) { Fail("moment material rejected"); }
+  return std::move(*surface);
+}
+
+void CollapseDepth(Geometry &surface, const ImpostorAtlas &atlas, size_t view) {
+  const Vec3 toward = atlas.Views()[view].TowardEye;
+  for (int part = 0; part < surface.parts(); ++part) {
+    const auto source = surface.positionsOf(part);
+    std::vector<float> positions(source.begin(), source.end());
+    for (size_t at = 0; at < positions.size(); at += 3) {
+      Vec3 point{{positions[at], positions[at + 1], positions[at + 2]}};
+      point = point - toward * Dot(point - atlas.CentreM(), toward);
+      for (size_t axis = 0; axis < 3; ++axis) {
+        positions[at + axis] = static_cast<float>(point[axis]);
+      }
+    }
+    if (!surface.setPositions(part, positions)) { Fail("collapsed geometry rejected"); }
+  }
+}
+
+Json ClippedFlatControl(const ImpostorAtlas &atlas,
+                        size_t selected,
+                        const Json &query,
+                        const Fs::path &output) {
+  const auto began = Clock::now();
+  auto surface = MomentSurface(atlas, selected, Render::ImpostorSurfaceDetail::Depth);
+  CollapseDepth(surface, atlas, selected);
+  const double productMs = Milliseconds(began);
+  auto record = Draw(surface, query, output);
+  record["product_ms"] = productMs;
+  return record;
+}
+
 }
 
 int main(int argc, char *const *argv) {
@@ -272,10 +316,13 @@ int main(int argc, char *const *argv) {
                    {"original", Draw(original, query, root / (name + "-original"))}};
     for (const auto mode :
          {Render::ImpostorSurfaceDetail::Flat, Render::ImpostorSurfaceDetail::Depth}) {
+      const auto productBegan = Clock::now();
       auto surface = Render::BuildImpostorSurface(*atlas, selected, mode);
       if (!surface) { Fail("source atlas has no native surface"); }
+      const double productMs = Milliseconds(productBegan);
       const std::string label = mode == Render::ImpostorSurfaceDetail::Flat ? "flat" : "depth";
       record[label] = Draw(*surface, query, root / std::string(name).append("-").append(label));
+      record[label]["product_ms"] = productMs;
       auto material = surface->surfaceAt(surface->materialOf(0));
       material.Alpha = AlphaMode::Blended;
       if (!surface->setSurface(surface->materialOf(0), material)) {
@@ -283,7 +330,17 @@ int main(int argc, char *const *argv) {
       }
       const std::string blended = std::string(label) + "-blended";
       record[blended] = Draw(*surface, query, root / std::string(name).append("-").append(blended));
+      record[blended]["product_ms"] = productMs;
+      const auto momentsBegan = Clock::now();
+      const auto moments = MomentSurface(*atlas, selected, mode);
+      const double momentsMs = Milliseconds(momentsBegan);
+      const std::string momentLabel = std::string(label) + "-moments";
+      record[momentLabel] =
+          Draw(moments, query, root / std::string(name).append("-").append(momentLabel));
+      record[momentLabel]["product_ms"] = momentsMs;
     }
+    record["clipped-flat-moments"] =
+        ClippedFlatControl(*atlas, selected, query, root / (name + "-clipped-flat-moments"));
     results["cases"].push_back(std::move(record));
   }
   std::ofstream report(root / "result.json");

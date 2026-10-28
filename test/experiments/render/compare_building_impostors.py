@@ -22,6 +22,16 @@ from native_building_cell_reference import load_cells
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA = ROOT / "test/outshine/data/render/building-full-view"
+MODES = (
+    "original",
+    "flat",
+    "depth",
+    "flat-blended",
+    "depth-blended",
+    "flat-moments",
+    "depth-moments",
+    "clipped-flat-moments",
+)
 
 
 def native_axes(values):
@@ -51,6 +61,31 @@ def sampling_error(points, query):
                 float(np.linalg.norm(sampled - projected + [dx, dy], axis=1).max()),
             )
     return most
+
+
+def capture_frame_controls(queries, catalogue, centre):
+    controls = []
+    for query in queries:
+        relative = np.asarray(query["eye"]) - centre
+        toward = catalogue[np.argmax(catalogue @ relative)]
+        right = np.array([toward[2], 0, -toward[0]])
+        if np.linalg.norm(right) == 0:
+            right = np.array([1.0, 0, 0])
+        right /= np.linalg.norm(right)
+        aligned = dict(query)
+        aligned.update(
+            name=query["name"] + "-capture-frame",
+            eye=(centre + toward * np.linalg.norm(relative)).tolist(),
+            basis=[
+                right.tolist(),
+                np.cross(toward, right).tolist(),
+                (-toward).tolist(),
+            ],
+            comparison="capture-frame control; existing catalogue unchanged",
+        )
+        controls.append(aligned)
+        query["comparison"] = "held-out original pose"
+    return controls
 
 
 def prepare(parents, output, elevation):
@@ -94,6 +129,9 @@ def prepare(parents, output, elevation):
         )
     )
     points = native_axes(original["positions"])
+    queries.extend(
+        capture_frame_controls(queries, catalogue, (points.min(0) + points.max(0)) / 2)
+    )
     for query in queries:
         query["maximum_original_vertex_sampling_offset_error_px"] = sampling_error(
             points, query
@@ -152,7 +190,7 @@ def compare(output):
             )
         row["reference_pixels"] = int(reference.sum())
         row["crop"] = box
-        for mode in ("original", "flat", "depth", "flat-blended", "depth-blended"):
+        for mode in MODES:
             prefix = name + "-" + mode
             depth = np.fromfile(output / (prefix + ".depth"), "<f4").reshape(720, 1280)
             colour = np.fromfile(output / (prefix + ".linear"), "<f4").reshape(
@@ -219,13 +257,7 @@ def compare(output):
                     k: row[mode][k]
                     for k in ("triangles", "gpu_median_ms", "filtered_relative_rgb_L1")
                 }
-                for mode in (
-                    "original",
-                    "flat",
-                    "depth",
-                    "flat-blended",
-                    "depth-blended",
-                )
+                for mode in MODES
             },
         )
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -248,6 +280,18 @@ def run(args):
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
         "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+        "experiment_sources": {
+            str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in (
+                Path(__file__).resolve(),
+                Path(__file__).with_name("native_building_impostors.cpp").resolve(),
+            )
+        },
+        "checkout_dirty": subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=ROOT,
+            text=True,
+        ),
         "terminal": None,
     }
     env = os.environ.copy()
