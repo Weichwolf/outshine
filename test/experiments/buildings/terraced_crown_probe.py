@@ -9,6 +9,7 @@ import numpy as np
 import shapely
 from evidence import revision
 from industrial_relief_probe import camera
+from outshine_ref.buildings.modelling import PrismVolume
 from podium_probe import write
 from stepped_source_probe import overview
 from structural_shell_geometry import mesh_section, native
@@ -17,9 +18,8 @@ from terraced_crown_geometry import ROOF_MATERIAL, RoofedProducts
 from terraced_crown_plan import plan
 from terraced_facade_probe import materials
 from terraced_mass_admission import inspect
-from terraced_mass_plan import plan as mass_plan
 from terraced_mass_frame import placed_cut
-from outshine_ref.buildings.modelling import PrismVolume
+from terraced_mass_plan import plan as mass_plan
 from terraced_mass_sources import sources
 from terraced_terrace_geometry import TerraceProducts
 from terraced_terrace_plan import plan as terrace_plan

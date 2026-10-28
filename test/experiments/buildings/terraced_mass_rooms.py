@@ -5,9 +5,8 @@ from dataclasses import dataclass
 import manifold3d as manifold
 import numpy as np
 import shapely
-
-from building_mesh import solid
 from building_layout import WALL_M
+from building_mesh import solid
 from building_plan import CEILING_M, FLOOR_M
 from building_stair import PLATE_M, core_layout, flight, guard, landing_guard
 from outshine_ref.buildings.modelling import PrismVolume, union_prisms

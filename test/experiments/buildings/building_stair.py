@@ -5,12 +5,17 @@ import time
 
 import numpy as np
 import shapely
-from shapely.affinity import affine_transform
-
-from building_layout import AGENT_RADIUS_M, DOOR_M, PARTITION_M, canonical_geometry, polygons, rectangle
+from building_layout import (
+    AGENT_RADIUS_M,
+    DOOR_M,
+    PARTITION_M,
+    canonical_geometry,
+    polygons,
+    rectangle,
+)
 from building_mesh import solid
 from building_plan import FLOOR_M, walkable
-
+from shapely.affinity import affine_transform
 
 FLIGHT_WIDTH_M = 1.10
 LANDING_M = 1.10

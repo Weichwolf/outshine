@@ -2,12 +2,11 @@
 
 import numpy as np
 import shapely
-from structural_shell_geometry import NativeColumns, inspect_poses
+from structural_shell_geometry import NativeColumns, inspect_poses, native
 from terraced_crown_probe import roof_checks
 from terraced_facade_prepare import positions
 from terraced_mass_admission import inspect, stair_columns
 from terraced_terrace_access import continuous
-from structural_shell_geometry import native
 
 
 def check(owner):
