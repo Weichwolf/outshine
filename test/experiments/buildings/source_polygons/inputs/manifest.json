@@ -30,5 +30,35 @@
   ],
   "native_library_commit": "56b3188f5575e66c650e166c8e82766e62049ffb",
   "exporter_sha256": "ac1cdde293d2d9e54ceb00c9097b07c6966a40316ffcb80559f05cdbbe841e2d",
-  "export_method": "OsmField::DecodeNativeTile, every polygon feature in the buildings layer, every original ring and decoded lat/lon point; attributes hashed by sorted keys with typed values."
+  "export_method": "OsmField::DecodeNativeTile, every polygon feature in the buildings layer, every original ring and decoded lat/lon point; attributes hashed by sorted keys with typed values.",
+  "raw_sources": [
+    {
+      "file": "tile-14-8744-5704.pbf",
+      "sha256": "f8a80310f189e94d5f3f5f0b8f9a8167b083dfd503c2a45a74bd26d8c8911d80",
+      "bytes": 107191,
+      "tile": [
+        14,
+        8744,
+        5704
+      ]
+    },
+    {
+      "file": "tile-14-8744-5705.pbf",
+      "sha256": "fc433eb129d174ac96964832d6c0a81e2ad377671d4b8eb6a971a8567200d373",
+      "bytes": 136901,
+      "tile": [
+        14,
+        8744,
+        5705
+      ]
+    }
+  ],
+  "raw_source_declaration": {
+    "id": "openfreemap.openmaptiles",
+    "version": 2,
+    "revision": "20260927_080001_pt",
+    "schema": "openmaptiles",
+    "endpoint_template": "https://tiles.openfreemap.org/planet/20260927_080001_pt/{z}/{x}/{y}.pbf",
+    "binding": "Recovered original cached bytes; SHA equals the native export source_input_digest. Revision is the recorded provider declaration, not independent historical upstream/binary attestation. Native public Accept marks direct decode origin."
+  }
 }
