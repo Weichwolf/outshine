@@ -28,14 +28,13 @@ Vec3 BuildingCaptureFrame::SourceDirection(const Vec3 &direction) const noexcept
   return Axes.East * direction[0] + Axes.Up * direction[1] - Axes.North * direction[2];
 }
 
-namespace {
-bool ValidFrame(const BuildingCaptureFrame &frame) {
+bool BuildingCaptureFrame::Valid() const noexcept {
   const auto finite = [](const Vec3 &v) {
     return std::ranges::all_of(v, [](double x) { return std::isfinite(x); });
   };
-  const auto &axes = frame.Axes;
+  const auto &axes = Axes;
   constexpr double tolerance = 1e-10;
-  return finite(frame.Origin) && finite(axes.East) && finite(axes.North) && finite(axes.Up) &&
+  return finite(Origin) && finite(axes.East) && finite(axes.North) && finite(axes.Up) &&
          std::abs(Dot(axes.East, axes.East) - 1) <= tolerance &&
          std::abs(Dot(axes.North, axes.North) - 1) <= tolerance &&
          std::abs(Dot(axes.Up, axes.Up) - 1) <= tolerance &&
@@ -45,6 +44,7 @@ bool ValidFrame(const BuildingCaptureFrame &frame) {
          Dot(Cross(axes.East, axes.North), axes.Up) >= 1 - tolerance;
 }
 
+namespace {
 std::expected<Geometry, std::string> GeometryOf(const Raised &raised,
                                                 const BuildingCaptureFrame &frame,
                                                 const std::array<Material, 3> &materials) {
@@ -94,7 +94,7 @@ BuildingSourceView::Open(std::shared_ptr<const PreparedStructureTile> base,
                          std::span<const uint32_t> cells,
                          BuildingCaptureFrame frame) {
   if (!base || base->Structures.size() != base->Surfaces.size() || cells.empty() ||
-      base->Surfaces.size() > std::numeric_limits<uint32_t>::max() || !ValidFrame(frame)) {
+      base->Surfaces.size() > std::numeric_limits<uint32_t>::max() || !frame.Valid()) {
     return std::unexpected(Error{.Message = "invalid building source view inputs"});
   }
   const std::unordered_set<uint32_t> selected(cells.begin(), cells.end());

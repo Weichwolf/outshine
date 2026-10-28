@@ -134,6 +134,24 @@ setup and then presents on its executing renderer. Shared consumers, last-consum
 cancellation, admission rejection, source-free hits and stale metadata are checked
 for both product types. This is not yet the general World demand producer.
 
+`BuildingImpostorSource` is the native PreparedBuildingAssets producer for complete
+opaque source groups. Its canonical recipe key binds the base content key, selected
+cells, intrinsic source frame, capture catalogue/raster and serialized materials.
+Camera, light, caller name and work budgets are not source identity. Metadata hits
+need no building store; field hits never invoke the producer. Only misses load the
+prepared native index/forms. Sample/encoded-byte admission precedes descriptor IO.
+A group with unresolved originals publishes no complete-source metadata and retains
+its original rendering path. This is source-set completeness, not a filtered image,
+LOD, visibility or parent-replacement proof. CPU source state may serve capture jobs;
+each GPU baker lives only inside its executing call. World registration and current
+revision/coverage publication remain open.
+
+The atomic `NativeSourcesStayClosedOnFieldHits` case builds native game assets,
+produces a selected field through AssetPipeline and loads its CPU lease; a new
+producer without a source store replays the cached field. An optional explicit
+prepared-index filename checks real unresolved inputs without loading form packages.
+Normal test runs use only their self-contained fixture.
+
 `ImpostorFieldLoad` bridges a completed asset receipt to a decoded CPU field.
 Start/Poll perform no payload IO or decode; the existing Tasks worker reads and
 validates the current metadata/key and coupled field. Pending returns no field,

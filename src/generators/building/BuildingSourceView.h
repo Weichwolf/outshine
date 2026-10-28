@@ -19,6 +19,7 @@ namespace outshine::Generators {
 struct BuildingCaptureFrame {
   EnuAxes Axes;
   Vec3 Origin;
+  [[nodiscard]] bool Valid() const noexcept;
   [[nodiscard]] Vec3 Local(const Vec3 &point) const noexcept;
   [[nodiscard]] Vec3 SourceDirection(const Vec3 &direction) const noexcept;
 };
