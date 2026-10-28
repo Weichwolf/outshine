@@ -69,6 +69,8 @@ private:
   [[nodiscard]] uint32_t Pixels(Selection selection) const noexcept;
   [[nodiscard]] bool Matches(const ImpostorCards &cards, Selection selection) const;
   [[nodiscard]] bool MatchesField(const ImpostorAtlas &field, ViewIndex view) const noexcept;
+  [[nodiscard]] std::expected<std::vector<uint8_t>, AssetCacheError>
+  StoreField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
   AssetCache &Cache_;
   AssetRecord Record_;
   Description Description_;

@@ -1,12 +1,14 @@
 #include "ImpostorViewAssets.h"
 #include "Sha256.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine::Content {
 namespace {
@@ -29,10 +31,17 @@ bool ImpostorViewAssets::MatchesField(const ImpostorAtlas &field, ViewIndex view
 std::expected<void, AssetCacheError> ImpostorViewAssets::PublishField(ViewIndex view,
                                                                       const ImpostorAtlas &field,
                                                                       size_t bytesMost) const {
+  const auto stored = StoreField(view, field, bytesMost);
+  if (!stored) { return std::unexpected(stored.error()); }
+  return {};
+}
+
+std::expected<std::vector<uint8_t>, AssetCacheError>
+ImpostorViewAssets::StoreField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const {
   if (!MatchesField(field, view)) { return std::unexpected(AssetCacheError::InvalidInput); }
   std::string error;
   const auto key = FieldKey(view);
-  const auto bytes = field.Encode(key, bytesMost, error);
+  auto bytes = field.Encode(key, bytesMost, error);
   if (!bytes) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   const AssetRecord record{.Key = key,
                            .Kind = std::string(kFieldKind),
@@ -43,7 +52,9 @@ std::expected<void, AssetCacheError> ImpostorViewAssets::PublishField(ViewIndex 
                            .Level = 0,
                            .Parent = Record_.Key,
                            .RequestKey = {}};
-  return Cache_.Publish(std::span(&record, 1), *bytes);
+  const auto published = Cache_.Publish(std::span(&record, 1), *bytes);
+  if (!published) { return std::unexpected(published.error()); }
+  return std::move(*bytes);
 }
 
 std::expected<std::optional<ImpostorAtlas>, AssetCacheError>
@@ -73,13 +84,15 @@ std::expected<ImpostorAtlas, AssetCacheError> ImpostorViewAssets::ResolveField(
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (*loaded) { return std::move(**loaded); }
   if (!factory) { return std::unexpected(AssetCacheError::InvalidInput); }
-  auto generated = factory(view, bytesMost);
-  if (!generated) { return std::unexpected(generated.error()); }
-  const auto published = PublishField(view, *generated, bytesMost);
-  if (!published) { return std::unexpected(published.error()); }
-  loaded = LoadField(view, bytesMost);
-  if (!loaded) { return std::unexpected(loaded.error()); }
-  if (!*loaded) { return std::unexpected(AssetCacheError::Storage); }
-  return std::move(**loaded);
+  const auto encoded = [&] -> std::expected<std::vector<uint8_t>, AssetCacheError> {
+    auto generated = factory(view, bytesMost);
+    if (!generated) { return std::unexpected(generated.error()); }
+    return StoreField(view, *generated, bytesMost);
+  }();
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  std::string error;
+  auto field = ImpostorAtlas::Decode(*encoded, FieldKey(view), error);
+  if (!field) { return std::unexpected(AssetCacheError::Storage); }
+  return std::move(*field);
 }
 }
