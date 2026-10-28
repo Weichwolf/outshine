@@ -321,16 +321,16 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.ResumeCompletedTasks();
-    Cost.BakeResume.Took(
+    World.StructureBuilds.PollCompletedTasks();
+    Cost.BakeCollection.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
             .count());
     return StagesGroundBakes(landsMost);
   }
   if (!World.GroundPublished.Current()) {
     const auto resumeAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.ResumeCompletedTasks();
-    Cost.BakeResume.Took(
+    World.StructureBuilds.PollCompletedTasks();
+    Cost.BakeCollection.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
             .count());
     if (World.Stack.Ingested()) {
@@ -345,7 +345,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   }
   if (!World.Region ||
       !World.Region->MatchesLiveSources(World.Stack.Vectors(), World.Stack.Footprints())) {
-    World.StructureBuilds.ResumeCompletedTasks();
+    World.StructureBuilds.PollCompletedTasks();
     return true;
   }
   const auto landingAt = std::chrono::steady_clock::now();

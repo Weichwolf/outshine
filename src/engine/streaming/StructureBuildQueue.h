@@ -158,7 +158,7 @@ public:
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
                BuildPurpose purpose = BuildPurpose::ViewDetail);
-  void ResumeCompletedTasks();
+  void PollCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
   void Clear();
@@ -341,6 +341,14 @@ private:
                                               size_t preceding,
                                               ::outshine::Generators::Osm::BuildingField &prints);
   void DiscardFront(::outshine::Generators::Osm::BuildingField &prints);
+  void AdvanceQueuedTasks(const ::outshine::Generators::Osm::OsmField *vectors,
+                          ::outshine::Generators::Osm::BuildingField &prints,
+                          LongitudeLatitude eye,
+                          HeightSourceRevision heightSource,
+                          HeightRequirement heights,
+                          std::optional<LevelOfDetail> detail,
+                          BuildPurpose purpose);
+
   void DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
                     ::outshine::Generators::Osm::BuildingField &prints,
                     LongitudeLatitude eye,
