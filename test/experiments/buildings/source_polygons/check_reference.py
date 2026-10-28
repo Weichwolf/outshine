@@ -90,6 +90,17 @@ def run_checks():
     # True distinct outlines in one tile remain separate even when the container groups them.
     same_tile = [observation(box(100, 100, 200, 200)), observation(box(150, 150, 250, 250), ordinal=1)]
     check('distinct co-observed polygons are not fused by overlap alone', len(components(same_tile)) == 2)
+    complete = observation(box(4050, 100, 4550, 1100), tile=(14, 1, 0),
+                           window=(4032, -64, 8256, 4160))
+    clipped = observation(complete.polygon.intersection(box(-64, -64, 4160, 4160)))
+    incompatible = replace(clipped, polygon=Polygon([
+        (4050, 100), (4160, 64), (4160, 1160), (4050, 1100)]))
+    check('compatible clipping preserves the complete original envelope', all(
+        resolve([complete, clipped], method)['status'] == 'ready'
+        for method in ('whole-first', 'boundary-first')))
+    check('cut vertices outside the original envelope cannot qualify', all(
+        resolve([complete, incompatible], method)['status'] != 'ready'
+        for method in ('whole-first', 'boundary-first')))
     return {'checks': checks, 'count': len(checks), 'original_observations': len(originals),
             'max_grid_inverse_residual': residual, 'original_result': result}
 
