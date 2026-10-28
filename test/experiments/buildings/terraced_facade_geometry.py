@@ -24,7 +24,7 @@ def build_facade(mass, *, prepared=None, portals=(), legacy_trim=True):
     if prepared.mass != mass:
         raise ValueError("Prepared facade belongs to a different source mass")
     local, facade = prepared.local, prepared.facade
-    floors = build(local)
+    floors = build(local, roof_access=prepared.roof_access)
     cuts = tuple(
         PrismVolume(
             w.identifier,

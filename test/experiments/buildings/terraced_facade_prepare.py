@@ -12,6 +12,7 @@ class PreparedFacade:
     mass: object
     local: object
     facade: object
+    roof_access: object = None
 
 
 def prepare(mass):

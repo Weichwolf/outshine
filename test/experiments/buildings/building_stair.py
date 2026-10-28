@@ -105,10 +105,13 @@ def geometry_frame(core, flip):
     return origin, along, across, (hi-lo).tolist(), reverse
 
 
-def core_layout(core, rise, floor_z, flip=False, mirror=False):
+def core_layout(core, rise, floor_z, flip=False, mirror=False, *, risers=None):
     origin, along, across, size, reverse = geometry_frame(core, flip)
     width, depth = size
-    total = math.ceil(rise/MAX_RISER_M)
+    minimum = math.ceil(rise/MAX_RISER_M)
+    total = minimum if risers is None else risers
+    if type(total) is not int or total < minimum:
+        raise ValueError('Stair riser count must respect the maximum riser height')
     lower, upper = math.ceil(total/2), total//2
     back = LANDING_M+(lower-1)*TREAD_M
     upper_front = LANDING_M+(lower-upper)*TREAD_M
