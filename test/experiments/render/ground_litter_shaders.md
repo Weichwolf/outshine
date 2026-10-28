@@ -35,7 +35,7 @@ Prepare the shared generated BRDF table with the repository toolchain, then run
 with glslangValidator and the SPIRV-Cross CLI:
 
 ```sh
-make build/shaders/brdfTables.glsl
+cmake --build build --target outshine_shaders --parallel
 python3 test/experiments/render/ground_litter_shaders.py --output /tmp/outshine-material-oriented
 ```
 
@@ -44,11 +44,10 @@ CLI package is `spirv-cross`; the already used `spirv-cross-c-shared` developmen
 library alone does not provide that executable. The experiment
 requires explicit system-temp output and records source/tool hashes, reflected
 metadata and generated SPIR-V/MSL. Generated BRDF tables stay under `build/`.
-With `--native-syntax`, it also checks the native consumer using `CXX` and the
-standard/warning/optimization declarations from `test/run.sh`. The default
-include root is `src/render/device`; `NATIVE_INCLUDE` can select a checkout of
-the published shared contract during transition. Header hashes are recorded.
-This option neither links a backend nor substitutes for a native execution.
+With `--native-build`, it builds `outshine_material_compute_probe` through CMake.
+`--build-dir` selects the configured build, defaulting to `OUTSHINE_BUILD_DIR` or
+`build/`. CMake owns compile flags, headers, backend linkage and dependencies;
+header hashes are recorded. Building does not substitute for native execution.
 The next native check uses the common Metal/Vulkan compute operations and the
 existing 32-byte probe/result records; it does not require another backend API.
 Native mask/complete-surface correctness, timestamped GPU costs and lit Places
@@ -57,8 +56,8 @@ comparison in #196. Master retains the subsequent identical lit Places/Metal/A18
 countercheck. Explicit zero/two definitions remain comparison-only compile overrides,
 not runtime quality options.
 
-`test/harness/render/NativeGroundLitterProbe.cpp` consumes the shared native
-contract published by Performance at `b4b361429`, without SDL or native API types.
+`test/harness/render/NativeMaterialComputeProbe.cpp` consumes the shared native
+contract introduced at `b4b361429`, without Metal-/Vulkan-specific types.
 It accepts the existing raw palette/probe fixtures, uploads once, dispatches the
 actual component shader, copies results to readback and waits with an explicit
 30-second diagnostic bound. The pipeline's reflected set/slot/access values,
@@ -67,7 +66,7 @@ result records retain their checked 32-byte size/alignment/offsets. Palette
 prefix/layer ranges are checked before GPU access.
 
 ```text
-native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped
+outshine_material_compute_probe shader.spv palette.f32 probes.bin result.f32 unmapped
 ```
 
 `unmapped` is the palette producer's explicit fallback row. Five native buffers

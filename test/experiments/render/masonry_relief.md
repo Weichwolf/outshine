@@ -96,7 +96,7 @@ paired outputs and local PDFs are retained in explicit system-temp directories.
 ## Reproduction
 
 Use NumPy, Matplotlib, Shapely, installed outshine_ref, glslang and the existing
-NativeGroundLitterProbe.cpp consumer linked to its matching native archive/headers.
+NativeMaterialComputeProbe.cpp consumer linked to its matching native archive/headers.
 The retained original consumer uses a56f3e3be; its hash is recorded in the native
 report. Keep its archive and headers together; later Device API changes are not
 ABI-compatible. Scene/raster consumers use the same retained matching closure.

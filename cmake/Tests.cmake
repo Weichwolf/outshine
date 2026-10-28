@@ -458,6 +458,11 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
 
+add_executable(outshine_material_compute_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeMaterialComputeProbe.cpp")
+target_compile_options(outshine_material_compute_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_material_compute_probe PRIVATE outshine_render)
+
 add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
 target_include_directories(outshine_ggx_fragment_probe PRIVATE

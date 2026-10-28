@@ -95,7 +95,7 @@ probe/result strides and16B uniform block. Translation is not Metal execution.
 ## Reproduction and source
 
 Use NumPy, Shapely, Matplotlib, glslangValidator and the unchanged common
-`NativeGroundLitterProbe.cpp` linked against a matching ordinary native archive
+`NativeMaterialComputeProbe.cpp` linked against a matching ordinary native archive
 and headers. This run reused the frozen01518e678/b42fbadf4 archive (SHA256
 32d03a1b6b5e3b30ebced3f13cf030e090c858922a862c274b5305acd4722ae1), not a new
 backend copy. Probe/link source and commands remain in #268/#297; no C++ changes.

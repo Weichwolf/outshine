@@ -22,7 +22,7 @@ not a claim that the pinned recipe equals the latest live world material state.
 
 ```sh
 python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --output /tmp/outshine-material-native-inputs --prepare-only
-python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --output /tmp/outshine-material-native-results --binary /path/to/native_ground_litter
+python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --output /tmp/outshine-material-native-results --binary /path/to/outshine_material_compute_probe
 ```
 
 Use `--palette test/outshine/data/materials/ground-litter.palette` for the shared

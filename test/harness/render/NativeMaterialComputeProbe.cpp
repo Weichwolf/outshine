@@ -288,7 +288,7 @@ bool Run(const char *const *argv, bool timed) {
                                             : outshine::Render::Native::GpuTimingMode::None});
   if (!Checked(device)) { return false; }
   auto pipeline =
-      (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "ground litter probe"});
+      (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "material compute probe"});
   if (!Checked(pipeline) || !Matches((*pipeline)->Layout())) { return false; }
   const Parameters parameters{.Count = static_cast<uint32_t>(probes.size() / kProbeStride),
                               .Unmapped = unmapped,
@@ -300,12 +300,13 @@ bool Run(const char *const *argv, bool timed) {
 int main(int argc, char *const *argv) {
   const bool timed = argc == 7 && std::string_view(argv[6]) == "--gpu-timing";
   if (argc != 6 && !timed) {
-    std::fputs("usage: native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped "
+    std::fputs("usage: outshine_material_compute_probe shader.spv palette.f32 probes.bin "
+               "result.f32 unmapped "
                "[--gpu-timing]\n",
                stderr);
     return 2;
   }
   const bool ready = Run(argv, timed);
-  if (!ready) { std::println(stderr, "native ground litter capture failed"); }
+  if (!ready) { std::println(stderr, "native material compute capture failed"); }
   return ready ? 0 : 1;
 }

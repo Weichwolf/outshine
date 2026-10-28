@@ -11,7 +11,9 @@ Float32/Float64 subtraction failure. Closed-form tests cover normal incidence an
 unit roughness, zero Fresnel, range classification and source underflow.
 
 `probe_ggx_reference.py` calls unchanged product functions through the existing
-`NativeGroundLitterProbe` four-buffer consumer. No C++ implementation, product
+`NativeMaterialComputeProbe` four-buffer consumer. Build it with
+`cmake --build build --target outshine_material_compute_probe --parallel`.
+No C++ implementation, product
 shader correction, new binding, texture sampler or native image format is supplied.
 The private wrapper records D, V, lobe, actual GPU a², final scalar specular,
 unchanged energy scale, Fresnel and GPU r². White directional incident radiance is

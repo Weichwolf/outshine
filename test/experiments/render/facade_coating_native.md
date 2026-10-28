@@ -62,7 +62,7 @@ The separate image chart contains actual
 native material colours at160×96 pixels, enlarged2×, in a small explicit meter
 frame. It demonstrates the prototype, not the current Earth renderer or Places.
 
-The ordinary caller links the shared `NativeGroundLitterProbe.cpp` against the
+The ordinary caller links the shared `NativeMaterialComputeProbe.cpp` against the
 regular published Vulkan archive with matching headers. The test's private copy
 of the pinned ground palette supplies valid protocol input; wall RGB is read
 from BuildingMaterials.h and roughness0.9 is an explicit test value. Per-probe
