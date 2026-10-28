@@ -1,9 +1,21 @@
-#pragma once
+#ifndef OUTSHINE_TEST_SHELL_H
+#define OUTSHINE_TEST_SHELL_H
 
+#include <array>
+#include <cerrno>
+#include <cstddef>
 #include <cstdio>
+#include <memory>
+#include <spawn.h>
 #include <string>
 #include <string_view>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
+
+#ifdef __APPLE__
+#include <crt_externs.h>
+#endif
 
 namespace outshine::Test {
 
@@ -19,12 +31,48 @@ namespace outshine::Test {
   return quoted + "'";
 }
 
+// Test-owned shell scripts retain their environment and raw POSIX child status.
 inline int Run(const std::string &command, std::string &said) {
-  std::FILE *const pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) { return -1; }
-  char block[4096];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  return pclose(pipe);
+  const std::unique_ptr<std::FILE, decltype(&std::fclose)> output(std::tmpfile(), std::fclose);
+  if (!output) { return -1; }
+  posix_spawn_file_actions_t actions{};
+  if (posix_spawn_file_actions_init(&actions) != 0) { return -1; }
+  const int descriptor = fileno(output.get());
+  const bool redirected =
+      descriptor >= 0 &&
+      posix_spawn_file_actions_adddup2(&actions, descriptor, STDOUT_FILENO) == 0 &&
+      (descriptor == STDOUT_FILENO || posix_spawn_file_actions_addclose(&actions, descriptor) == 0);
+  if (!redirected) {
+    posix_spawn_file_actions_destroy(&actions);
+    return -1;
+  }
+  std::string program = "sh";
+  std::string option = "-c";
+  std::string separator = "--";
+  std::string script = command;
+  const std::array arguments{
+      program.data(), option.data(), separator.data(), script.data(), static_cast<char *>(nullptr)};
+#ifdef __APPLE__
+  char *const *const environment = *_NSGetEnviron();
+#else
+  char *const *const environment = environ;
+#endif
+  pid_t child = 0;
+  const int started =
+      posix_spawn(&child, "/bin/sh", &actions, nullptr, arguments.data(), environment);
+  posix_spawn_file_actions_destroy(&actions);
+  if (started != 0) { return -1; }
+  int status = 0;
+  while (waitpid(child, &status, 0) < 0) {
+    if (errno != EINTR) { return -1; }
+  }
+  if (std::fseek(output.get(), 0, SEEK_SET) != 0) { return -1; }
+  constexpr size_t kOutputChunkBytes = 4096;
+  std::array<char, kOutputChunkBytes> block{};
+  while (std::fgets(block.data(), static_cast<int>(block.size()), output.get()) != nullptr) {
+    said += block.data();
+  }
+  return std::ferror(output.get()) == 0 ? status : -1;
 }
 
 // A command's answer is what it said, not what it said plus the separator that ended it.
@@ -53,3 +101,5 @@ inline int Run(const std::string &command, std::string &said) {
 }
 
 } // namespace outshine::Test
+
+#endif
