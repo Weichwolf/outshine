@@ -1,4 +1,5 @@
 #include "ImpostorBaker.h"
+#include "ImpostorViewFrame.h"
 
 #include "ExecutionPlan.h"
 #include "Lens.h"
@@ -188,28 +189,46 @@ bool InstallSource(SceneRenderer &renderer,
   return true;
 }
 
+std::optional<Viewpoint>
+MakeCaptureView(const Vec3 &centre, const Vec3 &direction, double halfExtent, bool ring) {
+  auto camera =
+      Viewpoint::LookAt({.EyeM = centre + direction * (3 * halfExtent), .AimM = centre}, 0);
+  if (!ring) {
+    const auto frame = ImpostorViewFrame::From(direction);
+    if (!frame) { return std::nullopt; }
+    camera = Viewpoint{};
+    camera->EyeM = centre + direction * (3 * halfExtent);
+    camera->Forward = direction * -1.0;
+    camera->Right = frame->Right;
+    camera->Up = frame->Up;
+  }
+  if (!camera) { return std::nullopt; }
+  camera->Kind = CameraKind::Orthographic;
+  camera->XMagM = camera->YMagM = halfExtent;
+  camera->ZNearM = halfExtent;
+  camera->ZFarM = 5 * halfExtent;
+  return camera;
+}
+
 std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &renderer,
                                                              const Vec3 &centre,
                                                              double halfExtent,
                                                              ImpostorAtlasShape shape,
                                                              size_t materialCount,
+                                                             std::span<const Vec3> directions,
                                                              std::string &error) {
   std::vector<ImpostorAtlas::View> views;
   views.reserve(shape.Views);
   SurfaceReadback surface;
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2 * std::numbers::pi * at / shape.Views;
-    const Vec3 direction{{std::sin(angle), 0, std::cos(angle)}};
-    auto camera =
-        Viewpoint::LookAt({.EyeM = centre + direction * (3 * halfExtent), .AimM = centre}, 0);
+    const Vec3 direction =
+        directions.empty() ? Vec3{{std::sin(angle), 0, std::cos(angle)}} : directions[at];
+    const auto camera = MakeCaptureView(centre, direction, halfExtent, directions.empty());
     if (!camera) {
       error = Says::Bounds;
       return std::nullopt;
     }
-    camera->Kind = CameraKind::Orthographic;
-    camera->XMagM = camera->YMagM = halfExtent;
-    camera->ZNearM = halfExtent;
-    camera->ZFarM = 5 * halfExtent;
     const auto lens = Lens::From(*camera, shape.Pixels, shape.Pixels);
     if (!lens) {
       error = Says::Bounds;
@@ -261,9 +280,34 @@ ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::stri
   }
   const Vec3 centre = (capture.LeastM + capture.MostM) * 0.5;
   const Vec3 half = (capture.MostM - capture.LeastM) * 0.5;
-  const double halfExtent = std::max(std::hypot(half[0], half[2]), half[1]) *
-                            static_cast<double>(shape.Pixels) /
-                            static_cast<double>(shape.Pixels - 2);
+  if (!std::ranges::all_of(half, [](double value) { return std::isfinite(value) && value >= 0; }) ||
+      !std::ranges::all_of(centre, [](double value) { return std::isfinite(value); })) {
+    error = Says::Bounds;
+    return std::nullopt;
+  }
+  double radius = std::max(std::hypot(half[0], half[2]), half[1]);
+  if (!capture.ViewDirections.empty()) {
+    if (capture.ViewDirections.size() != shape.Views) {
+      error = Says::Shape;
+      return std::nullopt;
+    }
+    radius = 0;
+    for (const auto &direction : capture.ViewDirections) {
+      const auto frame = ImpostorViewFrame::From(direction);
+      if (!frame) {
+        error = Says::Bounds;
+        return std::nullopt;
+      }
+      const auto projected = [&](const Vec3 &axis) {
+        return std::abs(axis[0]) * half[0] + std::abs(axis[1]) * half[1] +
+               std::abs(axis[2]) * half[2];
+      };
+      radius = std::max(
+          {radius, projected(frame->Right), projected(frame->Up), projected(direction) * 0.5});
+    }
+  }
+  const double halfExtent =
+      radius * static_cast<double>(shape.Pixels) / static_cast<double>(shape.Pixels - 2);
   if (capture.Sources.empty() || !(halfExtent > 0.0) || !std::isfinite(halfExtent)) {
     error = Says::Bounds;
     return std::nullopt;
@@ -291,7 +335,8 @@ ImpostorBaker::Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::stri
   for (auto &source : capture.Sources) {
     if (!InstallSource(renderer, std::move(source), surfaces, error)) { return std::nullopt; }
   }
-  auto views = CaptureViews(renderer, centre, halfExtent, shape, surfaces.size(), error);
+  auto views = CaptureViews(
+      renderer, centre, halfExtent, shape, surfaces.size(), capture.ViewDirections, error);
   if (!views) { return std::nullopt; }
   return ImpostorAtlas::Create(
       shape.Pixels, centre, halfExtent, std::move(surfaces), std::move(*views), error);
