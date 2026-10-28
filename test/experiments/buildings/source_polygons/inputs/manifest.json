@@ -1,0 +1,34 @@
+{
+  "source": "OpenFreeMap / OpenStreetMap contributors",
+  "attribution": "https://www.openstreetmap.org/copyright",
+  "scope": "Full building-ring exports from the two preserved native vector inputs used by issue #1578; not current upstream data. Hashes identify fixed research inputs, not original OSM buildings.",
+  "observed_extent": 4096,
+  "observed_buffer_units": 64,
+  "files": [
+    {
+      "file": "tile-14-8744-5704.json",
+      "sha256": "2233c832c1e83a7cbbf8bb23b896b303294a83ee3ce7fe0c85b2203a07db9a6f",
+      "native_asset_key": "027317a0bc70f7bf1828324e46a801106692a2563566b65ab52bc6ffc77d2046",
+      "tile": [
+        14,
+        8744,
+        5704
+      ],
+      "source_input_digest": "f8a80310f189e94d5f3f5f0b8f9a8167b083dfd503c2a45a74bd26d8c8911d80"
+    },
+    {
+      "file": "tile-14-8744-5705.json",
+      "sha256": "190281c0bb74302d46177cc7a5f1699eedeccb7f755c440f3efb56afdf17e873",
+      "native_asset_key": "6a2a3f8c777862898933690c3521c38b0ade69b9f3c323eb528f61a9293a0d7d",
+      "tile": [
+        14,
+        8744,
+        5705
+      ],
+      "source_input_digest": "fc433eb129d174ac96964832d6c0a81e2ad377671d4b8eb6a971a8567200d373"
+    }
+  ],
+  "native_library_commit": "56b3188f5575e66c650e166c8e82766e62049ffb",
+  "exporter_sha256": "ac1cdde293d2d9e54ceb00c9097b07c6966a40316ffcb80559f05cdbbe841e2d",
+  "export_method": "OsmField::DecodeNativeTile, every polygon feature in the buildings layer, every original ring and decoded lat/lon point; attributes hashed by sorted keys with typed values."
+}
