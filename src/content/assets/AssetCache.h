@@ -68,6 +68,9 @@ public:
 
   [[nodiscard]] size_t StoredBytes() const noexcept { return Bytes_.size(); }
 
+  // C++ object/buffer capacities, including inline strings; excludes allocator overhead.
+  [[nodiscard]] size_t CapacityBytes() const noexcept;
+
 private:
   friend class AssetCache;
   PreparedAssetWrite() = default;

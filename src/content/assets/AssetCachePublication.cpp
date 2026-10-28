@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <mutex>
 #include <span>
 #include <string_view>
@@ -14,6 +15,29 @@
 #include <zlib.h>
 
 namespace outshine {
+size_t PreparedAssetWrite::CapacityBytes() const noexcept {
+  size_t bytes = sizeof(*this);
+  const auto add = [&bytes](size_t count) {
+    bytes = count > std::numeric_limits<size_t>::max() - bytes ? std::numeric_limits<size_t>::max()
+                                                               : bytes + count;
+  };
+  const auto text = [&add](const std::string &value) {
+    add(value.capacity());
+    add(1);
+  };
+  add(Bytes_.capacity());
+  add(Records_.capacity() * sizeof(AssetRecord));
+  text(Key_);
+  for (const auto &record : Records_) {
+    text(record.Key);
+    text(record.Kind);
+    text(record.Package);
+    text(record.Parent);
+    if (record.RequestKey) { text(*record.RequestKey); }
+  }
+  return bytes;
+}
+
 struct AssetCache::Publication {
   std::span<const AssetRecord> Records;
   std::span<const uint8_t> Bytes;
