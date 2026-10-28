@@ -290,6 +290,33 @@ void MissingSourcesAreNotPublished() {
   const auto rejected = BuildingPlaneCapture::Prepare(invalid);
   CHECK(!rejected && rejected.error().Source == 0, "null source metadata is rejected explicitly");
 }
+
+void ExplicitFramesAreValidatedBeforeSourceIO() {
+  auto fixture = Make();
+  if (!fixture) { return; }
+  const std::array sources{fixture->Index.Surfaces.data(), &fixture->Index.Surfaces[1]};
+  const auto producer = BuildingPlaneCapture::Prepare(sources);
+  if (!producer) { return; }
+  auto view = ViewOf(*fixture);
+  const auto standard = ImpostorViewFrame::From(view.TowardEye);
+  CHECK(standard, "the original fixed direction has a valid capture basis");
+  if (!standard) { return; }
+  const ImpostorViewFrame rolled{.Right = standard->Up, .Up = standard->Right * -1.0};
+  const std::array invalid{ImpostorViewFrame{.Right = rolled.Right * 2.0, .Up = rolled.Up},
+                           ImpostorViewFrame{.Right = rolled.Right, .Up = rolled.Up * -1.0},
+                           ImpostorViewFrame{.Right = view.TowardEye, .Up = rolled.Up}};
+  for (const auto &frame : invalid) {
+    view.Frame = frame;
+    const auto result = producer->Capture(view, {.Samples = 4096, .SourceTests = 100000});
+    CHECK(!result && result.error().Kind == BuildingPlaneCapture::ErrorKind::InvalidInput &&
+              (*fixture->Loads)[0] + (*fixture->Loads)[1] == 0,
+          "nonunit, reflected and nonorthogonal frames fail before shape IO");
+  }
+  view.Frame = rolled;
+  const auto result = producer->Capture(view, {.Samples = 4096, .SourceTests = 100000});
+  CHECK(result && result->Covered > 0 && result->Rays == 4096,
+        "a right-handed rolled capture retains the requested source coordinate frame");
+}
 }
 
 int main() {
@@ -297,5 +324,6 @@ int main() {
   MissingSourcesAreNotPublished();
   ProvenHiddenBoundsAvoidIO();
   CancellationDuringSourceLoadIsTerminal();
+  ExplicitFramesAreValidatedBeforeSourceIO();
   return Report();
 }

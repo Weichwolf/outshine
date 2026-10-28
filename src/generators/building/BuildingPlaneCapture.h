@@ -3,6 +3,7 @@
 
 #include "BuildingSurface.h"
 #include "PlanHierarchy.h"
+#include "ImpostorViewFrame.h"
 #include "StructureMesher.h"
 #include "Vec3.h"
 #include <cstddef>
@@ -21,6 +22,7 @@ public:
     Vec3 Centre, TowardEye;
     double HalfExtentM = 0;
     uint32_t Pixels = 0;
+    std::optional<ImpostorViewFrame> Frame = std::nullopt;
   };
 
   struct Budget {

@@ -23,6 +23,21 @@ bool Finite(const Vec3 &point) {
   return std::ranges::all_of(point, [](double value) { return std::isfinite(value); });
 }
 
+std::optional<ImpostorViewFrame> CaptureFrame(const Capture::View &view) {
+  const auto standard = ImpostorViewFrame::From(view.TowardEye);
+  if (!standard || !view.Frame) { return standard; }
+  const auto &frame = *view.Frame;
+  constexpr double tolerance = 1e-12;
+  if (!Finite(frame.Right) || !Finite(frame.Up) ||
+      std::abs(Dot(frame.Right, frame.Right) - 1) > tolerance ||
+      std::abs(Dot(frame.Up, frame.Up) - 1) > tolerance ||
+      std::abs(Dot(frame.Right, view.TowardEye)) > tolerance ||
+      Dot(Cross(view.TowardEye, frame.Right), frame.Up) < 1 - tolerance) {
+    return std::nullopt;
+  }
+  return frame;
+}
+
 struct Work {
   std::span<const BuildingSurface *const> Sources;
   const PlanHierarchy &Hierarchy;
@@ -186,7 +201,7 @@ BuildingPlaneCapture::Prepare(std::span<const BuildingSurface *const> sources) {
 std::expected<BuildingPlaneCapture::Result, BuildingPlaneCapture::Error>
 BuildingPlaneCapture::Capture(const View &view, Budget budget, std::stop_token stopping) const {
   if (stopping.stop_requested()) { return std::unexpected(Error{.Kind = ErrorKind::Cancelled}); }
-  const auto frame = ImpostorViewFrame::From(view.TowardEye);
+  const auto frame = CaptureFrame(view);
   if (!frame || !Finite(view.Centre) || !std::isfinite(view.HalfExtentM) || view.HalfExtentM <= 0 ||
       view.HalfExtentM > std::numeric_limits<double>::max() / 5 || view.Pixels == 0) {
     return std::unexpected(Error{.Kind = ErrorKind::InvalidInput});
