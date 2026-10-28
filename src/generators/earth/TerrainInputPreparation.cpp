@@ -161,6 +161,7 @@ TerrainInputPreparation::PrepareFields(const Patchwork &candidate,
     switch (status) {
       case ::outshine::Ground::TilePool::Reply::Ready:
         if (!field) { return std::unexpected("a ready height field has no data"); }
+        FieldHeapBytes_ += field->HeapBytes();
         Fields_.emplace_back(request.Tile, std::move(field));
         break;
       case ::outshine::Ground::TilePool::Reply::Absent:
@@ -326,11 +327,9 @@ std::optional<double> TerrainInputPreparation::AslMAt(int zoom, LongitudeLatitud
 
 size_t TerrainInputPreparation::HeapBytes() const noexcept {
   size_t bytes = Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
-                 Requests_.capacity() * sizeof(FieldRequest);
+                 Requests_.capacity() * sizeof(FieldRequest) +
+                 (Fields_.empty() ? 0u : FieldHeapBytes_);
   if (Metadata_) { bytes += Metadata_->HeapBytes(); }
-  for (const auto &entry : Fields_) {
-    if (entry.second) { bytes += entry.second->HeapBytes(); }
-  }
   return bytes;
 }
 

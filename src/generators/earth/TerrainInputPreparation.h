@@ -96,6 +96,7 @@ public:
 
   void Reset() {
     Fields_.clear();
+    FieldHeapBytes_ = 0;
     Metadata_.reset();
     Requests_.clear();
     NextRequest_ = 0;
@@ -118,6 +119,7 @@ private:
   ::outshine::Ground::TerrainRevisionIndex::Reservation Metadata_;
   std::vector<std::pair<Data::TileId, std::shared_ptr<const ::outshine::Ground::TerrainField>>>
       Fields_;
+  size_t FieldHeapBytes_ = 0;
   std::vector<FieldRequest> Requests_;
   size_t NextRequest_ = 0;
   size_t ResolvedRequests_ = 0;
