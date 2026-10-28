@@ -15,7 +15,7 @@ def mesh_parts(
     prefix="ground_network",
     expected_holes=0,
 ):
-    if type(expected_holes) is not int or not 0 <= expected_holes <= 1:
+    if type(expected_holes) is not int or not 0 <= expected_holes <= 2:
         raise ValueError(prefix + "_hole_budget")
     if any(p.geom_type != "Polygon" or not p.is_valid or p.area <= 0 for p in polygons):
         raise ValueError(prefix + "_invalid_polygon")

@@ -18,9 +18,10 @@ by existing `PortBudget`; use its shared input/mesh/solver/time capacities.
 
 Re-use existing whole junction cores, corridor/terminal bands, GEOS conforming
 part triangulation, DEM lift, affine/C1 fitter and final finite quality checks.
-Two private library helpers accept an explicit expected-hole count, bounded0–1;
+Two private library helpers accept an explicit expected-hole count, bounded0–2;
 default0 still rejects every hole. Only the experimental cycle caller requests
-one. Coverage must be one valid polygon with exactly that many interiors; it
+one; the explicit [two-cycle experiment](ground_two_cycles.py) requests two.
+Coverage must be one valid polygon with exactly that many interiors; it
 does not fill a hole or weaken unrelated overlaps/conformity checks. Reports
 retain the old tree recipe only at the unchanged default. No native/public API,
 asset format, source parser, scheduler or cache system is added.
