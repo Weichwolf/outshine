@@ -72,7 +72,14 @@ def replay(args):
                 value, _, _, _ = stage(context, name)
             if signature(value) != expected[name]:
                 raise ValueError("Traced geometry changed")
-            traces[name] = allocations(path)
+            traces[name] = allocations(path) | {
+                "scope": (
+                    "Warm complete boundary stage: domain,DEM,layout,fit,refinement,"
+                    "2 interior sweeps and whole-output checks; source preparation,"
+                    "independent validation/export/plot/profiler processing excluded. "
+                    "Traced Python allocator; allocation bytes are not copied bytes."
+                )
+            }
     validation, arrays = compare_domains(
         context, {name: value[0] for name, value in results.items()}
     )
