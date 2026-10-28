@@ -27,6 +27,12 @@ struct ImpostorCapture {
   Vec3 LeastM;
   Vec3 MostM;
   std::vector<Vec3> ViewDirections;
+  std::optional<double> HalfExtentM = std::nullopt;
+};
+
+struct ImpostorCaptureProjection {
+  Vec3 Centre;
+  double HalfExtentM = 0;
 };
 
 class ImpostorBaker {
@@ -42,6 +48,9 @@ public:
 
   [[nodiscard]] static std::optional<ImpostorAtlas>
   Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error);
+
+  [[nodiscard]] static std::optional<ImpostorCaptureProjection>
+  ProjectionFor(const ImpostorCapture &capture, ImpostorAtlasShape shape, std::string &error);
 
 private:
   [[nodiscard]] bool Prepare(int pixels, std::string &error);

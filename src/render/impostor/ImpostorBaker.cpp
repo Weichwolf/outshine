@@ -301,8 +301,8 @@ std::optional<std::vector<ImpostorAtlas::View>> CaptureViews(SceneRenderer &rend
 
 }
 
-std::optional<ImpostorAtlas>
-ImpostorBaker::Capture(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
+std::optional<ImpostorCaptureProjection> ImpostorBaker::ProjectionFor(
+    const ImpostorCapture &capture, ImpostorAtlasShape shape, std::string &error) {
   error.clear();
   if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64 ||
       static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels) * shape.Views >
@@ -340,10 +340,28 @@ ImpostorBaker::Capture(ImpostorCapture capture, ImpostorAtlasShape shape, std::s
   }
   const double halfExtent =
       radius * static_cast<double>(shape.Pixels) / static_cast<double>(shape.Pixels - 2);
-  if (capture.Sources.empty() || !(halfExtent > 0.0) || !std::isfinite(halfExtent)) {
+  if (!(halfExtent > 0.0) || !std::isfinite(halfExtent)) {
     error = Says::Bounds;
     return std::nullopt;
   }
+  const double requested = capture.HalfExtentM.value_or(halfExtent);
+  if (!std::isfinite(requested) || requested < halfExtent) {
+    error = Says::Bounds;
+    return std::nullopt;
+  }
+  return ImpostorCaptureProjection{.Centre = centre, .HalfExtentM = requested};
+}
+
+std::optional<ImpostorAtlas>
+ImpostorBaker::Capture(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error) {
+  const auto projection = ProjectionFor(capture, shape, error);
+  if (!projection) { return std::nullopt; }
+  if (capture.Sources.empty()) {
+    error = Says::Geometry;
+    return std::nullopt;
+  }
+  const auto &centre = projection->Centre;
+  const double halfExtent = projection->HalfExtentM;
   if (!Prepare(shape.Pixels, error)) { return std::nullopt; }
   auto &renderer = *Renderer_;
   const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));

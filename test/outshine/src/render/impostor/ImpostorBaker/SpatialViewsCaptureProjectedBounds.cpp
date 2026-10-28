@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -32,10 +33,41 @@ Render::ImpostorCapture MakeCapture() {
   capture.Sources.push_back({.Mesh = std::move(mesh), .Instances = {Mat4{}}});
   return capture;
 }
+
+void SharedProjectionPrecedesSourceConstruction() {
+  Render::ImpostorCapture metadata;
+  metadata.LeastM = {{-2, 0, -1}};
+  metadata.MostM = {{2, 0, 1}};
+  constexpr double diagonal = 1 / std::numbers::sqrt3;
+  metadata.ViewDirections = {{{0, 1, 0}}, {{0, -1, 0}}, {{diagonal, diagonal, diagonal}}};
+  std::string error;
+  const auto projection =
+      Render::ImpostorBaker::ProjectionFor(metadata, {.Pixels = 17, .Views = 3}, error);
+  CHECK(projection && metadata.Sources.empty(),
+        "compact bounds and directions determine the shared raster before source construction");
+  if (!projection) { return; }
+  Render::ImpostorBaker baker;
+  for (const auto &direction : metadata.ViewDirections) {
+    auto capture = MakeCapture();
+    capture.ViewDirections = {direction};
+    capture.HalfExtentM = projection->HalfExtentM;
+    const auto atlas = baker.Capture(std::move(capture), {.Pixels = 17, .Views = 1}, error);
+    CHECK(atlas && atlas->CentreM() == projection->Centre &&
+              atlas->HalfExtentM() == projection->HalfExtentM,
+          "independently generated views retain the exact common source projection");
+  }
+  metadata.HalfExtentM = projection->HalfExtentM * .5;
+  CHECK(!Render::ImpostorBaker::ProjectionFor(metadata, {.Pixels = 17, .Views = 3}, error),
+        "an explicit projection cannot clip the declared source bounds or padding");
+  metadata.HalfExtentM = std::numeric_limits<double>::infinity();
+  CHECK(!Render::ImpostorBaker::ProjectionFor(metadata, {.Pixels = 17, .Views = 3}, error),
+        "nonfinite explicit projection is rejected before source or GPU work");
+}
 }
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
+  SharedProjectionPrecedesSourceConstruction();
   std::string error;
   {
     auto capture = MakeCapture();
