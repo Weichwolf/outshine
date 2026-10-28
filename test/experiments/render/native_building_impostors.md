@@ -155,6 +155,28 @@ needed for the field. Do not add these overlapping scopes or treat the repeated
 render as a changed-light update. Integer-footprint filtering explicitly rounds to
 half precision before storage; native checks compare against independent integrals.
 
+The executing diagnostic consumer retains exactly its last successful field. Its
+reuse key binds raw source/view identity, eye position, focal length, sun elevation
+and the optional source snapshot. The source shading profile is fixed in this
+consumer. Changed producer inputs rebuild; query names and presentation-only
+sampling do not. Original-geometry comparisons always rebuild because they have
+no immutable source identity. Retention adds no global cache or worker scheduler.
+`field_renders` / `field_reuses` count actual preparation versus retention;
+`field_resolve_ms` includes key lookup and any preparation. On reuse, source load,
+source readback and field preparation/setup/GPU work are zero; presentation still
+runs and its time is separate. This is not a whole-frame performance claim.
+
+```sh
+python test/experiments/render/replay_radiance_reuse.py \
+  --client "$build/test_experiments_render_NativeBuildingImpostors" \
+  --warm "$previous_replay/warm" --output "$new_system_temp_directory"
+```
+
+The source-free replay exercises repeat, A/B/A lighting, eye, focal length,
+snapshot and catalogue-view changes. Reused and freshly rebuilt repeated inputs
+must yield identical final raw outputs. It verifies one render device, no source
+capture/writes and zero repeated field work. Outputs are losslessly compressed.
+
 A query's diagnostic `filter_axis_samples` selects 1..128 physical samples per axis;
 default 4 retains the existing `.ss16` output. Other counts write `.ss<N²>`.
 This is a component convergence control, independent of the Places frame protocol.

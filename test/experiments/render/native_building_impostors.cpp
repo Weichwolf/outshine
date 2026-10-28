@@ -571,6 +571,59 @@ ImpostorAtlas ResolveSourceField(const Content::ImpostorViewAssets &products,
   return std::move(*loaded);
 }
 
+struct RadianceRequest {
+  const Content::ImpostorViewAssets &Products;
+  BuildingViewSource &Source;
+  size_t View;
+  const Json &Query;
+  const Geometry *Original = nullptr;
+};
+
+struct RetainedRadiance {
+  std::optional<Test::BuildingRadianceField> Field;
+  std::string Key;
+  bool Reused = false, SourceHit = false;
+  double LoadMs = 0, ResolveMs = 0;
+  size_t ReadbackBytes = 0;
+  size_t Writes = 0, Renders = 0, Reuses = 0;
+
+  Test::BuildingRadianceField &Resolve(Render::SceneRenderer &renderer,
+                                       const RadianceRequest &request) {
+    const auto began = Clock::now();
+    const auto &query = request.Query;
+    const auto key = Json{{"source", request.Products.FieldKey({request.View})},
+                          {"eye", query.at("eye")},
+                          {"focal_px", query.at("focal_px")},
+                          {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
+                          {"source_snapshot", query.value("dump_source_field", true)}}
+                         .dump();
+    Reused = false;
+    SourceHit = true;
+    LoadMs = 0;
+    if (Field && Key == key && request.Original == nullptr) {
+      Reused = true;
+      Field->PrepareMs = Field->GpuMs = Field->SetupGpuMs = 0;
+      ReadbackBytes = 0;
+      ++Reuses;
+      ResolveMs = Milliseconds(began);
+      return *Field;
+    }
+    const auto loading = Clock::now();
+    const auto atlas =
+        ResolveSourceField(request.Products, request.Source, request.View, SourceHit);
+    LoadMs = Milliseconds(loading);
+    if (!SourceHit) { ++Writes; }
+    auto prepared = Test::PrepareBuildingRadiance(renderer, atlas, 0, query, request.Original);
+    if (!prepared) { Fail(prepared.error()); }
+    auto &field = Field.emplace(std::move(*prepared));
+    ReadbackBytes = field.SourceLinear.size() * sizeof(float);
+    Key = key;
+    ++Renders;
+    ResolveMs = Milliseconds(began);
+    return field;
+  }
+};
+
 void RadianceViews(const Fs::path &root, const Json &input) {
   BuildingViewSource source{
       .AtlasFile = root / "atlas.bin",
@@ -583,7 +636,6 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   const auto products = OpenViewAssets(
       **opened, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   const auto &metadata = products.Metadata();
-  size_t writes = 0;
   Geometry original;
   if (input.contains("field_original")) {
     const Fs::path path(input.at("field_original").get<std::string>());
@@ -594,6 +646,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   }
   size_t creations = 0;
   Render::SceneRenderer renderer{TimedSubmission(creations)};
+  RetainedRadiance retained;
   Json report{{"mode", "radiance-world"}, {"cases", Json::array()}};
   for (const auto &query : input.at("queries")) {
     const Vec3 toward = Vector(query.at("eye")) - metadata.Centre;
@@ -603,32 +656,32 @@ void RadianceViews(const Fs::path &root, const Json &input) {
         view = at;
       }
     }
-    bool hit = true;
-    const auto began = Clock::now();
-    const auto atlas = ResolveSourceField(products, source, view, hit);
-    const double loadMs = Milliseconds(began);
-    if (!hit) { ++writes; }
-    auto field = Test::PrepareBuildingRadiance(
-        renderer, atlas, 0, query, original.parts() > 0 ? &original : nullptr);
-    if (!field) { Fail(field.error()); }
+    const auto &field = retained.Resolve(renderer,
+                                         {.Products = products,
+                                          .Source = source,
+                                          .View = view,
+                                          .Query = query,
+                                          .Original = original.parts() > 0 ? &original : nullptr});
     const auto name = query.at("name").get<std::string>();
-    if (!field->SourceLinear.empty()) {
-      Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
+    if (!field.SourceLinear.empty()) {
+      Write<float>(root / (name + "-source-field.f32"), field.SourceLinear);
     }
-    const std::array colours{field->Radiance};
+    const std::array colours{field.Radiance};
     auto result = DrawWith(
-        renderer, Geometry{}, query, root / (name + "-radiance-world"), &field->Cards, colours);
-    const auto &image = *field->Radiance;
+        renderer, Geometry{}, query, root / (name + "-radiance-world"), &field.Cards, colours);
+    const auto &image = *field.Radiance;
     result.update(
         {{"query", name},
          {"selected_view", view},
-         {"field_prepare_ms", field->PrepareMs},
-         {"field_gpu_ms", field->GpuMs},
-         {"field_setup_gpu_ms", field->SetupGpuMs},
-         {"field_hit", hit},
-         {"field_load_ms", loadMs},
+         {"field_prepare_ms", field.PrepareMs},
+         {"field_gpu_ms", field.GpuMs},
+         {"field_setup_gpu_ms", field.SetupGpuMs},
+         {"field_reused", retained.Reused},
+         {"field_hit", retained.SourceHit},
+         {"field_load_ms", retained.LoadMs},
+         {"field_resolve_ms", retained.ResolveMs},
          {"field_asset_key", products.FieldKey({view})},
-         {"source_readback_bytes", field->SourceLinear.size() * sizeof(float)},
+         {"source_readback_bytes", retained.ReadbackBytes},
          {"resident_image_bytes",
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
     const auto allocations = renderer.FrameGraphAllocationCounts();
@@ -642,7 +695,9 @@ void RadianceViews(const Fs::path &root, const Json &input) {
     report["cases"].push_back(std::move(result));
   }
   report["render_device_creations"] = creations;
-  report["field_writes"] = writes;
+  report["field_renders"] = retained.Renders;
+  report["field_reuses"] = retained.Reuses;
+  report["field_writes"] = retained.Writes;
   report["atlas_read_bytes"] = source.ReadBytes;
   report["atlas_decodes"] = source.Decodes;
   report["captures"] = source.Captures;
