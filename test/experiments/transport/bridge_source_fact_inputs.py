@@ -250,6 +250,12 @@ def load_bridge_source_facts(root, *, budget=None):
         "source_facts_digest": bytes(facts["Digest"]).hex(),
         "scope": "Actual paired native source; physical incidence only within supplied Network, no geographic/ground/contact closure",
     }
+    if version_from_schema(facts["schema"]) == 3:
+        binding.update(
+            source_facts_schema=facts["schema"],
+            source_omissions_digest=bytes(facts["OmissionsDigest"]).hex(),
+            missing_original_ways=facts["MissingWays"],
+        )
     source = source_input(native, recipes, manifest, binding=binding)
     partition, reason, partition_work = read_mvt_node_groups(
         source, 1, facts["NodeGroups"], budget=budget
