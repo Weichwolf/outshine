@@ -1,0 +1,19 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D source;
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D destination;
+
+void main() {
+  ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 size = imageSize(destination);
+  if (any(greaterThanEqual(at, size))) { return; }
+  ivec2 span = textureSize(source, 0) / size;
+  vec4 sum = vec4(0.0);
+  for (int y = 0; y < span.y; ++y) {
+    for (int x = 0; x < span.x; ++x) {
+      sum += texelFetch(source, at * span + ivec2(x, y), 0);
+    }
+  }
+  imageStore(destination, at, sum / float(span.x * span.y));
+}
