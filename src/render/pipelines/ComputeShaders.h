@@ -17,9 +17,7 @@ enum class ComputeShaderId : uint32_t {
   MediumMultiScatter,
   MediumRadiance,
   EnvironmentSpecular,
-  GeometryCull,
   GeometryScan,
-  GeometryCompact,
   TerrainPatchCull,
   TerrainPatchScan,
   TerrainPatchCompact,
@@ -70,17 +68,9 @@ inline constexpr std::array kComputeShaders = {
                                       .UniformBuffers = 1,
                                       .GroupX = 8,
                                       .GroupY = 8}},
-    ComputeShaderDescriptor{
-        .Id = ComputeShaderId::GeometryCull,
-        .Path = "geometryCull.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 5, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::GeometryScan,
                             .Path = "geometryScan.comp.spv",
                             .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .GroupX = 32}},
-    ComputeShaderDescriptor{
-        .Id = ComputeShaderId::GeometryCompact,
-        .Path = "geometryCompact.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 4, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::TerrainPatchCull,
         .Path = "groundPatchCull.comp.spv",

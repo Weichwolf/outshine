@@ -1,0 +1,15 @@
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_references { uvec4 references[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_source { uint source[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Buffer_offsets { uint offsets[]; };
+layout(std430, set = 0, binding = 3) readonly buffer Buffer_bases { uint bases[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_output { uint outputValues[]; };
+layout(std140, set = 2, binding = 0) uniform Uniform_copy { uint count; } copyInput;
+void main() {
+  const uint at = gl_GlobalInvocationID.x;
+  if (at >= copyInput.count) { return; }
+  const uvec4 ref = references[at];
+  const uint offset = offsets[ref.x];
+  if (offset != 0xffffffffu) { outputValues[bases[ref.y] + offset + ref.w] = source[ref.z]; }
+}

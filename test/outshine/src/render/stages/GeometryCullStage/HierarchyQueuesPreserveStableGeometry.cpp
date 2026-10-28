@@ -47,7 +47,7 @@ struct Inputs {
   std::vector<GeometryRoot> Roots;
   std::vector<GeometryClusterTemplate> Templates;
   std::vector<float> Spheres;
-  std::vector<uint32_t> Jobs, Batches, Arguments, Prefix{0}, Source;
+  std::vector<uint32_t> Batches, Arguments, Prefix{0}, Source;
   GpuPlacement Placement{.Current = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   uint32_t Logical = 0;
   uint32_t IndexWords = 0;
@@ -93,11 +93,6 @@ void AddProduct(Inputs &inputs, uint32_t count) {
          .ModelSlot = 1,
          .IndexCapacity = count * 3,
          .Flags = instance == 2 ? 0u : kGeometryRootBound});
-    for (uint32_t at = 0; at < count; ++at) {
-      const auto &one = inputs.Templates[first + at];
-      inputs.Jobs.insert(inputs.Jobs.end(),
-                         {one.SphereIndex, batch, one.RelativeFirstIndex, one.IndexCount});
-    }
     inputs.Logical += count;
     inputs.Prefix.push_back(inputs.Prefix.back() + count / 64 + uint32_t{count % 64 != 0});
     inputs.IndexWords += count * 3;
@@ -115,7 +110,7 @@ Inputs Fixture() {
 
 struct Buffers {
   std::unique_ptr<Buffer> Roots, Templates, Spheres, Placements, Prefix, Source, Pyramid;
-  std::unique_ptr<Buffer> Jobs, Batches, Chunks, ChunkState, Clusters, ClusterState, Visible;
+  std::unique_ptr<Buffer> Chunks, ChunkState, Clusters, ClusterState, Visible;
   std::unique_ptr<Buffer> Kept, Slot, Arguments, Index;
 };
 
@@ -133,8 +128,6 @@ Buffers Uploaded(Device &device, Commands &commands, const Inputs &inputs) {
   result.Prefix = upload(inputs.Prefix);
   result.Source = upload(inputs.Source);
   result.Pyramid = upload(std::array{1.0f});
-  result.Jobs = upload(inputs.Jobs);
-  result.Batches = upload(inputs.Batches);
   result.Chunks = upload(std::vector<uint32_t>(inputs.Prefix.back() * 2 + 16, kGuard));
   result.Clusters = upload(std::vector<uint32_t>(inputs.Logical * 2 + 16, kGuard));
   const auto stateUse =
@@ -172,13 +165,16 @@ void Hierarchy(Device &device,
                Commands &commands,
                Buffers &b,
                const CullView &view,
-               const GeometryHierarchyView &hierarchy) {
+               const GeometryHierarchyView &hierarchy,
+               bool allRoots = false) {
+  auto rootView = view;
+  if (allRoots) { rootView.Planes.fill(0); }
   const std::array root{Storage(0, 0, *b.Roots),
                         Storage(0, 1, *b.Placements),
                         Storage(1, 0, *b.Chunks),
                         Storage(1, 1, *b.ChunkState),
                         Storage(1, 2, *b.Visible),
-                        UniformAt(0, view),
+                        UniformAt(0, rootView),
                         UniformAt(1, hierarchy)};
   Dispatch(device,
            commands,
@@ -226,35 +222,6 @@ void Hierarchy(Device &device,
                            UniformAt(0, view),
                            UniformAt(1, hierarchy)};
   Dispatch(device, commands, "geometrySelectedCompact.comp.spv", compact, 0, b.ClusterState.get());
-}
-
-void Flat(Device &device, Commands &commands, Buffers &b, const CullView &view, uint32_t batches) {
-  const std::array cull{Storage(0, 0, *b.Spheres),
-                        Storage(0, 1, *b.Jobs),
-                        Storage(0, 2, *b.Placements),
-                        Storage(0, 3, *b.Arguments),
-                        Storage(0, 4, *b.Pyramid),
-                        Storage(1, 0, *b.Kept),
-                        UniformAt(0, view)};
-  Dispatch(device,
-           commands,
-           "geometryCull.comp.spv",
-           cull,
-           (view.Jobs + 63) / 64,
-           nullptr,
-           (view.Jobs + 63) / 64);
-  const std::array scan{Storage(0, 0, *b.Kept),
-                        Storage(0, 1, *b.Batches),
-                        Storage(1, 0, *b.Slot),
-                        Storage(1, 1, *b.Arguments)};
-  Dispatch(device, commands, "geometryScan.comp.spv", scan, batches, nullptr, batches);
-  const std::array compact{Storage(0, 0, *b.Jobs),
-                           Storage(0, 1, *b.Source),
-                           Storage(0, 2, *b.Slot),
-                           Storage(0, 3, *b.Arguments),
-                           Storage(1, 0, *b.Index),
-                           UniformAt(0, view)};
-  Dispatch(device, commands, "geometryCompact.comp.spv", compact, view.Jobs, nullptr, view.Jobs);
 }
 
 struct Readback {
@@ -345,19 +312,17 @@ void Run(Device &device, const Inputs &inputs, Case test) {
     referenceView.ErrorPerMetre = 0;
     referenceView.Occludes = 0;
   }
-  Flat(device,
-       *commands,
-       reference,
-       referenceView,
-       static_cast<uint32_t>(inputs.Batches.size() / 2));
+  Hierarchy(device, *commands, reference, referenceView, admitted.View, true);
   if (reuse) {
     const std::array states{GeometryQueueState{}};
     auto reset = Upload(device, *commands, Words(std::span(states)));
     Require(commands->Copy(*reset, *actual.ChunkState, {.Bytes = sizeof(GeometryQueueState)}));
     Require(commands->Copy(*reset, *actual.ClusterState, {.Bytes = sizeof(GeometryQueueState)}));
+    Require(commands->Copy(*reset, *reference.ChunkState, {.Bytes = sizeof(GeometryQueueState)}));
+    Require(commands->Copy(*reset, *reference.ClusterState, {.Bytes = sizeof(GeometryQueueState)}));
     view.Shift[0] = 100;
     Hierarchy(device, *commands, actual, view, hierarchy);
-    Flat(device, *commands, reference, view, static_cast<uint32_t>(inputs.Batches.size() / 2));
+    Hierarchy(device, *commands, reference, view, admitted.View, true);
   }
   auto actualIndex = Download(device, *commands, *actual.Index);
   auto referenceIndex = Download(device, *commands, *reference.Index);
@@ -373,7 +338,7 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   CHECK(Require(device.Wait(token, std::chrono::seconds(10))) == CompletionStatus::Ready,
         "both real GPU paths complete within the offline test budget");
   CHECK(actualIndex.Read(device) == referenceIndex.Read(device),
-        "hierarchy produces exactly the original stable index order including destination guards");
+        "root filtering preserves the all-root reference index order and destination guards");
   CHECK(actualArgs.Read(device) == referenceArgs.Read(device),
         "multiple roots in one batch preserve all five original draw-argument words");
   const auto rootState = chunkState.Read(device);

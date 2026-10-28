@@ -26,7 +26,7 @@ int main() {
           "unknown stages cannot publish an empty or unrelated pipeline");
   }
   const auto depth = *FindComputeShader(ComputeShaderId::DepthPyramid);
-  auto previousCompact = *FindComputeShader(ComputeShaderId::GeometryCompact);
+  auto previousCompact = *FindComputeShader(ComputeShaderId::GeometrySelectedCompact);
   constexpr uint32_t kPreviousCompactGroupX = 128;
   previousCompact.Shape.GroupX = kPreviousCompactGroupX;
   const auto incompatibleCompact = CompileComputePipeline(**device, previousCompact);

@@ -3,6 +3,7 @@
 #include "GpuPlacement.h"
 #include "GeometryHierarchy.h"
 #include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeLeafSelection.h"
 #include "test/harness/render/NativeOfflineDevice.h"
 #include <algorithm>
 #include <array>
@@ -48,7 +49,8 @@ struct Witness {
 
 struct Inputs {
   std::vector<float> Spheres;
-  std::vector<uint32_t> Jobs, Arguments;
+  std::vector<GeometryRoot> Roots;
+  std::vector<GeometryClusterTemplate> Templates;
   std::vector<GpuPlacement> Placements;
   std::vector<Witness> Cases;
 };
@@ -104,7 +106,10 @@ void Add(Inputs &inputs, float distance, float scale, float shear, float target)
   }
   inputs.Cases.push_back(witness);
   inputs.Placements.push_back(placement);
-  inputs.Arguments.insert(inputs.Arguments.end(), {0, 1, 0, 0, batch});
+  inputs.Roots.push_back({.TemplateFirst = batch * 3,
+                          .TemplateCount = 3,
+                          .LogicalFirst = batch * 3,
+                          .ModelSlot = batch});
   std::array<BatchSphere, 3> spheres{
       *root,
       BatchSphere{leaves[0].SelfCenter[0], 0, 0, leaves[0].SelfRadius},
@@ -113,7 +118,7 @@ void Add(Inputs &inputs, float distance, float scale, float shear, float target)
     const auto sphere = static_cast<uint32_t>(inputs.Spheres.size() / kSphereFloats);
     inputs.Spheres.insert(inputs.Spheres.end(), spheres[at].begin(), spheres[at].end());
     inputs.Spheres.insert(inputs.Spheres.end(), {0, 0, 0, 0, 0, kDagRootErr, 0, 0});
-    inputs.Jobs.insert(inputs.Jobs.end(), {sphere, batch, 0, at == 0 ? 6u : 3u});
+    inputs.Templates.push_back({.SphereIndex = sphere, .IndexCount = at == 0 ? 6u : 3u});
   }
 }
 
@@ -225,30 +230,26 @@ std::unique_ptr<Buffer> HierarchyBounds(Device &device,
 }
 
 void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift = {}) {
-  auto pipeline = Require(device.CreateComputePipeline(Shader("geometryCull.comp.spv")));
   auto commands = Require(device.Begin());
   const auto sphereWords = Words(std::span(inputs.Spheres));
   const auto placementWords = Words(std::span(inputs.Placements));
   auto spheres = Upload(device, *commands, sphereWords);
-  auto jobs = Upload(device, *commands, inputs.Jobs);
   auto placements = Upload(device, *commands, placementWords);
-  auto arguments = Upload(device, *commands, inputs.Arguments);
   const std::array<uint32_t, 1> zero{};
   auto pyramid = Upload(device, *commands, zero);
   const std::vector<uint32_t> initial(inputs.Cases.size() * 3 + 16, kRejected);
-  auto kept = Upload(device, *commands, initial);
   View view;
   view.Shift = shift;
   view.Jobs = static_cast<uint32_t>(inputs.Cases.size() * 3);
-  const std::array bindings{
-      Storage(0, 0, *spheres),
-      Storage(0, 1, *jobs),
-      Storage(0, 2, *placements),
-      Storage(0, 3, *arguments),
-      Storage(0, 4, *pyramid),
-      Storage(1, 0, *kept),
-      Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&view, 1))}}};
-  Require(commands->Dispatch(*pipeline, bindings, {.X = (view.Jobs + 63u) / 64u}));
+  auto kept = SelectAllLeaves(device,
+                              *commands,
+                              {.Roots = inputs.Roots,
+                               .Templates = inputs.Templates,
+                               .Spheres = *spheres,
+                               .Placements = *placements,
+                               .Pyramid = *pyramid,
+                               .View = std::as_bytes(std::span(&view, 1)),
+                               .Initial = initial});
   auto hierarchyReadback = HierarchyBounds(device, *commands, inputs, view, *placements);
   auto readback = Require(device.CreateBuffer({.Bytes = kept->Description().Bytes,
                                                .Use = BufferUse::CopyDestination,
@@ -268,7 +269,7 @@ void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift
   Require(device.Unmap(*hierarchyReadback));
   for (size_t at = 0; at < inputs.Cases.size(); ++at) {
     CHECK(roots[at] <= 1 && roots[at] * 6 == actual[at * 3],
-          "the actual Root80 kernel agrees with the qualified guarded sphere selector");
+          "the actual Root80 kernel agrees with the product leaf sphere selector");
     actual[at * 3] = roots[at] * 6;
   }
   CHECK(std::ranges::all_of(std::span(roots).subspan(inputs.Cases.size()),

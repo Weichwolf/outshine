@@ -10,8 +10,11 @@ python3 test/experiments/render/native_vulkan.py --validation --present \
 
 `--present` requires SDL video and a working desktop connection. Without it,
 only offscreen GPU contracts are checked. Private outputs stay in system temp.
+The compute probe uses the production terrain scan followed by the test-only
+`native_scatter.comp`: generic indexed copies exercise storage dependencies and
+recorded resource lifetimes without retaining an alternative geometry renderer.
 The runner links consumers against `build/liboutshine.a`, verifies selected
-native archive members, and records source/archive hashes and the Git revision.
+native archive members against CMake/Ninja inputs, and records source/archive hashes and the Git revision.
 A dirty checkout is explicitly marked. Validation diagnostics fail the run.
 `--device-name` must match the physical device name exactly; an unexpected device
 fails the proof. Declare the corresponding name for another driver or GPU.
