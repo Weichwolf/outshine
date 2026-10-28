@@ -74,6 +74,10 @@ WebTileSource::Collect(const Address &at, Ticket ticket, SourceTransport &transp
   }
   std::optional<Wire::Response> answered = wire.Take();
   if (!answered) { return SourceResponse::Meant(Meaning::Refused); }
+  if ((answered->Status == kHttpOk || answered->Status == kHttpNotFound) &&
+      !AcceptsIdentity(*answered)) {
+    return SourceResponse::Meant(Meaning::Refused, SourceFailureReason::SourceChanged);
+  }
   if (answered->Status == kHttpNotFound) { return SourceResponse::NotFound(); }
   const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
   if (what != Meaning::Bytes) {

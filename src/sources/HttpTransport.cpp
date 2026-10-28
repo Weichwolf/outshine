@@ -124,14 +124,20 @@ HttpTransport::Transfer::~Transfer() {
 }
 
 void HttpTransport::Transfer::ReadHeader(std::string_view line) {
-  if (!Range) { return; }
   if (line.starts_with("HTTP/")) {
+    ResponseHeaders.clear();
     Partial.reset();
     EntityTag.clear();
     InvalidRangeHeaders = false;
     Body.clear();
     return;
   }
+  if (line.size() > Data::MaximumResponseHeaderBytes - ResponseHeaders.size()) {
+    Failure = Data::SourceFailureReason::CapacityRefused;
+    return;
+  }
+  ResponseHeaders.append(line);
+  if (!Range) { return; }
   const auto colon = line.find(':');
   if (colon == std::string_view::npos) { return; }
   const auto name = line.substr(0, colon);
@@ -266,12 +272,13 @@ Data::Wire HttpTransport::Collect(Data::Ticket ticket) {
   auto partial = std::move(done.Partial);
   if (partial) { partial->EntityTag = std::move(done.EntityTag); }
   std::vector<uint8_t> body = std::move(done.Body);
+  std::string responseHeaders = std::move(done.ResponseHeaders);
   Transfers_.erase(found);
   if (failure) { return Data::Wire::Unreachable(*failure); }
   if (status == Data::kHttpPartialContent && partial) {
-    return Data::Wire::Answered(std::move(body), std::move(*partial));
+    return Data::Wire::Answered(std::move(body), std::move(*partial), std::move(responseHeaders));
   }
-  return Data::Wire::Answered(status, std::move(body), retryAfterS);
+  return Data::Wire::Answered(status, std::move(body), retryAfterS, std::move(responseHeaders));
 }
 
 void HttpTransport::RememberCancellation(uint64_t ticket) {
@@ -333,7 +340,7 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
   const auto header = +[](const char *data, size_t, size_t byteCount, void *user) -> size_t {
     auto &active = *static_cast<Transfer *>(user);
     active.ReadHeader(std::string_view(data, byteCount));
-    return byteCount;
+    return active.Failure ? 0 : byteCount;
   };
   const auto progress = +[](void *data, curl_off_t, curl_off_t, curl_off_t, curl_off_t) -> int {
     const auto &active = *static_cast<Transfer *>(data);

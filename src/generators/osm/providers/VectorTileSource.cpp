@@ -52,6 +52,20 @@ VectorTileSource::VectorTileSource(std::string revision,
                                    MvtSchema schema)
     : WebTileSource(
           Declared(std::move(revision), order, absence, std::move(dataset), endpoint, schema),
-          endpoint) {}
+          endpoint) {
+  const auto &declared = Declaration();
+  if (declared.Id == "openfreemap.openmaptiles") {
+    ExpectedRelease_ = "specific PBF planet " + declared.Revision;
+    RevisionEndpoint_ = endpoint.ends_with("/planet/" + declared.Revision + "/{z}/{x}/{y}.pbf");
+  }
+}
+
+bool VectorTileSource::AcceptsIdentity(const Wire::Response &response) const noexcept {
+  if (!ExpectedRelease_) { return true; }
+  if (!RevisionEndpoint_) { return false; }
+  const auto field = SingleResponseHeader(response.Headers, "x-ofm-debug");
+  return field &&
+         (*field == *ExpectedRelease_ || (*field == "empty tile" && response.Body.empty()));
+}
 
 }

@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_VECTORTILESOURCE_H
 
 #include <string>
+#include <optional>
 
 #include "WebTileSource.h"
 #include "MvtSchema.h"
@@ -18,6 +19,12 @@ public:
                    std::string dataset,
                    const std::string &endpoint,
                    MvtSchema schema = MvtSchema::Shortbread);
+
+private:
+  [[nodiscard]] bool AcceptsIdentity(const Wire::Response &response) const noexcept override;
+
+  std::optional<std::string> ExpectedRelease_;
+  bool RevisionEndpoint_ = false;
 };
 
 }
