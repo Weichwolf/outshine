@@ -26,6 +26,14 @@ control-geometry input. Each view builds only its own indexed patches and uses
 one persistent native capture context. Unsupported original ordinals remain in
 `remainder`; omission is not occlusion or a zero-cost native fallback.
 
+Optional request `view` selects one catalogue index before form IO and capture.
+Shared bounds/padding are still planned from the full direction catalogue, so
+the selected capture has exactly the same projection as its full-atlas view.
+The output contains only that view at local index zero; `selected_view` records
+its catalogue identity. Invalid selection fails without reading source forms.
+This provides individual source-view production; automatic asset-miss scheduling
+and the general World producer remain separate integration work.
+
 Outputs: `atlas.bin` with provenance `native-source-planes-impostor-1`,
 `source-result.json`, and view-major linear RGBA material fields `base.linear`.
 Optional request `export_geometry: true` writes the same generated indexed patches

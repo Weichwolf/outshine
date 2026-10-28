@@ -346,6 +346,12 @@ void Run(const Fs::path &inputPath, const Json &request, const Fs::path &output)
               {"least", {bounds.Min[0], bounds.Min[1], bounds.Min[2]}},
               {"most", {bounds.Max[0], bounds.Max[1], bounds.Max[2]}},
               {"half_extent_m", projection->HalfExtentM}};
+  if (request.contains("view")) {
+    const auto selected = request.at("view").get<size_t>();
+    if (selected >= metadata.ViewDirections.size()) { Fail("source view outside catalogue"); }
+    report["selected_view"] = selected;
+    metadata.ViewDirections = {metadata.ViewDirections[selected]};
+  }
   const auto atlas = CapturePlaneViews(*producer,
                                        frame,
                                        metadata,
