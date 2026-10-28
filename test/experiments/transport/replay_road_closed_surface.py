@@ -64,7 +64,15 @@ def original_cases():
     }
 
 
-def stage(cases, method, payload, *, refine_normal_bound=False):
+def stage(
+    cases,
+    method,
+    payload,
+    *,
+    refine_normal_bound=False,
+    affine_lower=False,
+    affine_width_boxes=16,
+):
     began, wall = time.process_time(), time.perf_counter()
     results = {}
     for case in cases:
@@ -75,6 +83,8 @@ def stage(cases, method, payload, *, refine_normal_bound=False):
                 max_payload_bytes=payload,
                 method=method,
                 refine_normal_bound=refine_normal_bound,
+                affine_lower=affine_lower,
+                affine_width_boxes=affine_width_boxes,
             )
         except (ValueError, RuntimeError) as error:
             results[case["ordinal"]] = {
@@ -136,7 +146,11 @@ def replay(args):
     args.output.mkdir(parents=True, exist_ok=False)
     cases, inputs = original_cases()
     names = ("adaptive", "uniform")
-    options = {"refine_normal_bound": args.refine_normal_bound}
+    options = {
+        "refine_normal_bound": args.refine_normal_bound,
+        "affine_lower": args.affine_lower,
+        "affine_width_boxes": args.affine_width_boxes,
+    }
     results = {
         name: stage(cases, name, args.max_payload_bytes, **options)[0] for name in names
     }
@@ -185,6 +199,11 @@ def replay(args):
         "complete_body_error_m": 0.25,
         "per_body_payload_budget_bytes": args.max_payload_bytes,
         **(
+            {"affine_lower_width_boxes": args.affine_width_boxes}
+            if args.affine_lower
+            else {}
+        ),
+        **(
             {
                 "normal_bound_refinement": "one exact Bernstein half-split on failed admission"
             }
@@ -230,6 +249,10 @@ def main():
     parser.add_argument("--max-payload-bytes", type=int, default=8 * 1024 * 1024)
     parser.add_argument("--trace", action="store_true")
     parser.add_argument("--refine-normal-bound", action="store_true")
+    parser.add_argument("--affine-lower", action="store_true")
+    parser.add_argument(
+        "--affine-width-boxes", type=int, choices=(8, 16, 32, 64), default=16
+    )
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.rounds <= 16 or args.max_payload_bytes <= 0:

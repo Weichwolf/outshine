@@ -1,4 +1,4 @@
-"""Whole bounded two-cycle components from the unchanged actual source index."""
+"""Whole bounded cyclic components from the unchanged actual source index."""
 
 import hashlib
 import json
@@ -14,7 +14,13 @@ from outshine_ref.transport.canonical_ports._source import component
 from replay_branched_ground import INPUT
 
 
-def prepare():
+def prepare(*, minimum_cycles=2, maximum_cycles=2, maximum_spans=12):
+    if (
+        any(type(v) is not int for v in (minimum_cycles, maximum_cycles, maximum_spans))
+        or not 2 <= minimum_cycles <= maximum_cycles <= 8
+        or not 5 <= maximum_spans <= 32
+    ):
+        raise ValueError("Bounded cyclic source census required")
     started = time.process_time()
     source, groups, ways, binding, reader = load_bridge_source_facts(INPUT)
     budget = PortBudget()
@@ -41,8 +47,8 @@ def prepare():
             continue
         used = {node for edge in selected for node in spans[edge].nodes}
         if (
-            not 5 <= len(selected) <= 12
-            or len(selected) - len(used) + 1 != 2
+            not 5 <= len(selected) <= maximum_spans
+            or not minimum_cycles <= len(selected) - len(used) + 1 <= maximum_cycles
             or any(
                 spans[e].bridge or spans[e].tunnel or spans[e].layer != 0
                 for e in selected
@@ -75,7 +81,9 @@ def prepare():
         "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "source_index_work": work,
         "source_preparation_cpu_s": time.process_time() - started,
-        "source_admission": "Pending: explicit unregistered two-cycle geometry only; original Unknown/MissingTopology and native fact omissions retained. No original-qualified end contacts or World joins.",
+        "source_admission": "Pending: explicit unregistered two-cycle geometry only; original Unknown/MissingTopology and native fact omissions retained. No original-qualified end contacts or World joins."
+        if minimum_cycles == maximum_cycles == 2
+        else "Pending: explicit unregistered multi-loop geometry only; original Unknown/MissingTopology and native fact omissions retained. No original-qualified end contacts or World joins.",
         "qualified_world_joins": 0,
         "qualified_original_end_contacts": 0,
         "original_normalized_nodes": len(nodes),
