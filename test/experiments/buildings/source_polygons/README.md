@@ -96,6 +96,24 @@ leaves 96 unresolved. This is not worldwide coverage or a dateline test. Missing
 original corners, quantized diagonals and ambiguous overlaps still require
 qualified inputs or another reconstruction procedure.
 
+## Closed observation counts
+
+`python3 check_closed_observations.py` compares proposed geometry multiplicity
+against the complete manifest-checked observation catalogs. For the original
+Rosenheim pair, one shared rational whole predicts the two recorded rings. A
+second, separate cut geometry predicts four observations: the first tile would
+need two copies of its cut ring instead of one, and the second would need a cut
+ring absent from its complete catalog. The controls also retain two actual
+distinct buildings with equal attributes and preserve repeated observations.
+
+This is a conditional counterexample, not a general reconstruction certificate.
+The declared model counts convex, simple, hole-free geometry **after** provider
+merging, then clips and rounds without further simplification, dropout, attribute
+changes or repair. Its applicability to the historical provider is unproven.
+Unknown neighboring inputs remain unclosed; holed and concave candidates are
+outside this model. A supported proposal fits the supplied observation counts;
+it does not prove uniqueness, original OSM identity or World-ready publication.
+
 ## Native integration remains open
 
 These results are geometry candidates, not World-ready products. Existing
