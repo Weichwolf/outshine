@@ -1,4 +1,5 @@
 #include "BuildingImpostorSource.h"
+#include "ImpostorCaptureMaterial.h"
 #include "AssetPublication.h"
 #include "BinaryValueArchive.h"
 #include "GeometryProductCodec.h"
@@ -21,18 +22,22 @@ constexpr double kDirectionNormTolerance = 1e-9;
 
 std::optional<std::vector<uint8_t>> Materials(const std::array<Material, 3> &rows) {
   Geometry geometry;
+  std::vector<Material> captured;
+  captured.reserve(rows.size());
   for (const auto &row : rows) {
-    if (!geometry.addSurface("building-source", row)) { return std::nullopt; }
+    const auto output = CapturedImpostorMaterial(row);
+    if (!output || row.Alpha != AlphaMode::Opaque || row.Unlit ||
+        row.Scattering != ScatteringModel::MetallicRoughness || row.BaseColourMap.bound() ||
+        row.NormalMap.bound() || row.MetalRoughMap.bound() ||
+        !geometry.addSurface("building-source", row)) {
+      return std::nullopt;
+    }
+    captured.push_back(*output);
   }
   std::string error;
   ImpostorAtlas::View blank{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
   blank.Texels.resize(9);
-  const auto supported =
-      ImpostorAtlas::Create(3, {}, 1, {rows.begin(), rows.end()}, {std::move(blank)}, error);
-  if (!supported || std::ranges::any_of(rows, [](const Material &material) {
-        return material.Alpha != AlphaMode::Opaque || material.Unlit ||
-               material.Scattering != ScatteringModel::MetallicRoughness;
-      })) {
+  if (!ImpostorAtlas::Create(3, {}, 1, std::move(captured), {std::move(blank)}, error)) {
     return std::nullopt;
   }
   return EncodeGeometryProduct(geometry, kMaterialBytesMost);

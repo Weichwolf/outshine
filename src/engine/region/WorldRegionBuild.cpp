@@ -134,12 +134,6 @@ private:
 
 constexpr double kPerMille = 1000.0;
 
-constexpr float kWallRoughness = 0.88f;
-constexpr float kTileRed = 0.42f;
-constexpr float kTileGreen = 0.20f;
-constexpr float kTileBlue = 0.14f;
-constexpr float kTileRoughness = 0.72f;
-
 constexpr double kWaterBedM = 2.0;
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
@@ -399,20 +393,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                  Session.Declared.Render.Audits);
   if (!build.Surfaces) {
     Geometry materials;
-    Material walls;
-    for (size_t channel = 0; channel < 3; ++channel) {
-      walls.BaseColour[channel] = Generators::kBuildingWallColour[channel];
-    }
-    walls.Roughness = kWallRoughness;
-    walls.Pattern = SurfacePattern::Facade;
-    Material tiles;
-    tiles.BaseColour[0] = kTileRed;
-    tiles.BaseColour[1] = kTileGreen;
-    tiles.BaseColour[2] = kTileBlue;
-    tiles.Roughness = kTileRoughness;
-    tiles.Pattern = SurfacePattern::Facade;
-    Material metreWalls = walls;
-    metreWalls.Pattern = SurfacePattern::FacadeMetres;
+    const auto [walls, tiles, metreWalls] = Generators::BuildingSurfaceMaterials();
     if (!materials.addSurface("walls", walls) || !materials.addSurface("roofs", tiles) ||
         !materials.addSurface("metre walls", metreWalls)) {
       Error = Says::MaterialCreationFailed;
