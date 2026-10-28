@@ -25,6 +25,19 @@ The shared `ImpostorViewAssets::Resolve` validates a cached product before calli
 its selected-view factory. A failed factory publishes no partial product; a fresh
 hit needs no factory. Admission/coalescing remain with the existing content jobs.
 
+`Generators::BuildingSourceView` owns the native source selection and plane-to-mesh
+conversion. It accepts a retained PreparedStructureTile (including lazy shape blocks),
+selected cells and an explicit frame in the tile-relative source coordinates. Open
+uses headers only, preserves supported and unresolved original ordinals and builds
+the existing capture hierarchy. Capture has sample/source-test/stop limits, transforms
+into the declared local frame and accepts wall/roof/metre materials from its caller.
+Errors preserve kind and original source ordinal; sampling/conversion costs are separate.
+It owns no JSON, file access, provider, cache or GPU object. The diagnostic adapter
+only reads fixed archives and submits the resulting native geometry to its job-local
+baker. Runtime registration from PreparedBuildingAssets and World revision/publication
+remain open. Raw-product identity must bind source/capture/material inputs; a metadata
+hit must not reopen the source forms. This introduces no World error or reuse bound.
+
 An alternative `source_request` object (the fixed `source-plane-request.json`)
 and `source_input` path replace atlas import. On a metadata miss, the common
 `BuildingSourceCapture` owner opens only source headers and plans the shared
@@ -120,6 +133,35 @@ call; no renderer or device crosses Tasks. The diagnostic waits only during offl
 setup and then presents on its executing renderer. Shared consumers, last-consumer
 cancellation, admission rejection, source-free hits and stale metadata are checked
 for both product types. This is not yet the general World demand producer.
+
+`BuildingImpostorSource` is the native PreparedBuildingAssets producer for complete
+opaque source groups. Its canonical recipe key binds the base content key, selected
+cells, intrinsic source frame, capture catalogue/raster and serialized materials.
+Camera, light, caller name and work budgets are not source identity. Metadata hits
+need no building store; field hits never invoke the producer. Only misses load the
+prepared native index/forms. Sample/encoded-byte admission precedes descriptor IO.
+A group with unresolved originals publishes no complete-source metadata and retains
+its original rendering path. This is source-set completeness, not a filtered image,
+LOD, visibility or parent-replacement proof. CPU source state may serve capture jobs;
+each GPU baker lives only inside its executing call. World registration and current
+revision/coverage publication remain open.
+
+The atomic `NativeSourcesStayClosedOnFieldHits` case builds native game assets,
+produces a selected field through AssetPipeline and loads its CPU lease; a new
+producer without a source store replays the cached field. An optional explicit
+prepared-index filename checks real unresolved inputs without loading form packages.
+Normal test runs use only their self-contained fixture.
+
+`ImpostorFieldLoad` bridges a completed asset receipt to a decoded CPU field.
+Start/Poll perform no payload IO or decode; the existing Tasks worker reads and
+validates the current metadata/key and coupled field. Pending returns no field,
+errors/cancelled generations never become ready. A CPU alias retains the publication
+ticket until its final consumer retires; dropping a pending loader cancels without
+waiting and the detached worker owns its remaining state. This stages CPU data;
+it does not choose World replacements, admit an LOD or create GPU resources.
+The byte cap bounds encoded reads, not total decoded/source/GPU working memory.
+The offline diagnostic waits for readiness before presentation; a runtime consumer
+must poll, retain valid parents and validate its current World revision at publication.
 
 The eight fixed controls generate only two raw views. A fresh process with an absent
 source path, zero source-work budget, reversed cell order and renamed queries relights

@@ -99,10 +99,10 @@ public:
   }
 
   [[nodiscard]] const Generators::PreparedStructureTile *PreparedBase() const noexcept {
-    return Base_.get();
+    return Base_ ? Base_->get() : nullptr;
   }
 
-  [[nodiscard]] bool FromPreparedInputs() const noexcept { return Base_ || Basis_; }
+  [[nodiscard]] bool FromPreparedInputs() const noexcept { return (Base_ && *Base_) || Basis_; }
 
   [[nodiscard]] size_t PreparedStructureCount() const noexcept;
   [[nodiscard]] std::span<const Data::TileSourceIdentity> HeightSources() const noexcept;
@@ -132,7 +132,8 @@ private:
   uint32_t Tile_ = 0;
   std::unique_ptr<Generators::RawTile> Raw_;
   std::shared_ptr<const Ground::HeightField> Heights_;
-  std::shared_ptr<const Generators::PreparedStructureTile> Base_;
+  using PreparedBaseOwner = std::shared_ptr<const Generators::PreparedStructureTile>;
+  std::unique_ptr<PreparedBaseOwner> Base_;
   std::shared_ptr<const Generators::PreparedBuildingBasis> Basis_;
   struct NativeProducts;
   std::unique_ptr<NativeProducts> Native_;

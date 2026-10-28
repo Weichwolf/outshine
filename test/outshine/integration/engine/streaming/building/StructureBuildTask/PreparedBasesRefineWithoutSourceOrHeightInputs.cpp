@@ -726,7 +726,7 @@ void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
     auto plan =
         PreparedStructurePlan(record, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
     plan.Prepared = &base.Surfaces[index];
-    for (auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
+    for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
       plan.Coarseness = detail;
       BuildingScratch scratch;
       Raised mesh;
