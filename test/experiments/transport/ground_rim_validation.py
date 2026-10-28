@@ -46,6 +46,48 @@ def validate_rim(result, at, observed):
     }, predicted
 
 
+def domain_grid(domains, spacing, maximum):
+    """Filter bounded scanline spans before retaining the shared fixed XY grid."""
+    x0, y0, x1, y1 = shapely.union_all(list(domains.values())).bounds
+    rows = np.array([np.floor(y0 / spacing), np.ceil(y1 / spacing)])
+    if not np.isfinite(rows).all() or rows[1] - rows[0] + 1 > maximum:
+        raise ValueError("Common terrain validation grid budget")
+    chunks, retained, tested = [], 0, 0
+    for row in range(int(rows[0]), int(rows[1]) + 1):
+        y = row * spacing
+        scanline = shapely.LineString([[x0, y], [x1, y]])
+        spans = []
+        for domain in domains.values():
+            cut = shapely.intersection(domain, scanline)
+            if not cut.is_empty:
+                a, _, b, _ = cut.bounds
+                spans.append((int(np.floor(a / spacing)), int(np.ceil(b / spacing))))
+        merged = []
+        for a, b in sorted(spans):
+            if merged and a <= merged[-1][1] + 1:
+                merged[-1] = (merged[-1][0], max(b, merged[-1][1]))
+            else:
+                merged.append((a, b))
+        for a, b in merged:
+            if b - a + 1 > maximum:
+                raise ValueError("Common terrain validation scanline budget")
+            x = np.arange(a, b + 1) * spacing
+            xy = np.c_[x, np.full(len(x), y)]
+            points = shapely.points(xy)
+            keep = np.logical_or.reduce(
+                [shapely.contains(domain, points) for domain in domains.values()]
+            )
+            tested += len(xy)
+            retained += int(keep.sum())
+            if retained > maximum:
+                raise ValueError("Common terrain validation grid budget")
+            if keep.any():
+                chunks.append(xy[keep])
+    if not chunks:
+        raise ValueError("No terrain validation controls")
+    return np.vstack(chunks), tested
+
+
 def compare_domains(context, results, *, spacing=0.5, maximum_grid_points=65536):
     """Use identical unfitted XY controls where the two actual soil domains overlap."""
     from matplotlib.tri import LinearTriInterpolator, Triangulation
@@ -53,16 +95,7 @@ def compare_domains(context, results, *, spacing=0.5, maximum_grid_points=65536)
     if not np.isfinite(spacing) or spacing <= 0:
         raise ValueError("Positive finite validation spacing required")
     domains = {name: result["domain"] for name, result in results.items()}
-    x0, y0, x1, y1 = shapely.union_all(list(domains.values())).bounds
-    low = np.floor(np.array([x0, y0]) / spacing)
-    high = np.ceil(np.array([x1, y1]) / spacing)
-    count = (high - low + 1).astype(np.int64)
-    if any(count <= 0) or int(count[0]) * int(count[1]) > maximum_grid_points:
-        raise ValueError("Common terrain validation grid budget")
-    x, y = [
-        (np.arange(n) + start) * spacing for n, start in zip(count, low, strict=True)
-    ]
-    xy = np.stack(np.meshgrid(x, y), axis=-1).reshape(-1, 2)
+    xy, tested = domain_grid(domains, spacing, maximum_grid_points)
     points = shapely.points(xy)
     road = context.road
     footprint = shapely.union_all(shapely.polygons(road.vertices[road.triangles, :2]))
@@ -78,7 +111,12 @@ def compare_domains(context, results, *, spacing=0.5, maximum_grid_points=65536)
     if not common.any():
         raise ValueError("No common terrain validation controls")
     arrays = {"validation_xy": xy, "validation_dem_z": observed, "common_soil": common}
-    report = {"spacing_m": spacing, "acquired_dem_points": len(xy), "methods": {}}
+    report = {
+        "spacing_m": spacing,
+        "generated_candidate_grid_points": tested,
+        "acquired_dem_points": len(xy),
+        "methods": {},
+    }
     for name, result in results.items():
         vertices, faces = result["mesh"].vertices, result["mesh"].triangles
         field = LinearTriInterpolator(

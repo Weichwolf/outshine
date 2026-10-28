@@ -12,7 +12,7 @@ from ground_interior import relax_contact
 from ground_rim_contact import build_rim_contact
 from ground_rim_domain import rim_rectangle
 from ground_rim_sampling import RimRecipe
-from ground_rim_validation import compare_domains, validation_points
+from ground_rim_validation import compare_domains, domain_grid, validation_points
 from outshine_ref.contracts import Mesh
 
 
@@ -147,8 +147,24 @@ class ActualOrientedRim(unittest.TestCase):
                 all(row["status"] == "pending" for row in result["candidates"])
             )
 
+    def test_actual_bridge_tops_remain_unburied_in_their_own_original_frame(self):
+        from ground_interior_validation import bridge_composition
+
+        report, _ = bridge_composition(boundary="oriented")
+        self.assertEqual(len(report["bridges"]), 2)
+        for row in report["bridges"]:
+            self.assertGreaterEqual(row["soil_to_top"]["minimum_clearance_m"], -1e-8)
+
 
 class CommonDomainControls(unittest.TestCase):
+    def test_narrow_diagonal_keeps_known_controls_without_allocating_empty_box(self):
+        domain = shapely.Polygon([[0, 0], [100, 100], [101, 99], [1, -1]])
+        xy, tested = domain_grid({"axis": domain, "oriented": domain}, 1.0, 1000)
+        expected = {(float(x), float(x - 1)) for x in range(1, 101)}
+        self.assertEqual(set(map(tuple, xy)), expected)
+        self.assertEqual(len(xy), 100)
+        self.assertLess(tested, 1000)
+
     @staticmethod
     def surface(xy):
         xy = np.asarray(xy, dtype=float)
