@@ -35,7 +35,7 @@ def closed(product):
 
 def shell_sweep(owner):
     prepared, mass = owner.plan.prepared, owner.plan.prepared.local
-    cuts = list(cavities(mass))
+    cuts = list(cavities(mass, roof_access=prepared.roof_access))
     cuts.extend(
         PrismVolume(
             w.identifier,
@@ -107,7 +107,8 @@ def additions(owner):
 
 def stair_columns(owner, poses):
     mass, asset = owner.plan.prepared.mass, owner.facade.physical()
-    low, high = mass.bottom_m - 1, mass.top_m + 1
+    low = mass.bottom_m - 1
+    high = max(mass.top_m + 1, float(poses[:, 2].max()) + 2.90)
     columns = ComponentColumns(asset.floors, low, high)
     minimum, maximum = (
         poses.min(axis=0) - [0.31, 0.31, 1e-7],

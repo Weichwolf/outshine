@@ -1,6 +1,7 @@
 """Shared roof plan, direct far skin and lazy closed near cap above open floors."""
 
 import math
+from dataclasses import replace
 from itertools import pairwise
 
 import numpy as np
@@ -80,8 +81,14 @@ def visible(crown, products):
         xyz = mesh["vertices"][mesh["faces"]]
         vertical = np.ptp(xyz[:, :, 2], axis=1) > 1e-10
         cross = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-        keep = vertical | (
-            (cross[:, 2] > 0) if descriptor.role in ("coping", "service-cap") else False
+        keep = (
+            vertical
+            | (descriptor.role in ("access-cap", "access-header"))
+            | (
+                (cross[:, 2] > 0)
+                if descriptor.role in ("coping", "service-cap")
+                else False
+            )
         )
         pieces.append(
             triangle_surface(
@@ -123,7 +130,12 @@ class RoofedProducts:
         self.plan = plan
         self.draws = {}
         self.body_draws = {}
-        self.body = TerraceProducts(terrace_plan(plan.body), legacy_trim=legacy_trim)
+        terraces = terrace_plan(plan.body)
+        if plan.access is not None:
+            terraces = replace(
+                terraces, prepared=replace(terraces.prepared, roof_access=plan.access)
+            )
+        self.body = TerraceProducts(terraces, legacy_trim=legacy_trim)
         self.roof_components, self.roof_skin = None, None
         self.coarse_roof = (
             world_surface(direct(plan.crown), plan.body.core)

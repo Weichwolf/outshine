@@ -9,6 +9,7 @@ import numpy as np
 import shapely
 from evidence import revision
 from industrial_relief_probe import camera
+from outshine_ref.buildings.modelling import PrismVolume
 from podium_probe import write
 from stepped_source_probe import overview
 from structural_shell_geometry import mesh_section, native
@@ -17,6 +18,7 @@ from terraced_crown_geometry import ROOF_MATERIAL, RoofedProducts
 from terraced_crown_plan import plan
 from terraced_facade_probe import materials
 from terraced_mass_admission import inspect
+from terraced_mass_frame import placed_cut
 from terraced_mass_plan import plan as mass_plan
 from terraced_mass_sources import sources
 from terraced_terrace_geometry import TerraceProducts
@@ -98,9 +100,16 @@ def roof_checks(owner):
     footprint = mesh_section(
         products[0].mesh, products[0].vertex_roots, crown.deck_m - 0.04
     )
-    error = footprint.symmetric_difference(
-        shapely.from_wkb(body.storeys[-1].footprint_wkb)
-    ).area
+    expected = shapely.from_wkb(body.storeys[-1].footprint_wkb)
+    if owner.plan.access is not None:
+        hole = placed_cut(
+            PrismVolume(
+                "roof-opening", shapely.from_wkb(owner.plan.access.opening_wkb), 0, 1
+            ),
+            body.core,
+        ).polygon
+        expected = expected.difference(hole)
+    error = footprint.symmetric_difference(expected).area
     if max(maximum, error, abs(union_volume - volume)) > 1e-7:
         raise ValueError("Actual roof sections, courtyard or disjoint volumes disagree")
     if (
