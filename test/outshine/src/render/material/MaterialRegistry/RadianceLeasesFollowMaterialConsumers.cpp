@@ -3,11 +3,13 @@
 #include "GeometryRenderer.h"
 #include "RenderScene.h"
 #include "RadianceFilter.h"
+#include "UploadQueue.h"
 #include "Gpu.h"
 #include "Check.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeRadiance.h"
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -25,10 +27,12 @@ Geometry Support(Material material) {
   return result;
 }
 
-void Configure(GeometryRenderer &renderer, RenderScene &scene, Native::Device &device) {
+void Configure(GeometryRenderer &renderer, RenderScene &scene, UploadQueue &uploads) {
+  auto &device = uploads.Device();
   Require(scene.Meshes().StandsOn(&device));
   Render::Gpu gpu;
   gpu.Device = &device;
+  gpu.Uploads = &uploads;
   gpu.HdrFormat = Native::Format::Rgba16Float;
   gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
   gpu.Width = gpu.Height = 2;
@@ -39,12 +43,14 @@ void Configure(GeometryRenderer &renderer, RenderScene &scene, Native::Device &d
 
 int main() {
   const auto device = Require(Native::CreateDevice({.Validation = true}));
+  std::chrono::nanoseconds uploadBudget = std::chrono::seconds(5);
+  UploadQueue uploads(*device, uploadBudget);
   const auto source = RadianceSource(*device);
   RadianceFilter filter;
   auto image = Require(filter.Apply(*device, *source, {.WidthPx = 1, .HeightPx = 1}));
   RenderScene scene;
   GeometryRenderer renderer(scene);
-  Configure(renderer, scene, *device);
+  Configure(renderer, scene, uploads);
   MaterialRegistry registry;
   Material material;
   material.Unlit = true;
@@ -82,7 +88,7 @@ int main() {
   CHECK(!lifetime.expired(), "the material consumer owns the image after producer release");
   RenderScene restoredScene;
   GeometryRenderer restored(restoredScene);
-  Configure(restored, restoredScene, *device);
+  Configure(restored, restoredScene, uploads);
   MaterialRegistry copied;
   copied.CopySourcesFrom(registry);
   std::string error;
