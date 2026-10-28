@@ -180,7 +180,7 @@ def replay(args):
                 runs[method].append(result)
                 del _owner, _draw
         if args.trace:
-            from compare_indoor_floors import allocations
+            from allocation_measure import allocations
 
             for method in runs:
                 value, traces[method] = allocations(
