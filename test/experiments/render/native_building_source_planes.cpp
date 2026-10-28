@@ -247,6 +247,9 @@ ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
 void Run(const Fs::path &inputPath, const Json &request, const Fs::path &output) {
   const auto began = Clock::now();
   const auto input = Document(inputPath);
+  if (request.contains("parent") && request.at("parent") != input.at("parent")) {
+    Fail("request/source parent identity mismatch");
+  }
   const auto bytes = Read(inputPath.parent_path() / input.at("index").get<std::string>());
   auto decoded = DecodePreparedStructureIndex(Bytes(bytes), kInputBytesMost);
   if (!decoded || decoded->Structures.size() != decoded->Surfaces.size()) {

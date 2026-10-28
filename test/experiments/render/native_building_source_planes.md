@@ -6,11 +6,13 @@ Owner/decision: #1570/#1127. Reuses the four controls in
 ```sh
 cmake --build "$build" --target test_experiments_render_NativeBuildingSourcePlanes --parallel
 "$build/test_experiments_render_NativeBuildingSourcePlanes" \
-  "$original/input.json" "$request" "$new_output"
+  "$original/input.json" \
+  test/outshine/data/render/building-full-view/source-plane-request.json "$new_output"
 ```
 
-`original` is the protected `original-inputs.tar.gz` extraction. `request` contains
-`cells`, `east`, `north`, `up`, `origin`, `pixels`, `source_tests`, `directions`.
+`original` is the protected `original-inputs.tar.gz` extraction. The fixed request is
+versioned beside it; other requests contain
+`parent`, `cells`, `east`, `north`, `up`, `origin`, `pixels`, `source_tests`, `directions`.
 Axes are orthonormal ECEF directions; origin is relative to the original tile's
 ECEF anchor. Directions use the resulting East/Up/South frame. Existing Python
 tree metadata supplies `east=basis[0]`, `north=basis[1]`, `up=basis[2]`,
