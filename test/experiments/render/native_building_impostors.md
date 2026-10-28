@@ -96,9 +96,14 @@ Selection precedes payload IO; only a missing valid field invokes source capture
 The byte limit is checked before serialization allocation and payload decode; it is
 not a total producer working-memory reservation. A fresh validated hit needs neither
 source headers nor source geometry. One call shares a renderer for field shading
-and presentation, reads back, filters on the CPU and uploads again. It stays in its executing
-call/thread; it is never retained across non-affine source jobs. These are charged
-prototype costs, not a runtime design.
+and presentation. `RadianceFilter` reduces the scene-linear GPU image directly;
+`RadianceImage` retains its producing device, texture, sampler and submission.
+Render material registrations retain that lease across candidate/plan replacement.
+Native source materials and the GPU material layout stay unchanged; the prepared
+unlit binding selects premultiplied-area reconstruction. Lit/opaque consumers are
+rejected. The support quad creates no CPU images or unused moment fields.
+GPU objects stay in the executing renderer/thread, never across non-affine source
+jobs. The general World path still needs its asynchronous producer/LOD admission.
 
 ```sh
 python test/experiments/render/replay_cached_radiance.py \
@@ -135,11 +140,20 @@ Optional `field_original` names the prepared original geometry's `input.json`.
 That control shades the complete original geometry with the same orthographic
 capture frame instead of shading its captured material field. Outputs are
 `radiance-result.json`, `<query>-source-field.f32` (128² linear RGBA for the fixed
-input), and `<query>-radiance-world.{linear,depth,rgba,ss16}`. `field_setup_gpu_ms`
+input), and `<query>-radiance-world.{linear,depth,rgba,ss16}`. Set a query's
+`dump_source_field` to false to omit that diagnostic source readback; rendering and
+filtering then consume no CPU radiance image. `source_readback_bytes`, CPU
+`image_storage_bytes` and declared `resident_image_bytes` are separate scopes.
+The latter excludes driver allocation granularity; actual Metal device allocation
+is reported separately. `field_filter_gpu_ms` is null when native timing retention
+has expired; it must not be read as zero or added to overlapping frame scopes.
+`field_setup_gpu_ms`
 includes initial renderer work; `field_gpu_ms` is the following unchanged field
-render. `field_prepare_ms` includes context creation, waits, readback, CPU filtering
-and assembly. Do not add these overlapping scopes or treat the repeated render
-as a changed-light update. Retained unused moment images are included in image bytes.
+render. `field_prepare_ms` includes context creation, setup waits, optional diagnostic
+readback, GPU filter submission and support assembly. No CPU filtering/reupload is
+needed for the field. Do not add these overlapping scopes or treat the repeated
+render as a changed-light update. Integer-footprint filtering explicitly rounds to
+half precision before storage; native checks compare against independent integrals.
 
 A query's diagnostic `filter_axis_samples` selects 1..128 physical samples per axis;
 default 4 retains the existing `.ss16` output. Other counts write `.ss<N²>`.
@@ -147,5 +161,5 @@ This is a component convergence control, independent of the Places frame protoco
 In very small original geometry, SS16 can be far from the denser finite averages.
 Compare SS16/1024/4096 before attributing a discrepancy to the new representation;
 none is a continuous-integral bound or permission to regenerate existing pins.
-Movement/history, angular error, changed-light scheduling, bounded residency,
-GPU-resident filtering and whole-frame costs remain open under #1570/#1127/#1524.
+Movement/history, angular error, changed-light scheduling, bounded World residency
+and whole-frame costs remain open under #1570/#1127/#1524.

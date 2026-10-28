@@ -154,10 +154,12 @@ void Filtered(Render::SceneRenderer &renderer,
   Write<float>(output.string() + ".ss" + std::to_string(samplesAxis * samplesAxis), average);
 }
 
-std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &renderer,
-                                                       std::unique_ptr<Core::RuntimeScene> &scene,
-                                                       const ImpostorCards &cards,
-                                                       const Vec3 &eye) {
+std::unique_ptr<Render::ImpostorInstances>
+PublishCard(Render::SceneRenderer &renderer,
+            std::unique_ptr<Core::RuntimeScene> &scene,
+            const ImpostorCards &cards,
+            const Vec3 &eye,
+            std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
   Core::WorldCandidate candidate(renderer);
   if (const auto prepared = candidate.Prepare(*scene, nullptr); !prepared) {
     Fail(prepared.error());
@@ -167,7 +169,7 @@ std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &re
   std::unique_ptr<Render::ImpostorInstances> instances;
   {
     const auto edit = renderer.EditWorldCandidate();
-    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error);
+    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error, colours);
     const Mat4 model;
     if (!instances || !instances->Update(std::span(&model, 1), eye, error)) { Fail(error); }
   }
@@ -207,11 +209,23 @@ Render::GpuSubmission TimedSubmission(size_t &creations) {
   return submission;
 }
 
+Json FilterGpuMilliseconds(std::span<const std::shared_ptr<const Render::RadianceImage>> images) {
+  if (images.size() != 1 || !images.front()) { return nullptr; }
+  const auto &image = *images.front();
+  const auto timing = image.Device->SubmissionGpuTime(image.Produced);
+  if (!timing || timing->Status != Render::Native::CompletionStatus::Ready ||
+      !std::isfinite(timing->ElapsedNanoseconds)) {
+    return nullptr;
+  }
+  return timing->ElapsedNanoseconds / 1'000'000.0;
+}
+
 Json DrawWith(Render::SceneRenderer &renderer,
               const Geometry &mesh,
               const Json &query,
               const Fs::path &output,
-              const ImpostorCards *cards = nullptr) {
+              const ImpostorCards *cards = nullptr,
+              std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
   const int samplesAxis = FilterSamples(query);
   const auto began = Clock::now();
   Core::Declaration declaration;
@@ -240,13 +254,14 @@ Json DrawWith(Render::SceneRenderer &renderer,
   scene->Eye(camera);
   if (!scene->Draw(error)) { Fail(error); }
   const auto instances =
-      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM) : nullptr;
+      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM, colours) : nullptr;
   if (instances) {
     scene->Eye(camera);
     if (!scene->Draw(error)) { Fail(error); }
   }
   renderer.WaitForGpu();
   const double setupMs = Milliseconds(began);
+  const Json filterTime = FilterGpuMilliseconds(colours);
   renderer.ResetMeasurements();
   renderer.KeepGpuSamples(24);
   for (size_t frame = 0; frame < 24; ++frame) {
@@ -284,7 +299,8 @@ Json DrawWith(Render::SceneRenderer &renderer,
                  {"setup_ms", setupMs},
                  {"device", renderer.GpuName()},
                  {"gpu_ms", samples},
-                 {"filter_axis_samples", samplesAxis}});
+                 {"filter_axis_samples", samplesAxis},
+                 {"field_filter_gpu_ms", filterTime}});
   return result;
 }
 
@@ -596,17 +612,25 @@ void RadianceViews(const Fs::path &root, const Json &input) {
         renderer, atlas, 0, query, original.parts() > 0 ? &original : nullptr);
     if (!field) { Fail(field.error()); }
     const auto name = query.at("name").get<std::string>();
-    Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
-    auto result =
-        DrawWith(renderer, Geometry{}, query, root / (name + "-radiance-world"), &field->Cards);
-    result.update({{"query", name},
-                   {"selected_view", view},
-                   {"field_prepare_ms", field->PrepareMs},
-                   {"field_gpu_ms", field->GpuMs},
-                   {"field_setup_gpu_ms", field->SetupGpuMs},
-                   {"field_hit", hit},
-                   {"field_load_ms", loadMs},
-                   {"field_asset_key", products.FieldKey({view})}});
+    if (!field->SourceLinear.empty()) {
+      Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
+    }
+    const std::array colours{field->Radiance};
+    auto result = DrawWith(
+        renderer, Geometry{}, query, root / (name + "-radiance-world"), &field->Cards, colours);
+    const auto &image = *field->Radiance;
+    result.update(
+        {{"query", name},
+         {"selected_view", view},
+         {"field_prepare_ms", field->PrepareMs},
+         {"field_gpu_ms", field->GpuMs},
+         {"field_setup_gpu_ms", field->SetupGpuMs},
+         {"field_hit", hit},
+         {"field_load_ms", loadMs},
+         {"field_asset_key", products.FieldKey({view})},
+         {"source_readback_bytes", field->SourceLinear.size() * sizeof(float)},
+         {"resident_image_bytes",
+          size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
     const auto allocations = renderer.FrameGraphAllocationCounts();
     result["framegraph_allocations"] = {{"textures", allocations.Textures},
                                         {"buffers", allocations.Buffers},

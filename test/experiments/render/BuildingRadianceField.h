@@ -2,9 +2,11 @@
 #define OUTSHINE_TEST_BUILDING_RADIANCE_FIELD_H
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
+#include "RadianceImage.h"
 #include <nlohmann/json_fwd.hpp>
 #include <cstddef>
 #include <expected>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -19,6 +21,7 @@ struct BuildingRadianceField {
   double GpuMs = 0;
   double SetupGpuMs = 0;
   std::vector<float> SourceLinear;
+  std::shared_ptr<const Render::RadianceImage> Radiance;
 };
 
 [[nodiscard]] std::expected<BuildingRadianceField, std::string>

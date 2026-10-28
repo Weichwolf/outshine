@@ -62,6 +62,7 @@ struct SDL_Window;
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
+class RadianceFilter;
 
 struct GroundClassUploadMetrics {
   TerrainMaterialBuffersUploadMetrics Storage;
@@ -181,12 +182,8 @@ public:
 
   [[nodiscard]] bool Drew() const { return ActiveState().History.HasSubmittedFrame(); }
 
-  ~SceneRenderer() {
-    WaitForGpu();
-    StopShowing();
-  }
-
-  explicit SceneRenderer(GpuSubmission submission = {}) : Submission_(submission) {}
+  ~SceneRenderer();
+  explicit SceneRenderer(GpuSubmission submission = {});
 
   SceneRenderer(const SceneRenderer &) = delete;
   SceneRenderer &operator=(const SceneRenderer &) = delete;
@@ -216,6 +213,8 @@ public:
   static constexpr float kNearM = static_cast<float>(outshine::Camera::kNearestM);
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
+  [[nodiscard]] std::expected<std::shared_ptr<const RadianceImage>, std::string>
+  FilterSceneRadiance(Extent target);
 
   // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
   [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
@@ -390,12 +389,13 @@ public:
   }
 
   [[nodiscard]] std::expected<MaterialRegistration, std::string>
-  RegisterPieceMaterials(Geometry source) {
+  RegisterPieceMaterials(Geometry source, std::span<const MaterialRadiance> images = {}) {
     auto &content = ActiveContent();
     return content.Scene().Resources().RegisterPieceMaterials(
         content.Geometry(),
         content.DrawsGlass ? &content.Transmission() : nullptr,
-        std::move(source));
+        std::move(source),
+        images);
   }
 
   [[nodiscard]] bool RestorePieceMaterials(std::string &error) {
@@ -1030,6 +1030,7 @@ private:
   [[nodiscard]] Native::Texture *DisplaySource() const;
 
   std::unique_ptr<Native::Device> Device_;
+  std::unique_ptr<RadianceFilter> RadianceFilter_;
   std::chrono::nanoseconds UploadBudget_{};
   std::unique_ptr<UploadQueue> Uploads_;
 
