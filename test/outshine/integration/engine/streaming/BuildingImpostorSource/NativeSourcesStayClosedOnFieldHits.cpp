@@ -1,6 +1,7 @@
 #include "BuildingImpostorSource.h"
 #include "ImpostorViewJob.h"
 #include "ImpostorFieldLoad.h"
+#include "ImpostorMetadataRequest.h"
 #include "AssetPipeline.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
@@ -151,6 +152,39 @@ void Resolve(const std::shared_ptr<AssetCache> &cache,
   CHECK(false, "native field loading terminates within the offline deadline");
 }
 
+std::expected<Content::ImpostorViewAssets, std::string>
+Metadata(const std::shared_ptr<AssetCache> &cache,
+         const std::shared_ptr<BuildingImpostorSource> &source) {
+  Tasks workers(1);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 4096});
+  auto consumer = pipeline.OpenConsumer({.Identity = cache});
+  if (!consumer) { return std::unexpected("native metadata consumer unavailable"); }
+  auto request = ImpostorMetadataRequest::Start(
+      pipeline,
+      *consumer,
+      workers,
+      cache,
+      source->Provenance(),
+      [cache, source](const std::stop_token &stop) {
+        return source->ResolveMetadata(*cache, stop);
+      },
+      256);
+  if (!request) { return std::unexpected("native metadata admission failed"); }
+  const auto until = std::chrono::steady_clock::now() + kDeadline;
+  do {
+    const auto ready = request->Poll();
+    if (!ready) { return std::unexpected(ready.error()); }
+    if (*ready) { return **ready; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  } while (std::chrono::steady_clock::now() < until);
+  return std::unexpected("native metadata request deadline expired");
+}
+
 void Run(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
@@ -194,7 +228,7 @@ void Run(const std::filesystem::path &root) {
   CHECK(!refused && assets->Costs().ReadBytes == before.ReadBytes &&
             assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "sample admission precedes native descriptor and form IO");
-  auto metadata = source->ResolveMetadata(*cache);
+  auto metadata = Metadata(cache, source);
   CHECK(metadata.has_value(), metadata ? "source metadata resolves" : metadata.error().c_str());
   CHECK(assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "native source selection publishes metadata before form reads");
@@ -209,7 +243,7 @@ void Run(const std::filesystem::path &root) {
         "the field miss loads its native source forms");
   const auto after = assets->Costs();
   const auto offline = std::make_shared<BuildingImpostorSource>(recipe, nullptr);
-  auto warm = offline->ResolveMetadata(*cache);
+  auto warm = Metadata(cache, offline);
   CHECK(warm.has_value(), "a new source owner resolves metadata with no source store");
   CHECK(warm && warm->Metadata().WorldFromField && world &&
             warm->Metadata().WorldFromField->Column == world->Column &&
@@ -229,9 +263,9 @@ void Run(const std::filesystem::path &root) {
               std::move(unframed),
               {.Min = raw.AnchorEcef - padding, .Max = raw.AnchorEcef + padding}),
           "an unframed index supplies the independent stale-source counterexample");
-    CHECK(!offline->ResolveMetadata(*cache),
+    CHECK(!Metadata(cache, offline),
           "an unframed native hit cannot invent a World placement without its source");
-    const auto repaired = source->ResolveMetadata(*cache);
+    const auto repaired = Metadata(cache, source);
     CHECK(repaired && repaired->Metadata().WorldFromField && world &&
               repaired->Metadata().WorldFromField->Column == world->Column,
           "the retained native source can repair a missing intrinsic World frame");
