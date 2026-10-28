@@ -20,6 +20,24 @@ using Core::TexelKind;
 using Core::Texels;
 
 struct GeometryResidency {
+  class UploadRecording {
+  public:
+    UploadRecording(UploadRecording &&other) noexcept;
+    ~UploadRecording();
+    UploadRecording(const UploadRecording &) = delete;
+    UploadRecording &operator=(const UploadRecording &) = delete;
+    UploadRecording &operator=(UploadRecording &&) = delete;
+
+  private:
+    friend struct GeometryResidency;
+    explicit UploadRecording(GeometryResidency &owner) noexcept;
+    GeometryResidency *Owner_;
+  };
+
+  // Isolated source construction: submit these commands before publishing, or discard the source.
+  // The residency and commands remain at stable addresses for the recording's lifetime.
+  [[nodiscard]] Native::Result<UploadRecording> RecordUploads(Native::Commands &commands);
+
   void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
 
   [[nodiscard]] size_t TakeUploadAttempts();
@@ -298,6 +316,7 @@ private:
 
   UploadQueue *Uploads_ = nullptr;
   Native::Device *Device_ = nullptr;
+  Native::Commands *UploadCommands_ = nullptr;
   std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;

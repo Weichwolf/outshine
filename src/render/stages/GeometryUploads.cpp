@@ -13,6 +13,27 @@
 #include <utility>
 
 namespace outshine::Render {
+GeometryResidency::UploadRecording::UploadRecording(GeometryResidency &owner) noexcept
+    : Owner_(&owner) {}
+
+GeometryResidency::UploadRecording::UploadRecording(UploadRecording &&other) noexcept
+    : Owner_(std::exchange(other.Owner_, nullptr)) {}
+
+GeometryResidency::UploadRecording::~UploadRecording() {
+  if (Owner_ != nullptr) { Owner_->UploadCommands_ = nullptr; }
+}
+
+Native::Result<GeometryResidency::UploadRecording>
+GeometryResidency::RecordUploads(Native::Commands &commands) {
+  if (Device_ == nullptr || UploadCommands_ != nullptr) {
+    return std::unexpected(Native::Error{
+        .Kind = Native::ErrorKind::Invalid,
+        .Message = "upload recording requires a device and only one active recording"});
+  }
+  UploadCommands_ = &commands;
+  return UploadRecording(*this);
+}
+
 namespace {
 bool MatchesUsage(const Native::Buffer &buffer, Native::UseMask<Native::BufferUse> usage) {
   const auto wanted = static_cast<uint32_t>(usage);
@@ -48,6 +69,11 @@ Native::Result<void> GeometryResidency::SubmitPendingUploads() {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "uploads require a device"});
   }
+  if (UploadCommands_ != nullptr) {
+    const auto copied = RecordCrossings(*UploadCommands_);
+    if (copied) { CommitCrossings(); }
+    return copied;
+  }
   auto commands = BeginUpload(*Device_, Uploads_);
   if (!commands) { return std::unexpected(commands.error()); }
   const auto copied = RecordCrossings(**commands);
@@ -59,6 +85,7 @@ Native::Result<void> GeometryResidency::SubmitPendingUploads() {
 }
 
 Native::Result<void> GeometryResidency::Cross(std::span<Crossing> what, bool deferred) {
+  deferred = deferred || UploadCommands_ != nullptr;
   const auto measured = UploadBytes(what);
   if (!measured || Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -267,6 +294,7 @@ Native::Result<void> GeometryResidency::Submit(std::span<Crossing> what, uint32_
 }
 
 Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
+  need.Deferred = need.Deferred || UploadCommands_ != nullptr;
   if (static_cast<size_t>(which) >= kStreams || Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "invalid resident stream growth"});

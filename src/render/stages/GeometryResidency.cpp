@@ -10,8 +10,9 @@
 namespace outshine::Render {
 
 Native::Result<void> GeometryResidency::StandsOn(Native::Device *device) {
-  if (device == nullptr || (Device_ != nullptr && Device_ != device &&
-                            (HeldBytes() != 0 || StagedCount_ != 0 || !StagedImages_.empty()))) {
+  if (device == nullptr || (UploadCommands_ != nullptr && device != Device_) ||
+      (Device_ != nullptr && Device_ != device &&
+       (HeldBytes() != 0 || StagedCount_ != 0 || !StagedImages_.empty()))) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "resident streams require their original device"});

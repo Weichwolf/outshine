@@ -17,6 +17,7 @@
 namespace outshine::Render {
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::Bind(const RadianceImage &image,
                                                                       ImageUploadMode mode) {
+  if (UploadCommands_ != nullptr) { mode = ImageUploadMode::Deferred; }
   if (Device_ == nullptr || image.Device != Device_ || !image.Texture || !image.Sampling ||
       image.Produced.Device == 0 || image.Produced.Serial == 0) {
     return std::unexpected(
@@ -75,6 +76,7 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels, ImagePixel
 
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
     const MaterialTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
+  if (UploadCommands_ != nullptr) { mode = ImageUploadMode::Deferred; }
   if (mode == ImageUploadMode::Immediate) {
     const auto flushed = SubmitPendingUploads();
     if (!flushed) { return std::unexpected(flushed.error()); }
