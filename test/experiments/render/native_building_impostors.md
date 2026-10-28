@@ -25,6 +25,19 @@ The shared `ImpostorViewAssets::Resolve` validates a cached product before calli
 its selected-view factory. A failed factory publishes no partial product; a fresh
 hit needs no factory. Admission/coalescing remain with the existing content jobs.
 
+`Generators::BuildingSourceView` owns the native source selection and plane-to-mesh
+conversion. It accepts a retained PreparedStructureTile (including lazy shape blocks),
+selected cells and an explicit frame in the tile-relative source coordinates. Open
+uses headers only, preserves supported and unresolved original ordinals and builds
+the existing capture hierarchy. Capture has sample/source-test/stop limits, transforms
+into the declared local frame and accepts wall/roof/metre materials from its caller.
+Errors preserve kind and original source ordinal; sampling/conversion costs are separate.
+It owns no JSON, file access, provider, cache or GPU object. The diagnostic adapter
+only reads fixed archives and submits the resulting native geometry to its job-local
+baker. Runtime registration from PreparedBuildingAssets and World revision/publication
+remain open. Raw-product identity must bind source/capture/material inputs; a metadata
+hit must not reopen the source forms. This introduces no World error or reuse bound.
+
 An alternative `source_request` object (the fixed `source-plane-request.json`)
 and `source_input` path replace atlas import. On a metadata miss, the common
 `BuildingSourceCapture` owner opens only source headers and plans the shared
