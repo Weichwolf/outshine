@@ -12,7 +12,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
-#include <barrier>
+#include <latch>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -268,7 +268,7 @@ void ParallelReplay(const std::filesystem::path &root,
   if (cells.size() != 2) { return; }
   constexpr size_t kWorkers = 4;
   std::array<std::optional<BakedTile>, kWorkers * 2> results;
-  std::barrier start(static_cast<std::ptrdiff_t>(kWorkers + 1));
+  std::latch start(static_cast<std::ptrdiff_t>(kWorkers + 1));
   std::atomic_uint failed{0};
   std::vector<std::thread> readers;
   readers.reserve(kWorkers);
