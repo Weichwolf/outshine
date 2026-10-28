@@ -64,6 +64,11 @@ def qualify_contact(road, result):
         corners = result["rim_profile"]["corner_vertex_ids"]
         x0, y0, x1, y1 = result["domain"].bounds
         expected = {(x0, y0), (x1, y0), (x1, y1), (x0, y1)}
+        if result["rim_profile"]["recipe"].get("boundary", "axis") == "oriented":
+            rectangle = np.asarray(result["rim_profile"].get("rectangle_corners_xy"))
+            if rectangle.shape != (4, 2) or not np.isfinite(rectangle).all():
+                raise ValueError("contact_oriented_rectangle_corners_missing")
+            expected = set(map(tuple, rectangle))
         if (
             len(corners) != 4
             or set(map(tuple, mesh.vertices[corners, :2])) != expected

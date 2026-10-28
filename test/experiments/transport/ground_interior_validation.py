@@ -58,7 +58,7 @@ def validate(mesh, inputs):
     }
 
 
-def bridge_composition():
+def bridge_composition(*, boundary="axis"):
     from bridge_end_body import build_end_body
     from bridge_end_surface_inputs import actual_end_inputs
     from ground_contact import ContactLimits
@@ -66,6 +66,7 @@ def bridge_composition():
     from ground_contact_inputs import ContactContext, load_context
     from ground_interior import relax_contact
     from ground_rim_contact import build_rim_contact
+    from ground_rim_sampling import RimRecipe
 
     _, index, prepared, ground, _ = actual_end_inputs()
     template = load_context()
@@ -84,6 +85,7 @@ def bridge_composition():
         context.road_dem_z,
         context.sample_z,
         limits=ContactLimits(margins_m=(15.0,)),
+        recipe=RimRecipe(boundary=boundary),
     )
     result = relax_contact(context.road, base, context.sample_z)
     quality = qualify_contact(context.road, result)

@@ -5,8 +5,69 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import Normalize
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+
+def draw_domains(context, results, arrays, output):
+    figure = plt.figure(figsize=(13, 10), layout="constrained")
+    combined = np.vstack([value[0]["mesh"].vertices for value in results.values()])
+    low, high = combined.min(axis=0), combined.max(axis=0)
+    datum = low[2]
+    panels = []
+    for column, (name, (result, _, _, _)) in enumerate(results.items()):
+        mesh = result["mesh"]
+        vertices, faces = mesh.vertices, mesh.triangles
+        axis = figure.add_subplot(2, 2, column + 1, projection="3d")
+        count = len(context.road.triangles)
+        for indices, color in ((faces[count:], "#baae89"), (faces[:count], ".25")):
+            triangles = vertices[indices].copy()
+            triangles[:, :, 2] -= datum
+            axis.add_collection3d(
+                Poly3DCollection(
+                    triangles, facecolor=color, edgecolor=".45", linewidth=0.25
+                )
+            )
+        axis.set(
+            xlim=(low[0], high[0]),
+            ylim=(low[1], high[1]),
+            zlim=(0, high[2] - datum),
+            xlabel="East m",
+            ylabel="North m",
+            zlabel=f"Height minus {datum:.2f}m",
+            title=f"{name}: {len(vertices)} vertices/{len(faces)} faces",
+        )
+        axis.set_box_aspect(high - low)
+        axis.view_init(elev=25, azim=-65)
+        panel = figure.add_subplot(2, 2, column + 3)
+        panels.append(panel)
+        mask = arrays[name + "_soil"]
+        xy, error = arrays["validation_xy"][mask], arrays[name + "_error"][mask]
+        panel.scatter(
+            xy[:, 0], xy[:, 1], c=error, s=3, cmap="coolwarm", norm=Normalize(-4, 4)
+        )
+        panel.triplot(vertices[:, 0], vertices[:, 1], faces, color=".4", linewidth=0.2)
+        panel.set(
+            aspect="equal",
+            xlim=(low[0], high[0]),
+            ylim=(low[1], high[1]),
+            xlabel="East m",
+            ylabel="North m",
+            title=f"{name}: independent 0.5m-grid terrain error",
+        )
+    figure.colorbar(
+        plt.cm.ScalarMappable(norm=Normalize(-4, 4), cmap="coolwarm"),
+        ax=panels,
+        label="Mesh minus original bound DEM m",
+        shrink=0.7,
+    )
+    figure.suptitle(
+        "Same original road,15m margin,soil grade2/3,64 rim+128 free vertices\n"
+        "Different explicit boundaries; local C0 geometry, no World/PBR/device acceptance"
+    )
+    figure.savefig(output / "oriented-rim-comparison.png", dpi=150)
+    plt.close(figure)
 
 
 def draw(context, results, at, observed, arrays, output):

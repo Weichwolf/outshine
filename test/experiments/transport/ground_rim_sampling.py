@@ -14,10 +14,12 @@ class RimRecipe:
     maximum_dem_points: int = 128
     midpoint_error_m: float = 0.25
     maximum_adjustment_m: float = 2.0
+    boundary: str = "axis"
 
     def __post_init__(self):
         if (
-            self.sampling not in ("uniform", "adaptive")
+            self.boundary not in ("axis", "oriented")
+            or self.sampling not in ("uniform", "adaptive")
             or type(self.segments_per_side) is not int
             or not 1 <= self.segments_per_side <= 16
             or type(self.maximum_vertices) is not int
@@ -37,6 +39,8 @@ class RimRecipe:
             and 4 * self.segments_per_side > self.maximum_vertices
         ):
             raise ValueError("Uniform rim vertex budget")
+        if self.boundary == "oriented":
+            object.__setattr__(self, "version", "outshine/local-oriented-terrain-rim/1")
 
 
 def sample_values(sample_z, xy):
