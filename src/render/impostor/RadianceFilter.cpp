@@ -1,6 +1,7 @@
 #include "RadianceFilter.h"
 #include "PipelineFactory.h"
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <expected>
 #include <utility>
@@ -59,10 +60,14 @@ Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
       Native::Binding{
           .Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = {.Image = &destination}}}};
   constexpr auto shape = FindComputeShader(ComputeShaderId::RadianceFilter)->Shape;
-  return commands.Dispatch(*Pipeline_,
-                           bindings,
-                           {.X = (to.Width + shape.GroupX - 1) / shape.GroupX,
-                            .Y = (to.Height + shape.GroupY - 1) / shape.GroupY,
-                            .Z = 1});
+  constexpr uint32_t lanes = shape.GroupX * shape.GroupY;
+  static_assert(shape.GroupZ == 1 && std::has_single_bit(lanes));
+  const bool cooperative = uint64_t{from.Width / to.Width} * (from.Height / to.Height) >= lanes;
+  return commands.Dispatch(
+      *Pipeline_,
+      bindings,
+      {.X = cooperative ? to.Width : (to.Width + shape.GroupX - 1) / shape.GroupX,
+       .Y = cooperative ? to.Height : (to.Height + shape.GroupY - 1) / shape.GroupY,
+       .Z = 1});
 }
 }
