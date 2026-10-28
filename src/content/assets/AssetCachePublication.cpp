@@ -14,6 +14,14 @@
 #include <zlib.h>
 
 namespace outshine {
+struct AssetCache::Publication {
+  std::span<const AssetRecord> Records;
+  std::span<const uint8_t> Bytes;
+  std::string_view Key;
+  size_t NativeBytes = 0;
+  bool Compressed = false;
+};
+
 namespace {
 
 constexpr auto kBindRequest =
@@ -103,8 +111,7 @@ std::expected<void, AssetCacheError> RebindRequest(sqlite3_stmt *statement,
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError> PrepareRecords(
-    std::span<const AssetRecord> records, size_t payloadBytes, const std::string &package) {
-  std::vector<AssetRecord> publishing(records.begin(), records.end());
+    std::vector<AssetRecord> publishing, size_t payloadBytes, const std::string &package) {
   std::unordered_set<std::string_view> identities;
   std::unordered_set<std::string_view> requests;
   for (auto &record : publishing) {
@@ -127,23 +134,74 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
                                                          std::span<const uint8_t> payload) {
   if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
   std::unique_lock lock(*State_->Mutex);
-  if (payload.size() >
-      static_cast<size_t>(sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+  if (std::cmp_greater(payload.size(), sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   lock.unlock();
   const std::string key = Sha256Hex(payload.data(), payload.size());
-  auto publishing = PrepareRecords(records, payload.size(), key);
+  auto publishing =
+      PrepareRecords(std::vector<AssetRecord>(records.begin(), records.end()), payload.size(), key);
   if (!publishing) { return std::unexpected(publishing.error()); }
   const auto compressed = AssetSql::Compress(payload);
   if (!compressed) { return std::unexpected(compressed.error()); }
-  const int codec = compressed->empty() ? 0 : 1;
-  const auto bytes = codec == 0 ? payload : std::span<const uint8_t>(*compressed);
-  lock.lock();
+  const bool encoded = !compressed->empty();
+  const auto bytes = encoded ? std::span<const uint8_t>(*compressed) : payload;
+  return PublishPrepared({.Records = *publishing,
+                          .Bytes = bytes,
+                          .Key = key,
+                          .NativeBytes = payload.size(),
+                          .Compressed = encoded});
+}
+
+std::expected<PreparedAssetWrite, AssetCacheError>
+AssetCache::PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload) {
+  if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
+  {
+    const std::scoped_lock lock(*State_->Mutex);
+    if (std::cmp_greater(payload.size(),
+                         sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+      return std::unexpected(AssetCacheError::CapacityExceeded);
+    }
+  }
+  auto key = Sha256Hex(payload.data(), payload.size());
+  auto publishing = PrepareRecords(std::move(records), payload.size(), key);
+  if (!publishing) { return std::unexpected(publishing.error()); }
+  auto compressed = AssetSql::Compress(payload);
+  if (!compressed) { return std::unexpected(compressed.error()); }
+  PreparedAssetWrite prepared;
+  prepared.NativeBytes_ = payload.size();
+  prepared.Compressed_ = !compressed->empty();
+  prepared.Records_ = std::move(*publishing);
+  prepared.Key_ = std::move(key);
+  prepared.Bytes_ = prepared.Compressed_ ? std::move(*compressed) : std::move(payload);
+  return prepared;
+}
+
+std::expected<void, AssetCacheError> AssetCache::Publish(const PreparedAssetWrite &prepared) {
+  if (prepared.Records_.empty() || prepared.Key_.empty()) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  return PublishPrepared({.Records = prepared.Records_,
+                          .Bytes = prepared.Bytes_,
+                          .Key = prepared.Key_,
+                          .NativeBytes = prepared.NativeBytes_,
+                          .Compressed = prepared.Compressed_});
+}
+
+std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publication &publication) {
+  const std::scoped_lock lock(*State_->Mutex);
+  if (std::cmp_greater(publication.NativeBytes,
+                       sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  const auto stored = StorePackage(State_->Database, key, bytes, codec, payload.size());
+  const auto stored = StorePackage(State_->Database,
+                                   publication.Key,
+                                   publication.Bytes,
+                                   publication.Compressed ? 1 : 0,
+                                   publication.NativeBytes);
   if (!stored) { return stored; }
   AssetSql::Statement asset;
   AssetSql::Statement bounds;
@@ -168,7 +226,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
   if (!prepared) { return prepared; }
   prepared = AssetSql::Prepare(State_->Database, kBindRequest, request);
   if (!prepared) { return prepared; }
-  for (const auto &record : *publishing) {
+  for (const auto &record : publication.Records) {
     sqlite3_reset(asset.Value);
     sqlite3_reset(bounds.Value);
     if (!Bind(asset.Value, record) || !AssetSql::Text(bounds.Value, 1, record.Key)) {
@@ -182,7 +240,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     if (!rebound) { return rebound; }
   }
   auto committed = transaction.Commit();
-  if (committed) { State_->Observe(key, bytes.size(), true); }
+  if (committed) { State_->Observe(publication.Key, publication.Bytes.size(), true); }
   return committed;
 }
 
