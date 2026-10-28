@@ -15,6 +15,31 @@
 #include <vector>
 
 namespace outshine::Render {
+Native::Result<GeometryResidency::BoundImage> GeometryResidency::Bind(const RadianceImage &image,
+                                                                      ImageUploadMode mode) {
+  if (Device_ == nullptr || image.Device != Device_ || !image.Texture || !image.Sampling ||
+      image.Produced.Device == 0 || image.Produced.Serial == 0) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "resident image has no matching producer device"});
+  }
+  const auto &description = image.Texture->Description();
+  if (description.Type != Native::TextureType::Image2D || description.Layers != 1 ||
+      (description.Texels != Native::Format::Rgba16Float &&
+       description.Texels != Native::Format::Rgba32Float) ||
+      (static_cast<uint32_t>(description.Use) &
+       static_cast<uint32_t>(Native::TextureUse::Sampled)) == 0) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "resident colour requires a sampled linear HDR image"});
+  }
+  if (mode == ImageUploadMode::Immediate) {
+    const auto flushed = SubmitPendingUploads();
+    if (!flushed) { return std::unexpected(flushed.error()); }
+  }
+  return BoundImage{.Image = image.Texture, .Sample = image.Sampling};
+}
+
 namespace {
 Native::Address AddressOf(outshine::Wrap wrap) {
   switch (wrap) {

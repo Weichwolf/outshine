@@ -10,12 +10,14 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
 namespace outshine::Render {
 class GeometryRenderer;
 struct MaterialSource;
+struct MaterialRadiance;
 
 class MaterialRegistry {
 public:
@@ -25,7 +27,10 @@ public:
   MaterialRegistry(MaterialRegistry &&) noexcept = default;
   MaterialRegistry &operator=(MaterialRegistry &&) noexcept = default;
   [[nodiscard]] std::expected<MaterialRegistration, std::string>
-  Register(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source);
+  Register(GeometryRenderer &geometry,
+           GeometryRenderer *glass,
+           Geometry source,
+           std::span<const MaterialRadiance> images = {});
   [[nodiscard]] bool
   Prepare(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
   [[nodiscard]] bool
@@ -45,7 +50,8 @@ private:
     std::vector<uint32_t> Rows;
   };
 
-  [[nodiscard]] static std::expected<MaterialSource, std::string> Resolve(Geometry source);
+  [[nodiscard]] static std::expected<MaterialSource, std::string>
+  Resolve(Geometry source, std::span<const MaterialRadiance> images);
   [[nodiscard]] bool Write(GeometryRenderer &geometry,
                            GeometryRenderer *glass,
                            const MaterialSource &source,
