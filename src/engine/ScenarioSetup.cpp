@@ -1,3 +1,4 @@
+#include "BuildingSourceDemand.h"
 #include "SurfaceSession.h"
 #include <limits>
 #include <type_traits>
@@ -618,6 +619,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
+  S_->World.BuildingSources.reset();
   S_->World.StructureBuilds.Clear();
   S_->World.Stack.Footprints().ResetDerived();
   S_->World.Pieces.Clear();

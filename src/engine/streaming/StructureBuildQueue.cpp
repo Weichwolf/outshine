@@ -1256,6 +1256,7 @@ void StructureBuildQueue::Clear() {
     }
   }
   NativeLookups_.clear();
+  NativeAssets_.reset();
   PendingVectorHeights_.reset();
   NativeFailure_.reset();
   if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
