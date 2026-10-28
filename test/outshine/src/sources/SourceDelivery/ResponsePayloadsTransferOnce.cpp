@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "SourceDelivery.h"
 #include <SourceResponse.h>
 #include <SourceTransport.h>
@@ -7,16 +8,17 @@
 #include <vector>
 
 namespace {
-template <class T> void CheckOwnership(T source, T target) {
+template <class T, class Empty> void CheckOwnership(T source, Empty empty) {
   using namespace outshine::Test;
   CHECK(!std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>,
         "response payload has a single owner");
   static_assert(std::is_nothrow_move_constructible_v<T>);
   static_assert(std::is_nothrow_move_assignable_v<T>);
   T moved(std::move(source));
-  CHECK(!source.Take(), "move construction consumes the source");
+  CHECK(!std::exchange(source, empty()).Take(), "move construction consumes the source");
+  auto target = empty();
   target = std::move(moved);
-  CHECK(!moved.Take(), "move assignment consumes the source");
+  CHECK(!std::exchange(moved, empty()).Take(), "move assignment consumes the source");
   CHECK(target.Take().has_value(), "destination receives one answer");
   CHECK(!target.Take(), "answer cannot be taken twice");
 }
@@ -25,10 +27,10 @@ template <class T> void CheckOwnership(T source, T target) {
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
-  CheckOwnership(Wire::Answered(200, {1, 2}), Wire::Working());
-  CheckOwnership(SourceResponse::Delivered({3, 4}), SourceResponse::Working());
+  CheckOwnership(Wire::Answered(200, {1, 2}), Wire::Working);
+  CheckOwnership(SourceResponse::Delivered({3, 4}), SourceResponse::Working);
   CheckOwnership(SourceDelivery::From("source", "revision", Address::Whole(7), {5, 6}),
-                 SourceDelivery::Waiting());
+                 SourceDelivery::Waiting);
   std::vector<uint8_t> bytes{7, 8, 9};
   const auto *storage = bytes.data();
   auto wire = Wire::Answered(200, std::move(bytes), 0.5);

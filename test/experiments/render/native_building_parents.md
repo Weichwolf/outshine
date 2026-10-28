@@ -18,6 +18,16 @@ reads, all group shading, atlas traffic and composition are paid. No free fine
 depth, source visibility, opaque coverage or hidden-background oracle is supplied.
 The fixed component supports at most sixteen layers and nine palette entries.
 
+The diagnostic expands indexed source positions into ordered triangle corners.
+A flat vertex output carries the global triangle ordinal to the fragment stage;
+it does not require Vulkan's optional Geometry capability for gl_PrimitiveID.
+Triangle order, layer ranges, source positions and face records remain unchanged.
+The report separates original position/index bytes from expanded raster position
+bytes; buffer_bytes counts the actual uploaded buffers without an index buffer.
+Corner expansion and upload are preparation outside the twenty-four shading
+rounds; their CPU time is not included in those encode/GPU samples.
+This diagnostic representation is not a proposed runtime geometry storage price.
+
 The crop shares the research replay's integer/clipped ROI and preserves the
 original 1280×720 presentation pixel spacing. It measures
 a small isolated component, not a complete frame or a supersampled quality gate.

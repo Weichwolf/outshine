@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <string>
 #include "OsmField.h"
 #include "TileGeodesy.h"
 #include <cfenv>
@@ -65,13 +67,14 @@ int main() {
     TileAt At;
   };
 
-  for (const auto &address : std::array<Address, 7>{{{-1, {0, 0}},
-                                                     {32, {0, 0}},
-                                                     {2, {-1, 0}},
-                                                     {2, {0, -1}},
-                                                     {2, {4, 0}},
-                                                     {2, {0, 4}},
-                                                     {2, {std::numeric_limits<int>::max(), 0}}}}) {
+  for (const auto &address : std::array<Address, 7>{
+           {{.Zoom = -1, .At = {.X = 0, .Y = 0}},
+            {.Zoom = 32, .At = {.X = 0, .Y = 0}},
+            {.Zoom = 2, .At = {.X = -1, .Y = 0}},
+            {.Zoom = 2, .At = {.X = 0, .Y = -1}},
+            {.Zoom = 2, .At = {.X = 4, .Y = 0}},
+            {.Zoom = 2, .At = {.X = 0, .Y = 4}},
+            {.Zoom = 2, .At = {.X = std::numeric_limits<int>::max(), .Y = 0}}}}) {
     ::outshine::Generators::Osm::OsmField invalid(address.Zoom, layers);
     std::feclearexcept(FE_ALL_EXCEPT);
     const auto result = invalid.Accept(address.At.X, address.At.Y, valid);

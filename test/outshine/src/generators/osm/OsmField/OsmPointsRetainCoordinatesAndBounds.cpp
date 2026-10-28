@@ -1,3 +1,6 @@
+#include <span>
+#include <string>
+#include <vector>
 #include "OsmField.h"
 #include "MvtLayer.h"
 #include "MvtWireFixture.h"
