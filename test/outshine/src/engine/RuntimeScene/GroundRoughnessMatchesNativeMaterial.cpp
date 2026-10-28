@@ -132,7 +132,7 @@ struct MaterialFixture {
     CHECK(geometry.setTriangles(*part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3}), "triangles");
     Core::WorldCandidate candidate(renderer);
     const auto prepared = candidate.Prepare(*scene, nullptr);
-    CHECK(prepared.has_value(), "private world prepared");
+    CHECK(prepared.has_value(), prepared ? "private world prepared" : prepared.error().c_str());
     if (!prepared) { return std::vector<float>{}; }
     candidate.GroundIs(ground ? surface->index() : -1);
     if (paletteFirst) {
@@ -153,7 +153,8 @@ struct MaterialFixture {
     }
     if (!paletteFirst) { UploadPalette(renderer, roughness, mode, error); }
     const auto published = candidate.Publish(scene);
-    CHECK(published.has_value(), "complete fixture published");
+    CHECK(published.has_value(),
+          published ? "complete fixture published" : published.error().c_str());
     if (!published) { return std::vector<float>{}; }
     Render::Viewpoint eye;
     eye.EyeM = {{0, 2, 0}};
