@@ -3,14 +3,12 @@
 #include "Sha256.h"
 #include "TileGeodesy.h"
 #include "Units.h"
-#include "AssetGeneration.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <mutex>
 #include <numbers>
 #include <optional>
 #include <span>
@@ -50,40 +48,47 @@ Box Bounds(const OsmField &field) {
 }
 }
 
-std::expected<PreparedOsmTiles::Product, std::string>
-PreparedOsmTiles::Load(const std::string &request, const Layout &layout) {
-  const std::scoped_lock lock(Mutex_);
+std::expected<PreparedOsmTiles::Product, AssetCacheError>
+PreparedOsmTiles::Load(const std::string &request, const Layout &layout, ReadCause cause) {
   auto record = Cache_->FindRequest(request);
-  if (!record) { return std::unexpected("could not find native OSM tile"); }
+  if (!record) { return std::unexpected(record.error()); }
   if (!*record) {
-    ++Misses_;
+    if (cause == ReadCause::Lookup) { ++Misses_; }
     return Product{};
   }
   auto loaded = Cache_->Load((**record).Key, kPackageBytesMost);
-  if (!loaded) { return std::unexpected("could not load native OSM tile"); }
+  if (!loaded) { return std::unexpected(loaded.error()); }
   if (*loaded) {
     auto product = OsmField::DecodeNativeTile((**loaded).Bytes(), kHeapBytesMost);
     if ((**loaded).Record().Kind == "osm-tile" && product && product->Zoom_ == layout.Zoom &&
         product->Schema_ == layout.Schema && product->Layers_ == layout.Layers &&
         RequestKey({.X = product->Tiles_.front().X, .Y = product->Tiles_.front().Y}, layout) ==
             request) {
-      ++Hits_;
-      ReadBytes_ += (**loaded).Bytes().size();
+      if (cause == ReadCause::Lookup) {
+        ++Hits_;
+        ReadBytes_ += (**loaded).Bytes().size();
+      } else {
+        PublicationReadBytes_ += (**loaded).Bytes().size();
+      }
       return Product(std::move(product));
     }
-    if (!Cache_->Remove((**record).Key)) {
-      return std::unexpected("could not remove invalid native OSM tile");
-    }
+    const auto removed = Cache_->Remove((**record).Key);
+    if (!removed) { return std::unexpected(removed.error()); }
   }
-  ++Misses_;
+  if (cause == ReadCause::Lookup) { ++Misses_; }
   return Product{};
 }
 
-std::expected<PreparedOsmTiles::Product, std::string>
-PreparedOsmTiles::Generate(TileAt at,
-                           Data::SourceDelivery::Answer landing,
-                           const std::string &request,
-                           const Layout &layout) {
+std::expected<PreparedOsmTiles::Product, std::string> PreparedOsmTiles::Generate(
+    TileAt at, Data::SourceDelivery::Answer landing, const std::string &request, Work &work) {
+  if (work.Cancelled.load()) { return std::unexpected("native OSM preparation cancelled"); }
+  auto existing = Load(request, work.Definition, ReadCause::Publication);
+  if (existing && *existing) { return std::move(*existing); }
+  if (!existing && existing.error() != AssetCacheError::Busy) {
+    return std::unexpected("native OSM tile cache failed");
+  }
+  ++Generations_;
+  const auto &layout = work.Definition;
   auto field = std::make_shared<OsmField>(layout.Zoom, layout.Layers, layout.Schema);
   auto accepted = field->Accept(at.X, at.Y, landing.Bytes);
   if (!accepted) { return std::unexpected(std::string(accepted.error())); }
@@ -100,28 +105,19 @@ PreparedOsmTiles::Generate(TileAt at,
       Sha256Hex(Recipe_ + request + tile.InputDigest + tile.Source.SourceId + tile.Source.Revision);
   const auto bounds = Bounds(*field);
   field.reset();
-  const std::scoped_lock lock(Mutex_);
-  bool generated = false;
-  auto published = ResolveAssetRequest(
-      *Cache_,
-      request,
-      kPackageBytesMost,
-      [&](size_t) -> std::expected<GeneratedAssetPackage, std::string> {
-        generated = true;
-        return GeneratedAssetPackage{.Records = {{.Key = key,
-                                                  .Kind = "osm-tile",
-                                                  .Bounds = bounds,
-                                                  .Package = {},
-                                                  .ByteCount = encoded->size(),
-                                                  .Level = static_cast<uint32_t>(layout.Zoom),
-                                                  .Parent = {},
-                                                  .RequestKey = request}},
-                                     .Bytes = std::move(*encoded)};
-      });
-  if (!published) { return std::unexpected(std::move(published.error())); }
-  if (generated) { ++Writes_; }
-  auto product = OsmField::DecodeNativeTile(published->Bytes(), kHeapBytesMost);
-  if (!product) { return std::unexpected("published native OSM tile failed validation"); }
-  return Product(std::move(product));
+  if (work.Cancelled.load()) { return std::unexpected("native OSM preparation cancelled"); }
+  AssetRecord record{.Key = key,
+                     .Kind = "osm-tile",
+                     .Bounds = bounds,
+                     .Package = {},
+                     .ByteCount = encoded->size(),
+                     .Level = static_cast<uint32_t>(layout.Zoom),
+                     .Parent = {},
+                     .RequestKey = request};
+  auto prepared = Cache_->PreparePublication({std::move(record)}, std::move(*encoded));
+  if (!prepared) { return std::unexpected("could not prepare native OSM publication"); }
+  if (work.Cancelled.load()) { return std::unexpected("native OSM preparation cancelled"); }
+  SetPublication(work, std::move(*prepared));
+  return Product{};
 }
 }
