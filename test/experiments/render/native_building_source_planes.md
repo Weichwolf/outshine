@@ -53,3 +53,22 @@ It reads only the selected view's generated arrays and writes `mesh-result.json`
 plus native raw images. Compare against the existing original SS16 controls;
 retain failed quality/cost cases. Raster-size experiments keep cameras, light,
 source set and the presentation profile fixed. Fewer triangles alone admit no LOD.
+
+## Rejected whole-contour sampling
+
+```sh
+python test/experiments/render/compare_source_contours.py \
+  --input test/outshine/data/render/building-full-view/original-inputs.tar.gz \
+  --request test/outshine/data/render/building-full-view/source-plane-request.json \
+  --source-report "$output/source-result.json" --output "$new_comparison"
+```
+
+The experiment selects the nearest contour at each ray before triangulation.
+On the first two fixed directions, 16² needs 71–75 triangles but retains only
+0.6–1.7% of the complete projected union area. At 64², 1,136–1,163 triangles retain
+14–15%. It is rejected: small faces between rays disappear, not just hidden faces.
+These are geometric area ratios, not native material/image or SSE results.
+The existing Python roof domains also have three additional unsupported sources
+compared with the native producer; all five source remainders remain explicit.
+Sub-ULP projected slivers are reported as collapsed contours, never as occlusion.
+Do not port this sampler as a complete far representation or discard the parent.
