@@ -59,6 +59,8 @@ public:
   [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
   [[nodiscard]] Entry Lookup(std::string_view key, size_t mostBytes = 0) const;
   [[nodiscard]] bool KeepAbsent(std::string_view key);
+  // Complete empty bytes are distinct from both a cache miss and source absence.
+  [[nodiscard]] bool KeepEmpty(std::string_view key);
   [[nodiscard]] bool
   KeepCell(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
   [[nodiscard]] Entry LookupCell(const SourceDecl &decl, GeoCellId cell);
@@ -97,10 +99,11 @@ private:
   [[nodiscard]] std::optional<std::vector<uint8_t>> ReadBytes(std::string_view key,
                                                               size_t mostBytes) const;
   [[nodiscard]] bool WriteEntry(const std::string &path, std::span<const std::byte> bytes);
-  [[nodiscard]] bool HasAbsence(std::string_view key) const;
-  [[nodiscard]] bool AbsenceDirectory(bool create) const;
-  [[nodiscard]] bool RemoveAbsence(std::string_view key) const;
-  void ForgetAbsence(std::string_view key);
+  [[nodiscard]] Presence ReadStatus(std::string_view key) const;
+  [[nodiscard]] bool KeepStatus(std::string_view key, std::string_view signature);
+  [[nodiscard]] bool StatusDirectory(bool create) const;
+  [[nodiscard]] bool RemoveStatus(std::string_view key) const;
+  void ForgetStatus(std::string_view key);
 
   std::string Directory_;
   std::unique_ptr<CacheUsageIndex> Usage_;
@@ -108,7 +111,7 @@ private:
   void ObserveUsage(std::string_view key, size_t bytes, bool published = false) const;
   Use Using_;
   size_t CapBytes_;
-  mutable std::mutex AbsenceMutex_;
+  mutable std::mutex StatusMutex_;
 
   mutable std::atomic<long long> Hits_{0}, Misses_{0};
   mutable std::atomic<uint64_t> ReadCalls_{0}, ReadBytes_{0}, ReadNs_{0};
