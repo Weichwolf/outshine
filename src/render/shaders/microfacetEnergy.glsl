@@ -17,10 +17,6 @@ vec2 ggxEnvironmentBrdf(float nv, float roughness) {
   return mix(a, b, rt);
 }
 
-float ggxDirectionalAlbedo(float nv, float roughness) {
-  return ggxEnvironmentBrdf(nv, roughness).x;
-}
-
 float ggxEnergyAverage(float roughness) {
   float rf = clamp(roughness, 0.0, 1.0) * float(kEnergyRoughnessSteps - 1);
   int r0 = int(rf); int r1 = min(r0 + 1, kEnergyRoughnessSteps - 1);
@@ -29,8 +25,7 @@ float ggxEnergyAverage(float roughness) {
 
 vec3 schlickAverage(vec3 f0) { return f0 + (1.0 - f0) / 21.0; }
 
-vec3 ggxEnergyScale(vec3 f0, float roughness, float nv) {
-  float e = ggxDirectionalAlbedo(nv, roughness);
+vec3 ggxEnergyScaleFromAlbedo(vec3 f0, float roughness, float e) {
   if (!(e > 0.0) || !(e < 1.0)) { return vec3(1.0); }
   float missing = (1.0 - e) / e;
   float eAverage = ggxEnergyAverage(roughness);

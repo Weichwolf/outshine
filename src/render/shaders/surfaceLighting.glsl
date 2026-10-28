@@ -106,7 +106,9 @@ vec3 shadeRow(M surface,
   float f90 = mix(dielectricF90, 1.0, metalness);
   float nv = max(dot(n, v), 1.0e-6);
 
-  vec3 energyScale = thinSheet ? vec3(0.0) : ggxEnergyScale(f0, roughness, nv);
+  const vec2 environmentBrdf = thinSheet ? vec2(0.0) : ggxEnvironmentBrdf(nv, roughness);
+  vec3 energyScale = thinSheet ? vec3(0.0) :
+                     ggxEnergyScaleFromAlbedo(f0, roughness, environmentBrdf.x);
 
   float anisoLen = length(tangentDir);
   bool anisotropic = !thinSheet && anisotropy > 0.0 && anisoLen > 0.0;
@@ -207,9 +209,6 @@ vec3 shadeRow(M surface,
            diffuseEnvironment(-n) * surface.diffuseTransmission;
   }
   if (thinSheet) { return sum + emitted; }
-  const float nvClamped = clamp(nv, 0.0, 1.0);
-
-  const vec2 environmentBrdf = ggxEnvironmentBrdf(nvClamped, roughness);
   const vec3 specularEnvironment =
       (f0 * (environmentBrdf.x - environmentBrdf.y) + vec3(f90 * environmentBrdf.y)) * energyScale;
   const vec3 ambient = diffuseEnvironment(n);

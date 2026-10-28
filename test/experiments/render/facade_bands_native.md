@@ -27,12 +27,12 @@ No new palette field, binding, texture, pass or asset version is introduced.
 
 The native comparison reuses the actual buffer consumer from #268, with the
 same checked 32-byte input/output records and four binding slots. It does not
-add a renderer or backend. Build `NativeGroundLitterProbe.cpp` from #268 against
+add a renderer or backend. Build `NativeMaterialComputeProbe.cpp` from #268 against
 the platform's regular `build/liboutshine.a` and its native link dependencies,
 using the published C++23/no-exceptions/warning declarations. Then run:
 
 ```sh
-python3 test/experiments/render/facade_bands_native.py --binary /path/to/native_ground_litter --palette /path/to/ground-litter.palette --output /tmp/outshine-material-facade-bands
+python3 test/experiments/render/facade_bands_native.py --binary /path/to/outshine_material_compute_probe --palette /path/to/ground-litter.palette --output /tmp/outshine-material-facade-bands
 ```
 
 Use #268's pinned `test/outshine/data/materials/ground-litter.palette`; the

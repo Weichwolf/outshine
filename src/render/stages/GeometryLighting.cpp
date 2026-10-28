@@ -62,7 +62,7 @@ GeometryRenderer::PackedLights(const FrameContext &ctx) const {
     for (int channel = 0; channel < 3; ++channel) { entry.Tint[channel] *= light.Intensity; }
     for (int axis = 0; axis < 3; ++axis) {
       entry.Place[axis] =
-          static_cast<float>(Placed[at].PositionEcefM[axis] + ctx.PreViewTranslation[axis]);
+          static_cast<float>(Placed[at].PositionM[axis] + ctx.PreViewTranslation[axis]);
     }
     entry.Place[3] = light.RangeM > 0.0f ? 1.0f / light.RangeM : 0.0f;
     entry.Beam = LightVector(light.Direction);

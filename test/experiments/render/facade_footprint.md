@@ -54,7 +54,7 @@ budget, not a byte-equality claim. Normal tests/pins are never regenerated.
 ## Reproduction
 
 Requires Python3, NumPy, Shapely2 and glslangValidator; Pillow for the image
-chart. Build the shared `NativeGroundLitterProbe.cpp` against the platform's
+chart. Build the shared `NativeMaterialComputeProbe.cpp` against the platform's
 regular production archive and its matching native headers. Native link flags
 are available through `sh test/run.sh --native-link-flags`. The same versioned
 `test/outshine/data/materials/ground-litter.palette` is input on every device.

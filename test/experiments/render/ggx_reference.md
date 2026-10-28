@@ -11,7 +11,9 @@ Float32/Float64 subtraction failure. Closed-form tests cover normal incidence an
 unit roughness, zero Fresnel, range classification and source underflow.
 
 `probe_ggx_reference.py` calls unchanged product functions through the existing
-`NativeGroundLitterProbe` four-buffer consumer. No C++ implementation, product
+`NativeMaterialComputeProbe` four-buffer consumer. Build it with
+`cmake --build build --target outshine_material_compute_probe --parallel`.
+No C++ implementation, product
 shader correction, new binding, texture sampler or native image format is supplied.
 The private wrapper records D, V, lobe, actual GPU a², final scalar specular,
 unchanged energy scale, Fresnel and GPU r². White directional incident radiance is
@@ -19,6 +21,12 @@ implicit; final specular includes energy compensation and nl. The energy functio
 and original generated tables are copied unchanged; a separate Float64 table
 interpolation control checks the captured energy scale. This is not an independent
 validation of those energy tables' physical accuracy.
+
+The energy probes select the call contract from the included product library, so
+historical `--source-commit` inputs remain usable after the shared-albedo refactor.
+`probe_ggx_reuse.py` compares prior and shared lookup paths on the same native
+consumer, covering view/roughness boundaries, pure/mixed thin sheets and injected
+energy-range guards. It preserves the tables and does not validate their physics.
 
 The 730 inputs include r=0…1, tiny positive r, nh=1 and the adjacent Float32 value,
 normal/grazing scalar factors, F0=0/0.04/1, actual normal/mirror-symmetric poses,
