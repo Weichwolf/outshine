@@ -1,4 +1,5 @@
 #include "ImpostorAtlas.h"
+#include "ImpostorViewFrame.h"
 
 #include "Digest.h"
 #include "MaterialValidation.h"
@@ -34,7 +35,6 @@ constexpr size_t kAtlasSampleBytes = 5 * sizeof(float);
 constexpr size_t kAtlasChecksumBytes = sizeof(uint64_t);
 constexpr size_t kMostAtlasTexels = 1u << 24u;
 constexpr size_t kMostAtlasSurfaces = 64;
-constexpr double kUnitDirectionSquaredTolerance = 1e-12;
 constexpr float kCapturedNormalSquaredTolerance = 0.003f;
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
 static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
@@ -163,9 +163,7 @@ bool ValidSample(const ImpostorAtlas::SurfaceSample &sample) {
 
 bool ValidView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) {
   const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
-  const double norm = Dot(view.TowardEye, view.TowardEye);
-  if (!std::isfinite(norm) || std::abs(norm - 1) > kUnitDirectionSquaredTolerance ||
-      view.TowardEye[1] != 0 || view.Texels.size() != texels ||
+  if (!ImpostorViewFrame::From(view.TowardEye) || view.Texels.size() != texels ||
       (!view.Materials.empty() &&
        (view.Materials.size() != texels || !std::ranges::all_of(view.Materials, ValidSample)))) {
     return false;

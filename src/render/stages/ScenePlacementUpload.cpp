@@ -22,6 +22,7 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
   ShadowCasters_.Invalidate();
   if (all == 0) { return true; }
   Rows_.assign(all, {});
+  bool rowsHaveMotion = false;
   size_t offset = needed;
   for (const Piece &piece : Pieces_) {
     for (const Mat4 &row : piece.Rows) {
@@ -38,7 +39,8 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
   for (size_t row = 0; row < needed; ++row) {
     const bool placed = row * 16u + 16u <= Placed_.size();
     const double *const now = placed ? Placed_.data() + row * 16u : Model.data();
-    const bool carried = placed ? row < Stamped_.size() && Stamped_[row] != 0u : ModelStamp_ != 0u;
+    const bool carried =
+        placed ? row < Stamped_.size() && Stamped_[row] == Frame_ : ModelStamp_ == Frame_;
     const double *const carriedFrom = placed ? Before_.data() + row * 16u : ModelBefore_.data();
     const double *const was = carried ? carriedFrom : now;
     for (size_t at = 0; at < 16u; ++at) {
@@ -47,6 +49,8 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
     }
     Rows_[row].ColourOffset = Bound().MainColourRange().First - Bound().MainVertexRange().First;
     Rows_[row].TangentOffset = Bound().MainTangentRange().First - Bound().MainVertexRange().First;
+    rowsHaveMotion =
+        rowsHaveMotion || (Binding().WritesVelocity && Rows_[row].Current != Rows_[row].Previous);
   }
   std::array rows = {GeometryResidency::Crossing{
       .Which = GeometryResidency::Stream::Placements,
@@ -59,8 +63,15 @@ bool GeometryRenderer::HandPlacements(bool deferred, std::string &error) {
     return false;
   }
   RowsStale_ = false;
+  RowsHaveMotion_ = rowsHaveMotion;
   PrepareShadowCasters();
   return true;
+}
+
+void GeometryRenderer::CarryFrame() {
+  ++Frame_;
+  RowsStale_ = RowsStale_ || RowsHaveMotion_;
+  RowsHaveMotion_ = false;
 }
 
 void GeometryRenderer::PrepareShadowCasters() {

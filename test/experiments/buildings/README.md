@@ -11,6 +11,11 @@ positive steps, whole landings, an explicit plate opening and checked union-
 envelope clearance. It compares equal-output repeated versus reused height
 bands while retaining all earlier floor contacts.
 
+The [joint stair reference](indoor_stair_batch.md) composes six bodies/seven
+original sources with shared plate openings and whole final ports, retaining
+all73 selected footway corridors. It compares eager individual plate emission
+with deferred shared construction at the same final geometry and ownership.
+
 Run from the repository root with `.venv`. Install the reference library as well
 as the experiment dependencies:
 

@@ -44,6 +44,7 @@ struct SDL_Window;
 #include "scene/SceneResources.h"
 #include "scene/SceneRenderState.h"
 #include "scene/SceneCandidateEdit.h"
+#include "scene/SurfaceReadback.h"
 #include "Viewing.h"
 #include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
@@ -481,6 +482,7 @@ public:
   [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);
   [[nodiscard]] ReadState ReadSurfaceBase(std::vector<float> &rgba);
   [[nodiscard]] ReadState ReadSurfaceMetalRough(std::vector<float> &rg);
+  [[nodiscard]] ReadState ReadSurface(SurfaceReadback &surface);
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 

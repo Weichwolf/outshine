@@ -22,6 +22,7 @@ struct ImpostorCapture {
   std::vector<ImpostorCaptureSource> Sources;
   Vec3 LeastM;
   Vec3 MostM;
+  std::vector<Vec3> ViewDirections;
 };
 
 class ImpostorBaker {
