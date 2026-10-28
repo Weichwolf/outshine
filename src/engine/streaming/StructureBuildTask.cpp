@@ -360,6 +360,7 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
     : Tile_(tile),
       Raw_(std::move(raw)),
       Heights_(std::move(heights)),
+      Base_(std::make_unique<PreparedBaseOwner>()),
       Output_(std::move(output)),
       Scratch_(std::move(scratch)),
       Progress_(std::make_unique<Generators::StructureBakeProgress>()),
@@ -376,16 +377,16 @@ StructureBuildTask::StructureBuildTask(
     std::unique_ptr<MeshScratch> scratch)
     : Tile_(tile),
       Raw_(std::move(view)),
-      Base_(std::move(base)),
+      Base_(std::make_unique<PreparedBaseOwner>(std::move(base))),
       Output_(std::move(output)),
       Scratch_(std::move(scratch)),
       Progress_(std::make_unique<Generators::StructureBakeProgress>()),
       Stopping_(std::make_shared<std::atomic_bool>(false)) {
-  assert(Base_ != nullptr && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
-  Raw_->AnchorEcef = Base_->AnchorEcef;
-  Raw_->TileSpanM = Base_->TileSpanM;
-  Raw_->Extent = Base_->Extent;
-  Raw_->SourceInputs.Origin = Base_->Origin;
+  assert(Base_ && *Base_ && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
+  Raw_->AnchorEcef = (*Base_)->AnchorEcef;
+  Raw_->TileSpanM = (*Base_)->TileSpanM;
+  Raw_->Extent = (*Base_)->Extent;
+  Raw_->SourceInputs.Origin = (*Base_)->Origin;
 }
 
 StructureBuildTask::StructureBuildTask(
@@ -396,6 +397,7 @@ StructureBuildTask::StructureBuildTask(
     std::unique_ptr<MeshScratch> scratch)
     : Tile_(tile),
       Raw_(std::move(view)),
+      Base_(std::make_unique<PreparedBaseOwner>()),
       Basis_(std::move(basis)),
       Output_(std::move(output)),
       Scratch_(std::move(scratch)),
@@ -410,27 +412,27 @@ StructureBuildTask::StructureBuildTask(
 
 size_t StructureBuildTask::PreparedStructureCount() const noexcept {
   if (Basis_) { return Basis_->Sources.size(); }
-  return Base_ ? Base_->Structures.size() : Raw_->Structures.size();
+  return (Base_ && *Base_) ? (*Base_)->Structures.size() : Raw_->Structures.size();
 }
 
 std::span<const Data::TileSourceIdentity> StructureBuildTask::HeightSources() const noexcept {
   if (Basis_) { return Basis_->HeightSources; }
-  return Base_ ? std::span(Base_->HeightSources) : Heights().Sources();
+  return (Base_ && *Base_) ? std::span((*Base_)->HeightSources) : Heights().Sources();
 }
 
 uint64_t StructureBuildTask::HeightRasterDigest() const noexcept {
   if (Basis_) { return Basis_->HeightRasterDigest; }
-  return Base_ ? Base_->HeightRasterDigest : Heights().RasterDigest();
+  return (Base_ && *Base_) ? (*Base_)->HeightRasterDigest : Heights().RasterDigest();
 }
 
 bool StructureBuildTask::HeightQualified() const noexcept {
   if (Basis_) { return Basis_->HeightQualified; }
-  return Base_ ? Base_->HeightQualified : Heights().Qualified();
+  return (Base_ && *Base_) ? (*Base_)->HeightQualified : Heights().Qualified();
 }
 
 Ground::HeightField::Request StructureBuildTask::HeightRequest() const {
   if (Basis_) { return Basis_->HeightRequest; }
-  return Base_ ? Base_->HeightRequest : Heights().CaptureRequest();
+  return (Base_ && *Base_) ? (*Base_)->HeightRequest : Heights().CaptureRequest();
 }
 
 StructureBuildTask::~StructureBuildTask() {
@@ -472,7 +474,7 @@ bool StructureBuildTask::Running() const noexcept {
 void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
                                          std::string key,
                                          std::string requestKey) {
-  assert(State_ == State::Ready && (Base_ || Basis_ || Heights_));
+  assert(State_ == State::Ready && ((Base_ && *Base_) || Basis_ || Heights_));
   Native_ =
       std::make_unique<NativeProducts>(std::move(cache), std::move(key), std::move(requestKey));
 }
@@ -507,7 +509,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
   Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
-  auto *const base = &Base_;
+  auto *const base = Base_.get();
   const auto basis = Basis_;
   NativeProducts *const native = Native_.get();
   MeshScratch *const scratch = Scratch_.get();
