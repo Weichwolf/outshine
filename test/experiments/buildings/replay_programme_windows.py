@@ -230,7 +230,12 @@ def replay(args):
         "scope": "Warm completed source/compact programme inputs; source preparation measured separately. Eager prebuilds/retains all windows, bounded creates only missing demanded windows with8resident slots. Same7requests/cells/complete coarse coverage/portal/coarse roof. Timers include controller setup, metadata cap filtering, window/layer generation and request records, exclude diagnostic materialization/hash/export/render, teardown and profiler processing. Memray covers the same stage with live final ownership; allocation bytes are not copied bytes. Shared coarse arrays counted once per source; total copied bytes unmeasured. No whole physical interior, general visibility/radiance/LOD, DB/IO/cache/native/device/frame proof.",
     }
     (args.output / "report.json").write_text(
-        json.dumps(report, indent=2, default=lambda v: v.tolist()) + "\n"
+        json.dumps(
+            report,
+            indent=2,
+            default=lambda v: v.hex() if isinstance(v, bytes) else v.tolist(),
+        )
+        + "\n"
     )
     print(
         json.dumps(
