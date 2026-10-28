@@ -1,7 +1,8 @@
-"""Bounded display-only vertical slabs for original normal-offset road recipes.
+"""Bounded display-only slabs for original normal-offset road recipes.
 
 Native Lower=S-t*N. This alternative uses Lower_display=S_display-t*Up;
 the full normal departure consumes the same metric budget as Upper subdivision.
+An explicit affine fallback handles straight crossfall ramps with constant cap normals.
 Welded closed geometry grants no final ports, materials, physics or World authority.
 """
 
@@ -109,6 +110,8 @@ def prepare_closed(
     method="adaptive",
     max_stations=262144,
     refine_normal_bound=False,
+    affine_lower=False,
+    affine_width_boxes=16,
 ):
     if recipe["form"] != "closed_shell":
         raise ValueError("Actual closed-shell source recipe required")
@@ -118,6 +121,8 @@ def prepare_closed(
         raise ValueError("Known same-bound Upper subdivision method required")
     if type(refine_normal_bound) is not bool:
         raise ValueError("Explicit normal-hull refinement choice required")
+    if type(affine_lower) is not bool:
+        raise ValueError("Explicit affine lower choice required")
     limits(error_m, max_stations)
     curve = Curve(
         {key: recipe[key] for key in ("range_m", "section_m", "seams", "intervals")}
@@ -136,12 +141,23 @@ def prepare_closed(
     upper_budget = float(np.nextafter(error_m - departure - rounding, -np.inf))
     original_departure = departure
     subdivided = False
+    affine = None
+    stretch = 1
     if upper_budget <= 0 and refine_normal_bound:
         from road_normal_hulls import refined_normal_departure
 
         departure = min(departure, refined_normal_departure(curve))
         upper_budget = float(np.nextafter(error_m - departure - rounding, -np.inf))
         subdivided = True
+    if upper_budget <= 0 and affine_lower:
+        from road_affine_lower import plan_lower
+
+        affine = plan_lower(curve, boxes=affine_width_boxes)
+        departure, rounding = affine["departure"], affine["rounding"]
+        stretch = affine["stretch"]
+        upper_budget = float(
+            np.nextafter((error_m - departure - rounding) / stretch, -np.inf)
+        )
     if upper_budget <= 0:
         raise ValueError("Normal-offset departure exhausts complete-body budget")
     build = prepare if method == "adaptive" else prepare_uniform
@@ -150,10 +166,17 @@ def prepare_closed(
     mapping = np.full(upper["positions_enh_m"].size // 3, -1, dtype=np.int64)
     mapping[used] = np.arange(len(used))
     top = upper["positions_enh_m"].reshape(-1, 3)[used]
-    lower_exact = top.astype(float)
-    lower_exact[:, 2] -= curve.thickness
-    lower = lower_exact.astype(np.float32)
-    actual_rounding = float(abs(lower[:, 2].astype(float) - lower_exact[:, 2]).max())
+    if affine is None:
+        lower_exact = top.astype(float)
+        lower_exact[:, 2] -= curve.thickness
+        lower = lower_exact.astype(np.float32)
+        actual_rounding = float(
+            abs(lower[:, 2].astype(float) - lower_exact[:, 2]).max()
+        )
+    else:
+        from road_affine_lower import lower_positions
+
+        lower, actual_rounding = lower_positions(top, affine)
     if actual_rounding > rounding:
         raise ValueError("Lower rounding exceeds reserved bound")
     positions = np.vstack((top, lower))
@@ -172,7 +195,14 @@ def prepare_closed(
     if payload > max_payload_bytes:
         raise ValueError("Closed display payload bound exceeded")
     quality = qualify_body(positions, faces, len(top_faces), curve.thickness)
-    bound = upper["maximum_stored_bound_m"] + departure + rounding
+    if affine is not None:
+        from road_closed_exact import qualify_intersections
+
+        quality["exact_intersections"] = qualify_intersections(positions, faces)
+        quality["nominal_vertical_volume_scope"] = (
+            "Original thickness times projected Upper area; not affine body volume"
+        )
+    bound = stretch * upper["maximum_stored_bound_m"] + departure + rounding
     if bound > error_m:
         raise ValueError("Stored complete-body bound exceeds request")
     return {
@@ -181,7 +211,9 @@ def prepare_closed(
             for key, value in upper.items()
             if key not in ("positions_enh_m", "indices")
         },
-        "recipe_version": "outshine/direct-vertical-road-display/2"
+        "recipe_version": "outshine/direct-affine-road-display/1"
+        if affine is not None
+        else "outshine/direct-vertical-road-display/2"
         if subdivided
         else "outshine/direct-vertical-road-display/1",
         "positions_enh_m": positions,
@@ -196,8 +228,9 @@ def prepare_closed(
         "upper_maximum_stored_bound_m": upper["maximum_stored_bound_m"],
         "upper_maximum_model_bound_m": upper["maximum_model_bound_m"],
         "upper_maximum_vertex_quantization_m": upper["maximum_vertex_quantization_m"],
-        "maximum_model_bound_m": upper["maximum_model_bound_m"] + departure,
-        "maximum_vertex_quantization_m": upper["maximum_vertex_quantization_m"]
+        "maximum_model_bound_m": stretch * upper["maximum_model_bound_m"] + departure,
+        "maximum_vertex_quantization_m": stretch
+        * upper["maximum_vertex_quantization_m"]
         + rounding,
         "maximum_stored_bound_m": bound,
         "maximum_complete_body_bound_m": bound,
@@ -209,6 +242,16 @@ def prepare_closed(
                 "normal_bound_subdivision_boxes": 2 * len(curve.lengths),
             }
             if subdivided
+            else {}
+        ),
+        **(
+            {
+                "affine_lower": {
+                    key: value.tolist() if isinstance(value, np.ndarray) else value
+                    for key, value in affine.items()
+                }
+            }
+            if affine is not None
             else {}
         ),
     }
