@@ -166,6 +166,33 @@ template <class T> void Write(const Fs::path &path, std::span<const T> bytes) {
   if (!stream) { Fail("output write failed"); }
 }
 
+void SaveGeometry(const Geometry &geometry, const Fs::path &path) {
+  Fs::create_directories(path);
+  Json parts = Json::array();
+  for (int part = 0; part < geometry.parts(); ++part) {
+    const auto directory = path / std::to_string(part);
+    Fs::create_directories(directory);
+    const size_t vertices = geometry.positionsOf(part).size() / 3;
+    Write<float>(directory / "positions.bin", geometry.positionsOf(part));
+    Write<float>(directory / "normals.bin", geometry.normalsOf(part));
+    Write<float>(directory / "uv.bin", geometry.textureOf(part));
+    Write<uint32_t>(directory / "indices.bin", geometry.trianglesOf(part));
+    const auto uv1 = geometry.textureOf(part, UvSet::Uv1);
+    const auto colours = geometry.coloursOf(part);
+    const std::vector<float> defaultUv(uv1.empty() ? vertices * 2 : 0);
+    const std::vector<float> defaultColour(colours.empty() ? vertices * 4 : 0, 1.0f);
+    Write<float>(directory / "uv1.bin", uv1.empty() ? std::span<const float>(defaultUv) : uv1);
+    Write<float>(directory / "colours.bin",
+                 colours.empty() ? std::span<const float>(defaultColour) : colours);
+    parts.push_back({{"vertices", vertices},
+                     {"triangles", geometry.trianglesOf(part).size() / 3},
+                     {"material", geometry.materialOf(part).index()}});
+  }
+  std::ofstream description(path / "input.json");
+  description << Json{{"parts", parts}}.dump(2) << '\n';
+  if (!description) { Fail("source mesh description write failed"); }
+}
+
 void SaveFields(const ImpostorAtlas &atlas, const Fs::path &path) {
   std::vector<float> base;
   for (const auto &view : atlas.Views()) {
@@ -183,7 +210,8 @@ ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
                                 const Render::ImpostorCaptureProjection &projection,
                                 int pixels,
                                 uint64_t sourceTests,
-                                Json &report) {
+                                Json &report,
+                                const Fs::path *geometryOutput) {
   std::string error;
   size_t devices = 0;
   const Render::GpuSubmission submission{
@@ -216,8 +244,13 @@ ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
     capture.MostM = metadata.MostM;
     capture.HalfExtentM = projection.HalfExtentM;
     capture.ViewDirections = {direction};
-    capture.Sources.push_back(
-        {.Mesh = NativeGeometry(sampled->Mesh, frame), .Instances = {Mat4{}}});
+    auto geometry = NativeGeometry(sampled->Mesh, frame);
+    const auto conversionDone = Clock::now();
+    if (geometryOutput != nullptr) {
+      SaveGeometry(geometry, *geometryOutput / "geometry" / std::to_string(views.size()));
+    }
+    const auto captureStarted = Clock::now();
+    capture.Sources.push_back({.Mesh = std::move(geometry), .Instances = {Mat4{}}});
     auto atlas = baker.Capture(std::move(capture), {.Pixels = pixels, .Views = 1}, error);
     if (!atlas) { Fail(error); }
     if (materials.empty()) { materials = atlas->Surfaces(); }
@@ -230,8 +263,12 @@ ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
          {"triangles", (sampled->Mesh.WallRun.size() + sampled->Mesh.RoofRun.size()) / 3},
          {"vertices", sampled->Mesh.WallCorners.size() + sampled->Mesh.RoofCorners.size()},
          {"source_ms", std::chrono::duration<double, std::milli>(sourceDone - started).count()},
+         {"conversion_ms",
+          std::chrono::duration<double, std::milli>(conversionDone - sourceDone).count()},
+         {"export_ms",
+          std::chrono::duration<double, std::milli>(captureStarted - conversionDone).count()},
          {"capture_ms",
-          std::chrono::duration<double, std::milli>(Clock::now() - sourceDone).count()}});
+          std::chrono::duration<double, std::milli>(Clock::now() - captureStarted).count()}});
   }
   report["device_creations"] = devices;
   auto atlas = ImpostorAtlas::Create(pixels,
@@ -315,7 +352,8 @@ void Run(const Fs::path &inputPath, const Json &request, const Fs::path &output)
                                        *projection,
                                        pixels,
                                        request.at("source_tests").get<uint64_t>(),
-                                       report);
+                                       report,
+                                       request.value("export_geometry", false) ? &output : nullptr);
   const auto encoded = atlas.Encode("native-source-planes-impostor-1", error);
   if (!encoded) { Fail(error); }
   Write<uint8_t>(output / "atlas.bin", *encoded);

@@ -83,10 +83,11 @@ Geometry Source(const Fs::path &root, const Json &input) {
     const size_t vertices = record.at("vertices").get<size_t>();
     const size_t triangles = record.at("triangles").get<size_t>();
     const auto directory = root / std::to_string(at);
+    const size_t role = record.value("material", at);
     Material material;
-    material.BaseColour = base.at(at);
-    material.Roughness = at == 1 ? 0.72f : 0.88f;
-    material.Pattern = at == 2 ? SurfacePattern::FacadeMetres : SurfacePattern::Facade;
+    material.BaseColour = base.at(role);
+    material.Roughness = role == 1 ? 0.72f : 0.88f;
+    material.Pattern = role == 2 ? SurfacePattern::FacadeMetres : SurfacePattern::Facade;
     const auto surface = mesh.addSurface("native-source", material);
     if (!surface) { Fail("source material rejected"); }
     const auto part = mesh.addPart("native-part", *surface);
@@ -496,6 +497,35 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native world report write failed"); }
 }
 
+void SourceMeshViews(const Fs::path &root, const Json &input) {
+  Json results{{"mode", "source-mesh"}, {"cases", Json::array()}};
+  const Vec3 centre = (Vector(input.at("least")) + Vector(input.at("most"))) * .5;
+  for (const auto &query : input.at("queries")) {
+    const Vec3 toward = Vector(query.at("eye")) - centre;
+    size_t selected = 0;
+    double best = -std::numeric_limits<double>::infinity();
+    for (size_t view = 0; view < input.at("catalogue").size(); ++view) {
+      const double score = Dot(toward, Vector(input.at("catalogue").at(view)));
+      if (score > best) {
+        selected = view;
+        best = score;
+      }
+    }
+    const auto directory = root / "geometry" / std::to_string(selected);
+    std::ifstream description(directory / "input.json");
+    const auto document = Json::parse(description, nullptr, false);
+    if (!document.is_object()) { Fail("source-plane geometry description unavailable"); }
+    const auto mesh = Source(directory, document);
+    const auto name = query.at("name").get<std::string>();
+    auto record = Draw(mesh, query, root / (name + "-source-mesh"));
+    record.update({{"query", name}, {"selected_view", selected}});
+    results["cases"].push_back(std::move(record));
+  }
+  std::ofstream report(root / "mesh-result.json");
+  report << results.dump(2) << '\n';
+  if (!report) { Fail("native source-mesh report write failed"); }
+}
+
 void CompareOriginals(const Fs::path &root, const Json &input) {
   const auto sourceStarted = Clock::now();
   const auto original = Source(root, input);
@@ -579,13 +609,20 @@ void CompareOriginals(const Fs::path &root, const Json &input) {
 
 int main(int argc, char *const *argv) {
   const bool cachedWorld = argc == 3 && std::string_view(argv[2]) == "--cached-world";
-  if (argc != 2 && !cachedWorld) { Fail("expected a prepared input directory [--cached-world]"); }
+  const bool sourceMesh = argc == 3 && std::string_view(argv[2]) == "--source-mesh";
+  if (argc != 2 && !cachedWorld && !sourceMesh) {
+    Fail("expected a prepared input directory [--cached-world|--source-mesh]");
+  }
   const Fs::path root(argv[1]);
   std::ifstream file(root / "input.json");
   const auto input = Json::parse(file, nullptr, false);
   if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
-  if (cachedWorld) {
-    CachedWorldViews(root, input);
+  if (cachedWorld || sourceMesh) {
+    if (sourceMesh) {
+      SourceMeshViews(root, input);
+    } else {
+      CachedWorldViews(root, input);
+    }
     SDL_Quit();
     return 0;
   }

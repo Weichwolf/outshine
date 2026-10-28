@@ -28,6 +28,10 @@ one persistent native capture context. Unsupported original ordinals remain in
 
 Outputs: `atlas.bin` with provenance `native-source-planes-impostor-1`,
 `source-result.json`, and view-major linear RGBA material fields `base.linear`.
+Optional request `export_geometry: true` writes the same generated indexed patches
+under `geometry/<view>/`, including their material roles and complete attributes.
+Conversion, diagnostic export and capture have separate timings; export does not
+change the atlas. This is a representation control, not additional asset production.
 These fields are material captures, not final lit Places. Timings distinguish
 source work from native conversion/capture; the first capture includes startup.
 Package/index IO, generated vertices/triangles and unresolved sources are explicit.
@@ -41,3 +45,11 @@ reads/decodes/writes with unchanged raw images. Preserve original references.
 This qualifies source production and selective cached consumption. Image energy,
 coverage, view reuse, parent/child transitions, the general World producer and
 device frame budgets require their own evidence. No smaller SSE bound follows.
+
+To compare the patches directly, place the unchanged control queries, bounds and
+catalogue in the output directory's `input.json`, then run
+`test_experiments_render_NativeBuildingImpostors "$output" --source-mesh`.
+It reads only the selected view's generated arrays and writes `mesh-result.json`
+plus native raw images. Compare against the existing original SS16 controls;
+retain failed quality/cost cases. Raster-size experiments keep cameras, light,
+source set and the presentation profile fixed. Fewer triangles alone admit no LOD.

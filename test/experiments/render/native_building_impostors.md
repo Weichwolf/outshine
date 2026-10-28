@@ -9,6 +9,7 @@ Unsupported original sources retain the original manifest's unresolved status.
 cmake --build "$build" --target test_experiments_render_NativeBuildingImpostors --parallel
 "$build/test_experiments_render_NativeBuildingImpostors" "$input"
 "$build/test_experiments_render_NativeBuildingImpostors" "$input" --cached-world
+"$build/test_experiments_render_NativeBuildingImpostors" "$source_planes" --source-mesh
 ```
 
 The ordinary mode reads `input.json` and the exported part arrays, captures `atlas.bin`,
@@ -20,6 +21,12 @@ products in the existing AssetCache, under `$input/world-view-assets.sqlite`.
 declare `native-source-planes-impostor-1` explicitly. Provenance and content digest
 both enter the metadata namespace; old products cannot be reinterpreted.
 It does not reconstruct original meshes or invoke another GPU capture.
+
+Source-mesh mode consumes the indexed geometry exported by
+`native_building_source_planes.md`, choosing the same nearest catalogue direction
+for each unchanged query. A part's optional `material` role defaults to its array
+index, preserving the original three-part input. It compares actual source-patch
+geometry with cards; no source mesher, silhouette fitting or World LOD admission.
 
 The metadata index contains fixed capture directions and source extent. Selection
 uses eye direction and the projected bounding sphere before product IO. Stored keys
