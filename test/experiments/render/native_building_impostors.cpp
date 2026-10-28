@@ -2,6 +2,10 @@
 #include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
 #include "ImpostorViewAssets.h"
+#include "ImpostorViewJob.h"
+#include "AssetPipeline.h"
+#include "AssetPublication.h"
+#include "Tasks.h"
 #include "BuildingSourceCapture.h"
 #include "ImpostorInstances.h"
 #include "WorldCandidate.h"
@@ -32,6 +36,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <stop_token>
+#include <thread>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -490,22 +496,82 @@ OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
   return std::move(*published);
 }
 
+ImpostorCards ResolveView(AssetPipeline &pipeline,
+                          const AssetPipeline::Consumer &consumer,
+                          const std::shared_ptr<AssetCache> &cache,
+                          const std::shared_ptr<BuildingViewSource> &source,
+                          const Content::ImpostorViewAssets &products,
+                          Content::ImpostorViewAssets::Selection selected,
+                          size_t limit,
+                          bool &hit) {
+  const auto key = products.Key(selected);
+  const auto product = AssetProductKey::Parse(key);
+  if (!product) { Fail("invalid selected product key"); }
+  ImpostorViewJob job{
+      .Cache = cache,
+      .Provenance = source->Identity(),
+      .ProductKey = key,
+      .Selected = selected,
+      .BytesMost = limit,
+      .Generate = [source, &hit](ImpostorViewJob::Selection selection,
+                                 size_t,
+                                 const std::stop_token &) -> std::expected<Geometry, std::string> {
+        hit = false;
+        const auto &atlas = source->Require(selection.View);
+        auto geometry = Render::BuildFractionalImpostorSurface(
+            atlas, source->Recipe.is_object() ? 0 : selection.View, selection.Mip);
+        if (!geometry) { return std::unexpected("native source-view preparation failed"); }
+        return std::move(*geometry);
+      }};
+  auto ticket = pipeline.RequestResolved(consumer,
+                                         {.Key = *product,
+                                          .Generation = consumer.Generation(),
+                                          .InputBytes = 256,
+                                          .ConsumerBytes = 0,
+                                          .ReceiptBytesMost = 2048},
+                                         std::move(job));
+  if (!ticket) { Fail("native view job admission failed"); }
+  const auto until = Clock::now() + std::chrono::seconds(30);
+  for (;;) {
+    const auto result = ticket->Poll();
+    if (result.Finished) {
+      if (result.Status != AssetPublicationStatus::Ready) { Fail(result.Message); }
+      break;
+    }
+    if (Clock::now() >= until) { Fail("native view job exceeded its deadline"); }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  auto ready = products.Load(selected, limit);
+  if (!ready || !*ready) { Fail("published native view is unavailable"); }
+  return std::move(**ready);
+}
+
 void CachedWorldViews(const Fs::path &root, const Json &input) {
   using Content::ImpostorViewAssets;
   constexpr size_t limit = size_t{64} * 1024 * 1024;
   const auto openedAt = Clock::now();
-  auto cache = AssetCache::Open((root / "world-view-assets.sqlite").string());
+  auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());
   const double databaseOpenMs = Milliseconds(openedAt);
-  if (!cache) { Fail("native world asset database unavailable"); }
-  BuildingViewSource source{
+  if (!opened) { Fail("native world asset database unavailable"); }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
       .AtlasFile = root / "atlas.bin",
       .AtlasDigest = input.value("atlas_sha256", std::string{}),
       .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
       .SourceInput = input.value("source_input", std::string{}),
-      .Recipe = input.value("source_request", Json())};
+      .Recipe = input.value("source_request", Json())});
   const auto metadataAt = Clock::now();
   const auto products = OpenViewAssets(
-      **cache, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+      *cache, *source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+  Tasks workers(2);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = 256,
+                          .ReceiptBytesMost = 2048});
+  auto consumer = pipeline.OpenConsumer({.Identity = cache});
+  if (!consumer) { Fail("native view consumer unavailable"); }
   size_t writes = 0;
   Json results{{"mode", "cached-world"},
                {"database_open_ms", databaseOpenMs},
@@ -520,25 +586,14 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     if (!selected) { Fail("native world view selection failed"); }
     const auto began = Clock::now();
     bool hit = true;
-    auto loaded = products.Resolve(
-        *selected,
-        limit,
-        [&](ImpostorViewAssets::Selection selection,
-            size_t) -> std::expected<Geometry, AssetCacheError> {
-          hit = false;
-          const auto &atlas = source.Require(selection.View);
-          auto geometry = Render::BuildFractionalImpostorSurface(
-              atlas, source.Recipe.is_object() ? 0 : selection.View, selection.Mip);
-          if (!geometry) { return std::unexpected(AssetCacheError::InvalidInput); }
-          return std::move(*geometry);
-        });
-    if (!loaded) { Fail("native world view is not a ready cached product"); }
+    const auto loaded =
+        ResolveView(pipeline, *consumer, cache, source, products, *selected, limit, hit);
     if (!hit) { ++writes; }
     const double loadMs = Milliseconds(began);
-    const auto record = (*cache)->Find(products.Key(*selected));
+    const auto record = cache->Find(products.Key(*selected));
     if (!record || !*record) { Fail("native world product has no metadata"); }
     const auto name = query.at("name").get<std::string>();
-    Json result = Draw(Geometry{}, query, root / (name + "-cached-world"), &*loaded);
+    Json result = Draw(Geometry{}, query, root / (name + "-cached-world"), &loaded);
     result.update({{"query", name},
                    {"selected_view", selected->View},
                    {"selected_mip", selected->Mip},
@@ -549,13 +604,13 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
                    {"asset_key", (**record).Key}});
     results["cases"].push_back(std::move(result));
   }
-  results.update({{"source_read_bytes", source.ReadBytes},
-                  {"source_decodes", source.Decodes},
+  results.update({{"source_read_bytes", source->ReadBytes},
+                  {"source_decodes", source->Decodes},
                   {"writes", writes},
-                  {"source_read_ms", source.ReadMs},
-                  {"source_decode_ms", source.DecodeMs}});
-  if (source.Producer) {
-    const auto &report = source.Producer->Report();
+                  {"source_read_ms", source->ReadMs},
+                  {"source_decode_ms", source->DecodeMs}});
+  if (source->Producer) {
+    const auto &report = source->Producer->Report();
     results["source_read_bytes"] = report.at("index_bytes").get<size_t>() +
                                    report.at("descriptor_bytes").get<size_t>() +
                                    report.at("form_bytes").get<size_t>();
@@ -564,8 +619,8 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     results["source_decode_ms"] = report.at("source_decode_ms");
     results["source_capture"] = report;
   }
-  results["captures"] = source.Captures;
-  results["source_header_ms"] = source.HeaderMs;
+  results["captures"] = source->Captures;
+  results["source_header_ms"] = source->HeaderMs;
   std::ofstream report(root / "world-result.json");
   report << results.dump(2) << '\n';
   if (!report) { Fail("native world report write failed"); }

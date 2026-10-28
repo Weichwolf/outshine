@@ -82,7 +82,7 @@ def replay(args):
         or sum(c["hit"] for c in first["cases"]) != 4
         or len(first["captures"]) != 2
         or source["form_reads"] != 4
-        or source["device_creations"] != 1
+        or source["device_creations"] != 2
         or sum(w["rays"] for c in first["captures"] for w in c["work"]) != 32768
     ):
         raise ValueError("cold source-view production differs from the fixed control")

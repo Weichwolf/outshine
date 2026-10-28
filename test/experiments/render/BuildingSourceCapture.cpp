@@ -280,7 +280,6 @@ struct BuildingSourceCapture::State {
   SourceCosts Costs;
   Json Report;
   size_t Devices = 0;
-  std::unique_ptr<Render::ImpostorBaker> Baker;
 
   State(const Fs::path &inputPath, const Json &request) {
     auto &costs = Costs;
@@ -406,16 +405,14 @@ ImpostorAtlas BuildingSourceCapture::Capture(std::optional<size_t> view,
   } else {
     state.Report.erase("selected_view");
   }
-  if (!state.Baker) {
-    const Render::GpuSubmission submission{
-        .Context = &state.Devices,
-        .Create = [](void *context, Render::Native::DeviceOptions options)
-            -> Render::Native::Result<std::unique_ptr<Render::Native::Device>> {
-          ++*static_cast<size_t *>(context);
-          return Render::Native::CreateDevice(options);
-        }};
-    state.Baker = std::make_unique<Render::ImpostorBaker>(submission);
-  }
+  const Render::GpuSubmission submission{
+      .Context = &state.Devices,
+      .Create = [](void *context, Render::Native::DeviceOptions options)
+          -> Render::Native::Result<std::unique_ptr<Render::Native::Device>> {
+        ++*static_cast<size_t *>(context);
+        return Render::Native::CreateDevice(options);
+      }};
+  Render::ImpostorBaker baker(submission);
   state.Report["views"] = Json::array();
   if (!state.Producer) { Fail("source hierarchy is unavailable"); }
   return CapturePlaneViews(*state.Producer,
@@ -425,7 +422,7 @@ ImpostorAtlas BuildingSourceCapture::Capture(std::optional<size_t> view,
                            state.Pixels,
                            state.SourceTests,
                            state.Report,
-                           *state.Baker,
+                           baker,
                            geometryOutput.empty() ? nullptr : &geometryOutput);
 }
 }
