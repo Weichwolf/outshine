@@ -79,9 +79,12 @@ RawSourceCache::Presence RawSourceCache::ReadStatus(std::string_view key) const 
   const auto bytes = ReadEntry(MarkerPath(Directory_, key), kRecordBytes);
   if (!bytes) { return Presence::Unknown; }
   const std::string_view record(reinterpret_cast<const char *>(bytes->data()), bytes->size());
-  const auto status = record == kEmptySignature    ? Presence::Bytes
-                      : ValidAbsenceRecord(record) ? Presence::Absent
-                                                   : Presence::Unknown;
+  Presence status = Presence::Unknown;
+  if (record == kEmptySignature) {
+    status = Presence::Bytes;
+  } else if (ValidAbsenceRecord(record)) {
+    status = Presence::Absent;
+  }
   if (status != Presence::Unknown) { ObserveUsage(key, bytes->size()); }
   return status;
 }
