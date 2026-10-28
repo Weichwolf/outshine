@@ -3,6 +3,7 @@
 
 #include "AssetCache.h"
 #include "ImpostorCards.h"
+#include "ImpostorAtlas.h"
 #include "Geometry.h"
 #include "Vec3.h"
 #include <cstddef>
@@ -49,10 +50,25 @@ public:
   [[nodiscard]] std::expected<ImpostorCards, AssetCacheError>
   Resolve(Selection selection, size_t bytesMost, const Factory &factory) const;
 
+  struct ViewIndex {
+    size_t Value = 0;
+  };
+
+  using FieldFactory =
+      std::function<std::expected<ImpostorAtlas, AssetCacheError>(ViewIndex, size_t)>;
+  [[nodiscard]] std::string FieldKey(ViewIndex view) const;
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  PublishField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
+  [[nodiscard]] std::expected<std::optional<ImpostorAtlas>, AssetCacheError>
+  LoadField(ViewIndex view, size_t bytesMost) const;
+  [[nodiscard]] std::expected<ImpostorAtlas, AssetCacheError>
+  ResolveField(ViewIndex view, size_t bytesMost, const FieldFactory &factory) const;
+
 private:
   ImpostorViewAssets(AssetCache &cache, AssetRecord record, Description description);
   [[nodiscard]] uint32_t Pixels(Selection selection) const noexcept;
   [[nodiscard]] bool Matches(const ImpostorCards &cards, Selection selection) const;
+  [[nodiscard]] bool MatchesField(const ImpostorAtlas &field, ViewIndex view) const noexcept;
   AssetCache &Cache_;
   AssetRecord Record_;
   Description Description_;
