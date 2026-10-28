@@ -91,6 +91,22 @@ class CycleTopology(unittest.TestCase):
         domain = shapely.coverage_union_all(shapely.polygons(raw["xy"][raw["faces"]]))
         self.assertEqual(len(domain.interiors), 1)
 
+    def test_short_ring_edge_and_unconnected_geometric_crossing_stay_rejected(self):
+        edges = np.array([[0, 1], [1, 2], [2, 3], [3, 0]])
+        for xy in (
+            np.array([[0, 0], [0.05, 0], [20, 20], [0, 20]], dtype=float),
+            np.array([[0, 0], [20, 20], [0, 20], [20, 0]], dtype=float),
+        ):
+            with self.assertRaises(ValueError):
+                layout(
+                    xy,
+                    edges,
+                    np.full(4, 1.8),
+                    np.full(4, 0.15),
+                    seconds=5,
+                    expected_holes=1,
+                )
+
 
 class ActualCycle(unittest.TestCase):
     @classmethod
