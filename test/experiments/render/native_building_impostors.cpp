@@ -539,41 +539,80 @@ OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
   return std::move(*published);
 }
 
+struct BuildingViewJobs {
+  AssetPipeline &Pipeline;
+  const AssetPipeline::Consumer &Consumer;
+  std::shared_ptr<AssetCache> Cache;
+  std::shared_ptr<BuildingViewSource> Source;
+};
+
+void ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorViewJob job) {
+  const auto product = AssetProductKey::Parse(key);
+  if (!product) { Fail("invalid selected product key"); }
+  auto ticket = jobs.Pipeline.RequestResolved(jobs.Consumer,
+                                              {.Key = *product,
+                                               .Generation = jobs.Consumer.Generation(),
+                                               .InputBytes = 256,
+                                               .ConsumerBytes = 0,
+                                               .ReceiptBytesMost = 2048},
+                                              std::move(job));
+  if (!ticket) { Fail("native view job admission failed"); }
+  const auto until = Clock::now() + std::chrono::seconds(30);
+  for (;;) {
+    const auto result = ticket->Poll();
+    if (result.Finished) {
+      if (result.Status != AssetPublicationStatus::Ready) { Fail(result.Message); }
+      return;
+    }
+    if (Clock::now() >= until) { Fail("native view job exceeded its deadline"); }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
 ImpostorAtlas ResolveSourceField(const Content::ImpostorViewAssets &products,
-                                 BuildingViewSource &source,
+                                 const BuildingViewJobs &jobs,
                                  size_t view,
                                  bool &hit) {
   constexpr size_t limit = size_t{64} * 1024 * 1024;
-  auto loaded = products.ResolveField(
-      {view},
-      limit,
-      [&](Content::ImpostorViewAssets::ViewIndex selected,
-          size_t budget) -> std::expected<ImpostorAtlas, AssetCacheError> {
-        const auto bound = ImpostorAtlas::EncodedBytesMost(
-            {.Pixels = static_cast<int>(products.Metadata().Pixels), .Views = 1});
-        if (!bound || *bound > budget) {
-          return std::unexpected(AssetCacheError::CapacityExceeded);
-        }
-        hit = false;
-        const auto &atlas = source.Require(selected.Value);
-        const size_t local = source.Recipe.is_object() ? 0 : selected.Value;
-        std::string error;
-        auto field = ImpostorAtlas::Create(atlas.Pixels(),
-                                           atlas.CentreM(),
-                                           atlas.HalfExtentM(),
-                                           atlas.Surfaces(),
-                                           {atlas.Views()[local]},
-                                           error);
-        if (!field) { return std::unexpected(AssetCacheError::InvalidInput); }
-        return std::move(*field);
-      });
-  if (!loaded) { Fail("required source material field unavailable"); }
-  return std::move(*loaded);
+  const auto key = products.FieldKey({view});
+  ImpostorViewJob job{
+      .Cache = jobs.Cache,
+      .Provenance = jobs.Source->Identity(),
+      .ProductKey = key,
+      .BytesMost = limit,
+      .Product = ImpostorViewJob::MaterialView{
+          .Selected = {view},
+          .Generate = [source = jobs.Source, pixels = products.Metadata().Pixels, &hit](
+                          Content::ImpostorViewAssets::ViewIndex selected,
+                          size_t budget,
+                          const std::stop_token &) -> std::expected<ImpostorAtlas, std::string> {
+            const auto bound =
+                ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(pixels), .Views = 1});
+            if (!bound || *bound > budget) {
+              return std::unexpected("source material field exceeds its byte limit");
+            }
+            hit = false;
+            const auto &atlas = source->Require(selected.Value);
+            const size_t local = source->Recipe.is_object() ? 0 : selected.Value;
+            std::string error;
+            auto field = ImpostorAtlas::Create(atlas.Pixels(),
+                                               atlas.CentreM(),
+                                               atlas.HalfExtentM(),
+                                               atlas.Surfaces(),
+                                               {atlas.Views()[local]},
+                                               error);
+            if (!field) { return std::unexpected(error); }
+            return std::move(*field);
+          }}};
+  ResolveProduct(jobs, key, std::move(job));
+  auto loaded = products.LoadField({view}, limit);
+  if (!loaded || !*loaded) { Fail("published source material field unavailable"); }
+  return std::move(**loaded);
 }
 
 struct RadianceRequest {
   const Content::ImpostorViewAssets &Products;
-  BuildingViewSource &Source;
+  const BuildingViewJobs &Jobs;
   size_t View;
   const Json &Query;
   const Geometry *Original = nullptr;
@@ -609,8 +648,7 @@ struct RetainedRadiance {
       return *Field;
     }
     const auto loading = Clock::now();
-    const auto atlas =
-        ResolveSourceField(request.Products, request.Source, request.View, SourceHit);
+    const auto atlas = ResolveSourceField(request.Products, request.Jobs, request.View, SourceHit);
     LoadMs = Milliseconds(loading);
     if (!SourceHit) { ++Writes; }
     auto prepared = Test::PrepareBuildingRadiance(renderer, atlas, 0, query, request.Original);
@@ -625,17 +663,29 @@ struct RetainedRadiance {
 };
 
 void RadianceViews(const Fs::path &root, const Json &input) {
-  BuildingViewSource source{
+  const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
       .AtlasFile = root / "atlas.bin",
       .AtlasDigest = input.value("atlas_sha256", std::string{}),
       .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
       .SourceInput = input.value("source_input", std::string{}),
-      .Recipe = input.value("source_request", Json(nullptr))};
+      .Recipe = input.value("source_request", Json(nullptr))});
   auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());
   if (!opened) { Fail("material field database unavailable"); }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
   const auto products = OpenViewAssets(
-      **opened, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+      *cache, *source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   const auto &metadata = products.Metadata();
+  Tasks workers(2);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = 256,
+                          .ReceiptBytesMost = 2048});
+  auto consumer = pipeline.OpenConsumer({.Identity = cache});
+  if (!consumer) { Fail("native field consumer unavailable"); }
+  const BuildingViewJobs jobs{
+      .Pipeline = pipeline, .Consumer = *consumer, .Cache = cache, .Source = source};
   Geometry original;
   if (input.contains("field_original")) {
     const Fs::path path(input.at("field_original").get<std::string>());
@@ -658,7 +708,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
     }
     const auto &field = retained.Resolve(renderer,
                                          {.Products = products,
-                                          .Source = source,
+                                          .Jobs = jobs,
                                           .View = view,
                                           .Query = query,
                                           .Original = original.parts() > 0 ? &original : nullptr});
@@ -698,60 +748,39 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   report["field_renders"] = retained.Renders;
   report["field_reuses"] = retained.Reuses;
   report["field_writes"] = retained.Writes;
-  report["atlas_read_bytes"] = source.ReadBytes;
-  report["atlas_decodes"] = source.Decodes;
-  report["captures"] = source.Captures;
-  if (source.Producer) { report["source_capture"] = source.Producer->Report(); }
+  report["atlas_read_bytes"] = source->ReadBytes;
+  report["atlas_decodes"] = source->Decodes;
+  report["captures"] = source->Captures;
+  if (source->Producer) { report["source_capture"] = source->Producer->Report(); }
   std::ofstream file(root / "radiance-result.json");
   file << report.dump(2) << '\n';
   if (!file) { Fail("radiance report write failed"); }
 }
 
-ImpostorCards ResolveView(AssetPipeline &pipeline,
-                          const AssetPipeline::Consumer &consumer,
-                          const std::shared_ptr<AssetCache> &cache,
-                          const std::shared_ptr<BuildingViewSource> &source,
+ImpostorCards ResolveView(const BuildingViewJobs &jobs,
                           const Content::ImpostorViewAssets &products,
                           Content::ImpostorViewAssets::Selection selected,
                           size_t limit,
                           bool &hit) {
   const auto key = products.Key(selected);
-  const auto product = AssetProductKey::Parse(key);
-  if (!product) { Fail("invalid selected product key"); }
   ImpostorViewJob job{
-      .Cache = cache,
-      .Provenance = source->Identity(),
+      .Cache = jobs.Cache,
+      .Provenance = jobs.Source->Identity(),
       .ProductKey = key,
-      .Selected = selected,
       .BytesMost = limit,
-      .Generate = [source, &hit](ImpostorViewJob::Selection selection,
-                                 size_t,
-                                 const std::stop_token &) -> std::expected<Geometry, std::string> {
-        hit = false;
-        const auto &atlas = source->Require(selection.View);
-        auto geometry = Render::BuildFractionalImpostorSurface(
-            atlas, source->Recipe.is_object() ? 0 : selection.View, selection.Mip);
-        if (!geometry) { return std::unexpected("native source-view preparation failed"); }
-        return std::move(*geometry);
-      }};
-  auto ticket = pipeline.RequestResolved(consumer,
-                                         {.Key = *product,
-                                          .Generation = consumer.Generation(),
-                                          .InputBytes = 256,
-                                          .ConsumerBytes = 0,
-                                          .ReceiptBytesMost = 2048},
-                                         std::move(job));
-  if (!ticket) { Fail("native view job admission failed"); }
-  const auto until = Clock::now() + std::chrono::seconds(30);
-  for (;;) {
-    const auto result = ticket->Poll();
-    if (result.Finished) {
-      if (result.Status != AssetPublicationStatus::Ready) { Fail(result.Message); }
-      break;
-    }
-    if (Clock::now() >= until) { Fail("native view job exceeded its deadline"); }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
+      .Product = ImpostorViewJob::SurfaceView{
+          .Selected = selected,
+          .Generate = [source = jobs.Source,
+                       &hit](ImpostorViewJob::Selection selection, size_t, const std::stop_token &)
+              -> std::expected<Geometry, std::string> {
+            hit = false;
+            const auto &atlas = source->Require(selection.View);
+            auto geometry = Render::BuildFractionalImpostorSurface(
+                atlas, source->Recipe.is_object() ? 0 : selection.View, selection.Mip);
+            if (!geometry) { return std::unexpected("native source-view preparation failed"); }
+            return std::move(*geometry);
+          }}};
+  ResolveProduct(jobs, key, std::move(job));
   auto ready = products.Load(selected, limit);
   if (!ready || !*ready) { Fail("published native view is unavailable"); }
   return std::move(**ready);
@@ -783,6 +812,8 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
                           .ReceiptBytesMost = 2048});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { Fail("native view consumer unavailable"); }
+  const BuildingViewJobs jobs{
+      .Pipeline = pipeline, .Consumer = *consumer, .Cache = cache, .Source = source};
   size_t writes = 0;
   Json results{{"mode", "cached-world"},
                {"database_open_ms", databaseOpenMs},
@@ -797,8 +828,7 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     if (!selected) { Fail("native world view selection failed"); }
     const auto began = Clock::now();
     bool hit = true;
-    const auto loaded =
-        ResolveView(pipeline, *consumer, cache, source, products, *selected, limit, hit);
+    const auto loaded = ResolveView(jobs, products, *selected, limit, hit);
     if (!hit) { ++writes; }
     const double loadMs = Milliseconds(began);
     const auto record = cache->Find(products.Key(*selected));

@@ -111,6 +111,16 @@ python test/experiments/render/replay_cached_radiance.py \
   --source-input "$source/input.json" --output "$new_system_temp_directory"
 ```
 
+Surface cards and raw material views use typed products of the same
+`ImpostorViewJob` in the existing AssetPipeline. Both validate the requested key
+against current metadata before work, retain their asset store/source owner and
+return a stored CPU-product receipt. Cancellation is checked before generation
+and before publication. A source capture owns its GPU resources inside its worker
+call; no renderer or device crosses Tasks. The diagnostic waits only during offline
+setup and then presents on its executing renderer. Shared consumers, last-consumer
+cancellation, admission rejection, source-free hits and stale metadata are checked
+for both product types. This is not yet the general World demand producer.
+
 The eight fixed controls generate only two raw views. A fresh process with an absent
 source path, zero source-work budget, reversed cell order and renamed queries relights
 the stored fields: all 40 raw outputs and view keys must match, with no source work
