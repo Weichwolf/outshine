@@ -239,6 +239,10 @@ def compact(prepared, *, portals=(), legacy_trim=True, recess_components=None):
                     )
     if legacy_trim:
         accents(writer, mass, facade, portals)
+    if prepared.recesses:
+        from facade_recess_surfaces import write
+
+        write(writer, prepared)
     pad = shapely.from_wkb(mass.entry.landing_wkb).difference(
         shapely.from_wkb(mass.source_wkb)
     )

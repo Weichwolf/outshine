@@ -91,7 +91,7 @@ def shape(mass, window, recipe):
         identifier + "/door",
         window.storey,
         window.edge,
-        tuple(door_centre),
+        tuple(centre + inward * recipe.depth_m),
         window.tangent,
         floor,
         recipe.door_width_m,

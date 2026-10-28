@@ -14,6 +14,7 @@ from facade_recess_plan import plan as recess_plan
 from facade_recess_shape import shape
 from outshine_ref.buildings.modelling import PrismVolume
 from outshine_ref.buildings.modelling.prism_union import primitive_mesh
+from shapely.affinity import affine_transform
 from terraced_crown_geometry import RoofedProducts
 from terraced_crown_plan import plan
 from terraced_crown_probe import cases
@@ -60,6 +61,68 @@ class RecessTests(unittest.TestCase):
                 all(len(r["routes"]) == 2 for r in result["new_actor_routes"])
             )
             self.assertGreater(result["existing_body"]["sampled_stair_poses"], 60)
+
+    def test_compact_bays_keep_the_actual_floor_and_soffit_surfaces(self):
+        for owner in self.owners:
+            mass = owner.plan.body
+            mesh = owner.body.facade.coarse.mesh
+            xyz = mesh["vertices"][mesh["faces"]]
+            normals = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
+            core = mass.core
+            matrix = [
+                core.across_xy[0],
+                core.along_xy[0],
+                core.across_xy[1],
+                core.along_xy[1],
+                *core.origin_xy,
+            ]
+            for cell in owner.body.plan.prepared.recesses:
+                deck = affine_transform(shapely.from_wkb(cell.deck_wkb), matrix)
+                soffit = cell.outer.bottom_m + cell.outer.height_m
+                for height, sign in ((cell.outer.bottom_m, 1), (soffit, -1)):
+                    hit = np.max(abs(xyz[:, :, 2] - height), axis=1) < 1e-9
+                    hit &= normals[:, 2] * sign > 0
+                    surface = shapely.union_all(shapely.polygons(xyz[hit, :, :2]))
+                    self.assertLessEqual(deck.difference(surface).area, 1e-8)
+
+    def test_rear_door_frames_attach_to_the_visible_wall_face(self):
+        for owner in self.owners:
+            components = owner.body.facade.recess_components
+            mesh = components.mesh
+            for cell in components.descriptors:
+                ids = [
+                    i
+                    for i, name in enumerate(components.owners)
+                    if name.startswith(cell.door.identifier + "/frame/")
+                ]
+                hit = np.isin(mesh["parts"], ids)
+                points = mesh["vertices"][mesh["faces"][hit]].reshape(-1, 3)
+                tangent = cell.outer.tangent
+                inward = np.array([-tangent[1], tangent[0]])
+                depth = (points[:, :2] - cell.outer.centre) @ inward
+                np.testing.assert_allclose(
+                    [depth.min(), depth.max()], [1.2 - 0.045, 1.2], rtol=0, atol=1e-9
+                )
+
+    def test_compact_wall_reveals_cover_the_exposed_parent_wall_thickness(self):
+        for owner in self.owners:
+            facade = owner.body.facade
+            coarse = facade.coarse
+            for cell in facade.prepared.recesses:
+                for suffix in ("left-reveal", "right-reveal"):
+                    part = coarse.owner_ids.index(cell.identifier + "/" + suffix)
+                    faces = coarse.mesh["faces"][coarse.triangle_owners == part]
+                    points = coarse.mesh["vertices"][faces]
+                    area = (
+                        np.linalg.norm(
+                            np.cross(
+                                points[:, 1] - points[:, 0], points[:, 2] - points[:, 0]
+                            ),
+                            axis=1,
+                        ).sum()
+                        / 2
+                    )
+                    self.assertAlmostEqual(area, 0.24 * cell.outer.height_m, places=8)
 
     def test_unchanged_recess_geometry_is_shared_with_near_expansion(self):
         owner = RoofedProducts(self.plans[0], facade_recesses=RecessRecipe())
