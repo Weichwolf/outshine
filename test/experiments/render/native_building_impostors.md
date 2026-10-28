@@ -5,6 +5,17 @@ This diagnostic uses fixed source geometry, capture directions, lighting and que
 It does not admit a World LOD, source occluder, smaller error bound or frame budget.
 Unsupported original sources retain the original manifest's unresolved status.
 
+Every base draw writes `.linear`, `.depth`, `.normal` and `.rgba`. The `.normal`
+file is the unchanged shading-normal attachment: 1280×720 row-major Float32×4,
+native byte order (little-endian on both target devices). XYZ is the scene-space
+shading normal after model/facing/material-normal transforms; W preserves the
+front/back sign written by the shader (+1/-1), including attachment clear/resolve.
+No normalization or camera/ECEF conversion is applied. Pair it with the same
+`.depth` field; the existing aggregate excludes depth zero. It belongs to the
+base frame, not the
+supersampled colour `.ssN`. `normal_sum` retains the depth-masked XYZ aggregate.
+Replay compression stores these outputs losslessly as `.normal.gz`.
+
 ```sh
 cmake --build "$build" --target test_experiments_render_NativeBuildingImpostors --parallel
 "$build/test_experiments_render_NativeBuildingImpostors" "$input"

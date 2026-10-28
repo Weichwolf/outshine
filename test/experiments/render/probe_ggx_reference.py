@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from ggx_reference import CHANNELS, compare, fixtures, row_reference
 from material_filter import energy_scale, read_tables
-from probe_material_filter import sha
+from probe_material_filter import sha, with_energy_scale
 from probe_moment_codec import capture
 
 SHADER = """#version 450
@@ -33,7 +33,7 @@ void main() {
   float q=words[at+7]>0.0 ? words[at+6] : a*a;
   float d=q>0.0 ? brdfDistribution(nh,q) : 0.0;
   float v=brdfVisibility(nl,nv,q), lobe=brdfLobe(q,nl,nv,nh);
-  float e=ggxEnergyScale(vec3(f0),r,nv).x;
+  float e=probeEnergyScale(vec3(f0),r,nv).x;
   Brdf response=metalRoughBrdf(vec3(0.0),vec3(f0),1.0,q,nl,nv,nh,vh);
   results[index]=Result(vec4(d,v,lobe,q),
       vec4(response.specular.x*e*nl,e,brdfFresnel(vec3(f0),1.0,vh).x,a));
@@ -153,7 +153,10 @@ def main():
     np.save(args.output / "fields.npy", rows, allow_pickle=False)
     values, cost = capture(
         rows,
-        shader_for(args.weighted_product),
+        with_energy_scale(
+            shader_for(args.weighted_product),
+            (includes / "microfacetEnergy.glsl").read_text(),
+        ),
         args.output / "native",
         args.binary,
         includes,

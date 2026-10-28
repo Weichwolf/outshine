@@ -45,11 +45,25 @@ void main() {
     Brdf response=metalRoughBrdf(value(at),value(at+4),palette[at+7],a*a,
                                nl,nv,max(dot(n,h),0.0),max(dot(v,h),0.0));
     diffuse=response.diffuse*nl;
-    specular=response.specular*ggxEnergyScale(value(at+4),roughness,nv)*nl;
+    specular=response.specular*probeEnergyScale(value(at+4),roughness,nv)*nl;
   }
   results[index]=Result(vec4(diffuse,nl),vec4(specular,nv));
 }
 """
+
+
+def with_energy_scale(shader, source):
+    if "vec3 ggxEnergyScaleFromAlbedo(" in source:
+        expression = "ggxEnergyScaleFromAlbedo(f0,r,ggxEnvironmentBrdf(nv,r).x)"
+    elif "vec3 ggxEnergyScale(" in source:
+        expression = "ggxEnergyScale(f0,r,nv)"
+    else:
+        raise ValueError("the selected product source has no supported GGX energy contract")
+    marker = '#include "microfacetEnergy.glsl"'
+    if shader.count(marker) != 1:
+        raise ValueError("the probe must include exactly one selected GGX energy source")
+    helper = "\nvec3 probeEnergyScale(vec3 f0,float r,float nv) { return " + expression + "; }"
+    return shader.replace(marker, marker + helper)
 
 
 def sha(path):
@@ -99,7 +113,9 @@ def prepare(args, out):
     if not np.isfinite(reference).all():
         raise ValueError("nonfinite CPU control")
     np.save(out / "reference.npy", reference, allow_pickle=False)
-    (shader / "probe.comp").write_text(SHADER)
+    (shader / "probe.comp").write_text(
+        with_energy_scale(SHADER, (shader / "microfacetEnergy.glsl").read_text())
+    )
     compile_result = run(
         [
             "nice",
