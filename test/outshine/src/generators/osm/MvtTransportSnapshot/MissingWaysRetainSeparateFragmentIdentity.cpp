@@ -1,4 +1,5 @@
 #include "MvtTransportSnapshot.h"
+#include "MvtTransportSnapshotInternal.h"
 #include "MvtTransportWireFixture.h"
 #include "OsmField.h"
 #include "StreetField.h"
@@ -8,6 +9,8 @@
 #include "Check.h"
 #include <algorithm>
 #include <array>
+#include <bit>
+#include <stop_token>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -33,13 +36,93 @@ Wire::Bytes ThreeWays() {
   Wire::Message(
       layer,
       Wire::kFeatureTags,
-      Wire::Feature(
-          {.Id = 42,
-           .Tags = {0, 0, 1, 1},
-           .Geometry = {9, 16, 16, 10, 16, 0, 9, 15, 32, 10, 16, 0, 9, 15, 32, 10, 16, 0}}));
+      Wire::Feature({.Id = 42, .Tags = {0, 0, 1, 1}, .Geometry = {9,  16, 16, 34, 4,  0,  4,  8,
+                                                                  4,  7,  4,  0,  9,  15, 32, 10,
+                                                                  16, 0,  9,  15, 32, 10, 16, 0}}));
   Wire::Bytes tile;
   Wire::Message(tile, Wire::kLayerKey, layer);
   return tile;
+}
+
+void CheckMissingWay(const MvtTransportSourceFacts::MissingWay &missing,
+                     const MvtTransportSnapshot &made,
+                     const OsmField &field,
+                     const StreetField &streets) {
+  CHECK(missing.Omission < made.Omissions.size(), "missing geometry refers to canonical omission");
+  if (missing.Omission >= made.Omissions.size()) { return; }
+  const auto &omission = made.Omissions[missing.Omission];
+  CHECK(omission.Fragment && omission.Reason == MvtTransportOmissionReason::MissingTopology,
+        "geometry cannot qualify a feature-wide or unknown omission");
+  const auto &way = streets.Ways()[missing.Way.StreetWay];
+  CHECK(missing.Points.size() == way.PointCount &&
+            missing.Way.HalfWidthWord == std::bit_cast<uint32_t>(way.HalfWidthM) &&
+            missing.Way.OwnsEnds == way.OwnsEnds && missing.Layer == way.Layer &&
+            missing.Bridge == way.Bridge && !missing.Tunnel,
+        "full source shape, exact width, original ownership and vertical semantics survive");
+  for (size_t i = 0; i < missing.Points.size(); ++i) {
+    CHECK(missing.Points[i].LongitudeDeg == field.Points()[2 * (way.FirstPoint + i) + 1] &&
+              missing.Points[i].LatitudeDeg == field.Points()[2 * (way.FirstPoint + i)],
+          "every original point survives without XY reconstruction or endpoint reduction");
+  }
+  if (missing.Way.StreetWay == 0) {
+    CHECK(missing.Points.size() == 5 &&
+              std::ranges::none_of(missing.Way.EndStencil,
+                                   [&](const auto &point) {
+                                     return point.LongitudeDeg == missing.Points[2].LongitudeDeg &&
+                                            point.LatitudeDeg == missing.Points[2].LatitudeDeg;
+                                   }),
+          "the curved missing way retains interior information absent from its end stencil");
+  }
+}
+
+void CheckOriginalFacts(const MvtTransportSnapshot &made,
+                        const MvtTransportSnapshot &full,
+                        const OsmField &field,
+                        const StreetField &streets,
+                        const Path::Network &network) {
+  CHECK(made.SourceFacts && full.SourceFacts, "bounded captures retain original omission facts");
+  if (!made.SourceFacts || !full.SourceFacts) { return; }
+  const auto &facts = *made.SourceFacts;
+  CHECK(facts.Ways.size() == 1 && facts.MissingWays.size() == 2 &&
+            full.SourceFacts->MissingWays.empty(),
+        "only missing original ways add full geometry; represented ways retain existing facts");
+  if (facts.MissingWays.size() != 2) { return; }
+  for (const auto &missing : facts.MissingWays) { CheckMissingWay(missing, made, field, streets); }
+  for (const auto changed : {0, 1, 2, 3, 4, 5}) {
+    auto copy = facts;
+    auto &missing = copy.MissingWays.front();
+    if (changed == 0) { missing.Points[2].LatitudeDeg += 0.000001; }
+    if (changed == 1) { missing.Omission ^= 1u; }
+    if (changed == 2) { ++missing.Layer; }
+    if (changed == 3) { missing.Bridge = !missing.Bridge; }
+    if (changed == 4) { missing.Way.HalfWidthWord ^= 1u; }
+    if (changed == 5) { copy.OmissionsDigest.front() ^= 1u; }
+    MvtTransport::BindSourceFacts(copy);
+    CHECK(copy.Digest != facts.Digest,
+          "original omission geometry and binding affect source digest");
+  }
+  const auto limited = BuildMvtTransportSnapshot(
+      field,
+      streets,
+      network,
+      {},
+      {},
+      {.NodeGroupPayloadBytesMost = 1 << 20, .SourceFactsPayloadBytesMost = 1});
+  CHECK(
+      limited && !limited->SourceFacts &&
+          limited->SourceFactState == MvtTransportSourceFactState::BudgetExceeded &&
+          limited->Omissions.size() == made.Omissions.size(),
+      "insufficient capture budget preserves original omissions and valid native partial network");
+  std::stop_source cancelled;
+  cancelled.request_stop();
+  CHECK(!BuildMvtTransportSnapshot(
+            field,
+            streets,
+            network,
+            {},
+            cancelled.get_token(),
+            {.NodeGroupPayloadBytesMost = 1 << 20, .SourceFactsPayloadBytesMost = 1 << 20}),
+        "cancelled capture never publishes partial original facts");
 }
 }
 
@@ -69,7 +152,13 @@ int main() {
   if (!fullGraph.Graph) { return Report(); }
   const std::array<GeographicBounds, 1> fullCoverage{
       {{.WestDeg = 0, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 0}}};
-  const auto full = BuildMvtTransportSnapshot(field, streets, *fullGraph.Graph, fullCoverage);
+  const auto full = BuildMvtTransportSnapshot(
+      field,
+      streets,
+      *fullGraph.Graph,
+      fullCoverage,
+      {},
+      {.NodeGroupPayloadBytesMost = 1 << 20, .SourceFactsPayloadBytesMost = 1 << 20});
   CHECK(full, "complete normalization provides the existing source fragment identities");
   if (!full) { return Report(); }
   CHECK(full->Omissions.empty(), "the complete three-way input has no omitted topology");
@@ -81,6 +170,8 @@ int main() {
     }
   }
   std::ranges::sort(expected);
+  const auto duplicate = std::ranges::unique(expected);
+  expected.erase(duplicate.begin(), duplicate.end());
   CHECK(expected.size() == 2 && expected[0] != expected[1],
         "complete topology gives the absent source ways distinct existing identities");
   auto partial = streets.Without(0).Without(1);
@@ -91,7 +182,13 @@ int main() {
   if (!graph.Graph) { return Report(); }
   const std::array<GeographicBounds, 1> coverage{
       {{.WestDeg = 0, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 0}}};
-  const auto made = BuildMvtTransportSnapshot(field, streets, *graph.Graph, coverage);
+  const auto made = BuildMvtTransportSnapshot(
+      field,
+      streets,
+      *graph.Graph,
+      coverage,
+      {},
+      {.NodeGroupPayloadBytesMost = 1 << 20, .SourceFactsPayloadBytesMost = 1 << 20});
   CHECK(made, "normalization preserves a valid partial native network");
   if (!made) { return Report(); }
   const auto missing = std::ranges::count(
@@ -113,5 +210,6 @@ int main() {
   }
   std::ranges::sort(actual);
   CHECK(actual == expected, "omission identities match the original complete network exactly");
+  CheckOriginalFacts(*made, *full, field, streets, *graph.Graph);
   return Report();
 }
