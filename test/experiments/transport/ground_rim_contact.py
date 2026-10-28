@@ -12,6 +12,7 @@ from ground_contact import (
     maximum_grade,
 )
 from ground_contact_profiles import WholeProfileGuard, exact_squared_excess
+from ground_refinement import METHODS
 from ground_rim_domain import rim_rectangle
 from ground_rim_fit import fit_rim_heights
 from ground_rim_sampling import RimRecipe, observe_rim, sample_values
@@ -141,6 +142,7 @@ def build_rim_contact(
     recipe=None,
     fit_method="reduced",
     budget=None,
+    refinement_method="midpoint",
 ):
     limits = ContactLimits() if limits is None else limits
     recipe = RimRecipe() if recipe is None else recipe
@@ -151,6 +153,8 @@ def build_rim_contact(
     )
     if fit_method not in ("full", "reduced"):
         raise ValueError("Known rim fit method required")
+    if refinement_method not in METHODS:
+        raise ValueError("Known terrain refinement procedure required")
     prior, allowed = contact_input(road, road_dem_z, limits)
     mandatory = 4 * recipe.segments_per_side if recipe.sampling == "uniform" else 4
     if (
@@ -194,6 +198,7 @@ def build_rim_contact(
         sample_z,
         limits,
         maximum_grade(road.vertices, road.triangles),
+        refinement_method=refinement_method,
     )
     result["scope"] = (
         "Exact immutable source road/four outer DEM corners; explicitly fitted intermediate boundary observations under whole soil gradients, finite local C0 mesh/refinement only. No native original-grid/neighbour/World/Source/device admission."
