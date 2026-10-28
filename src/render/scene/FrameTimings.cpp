@@ -123,6 +123,13 @@ void SceneRenderer::WaitForGpu() {
     Log::Error(LogTag::Render, "gpu_settle_failed", {{"msg", error}});
     return;
   }
+  if (MaterialFields_) {
+    const auto retired = MaterialFields_->Collect();
+    if (!retired) {
+      Log::Error(
+          LogTag::Render, "material_field_retire_failed", {{"msg", retired.error().Message}});
+    }
+  }
   Frames_.RetireAll();
 }
 

@@ -30,8 +30,13 @@ GeometryResidency::RecordUploads(Native::Commands &commands) {
         .Kind = Native::ErrorKind::Invalid,
         .Message = "upload recording requires a device and only one active recording"});
   }
+  UploadFailure_.reset();
   UploadCommands_ = &commands;
   return UploadRecording(*this);
+}
+
+const Native::Error *GeometryResidency::UploadRecording::Failure() const noexcept {
+  return Owner_ != nullptr && Owner_->UploadFailure_ ? &*Owner_->UploadFailure_ : nullptr;
 }
 
 namespace {
@@ -66,20 +71,20 @@ Native::Result<std::unique_ptr<Native::Buffer>> UploadBuffer(Native::Device &dev
 Native::Result<void> GeometryResidency::SubmitPendingUploads() {
   if (StagedCount_ == 0 && StagedImages_.empty()) { return {}; }
   if (Device_ == nullptr) {
-    return std::unexpected(
+    return UploadFailed(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "uploads require a device"});
   }
   if (UploadCommands_ != nullptr) {
     const auto copied = RecordCrossings(*UploadCommands_);
     if (copied) { CommitCrossings(); }
-    return copied;
+    return copied ? copied : UploadFailed(copied.error());
   }
   auto commands = BeginUpload(*Device_, Uploads_);
-  if (!commands) { return std::unexpected(commands.error()); }
+  if (!commands) { return UploadFailed(commands.error()); }
   const auto copied = RecordCrossings(**commands);
-  if (!copied) { return copied; }
+  if (!copied) { return UploadFailed(copied.error()); }
   const auto submitted = SubmitUpload(*Device_, Uploads_, std::move(*commands));
-  if (!submitted) { return std::unexpected(submitted.error()); }
+  if (!submitted) { return UploadFailed(submitted.error()); }
   CommitCrossings();
   return {};
 }
@@ -88,19 +93,19 @@ Native::Result<void> GeometryResidency::Cross(std::span<Crossing> what, bool def
   deferred = deferred || UploadCommands_ != nullptr;
   const auto measured = UploadBytes(what);
   if (!measured || Device_ == nullptr) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "invalid resident stream upload"});
+    return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                      .Message = "invalid resident stream upload"});
   }
   const uint32_t total = *measured;
   constexpr uint32_t batchBytes = 16u * 1024u * 1024u;
   const bool full = deferred && uint64_t{PendingUploadBytes_} + total > batchBytes;
   if (!deferred || full) {
     const auto flushed = SubmitPendingUploads();
-    if (!flushed) { return flushed; }
+    if (!flushed) { return UploadFailed(flushed.error()); }
   }
   BufferChanges previous;
   const auto prepared = PrepareBuffers(what, previous);
-  if (!prepared) { return prepared; }
+  if (!prepared) { return UploadFailed(prepared.error()); }
   if (total == 0) {
     RetireBuffers(previous);
     return {};
@@ -111,7 +116,7 @@ Native::Result<void> GeometryResidency::Cross(std::span<Crossing> what, bool def
   } else {
     RetireBuffers(previous);
   }
-  return accepted;
+  return accepted ? accepted : UploadFailed(accepted.error());
 }
 
 Native::Result<void> GeometryResidency::PrepareBuffers(std::span<Crossing> what,
@@ -296,8 +301,8 @@ Native::Result<void> GeometryResidency::Submit(std::span<Crossing> what, uint32_
 Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
   need.Deferred = need.Deferred || UploadCommands_ != nullptr;
   if (static_cast<size_t>(which) >= kStreams || Device_ == nullptr) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "invalid resident stream growth"});
+    return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                      .Message = "invalid resident stream growth"});
   }
   auto &held = Buffer(which);
   auto &stood = Held_[static_cast<size_t>(which)];
@@ -305,7 +310,7 @@ Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
   constexpr uint32_t batchBytes = 16u * 1024u * 1024u;
   if (!need.Deferred || uint64_t{PendingUploadBytes_} + stood > batchBytes) {
     const auto flushed = SubmitPendingUploads();
-    if (!flushed) { return flushed; }
+    if (!flushed) { return UploadFailed(flushed.error()); }
   }
   const uint32_t widened =
       stood >= need.Bytes
@@ -317,10 +322,10 @@ Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
   auto fresh = Device_->CreateBuffer(
       {.Bytes = widened,
        .Use = need.Usage | Native::BufferUse::CopySource | Native::BufferUse::CopyDestination});
-  if (!fresh) { return std::unexpected(fresh.error()); }
+  if (!fresh) { return UploadFailed(fresh.error()); }
   if (held && stood > 0 && need.Existing == ExistingContents::Preserve) {
     auto copied = PreserveBuffer(*held, **fresh, stood, need.Deferred);
-    if (!copied) { return copied; }
+    if (!copied) { return UploadFailed(copied.error()); }
   }
   if (held && StagedCount_ > 0) { RetiredBuffers_.push_back(std::move(held)); }
   held = std::move(*fresh);

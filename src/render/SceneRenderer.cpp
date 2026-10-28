@@ -634,6 +634,7 @@ Native::Texture *SceneRenderer::DisplaySource() const {
 }
 
 Native::Texture *SceneRenderer::LinearSource() const {
+  if (!ActiveState().Plan) { return nullptr; }
   return Target(ActiveState().Plan->Bound(Resource::SceneLinear));
 }
 
@@ -1475,6 +1476,11 @@ bool SceneRenderer::WorldResourcesComplete(const Native::Completion &completion)
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
+  if (MaterialFields_) {
+    const auto retired = MaterialFields_->Collect();
+    if (!retired) { return std::unexpected(retired.error().Message); }
+  }
+
   const auto published = PublishedWorld();
   return RenderPublishedFrame();
 }

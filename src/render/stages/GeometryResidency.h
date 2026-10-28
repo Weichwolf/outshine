@@ -5,6 +5,9 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <utility>
+#include <expected>
 #include <vector>
 #include <unordered_map>
 
@@ -24,6 +27,7 @@ struct GeometryResidency {
   public:
     UploadRecording(UploadRecording &&other) noexcept;
     ~UploadRecording();
+    [[nodiscard]] const Native::Error *Failure() const noexcept;
     UploadRecording(const UploadRecording &) = delete;
     UploadRecording &operator=(const UploadRecording &) = delete;
     UploadRecording &operator=(UploadRecording &&) = delete;
@@ -317,6 +321,13 @@ private:
   UploadQueue *Uploads_ = nullptr;
   Native::Device *Device_ = nullptr;
   Native::Commands *UploadCommands_ = nullptr;
+  std::optional<Native::Error> UploadFailure_;
+
+  std::unexpected<Native::Error> UploadFailed(Native::Error error) {
+    if (UploadCommands_ != nullptr && !UploadFailure_) { UploadFailure_ = error; }
+    return std::unexpected(std::move(error));
+  }
+
   std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;
