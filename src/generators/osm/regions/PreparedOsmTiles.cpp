@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <ratio>
 #include <string>
 #include <system_error>
