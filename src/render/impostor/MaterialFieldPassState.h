@@ -30,6 +30,7 @@ struct ResidentMaterialField::Data {
   GeometryRenderer Renderer;
   std::unique_ptr<Native::Texture> Depth;
   Extent Raster;
+  Native::Completion Produced;
 };
 
 struct MaterialFieldPass::State {

@@ -119,10 +119,8 @@ void SceneRenderer::CommitCostProfile(const RenderFrameTiming &timing) {
 void SceneRenderer::WaitForGpu() {
   if (!Device_) { return; }
   std::string error;
-  if (!Settle(error)) {
-    Log::Error(LogTag::Render, "gpu_settle_failed", {{"msg", error}});
-    return;
-  }
+  const bool settled = Settle(error);
+  if (!settled) { Log::Error(LogTag::Render, "gpu_settle_failed", {{"msg", error}}); }
   if (MaterialFields_) {
     const auto retired = MaterialFields_->Collect();
     if (!retired) {
@@ -130,7 +128,7 @@ void SceneRenderer::WaitForGpu() {
           LogTag::Render, "material_field_retire_failed", {{"msg", retired.error().Message}});
     }
   }
-  Frames_.RetireAll();
+  if (settled) { Frames_.RetireAll(); }
 }
 
 }

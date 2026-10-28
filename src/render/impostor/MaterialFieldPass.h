@@ -15,6 +15,7 @@ class UploadQueue;
 class ResidentMaterialField {
 public:
   ~ResidentMaterialField();
+  [[nodiscard]] Native::Completion Produced() const noexcept;
   ResidentMaterialField(const ResidentMaterialField &) = delete;
   ResidentMaterialField &operator=(const ResidentMaterialField &) = delete;
 

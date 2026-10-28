@@ -105,6 +105,17 @@ Its key binds capture/source identity and catalogue direction, independently of
 light, query name and selected screen mip. The native atlas codec preserves coupled
 normal/material samples, depth and empty coverage at the full capture resolution;
 reducing those samples before lighting would lose their joint response.
+Shading uses the typed isolated material-field pass on the existing render device;
+it does not open a RuntimeScene, replace the main world/history or read pixels in
+product code. The diagnostic retains one CPU atlas and one resident GPU source.
+Light, eye, focal and snapshot changes reuse that source; selecting another source
+field replaces it. The ordinary WorldCandidate below presents the finished card.
+The source upload and combined relight/filter submission have separate GPU timings.
+`field_filter_gpu_ms` is null for this mode because the filter shares its submission
+with shading. Configure, CPU preparation, upload/encode calls, explicit offline
+waiting and optional source readback are reported separately; overlapping intervals
+must not be summed as frame time. The driver alone waits and reads diagnostic pixels.
+
 Selection precedes payload IO; only a missing valid field invokes source capture.
 The byte limit is checked before serialization allocation and payload decode; it is
 not a total producer working-memory reservation. A fresh validated hit needs neither
@@ -197,21 +208,21 @@ input), and `<query>-radiance-world.{linear,depth,rgba,ss16}`. Set a query's
 filtering then consume no CPU radiance image. `source_readback_bytes`, CPU
 `image_storage_bytes` and declared `resident_image_bytes` are separate scopes.
 The latter excludes driver allocation granularity; actual Metal device allocation
-is reported separately. `field_filter_gpu_ms` is null when native timing retention
-has expired; it must not be read as zero or added to overlapping frame scopes.
-`field_setup_gpu_ms`
-includes initial renderer work; `field_gpu_ms` is the following unchanged field
-render. `field_prepare_ms` includes context creation, setup waits, optional diagnostic
-readback, GPU filter submission and support assembly. No CPU filtering/reupload is
-needed for the field. Do not add these overlapping scopes or treat the repeated
-render as a changed-light update. Integer-footprint filtering explicitly rounds to
+is reported separately. The source-copy submission is `field_source_upload_gpu_ms`;
+`field_relight_filter_gpu_ms` includes shading and filtering together. The filter
+has no independent submission time in this mode. `field_prepare_ms` includes device
+configuration, CPU preparation, upload/encode calls, offline waits, optional readback
+and support assembly. These overlap the individually reported phases and GPU work.
+No CPU filtering/reupload or additional unchanged field render is needed.
+Integer-footprint filtering explicitly rounds to
 half precision before storage; native checks compare against independent integrals.
 
-The executing diagnostic consumer retains exactly its last successful field. Its
-reuse key binds raw source/view identity, eye position, focal length, sun elevation
+The executing diagnostic consumer retains its last successful GPU source and
+radiance field. Its radiance reuse key binds raw source/view identity, eye position, focal length, sun elevation
 and the optional source snapshot. The source shading profile is fixed in this
-consumer. Changed producer inputs rebuild; query names and presentation-only
-sampling do not. Original-geometry comparisons always rebuild because they have
+consumer. Light, eye, focal and snapshot changes relight the resident source; a
+changed source/view prepares and uploads a replacement. Query names and
+presentation-only sampling change neither product. Original-geometry comparisons always rebuild because they have
 no immutable source identity. Retention adds no global cache or worker scheduler.
 `field_renders` / `field_reuses` count actual preparation versus retention;
 `field_resolve_ms` includes key lookup and any preparation. On reuse, source load,

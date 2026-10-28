@@ -18,6 +18,10 @@ ResidentMaterialField::ResidentMaterialField(std::shared_ptr<Data> data) noexcep
 
 ResidentMaterialField::~ResidentMaterialField() = default;
 
+Native::Completion ResidentMaterialField::Produced() const noexcept {
+  return Data_->Produced;
+}
+
 MaterialFieldPass::MaterialFieldPass(Native::Device &device, UploadQueue *uploads)
     : State_(std::make_unique<State>(device, uploads)) {}
 
@@ -151,6 +155,7 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   }
   auto produced = SubmitUpload(device, state.Uploads, std::move(*commands));
   if (!produced) { return std::unexpected(produced.error()); }
+  source->Produced = *produced;
   residency.ReleaseUploadScratch();
   state.Last = *produced;
   state.InFlight.push_back({.Completion = *produced, .Source = source, .Images = {}});
