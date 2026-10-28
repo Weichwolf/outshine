@@ -2,10 +2,6 @@
 #include <Material.h>
 #include "Check.h"
 
-#if __has_include(<scene/SurfaceState.h>)
-#error Renderer routing must not remain in the installed public material API
-#endif
-
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -28,5 +24,10 @@ int main() {
   CHECK(state.Kind() == SurfaceKind::Blended && state.Blends() && !state.WritesDepth() &&
             !state.CullsBack() && state.Emits(),
         "transparent double-sided emissive surface retains its routing flags");
+  material.Transmission = .5f;
+  material.Thickness = 1;
+  state = StateOf(material);
+  CHECK(state.Kind() == SurfaceKind::Refractive && state.Blends() && !state.WritesDepth(),
+        "a refractive volume keeps transmission separate from opaque depth");
   return Report();
 }

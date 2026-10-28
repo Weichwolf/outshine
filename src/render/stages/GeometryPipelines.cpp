@@ -300,7 +300,7 @@ Native::Result<void> GeometryRenderer::ConfigureVariant(
          .Streams = std::span(shape.Buffers).first(shape.Count),
          .Attributes = std::span(shape.Attributes).first(shape.Count),
          .Colours = targets,
-         .Depth = Native::DepthTarget{.Write = kind != SurfaceKind::Blended},
+         .Depth = Native::DepthTarget{.Write = SurfaceState::WritesDepth(kind)},
          .Culling = cullsBack ? Native::Cull::Back : Native::Cull::None,
          .ClampDepth = true,
          .Label = FragmentEntry(domain, kind, layout)});
