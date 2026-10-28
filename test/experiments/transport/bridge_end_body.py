@@ -80,7 +80,10 @@ def body_geometry(surface, recipe):
             "body_faces": len(body.triangles),
             "body_array_bytes": body.vertices.nbytes + body.triangles.nbytes,
             "domain_area_m2": domain.area,
-            "minimum_normal_thickness_m": float(
+            "minimum_actual_vertical_depth_m": float(
+                (body.vertices[:n, 2] - body.vertices[n:, 2]).min()
+            ),
+            "nominal_minimum_normal_thickness_m": float(
                 (recipe.depth_m * normals[:, 2] / np.linalg.norm(normals, axis=1)).min()
             ),
             "depth_scope": "Vertical source-ENU recipe depth, not surveyed/structurally qualified thickness; upper XYZ/faces unchanged.",

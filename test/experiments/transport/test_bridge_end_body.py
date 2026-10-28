@@ -178,7 +178,7 @@ class ActualEndBodies(unittest.TestCase):
             self.assertEqual(report["ground_binding"], old["ground_binding"])
             self.assertEqual(report["bridge_member"], old["bridge_member"])
             self.assertGreater(
-                report["body"]["geometry"]["minimum_normal_thickness_m"], 0.24
+                report["body"]["geometry"]["nominal_minimum_normal_thickness_m"], 0.24
             )
             self.assertEqual(report["qualified_contacts"], 0)
             self.assertEqual(report["qualified_world_joins"], 0)
