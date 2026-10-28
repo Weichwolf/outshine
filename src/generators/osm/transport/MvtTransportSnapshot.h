@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -38,6 +39,8 @@ enum class MvtTransportOmissionReason : uint8_t {
 struct MvtTransportOmission {
   uint32_t Source = 0;
   std::array<uint8_t, 32> Feature{};
+  // Missing fragment identity retains the original feature-wide or unknown scope.
+  std::optional<std::array<uint8_t, 32>> Fragment = std::nullopt;
   MvtTransportOmissionReason Reason = MvtTransportOmissionReason::UnclassifiedWay;
 };
 
