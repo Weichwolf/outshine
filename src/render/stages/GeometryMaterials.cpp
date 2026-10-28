@@ -49,8 +49,20 @@ bool GeometryRenderer::BindSurface(const MaterialBinding &material,
     into = std::move(*uploaded);
     return true;
   };
-  if (!bind(material.Colour, GeometryResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
-      !bind(material.Normal,
+  if (material.Radiance) {
+    auto resident = Bound().Bind(*material.Radiance, mode);
+    if (!resident) {
+      error = std::move(resident.error().Message);
+      return false;
+    }
+    slot.Colour = std::move(*resident);
+  } else if (!bind(material.Colour,
+                   GeometryResidency::Transfer::Srgb,
+                   TexelKind::Value,
+                   slot.Colour)) {
+    return false;
+  }
+  if (!bind(material.Normal,
             GeometryResidency::Transfer::Linear,
             TexelKind::Direction,
             slot.Normal) ||
@@ -122,6 +134,11 @@ bool GeometryRenderer::ValidateMaterials(std::span<const MaterialBinding> materi
     return false;
   }
   for (size_t slot = 0; slot < materials.size(); ++slot) {
+    if (materials[slot].Radiance &&
+        (!materials[slot].Row.Unlit || materials[slot].State().Kind() != SurfaceKind::Blended)) {
+      error = "resident radiance requires an unlit blended support material";
+      return false;
+    }
     const SurfaceKind kind = materials[slot].State().Kind();
 
     if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&

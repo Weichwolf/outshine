@@ -1,3 +1,4 @@
+#include <cstddef>
 #include "OsmField.h"
 #include "MvtWireFixture.h"
 #include "Check.h"

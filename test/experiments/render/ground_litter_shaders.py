@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import subprocess
 import tempfile
@@ -67,7 +66,7 @@ def run(command, output, name, expected=0):
     return result
 
 
-def compile_variant(output, points, variant, glslang, translator):
+def compile_variant(output, points, variant, glslang, translator, tables):
     stage = 'comp' if variant == 'probe' else 'frag'
     name = f'{points}-{variant}'
     spirv = output / (name + '.spv')
@@ -80,7 +79,7 @@ def compile_variant(output, points, variant, glslang, translator):
         defines += [f'-D{flag}={variant[i] if i < len(variant) else 0}'
                     for i, flag in enumerate(flags)]
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', stage,
-         '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-Ibuild/shaders',
+         '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-I' + str(tables),
          *defines, str(source), '-o', str(spirv)], output, name + '-compile')
     metadata = output / (name + '.json')
     prefix = [translator, str(spirv)]
@@ -98,41 +97,43 @@ def compile_variant(output, points, variant, glslang, translator):
                 msl_sha256=hashlib.sha256(msl.read_bytes()).hexdigest())
 
 
-def native_syntax(output):
-    flags = shlex.split(subprocess.check_output(
-        ["sh", "test/run.sh", "--native-compile-flags"], cwd=ROOT, text=True))
-    include = Path(os.environ.get('NATIVE_INCLUDE', str(ROOT / 'src/render/device')))
-    command = [*shlex.split(os.environ.get('CXX', 'c++')), *flags, '-fno-exceptions',
-               '-I' + str(include), '-fsyntax-only', 'test/harness/render/NativeGroundLitterProbe.cpp']
-    run(command, output, 'native-syntax')
+def native_build(output, build_dir):
+    command = ['cmake', '--build', str(build_dir),
+               '--target', 'outshine_material_compute_probe', '--parallel']
+    run(command, output, 'native-build')
+    include = ROOT / 'src/render/device/native'
     return dict(command=command, exit=0,
-                header_sha256={name: hashlib.sha256((include / 'native' / name).read_bytes()).hexdigest()
+                header_sha256={name: hashlib.sha256((include / name).read_bytes()).hexdigest()
                                for name in ('Device.h', 'Commands.h', 'Compute.h', 'Resources.h')})
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--native-syntax', action='store_true')
+    parser.add_argument('--native-build', action='store_true')
+    parser.add_argument('--build-dir', type=Path,
+                        default=Path(os.environ.get('OUTSHINE_BUILD_DIR', ROOT / 'build')))
     args = parser.parse_args()
     output = args.output.resolve()
     if output.is_relative_to(ROOT) or not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error('use a directory in system temp')
     output.mkdir(parents=True, exist_ok=True)
-    native = native_syntax(output) if args.native_syntax else None
+    native = native_build(output, args.build_dir.resolve()) if args.native_build else None
     glslang = shutil.which(os.environ.get('GLSLANG', 'glslangValidator'))
     translator = shutil.which(os.environ.get('SPIRVCROSS', 'spirv-cross'))
     assert glslang and translator, 'install glslangValidator and spirv-cross or set GLSLANG/SPIRVCROSS'
-    result = run(['make', '--no-print-directory', '-s', '--eval',
-                  'print-material-outputs:;@echo $(GROUND_OUTPUTS)', 'print-material-outputs'],
-                 output, 'outputs')
-    variants = ['probe', *result.stdout.split()]
+    build_dir = args.build_dir.resolve()
+    manifest = build_dir / 'shader-artifacts.txt'
+    variants = ['probe', *[
+        match[1] for name in manifest.read_text().splitlines()
+        if (match := re.fullmatch(r'groundLit-(\d{3}|\d{5})\.frag\.spv', name))]]
     assert len(variants) == len(set(variants)) and len(variants) > 2
-    assert (ROOT / 'build/shaders/brdfTables.glsl').is_file(), 'prepare BRDF tables with make first'
+    tables = build_dir / 'shaders'
+    assert (tables / 'brdfTables.glsl').is_file(), 'build outshine_shaders through CMake first'
     records, baseline = [], {}
     for points in (0, 2, 3):
         for variant in variants:
-            record = compile_variant(output, points, variant, glslang, translator)
+            record = compile_variant(output, points, variant, glslang, translator, tables)
             layout = record['shape'], record['msl_resource_type_indices']
             if points == 0:
                 baseline[variant] = layout
@@ -144,7 +145,7 @@ def main():
     source = ROOT / 'test/experiments/render/ground_litter_probe.comp'
     default = output / 'default.spv'
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', 'comp',
-         '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-Ibuild/shaders',
+         '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-I' + str(tables),
          str(source), '-o', str(default)], output, 'default-compile')
     assert default.read_bytes() == (output / '3-probe.spv').read_bytes()
     negative = subprocess.run(['nice', '-n', '10', glslang, '-V', '-DGROUND_LITTER_GAUSS_POINTS=4', '-Isrc/render/shaders',
@@ -156,10 +157,12 @@ def main():
     assert not (output / 'invalid.spv').exists()
     paths = ['src/render/shaders/groundLitterOriented.glsl', 'src/render/shaders/groundLayers.glsl',
              'test/experiments/render/ground_litter_probe.comp', str(Path(__file__).relative_to(ROOT)),
-             'test/harness/render/NativeGroundLitterProbe.cpp']
-    report = dict(scope=__doc__, records=records, invalid_configuration_rejected=True,
+             'test/harness/render/NativeMaterialComputeProbe.cpp']
+    report = dict(scope=__doc__, records=records, inventory=str(manifest),
+                  inventory_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
+                  invalid_configuration_rejected=True,
                   default_matches_explicit_nine_spirv=True,
-                  native_syntax=native,
+                  native_build=native,
                   source_sha256={name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
                                  for name in paths},
                   tools={tool: hashlib.sha256(Path(tool).read_bytes()).hexdigest()

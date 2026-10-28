@@ -71,7 +71,10 @@ public:
   AdvancePieceRestore(GeometryRenderer &geometry, size_t &nextPiece, size_t piecesMost);
 
   [[nodiscard]] std::expected<MaterialRegistration, std::string>
-  RegisterPieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source);
+  RegisterPieceMaterials(GeometryRenderer &geometry,
+                         GeometryRenderer *glass,
+                         Geometry source,
+                         std::span<const MaterialRadiance> images = {});
   [[nodiscard]] bool
   RestorePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
   [[nodiscard]] bool

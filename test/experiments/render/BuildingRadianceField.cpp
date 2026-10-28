@@ -1,61 +1,48 @@
+#include "AzimuthElevation.h"
 #include "BuildingRadianceField.h"
-#include "HalfTexels.h"
-#include "ImageMips.h"
-#include "TexelChain.h"
 #include "ImpostorSurface.h"
 #include "ImpostorViewFrame.h"
-#include "RuntimeScene.h"
+#include "MaterialFieldInput.h"
+#include "MaterialFieldPass.h"
+#include "PunctualLight.h"
+#include "ReadbackTransfer.h"
 #include "SceneRenderer.h"
-#include <nlohmann/json.hpp>
+#include "device/native/Device.h"
+#include "test/harness/render/NativeOffline.h"
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
-#include <string>
 #include <memory>
-#include <ratio>
+#include <nlohmann/json.hpp>
 #include <numbers>
+#include <ratio>
 #include <optional>
-#include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace outshine::Test {
 namespace {
 using Clock = std::chrono::steady_clock;
+constexpr auto kOfflineBudget = std::chrono::seconds(5);
 
-std::expected<std::vector<float>, std::string> Shade(Render::SceneRenderer &renderer,
-                                                     const ImpostorAtlas &atlas,
-                                                     size_t view,
-                                                     const nlohmann::json &query,
-                                                     BuildingRadianceField &result,
-                                                     const Geometry *original) {
-  auto source = original != nullptr ? std::optional(original->clone())
-                                    : Render::BuildImpostorSurface(atlas, view);
-  if (!source) { return std::unexpected("source material field unavailable"); }
-  Core::Declaration declaration;
-  declaration.InitialGeometry = &*source;
-  declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = atlas.Pixels();
-  declaration.KeyLux = 100;
-  declaration.KeyElevationDeg = query.value("sun_elevation_deg", 0.0);
-  declaration.Haze = 0;
-  declaration.Exposure = 1;
-  declaration.Stages = {"opaqueGeometry"};
-  declaration.Outputs = {"sceneLinear"};
-  std::unique_ptr<Core::RuntimeScene> scene;
-  std::string error;
-  if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
-    return std::unexpected(error);
-  }
+double Elapsed(Clock::time_point began) {
+  return std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+}
+
+std::expected<Render::MaterialFieldView, std::string>
+ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
   const Vec3 direction = atlas.Views()[view].TowardEye;
   const auto frame = ImpostorViewFrame::From(direction);
   if (!frame) { return std::unexpected("source view frame is singular"); }
-  const auto eyeValues = query.at("eye").get<std::array<double, 3>>();
-  const Vec3 eye{eyeValues};
-  Render::Viewpoint camera;
+  const Vec3 eye{query.at("eye").get<std::array<double, 3>>()};
+  Render::MaterialFieldView result;
+  auto &camera = result.Camera;
   camera.EyeM = atlas.CentreM() + direction * Length(eye - atlas.CentreM());
   camera.Right = frame->Right;
   camera.Up = frame->Up;
@@ -64,97 +51,143 @@ std::expected<std::vector<float>, std::string> Shade(Render::SceneRenderer &rend
   camera.XMagM = camera.YMagM = atlas.HalfExtentM();
   camera.ZNearM = .1;
   camera.ZFarM = Length(camera.EyeM - atlas.CentreM()) + 4 * atlas.HalfExtentM();
-  renderer.ResetMeasurements();
-  renderer.KeepGpuSamples(1);
-  scene->Eye(camera);
-  if (!scene->Draw(error)) { return std::unexpected(error); }
-  renderer.WaitForGpu();
-  for (const auto &sample : renderer.GpuSamples()) { result.SetupGpuMs += sample.ElapsedMs; }
-  renderer.ResetMeasurements();
-  renderer.KeepGpuSamples(1);
-  if (const auto rendered = renderer.RenderFrame(); !rendered) {
-    return std::unexpected(rendered.error());
+  const double radius = std::numbers::sqrt3 * atlas.HalfExtentM();
+  const double diameterPx = 2 * radius * query.at("focal_px").get<double>() /
+                            std::max(1.0, Length(eye - atlas.CentreM()) - radius);
+  int pixels = atlas.Pixels();
+  while (pixels > 1) {
+    const int next = pixels / 2;
+    if (static_cast<double>(next) < diameterPx) { break; }
+    pixels = next;
   }
-  renderer.WaitForGpu();
-  std::vector<float> values;
-  if (renderer.ReadSceneLinear(values) != Render::ReadState::Ready ||
-      values.size() != static_cast<size_t>(atlas.Pixels()) * atlas.Pixels() * 4 ||
-      !std::ranges::all_of(values, [](float x) { return std::isfinite(x); })) {
-    return std::unexpected("source radiance field is incomplete or nonfinite");
-  }
-  for (const auto &sample : renderer.GpuSamples()) { result.GpuMs += sample.ElapsedMs; }
-  return values;
+  result.Target = {.WidthPx = pixels, .HeightPx = pixels};
+  return result;
 }
 
-std::expected<int, std::string>
-AddRadiance(Geometry &geometry, std::vector<float> values, Core::Texels extent, double diameterPx) {
-  while (extent.WidthPx > 1) {
-    const uint32_t next = extent.WidthPx / 2;
-    if (static_cast<double>(next) < diameterPx) { break; }
-    std::vector<float> filtered;
-    extent = Core::HalveInPlace(values, extent, filtered, Core::TexelKind::Value);
-    values = std::move(filtered);
+std::expected<std::vector<float>, std::string> ReadField(const Render::RadianceImage &image) {
+  auto &device = *image.Device;
+  const auto &shape = image.Texture->Description();
+  auto transfer = Gpu::RetryOffline(
+      [&] {
+        return Render::ReadbackTransfer::Start(
+            device, *image.Texture, {.Width = shape.Width, .Height = shape.Height});
+      },
+      kOfflineBudget);
+  if (!transfer) { return std::unexpected(transfer.error().Message); }
+  const auto pixels = transfer->Wait(device, kOfflineBudget);
+  if (!pixels) { return std::unexpected(pixels.error().Message); }
+  if (!*pixels) { return std::unexpected("source radiance readback exceeded its offline budget"); }
+  std::vector<float> result(size_t{shape.Width} * shape.Height * 4);
+  if (!SDL_ConvertPixels(static_cast<int>(shape.Width),
+                         static_cast<int>(shape.Height),
+                         SDL_PIXELFORMAT_RGBA64_FLOAT,
+                         (*pixels)->data(),
+                         static_cast<int>(transfer->RowBytes()),
+                         SDL_PIXELFORMAT_RGBA128_FLOAT,
+                         result.data(),
+                         static_cast<int>(shape.Width * 16)) ||
+      !std::ranges::all_of(result, [](float x) { return std::isfinite(x); })) {
+    return std::unexpected("source radiance field is incomplete or nonfinite");
   }
-  const uint32_t pixels = extent.WidthPx;
-  auto base = Core::PackHalfTexels(extent, values);
-  if (!base) { return std::unexpected("invalid radiance base"); }
-  ImageMipData mips;
-  auto &lower = mips[static_cast<size_t>(ImageMipKind::Colour)].emplace();
-  while (extent.WidthPx > 1 || extent.HeightPx > 1) {
-    std::vector<float> filtered;
-    extent = Core::HalveInPlace(values, extent, filtered, Core::TexelKind::Value);
-    values = std::move(filtered);
-    const auto bytes = Core::PackHalfTexels(extent, values);
-    if (!bytes) { return std::unexpected("invalid radiance level"); }
-    lower.insert(lower.end(), bytes->begin(), bytes->end());
+  return result;
+}
+
+std::expected<double, std::string> GpuMilliseconds(Render::Native::Device &device,
+                                                   Render::Native::Completion produced) {
+  const auto timing = device.SubmissionGpuTime(produced);
+  if (!timing) { return std::unexpected(timing.error().Message); }
+  if (timing->Status != Render::Native::CompletionStatus::Ready ||
+      !std::isfinite(timing->ElapsedNanoseconds)) {
+    return std::unexpected("material field GPU timing is not ready or finite");
   }
-  const auto image = geometry.addImage({.WidthPx = static_cast<int>(pixels),
-                                        .HeightPx = static_cast<int>(pixels),
-                                        .Format = ImagePixelFormat::Rgba16Float,
-                                        .Rgba = *base,
-                                        .LowerMips = ViewImageMips(mips)});
-  if (!image) { return std::unexpected("radiance image rejected"); }
-  return *image;
+  return timing->ElapsedNanoseconds / 1'000'000.0;
 }
+
+std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
+                                       const ImpostorAtlas &atlas,
+                                       size_t view,
+                                       const nlohmann::json &query,
+                                       BuildingRadianceField &result,
+                                       const Geometry *original) {
+  auto began = Clock::now();
+  const auto configured = renderer.ConfigureMaterialFields();
+  if (!configured) { return std::unexpected(configured.error().Message); }
+  result.ConfigureMs = Elapsed(began);
+  const bool uploaded = !result.Source;
+  if (uploaded) {
+    began = Clock::now();
+    auto geometry = original != nullptr ? std::optional(original->clone())
+                                        : Render::BuildImpostorSurface(atlas, view);
+    if (!geometry) { return std::unexpected("source material field unavailable"); }
+    auto input = Render::MaterialFieldInput::Prepare(
+        std::move(*geometry), {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()});
+    if (!input) { return std::unexpected(input.error()); }
+    result.SourcePrepareMs = Elapsed(began);
+    began = Clock::now();
+    auto source =
+        Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(*input); }, kOfflineBudget);
+    if (!source) { return std::unexpected(source.error().Message); }
+    result.Source = std::move(*source);
+    result.SourceUploadMs = Elapsed(began);
+  }
+  auto placed = ViewOf(atlas, view, query);
+  if (!placed) { return std::unexpected(placed.error()); }
+  const auto toSun =
+      EastUpSouthDirection(0, query.value("sun_elevation_deg", 0.0) * std::numbers::pi / 180.0);
+  std::array<Render::SceneLight, 1> lights{};
+  lights[0].Light.Intensity = 100;
+  for (int axis = 0; axis < 3; ++axis) {
+    lights[0].Light.Direction[axis] = -static_cast<float>(toSun[axis]);
+  }
+  placed->Lights = lights;
+  began = Clock::now();
+  auto images = Gpu::RetryOffline(
+      [&] { return renderer.RelightMaterialField(*result.Source, *placed); }, kOfflineBudget);
+  if (!images) { return std::unexpected(images.error().Message); }
+  result.RelightEncodeMs = Elapsed(began);
+  result.Radiance = images->Filtered;
+  began = Clock::now();
+  renderer.WaitForGpu();
+  result.WaitMs = Elapsed(began);
+  auto &device = *result.Radiance->Device;
+  const auto gpu = GpuMilliseconds(device, result.Radiance->Produced);
+  if (!gpu) { return std::unexpected(gpu.error()); }
+  result.GpuMs = *gpu;
+  if (uploaded) {
+    const auto setup = GpuMilliseconds(device, result.Source->Produced());
+    if (!setup) { return std::unexpected(setup.error()); }
+    result.SetupGpuMs = *setup;
+  }
+  if (query.value("dump_source_field", true)) {
+    began = Clock::now();
+    auto pixels = ReadField(*images->Unfiltered);
+    if (!pixels) { return std::unexpected(pixels.error()); }
+    result.SourceLinear = std::move(*pixels);
+    result.ReadbackMs = Elapsed(began);
+  }
+  return {};
 }
+} // namespace
 
 std::expected<BuildingRadianceField, std::string>
 PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         const ImpostorAtlas &atlas,
                         size_t view,
                         const nlohmann::json &query,
-                        const Geometry *original) {
+                        const Geometry *original,
+                        const std::shared_ptr<const Render::ResidentMaterialField> &source) {
   const auto began = Clock::now();
   BuildingRadianceField result;
-  auto values = Shade(renderer, atlas, view, query, result, original);
-  if (!values) { return std::unexpected(values.error()); }
-  result.SourceLinear = *values;
-  auto surface = Render::BuildFractionalImpostorSurface(atlas, view);
+  result.Source = source;
+  const auto shaded = Shade(renderer, atlas, view, query, result, original);
+  if (!shaded) { return std::unexpected(shaded.error()); }
+  auto surface = Render::BuildRadianceSupport(atlas, view);
   if (!surface) { return std::unexpected("radiance support unavailable"); }
-  const Vec3 eye{query.at("eye").get<std::array<double, 3>>()};
-  const double radius = std::numbers::sqrt3 * atlas.HalfExtentM();
-  const double diameterPx = 2 * radius * query.at("focal_px").get<double>() /
-                            std::max(1.0, Length(eye - atlas.CentreM()) - radius);
-  const auto image = AddRadiance(*surface,
-                                 std::move(*values),
-                                 {.WidthPx = static_cast<uint32_t>(atlas.Pixels()),
-                                  .HeightPx = static_cast<uint32_t>(atlas.Pixels())},
-                                 diameterPx);
-  if (!image) { return std::unexpected(image.error()); }
-  const auto id = surface->materialOf(0);
-  auto material = surface->surfaceAt(id);
-  material.Unlit = true;
-  material.BaseColourMap.Image = *image;
-  material.BaseColourMap.Sampler.Minify = material.BaseColourMap.Sampler.Magnify = Filter::Nearest;
-  material.BaseColourMap.Sampler.Mip = MipFilter::None;
-  material.NormalMap = {};
-  material.MetalRoughMap = {};
-  if (!surface->setSurface(id, material)) { return std::unexpected("radiance material rejected"); }
   result.Cards.Centre = atlas.CentreM();
   result.Cards.HalfExtentM = atlas.HalfExtentM();
   result.Cards.Views.push_back(
       {.Direction = atlas.Views()[view].TowardEye, .Surface = std::move(*surface)});
-  result.PrepareMs = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+  result.PrepareMs = Elapsed(began);
   return result;
 }
-}
+} // namespace outshine::Test

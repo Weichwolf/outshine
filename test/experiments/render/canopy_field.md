@@ -35,7 +35,7 @@ method is implemented. See the linked source/method in canopy_response.md.
 
 `canopy_field.py` creates seven Float32 geometric levels64/32/16/8/4/2/1.
 `canopy_field_native.py` decodes them and sends current material/light separately
-to the unchanged NativeGroundLitterProbe.cpp. Its128B compatibility prefix keeps
+to the unchanged NativeMaterialComputeProbe.cpp. Its128B compatibility prefix keeps
 the existing harness input validation; it is not a new native palette format.
 The private GLSL has the existing probe bindings/strides/offsets, independently
 reflected against check_probe. MSL2.3 is generated, not Metal-compiled/executed.

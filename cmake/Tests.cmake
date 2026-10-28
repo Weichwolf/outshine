@@ -180,6 +180,8 @@ foreach(source IN LISTS cases)
       set(owner render)
     elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
+    elseif(name MATCHES "^outshine/integration/engine/streaming/building/")
+      set(owner engine/streaming/building)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
     elseif(name MATCHES "^outshine/integration/generators/water/")
@@ -376,6 +378,8 @@ target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -
 target_link_libraries(test_experiments_render_NativeMaterialResidency PRIVATE
   outshine_core PkgConfig::nlohmann_json)
 add_dependencies(test_experiments_render_NativeBuildingImpostors outshine_shaders)
+target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVATE
+  "${PROJECT_SOURCE_DIR}")
 target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
   outshine_core PkgConfig::nlohmann_json)
@@ -498,6 +502,11 @@ set_tests_properties(tools/prepare_place_profiles PROPERTIES
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" TIMEOUT 650 LABELS preparation
   ENVIRONMENT "${profile_environment}" FIXTURES_SETUP place_profiles)
 set_tests_properties(tools/place_profiles PROPERTIES FIXTURES_REQUIRED place_profiles)
+
+add_executable(outshine_material_compute_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeMaterialComputeProbe.cpp")
+target_compile_options(outshine_material_compute_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_material_compute_probe PRIVATE outshine_render)
 
 add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")

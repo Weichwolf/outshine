@@ -15,6 +15,31 @@
 #include <vector>
 
 namespace outshine::Render {
+Native::Result<GeometryResidency::BoundImage> GeometryResidency::Bind(const RadianceImage &image,
+                                                                      ImageUploadMode mode) {
+  if (UploadCommands_ != nullptr) { mode = ImageUploadMode::Deferred; }
+  if (Device_ == nullptr || image.Device != Device_ || !image.Texture || !image.Sampling ||
+      image.Produced.Device == 0 || image.Produced.Serial == 0) {
+    return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                      .Message = "resident image has no matching producer device"});
+  }
+  const auto &description = image.Texture->Description();
+  if (description.Type != Native::TextureType::Image2D || description.Layers != 1 ||
+      (description.Texels != Native::Format::Rgba16Float &&
+       description.Texels != Native::Format::Rgba32Float) ||
+      (static_cast<uint32_t>(description.Use) &
+       static_cast<uint32_t>(Native::TextureUse::Sampled)) == 0) {
+    return UploadFailed(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "resident colour requires a sampled linear HDR image"});
+  }
+  if (mode == ImageUploadMode::Immediate) {
+    const auto flushed = SubmitPendingUploads();
+    if (!flushed) { return UploadFailed(flushed.error()); }
+  }
+  return BoundImage{.Image = image.Texture, .Sample = image.Sampling};
+}
+
 namespace {
 Native::Address AddressOf(outshine::Wrap wrap) {
   switch (wrap) {
@@ -50,18 +75,23 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels, ImagePixel
 
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
     const MaterialTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
+  if (UploadCommands_ != nullptr) { mode = ImageUploadMode::Deferred; }
   if (mode == ImageUploadMode::Immediate) {
     const auto flushed = SubmitPendingUploads();
-    if (!flushed) { return std::unexpected(flushed.error()); }
+    if (!flushed) { return UploadFailed(flushed.error()); }
   }
   if (Device_ == nullptr) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "image upload needs a device"});
+    return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                      .Message = "image upload needs a device"});
   }
-  if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind, mode); }
+  if (texture.Rgba != nullptr) {
+    auto uploaded = UploadImage(texture, decode, kind, mode);
+    if (!uploaded) { return UploadFailed(uploaded.error()); }
+    return uploaded;
+  }
   if (texture.Width > 1 || texture.Height > 1 || texture.Format != ImagePixelFormat::Rgba8Unorm) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "a sized texture has no texel data"});
+    return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                      .Message = "a sized texture has no texel data"});
   }
   const DefaultImageKey key{.Decode = decode,
                             .Kind = kind,
@@ -74,7 +104,7 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::Upload(
   if (held != DefaultImages_.end()) { return held->Image; }
   auto bound = UploadImage(texture, decode, kind, mode);
   if (bound) { DefaultImages_.push_back({.Key = key, .Image = *bound}); }
-  return bound;
+  return bound ? bound : UploadFailed(bound.error());
 }
 
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(

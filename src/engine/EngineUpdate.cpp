@@ -508,6 +508,7 @@ bool Engine::State::Updates(bool simulate) {
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakesAt)
                 .count());
         if (!baked) { return false; }
+        AdvanceBuildingSources();
         if (!AdvanceUrbanAreas()) { return false; }
         {
           static const Heap::Tag kGrowingTag("world-grow");

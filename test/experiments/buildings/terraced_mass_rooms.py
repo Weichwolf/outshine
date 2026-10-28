@@ -5,11 +5,10 @@ from dataclasses import dataclass
 import manifold3d as manifold
 import numpy as np
 import shapely
-
-from building_mesh import solid
 from building_layout import WALL_M
+from building_mesh import solid
 from building_plan import CEILING_M, FLOOR_M
-from building_stair import PLATE_M, core_layout, flight
+from building_stair import PLATE_M, core_layout, flight, guard, landing_guard
 from outshine_ref.buildings.modelling import PrismVolume, union_prisms
 from outshine_ref.buildings.modelling.mesh_fans import connected_fans
 from outshine_ref.buildings.modelling.prism_cut import decoded, encoded, subtract_prisms
@@ -30,7 +29,7 @@ class OpenFloors:
     cuts: tuple
 
 
-def cavities(plan):
+def cavities(plan, *, roof_access=None):
     values = []
     for i, storey in enumerate(plan.storeys):
         polygon = shapely.from_wkb(storey.footprint_wkb)
@@ -63,10 +62,22 @@ def cavities(plan):
             12,
         )
     )
+    if roof_access is not None:
+        if roof_access.identifier != plan.identifier + "/roof-access":
+            raise ValueError("Roof opening belongs to another mass")
+        values.append(
+            PrismVolume(
+                roof_access.identifier + "/aperture",
+                shapely.from_wkb(roof_access.opening_wkb),
+                plan.top_m - CEILING_M,
+                plan.top_m,
+                12,
+            )
+        )
     return tuple(values)
 
 
-def stairs(plan):
+def stairs(plan, *, roof_access=None):
     core = shapely.from_wkb(plan.core.footprint_wkb)
     template = core_layout(
         core, plan.core.rise_m, plan.bottom_m + FLOOR_M, flip=plan.core.flip
@@ -80,6 +91,24 @@ def stairs(plan):
             flight(storage, descriptor | {"base_z_m": descriptor["base_z_m"] + shift})
         height = template["mid_z_m"] + shift
         solid(storage, template["mid_landing"], height - PLATE_M, height, 5)
+    if roof_access is not None:
+        extra = core_layout(
+            core, roof_access.rise_m, roof_access.bottom_m, risers=plan.core.risers
+        )
+        if extra is None or extra["opening"].wkb != roof_access.opening_wkb:
+            raise ValueError("Roof stair differs from its reserved opening")
+        for descriptor in extra["flights"]:
+            flight(storage, descriptor)
+            guard(storage, descriptor, extra)
+        solid(
+            storage,
+            extra["mid_landing"],
+            extra["mid_z_m"] - PLATE_M,
+            extra["mid_z_m"],
+            5,
+        )
+        deck = roof_access.bottom_m + roof_access.rise_m
+        solid(storage, landing_guard(extra, last=True), deck, deck + 1.0, 5)
     raw = {
         "vertices": np.asarray(storage[0], dtype=np.float64),
         "faces": np.asarray(storage[1], dtype=np.uint32),
@@ -128,14 +157,14 @@ def prepared(raw, order=None):
     }, roots
 
 
-def build(plan):
+def build(plan, *, roof_access=None):
     world = plan
     plan = local_plan(plan)
-    cuts = cavities(plan)
+    cuts = cavities(plan, roof_access=roof_access)
     shell = subtract_prisms(
         plan.identifier + "/mass", physical(plan), cuts, max_triangles=32768
     )
-    stair_mesh = stairs(plan)
+    stair_mesh = stairs(plan, roof_access=roof_access)
     region = shapely.from_wkb(plan.entry.landing_wkb).difference(
         shapely.from_wkb(plan.source_wkb)
     )

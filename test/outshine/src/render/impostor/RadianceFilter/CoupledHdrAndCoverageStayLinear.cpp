@@ -113,8 +113,9 @@ void Compare(Device &device,
         const double ulp = expected == 0 ? std::ldexp(1.0, -24)
                                          : std::max(std::ldexp(1.0, std::ilogb(expected) - 10),
                                                     std::ldexp(1.0, -24));
-        CHECK(std::isfinite(value) && std::abs(value - expected) <= ulp,
-              "premultiplied HDR and coverage match independent box integrals within one half ULP");
+        CHECK(std::isfinite(value) && std::abs(value - expected) <= ulp * .5,
+              "premultiplied HDR and coverage round to the nearest half value of independent box "
+              "integrals");
       }
     }
   }

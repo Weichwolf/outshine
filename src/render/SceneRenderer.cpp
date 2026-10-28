@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "SceneRenderer.h"
+#include "RadianceFilter.h"
 #include "Vec3.h"
 
 #include <cstdint>
@@ -32,6 +33,13 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+SceneRenderer::SceneRenderer(GpuSubmission submission) : Submission_(submission) {}
+
+SceneRenderer::~SceneRenderer() {
+  WaitForGpu();
+  StopShowing();
+}
+
 namespace {
 bool DepthPyramidNeeded(const ExecutionPlan &plan) {
   return !plan.Holds(Stage::TemporalResolve) ||
@@ -626,6 +634,7 @@ Native::Texture *SceneRenderer::DisplaySource() const {
 }
 
 Native::Texture *SceneRenderer::LinearSource() const {
+  if (!ActiveState().Plan) { return nullptr; }
   return Target(ActiveState().Plan->Bound(Resource::SceneLinear));
 }
 
@@ -1467,6 +1476,11 @@ bool SceneRenderer::WorldResourcesComplete(const Native::Completion &completion)
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
+  if (MaterialFields_) {
+    const auto retired = MaterialFields_->Collect();
+    if (!retired) { return std::unexpected(retired.error().Message); }
+  }
+
   const auto published = PublishedWorld();
   return RenderPublishedFrame();
 }

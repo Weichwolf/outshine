@@ -240,6 +240,31 @@ BuildFractionalImpostorSurface(const ImpostorAtlas &atlas, size_t view, size_t f
   return SurfaceOf(atlas, view, ImpostorSurfaceDetail::Flat, AlphaMode::Blended, firstMip);
 }
 
+std::optional<Geometry> BuildRadianceSupport(const ImpostorAtlas &atlas, size_t view) {
+  if (view >= atlas.Views().size()) { return std::nullopt; }
+  const auto &source = atlas.Views()[view];
+  const auto frame = ImpostorViewFrame::From(source.TowardEye);
+  if (!frame) { return std::nullopt; }
+  Geometry geometry;
+  Material material;
+  material.BaseColour = {{1, 1, 1, 1}};
+  material.Alpha = AlphaMode::Blended;
+  material.Unlit = true;
+  const auto surface = geometry.addSurface("radiance", material);
+  if (!surface) { return std::nullopt; }
+  const auto part = geometry.addPart("radiance", *surface);
+  if (!part || !AddDepthSurface(geometry,
+                                *part,
+                                atlas,
+                                source,
+                                source.TowardEye,
+                                frame->Right,
+                                ImpostorSurfaceDetail::Flat)) {
+    return std::nullopt;
+  }
+  return geometry;
+}
+
 std::optional<ImpostorCards> PrepareImpostorCards(const ImpostorAtlas &atlas, std::string &error) {
   ImpostorCards cards;
   cards.Centre = atlas.CentreM();

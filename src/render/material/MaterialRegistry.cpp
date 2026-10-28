@@ -8,12 +8,14 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace outshine::Render {
-std::expected<MaterialSource, std::string> MaterialRegistry::Resolve(Geometry source) {
+std::expected<MaterialSource, std::string>
+MaterialRegistry::Resolve(Geometry source, std::span<const MaterialRadiance> images) {
   if (source.surfaces() == 0) { return std::unexpected("material registration requires surfaces"); }
   MaterialSource held{
       .Source = std::move(source), .Slots = {}, .RegisteredRows = {}, .Lifetime = {}};
@@ -24,6 +26,17 @@ std::expected<MaterialSource, std::string> MaterialRegistry::Resolve(Geometry so
   std::string error;
   if (!ResolveNativeTextures(held.Source, held.Slots, error)) {
     return std::unexpected(std::move(error));
+  }
+  if (!images.empty()) {
+    std::vector<uint8_t> assigned(held.Slots.size());
+    for (const auto &image : images) {
+      if (image.Material >= held.Slots.size() || !image.Image || !image.Image->Texture ||
+          assigned[image.Material] != 0) {
+        return std::unexpected("resident colour requires one existing material and an owned image");
+      }
+      assigned[image.Material] = 1;
+      held.Slots[image.Material].Radiance = image.Image;
+    }
   }
   return held;
 }
@@ -130,10 +143,13 @@ bool MaterialRegistry::Write(GeometryRenderer &geometry,
 }
 
 std::expected<MaterialRegistration, std::string>
-MaterialRegistry::Register(GeometryRenderer &geometry, GeometryRenderer *glass, Geometry source) {
+MaterialRegistry::Register(GeometryRenderer &geometry,
+                           GeometryRenderer *glass,
+                           Geometry source,
+                           std::span<const MaterialRadiance> images) {
   std::string error;
   if (!Prepare(geometry, glass, error)) { return std::unexpected(std::move(error)); }
-  auto materials = Resolve(std::move(source));
+  auto materials = Resolve(std::move(source), images);
   if (!materials) { return std::unexpected(std::move(materials).error()); }
   if (materials->Slots.size() >= kNoMaterialSlot ||
       materials->Slots.size() > kNoMaterialSlot - Rows_.size() ||

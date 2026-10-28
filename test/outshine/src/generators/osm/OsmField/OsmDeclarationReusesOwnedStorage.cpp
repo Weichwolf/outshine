@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include "OsmField.h"
 #include "Check.h"
 #include <algorithm>

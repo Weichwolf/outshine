@@ -6,6 +6,7 @@
 #include "ImpostorAtlas.h"
 #include "Geometry.h"
 #include "Vec3.h"
+#include "Mat4.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -18,11 +19,16 @@
 namespace outshine::Content {
 class ImpostorViewAssets {
 public:
+  static constexpr size_t MetadataBytesMost = 4096;
+
+  [[nodiscard]] static std::string MetadataKey(std::string_view provenance);
+
   struct Description {
     Vec3 Centre;
     double HalfExtentM = 0;
     uint32_t Pixels = 0;
     std::vector<Vec3> Directions;
+    std::optional<Mat4> WorldFromField = std::nullopt;
   };
 
   struct Selection {
@@ -39,6 +45,8 @@ public:
   Open(AssetCache &cache, std::string_view provenance);
 
   [[nodiscard]] const Description &Metadata() const noexcept { return Description_; }
+
+  [[nodiscard]] const AssetRecord &Receipt() const noexcept { return Record_; }
 
   [[nodiscard]] std::optional<Selection> Select(Vec3 towardEye, double diameterPx) const noexcept;
   [[nodiscard]] std::string Key(Selection selection) const;
@@ -69,6 +77,8 @@ private:
   [[nodiscard]] uint32_t Pixels(Selection selection) const noexcept;
   [[nodiscard]] bool Matches(const ImpostorCards &cards, Selection selection) const;
   [[nodiscard]] bool MatchesField(const ImpostorAtlas &field, ViewIndex view) const noexcept;
+  [[nodiscard]] std::expected<std::vector<uint8_t>, AssetCacheError>
+  StoreField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
   AssetCache &Cache_;
   AssetRecord Record_;
   Description Description_;
