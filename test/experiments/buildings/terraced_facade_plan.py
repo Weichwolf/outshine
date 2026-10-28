@@ -1,12 +1,11 @@
 """Source-stable metric window axes on every actual stepped profile edge."""
 
+import math
 from dataclasses import dataclass
 from itertools import pairwise
-import math
 
 import numpy as np
 import shapely
-
 from building_layout import WALL_M, rectangle
 from building_plan import CEILING_M, FLOOR_M
 
@@ -44,6 +43,7 @@ def candidates(mass):
     accepted, rejected = [], []
     for index, storey in enumerate(mass.storeys):
         polygon = shapely.orient_polygons(shapely.from_wkb(storey.footprint_wkb))
+        margin = None
         low = storey.bottom_m + FLOOR_M + sill
         high = min(low + height, storey.top_m - CEILING_M - 0.20)
         for ring_index, ring in enumerate((polygon.exterior, *polygon.interiors)):
@@ -66,7 +66,9 @@ def candidates(mass):
                         + f"/window/{ring_index}/{edge_index}/{station}"
                     )
                     reason = None
-                    if high - low < 0.8 or not polygon.buffer(1e-8).covers(pocket):
+                    if high - low >= 0.8 and margin is None:
+                        margin = polygon.buffer(1e-8)
+                    if high - low < 0.8 or not margin.covers(pocket):
                         reason = "insufficient straight wall/interior margin"
                     elif outside.intersection(polygon).area > 1e-8:
                         reason = "opposing source wall in outward margin"
