@@ -91,6 +91,9 @@ class CoincidentCoverTests(unittest.TestCase):
     def test_input_output_and_complete_observation_budgets_precede_terrain(self):
         for budget, reason in (
             (replace(self.budget, selected_spans=1), "selected_span_budget"),
+            (replace(self.budget, input_spans=1), "selected_span_budget"),
+            (replace(self.budget, input_nodes=1), "node_budget_or_missing_node"),
+            (replace(self.budget, incidence_visits=1), "incidence_visit_budget"),
             (replace(self.budget, terrain_samples=1), "mesh_or_sample_budget"),
             (replace(self.budget, terrain_samples=6), "complete_observation_budget"),
             (

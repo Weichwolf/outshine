@@ -19,14 +19,16 @@ class CoverSources:
 def prepare_sources(index, selected, budget):
     nodes, spans, incidence = index
     selected = tuple(sorted(selected))
-    if not 1 <= len(selected) <= min(32, budget.selected_spans):
+    if not 1 <= len(selected) <= min(32, budget.selected_spans, budget.input_spans):
         raise ValueError("cover_selected_span_budget")
     if len(set(selected)) != len(selected) or any(e not in spans for e in selected):
         raise ValueError("cover_missing_or_repeated_source")
     members = tuple(spans[e] for e in selected)
     used = sorted({n for s in members for n in s.nodes})
-    if len(used) > 32 or any(n not in nodes for n in used):
+    if len(used) > min(32, budget.input_nodes) or any(n not in nodes for n in used):
         raise ValueError("cover_node_budget_or_missing_node")
+    if sum(len(incidence[n]) for n in used) > budget.incidence_visits:
+        raise ValueError("cover_incidence_visit_budget")
     chosen = set(selected)
     if any(not set(incidence[n]) <= chosen for n in used):
         raise ValueError("cover_incomplete_source_component")

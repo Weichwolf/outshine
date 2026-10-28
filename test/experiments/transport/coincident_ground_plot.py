@@ -34,7 +34,7 @@ def render(result, output):
     plan.set(
         xlabel="east m",
         ylabel="north m",
-        title="Original six directed spans on two whole3.5m bands\nPrevious multi-loop/strip paths reject; arrows offset only for legibility",
+        title="Original six directed spans on two whole 3.5m bands\nPrevious multi-loop/strip paths reject; arrows offset only for legibility",
     )
     view = figure.add_subplot(1, 2, 2, projection="3d")
     xyz = mesh.vertices.copy()
@@ -66,6 +66,7 @@ def render(result, output):
     for i, set_limit in enumerate((view.set_xlim, view.set_ylim, view.set_zlim)):
         set_limit(centre[i] - 0.55 * size[i], centre[i] + 0.55 * size[i])
     view.set_box_aspect(size)
+    view.set_zticks([0.0])
     view.set(
         xlabel="east m",
         ylabel="north m",
