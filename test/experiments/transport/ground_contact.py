@@ -71,7 +71,17 @@ def corner_witness(road, corners, heights, grade):
     }
 
 
-def candidate(road, road_dem_z, sample_z, margin, limits, method, road_grade):
+def candidate(
+    road,
+    road_dem_z,
+    sample_z,
+    margin,
+    limits,
+    method,
+    road_grade,
+    *,
+    profile_guard=None,
+):
     domain = shapely.box(
         *(road.vertices[:, :2].min(axis=0) - margin),
         *(road.vertices[:, :2].max(axis=0) + margin),
@@ -85,11 +95,23 @@ def candidate(road, road_dem_z, sample_z, margin, limits, method, road_grade):
     record = {"margin_m": margin, "corner_height_witness": witness}
     # On this convex patch, a uniform gradient bound implies a whole-segment
     # Lipschitz bound. Use it only when the immutable road meets the same bound.
-    if road_grade <= effective_grade and witness["excess_m"] > 0:
+    if (
+        profile_guard is None
+        and road_grade <= effective_grade
+        and witness["excess_m"] > 0
+    ):
         return None, record | {
             "status": "pending",
             "reason": "fixed_corner_lipschitz_conflict",
         }
+    if profile_guard is not None:
+        proof = profile_guard(corners, heights)
+        record["whole_profile_preflight"] = proof
+        if proof["state"] == "contradiction":
+            return None, record | {
+                "status": "pending",
+                "reason": "fixed_whole_profile_conflict",
+            }
     layout, work = ground_layout(
         road.vertices[:, :2],
         road.triangles,
@@ -125,7 +147,9 @@ def candidate(road, road_dem_z, sample_z, margin, limits, method, road_grade):
     }, record | {"status": "candidate", "reason": ""}
 
 
-def build_contact(road, road_dem_z, sample_z, *, limits=None, method="coverage"):
+def build_contact(
+    road, road_dem_z, sample_z, *, limits=None, method="coverage", whole_profiles=False
+):
     limits = ContactLimits() if limits is None else limits
     if not isinstance(road, Mesh) or not len(road.triangles):
         raise ValueError("One nonempty immutable road mesh required")
@@ -147,11 +171,23 @@ def build_contact(road, road_dem_z, sample_z, *, limits=None, method="coverage")
             "candidates": [],
         }
     road_grade = maximum_grade(road.vertices, road.triangles)
+    profile_guard = None
+    if whole_profiles:
+        from ground_contact_profiles import WholeProfileGuard
+
+        profile_guard = WholeProfileGuard(road, limits.soil_grade * 1.0000001)
     candidates, chosen = [], None
     for margin in limits.margins_m:
         try:
             value, record = candidate(
-                road, road_dem_z, sample_z, margin, limits, method, road_grade
+                road,
+                road_dem_z,
+                sample_z,
+                margin,
+                limits,
+                method,
+                road_grade,
+                profile_guard=profile_guard,
             )
         except ValueError as error:
             value, record = (
@@ -163,11 +199,14 @@ def build_contact(road, road_dem_z, sample_z, *, limits=None, method="coverage")
             chosen = value
             break
     if chosen is None:
-        return {
+        result = {
             "status": "pending",
             "reason": "no_qualified_terrain_contact_variant",
             "candidates": candidates,
         }
+        if profile_guard is not None:
+            result["profile_proof_work"] = profile_guard.work
+        return result
     coarse = chosen["mesh"]
     mesh, roots, refinement = refine_ground(
         coarse,
@@ -185,7 +224,7 @@ def build_contact(road, road_dem_z, sample_z, *, limits=None, method="coverage")
         mesh.triangles[: len(road.triangles)], mapping[road.triangles]
     ):
         raise ValueError("terrain_contact_changed_immutable_road")
-    return chosen | {
+    result = chosen | {
         "status": "candidate",
         "reason": "",
         "mesh": mesh,
@@ -197,3 +236,6 @@ def build_contact(road, road_dem_z, sample_z, *, limits=None, method="coverage")
         "road_physical_grade": road_grade,
         "scope": "Fixed finite road and chosen outer DEM chord profiles; bounded local soil construction/refinement only, no original DEM-grid/World/Source/vehicle/LOD/device admission.",
     }
+    if profile_guard is not None:
+        result["profile_proof_work"] = profile_guard.work
+    return result
