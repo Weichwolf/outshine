@@ -4,11 +4,15 @@
 #include "PreparedBuildingBasis.h"
 #include "SourceSet.h"
 #include "BuildingMesh.h"
+#include "AssetCache.h"
+#include "StructureArtifact.h"
+#include "Sha256.h"
 #include "Geodesy.h"
 #include "Check.h"
 #include <array>
 #include <atomic>
 #include <bit>
+#include <latch>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -18,7 +22,11 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <span>
 #include <system_error>
+#include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -192,6 +200,117 @@ void Replay(const std::filesystem::path &root,
         "cancelling a restarted child returns no product for source publication");
 }
 
+struct CellReference {
+  uint32_t Cell = 0;
+  std::string Key;
+  std::string PayloadDigest;
+};
+
+constexpr size_t kParallelRounds = 8;
+
+std::vector<CellReference>
+ReadCellReferences(const std::filesystem::path &root,
+                   const std::array<std::string, kStructureCellsPerTile> &keys) {
+  auto storage = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(storage, "the original cached payloads are independently readable");
+  if (!storage) { return {}; }
+  std::vector<CellReference> cells;
+  for (size_t at = 0; at < keys.size(); ++at) {
+    if (keys[at].empty()) { continue; }
+    auto payload = (*storage)->Load(keys[at], kStructureArtifactBytesMost);
+    CHECK(payload && *payload, "each selected cell has a complete native artifact");
+    if (!payload || !*payload) { return {}; }
+    const auto bytes = (**payload).Bytes();
+    cells.push_back({.Cell = static_cast<uint32_t>(at + 1),
+                     .Key = keys[at],
+                     .PayloadDigest = Sha256Hex(bytes.data(), bytes.size())});
+  }
+  return cells;
+}
+
+void ReadCells(PreparedBuildingAssets &cache,
+               const PreparedBuildingAssets::Basis &basis,
+               const RawTile &raw,
+               std::span<const CellReference> cells,
+               std::span<std::optional<BakedTile>> results,
+               std::atomic_uint &failed) {
+  for (size_t round = 0; round < kParallelRounds; ++round) {
+    for (size_t at = 0; at < cells.size(); ++at) {
+      auto view = raw;
+      view.RequestedCell = cells[at].Cell;
+      auto loaded = cache.LoadGeometry(std::string(kKey), basis, view);
+      if (!loaded || !*loaded || (**loaded).GeometryAssetKey != cells[at].Key) {
+        failed.fetch_add(1, std::memory_order_relaxed);
+        continue;
+      }
+      results[at] = std::move(**loaded);
+    }
+  }
+}
+
+void ParallelReplay(const std::filesystem::path &root,
+                    const std::array<std::string, kStructureCellsPerTile> &keys) {
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
+  const Data::SourceSet sources(store);
+  auto opened = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(opened, "parallel geometry readers reopen the prepared native cache");
+  if (!opened) { return; }
+  auto cache = std::move(*opened);
+  auto loadedBasis = cache->LoadBasis(std::string(kKey));
+  CHECK(loadedBasis && *loadedBasis, "parallel readers hold an immutable source basis");
+  if (!loadedBasis || !*loadedBasis) { return; }
+  auto basis = std::move(*loadedBasis);
+  const std::weak_ptr<const PreparedBuildingBasis> retained = basis;
+  const auto *points = basis->PointsLatLon.data();
+  const double first = basis->PointsLatLon.front();
+  const auto cells = ReadCellReferences(root, keys);
+  CHECK(cells.size() == 2, "parallel readers exercise two independent cell products");
+  if (cells.size() != 2) { return; }
+  constexpr size_t kWorkers = 4;
+  std::array<std::optional<BakedTile>, kWorkers * 2> results;
+  std::latch start(static_cast<std::ptrdiff_t>(kWorkers + 1));
+  std::atomic_uint failed{0};
+  std::vector<std::thread> readers;
+  readers.reserve(kWorkers);
+  const auto raw = Inputs();
+  for (size_t worker = 0; worker < kWorkers; ++worker) {
+    readers.emplace_back([&, worker] {
+      start.arrive_and_wait();
+      ReadCells(*cache,
+                basis,
+                raw,
+                cells,
+                std::span(results).subspan(worker * cells.size(), cells.size()),
+                failed);
+    });
+  }
+  start.arrive_and_wait();
+  const auto invalidated = cache->InvalidateBasis(std::string(kKey));
+  for (auto &reader : readers) { reader.join(); }
+  CHECK(invalidated && failed == 0,
+        "basis invalidation preserves concurrent leased geometry reads");
+  const auto costs = cache->Costs();
+  CHECK(costs.GeometryHits == kWorkers * kParallelRounds * cells.size() &&
+            costs.GeometryMisses == 0 && costs.GeometryWrites == 0,
+        "all parallel reads hit existing products without generation or publication");
+  cache.reset();
+  basis.reset();
+  CHECK(!retained.expired(), "decoded cell products retain the basis after cache retirement");
+  for (size_t at = 0; at < results.size(); ++at) {
+    const auto &tile = results[at];
+    CHECK(tile && tile->Coordinates && tile->Coordinates->Points().data() == points &&
+              tile->Coordinates->Points().front() == first,
+          "every reader retains the same complete immutable coordinate owner");
+    if (!tile) { continue; }
+    const auto encoded = EncodeStructureArtifact(*tile, tile->GeometryAssetKey);
+    CHECK(encoded &&
+              Sha256Hex(encoded->data(), encoded->size()) == cells[at % cells.size()].PayloadDigest,
+          "parallel decode preserves the complete persisted geometry and selection payload");
+  }
+  for (auto &tile : results) { tile.reset(); }
+  CHECK(retained.expired(), "the last geometry lease releases the immutable source basis");
+}
+
 void ReuseWholeProduct(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
@@ -261,6 +380,7 @@ int main() {
   std::array<std::string, outshine::Generators::kStructureCellsPerTile> keys;
   Replay(root, false, keys);
   Replay(root, true, keys);
+  ParallelReplay(root, keys);
   ReuseWholeProduct(root / "existing-whole");
   std::error_code error;
   std::filesystem::remove_all(root, error);
