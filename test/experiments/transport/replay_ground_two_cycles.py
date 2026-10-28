@@ -165,7 +165,8 @@ def replay(args):
         "scope": "Finite Python experimental geometry only. Original Unknown/MissingTopology, profile and duplicate-span refusals retained. Whole C1/prior/finite-grade bounds are not dense-DEM, canonical Source/World/native/device/frame-p99 or 8GB acceptance. Known plan copies reported per product, total copied bytes unmeasured.",
     }
     (args.output / "report.json").write_text(
-        json.dumps(serializable(report), indent=2) + "\n"
+        json.dumps(serializable(report), indent=2, default=lambda value: value.tolist())
+        + "\n"
     )
     if args.plot:
         from ground_two_cycles_plot import draw
