@@ -1,4 +1,5 @@
 #include "ImpostorOptics.h"
+#include "ImpostorViewFrame.h"
 #include "TexelChain.h"
 #include "HalfTexels.h"
 #include "math/Srgb.h"
@@ -27,7 +28,9 @@ uint8_t Byte(float value) {
 OpticalFields FieldsOf(const ImpostorAtlas &atlas, const ImpostorAtlas::View &source) {
   OpticalFields fields;
   for (auto &field : fields) { field.resize(source.Texels.size() * 4); }
-  const Vec3 right{{source.TowardEye[2], 0, -source.TowardEye[0]}};
+  const auto frame = ImpostorViewFrame::From(source.TowardEye);
+  if (!frame) { return {}; }
+  const Vec3 right = frame->Right;
   for (size_t at = 0; at < source.Texels.size(); ++at) {
     const auto &pixel = source.Texels[at];
     if (pixel.Surface == 0) { continue; }
@@ -44,7 +47,7 @@ OpticalFields FieldsOf(const ImpostorAtlas &atlas, const ImpostorAtlas::View &so
     const size_t offset = at * 4;
     fields[0][offset + 3] = fields[1][offset + 3] = 1;
     fields[1][offset] = static_cast<float>(Dot(n, right));
-    fields[1][offset + 1] = static_cast<float>(-n[1]);
+    fields[1][offset + 1] = static_cast<float>(-Dot(n, frame->Up));
     fields[1][offset + 2] = static_cast<float>(Dot(n, source.TowardEye));
     if (row.Scattering == ScatteringModel::DiffuseThinSheet) {
       for (size_t channel = 0; channel < 3; ++channel) {

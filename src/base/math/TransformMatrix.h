@@ -41,6 +41,26 @@ TransformMatrix(const Vec3 &translation, const Quat &rotation, const Vec3 &scale
   return matrix;
 }
 
+[[nodiscard]] inline bool
+InverseAffineDirection(const Mat4 &m, const Vec3 &world, Vec3 &local) noexcept {
+  if (m[3] != 0 || m[7] != 0 || m[11] != 0 || m[15] != 1) { return false; }
+  const Vec3 x{{m[0], m[1], m[2]}};
+  const Vec3 y{{m[4], m[5], m[6]}};
+  const Vec3 z{{m[8], m[9], m[10]}};
+  const Vec3 yz = Cross(y, z);
+  const Vec3 zx = Cross(z, x);
+  const Vec3 xy = Cross(x, y);
+  const double determinant = Dot(x, yz);
+  if (!std::isfinite(determinant) || determinant == 0) { return false; }
+  const double scale = 1 / determinant;
+  const Vec3 result{{Dot(world, yz) * scale, Dot(world, zx) * scale, Dot(world, xy) * scale}};
+  if (!std::isfinite(result[0]) || !std::isfinite(result[1]) || !std::isfinite(result[2])) {
+    return false;
+  }
+  local = result;
+  return true;
+}
+
 [[nodiscard]] inline bool InverseMatrix(const Mat4 &m, Mat4 &out) noexcept {
   Mat4 inv{};
   inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
