@@ -235,7 +235,7 @@ def refine_ground(
 
     Edge points split both adjacent soil faces; road/external edges stay protected.
     Quartiles probe three dyadic positions and count all target queries against
-    the existing quality capacity, with at most65536 live expanded candidates.
+    the existing quality capacity, with at most65536 expanded candidates per batch.
     Centroids are the equal-cost comparison. Face-disjoint batches keep analytic
     one-free-height intervals independent. Priority is a local area/gain heuristic,
     not ROAM optimality, a DEM supremum bound or a smoothness certificate.
@@ -350,6 +350,6 @@ def refine_ground(
         report.update(
             candidate_target_queries=probe_queries,
             total_target_queries=probe_queries + quality_queries,
-            maximum_live_probe_candidates=65536,
+            maximum_probe_candidates_per_batch=65536,
         )
     return mesh, roots, report
