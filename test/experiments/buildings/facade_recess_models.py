@@ -33,13 +33,12 @@ def views(before, after, *, inside=False):
     )
     result = {"whole": whole, "near": close}
     if inside:
-        path = shapely.from_wkb(recess.core_route_wkb)
-        start = path.interpolate(max(0, path.length - 1.6))
-        target = shapely.from_wkb(recess.door_route_wkb).coords[-1]
+        doorway = shapely.from_wkb(recess.door_route_wkb)
+        start, target = doorway.coords[0], doorway.coords[-1]
         view = positions(
             np.array(
                 [
-                    [*start.coords[0], recess.outer.bottom_m + 1.6],
+                    [*start, recess.outer.bottom_m + 1.6],
                     [*target, recess.outer.bottom_m + 1.35],
                 ]
             ),
