@@ -3,6 +3,7 @@
 #include "ImpostorSurface.h"
 #include "SceneRenderer.h"
 #include "StoredVertex.h"
+#include "TransformMatrix.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -18,6 +19,7 @@ namespace Says {
 constexpr auto Capacity = "impostor instances require views and a positive instance capacity";
 constexpr auto View = "impostor view has no native card geometry";
 constexpr auto Limit = "impostor instance count exceeds its declared capacity";
+constexpr auto Transform = "impostor instances require finite invertible affine transforms";
 }
 
 std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &renderer,
@@ -98,11 +100,15 @@ bool ImpostorInstances::Update(std::span<const Mat4> models, const Vec3 &eye, st
   }
   for (auto &view : Views_) { view.NextRows.clear(); }
   for (const auto &model : models) {
-    const Vec3 toward = eye - model.TransformPoint(Centre_);
+    Vec3 toward;
+    if (!InverseAffineDirection(model, eye - model.TransformPoint(Centre_), toward)) {
+      error = Says::Transform;
+      return false;
+    }
     size_t selected = 0;
     double best = -std::numeric_limits<double>::infinity();
     for (size_t at = 0; at < Views_.size(); ++at) {
-      const double score = Dot(toward, model.TransformDirection(Views_[at].Direction));
+      const double score = Dot(toward, Views_[at].Direction);
       if (score > best) {
         best = score;
         selected = at;
