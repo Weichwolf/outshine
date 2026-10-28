@@ -232,6 +232,11 @@ std::optional<size_t> ImpostorAtlas::EncodedBytesMost(ImpostorAtlasShape shape) 
 
 std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view provenance,
                                                           std::string &error) const {
+  return Encode(provenance, std::numeric_limits<size_t>::max(), error);
+}
+
+std::optional<std::vector<uint8_t>>
+ImpostorAtlas::Encode(std::string_view provenance, size_t bytesMost, std::string &error) const {
   if (provenance.empty() || !Valid(*this)) {
     error = "impostor artifact requires provenance, valid samples and supported materials";
     return std::nullopt;
@@ -243,12 +248,17 @@ std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view prove
   const uint32_t version = (composed ? kAtlasVersion : 1) + (optical ? 2u : 0u);
   const size_t materialBytes = optical ? kOpticalMaterialBytes : kAtlasMaterialBytes;
   const size_t texelBytes = kAtlasTexelBytes + (composed ? kAtlasSampleBytes : 0);
+  const size_t bytes =
+      kAtlasHeaderBytes + Surfaces_.size() * materialBytes +
+      Views_.size() * (kAtlasViewBytes +
+                       static_cast<size_t>(Pixels_) * static_cast<size_t>(Pixels_) * texelBytes) +
+      kAtlasChecksumBytes;
+  if (bytes > bytesMost) {
+    error = "impostor artifact exceeds its byte budget";
+    return std::nullopt;
+  }
   AtlasWriter out;
-  out.Bytes.reserve(kAtlasHeaderBytes + Surfaces_.size() * materialBytes +
-                    Views_.size() *
-                        (kAtlasViewBytes +
-                         static_cast<size_t>(Pixels_) * static_cast<size_t>(Pixels_) * texelBytes) +
-                    kAtlasChecksumBytes);
+  out.Bytes.reserve(bytes);
   out.Put(kAtlasMagic);
   out.Put(version);
   out.Put(Provenance(provenance));

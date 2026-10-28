@@ -12,6 +12,9 @@ class PreparedFacade:
     mass: object
     local: object
     facade: object
+    roof_access: object = None
+    recesses: tuple = ()
+    recess_rejections: tuple = ()
 
 
 def prepare(mass):

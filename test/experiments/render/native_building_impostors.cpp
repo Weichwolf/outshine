@@ -3,10 +3,14 @@
 #include "ImpostorSurface.h"
 #include "ImpostorViewAssets.h"
 #include "ImpostorViewJob.h"
+#include "ImpostorFieldLoad.h"
+#include "ImpostorMetadataRequest.h"
 #include "AssetPipeline.h"
 #include "AssetPublication.h"
 #include "Tasks.h"
 #include "BuildingSourceCapture.h"
+#include "BuildingRadianceField.h"
+#include "NativeMaterialMemory.h"
 #include "ImpostorInstances.h"
 #include "WorldCandidate.h"
 #include "AssetCache.h"
@@ -112,18 +116,27 @@ Geometry Source(const Fs::path &root, const Json &input) {
   return mesh;
 }
 
+int FilterSamples(const Json &query) {
+  const int samples = query.value("filter_axis_samples", 4);
+  if (samples < 1 || samples > 128) { Fail("filter samples require 1..128 per axis"); }
+  return samples;
+}
+
 void Filtered(Render::SceneRenderer &renderer,
               const Render::Viewpoint &camera,
-              const Fs::path &output) {
+              const Fs::path &output,
+              int samplesAxis) {
   constexpr size_t pixels = size_t{1280} * 720;
   std::vector<float> average(pixels * 4);
   auto lens = Render::Lens::From(camera, 1280, 720);
   if (!lens) { Fail("filtered camera has no projection"); }
   const auto basis = renderer.LastSubmittedCamera().Basis;
-  for (int y = 0; y < 4; ++y) {
-    for (int x = 0; x < 4; ++x) {
-      const double dx = (static_cast<double>(x) + 0.5) / 4 - 0.5;
-      const double dy = (static_cast<double>(y) + 0.5) / 4 - 0.5;
+  std::vector<float> values;
+  const auto sampleCount = static_cast<float>(samplesAxis * samplesAxis);
+  for (int y = 0; y < samplesAxis; ++y) {
+    for (int x = 0; x < samplesAxis; ++x) {
+      const double dx = (static_cast<double>(x) + 0.5) / samplesAxis - 0.5;
+      const double dy = (static_cast<double>(y) + 0.5) / samplesAxis - 0.5;
       const double focal = 360 / std::tan(camera.YfovRad * 0.5);
       auto sampled = basis;
       sampled.Forward = basis.Forward + basis.Right * (dx / focal) + basis.Up * (dy / focal);
@@ -133,21 +146,22 @@ void Filtered(Render::SceneRenderer &renderer,
       sampled.Up = Cross(sampled.Right, sampled.Forward);
       renderer.SetCamera(sampled, *lens);
       if (auto rendered = renderer.RenderFrame(); !rendered) { Fail(rendered.error()); }
-      std::vector<float> values;
       if (renderer.ReadSceneLinear(values) != Render::ReadState::Ready ||
           values.size() != average.size()) {
         Fail("filtered native colour readback incomplete");
       }
-      for (size_t at = 0; at < average.size(); ++at) { average[at] += values[at] / 16; }
+      for (size_t at = 0; at < average.size(); ++at) { average[at] += values[at] / sampleCount; }
     }
   }
-  Write<float>(output.string() + ".ss16", average);
+  Write<float>(output.string() + ".ss" + std::to_string(samplesAxis * samplesAxis), average);
 }
 
-std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &renderer,
-                                                       std::unique_ptr<Core::RuntimeScene> &scene,
-                                                       const ImpostorCards &cards,
-                                                       const Vec3 &eye) {
+std::unique_ptr<Render::ImpostorInstances>
+PublishCard(Render::SceneRenderer &renderer,
+            std::unique_ptr<Core::RuntimeScene> &scene,
+            const ImpostorCards &cards,
+            const Vec3 &eye,
+            std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
   Core::WorldCandidate candidate(renderer);
   if (const auto prepared = candidate.Prepare(*scene, nullptr); !prepared) {
     Fail(prepared.error());
@@ -157,7 +171,7 @@ std::unique_ptr<Render::ImpostorInstances> PublishCard(Render::SceneRenderer &re
   std::unique_ptr<Render::ImpostorInstances> instances;
   {
     const auto edit = renderer.EditWorldCandidate();
-    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error);
+    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error, colours);
     const Mat4 model;
     if (!instances || !instances->Update(std::span(&model, 1), eye, error)) { Fail(error); }
   }
@@ -186,17 +200,36 @@ Json MeshStatistics(const Geometry &mesh) {
           {"vertices", vertices}};
 }
 
-Json Draw(const Geometry &mesh,
-          const Json &query,
-          const Fs::path &output,
-          const ImpostorCards *cards = nullptr) {
-  const auto began = Clock::now();
+Render::GpuSubmission TimedSubmission(size_t &creations) {
   Render::GpuSubmission submission;
-  submission.Create = [](void *, Render::Native::DeviceOptions options) {
+  submission.Context = &creations;
+  submission.Create = [](void *context, Render::Native::DeviceOptions options) {
+    ++*static_cast<size_t *>(context);
     options.GpuTiming = Render::Native::GpuTimingMode::Submission;
     return Render::Native::CreateDevice(options);
   };
-  Render::SceneRenderer renderer{submission};
+  return submission;
+}
+
+Json FilterGpuMilliseconds(std::span<const std::shared_ptr<const Render::RadianceImage>> images) {
+  if (images.size() != 1 || !images.front()) { return nullptr; }
+  const auto &image = *images.front();
+  const auto timing = image.Device->SubmissionGpuTime(image.Produced);
+  if (!timing || timing->Status != Render::Native::CompletionStatus::Ready ||
+      !std::isfinite(timing->ElapsedNanoseconds)) {
+    return nullptr;
+  }
+  return timing->ElapsedNanoseconds / 1'000'000.0;
+}
+
+Json DrawWith(Render::SceneRenderer &renderer,
+              const Geometry &mesh,
+              const Json &query,
+              const Fs::path &output,
+              const ImpostorCards *cards = nullptr,
+              std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
+  const int samplesAxis = FilterSamples(query);
+  const auto began = Clock::now();
   Core::Declaration declaration;
   declaration.InitialGeometry = mesh.parts() > 0 ? &mesh : nullptr;
   declaration.SurfaceWidthPx = 1280;
@@ -223,13 +256,14 @@ Json Draw(const Geometry &mesh,
   scene->Eye(camera);
   if (!scene->Draw(error)) { Fail(error); }
   const auto instances =
-      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM) : nullptr;
+      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM, colours) : nullptr;
   if (instances) {
     scene->Eye(camera);
     if (!scene->Draw(error)) { Fail(error); }
   }
   renderer.WaitForGpu();
   const double setupMs = Milliseconds(began);
+  const Json filterTime = FilterGpuMilliseconds(colours);
   renderer.ResetMeasurements();
   renderer.KeepGpuSamples(24);
   for (size_t frame = 0; frame < 24; ++frame) {
@@ -255,7 +289,7 @@ Json Draw(const Geometry &mesh,
     samples.push_back(sample.ElapsedMs);
   }
   if (samples.size() != 24) { Fail("missing GPU samples"); }
-  Filtered(renderer, camera, output);
+  Filtered(renderer, camera, output, samplesAxis);
   const auto &drawn = cards != nullptr ? cards->Views.front().Surface : mesh;
   std::array<double, 3> normalSum{};
   for (size_t pixel = 0; pixel < depth.size(); ++pixel) {
@@ -266,8 +300,19 @@ Json Draw(const Geometry &mesh,
   result.update({{"normal_sum", normalSum},
                  {"setup_ms", setupMs},
                  {"device", renderer.GpuName()},
-                 {"gpu_ms", samples}});
+                 {"gpu_ms", samples},
+                 {"filter_axis_samples", samplesAxis},
+                 {"field_filter_gpu_ms", filterTime}});
   return result;
+}
+
+Json Draw(const Geometry &mesh,
+          const Json &query,
+          const Fs::path &output,
+          const ImpostorCards *cards = nullptr) {
+  size_t creations = 0;
+  Render::SceneRenderer renderer{TimedSubmission(creations)};
+  return DrawWith(renderer, mesh, query, output, cards);
 }
 
 Json CaptureStatistics(const ImpostorAtlas &atlas) {
@@ -484,63 +529,296 @@ struct BuildingViewSource {
   }
 };
 
-Content::ImpostorViewAssets
-OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
+struct BuildingViewJobs {
+  AssetPipeline &Pipeline;
+  Tasks &Workers;
+  const AssetPipeline::Consumer &Consumer;
+  std::shared_ptr<AssetCache> Cache;
+  std::shared_ptr<BuildingViewSource> Source;
+};
+
+Content::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
   using Content::ImpostorViewAssets;
-  const auto provenance = source.Identity();
-  auto opened = ImpostorViewAssets::Open(cache, provenance);
-  if (!opened) { Fail("native world metadata read failed"); }
-  if (*opened) { return std::move(**opened); }
-  auto published = ImpostorViewAssets::Publish(cache, provenance, source.Description(), bounds);
-  if (!published) { Fail("native world metadata publication failed"); }
-  return std::move(*published);
+  auto request = ImpostorMetadataRequest::Start(
+      jobs.Pipeline,
+      jobs.Consumer,
+      jobs.Workers,
+      jobs.Cache,
+      jobs.Source->Identity(),
+      [cache = jobs.Cache, source = jobs.Source, bounds](
+          const std::stop_token &stop) -> std::expected<ImpostorViewAssets, std::string> {
+        if (stop.stop_requested()) { return std::unexpected("metadata request cancelled"); }
+        const auto provenance = source->Identity();
+        auto opened = ImpostorViewAssets::Open(*cache, provenance);
+        if (!opened) { return std::unexpected("native world metadata read failed"); }
+        if (*opened) { return std::move(**opened); }
+        auto published =
+            ImpostorViewAssets::Publish(*cache, provenance, source->Description(), bounds);
+        if (!published) { return std::unexpected("native world metadata publication failed"); }
+        return std::move(*published);
+      },
+      256);
+  if (!request) { Fail("native metadata request admission failed"); }
+  const auto until = Clock::now() + std::chrono::seconds(30);
+  while (Clock::now() < until) {
+    const auto ready = request->Poll();
+    if (!ready) { Fail(ready.error()); }
+    if (*ready) { return **ready; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  Fail("native metadata request deadline expired");
 }
 
-ImpostorCards ResolveView(AssetPipeline &pipeline,
-                          const AssetPipeline::Consumer &consumer,
-                          const std::shared_ptr<AssetCache> &cache,
-                          const std::shared_ptr<BuildingViewSource> &source,
-                          const Content::ImpostorViewAssets &products,
-                          Content::ImpostorViewAssets::Selection selected,
-                          size_t limit,
-                          bool &hit) {
-  const auto key = products.Key(selected);
+AssetPipeline::RequestTicket
+ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorViewJob job) {
   const auto product = AssetProductKey::Parse(key);
   if (!product) { Fail("invalid selected product key"); }
-  ImpostorViewJob job{
-      .Cache = cache,
-      .Provenance = source->Identity(),
-      .ProductKey = key,
-      .Selected = selected,
-      .BytesMost = limit,
-      .Generate = [source, &hit](ImpostorViewJob::Selection selection,
-                                 size_t,
-                                 const std::stop_token &) -> std::expected<Geometry, std::string> {
-        hit = false;
-        const auto &atlas = source->Require(selection.View);
-        auto geometry = Render::BuildFractionalImpostorSurface(
-            atlas, source->Recipe.is_object() ? 0 : selection.View, selection.Mip);
-        if (!geometry) { return std::unexpected("native source-view preparation failed"); }
-        return std::move(*geometry);
-      }};
-  auto ticket = pipeline.RequestResolved(consumer,
-                                         {.Key = *product,
-                                          .Generation = consumer.Generation(),
-                                          .InputBytes = 256,
-                                          .ConsumerBytes = 0,
-                                          .ReceiptBytesMost = 2048},
-                                         std::move(job));
+  auto ticket = jobs.Pipeline.RequestResolved(jobs.Consumer,
+                                              {.Key = *product,
+                                               .Generation = jobs.Consumer.Generation(),
+                                               .InputBytes = 256,
+                                               .ConsumerBytes = 0,
+                                               .ReceiptBytesMost = 2048},
+                                              std::move(job));
   if (!ticket) { Fail("native view job admission failed"); }
   const auto until = Clock::now() + std::chrono::seconds(30);
   for (;;) {
     const auto result = ticket->Poll();
     if (result.Finished) {
       if (result.Status != AssetPublicationStatus::Ready) { Fail(result.Message); }
-      break;
+      return std::move(*ticket);
     }
     if (Clock::now() >= until) { Fail("native view job exceeded its deadline"); }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+}
+
+std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorViewAssets &products,
+                                                        const BuildingViewJobs &jobs,
+                                                        size_t view,
+                                                        bool &hit) {
+  constexpr size_t limit = size_t{64} * 1024 * 1024;
+  const auto key = products.FieldKey({view});
+  ImpostorViewJob job{
+      .Cache = jobs.Cache,
+      .Provenance = jobs.Source->Identity(),
+      .ProductKey = key,
+      .BytesMost = limit,
+      .Product = ImpostorViewJob::MaterialView{
+          .Selected = {view},
+          .Generate = [source = jobs.Source, pixels = products.Metadata().Pixels, &hit](
+                          Content::ImpostorViewAssets::ViewIndex selected,
+                          size_t budget,
+                          const std::stop_token &) -> std::expected<ImpostorAtlas, std::string> {
+            const auto bound =
+                ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(pixels), .Views = 1});
+            if (!bound || *bound > budget) {
+              return std::unexpected("source material field exceeds its byte limit");
+            }
+            hit = false;
+            const auto &atlas = source->Require(selected.Value);
+            const size_t local = source->Recipe.is_object() ? 0 : selected.Value;
+            std::string error;
+            auto field = ImpostorAtlas::Create(atlas.Pixels(),
+                                               atlas.CentreM(),
+                                               atlas.HalfExtentM(),
+                                               atlas.Surfaces(),
+                                               {atlas.Views()[local]},
+                                               error);
+            if (!field) { return std::unexpected(error); }
+            return std::move(*field);
+          }}};
+  auto loader = ImpostorFieldLoad::Start(jobs.Workers,
+                                         jobs.Cache,
+                                         jobs.Source->Identity(),
+                                         {view},
+                                         limit,
+                                         ResolveProduct(jobs, key, std::move(job)));
+  if (!loader) { Fail(loader.error()); }
+  const auto until = Clock::now() + std::chrono::seconds(30);
+  for (;;) {
+    auto ready = loader->Poll();
+    if (!ready) { Fail(ready.error()); }
+    if (*ready) { return std::move(*ready); }
+    if (Clock::now() >= until) { Fail("native field load exceeded its deadline"); }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+struct RadianceRequest {
+  const Content::ImpostorViewAssets &Products;
+  const BuildingViewJobs &Jobs;
+  size_t View;
+  const Json &Query;
+  const Geometry *Original = nullptr;
+};
+
+struct RetainedRadiance {
+  std::optional<Test::BuildingRadianceField> Field;
+  std::string Key;
+  bool Reused = false, SourceHit = false;
+  double LoadMs = 0, ResolveMs = 0;
+  size_t ReadbackBytes = 0;
+  size_t Writes = 0, Renders = 0, Reuses = 0;
+
+  Test::BuildingRadianceField &Resolve(Render::SceneRenderer &renderer,
+                                       const RadianceRequest &request) {
+    const auto began = Clock::now();
+    const auto &query = request.Query;
+    const auto key = Json{{"source", request.Products.FieldKey({request.View})},
+                          {"eye", query.at("eye")},
+                          {"focal_px", query.at("focal_px")},
+                          {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
+                          {"source_snapshot", query.value("dump_source_field", true)}}
+                         .dump();
+    Reused = false;
+    SourceHit = true;
+    LoadMs = 0;
+    if (Field && Key == key && request.Original == nullptr) {
+      Reused = true;
+      Field->PrepareMs = Field->GpuMs = Field->SetupGpuMs = 0;
+      ReadbackBytes = 0;
+      ++Reuses;
+      ResolveMs = Milliseconds(began);
+      return *Field;
+    }
+    const auto loading = Clock::now();
+    const auto atlas = ResolveSourceField(request.Products, request.Jobs, request.View, SourceHit);
+    LoadMs = Milliseconds(loading);
+    if (!SourceHit) { ++Writes; }
+    auto prepared = Test::PrepareBuildingRadiance(renderer, *atlas, 0, query, request.Original);
+    if (!prepared) { Fail(prepared.error()); }
+    auto &field = Field.emplace(std::move(*prepared));
+    ReadbackBytes = field.SourceLinear.size() * sizeof(float);
+    Key = key;
+    ++Renders;
+    ResolveMs = Milliseconds(began);
+    return field;
+  }
+};
+
+void RadianceViews(const Fs::path &root, const Json &input) {
+  const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
+      .AtlasFile = root / "atlas.bin",
+      .AtlasDigest = input.value("atlas_sha256", std::string{}),
+      .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
+      .SourceInput = input.value("source_input", std::string{}),
+      .Recipe = input.value("source_request", Json(nullptr))});
+  auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());
+  if (!opened) { Fail("material field database unavailable"); }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  Tasks workers(2);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 2,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 2,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 8192});
+  auto consumer = pipeline.OpenConsumer({.Identity = cache});
+  if (!consumer) { Fail("native field consumer unavailable"); }
+  const BuildingViewJobs jobs{.Pipeline = pipeline,
+                              .Workers = workers,
+                              .Consumer = *consumer,
+                              .Cache = cache,
+                              .Source = source};
+  const auto products =
+      OpenViewAssets(jobs, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+  const auto &metadata = products.Metadata();
+  Geometry original;
+  if (input.contains("field_original")) {
+    const Fs::path path(input.at("field_original").get<std::string>());
+    std::ifstream file(path);
+    const auto document = Json::parse(file, nullptr, false);
+    if (!document.is_object()) { Fail("original field geometry unavailable"); }
+    original = Source(path.parent_path(), document);
+  }
+  size_t creations = 0;
+  Render::SceneRenderer renderer{TimedSubmission(creations)};
+  RetainedRadiance retained;
+  Json report{{"mode", "radiance-world"}, {"cases", Json::array()}};
+  for (const auto &query : input.at("queries")) {
+    const Vec3 toward = Vector(query.at("eye")) - metadata.Centre;
+    size_t view = 0;
+    for (size_t at = 1; at < metadata.Directions.size(); ++at) {
+      if (Dot(toward, metadata.Directions[at]) > Dot(toward, metadata.Directions[view])) {
+        view = at;
+      }
+    }
+    const auto &field = retained.Resolve(renderer,
+                                         {.Products = products,
+                                          .Jobs = jobs,
+                                          .View = view,
+                                          .Query = query,
+                                          .Original = original.parts() > 0 ? &original : nullptr});
+    const auto name = query.at("name").get<std::string>();
+    if (!field.SourceLinear.empty()) {
+      Write<float>(root / (name + "-source-field.f32"), field.SourceLinear);
+    }
+    const std::array colours{field.Radiance};
+    auto result = DrawWith(
+        renderer, Geometry{}, query, root / (name + "-radiance-world"), &field.Cards, colours);
+    const auto &image = *field.Radiance;
+    result.update(
+        {{"query", name},
+         {"selected_view", view},
+         {"field_prepare_ms", field.PrepareMs},
+         {"field_gpu_ms", field.GpuMs},
+         {"field_setup_gpu_ms", field.SetupGpuMs},
+         {"field_reused", retained.Reused},
+         {"field_hit", retained.SourceHit},
+         {"field_load_ms", retained.LoadMs},
+         {"field_resolve_ms", retained.ResolveMs},
+         {"field_asset_key", products.FieldKey({view})},
+         {"source_readback_bytes", retained.ReadbackBytes},
+         {"resident_image_bytes",
+          size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
+    const auto allocations = renderer.FrameGraphAllocationCounts();
+    result["framegraph_allocations"] = {{"textures", allocations.Textures},
+                                        {"buffers", allocations.Buffers},
+                                        {"samplers", allocations.Samplers}};
+    result["geometry_held_bytes"] = renderer.PieceBytesHeld();
+    if (const auto bytes = Test::MaterialDeviceAllocatedBytes()) {
+      result["metal_allocated_bytes"] = *bytes;
+    }
+    report["cases"].push_back(std::move(result));
+  }
+  report["render_device_creations"] = creations;
+  report["field_renders"] = retained.Renders;
+  report["field_reuses"] = retained.Reuses;
+  report["field_writes"] = retained.Writes;
+  report["atlas_read_bytes"] = source->ReadBytes;
+  report["atlas_decodes"] = source->Decodes;
+  report["captures"] = source->Captures;
+  if (source->Producer) { report["source_capture"] = source->Producer->Report(); }
+  std::ofstream file(root / "radiance-result.json");
+  file << report.dump(2) << '\n';
+  if (!file) { Fail("radiance report write failed"); }
+}
+
+ImpostorCards ResolveView(const BuildingViewJobs &jobs,
+                          const Content::ImpostorViewAssets &products,
+                          Content::ImpostorViewAssets::Selection selected,
+                          size_t limit,
+                          bool &hit) {
+  const auto key = products.Key(selected);
+  ImpostorViewJob job{
+      .Cache = jobs.Cache,
+      .Provenance = jobs.Source->Identity(),
+      .ProductKey = key,
+      .BytesMost = limit,
+      .Product = ImpostorViewJob::SurfaceView{
+          .Selected = selected,
+          .Generate = [source = jobs.Source,
+                       &hit](ImpostorViewJob::Selection selection, size_t, const std::stop_token &)
+              -> std::expected<Geometry, std::string> {
+            hit = false;
+            const auto &atlas = source->Require(selection.View);
+            auto geometry = Render::BuildFractionalImpostorSurface(
+                atlas, source->Recipe.is_object() ? 0 : selection.View, selection.Mip);
+            if (!geometry) { return std::unexpected("native source-view preparation failed"); }
+            return std::move(*geometry);
+          }}};
+  const auto ticket = ResolveProduct(jobs, key, std::move(job));
   auto ready = products.Load(selected, limit);
   if (!ready || !*ready) { Fail("published native view is unavailable"); }
   return std::move(**ready);
@@ -561,17 +839,22 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
       .SourceInput = input.value("source_input", std::string{}),
       .Recipe = input.value("source_request", Json())});
   const auto metadataAt = Clock::now();
-  const auto products = OpenViewAssets(
-      *cache, *source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   Tasks workers(2);
   AssetPipeline pipeline(workers,
-                         {.JobsMost = 1,
+                         {.JobsMost = 2,
                           .ConsumersMost = 1,
-                          .TicketsMost = 1,
-                          .InputBytesMost = 256,
-                          .ReceiptBytesMost = 2048});
+                          .TicketsMost = 2,
+                          .InputBytesMost = 32768,
+                          .ReceiptBytesMost = 8192});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { Fail("native view consumer unavailable"); }
+  const BuildingViewJobs jobs{.Pipeline = pipeline,
+                              .Workers = workers,
+                              .Consumer = *consumer,
+                              .Cache = cache,
+                              .Source = source};
+  const auto products =
+      OpenViewAssets(jobs, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
   size_t writes = 0;
   Json results{{"mode", "cached-world"},
                {"database_open_ms", databaseOpenMs},
@@ -586,8 +869,7 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
     if (!selected) { Fail("native world view selection failed"); }
     const auto began = Clock::now();
     bool hit = true;
-    const auto loaded =
-        ResolveView(pipeline, *consumer, cache, source, products, *selected, limit, hit);
+    const auto loaded = ResolveView(jobs, products, *selected, limit, hit);
     if (!hit) { ++writes; }
     const double loadMs = Milliseconds(began);
     const auto record = cache->Find(products.Key(*selected));
@@ -739,14 +1021,20 @@ void CompareOriginals(const Fs::path &root, const Json &input) {
 int main(int argc, char *const *argv) {
   const bool cachedWorld = argc == 3 && std::string_view(argv[2]) == "--cached-world";
   const bool sourceMesh = argc == 3 && std::string_view(argv[2]) == "--source-mesh";
-  if (argc != 2 && !cachedWorld && !sourceMesh) {
-    Fail("expected a prepared input directory [--cached-world|--source-mesh]");
+  const bool radianceWorld = argc == 3 && std::string_view(argv[2]) == "--radiance-world";
+  if (argc != 2 && !cachedWorld && !sourceMesh && !radianceWorld) {
+    Fail("expected a prepared input directory [--cached-world|--source-mesh|--radiance-world]");
   }
   const Fs::path root(argv[1]);
   std::ifstream file(root / "input.json");
   const auto input = Json::parse(file, nullptr, false);
   if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
-  if (cachedWorld || sourceMesh) {
+  if (cachedWorld || sourceMesh || radianceWorld) {
+    if (radianceWorld) {
+      RadianceViews(root, input);
+      SDL_Quit();
+      return 0;
+    }
     if (sourceMesh) {
       SourceMeshViews(root, input);
     } else {

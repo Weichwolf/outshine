@@ -153,6 +153,8 @@ foreach(source IN LISTS cases)
       set(owner render)
     elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
       set(owner generators/osm)
+    elseif(name MATCHES "^outshine/integration/engine/streaming/building/")
+      set(owner engine/streaming/building)
     elseif(name MATCHES "^outshine/integration/generators/building/StructureBake/")
       set(owner generators/building)
     elseif(name MATCHES "^outshine/integration/generators/water/")
@@ -276,6 +278,12 @@ foreach(target IN ITEMS test_harness_weather_forecast test_harness_weather_snaps
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/test/harness/shared")
 endforeach()
 
+add_executable(test_harness_building_source_counter EXCLUDE_FROM_ALL
+  test/experiments/buildings/source_polygons/native_buffered_buildings.cpp)
+target_compile_options(test_harness_building_source_counter PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_building_source_counter PRIVATE
+  outshine_generators_osm)
+
 add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_export.cpp
   test/experiments/transport/native_transport_snapshot_json.cpp
@@ -305,7 +313,8 @@ add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
-  test/experiments/render/BuildingSourceCapture.cpp)
+  test/experiments/render/BuildingSourceCapture.cpp
+  test/experiments/render/BuildingRadianceField.cpp)
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
   test/experiments/render/native_building_source_planes.cpp
   test/experiments/render/BuildingSourceCapture.cpp)
@@ -317,6 +326,8 @@ add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
   test/experiments/render/native_material_residency.cpp)
 if(APPLE)
   target_sources(test_experiments_render_NativeMaterialResidency PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
+  target_sources(test_experiments_render_NativeBuildingImpostors PRIVATE
     test/experiments/render/NativeMaterialMemory.mm)
 endif()
 add_dependencies(test_experiments_render_NativeMaterialResidency outshine_shaders)

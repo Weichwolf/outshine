@@ -20,6 +20,7 @@ void main() {
   vec4 tap = vec4(1.0);
 #if FLAT_TEXTURED
   tap = texture(imageMap, materialColourUv(surface, uv, uv1));
+  if (surface.scattering > 1.5) { tap.rgb /= max(tap.a, 1e-8); }
 #endif
 #if FLAT_KIND == 1
   if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }

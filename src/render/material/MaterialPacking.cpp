@@ -17,6 +17,7 @@ static_assert(sizeof(GpuMaterialRecord) == kMaterialRecordFloatCount * sizeof(fl
 
 GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) noexcept {
   const Material &row = material.Row;
+  const auto scattering = material.Radiance ? ScatteringModel::AreaMixture : row.Scattering;
   Vec3f f0;
   DielectricF0(row, f0);
   const std::array scalars = {material.Coverage(),
@@ -55,7 +56,7 @@ GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) 
                               row.IridescenceThicknessMinNm,
                               row.IridescenceThicknessMaxNm,
                               static_cast<float>(row.Pattern),
-                              static_cast<float>(row.Scattering),
+                              static_cast<float>(scattering),
                               row.DiffuseTransmission[0],
                               row.DiffuseTransmission[1],
                               row.DiffuseTransmission[2]};

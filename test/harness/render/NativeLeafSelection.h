@@ -47,16 +47,16 @@ SelectAllLeaves(Device &device, Commands &commands, const LeafSelectionInput &in
   CHECK(input.View.size() == 256 && logical > 0 && input.Initial.size() >= logical,
         "the leaf fixture supplies a complete view and guarded logical output");
   if (input.View.size() != 256 || logical == 0 || input.Initial.size() < logical) { Failed(); }
-  auto roots = Upload(device, commands, SelectionWords(input.Roots));
-  auto templates = Upload(device, commands, SelectionWords(input.Templates));
-  auto work = Upload(device, commands, chunks);
-  auto offsets = Upload(device, commands, prefix);
+  const auto roots = Upload(device, commands, SelectionWords(input.Roots));
+  const auto templates = Upload(device, commands, SelectionWords(input.Templates));
+  const auto work = Upload(device, commands, chunks);
+  const auto offsets = Upload(device, commands, prefix);
   const auto count = static_cast<uint32_t>(chunks.size() / 2);
   const std::array chunkState{GeometryQueueState{.Requested = count}};
   const std::array clusterState{GeometryQueueState{}};
-  auto queued = Upload(device, commands, SelectionWords(std::span(chunkState)));
-  auto selected = Upload(device, commands, SelectionWords(std::span(clusterState)));
-  auto clusters = Upload(device, commands, std::vector<uint32_t>(size_t{logical} * 2));
+  const auto queued = Upload(device, commands, SelectionWords(std::span(chunkState)));
+  const auto selected = Upload(device, commands, SelectionWords(std::span(clusterState)));
+  const auto clusters = Upload(device, commands, std::vector<uint32_t>(size_t{logical} * 2));
   auto kept = Upload(device, commands, input.Initial);
   const GeometryHierarchyView hierarchy{.RootCount = static_cast<uint32_t>(input.Roots.size()),
                                         .TemplateCount =
@@ -79,7 +79,7 @@ SelectAllLeaves(Device &device, Commands &commands, const LeafSelectionInput &in
       Storage(1, 2, *selected),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{input.View}},
       Binding{.Set = 2, .Slot = 1, .Value = Uniform{std::as_bytes(std::span(&hierarchy, 1))}}};
-  auto pipeline = Require(device.CreateComputePipeline(Shader("geometryLeafCull.comp.spv")));
+  const auto pipeline = Require(device.CreateComputePipeline(Shader("geometryLeafCull.comp.spv")));
   Require(commands.Dispatch(
       *pipeline,
       bindings,

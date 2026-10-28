@@ -16,6 +16,8 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <type_traits>
+#include <variant>
 
 namespace {
 using namespace outshine;
@@ -43,15 +45,49 @@ std::optional<Views> Metadata(AssetCache &cache, bool changed = false) {
   return std::move(*views);
 }
 
-std::expected<Geometry, std::string> GeometryOf(Views::Selection selected) {
+std::expected<ImpostorAtlas, std::string> FieldOf() {
   ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}, .Texels = {}, .Materials = {}};
   view.Texels.resize(64, {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 1});
   std::string error;
   auto atlas = ImpostorAtlas::Create(8, {}, 1, {Material{}}, {std::move(view)}, error);
   if (!atlas) { return std::unexpected(error); }
+  return std::move(*atlas);
+}
+
+std::expected<Geometry, std::string> GeometryOf(Views::Selection selected) {
+  auto atlas = FieldOf();
+  if (!atlas) { return std::unexpected(atlas.error()); }
   auto geometry = Render::BuildFractionalImpostorSurface(*atlas, selected.View, selected.Mip);
   if (!geometry) { return std::unexpected("controlled source conversion failed"); }
   return std::move(*geometry);
+}
+
+template <bool Field>
+using Product =
+    std::conditional_t<Field, ImpostorViewJob::MaterialView, ImpostorViewJob::SurfaceView>;
+
+template <bool Field> std::string Key(const Views &views) {
+  if constexpr (Field) {
+    return views.FieldKey({0});
+  } else {
+    return views.Key(kSelected);
+  }
+}
+
+template <bool Field, class Factory> Product<Field> Requested(Factory factory) {
+  if constexpr (Field) {
+    return {.Selected = {0}, .Generate = std::move(factory)};
+  } else {
+    return {.Selected = kSelected, .Generate = std::move(factory)};
+  }
+}
+
+template <bool Field, class Selection> auto Generated(Selection selected) {
+  if constexpr (Field) {
+    return FieldOf();
+  } else {
+    return GeometryOf(selected);
+  }
 }
 
 AssetPublication Wait(const AssetPipeline::RequestTicket &ticket) {
@@ -79,12 +115,12 @@ struct Source {
   std::atomic<bool> Stopped{false}, OnWorker{false};
 };
 
-void SharedRequests(const std::filesystem::path &path) {
+template <bool Field> void SharedRequests(const std::filesystem::path &path) {
   auto cache = Open(path);
   if (!cache) { return; }
   const auto views = Metadata(*cache);
   if (!views) { return; }
-  const auto key = views->Key(kSelected);
+  const auto key = Key<Field>(*views);
   const auto main = std::this_thread::get_id();
   const auto source = std::make_shared<Source>();
   Tasks pool(2);
@@ -98,20 +134,19 @@ void SharedRequests(const std::filesystem::path &path) {
   auto second = pipeline.OpenConsumer({.Identity = cache});
   CHECK(first && second, "independent view consumers share one admitted producer");
   if (!first || !second) { return; }
-  ImpostorViewJob job{
-      .Cache = cache,
-      .Provenance = "job-source-1",
-      .ProductKey = key,
-      .Selected = kSelected,
-      .BytesMost = kBytes,
-      .Generate = [source, main](Views::Selection selected, size_t, const std::stop_token &stop) {
-        ++source->Calls;
-        source->OnWorker = std::this_thread::get_id() != main;
-        source->Started.release();
-        source->Release.acquire();
-        source->Stopped = stop.stop_requested();
-        return GeometryOf(selected);
-      }};
+  ImpostorViewJob job{.Cache = cache,
+                      .Provenance = "job-source-1",
+                      .ProductKey = key,
+                      .BytesMost = kBytes,
+                      .Product = Requested<Field>(
+                          [source, main](auto selected, size_t, const std::stop_token &stop) {
+                            ++source->Calls;
+                            source->OnWorker = std::this_thread::get_id() != main;
+                            source->Started.release();
+                            source->Release.acquire();
+                            source->Stopped = stop.stop_requested();
+                            return Generated<Field>(selected);
+                          })};
   const std::weak_ptr<AssetCache> retained = cache;
   auto a = pipeline.RequestResolved(*first, Request(*first, key), std::move(job));
   auto b = pipeline.RequestResolved(
@@ -140,7 +175,7 @@ void SharedRequests(const std::filesystem::path &path) {
         "the cancelled consumer cannot publish its sibling's receipt");
 }
 
-void WarmAndStale(const std::filesystem::path &path) {
+template <bool Field> void WarmAndStale(const std::filesystem::path &path) {
   const auto cache = Open(path);
   if (!cache) { return; }
   const auto opened = Views::Open(*cache, "job-source-1");
@@ -148,10 +183,9 @@ void WarmAndStale(const std::filesystem::path &path) {
   if (!opened || !*opened) { return; }
   ImpostorViewJob job{.Cache = cache,
                       .Provenance = "job-source-1",
-                      .ProductKey = (**opened).Key(kSelected),
-                      .Selected = kSelected,
+                      .ProductKey = Key<Field>(**opened),
                       .BytesMost = kBytes,
-                      .Generate = {}};
+                      .Product = Requested<Field>(decltype(Product<Field>::Generate){})};
   const auto warm = job({});
   CHECK(warm.has_value(),
         warm ? "a source-free warm job returns a valid stored receipt" : warm.error().c_str());
@@ -159,21 +193,22 @@ void WarmAndStale(const std::filesystem::path &path) {
   cancelled.request_stop();
   CHECK(!job(cancelled.get_token()), "a cancelled job returns no publication receipt");
   size_t calls = 0;
-  job.Generate = [&](Views::Selection selected, size_t, const std::stop_token &) {
-    ++calls;
-    return GeometryOf(selected);
-  };
+  std::get<Product<Field>>(job.Product).Generate =
+      [&](auto selected, size_t, const std::stop_token &) {
+        ++calls;
+        return Generated<Field>(selected);
+      };
   CHECK(Metadata(*cache, true).has_value(), "a new metadata revision changes product identity");
   CHECK(!job({}) && calls == 0,
         "a queued old key cannot reinterpret new metadata or acquire stale source products");
 }
 
-void CancelLastConsumer(const std::filesystem::path &path) {
+template <bool Field> void CancelLastConsumer(const std::filesystem::path &path) {
   const auto cache = Open(path);
   if (!cache) { return; }
   const auto views = Metadata(*cache);
   if (!views) { return; }
-  const auto key = views->Key(kSelected);
+  const auto key = Key<Field>(*views);
   const auto source = std::make_shared<Source>();
   Tasks pool(1);
   AssetPipeline pipeline(pool,
@@ -189,15 +224,14 @@ void CancelLastConsumer(const std::filesystem::path &path) {
       .Cache = cache,
       .Provenance = "job-source-1",
       .ProductKey = key,
-      .Selected = kSelected,
       .BytesMost = kBytes,
-      .Generate = [source](Views::Selection selected, size_t, const std::stop_token &stop) {
+      .Product = Requested<Field>([source](auto selected, size_t, const std::stop_token &stop) {
         ++source->Calls;
         source->Started.release();
         source->Release.acquire();
         source->Stopped = stop.stop_requested();
-        return GeometryOf(selected);
-      }};
+        return Generated<Field>(selected);
+      })};
   auto rejected = Request(*consumer, key);
   rejected.InputBytes = kInput + 1;
   CHECK(!pipeline.RequestResolved(*consumer, rejected, job) && source->Calls == 0,
@@ -228,9 +262,13 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
   const auto path = root / "assets.sqlite";
-  SharedRequests(path);
-  WarmAndStale(path);
-  CancelLastConsumer(root / "cancelled.sqlite");
+  SharedRequests<false>(path);
+  WarmAndStale<false>(path);
+  CancelLastConsumer<false>(root / "cancelled.sqlite");
+  const auto fields = root / "fields.sqlite";
+  SharedRequests<true>(fields);
+  WarmAndStale<true>(fields);
+  CancelLastConsumer<true>(root / "cancelled-fields.sqlite");
   std::filesystem::remove_all(root);
   return Report();
 }

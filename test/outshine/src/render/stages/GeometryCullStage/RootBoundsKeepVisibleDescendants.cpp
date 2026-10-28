@@ -198,16 +198,17 @@ std::unique_ptr<Buffer> HierarchyBounds(Device &device,
                      .ModelSlot = at,
                      .Flags = kGeometryRootBound});
   }
-  auto rootBuffer = Upload(device, commands, Words(std::span<const GeometryRoot>(roots)));
+  const auto rootBuffer = Upload(device, commands, Words(std::span<const GeometryRoot>(roots)));
   const auto count = static_cast<uint32_t>(roots.size());
   const std::vector<uint32_t> initial(count + 16, kRejected);
   auto visible = Upload(device, commands, initial);
-  auto chunks = Upload(device, commands, std::vector<uint32_t>(size_t{count} * 2, kRejected));
+  const auto chunks = Upload(device, commands, std::vector<uint32_t>(size_t{count} * 2, kRejected));
   const std::array<GeometryQueueState, 1> state{};
-  auto queueState = Upload(device, commands, Words(std::span<const GeometryQueueState>(state)));
+  const auto queueState =
+      Upload(device, commands, Words(std::span<const GeometryQueueState>(state)));
   const GeometryHierarchyView hierarchy{
       .RootCount = count, .ChunkCapacity = count, .WorstChunks = count, .GridWidth = 7};
-  auto pipeline = Require(device.CreateComputePipeline(Shader("geometryRootCull.comp.spv")));
+  const auto pipeline = Require(device.CreateComputePipeline(Shader("geometryRootCull.comp.spv")));
   const std::array bindings{
       Storage(0, 0, *rootBuffer),
       Storage(0, 1, placements),
@@ -233,10 +234,10 @@ void Run(Device &device, const Inputs &inputs, const std::array<float, 4> &shift
   auto commands = Require(device.Begin());
   const auto sphereWords = Words(std::span(inputs.Spheres));
   const auto placementWords = Words(std::span(inputs.Placements));
-  auto spheres = Upload(device, *commands, sphereWords);
-  auto placements = Upload(device, *commands, placementWords);
+  const auto spheres = Upload(device, *commands, sphereWords);
+  const auto placements = Upload(device, *commands, placementWords);
   const std::array<uint32_t, 1> zero{};
-  auto pyramid = Upload(device, *commands, zero);
+  const auto pyramid = Upload(device, *commands, zero);
   const std::vector<uint32_t> initial(inputs.Cases.size() * 3 + 16, kRejected);
   View view;
   view.Shift = shift;

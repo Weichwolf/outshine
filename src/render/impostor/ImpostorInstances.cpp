@@ -2,6 +2,7 @@
 
 #include "ImpostorSurface.h"
 #include "SceneRenderer.h"
+#include <array>
 #include "StoredVertex.h"
 #include "TransformMatrix.h"
 
@@ -30,18 +31,22 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
   return cards ? Create(renderer, *cards, maxInstances, error) : nullptr;
 }
 
-std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &renderer,
-                                                             const ImpostorCards &cards,
-                                                             uint32_t maxInstances,
-                                                             std::string &error) {
-  if (maxInstances == 0 || cards.Views.empty()) {
+std::unique_ptr<ImpostorInstances>
+ImpostorInstances::Create(SceneRenderer &renderer,
+                          const ImpostorCards &cards,
+                          uint32_t maxInstances,
+                          std::string &error,
+                          std::span<const std::shared_ptr<const RadianceImage>> colours) {
+  if (maxInstances == 0 || cards.Views.empty() ||
+      (!colours.empty() && colours.size() != cards.Views.size())) {
     error = Says::Capacity;
     return nullptr;
   }
   auto result = std::unique_ptr<ImpostorInstances>(
       new ImpostorInstances(renderer, cards.Centre, maxInstances));
   result->Views_.reserve(cards.Views.size());
-  for (const auto &view : cards.Views) {
+  for (size_t index = 0; index < cards.Views.size(); ++index) {
+    const auto &view = cards.Views[index];
     if (view.Surface.parts() != 1) {
       error = Says::View;
       return nullptr;
@@ -68,7 +73,14 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
     piece.Tangents = geometry.tangentsOf(0);
     piece.Textured = true;
     piece.MaxInstances = maxInstances;
-    auto material = renderer.RegisterPieceMaterials(std::move(geometry));
+    const std::array<MaterialRadiance, 1> images{
+        {{.Material = 0, .Image = colours.empty() ? nullptr : colours[index]}}};
+    if (!colours.empty() && !images.front().Image) {
+      error = "a resident impostor view is missing its image";
+      return nullptr;
+    }
+    auto material = renderer.RegisterPieceMaterials(
+        std::move(geometry), colours.empty() ? std::span<const MaterialRadiance>{} : images);
     if (!material) {
       error = std::move(material).error();
       return nullptr;

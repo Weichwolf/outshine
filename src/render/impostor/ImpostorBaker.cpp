@@ -1,4 +1,5 @@
 #include "ImpostorBaker.h"
+#include "ImpostorCaptureMaterial.h"
 #include "ImpostorViewFrame.h"
 
 #include "ExecutionPlan.h"
@@ -124,35 +125,6 @@ std::optional<NativePiece> BuildPiece(const RenderGeometryPart &part,
   return piece;
 }
 
-std::optional<Material> CapturedMaterial(const Material &source) {
-  Material supported;
-  supported.Scattering = source.Scattering;
-  supported.DiffuseTransmission = source.DiffuseTransmission;
-  supported.Pattern = source.Pattern;
-  supported.BaseColour = source.BaseColour;
-  supported.Metalness = source.Metalness;
-  supported.Roughness = source.Roughness;
-  supported.Alpha = source.Alpha;
-  supported.CoverageCut = source.CoverageCut;
-  supported.DoubleSided = source.DoubleSided;
-  supported.NormalScale = source.NormalScale;
-  supported.NeedsTangents = source.NeedsTangents;
-  supported.BaseColourMap = source.BaseColourMap;
-  supported.NormalMap = source.NormalMap;
-  supported.MetalRoughMap = source.MetalRoughMap;
-  const std::array maps{source.BaseColourMap, source.NormalMap, source.MetalRoughMap};
-  if (!(source == supported) || source.Alpha == AlphaMode::Blended ||
-      !std::ranges::all_of(
-          maps, [](const SurfaceMap &map) { return !map.bound() || map.Set == UvSet::Uv0; })) {
-    return std::nullopt;
-  }
-  supported.Pattern = SurfacePattern::None;
-  supported.NormalScale = 1;
-  supported.NeedsTangents = false;
-  supported.BaseColourMap = supported.NormalMap = supported.MetalRoughMap = {};
-  return supported;
-}
-
 bool InstallSource(CapturePieces &pieces,
                    ImpostorCaptureSource source,
                    std::vector<Material> &surfaces,
@@ -171,7 +143,7 @@ bool InstallSource(CapturePieces &pieces,
   }
   const size_t firstAtlasSurface = surfaces.size();
   for (int at = 0; at < source.Mesh.surfaces(); ++at) {
-    auto material = CapturedMaterial(source.Mesh.surfaceAt(MaterialInstance(at)));
+    auto material = CapturedImpostorMaterial(source.Mesh.surfaceAt(MaterialInstance(at)));
     if (!material) {
       error = "impostor capture cannot preserve this material; retain native geometry";
       return false;

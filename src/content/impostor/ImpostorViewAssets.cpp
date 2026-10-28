@@ -2,6 +2,7 @@
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -16,7 +17,8 @@
 namespace outshine::Content {
 namespace {
 constexpr uint64_t kFormat = 0x000131565046ULL;
-constexpr size_t kMetadataBytesMost = 4096;
+constexpr uint64_t kFramedFormat = 0x000231565046ULL;
+constexpr size_t kMetadataBytesMost = ImpostorViewAssets::MetadataBytesMost;
 constexpr double kDirectionNormTolerance = 1e-9;
 constexpr std::string_view kKind = "fractional-impostor-views-1";
 
@@ -24,11 +26,29 @@ std::string IndexKey(std::string_view provenance) {
   return Sha256Hex(std::string(kKind) + "/" + std::string(provenance));
 }
 
+bool Rigid(const Mat4 &frame) {
+  if (!std::ranges::all_of(frame, [](double value) { return std::isfinite(value); }) ||
+      frame[3] != 0 || frame[7] != 0 || frame[11] != 0 || frame[15] != 1) {
+    return false;
+  }
+  const std::array<Vec3, 3> axes{Vec3{{frame[0], frame[1], frame[2]}},
+                                 Vec3{{frame[4], frame[5], frame[6]}},
+                                 Vec3{{frame[8], frame[9], frame[10]}}};
+  for (size_t i = 0; i < axes.size(); ++i) {
+    if (std::abs(Dot(axes[i], axes[i]) - 1) > kDirectionNormTolerance) { return false; }
+    for (size_t j = i + 1; j < axes.size(); ++j) {
+      if (std::abs(Dot(axes[i], axes[j])) > kDirectionNormTolerance) { return false; }
+    }
+  }
+  return std::abs(Dot(Cross(axes[0], axes[1]), axes[2]) - 1) <= kDirectionNormTolerance;
+}
+
 bool Valid(const ImpostorViewAssets::Description &description) {
   return description.Pixels >= 3 && description.Pixels <= 4096 && description.HalfExtentM > 0 &&
          std::isfinite(description.HalfExtentM) &&
          std::ranges::all_of(description.Centre,
                              [](double value) { return std::isfinite(value); }) &&
+         (!description.WorldFromField || Rigid(*description.WorldFromField)) &&
          !description.Directions.empty() && description.Directions.size() <= 64 &&
          std::ranges::all_of(description.Directions, [](const Vec3 &direction) {
            const double norm = Dot(direction, direction);
@@ -41,7 +61,8 @@ std::optional<std::vector<uint8_t>> Encode(const ImpostorViewAssets::Description
                                            const Box &bounds) {
   if (provenance.empty() || !Valid(description)) { return std::nullopt; }
   BinaryValueWriter out(kMetadataBytesMost);
-  if (!out(kFormat) || !out.Text(provenance) || !out(bounds.Min.Axis, bounds.Max.Axis) ||
+  if (!out(description.WorldFromField ? kFramedFormat : kFormat) || !out.Text(provenance) ||
+      !out(bounds.Min.Axis, bounds.Max.Axis) ||
       !out(description.Centre.Axis,
            description.HalfExtentM,
            description.Pixels,
@@ -50,6 +71,9 @@ std::optional<std::vector<uint8_t>> Encode(const ImpostorViewAssets::Description
   }
   for (const auto &direction : description.Directions) {
     if (!out(direction.Axis)) { return std::nullopt; }
+  }
+  if (description.WorldFromField && !out(description.WorldFromField->Column)) {
+    return std::nullopt;
   }
   return std::move(out.Out).TakeBytes();
 }
@@ -62,8 +86,8 @@ Decode(std::span<const uint8_t> bytes, std::string_view provenance, const Box &b
   uint32_t count = 0;
   std::string source;
   Box stored;
-  if (!in(format) || format != kFormat || !in.Text(source) || source != provenance ||
-      !in(stored.Min.Axis, stored.Max.Axis) || stored != bounds ||
+  if (!in(format) || (format != kFormat && format != kFramedFormat) || !in.Text(source) ||
+      source != provenance || !in(stored.Min.Axis, stored.Max.Axis) || stored != bounds ||
       !in(description.Centre.Axis, description.HalfExtentM, description.Pixels, count) ||
       count == 0 || count > 64 || count > in.In.Remaining() / (3 * sizeof(double))) {
     return std::nullopt;
@@ -72,9 +96,18 @@ Decode(std::span<const uint8_t> bytes, std::string_view provenance, const Box &b
   for (auto &direction : description.Directions) {
     if (!in(direction.Axis)) { return std::nullopt; }
   }
+  if (format == kFramedFormat) {
+    Mat4 frame;
+    if (!in(frame.Column)) { return std::nullopt; }
+    description.WorldFromField = frame;
+  }
   if (in.In.Remaining() != 0 || !Valid(description)) { return std::nullopt; }
   return description;
 }
+}
+
+std::string ImpostorViewAssets::MetadataKey(std::string_view provenance) {
+  return IndexKey(provenance);
 }
 
 ImpostorViewAssets::ImpostorViewAssets(AssetCache &cache,
