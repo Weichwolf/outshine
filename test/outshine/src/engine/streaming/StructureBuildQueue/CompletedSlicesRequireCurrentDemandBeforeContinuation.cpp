@@ -23,13 +23,14 @@ public:
 
   [[nodiscard]] std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept override {
-    Calls.fetch_add(1, std::memory_order_relaxed);
+    Calls_.fetch_add(1, std::memory_order_relaxed);
     return Backing_.Mesh(plan, scratch, into);
   }
 
-  mutable std::atomic_size_t Calls{0};
+  [[nodiscard]] size_t MeshCalls() const noexcept { return Calls_.load(std::memory_order_relaxed); }
 
 private:
+  mutable std::atomic_size_t Calls_{0};
   Generators::BuildingMesh Backing_;
 };
 
@@ -38,7 +39,7 @@ bool Start(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
                                                              fixture.Buildings.front());
   for (size_t at = 0; at < buildings.size(); ++at) {
     for (size_t coordinate = 1; coordinate < buildings[at].LatLon.size(); coordinate += 2) {
-      buildings[at].LatLon[coordinate] += double(at) * 1.0e-8;
+      buildings[at].LatLon[coordinate] += static_cast<double>(at) * 1.0e-8;
     }
   }
   if (!fixture.Open(buildings)) { return false; }
@@ -53,22 +54,19 @@ bool Start(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
                             LevelOfDetail::Fine) == 1,
         "one real building task starts with more than one slice of work");
   CHECK(fixture.Queue.AwaitSlice(2.0), "the first bounded worker slice completes");
-  const size_t calls = mesher.Calls.load(std::memory_order_relaxed);
+  const size_t calls = mesher.MeshCalls();
   CHECK(calls > 0 && calls < kStructures,
         "the first slice meshes real geometry but cannot finish the complete input");
   return calls > 0 && calls < kStructures;
 }
 
 void CheckPollingDoesNotPost(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
-  const size_t before = mesher.Calls.load(std::memory_order_relaxed);
+  const size_t before = mesher.MeshCalls();
   fixture.Queue.PollCompletedTasks();
   CHECK(!fixture.Queue.AwaitSlice(2.0),
         "completion collection alone cannot post another worker slice");
-  CHECK(mesher.Calls.load(std::memory_order_relaxed) == before,
-        "no meshing runs before the current-demand admission");
-  std::println("STRUCTURE_SLICE first={} after_collection={}",
-               before,
-               mesher.Calls.load(std::memory_order_relaxed));
+  CHECK(mesher.MeshCalls() == before, "no meshing runs before the current-demand admission");
+  std::println("STRUCTURE_SLICE first={} after_collection={}", before, mesher.MeshCalls());
   CHECK(fixture.Queue.Queued() == 1 && fixture.Queue.CompletedRanges() > 0,
         "collected partial work remains owned and accounts completed ranges");
 }
@@ -79,7 +77,7 @@ void ChangedDemand(Change change) {
   const CountingMesher mesher;
   BuildingQueueFixture fixture;
   if (!Start(fixture, mesher)) { return; }
-  const size_t firstSlice = mesher.Calls.load(std::memory_order_relaxed);
+  const size_t firstSlice = mesher.MeshCalls();
   auto eye = fixture.Eye;
   auto height = fixture.Source;
   auto &prints = fixture.Stack.Footprints();
@@ -101,7 +99,7 @@ void ChangedDemand(Change change) {
                                           LevelOfDetail::Fine);
   CHECK(ready && ready->empty() && fixture.Queue.Queued() == 0 && fixture.Queue.Discarded() == 1,
         "outdated partial work is retired before any continuation or landing");
-  CHECK(mesher.Calls.load(std::memory_order_relaxed) == firstSlice,
+  CHECK(mesher.MeshCalls() == firstSlice,
         "changed demand spends no extra geometry work after its first completed slice");
 }
 
@@ -140,7 +138,7 @@ void CurrentDemandCompletes(bool continueFromPosts) {
   }
   CHECK(ready.size() == 1 && fixture.Queue.Discarded() == 0,
         "valid work reaches its original terminal product without discarded progress");
-  CHECK(mesher.Calls.load(std::memory_order_relaxed) == kStructures,
+  CHECK(mesher.MeshCalls() == kStructures,
         "every requested building is meshed exactly once over all slices");
   if (ready.empty()) { return; }
   CHECK(!ready.front().Baked->FallbackHeights && ready.front().Baked->UnsupportedMeshes == 0 &&
