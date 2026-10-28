@@ -12,6 +12,7 @@ from ground_contact import (
     maximum_grade,
 )
 from ground_contact_profiles import WholeProfileGuard, exact_squared_excess
+from ground_rim_domain import rim_rectangle
 from ground_rim_fit import fit_rim_heights
 from ground_rim_sampling import RimRecipe, observe_rim, sample_values
 from ground_surface import ground_layout
@@ -20,10 +21,7 @@ from outshine_ref.transport.heights import HeightBudget
 
 
 def rim_candidate(road, prior, sample_z, margin, limits, recipe, method, budget, guard):
-    rectangle = shapely.box(
-        *(road.vertices[:, :2].min(axis=0) - margin),
-        *(road.vertices[:, :2].max(axis=0) + margin),
-    )
+    rectangle = rim_rectangle(road.vertices[:, :2], margin, recipe.boundary)
     corners = np.asarray(rectangle.exterior.coords)[:-1]
     heights = sample_values(sample_z, corners)
     witness = corner_witness(road, corners, heights, limits.soil_grade * 1.0000001)
@@ -108,6 +106,9 @@ def rim_candidate(road, prior, sample_z, margin, limits, recipe, method, budget,
     observations = np.empty(len(vertices))
     observations[mapping] = prior
     observations[outer] = vertices[outer, 2]
+    recipe_data = asdict(recipe)
+    if recipe.boundary == "axis":
+        del recipe_data["boundary"]
     return {
         "mesh": Mesh(fitted, layout["faces"]),
         "road_vertex_map": mapping,
@@ -115,13 +116,18 @@ def rim_candidate(road, prior, sample_z, margin, limits, recipe, method, budget,
         "outer_vertex_ids": outer,
         "prior_z": observations,
         "rim_profile": {
-            "recipe": asdict(recipe),
+            "recipe": recipe_data,
             "fit_method": method,
             "corner_vertex_ids": corner_ids,
             "ordered_vertex_ids": np.array([byxy[tuple(p)] for p in xy]),
             "sampling": sampling,
             "fit": dict(fit.report),
             "maximum_observation_adjustment_m": adjustment,
+            **(
+                {"rectangle_corners_xy": corners}
+                if recipe.boundary == "oriented"
+                else {}
+            ),
         },
     }, record | {"status": "candidate", "reason": ""}
 
