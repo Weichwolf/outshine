@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <system_error>
 #include "Check.h"
 #include "RawSourceCache.h"
 
@@ -14,7 +16,9 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated cache created");
   const auto markers = std::filesystem::path(directory) / ".outshine-absence-v1";
   const RawSourceCache::Config config{.Directory = directory};
-  const std::string first(64, 'a'), second(64, 'b'), third(64, 'c');
+  const std::string first(64, 'a');
+  const std::string second(64, 'b');
+  const std::string third(64, 'c');
   {
     RawSourceCache store(config);
     CHECK(store.Lookup(first).Where == RawSourceCache::Presence::Unknown, "unknown is not absent");

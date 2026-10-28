@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <print>
 #include <span>
@@ -127,7 +128,9 @@ struct Case {
   bool Opaque = false;
   std::vector<std::array<uint32_t, 2>> Layers;
   Frame View{};
-  std::unique_ptr<Native::Buffer> Positions, Indices, Records;
+  std::unique_ptr<Native::Buffer> Positions, Records;
+  uint64_t SourcePositionBytes = 0;
+  uint64_t SourceIndexBytes = 0;
   std::unique_ptr<Native::Texture> Colour, Depth, Output, Audit;
   std::unique_ptr<Native::Sampler> Sampler;
   Json Samples = Json::array();
@@ -163,6 +166,22 @@ void Validate(const Bytes &positions,
   if (next != indices.size() / sizeof(uint32_t)) { Fail("native layers omit index ranges"); }
 }
 
+Bytes RasterPositions(const Bytes &positions, const Bytes &indices) {
+  static_assert(sizeof(float) == 4 && sizeof(uint32_t) == 4);
+  constexpr size_t stride = 3 * sizeof(float);
+  const auto count = indices.size() / sizeof(uint32_t);
+  if (count > std::numeric_limits<size_t>::max() / stride) {
+    Fail("expanded diagnostic vertex data exceeds addressable storage");
+  }
+  Bytes result(count * stride);
+  for (size_t at = 0; at < count; ++at) {
+    uint32_t index = 0;
+    std::memcpy(&index, indices.data() + at * sizeof(index), sizeof(index));
+    std::memcpy(result.data() + at * stride, positions.data() + size_t{index} * stride, stride);
+  }
+  return result;
+}
+
 Case Prepare(Native::Device &device,
              const std::string &path,
              std::array<uint32_t, 2> extent,
@@ -191,8 +210,10 @@ Case Prepare(Native::Device &device,
   const auto indices = Read(base + "/indices.bin");
   const auto records = Read(base + "/records.bin");
   Validate(positions, indices, records, c.Layers);
-  c.Positions = Upload(device, *commands, positions, Native::BufferUse::Vertex);
-  c.Indices = Upload(device, *commands, indices, Native::BufferUse::Index);
+  c.SourcePositionBytes = positions.size();
+  c.SourceIndexBytes = indices.size();
+  const auto rasterPositions = RasterPositions(positions, indices);
+  c.Positions = Upload(device, *commands, rasterPositions, Native::BufferUse::Vertex);
   c.Records = Upload(device, *commands, records, Native::BufferUse::Storage);
   Check(Cal::Finish(device, std::move(commands)));
   const auto height = c.Height * static_cast<uint32_t>(c.Layers.size());
@@ -244,23 +265,21 @@ Native::Result<void> Encode(Native::Commands &cmd, const Pipelines &p, const Cas
                            .Range = {.Bytes = c.Positions->Description().Bytes}}};
   for (size_t layer = 0; layer < c.Layers.size(); ++layer) {
     Frame view = c.View;
-    view.Control = {c.Layers[layer][0] / 3u, c.Opaque ? 1u : 0u, 0, 0};
+    view.Control = {0, c.Opaque ? 1u : 0u, 0, 0};
     const std::array bindings{
         Storage(*c.Records),
         Native::Binding{.Set = 1,
                         .Slot = 0,
                         .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&view, 1))}}};
     const auto y = static_cast<uint32_t>(layer) * c.Height;
-    result = cmd.DrawIndexed(
-        {.State = {.Pipeline = p.Raster.get(),
-                   .Bindings = bindings,
-                   .Vertices = vertices,
-                   .Area = {.Y = static_cast<float>(y),
-                            .Width = static_cast<float>(c.Width),
-                            .Height = static_cast<float>(c.Height)},
-                   .Clip = {.Y = y, .Width = c.Width, .Height = c.Height}},
-         .Indices = {.Data = c.Indices.get(), .Range = {.Bytes = c.Indices->Description().Bytes}},
-         .Range = {.First = c.Layers[layer][0], .Count = c.Layers[layer][1]}});
+    result = cmd.Draw({.State = {.Pipeline = p.Raster.get(),
+                                 .Bindings = bindings,
+                                 .Vertices = vertices,
+                                 .Area = {.Y = static_cast<float>(y),
+                                          .Width = static_cast<float>(c.Width),
+                                          .Height = static_cast<float>(c.Height)},
+                                 .Clip = {.Y = y, .Width = c.Width, .Height = c.Height}},
+                       .Range = {.First = c.Layers[layer][0], .Count = c.Layers[layer][1]}});
     if (!result) { return result; }
   }
   result = cmd.EndRenderPass();
@@ -328,9 +347,9 @@ int main(int argc, char *const *argv) {
       auto &c = cases[slot];
       const auto sample = Require(
           Cal::Measure(*device, [&](Native::Commands &cmd) { return Encode(cmd, pipelines, c); }));
-      if (!sample.GpuNs) { Fail("missing GPU timestamp"); }
+      if (!sample.GpuNs || !sample.EncodeNs) { Fail("missing GPU or encode timing"); }
       c.Samples.push_back(
-          {{"gpu_ns", *sample.GpuNs}, {"encode_ns", sample.EncodeNs}, {"wall_ns", sample.WallNs}});
+          {{"gpu_ns", *sample.GpuNs}, {"encode_ns", *sample.EncodeNs}, {"wall_ns", sample.WallNs}});
     }
   }
   Json report = {
@@ -338,6 +357,7 @@ int main(int argc, char *const *argv) {
       {"validation", audit},
       {"width", meta["width"]},
       {"height", meta["height"]},
+      {"raster_representation", "expanded-triangle-corners"},
       {"scope",
        "Bounded component crop at unchanged presentation pixel spacing, paid group first-hit "
        "atlas, full/2-lobe GGX, depth sort and C/T; no full scene or world admission."},
@@ -348,12 +368,14 @@ int main(int argc, char *const *argv) {
     if (c.Audit) {
       Write(std::string(argv[3]) + "/" + c.Name + ".audit32f", Download(*device, c, true));
     }
-    report["cases"].push_back({{"name", c.Name},
-                               {"layers", c.Layers.size()},
-                               {"samples", c.Samples},
-                               {"buffer_bytes",
-                                c.Positions->Description().Bytes + c.Indices->Description().Bytes +
-                                    c.Records->Description().Bytes}});
+    report["cases"].push_back(
+        {{"name", c.Name},
+         {"layers", c.Layers.size()},
+         {"samples", c.Samples},
+         {"source_position_bytes", c.SourcePositionBytes},
+         {"source_index_bytes", c.SourceIndexBytes},
+         {"raster_position_bytes", c.Positions->Description().Bytes},
+         {"buffer_bytes", c.Positions->Description().Bytes + c.Records->Description().Bytes}});
   }
   std::ofstream out(std::string(argv[3]) + "/result.json");
   out << report.dump(2);

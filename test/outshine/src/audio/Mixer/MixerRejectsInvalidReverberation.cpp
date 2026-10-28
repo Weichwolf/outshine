@@ -15,7 +15,7 @@ int main() {
   std::array<Audio::SoundSource, 1> sounds{};
   sounds[0].Id = "tone";
   sounds[0].ReverbSend = 0.4;
-  sounds[0].Graph.push_back({.Id = "osc"});
+  sounds[0].Graph.push_back({.Id = "osc", .Inputs = {}, .Parameters = {}});
   Audio::Mixer mixer;
   Audio::Mixer control;
   const bool initialized =

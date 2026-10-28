@@ -31,8 +31,10 @@ void CheckAccounting() {
   const std::array<std::string, 1> layers{"x"};
   const auto small = Tile(1);
   const auto large = Tile(longTag);
-  MvtLayer parsedSmall, parsedLarge;
-  OsmField ownedSmall(2, layers), ownedLarge(2, layers);
+  MvtLayer parsedSmall;
+  MvtLayer parsedLarge;
+  OsmField ownedSmall(2, layers);
+  OsmField ownedLarge(2, layers);
   const bool parsed =
       parsedSmall.Parse(small, "x").has_value() && parsedLarge.Parse(large, "x").has_value();
   const bool accepted =
@@ -70,13 +72,15 @@ void CheckReallocation() {
   const std::array<std::string, 1> layers{"x"};
   const auto small = Tile(1);
   const auto large = Tile(48);
-  MvtLayer parsedSmall, parsedLarge;
+  MvtLayer parsedSmall;
+  MvtLayer parsedLarge;
   const bool parsed =
       parsedSmall.Parse(small, "x").has_value() && parsedLarge.Parse(large, "x").has_value();
   CHECK(parsed, "independent parser charges are available before growing tile storage");
   if (!parsed) { return; }
   const auto delta = parsedLarge.HeapBytes() - parsedSmall.HeapBytes();
-  OsmField ownedSmall(2, layers), ownedLarge(2, layers);
+  OsmField ownedSmall(2, layers);
+  OsmField ownedLarge(2, layers);
   constexpr size_t tiles = 8;
   for (size_t at = 0; at < tiles; ++at) {
     const auto x = static_cast<int>(at % 4);

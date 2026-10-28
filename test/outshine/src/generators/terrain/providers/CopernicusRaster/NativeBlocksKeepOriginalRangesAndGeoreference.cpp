@@ -1,3 +1,8 @@
+#include <cstddef>
+#include <filesystem>
+#include <system_error>
+#include <cstdint>
+#include <string_view>
 #include "Check.h"
 #include "CopernicusRaster.h"
 
@@ -21,14 +26,120 @@ using namespace outshine::Test;
 constexpr std::string_view kRevision = "\"original-fixture\"";
 constexpr std::string_view kObjectKey = "synthetic:original";
 
+constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
+                                                    .field_readcount = TIFF_VARIABLE2,
+                                                    .field_writecount = TIFF_VARIABLE2,
+                                                    .field_type = TIFF_DOUBLE,
+                                                    .field_bit = FIELD_CUSTOM,
+                                                    .field_oktochange = 1,
+                                                    .field_passcount = 1,
+                                                    .field_name = "PixelScale"},
+                                                   {.field_tag = 33922,
+                                                    .field_readcount = TIFF_VARIABLE2,
+                                                    .field_writecount = TIFF_VARIABLE2,
+                                                    .field_type = TIFF_DOUBLE,
+                                                    .field_bit = FIELD_CUSTOM,
+                                                    .field_oktochange = 1,
+                                                    .field_passcount = 1,
+                                                    .field_name = "TiePoint"},
+                                                   {.field_tag = 34735,
+                                                    .field_readcount = TIFF_VARIABLE2,
+                                                    .field_writecount = TIFF_VARIABLE2,
+                                                    .field_type = TIFF_SHORT,
+                                                    .field_bit = FIELD_CUSTOM,
+                                                    .field_oktochange = 1,
+                                                    .field_passcount = 1,
+                                                    .field_name = "GeoKeys"},
+                                                   {.field_tag = TIFFTAG_GDAL_NODATA,
+                                                    .field_readcount = TIFF_VARIABLE2,
+                                                    .field_writecount = TIFF_VARIABLE2,
+                                                    .field_type = TIFF_ASCII,
+                                                    .field_bit = FIELD_CUSTOM,
+                                                    .field_oktochange = 1,
+                                                    .field_passcount = 1,
+                                                    .field_name = "NoData"}}};
+
+void SetRasterTags(TIFF &raster, uint32_t columns, uint32_t rows, uint32_t level) {
+  CHECK(TIFFSetField(&raster, TIFFTAG_IMAGEWIDTH, columns) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_IMAGELENGTH, rows) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_TILEWIDTH, 16u) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_TILELENGTH, 16u) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_BITSPERSAMPLE, 32) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_SAMPLESPERPIXEL, 1) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_PREDICTOR, PREDICTOR_FLOATINGPOINT) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK) == 1 &&
+            TIFFSetField(&raster, TIFFTAG_SUBFILETYPE, level == 0 ? 0u : FILETYPE_REDUCEDIMAGE) ==
+                1,
+        "fixture has Float32, Deflate and floating-point predictor");
+}
+
+void SetGeoreference(TIFF &raster, uint32_t columns, uint32_t rows, bool noData) {
+  const std::array<double, 3> scale{1.0 / columns, 1.0 / rows, 0};
+  const std::array<double, 6> tie{0, 0, 0, 9, 55, 0};
+  const std::array<uint16_t, 20> keys{1, 1, 0,    4, 1024, 0,    1,    2, 1025, 0,
+                                      1, 2, 2048, 0, 1,    4326, 2054, 0, 1,    9102};
+  CHECK(TIFFSetField(&raster, 33550, uint32_t{scale.size()}, scale.data()) == 1 &&
+            TIFFSetField(&raster, 33922, uint32_t{tie.size()}, tie.data()) == 1 &&
+            TIFFSetField(&raster, 34735, uint32_t{keys.size()}, keys.data()) == 1,
+        "native sample georeference is explicit and non-square");
+  if (noData) {
+    CHECK(TIFFSetField(&raster, TIFFTAG_GDAL_NODATA, 6u, "-9999") == 1,
+          "declared NoData is distinct from physical zero");
+  }
+}
+
+std::array<float, size_t{16} * 16>
+    TileHeights(uint32_t level, uint32_t row, uint32_t column, bool noData) {
+  std::array<float, size_t{16} * 16> heights{};
+  for (uint32_t y = 0; y < 16; ++y) {
+    for (uint32_t x = 0; x < 16; ++x) {
+      const auto north = static_cast<float>(row + y);
+      const auto east = static_cast<float>(column + x);
+      heights[y * 16 + x] =
+          level == 0 ? 2.0f * north + 3.0f * east - 50.0f : 4.0f * north + 6.0f * east - 47.5f;
+    }
+  }
+  if (level == 0 && row == 0 && column == 0) {
+    heights[0] = noData ? -9999.0f : -32767.0f;
+    heights[17] = std::numeric_limits<float>::quiet_NaN();
+    heights[18] = std::numeric_limits<float>::infinity();
+  }
+  return heights;
+}
+
+struct RasterLevel {
+  uint32_t Columns;
+  uint32_t Rows;
+  uint32_t Index;
+};
+
+void WriteTiles(TIFF &raster, RasterLevel level, bool noData) {
+  for (uint32_t row = 0; row < level.Rows; row += 16) {
+    for (uint32_t column = 0; column < level.Columns; column += 16) {
+      auto heights = TileHeights(level.Index, row, column, noData);
+      const auto bytes = static_cast<tmsize_t>(sizeof(heights));
+      CHECK(TIFFWriteEncodedTile(
+                &raster, TIFFComputeTile(&raster, column, row, 0, 0), heights.data(), bytes) ==
+                bytes,
+            "independent analytic samples are encoded");
+    }
+  }
+}
+
 struct Fixture {
   std::string Path;
   std::vector<uint8_t> Bytes;
   bool Created = false;
 
   explicit Fixture(bool noData) {
-    const char *temp = std::getenv("TMPDIR");
-    Path = std::string(temp ? temp : "/tmp") + "/outshine-copernicus-XXXXXX";
+    std::error_code error;
+    const auto temp = std::filesystem::temp_directory_path(error);
+    CHECK(!error, "the system temporary directory is available");
+    if (error) { return; }
+    Path = (temp / "outshine-copernicus-XXXXXX").string();
     const int descriptor = mkstemp(Path.data());
     CHECK(descriptor >= 0, "fixture uses system temporary storage");
     if (descriptor < 0) { return; }
@@ -41,72 +152,14 @@ struct Fixture {
         (void)close(descriptor);
         return;
       }
-      const std::array<TIFFFieldInfo, 4> fields = {
-          {{33550, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_DOUBLE, FIELD_CUSTOM, 1, 1, "PixelScale"},
-           {33922, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_DOUBLE, FIELD_CUSTOM, 1, 1, "TiePoint"},
-           {34735, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_SHORT, FIELD_CUSTOM, 1, 1, "GeoKeys"},
-           {TIFFTAG_GDAL_NODATA,
-            TIFF_VARIABLE2,
-            TIFF_VARIABLE2,
-            TIFF_ASCII,
-            FIELD_CUSTOM,
-            1,
-            1,
-            "NoData"}}};
-      CHECK(TIFFMergeFieldInfo(raster.get(), fields.data(), fields.size()) == 0,
+      CHECK(TIFFMergeFieldInfo(raster.get(), kFields.data(), kFields.size()) == 0,
             "test writer registers metadata on this file only");
       for (uint32_t level = 0; level < 2; ++level) {
-        const uint32_t columns = level == 0 ? 32 : 16, rows = level == 0 ? 48 : 24;
-        CHECK(TIFFSetField(raster.get(), TIFFTAG_IMAGEWIDTH, columns) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_IMAGELENGTH, rows) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_TILEWIDTH, 16u) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_TILELENGTH, 16u) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_BITSPERSAMPLE, 32) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_SAMPLESPERPIXEL, 1) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_PREDICTOR, PREDICTOR_FLOATINGPOINT) == 1 &&
-                  TIFFSetField(raster.get(), TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK) == 1 &&
-                  TIFFSetField(raster.get(),
-                               TIFFTAG_SUBFILETYPE,
-                               level == 0 ? 0u : FILETYPE_REDUCEDIMAGE) == 1,
-              "fixture has Float32, Deflate and floating-point predictor");
-        if (level == 0) {
-          const std::array<double, 3> scale{1.0 / columns, 1.0 / rows, 0};
-          const std::array<double, 6> tie{0, 0, 0, 9, 55, 0};
-          const std::array<uint16_t, 20> keys{1, 1, 0,    4, 1024, 0,    1,    2, 1025, 0,
-                                              1, 2, 2048, 0, 1,    4326, 2054, 0, 1,    9102};
-          CHECK(TIFFSetField(raster.get(), 33550, scale.size(), scale.data()) == 1 &&
-                    TIFFSetField(raster.get(), 33922, tie.size(), tie.data()) == 1 &&
-                    TIFFSetField(raster.get(), 34735, keys.size(), keys.data()) == 1,
-                "native sample georeference is explicit and non-square");
-          if (noData) {
-            CHECK(TIFFSetField(raster.get(), TIFFTAG_GDAL_NODATA, 6u, "-9999") == 1,
-                  "declared NoData is distinct from physical zero");
-          }
-        }
-        for (uint32_t row = 0; row < rows; row += 16) {
-          for (uint32_t column = 0; column < columns; column += 16) {
-            std::array<float, 16 * 16> heights{};
-            for (uint32_t y = 0; y < 16; ++y) {
-              for (uint32_t x = 0; x < 16; ++x) {
-                heights[y * 16 + x] = level == 0 ? 2.0f * (row + y) + 3.0f * (column + x) - 50.0f
-                                                 : 4.0f * (row + y) + 6.0f * (column + x) - 47.5f;
-              }
-            }
-            if (level == 0 && row == 0 && column == 0) {
-              heights[0] = noData ? -9999.0f : -32767.0f;
-              heights[17] = std::numeric_limits<float>::quiet_NaN();
-              heights[18] = std::numeric_limits<float>::infinity();
-            }
-            CHECK(TIFFWriteEncodedTile(raster.get(),
-                                       TIFFComputeTile(raster.get(), column, row, 0, 0),
-                                       heights.data(),
-                                       sizeof(heights)) == sizeof(heights),
-                  "independent analytic samples are encoded");
-          }
-        }
+        const uint32_t columns = level == 0 ? 32 : 16;
+        const uint32_t rows = level == 0 ? 48 : 24;
+        SetRasterTags(*raster, columns, rows, level);
+        if (level == 0) { SetGeoreference(*raster, columns, rows, noData); }
+        WriteTiles(*raster, {.Columns = columns, .Rows = rows, .Index = level}, noData);
         CHECK(TIFFWriteDirectory(raster.get()) == 1, "directory is complete");
       }
     }
@@ -119,7 +172,9 @@ struct Fixture {
     CHECK(size > 0, "fixture is not empty");
     if (size <= 0) { return; }
     Bytes.resize(static_cast<size_t>(size));
-    std::rewind(file.get());
+    const bool rewound = std::fseek(file.get(), 0, SEEK_SET) == 0;
+    CHECK(rewound, "fixture read position returns to its beginning");
+    if (!rewound) { return; }
     CHECK(std::fread(Bytes.data(), 1, Bytes.size(), file.get()) == Bytes.size(),
           "original fixture bytes are retained without raster repacking");
   }
@@ -151,7 +206,8 @@ int main() {
   CHECK(metadata && metadata->Levels.size() == 2 && !metadata->NoData,
         "native TIFF metadata needs no assumed NoData sentinel");
   if (!metadata) { return Report(); }
-  const auto &native = metadata->Levels[0], &overview = metadata->Levels[1];
+  const auto &native = metadata->Levels[0];
+  const auto &overview = metadata->Levels[1];
   CHECK(native.Columns == 32 && native.Rows == 48 && native.Blocks.size() == 6,
         "non-square native dimensions and all original block ranges are retained");
   CHECK(native.WestDeg == 9 && native.NorthDeg == 55 && native.ColumnStepDeg == 1.0 / 32 &&

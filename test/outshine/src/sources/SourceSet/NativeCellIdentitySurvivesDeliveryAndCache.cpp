@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <utility>
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "OfflineSourceTransport.h"
@@ -35,18 +37,21 @@ public:
 
   Address Serves(const SourceRequest &request) const noexcept override { return request.Where(); }
 
-  FetchStart Begin(const Address &, SourceTransport &) const override {
-    ++Starts;
+  FetchStart Begin(const Address & /*at*/, SourceTransport & /*transport*/) const override {
+    ++Starts_;
     return Ticket::None;
   }
 
-  SourceResponse Collect(const Address &, Ticket, SourceTransport &) const override {
+  SourceResponse Collect(const Address & /*at*/,
+                         Ticket /*ticket*/,
+                         SourceTransport & /*transport*/) const override {
     return SourceResponse::Delivered({1, 2, 3});
   }
 
-  mutable int Starts = 0;
+  [[nodiscard]] int Starts() const noexcept { return Starts_; }
 
 private:
+  mutable int Starts_ = 0;
   SourceDecl Decl_;
 };
 }
@@ -56,7 +61,10 @@ int main() {
   auto directory = (std::filesystem::temp_directory_path() / "outshine-cells-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original-payload cache");
   const RawSourceCache::Config config{.Directory = directory};
-  const std::array cells{CellId{54, 9}, CellId{-34, 18}, CellId{-90, -180}, CellId{89, 179}};
+  const std::array cells{CellId{.SouthDeg = 54, .WestDeg = 9},
+                         CellId{.SouthDeg = -34, .WestDeg = 18},
+                         CellId{.SouthDeg = -90, .WestDeg = -180},
+                         CellId{.SouthDeg = 89, .WestDeg = 179}};
   const std::array<std::string, 4> names{"g/54/9", "g/-34/18", "g/-90/-180", "g/89/179"};
   std::vector<std::string> keys;
   for (int pass = 0; pass < 2; ++pass) {
@@ -85,12 +93,16 @@ int main() {
       if (pass == 0) { keys.push_back(key); }
       CHECK(keys[i] == key, "source-cell identity survives store reopening");
     }
-    for (const CellId invalid : {CellId{-91, 0}, CellId{90, 0}, CellId{0, -181}, CellId{0, 180}}) {
+    for (const CellId invalid : {CellId{.SouthDeg = -91, .WestDeg = 0},
+                                 CellId{.SouthDeg = 90, .WestDeg = 0},
+                                 CellId{.SouthDeg = 0, .WestDeg = -181},
+                                 CellId{.SouthDeg = 0, .WestDeg = 180}}) {
       auto query = sources.Ask(SourceRequest(DataKind::Elevation, Address::AtCell(invalid)));
       CHECK(sources.Collect(query, offline).Where() == SourceDelivery::State::Undeclared,
             "invalid source cells cannot reach IO or an unrelated fallback");
     }
-    CHECK(provider->Starts == (pass == 0 ? 4 : 0), "warm original payloads require no provider IO");
+    CHECK(provider->Starts() == (pass == 0 ? 4 : 0),
+          "warm original payloads require no provider IO");
     CHECK(sources.Counters().FromStore == (pass == 0 ? 0 : 4),
           "warm native delivery uses shared cache");
   }

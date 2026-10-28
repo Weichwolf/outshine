@@ -5,6 +5,7 @@ const float kPi = 3.14159265358979323846;
 #include "metalRoughBrdf.glsl"
 #include "microfacetEnergy.glsl"
 layout(location = 0) in vec3 point;
+layout(location = 1) flat in uint primitive;
 layout(location = 0) out vec4 colour;
 #ifdef PARENT_AUDIT
 layout(location = 1) out vec4 audit;
@@ -23,7 +24,7 @@ layout(std430, set = 0, binding = 0) readonly buffer Faces {
 };
 
 void main() {
-  uint base = (uint(gl_PrimitiveID) + frame.control.x) * 11u;
+  uint base = primitive * 11u;
   vec4 origin = records[base], gradient = records[base + 1u], normal = records[base + 2u];
   uint upper =
       (gradient.w > 0.5 && origin.w + dot(gradient.xyz, point - origin.xyz) >= 1.0) ? 1u : 0u;
@@ -44,7 +45,7 @@ void main() {
   }
   colour = vec4(response, frame.control.y != 0u ? 1.0 : normal.w);
 #ifdef PARENT_AUDIT
-  audit = vec4(float(uint(gl_PrimitiveID) + frame.control.x + 1u),
+  audit = vec4(float(primitive + 1u),
                origin.w + dot(gradient.xyz, point - origin.xyz),
                gl_FragCoord.z,
                float(upper));

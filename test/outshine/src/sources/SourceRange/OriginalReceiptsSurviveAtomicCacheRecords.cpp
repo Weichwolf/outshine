@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <span>
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "Sha256.h"
@@ -41,19 +43,19 @@ int main() {
   CHECK(decoded && decoded->Bytes == origin.Bytes && decoded->TotalBytes == origin.TotalBytes &&
             decoded->EntityTag == origin.EntityTag && golden == std::vector<uint8_t>({4, 5, 6}),
         "cache restores receipt and exact original bytes without raster reconstruction");
-  for (std::string_view bad : {"range/2\n100\n3\n1000\n\"rev-1\"\n",
-                               "range/1\n-1\n3\n1000\n\"rev-1\"\n",
-                               "range/1\n18446744073709551616\n3\n1000\n\"rev-1\"\n",
-                               "range/1\n100\n0\n1000\n\"rev-1\"\n",
-                               "range/1\n100\n2\n1000\n\"rev-1\"\n",
-                               "range/1\n100\n3\n102\n\"rev-1\"\n",
-                               "range/1\n100\n3\n1000\nW/\"rev-1\"\n"}) {
+  for (const std::string_view bad : {"range/2\n100\n3\n1000\n\"rev-1\"\n",
+                                     "range/1\n-1\n3\n1000\n\"rev-1\"\n",
+                                     "range/1\n18446744073709551616\n3\n1000\n\"rev-1\"\n",
+                                     "range/1\n100\n0\n1000\n\"rev-1\"\n",
+                                     "range/1\n100\n2\n1000\n\"rev-1\"\n",
+                                     "range/1\n100\n3\n102\n\"rev-1\"\n",
+                                     "range/1\n100\n3\n1000\nW/\"rev-1\"\n"}) {
     auto malformed = Record(bad);
     const auto before = malformed;
     CHECK(!UnpackSourceRange(malformed) && malformed == before,
           "valid seals cannot admit invalid metadata; failed decode preserves the input");
   }
-  for (size_t changed : {size_t{0}, header.size(), packed->size() - 1}) {
+  for (const size_t changed : {size_t{0}, header.size(), packed->size() - 1}) {
     auto corrupted = *packed;
     corrupted[changed] ^= 1;
     CHECK(!UnpackSourceRange(corrupted),
@@ -64,7 +66,7 @@ int main() {
   SourceDecl decl;
   decl.Id = "native-raw-range";
   decl.Endpoint = "https://original.example/object.tif";
-  const auto at = Address::AtCell({54, 9});
+  const auto at = Address::AtCell({.SouthDeg = 54, .WestDeg = 9});
   const auto key = ContentKey(decl, at, origin.Bytes, origin.EntityTag);
   CHECK(key != ContentKey(decl, at) && key != ContentKey(decl, at, origin.Bytes, "\"rev-2\"") &&
             key != ContentKey(decl, at, ByteRange{.First = 101, .Length = 3}, origin.EntityTag) &&
@@ -78,7 +80,7 @@ int main() {
     CHECK(store.Keep(key, packed->data(), packed->size()),
           "receipt and raw body written atomically");
   }
-  RawSourceCache reopened(config);
+  const RawSourceCache reopened(config);
   auto stored = reopened.Lookup(key, bytes.size() + MaximumRangeRecordOverhead);
   CHECK(stored.Where == RawSourceCache::Presence::Bytes && UnpackSourceRange(stored.Bytes) &&
             stored.Bytes == std::vector<uint8_t>({4, 5, 6}),
