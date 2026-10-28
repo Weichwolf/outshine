@@ -102,7 +102,13 @@ def qualify_body(positions, faces, upper_faces, thickness):
 
 
 def prepare_closed(
-    recipe, error_m, *, max_payload_bytes, method="adaptive", max_stations=262144
+    recipe,
+    error_m,
+    *,
+    max_payload_bytes,
+    method="adaptive",
+    max_stations=262144,
+    refine_normal_bound=False,
 ):
     if recipe["form"] != "closed_shell":
         raise ValueError("Actual closed-shell source recipe required")
@@ -110,6 +116,8 @@ def prepare_closed(
         raise ValueError("Explicit positive closed display payload budget required")
     if method not in ("adaptive", "uniform"):
         raise ValueError("Known same-bound Upper subdivision method required")
+    if type(refine_normal_bound) is not bool:
+        raise ValueError("Explicit normal-hull refinement choice required")
     limits(error_m, max_stations)
     curve = Curve(
         {key: recipe[key] for key in ("range_m", "section_m", "seams", "intervals")}
@@ -126,6 +134,14 @@ def prepare_closed(
     if rounding >= curve.thickness:
         raise ValueError("Positive thickness is not guaranteed after Float32 storage")
     upper_budget = float(np.nextafter(error_m - departure - rounding, -np.inf))
+    original_departure = departure
+    subdivided = False
+    if upper_budget <= 0 and refine_normal_bound:
+        from road_normal_hulls import refined_normal_departure
+
+        departure = min(departure, refined_normal_departure(curve))
+        upper_budget = float(np.nextafter(error_m - departure - rounding, -np.inf))
+        subdivided = True
     if upper_budget <= 0:
         raise ValueError("Normal-offset departure exhausts complete-body budget")
     build = prepare if method == "adaptive" else prepare_uniform
@@ -165,7 +181,9 @@ def prepare_closed(
             for key, value in upper.items()
             if key not in ("positions_enh_m", "indices")
         },
-        "recipe_version": "outshine/direct-vertical-road-display/1",
+        "recipe_version": "outshine/direct-vertical-road-display/2"
+        if subdivided
+        else "outshine/direct-vertical-road-display/1",
         "positions_enh_m": positions,
         "indices": faces,
         "face_roles": roles,
@@ -185,4 +203,12 @@ def prepare_closed(
         "maximum_complete_body_bound_m": bound,
         "payload_bytes": payload,
         "quality": quality,
+        **(
+            {
+                "original_normal_offset_departure_bound_m": original_departure,
+                "normal_bound_subdivision_boxes": 2 * len(curve.lengths),
+            }
+            if subdivided
+            else {}
+        ),
     }
