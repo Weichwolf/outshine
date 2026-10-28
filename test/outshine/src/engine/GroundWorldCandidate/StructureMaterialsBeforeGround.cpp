@@ -52,16 +52,16 @@ int main() {
       CHECK(materials.addSurface("walls", Material{}) && materials.addSurface("roofs", Material{}),
             "structure palette has two materials");
       const auto first = renderer.RegisterPieceMaterials(std::move(materials));
-      CHECK(first && *first == 0, "first registered structure slot starts at zero");
+      CHECK(first && first->First == 0, "first registered structure slot starts at zero");
       if (first) {
         auto &pieces = candidate.Products().Pieces;
         const BuildingPageMaterials invalid{.Walls = Render::PieceSurface::Registered(*first),
-                                            .Roofs = Render::PieceSurface::Registered(*first + 2u)};
+                                            .Roofs = Render::PieceSurface::Registered(*first, 2u)};
         CHECK(!pieces.Upload(7, BuildingPageView(baked, invalid).View(), {}, error) &&
                   renderer.PiecesStanding() == 0,
               "invalid registered roof rejects the whole tile");
         const BuildingPageMaterials valid{.Walls = Render::PieceSurface::Registered(*first),
-                                          .Roofs = Render::PieceSurface::Registered(*first + 1u)};
+                                          .Roofs = Render::PieceSurface::Registered(*first, 1u)};
         candidate.Products().Surfaces = valid;
         CHECK(pieces.Upload(7, BuildingPageView(baked, valid).View(), {}, error) &&
                   renderer.PiecesStanding() == 2,
@@ -75,10 +75,13 @@ int main() {
           "ground and early structure pieces publish together");
     }
     {
+      CHECK(world.StructureSurfaces.has_value(),
+            "published structure materials retain their source");
+      if (!world.StructureSurfaces) { return Report(); }
       Render::PieceMesh extra{};
       extra.Verts = baked.Built.WallCorners;
       extra.Indices = baked.Built.WallRun;
-      extra.Surface = Render::PieceSurface::Registered(0);
+      extra.Surface = world.StructureSurfaces->Walls;
       extra.Textured = true;
       const auto stray = renderer.PlaceStructurePiece(extra);
       const auto independent = renderer.PlacePiece(extra);

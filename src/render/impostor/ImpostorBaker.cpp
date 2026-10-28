@@ -179,7 +179,7 @@ bool InstallSource(SceneRenderer &renderer,
     piece.Uv1 = native->Uv1;
     piece.Instances = source.Instances;
     piece.MaxInstances = static_cast<uint32_t>(source.Instances.size());
-    piece.Surface = PieceSurface::Registered(*firstSurface + static_cast<uint32_t>(part.Material));
+    piece.Surface = PieceSurface::Registered(*firstSurface, static_cast<uint32_t>(part.Material));
     piece.Textured = !part.Uv.empty();
     if (auto placed = renderer.PlacePiece(piece); !placed) {
       error = std::move(placed.error());

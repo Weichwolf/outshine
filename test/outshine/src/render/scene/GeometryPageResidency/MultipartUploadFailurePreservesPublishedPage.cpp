@@ -72,7 +72,7 @@ void CheckPages() {
         "all native source pieces are independently resident");
   const uint64_t before = residency.Digest();
   const size_t loadedBytes = residency.HeapBytes();
-  parts.back().Surface = PieceSurface::Registered(*first + kMissingMaterial);
+  parts.back().Surface = PieceSurface::Registered(*first, kMissingMaterial);
   page.Digest = 2;
   CHECK(!residency.Upload(kPage, page, frame.OriginEcef(), error, kSource),
         "the third upload refuses after two successful candidate uploads");

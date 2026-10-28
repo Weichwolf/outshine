@@ -45,7 +45,7 @@ Geometry MaterialSource(size_t variant) {
   return source;
 }
 
-uint32_t Register(Render::SceneRenderer &renderer, size_t variant) {
+Render::MaterialRegistration Register(Render::SceneRenderer &renderer, size_t variant) {
   auto result = renderer.RegisterPieceMaterials(MaterialSource(variant));
   if (!result) { Fail(result.error()); }
   return *result;
@@ -56,7 +56,7 @@ void Draw(Render::SceneRenderer &renderer) {
   renderer.WaitForGpu();
 }
 
-Json Cycle(Render::SceneRenderer &renderer, uint32_t material) {
+Json Cycle(Render::SceneRenderer &renderer, const Render::MaterialRegistration &material) {
   const std::array<StoredVertex, 4> vertices{StoredVertex::Of({{-1, -1, 0}}, {{0, 1}}, {{0, 0, 1}}),
                                              StoredVertex::Of({{1, -1, 0}}, {{1, 1}}, {{0, 0, 1}}),
                                              StoredVertex::Of({{1, 1, 0}}, {{1, 0}}, {{0, 0, 1}}),
@@ -85,7 +85,7 @@ Json Cycle(Render::SceneRenderer &renderer, uint32_t material) {
   if (renderer.PiecesStanding() != 0 || renderer.PieceSourceBytes() != 0) {
     Fail("released geometry remains live");
   }
-  return {{"registered_index", material},
+  return {{"registered_index", material.First},
           {"cpp_heap_live_bytes", Heap::LiveBytes()},
           {"piece_source_bytes", renderer.PieceSourceBytes()},
           {"piece_slots", renderer.PieceSlots()},
@@ -118,11 +118,17 @@ int main(int argc, char *const *argv) {
     scene->Eye(eye);
     if (!scene->Draw(error)) { Fail(error); }
     renderer.WaitForGpu();
-    const uint32_t shared = mode == "reuse" ? Register(renderer, 0) : 0;
+    const auto shared = mode == "reuse" ? Register(renderer, 0) : Render::MaterialRegistration{};
     Json records = Json::array();
     for (size_t at = 0; at < 16; ++at) {
-      const uint32_t material = mode == "reuse" ? shared : Register(renderer, at);
-      records.push_back(Cycle(renderer, material));
+      Json record;
+      {
+        const auto material = mode == "reuse" ? shared : Register(renderer, at);
+        record = Cycle(renderer, material);
+      }
+      Draw(renderer);
+      record["cpp_heap_live_bytes"] = Heap::LiveBytes();
+      records.push_back(std::move(record));
     }
     const Json result{
         {"mode", mode},

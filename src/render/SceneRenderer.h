@@ -341,7 +341,7 @@ public:
   [[nodiscard]] Native::Result<PrismGridHandle>
   PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 uint32_t material) {
+                 const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlacePrismGrid(
         content.Geometry(), std::move(source), instances, material);
@@ -350,7 +350,7 @@ public:
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
-                                                      uint32_t material) {
+                                                      const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().ReplacePrismGrid(
         content.Geometry(), which, std::move(source), instances, material);
@@ -382,7 +382,8 @@ public:
         content.Geometry(), nextPiece, piecesMost);
   }
 
-  [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
+  [[nodiscard]] std::expected<MaterialRegistration, std::string>
+  RegisterPieceMaterials(Geometry source) {
     auto &content = ActiveContent();
     return content.Scene().Resources().RegisterPieceMaterials(
         content.Geometry(),
