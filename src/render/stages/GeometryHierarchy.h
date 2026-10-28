@@ -51,7 +51,7 @@ struct alignas(16) GeometryHierarchyView {
 };
 
 static_assert(std::is_trivially_copyable_v<GeometryRoot>);
-static_assert(sizeof(GeometryRoot) == 48 && alignof(GeometryRoot) == 16);
+static_assert(sizeof(GeometryRoot) == 3 * 16 && alignof(GeometryRoot) == 16);
 static_assert(offsetof(GeometryRoot, LocalSphere) == 0);
 static_assert(offsetof(GeometryRoot, TemplateFirst) == 16);
 static_assert(offsetof(GeometryRoot, TemplateCount) == 16 + sizeof(uint32_t));
