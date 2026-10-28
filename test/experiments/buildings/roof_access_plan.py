@@ -13,6 +13,7 @@ from terraced_terrace_plan import ACTOR_RADIUS_M, GUARD_HEIGHT_M
 
 CAP_M = 0.08
 DOOR_HEIGHT_M = 2.10
+MIN_HEADER_M = 0.045
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,10 @@ def with_access(plan):
     if crown is None:
         return replace(plan, reason="roof access unserved: no reserved crown")
     clear = plan.source_top_m - CAP_M - crown.deck_m
-    if clear < max(AGENT_HEIGHT_M, DOOR_HEIGHT_M) or crown.guard_m < GUARD_HEIGHT_M:
+    if (
+        clear < max(AGENT_HEIGHT_M, DOOR_HEIGHT_M + MIN_HEADER_M)
+        or crown.guard_m < GUARD_HEIGHT_M
+    ):
         return replace(
             plan, reason="roof access unserved: insufficient height/guard reserve"
         )

@@ -43,6 +43,20 @@ class RoofAccessTests(unittest.TestCase):
         self.assertIs(with_access(current), current)
         self.assertGreater(current.access.clear_height_m, 2.10)
 
+    def test_zero_and_insufficient_header_reserve_reject_before_stair_work(self):
+        old = self.original[-1]
+        with patch(
+            "roof_access_plan.core_layout",
+            side_effect=AssertionError("unneeded stair work"),
+        ):
+            for clearance in (2.10, 2.12, 2.14):
+                current = with_access(
+                    replace(old, source_top_m=old.crown.deck_m + clearance + 0.08)
+                )
+                self.assertIsNone(current.access)
+                self.assertIs(current.body, old.body)
+                self.assertIs(current.crown, old.crown)
+
     def test_last_flight_preserves_original_opening_and_tread_count(self):
         current = self.plans[-1]
         body, access = local_plan(current.body), current.access
