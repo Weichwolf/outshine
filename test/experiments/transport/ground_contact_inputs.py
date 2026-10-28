@@ -38,7 +38,7 @@ class ContactContext:
         return positions_in_frame(self.anchor, geographic, heights)[:, 2]
 
 
-def load_context():
+def load_context(*, seed=SEED, geometry_recipe=NETWORK_RECIPE):
     started = time.process_time()
     source, groups, ways, binding, reader = load_bridge_source_facts(INPUT)
     manifest = json.loads((INPUT / "manifest.json").read_text())
@@ -47,7 +47,7 @@ def load_context():
     )
     prepared, reason, report = derive_scoped_ground_terminals(
         source,
-        SEED,
+        seed,
         groups,
         ways,
         terrain,
@@ -55,7 +55,7 @@ def load_context():
         candidate_binding=binding,
         terrain_binding=terrain_binding,
         maximum_prior_change_m=0.5,
-        geometry_recipe=NETWORK_RECIPE,
+        geometry_recipe=geometry_recipe,
     )
     if reason:
         raise ValueError("original_qualified_road_unavailable:" + reason)
@@ -71,7 +71,7 @@ def load_context():
             "candidate_binding": binding,
             "terrain_binding": terrain_binding,
             "reader": reader,
-            "seed": SEED,
+            "seed": seed,
             "dem_height_convention": "Supplied geodetic DEM converted to scalar ENU up at the existing ellipsoid-ray query; local height-function convention, not a new original-grid/vertical-ray positional contract.",
         },
         0,
