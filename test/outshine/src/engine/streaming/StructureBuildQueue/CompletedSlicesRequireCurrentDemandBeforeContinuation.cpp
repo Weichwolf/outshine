@@ -76,8 +76,8 @@ void CheckPollingDoesNotPost(BuildingQueueFixture &fixture, const CountingMesher
 enum class Change { Eye, Height, Source, Owner };
 
 void ChangedDemand(Change change) {
-  BuildingQueueFixture fixture;
   const CountingMesher mesher;
+  BuildingQueueFixture fixture;
   if (!Start(fixture, mesher)) { return; }
   const size_t firstSlice = mesher.Calls.load(std::memory_order_relaxed);
   auto eye = fixture.Eye;
@@ -106,8 +106,8 @@ void ChangedDemand(Change change) {
 }
 
 void CurrentDemandCompletes(bool continueFromPosts) {
-  BuildingQueueFixture fixture;
   const CountingMesher mesher;
+  BuildingQueueFixture fixture;
   if (!Start(fixture, mesher)) { return; }
   CheckPollingDoesNotPost(fixture, mesher);
   auto &prints = fixture.Stack.Footprints();
