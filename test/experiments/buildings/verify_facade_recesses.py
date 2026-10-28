@@ -104,6 +104,29 @@ class RecessTests(unittest.TestCase):
                     [depth.min(), depth.max()], [1.2 - 0.045, 1.2], rtol=0, atol=1e-9
                 )
 
+    def test_open_doors_keep_the_real_storey_floor_and_stair_aperture(self):
+        for owner in self.owners:
+            facade = owner.body.facade
+            mass = facade.prepared.local
+            coarse = facade.coarse
+            opening = shapely.from_wkb(mass.core.opening_wkb)
+            for index in {cell.outer.storey for cell in facade.prepared.recesses}:
+                storey = mass.storeys[index]
+                part = coarse.owner_ids.index(
+                    storey.identifier + "/recess-visible-floor"
+                )
+                xyz = coarse.mesh["vertices"][
+                    coarse.mesh["faces"][coarse.triangle_owners == part]
+                ]
+                core = facade.prepared.mass.core
+                xy = (xyz[:, :, :2] - core.origin_xy) @ np.array(
+                    [core.across_xy, core.along_xy]
+                ).T
+                actual = shapely.union_all(shapely.polygons(xy))
+                expected = shapely.from_wkb(storey.footprint_wkb).difference(opening)
+                self.assertLessEqual(expected.symmetric_difference(actual).area, 1e-8)
+                self.assertLessEqual(actual.intersection(opening).area, 1e-8)
+
     def test_compact_wall_reveals_cover_the_exposed_parent_wall_thickness(self):
         for owner in self.owners:
             facade = owner.body.facade
