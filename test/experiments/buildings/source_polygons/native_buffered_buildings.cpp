@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <numbers>
 #include <optional>
@@ -53,7 +54,8 @@ GridPoint Grid(double lat, double lon) {
 
 bool SameRing(const std::array<GridPoint, 4> &actual, const std::array<GridPoint, 4> &expected) {
   for (size_t shift = 0; shift < actual.size(); ++shift) {
-    bool forward = true, reverse = true;
+    bool forward = true;
+    bool reverse = true;
     for (size_t at = 0; at < actual.size(); ++at) {
       forward = forward && actual[at] == expected[(shift + at) % expected.size()];
       reverse = reverse && actual[at] == expected[(shift + expected.size() - at) % expected.size()];
@@ -103,7 +105,8 @@ struct Counts {
 bool OriginalOf(const OsmField &vectors, const OsmField::Feature &feature, Counts &counts) {
   if (feature.ProviderFeatureId != kContainer) { return false; }
   const auto &tile = vectors.Tiles()[feature.Tile];
-  size_t exteriors = 0, matches = 0;
+  size_t exteriors = 0;
+  size_t matches = 0;
   for (const auto &ring : vectors.Rings().subspan(feature.FirstRing, feature.RingCount)) {
     if (!ring.Exterior) { continue; }
     ++exteriors;
@@ -138,11 +141,12 @@ void Inspect(const OsmField &vectors, size_t at, Counts &counts) {
   for (const auto &structure : raw.Structures) {
     const auto shape = ShapeOf(raw.LatLon, structure.LocalFirst, structure.PointCount);
     if (shape == Footprint::Other) { continue; }
-    std::print("{}{{\"source_tile_y\":{},\"shape\":\"{}\",\"source_id\":{}}}",
-               counts.Prepared++ ? "," : "",
+    std::print(R"({}{{"source_tile_y":{},"shape":"{}","source_id":{}}})",
+               counts.Prepared != 0 ? "," : "",
                vectors.Tiles()[feature.Tile].Y,
                shape == Footprint::Whole ? "whole" : "cut",
                structure.SourceId.Id);
+    ++counts.Prepared;
     counts.Whole += shape == Footprint::Whole ? 1u : 0u;
     counts.Cut += shape == Footprint::Cut ? 1u : 0u;
     counts.Qualified +=
