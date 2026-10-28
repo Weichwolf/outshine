@@ -62,6 +62,7 @@ def replay(output, repeats):
                 "cost": cost,
                 "effective_kind": owner.roof_crown.kind,
                 "failure": owner.roof_failure,
+                "source_ids": [list(p.source_ids) for p in owner.physical_roof()],
             }
             if mode != "flat":
                 results[mode]["checks"] = check(owner)

@@ -40,6 +40,8 @@ def check(owner):
             "retained": roof_checks(effective),
         }
     product = products[0]
+    if product.source_ids != (crown.identifier,):
+        raise ValueError("Hip product lost its stable source-owned roof identity")
     closed(product)
     plan = product.hip_plan
     factor = plan.factor(crown.top_m - crown.deck_m, "byHeight")
@@ -95,6 +97,7 @@ def check(owner):
         raise ValueError("Actual hip source height or opaque body contact changed")
     return {
         "effective_kind": "hip",
+        "source_ids": list(product.source_ids),
         "backend": plan.method,
         "volume_m3": product.volume_m3,
         "area_m2": product.area_m2,

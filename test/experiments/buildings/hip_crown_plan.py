@@ -10,6 +10,7 @@ LIMITS = SkeletonLimits(vertices=128, nodes=1024, python_events=4096, seconds=1.
 
 @dataclass(frozen=True)
 class HipCrown:
+    identifier: str
     footprint_wkb: bytes
     domain_wkb: bytes
     top_m: float
@@ -37,6 +38,7 @@ def with_hip(plan, *, method="auto", limits=LIMITS):
             plan, reason="hip unserved: source boundary exceeds vertex budget"
         )
     request = HipCrown(
+        plan.body.identifier + "/highest-roof/hip",
         crown.footprint_wkb,
         crown.domain_wkb,
         crown.top_m,

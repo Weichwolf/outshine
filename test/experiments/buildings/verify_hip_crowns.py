@@ -28,6 +28,10 @@ class HipCrownTests(unittest.TestCase):
             result = check(owner)
             self.assertEqual(result["effective_kind"], "hip")
             self.assertEqual(result["courtyards"], holes)
+            self.assertEqual(result["source_ids"], [owner.plan.crown.identifier])
+            self.assertTrue(
+                owner.plan.crown.identifier.startswith(owner.plan.body.identifier + "/")
+            )
             self.assertLess(result["volume_error_m3"], 1e-7)
             self.assertTrue(all(e < 1e-7 for e in result["section_xor_m2"]))
 

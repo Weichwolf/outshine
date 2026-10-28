@@ -17,6 +17,7 @@ from terraced_crown_plan import ROOF_MATERIAL
 class ClosedHip:
     mesh: object
     vertex_roots: object
+    source_ids: tuple
     volume_m3: float
     area_m2: float
     hip_plan: object
@@ -78,6 +79,7 @@ def build(crown):
     product = ClosedHip(
         MappingProxyType({k: frozen(v) for k, v in mesh.items()}),
         frozen(roots),
+        (crown.identifier,),
         float(solid.volume()),
         float(solid.surface_area()),
         plan,
