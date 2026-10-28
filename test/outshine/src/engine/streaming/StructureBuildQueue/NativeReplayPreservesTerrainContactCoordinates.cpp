@@ -8,6 +8,7 @@
 #include "TangentFrame.h"
 #include "MvtWireFixture.h"
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -310,12 +311,18 @@ void Replay(const std::filesystem::path &directory,
   StructureBuildQueue queue;
   queue.Opens(&compute, &mesher);
   if (obsoleteLookups) {
+    std::atomic_bool released{false};
+    const auto blocker = compute.Post([&released] { released.wait(false); });
     for (size_t version = 1; version <= 4; ++version) {
       prints.TilesSpan(1000.0 + static_cast<double>(version));
       CHECK(queue.Posts(stack, prints, eye, source, 1) == 0,
             "each obsolete request starts only an asynchronous native lookup");
-      compute.Wait(compute.Post([] {}));
     }
+    CHECK(queue.Queued() == 4, "in-flight obsolete lookups fill the bounded candidate window");
+    released.store(true);
+    released.notify_all();
+    compute.Wait(blocker);
+    compute.Wait(compute.Post([] {}));
     CHECK(queue.Queued() == 4, "completed obsolete lookups occupy the entire candidate window");
     prints.TilesSpan(1000.0);
   }

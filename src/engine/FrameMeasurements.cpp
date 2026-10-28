@@ -172,7 +172,7 @@ void Engine::State::PublishAdvanceMeasurements() {
                            "ms");
     Published.RecordMetric("structure bake time, most", Cost.Bakes.MostMs(), "ms");
     Published.RecordMetric(
-        "structure worker collection time, most", Cost.BakeResume.MostMs(), "ms");
+        "structure worker collection time, most", Cost.BakeCollection.MostMs(), "ms");
     Published.RecordMetric(
         "structure landing selection time, most", Cost.BakeLanding.MostMs(), "ms");
     Published.RecordMetric("structure transfer time, most", Cost.BakeTransfer.MostMs(), "ms");

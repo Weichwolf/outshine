@@ -86,7 +86,9 @@ struct BuildingQueueFixture {
   Generators::BuildingMesh Mesher;
   StructureBuildQueue Queue;
 
-  [[nodiscard]] bool Open() {
+  [[nodiscard]] bool Open() { return Open(Buildings); }
+
+  [[nodiscard]] bool Open(std::span<const Generators::Osm::OsmField::Declared> buildings) {
     Data::SourceProvider terrain;
     terrain.Kind = "terrain";
     const std::array providers{terrain};
@@ -103,7 +105,7 @@ struct BuildingQueueFixture {
                      1.0),
           "offline stack opens");
     if (!Stack.Opened()) { return false; }
-    CHECK(Stack.Declares(Buildings), "building declarations are accepted");
+    CHECK(Stack.Declares(buildings), "building declarations are accepted");
     CHECK(Stack.AdvanceAt(Eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
           "declared building enters the vector snapshot");
     const auto *vectors = Stack.Vectors();

@@ -391,7 +391,7 @@ struct EngineCostCounters {
   Counter PieceHandoff;
   Counter AdvanceAt;
   Counter Bakes;
-  Counter BakeResume;
+  Counter BakeCollection;
   Counter BakeLanding;
   Counter BakeTransfer;
   Counter BakeLiveTransfer;
