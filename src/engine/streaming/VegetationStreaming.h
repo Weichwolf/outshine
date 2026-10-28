@@ -9,6 +9,10 @@
 #include "BuiltinGenerators.h"
 
 namespace outshine {
+namespace Render {
+class ImpostorBaker;
+}
+
 class VegetationStreaming {
 public:
   enum class ResourcePublication : uint8_t { Deferred, Allowed };
@@ -65,6 +69,7 @@ private:
   Tasks *Preparation_;
   Content::PreparedImpostorAssets Cache_;
   ImpostorAtlasShape Shape_;
+  std::unique_ptr<Render::ImpostorBaker> Capture_;
   std::optional<ImpostorAtlas> PreparedAtlas_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;

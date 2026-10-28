@@ -1,5 +1,6 @@
 #include "VegetationStreaming.h"
 #include "ImpostorPreparation.h"
+#include "ImpostorBaker.h"
 #include "ImpostorSurface.h"
 #include "TreePrototype.h"
 #include <cstddef>
@@ -175,7 +176,8 @@ void VegetationStreaming::PrepareNext() {
           PreparedError_ = Says::Tree;
           return;
         }
-        PreparedAtlas_ = BakeImpostorAtlas(*tree, Shape_, PreparedError_);
+        if (!Capture_) { Capture_ = std::make_unique<Render::ImpostorBaker>(); }
+        PreparedAtlas_ = BakeImpostorAtlas(*Capture_, *tree, Shape_, PreparedError_);
         ++Generated_;
         GenerationMs_ +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
