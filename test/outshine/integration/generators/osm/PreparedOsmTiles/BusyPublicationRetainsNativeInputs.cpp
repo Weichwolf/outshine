@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <sqlite3.h>
@@ -69,7 +70,7 @@ Writer OpenWriter(const std::filesystem::path &root) {
   sqlite3 *raw = nullptr;
   CHECK(sqlite3_open((root / "assets.sqlite").c_str(), &raw) == SQLITE_OK,
         "an independent connection opens the actual native store");
-  return Writer(raw, sqlite3_close);
+  return {raw, sqlite3_close};
 }
 
 bool Begin(sqlite3 *writer) {
@@ -78,16 +79,10 @@ bool Begin(sqlite3 *writer) {
   return held;
 }
 
-void Resume(const std::filesystem::path &root, bool constrained) {
-  Fixture fixture;
-  const PreparedOsmTiles::Budget budget{
-      .PendingMost = 128, .PublicationBytesMost = constrained ? 1 : size_t{128} * 1024 * 1024};
-  if (!fixture.Open(root, budget)) { return; }
-  auto writer = OpenWriter(root);
-  if (!writer || !Begin(writer.get())) { return; }
+bool RetainWhileBusy(Fixture &fixture, bool constrained) {
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (std::chrono::steady_clock::now() < until) {
-    if (!fixture.Pump()) { return; }
+    if (!fixture.Pump()) { return false; }
     const auto cost = fixture.Cache->Costs();
     if (cost.PublicationDeferred > 0 && (constrained || cost.Generations == 9)) { break; }
   }
@@ -103,7 +98,7 @@ void Resume(const std::filesystem::path &root, bool constrained) {
   }
   const auto calls = fixture.Calls.load();
   for (unsigned turn = 0; turn < 32; ++turn) {
-    if (!fixture.Pump()) { return; }
+    if (!fixture.Pump()) { return false; }
   }
   CHECK(fixture.Cache->Costs().Generations == held.Generations && fixture.Calls == calls,
         "busy retries repeat neither source acquisition nor native generation");
@@ -112,6 +107,17 @@ void Resume(const std::filesystem::path &root, bool constrained) {
   CHECK(other != Tasks::kNoTask, "unrelated CPU work is admitted while publication waits");
   if (other != Tasks::kNoTask) { fixture.Compute.Wait(other); }
   CHECK(progressed, "the worker pool remains available under an external writer");
+  return true;
+}
+
+void Resume(const std::filesystem::path &root, bool constrained) {
+  Fixture fixture;
+  const PreparedOsmTiles::Budget budget{
+      .PendingMost = 128, .PublicationBytesMost = constrained ? 1 : size_t{128} * 1024 * 1024};
+  if (!fixture.Open(root, budget)) { return; }
+  auto writer = OpenWriter(root);
+  if (!writer || !Begin(writer.get())) { return; }
+  if (!RetainWhileBusy(fixture, constrained)) { return; }
   CHECK(sqlite3_exec(writer.get(), "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
         "the independent writer releases its transaction");
   const auto resumed = std::chrono::steady_clock::now() + kDeadline;
@@ -161,7 +167,7 @@ void Cancel(const std::filesystem::path &root) {
   CHECK(sqlite3_prepare_v2(writer.get(), "SELECT count(*) FROM assets", -1, &rows, nullptr) ==
             SQLITE_OK,
         "the independent owner inspects committed native rows");
-  if (rows) {
+  if (rows != nullptr) {
     CHECK(sqlite3_step(rows) == SQLITE_ROW && sqlite3_column_int64(rows, 0) == 0,
           "cancelled waiting work publishes no deferred product after its consumer disappears");
   }

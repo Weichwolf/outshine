@@ -6,6 +6,7 @@
 #include <expected>
 #include <optional>
 #include <ratio>
+#include <string>
 #include <utility>
 
 namespace outshine::Generators::Osm {
@@ -76,6 +77,7 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
     return;
   }
   if (work.Stage == Work::Phase::Restore) {
+    SetPublication(work, std::nullopt);
     work.Result = std::unexpected("published native OSM tile is unavailable");
     return;
   }
@@ -95,7 +97,6 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
     return;
   }
   ++Writes_;
-  SetPublication(work, std::nullopt);
   work.Stage = Work::Phase::Restore;
   work.Retries = 0;
   loaded = Load(request, work.Definition, ReadCause::Publication);
@@ -103,15 +104,18 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
     if (loaded.error() == AssetCacheError::Busy) {
       Defer(work);
     } else {
+      SetPublication(work, std::nullopt);
       work.Result = std::unexpected("published native OSM tile cache failed");
     }
     return;
   }
   if (!*loaded) {
+    SetPublication(work, std::nullopt);
     work.Result = std::unexpected("published native OSM tile is unavailable");
     return;
   }
   work.Result = std::move(*loaded);
+  SetPublication(work, std::nullopt);
   work.Stage = Work::Phase::Ready;
 }
 }

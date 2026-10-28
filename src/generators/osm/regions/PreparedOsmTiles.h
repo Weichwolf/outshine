@@ -74,7 +74,7 @@ private:
     bool Generating = false;
     std::atomic_bool Cancelled{false};
     unsigned Retries = 0;
-    std::chrono::steady_clock::time_point RetryAt{};
+    std::chrono::steady_clock::time_point RetryAt;
   };
 
   enum class ReadCause : uint8_t { Lookup, Publication };
@@ -109,7 +109,7 @@ private:
   std::string Recipe_;
   Budget Budget_;
   size_t Generating_ = 0;
-  std::chrono::steady_clock::time_point NextRetire_{};
+  std::chrono::steady_clock::time_point NextRetire_;
   std::unordered_map<std::string, std::shared_ptr<Work>> Pending_;
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic<double> ReadMs_{0}, GenerationMs_{0};
