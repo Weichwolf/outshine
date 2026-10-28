@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WorldCandidate.h"
 #include "Check.h"
 

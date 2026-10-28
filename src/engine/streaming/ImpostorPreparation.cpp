@@ -15,7 +15,8 @@ std::string ImpostorAtlasProvenance(std::string_view species, ImpostorAtlasShape
          std::to_string(shape.Views) + "/" + std::string(species);
 }
 
-std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
+std::optional<ImpostorAtlas> BakeImpostorAtlas(Render::ImpostorBaker &baker,
+                                               const Generators::TreePrototype &tree,
                                                ImpostorAtlasShape shape,
                                                std::string &error) {
   auto geometry = tree.InstancedGeometryAt(0);
@@ -32,7 +33,14 @@ std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &
     capture.Sources.push_back(
         {.Mesh = std::move(geometry->Leaf), .Instances = std::move(geometry->Placements)});
   }
-  return Render::ImpostorBaker::Bake(std::move(capture), shape, error);
+  return baker.Capture(std::move(capture), shape, error);
+}
+
+std::optional<ImpostorAtlas> BakeImpostorAtlas(const Generators::TreePrototype &tree,
+                                               ImpostorAtlasShape shape,
+                                               std::string &error) {
+  Render::ImpostorBaker baker;
+  return BakeImpostorAtlas(baker, tree, shape, error);
 }
 
 }

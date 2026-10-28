@@ -117,16 +117,21 @@ class SliceBuilder:
             frozenset([vertex]) if vertex in support else support,
         )
 
-    def clip(self, polygon, part, level, above):
-        output = []
+    def split(self, polygon, part, level):
+        lower, upper = [], []
         for a, b in zip(polygon, polygon[1:] + polygon[:1]):
-            inside_a = a[1] >= level if above else a[1] <= level
-            inside_b = b[1] >= level if above else b[1] <= level
-            if inside_a:
-                output.append(a)
-            if inside_a != inside_b:
-                output.append(self.crossing(a, b, part, level))
-        return [p for i, p in enumerate(output) if p[0] != output[i - 1][0]]
+            if a[1] <= level:
+                lower.append(a)
+            if a[1] >= level:
+                upper.append(a)
+            if min(a[1], b[1]) < level < max(a[1], b[1]):
+                cut = self.crossing(a, b, part, level)
+                lower.append(cut)
+                upper.append(cut)
+        return (
+            [p for i, p in enumerate(lower) if p[0] != lower[i - 1][0]],
+            [p for i, p in enumerate(upper) if p[0] != upper[i - 1][0]],
+        )
 
     def triangle(self, corners, part, knots):
         polygon = [
@@ -139,9 +144,11 @@ class SliceBuilder:
         first = max(0, np.searchsorted(knots, min(t), side="right") - 1)
         last = min(len(knots) - 1, np.searchsorted(knots, max(t), side="left"))
         faces, intervals = [], []
+        remaining = polygon
+        if knots[first] > min(t):
+            _, remaining = self.split(polygon, part, knots[first])
         for lo, hi in zip(knots[first:last], knots[first + 1 : last + 1]):
-            sliced = self.clip(polygon, part, lo, True)
-            sliced = self.clip(sliced, part, hi, False) if sliced else []
+            sliced, remaining = self.split(remaining, part, hi)
             if len(sliced) < 3:
                 continue
             for index in range(1, len(sliced) - 1):

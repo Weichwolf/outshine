@@ -10,10 +10,24 @@ template <class T> void Append(Sha256Prefix &hash, T value) {
   const auto word = LittleEndian(value);
   hash.Append(&word, sizeof(word));
 }
+
+void AppendWay(Sha256Prefix &hash, const MvtTransportWayFacts &way) {
+  Append(hash, way.StreetWay);
+  Append(hash, way.Feature);
+  Append(hash, way.Ring);
+  Append(hash, way.PointCount);
+  Append(hash, way.HalfWidthWord);
+  Append(hash, way.MaximumGradientWord);
+  for (const auto &end : way.EndStencil) {
+    Append(hash, end.LongitudeDeg);
+    Append(hash, end.LatitudeDeg);
+  }
+  for (const bool owns : way.OwnsEnds) { Append(hash, static_cast<uint8_t>(owns)); }
+}
 }
 
 void BindSourceFacts(MvtTransportSourceFacts &facts) {
-  constexpr std::string_view kVersion = "outshine/mvt-source-facts/2";
+  constexpr std::string_view kVersion = "outshine/mvt-source-facts/3";
   Sha256Prefix hash(kVersion.data(), kVersion.size());
   const auto &revision = facts.Network->SourceIdentity().Revision;
   hash.Append(revision.data(), revision.size());
@@ -23,6 +37,8 @@ void BindSourceFacts(MvtTransportSourceFacts &facts) {
   Append(hash, static_cast<uint64_t>(facts.Groups.size()));
   Append(hash, static_cast<uint64_t>(facts.Members.size()));
   Append(hash, static_cast<uint64_t>(facts.Ways.size()));
+  hash.Append(facts.OmissionsDigest.data(), facts.OmissionsDigest.size());
+  Append(hash, static_cast<uint64_t>(facts.MissingWays.size()));
   for (const auto &group : facts.Groups) {
     Append(hash, group.FirstMember);
     Append(hash, group.MemberCount);
@@ -42,18 +58,18 @@ void BindSourceFacts(MvtTransportSourceFacts &facts) {
     Append(hash, member.End);
     Append(hash, static_cast<uint8_t>(member.SourceTerminal));
   }
-  for (const auto &way : facts.Ways) {
-    Append(hash, way.StreetWay);
-    Append(hash, way.Feature);
-    Append(hash, way.Ring);
-    Append(hash, way.PointCount);
-    Append(hash, way.HalfWidthWord);
-    Append(hash, way.MaximumGradientWord);
-    for (const auto &end : way.EndStencil) {
-      Append(hash, end.LongitudeDeg);
-      Append(hash, end.LatitudeDeg);
+  for (const auto &way : facts.Ways) { AppendWay(hash, way); }
+  for (const auto &missing : facts.MissingWays) {
+    Append(hash, missing.Omission);
+    AppendWay(hash, missing.Way);
+    Append(hash, missing.Layer);
+    Append(hash, static_cast<uint8_t>(missing.Bridge));
+    Append(hash, static_cast<uint8_t>(missing.Tunnel));
+    Append(hash, static_cast<uint64_t>(missing.Points.size()));
+    for (const auto &point : missing.Points) {
+      Append(hash, point.LongitudeDeg);
+      Append(hash, point.LatitudeDeg);
     }
-    for (const bool owns : way.OwnsEnds) { Append(hash, static_cast<uint8_t>(owns)); }
   }
   facts.Digest = hash.Digest(nullptr, 0);
 }

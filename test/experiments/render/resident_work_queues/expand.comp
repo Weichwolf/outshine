@@ -1,0 +1,27 @@
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) readonly buffer Roots { uvec4 roots[]; };
+layout(std430, set = 1, binding = 0) buffer Queue { uvec2 queue[]; };
+layout(std430, set = 1, binding = 1) buffer State { uint state[]; };
+layout(std140, set = 2, binding = 0) uniform View {
+  uint rootCount;
+  uint capacity;
+  uint chunkSize;
+  uint unused;
+} view;
+void main() {
+  uint root = gl_GlobalInvocationID.x;
+  if (root >= view.rootCount) { return; }
+  atomicAdd(state[3], 1u);
+  if (roots[root].w == 0u) { return; }
+  uint count = roots[root].y;
+  uint chunks = count / view.chunkSize + uint(count % view.chunkSize != 0u);
+  uint first = atomicAdd(state[0], chunks);
+  atomicAdd(state[2], count);
+  if (first > view.capacity || chunks > view.capacity - first) { atomicOr(state[1], 1u); }
+  for (uint at = 0u; at < chunks; ++at) {
+    if (first < view.capacity && at < view.capacity - first) {
+      queue[first + at] = uvec2(root, at * view.chunkSize);
+    }
+  }
+}

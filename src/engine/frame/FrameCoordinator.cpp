@@ -90,7 +90,7 @@ Result Engine::flushAndWait() {
   return S_->Frames.Flush();
 }
 
-Extent Engine::canvas() const {
+Extent Engine::frameExtent() const {
   return S_->Picture.Targeted ? S_->Picture.Frame : Extent{};
 }
 

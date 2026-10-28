@@ -10,6 +10,7 @@
 #include <expected>
 #include <atomic>
 #include <variant>
+#include <string>
 #include <string_view>
 #include <cstdint>
 #include <memory>
@@ -133,6 +134,7 @@ struct BakedTile {
   Raised Built;
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
+  std::string GeometryAssetKey;
   bool FallbackHeights = false;
   std::optional<ViewReuseDomain> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;
@@ -161,6 +163,7 @@ struct BakedTile {
     size_t bytes = Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() +
                    CapacityBytes(Prints) + CapacityBytes(FootprintDetails) +
                    CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+    if (!GeometryAssetKey.empty()) { bytes += GeometryAssetKey.capacity() + 1u; }
     for (const auto &print : Prints) { bytes += print.HeapBytes(); }
     return bytes;
   }

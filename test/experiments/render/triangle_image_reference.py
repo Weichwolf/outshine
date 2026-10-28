@@ -80,6 +80,17 @@ def projected_bounds(positions, view):
     return np.stack((xy.min(0) - 2, xy.max(0) + 2))
 
 
+def visible_pixel_bounds(positions, view):
+    bounds = projected_bounds(positions, view)
+    return np.array(
+        [
+            np.maximum(np.floor(bounds[0]) - 1, [0, 0]),
+            np.minimum(np.ceil(bounds[1]) + 1, view[3:]),
+        ],
+        int,
+    )
+
+
 def image_rays(view, box, width, height, supersample=2, *, jitter_seed=None):
     eye, basis, focal, screen_width, screen_height = view
     x = box[0, 0] + (np.arange(width * supersample) + 0.5) / (

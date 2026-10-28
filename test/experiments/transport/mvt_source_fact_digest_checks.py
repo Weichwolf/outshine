@@ -4,7 +4,9 @@ import copy
 import math
 import unittest
 
-from mvt_source_fact_digest import native_source_fact_digest
+from mvt_source_fact_digest import (
+    native_source_fact_digest, native_omissions_digest, validate_missing_source_ways,
+)
 
 
 class NativeSourceFactDigest(unittest.TestCase):
@@ -200,6 +202,85 @@ class NativeSourceFactDigest(unittest.TestCase):
         for payload in cases:
             with self.assertRaises(ValueError):
                 self.digest(payload)
+
+
+class OriginalMissingWayFacts(unittest.TestCase):
+    digest = NativeSourceFactDigest.digest
+    def setUp(self):
+        NativeSourceFactDigest.setUp(self)
+        self.payload["schema"] = "outshine/native-mvt-source-facts/3"
+        self.payload["Members"][0]["SourceTerminal"] = True
+        self.native = {"Omissions": [{
+            "Source": 0, "Feature": list(range(32)), "Fragment": [1] * 32, "Reason": 5,
+        }]}
+        way = copy.deepcopy(self.payload["Ways"][0])
+        way.update(StreetWay=3, PointCount=5)
+        points = [{"LongitudeDeg": 16 + i * 0.001, "LatitudeDeg": 48.0} for i in range(5)]
+        points[2]["LatitudeDeg"] += 0.001
+        way["EndStencil"] = [points[i].copy() for i in (0, 1, 3, 4)]
+        self.payload["MissingWays"] = [{
+            "Omission": 0, "Way": way, "Layer": -1, "Bridge": False, "Tunnel": False,
+            "Points": points,
+        }]
+        self.payload["OmissionsDigest"] = list(native_omissions_digest(self.native["Omissions"]))
+
+    def test_original_payload_and_table_are_bound(self):
+        validate_missing_source_ways(self.native, self.payload)
+        before = self.digest()
+        for change in ("interior", "layer", "width", "bridge", "table"):
+            payload = copy.deepcopy(self.payload)
+            row = payload["MissingWays"][0]
+            if change == "interior":
+                row["Points"][2]["LatitudeDeg"] += 0.00001
+            elif change == "layer":
+                row["Layer"] += 1
+            elif change == "width":
+                row["Way"]["HalfWidthWord"] ^= 1
+            elif change == "bridge":
+                row["Bridge"] = True
+            else:
+                payload["OmissionsDigest"][0] ^= 1
+            self.assertNotEqual(before, self.digest(payload))
+        changed = copy.deepcopy(self.native)
+        changed["Omissions"][0]["Feature"][0] ^= 1
+        with self.assertRaisesRegex(ValueError, "omission digest"):
+            validate_missing_source_ways(changed, self.payload)
+
+    def test_unknowns_and_invalid_bindings_stay_rejected(self):
+        for change in ("unknown", "reason", "index", "represented", "stencil", "duplicate", "lost"):
+            payload, native = copy.deepcopy(self.payload), copy.deepcopy(self.native)
+            row = payload["MissingWays"][0]
+            if change == "unknown":
+                native["Omissions"][0]["Fragment"] = None
+            elif change == "reason":
+                native["Omissions"][0]["Reason"] = 1
+            elif change == "index":
+                row["Omission"] = 1
+            elif change == "represented":
+                row["Way"]["StreetWay"] = payload["Ways"][0]["StreetWay"]
+            elif change == "stencil":
+                row["Points"][0]["LongitudeDeg"] += 0.00001
+            elif change == "duplicate":
+                payload["MissingWays"].append(copy.deepcopy(row))
+            else:
+                payload["MissingWays"].clear()
+            payload["OmissionsDigest"] = list(native_omissions_digest(native["Omissions"]))
+            with self.assertRaises(ValueError):
+                validate_missing_source_ways(native, payload)
+
+    def test_original_payload_limits_and_nonfinite_values(self):
+        with self.assertRaisesRegex(ValueError, "bounded"):
+            self.digest(point_limit=4)
+        with self.assertRaisesRegex(ValueError, "budget"):
+            self.digest(row_limit=0)
+        payload = copy.deepcopy(self.payload)
+        payload["MissingWays"][0]["Points"][2]["LatitudeDeg"] = math.nan
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self.digest(payload)
+        payload = copy.deepcopy(self.payload)
+        payload["MissingWays"][0]["Points"].pop(2)
+        with self.assertRaisesRegex(ValueError, "bounded"):
+            self.digest(payload)
 
 
 if __name__ == "__main__":

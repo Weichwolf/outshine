@@ -40,6 +40,7 @@ int main() {
   BakedTile product;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, product).has_value(),
         "real building producer supplies the artifact");
+  CHECK(product.GeometryAssetKey.empty(), "an unpublished bake has no persistent asset identity");
   product.SurfaceError = StructureSurfaceErrorInterval{
       .Upper = {.SourceKey = 17, .ReferenceToVariantM = 0.2, .VariantToReferenceM = 0.3},
       .ReferenceToVariantLowerM = 0.1,
@@ -51,6 +52,7 @@ int main() {
   auto decoded = DecodeStructureArtifact(*encoded, key, 29);
   CHECK(decoded.has_value(), "product decodes under current source identity");
   if (!decoded) { return Report(); }
+  CHECK(decoded->GeometryAssetKey == key, "the verified complete artifact key reaches its product");
   CHECK(decoded->SurfaceError && decoded->SurfaceError->Upper.SourceKey == 29 &&
             decoded->SurfaceError->Upper.ReferenceToVariantM == 0.2 &&
             decoded->SurfaceError->Upper.VariantToReferenceM == 0.3,

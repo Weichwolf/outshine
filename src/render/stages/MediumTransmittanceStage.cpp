@@ -1,5 +1,5 @@
 #include "MediumTransmittanceStage.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include <array>
 #include <cstddef>
 #include <expected>

@@ -133,24 +133,9 @@ private:
   Engine *Engine_ = nullptr;
 };
 
-class SwapChain {
-public:
-  [[nodiscard]] Extent extent() const;
-
-  [[nodiscard]] bool presents() const;
-
-private:
-  friend class Engine;
-  friend class Renderer;
-
-  explicit SwapChain(Engine &of) : Of_(&of) {}
-
-  Engine *Of_ = nullptr;
-};
-
 class Renderer {
 public:
-  [[nodiscard]] Result beginFrame(SwapChain &into);
+  [[nodiscard]] Result beginFrame();
 
   [[nodiscard]] Result endFrame();
 
@@ -213,7 +198,9 @@ public:
 
   [[nodiscard]] Renderer renderer();
 
-  [[nodiscard]] SwapChain swapChain();
+  [[nodiscard]] Extent frameExtent() const;
+
+  [[nodiscard]] bool presenting() const;
 
   [[nodiscard]] Result inspect();
 
@@ -282,10 +269,6 @@ public:
 
   [[nodiscard]] double stepSeconds() const;
 
-  [[nodiscard]] Result save(std::string_view path) const;
-
-  [[nodiscard]] Result restore(std::string_view path);
-
   void logsTo(LogSink *sink);
 
   [[nodiscard]] bool standing() const;
@@ -303,12 +286,9 @@ private:
   [[nodiscard]] Result beginFrame();
   [[nodiscard]] Result endFrame();
   [[nodiscard]] Result flushAndWait();
-  [[nodiscard]] Extent canvas() const;
 
   [[nodiscard]] bool camera(Camera &out) const;
-  [[nodiscard]] bool presenting() const;
 
-  friend class SwapChain;
   friend class TestEngine;
   friend class FrameCoordinator;
   struct State;

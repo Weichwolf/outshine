@@ -6,6 +6,7 @@
 #include "TerrainInputPreparation.h"
 #include "TerrainFieldPinning.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include <SDL3/SDL.h>
 #include <cstddef>
 #include <utility>

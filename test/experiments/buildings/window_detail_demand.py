@@ -93,7 +93,7 @@ def repeated_dimensions(windows, resident, identifiers):
 class WindowDetails:
     """Caller-owned residency, bounded in window count; no visibility or DB policy."""
 
-    def __init__(self, prepared, *, portals=(), max_windows=128):
+    def __init__(self, prepared, *, portals=(), max_windows=128, facade_product=None):
         if type(max_windows) is not int or not 0 <= max_windows <= MAX_WINDOWS:
             raise ValueError("Window residency requires an integer bounded capacity")
         windows = prepared.facade.windows
@@ -106,7 +106,18 @@ class WindowDetails:
             raise ValueError("Window plan contains duplicate identities")
         self.prepared = prepared
         self.max_windows = max_windows
-        self.coarse = compact(prepared, portals=portals)
+        portals = tuple(portals)
+        if facade_product is None:
+            self.coarse = compact(prepared, portals=portals)
+        else:
+            if (
+                getattr(facade_product, "prepared", None) is not prepared
+                or getattr(facade_product, "portals", None) != portals
+            ):
+                raise ValueError(
+                    "Borrowed facade must retain the same prepared source and portals"
+                )
+            self.coarse = facade_product.coarse
         if tuple(self.windows) != self.coarse.window_ids:
             raise ValueError("Coarse and detailed window identities disagree")
         self.base_spans = coarse_spans(self.coarse)

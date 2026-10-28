@@ -79,18 +79,21 @@ std::string PreparedBuildingAssets::Key(Data::TileId tile,
 
 std::string PreparedBuildingAssets::RequestKey(Data::TileId tile,
                                                const ::outshine::Ground::ShapedGround &shape,
-                                               double spanM) const {
+                                               double spanM,
+                                               std::string_view inputDigest) const {
   if (tile.Zoom < 0 || tile.Zoom > Data::TileId::MaximumZoom ||
       tile.X >= (uint32_t{1} << static_cast<unsigned>(tile.Zoom)) ||
-      tile.Y >= (uint32_t{1} << static_cast<unsigned>(tile.Zoom)) || spanM <= 0) {
+      tile.Y >= (uint32_t{1} << static_cast<unsigned>(tile.Zoom)) || spanM <= 0 ||
+      inputDigest.empty()) {
     return {};
   }
-  constexpr std::string_view family = "prepared-building-demand-1";
+  constexpr std::string_view family = "prepared-building-demand-2";
   ByteWriter bytes(4096);
   if (!bytes.Put({reinterpret_cast<const uint8_t *>(family.data()), family.size()}) ||
       !bytes.Put({reinterpret_cast<const uint8_t *>(Recipe_.data()), Recipe_.size()}) ||
       !bytes.Number(tile.Zoom) || !bytes.Number(tile.X) || !bytes.Number(tile.Y) ||
-      !EncodeShape(bytes, shape, spanM)) {
+      !EncodeShape(bytes, shape, spanM) || !bytes.Number(inputDigest.size()) ||
+      !bytes.Put({reinterpret_cast<const uint8_t *>(inputDigest.data()), inputDigest.size()})) {
     return {};
   }
   return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());

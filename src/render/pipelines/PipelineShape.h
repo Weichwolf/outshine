@@ -1,0 +1,32 @@
+#ifndef OUTSHINE_RENDER_PIPELINES_PIPELINESHAPE_H
+#define OUTSHINE_RENDER_PIPELINES_PIPELINESHAPE_H
+
+#include <cstdint>
+
+namespace outshine::Render {
+
+struct ComputeShape {
+  uint32_t Samplers = 0;
+  uint32_t ReadOnlyTextures = 0;
+  uint32_t ReadWriteTextures = 0;
+
+  uint32_t ReadOnlyBuffers = 0;
+  uint32_t ReadWriteBuffers = 0;
+  uint32_t UniformBuffers = 0;
+  uint32_t GroupX = 1;
+  uint32_t GroupY = 1;
+  uint32_t GroupZ = 1;
+};
+
+struct DrawShape {
+  uint32_t VertexSamplers = 0;
+  uint32_t VertexUniformBuffers = 0;
+  uint32_t VertexStorageBuffers = 0;
+  uint32_t FragmentSamplers = 0;
+  uint32_t FragmentUniformBuffers = 0;
+  uint32_t FragmentStorageBuffers = 0;
+};
+
+}
+
+#endif

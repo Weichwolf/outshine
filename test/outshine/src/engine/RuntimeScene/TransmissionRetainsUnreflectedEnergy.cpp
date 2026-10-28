@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "WaterSurfaceBuilder.h"
 #include "Geometry.h"
 #include "Material.h"

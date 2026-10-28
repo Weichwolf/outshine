@@ -6,7 +6,7 @@
 #include "Vec3.h"
 #include <string>
 
-#include "KernelShape.h"
+#include "PipelineShape.h"
 
 #include "FrameContext.h"
 #include "Gpu.h"

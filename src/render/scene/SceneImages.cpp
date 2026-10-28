@@ -36,8 +36,16 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::GroundSelection:
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
-    case Resource::ClusterJobs:
-    case Resource::ClusterBatches:
+    case Resource::ClusterTemplates:
+    case Resource::ClusterRoots:
+    case Resource::ClusterPrefix:
+    case Resource::ClusterVisible:
+    case Resource::ClusterChunks:
+    case Resource::ClusterChunkState:
+    case Resource::ClusterSelected:
+    case Resource::ClusterSelectedState:
+    case Resource::ClusterReset:
+    case Resource::GeometryPlacements:
     case Resource::ClusterKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:

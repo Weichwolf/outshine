@@ -98,6 +98,7 @@ void BindEndpoints(Sources &sources,
     const auto &way = sources.Ways[segment.Way];
     sources.Omissions.push_back({.Source = way.Source.Source,
                                  .Feature = way.Feature,
+                                 .Fragment = way.Key,
                                  .Reason = MvtTransportOmissionReason::UnqualifiedLevelConnection});
   }
 }

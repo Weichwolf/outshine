@@ -1,4 +1,5 @@
 #include "ImpostorCards.h"
+#include "ImpostorViewFrame.h"
 #include "Sha256.h"
 #include "BinaryValueArchive.h"
 #include "GeometryProductCodec.h"
@@ -16,13 +17,10 @@
 namespace outshine {
 namespace {
 constexpr uint64_t kFormat = 0x0001314452434fULL;
-constexpr double kUnitDirectionSquaredTolerance = 1e-12;
 constexpr size_t kViewPrefixBytes = 3 * sizeof(double) + sizeof(uint32_t);
 
 bool ValidDirection(const Vec3 &direction) {
-  return std::ranges::all_of(direction, [](double value) { return std::isfinite(value); }) &&
-         direction[1] == 0 &&
-         std::abs(Dot(direction, direction) - 1.0) <= kUnitDirectionSquaredTolerance;
+  return ImpostorViewFrame::From(direction).has_value();
 }
 
 bool Valid(const ImpostorCards &cards) {

@@ -106,11 +106,16 @@ file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/shader-artifacts.txt"
   CONTENT "$<JOIN:${shader_names},\n>\n")
 add_executable(compute-shader-contracts EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/test/scripts/compute-shader-contracts.cpp")
 target_link_libraries(compute-shader-contracts PRIVATE outshine_compiler)
-target_include_directories(compute-shader-contracts PRIVATE "${PROJECT_SOURCE_DIR}/src/render/stages")
+target_include_directories(compute-shader-contracts PRIVATE "${PROJECT_SOURCE_DIR}/src/render/pipelines")
 add_custom_command(OUTPUT "${PROJECT_BINARY_DIR}/compute-shaders.json"
   COMMAND compute-shader-contracts > "${PROJECT_BINARY_DIR}/compute-shaders.json"
   DEPENDS compute-shader-contracts VERBATIM)
 add_custom_target(compute_contracts DEPENDS "${PROJECT_BINARY_DIR}/compute-shaders.json")
 add_dependencies(outshine_shaders compute_contracts)
+
+set(calibration_shader_artifacts ${OUTSHINE_SHADER_ARTIFACTS})
+list(FILTER calibration_shader_artifacts INCLUDE REGEX "/calibration[^/]*\\.spv$")
+add_custom_target(outshine_calibration_shaders DEPENDS ${calibration_shader_artifacts})
+add_dependencies(outshine_diagnostics_calibration outshine_calibration_shaders)
 
 add_dependencies(outshine_render outshine_shaders)

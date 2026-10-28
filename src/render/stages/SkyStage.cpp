@@ -8,7 +8,7 @@
 #include <string>
 
 #include "SceneTargets.h"
-#include "StagePipelines.h"
+#include "PipelineFactory.h"
 #include <expected>
 #include <span>
 #include <utility>

@@ -1,10 +1,12 @@
 #include "SceneLighting.h"
 #include "MeshInput.h"
+#include "GeometryUploadTicket.h"
 #include "Lens.h"
 #ifndef OUTSHINE_RENDER_SCENERENDERER_H
 #define OUTSHINE_RENDER_SCENERENDERER_H
 
 #include "Mat4.h"
+#include "GeometryHierarchy.h"
 #include "Vec2.h"
 #include "Vec3.h"
 #include "Extent.h"
@@ -42,6 +44,7 @@ struct SDL_Window;
 #include "scene/SceneResources.h"
 #include "scene/SceneRenderState.h"
 #include "scene/SceneCandidateEdit.h"
+#include "scene/SurfaceReadback.h"
 #include "Viewing.h"
 #include "ExecutionPlan.h"
 #include "stages/OverlayDraw.h"
@@ -84,9 +87,14 @@ struct RenderFrameTiming {
   double TotalMs = 0.0;
 };
 
+enum class GeometryReadback { Counters, Indices };
+
 struct KeptDraws {
   uint32_t Indices = 0;
   uint32_t Batches = 0;
+  GeometryQueueState RootWork;
+  GeometryQueueState ClusterWork;
+  uint64_t ReadbackBytes = 0;
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
   std::vector<uint32_t> Visibility;
@@ -209,7 +217,8 @@ public:
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
-  [[nodiscard]] ReadState ReadKeptIndices(KeptDraws &into);
+  // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
+  [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
 
   [[nodiscard]] Native::Result<TerrainRenderer::DrawArguments> ReadGroundDrawArguments() const;
 
@@ -339,7 +348,7 @@ public:
   [[nodiscard]] Native::Result<PrismGridHandle>
   PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 uint32_t material) {
+                 const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlacePrismGrid(
         content.Geometry(), std::move(source), instances, material);
@@ -348,7 +357,7 @@ public:
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
-                                                      uint32_t material) {
+                                                      const MaterialRegistration &material) {
     auto &content = ActiveContent();
     return content.Scene().Resources().ReplacePrismGrid(
         content.Geometry(), which, std::move(source), instances, material);
@@ -380,7 +389,8 @@ public:
         content.Geometry(), nextPiece, piecesMost);
   }
 
-  [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
+  [[nodiscard]] std::expected<MaterialRegistration, std::string>
+  RegisterPieceMaterials(Geometry source) {
     auto &content = ActiveContent();
     return content.Scene().Resources().RegisterPieceMaterials(
         content.Geometry(),
@@ -473,6 +483,7 @@ public:
   [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);
   [[nodiscard]] ReadState ReadSurfaceBase(std::vector<float> &rgba);
   [[nodiscard]] ReadState ReadSurfaceMetalRough(std::vector<float> &rg);
+  [[nodiscard]] ReadState ReadSurface(SurfaceReadback &surface);
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
@@ -503,7 +514,7 @@ public:
            (!ActiveContent().DrawsGlass || ActiveContent().Transmission().SetMesh(mesh, error));
   }
 
-  [[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string>
+  [[nodiscard]] std::expected<GeometryUploadTicket, std::string>
   BeginGeometryMesh(const MeshInput &mesh) {
     std::string error;
     if (ActiveContent().DrawsGlass && !ActiveContent().Transmission().ValidateMesh(mesh, error)) {
@@ -512,9 +523,8 @@ public:
     return ActiveContent().Geometry().BeginMesh(mesh);
   }
 
-  [[nodiscard]] bool FinishGeometryMesh(GeometryRenderer::MeshTicket ticket,
-                                        const MeshInput &mesh,
-                                        std::string &error) {
+  [[nodiscard]] bool
+  FinishGeometryMesh(GeometryUploadTicket ticket, const MeshInput &mesh, std::string &error) {
     return ActiveContent().Geometry().FinishMesh(ticket, mesh, error) &&
            (!ActiveContent().DrawsGlass || ActiveContent().Transmission().SetMesh(mesh, error));
   }
@@ -853,7 +863,7 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 22;
+  static constexpr size_t kExecutorCount = 23;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
@@ -985,6 +995,8 @@ private:
                                                              const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeLightVisibility(const FrameContext &ctx,
                                                            const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryRoots(const FrameContext &ctx,
+                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryCull(const FrameContext &ctx,
                                                         const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGeometryScan(const FrameContext &ctx,

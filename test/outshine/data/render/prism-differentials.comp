@@ -1,0 +1,22 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "render/shaders/prismDifferentials.glsl"
+layout(local_size_x = 64) in;
+struct Case { mat4 b; vec4 plane; vec4 pixel; };
+struct Result { vec4 dx; vec4 dy; };
+layout(std430, set = 0, binding = 0) readonly buffer Cases { Case cases[]; };
+layout(std430, set = 1, binding = 0) writeonly buffer Results { Result results[]; };
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  if (id >= cases.length() || id >= results.length()) { return; }
+  Case entry = cases[id];
+  bool projected = prismPlaneIncidence(entry.b, entry.plane.xyz, entry.plane.w) != 0.0;
+  vec3 dx = vec3(uintBitsToFloat(0x7fc00001u));
+  vec3 dy = dx;
+  if (projected) {
+    prismPositionDifferentials(preparePrismDifferentials(entry.b), entry.plane.xyz, entry.plane.w,
+                               entry.pixel.xy, entry.pixel.zw, dx, dy);
+  }
+  results[id].dx = vec4(dx, projected ? 1.0 : 0.0);
+  results[id].dy = vec4(dy, float(id));
+}

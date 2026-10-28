@@ -8,7 +8,7 @@ namespace {
 Render::GeometryPagePartView BuildingPart(std::span<const StoredVertex> vertices,
                                           std::span<const uint32_t> indices,
                                           const ClusteredMesh &mesh,
-                                          Render::PieceSurface surface,
+                                          const Render::PieceSurface &surface,
                                           std::span<const float> colours = {},
                                           std::span<const float> uv = {}) {
   const bool cooked = mesh.Index.size() == indices.size() && !mesh.Clusters.empty();
@@ -25,7 +25,7 @@ Render::GeometryPagePartView BuildingPart(std::span<const StoredVertex> vertices
 }
 
 BuildingPageView::BuildingPageView(const Generators::BakedTile &baked,
-                                   BuildingPageMaterials materials) {
+                                   const BuildingPageMaterials &materials) {
   const auto &built = baked.Built;
   Parts_[0] =
       BuildingPart(built.WallCorners,
@@ -38,6 +38,7 @@ BuildingPageView::BuildingPageView(const Generators::BakedTile &baked,
   Parts_[1] = BuildingPart(built.RoofCorners, built.RoofRun, baked.Roofs, materials.Roofs);
   Page_ = {.Parts = {},
            .Digest = baked.Digest,
+           .AssetKey = baked.GeometryAssetKey,
            .FallbackHeights = baked.FallbackHeights,
            .SelectedView = baked.SelectedView,
            .RequestedDetail = baked.RequestedDetail,

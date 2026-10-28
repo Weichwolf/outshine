@@ -3,7 +3,7 @@
 
 #include <array>
 #include "DrawList.h"
-#include "KernelShape.h"
+#include "PipelineShape.h"
 #include "MaterialBinding.h"
 #include "SurfaceState.h"
 

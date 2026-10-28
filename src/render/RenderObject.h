@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_RENDEROBJECT_H
 
 #include "SceneLighting.h"
+#include "MaterialBinding.h"
 #include "Mat4.h"
 #include "Vec3.h"
 #include "RenderGeometryView.h"
@@ -16,7 +17,7 @@
 
 #include "DrawList.h"
 #include "CameraState.h"
-#include "GeometryRenderer.h"
+#include "GeometryUploadTicket.h"
 
 namespace outshine::Render {
 
@@ -186,13 +187,13 @@ AdvancePackPlacement(const RenderObject &proxy, RenderObjectPreparation &scratch
                                    RenderObjectPreparation &scratch,
                                    std::string &error);
 
-[[nodiscard]] std::expected<GeometryRenderer::MeshTicket, std::string> BeginPlacementUpload(
+[[nodiscard]] std::expected<GeometryUploadTicket, std::string> BeginPlacementUpload(
     SceneRenderer &renderer, const RenderObject &proxy, RenderObjectPreparation &scratch);
 
 [[nodiscard]] bool FinishPlacementUpload(SceneRenderer &renderer,
                                          const RenderObject &proxy,
                                          RenderObjectPreparation &scratch,
-                                         GeometryRenderer::MeshTicket ticket,
+                                         GeometryUploadTicket ticket,
                                          std::string &error);
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,

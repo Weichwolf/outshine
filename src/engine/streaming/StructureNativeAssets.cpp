@@ -28,7 +28,8 @@ bool StructureBuildQueue::SelectNativeBasis(
   if (region.InputDigest.empty()) { return true; }
   const Data::TileId address{
       .Zoom = region.Z, .X = static_cast<uint32_t>(region.X), .Y = static_cast<uint32_t>(region.Y)};
-  selected.RequestKey = cache->RequestKey(address, stack.Pool().Shaped(), prints.TileSpanM());
+  selected.RequestKey =
+      cache->RequestKey(address, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
   if (selected.RequestKey.empty()) {
     NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;

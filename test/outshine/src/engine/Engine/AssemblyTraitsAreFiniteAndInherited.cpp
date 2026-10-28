@@ -1,10 +1,6 @@
 #include <Engine.h>
 #include "Check.h"
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <string>
-#include <unistd.h>
+#include "TestEngine.h"
 
 int main() {
   using namespace outshine;
@@ -24,22 +20,20 @@ int main() {
   instance.Id = "player";
   instance.Attributes = {{.Name = "health", .Value = "73.5"}};
   scene.Instances.push_back(instance);
-  scene.State = {{.What = "player.health"}, {.What = "player.speed"}};
   Engine engine;
   CHECK(engine.declare(scene) && engine.assemble(), "inherited native traits assemble");
-  const auto path = std::filesystem::temp_directory_path() /
-                    ("outshine-trait-contract-" + std::to_string(getpid()) + ".save");
   const auto checkTraits = [&] {
-    const auto saved = engine.save(path.string());
-    CHECK(saved.has_value(), "native trait values are observable through public persistence");
-    if (!saved) { return; }
-    std::ifstream input(path);
-    const std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-    CHECK(text.contains("player.health 73.5\n"),
+    const auto &runtime = *TestEngine::StateOf(engine).ScenarioState;
+    const auto holder = runtime.Stood.InstanceNamed("player");
+    const auto *traits = runtime.Attributes.Get(holder);
+    CHECK(traits != nullptr, "published native component exists");
+    if (traits == nullptr) { return; }
+    const auto *health = traits->Named(runtime.Stood.TraitKey("health"));
+    const auto *speed = traits->Named(runtime.Stood.TraitKey("speed"));
+    CHECK(health != nullptr && *health == 73.5,
           "instance override wins over derived and root defaults");
-    CHECK(text.contains("player.speed 2.5\n"),
+    CHECK(speed != nullptr && *speed == 2.5,
           "unoverridden root trait survives the inheritance chain");
-    std::filesystem::remove(path);
   };
   checkTraits();
   const World::EntityRegistry *previous = &engine.entities();

@@ -45,6 +45,84 @@ const std::array<DagCluster, 1> secondClusters{{{.SelfCenter = {{4, 5, 6}},
                                                  .Count = 3}}};
 }
 
+namespace {
+void VerifyResidentTables(outshine::Render::GeometryRenderer &draw,
+                          outshine::Render::Native::Device &device,
+                          std::span<const outshine::Mat4> instances,
+                          std::span<const outshine::Mat4> otherInstances) {
+  using namespace outshine;
+  using namespace outshine::Render;
+  using namespace outshine::Test;
+  const auto &resident = draw.Resident();
+  constexpr std::array<float, 36> expected{0, 0, 0, 4,  0, 0, 0, 8,  0,      kDagRootErr, 0, 0,
+                                           1, 0, 0, 4,  1, 0, 0, 8,  0.125f, kDagRootErr, 0, 0,
+                                           4, 5, 6, 16, 4, 5, 6, 32, 0.5f,   kDagRootErr, 0, 0};
+  CHECK(resident.HeldOf(GeometryResidency::Stream::ClusterSpheres) == sizeof(expected),
+        "sphere storage depends on three source clusters, not nine instance jobs");
+  Readback spheres;
+  Readback jobs;
+  Readback rows;
+  CHECK(spheres.FromBuffer(&device,
+                           resident.Buffer(GeometryResidency::Stream::ClusterSpheres).get(),
+                           sizeof(expected)) == ReadState::Ready,
+        "sphere bytes read from the actual GPU buffer");
+  CHECK(spheres.Rows() != nullptr &&
+            std::ranges::equal(
+                std::span(reinterpret_cast<const std::byte *>(spheres.Rows()), sizeof(expected)),
+                std::as_bytes(std::span(expected))),
+        "each piece retains its own exact sphere and error records");
+  CHECK(draw.ClusterJobs() == 9 && draw.Drawn().size() == 6,
+        "all instance jobs and batches remain present");
+  CHECK(jobs.FromBuffer(&device,
+                        resident.Buffer(GeometryResidency::Stream::ClusterTemplates).get(),
+                        3 * sizeof(GeometryClusterTemplate)) == ReadState::Ready,
+        "job references read from the actual GPU buffer");
+  CHECK(rows.FromBuffer(&device,
+                        resident.Buffer(GeometryResidency::Stream::Placements).get(),
+                        6 * sizeof(GpuPlacement)) == ReadState::Ready,
+        "instance transforms read from the actual GPU buffer");
+  if (spheres.Rows() == nullptr || jobs.Rows() == nullptr || rows.Rows() == nullptr) { return; }
+  CHECK(resident.HeldOf(GeometryResidency::Stream::ClusterTemplates) ==
+            3 * sizeof(GeometryClusterTemplate),
+        "immutable template storage depends on products rather than instance-cluster pairs");
+  Readback roots;
+  CHECK(roots.FromBuffer(&device,
+                         resident.Buffer(GeometryResidency::Stream::ClusterRoots).get(),
+                         6 * sizeof(GeometryRoot)) == ReadState::Ready,
+        "instance roots read from the actual GPU buffer");
+  if (roots.Rows() == nullptr) { return; }
+  const auto *templates = reinterpret_cast<const GeometryClusterTemplate *>(jobs.Rows());
+  for (size_t at = 0; at < 3; ++at) {
+    CHECK(templates[at].SphereIndex == at && templates[at].IndexCount == 3 &&
+              templates[at].RelativeFirstIndex ==
+                  draw.Drawn()[at < 2 ? 0 : 3].FirstIndex + (at == 1 ? 3u : 0u),
+          "each product template retains its exact source sphere and index interval");
+  }
+  constexpr std::array<uint32_t, 6> firsts{0, 0, 0, 2, 2, 2};
+  constexpr std::array<uint32_t, 6> logical{0, 2, 4, 6, 7, 8};
+  for (size_t at = 0; at < draw.Drawn().size(); ++at) {
+    GeometryRoot root;
+    std::memcpy(&root, roots.Rows() + at * sizeof(GeometryRoot), sizeof(root));
+    CHECK(root.TemplateFirst == firsts[at] && root.TemplateCount == (at < 3 ? 2u : 1u) &&
+              root.LogicalFirst == logical[at] && root.BatchRow == at &&
+              root.ModelSlot == draw.Drawn()[at].ModelSlot,
+          "instances share actual resident template spans with separate stable logical work");
+  }
+  for (size_t row = 0; row < draw.Drawn().size(); ++row) {
+    const auto slot = draw.Drawn()[row].ModelSlot;
+    GpuPlacement placement;
+    std::memcpy(&placement, rows.Rows() + slot * sizeof(GpuPlacement), sizeof(placement));
+    const Mat4 &wanted = row < 3 ? instances[row] : otherInstances[row - 3];
+    for (size_t component = 0; component < 16; ++component) {
+      CHECK(placement.Current[component] == static_cast<float>(wanted[component]) &&
+                placement.Previous[component] == static_cast<float>(wanted[component]),
+            "current and previous instance transforms remain distinct and intact");
+    }
+  }
+}
+
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Render;
@@ -107,58 +185,7 @@ int main() {
     const bool published = draw.HandTables(error) && draw.HandPlacements(false, error);
     CHECK(published, "GPU tables publish");
     if (!published) { return Report(); }
-    const auto &resident = draw.Resident();
-    constexpr std::array<float, 36> expected{0, 0, 0, 4,  0, 0, 0, 8,  0,      kDagRootErr, 0, 0,
-                                             1, 0, 0, 4,  1, 0, 0, 8,  0.125f, kDagRootErr, 0, 0,
-                                             4, 5, 6, 16, 4, 5, 6, 32, 0.5f,   kDagRootErr, 0, 0};
-    CHECK(resident.HeldOf(GeometryResidency::Stream::ClusterSpheres) == sizeof(expected),
-          "sphere storage depends on three source clusters, not nine instance jobs");
-    Readback spheres;
-    Readback jobs;
-    Readback rows;
-    CHECK(spheres.FromBuffer(&device,
-                             resident.Buffer(GeometryResidency::Stream::ClusterSpheres).get(),
-                             sizeof(expected)) == ReadState::Ready,
-          "sphere bytes read from the actual GPU buffer");
-    CHECK(spheres.Rows() != nullptr &&
-              std::ranges::equal(
-                  std::span(reinterpret_cast<const std::byte *>(spheres.Rows()), sizeof(expected)),
-                  std::as_bytes(std::span(expected))),
-          "each piece retains its own exact sphere and error records");
-    CHECK(draw.ClusterJobs() == 9 && draw.Drawn().size() == 6,
-          "all instance jobs and batches remain present");
-    CHECK(jobs.FromBuffer(&device,
-                          resident.Buffer(GeometryResidency::Stream::ClusterJobs).get(),
-                          36 * sizeof(uint32_t)) == ReadState::Ready,
-          "job references read from the actual GPU buffer");
-    CHECK(rows.FromBuffer(&device,
-                          resident.Buffer(GeometryResidency::Stream::Placements).get(),
-                          6 * sizeof(GpuPlacement)) == ReadState::Ready,
-          "instance transforms read from the actual GPU buffer");
-    if (spheres.Rows() == nullptr || jobs.Rows() == nullptr || rows.Rows() == nullptr) {
-      return Report();
-    }
-    const auto *words = reinterpret_cast<const uint32_t *>(jobs.Rows());
-    constexpr std::array<uint32_t, 9> wantedSpheres{0, 1, 0, 1, 0, 1, 2, 2, 2};
-    constexpr std::array<uint32_t, 9> wantedBatches{0, 0, 1, 1, 2, 2, 3, 4, 5};
-    for (size_t job = 0; job < wantedSpheres.size(); ++job) {
-      CHECK(words[job * 4] == wantedSpheres[job] && words[job * 4 + 1] == wantedBatches[job] &&
-                words[job * 4 + 2] == draw.Drawn()[wantedBatches[job]].FirstIndex +
-                                          (job < 6 ? static_cast<uint32_t>(job % 2) * 3u : 0u) &&
-                words[job * 4 + 3] == 3,
-            "each instance job references its source sphere and its own batch");
-    }
-    for (size_t row = 0; row < draw.Drawn().size(); ++row) {
-      const auto slot = draw.Drawn()[row].ModelSlot;
-      GpuPlacement placement;
-      std::memcpy(&placement, rows.Rows() + slot * sizeof(GpuPlacement), sizeof(placement));
-      const Mat4 &wanted = row < 3 ? instances[row] : otherInstances[row - 3];
-      for (size_t component = 0; component < 16; ++component) {
-        CHECK(placement.Current[component] == static_cast<float>(wanted[component]) &&
-                  placement.Previous[component] == static_cast<float>(wanted[component]),
-              "current and previous instance transforms remain distinct and intact");
-      }
-    }
+    VerifyResidentTables(draw, device, instances, otherInstances);
     CHECK(draw.SetPieceInstances(*second, {}, error) && draw.HandTables(error),
           "an empty instance set leaves no jobs for its piece");
     CHECK(draw.ClusterJobs() == 6 && draw.Drawn().size() == 3, "only first-piece instances remain");

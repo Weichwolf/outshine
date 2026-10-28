@@ -1,6 +1,7 @@
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include "TerrainLattice.h"
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "streaming/TerrainResidency.h"
 #include "Check.h"
 #include "test/harness/render/HeightPageReadback.h"

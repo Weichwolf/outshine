@@ -184,7 +184,7 @@ std::expected<MvtTransportSnapshot, std::string> Publish(Sources sources,
   std::ranges::sort(*nodes, {}, &World::TransportNode::SourceNodeId);
   std::ranges::sort(*edges, {}, &World::TransportEdge::Id);
   const auto omissionKey = [](const MvtTransportOmission &omission) {
-    return std::tie(omission.Source, omission.Feature, omission.Reason);
+    return std::tie(omission.Source, omission.Feature, omission.Fragment, omission.Reason);
   };
   std::ranges::sort(sources.Omissions, {}, omissionKey);
   const auto duplicate = std::ranges::unique(sources.Omissions, {}, omissionKey);

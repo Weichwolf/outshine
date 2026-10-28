@@ -9,7 +9,11 @@ from pathlib import Path
 
 from canonical_port_native_inputs import source_input
 from mvt_node_group_inputs import read_mvt_node_groups, unsigned
-from mvt_source_fact_digest import native_source_fact_digest, version_from_schema
+from mvt_source_fact_digest import (
+    native_source_fact_digest,
+    version_from_schema,
+    validate_missing_source_ways,
+)
 from mvt_source_fact_links import check_mvt_source_fact_links
 from mvt_source_profile_inputs import check_height_profile_tags, profile_properties
 from outshine_ref.contracts import immutable
@@ -55,6 +59,7 @@ def check_scope(native, facts, manifest, budget):
         not in (
             "outshine/native-mvt-source-facts/1",
             "outshine/native-mvt-source-facts/2",
+            "outshine/native-mvt-source-facts/3",
         )
     ):
         raise ValueError("actual paired source schemas required")
@@ -77,9 +82,9 @@ def check_scope(native, facts, manifest, budget):
         ("SourceWayCount", "source_way_count"),
     ):
         if (
-            not unsigned(native[key], 64)
-            or not unsigned(manifest[saved], 64)
-            or type(facts[key]) is not int
+            not unsigned(native.get(key), 64)
+            or not unsigned(manifest.get(saved), 64)
+            or type(facts.get(key)) is not int
             or native[key] != facts[key]
             or native[key] != manifest[saved]
         ):
@@ -101,6 +106,9 @@ def check_scope(native, facts, manifest, budget):
         member_limit=budget.incidence_visits,
         row_limit=max(budget.input_nodes, budget.input_spans),
         version=version_from_schema(facts["schema"]),
+    )
+    validate_missing_source_ways(
+        native, facts, row_limit=max(budget.input_nodes, budget.input_spans)
     )
     if list(digest) != facts["Digest"]:
         raise ValueError("paired native fact digest mismatch")
@@ -125,7 +133,7 @@ def native_recipes(native, facts, raw):
         ):
             raise ValueError("actual single-source path reference required")
         way = ways[local["StreetWay"]]
-        if facts["schema"] == "outshine/native-mvt-source-facts/2":
+        if version_from_schema(facts["schema"]) >= 2:
             check_height_profile_tags(
                 local.get("HeightProfileTags"),
                 properties[bytes(local["FeatureContent"])],
@@ -143,7 +151,7 @@ def native_recipes(native, facts, raw):
     work["bound_profile_paths"] = len(recipes)
     work["checked_height_profile_tag_records"] = (
         2 * len(recipes)
-        if facts["schema"] == "outshine/native-mvt-source-facts/2"
+        if version_from_schema(facts["schema"]) >= 2
         else 0
     )
     return recipes, work
@@ -190,7 +198,7 @@ def candidate_values(source, partition, facts):
                     member["DomainNode"],
                     member["StreetWay"],
                     member["SourceTerminal"]
-                    if facts["schema"] == "outshine/native-mvt-source-facts/2"
+                    if version_from_schema(facts["schema"]) >= 2
                     else None,
                 )
             )
@@ -242,6 +250,12 @@ def load_bridge_source_facts(root, *, budget=None):
         "source_facts_digest": bytes(facts["Digest"]).hex(),
         "scope": "Actual paired native source; physical incidence only within supplied Network, no geographic/ground/contact closure",
     }
+    if version_from_schema(facts["schema"]) == 3:
+        binding.update(
+            source_facts_schema=facts["schema"],
+            source_omissions_digest=bytes(facts["OmissionsDigest"]).hex(),
+            missing_original_ways=facts["MissingWays"],
+        )
     source = source_input(native, recipes, manifest, binding=binding)
     partition, reason, partition_work = read_mvt_node_groups(
         source, 1, facts["NodeGroups"], budget=budget

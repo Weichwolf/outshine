@@ -12,6 +12,27 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Gemeinsame skalare Straßenprofile](road_shared_profile.md): mikroskopische
+  Zwischenanschlüsse mit direkt geprüften Kubiken vermeiden, alte gültige
+  Produkte erhalten und verbleibende Fälle begrenzt lokal lösen (#1542).
+- [Gekoppelte Höhen- und Querneigungskorrektur](road_joint_profile.md): ganze
+  Intervalle genauer prüfen, zusätzliche Profile ohne Änderung erhalten und
+  verbleibende innere Höhe/Querneigung bei festen Außenprofilen begrenzen (#1539).
+- [Ganze Querneigungsübergänge vor dem Mesh](road_bank_profile.md): feste äußere
+  Profile, ganze Randsteigungen und begrenzte Anpassung innerer Querneigungen;
+  unmögliche kurze Endbindungen vor dem Solver erkennen (#1533/#20).
+- [Analytische Straßen-Beleuchtungsreferenz](road_surface_frames.md): metrische
+  Flächenableitungen und Texturrahmen ohne Fine-Mesh; reale Gegenfälle gegen
+  bloß interpolierte Vertexnormalen (#1531/#964).
+- [Kleine verbundene Boden-Netze](ground_network.md): gemeinsame ganze Knotenkerne,
+  Zweierverbinder und mehrteilige Arme; tatsächliche fünfteilige Geometrie und
+  getrennte Quellen-/Endqualifikation (#1527/#1402).
+- [Kleine tatsächliche Straßenschleifen](ground_cycle.md): ein ganzer sechsteiliger
+  Quellverbund, zwölf innere Profile und erhaltene Lochfläche; vorhandene
+  Source-/Unknown-/World-Grenzen bleiben streng (#1569/#1402).
+- [Konforme Kontakte an festgehaltenen Straßen](ground_contact.md): qualifizierter
+  Dreiarm-Fit mit unveränderten XYZ/Endprofilen und90ganzen Bodenanschlüssen;
+  lokale Geländevarianten werden geprüft statt Straßen erneut zu fitten (#1574).
 - [Installierter gemeinsamer Höhenkern](stair_level_library_comparison.md):
   gleiche ganze 90er Produkte und pixelgleiche 720p-Bilder, neue begrenzte
   Bibliotheksfunktion statt numerischer Experimentkopien (#732/#50).
@@ -1262,6 +1283,22 @@ Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
 `transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
 bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
 
+Die Unterteilung nach [#1519](https://github.com/Weichwolf/outshine/issues/1519)
+erzeugt beide Hälften eines Parameterschnitts gemeinsam und verarbeitet die
+verbleibende Hälfte beim nächsten Schnitt weiter. Schnittpunkte werden weiterhin
+direkt an ursprünglichen Kanten berechnet; ganze Ports, Reihenfolge, Vertexmaps
+und die bestehenden Rundungs-/Ausgabebudgets bleiben erhalten.
+`port_slice_partition_checks.py` prüft unabhängig rationale/schiefe Schnitte,
+Vertex-/Rundungstreffer, Flächenabdeckung, Orientierung und ursprüngliche
+Kantenprioren. Verfahrensvergleich und Kosten stehen im verlinkten Fach-Issue.
+
+```sh
+SLICE_COMPARE=$(mktemp -d "${TMPDIR:-/tmp}/outshine-slice-1519.XXXXXX")
+git show 0fc5fe227:lib/src/outshine_ref/transport/port_heights/_slices.py > "$SLICE_COMPARE/baseline_slices.py"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/compare_port_slice_work.py \
+  --baseline "$SLICE_COMPARE/baseline_slices.py" --output "$SLICE_COMPARE/comparison"
+```
+
 Der Solververgleich [#217](https://github.com/Weichwolf/outshine/issues/217) ersetzt
 versuchsweise ausschließlich den Fit-Aufruf: `port_highs_experiment.py` bindet
 HiGHS 1.15.1 mit nachträglichen Konus-Stützebenen in denselben öffentlichen
@@ -1714,3 +1751,124 @@ Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
 
 Bibliotheksübernahme und aktuelle Source-/Wheel-/Kosten-/Bildprüfung:
 [weighted_height_library_comparison.md](weighted_height_library_comparison.md).
+
+## Scalar graph height envelopes (#1508)
+
+`replay_graph_height_envelopes.py` compares two multi-source distance traversals
+with an independent HiGHS minimax LP on the retained bridge-source fixture.
+Positive edge budgets are original MaxGradient times fixed zero-height ENU XY
+lengths. Original DEM heights become scalar ENU observations; missing stencils
+remain absent and missing grade profiles are explicitly excluded with source IDs.
+The captured Source component remains unqualified. This graph experiment does
+not produce canonical ports, C1 surfaces, bridge geometry or World admission.
+
+For shortest-path budget distance d and observations z, define
+`U(v)=min_s(z_s+d(s,v))` and `L(v)=max_s(z_s-d(s,v))`.
+Both envelopes and their midpoint obey every edge budget. At observed nodes
+`U<=z<=L`, so the midpoint reaches error `rho=max(0,max_v(L-U))/2`.
+Every fit with error epsilon must satisfy `L-epsilon<=h<=U+epsilon`, proving
+epsilon>=rho for this scalar model. Unsampled disconnected components retain
+unbounded intervals. Edge feasibility does not prove whole-face grade or C1.
+The graph/geometry distinction follows the existing
+[SIGGRAPH transport references](../../../doc/references/transport/README.md).
+
+Bounded queries require known valid global observation extrema; this replay
+loads them first and claims no avoided IO. An additional lazy negative witness
+uses fresh DEM samples without extrema, still from an already decoded tile.
+Budget exhaustion remains incomplete. Many individual queries can cost more
+than the two full traversals; the replay checks every query against them.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -m unittest graph_height_envelope_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_graph_height_envelopes.py --output "$TRANSPORT_WORK/height-envelopes" --plot
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/measure_graph_height_envelopes.py --input "$TRANSPORT_WORK/height-envelopes" --output "$TRANSPORT_WORK/height-envelope-costs"
+```
+
+Use fresh external system-temp output paths. NumPy/SciPy are required;
+Matplotlib is optional for `--plot`, Memray for the separate cost measurement.
+Costs include traversal/midpoint or LP assembly/solve on equally prepared data,
+excluding source decode and graph preparation. Allocation traces and known
+numeric output sizes are neither complete copied bytes nor process/device peaks.
+The proof, actual findings and remaining geometry boundaries belong to
+[#1508](https://github.com/Weichwolf/outshine/issues/1508).
+
+The separate `canonical_ports._ground_prior` optimization uses only complete
+original port edges of the actual finite input. Slice welding protects both
+original XY endpoints; the existing finite-port check requires that whole edge
+and two road faces. Each possible face inherits a frame from its original part.
+For an adjacent part, take the largest `gamma*||F^-T*deltaXY||` over every frame
+it could inherit (`gamma=1.0000001`). A valid edge must respect this allowance.
+If the difference of its original height priors exceeds the allowance plus twice
+the requested prior reserve, the fit is impossible. The implementation verifies
+the squared inequality with exact rational arithmetic on the supplied floats,
+using a further 1µm per-endpoint prior reserve and no rounded inverse/square root.
+It never rejects based on only the smallest or currently adjacent parent frame.
+
+The check follows the unchanged affine attempt and precedes a C1 solve. A proven
+contradiction retains `ground_prior_error_limit`; no conclusion continues through
+the existing fit. Zero-time/input-budget failures retain their existing checks.
+The optional optimization skips inputs above4096faces/ports and stops after at
+most512frame checks (also bounded by max_queries), without rejecting such inputs.
+No persistent index, Source admission, new port authority or native path is added.
+Later geodetic endcap reconstruction may move XY; it is outside this pre-fit bound.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest ground_prior_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/measure_ground_prior.py --output "$TRANSPORT_WORK/ground-prior" --allocations
+```
+
+The paired comparison uses the same actual chain/star inputs and only bypasses
+the new preflight for its baseline. It requires equal decisions/reasons and exact
+positive affine/finite-plan arrays. Source/DEM/geometry preparation and backend
+warmup precede both measured fits. Optional Memray traces remain external temp
+artifacts; shared-host single timings prove no native/device or frame budget.
+
+## Bound local Bridge end surfaces (#1514)
+
+`bound_bridge_end_surface.py` consumes the existing qualified Ground terminal
+field, original group/Way facts and owned index. The actual Source-/candidate-
+binding, directed member, terminal recipe and reconstructed source-frame anchor
+must agree. Missing profiles, incomplete incidence, Frontier and budgets remain
+explicit failures. This experiment adds no shared library API or World authority.
+
+For each supported Bridge/Ground pair, the original entire two-point Ground cap
+is retained byte for byte. Its unique adjacent original Ground triangle identifies
+the interior side; cap orientation is derived from that face, independently of
+the requested Bridge direction. Missing/ambiguous boundary incidence and an
+inward Bridge direction are rejected. A short axis follows the Ground outgoing direction,
+uses a cubic transition, and ends along the actual first Bridge span. The
+versioned recipe limits its length to min(8m, first-span-length/4). Existing
+constant-width miters and direct strip triangles continue the same fitted affine
+terminal plane. Width, full footprint, finite gradient continuity and profile
+grades are checked in the named source and port-ENU charts. The actual two
+groups belong to different Bridge components; no opposite Ground is invented.
+
+The output is `MetricEndSurface`: body cross-section/thickness, terrain/crossing
+clearance, physical-frame continuation of the whole Bridge and the opposite
+Ground remain unqualified. Neither a qualified contact nor a route/World join
+follows from a valid surface. Ground mesh and original Unknown remain unchanged.
+The new triangulation generates no Terrain contacts or replacement contact areas.
+
+Method context: retained graph versus generated geometry in SIGGRAPH2008,
+Figure2/page2, and Galin et al., profile/trajectory/terrain separation,
+Figures17–18/page8 of the existing
+[transport references](../../../doc/references/transport/README.md).
+Both pages were inspected visually. This small affine/cubic strip control is
+neither paper's complete road/network or terrain algorithm.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest bridge_end_surface_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_bridge_end_surfaces.py --output "$TRANSPORT_WORK/bridge-end-auto" --plot --allocations
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/replay_bridge_end_surfaces.py --method lp --output "$TRANSPORT_WORK/bridge-end-lp" --plot
+```
+
+Outputs require fresh external system-temp paths. Plotting and Memray are optional.
+Preparation/decode, index and Ground fitting are recorded separately from each
+end stage. Whole-stage counters include binding checks in time/allocations;
+explicit member and Ground-cap-face visit counts exclude structured metadata equality and numeric/kernel
+work. Known mesh/cap payload bytes are not all copied bytes or process peaks.
+A second comparison validates GEOS constrained Delaunay against the same prepared
+footprint, original shared cap and whole plane gradients. Its mapping/orientation
+costs are included; common polygon preparation/independent validation are excluded
+from both timings. The specialized strip needs no geometry-kernel triangulation.
+These single shared-host calls provide no native/device or frame-budget proof.

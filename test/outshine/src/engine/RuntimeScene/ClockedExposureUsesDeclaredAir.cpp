@@ -6,6 +6,7 @@
 #include <memory>
 #include <SDL3/SDL.h>
 #include "RuntimeScene.h"
+#include "SceneRenderer.h"
 #include "Check.h"
 
 int main() {

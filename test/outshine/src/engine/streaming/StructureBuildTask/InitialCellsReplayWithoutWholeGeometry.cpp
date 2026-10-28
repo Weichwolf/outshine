@@ -98,7 +98,8 @@ bool CollectChildren(StructureBuildTask &task,
                      const CountingMesh &mesher,
                      const std::weak_ptr<const PreparedBuildingBasis> &warmBasis,
                      bool warm,
-                     size_t sourceCount) {
+                     size_t sourceCount,
+                     std::array<std::string, kStructureCellsPerTile> &keys) {
   StructureCellAssembly assembly(task.InitialCells());
   for (;;) {
     const auto &tile = task.Result().Tile;
@@ -108,6 +109,16 @@ bool CollectChildren(StructureBuildTask &task,
               child.SelectedView && child.Coordinates && !child.Coordinates->Points().empty(),
           "each bounded product owns complete coordinates and adaptive source selection");
     CHECK(task.Result().CacheHit == warm, "fresh replay uses the exact child cache identity");
+    CHECK(child.GeometryAssetKey.size() == 64, "cold and warm products retain the complete key");
+    if (child.RequestedCell && *child.RequestedCell > 0 && *child.RequestedCell <= keys.size()) {
+      auto &key = keys[*child.RequestedCell - 1u];
+      if (warm) {
+        CHECK(child.GeometryAssetKey == key,
+              "a fresh cache hit preserves the original published key");
+      } else {
+        key = child.GeometryAssetKey;
+      }
+    }
     if (warm) {
       const auto basis = warmBasis.lock();
       CHECK(basis && child.Coordinates->Points().data() == basis->PointsLatLon.data() &&
@@ -130,7 +141,9 @@ bool CollectChildren(StructureBuildTask &task,
   return true;
 }
 
-void Replay(const std::filesystem::path &root, bool warm) {
+void Replay(const std::filesystem::path &root,
+            bool warm,
+            std::array<std::string, kStructureCellsPerTile> &keys) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   auto opened = PreparedBuildingAssets::Open(root.string(), sources);
@@ -168,7 +181,9 @@ void Replay(const std::filesystem::path &root, bool warm) {
   CHECK(task.Result().Status && task.Result().Tile && std::popcount(task.InitialCells()) == 2,
         "initial production chooses children before emitting any whole geometry");
   if (!task.Result().Status || !task.Result().Tile) { return; }
-  if (!CollectChildren(task, pool, mesher, warmBasis, warm, raw.Structures.size())) { return; }
+  if (!CollectChildren(task, pool, mesher, warmBasis, warm, raw.Structures.size(), keys)) {
+    return;
+  }
   CheckCosts(*cache, mesher, warm);
   task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(task.InitialCells())) + 1u);
   task.RequestStop();
@@ -196,8 +211,11 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
   CountingMesh mesher;
   auto scratch = mesher.Scratch();
   const auto whole = BakePreparedStructures(**base, raw, mesher, *scratch);
-  CHECK(whole && (*cache)->StoreGeometry(std::string(kKey), **base, raw, *whole),
-        "a valid bounded whole product already exists before initial admission");
+  CHECK(whole, "a valid whole product can be prepared");
+  if (!whole) { return; }
+  const auto stored = (*cache)->StoreGeometry(std::string(kKey), **base, raw, *whole);
+  CHECK(stored, "a valid bounded whole product already exists before initial admission");
+  if (!stored) { return; }
   const auto basis = (*cache)->LoadBasis(std::string(kKey));
   CHECK(basis && *basis, "the warm source basis is available without the full plans");
   if (!basis || !*basis) { return; }
@@ -216,6 +234,23 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
             !tile->RequestedCell && tile->Prints.size() == raw.Structures.size() &&
             mesher.Calls == 0 && (*cache)->Costs().GeometryWrites == 1,
         "initial admission reuses a valid whole cache hit without rebuilding it as children");
+  CHECK(tile && tile->GeometryAssetKey == *stored,
+        "whole-product cache hits retain the actual published key");
+  auto clusteredRaw = raw;
+  clusteredRaw.ClusterTriangles = 1;
+  const auto clustered = BakePreparedStructures(**base, clusteredRaw, mesher, *scratch);
+  CHECK(clustered && clustered->Digest == whole->Digest &&
+            clustered->Walls.Clusters != whole->Walls.Clusters,
+        "different real cluster products can share the old geometry fold");
+  if (!clustered) { return; }
+  const auto clusteredKey =
+      (*cache)->StoreGeometry(std::string(kKey), **base, clusteredRaw, *clustered);
+  CHECK(clusteredKey && *clusteredKey != *stored,
+        "the complete geometry asset key distinguishes the changed cluster operator");
+  const auto loaded = (*cache)->LoadGeometry(std::string(kKey), **base, clusteredRaw);
+  CHECK(loaded && *loaded && clusteredKey && (**loaded).GeometryAssetKey == *clusteredKey &&
+            (**loaded).Walls.Clusters == clustered->Walls.Clusters,
+        "the distinct cluster product replays with its own complete key and partition");
 }
 }
 
@@ -223,8 +258,9 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-initial-cells-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  Replay(root, false);
-  Replay(root, true);
+  std::array<std::string, outshine::Generators::kStructureCellsPerTile> keys;
+  Replay(root, false, keys);
+  Replay(root, true, keys);
   ReuseWholeProduct(root / "existing-whole");
   std::error_code error;
   std::filesystem::remove_all(root, error);

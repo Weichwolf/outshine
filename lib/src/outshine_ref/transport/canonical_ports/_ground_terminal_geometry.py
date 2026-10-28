@@ -95,13 +95,29 @@ def intersect_section(old, half_width, at, left, up, gradient, intercept):
     return vertices, centre_height
 
 
+def terminal_specs(report, scope_index):
+    if "source_terminal_cuts" in report:
+        return tuple(
+            (cap["original_vertices"], cap["source_node"])
+            for cap in report["source_terminal_cuts"]
+        )
+    inputs = report["source_input"]
+    chain, reason = source_chain(scope_index.index, report["source_scope"]["members"])
+    if reason:
+        raise ValueError(reason)
+    return (
+        ((0, 1), chain[1][0]),
+        (
+            (len(inputs.surface.vertices) - 2, len(inputs.surface.vertices) - 1),
+            chain[1][-1],
+        ),
+    )
+
+
 def rebuild_terminal_caps(prepared, report, scope_index):
     anchor, field = prepared
     inputs, mesh = report["source_input"], report["surface"]
     selected = report["source_scope"]["members"]
-    chain, reason = source_chain(scope_index.index, selected)
-    if reason:
-        raise ValueError(reason)
     vertices, boundary = mesh.vertices.copy(), boundary_edges(mesh)
     parents = report["surface_source_faces"]
     vertex_map = (
@@ -109,12 +125,8 @@ def rebuild_terminal_caps(prepared, report, scope_index):
         if hasattr(field, "plan")
         else np.arange(len(vertices))
     )
-    ends = (
-        (0, 1),
-        (len(inputs.surface.vertices) - 2, len(inputs.surface.vertices) - 1),
-    )
     descriptors, maximum_shift = [], 0.0
-    for original, node in zip(ends, (chain[1][0], chain[1][-1]), strict=True):
+    for original, node in terminal_specs(report, scope_index):
         group = scope_index.groups_by_node[node]
         members = [
             m for m in group.members if m.domain_node == node and m.edge[:2] in selected
@@ -122,6 +134,7 @@ def rebuild_terminal_caps(prepared, report, scope_index):
         if len(members) != 1 or members[0].source_terminal is not True:
             raise ValueError("terminal_source_identity")
         member = members[0]
+        span = scope_index.index[1][member.edge[:2]]
         way = scope_index.ways_by_id[member.source_way]
         segment = way.first_segment if member.physical_end == 0 else way.last_segment
         faces = np.flatnonzero(
@@ -135,7 +148,7 @@ def rebuild_terminal_caps(prepared, report, scope_index):
         at, left, up = section_geometry(anchor, group.position, segment)
         old = vertices[path]
         current, initial = intersect_section(
-            old, chain[2] / 2, at, left, up, gradient, intercept
+            old, span.width_m / 2, at, left, up, gradient, intercept
         )
         vertices[path] = current
         maximum_shift = max(
@@ -150,7 +163,7 @@ def rebuild_terminal_caps(prepared, report, scope_index):
                 "source_way": member.source_way,
                 "source_segment": segment,
                 "anchor_longitude_latitude": group.position,
-                "half_width_m": chain[2] / 2,
+                "half_width_m": span.width_m / 2,
                 "cap_vertices": tuple(map(int, path)),
                 "part": part,
                 "plane_source_gradient": tuple(map(float, gradient)),

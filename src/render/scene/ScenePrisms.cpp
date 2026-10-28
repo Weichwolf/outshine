@@ -19,12 +19,16 @@ Native::Result<PrismGridHandle>
 SceneResources::PlacePrismGrid(GeometryRenderer &geometry,
                                std::shared_ptr<const PrismGrid> source,
                                std::span<const PrismInstance> instances,
-                               uint32_t material) {
+                               const MaterialRegistration &material) {
   if (FirstFreePrismGrid_ == kNoResourceSlot && PrismGrids_.size() >= kNoResourceSlot) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Unsupported,
                                          .Message = "prism source slots exceed native indices"});
   }
-  auto placed = geometry.PlacePrismGrid(source, instances, material);
+  if (!HasMaterialRegistration(material)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "prism material has no matching live source"});
+  }
+  auto placed = geometry.PlacePrismGrid(source, instances, material.First);
   if (!placed) { return std::unexpected(placed.error()); }
   PrismSource held{.State = {.Occupied = true},
                    .Source = std::move(source),
@@ -47,16 +51,21 @@ Native::Result<void> SceneResources::ReplacePrismGrid(GeometryRenderer &geometry
                                                       PrismGridHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
-                                                      uint32_t material) {
+                                                      const MaterialRegistration &material) {
   if (!HasPrismGrid(which)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism handle names no live source"});
   }
   auto &held = PrismGrids_[which.Slot];
-  if (held.Source == source && held.Material == material && held.Resident != 0) {
+  if (held.Source == source && held.Material.First == material.First &&
+      held.Material.Source == material.Source && held.Resident != 0) {
     return SetPrismGridInstances(geometry, which, instances);
   }
-  auto placed = geometry.PlacePrismGrid(source, instances, material);
+  if (!HasMaterialRegistration(material)) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "prism material has no matching live source"});
+  }
+  auto placed = geometry.PlacePrismGrid(source, instances, material.First);
   if (!placed) { return std::unexpected(placed.error()); }
   if (held.Resident != 0) { geometry.ReleasePrismGrid(held.Resident); }
   held.Resident = *placed;
@@ -92,7 +101,7 @@ void SceneResources::ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandl
     state.NextFree = FirstFreePrismGrid_;
     FirstFreePrismGrid_ = which.Slot;
   }
-  held = {.State = state, .Source = {}, .Instances = {}};
+  held = {.State = state, .Source = {}, .Instances = {}, .Material = {}};
 }
 
 void SceneResources::CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces) {
@@ -113,7 +122,7 @@ std::expected<bool, std::string> SceneResources::AdvancePrismRestore(GeometryRen
   while (nextGrid < PrismGrids_.size() && visited < gridsMost) {
     auto &held = PrismGrids_[nextGrid];
     if (held.State.Occupied && held.Resident == 0) {
-      auto placed = geometry.PlacePrismGrid(held.Source, held.Instances, held.Material);
+      auto placed = geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First);
       if (!placed) {
         if (placed.error().Kind == Native::ErrorKind::Busy) { return false; }
         return std::unexpected(std::move(placed.error().Message));

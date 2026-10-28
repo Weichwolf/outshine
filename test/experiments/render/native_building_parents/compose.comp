@@ -1,0 +1,41 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 0, binding = 0) uniform sampler2D colours;
+layout(set = 0, binding = 1) uniform sampler2D depths;
+layout(rgba32f, set = 1, binding = 0) writeonly uniform image2D result;
+
+layout(std140, set = 2, binding = 0) uniform Frame {
+  uvec4 size;
+}
+
+frame;
+
+void main() {
+  ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+  if (any(greaterThanEqual(p, ivec2(frame.size.xy)))) { return; }
+  float z[16];
+  vec4 c[16];
+  int groups = int(frame.size.z);
+  for (int i = 0; i < groups; ++i) {
+    ivec2 at = p + ivec2(0, i * int(frame.size.y));
+    z[i] = texelFetch(depths, at, 0).x;
+    c[i] = texelFetch(colours, at, 0);
+  }
+  vec3 radiance = vec3(0);
+  float t = 1;
+  for (int rank = 0; rank < groups; ++rank) {
+    int nearest = -1;
+    float best = 0;
+    for (int i = 0; i < groups; ++i) {
+      if (z[i] > best) {
+        best = z[i];
+        nearest = i;
+      }
+    }
+    if (nearest < 0) { break; }
+    radiance += t * c[nearest].a * c[nearest].rgb;
+    t *= 1 - c[nearest].a;
+    z[nearest] = 0;
+  }
+  imageStore(result, p, vec4(radiance, t));
+}

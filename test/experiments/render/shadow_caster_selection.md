@@ -1,6 +1,6 @@
 # Conservative index selection for shadow atlas strips
 
-Owner: #1048. The existing toroidal atlas already preserves unchanged texels.
+Owner: #1048; resident demand order: #1523. The existing toroidal atlas already preserves unchanged texels.
 The remaining measured work was drawing whole batch index ranges for thin strips.
 This step selects original index intervals before native vertex processing. It
 changes no atlas resolution, shadow LOD, shader, GPU binding or resource format.
@@ -30,16 +30,25 @@ Index buffer, model slot, material/alpha data and other draw state stay unchange
 The reported shadow draw count follows actual encoded packets, including zero
 when every qualified interval is outside and multiple disjoint retained packets.
 
-Bounds are prepared after accepted table/placement preparation and reused while
-those inputs are unchanged. Table changes invalidate selection; failed uploads
-cannot publish newly prepared bounds. An accepted full mesh qualifies its supplied
-cluster bounds. Any vertex `SetVertexInput` invalidates main-subject bounds until a new
+After accepted table/placement preparation, selection borrows the resident batch,
+job, sphere and packed-placement tables. Cluster ranges and conservative world
+bounds are resolved only after a shadow query selects their batch; further cascades
+reuse that batch's ranges. All four input views remain immutable until invalidation
+or the next preparation; the owner invalidates before replacing their storage.
+The first qualified demand reserves the known resident job capacity once; only
+demanded ranges are evaluated. This pays the complete admitted capacity without
+incremental relocation peaks, and retains it for reuse. A returned range view
+is valid only until the next query or invalidation, and encoding consumes it before
+another batch is queried. Selection/encoding mutates this local cache and
+is explicitly non-const. Table/placement changes invalidate selection; failed
+uploads cannot publish newly prepared bounds. An accepted full mesh qualifies its
+supplied cluster bounds. Any vertex `SetVertexInput` invalidates main-subject bounds until a new
 qualified mesh arrives; independent immutable pieces retain their own contract.
 The real native pose regression moves vertices into a light tile from outside
 their old spheres, verifies full draw coverage, then replaces the mesh/bounds and
 verifies fine selection becomes available again.
 
-A complete rebuild currently scans all resident jobs. The exported Tokyo input
+The earlier eager rebuild scanned all resident jobs. The exported Tokyo input
 has 8,214 batches, 50,330 jobs and 8,214 placements. Of those batches, 8,213 have
 qualified coverage; 2,082 lacked a whole-batch bound before this change. The
 largest measured original packet had 744,501 indices and 1,939 clusters. Source
@@ -113,8 +122,10 @@ source hashes, link maps and terminal receipts live in:
 - `/tmp/outshine-engine-motion-profile-493877d6e/runtime/`
 
 `NativeShadowCasterWork.cpp` reads the diagnostic snapshot and measures actual
-native preparation with the same source implementation. It is a CPU cost probe,
-not a GPU benchmark. Build with the product's full CDB flags and native archive.
+native preparation plus resolution of every batch with the same implementation.
+The reported total includes range queries, so deferring work cannot hide its cost;
+root preparation is also timed separately. It is a CPU cost probe, not a GPU
+benchmark. Build with the product's full CDB flags and native archive.
 The snapshot has four little-endian uint64 counts, followed by each batch's eight
 uint32 fields and four Float32 bound fields, the flat uint32 job table, the flat
 Float32 sphere table and sixteen current Float32 values for each placement.
