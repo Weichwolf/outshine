@@ -68,7 +68,7 @@ def compare(original, candidate):
 def compress(directory):
     records = []
     for path in sorted(directory.iterdir()):
-        if path.suffix not in {".linear", ".depth", ".rgba", ".f32"} and not (
+        if path.suffix not in {".linear", ".depth", ".normal", ".rgba", ".f32"} and not (
             path.suffix.startswith(".ss") and path.suffix[3:].isdigit()
         ):
             continue

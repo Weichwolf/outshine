@@ -277,11 +277,12 @@ Json DrawWith(Render::SceneRenderer &renderer,
   if (renderer.ReadSceneLinear(colour) != Render::ReadState::Ready ||
       renderer.ReadDepth(depth) != Render::ReadState::Ready ||
       renderer.ReadShadingNormal(normal) != Render::ReadState::Ready ||
-      renderer.ReadPixels(rgba) != Render::ReadState::Ready) {
+      renderer.ReadPixels(rgba) != Render::ReadState::Ready || normal.size() != depth.size() * 4) {
     Fail("incomplete readback");
   }
   Write<float>(output.string() + ".linear", colour);
   Write<float>(output.string() + ".depth", depth);
+  Write<float>(output.string() + ".normal", normal);
   Write<uint8_t>(output.string() + ".rgba", rgba);
   Json samples = Json::array();
   for (const auto &sample : renderer.GpuSamples()) {
