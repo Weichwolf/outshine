@@ -17,12 +17,29 @@ from replay_canonical_bridge_ports import allocations
 from replay_canonical_ports import process_peak, serializable
 
 
-def signature(products):
+def space_data(row):
+    return {
+        "owner_id": row.owner_id,
+        "purpose": row.purpose,
+        "geometry_wkb_hex": row.geometry.wkb_hex,
+        "origin_xy_m": row.origin_xy_m,
+        "lower_plane_m": row.lower_plane_m,
+        "upper_plane_m": row.upper_plane_m,
+    }
+
+
+def signature(products, *, spaces=False):
     result = hashlib.sha256()
     for product, _ in products:
         for key in ("surface", "body"):
             result.update(product[key].vertices.tobytes())
             result.update(product[key].triangles.tobytes())
+        if spaces:
+            result.update(
+                json.dumps(
+                    [space_data(r) for r in product["occupancies"]], sort_keys=True
+                ).encode()
+            )
     return result.hexdigest()
 
 
@@ -63,12 +80,13 @@ def replay(args):
     expected = signature(results["whole"])
     if signature(results["faces"]) != expected:
         raise ValueError("Compared deck geometry differs")
+    space_signatures = {m: signature(p, spaces=True) for m, p in results.items()}
     samples = {method: [] for method in results}
     for turn in range(args.rounds):
         for method in tuple(results) if turn % 2 == 0 else tuple(reversed(results)):
             value, cost = stage(method)
-            if signature(value) != expected:
-                raise ValueError("Timed geometry differs")
+            if signature(value, spaces=True) != space_signatures[method]:
+                raise ValueError("Timed geometry or occupied space differs")
             samples[method].append(cost)
     peak, peak_source = process_peak()
     traces = {}
@@ -81,8 +99,8 @@ def replay(args):
                 str(path), trace_python_allocators=True, native_traces=True
             ):
                 value, _ = stage(method)
-            if signature(value) != expected:
-                raise ValueError("Traced geometry differs")
+            if signature(value, spaces=True) != space_signatures[method]:
+                raise ValueError("Traced geometry or occupied space differs")
             traces[method] = allocations(path) | {
                 "scope": "Two warm source-bound end surfaces, whole closed decks, occupied-space products and independent whole-output checks. Source/ground preparation, profiling and plots excluded; allocation requests are not copied bytes."
             }
@@ -101,6 +119,9 @@ def replay(args):
             arrays[f"end{i}_{key}_vertices"] = product[key].vertices
             arrays[f"end{i}_{key}_faces"] = product[key].triangles
     np.savez(args.output / "geometry.npz", **arrays)
+    for products in results.values():
+        for product, record in products:
+            record["occupied_space"] = [space_data(r) for r in product["occupancies"]]
     report = {
         "schema": "outshine/bridge-end-bodies/1",
         "commit": subprocess.check_output(
@@ -121,6 +142,7 @@ def replay(args):
         "original_ground_sha256": hashlib.sha256(before).hexdigest(),
         "ground_unchanged": True,
         "artifact_sha256": expected,
+        "space_signatures": space_signatures,
         "process_peak_rss_bytes_before_profile_plot": peak,
         "process_peak_source": peak_source,
         "stored_array_payload_bytes": sum(a.nbytes for a in arrays.values()),
