@@ -35,6 +35,12 @@ def run(client, directory, request, mode, timeout):
     (directory / "terminal.exit").write_text(str(result.returncode) + "\n")
     if result.returncode:
         raise ValueError(f"native control failed: {directory}")
+    if mode == "--radiance-world":
+        report = json.loads((directory / "radiance-result.json").read_text())
+        if report.get("render_device_creations") != 1:
+            raise ValueError(
+                "one executing render sequence must share one render device"
+            )
 
 
 def image(path, pixels):

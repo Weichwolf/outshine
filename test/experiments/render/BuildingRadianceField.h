@@ -8,6 +8,10 @@
 #include <string>
 #include <vector>
 
+namespace outshine::Render {
+class SceneRenderer;
+}
+
 namespace outshine::Test {
 struct BuildingRadianceField {
   ImpostorCards Cards;
@@ -18,7 +22,8 @@ struct BuildingRadianceField {
 };
 
 [[nodiscard]] std::expected<BuildingRadianceField, std::string>
-PrepareBuildingRadiance(const ImpostorAtlas &atlas,
+PrepareBuildingRadiance(Render::SceneRenderer &renderer,
+                        const ImpostorAtlas &atlas,
                         size_t view,
                         const nlohmann::json &query,
                         const Geometry *original = nullptr);

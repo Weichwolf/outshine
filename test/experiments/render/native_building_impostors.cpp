@@ -8,6 +8,7 @@
 #include "Tasks.h"
 #include "BuildingSourceCapture.h"
 #include "BuildingRadianceField.h"
+#include "NativeMaterialMemory.h"
 #include "ImpostorInstances.h"
 #include "WorldCandidate.h"
 #include "AssetCache.h"
@@ -195,18 +196,24 @@ Json MeshStatistics(const Geometry &mesh) {
           {"vertices", vertices}};
 }
 
-Json Draw(const Geometry &mesh,
-          const Json &query,
-          const Fs::path &output,
-          const ImpostorCards *cards = nullptr) {
-  const int samplesAxis = FilterSamples(query);
-  const auto began = Clock::now();
+Render::GpuSubmission TimedSubmission(size_t &creations) {
   Render::GpuSubmission submission;
-  submission.Create = [](void *, Render::Native::DeviceOptions options) {
+  submission.Context = &creations;
+  submission.Create = [](void *context, Render::Native::DeviceOptions options) {
+    ++*static_cast<size_t *>(context);
     options.GpuTiming = Render::Native::GpuTimingMode::Submission;
     return Render::Native::CreateDevice(options);
   };
-  Render::SceneRenderer renderer{submission};
+  return submission;
+}
+
+Json DrawWith(Render::SceneRenderer &renderer,
+              const Geometry &mesh,
+              const Json &query,
+              const Fs::path &output,
+              const ImpostorCards *cards = nullptr) {
+  const int samplesAxis = FilterSamples(query);
+  const auto began = Clock::now();
   Core::Declaration declaration;
   declaration.InitialGeometry = mesh.parts() > 0 ? &mesh : nullptr;
   declaration.SurfaceWidthPx = 1280;
@@ -279,6 +286,15 @@ Json Draw(const Geometry &mesh,
                  {"gpu_ms", samples},
                  {"filter_axis_samples", samplesAxis}});
   return result;
+}
+
+Json Draw(const Geometry &mesh,
+          const Json &query,
+          const Fs::path &output,
+          const ImpostorCards *cards = nullptr) {
+  size_t creations = 0;
+  Render::SceneRenderer renderer{TimedSubmission(creations)};
+  return DrawWith(renderer, mesh, query, output, cards);
 }
 
 Json CaptureStatistics(const ImpostorAtlas &atlas) {
@@ -511,6 +527,8 @@ void RadianceViews(const Fs::path &root, const Json &input) {
     if (!document.is_object()) { Fail("original field geometry unavailable"); }
     original = Source(path.parent_path(), document);
   }
+  size_t creations = 0;
+  Render::SceneRenderer renderer{TimedSubmission(creations)};
   Json report{{"mode", "radiance-world"}, {"cases", Json::array()}};
   for (const auto &query : input.at("queries")) {
     const Vec3 toward = Vector(query.at("eye")) - metadata.Centre;
@@ -521,21 +539,32 @@ void RadianceViews(const Fs::path &root, const Json &input) {
       }
     }
     const auto &atlas = source.Require(view);
-    auto field = Test::PrepareBuildingRadiance(atlas,
+    auto field = Test::PrepareBuildingRadiance(renderer,
+                                               atlas,
                                                source.Recipe.is_object() ? 0 : view,
                                                query,
                                                original.parts() > 0 ? &original : nullptr);
     if (!field) { Fail(field.error()); }
     const auto name = query.at("name").get<std::string>();
     Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
-    auto result = Draw(Geometry{}, query, root / (name + "-radiance-world"), &field->Cards);
+    auto result =
+        DrawWith(renderer, Geometry{}, query, root / (name + "-radiance-world"), &field->Cards);
     result.update({{"query", name},
                    {"selected_view", view},
                    {"field_prepare_ms", field->PrepareMs},
                    {"field_gpu_ms", field->GpuMs},
                    {"field_setup_gpu_ms", field->SetupGpuMs}});
+    const auto allocations = renderer.FrameGraphAllocationCounts();
+    result["framegraph_allocations"] = {{"textures", allocations.Textures},
+                                        {"buffers", allocations.Buffers},
+                                        {"samplers", allocations.Samplers}};
+    result["geometry_held_bytes"] = renderer.PieceBytesHeld();
+    if (const auto bytes = Test::MaterialDeviceAllocatedBytes()) {
+      result["metal_allocated_bytes"] = *bytes;
+    }
     report["cases"].push_back(std::move(result));
   }
+  report["render_device_creations"] = creations;
   report["captures"] = source.Captures;
   if (source.Producer) { report["source_capture"] = source.Producer->Report(); }
   std::ofstream file(root / "radiance-result.json");

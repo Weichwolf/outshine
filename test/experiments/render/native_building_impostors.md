@@ -87,8 +87,10 @@ radiance/coverage to the selected screen support, then publish the unlit optical
 card through the existing WorldCandidate. It uses nearest reconstruction of the
 selected level, not another material/normal average. Nothing switches the general
 World path or changes stored view products. There is no source-free warm-hit claim
-for this diagnostic: it currently creates local GPU contexts, reads back, filters
-on the CPU and uploads again. These are charged prototype costs, not a runtime design.
+for this diagnostic: one call shares a renderer for field shading and presentation,
+reads back, filters on the CPU and uploads again. The renderer stays in its executing
+call/thread; it is never retained across non-affine source jobs. These are charged
+prototype costs, not a runtime design.
 
 Reproduce with the existing prepared original-part arrays and fixed source archive:
 

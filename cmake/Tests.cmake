@@ -319,6 +319,8 @@ add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
 if(APPLE)
   target_sources(test_experiments_render_NativeMaterialResidency PRIVATE
     test/experiments/render/NativeMaterialMemory.mm)
+  target_sources(test_experiments_render_NativeBuildingImpostors PRIVATE
+    test/experiments/render/NativeMaterialMemory.mm)
 endif()
 add_dependencies(test_experiments_render_NativeMaterialResidency outshine_shaders)
 target_compile_options(test_experiments_render_NativeMaterialResidency PRIVATE -fno-exceptions)

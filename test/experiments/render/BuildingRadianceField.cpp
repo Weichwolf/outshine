@@ -27,7 +27,8 @@ namespace outshine::Test {
 namespace {
 using Clock = std::chrono::steady_clock;
 
-std::expected<std::vector<float>, std::string> Shade(const ImpostorAtlas &atlas,
+std::expected<std::vector<float>, std::string> Shade(Render::SceneRenderer &renderer,
+                                                     const ImpostorAtlas &atlas,
                                                      size_t view,
                                                      const nlohmann::json &query,
                                                      BuildingRadianceField &result,
@@ -35,12 +36,6 @@ std::expected<std::vector<float>, std::string> Shade(const ImpostorAtlas &atlas,
   auto source = original != nullptr ? std::optional(original->clone())
                                     : Render::BuildImpostorSurface(atlas, view);
   if (!source) { return std::unexpected("source material field unavailable"); }
-  Render::GpuSubmission submission;
-  submission.Create = [](void *, Render::Native::DeviceOptions options) {
-    options.GpuTiming = Render::Native::GpuTimingMode::Submission;
-    return Render::Native::CreateDevice(options);
-  };
-  Render::SceneRenderer renderer{submission};
   Core::Declaration declaration;
   declaration.InitialGeometry = &*source;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = atlas.Pixels();
@@ -124,13 +119,14 @@ AddRadiance(Geometry &geometry, std::vector<float> values, Core::Texels extent, 
 }
 
 std::expected<BuildingRadianceField, std::string>
-PrepareBuildingRadiance(const ImpostorAtlas &atlas,
+PrepareBuildingRadiance(Render::SceneRenderer &renderer,
+                        const ImpostorAtlas &atlas,
                         size_t view,
                         const nlohmann::json &query,
                         const Geometry *original) {
   const auto began = Clock::now();
   BuildingRadianceField result;
-  auto values = Shade(atlas, view, query, result, original);
+  auto values = Shade(renderer, atlas, view, query, result, original);
   if (!values) { return std::unexpected(values.error()); }
   result.SourceLinear = *values;
   auto surface = Render::BuildFractionalImpostorSurface(atlas, view);
