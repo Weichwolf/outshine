@@ -215,7 +215,7 @@ def joined(meshes):
     }
 
 
-def compact(prepared, *, portals=(), legacy_trim=True):
+def compact(prepared, *, portals=(), legacy_trim=True, recess_components=None):
     mass, facade = prepared.local, prepared.facade
     writer = Surfaces()
     by_edge = {}
@@ -235,7 +235,7 @@ def compact(prepared, *, portals=(), legacy_trim=True):
                         ei,
                         a,
                         b,
-                        portals,
+                        (*portals, *(r.outer for r in prepared.recesses)),
                     )
     if legacy_trim:
         accents(writer, mass, facade, portals)
@@ -262,6 +262,15 @@ def compact(prepared, *, portals=(), legacy_trim=True):
     qmesh["materials"] = np.repeat(writer.quad_materials, 2).astype(np.uint16)
     wmesh, window_owners = flat_windows(facade)
     mesh = joined((mesh, qmesh, wmesh))
+    recess_names, recess_owners = (), np.empty(0, dtype=np.uint32)
+    if prepared.recesses:
+        from facade_recess_geometry import resolved
+
+        components = resolved(prepared, recess_components)
+        rmesh = triangle_surface(components.mesh, 12)
+        rmesh["materials"] = components.mesh["materials"]
+        mesh = joined((mesh, rmesh))
+        recess_names, recess_owners = components.owners, components.mesh["parts"]
     mesh["vertices"] = positions(mesh["vertices"], prepared.mass.core)
     normals = mesh["normals"].copy()
     normals[:, :2] = normals[:, :1] * np.asarray(
@@ -271,11 +280,13 @@ def compact(prepared, *, portals=(), legacy_trim=True):
     horizontal, names = caps(prepared)
     mesh = joined((mesh, horizontal))
     window_base = len(writer.owners) + len(writer.quad_owners)
-    names_base = window_base + len(facade.windows)
+    recess_base = window_base + len(facade.windows)
+    names_base = recess_base + len(recess_names)
     owner_indices = np.r_[
         raw["parts"],
         np.repeat(np.arange(len(writer.quad_owners)) + len(writer.owners), 2),
         window_owners + window_base,
+        recess_owners + recess_base,
         np.arange(len(names)) + names_base,
     ].astype(np.uint32)
     return CompactFacade(
@@ -283,6 +294,7 @@ def compact(prepared, *, portals=(), legacy_trim=True):
         tuple(writer.owners)
         + tuple(writer.quad_owners)
         + tuple(w.identifier for w in facade.windows)
+        + recess_names
         + tuple(names),
         frozen(owner_indices),
         tuple(w.identifier for w in facade.windows),
