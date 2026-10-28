@@ -305,7 +305,8 @@ add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
-  test/experiments/render/BuildingSourceCapture.cpp)
+  test/experiments/render/BuildingSourceCapture.cpp
+  test/experiments/render/BuildingRadianceField.cpp)
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
   test/experiments/render/native_building_source_planes.cpp
   test/experiments/render/BuildingSourceCapture.cpp)
