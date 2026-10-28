@@ -6,7 +6,7 @@ import numpy as np
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.heights import _face_gradients
 
-METHODS = ("midpoint", "centroid", "quartiles", "octiles")
+METHODS = ("midpoint", "centroid", "quartiles")
 
 
 def _edge_probes(mesh, candidates, parameters, maximum_candidates):
@@ -88,9 +88,7 @@ def _candidates(mesh, protected, method, *, maximum_candidates=65536):
     }
     if method == "midpoint":
         return result
-    parameters = (
-        np.array([0.25, 0.5, 0.75]) if method == "quartiles" else np.arange(1, 8) / 8
-    )
+    parameters = np.array([0.25, 0.5, 0.75])
     return _edge_probes(mesh, result, parameters, maximum_candidates)
 
 
@@ -235,7 +233,9 @@ def refine_ground(
 ):
     """Refine a valid fixed height plan; every old vertex stays exactly unchanged.
 
-    Midpoints split both adjacent soil faces; road/external edges stay protected.
+    Edge points split both adjacent soil faces; road/external edges stay protected.
+    Quartiles probe three dyadic positions and count all target queries against
+    the existing quality capacity, with at most65536 live expanded candidates.
     Centroids are the equal-cost comparison. Face-disjoint batches keep analytic
     one-free-height intervals independent. Priority is a local area/gain heuristic,
     not ROAM optimality, a DEM supremum bound or a smoothness certificate.
@@ -266,7 +266,7 @@ def refine_ground(
     base, roots = mesh, np.arange(len(mesh.triangles))
     steps, inserted, quality_queries, reason = [], 0, 0, ""
     probe_queries = 0
-    expanded = method in ("quartiles", "octiles")
+    expanded = method == "quartiles"
     for _ in range(max_passes):
         capacity = min(
             max_new_vertices - inserted, max(0, (max_faces - len(mesh.triangles)) // 2)

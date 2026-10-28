@@ -17,7 +17,7 @@ from ground_rim_validation import compare_domains
 from replay_canonical_bridge_ports import allocations
 from replay_canonical_ports import process_peak, serializable
 
-METHODS = ("midpoint", "centroid", "quartiles", "octiles")
+METHODS = ("midpoint", "centroid", "quartiles")
 ARRAYS = ("road_vertex_map", "outer_vertex_ids", "prior_z", "refinement_roots")
 
 

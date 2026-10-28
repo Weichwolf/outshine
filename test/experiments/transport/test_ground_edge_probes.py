@@ -85,7 +85,7 @@ class NoncentralEdgeFields(unittest.TestCase):
         old, _, old_report = refine_ground(mesh, target, max_new_vertices=1)
         self.assertIs(old, mesh)
         self.assertEqual(old_report["new_vertices"], 0)
-        for method in ("quartiles", "octiles"):
+        for method in ("quartiles",):
             result, _, report = refine_ground(
                 mesh, target, method=method, max_new_vertices=1
             )
@@ -103,7 +103,7 @@ class NoncentralEdgeFields(unittest.TestCase):
         self,
     ):
         target = Mock(side_effect=AssertionError("target work"))
-        for method in ("quartiles", "octiles"):
+        for method in ("quartiles",):
             mesh = square()
             result, _, report = refine_ground(
                 mesh, target, method=method, max_quality_queries=2
@@ -136,7 +136,7 @@ class OriginalOffcentreRelief(unittest.TestCase):
                 context.sample_z,
                 refinement_method=method,
             )
-            for method in ("midpoint", "quartiles", "octiles")
+            for method in ("midpoint", "quartiles")
         }
         common = np.unique(
             np.vstack(
@@ -155,7 +155,6 @@ class OriginalOffcentreRelief(unittest.TestCase):
             errors[method] = float(abs(sampled.points_enu_m[:, 2] - truth).max())
         self.assertGreater(errors["midpoint"], 0.28)
         self.assertLess(errors["quartiles"], 0.25)
-        self.assertLess(errors["octiles"], 0.25)
         self.assertEqual(results["midpoint"]["refinement"]["new_vertices"], 0)
 
 
