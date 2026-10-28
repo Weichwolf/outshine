@@ -57,7 +57,7 @@ class CycleTopology(unittest.TestCase):
                 source_cycle(index, tuple(index[1]))
         index = index_for(((0, 1), (1, 3), (3, 2), (2, 0)))
         index[2][0].append((99, 0))
-        with patch("ground_cycle.layout") as geometry:
+        with patch("ground_cyclic_surface.layout") as geometry:
             with self.assertRaisesRegex(ValueError, "incomplete_cycle_component"):
                 prepare_cycle(
                     index, tuple(index[1]), self.fail, PortBudget(), deadline=1e30
@@ -72,7 +72,7 @@ class CycleTopology(unittest.TestCase):
         ):
             index = index_for(((0, 1), (1, 3), (3, 2), (2, 0)))
             setattr(index[1][(0, 0)], field, value)
-            with patch("ground_cycle.layout") as geometry:
+            with patch("ground_cyclic_surface.layout") as geometry:
                 with self.assertRaises(ValueError):
                     prepare_cycle(
                         index, tuple(index[1]), self.fail, PortBudget(), deadline=1e30
