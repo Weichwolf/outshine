@@ -248,13 +248,25 @@ void Run(const std::filesystem::path &root) {
     return;
   }
   const auto raw = Inputs();
-  const auto key = assets->Key({.Zoom = 0, .X = 0, .Y = 0}, 0, {}, 1000);
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const std::string inputDigest(64, 'a');
+  const auto key = assets->Key(tile, 0, {}, 1000, inputDigest);
+  const auto request = assets->RequestKey(tile, {}, 1000, inputDigest);
   const std::atomic_bool stop{false};
-  auto base = assets->Generate(key, raw, *heights, stop);
+  auto base = assets->Generate(key, raw, *heights, stop, request);
   CHECK(base && *base, "native game assets build without the archive adapter");
   if (!base || !*base) { return; }
+  const auto beforeDemand = assets->Costs();
+  const auto demand = assets->LoadBasisRequest(request);
+  CHECK(demand && *demand && !(**demand).Bounds.Empty(),
+        "the source receives its native address and bounds before loading original forms");
+  if (!demand || !*demand) { return; }
+  CHECK(assets->Costs().ReadBytes == beforeDemand.ReadBytes &&
+            assets->Costs().SurfaceReadBytes == beforeDemand.SurfaceReadBytes &&
+            assets->Costs().GeometryReadBytes == beforeDemand.GeometryReadBytes,
+        "source demand bounds require only the existing basis and request metadata");
   const BuildingImpostorSource::Recipe recipe{
-      .BaseKey = key,
+      .BaseKey = (**demand).BaseKey,
       .Cells = {1},
       .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
                 .Origin = {{3, 4, 5}}},
