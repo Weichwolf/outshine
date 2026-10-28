@@ -30,6 +30,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - [Kleine tatsächliche Straßenschleifen](ground_cycle.md): ein ganzer sechsteiliger
   Quellverbund, zwölf innere Profile und erhaltene Lochfläche; vorhandene
   Source-/Unknown-/World-Grenzen bleiben streng (#1569/#1402).
+- [Konforme Kontakte an festgehaltenen Straßen](ground_contact.md): qualifizierter
+  Dreiarm-Fit mit unveränderten XYZ/Endprofilen und90ganzen Bodenanschlüssen;
+  lokale Geländevarianten werden geprüft statt Straßen erneut zu fitten (#1574).
 - [Installierter gemeinsamer Höhenkern](stair_level_library_comparison.md):
   gleiche ganze 90er Produkte und pixelgleiche 720p-Bilder, neue begrenzte
   Bibliotheksfunktion statt numerischer Experimentkopien (#732/#50).
