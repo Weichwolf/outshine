@@ -86,11 +86,33 @@ full-resolution material field with the current light, filter premultiplied line
 radiance/coverage to the selected screen support, then publish the unlit optical
 card through the existing WorldCandidate. It uses nearest reconstruction of the
 selected level, not another material/normal average. Nothing switches the general
-World path or changes stored view products. There is no source-free warm-hit claim
-for this diagnostic: one call shares a renderer for field shading and presentation,
-reads back, filters on the CPU and uploads again. The renderer stays in its executing
+World path or reinterprets existing reduced card products. The selected unlit view
+is stored separately as `impostor-material-view-1` under the same metadata index.
+Its key binds capture/source identity and catalogue direction, independently of
+light, query name and selected screen mip. The native atlas codec preserves coupled
+normal/material samples, depth and empty coverage at the full capture resolution;
+reducing those samples before lighting would lose their joint response.
+Selection precedes payload IO; only a missing valid field invokes source capture.
+The byte limit is checked before serialization allocation and payload decode; it is
+not a total producer working-memory reservation. A fresh validated hit needs neither
+source headers nor source geometry. One call shares a renderer for field shading
+and presentation, reads back, filters on the CPU and uploads again. It stays in its executing
 call/thread; it is never retained across non-affine source jobs. These are charged
 prototype costs, not a runtime design.
+
+```sh
+python test/experiments/render/replay_cached_radiance.py \
+  --client "$build/test_experiments_render_NativeBuildingImpostors" \
+  --source-input "$source/input.json" --output "$new_system_temp_directory"
+```
+
+The eight fixed controls generate only two raw views. A fresh process with an absent
+source path, zero source-work budget, reversed cell order and renamed queries relights
+the stored fields: all 40 raw outputs and view keys must match, with no source work
+or field writes. Removing a required field must fail without changing remaining
+assets. The driver checks finite positive radiance and losslessly compresses outputs
+with SHA receipts. This proves the selected native cache/relighting consumer, not
+asynchronous World production, cancellation, angular/LOD quality or frame budgets.
 
 Reproduce with the existing prepared original-part arrays and fixed source archive:
 
@@ -126,4 +148,4 @@ In very small original geometry, SS16 can be far from the denser finite averages
 Compare SS16/1024/4096 before attributing a discrepancy to the new representation;
 none is a continuous-integral bound or permission to regenerate existing pins.
 Movement/history, angular error, changed-light scheduling, bounded residency,
-shared GPU execution and whole-frame costs remain open under #1570/#1127/#1524.
+GPU-resident filtering and whole-frame costs remain open under #1570/#1127/#1524.

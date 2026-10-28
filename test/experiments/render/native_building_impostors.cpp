@@ -511,6 +511,50 @@ struct BuildingViewSource {
   }
 };
 
+Content::ImpostorViewAssets
+OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
+  using Content::ImpostorViewAssets;
+  const auto provenance = source.Identity();
+  auto opened = ImpostorViewAssets::Open(cache, provenance);
+  if (!opened) { Fail("native world metadata read failed"); }
+  if (*opened) { return std::move(**opened); }
+  auto published = ImpostorViewAssets::Publish(cache, provenance, source.Description(), bounds);
+  if (!published) { Fail("native world metadata publication failed"); }
+  return std::move(*published);
+}
+
+ImpostorAtlas ResolveSourceField(const Content::ImpostorViewAssets &products,
+                                 BuildingViewSource &source,
+                                 size_t view,
+                                 bool &hit) {
+  constexpr size_t limit = size_t{64} * 1024 * 1024;
+  auto loaded = products.ResolveField(
+      {view},
+      limit,
+      [&](Content::ImpostorViewAssets::ViewIndex selected,
+          size_t budget) -> std::expected<ImpostorAtlas, AssetCacheError> {
+        const auto bound = ImpostorAtlas::EncodedBytesMost(
+            {.Pixels = static_cast<int>(products.Metadata().Pixels), .Views = 1});
+        if (!bound || *bound > budget) {
+          return std::unexpected(AssetCacheError::CapacityExceeded);
+        }
+        hit = false;
+        const auto &atlas = source.Require(selected.Value);
+        const size_t local = source.Recipe.is_object() ? 0 : selected.Value;
+        std::string error;
+        auto field = ImpostorAtlas::Create(atlas.Pixels(),
+                                           atlas.CentreM(),
+                                           atlas.HalfExtentM(),
+                                           atlas.Surfaces(),
+                                           {atlas.Views()[local]},
+                                           error);
+        if (!field) { return std::unexpected(AssetCacheError::InvalidInput); }
+        return std::move(*field);
+      });
+  if (!loaded) { Fail("required source material field unavailable"); }
+  return std::move(*loaded);
+}
+
 void RadianceViews(const Fs::path &root, const Json &input) {
   BuildingViewSource source{
       .AtlasFile = root / "atlas.bin",
@@ -518,7 +562,12 @@ void RadianceViews(const Fs::path &root, const Json &input) {
       .AtlasProvenance = input.value("atlas_provenance", std::string("native-original-impostor-1")),
       .SourceInput = input.value("source_input", std::string{}),
       .Recipe = input.value("source_request", Json(nullptr))};
-  const auto metadata = source.Description();
+  auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());
+  if (!opened) { Fail("material field database unavailable"); }
+  const auto products = OpenViewAssets(
+      **opened, source, {.Min = Vector(input.at("least")), .Max = Vector(input.at("most"))});
+  const auto &metadata = products.Metadata();
+  size_t writes = 0;
   Geometry original;
   if (input.contains("field_original")) {
     const Fs::path path(input.at("field_original").get<std::string>());
@@ -538,12 +587,13 @@ void RadianceViews(const Fs::path &root, const Json &input) {
         view = at;
       }
     }
-    const auto &atlas = source.Require(view);
-    auto field = Test::PrepareBuildingRadiance(renderer,
-                                               atlas,
-                                               source.Recipe.is_object() ? 0 : view,
-                                               query,
-                                               original.parts() > 0 ? &original : nullptr);
+    bool hit = true;
+    const auto began = Clock::now();
+    const auto atlas = ResolveSourceField(products, source, view, hit);
+    const double loadMs = Milliseconds(began);
+    if (!hit) { ++writes; }
+    auto field = Test::PrepareBuildingRadiance(
+        renderer, atlas, 0, query, original.parts() > 0 ? &original : nullptr);
     if (!field) { Fail(field.error()); }
     const auto name = query.at("name").get<std::string>();
     Write<float>(root / (name + "-source-field.f32"), field->SourceLinear);
@@ -553,7 +603,10 @@ void RadianceViews(const Fs::path &root, const Json &input) {
                    {"selected_view", view},
                    {"field_prepare_ms", field->PrepareMs},
                    {"field_gpu_ms", field->GpuMs},
-                   {"field_setup_gpu_ms", field->SetupGpuMs}});
+                   {"field_setup_gpu_ms", field->SetupGpuMs},
+                   {"field_hit", hit},
+                   {"field_load_ms", loadMs},
+                   {"field_asset_key", products.FieldKey({view})}});
     const auto allocations = renderer.FrameGraphAllocationCounts();
     result["framegraph_allocations"] = {{"textures", allocations.Textures},
                                         {"buffers", allocations.Buffers},
@@ -565,23 +618,14 @@ void RadianceViews(const Fs::path &root, const Json &input) {
     report["cases"].push_back(std::move(result));
   }
   report["render_device_creations"] = creations;
+  report["field_writes"] = writes;
+  report["atlas_read_bytes"] = source.ReadBytes;
+  report["atlas_decodes"] = source.Decodes;
   report["captures"] = source.Captures;
   if (source.Producer) { report["source_capture"] = source.Producer->Report(); }
   std::ofstream file(root / "radiance-result.json");
   file << report.dump(2) << '\n';
   if (!file) { Fail("radiance report write failed"); }
-}
-
-Content::ImpostorViewAssets
-OpenViewAssets(AssetCache &cache, BuildingViewSource &source, Box bounds) {
-  using Content::ImpostorViewAssets;
-  const auto provenance = source.Identity();
-  auto opened = ImpostorViewAssets::Open(cache, provenance);
-  if (!opened) { Fail("native world metadata read failed"); }
-  if (*opened) { return std::move(**opened); }
-  auto published = ImpostorViewAssets::Publish(cache, provenance, source.Description(), bounds);
-  if (!published) { Fail("native world metadata publication failed"); }
-  return std::move(*published);
 }
 
 ImpostorCards ResolveView(AssetPipeline &pipeline,
