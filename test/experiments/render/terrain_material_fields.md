@@ -86,8 +86,47 @@ was read and inspected on pages 3–4, equations 3–6 and figures 6–8. The
 Linearly filtered mean/second slope moments do not establish exact GGX filtering;
 LEAN's Beckmann treatment is not substituted for Outshine's GGX response.
 
-Actual native Jura/Koerbersee points and their stable frame, derivatives, normals,
-classes and palette remain required under #1684/6488134049. Actual composed
-substrate/litter images and costs, temporal/footprint controls and source-bound
-field cost comparison remain open. Procedure decision, terminal evidence and current delivery scope belong in
-the PR. No native/default/device recommendation follows from the controlled probe.
+The actual bound A18 inputs are now the fixed
+`fixtures/terrain-material-fragments/` data from #1684/688eda01c. Their README owns
+the instrumented-frame limitations. The loader retains binary32 observations,
+signed fallback selections, all palette words and per-point word hashes. In
+particular, raw fine normals remain unnormalized. Invalid selections use the
+fallback optical row and the distinct unmapped substrate recipe, as the shader does.
+Full material reconstruction consumes the observed class/rock weights rather
+than inventing a new class selector. Negative weights are outside the current
+clamped shader contract and cannot justify the support optimization below.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
+  OMP_NUM_THREADS=1 nice -n 10 .venv/bin/python -B \
+  test/experiments/render/replay_terrain_material_observations.py \
+  --input test/experiments/render/fixtures/terrain-material-fragments/jura.json \
+          test/experiments/render/fixtures/terrain-material-fragments/koerbersee.json \
+  --output /tmp/outshine-terrain-material-observations
+```
+
+One simpler alternative avoids work before requiring additional field storage.
+For finite material values and the original nonnegative clamped mixture weights,
+the first class has no effect when the other class is used at class weight zero.
+Rock is needed only on a class side with positive support:
+
+```text
+other_used = edge < no_edge && class_weight < 1
+first_used = !other_used || class_weight > 0
+rock_needed = (first_used && first_rock > 0) || (other_used && other_rock > 0)
+```
+
+No threshold or product of tiny weights defines support. Unused first-class
+substrate work is skipped as well. Both exact alternatives retain every one of
+the six current Double material/derivative channels on the actual observations.
+Singleton integer fields are constructed inside this quality control: cumulative
+construction bytes do not estimate world residency or an amortized cache hit.
+The warm bounded-plane comparison reports preparation separately.
+
+Double-reference residuals against the instrumented GPU values are observations,
+not new acceptance tolerances. Final shading normals are not independently
+revalidated because exact scene-position derivatives were not captured. No full
+renderer, uninstrumented image, native field address/precision/sampler, IO/residency,
+motion, GPU cost or device budget is admitted here. Procedure decision, terminal
+evidence and current delivery scope belong in the PR. Existing NDF limitations
+remain unchanged; native adoption needs its own ordinary frame/image/cost check.
