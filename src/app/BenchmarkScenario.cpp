@@ -3,7 +3,6 @@
 #include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkReport.h"
-#include "FrameSchedule.h"
 #include "FrameTiming.h"
 #include "GpuFrameTiming.h"
 #include "HostProcessor.h"
@@ -59,7 +58,6 @@ Result MeasureFrames(Engine &engine,
   auto renderer = engine.renderer();
   if (const auto reset = renderer.resetMeasurements(report.Motion.Frames); !reset) { return reset; }
   const auto began = Clock::now();
-  const FrameSchedule schedule(SDL_GetTicksNS(), timing);
   for (size_t frame = 0; frame < report.Motion.Frames; ++frame) {
     const auto frameAt = Clock::now();
     const auto pose = motion.At(frame);
@@ -79,7 +77,6 @@ Result MeasureFrames(Engine &engine,
                              .AdvanceMs = advanceMs,
                              .RenderMs = renderMs,
                              .Refined = refined});
-    schedule.Wait(frame + 1);
   }
   report.WindowMs = ElapsedMs(began);
   if (!renderer.camera(report.Finish)) {
@@ -191,6 +188,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   }
   const auto hardwareAt = Clock::now();
   report.Cpu = HostProcessorName();
+  report.Memory = ReadProcessMemory();
   report.Gpu = engine.renderer().gpuName();
   report.HardwareMs = ElapsedMs(hardwareAt);
   report.LoadAfter = HostLoad();

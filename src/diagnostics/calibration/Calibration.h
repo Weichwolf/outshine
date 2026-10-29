@@ -2,6 +2,7 @@
 #define OUTSHINE_DIAGNOSTICS_CALIBRATION_CALIBRATION_H
 
 #include "Device.h"
+#include "ProcessMemory.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -59,6 +60,7 @@ struct Report {
   bool FmaTargetFeature = false;
   bool GpuValidation = false;
   Build Compilation;
+  ProcessMemorySnapshot Memory{};
   std::vector<Workload> Workloads;
 };
 

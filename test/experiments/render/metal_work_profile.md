@@ -28,6 +28,8 @@ match the benchmark sample sequence in exactly one contiguous window. Matching u
 at most0.500001ns printing tolerance, not assumed equality of native/interposer IDs.
 Missing or ambiguous matches fail; preload stays in raw records and out of summaries.
 Custom plans without a sky pass remain outside this diagnostic.
+Scenario report v1 is paced; v2 requires `profile.pacing=unpaced`. Both use the same
+GPU-window checks; `frame_timings` records version/pacing for separate comparisons.
 
 - Raster vertex/fragment intervals can overlap each other and other passes; do not
   add them into a frame. Apple counter deltas are nanoseconds, not CPU mach ticks.

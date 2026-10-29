@@ -51,6 +51,7 @@ Native::Result<Report> Run(Native::Device &device, Shaders shaders, Build build)
   report.Workloads.insert(report.Workloads.end(),
                           std::make_move_iterator(gpu->begin()),
                           std::make_move_iterator(gpu->end()));
+  report.Memory = ReadProcessMemory();
   return report;
 }
 }

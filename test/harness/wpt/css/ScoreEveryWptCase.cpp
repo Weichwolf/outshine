@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include <print>
 #include <array>
 #include <cstddef>
@@ -149,12 +150,12 @@ bool InsideSubset(const Ui::Markup &markup, const Ui::Stylesheet &sheet, const s
     for (const std::string &name : names) {
       const char *why = Ui::WhyOutside(name);
       std::string &into = why != nullptr ? boundary : gap;
-      if (!into.empty()) { into += " "; }
+      if (!into.empty()) { into += ' '; }
       into += name;
       if (why != nullptr) {
         into += " (";
         into += why;
-        into += ")";
+        into += ')';
       }
     }
     if (gap.empty()) {
@@ -268,7 +269,7 @@ void ScoreLayout(const Ui::Layout &layout, const Ui::Markup &markup, const std::
 
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 2) {
     outshine::Test::Checked(
         false, "argc == 2", "one prepared case directory is the argument", __FILE__, __LINE__);
@@ -285,7 +286,7 @@ int main(int argc, char **argv) {
   Ui::Stylesheet sheet;
   if (!ReadStylesheet(prepared, input, markup, sheet)) { return outshine::Test::Report(); }
   Ui::Layout layout;
-  const Ui::AhemFont font;
+  const outshine::Test::AhemFont font;
   std::string error;
   if (!layout.Build(markup,
                     sheet,

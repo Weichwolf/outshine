@@ -141,6 +141,7 @@ void GeometryRenderer::OrderPieces() {
       return MaterialSlotFor(left) < MaterialSlotFor(right);
     }
     if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
+    if (left.ProductOrder != right.ProductOrder) { return left.ProductOrder < right.ProductOrder; }
     return a < b;
   });
 }

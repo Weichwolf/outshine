@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
-def draw(context, result, output):
+def draw(context, result, output, *, title=None):
     road = context.road
     coarse, final = result["coarse_mesh"], result["mesh"]
     prior = coarse.vertices.copy()
     prior[:, 2] = result["prior_z"]
     datum = float(road.vertices[:, 2].min())
     figure = plt.figure(figsize=(16, 7), layout="constrained")
-    for panel, vertices, faces, title in (
+    for panel, vertices, faces, panel_title in (
         (
             1,
             prior,
@@ -60,12 +60,13 @@ def draw(context, result, output):
             xlabel="east m",
             ylabel="north m",
             zlabel=f"height minus{datum:.3f}m",
-            title=title,
+            title=panel_title,
         )
         axis.set_box_aspect((*(high - low), zhigh - zlow))
         axis.view_init(elev=24, azim=-65)
     figure.suptitle(
-        "Actual source-qualified three-arm road / all123XYZ and three terminal profiles unchanged\nMetric aspect, no vertical exaggeration; local C0 diagnostic, no native World/PBR/device acceptance"
+        title
+        or "Actual source-qualified three-arm road / all123XYZ and three terminal profiles unchanged\nMetric aspect, no vertical exaggeration; local C0 diagnostic, no native World/PBR/device acceptance"
     )
     figure.savefig(output / "terrain-contact.png", dpi=150)
     plt.close(figure)
