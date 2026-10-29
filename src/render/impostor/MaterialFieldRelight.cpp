@@ -73,8 +73,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   const auto &data = source.Data_;
   if (!state.OnOwner() || !state.Pipelines->Ready || !data || data->Pipelines != state.Pipelines ||
       view.Target.WidthPx <= 0 || view.Target.HeightPx <= 0 ||
-      data->Raster.WidthPx % view.Target.WidthPx != 0 ||
-      data->Raster.HeightPx % view.Target.HeightPx != 0) {
+      view.Target.WidthPx > data->Raster.WidthPx || view.Target.HeightPx > data->Raster.HeightPx) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "material field has no matching source or footprint"});
