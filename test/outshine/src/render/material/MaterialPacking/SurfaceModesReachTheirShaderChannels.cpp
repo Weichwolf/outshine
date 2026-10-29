@@ -55,7 +55,7 @@ int main() {
   CHECK(mapped.ReadsSecondUv() && mapped.ReadsAnyImage() == false,
         "optical UV selectors are accounted independently of image ownership");
   mapped.Radiance = std::make_shared<RadianceImage>(RadianceImage{
-      .Texture = {}, .Sampling = {}, .Produced = {}, .Encoding = RadianceEncoding::Integral});
+      .Texture = {}, .Sampling = {}, .Produced = {}, .Encoding = RadianceEncoding::IntegralPairs});
   const auto integrated = PackMaterial(mapped, 0);
   CHECK(integrated[36] == kIntegralRadianceScattering && integrated[94] == 1,
         "native integral radiance has an explicit GPU code without changing the material layout");

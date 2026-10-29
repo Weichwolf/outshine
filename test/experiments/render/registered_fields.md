@@ -4,7 +4,7 @@ Native connection for #1721/#1570, using the existing MaterialFieldPass and GPU
 integral. `NativeBuildingImpostors --material-fields` accepts complete original
 geometry under `geometry/0/` and explicit capture cameras in `input.json` queries.
 It uploads the source once, captures each query, then reads coupled raw colour,
-raw depth and the padded Float32 integral. No private cache, reconstructed Raw
+raw depth and the paired Float32 integral. No private cache, reconstructed Raw
 planes, second renderer, scheduler or SourceView admission is substituted.
 
 ```sh
@@ -37,14 +37,15 @@ native camera fields. It must keep the raster of the held input. The mode writes
 |---|---|
 | `<name>-colour.f32` | Raw premultiplied linear HDR RGBA, coverage in channel 3 |
 | `<name>-depth.f32` | Coupled reverse-Z Float32 point depth; zero is clear |
-| `<name>-integral.f32` | RGBA32F exclusive prefix, width/height enlarged by one |
+| `<name>-integral.f32` | RGBA32F adjacent hi/lo pairs; physical width `2*(W+1)`, height `H+1`, raw raster unchanged |
 | `material-fields-result.json` | Actual camera, dimensions, native geometry and scoped GPU/wall times |
 
 The Python comparison requires opaque point masks, verifies nearest original
 colour/depth against a fresh joint native capture, and distinguishes actual
 interleaving from mere overlapping hull intervals. Whole-group order is used only
-for separated intervals. Every integral has a zero border and is compared against
-an independent Float64 source sum. Its serial positive Float32 accumulation bound
+for separated intervals. Both components have a zero border and their Float64 reconstruction is compared against
+an independent Float64 source sum. The report names `rgba32f-hi-lo-pairs-v1`; NPZ exports retain the raw
+`<name>_integral_pairs` arrays. The existing positive Float32 compatibility bound
 is **not** a local HDR rectangle-query guarantee; #1718 remains a separate defect.
 
 There are no ordinary oracle writes or published pictures. All inputs, readbacks,
