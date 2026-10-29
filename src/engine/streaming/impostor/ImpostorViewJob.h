@@ -8,6 +8,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <variant>
@@ -39,8 +40,11 @@ struct ImpostorViewJob {
   size_t BytesMost = 0;
   std::variant<SurfaceView, MaterialView> Product;
 
-  // Submit with Cache as the consumer's AssetStoreScope identity.
-  [[nodiscard]] std::expected<AssetRecord, std::string> operator()(std::stop_token stop) const;
+  using Resolver =
+      std::function<std::expected<std::optional<AssetRecord>, std::string>(std::stop_token)>;
+  // Each resolver owns its metadata and prepared product. Submit with Cache as
+  // AssetStoreScope identity through the existing RequestResumable admission.
+  [[nodiscard]] Resolver Prepare() const;
 };
 }
 #endif

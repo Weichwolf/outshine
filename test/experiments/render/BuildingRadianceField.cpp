@@ -54,7 +54,7 @@ ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
   camera.ZNearM = .1;
   camera.ZFarM = Length(camera.EyeM - atlas.CentreM()) + 4 * atlas.HalfExtentM();
   result.Target = {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()};
-  result.Encoding = Render::RadianceEncoding::Integral;
+  result.Encoding = Render::RadianceEncoding::IntegralPairs;
   return result;
 }
 

@@ -78,11 +78,11 @@ void Exercise() {
     view.Camera.ZNearM = .1;
     view.Camera.ZFarM = 10;
     view.Target = {.WidthPx = 32, .HeightPx = 32};
-    view.Encoding = RadianceEncoding::Integral;
+    view.Encoding = RadianceEncoding::IntegralPairs;
     held = Require(pass.Relight(*source, view));
-    CHECK(held.Filtered->Encoding == RadianceEncoding::Integral &&
+    CHECK(held.Filtered->Encoding == RadianceEncoding::IntegralPairs &&
               held.Unfiltered->Encoding == RadianceEncoding::Texels &&
-              held.Filtered->Texture->Description().Width == 33 &&
+              held.Filtered->Texture->Description().Width == 66 &&
               held.Filtered->Texture->Description().Texels == Format::Rgba32Float &&
               held.Depth->Description().Width == 32,
           "integral output keeps its format, zero border and separate raw depth raster");
@@ -109,13 +109,13 @@ void Exercise() {
     Require(pass.Collect());
   }
   const auto expected = SourceSum(device, *held.Unfiltered->Texture);
-  const auto rows = ReadImage(device, *held.Filtered->Texture, {.Width = 33, .Height = 33});
-  std::array<float, 4> actual{};
+  const auto rows = ReadImage(device, *held.Filtered->Texture, {.Width = 66, .Height = 33});
+  std::array<float, 8> actual{};
   std::memcpy(
       actual.data(), rows.Rows.data() + 32 * rows.RowBytes + 32 * sizeof(actual), sizeof(actual));
   for (size_t channel = 0; channel < 4; ++channel) {
     CHECK(
-        actual[channel] == expected[channel],
+        double(actual[channel]) + actual[channel + 4] == expected[channel],
         "held integral survives source/pass retirement and matches independent HDR/coverage sums");
   }
 }

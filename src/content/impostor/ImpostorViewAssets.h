@@ -42,13 +42,25 @@ public:
   private:
     friend class ImpostorViewAssets;
 
-    MetadataWrite(AssetRecord record, Description description, PreparedAssetWrite package)
-        : Record_(std::move(record)),
-          Description_(std::move(description)),
-          Package_(std::move(package)) {}
+    MetadataWrite(Description description, PreparedAssetWrite package)
+        : Description_(std::move(description)), Package_(std::move(package)) {}
 
-    AssetRecord Record_;
     Description Description_;
+    PreparedAssetWrite Package_;
+  };
+
+  class ProductWrite {
+  public:
+    ProductWrite(ProductWrite &&) noexcept = default;
+    ProductWrite &operator=(ProductWrite &&) noexcept = default;
+
+    [[nodiscard]] size_t PublicationBytes() const noexcept { return Package_.CapacityBytes(); }
+
+  private:
+    friend class ImpostorViewAssets;
+
+    explicit ProductWrite(PreparedAssetWrite package) : Package_(std::move(package)) {}
+
     PreparedAssetWrite Package_;
   };
 
@@ -77,6 +89,11 @@ public:
   [[nodiscard]] std::string Key(Selection selection) const;
   [[nodiscard]] std::expected<void, AssetCacheError>
   Publish(Selection selection, Geometry geometry, size_t bytesMost) const;
+  [[nodiscard]] std::expected<ProductWrite, AssetCacheError>
+  Prepare(Selection selection, Geometry geometry, size_t bytesMost) const;
+  // Busy preserves the encoded/compressed product and its exact receipt.
+  [[nodiscard]] std::expected<AssetRecord, AssetCacheError>
+  Publish(const ProductWrite &prepared) const;
   [[nodiscard]] std::expected<std::optional<ImpostorCards>, AssetCacheError>
   Load(Selection selection, size_t bytesMost) const;
   // Run on the existing content worker; a validated hit never invokes the factory.
@@ -92,13 +109,25 @@ public:
   [[nodiscard]] std::string FieldKey(ViewIndex view) const;
   [[nodiscard]] std::expected<void, AssetCacheError>
   PublishField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
+  [[nodiscard]] std::expected<ProductWrite, AssetCacheError>
+  PrepareField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
   [[nodiscard]] std::expected<std::optional<ImpostorAtlas>, AssetCacheError>
   LoadField(ViewIndex view, size_t bytesMost) const;
   [[nodiscard]] std::expected<ImpostorAtlas, AssetCacheError>
   ResolveField(ViewIndex view, size_t bytesMost, const FieldFactory &factory) const;
 
 private:
+  struct EncodedProduct {
+    AssetRecord Record;
+    std::vector<uint8_t> Bytes;
+  };
+
   ImpostorViewAssets(AssetCache &cache, AssetRecord record, Description description);
+  [[nodiscard]] std::expected<EncodedProduct, AssetCacheError>
+  EncodeProduct(Selection selection, Geometry geometry, size_t bytesMost) const;
+  [[nodiscard]] std::expected<EncodedProduct, AssetCacheError>
+  EncodeField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const;
+  [[nodiscard]] std::expected<ProductWrite, AssetCacheError> Prepare(EncodedProduct product) const;
   [[nodiscard]] uint32_t Pixels(Selection selection) const noexcept;
   [[nodiscard]] bool Matches(const ImpostorCards &cards, Selection selection) const;
   [[nodiscard]] bool MatchesField(const ImpostorAtlas &field, ViewIndex view) const noexcept;

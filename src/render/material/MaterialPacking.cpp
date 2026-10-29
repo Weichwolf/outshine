@@ -20,7 +20,7 @@ GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) 
   const Material &row = material.Row;
   auto scattering = static_cast<float>(row.Scattering);
   if (material.Radiance) {
-    scattering = material.Radiance->Encoding == RadianceEncoding::Integral
+    scattering = material.Radiance->Encoding == RadianceEncoding::IntegralPairs
                      ? kIntegralRadianceScattering
                      : static_cast<float>(ScatteringModel::AreaMixture);
   }
