@@ -10,6 +10,17 @@ from transport_vehicle_sweep import swept_hull_check
 
 
 def lane_directions(profile):
+    if profile.get("lane_use") == "alternating_bidirectional":
+        if (
+            profile.get("physical_lanes") != 1
+            or (profile["forward_lanes"], profile["reverse_lanes"]) != (1, 1)
+            or profile["lane_width_m"] != profile["width_m"]
+            or profile.get("opposing_traffic_policy") != "exclusive_lane_occupancy"
+        ):
+            raise ValueError(
+                "one physical shared lane with exclusive opposing occupancy required"
+            )
+        return [(0, False), (0, True)]
     if (profile["forward_lanes"], profile["reverse_lanes"]) == (1, 0):
         return [(0, False)]
     if (profile["forward_lanes"], profile["reverse_lanes"]) == (0, 1):
