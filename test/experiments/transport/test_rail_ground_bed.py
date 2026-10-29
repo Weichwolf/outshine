@@ -7,10 +7,12 @@ import numpy as np
 from coincident_ground_sources import prepare_sources
 from constructive_earthwork_plane import fit_plane
 from ground_contact import maximum_grade
+from outshine_ref.transport.canonical_ports._geodesy import positions_in_frame
 from rail_ground_bed import construct
 from rail_ground_checks import audit
 from rail_ground_inputs import load
 from rail_ground_profile import bind_profile
+from replay_rail_ground_bed import arrays
 
 
 class RailGroundBedTests(unittest.TestCase):
@@ -125,6 +127,23 @@ class RailGroundBedTests(unittest.TestCase):
         proof = audit(result, self.index, self.profile())
         self.assertEqual(proof["original_end_profiles"], 14)
         self.assertEqual(proof["bed_euler"], 1)
+        exported = arrays(result)["constructed_end_sections_xyz"]
+        for member, sections in zip(result["source"].members, exported, strict=True):
+            axis = positions_in_frame(
+                result["anchor"],
+                [self.index[0][n] for n in member.nodes],
+                np.zeros(2),
+            )[:, :2]
+            direction = axis[1] - axis[0]
+            left = np.array([-direction[1], direction[0]]) / np.linalg.norm(direction)
+            expected = axis[:, None, :] + np.array([-1, 1])[None, :, None] * (
+                member.width_m / 2 * left
+            )
+            np.testing.assert_allclose(sections[:, :, :2], expected, atol=1e-12, rtol=0)
+            np.testing.assert_array_equal(
+                sections[:, :, 2],
+                result["plane"].evaluate(expected.reshape(-1, 2)).reshape(2, 2),
+            )
 
     def test_independent_audit_rejects_a_changed_original_direction(self):
         profile = self.profile()

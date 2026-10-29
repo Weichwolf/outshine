@@ -4,6 +4,7 @@ import argparse
 import gc
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import time
@@ -98,6 +99,14 @@ def main():
             owned_final_terrain_array_bytes=result["terrain"]["mesh"].vertices.nbytes
             + result["terrain"]["mesh"].triangles.nbytes,
             total_internal_copied_bytes=None,
+            known_mesh_constructor_copy_lower_bound_bytes=sum(
+                mesh.vertices.nbytes + mesh.triangles.nbytes
+                for mesh in (
+                    result["bed"],
+                    result["terrain"]["coarse_mesh"],
+                    result["terrain"]["mesh"],
+                )
+            ),
         )
         methods[name]["cpu_median_s"] = float(
             np.median([r["cpu_s"] for r in methods[name]["rounds"]])
@@ -114,12 +123,14 @@ def main():
         "numpy": np.__version__,
         "memray": memray.__version__,
         "platform": platform.platform(),
+        "process_nice": os.getpriority(os.PRIO_PROCESS, 0),
+        "load_average": os.getloadavg(),
         "complete_product_sha256": expected,
         "input_prepare_cpu_s": prepare_cpu,
         "cold_construct_with_declared_raster_loads": cold_cost,
         "methods": methods,
         "new_elevation_sha256": manifest["additional_elevation"]["sha256"],
-        "scope": "Same original7-source bed, all15 exported arrays and complete terrain. Warm input/profile/DEM reuse, seven alternating rounds, instrumentation separate. Peak excludes existing shared inputs; requested allocations are not copy bytes. No device/World/p99/UMA claim.",
+        "scope": "Same original7-source bed, all15 exported arrays and complete terrain. Warm input/profile/DEM reuse, seven alternating rounds, instrumentation separate. Peak excludes existing shared inputs; requested allocations are not copy bytes. Known copy lower bound counts only guaranteed owned-buffer copies in Mesh.__post_init__ for bed/coarse/final meshes, excluding other refinement temporaries and other operations. No device/World/p99/UMA claim.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(

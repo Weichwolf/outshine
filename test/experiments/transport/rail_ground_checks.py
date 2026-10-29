@@ -5,6 +5,7 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from ground_contact_checks import qualify_contact
 from outshine_ref.transport.canonical_ports._geodesy import positions_in_frame
 
 
@@ -73,6 +74,7 @@ def audit(result, index, profile):
     }
     if len(bindings) != len(source.members) or any(
         m.identifier not in bindings
+        or not 0 <= bindings[m.identifier][0] < len(source.bands)
         or bindings[m.identifier][1] not in (-1, 1)
         or tuple(source.bands[bindings[m.identifier][0]][:: bindings[m.identifier][1]])
         != m.nodes
@@ -112,6 +114,7 @@ def audit(result, index, profile):
     outer = contact["outer_vertex_ids"]
     if not np.array_equal(complete.vertices[outer, 2], contact["prior_z"][outer]):
         raise ValueError("rail_audit_fixed_outer_dem_changed")
+    contact_proof = qualify_contact(bed, contact)
     return {
         "original_members": len(source.members),
         "original_end_profiles": len(profiles),
@@ -125,5 +128,6 @@ def audit(result, index, profile):
         "terrain_triangles": len(complete.triangles),
         "maximum_finite_bed_grade": float(bed_grade.max()),
         "maximum_finite_soil_grade": float(soil_grades.max()),
+        "whole_terrain_contact": contact_proof,
         "scope": "Original object/word/direction and full physical-band/end-profile coverage; independent flat line buffers, Euler/edge multiplicity, conforming coverage, constant affine bed and unchanged bed under soil construction. No logical routing, original end/Source/World or continuous DEM-error admission.",
     }
