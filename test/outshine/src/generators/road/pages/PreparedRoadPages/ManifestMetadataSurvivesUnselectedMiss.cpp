@@ -84,7 +84,12 @@ void CheckRemoval(PreparedRoadPages &pages,
   const auto retained = pages.LoadManifest(key);
   CHECK(retained && *retained,
         "metadata inspection and a direct payload miss do not invalidate unselected demand");
-  CHECK(pages.InvalidateManifest(key).has_value(),
+  CHECK(pages.InvalidateManifest(key, manifest.Pages[0].Key, kLimit).has_value(),
+        "a stale selected miss rechecks only that page's current valid coverage");
+  const auto repaired = pages.LoadManifest(key);
+  CHECK(repaired && *repaired,
+        "current selected coverage preserves the manifest despite an unselected missing page");
+  CHECK(pages.InvalidateManifest(key, manifest.Pages[1].Key, kLimit).has_value(),
         "the selected-miss consumer retains its explicit invalidation hook");
   const auto invalidated = pages.LoadManifest(key);
   CHECK(invalidated && !*invalidated, "explicit invalidation removes the stale manifest hit");

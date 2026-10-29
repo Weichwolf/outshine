@@ -93,25 +93,16 @@ PreparedRoadPages::Open(const std::string &directory) {
 
 std::expected<std::optional<RoadPageLease>, std::string>
 PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::string &requestKey) {
-  auto cached = Cache_->Load(key, bytesMost);
-  if (!cached) { return std::unexpected("could not load the native road page package"); }
-  if (!*cached) {
-    const auto stale = Cache_->Find(key);
-    if (!stale) { return std::unexpected("could not inspect the missing road page"); }
-    if (*stale && (**stale).Kind == "road-render-page" && !Cache_->Remove(key)) {
-      return std::unexpected("could not remove the missing road page metadata");
-    }
-    return std::optional<RoadPageLease>{};
-  }
+  std::optional<RoadPageAsset> page;
+  auto cached =
+      Cache_->LoadValidated(key, "road-render-page", bytesMost, [&](const CachedAsset &asset) {
+        page = DecodeRoadPageAsset(asset.Bytes(), bytesMost);
+        return page && RoadPageKey(page->Address) == key &&
+               page->Address.Level == asset.Record().Level;
+      });
+  if (!cached) { return std::unexpected(DescribeFailure(cached.error())); }
+  if (!*cached || !page) { return std::optional<RoadPageLease>{}; }
   auto record = (**cached).Record();
-  if (record.Kind != "road-render-page") {
-    return std::unexpected("road page metadata does not match its owning format");
-  }
-  auto page = DecodeRoadPageAsset((**cached).Bytes(), bytesMost);
-  if (!page || RoadPageKey(page->Address) != key || page->Address.Level != record.Level) {
-    if (!Cache_->Remove(key)) { return std::unexpected("could not remove an invalid road page"); }
-    return std::optional<RoadPageLease>{};
-  }
   auto bound = BindRecord(*Cache_, record, requestKey);
   if (!bound) { return std::unexpected(DescribeFailure(bound.error())); }
   return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),

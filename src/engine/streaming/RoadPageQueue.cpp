@@ -39,12 +39,13 @@ bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
   return Enqueue(key,
                  Kind::Payload,
                  [pages = Pages_,
-                  key,
+                  failedPage = key,
                   manifest = std::move(dependency.Key),
                   bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> Result {
-                   auto loaded = pages->LoadKey(key, bytesMost);
+                   auto loaded = pages->LoadKey(failedPage, bytesMost);
                    if (loaded && !*loaded && !manifest.empty()) {
-                     const auto invalidated = pages->InvalidateManifest(manifest);
+                     const auto invalidated =
+                         pages->InvalidateManifest(manifest, failedPage, bytesMost);
                      if (!invalidated) { return std::unexpected(invalidated.error()); }
                    }
                    if (!loaded) { return std::unexpected(std::move(loaded.error())); }

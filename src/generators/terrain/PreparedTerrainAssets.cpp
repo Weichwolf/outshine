@@ -166,16 +166,17 @@ PreparedTerrainAssets::Resolve(Data::TileId at,
       }
     }
   }
-  auto loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
+  std::optional<TerrainField> cached;
+  auto loaded = Cache_->LoadValidated(
+      key, "terrain-field", kPreparedTerrainBytesMost, [&](const CachedAsset &asset) {
+        cached = DecodePreparedTerrain(at, asset.Bytes(), kPreparedTerrainBytesMost);
+        return cached.has_value();
+      });
   if (!loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
-  if (*loaded) {
-    auto field = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
-    if (field) {
-      Hits_.fetch_add(1, std::memory_order_relaxed);
-      ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
-      return Remember(key, std::move(*field));
-    }
-    if (!Cache_->Remove(key)) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
+  if (*loaded && cached) {
+    Hits_.fetch_add(1, std::memory_order_relaxed);
+    ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
+    return Remember(key, std::move(*cached));
   }
   Misses_.fetch_add(1, std::memory_order_relaxed);
   if (!factory) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
@@ -255,22 +256,18 @@ std::expected<std::shared_ptr<const GroundPatch>, PreparedTerrainAssets::Failure
 PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int side) {
   const auto request = MutexForRequest(key);
   const std::scoped_lock preparing(*request);
-  auto loaded = Cache_->Load(key, kPreparedGroundPatchBytesMost);
+  std::shared_ptr<const GroundPatch> patch;
+  auto loaded = Cache_->LoadValidated(
+      key, "terrain-sampling-patch", kPreparedGroundPatchBytesMost, [&](const CachedAsset &asset) {
+        PatchReadBytes_.fetch_add(asset.Bytes().size(), std::memory_order_relaxed);
+        ++PatchDecodes_;
+        patch = DecodePreparedGroundPatch(at, side, asset.Bytes());
+        return patch != nullptr;
+      });
   if (!loaded) { return std::unexpected(loaded.error()); }
-  if (*loaded) {
-    PatchReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
-    if ((**loaded).Record().Kind != "terrain-sampling-patch") {
-      return std::unexpected(
-          std::string("terrain sampling patch belongs to another native product kind"));
-    }
-    ++PatchDecodes_;
-    auto patch = DecodePreparedGroundPatch(at, side, (**loaded).Bytes());
-    if (patch) {
-      ++PatchHits_;
-      return patch;
-    }
-    const auto removed = Cache_->Remove(key);
-    if (!removed) { return std::unexpected(removed.error()); }
+  if (*loaded && patch) {
+    ++PatchHits_;
+    return patch;
   }
   ++PatchMisses_;
   return std::shared_ptr<const GroundPatch>{};

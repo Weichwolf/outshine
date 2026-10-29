@@ -56,14 +56,14 @@ Box Bounds(std::span<const Sheet> pages) {
   return bounds;
 }
 
-std::expected<std::optional<PreparedTerrainDeformation>, std::string>
+std::expected<std::optional<PreparedTerrainDeformation>, AssetCacheError>
 ReadParts(const AssetCache &cache,
           const std::string &key,
           const TerrainDeformationParts &parts,
           size_t heapBytesMost,
           size_t &readBytes) {
   if (parts.HeapBytes > heapBytesMost) {
-    return std::unexpected("terrain deformation region exceeds its residency budget");
+    return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   PreparedTerrainDeformation product;
   product.Effects = parts.Effects;
@@ -73,8 +73,10 @@ ReadParts(const AssetCache &cache,
   for (size_t index = 0; index < parts.PageCounts.size(); ++index) {
     const std::string partKey = TerrainDeformationPartKey(key, index);
     auto loaded = cache.Load(partKey, kTerrainDeformationBytesMost);
-    if (!loaded) { return std::unexpected("terrain deformation part read failed"); }
-    if (!*loaded) { return std::optional<PreparedTerrainDeformation>{}; }
+    if (!loaded) { return std::unexpected(loaded.error()); }
+    if (!*loaded || (**loaded).Record().Kind != "terrain-deformed-pages") {
+      return std::optional<PreparedTerrainDeformation>{};
+    }
     auto part = DecodeTerrainDeformation(partKey, (**loaded).Bytes());
     if (!part || part->Pages.size() != parts.PageCounts[index]) {
       return std::optional<PreparedTerrainDeformation>{};
@@ -96,30 +98,33 @@ std::expected<std::optional<PreparedTerrainDeformation>, std::string>
 PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesMost) {
   const auto request = MutexForRequest(key);
   const std::scoped_lock preparing(*request);
-  auto loaded = Cache_->Load(key, kTerrainDeformationBytesMost);
-  if (!loaded) { return std::unexpected("terrain deformation asset read failed"); }
-  if (*loaded) {
-    size_t readBytes = (**loaded).Bytes().size();
-    auto product = DecodeTerrainDeformation(key, (**loaded).Bytes());
-    if (product && TerrainDeformationHeap(product->Pages) > heapBytesMost) {
-      return std::unexpected("terrain deformation region exceeds its residency budget");
-    }
-    if (!product) {
-      const auto parts = DecodeTerrainDeformationParts(key, (**loaded).Bytes());
-      if (parts) {
-        auto joined = ReadParts(*Cache_, key, *parts, heapBytesMost, readBytes);
-        if (!joined) { return std::unexpected(std::move(joined.error())); }
-        product = std::move(*joined);
-      }
-    }
-    if (product) {
-      ++DeformationHits_;
-      DeformationReadBytes_ += readBytes;
-      return product;
-    }
-    if (!Cache_->Remove(key)) {
-      return std::unexpected("invalid terrain deformation asset removal failed");
-    }
+  std::optional<PreparedTerrainDeformation> product;
+  size_t readBytes = 0;
+  auto loaded = Cache_->LoadValidated(
+      key,
+      "terrain-deformed",
+      kTerrainDeformationBytesMost,
+      [&](const CachedAsset &asset) -> std::expected<bool, AssetCacheError> {
+        readBytes = asset.Bytes().size();
+        product = DecodeTerrainDeformation(key, asset.Bytes());
+        if (product && TerrainDeformationHeap(product->Pages) > heapBytesMost) {
+          return std::unexpected(AssetCacheError::CapacityExceeded);
+        }
+        if (!product) {
+          const auto parts = DecodeTerrainDeformationParts(key, asset.Bytes());
+          if (parts) {
+            auto joined = ReadParts(*Cache_, key, *parts, heapBytesMost, readBytes);
+            if (!joined) { return std::unexpected(joined.error()); }
+            product = std::move(*joined);
+          }
+        }
+        return product.has_value();
+      });
+  if (!loaded) { return std::unexpected(DescribeFailure(loaded.error())); }
+  if (*loaded && product) {
+    ++DeformationHits_;
+    DeformationReadBytes_ += readBytes;
+    return product;
   }
   ++DeformationMisses_;
   return std::optional<PreparedTerrainDeformation>{};

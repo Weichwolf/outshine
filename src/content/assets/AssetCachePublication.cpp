@@ -6,6 +6,7 @@
 #include <expected>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <string>
@@ -73,6 +74,31 @@ public:
 private:
   sqlite3 *Database_;
 };
+
+std::expected<void, AssetCacheError> Erase(sqlite3 *database, std::string_view key) {
+  for (const auto *sql :
+       {"DELETE FROM asset_requests WHERE asset_id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM assets WHERE key=?"}) {
+    AssetSql::Statement statement;
+    auto prepared = AssetSql::Prepare(database, sql, statement);
+    if (!prepared) { return prepared; }
+    if (!AssetSql::Text(statement.Value, 1, key)) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    const int code = sqlite3_step(statement.Value);
+    if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+  }
+  return {};
+}
+
+std::expected<bool, AssetCacheError> Validate(const std::optional<CachedAsset> &asset,
+                                              std::string_view kind,
+                                              const AssetCache::Validator &validate) {
+  if (!asset) { return false; }
+  if (asset->Record().Kind != kind) { return std::unexpected(AssetCacheError::InvalidInput); }
+  return validate(*asset);
+}
 
 bool Bind(sqlite3_stmt *statement, const AssetRecord &record) {
   bool bound =
@@ -274,20 +300,49 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  for (const auto *sql :
-       {"DELETE FROM asset_requests WHERE asset_id IN (SELECT id FROM assets WHERE key=?)",
-        "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
-        "DELETE FROM assets WHERE key=?"}) {
-    AssetSql::Statement statement;
-    auto prepared = AssetSql::Prepare(State_->Database, sql, statement);
-    if (!prepared) { return prepared; }
-    if (!AssetSql::Text(statement.Value, 1, key)) {
-      return std::unexpected(AssetCacheError::Storage);
-    }
-    const int code = sqlite3_step(statement.Value);
-    if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
-  }
+  const auto erased = Erase(State_->Database, key);
+  if (!erased) { return erased; }
   return transaction.Commit();
+}
+
+std::expected<std::optional<CachedAsset>, AssetCacheError>
+AssetCache::LoadValidated(std::string_view key,
+                          std::string_view kind,
+                          size_t packageBytesMost,
+                          const Validator &validate) {
+  if (!AssetSql::ValidKey(key) || kind.empty() || packageBytesMost == 0 || !validate) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  auto loaded = Load(key, packageBytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  auto valid = Validate(*loaded, kind, validate);
+  if (!valid) { return std::unexpected(valid.error()); }
+  if (*valid) { return std::move(*loaded); }
+  const std::scoped_lock lock(*State_->Mutex);
+  const auto found = Find(key);
+  if (!found) { return std::unexpected(found.error()); }
+  if (!*found) { return std::nullopt; }
+  if ((**found).Kind != kind) { return std::unexpected(AssetCacheError::InvalidInput); }
+  const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  if (!began) { return std::unexpected(began.error()); }
+  Transaction transaction(State_->Database);
+  loaded = Load(key, packageBytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  valid = Validate(*loaded, kind, validate);
+  if (!valid) { return std::unexpected(valid.error()); }
+  if (*valid) { return std::move(*loaded); }
+  if (!*loaded) {
+    const auto current = Find(key);
+    if (!current) { return std::unexpected(current.error()); }
+    if (*current && (**current).Kind != kind) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+  }
+  const auto erased = Erase(State_->Database, key);
+  if (!erased) { return std::unexpected(erased.error()); }
+  const auto committed = transaction.Commit();
+  if (!committed) { return std::unexpected(committed.error()); }
+  return std::nullopt;
 }
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,

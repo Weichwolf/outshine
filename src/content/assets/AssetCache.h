@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -107,6 +108,15 @@ public:
 
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
+  using Validator = std::function<std::expected<bool, AssetCacheError>(const CachedAsset &)>;
+  // Normal hits validate without a writer. Invalid entries are reread and validated
+  // under one write transaction before removal. Validators may do bounded native
+  // validation and same-store reads; no writes, source IO or blocking waits.
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
+  LoadValidated(std::string_view key,
+                std::string_view kind,
+                size_t packageBytesMost,
+                const Validator &validate);
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;

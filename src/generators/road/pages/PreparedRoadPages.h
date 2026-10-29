@@ -97,7 +97,8 @@ public:
                                                                   const std::stop_token &stop = {});
   [[nodiscard]] std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, Failure>
   LoadManifest(const std::string &key);
-  [[nodiscard]] std::expected<void, std::string> InvalidateManifest(const std::string &key);
+  [[nodiscard]] std::expected<void, std::string>
+  InvalidateManifest(const std::string &key, const std::string &failedPage, size_t pageBytesMost);
 
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
   Open(const std::string &directory);

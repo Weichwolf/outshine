@@ -56,24 +56,24 @@ PreparedOsmTiles::Load(const std::string &request, const Layout &layout, ReadCau
     if (cause == ReadCause::Lookup) { ++Misses_; }
     return Product{};
   }
-  auto loaded = Cache_->Load((**record).Key, kPackageBytesMost);
+  std::unique_ptr<OsmField> product;
+  auto loaded = Cache_->LoadValidated(
+      (**record).Key, "osm-tile", kPackageBytesMost, [&](const CachedAsset &asset) {
+        product = OsmField::DecodeNativeTile(asset.Bytes(), kHeapBytesMost);
+        return product && !product->Tiles_.empty() && product->Zoom_ == layout.Zoom &&
+               product->Schema_ == layout.Schema && product->Layers_ == layout.Layers &&
+               RequestKey({.X = product->Tiles_.front().X, .Y = product->Tiles_.front().Y},
+                          layout) == request;
+      });
   if (!loaded) { return std::unexpected(loaded.error()); }
-  if (*loaded) {
-    auto product = OsmField::DecodeNativeTile((**loaded).Bytes(), kHeapBytesMost);
-    if ((**loaded).Record().Kind == "osm-tile" && product && product->Zoom_ == layout.Zoom &&
-        product->Schema_ == layout.Schema && product->Layers_ == layout.Layers &&
-        RequestKey({.X = product->Tiles_.front().X, .Y = product->Tiles_.front().Y}, layout) ==
-            request) {
-      if (cause == ReadCause::Lookup) {
-        ++Hits_;
-        ReadBytes_ += (**loaded).Bytes().size();
-      } else {
-        PublicationReadBytes_ += (**loaded).Bytes().size();
-      }
-      return Product(std::move(product));
+  if (*loaded && product) {
+    if (cause == ReadCause::Lookup) {
+      ++Hits_;
+      ReadBytes_ += (**loaded).Bytes().size();
+    } else {
+      PublicationReadBytes_ += (**loaded).Bytes().size();
     }
-    const auto removed = Cache_->Remove((**record).Key);
-    if (!removed) { return std::unexpected(removed.error()); }
+    return Product(std::move(product));
   }
   if (cause == ReadCause::Lookup) { ++Misses_; }
   return Product{};
