@@ -279,9 +279,12 @@ void CheckRecipeBinding(const GroundPortField &field,
   CHECK(admitted && admitted->Plan.InputBinding == original.Plan.InputBinding,
         "admission capacity does not become functional content");
   auto full = original.Plan;
+  full.Definition.Representation = TransportRepresentation::Functional;
+  full.Definition.RepresentationVersion = 2;
   full.Coverage = TransportCoverage::Complete;
   full.Omissions.clear();
-  CHECK(!ValidateTransportPlan(full),
+  const auto unclosed = ValidateTransportPlan(full);
+  CHECK(!unclosed && unclosed.error() == TransportPlanCodecError::InvalidNetwork,
         "real core bodies do not prove full geographic source closure");
   std::stop_source stopped;
   stopped.request_stop();

@@ -188,7 +188,7 @@ foreach(source IN LISTS cases)
       set(owner generators/water)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
-    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/(OwnedFieldProductsServeTheActualPorts|OriginalFactsQualifyFiniteGroundFields|OriginalContentSurvivesActualRepublication|GeographicCoresShareActualFieldPorts|GeographicBodiesKeepSharedCutsAndFullContacts|GeographicBodyBoundsSurviveOfflineDiscovery|FunctionalCorePlansKeepOriginalFieldProducts|ProjectedNetworksKeepOriginalNativeRows|WholeBodiesEnterPlanFramesWithoutNewStorage|SourceEndsOnCoreBoundariesKeepTheirOwnProfile)$")
+    elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/(OwnedFieldProductsServeTheActualPorts|OriginalFactsQualifyFiniteGroundFields|OriginalContentSurvivesActualRepublication|GeographicCoresShareActualFieldPorts|GeographicBodiesKeepSharedCutsAndFullContacts|GeographicBodyBoundsSurviveOfflineDiscovery|FunctionalCorePlansKeepOriginalFieldProducts|ProjectedNetworksKeepOriginalNativeRows|WholeBodiesEnterPlanFramesWithoutNewStorage|SourceEndsOnCoreBoundariesKeepTheirOwnProfile|SavedSubsetRestoresWithoutSources)$")
       set(owner generators/transport/ground)
     elseif(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
       set(owner generators/transport)
@@ -248,6 +248,7 @@ foreach(source IN LISTS cases)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
   if(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/FunctionalCorePlansKeepOriginalFieldProducts"
+      OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/SavedSubsetRestoresWithoutSources"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/SourceEndsOnCoreBoundariesKeepTheirOwnProfile"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/ProjectedNetworksKeepOriginalNativeRows"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/OriginalFactsQualifyFiniteGroundFields"

@@ -191,9 +191,7 @@ DecodeTransportPlan(std::span<const uint8_t> bytes, TransportPlanCodecLimits lim
 std::expected<std::string, TransportPlanCodecError>
 TransportPlanContentKey(const TransportPlanDefinition &definition,
                         const std::array<uint8_t, 32> &inputBinding) {
-  if (!definition.Core.Valid() ||
-      definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 2) {
+  if (!definition.Core.Valid() || !ValidTransportRepresentation(definition)) {
     return std::unexpected(TransportPlanCodecError::InvalidAddress);
   }
   BinaryValueWriter out(128);

@@ -115,9 +115,12 @@ BuildGroundPortPartialPlan(const GroundPortField &field,
     return std::unexpected(
         std::visit([](auto error) -> GroundPortPlanError { return error; }, reframed.error()));
   }
-  GroundPortPlanProduct product{.Plan = TransportPlan({.Core = core}),
-                                .BoundsEcef = GroundPortBodyBoundsEcef(*reframed),
-                                .Work = {}};
+  GroundPortPlanProduct product{
+      .Plan = TransportPlan({.Core = core,
+                             .Representation = TransportRepresentation::FunctionalSubset,
+                             .RepresentationVersion = 1}),
+      .BoundsEcef = GroundPortBodyBoundsEcef(*reframed),
+      .Work = {}};
   product.Plan.Anchor = anchor;
   product.Work.Core = selection->Work;
   product.Work.Bodies = reframed->Work;

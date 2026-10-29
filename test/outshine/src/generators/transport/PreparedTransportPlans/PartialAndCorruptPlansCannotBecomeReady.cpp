@@ -24,22 +24,21 @@ void Exercise(const std::string &directory) {
   CHECK(store && raw && plan, "the store and independent fault injector are available");
   if (!store || !raw || !plan) { return; }
   const Box bounds{.Min = {{-1, -1, -1}}, .Max = {{1, 1, 1}}};
-  const auto record = (*store)->StoreComplete(*plan, bounds, kTransportFixtureLimits);
+  const auto record = (*store)->Store(*plan, bounds, kTransportFixtureLimits);
   CHECK(record.has_value(), "the complete control is published");
   if (!record) { return; }
   const TransportPlanAddress address{.Definition = plan->Definition,
                                      .Inputs = TransportInputScopeId(std::array<uint8_t, 32>{})};
   auto geometryOnly = *plan;
   geometryOnly.Network.reset();
-  const auto missingNetwork =
-      (*store)->StoreComplete(geometryOnly, bounds, kTransportFixtureLimits);
+  const auto missingNetwork = (*store)->Store(geometryOnly, bounds, kTransportFixtureLimits);
   CHECK(!missingNetwork && missingNetwork.error() == TransportPlanAssetError::InvalidPlan,
         "a complete geometric-only product cannot enter the functional asset store");
   auto partial = *plan;
   partial.Coverage = TransportCoverage::Partial;
   partial.Omissions.push_back(
       {.SourceId = "fixture/unresolved", .Reason = TransportOmissionReason::ResourceDeferred});
-  const auto refused = (*store)->StoreComplete(partial, bounds, kTransportFixtureLimits);
+  const auto refused = (*store)->Store(partial, bounds, kTransportFixtureLimits);
   CHECK(!refused && refused.error() == TransportPlanAssetError::InvalidPlan,
         "budget-limited partial data cannot replace a complete product under the same key");
   CHECK(!(*store)->BindRequest(
@@ -56,8 +55,7 @@ void Exercise(const std::string &directory) {
         "insufficient residency admission is distinct from a malformed product");
   std::stop_source cancel;
   cancel.request_stop();
-  const auto canceled =
-      (*store)->StoreComplete(*plan, bounds, kTransportFixtureLimits, cancel.get_token());
+  const auto canceled = (*store)->Store(*plan, bounds, kTransportFixtureLimits, cancel.get_token());
   CHECK(!canceled && canceled.error() == TransportPlanAssetError::Canceled,
         "a canceled cook cannot publish a result");
   auto invalid = EncodeTransportPlan(*plan, kTransportFixtureLimits);
@@ -80,7 +78,7 @@ void Exercise(const std::string &directory) {
   const auto unqualified =
       (*store)->LoadProduct(plan->Definition, plan->InputBinding, kTransportFixtureLimits);
   CHECK(unqualified && !*unqualified, "even a valid partial package cannot satisfy a full lookup");
-  CHECK((*store)->StoreComplete(*plan, bounds, kTransportFixtureLimits),
+  CHECK((*store)->Store(*plan, bounds, kTransportFixtureLimits),
         "a completed retry repairs the same content address");
   const auto repaired =
       (*store)->LoadProduct(plan->Definition, plan->InputBinding, kTransportFixtureLimits);

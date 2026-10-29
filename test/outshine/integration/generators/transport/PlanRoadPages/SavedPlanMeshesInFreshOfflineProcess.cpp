@@ -93,7 +93,7 @@ bool Prepare(const std::string &directory, const TransportPlan &plan) {
   if (!cache) { return false; }
   constexpr double extent = 2 * kEarthMeanRadiusM;
   const Box bounds{.Min = {{-extent, -extent, -extent}}, .Max = {{extent, extent, extent}}};
-  if (!(*cache)->StoreComplete(plan, bounds, kTransportFixtureLimits)) { return false; }
+  if (!(*cache)->Store(plan, bounds, kTransportFixtureLimits)) { return false; }
   const auto loaded =
       (*cache)->LoadProduct(plan.Definition, plan.InputBinding, kTransportFixtureLimits);
   return loaded && *loaded && (*cache)->BindRequest(Address(), **loaded).has_value();

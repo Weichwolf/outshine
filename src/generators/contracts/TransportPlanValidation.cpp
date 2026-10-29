@@ -23,6 +23,13 @@ template <class Range, class Before> bool StrictlyOrdered(const Range &items, Be
          }) == items.end();
 }
 
+bool ValidCoverage(const TransportPlan &plan) {
+  return (plan.Coverage == TransportCoverage::Partial ||
+          plan.Coverage == TransportCoverage::Complete) &&
+         (plan.Definition.Representation != TransportRepresentation::FunctionalSubset ||
+          plan.Coverage == TransportCoverage::Partial);
+}
+
 bool ValidBoundary(const TransportPlan &plan, const TransportPath &path, uint32_t index) {
   if (index >= plan.Ports.size()) { return false; }
   const auto &port = plan.Ports[index];
@@ -135,15 +142,12 @@ bool TransportFormat::InputsValid(std::span<const TransportInputReference> input
 std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const TransportPlan &plan) {
   const auto &definition = plan.Definition;
   const auto bounds = definition.Core.Bounds();
-  if (!bounds || definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 2 ||
+  if (!bounds || !ValidTransportRepresentation(definition) ||
       plan.Anchor.LongitudeDeg != std::midpoint(bounds->WestDeg, bounds->EastDeg) ||
       plan.Anchor.LatitudeDeg != std::midpoint(bounds->SouthDeg, bounds->NorthDeg)) {
     return std::unexpected(TransportPlanCodecError::InvalidAddress);
   }
-  if (plan.Coverage != TransportCoverage::Partial && plan.Coverage != TransportCoverage::Complete) {
-    return std::unexpected(TransportPlanCodecError::UnknownCoverage);
-  }
+  if (!ValidCoverage(plan)) { return std::unexpected(TransportPlanCodecError::UnknownCoverage); }
   if ((plan.Coverage == TransportCoverage::Complete) != plan.Omissions.empty() ||
       !StrictlyOrdered(plan.Omissions,
                        [](const auto &a, const auto &b) { return a.SourceId < b.SourceId; }) ||
@@ -153,7 +157,8 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
       })) {
     return std::unexpected(TransportPlanCodecError::InvalidOmission);
   }
-  if ((plan.Coverage == TransportCoverage::Complete &&
+  if ((definition.Representation == TransportRepresentation::FunctionalSubset && !plan.Network) ||
+      (plan.Coverage == TransportCoverage::Complete &&
        (!plan.Network || plan.Network->Coverage().empty())) ||
       (plan.Network && (!World::ValidateTransportNetwork(*plan.Network) ||
                         plan.Network->SourceIdentity().DatasetId.empty() ||

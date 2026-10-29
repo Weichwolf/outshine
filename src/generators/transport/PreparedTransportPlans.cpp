@@ -15,6 +15,14 @@ namespace outshine::Generators {
 PreparedTransportPlans::PreparedTransportPlans(std::unique_ptr<AssetCache> cache)
     : Cache_(std::move(cache)) {}
 
+bool PreparedTransportPlans::Admits(const TransportPlan &plan) noexcept {
+  if (!ValidTransportRepresentation(plan.Definition)) { return false; }
+  const auto coverage = plan.Definition.Representation == TransportRepresentation::FunctionalSubset
+                            ? TransportCoverage::Partial
+                            : TransportCoverage::Complete;
+  return plan.Coverage == coverage;
+}
+
 std::expected<std::unique_ptr<PreparedTransportPlans>, TransportPlanAssetError>
 PreparedTransportPlans::Open(const std::string &directory) {
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
@@ -23,14 +31,12 @@ PreparedTransportPlans::Open(const std::string &directory) {
 }
 
 std::expected<AssetRecord, TransportPlanAssetError>
-PreparedTransportPlans::StoreComplete(const TransportPlan &plan,
-                                      const Box &bounds,
-                                      TransportPlanCodecLimits limits,
-                                      const std::stop_token &stop) {
+PreparedTransportPlans::Store(const TransportPlan &plan,
+                              const Box &bounds,
+                              TransportPlanCodecLimits limits,
+                              const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(TransportPlanAssetError::Canceled); }
-  if (plan.Coverage != TransportCoverage::Complete) {
-    return std::unexpected(TransportPlanAssetError::InvalidPlan);
-  }
+  if (!Admits(plan)) { return std::unexpected(TransportPlanAssetError::InvalidPlan); }
   const auto key = TransportPlanContentKey(plan.Definition, plan.InputBinding);
   if (!key) { return std::unexpected(TransportPlanAssetError::InvalidPlan); }
   const auto bytes = EncodeTransportPlan(plan, limits);
@@ -61,8 +67,7 @@ PreparedTransportPlans::BindRequest(const TransportPlanAddress &address,
                                     const TransportPlanAsset &product) {
   const auto request = TransportPlanRequestKey(address);
   if (!request) { return std::unexpected(TransportPlanAssetError::InvalidRequest); }
-  if (!product.Plan || product.Plan->Coverage != TransportCoverage::Complete ||
-      product.Plan->Definition != address.Definition ||
+  if (!product.Plan || !Admits(*product.Plan) || product.Plan->Definition != address.Definition ||
       product.Record.Kind != "functional-transport-plan" ||
       std::cmp_not_equal(product.Record.Level, address.Definition.Core.Level)) {
     return std::unexpected(TransportPlanAssetError::WrongProduct);
