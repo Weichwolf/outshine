@@ -7,6 +7,9 @@
 #include <condition_variable>
 #include <mutex>
 #include <utility>
+#include <optional>
+#include <stop_token>
+#include <variant>
 
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +20,7 @@
 
 namespace outshine::Generators {
 struct TerrainDeformationTask::State {
-  enum class Phase : uint8_t { Lookup, Generate, Store, Complete };
+  enum class Phase : uint8_t { Lookup, Generate, Store, Reload, Complete };
 
   State(std::shared_ptr<PreparedTerrainAssets> cache,
         std::vector<EarthworkStamp> stamps,
@@ -36,7 +39,8 @@ struct TerrainDeformationTask::State {
   }
 
   void RecordHeap() noexcept {
-    size_t bytes = sizeof(State) + Input.HeapBytes() + Product.Pages.capacity() * sizeof(Sheet);
+    size_t bytes = sizeof(State) + Key.capacity() + 1 + Input.HeapBytes() +
+                   Product.Pages.capacity() * sizeof(Sheet);
     for (const Sheet &page : Product.Pages) { bytes += page.Nodes.capacity() * sizeof(float); }
     if (Press) {
       bytes += Press->HeapBytes();
@@ -44,16 +48,19 @@ struct TerrainDeformationTask::State {
       bytes += Stamps.capacity() * sizeof(EarthworkStamp);
       for (const EarthworkStamp &stamp : Stamps) { bytes += stamp.HeapBytes(); }
     }
+    if (Publication) { bytes += Publication->HeapBytes(); }
     Heap.store(bytes, std::memory_order_relaxed);
   }
 
   Tasks::StepResult Lookup() {
     if (Cache) {
-      auto key = TerrainDeformationKey(Input, Stamps, Frame, Layout, MostEarthworkM);
-      if (!key) { return Fail(std::move(key.error())); }
-      Key = std::move(*key);
+      if (Key.empty()) {
+        auto key = TerrainDeformationKey(Input, Stamps, Frame, Layout, MostEarthworkM);
+        if (!key) { return Fail(std::move(key.error())); }
+        Key = std::move(*key);
+      }
       auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
-      if (!loaded) { return Fail(std::move(loaded.error())); }
+      if (!loaded) { return CacheFailure(loaded.error()); }
       if (*loaded) {
         Product = std::move(**loaded);
         Input.Sheets.clear();
@@ -77,30 +84,58 @@ struct TerrainDeformationTask::State {
   }
 
   Tasks::StepResult Store() {
-    auto stored = Cache->StoreDeformation(Key, Product);
-    if (!stored) { return Fail(std::move(stored.error())); }
-    auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
-    if (!loaded || !*loaded) {
-      return Fail(loaded ? "published terrain deformation asset is missing"
-                         : std::move(loaded.error()));
+    if (!Publication) {
+      auto prepared = PreparedTerrainAssets::PrepareDeformation(Key, std::move(Product));
+      if (!prepared) { return CacheFailure(prepared.error()); }
+      Publication = std::move(*prepared);
     }
-    const TerrainDeformationMetrics effects = Product.Effects;
+    auto stored = Cache->StoreDeformation(*Publication, Stop.get_token());
+    if (!stored) { return CacheFailure(stored.error()); }
+    if (*stored) { Current = Phase::Reload; }
+    return Tasks::StepResult::Yield;
+  }
+
+  Tasks::StepResult Reload() {
+    if (!Publication) { return Fail("terrain deformation publication state is missing"); }
+    auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
+    if (!loaded) { return CacheFailure(loaded.error()); }
+    if (!*loaded) { return Fail("published terrain deformation asset is missing"); }
     Product = std::move(**loaded);
-    Product.Effects = effects;
+    Product.Effects = Publication->Effects();
+    Publication.reset();
     Current = Phase::Complete;
+    return Tasks::StepResult::Complete;
+  }
+
+  Tasks::StepResult CacheFailure(const PreparedTerrainAssets::Failure &failure) {
+    const auto *cache = std::get_if<AssetCacheError>(&failure);
+    if (cache == nullptr || *cache != AssetCacheError::Busy) {
+      return Fail(PreparedTerrainAssets::DescribeFailure(failure));
+    }
+    RetryAt = std::chrono::steady_clock::now() + Delay;
+    Delay = std::min(Delay * 2, std::chrono::milliseconds(16));
     return Tasks::StepResult::Complete;
   }
 
   Tasks::StepResult Fail(std::string message) {
     Outcome = std::unexpected(std::move(message));
+    Publication.reset();
     Current = Phase::Complete;
     return Tasks::StepResult::Complete;
   }
 
   void Finish() {
     const std::scoped_lock lock(CompletionLock);
-    Completed = true;
+    Completed = Current == Phase::Complete;
+    Deferred = !Completed;
     Ready.notify_all();
+  }
+
+  bool ResumeDue() {
+    const std::scoped_lock lock(CompletionLock);
+    if (!Deferred || std::chrono::steady_clock::now() < RetryAt) { return false; }
+    Deferred = false;
+    return true;
   }
 
   bool Finished() const {
@@ -109,8 +144,9 @@ struct TerrainDeformationTask::State {
   }
 
   Tasks::StepResult Step() {
-    if (Stopping.load(std::memory_order_relaxed)) {
+    if (Stop.stop_requested()) {
       const auto result = Fail("terrain deformation cancelled");
+      RecordHeap();
       Finish();
       return result;
     }
@@ -119,6 +155,7 @@ struct TerrainDeformationTask::State {
       case Phase::Lookup: result = Lookup(); break;
       case Phase::Generate: result = Generate(); break;
       case Phase::Store: result = Store(); break;
+      case Phase::Reload: result = Reload(); break;
       case Phase::Complete: break;
     }
     RecordHeap();
@@ -136,13 +173,16 @@ struct TerrainDeformationTask::State {
   size_t LoadBytesMost = 0;
   std::string Key;
   std::unique_ptr<TerrainDeformationJob> Press;
+  std::optional<PreparedTerrainAssets::DeformationWrite> Publication;
   std::expected<void, std::string> Outcome;
   Phase Current = Phase::Lookup;
-  std::atomic_bool Stopping{false};
+  std::stop_source Stop;
+  std::chrono::steady_clock::time_point RetryAt;
+  std::chrono::milliseconds Delay{1};
   std::atomic_size_t Heap{0};
   mutable std::mutex CompletionLock;
   mutable std::condition_variable Ready;
-  bool Completed = false;
+  bool Completed = false, Deferred = false;
 };
 
 TerrainDeformationTask::TerrainDeformationTask(Tasks &pool,
@@ -152,31 +192,40 @@ TerrainDeformationTask::TerrainDeformationTask(Tasks &pool,
                                                TangentFrame frame,
                                                TerrainPageLayout layout,
                                                double mostEarthworkM)
-    : State_(std::make_shared<State>(std::move(cache),
+    : Pool_(pool),
+      State_(std::make_shared<State>(std::move(cache),
                                      std::move(stamps),
                                      std::move(candidate.Sheets),
                                      frame,
                                      layout,
                                      mostEarthworkM)) {
-  if (!pool.PostDetachedSteps([state = State_] { return state->Step(); })) {
+  Post();
+}
+
+void TerrainDeformationTask::Post() const {
+  if (!Pool_.PostDetachedSteps([state = State_] { return state->Step(); })) {
     State_->Fail("compute worker rejected terrain deformation");
+    State_->RecordHeap();
     State_->Finish();
   }
 }
 
 TerrainDeformationTask::~TerrainDeformationTask() {
-  State_->Stopping.store(true, std::memory_order_relaxed);
+  (void)State_->Stop.request_stop();
 }
 
 bool TerrainDeformationTask::Advance() const {
+  if (State_->ResumeDue()) { Post(); }
   return State_->Finished();
 }
 
 bool TerrainDeformationTask::AwaitSlice(double seconds) const {
-  if (!(seconds > 0.0)) { return State_->Finished(); }
+  if (Advance() || !(seconds > 0.0)) { return State_->Finished(); }
   std::unique_lock lock(State_->CompletionLock);
-  return State_->Ready.wait_for(
+  (void)State_->Ready.wait_for(
       lock, std::chrono::duration<double>(seconds), [state = State_] { return state->Completed; });
+  lock.unlock();
+  return Advance();
 }
 
 std::expected<TerrainDeformationMetrics, std::string>

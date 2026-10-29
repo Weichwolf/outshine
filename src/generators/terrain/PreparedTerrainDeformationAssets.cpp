@@ -16,6 +16,8 @@
 #include <optional>
 #include <string>
 #include <span>
+#include <stop_token>
+#include <vector>
 
 namespace outshine::Generators {
 namespace {
@@ -94,7 +96,7 @@ ReadParts(const AssetCache &cache,
 }
 }
 
-std::expected<std::optional<PreparedTerrainDeformation>, std::string>
+std::expected<std::optional<PreparedTerrainDeformation>, PreparedTerrainAssets::Failure>
 PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesMost) {
   const auto request = MutexForRequest(key);
   const std::scoped_lock preparing(*request);
@@ -120,7 +122,7 @@ PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesM
         }
         return product.has_value();
       });
-  if (!loaded) { return std::unexpected(DescribeFailure(loaded.error())); }
+  if (!loaded) { return std::unexpected(loaded.error()); }
   if (*loaded && product) {
     ++DeformationHits_;
     DeformationReadBytes_ += readBytes;
@@ -130,52 +132,81 @@ PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesM
   return std::optional<PreparedTerrainDeformation>{};
 }
 
-std::expected<void, std::string>
-PreparedTerrainAssets::StoreDeformation(const std::string &key,
-                                        const PreparedTerrainDeformation &product) {
-  const auto request = MutexForRequest(key);
-  const std::scoped_lock preparing(*request);
-  const auto counts = TerrainDeformationPageCounts(product.Pages);
-  if (!counts) { return std::unexpected("terrain deformation page exceeds its package budget"); }
-  const auto publish = [&](const std::string &identity,
-                           std::span<const Sheet> pages,
-                           std::span<const uint8_t> bytes,
-                           bool part,
-                           size_t level) {
-    const AssetRecord record{.Key = identity,
-                             .Kind = part ? "terrain-deformed-pages" : "terrain-deformed",
-                             .Bounds = Bounds(pages),
-                             .Package = {},
-                             .ByteCount = bytes.size(),
-                             .Level = static_cast<uint32_t>(level),
-                             .Parent = part ? key : std::string{}};
-    return Cache_->Publish(std::span(&record, 1), bytes);
-  };
-  if (counts->size() == 1) {
-    auto bytes = EncodeTerrainDeformation(key, product);
-    if (!bytes || !publish(key, product.Pages, *bytes, false, 0)) {
-      return std::unexpected("terrain deformation asset publication failed");
-    }
-  } else {
-    size_t first = 0;
-    for (size_t index = 0; index < counts->size(); ++index) {
-      const auto pages = std::span(product.Pages).subspan(first, (*counts)[index]);
-      const std::string partKey = TerrainDeformationPartKey(key, index);
-      auto bytes = EncodeTerrainDeformation(partKey, pages, {});
-      if (!bytes || !publish(partKey, pages, *bytes, true, index)) {
-        return std::unexpected("terrain deformation part publication failed");
-      }
-      first += (*counts)[index];
-    }
-    const TerrainDeformationParts parts{.HeapBytes = TerrainDeformationHeap(product.Pages),
-                                        .Effects = product.Effects,
-                                        .PageCounts = *counts};
-    auto bytes = EncodeTerrainDeformationParts(key, parts);
-    if (!bytes || !publish(key, product.Pages, *bytes, false, 0)) {
-      return std::unexpected("terrain deformation region publication failed");
-    }
+size_t PreparedTerrainAssets::DeformationWrite::HeapBytes() const noexcept {
+  size_t bytes = Key_.capacity() + 1 + Product_.Pages.capacity() * sizeof(Sheet) +
+                 Parts_.capacity() * sizeof(uint32_t);
+  for (const auto &page : Product_.Pages) { bytes += page.Nodes.capacity() * sizeof(float); }
+  return bytes + (Package_ ? Package_->CapacityBytes() - sizeof(PreparedAssetWrite) : 0);
+}
+
+std::expected<PreparedTerrainAssets::DeformationWrite, PreparedTerrainAssets::Failure>
+PreparedTerrainAssets::PrepareDeformation(std::string key, PreparedTerrainDeformation product) {
+  auto counts = TerrainDeformationPageCounts(product.Pages);
+  if (!counts) {
+    return std::unexpected(std::string("terrain deformation page exceeds its package budget"));
   }
+  return DeformationWrite(std::move(key), std::move(product), std::move(*counts));
+}
+
+std::expected<PreparedAssetWrite, PreparedTerrainAssets::Failure>
+PreparedTerrainAssets::PrepareDeformationPackage(const DeformationWrite &write) {
+  const bool part = write.Parts_.size() > 1 && write.Next_ < write.Parts_.size();
+  const auto pages =
+      part ? std::span(write.Product_.Pages).subspan(write.First_, write.Parts_[write.Next_])
+           : std::span(write.Product_.Pages);
+  const std::string identity =
+      part ? TerrainDeformationPartKey(write.Key_, write.Next_) : write.Key_;
+  auto bytes = [&] {
+    if (part) { return EncodeTerrainDeformation(identity, pages, {}); }
+    if (write.Parts_.size() == 1) { return EncodeTerrainDeformation(identity, write.Product_); }
+    return EncodeTerrainDeformationParts(identity,
+                                         {.HeapBytes = TerrainDeformationHeap(pages),
+                                          .Effects = write.Product_.Effects,
+                                          .PageCounts = write.Parts_});
+  }();
+  if (!bytes) { return std::unexpected(std::string("terrain deformation encoding failed")); }
+  AssetRecord record{.Key = identity,
+                     .Kind = part ? "terrain-deformed-pages" : "terrain-deformed",
+                     .Bounds = Bounds(pages),
+                     .Package = {},
+                     .ByteCount = bytes->size(),
+                     .Level = static_cast<uint32_t>(write.Next_),
+                     .Parent = part ? write.Key_ : std::string{}};
+  if (!part) { record.Level = 0; }
+  std::vector<AssetRecord> records;
+  records.push_back(std::move(record));
+  auto package = Cache_->PreparePublication(std::move(records), std::move(*bytes));
+  if (!package) { return std::unexpected(package.error()); }
+  ++DeformationPreparations_;
+  return std::move(*package);
+}
+
+std::expected<bool, PreparedTerrainAssets::Failure>
+PreparedTerrainAssets::StoreDeformation(DeformationWrite &write, const std::stop_token &stop) {
+  if (stop.stop_requested()) {
+    return std::unexpected(std::string("terrain deformation cancelled"));
+  }
+  if (write.Complete_) { return true; }
+  if (!write.Package_) {
+    auto prepared = PrepareDeformationPackage(write);
+    if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+    write.Package_ = std::move(*prepared);
+  }
+  if (stop.stop_requested()) {
+    return std::unexpected(std::string("terrain deformation cancelled"));
+  }
+  const auto request = MutexForRequest(write.Key_);
+  const std::scoped_lock preparing(*request);
+  ++DeformationPublicationAttempts_;
+  const auto published = Cache_->Publish(*write.Package_);
+  if (!published) { return std::unexpected(published.error()); }
+  write.Package_.reset();
+  if (write.Parts_.size() > 1 && write.Next_ < write.Parts_.size()) {
+    write.First_ += write.Parts_[write.Next_++];
+    return false;
+  }
+  write.Complete_ = true;
   ++DeformationWrites_;
-  return {};
+  return true;
 }
 }
