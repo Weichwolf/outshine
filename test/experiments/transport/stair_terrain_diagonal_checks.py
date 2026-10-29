@@ -3,6 +3,7 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -115,6 +116,17 @@ class TerrainDiagonals(unittest.TestCase):
 
 
 class PiecewiseGroundContact(unittest.TestCase):
+    def test_prepared_affine_parts_agree_with_overlay_under_the_whole_checker(self):
+        from stair_ground_overlay_cost import extrema_parts
+
+        contact, source = self.square([0, 1, 3, 2])
+        expected = ground_subdivision(contact, source, 3.0)
+        with patch("stair_blend_audit.contact_parts", extrema_parts):
+            self.assertEqual(ground_subdivision(contact, source, 3.0), expected)
+            contact, source = self.square([0, 0, 1, 0])
+            with self.assertRaisesRegex(ValueError, "original height bound"):
+                ground_subdivision(contact, source, 1.0)
+
     def test_existing_affine_extrema_control_also_checks_interior_and_coverage(self):
         from stair_ground_overlay_cost import extrema_contact
 
