@@ -6,6 +6,7 @@
 #include <expected>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,9 +40,13 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
                                                std::expected<AssetRecord, std::string> result) {
   if (!result) { return Failed(AssetPublicationError::ProducerFailed, std::move(result.error())); }
   const auto key = AssetProductKey::Parse(result->Key);
-  if (!key || *key != job->Key || !AssetProductKey::Parse(result->Package) ||
-      result->ByteCount == 0 || result->Kind.empty() || result->RequestKey ||
-      ReceiptBytes(*result) > job->Output->Bytes) {
+  const auto request =
+      result->RequestKey ? AssetProductKey::Parse(*result->RequestKey) : std::nullopt;
+  const bool binding = job->Domain == KeyDomain::Request
+                           ? request && *request == job->Key
+                           : !result->RequestKey && key && *key == job->Key;
+  if (!key || !binding || !AssetProductKey::Parse(result->Package) || result->ByteCount == 0 ||
+      result->Kind.empty() || ReceiptBytes(*result) > job->Output->Bytes) {
     return Failed(AssetPublicationError::InvalidReceipt,
                   "producer returned an invalid publication receipt");
   }

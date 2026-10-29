@@ -10,6 +10,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <string_view>
 
 namespace outshine {
 class AssetPipeline {
@@ -78,6 +79,15 @@ public:
     size_t ReceiptBytesMost = 0;
   };
 
+  struct LogicalRequest {
+    // Address binds the product recipe and immutable input scope.
+    std::string_view Address;
+    AssetConsumerGeneration Generation;
+    size_t InputBytes = 0;
+    size_t ConsumerBytes = 0;
+    size_t ReceiptBytesMost = 0;
+  };
+
   using Producer = std::function<std::expected<AssetRecord, std::string>(std::stop_token)>;
   // An empty successful step retains admission and resumes after a bounded delay on Poll.
   // The pool must outlive every unfinished job, including deferred jobs.
@@ -90,9 +100,26 @@ public:
   RequestResolved(const Consumer &consumer, const ResolvedRequest &request, Producer producer);
   [[nodiscard]] std::expected<RequestTicket, AssetPublicationError> RequestResumable(
       const Consumer &consumer, const ResolvedRequest &request, ResumableProducer producer);
+  // Address is borrowed only during submission; jobs retain its parsed digest.
+  // The producer returns the actual content record with that exact RequestKey.
+  [[nodiscard]] std::expected<RequestTicket, AssetPublicationError> RequestLogical(
+      const Consumer &consumer, const LogicalRequest &request, ResumableProducer producer);
   [[nodiscard]] Snapshot Counts() const noexcept;
 
 private:
+  enum class KeyDomain : uint8_t { Content, Request };
+
+  struct Submission {
+    AssetProductKey Key;
+    KeyDomain Domain;
+    AssetConsumerGeneration Generation;
+    size_t InputBytes = 0;
+    size_t ConsumerBytes = 0;
+    size_t ReceiptBytesMost = 0;
+  };
+
+  [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>
+  Submit(const Consumer &consumer, const Submission &request, ResumableProducer producer);
   std::shared_ptr<State> State_;
 };
 }

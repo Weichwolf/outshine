@@ -40,7 +40,7 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
   if (job->Finished && job->References == 0) {
-    Jobs.erase(ScopedKey{.Scope = job->Scope, .Product = job->Key});
+    Jobs.erase(ScopedKey{.Scope = job->Scope, .Domain = job->Domain, .Key = job->Key});
     --Held.Jobs;
   }
 }
