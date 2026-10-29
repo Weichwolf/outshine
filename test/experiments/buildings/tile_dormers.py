@@ -16,7 +16,15 @@ from tile_roof_envelopes import choose
 
 class DormerRoofs:
     def __init__(
-        self, previous, rows, view, entrances, *, frontages=None, bay_method="bisect"
+        self,
+        previous,
+        rows,
+        view,
+        entrances,
+        *,
+        frontages=None,
+        discard_frontages=None,
+        bay_method="bisect",
     ):
         self.previous, self.view, self.entrances = previous, view, entrances
         self.sources = {r["id"]: r for r in rows if r["layer"] == "building"}
@@ -24,6 +32,7 @@ class DormerRoofs:
         self.failed = set()
         self.current_envelope = None
         self.frontages, self.bay_method = frontages, bay_method
+        self.discard_frontages = discard_frontages
 
     def __getattr__(self, name):
         return getattr(self.previous, name)
@@ -81,6 +90,8 @@ class DormerRoofs:
             SkeletonBudgetExceeded,
             shapely.errors.GEOSException,
         ) as error:
+            if self.discard_frontages is not None:
+                self.discard_frontages(row["id"])
             self.failed.add(row["id"])
             self.dormer_rejected.append({"id": row["id"], "reason": str(error)})
             return None
@@ -147,6 +158,9 @@ class DormerFacades(ElevationFacades):
             view,
             self.entrances,
             frontages=self.stage_roof_facades if dormer_layout == "facade" else None,
+            discard_frontages=self.discard_roof_facades
+            if dormer_layout == "facade"
+            else None,
             bay_method=bay_method,
         )
 
@@ -154,7 +168,7 @@ class DormerFacades(ElevationFacades):
         try:
             mesh, info = super().__call__(row, parameters, material)
         finally:
-            self.roof_staged_elevations.pop(row["id"], None)
+            self.discard_roof_facades(row["id"])
         if "roof_dormer_product" not in info:
             return mesh, info
         asset = self.base.dormer_assets[row["id"]]

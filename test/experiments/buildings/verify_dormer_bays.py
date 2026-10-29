@@ -265,6 +265,36 @@ class ActualDormerBayTests(unittest.TestCase):
             owner(source, attributes(source["properties"]), 12)
         self.assertFalse(owner.roof_staged_elevations)
 
+    def test_missing_roof_discards_early_frames_and_entrance_diagnostics(self):
+        row, neighbors = self.rows[1]
+        owner = AlignedDormers([row, *neighbors], view_for(row))
+        source = owner.rows[0]
+        params = attributes(source["properties"])
+        with patch("tile_dormers.prepare", side_effect=ValueError("no pitched roof")):
+            self.assertIsNone(owner.base.asset(source, params, choose(source, params)))
+        self.assertFalse(owner.roof_staged_elevations)
+        self.assertNotIn(source["id"], owner.staged_entries)
+        self.assertEqual(owner.entrances.planned, [])
+        self.assertEqual(owner.entrances.rejected, [])
+
+    def test_incomplete_early_elevation_choice_does_not_publish_an_entrance(self):
+        row, neighbors = self.rows[1]
+        owner = AlignedDormers([row, *neighbors], view_for(row))
+        source = owner.rows[0]
+        params = attributes(source["properties"])
+        roof = choose(source, params)
+        with (
+            patch(
+                "tile_elevations.choose", side_effect=ValueError("incomplete elevation")
+            ),
+            self.assertRaisesRegex(ValueError, "incomplete elevation"),
+        ):
+            owner.stage_roof_facades(source, params | {"eave_m": roof.eave_m})
+        self.assertFalse(owner.roof_staged_elevations)
+        self.assertNotIn(source["id"], owner.staged_entries)
+        self.assertEqual(owner.entrances.planned, [])
+        self.assertEqual(owner.entrances.rejected, [])
+
 
 if __name__ == "__main__":
     unittest.main()

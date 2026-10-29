@@ -1,6 +1,6 @@
 """Optional hierarchical facade scopes on the existing ordinary/crown pipeline."""
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 import shapely
 from elevation_choice import choose
@@ -10,6 +10,15 @@ from facade_axes import layout
 from tile_facades import recipe_for
 from tile_roof_crowns import CrownFacades
 from tile_roof_envelopes import choose as roof_choice
+
+
+@dataclass(frozen=True)
+class RoofFacadePlan:
+    frames: tuple
+    entrance: object
+    elevations: tuple
+    reason: str
+    entrance_counts: tuple
 
 
 class ElevationFacades(CrownFacades):
@@ -22,6 +31,8 @@ class ElevationFacades(CrownFacades):
         self.bands = ElevationBands(self.bands, self.source_elevations)
 
     def stage_roof_facades(self, row, parameters):
+        if row["id"] in self.roof_staged_elevations:
+            raise ValueError("Source roof already has an unconsumed facade plan")
         recipe = recipe_for(row, parameters)
         rhythm, family = recipe["parameters"], recipe["family"]
         facades = layout(
@@ -31,12 +42,33 @@ class ElevationFacades(CrownFacades):
             rhythm["axis_m"],
             rhythm["floor_m"],
         )
-        entry = self.entrances.plan(row, parameters, facades, family)
-        plans, reason = choose(row, parameters, facades, family, entry, self.entrances)
-        self.staged_entries[row["id"]] = entry
-        self.roof_staged_elevations[row["id"]] = facades, plans, reason
-        upper = {p.facade_id: p.frames()[-1] for p in plans}
-        return tuple(upper.get(f["id"], f) for f in facades)
+        counts = len(self.entrances.planned), len(self.entrances.rejected)
+        try:
+            entry = self.entrances.plan(row, parameters, facades, family)
+            plans, reason = choose(
+                row, parameters, facades, family, entry, self.entrances
+            )
+            upper = {p.facade_id: p.frames()[-1] for p in plans}
+            frames = tuple(upper.get(f["id"], f) for f in facades)
+            self.roof_staged_elevations[row["id"]] = RoofFacadePlan(
+                tuple(facades), entry, plans, reason, counts
+            )
+            return frames
+        except BaseException:
+            self.roof_staged_elevations.pop(row["id"], None)
+            self._restore_entrances(counts)
+            raise
+
+    def _restore_entrances(self, counts):
+        for records, count in zip(
+            (self.entrances.planned, self.entrances.rejected), counts, strict=True
+        ):
+            del records[count:]
+
+    def discard_roof_facades(self, identifier):
+        staged = self.roof_staged_elevations.pop(identifier, None)
+        if staged is not None:
+            self._restore_entrances(staged.entrance_counts)
 
     def surface(self, mesh, row, parameters, rhythm, material):
         projected, facades, identifier = super().surface(
@@ -48,7 +80,8 @@ class ElevationFacades(CrownFacades):
             entry = self.entrances.plan(row, parameters, facades, family)
             self.staged_entries[row["id"]] = entry
         else:
-            entry = self.staged_entries[row["id"]]
+            entry = staged.entrance
+            self.staged_entries[row["id"]] = entry
         logical = parameters
         if "roof_crown_plan" not in parameters:
             roof = roof_choice(row, parameters)
@@ -73,8 +106,8 @@ class ElevationFacades(CrownFacades):
                 row, logical, source_frames, family, entry, self.entrances
             )
         else:
-            expected, plans, reason = staged
-            if source_frames != expected or facades != expected:
+            plans, reason = staged.elevations, staged.reason
+            if tuple(source_frames) != staged.frames or tuple(facades) != staged.frames:
                 raise ValueError(
                     "Physical facade differs from the staged roof facade plan"
                 )
