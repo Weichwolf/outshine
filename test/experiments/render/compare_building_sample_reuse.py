@@ -3,7 +3,7 @@
 import argparse
 import json
 import os
-import resource
+import platform
 import subprocess
 import time
 from pathlib import Path
@@ -13,6 +13,7 @@ from building_sample_inputs import capture_fields, digest, readbacks, same_sourc
 from field_view_integrals import summed_field
 from field_view_projection import CapturePlane, displacement_bound
 from field_view_sampling import ImageView, reconstruct
+from process_memory import peak_rss_bytes
 from replay_building_radiance import compare
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -234,8 +235,13 @@ def run(args):
         "logical_prefix_texel_fetches": sum(
             r["sampling"]["logical_texel_fetches"] for r in result["rows"]
         ),
-        "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        * 1024,
+        "process_peak_rss_bytes": peak_rss_bytes(),
+        "platform": platform.platform(),
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "threads": {
+            k: os.environ.get(k) for k in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS")
+        },
         "nice": os.getpriority(os.PRIO_PROCESS, 0),
         "loadavg_before": load,
         "scope": "Single CPU diagnostic run, immutable inputs and full-frame verification included as named. No allocation-event/total-copy measurement, alternative speedup or native/device/frame/UMA claim. Retained source and prefix bytes reported separately and not added to process RSS.",
