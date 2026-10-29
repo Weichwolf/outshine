@@ -1,4 +1,5 @@
 #include "MediumView.h"
+#include "MaterialFieldPass.h"
 #include "EnvironmentSpecularLayout.h"
 #include "Units.h"
 #include "Mat4.h"

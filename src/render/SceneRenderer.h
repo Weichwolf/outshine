@@ -1,4 +1,3 @@
-#include "MaterialFieldPass.h"
 #include "SceneLighting.h"
 #include "MeshInput.h"
 #include "GeometryUploadTicket.h"
@@ -14,6 +13,7 @@
 #include <RenderConfiguration.h>
 #include "Heap.h"
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <span>
@@ -64,6 +64,11 @@ struct SDL_Window;
 
 namespace outshine::Render {
 class RadianceFilter;
+class MaterialFieldInput;
+class MaterialFieldPass;
+class ResidentMaterialField;
+struct MaterialFieldImages;
+struct MaterialFieldView;
 
 struct GroundClassUploadMetrics {
   TerrainMaterialBuffersUploadMetrics Storage;

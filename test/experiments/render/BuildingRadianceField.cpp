@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <expected>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -64,29 +65,39 @@ ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
   return result;
 }
 
-std::expected<std::vector<float>, std::string> ReadField(const Render::RadianceImage &image) {
-  auto &device = *image.Device;
-  const auto &shape = image.Texture->Description();
+std::expected<std::vector<float>, std::string> ReadField(Render::Native::Device &device,
+                                                         const Render::Native::Texture &image) {
+  const auto &shape = image.Description();
+  const bool depth = shape.Texels == Render::Native::Format::Depth32Float;
+  if (!depth && shape.Texels != Render::Native::Format::Rgba16Float) {
+    return std::unexpected("source field has an unsupported readback format");
+  }
   auto transfer = Gpu::RetryOffline(
       [&] {
         return Render::ReadbackTransfer::Start(
-            device, *image.Texture, {.Width = shape.Width, .Height = shape.Height});
+            device, image, {.Width = shape.Width, .Height = shape.Height});
       },
       kOfflineBudget);
   if (!transfer) { return std::unexpected(transfer.error().Message); }
   const auto pixels = transfer->Wait(device, kOfflineBudget);
   if (!pixels) { return std::unexpected(pixels.error().Message); }
   if (!*pixels) { return std::unexpected("source radiance readback exceeded its offline budget"); }
-  std::vector<float> result(size_t{shape.Width} * shape.Height * 4);
-  if (!SDL_ConvertPixels(static_cast<int>(shape.Width),
-                         static_cast<int>(shape.Height),
-                         SDL_PIXELFORMAT_RGBA64_FLOAT,
-                         (*pixels)->data(),
-                         static_cast<int>(transfer->RowBytes()),
-                         SDL_PIXELFORMAT_RGBA128_FLOAT,
-                         result.data(),
-                         static_cast<int>(shape.Width * 16)) ||
-      !std::ranges::all_of(result, [](float x) { return std::isfinite(x); })) {
+  std::vector<float> result(size_t{shape.Width} * shape.Height * (depth ? 1 : 4));
+  if (depth) {
+    for (size_t row = 0; row < shape.Height; ++row) {
+      std::memcpy(result.data() + row * shape.Width,
+                  (*pixels)->data() + row * transfer->RowBytes(),
+                  size_t{shape.Width} * sizeof(float));
+    }
+  } else if (!SDL_ConvertPixels(static_cast<int>(shape.Width),
+                                static_cast<int>(shape.Height),
+                                SDL_PIXELFORMAT_RGBA64_FLOAT,
+                                (*pixels)->data(),
+                                static_cast<int>(transfer->RowBytes()),
+                                SDL_PIXELFORMAT_RGBA128_FLOAT,
+                                result.data(),
+                                static_cast<int>(shape.Width * 16)) ||
+             !std::ranges::all_of(result, [](float x) { return std::isfinite(x); })) {
     return std::unexpected("source radiance field is incomplete or nonfinite");
   }
   return result;
@@ -146,6 +157,7 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   if (!images) { return std::unexpected(images.error().Message); }
   result.RelightEncodeMs = Elapsed(began);
   result.Radiance = images->Filtered;
+  result.SourceCamera = images->Camera;
   began = Clock::now();
   renderer.WaitForGpu();
   result.WaitMs = Elapsed(began);
@@ -160,9 +172,12 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   }
   if (query.value("dump_source_field", true)) {
     began = Clock::now();
-    auto pixels = ReadField(*images->Unfiltered);
+    auto pixels = ReadField(*images->Unfiltered->Device, *images->Unfiltered->Texture);
     if (!pixels) { return std::unexpected(pixels.error()); }
+    auto depths = ReadField(*images->Unfiltered->Device, *images->Depth);
+    if (!depths) { return std::unexpected(depths.error()); }
     result.SourceLinear = std::move(*pixels);
+    result.SourceDepth = std::move(*depths);
     result.ReadbackMs = Elapsed(began);
   }
   return {};

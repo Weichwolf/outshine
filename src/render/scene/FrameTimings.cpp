@@ -1,4 +1,5 @@
 #include "SceneRenderer.h"
+#include "MaterialFieldPass.h"
 #include "GpuFrameSample.h"
 #include "Log.h"
 #include <algorithm>
