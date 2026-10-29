@@ -1,6 +1,7 @@
 """Compare a held coupled field against full native original image queries."""
 
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -14,7 +15,14 @@ from field_view_sampling import ImageView, reconstruct
 
 def raw_image(path, channels):
     shape = (720, 1280, channels) if channels != 1 else (720, 1280)
-    if path.stat().st_size != int(np.prod(shape)) * 4:
+    size = int(np.prod(shape)) * 4
+    if not path.exists():
+        with gzip.open(path.with_suffix(path.suffix + ".gz"), "rb") as stream:
+            raw = stream.read(size + 1)
+        if len(raw) != size:
+            raise ValueError(f"Unexpected compressed native readback extent: {path}")
+        return np.frombuffer(raw, dtype="<f4").reshape(shape)
+    if path.stat().st_size != size:
         raise ValueError(f"Unexpected native readback extent: {path}")
     return np.memmap(path, mode="r", dtype="<f4", shape=shape)
 
@@ -44,11 +52,15 @@ def compare(args):
         height, width = candidate.shape[:2]
         count = query.get("filter_axis_samples", 4) ** 2
         original = raw_image(args.original / f"{name}-source-mesh.ss{count}", 4)
+        if not np.isfinite(original).all() or np.any(original < 0):
+            raise ValueError("Finite nonnegative original radiance/coverage required")
         truth = np.asarray(original[y : y + height, x : x + width], dtype=float)
         # A crop is an output-storage optimization, never a reduced render or
         # omission of newly exposed pixels outside the card support.
         rgb_mass = np.sum(original[:, :, :3], dtype=float)
         alpha_mass = np.sum(original[:, :, 3], dtype=float)
+        if rgb_mass <= 0 or alpha_mass <= 0:
+            raise ValueError("A nonempty original colour/coverage opponent is required")
         outside = np.array([rgb_mass, alpha_mass]) - [
             truth[:, :, :3].sum(),
             truth[:, :, 3].sum(),
@@ -67,7 +79,7 @@ def compare(args):
             "sampling": sample,
         }
         normal = args.original / (name + "-source-mesh.normal")
-        if normal.exists():
+        if normal.exists() or normal.with_suffix(normal.suffix + ".gz").exists():
             row["geometry"] = compare_geometry(
                 atlas,
                 view,
