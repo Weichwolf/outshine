@@ -25,13 +25,13 @@ void OverridePart(Render::SurfaceTable &table,
       override.RetainMaps ? table.Slots[slot] : Render::MaterialBinding{};
   material.Row = override.Surface;
   if (slot < users.size() && users[slot] == 1u) {
-    table.Slots[slot] = material;
+    table.Slots[slot] = std::move(material);
     return;
   }
   if (slot < users.size()) { users[slot] -= 1u; }
   const int carried = slot < table.Material.size() ? table.Material[slot] : -1;
   const int native = slot < table.NativeMaterial.size() ? table.NativeMaterial[slot] : -1;
-  table.Slots.push_back(material);
+  table.Slots.push_back(std::move(material));
   table.Material.push_back(carried);
   table.NativeMaterial.push_back(native);
   table.PartSlot[part] = static_cast<uint32_t>(table.Slots.size() - 1u);
