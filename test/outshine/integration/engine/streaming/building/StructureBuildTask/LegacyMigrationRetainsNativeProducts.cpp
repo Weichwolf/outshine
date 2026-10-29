@@ -396,6 +396,48 @@ void RestoreRetainsRequestAcrossReplacement(bool cancel) {
         "bounded restart preserves and republishes the original explicit request binding");
 }
 
+void RestoreKeepsBlockedReplacement() {
+  Fixture fixture;
+  if (!fixture.Seed()) { return; }
+  const std::atomic_bool stopping{false};
+  std::optional<PreparedBuildingAssets::BaseWrite> migration;
+  for (unsigned step = 0; step < 3; ++step) {
+    const auto advanced = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+    CHECK(advanced && !*advanced && migration, "the first migration reaches its final restore");
+    if (!advanced || *advanced || !migration) { return; }
+  }
+  if (!fixture.ReplaceWithLegacy() || !fixture.Begin()) { return; }
+  const auto before = fixture.Cache->Costs();
+  const auto first = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+  CHECK(!first && Busy(first.error()) && migration && migration->PublicationBytes() > 0,
+        "a writer-blocked replacement retains its newly decoded native product and package");
+  if (!migration) { return; }
+  const auto bytes = migration->PublicationBytes();
+  const auto attempts = migration->PublicationAttempts();
+  const auto repeated = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+  const auto paused = fixture.Cache->Costs();
+  CHECK(!repeated && Busy(repeated.error()) && migration &&
+            migration->PublicationBytes() == bytes &&
+            migration->PublicationAttempts() == attempts + 1 &&
+            paused.LegacyPreparations == before.LegacyPreparations + 1 &&
+            paused.BasePackagePreparations == before.BasePackagePreparations + 1,
+        "repeated Busy keeps the replacement bytes and never repeats decode or encode");
+  if (!fixture.Commit()) { return; }
+  PreparedBuildingAssets::Base ready;
+  for (unsigned step = 0; step < 16 && !ready; ++step) {
+    const auto packages = fixture.Cache->Costs().BasePackagePreparations;
+    auto result = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+    CHECK(result && fixture.Cache->Costs().BasePackagePreparations <= packages + 1,
+          "each released replacement step admits at most one new package");
+    if (!result) { return; }
+    ready = std::move(*result);
+  }
+  const auto after = fixture.Cache->Costs();
+  CHECK(ready && fixture.IsIndex() && after.LegacyPreparations == before.LegacyPreparations + 1 &&
+            after.BasePackagePreparations == before.BasePackagePreparations + 3,
+        "the paused replacement completes exactly one cell/index/basis migration");
+}
+
 }
 
 int main() {
@@ -403,6 +445,7 @@ int main() {
   TaskOwnsLegacyMigration();
   StopKeepsTheOriginalParent();
   RestoreKeepsPublicationBoundAfterLegacyReplacement();
+  RestoreKeepsBlockedReplacement();
   RestoreRetainsRequestAcrossReplacement(false);
   RestoreRetainsRequestAcrossReplacement(true);
   BasisReadReusesTheMigrationBasis();
