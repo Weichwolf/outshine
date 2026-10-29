@@ -1,3 +1,4 @@
+#include "BuildingAssetFixture.h"
 #include "AssetCache.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedBuildingBasis.h"
@@ -8,10 +9,8 @@
 #include "BuildingMesh.h"
 #include "SourceSet.h"
 #include "RawSourceCache.h"
-#include "Geodesy.h"
 #include "Check.h"
 #include "Shell.h"
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -33,38 +32,9 @@ namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
+using namespace outshine::Test::BuildingAssetFixture;
 constexpr std::string_view kInputDigest = "basis-miss-revalidation-native-inputs";
 constexpr auto kDeadline = std::chrono::seconds(5);
-
-RawTile Inputs() {
-  RawTile raw;
-  raw.TileSpanM = 1000;
-  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
-  const Ground::GeoBounds region{
-      .MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.02, .MaxLatDeg = 47.02};
-  const std::array ring{47.001, 9.001, 47.001, 9.0012, 47.0012, 9.0012, 47.0012, 9.001};
-  const auto cell = StructureCellOf(region, ring);
-  if (!cell) { return {}; }
-  raw.LatLon.assign(ring.begin(), ring.end());
-  raw.Structures.push_back({.LocalFirst = 0,
-                            .PointCount = 4,
-                            .SourceFirst = 0,
-                            .Cell = *cell,
-                            .HeightM = 12,
-                            .MinimumHeightM = 0,
-                            .Pitched = 0,
-                            .WallColour = {},
-                            .Facade = FacadeStyle::Commercial});
-  return raw;
-}
-
-std::shared_ptr<const Ground::HeightField> Heights() {
-  Ground::HeightField::Block block;
-  block.At = {.Zoom = 0, .X = 0, .Y = 0};
-  block.Raster = {.Side = 2, .Postings = 2};
-  block.Nodes = {125, 125, 125, 125};
-  return Ground::HeightField::Of(0, {block});
-}
 
 std::string Key(const PreparedBuildingAssets &cache) {
   return cache.Key({.Zoom = 0, .X = 0, .Y = 0}, 17, {}, 1000, kInputDigest);

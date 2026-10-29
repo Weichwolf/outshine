@@ -9,6 +9,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,10 @@ PreparedBuildingAssets::BaseWrite::BaseWrite(BaseWrite &&) noexcept = default;
 PreparedBuildingAssets::BaseWrite &
 PreparedBuildingAssets::BaseWrite::operator=(BaseWrite &&) noexcept = default;
 PreparedBuildingAssets::BaseWrite::~BaseWrite() = default;
+
+bool PreparedBuildingAssets::BaseWrite::ForKey(std::string_view key) const noexcept {
+  return State_ && State_->Key == key;
+}
 
 size_t PreparedBuildingAssets::BaseWrite::PublicationBytes() const noexcept {
   return State_ && State_->Package ? State_->Package->CapacityBytes() : 0;

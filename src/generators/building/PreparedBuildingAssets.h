@@ -39,6 +39,7 @@ public:
     friend class PreparedBuildingAssets;
     struct State;
     explicit BaseWrite(std::unique_ptr<State> state);
+    [[nodiscard]] bool ForKey(std::string_view key) const noexcept;
     std::unique_ptr<State> State_;
     uint64_t Attempts_ = 0;
   };
@@ -61,6 +62,7 @@ public:
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
     uint64_t GeometryPreparations = 0, BasePreparations = 0, BasePackagePreparations = 0;
+    uint64_t LegacyPreparations = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -85,6 +87,12 @@ public:
   [[nodiscard]] std::expected<bool, StructureBakeError>
   RetireUnavailableBasis(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError> Load(const std::string &key);
+  // Busy preserves this key's migration. Empty Base with a continuation means another
+  // bounded publication step is needed; empty Base without one is a native miss.
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  ReadBase(const std::string &key,
+           std::optional<BaseWrite> &continuation,
+           const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<Base, StructureBakeError>
   Generate(const std::string &key,
            const RawTile &raw,
@@ -183,6 +191,7 @@ private:
   std::unordered_map<std::string, ResidentBasis> ResidentBases_;
   SurfaceCosts SurfaceCosts_;
   std::atomic_uint64_t BasisHits_{0}, BasisMisses_{0}, BasisWrites_{0}, BasisReadBytes_{0};
+  std::atomic_uint64_t LegacyPreparations_{0};
   std::atomic_uint64_t BasisResidentHits_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},

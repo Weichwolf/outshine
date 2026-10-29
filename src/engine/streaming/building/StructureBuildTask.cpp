@@ -331,7 +331,7 @@ struct StructureBuildTask::NativeProducts {
     const auto attempts = BasePublication ? BasePublication->PublicationAttempts() : 0;
     auto loaded = [&]()
         -> std::expected<Generators::PreparedBuildingAssets::Base, Generators::StructureBakeError> {
-      if (basis != nullptr) { return Cache->Load(Key); }
+      if (basis != nullptr) { return Cache->ReadBase(Key, BasePublication, stopping); }
       if (BasePublication) { return Cache->ResumeBase(*BasePublication, stopping); }
       return std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
     }();
