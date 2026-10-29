@@ -1,9 +1,13 @@
 """Existing native wire binding, corruption and coupled-sample constraints."""
 
+import gzip
 import struct
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
+from compare_field_views import raw_image
 from field_view_inputs import MATERIAL, TEXEL, decode_view, fnv
 
 
@@ -53,6 +57,24 @@ class InputTests(unittest.TestCase):
         ):
             with self.subTest(options=options), self.assertRaises(ValueError):
                 decode_view(native_blob(**options), "bound-view")
+
+    def test_lossless_native_image_reload_and_bounded_extent(self):
+        image = np.zeros((720, 1280), dtype="<f4")
+        image[357, 640] = 0.125
+        raw = image.tobytes()
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-field-readback-"
+        ) as temporary:
+            path = Path(temporary) / "frame.depth"
+            path.write_bytes(raw)
+            np.testing.assert_array_equal(raw_image(path, 1), image)
+            path.unlink()
+            compressed = path.with_suffix(".depth.gz")
+            compressed.write_bytes(gzip.compress(raw, compresslevel=1, mtime=0))
+            np.testing.assert_array_equal(raw_image(path, 1), image)
+            compressed.write_bytes(gzip.compress(raw + b"x", compresslevel=1, mtime=0))
+            with self.assertRaisesRegex(ValueError, "extent"):
+                raw_image(path, 1)
 
 
 if __name__ == "__main__":

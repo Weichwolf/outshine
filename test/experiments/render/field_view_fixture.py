@@ -5,7 +5,7 @@ import hashlib
 import json
 
 import numpy as np
-from compare_building_impostors import native_axes
+from compare_building_impostors import native_axes, write_native_parts
 from native_building_cell_reference import load_cells
 from parent_surface_inputs import open_parent
 
@@ -38,36 +38,16 @@ def prepare_cell(data, recipe, cell, output, *, pixels=128):
     output.mkdir(parents=True, exist_ok=False)
     geometry = output / "geometry"
     geometry.mkdir()
-    role = mesh["binding"][:, 4].copy()
-    metres = np.any(mesh["metres"][mesh["indices"]] != 0, axis=(1, 2))
-    role[(role == 0) & metres] = 2
-    parts, files = [], {}
-    for index in range(3):
-        faces = mesh["indices"][role == index]
-        vertices, inverse = np.unique(faces, return_inverse=True)
-        directory = geometry / str(index)
-        directory.mkdir()
-        attributes = {
-            "positions": native_axes(mesh["positions"][vertices]),
-            "normals": native_axes(mesh["vertex_normal"][vertices]),
-            "uv": mesh["uv"][vertices],
-            "uv1": mesh["metres"][vertices],
-            "colours": mesh["colour"][vertices],
-            "indices": inverse.astype("<u4"),
+    parts = write_native_parts(mesh, geometry)
+    for index, part in enumerate(parts):
+        part["material"] = index
+    files = {
+        str(path.relative_to(output)): {
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "bytes": path.stat().st_size,
         }
-        for name, values in attributes.items():
-            array = np.asarray(values, dtype="<u4" if name == "indices" else "<f4")
-            path = directory / (name + ".bin")
-            array.tofile(path)
-            if not np.array_equal(np.fromfile(path, dtype=array.dtype), array.ravel()):
-                raise ValueError("The serialized original attribute changed")
-            files[str(path.relative_to(output))] = {
-                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                "bytes": path.stat().st_size,
-            }
-        parts.append(
-            {"vertices": len(vertices), "triangles": len(faces), "material": index}
-        )
+        for path in sorted(geometry.glob("*/*.bin"))
+    }
     positions = native_axes(mesh["positions"])
     least, most = positions.min(0).tolist(), positions.max(0).tolist()
     (geometry / "input.json").write_text(
