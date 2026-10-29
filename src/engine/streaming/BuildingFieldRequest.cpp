@@ -167,7 +167,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
       *bytes > budget.FieldBytesMost || budget.ProducerBytes == 0 || budget.ResidentBytes == 0 ||
       demand.View.Value >= demand.Directions.size() ||
       budget.Capture.Samples < static_cast<uint64_t>(demand.Pixels) * demand.Pixels ||
-      budget.Capture.SourceTests == 0 || !std::isfinite(Length(source.AnchorEcef)) ||
+      budget.Capture.Sources == 0 || budget.Capture.Faces == 0 ||
+      budget.Capture.TriangleAttempts == 0 || !std::isfinite(Length(source.AnchorEcef)) ||
       Length(source.AnchorEcef) == 0) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }

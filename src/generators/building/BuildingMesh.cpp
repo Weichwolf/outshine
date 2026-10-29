@@ -263,6 +263,10 @@ public:
 
   void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
     if (!Status_) { return; }
+    if (Scratch_.Triangles && !Scratch_.Triangles->Take()) {
+      Reject();
+      return;
+    }
     const Vtx a = Snapped(given0);
     const Vtx b = Snapped(given1);
     const Vtx c = Snapped(given2);
@@ -591,6 +595,7 @@ void Floor(const BuildingShape &s, std::span<const EastNorth> ring, double atZ, 
   tris.clear();
   (void)RoofSurface::Fill(ring, site.Scratch(), tris, s.Holes);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    if (!site.Status()) { return; }
     site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth),
              Face(s, tris[i + 1], atZ, Facade::Plinth),
              Face(s, tris[i], atZ, Facade::Plinth));
@@ -649,6 +654,7 @@ void Covering(const BuildingShape &s,
   }
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    if (!site.Status()) { return; }
     std::array<Vtx, 3> v{};
     for (int k = 0; k < 3; k++) {
       v[k] = Face(s,
@@ -962,6 +968,7 @@ bool WallFace(const BuildingShape &shape,
   const Fields stand =
       exterior && std::cmp_equal(edge, shape.FrontEdge) ? Fields::Entrance : Fields::Back;
   WallPanel(shape, p, q, 0.0, bays, bottom, deck, stand, site);
+  if (!site.Status()) { return false; }
   if (shape.Roof != RoofKind::Flat) { GableFace(shape, roof, p, q, deck, site); }
   return true;
 }

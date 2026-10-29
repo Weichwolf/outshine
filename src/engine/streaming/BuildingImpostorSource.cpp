@@ -72,34 +72,28 @@ BuildingImpostorSource::Description(const Generators::BuildingSourceView &source
 std::expected<ImpostorAtlas, std::string>
 BuildingImpostorSource::Generate(Content::ImpostorViewAssets::ViewIndex view,
                                  size_t bytesMost,
-                                 Generators::BuildingPlaneCapture::Budget budget,
+                                 Generators::BuildingSourceBudget budget,
                                  const std::stop_token &stop) {
   const auto bound =
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1});
   if (stop.stop_requested() || Provenance_.empty() || view.Value >= Recipe_.Directions.size() ||
       !bound || *bound > bytesMost ||
       budget.Samples < static_cast<uint64_t>(Recipe_.Pixels) * Recipe_.Pixels ||
-      budget.SourceTests == 0) {
+      budget.Sources == 0 || budget.Faces == 0 || budget.TriangleAttempts == 0) {
     return std::unexpected("building field request exceeds valid admission");
   }
   const auto source = Source();
   if (!source) { return std::unexpected(source.error()); }
   const auto description = Description(**source);
-  auto planes = (**source).Capture({.Centre = description.Centre,
-                                    .TowardEye = Recipe_.Directions[view.Value],
-                                    .HalfExtentM = description.HalfExtentM,
-                                    .Pixels = Recipe_.Pixels},
-                                   budget,
-                                   Recipe_.WallRoofMetreMaterials,
-                                   stop);
-  if (!planes) { return std::unexpected(planes.error().Message); }
+  auto originals = (**source).Originals(budget, Recipe_.WallRoofMetreMaterials, stop);
+  if (!originals) { return std::unexpected(originals.error().Message); }
   if (stop.stop_requested()) { return std::unexpected("building field capture cancelled"); }
   Render::ImpostorCapture capture;
   capture.LeastM = (**source).Bounds().Min;
   capture.MostM = (**source).Bounds().Max;
   capture.HalfExtentM = description.HalfExtentM;
   capture.ViewDirections = {Recipe_.Directions[view.Value]};
-  capture.Sources.push_back({.Mesh = std::move(planes->Mesh), .Instances = {Mat4{}}});
+  capture.Sources.push_back({.Mesh = std::move(*originals), .Instances = {Mat4{}}});
   std::string error;
   auto field = Render::ImpostorBaker::Bake(
       std::move(capture), {.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1}, error);

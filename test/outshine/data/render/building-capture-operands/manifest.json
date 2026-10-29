@@ -1,0 +1,204 @@
+{
+  "schema": 1,
+  "source_commit": "a74c6560362ed2193e354af9e3ea40f07c67a62c",
+  "device": "A18 Pro / Metal",
+  "control": "building-field-composition original capture / foreground",
+  "source": {
+    "native_product_commit": "077d9827e05f2f967204ccb80d700c5f8c7e9d50",
+    "native_product_tree": "c1844df44f1470f121b9636abe788ba581d49bfc",
+    "source_archive_sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac",
+    "cells": [
+      {
+        "cell": 25,
+        "sources": 508,
+        "triangles": 12327,
+        "expanded_bytes": 1775088,
+        "unsupported": [],
+        "file": "25.json.gz",
+        "bytes": 1109522,
+        "sha256": "404cf732a74522bf2a826c6c612d936a4904dc155fdd83ea3cc4b5e7c97a97ae",
+        "kind": "native producer control"
+      },
+      {
+        "cell": 33,
+        "sources": 576,
+        "triangles": 14169,
+        "expanded_bytes": 2040336,
+        "unsupported": [],
+        "archive_replay": {
+          "sources": 576,
+          "triangles": 14169,
+          "expanded_bytes": 2040336,
+          "opaque_assumption": true,
+          "material_scope": "Wall/roof streams and actual vertex colour/UV/normal/material-metre attributes preserved; GPU material bindings/opacity remain unqualified.",
+          "part_scope": "Analytic surfaces retain parts/faces. Cached whole-source triangle part IDs are unknown and remain null."
+        },
+        "file": "../cell.json.gz",
+        "bytes": 1270215,
+        "sha256": "31e296fdda1e8ffebba3303bf28f35e4de99c29410e19bc9983a6e375696d3da",
+        "kind": "archived geometry replay"
+      },
+      {
+        "cell": 34,
+        "sources": 474,
+        "triangles": 11980,
+        "expanded_bytes": 1725120,
+        "unsupported": [],
+        "file": "34.json.gz",
+        "bytes": 1128516,
+        "sha256": "bbd96d43b21e7439f876a1023f947fb3fac5397b9f4419daf9efcf8356439964",
+        "kind": "native producer control"
+      },
+      {
+        "cell": 41,
+        "sources": 335,
+        "triangles": 8413,
+        "expanded_bytes": 1211472,
+        "unsupported": [
+          {
+            "source": 3825,
+            "reason": "footprint cannot form a supported building mass"
+          },
+          {
+            "source": 3827,
+            "reason": "footprint cannot form a supported building mass"
+          }
+        ],
+        "file": "41.json.gz",
+        "bytes": 731401,
+        "sha256": "ecb25d9490b8f64e4a1f72d797636e9a76a8e448f402542fe61a78234aadfec9",
+        "kind": "native producer control"
+      }
+    ],
+    "unresolved_originals": [
+      {
+        "source": 3825,
+        "reason": "footprint cannot form a supported building mass"
+      },
+      {
+        "source": 3827,
+        "reason": "footprint cannot form a supported building mass"
+      }
+    ],
+    "decoded_array_bytes_before_transform": 9090600,
+    "decoded_array_bytes_after_transform": 10230588,
+    "scope": "Delivered unprojected native geometry with current-policy source-material model. Explicit failed originals have no geometry: image excludes them and their actual price remains unknown. Reference CPU arrays/control files are not native asset IO or GPU upload prices."
+  },
+  "capture": {
+    "bytes": 65536,
+    "eye_m": [
+      -31941.359994107323,
+      45254.38270345406,
+      32026.621641761307
+    ],
+    "far_m": 65892.08693493484,
+    "format": "reverse_z_0_1_float32",
+    "forward": [
+      0.5000000000000001,
+      -0.7071067811865475,
+      -0.49999999999999983
+    ],
+    "height_px": 128,
+    "near_m": 0.1,
+    "orthographic": true,
+    "right": [
+      0.7071067811865474,
+      0.0,
+      0.7071067811865477
+    ],
+    "up": [
+      0.5000000000000001,
+      0.7071067811865475,
+      -0.49999999999999983
+    ],
+    "width_px": 128,
+    "x_mag_m": 473.0217337337119,
+    "y_mag_m": 473.0217337337119,
+    "yfov_rad": 0.0
+  },
+  "parts": [
+    {
+      "vertices": 62578,
+      "triangles": 33797,
+      "material": 0
+    },
+    {
+      "vertices": 24849,
+      "triangles": 9195,
+      "material": 1
+    },
+    {
+      "vertices": 7572,
+      "triangles": 3897,
+      "material": 2
+    }
+  ],
+  "arrays": {
+    "vertex_positions_f32": {
+      "dtype": "<f4",
+      "shape": [
+        94999,
+        3
+      ],
+      "sha256": "4c38083f8886011228e794e848985c8835cd2ee016894fe0e465a680fd33acc8"
+    },
+    "triangle_indices_u32": {
+      "dtype": "<u4",
+      "shape": [
+        46889,
+        3
+      ],
+      "sha256": "0c7a5ce747d4604ea823f0d293137c15976002b7765f21315165d1fe37a1e873"
+    },
+    "geometry_view_uniform_f32": {
+      "dtype": "<f4",
+      "shape": [
+        56
+      ],
+      "sha256": "d0935070290df063aeb8d53ef779d5b13a709dd7ec6578c74881001b2c98420b"
+    },
+    "mesh_anchor_f64": {
+      "dtype": "<f8",
+      "shape": [
+        3
+      ],
+      "sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0"
+    },
+    "gpu_placement_bytes": {
+      "dtype": "|u1",
+      "shape": [
+        144
+      ],
+      "sha256": "1764268b25715deacd275e1a7680136fdcd4dcab6cc9f52cf29273a4a01b2bde"
+    }
+  },
+  "npz_sha256": "3699ae62e90c4fff638668bb9aa0d7a7bb6813891b484c037ad2a689601f822a",
+  "source_files_sha256": {
+    "src/render/stages/GeometryEncoding.cpp": "01ceeb2a7f0b4ae5c19139a3efbddbd3874ed095d21a05dbe725e5441b8a27f1",
+    "src/render/stages/GeometryUploads.cpp": "8dfd0d3a155ca28bf1701b59a74f69ff2fc2c779339728ae8b3aadfb937233e1",
+    "src/render/stages/ScenePlacementUpload.cpp": "4f8448af4a5f162f05be8dfd9a497105ebcc1b0a39476d178a1ae3264d65e6b9",
+    "src/render/stages/GpuPlacement.h": "a5739b7e57330ecaf4c0c7ac1bdee730a0dc321174d827ecf0ba07b40d108604",
+    "src/render/Lens.cpp": "f72b3e167534310b02aff158c977f235f7ce0395ac8648c477cca5889b6bffe9",
+    "src/render/impostor/MaterialFieldRelight.cpp": "85e11161099821e5070e37d5de8c32944378ba587da58ea775fbba080d8ee07c",
+    "src/render/shaders/litVertex.glsl": "d5f5c0426ff739743cb777cd16cc671a49b5b0716c10ab0bed71bdae6356344d",
+    "src/render/shaders/flatVertex.glsl": "f47979d3ad54df3644d6353058889607aef240eac1f0fc5495cabadc710a457a",
+    "src/render/shaders/geometryView.glsl": "326068110850f0706b2042810e4ff8f3c7cef161de68623fa9f5d053afb1e396",
+    "src/render/shaders/geometryPlacements.glsl": "df6b11f801431f2e985183ead2637a53270759cc987b48c84c1c07a40d8a2bd2"
+  },
+  "checks": {
+    "vertex_stream_equals_concatenated_versioned_originals": true,
+    "index_stream_equals_offset_original_triangles": true,
+    "placement_upload_equals_draw_rows": true,
+    "colour_equals_frozen_original_capture": true,
+    "depth_equals_frozen_original_capture": true
+  },
+  "capture_method": "Private temporary dump after GeometryResidency::Fill and at GeometryRenderer::FrameUniformsOf; no shader changes. These are submitted carrier bytes, not matrices reconstructed from camera JSON.",
+  "instrumented_binary_sha256": "33da1c200183825d52dc9709f26e8d2ba39d1ee255653beaffd4dcd140ce281f",
+  "native_terminal": 0,
+  "limits": [
+    "One fixed native original capture, not all poses or World inputs.",
+    "Production Lit/Flat SPIR-V/Metal compiler expression families remain unqualified under #990.",
+    "No conservative capture admission, World replacement, HDR integral accuracy, memory or frame-budget acceptance.",
+    "Instrumentation timings are not performance evidence."
+  ]
+}
