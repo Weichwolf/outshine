@@ -2,7 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_BUILDINGFIELDREQUEST_H
 #include "AssetPipeline.h"
 #include "BuildingSourceDemand.h"
-#include "BuildingPlaneCapture.h"
+#include "BuildingSourceBudget.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorViewAssets.h"
 #include <cstddef>
@@ -27,7 +27,7 @@ public:
     size_t ProducerBytes = 0;
     size_t ResidentBytes = 0;
     size_t FieldBytesMost = 0;
-    Generators::BuildingPlaneCapture::Budget Capture;
+    Generators::BuildingSourceBudget Capture;
   };
 
   struct Product {

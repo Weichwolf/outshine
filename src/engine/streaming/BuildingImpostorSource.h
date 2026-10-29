@@ -38,7 +38,7 @@ public:
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
   Generate(Content::ImpostorViewAssets::ViewIndex view,
            size_t bytesMost,
-           Generators::BuildingPlaneCapture::Budget budget,
+           Generators::BuildingSourceBudget budget,
            const std::stop_token &stop = {});
 
 private:
