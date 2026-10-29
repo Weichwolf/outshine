@@ -5,7 +5,6 @@
 #include "Check.h"
 #include "OfflineSourceTransport.h"
 #include "BuiltinSourceProviders.h"
-#include "Sink.h"
 #include "StructureBuildQueue.h"
 #include "StructureCell.h"
 #include "SurfacePreparation.h"
@@ -27,21 +26,6 @@
 #include <vector>
 
 namespace outshine::Test {
-class BuildingQueueSink final : public Sink {
-public:
-  void Number(const char * /*name*/, double /*value*/, const char * /*unit*/) override {}
-
-  void Claim(bool /*passed*/, const char * /*claim*/) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string & /*line*/) override {}
-};
-
 struct BuildingQueueCache {
   std::filesystem::path Path =
       std::filesystem::temp_directory_path() /
@@ -56,7 +40,7 @@ struct BuildingQueueCache {
 
 struct BuildingQueueFixture {
   BuildingQueueCache Cache;
-  BuildingQueueSink Sink;
+
   Data::OfflineSourceTransport Wire;
   Tasks SourceCompute{1};
   Ground::SurfacePreparation Stack;
@@ -100,7 +84,6 @@ struct BuildingQueueFixture {
                      Eye,
                      Wire,
                      SourceCompute,
-                     Sink,
                      nullptr,
                      1.0),
           "offline stack opens");

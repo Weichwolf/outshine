@@ -515,3 +515,8 @@ target_include_directories(outshine_ggx_fragment_probe PRIVATE
   "${PROJECT_SOURCE_DIR}/test/harness/shared" "${PROJECT_SOURCE_DIR}/test/harness/render")
 target_compile_options(outshine_ggx_fragment_probe PRIVATE -fno-exceptions)
 target_link_libraries(outshine_ggx_fragment_probe PRIVATE outshine_render)
+
+add_executable(outshine_terrain_coverage_probe EXCLUDE_FROM_ALL
+  test/harness/terrain/NativeTerrainCoverageProbe.cpp)
+target_compile_options(outshine_terrain_coverage_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_terrain_coverage_probe PRIVATE outshine_generators_terrain)

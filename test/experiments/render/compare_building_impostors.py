@@ -15,10 +15,9 @@ import time
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
-
 from building_tree_load import read_tree
 from native_building_cell_reference import load_cells
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA = ROOT / "test/outshine/data/render/building-full-view"
@@ -89,14 +88,7 @@ def capture_frame_controls(queries, catalogue, centre):
     return controls
 
 
-def prepare(parents, output, elevation):
-    report = json.loads((parents / "report.json").read_text())
-    original, provenance = load_cells(
-        DATA / "native-cells/manifest.json",
-        DATA / "original-inputs.tar.gz",
-        set(report["cells"]),
-        read_tree(parents),
-    )
+def write_native_parts(original, output):
     role = original["binding"][:, 4].copy()
     metres = np.any(original["metres"][original["indices"]] != 0, axis=(1, 2))
     role[(role == 0) & metres] = 2
@@ -117,6 +109,18 @@ def prepare(parents, output, elevation):
             np.asarray(values, dtype="<f4").tofile(directory / (name + ".bin"))
         inverse.astype("<u4").tofile(directory / "indices.bin")
         parts.append({"vertices": len(ids), "triangles": len(faces)})
+    return parts
+
+
+def prepare(parents, output, elevation):
+    report = json.loads((parents / "report.json").read_text())
+    original, provenance = load_cells(
+        DATA / "native-cells/manifest.json",
+        DATA / "original-inputs.tar.gz",
+        set(report["cells"]),
+        read_tree(parents),
+    )
+    parts = write_native_parts(original, output)
     queries = report["queries"]
     for query in queries:
         query["eye"] = native_axes(np.array(query["eye"])[None])[0].tolist()

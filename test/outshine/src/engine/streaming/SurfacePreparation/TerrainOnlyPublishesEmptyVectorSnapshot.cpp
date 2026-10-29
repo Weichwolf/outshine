@@ -2,7 +2,6 @@
 #include "Check.h"
 #include "SurfacePreparation.h"
 #include "OfflineSourceTransport.h"
-#include "Sink.h"
 
 #include <array>
 #include <chrono>
@@ -13,21 +12,6 @@
 #include <thread>
 
 namespace {
-
-class SilentSink final : public outshine::Sink {
-public:
-  void Number(const char *name, double value, const char *unit) override {}
-
-  void Claim(bool valid, const char *claim) override {}
-
-  void Near(double /*got*/,
-            double /*want*/,
-            double /*within*/,
-            const char * /*unit*/,
-            const char * /*why*/) override {}
-
-  void Say(const std::string &message) override {}
-};
 
 struct TemporaryCache {
   std::filesystem::path Path =
@@ -48,7 +32,7 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   const TemporaryCache cache;
-  SilentSink sink;
+
   Data::OfflineSourceTransport wire;
   Data::SourceProvider terrain;
   terrain.Kind = "terrain";
@@ -65,7 +49,6 @@ int main() {
                    first,
                    wire,
                    sourceCompute,
-                   sink,
                    nullptr,
                    1.0),
         "explicit terrain-only provider opens without an implicit vector source");

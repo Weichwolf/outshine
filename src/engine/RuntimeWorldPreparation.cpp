@@ -207,24 +207,23 @@ bool Engine::State::PrepareRuntimeWorld() {
     }
   }
 
-  Collecting say;
   const ContentDirectories contentDirectories{.BuiltinData = Session.Under.BuiltinDataDirectory,
                                               .Sources = Session.Under.SourceCacheDirectory,
                                               .Assets = Session.Under.AssetCacheDirectory};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Stack.Opened() &&
-      !World.Stack.OpenSession(contentDirectories,
-                               World.Sources,
-                               {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                               *World.Wire,
-                               *World.Pool,
-                               say,
-                               Diagnostics,
-                               Session.Declared.Ground.PatienceS)) {
-    Error = say.WhyNot();
-    return false;
+  if (!World.Stack.Opened()) {
+    const auto opened = World.Stack.OpenSession(contentDirectories,
+                                                World.Sources,
+                                                {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+                                                *World.Wire,
+                                                *World.Pool,
+                                                Diagnostics,
+                                                Session.Declared.Ground.PatienceS);
+    if (!opened) {
+      Error = opened.error();
+      return false;
+    }
   }
-
   World.Stack.DeferWaterToRegionLookup();
 
   if (!Session.Declared.Ground.Shape.Kind.empty()) {
