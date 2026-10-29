@@ -30,7 +30,7 @@ BuildingFieldRequest::Budget Budget() {
   return {.ProducerBytes = kMiB,
           .ResidentBytes = kMiB,
           .FieldBytesMost = kMiB,
-          .Capture = {.Samples = 1024, .SourceTests = 100000}};
+          .Capture = {.Samples = 1024, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000}};
 }
 
 std::expected<std::shared_ptr<const BuildingFieldRequest::Product>, std::string>
