@@ -81,26 +81,26 @@ EmitOriginal(const BuildingSurface &source,
              const std::stop_token &stop) {
   if (!source.RequireShapes()) {
     return std::unexpected(
-        BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::SourceUnavailable,
+        BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::SourceUnavailable,
                                   .Message = "original building forms unavailable"});
   }
   emitted.Clear();
   for (size_t face = 0; face < source.FaceCount(); ++face) {
     if (stop.stop_requested()) {
       return std::unexpected(
-          BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::Cancelled,
+          BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::Cancelled,
                                     .Message = "original building geometry cancelled"});
     }
     if (triangles.Remaining == 0) {
       return std::unexpected(
-          BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
+          BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::WorkBudgetExceeded,
                                     .Message = "original building triangle budget exhausted"});
     }
     const std::array selected{source.FaceAt(face)};
     if (!source.MeshVisible(selected, scratch, emitted)) {
       return std::unexpected(BuildingSourceView::Error{
-          .Kind = triangles.Exhausted ? BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded
-                                      : BuildingPlaneCapture::ErrorKind::UnsupportedSource,
+          .Kind = triangles.Exhausted ? BuildingSourceView::ErrorKind::WorkBudgetExceeded
+                                      : BuildingSourceView::ErrorKind::UnsupportedSource,
           .Message = "original building mesh emission failed"});
     }
   }
@@ -113,25 +113,25 @@ BuildingSourceView::Originals(BuildingSourceBudget budget,
                               const std::array<Material, 3> &materials,
                               const std::stop_token &stop) const {
   if (stop.stop_requested()) {
-    return std::unexpected(Error{.Kind = BuildingPlaneCapture::ErrorKind::Cancelled,
+    return std::unexpected(Error{.Kind = BuildingSourceView::ErrorKind::Cancelled,
                                  .Message = "original building geometry cancelled"});
   }
   if (!Unsupported_.empty()) {
-    return std::unexpected(Error{.Kind = BuildingPlaneCapture::ErrorKind::UnsupportedSource,
+    return std::unexpected(Error{.Kind = BuildingSourceView::ErrorKind::UnsupportedSource,
                                  .Source = Unsupported_.front(),
                                  .Message = "whole original group has unsupported sources"});
   }
   if (Sources_.size() > budget.Sources || budget.TriangleAttempts == 0 ||
       budget.TriangleAttempts > std::numeric_limits<uint32_t>::max() / 3) {
     return std::unexpected(
-        Error{.Kind = BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
+        Error{.Kind = BuildingSourceView::ErrorKind::WorkBudgetExceeded,
               .Message = "original building source or triangle budget exceeded"});
   }
   uint64_t faces = 0;
   for (const auto source : Sources_) {
     const size_t count = Base_->Surfaces[source].FaceCount();
     if (faces > budget.Faces || count > budget.Faces - faces) {
-      return std::unexpected(Error{.Kind = BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
+      return std::unexpected(Error{.Kind = BuildingSourceView::ErrorKind::WorkBudgetExceeded,
                                    .Message = "original building face budget exceeded"});
     }
     faces += count;
@@ -143,7 +143,7 @@ BuildingSourceView::Originals(BuildingSourceBudget budget,
   Raised emitted;
   for (const auto ordinal : Sources_) {
     if (stop.stop_requested()) {
-      return std::unexpected(Error{.Kind = BuildingPlaneCapture::ErrorKind::Cancelled,
+      return std::unexpected(Error{.Kind = BuildingSourceView::ErrorKind::Cancelled,
                                    .Message = "original building geometry cancelled"});
     }
     const auto emission = EmitOriginal(Base_->Surfaces[ordinal], scratch, triangles, emitted, stop);
