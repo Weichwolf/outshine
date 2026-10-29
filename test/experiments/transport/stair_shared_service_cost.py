@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from allocation_measure import allocations
+from camera_height_inputs import digest
 from stair_local_replay import verified
 from stair_module_inputs import inputs, read_arrays
 from stair_patch_inputs import fresh
@@ -25,10 +26,10 @@ def run(args):
         raise ValueError("Measure at normal process priority")
     verified(args.local)
     saved = json.loads((args.local / "comparison.json").read_text())
-    from camera_height_inputs import digest
-
-    if not saved["valid_local_module"] or saved["fixture_sha256"] != digest(
-        args.fixture
+    if (
+        not saved["valid_local_module"]
+        or saved["fixture_sha256"] != digest(args.fixture)
+        or saved["artifacts"]["module.npz"] != digest(args.local / "module.npz")
     ):
         raise ValueError(
             "Accepted complete product bound to the original fixture required"
