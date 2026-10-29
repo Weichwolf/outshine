@@ -4,7 +4,6 @@ import copy
 import unittest
 
 import numpy as np
-
 from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 
 
