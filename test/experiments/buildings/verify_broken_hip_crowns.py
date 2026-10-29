@@ -71,6 +71,24 @@ class BrokenHipCrownTests(unittest.TestCase):
                 self.assertIsNone(owner.roof_components)
                 self.assertIsNone(owner.body.facade.near)
 
+    def test_every_profile_vertex_keeps_the_original_compact_displacement_bound(self):
+        for owner in self.owners:
+            (product,) = owner.physical_roof()
+            core = owner.plan.body.core
+            points = np.array(product.mesh["vertices"], copy=True)
+            points[:, :2] = (points[:, :2] - core.origin_xy) @ np.array(
+                [core.across_xy, core.along_xy]
+            ).T
+            distance = shapely.distance(
+                shapely.points(points[:, :2]),
+                shapely.from_wkb(owner.plan.crown.domain_wkb),
+            )
+            self.assertLess(distance.max(), 1e-9)
+            radius = owner.plan.source_top_m - owner.plan.body.top_m
+            self.assertLessEqual(
+                abs(owner.plan.source_top_m - points[:, 2]).max(), radius + 1e-9
+            )
+
     def test_capacity_refusal_keeps_exact_valid_hip_and_whole_cached_far_product(self):
         request = with_broken_hip(self.original[0], maximum_triangles=1)
         owner = RoofedProducts(request)

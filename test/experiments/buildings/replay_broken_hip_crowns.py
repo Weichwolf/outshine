@@ -15,6 +15,7 @@ from broken_hip_crown_checks import check
 from broken_hip_crown_geometry import profile
 from broken_hip_crown_plan import with_broken_hip
 from evidence import revision
+from hip_crown_geometry import build as hip_build
 from hip_crown_models import export
 from hip_crown_plan import with_hip
 from replay_hip_crowns import save_roof
@@ -121,8 +122,11 @@ def case(row, kind, index, output, buffers):
                 0
             ].source_triangle_ids
         owners[name] = owner
+    began = time.process_time()
+    (local_base,), _ = hip_build(plans["hip"].crown)
+    base_preparation_s = time.process_time() - began
     costs = measure_profiles(
-        owners["hip"].physical_roof()[0],
+        local_base,
         {name: plans[name].crown for name in ("direct", "logical")},
         output,
         index,
@@ -142,6 +146,7 @@ def case(row, kind, index, output, buffers):
         "source_top_m": original.source_top_m,
         "body_top_m": original.body.top_m,
         "body_plan_cpu_s": prepared_s,
+        "shared_unplaced_base_hip_cpu_s": base_preparation_s,
         "variants": results,
     }
 
