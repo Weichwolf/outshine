@@ -6,6 +6,8 @@
 
 namespace outshine {
 struct RoadPageQueue::Work {
+  enum class LoadStatus { Running, Deferred, Complete };
+  std::atomic<LoadStatus> LoadState{LoadStatus::Running};
   Loader Load;
   std::string Parent;
   std::string RequestKey;

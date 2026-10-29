@@ -29,12 +29,12 @@ bool OptionalKey(const std::string &key) {
 
 std::expected<std::string, std::string> RequestKey(const RoadPageRequest &request) {
   auto key = RoadPageKey(request.Address);
-  if (key.empty()) { return std::unexpected("invalid road page address"); }
+  if (key.empty()) { return std::unexpected(std::string("invalid road page address")); }
   if (!OptionalKey(request.Parent) || !OptionalKey(request.RequestKey)) {
     return std::unexpected("invalid road page hierarchy or request identity");
   }
   if (!FitsHeader(request.Address, request.NativeBytesMost)) {
-    return std::unexpected("road page header exceeds its byte budget");
+    return std::unexpected(std::string("road page header exceeds its byte budget"));
   }
   return key;
 }
@@ -91,7 +91,7 @@ PreparedRoadPages::Open(const std::string &directory) {
   return std::unique_ptr<PreparedRoadPages>(new PreparedRoadPages(std::move(*cache)));
 }
 
-std::expected<std::optional<RoadPageLease>, std::string>
+std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::string &requestKey) {
   std::optional<RoadPageAsset> page;
   auto cached =
@@ -100,36 +100,36 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
         return page && RoadPageKey(page->Address) == key &&
                page->Address.Level == asset.Record().Level;
       });
-  if (!cached) { return std::unexpected(DescribeFailure(cached.error())); }
+  if (!cached) { return std::unexpected(cached.error()); }
   if (!*cached || !page) { return std::optional<RoadPageLease>{}; }
   auto record = (**cached).Record();
   auto bound = BindRecord(*Cache_, record, requestKey);
-  if (!bound) { return std::unexpected(DescribeFailure(bound.error())); }
+  if (!bound) { return std::unexpected(std::move(bound.error())); }
   return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
                        .Record = std::move(record),
                        .NativeBytes = (**cached).Bytes().size()};
 }
 
-std::expected<std::optional<RoadPageLease>, std::string>
+std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
   const auto key = RoadPageKey(address);
-  if (key.empty()) { return std::unexpected("invalid road page address"); }
+  if (key.empty()) { return std::unexpected(std::string("invalid road page address")); }
   if (!FitsHeader(address, bytesMost)) {
-    return std::unexpected("road page header exceeds its byte budget");
+    return std::unexpected(std::string("road page header exceeds its byte budget"));
   }
   const std::scoped_lock lock(Lock_);
   return Read(key, bytesMost);
 }
 
-std::expected<std::optional<AssetRecord>, std::string>
+std::expected<std::optional<AssetRecord>, PreparedRoadPages::Failure>
 PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
   const auto key = RoadPageKey(address);
   if (key.empty() || !FitsHeader(address, bytesMost)) {
-    return std::unexpected("road page metadata needs a valid bounded address");
+    return std::unexpected(std::string("road page metadata needs a valid bounded address"));
   }
   const std::scoped_lock lock(Lock_);
   auto record = ReadRecord(key, address, bytesMost);
-  if (!record) { return std::unexpected(DescribeFailure(record.error())); }
+  if (!record) { return std::unexpected(std::move(record.error())); }
   return std::move(*record);
 }
 
@@ -148,20 +148,20 @@ std::expected<std::optional<AssetRecord>, PreparedRoadPages::Failure> PreparedRo
   return std::move(*record);
 }
 
-std::expected<std::optional<RoadPageLease>, std::string>
+std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::LoadKey(const std::string &key, size_t bytesMost) {
   if (key.empty() || !OptionalKey(key)) {
-    return std::unexpected("invalid road page product identity");
+    return std::unexpected(std::string("invalid road page product identity"));
   }
   const std::scoped_lock lock(Lock_);
   return Read(key, bytesMost);
 }
 
-std::expected<std::optional<RoadPageLease>, std::string>
+std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) {
   const std::scoped_lock lock(Lock_);
   auto found = Cache_->FindRequest(requestKey);
-  if (!found) { return std::unexpected("could not find the native road page demand"); }
+  if (!found) { return std::unexpected(found.error()); }
   if (!*found) { return std::optional<RoadPageLease>{}; }
   return Read((**found).Key, bytesMost, requestKey);
 }

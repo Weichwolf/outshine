@@ -58,9 +58,13 @@ private:
   struct Work;
   enum class Admission : uint8_t { Rejected, Pending, Available };
   enum class Kind : uint8_t { Payload, Metadata, Publication };
-  using Loader = std::function<Result(const std::stop_token &)>;
+  using LoadResult = std::expected<std::optional<Product>, Generators::PreparedRoadPages::Failure>;
+  using Loader = std::function<LoadResult(const std::stop_token &)>;
   [[nodiscard]] Admission RequestState(const std::string &key, Kind kind) const;
   [[nodiscard]] bool Enqueue(const std::string &key, Kind kind, Loader load);
+  [[nodiscard]] bool PostLoad(const std::shared_ptr<Work> &work);
+  void PollLoad(const std::shared_ptr<Work> &work);
+  static void RunLoad(const std::shared_ptr<Work> &work);
   void PollPublication(const std::shared_ptr<Work> &work);
   void PostBinding(const std::shared_ptr<Work> &work);
   void CancelBinding(const std::shared_ptr<Work> &work);

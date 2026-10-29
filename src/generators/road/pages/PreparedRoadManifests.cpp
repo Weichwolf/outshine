@@ -91,11 +91,12 @@ PreparedRoadPages::LoadManifest(const std::string &key) {
   return std::make_shared<const RoadPageManifest>(std::move(*manifest));
 }
 
-std::expected<void, std::string> PreparedRoadPages::InvalidateManifest(
+std::expected<void, PreparedRoadPages::Failure> PreparedRoadPages::InvalidateManifest(
     const std::string &key, const std::string &failedPage, size_t pageBytesMost) {
   if (key.empty()) { return {}; }
   if (failedPage.empty() || pageBytesMost == 0) {
-    return std::unexpected("road manifest invalidation needs its failed selected page");
+    return std::unexpected(
+        std::string("road manifest invalidation needs its failed selected page"));
   }
   const std::scoped_lock lock(Lock_);
   const auto loaded = Cache_->LoadValidated(
@@ -120,7 +121,7 @@ std::expected<void, std::string> PreparedRoadPages::InvalidateManifest(
         return page && RoadPageKey(page->Address) == failedPage &&
                page->Address.Level == found->Level;
       });
-  if (!loaded) { return std::unexpected(DescribeFailure(loaded.error())); }
+  if (!loaded) { return std::unexpected(loaded.error()); }
   return {};
 }
 

@@ -97,18 +97,18 @@ public:
                                                                   const std::stop_token &stop = {});
   [[nodiscard]] std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, Failure>
   LoadManifest(const std::string &key);
-  [[nodiscard]] std::expected<void, std::string>
+  [[nodiscard]] std::expected<void, Failure>
   InvalidateManifest(const std::string &key, const std::string &failedPage, size_t pageBytesMost);
 
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
   Open(const std::string &directory);
-  [[nodiscard]] std::expected<std::optional<AssetRecord>, std::string>
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   Inspect(const RoadPageAddress &address, size_t bytesMost);
-  [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
+  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>
   Load(const RoadPageAddress &address, size_t bytesMost);
-  [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
-  LoadKey(const std::string &key, size_t bytesMost);
-  [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
+  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure> LoadKey(const std::string &key,
+                                                                             size_t bytesMost);
+  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>
   LoadRequest(const std::string &requestKey, size_t bytesMost);
   [[nodiscard]] std::expected<AssetRecord, std::string>
   Prepare(const RoadPageRequest &request,
@@ -120,7 +120,7 @@ private:
   [[nodiscard]] std::expected<void, Failure> ResolvePageRecord(PageWrite &write);
   [[nodiscard]] std::expected<void, Failure>
   GeneratePage(PageWrite &write, const RoadPageProducer *producer, const std::stop_token &stop);
-  [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
+  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>
   Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   ReadRecord(const std::string &key, const RoadPageAddress &address, size_t bytesMost);

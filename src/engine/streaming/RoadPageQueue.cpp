@@ -41,7 +41,7 @@ bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
                  [pages = Pages_,
                   failedPage = key,
                   manifest = std::move(dependency.Key),
-                  bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> Result {
+                  bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> LoadResult {
                    auto loaded = pages->LoadKey(failedPage, bytesMost);
                    if (loaded && !*loaded && !manifest.empty()) {
                      const auto invalidated =
@@ -61,7 +61,7 @@ bool RoadPageQueue::RequestMetadata(Generators::RoadPageAddress address) {
   return Enqueue(key,
                  Kind::Metadata,
                  [pages = Pages_, address = std::move(address), bytesMost = Limits_.PageBytesMost](
-                     const std::stop_token &) -> Result {
+                     const std::stop_token &) -> LoadResult {
                    auto record = pages->Inspect(address, bytesMost);
                    if (!record) { return std::unexpected(std::move(record.error())); }
                    if (!*record) { return std::nullopt; }
@@ -89,18 +89,7 @@ bool RoadPageQueue::Enqueue(const std::string &key, Kind kind, Loader load) {
   work->Type = kind;
   work->Load = std::move(load);
   Work_.emplace(key, work);
-  auto run = [work] {
-    const auto stop = work->Stop.get_token();
-    if (stop.stop_requested()) {
-      work->Result = std::unexpected("road page request canceled");
-    } else {
-      work->Result = work->Load(stop);
-      if (stop.stop_requested()) { work->Result = std::unexpected("road page request canceled"); }
-    }
-    work->Load = {};
-    work->Complete.store(true, std::memory_order_release);
-  };
-  if (Pool_.PostDetached(std::move(run))) { return true; }
+  if (PostLoad(work)) { return true; }
   Work_.erase(key);
   return false;
 }
@@ -131,6 +120,8 @@ std::vector<RoadPageQueue::Completed> RoadPageQueue::Collect() {
     const auto &work = it->second;
     if (work->Type == Kind::Publication && !work->Complete.load(std::memory_order_acquire)) {
       PollPublication(work);
+    } else if (work->Type != Kind::Publication) {
+      PollLoad(work);
     }
     if (!work->Complete.load(std::memory_order_acquire)) {
       ++it;
