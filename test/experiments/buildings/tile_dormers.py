@@ -15,15 +15,53 @@ from tile_roof_envelopes import choose
 
 
 class DormerRoofs:
-    def __init__(self, previous, rows, view, entrances):
+    def __init__(
+        self,
+        previous,
+        rows,
+        view,
+        entrances,
+        *,
+        frontages=None,
+        discard_frontages=None,
+        bay_method="bisect",
+    ):
         self.previous, self.view, self.entrances = previous, view, entrances
         self.sources = {r["id"]: r for r in rows if r["layer"] == "building"}
         self.dormer_assets, self.dormer_rejected, self.dormer_completed = {}, [], []
         self.failed = set()
         self.current_envelope = None
+        self.frontages, self.bay_method = frontages, bay_method
+        self.discard_frontages = discard_frontages
 
     def __getattr__(self, name):
         return getattr(self.previous, name)
+
+    def prepare_asset(self, row, parameters, choice):
+        def clear(geometry, low, high):
+            return self.entrances.clear(row, geometry, high, low_m=low)
+
+        if self.frontages is not None:
+            try:
+                frontages = self.frontages(row, parameters | {"eave_m": choice.eave_m})
+                return prepare(
+                    row,
+                    parameters,
+                    choice,
+                    clear=clear,
+                    frontages=frontages,
+                    bay_method=self.bay_method,
+                )
+            except (
+                ValueError,
+                NotImplementedError,
+                SkeletonBudgetExceeded,
+                shapely.errors.GEOSException,
+            ) as error:
+                self.dormer_rejected.append(
+                    {"id": row["id"], "reason": "aligned fallback: " + str(error)}
+                )
+        return prepare(row, parameters, choice, clear=clear)
 
     def asset(self, row, parameters, choice):
         if row["id"] in self.dormer_assets:
@@ -43,14 +81,7 @@ class DormerRoofs:
         if row is not self.sources[row["id"]]:
             raise ValueError("Dormer planning requires its immutable source snapshot")
         try:
-            asset = prepare(
-                row,
-                parameters,
-                choice,
-                clear=lambda geometry, low, high: self.entrances.clear(
-                    row, geometry, high, low_m=low
-                ),
-            )
+            asset = self.prepare_asset(row, parameters, choice)
             self.dormer_assets[row["id"]] = asset
             return asset
         except (
@@ -59,6 +90,8 @@ class DormerRoofs:
             SkeletonBudgetExceeded,
             shapely.errors.GEOSException,
         ) as error:
+            if self.discard_frontages is not None:
+                self.discard_frontages(row["id"])
             self.failed.add(row["id"])
             self.dormer_rejected.append({"id": row["id"], "reason": str(error)})
             return None
@@ -110,15 +143,44 @@ class DormerRoofs:
 
 
 class DormerFacades(ElevationFacades):
-    def __init__(self, rows, view, **kwargs):
+    def __init__(
+        self, rows, view, *, dormer_layout="edge", bay_method="bisect", **kwargs
+    ):
+        if dormer_layout not in ("edge", "facade") or bay_method not in (
+            "bisect",
+            "linear",
+        ):
+            raise ValueError("Known dormer layout and bay selection required")
         super().__init__(rows, view, **kwargs)
-        self.base = DormerRoofs(self.base, self.rows, view, self.entrances)
+        self.base = DormerRoofs(
+            self.base,
+            self.rows,
+            view,
+            self.entrances,
+            frontages=self.stage_roof_facades if dormer_layout == "facade" else None,
+            discard_frontages=self.discard_roof_facades
+            if dormer_layout == "facade"
+            else None,
+            bay_method=bay_method,
+        )
 
     def __call__(self, row, parameters, material):
-        mesh, info = super().__call__(row, parameters, material)
+        try:
+            mesh, info = super().__call__(row, parameters, material)
+        finally:
+            self.discard_roof_facades(row["id"])
         if "roof_dormer_product" not in info:
             return mesh, info
         asset = self.base.dormer_assets[row["id"]]
+        if asset.frontages:
+            actual = {f["id"]: f for f in info.get("facade_plan", ())}
+            keys = ("a", "b", "width_m", "columns")
+            if any(
+                f["id"] not in actual or any(f[k] != actual[f["id"]][k] for k in keys)
+                for f in asset.frontages
+            ):
+                raise ValueError("Dormer axes differ from the final bound facade plan")
+            info = info | {"roof_dormer_frontages": list(asset.frontages)}
         product = getattr(asset, info["roof_dormer_product"])
         front = self.binding(material, (0.72, 0.64))
         pieces = [bound(product.skin, material, front)]

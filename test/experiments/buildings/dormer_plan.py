@@ -1,10 +1,12 @@
 """Source-contained attached box dormers, fitted to the actual sloped roof."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from itertools import pairwise
 
 import numpy as np
 import shapely
+from dormer_bays import FacadeBays
 from dormer_roof import RoofSurface
 
 
@@ -37,7 +39,16 @@ class Dormer:
         }
 
 
-def plan(row, envelope, choice, *, clear=None, maximum=64):
+def plan(
+    row,
+    envelope,
+    choice,
+    *,
+    clear=None,
+    maximum=64,
+    frontages=None,
+    bay_method="bisect",
+):
     if type(maximum) is not int or not 1 <= maximum <= 64:
         raise ValueError("Explicit dormer capacity1..64 required")
     if (
@@ -51,13 +62,14 @@ def plan(row, envelope, choice, *, clear=None, maximum=64):
     if choice.kind != "hip" or choice.rise_m < 2.8 or row.get("clipped"):
         return (), [{"reason": "outside resolved pitched dormer scope"}]
     source = shapely.orient_polygons(row["polygon"])
+    bays = None if frontages is None else FacadeBays(frontages, method=bay_method)
     roof = RoofSurface(envelope)
     cap = choice.eave_m + min(2.85, choice.rise_m - 0.3)
     width, depth, inset, pitch = 2.2, 1.6, 0.05, 6.0
     accepted, rejected, occupied = [], [], []
     for ring_index, ring in enumerate((source.exterior, *source.interiors)):
         xy = np.asarray(ring.coords)
-        for edge, (start, end) in enumerate(zip(xy[:-1], xy[1:], strict=True)):
+        for edge, (start, end) in enumerate(pairwise(xy)):
             length = float(np.linalg.norm(end - start))
             count = math.floor((length - 3) / pitch)
             if count < 1:
@@ -69,6 +81,12 @@ def plan(row, envelope, choice, *, clear=None, maximum=64):
                 centre = (
                     start + tangent * length * (column + 0.5) / count + inward * inset
                 )
+                if bays is not None:
+                    facade_id, bay, along = bays.nearest(
+                        start, end, length * (column + 0.5) / count
+                    )
+                    identifier = f"{facade_id}/dormer/bay/{bay}"
+                    centre = start + tangent * along + inward * inset
                 a, b = centre - tangent * width / 2, centre + tangent * width / 2
                 polygon = shapely.Polygon(
                     [a, b, b + inward * depth, a + inward * depth]
