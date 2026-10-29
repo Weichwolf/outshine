@@ -9,11 +9,12 @@
 #include <string_view>
 
 namespace outshine::Generators {
-// Borrows a validated complete plan during meshing; the result owns its buffers.
+// Borrows a validated plan; subsets require their explicit representation contract.
 [[nodiscard]] std::expected<RoadPageGeometry, std::string_view>
 MeshTransportRoadPage(const RoadMesher &mesher,
                       const TransportPlan &plan,
                       std::span<const RoadPagePartAppearance> parts,
-                      const std::stop_token &stop = {});
+                      const std::stop_token &stop = {},
+                      TransportRepresentation representation = TransportRepresentation::Functional);
 }
 #endif

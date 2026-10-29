@@ -1,7 +1,6 @@
 #include "Utf8.h"
-#include "Paint.h"
+#include "PaintList.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
@@ -36,12 +35,13 @@ bool Reaches(uint32_t colour) {
 
 class Painter {
 public:
-  Painter(
-      const Layout &layout, const Font &font, std::vector<Quad> &into, size_t &beyond, double shift)
-      : Boxes(layout.Boxes()), Face(font), Out(into), Beyond(beyond), Shift(shift) {}
+  Painter(const Layout &layout, const Font &font, std::vector<Quad> &into)
+      : Boxes(layout.Boxes()), Face(font), Out(into) {}
+
+  [[nodiscard]] bool Overflowed() const { return Overflowed_; }
 
   void Walk(int index, const Clip &clip, double opacity) {
-    if (index < 0 || static_cast<size_t>(index) >= Boxes.size()) { return; }
+    if (Overflowed_ || index < 0 || static_cast<size_t>(index) >= Boxes.size()) { return; }
     const Box &box = Boxes[static_cast<size_t>(index)];
     const double here = opacity * box.Opacity;
 
@@ -77,13 +77,14 @@ public:
                        .Width = std::fmax(0.0, box.Width - box.Border.Left - box.Border.Right),
                        .Height = std::fmax(0.0, box.Height - box.Border.Top - box.Border.Bottom)});
     }
-    for (const int child : box.Children) { Walk(child, inner, here); }
+    for (const int child : box.Children) {
+      Walk(child, inner, here);
+      if (Overflowed_) { return; }
+    }
   }
 
 private:
   void Add(Quad quad) {
-    quad.Y -= Shift;
-    quad.ClipY -= Shift;
     if (quad.Width <= 0 || quad.Height <= 0 || quad.ClipWidth <= 0 || quad.ClipHeight <= 0) {
       return;
     }
@@ -94,7 +95,7 @@ private:
     }
     if (!Reaches(quad.Colour)) { return; }
     if (Out.size() >= kQuadBound) {
-      ++Beyond;
+      Overflowed_ = true;
       return;
     }
     Out.push_back(quad);
@@ -139,7 +140,7 @@ private:
 
     const double leading = (run.Height - (metrics.Ascent + metrics.Descent)) / 2.0;
     double pen = run.X;
-    for (size_t at = 0; at < run.Text.size();) {
+    for (size_t at = 0; at < run.Text.size() && !Overflowed_;) {
       char32_t code = 0;
       at += ReadUtf8(run.Text, at, code);
       const Glyph glyph = Face.Shape(code, FontFace{.Name = run.Face, .SizePx = run.FontSize});
@@ -168,54 +169,31 @@ private:
   const std::vector<Box> &Boxes;
   const Font &Face;
   std::vector<Quad> &Out;
-  size_t &Beyond;
-  double Shift = 0;
+  bool Overflowed_ = false;
 };
 
 }
 
-std::vector<double>
-PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThePage) {
-  linesTallerThanThePage = 0;
-  std::vector<double> starts{0.0};
-  if (pageHeightPx <= 0) { return starts; }
-
-  std::vector<const Box *> lines;
-  for (const Box &box : layout.Boxes()) {
-    if (!box.Text.empty()) { lines.push_back(&box); }
-  }
-  std::ranges::sort(lines, [](const Box *a, const Box *b) { return a->Y < b->Y; });
-
-  double start = 0;
-  for (const Box *line : lines) {
-    if (line->Y < start) { continue; }
-    if (line->Y + line->Height <= start + pageHeightPx) { continue; }
-    if (line->Y <= start) {
-      ++linesTallerThanThePage;
-      start = line->Y + line->Height;
-    } else {
-      start = line->Y;
-    }
-    starts.push_back(start);
-  }
-  return starts;
-}
-
-bool Painting::Build(const Layout &layout, const Font &font, std::string &error, const Page &page) {
+bool PaintList::Build(const Layout &layout, const Font &font, std::string &error) {
   Quads_.clear();
-  Beyond_ = 0;
   if (layout.Boxes().empty()) {
     error = "the layout holds no box, so there is nothing to paint and a painting of nothing would "
             "be indistinguishable from one that failed";
     return false;
   }
 
-  const double window = page.HeightPx > 0 ? page.HeightPx : layout.ViewportHeight();
-  Painter painter(layout, font, Quads_, Beyond_, page.OffsetY);
+  Painter painter(layout, font, Quads_);
   for (int at = 0; std::cmp_less(at, layout.Boxes().size()); ++at) {
     if (layout.Boxes()[static_cast<size_t>(at)].Parent != -1) { continue; }
     painter.Walk(
-        at, {.X = 0, .Y = page.OffsetY, .Width = layout.ViewportWidth(), .Height = window}, 1.0);
+        at,
+        {.X = 0, .Y = 0, .Width = layout.ViewportWidth(), .Height = layout.ViewportHeight()},
+        1.0);
+    if (painter.Overflowed()) {
+      Quads_.clear();
+      error = "UI paint exceeds its quad budget";
+      return false;
+    }
   }
   return true;
 }

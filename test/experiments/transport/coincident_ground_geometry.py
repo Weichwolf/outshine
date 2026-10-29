@@ -5,9 +5,15 @@ import shapely
 from outshine_ref.transport.canonical_ports._ground_domain import mesh_parts
 
 
-def layout(source, xy, budget, *, shared=True):
+def layout(source, xy, budget, *, shared=True, physical_overlap=False, maximum_holes=0):
     if type(shared) is not bool:
         raise ValueError("cover_sharing_must_be_boolean")
+    if (
+        type(physical_overlap) is not bool
+        or type(maximum_holes) is not int
+        or not 0 <= maximum_holes <= 8
+    ):
+        raise ValueError("cover_explicit_physical_arrangement_required")
     xy = np.asarray(xy, float)
     if xy.shape != (len(source.node_ids), 2) or not np.isfinite(xy).all():
         raise ValueError("cover_invalid_node_positions")
@@ -44,8 +50,10 @@ def layout(source, xy, budget, *, shared=True):
     unique_rectangles = rectangles[[first_member[i] for i in range(len(edges))]]
     for i, first in enumerate(edges):
         for j in range(i):
-            if not set(first) & set(edges[j]) and unique_rectangles[i].intersects(
-                unique_rectangles[j]
+            if (
+                not physical_overlap
+                and not set(first) & set(edges[j])
+                and unique_rectangles[i].intersects(unique_rectangles[j])
             ):
                 raise ValueError("cover_nonincident_band_intersection")
     joins = []
@@ -58,7 +66,11 @@ def layout(source, xy, budget, *, shared=True):
         ).convex_hull
         if hull.geom_type == "Polygon":
             for edge, rectangle in zip(edges, unique_rectangles, strict=True):
-                if node not in edge and hull.intersects(rectangle):
+                if (
+                    not physical_overlap
+                    and node not in edge
+                    and hull.intersects(rectangle)
+                ):
                     raise ValueError("cover_nonincident_join_intersection")
             joins.append(hull)
     domain = shapely.normalize(shapely.union_all([*rectangles, *joins]))
@@ -66,14 +78,14 @@ def layout(source, xy, budget, *, shared=True):
         domain.geom_type != "Polygon"
         or not domain.is_valid
         or domain.is_empty
-        or len(domain.interiors)
+        or len(domain.interiors) > maximum_holes
     ):
         raise ValueError("cover_invalid_or_holed_patch")
     if shapely.get_num_coordinates(domain) > min(256, budget.surface.max_vertices):
         raise ValueError("cover_domain_vertex_budget")
     grade = min(0.025, source.maximum_gradient)
     raw, work = mesh_parts(
-        [domain], [np.eye(2) / grade], [1], [], [], [], maximum_holes=0
+        [domain], [np.eye(2) / grade], [1], [], [], [], maximum_holes=maximum_holes
     )
     if (
         len(raw["xy"]) > min(budget.terrain_samples, budget.surface.max_vertices)

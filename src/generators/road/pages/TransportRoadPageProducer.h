@@ -12,10 +12,12 @@
 namespace outshine::Generators {
 class TransportRoadPageProducer final : public RoadPageProducer {
 public:
+  // The lease is validated and immutable; subsets require explicit matching demand.
   [[nodiscard]] static std::expected<TransportRoadPageProducer, std::string>
   Bind(TransportPlanLease plan,
        const RoadPageAddress &address,
-       std::vector<RoadPagePartAppearance> parts);
+       std::vector<RoadPagePartAppearance> parts,
+       TransportRepresentation representation = TransportRepresentation::Functional);
 
   [[nodiscard]] size_t InputCapacityBytes() const noexcept override { return InputBytes_; }
 

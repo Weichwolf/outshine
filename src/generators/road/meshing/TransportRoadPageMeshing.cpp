@@ -108,9 +108,17 @@ std::expected<RoadPageGeometry, std::string_view>
 MeshTransportRoadPage(const RoadMesher &mesher,
                       const TransportPlan &plan,
                       std::span<const RoadPagePartAppearance> parts,
-                      const std::stop_token &stop) {
-  if (plan.Coverage != TransportCoverage::Complete || !plan.Definition.Core.Valid()) {
-    return std::unexpected("road page requires a complete functional transport plan");
+                      const std::stop_token &stop,
+                      TransportRepresentation representation) {
+  const auto coverage = representation == TransportRepresentation::FunctionalSubset
+                            ? TransportCoverage::Partial
+                            : TransportCoverage::Complete;
+  if (plan.Definition.Representation != representation ||
+      !ValidTransportRepresentation(plan.Definition) || plan.Coverage != coverage ||
+      !plan.Definition.Core.Valid() ||
+      (representation == TransportRepresentation::FunctionalSubset &&
+       (!plan.Network || plan.Omissions.empty()))) {
+    return std::unexpected("road page requires the requested functional transport representation");
   }
   if (std::ranges::adjacent_find(
           parts, [](const auto &a, const auto &b) { return !Before(a, b); }) != parts.end()) {
@@ -141,7 +149,7 @@ MeshTransportRoadPage(const RoadMesher &mesher,
       return std::unexpected("road page requests an unknown transport junction");
     }
     if (!product.Diagnostics.empty()) {
-      return std::unexpected("road page cannot fulfill its selected complete transport geometry");
+      return std::unexpected("road page cannot fulfill its selected transport geometry");
     }
   }
   if (stop.stop_requested()) { return std::unexpected("road page generation canceled"); }

@@ -1,4 +1,4 @@
-"""Read only native GroundProfile tags, bound by original feature wire SHA256."""
+"""Read bound original properties; defaults retain native GroundProfile tags."""
 
 import hashlib
 import struct
@@ -72,13 +72,26 @@ def native_value(body):
     return value
 
 
-def profile_properties(raw, *, byte_limit=4 * 1024 * 1024, tag_word_limit=1048576):
+def profile_properties(
+    raw,
+    *,
+    byte_limit=4 * 1024 * 1024,
+    tag_word_limit=1048576,
+    property_names=("indoor", "level"),
+):
     """Index OpenMapTiles transportation features; no geometry decoding/copying.
 
     FeatureContent is exactly Sha256Digest(original feature body) in native
     MvtLayer::DecodeFeatures. Duplicate attribute names use the first value,
     matching OsmField::FindTag. indoor/level have no native key aliases.
     """
+    if (
+        not isinstance(property_names, tuple)
+        or not 1 <= len(property_names) <= 8
+        or any(not isinstance(k, str) or not 1 <= len(k) <= 64 for k in property_names)
+        or len(set(property_names)) != len(property_names)
+    ):
+        raise ValueError("bounded explicit original property names required")
     if not isinstance(raw, bytes) or len(raw) > byte_limit:
         raise ValueError("source MVT byte budget")
     result = {}
@@ -124,7 +137,7 @@ def profile_properties(raw, *, byte_limit=4 * 1024 * 1024, tag_word_limit=104857
                 if tags[i] >= len(keys) or tags[i + 1] >= len(values):
                     raise ValueError("invalid MVT tag index")
                 key = keys[tags[i]]
-                if key in ("indoor", "level") and key not in properties:
+                if key in property_names and key not in properties:
                     properties[key] = native_value(values[tags[i + 1]])
             digest = hashlib.sha256(feature).digest()
             if digest in result and result[digest] != properties:

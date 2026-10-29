@@ -1,5 +1,6 @@
 #include "Units.h"
 #include "Wayfinding.h"
+#include "NetworkLongitudeSpan.h"
 
 #include <cstdio>
 
@@ -74,6 +75,7 @@ double MetresPerDegreeLon(double latDeg, Sphere on) {
 
 [[nodiscard]] double LonApartDeg(double toDeg, double fromDeg) {
   const double apart = toDeg - fromDeg;
+  if (apart >= -kDegPerHalfTurn && apart < kDegPerHalfTurn) { return apart; }
   return apart - kDegPerTurn * std::floor(apart / kDegPerTurn + 0.5);
 }
 
@@ -541,8 +543,10 @@ bool Network::IndexOneEdge(EdgeEnds ends,
     const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
     const int64_t one = ColumnIn(shape, a.LongitudeDeg);
     const int64_t two = ColumnIn(shape, b.LongitudeDeg);
-    const int64_t firstColumn = one < two ? one : two;
-    const int64_t lastColumn = one < two ? two : one;
+    const auto [firstColumn, lastColumn] =
+        ColumnsAlongShortestArc({.Degrees = a.LongitudeDeg, .Index = one},
+                                {.Degrees = b.LongitudeDeg, .Index = two},
+                                shape.Columns);
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
       if (!IndexEdgeCell(
               ends,
@@ -653,8 +657,10 @@ void Network::MarkEdgeOverCells(EdgeEnds ends,
     const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
     const int64_t here = ColumnIn(shape, a.LongitudeDeg);
     const int64_t there = ColumnIn(shape, b.LongitudeDeg);
-    const int64_t firstColumn = here < there ? here : there;
-    const int64_t lastColumn = here < there ? there : here;
+    const auto [firstColumn, lastColumn] =
+        ColumnsAlongShortestArc({.Degrees = a.LongitudeDeg, .Index = here},
+                                {.Degrees = b.LongitudeDeg, .Index = there},
+                                shape.Columns);
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
       const int64_t key =
           KeyAt({.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns});
@@ -673,9 +679,10 @@ void Network::MarkEdgeOverCells(EdgeEnds ends,
 }
 
 double Network::AwayFromEdgeM(const Node &end, EdgeEnds ends, PerDegree per) const {
-  const double ax = (Nodes_[ends.From].LongitudeDeg - end.LongitudeDeg) * per.Lon;
+  const double ax = LonApartDeg(Nodes_[ends.From].LongitudeDeg, end.LongitudeDeg) * per.Lon;
   const double ay = (Nodes_[ends.From].LatitudeDeg - end.LatitudeDeg) * per.Lat;
-  const double bx = (Nodes_[ends.To].LongitudeDeg - end.LongitudeDeg) * per.Lon;
+  const double bx =
+      ax + LonApartDeg(Nodes_[ends.To].LongitudeDeg, Nodes_[ends.From].LongitudeDeg) * per.Lon;
   const double by = (Nodes_[ends.To].LatitudeDeg - end.LatitudeDeg) * per.Lat;
   const double dx = bx - ax;
   const double dy = by - ay;

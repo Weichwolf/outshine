@@ -16,15 +16,23 @@ namespace outshine::Generators {
 std::expected<TransportRoadPageProducer, std::string>
 TransportRoadPageProducer::Bind(TransportPlanLease plan,
                                 const RoadPageAddress &address,
-                                std::vector<RoadPagePartAppearance> parts) {
+                                std::vector<RoadPagePartAppearance> parts,
+                                TransportRepresentation representation) {
   const auto *appearance = std::get_if<RoadPageAppearanceV2>(&address.Appearance);
-  if (!plan || plan->Coverage != TransportCoverage::Complete || appearance == nullptr ||
-      address.Level != 0 || address.MaterialIndex != 0 ||
+  const auto coverage = representation == TransportRepresentation::FunctionalSubset
+                            ? TransportCoverage::Partial
+                            : TransportCoverage::Complete;
+  if (!plan || plan->Definition.Representation != representation ||
+      !ValidTransportRepresentation(plan->Definition) || plan->Coverage != coverage ||
+      (representation == TransportRepresentation::FunctionalSubset &&
+       (!plan->Network || plan->Omissions.empty())) ||
+      appearance == nullptr || address.Level != 0 || address.MaterialIndex != 0 ||
       address.Anchor.LongitudeDeg != plan->Anchor.LongitudeDeg ||
       address.Anchor.LatitudeDeg != plan->Anchor.LatitudeDeg ||
       !std::ranges::equal(address.Parts, parts, {}, {}, &RoadPagePartAppearance::Part) ||
       appearance->Key != RoadPageAppearanceKey(parts)) {
-    return std::unexpected("road page bindings do not match the complete transport plan");
+    return std::unexpected(
+        "road page bindings do not match the requested transport representation");
   }
   const auto planKey = TransportPlanContentKey(plan->Definition, plan->InputBinding);
   if (!planKey || *planKey != address.PlanKey) {
@@ -51,7 +59,8 @@ TransportRoadPageProducer::Produce(const RoadPageRequest &request, std::stop_tok
     return std::unexpected("transport road page producer does not own the requested product");
   }
   const ProfiledRoadMesher mesher;
-  auto product = MeshTransportRoadPage(mesher, *Plan_, Parts_, stop);
+  auto product =
+      MeshTransportRoadPage(mesher, *Plan_, Parts_, stop, Plan_->Definition.Representation);
   if (!product) { return std::unexpected(std::string(product.error())); }
   return std::move(*product);
 }

@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include "Check.h"
 #include "SurfaceSession.h"
 #include <algorithm>
@@ -19,10 +20,12 @@ struct AtlasFont final : Font {
   uint64_t Revision = 1;
   const std::array<uint8_t, 4> Pixels{255, 255, 255, 255};
 
-  [[nodiscard]] FontMetrics At(FontFace face) const override { return AhemFont{}.At(face); }
+  [[nodiscard]] FontMetrics At(FontFace face) const override {
+    return outshine::Test::AhemFont{}.At(face);
+  }
 
   [[nodiscard]] Glyph Shape(char32_t code, FontFace face) const override {
-    return AhemFont{}.Shape(code, face);
+    return outshine::Test::AhemFont{}.Shape(code, face);
   }
 
   [[nodiscard]] const uint8_t *Sheet() const override { return Pixels.data(); }

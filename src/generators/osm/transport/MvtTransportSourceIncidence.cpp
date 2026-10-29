@@ -28,10 +28,27 @@ bool Consume(size_t count, size_t width, size_t &remaining) {
   return true;
 }
 
-std::vector<uint64_t> MapSourceNodeGroups(const SourceFactInput &input,
-                                          const MvtTransportNodeGroups &groups) {
+std::expected<std::vector<uint64_t>, std::string>
+MapSourceNodeGroups(const SourceFactInput &input,
+                    const MvtTransportNodeGroups &groups,
+                    const std::stop_token &stop) {
+  uint64_t previous = 0;
+  for (const auto &group : groups.Groups) {
+    if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
+    if (group.NodeCount == 0 || group.FirstNode >= groups.Nodes.size() ||
+        group.NodeCount > groups.Nodes.size() - group.FirstNode ||
+        groups.Nodes[group.FirstNode] <= previous) {
+      return std::unexpected("MVT source facts lost their native node partition");
+    }
+    previous = groups.Nodes[group.FirstNode];
+  }
   std::vector<uint64_t> mapped(input.Network.NodeCount(), kNoGroup);
   for (const auto &segment : input.Segments) {
+    if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
+    if (segment.From >= mapped.size() || segment.To >= mapped.size() || segment.FromId == 0 ||
+        segment.ToId == 0) {
+      return std::unexpected("MVT source facts lost their native node partition");
+    }
     auto &from = mapped[segment.From];
     auto &to = mapped[segment.To];
     from = from == 0 ? segment.FromId : std::min(from, segment.FromId);
@@ -41,8 +58,12 @@ std::vector<uint64_t> MapSourceNodeGroups(const SourceFactInput &input,
     return groups.Nodes[group.FirstNode];
   };
   for (auto &id : mapped) {
+    if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
     if (id == kNoGroup) { continue; }
     const auto at = std::ranges::lower_bound(groups.Groups, id, {}, first);
+    if (at == groups.Groups.end() || first(*at) != id) {
+      return std::unexpected("MVT source facts lost their native node partition");
+    }
     id = static_cast<uint64_t>(at - groups.Groups.begin()) + 1;
   }
   return mapped;
@@ -125,16 +146,17 @@ bool FitsSourceFacts(const SourceFactInput &input,
 std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
                                                  const SourceFactInput &input,
                                                  const std::stop_token &stop) {
-  const auto mapped = MapSourceNodeGroups(input, *facts.NodeGroups);
+  const auto mapped = MapSourceNodeGroups(input, *facts.NodeGroups, stop);
+  if (!mapped) { return std::unexpected(mapped.error()); }
   auto raw = OriginalSpans(input.Network, stop);
   if (!raw) { return std::unexpected(std::move(raw.error())); }
   facts.Groups.resize(facts.NodeGroups->Groups.size());
   for (const auto &span : *raw) {
     for (const size_t end : {span.From, span.To}) {
-      if (mapped[end] != kNoGroup) { ++facts.Groups[mapped[end] - 1].OriginalEndpointCount; }
+      if ((*mapped)[end] != kNoGroup) { ++facts.Groups[(*mapped)[end] - 1].OriginalEndpointCount; }
     }
   }
-  AddMembers(facts, input, mapped);
+  AddMembers(facts, input, *mapped);
   for (auto &group : facts.Groups) {
     group.Complete = group.OriginalEndpointCount == group.MemberCount;
     group.FilteredEndpointCount = group.OriginalEndpointCount > group.MemberCount
@@ -142,6 +164,6 @@ std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
                                       : 0;
   }
   if (auto ways = FillSourceWayFacts(facts, input, stop); !ways) { return ways; }
-  return FillMissingSourceWays(facts, input, stop);
+  return FillMissingSourceWays(facts, input, *mapped, stop);
 }
 }

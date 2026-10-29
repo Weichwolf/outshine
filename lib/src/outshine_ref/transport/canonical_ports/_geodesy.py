@@ -30,6 +30,35 @@ F = 1 / 298.257223563
 E2 = F * (2 - F)
 
 
+def surface_reach_bound(distance_m, sphere_radius_m):
+    """Bound zero-height WGS84/ENU distance from a spherical arc distance.
+
+    WGS84's meridional and prime-vertical metric radii are both at most
+    A/(1-E2)**1.5. This intentionally conservative bound leaves more reserve
+    than the tight real-arithmetic maximum A/sqrt(1-E2). Map the spherical
+    shortest arc to the ellipsoid using the
+    same geodetic angles; its length bounds the endpoint chord. An orthogonal
+    ENU projection cannot increase that chord. This bounds original node
+    positions, not inserted way points, profile extent or field influence.
+    """
+    distance_m, sphere_radius_m = float(distance_m), float(sphere_radius_m)
+    if (
+        not math.isfinite(distance_m)
+        or distance_m < 0
+        or not math.isfinite(sphere_radius_m)
+        or sphere_radius_m <= 0
+    ):
+        raise ValueError("finite nonnegative arc distance and positive sphere required")
+    if distance_m == 0:
+        return 0.0
+    bound = distance_m * (A / sphere_radius_m) / (1 - E2) ** 1.5
+    if bound > 0:
+        bound = math.nextafter(bound, math.inf)
+    if not math.isfinite(bound) or bound <= 0:
+        raise ValueError("surface reach bound cannot be represented")
+    return bound
+
+
 def positions_in_frame(anchor, geographic, heights):
     geographic = np.asarray(geographic, float)
     heights = np.asarray(heights, float)

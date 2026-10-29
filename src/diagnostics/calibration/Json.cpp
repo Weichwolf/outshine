@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <chrono>
 #include <ratio>
 #include <format>
@@ -30,6 +31,21 @@ std::string Quote(std::string_view value) {
 
 std::string Number(std::optional<double> value) {
   return value && std::isfinite(*value) ? std::format("{}", *value) : "null";
+}
+
+std::string Memory(const ProcessMemorySnapshot &sample) {
+  const auto bytes = [](std::optional<uint64_t> value) {
+    return value ? std::format("{}", *value) : "null";
+  };
+  return std::format(
+      "{{\"resident_bytes\":{},\"peak_resident_bytes\":{},\"footprint_bytes\":{},"
+      "\"peak_footprint_bytes\":{},\"collection_ns\":{},\"peak_scope\":\"process_lifetime\","
+      "\"sample_phase\":\"after_workloads\"}}",
+      bytes(sample.ResidentBytes),
+      bytes(sample.PeakResidentBytes),
+      bytes(sample.FootprintBytes),
+      bytes(sample.PeakFootprintBytes),
+      bytes(sample.CollectionNs));
 }
 
 std::string Summary(const Workload &work) {
@@ -97,7 +113,8 @@ std::string Json(const Report &report) {
   std::string result = std::format(
       "{{\"workload_version\":{},\"verified\":true,\"warmup_samples\":1,\"measured_samples\":{},"
       "\"cpu\":{},\"gpu\":{},\"backend\":{},\"compiler\":{},\"architecture\":{},"
-      "\"ram_bytes\":{},\"logical_cpu_count\":{},\"fma_target_feature\":{},\"gpu_validation\":{},"
+      "\"ram_bytes\":{},\"process_memory\":{},\"logical_cpu_count\":{},\"fma_target_feature\":{},"
+      "\"gpu_validation\":{},"
       "\"build\":{{\"commit\":{},\"flags\":{},\"host_load\":{}}},\"workloads\":[",
       CALIBRATION_VERSION,
       CALIBRATION_SAMPLES,
@@ -107,6 +124,7 @@ std::string Json(const Report &report) {
       Quote(report.Compiler),
       Quote(report.Architecture),
       report.RamBytes,
+      Memory(report.Memory),
       report.LogicalCpuCount,
       report.FmaTargetFeature,
       report.GpuValidation,

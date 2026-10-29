@@ -42,7 +42,7 @@ def flat(polygon, height, material, *, reverse=False):
 
 def direct(crown):
     polygon = shapely.from_wkb(crown.domain_wkb)
-    if crown.kind == "hip":
+    if crown.kind in ("hip", "broken-hip"):
         pieces = [flat(polygon, crown.top_m, ROOF_MATERIAL)]
     else:
         coping = next(p.volume.polygon for p in crown.parts if p.role == "coping")
@@ -179,12 +179,25 @@ class RoofedProducts:
             return None
         if self.roof_components is None:
             crown = self.plan.crown
-            if crown.kind == "hip":
-                from hip_crown_geometry import build
+            if crown.kind in ("hip", "broken-hip"):
                 from outshine_ref.buildings.modelling import SkeletonBudgetExceeded
 
                 try:
-                    local, skin = build(crown)
+                    if crown.kind == "broken-hip":
+                        from broken_hip_crown_geometry import build
+
+                        local, skin, effective, reason = build(crown)
+                        self.roof_failure = reason
+                        if effective is not crown:
+                            crown = effective
+                            self.coarse_roof = world_surface(
+                                direct(crown), self.plan.body.core
+                            )
+                            self.draws.pop(False, None)
+                    else:
+                        from hip_crown_geometry import build
+
+                        local, skin = build(crown)
                 except (
                     ValueError,
                     SkeletonBudgetExceeded,
@@ -194,7 +207,7 @@ class RoofedProducts:
                     crown = crown.fallback
                     self.coarse_roof = world_surface(direct(crown), self.plan.body.core)
                     self.draws.pop(False, None)
-            if crown.kind != "hip":
+            if crown.kind not in ("hip", "broken-hip"):
                 local = tuple(union_prisms((p.volume,)) for p in crown.parts)
                 skin = visible(crown, local)
             self.roof_crown = crown
