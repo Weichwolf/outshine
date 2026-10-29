@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import shapely
 from stair_road_vehicle import inspect_curves, lane_directions
-from stair_service_profile import ROLE
+from stair_service_profile import SERVICE_ROLES, SHARED_ROLE
 from transport_vehicle_sweep import straight_body_check
 
 
-def straight_spans(row, vehicle):
+def straight_spans(row, vehicle, *, reverse):
     xy = np.asarray(row["xy"], float)
     axis = np.diff(xy, axis=0)
     length = np.linalg.norm(axis, axis=1)
@@ -23,7 +23,6 @@ def straight_spans(row, vehicle):
     ):
         raise ValueError("bent service axis needs an explicit horizontal curve plan")
     corners = {} if plan is None else {c["original_knot"]: c for c in plan["corners"]}
-    reverse = lane_directions(row["traffic_profile"]) == [(0, True)]
     start = np.array([corners.get(i, {}).get("trim_m", 0.0) for i in range(len(axis))])
     end = np.array(
         [corners.get(i + 1, {}).get("trim_m", 0.0) for i in range(len(axis))]
@@ -60,11 +59,16 @@ def inspect_service(data, rows, *, vehicle=None):
     curves = inspect_curves(data, rows, vehicle=vehicle)
     checks = []
     for i, row in enumerate(rows):
-        if row.get("source_recipe") != ROLE:
+        if row.get("source_recipe") not in SERVICE_ROLES:
             continue
-        if lane_directions(row["traffic_profile"]) not in ([(0, False)], [(0, True)]):
-            raise ValueError("one centered service lane required")
-        begin, finish, heading, inset = straight_spans(row, vehicle)
+        lanes = lane_directions(row["traffic_profile"])
+        expected = (
+            [(0, False), (0, True)] if row["source_recipe"] == SHARED_ROLE else None
+        )
+        if (expected is not None and lanes != expected) or (
+            expected is None and lanes not in ([(0, False)], [(0, True)])
+        ):
+            raise ValueError("declared centered service directions required")
         for cast in (False, True):
             xyz = data["surface_vertices"]
             if cast:
@@ -72,24 +76,44 @@ def inspect_service(data, rows, *, vehicle=None):
             surface = shapely.union_all(
                 shapely.polygons(xyz[data["surface_faces"][data["owners"][:, i]], :2])
             )
-            sweeps = []
-            for a, b, theta in zip(begin, finish, heading, strict=True):
-                proof, _outlines = straight_body_check(surface, a, b, theta, vehicle)
-                if not proof["fits_surface"]:
-                    raise ValueError("whole centered service vehicle leaves actual cap")
-                sweeps.append(dict(proof, begin_xy_m=a.tolist(), end_xy_m=b.tolist()))
-            checks.append(
-                {
-                    "source_id": row["source_id"],
-                    "float32": cast,
-                    "source_oneway": row["traffic_profile"]["source_oneway"],
-                    "lane_offset_m": 0.0,
-                    "straight_sweeps": sweeps,
-                    "source_end_rear_axle_insets_m": list(inset),
-                }
-            )
+            for _side, reverse in lanes:
+                begin, finish, heading, inset = straight_spans(
+                    row, vehicle, reverse=reverse
+                )
+                sweeps = []
+                for a, b, theta in zip(begin, finish, heading, strict=True):
+                    proof, _outlines = straight_body_check(
+                        surface, a, b, theta, vehicle
+                    )
+                    if not proof["fits_surface"]:
+                        raise ValueError(
+                            "whole centered service vehicle leaves actual cap"
+                        )
+                    sweeps.append(
+                        dict(proof, begin_xy_m=a.tolist(), end_xy_m=b.tolist())
+                    )
+                checks.append(
+                    {
+                        "source_id": row["source_id"],
+                        "float32": cast,
+                        "source_oneway": row["traffic_profile"]["source_oneway"],
+                        "lane_offset_m": 0.0,
+                        "straight_sweeps": sweeps,
+                        "source_end_rear_axle_insets_m": list(inset),
+                        **(
+                            {
+                                "reverse": reverse,
+                                "opposing_traffic_policy": "exclusive_lane_occupancy",
+                            }
+                            if expected is not None
+                            else {}
+                        ),
+                    }
+                )
     return {
         "checks": checks,
         "curves": curves,
-        "scope": "Whole horizontal rigid compact bodies on the centered supplied one-way lane. Source-end axle intervals remain inset by body extent; no junction route, public access, 3D chassis or dynamics admission.",
+        "scope": "Whole horizontal rigid compact bodies on declared centered service directions, each checked separately. Shared directions require exclusive occupancy. Source-end axle intervals remain inset by body extent; no junction route, public access, 3D chassis or dynamics admission."
+        if any(r.get("source_recipe") == SHARED_ROLE for r in rows)
+        else "Whole horizontal rigid compact bodies on the centered supplied one-way lane. Source-end axle intervals remain inset by body extent; no junction route, public access, 3D chassis or dynamics admission.",
     }
