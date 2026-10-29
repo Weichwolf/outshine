@@ -64,14 +64,20 @@ class ActualBridgeSourceFacts(unittest.TestCase):
 
     def test_original_missing_ways_reach_immutable_scope_input(self):
         binding = self.source.binding
-        if self.facts["schema"] != "outshine/native-mvt-source-facts/3":
+        if self.facts["schema"] not in (
+            "outshine/native-mvt-source-facts/3",
+            "outshine/native-mvt-source-facts/4",
+        ):
             self.assertNotIn("missing_original_ways", binding)
             return
         rows = binding.get("missing_original_ways")
-        self.assertIsNotNone(rows, "validated original geometry must reach the actual scope input")
+        self.assertIsNotNone(
+            rows, "validated original geometry must reach the actual scope input"
+        )
         self.assertEqual(binding["source_facts_schema"], self.facts["schema"])
         self.assertEqual(
-            binding["source_omissions_digest"], bytes(self.facts["OmissionsDigest"]).hex()
+            binding["source_omissions_digest"],
+            bytes(self.facts["OmissionsDigest"]).hex(),
         )
         self.assertEqual(rows, inputs.immutable(self.facts["MissingWays"]))
         with self.assertRaises(TypeError):
@@ -87,7 +93,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(rows[0]["Points"]), 2)
         self.assertEqual(rows[0]["Way"]["StreetWay"], 2)
-        self.assertEqual(source.binding["source_facts_digest"], binding["source_facts_digest"])
+        self.assertEqual(
+            source.binding["source_facts_digest"], binding["source_facts_digest"]
+        )
         with self.assertRaises(TypeError):
             rows[0]["Points"][0]["LatitudeDeg"] = 0.0
 
@@ -132,7 +140,9 @@ class ActualBridgeSourceFacts(unittest.TestCase):
             )
         self.assertGreater(sum(g.frontier for g in self.groups), 0)
         if self.facts["schema"] in (
-            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+            "outshine/native-mvt-source-facts/2",
+            "outshine/native-mvt-source-facts/3",
+            "outshine/native-mvt-source-facts/4",
         ):
             self.assertEqual(
                 tuple(m.source_terminal for g in self.groups for m in g.members),
