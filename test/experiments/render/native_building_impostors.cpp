@@ -672,8 +672,6 @@ struct RetainedRadiance {
     const auto &query = request.Query;
     const auto sourceKey = request.Products.FieldKey({request.View});
     const auto key = Json{{"source", sourceKey},
-                          {"eye", query.at("eye")},
-                          {"focal_px", query.at("focal_px")},
                           {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
                           {"source_snapshot", query.value("dump_source_field", true)}}
                          .dump();
@@ -683,7 +681,10 @@ struct RetainedRadiance {
     LoadMs = 0;
     if (Field && Key == key && request.Original == nullptr) {
       Reused = true;
-      Field->PrepareMs = Field->GpuMs = Field->SetupGpuMs = 0;
+      const auto placed = Test::UpdateBuildingRadianceSupport(*Field, *Atlas, 0, query);
+      if (!placed) { Fail(placed.error()); }
+      Field->GpuMs = Field->SetupGpuMs = 0;
+      Field->PrepareMs = Milliseconds(began);
       Field->ConfigureMs = Field->SourcePrepareMs = Field->SourceUploadMs = 0;
       Field->RelightEncodeMs = Field->WaitMs = Field->ReadbackMs = 0;
       ReadbackBytes = 0;
@@ -812,7 +813,8 @@ void RadianceViews(const Fs::path &root, const Json &input) {
          {"field_asset_key", products.FieldKey({view})},
          {"source_readback_bytes", retained.ReadbackBytes},
          {"resident_image_bytes",
-          size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
+          size_t{image.Texture->Description().Width} * image.Texture->Description().Height *
+              (image.Encoding == Render::RadianceEncoding::Integral ? 16 : 8)}});
     result["field_filter_gpu_ms"] = nullptr;
     if (!field.SourceDepth.empty()) {
       result["source_depth"] = SourceDepthDescription(field, metadata.Pixels);

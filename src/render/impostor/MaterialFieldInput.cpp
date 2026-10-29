@@ -53,11 +53,12 @@ std::expected<void, std::string> MaterialFieldInput::Data::Prepare() {
     if (part.Material < 0 || static_cast<size_t>(part.Material) >= Materials.size()) {
       return std::unexpected("material field part has no declared material");
     }
+    const bool lit = !Materials[static_cast<size_t>(part.Material)].Row.Unlit;
     VertexLayout layout;
     if (!LayoutOf({.Uv = part.HasUv,
                    .Uv1 = part.HasUv1,
-                   .Normal = part.HasNormal,
-                   .Tangent = part.HasTangent,
+                   .Normal = lit && part.HasNormal,
+                   .Tangent = lit && part.HasTangent,
                    .Colour = part.HasColour},
                   layout)) {
       return std::unexpected("material field has an unsupported vertex layout");

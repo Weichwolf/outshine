@@ -21,7 +21,7 @@ from tile_dormers import DormerFacades
 from tile_roof_envelopes import choose
 
 
-def audit(geometry):
+def audit(geometry, *, layout="edge"):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze the full-source physical audit first")
@@ -43,7 +43,9 @@ def audit(geometry):
     rows, receipts, window = inputs("Paris", census)
     if receipts != report["sources"] or window != report["window"]:
         raise ValueError("Physical replay changed pinned provider inputs")
-    owner = DormerFacades(rows, replace(view_for(rows), width=1920, height=1080))
+    owner = DormerFacades(
+        rows, replace(view_for(rows), width=1920, height=1080), dormer_layout=layout
+    )
     by_id = {r["id"]: r for r in owner.rows if r["layer"] == "building"}
     records = []
     started = time.perf_counter()
@@ -130,12 +132,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--geometry", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--layout", choices=("edge", "facade"), default="edge")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path("/tmp")):
         parser.error("--output requires a file under /tmp")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(audit(args.geometry), indent=2) + "\n")
+    output.write_text(
+        json.dumps(audit(args.geometry, layout=args.layout), indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

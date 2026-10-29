@@ -9,7 +9,8 @@ namespace outshine::Render {
 
 static_assert(static_cast<int>(ScatteringModel::MetallicRoughness) == 0 &&
               static_cast<int>(ScatteringModel::DiffuseThinSheet) == 1 &&
-              static_cast<int>(ScatteringModel::AreaMixture) == 2);
+              static_cast<int>(ScatteringModel::AreaMixture) == 2 &&
+              kIntegralRadianceScattering == 3);
 static_assert(static_cast<int>(SurfacePattern::None) == 0 &&
               static_cast<int>(SurfacePattern::Facade) == 1 &&
               static_cast<int>(SurfacePattern::FacadeMetres) == 2);
@@ -17,7 +18,12 @@ static_assert(sizeof(GpuMaterialRecord) == kMaterialRecordFloatCount * sizeof(fl
 
 GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) noexcept {
   const Material &row = material.Row;
-  const auto scattering = material.Radiance ? ScatteringModel::AreaMixture : row.Scattering;
+  auto scattering = static_cast<float>(row.Scattering);
+  if (material.Radiance) {
+    scattering = material.Radiance->Encoding == RadianceEncoding::Integral
+                     ? kIntegralRadianceScattering
+                     : static_cast<float>(ScatteringModel::AreaMixture);
+  }
   Vec3f f0;
   DielectricF0(row, f0);
   const std::array scalars = {material.Coverage(),
@@ -56,7 +62,7 @@ GpuMaterialRecord PackMaterial(const MaterialBinding &material, float identity) 
                               row.IridescenceThicknessMinNm,
                               row.IridescenceThicknessMaxNm,
                               static_cast<float>(row.Pattern),
-                              static_cast<float>(scattering),
+                              scattering,
                               row.DiffuseTransmission[0],
                               row.DiffuseTransmission[1],
                               row.DiffuseTransmission[2]};

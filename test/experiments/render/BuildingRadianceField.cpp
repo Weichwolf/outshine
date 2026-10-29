@@ -1,6 +1,7 @@
 #include "AzimuthElevation.h"
 #include "BuildingRadianceField.h"
 #include "ImpostorSurface.h"
+#include "RadianceSupport.h"
 #include "ImpostorViewFrame.h"
 #include "MaterialFieldInput.h"
 #include "MaterialFieldPass.h"
@@ -52,16 +53,8 @@ ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
   camera.XMagM = camera.YMagM = atlas.HalfExtentM();
   camera.ZNearM = .1;
   camera.ZFarM = Length(camera.EyeM - atlas.CentreM()) + 4 * atlas.HalfExtentM();
-  const double radius = std::numbers::sqrt3 * atlas.HalfExtentM();
-  const double diameterPx = 2 * radius * query.at("focal_px").get<double>() /
-                            std::max(1.0, Length(eye - atlas.CentreM()) - radius);
-  int pixels = atlas.Pixels();
-  while (pixels > 1) {
-    const int next = pixels / 2;
-    if (static_cast<double>(next) < diameterPx) { break; }
-    pixels = next;
-  }
-  result.Target = {.WidthPx = pixels, .HeightPx = pixels};
+  result.Target = {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()};
+  result.Encoding = Render::RadianceEncoding::Integral;
   return result;
 }
 
@@ -184,6 +177,33 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
 }
 } // namespace
 
+std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceField &field,
+                                                               const ImpostorAtlas &atlas,
+                                                               size_t view,
+                                                               const nlohmann::json &query) {
+  Render::Viewpoint camera;
+  camera.EyeM = Vec3{query.at("eye").get<std::array<double, 3>>()};
+  camera.Right = Vec3{query.at("basis").at(0).get<std::array<double, 3>>()};
+  camera.Up = Vec3{query.at("basis").at(1).get<std::array<double, 3>>()};
+  camera.Forward = Vec3{query.at("basis").at(2).get<std::array<double, 3>>()};
+  camera.YfovRad = 2 * std::atan(360.0 / query.at("focal_px").get<double>());
+  camera.ZNearM = .1;
+  const auto lens = Render::Lens::From(camera, 1280, 720);
+  if (!lens) { return std::unexpected("radiance viewer has no valid lens"); }
+  auto surface = Render::BuildProjectedRadianceSupport({.Centre = atlas.CentreM(),
+                                                        .TowardEye = atlas.Views()[view].TowardEye,
+                                                        .HalfExtentM = atlas.HalfExtentM()},
+                                                       camera,
+                                                       *lens);
+  if (!surface) { return std::unexpected(surface.error()); }
+  field.Cards.Centre = atlas.CentreM();
+  field.Cards.HalfExtentM = atlas.HalfExtentM();
+  field.Cards.Views.clear();
+  field.Cards.Views.push_back(
+      {.Direction = atlas.Views()[view].TowardEye, .Surface = std::move(*surface)});
+  return {};
+}
+
 std::expected<BuildingRadianceField, std::string>
 PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         const ImpostorAtlas &atlas,
@@ -196,12 +216,8 @@ PrepareBuildingRadiance(Render::SceneRenderer &renderer,
   result.Source = source;
   const auto shaded = Shade(renderer, atlas, view, query, result, original);
   if (!shaded) { return std::unexpected(shaded.error()); }
-  auto surface = Render::BuildRadianceSupport(atlas, view);
-  if (!surface) { return std::unexpected("radiance support unavailable"); }
-  result.Cards.Centre = atlas.CentreM();
-  result.Cards.HalfExtentM = atlas.HalfExtentM();
-  result.Cards.Views.push_back(
-      {.Direction = atlas.Views()[view].TowardEye, .Surface = std::move(*surface)});
+  const auto placed = UpdateBuildingRadianceSupport(result, atlas, view, query);
+  if (!placed) { return std::unexpected(placed.error()); }
   result.PrepareMs = Elapsed(began);
   return result;
 }

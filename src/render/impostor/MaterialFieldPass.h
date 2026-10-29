@@ -31,6 +31,8 @@ struct MaterialFieldView {
   std::span<const SceneLight> Lights;
   EnvironmentLighting Environment;
   Extent Target;
+  // Integral output requires Target == source raster and adds an exclusive zero border.
+  RadianceEncoding Encoding = RadianceEncoding::Texels;
 };
 
 struct MaterialFieldImages {

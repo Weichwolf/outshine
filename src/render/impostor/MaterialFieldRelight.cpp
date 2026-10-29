@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <span>
 #include <utility>
 
@@ -64,6 +65,63 @@ Native::Result<std::shared_ptr<Native::Texture>> Target(Native::Device &device,
   }
   return std::shared_ptr<Native::Texture>(std::move(*image));
 }
+
+bool ValidOutput(const MaterialFieldView &view, Extent raster, uint32_t textureLimit) {
+  switch (view.Encoding) {
+    case RadianceEncoding::Texels: return true;
+    case RadianceEncoding::Integral:
+      return view.Target == raster && raster.WidthPx < std::numeric_limits<int>::max() &&
+             raster.HeightPx < std::numeric_limits<int>::max() &&
+             std::cmp_less(raster.WidthPx, textureLimit) &&
+             std::cmp_less(raster.HeightPx, textureLimit);
+  }
+  return false;
+}
+
+struct FieldTargets {
+  std::shared_ptr<Native::Texture> Raw, Filtered, Depth, Scratch;
+};
+
+Native::Result<FieldTargets>
+Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
+  constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
+                              Native::TextureUse::Storage | Native::TextureUse::CopySource;
+  const bool integral = view.Encoding == RadianceEncoding::Integral;
+  const Extent extent = integral
+                            ? Extent{.WidthPx = raster.WidthPx + 1, .HeightPx = raster.HeightPx + 1}
+                            : view.Target;
+  auto raw = Target(device, raster, Native::Format::Rgba16Float, kColourUse);
+  if (!raw) { return std::unexpected(raw.error()); }
+  const auto use =
+      Native::TextureUse::Storage | Native::TextureUse::Sampled | Native::TextureUse::CopySource;
+  auto filtered = !integral && view.Target == raster
+                      ? raw
+                      : Target(device,
+                               extent,
+                               integral ? Native::Format::Rgba32Float : Native::Format::Rgba16Float,
+                               use);
+  if (!filtered) { return std::unexpected(filtered.error()); }
+  auto depth = Target(device,
+                      raster,
+                      Native::Format::Depth32Float,
+                      Native::TextureUse::DepthAttachment | Native::TextureUse::Sampled |
+                          Native::TextureUse::CopySource);
+  if (!depth) { return std::unexpected(depth.error()); }
+  std::shared_ptr<Native::Texture> scratch;
+  if (integral) {
+    auto allocated = Target(device,
+                            extent,
+                            Native::Format::Rgba32Float,
+                            Native::TextureUse::Storage | Native::TextureUse::Sampled);
+    if (!allocated) { return std::unexpected(allocated.error()); }
+    scratch = std::move(*allocated);
+  }
+  return FieldTargets{.Raw = std::move(*raw),
+                      .Filtered = std::move(*filtered),
+                      .Depth = std::move(*depth),
+                      .Scratch = std::move(scratch)};
+}
+
 }
 
 Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMaterialField &source,
@@ -77,6 +135,11 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "material field has no matching source or footprint"});
+  }
+  if (!ValidOutput(view, data->Raster, state.Pipelines->Device.Limits().MaxTextureExtent)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "integral field needs its padded source raster"});
   }
   if (!ValidMaterialFieldLighting(view)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -92,20 +155,9 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   auto &device = state.Pipelines->Device;
   auto commands = device.Begin();
   if (!commands) { return std::unexpected(commands.error()); }
-  constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
-                              Native::TextureUse::Storage | Native::TextureUse::CopySource;
-  auto raw = Target(device, data->Raster, Native::Format::Rgba16Float, kColourUse);
-  if (!raw) { return std::unexpected(raw.error()); }
-  auto filtered = view.Target == data->Raster
-                      ? raw
-                      : Target(device, view.Target, Native::Format::Rgba16Float, kColourUse);
-  if (!filtered) { return std::unexpected(filtered.error()); }
-  auto depth = Target(device,
-                      data->Raster,
-                      Native::Format::Depth32Float,
-                      Native::TextureUse::DepthAttachment | Native::TextureUse::Sampled |
-                          Native::TextureUse::CopySource);
-  if (!depth) { return std::unexpected(depth.error()); }
+  auto targets = Targets(device, data->Raster, view);
+  if (!targets) { return std::unexpected(targets.error()); }
+  auto &[raw, filtered, depth, scratch] = *targets;
   std::string error;
   if (!data->Renderer.SetLights(view.Lights, error)) {
     return std::unexpected(
@@ -121,18 +173,21 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
       .Area = {.Width = static_cast<float>(width), .Height = static_cast<float>(height)},
       .Clip = {.Width = width, .Height = height}};
   const std::array attachments{
-      Native::ColourAttachment{.Image = {.Image = raw->get()}, .Begin = Native::Load::Clear}};
+      Native::ColourAttachment{.Image = {.Image = raw.get()}, .Begin = Native::Load::Clear}};
   auto begun = (*commands)->BeginRenderPass(
       {.Colours = attachments,
-       .Depth = Native::DepthAttachment{.Image = {.Image = depth->get()},
-                                        .Begin = Native::Load::Clear}});
+       .Depth =
+           Native::DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Native::Load::Clear}});
   if (!begun) { return std::unexpected(begun.error()); }
   auto drawn = data->Renderer.Encode(*frame, recording);
   if (!drawn) { return std::unexpected(drawn.error()); }
   auto ended = (*commands)->EndRenderPass();
   if (!ended) { return std::unexpected(ended.error()); }
-  if (view.Target != data->Raster) {
-    auto reduced = state.Pipelines->Filter.Encode(**commands, **raw, **filtered);
+  if (view.Encoding == RadianceEncoding::Integral) {
+    const auto integrated = state.Pipelines->Integral.Encode(**commands, *raw, *scratch, *filtered);
+    if (!integrated) { return std::unexpected(integrated.error()); }
+  } else if (view.Target != data->Raster) {
+    auto reduced = state.Pipelines->Filter.Encode(**commands, *raw, *filtered);
     if (!reduced) { return std::unexpected(reduced.error()); }
   }
   if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
@@ -144,18 +199,20 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   submission.Commit();
   MaterialFieldImages images{.Unfiltered = std::make_shared<RadianceImage>(
                                  RadianceImage{.Device = &device,
-                                               .Texture = *raw,
+                                               .Texture = raw,
                                                .Sampling = state.Pipelines->Sampling,
                                                .Produced = *produced}),
                              .Filtered = std::make_shared<RadianceImage>(
                                  RadianceImage{.Device = &device,
-                                               .Texture = *filtered,
+                                               .Texture = filtered,
                                                .Sampling = state.Pipelines->Sampling,
-                                               .Produced = *produced}),
-                             .Depth = *depth,
+                                               .Produced = *produced,
+                                               .Encoding = view.Encoding}),
+                             .Depth = depth,
                              .Camera = view.Camera};
   state.Last = *produced;
-  state.InFlight.push_back({.Completion = *produced, .Source = data, .Images = images});
+  state.InFlight.push_back(
+      {.Completion = *produced, .Source = data, .Images = images, .Scratch = std::move(scratch)});
   return images;
 }
 }

@@ -35,6 +35,12 @@ struct BuildingRadianceField {
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
 
+[[nodiscard]] std::expected<void, std::string>
+UpdateBuildingRadianceSupport(BuildingRadianceField &field,
+                              const ImpostorAtlas &atlas,
+                              size_t view,
+                              const nlohmann::json &query);
+
 [[nodiscard]] std::expected<BuildingRadianceField, std::string>
 PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         const ImpostorAtlas &atlas,
