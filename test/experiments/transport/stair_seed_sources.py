@@ -10,14 +10,17 @@ from stair_seed_axes import axis_form
 from stair_seed_dependencies import recipes_with_dependencies
 
 
-def separated_records(view, assets, manifest, sources):
+def separated_records(view, assets, manifest, sources, *, requested_bounds=None):
     bounds = np.array([p.bounds_xy_m for p in view.patches])
     state = {
         "plan": {"xy": bounds.reshape(-1, 2)},
         "report": {"candidate_source_ids": manifest["source_ids"]},
     }
-    records = records_for(state, sources)
-    profiles, queries, hits = reference_profiles(), 0, 0
+    source_work = {} if requested_bounds is not None else None
+    records = records_for(
+        state, sources, requested_bounds=requested_bounds, work=source_work
+    )
+    profiles, queries, hits, probe_bands = reference_profiles(), 0, 0, 0
     guard = radius(view)
     for row in records:
         if not row["eligible"]:
@@ -31,6 +34,7 @@ def separated_records(view, assets, manifest, sources):
             )
             continue
         kind = source["properties"].get("subclass") or "unclassified"
+        probe_bands += 1
         band = source["shape"].buffer(
             profiles[kind]["widthM"] / 2,
             cap_style="flat",
@@ -58,6 +62,14 @@ def separated_records(view, assets, manifest, sources):
         "old_asset_queries": queries,
         "candidate_old_facets": hits,
         "xy_guard_m": guard,
+        **(
+            {
+                "source_selection": source_work,
+                "old_probe_corridor_builds": probe_bands,
+            }
+            if source_work is not None
+            else {}
+        ),
     }
 
 
@@ -74,6 +86,7 @@ def select(
     grid_m=2**-11,
     root_form="all",
     crossings="none",
+    requested_bounds=None,
 ):
     if crossings not in ("none", "walk"):
         raise ValueError("known geometric seed crossing policy required")
@@ -83,7 +96,9 @@ def select(
         raise ValueError("known independent seed grid required")
     if strategy not in ("whole", "prefix"):
         raise ValueError("known whole or connected-prefix seed strategy required")
-    records, work = separated_records(view, assets, manifest, sources)
+    records, work = separated_records(
+        view, assets, manifest, sources, requested_bounds=requested_bounds
+    )
     eligible = sorted(
         (
             r
@@ -152,6 +167,15 @@ def select(
         "profile_work": [],
         "schedule": schedule,
         "family": "seed",
+        **(
+            {
+                "requested_bounds_xy_m": list(map(float, requested_bounds)),
+                "source_count": len(records),
+                "eligible_sources": sum(r["eligible"] for r in records),
+            }
+            if requested_bounds is not None
+            else {}
+        ),
         **({"root_form": root_form} if root_form != "all" else {}),
         **(
             {"crossings": crossings, "dependency_ledger": dependency_ledger}

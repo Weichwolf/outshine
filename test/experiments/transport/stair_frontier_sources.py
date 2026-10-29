@@ -10,7 +10,7 @@ from stair_frontier_roots import root_seeds
 from stair_module_inputs import reference_profiles
 
 
-def reason(source, cached, domain, profiles):
+def reason(source, cached, domain, profiles, *, requested=None, work=None):
     if source["source_id"] in cached:
         return "already_cached"
     props = source["properties"]
@@ -30,15 +30,54 @@ def reason(source, cached, domain, profiles):
     ):
         return "whole_axis_geometry_budget_or_degeneracy"
     half = profiles["unclassified" if ordinary else kind]["widthM"] / 2
+    if requested is not None:
+        bounds, query = source["shape"].bounds, requested.bounds
+        guard = 64 * np.finfo(float).eps * max(1.0, *map(abs, bounds))
+        # GEOS clips a limited mitre on a segment centred at 2r with half-length r.
+        # Its endpoints can reach sqrt(5)r, beyond the nominal mitre limit 2r.
+        reach = np.hypot(2.0, 1.0) * half + guard
+        if work is not None:
+            work["request_bounds_tests"] += 1
+        if (
+            bounds[2] + reach < query[0]
+            or bounds[3] + reach < query[1]
+            or bounds[0] - reach > query[2]
+            or bounds[1] - reach > query[3]
+        ):
+            if work is not None:
+                work["request_bounds_rejections"] += 1
+            return "outside_requested_source_bounds"
+    if work is not None:
+        work["corridor_builds"] += 1
     band = source["shape"].buffer(
         half, cap_style="flat", join_style="mitre", mitre_limit=2
     )
+    if requested is not None and not requested.intersects(band):
+        return "outside_requested_source_bounds"
     if not domain.covers(band):
         return "outside_current_complete_terrain"
     return ""
 
 
-def records_for(state, sources):
+def records_for(state, sources, *, requested_bounds=None, work=None):
+    requested = None
+    if requested_bounds is not None:
+        bounds = np.asarray(requested_bounds, float)
+        if (
+            bounds.shape != (4,)
+            or not np.isfinite(bounds).all()
+            or abs(bounds).max() > 1e6
+            or np.any(bounds[:2] >= bounds[2:])
+        ):
+            raise ValueError("bounded finite nonempty requested source bounds required")
+        requested = shapely.box(*bounds)
+    if work is not None:
+        work.update(
+            source_headers=len(sources),
+            request_bounds_tests=0,
+            request_bounds_rejections=0,
+            corridor_builds=0,
+        )
     xy = state["plan"]["xy"]
     domain = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
     cached = set(
@@ -48,7 +87,14 @@ def records_for(state, sources):
     records = []
     for key in sorted(sources):
         source = sources[key]
-        why = reason(dict(source, source_id=key), cached, domain, profiles)
+        why = reason(
+            dict(source, source_id=key),
+            cached,
+            domain,
+            profiles,
+            requested=requested,
+            work=work,
+        )
         records.append(
             {
                 "source_id": key,
