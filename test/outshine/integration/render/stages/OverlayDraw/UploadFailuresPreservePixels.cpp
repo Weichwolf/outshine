@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include "UiPaint.h"
 #include "RuntimeScene.h"
 #include "FrameReadback.h"
@@ -203,7 +204,7 @@ int main() {
     }
   }
   {
-    Ui::AhemFont font;
+    outshine::Test::AhemFont font;
     OverlayFixture fixture;
     if (fixture.Open(&font)) { fixture.SurfacePublication(); }
   }

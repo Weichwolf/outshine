@@ -68,6 +68,10 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road_height
       outshine_generators_terrain outshine_generators_terrain_inputs outshine_generators_terrain_providers ZLIB::ZLIB)
   endif()
+  if(name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema" AND CMAKE_DL_LIBS)
+    target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
+
+  endif()
   if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
     set(indirect_shaders "")
     foreach(shader dispatch-arguments dispatch-count)
@@ -336,6 +340,13 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_facts_json.cpp)
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_test(NAME outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    COMMAND $<TARGET_FILE:test_outshine_src_generators_osm_MvtTransportSnapshot_OriginalPointFactsMatchIndependentWire>
+      provider-unavailable)
+  set_tests_properties(outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" LABELS "generators/osm")
+endif()
 add_dependencies(outshine_tests test_harness_transport_source_export)
 add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport

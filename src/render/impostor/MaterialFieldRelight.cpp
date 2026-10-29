@@ -49,17 +49,18 @@ Native::Result<FrameContext> FrameOf(const Viewpoint &camera, Extent extent) {
   return frame;
 }
 
-Native::Result<std::shared_ptr<Native::Texture>> Colour(Native::Device &device, Extent extent) {
-  auto image = device.CreateTexture(
-      {.Width = static_cast<uint32_t>(extent.WidthPx),
-       .Height = static_cast<uint32_t>(extent.HeightPx),
-       .Texels = Native::Format::Rgba16Float,
-       .Use = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
-              Native::TextureUse::Storage | Native::TextureUse::CopySource});
+Native::Result<std::shared_ptr<Native::Texture>> Target(Native::Device &device,
+                                                        Extent extent,
+                                                        Native::Format format,
+                                                        Native::UseMask<Native::TextureUse> use) {
+  auto image = device.CreateTexture({.Width = static_cast<uint32_t>(extent.WidthPx),
+                                     .Height = static_cast<uint32_t>(extent.HeightPx),
+                                     .Texels = format,
+                                     .Use = use});
   if (!image) { return std::unexpected(image.error()); }
   if (!*image) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
-                                         .Message = "material field colour has no texture"});
+                                         .Message = "material field target has no texture"});
   }
   return std::shared_ptr<Native::Texture>(std::move(*image));
 }
@@ -92,10 +93,20 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   auto &device = state.Pipelines->Device;
   auto commands = device.Begin();
   if (!commands) { return std::unexpected(commands.error()); }
-  auto raw = Colour(device, data->Raster);
+  constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
+                              Native::TextureUse::Storage | Native::TextureUse::CopySource;
+  auto raw = Target(device, data->Raster, Native::Format::Rgba16Float, kColourUse);
   if (!raw) { return std::unexpected(raw.error()); }
-  auto filtered = view.Target == data->Raster ? raw : Colour(device, view.Target);
+  auto filtered = view.Target == data->Raster
+                      ? raw
+                      : Target(device, view.Target, Native::Format::Rgba16Float, kColourUse);
   if (!filtered) { return std::unexpected(filtered.error()); }
+  auto depth = Target(device,
+                      data->Raster,
+                      Native::Format::Depth32Float,
+                      Native::TextureUse::DepthAttachment | Native::TextureUse::Sampled |
+                          Native::TextureUse::CopySource);
+  if (!depth) { return std::unexpected(depth.error()); }
   std::string error;
   if (!data->Renderer.SetLights(view.Lights, error)) {
     return std::unexpected(
@@ -114,7 +125,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
       Native::ColourAttachment{.Image = {.Image = raw->get()}, .Begin = Native::Load::Clear}};
   auto begun = (*commands)->BeginRenderPass(
       {.Colours = attachments,
-       .Depth = Native::DepthAttachment{.Image = {.Image = data->Depth.get()},
+       .Depth = Native::DepthAttachment{.Image = {.Image = depth->get()},
                                         .Begin = Native::Load::Clear}});
   if (!begun) { return std::unexpected(begun.error()); }
   auto drawn = data->Renderer.Encode(*frame, recording);
@@ -141,7 +152,9 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
                                  RadianceImage{.Device = &device,
                                                .Texture = *filtered,
                                                .Sampling = state.Pipelines->Sampling,
-                                               .Produced = *produced})};
+                                               .Produced = *produced}),
+                             .Depth = *depth,
+                             .Camera = view.Camera};
   state.Last = *produced;
   state.InFlight.push_back({.Completion = *produced, .Source = data, .Images = images});
   return images;

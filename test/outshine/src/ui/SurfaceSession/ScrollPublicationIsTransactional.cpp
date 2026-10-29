@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include "Check.h"
 #include "SurfaceSession.h"
 #include <cstddef>
@@ -11,7 +12,7 @@ int main() {
   constexpr double sidePx = 64;
   constexpr double stepPx = 32;
   constexpr double hitPx = 16;
-  AhemFont font;
+  outshine::Test::AhemFont font;
   SurfaceSession session;
   bool accept = true;
   unsigned attempts = 0;

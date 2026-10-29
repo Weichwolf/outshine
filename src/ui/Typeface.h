@@ -8,13 +8,11 @@
 #include <string_view>
 #include <vector>
 
-#include "Layout.h"
+#include "Font.h"
 
 struct TTF_Font;
 
 namespace outshine::Ui {
-
-enum class Family : uint8_t { Sans, Serif, Mono, kCount };
 
 [[nodiscard]] Family FamilyNamed(std::string_view declared);
 [[nodiscard]] const char *FileOf(Family family);

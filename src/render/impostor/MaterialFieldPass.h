@@ -36,6 +36,10 @@ struct MaterialFieldView {
 struct MaterialFieldImages {
   std::shared_ptr<const RadianceImage> Unfiltered;
   std::shared_ptr<const RadianceImage> Filtered;
+  // Raw depth shares Unfiltered's raster/completion; it is not filtered depth or occlusion
+  // authority.
+  std::shared_ptr<Native::Texture> Depth;
+  Viewpoint Camera;
 };
 
 class MaterialFieldPass {

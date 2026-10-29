@@ -14,6 +14,7 @@
 #include "device/native/Commands.h"
 #include "Geometry.h"
 
+#include <array>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -159,6 +160,7 @@ private:
     PieceId Resident = kNoPiece;
     PieceOwner Owner = PieceOwner::Independent;
     bool Textured = false;
+    std::array<uint64_t, 3> ProductOrder{};
 
     [[nodiscard]] PieceMesh Mesh() const noexcept;
   };

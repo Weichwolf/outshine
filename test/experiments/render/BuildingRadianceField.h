@@ -3,6 +3,7 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "RadianceImage.h"
+#include "Viewing.h"
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -29,6 +30,8 @@ struct BuildingRadianceField {
   double ReadbackMs = 0;
   std::shared_ptr<const Render::ResidentMaterialField> Source;
   std::vector<float> SourceLinear;
+  std::vector<float> SourceDepth;
+  Render::Viewpoint SourceCamera;
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
 

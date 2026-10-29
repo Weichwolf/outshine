@@ -97,7 +97,7 @@ def capture(source, options):
             f"{name}: benchmark exited {result.returncode}; {work / 'run.log'}"
         )
     report = json.loads(report_path.read_text())
-    if report.get("benchmark_version") != 1 or report.get("mode") != "scenario":
+    if report.get("benchmark_version") != 2 or report.get("mode") != "scenario":
         raise RuntimeError(f"{name}: unsupported benchmark report; {report_path}")
     if (
         not report["measurement_complete"]

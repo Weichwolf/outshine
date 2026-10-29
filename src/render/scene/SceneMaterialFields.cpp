@@ -1,5 +1,6 @@
 #include <atomic>
 #include "SceneRenderer.h"
+#include "MaterialFieldPass.h"
 #include <expected>
 #include <memory>
 

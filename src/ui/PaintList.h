@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_UI_PAINT_H
-#define OUTSHINE_UI_PAINT_H
+#ifndef OUTSHINE_UI_PAINTLIST_H
+#define OUTSHINE_UI_PAINTLIST_H
 
 #include <cstddef>
 #include <cstdint>
@@ -24,26 +24,14 @@ struct Quad {
 
 inline constexpr size_t kQuadBound = 16384;
 
-struct Page {
-  double OffsetY = 0;
-  double HeightPx = 0;
-};
-
-[[nodiscard]] std::vector<double>
-PageBreaks(const Layout &layout, double pageHeightPx, size_t &linesTallerThanThePage);
-
-class Painting {
+class PaintList {
 public:
-  [[nodiscard]] bool
-  Build(const Layout &layout, const Font &font, std::string &error, const Page &page = {});
+  [[nodiscard]] bool Build(const Layout &layout, const Font &font, std::string &error);
 
   [[nodiscard]] const std::vector<Quad> &Quads() const { return Quads_; }
 
-  [[nodiscard]] size_t QuadsBeyondTheBound() const { return Beyond_; }
-
 private:
   std::vector<Quad> Quads_;
-  size_t Beyond_ = 0;
 };
 
 }

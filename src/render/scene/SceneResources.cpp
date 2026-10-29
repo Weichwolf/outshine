@@ -34,7 +34,8 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .Instances = Rows,
           .MaxInstances = MaxInstances,
           .Surface = Surface,
-          .Textured = Textured};
+          .Textured = Textured,
+          .ProductOrder = ProductOrder};
 }
 
 std::expected<PieceHandle, std::string>
@@ -61,7 +62,8 @@ SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, P
              .MaxInstances = piece.MaxInstances,
              .Surface = piece.Surface,
              .Owner = owner,
-             .Textured = piece.Textured};
+             .Textured = piece.Textured,
+             .ProductOrder = piece.ProductOrder};
   if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
   auto placed = geometry.PlacePiece(held.Mesh());
   if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
