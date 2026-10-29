@@ -11,8 +11,8 @@ from canonical_port_native_inputs import source_input
 from mvt_node_group_inputs import read_mvt_node_groups, unsigned
 from mvt_source_fact_digest import (
     native_source_fact_digest,
-    version_from_schema,
     validate_missing_source_ways,
+    version_from_schema,
 )
 from mvt_source_fact_links import check_mvt_source_fact_links
 from mvt_source_profile_inputs import check_height_profile_tags, profile_properties
@@ -60,6 +60,7 @@ def check_scope(native, facts, manifest, budget):
             "outshine/native-mvt-source-facts/1",
             "outshine/native-mvt-source-facts/2",
             "outshine/native-mvt-source-facts/3",
+            "outshine/native-mvt-source-facts/4",
         )
     ):
         raise ValueError("actual paired source schemas required")
@@ -150,9 +151,7 @@ def native_recipes(native, facts, raw):
         }
     work["bound_profile_paths"] = len(recipes)
     work["checked_height_profile_tag_records"] = (
-        2 * len(recipes)
-        if version_from_schema(facts["schema"]) >= 2
-        else 0
+        2 * len(recipes) if version_from_schema(facts["schema"]) >= 2 else 0
     )
     return recipes, work
 
@@ -250,7 +249,7 @@ def load_bridge_source_facts(root, *, budget=None):
         "source_facts_digest": bytes(facts["Digest"]).hex(),
         "scope": "Actual paired native source; physical incidence only within supplied Network, no geographic/ground/contact closure",
     }
-    if version_from_schema(facts["schema"]) == 3:
+    if version_from_schema(facts["schema"]) >= 3:
         binding.update(
             source_facts_schema=facts["schema"],
             source_omissions_digest=bytes(facts["OmissionsDigest"]).hex(),
