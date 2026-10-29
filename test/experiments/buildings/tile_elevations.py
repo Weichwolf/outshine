@@ -3,10 +3,10 @@
 from dataclasses import asdict
 
 import shapely
-from facade_axes import layout
 from elevation_choice import choose
 from elevation_details import ElevationBands, ElevationFrames, recesses
 from elevation_mesh import compiled
+from facade_axes import layout
 from tile_facades import recipe_for
 from tile_roof_crowns import CrownFacades
 from tile_roof_envelopes import choose as roof_choice
@@ -17,16 +17,38 @@ class ElevationFacades(CrownFacades):
         super().__init__(rows, view, **kwargs)
         self.elevations, self.elevation_rejected, self.staged_entries = {}, [], {}
         self.source_elevations = {}
+        self.roof_staged_elevations = {}
         self.frames = ElevationFrames(self.entrances)
         self.bands = ElevationBands(self.bands, self.source_elevations)
+
+    def stage_roof_facades(self, row, parameters):
+        recipe = recipe_for(row, parameters)
+        rhythm, family = recipe["parameters"], recipe["family"]
+        facades = layout(
+            row,
+            parameters,
+            (rhythm["width"], rhythm["height"]),
+            rhythm["axis_m"],
+            rhythm["floor_m"],
+        )
+        entry = self.entrances.plan(row, parameters, facades, family)
+        plans, reason = choose(row, parameters, facades, family, entry, self.entrances)
+        self.staged_entries[row["id"]] = entry
+        self.roof_staged_elevations[row["id"]] = facades, plans, reason
+        upper = {p.facade_id: p.frames()[-1] for p in plans}
+        return tuple(upper.get(f["id"], f) for f in facades)
 
     def surface(self, mesh, row, parameters, rhythm, material):
         projected, facades, identifier = super().surface(
             mesh, row, parameters, rhythm, material
         )
         family = recipe_for(row, parameters)["family"]
-        entry = self.entrances.plan(row, parameters, facades, family)
-        self.staged_entries[row["id"]] = entry
+        staged = self.roof_staged_elevations.pop(row["id"], None)
+        if staged is None:
+            entry = self.entrances.plan(row, parameters, facades, family)
+            self.staged_entries[row["id"]] = entry
+        else:
+            entry = self.staged_entries[row["id"]]
         logical = parameters
         if "roof_crown_plan" not in parameters:
             roof = roof_choice(row, parameters)
@@ -46,9 +68,16 @@ class ElevationFacades(CrownFacades):
             rhythm["axis_m"],
             rhythm["floor_m"],
         )
-        plans, reason = choose(
-            row, logical, source_frames, family, entry, self.entrances
-        )
+        if staged is None:
+            plans, reason = choose(
+                row, logical, source_frames, family, entry, self.entrances
+            )
+        else:
+            expected, plans, reason = staged
+            if source_frames != expected or facades != expected:
+                raise ValueError(
+                    "Physical facade differs from the staged roof facade plan"
+                )
         if not plans:
             self.elevation_rejected.append({"id": row["id"], "reason": reason})
             return projected, facades, identifier

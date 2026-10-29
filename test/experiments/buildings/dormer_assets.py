@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 import shapely
-
 from broken_hip import envelope, recipe
 from dormer_geometry import union
 from dormer_plan import plan
@@ -30,6 +29,7 @@ class Asset:
     full: Products
     rejected: list
     near: object = None
+    frontages: tuple = ()
 
     def near_products(self):
         if self.near is None:
@@ -44,7 +44,9 @@ class Asset:
         return self.near
 
 
-def prepare(row, parameters, choice, *, clear=None):
+def prepare(
+    row, parameters, choice, *, clear=None, frontages=None, bay_method="bisect"
+):
     top, _wedge, _report = roof_surface(row, choice)
     original, profile = envelope(
         top, parameters, 1, choice, recipe(row, parameters, choice)
@@ -52,10 +54,20 @@ def prepare(row, parameters, choice, *, clear=None):
     original_region = shapely.from_wkb(original.footprint_wkb)
     if row["polygon"].symmetric_difference(original_region).area > 1e-7:
         raise ValueError("Original roof violates its existing source-footprint gate")
-    dormers, rejected = plan(row, original, choice, clear=clear)
+    dormers, rejected = plan(
+        row, original, choice, clear=clear, frontages=frontages, bay_method=bay_method
+    )
     if not dormers:
         raise ValueError("No actual source roof front accepts a useful dormer")
     physical = union(original, dormers)
     body, skin = split(physical, choice.eave_m)
     products = Products(physical, sealed(body), marked(skin, dormers))
-    return Asset(dormers, original, profile, choice.eave_m, products, rejected)
+    return Asset(
+        dormers,
+        original,
+        profile,
+        choice.eave_m,
+        products,
+        rejected,
+        frontages=() if frontages is None else tuple(frontages),
+    )

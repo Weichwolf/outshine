@@ -2,6 +2,7 @@
 
 import argparse
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 
 import matplotlib
@@ -43,7 +44,7 @@ def diagrams(output, index, row, asset):
     )
     axes[0].autoscale_view()
     p = asset.dormers[0]
-    centre, w, h, z = aperture(p)
+    centre, _w, h, z = aperture(p)
     tangent = (np.asarray(p.b) - p.a) / p.width_m
     inward = np.array([-tangent[1], tangent[0]])
     for product, label, colour in (
@@ -81,14 +82,16 @@ def detail_view(asset):
     return overview(points, np.r_[[t[1], -t[0]] + 0.15 * t, 0.28])
 
 
-def models(output):
+def models(output, *, layout="edge"):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze actual dormer producer before image evidence")
     output.mkdir(parents=True, exist_ok=True)
+    selected = partial(DormerFacades, dormer_layout=layout)
+    before = ElevationFacades if layout == "edge" else DormerFacades
     for index, (row, neighbors) in enumerate(sources()):
         primary = view_for(row)
-        _mesh, _info, owner = build(DormerFacades, row, neighbors, primary)
+        _mesh, _info, owner = build(selected, row, neighbors, primary)
         asset = owner.base.dormer_assets[row["id"]]
         diagrams(output, index, row, asset)
         if index == 1:
@@ -113,8 +116,8 @@ def models(output):
         )
         for label, view in views:
             for suffix, kind in (
-                ("Before", ElevationFacades),
-                ("After", DormerFacades),
+                ("Before", before),
+                ("After", selected),
             ):
                 mesh, info, owner = build(kind, row, neighbors, view)
                 export(
@@ -131,11 +134,12 @@ def models(output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--layout", choices=("edge", "facade"), default="edge")
     args = parser.parse_args()
     output = args.output.resolve()
     if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
         parser.error("--output requires a subdirectory of /tmp")
-    models(output)
+    models(output, layout=args.layout)
 
 
 if __name__ == "__main__":
