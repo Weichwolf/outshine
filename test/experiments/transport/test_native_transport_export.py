@@ -166,7 +166,8 @@ def check_capture(directory):
     require(
         native["schema"] == "outshine/native-mvt-snapshot-dump/1"
         and facts["schema"] in (
-            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3"
+            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3",
+            "outshine/native-mvt-source-facts/4"
         ),
         "unsupported native capture",
     )

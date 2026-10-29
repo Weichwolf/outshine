@@ -158,8 +158,7 @@ bool FitsMissingSourceWays(const SourceFactInput &input,
     return false;
   }
   bytesMost -= input.SourceRows.Ways.size() * sizeof(uint32_t);
-  if (input.Network.WayCount() > bytesMost / sizeof(uint32_t)) { return false; }
-  return true;
+  return input.Network.WayCount() <= bytesMost / sizeof(uint32_t);
 }
 
 std::expected<void, std::string> FillMissingSourceWays(MvtTransportSourceFacts &facts,
