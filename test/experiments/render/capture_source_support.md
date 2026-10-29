@@ -18,6 +18,10 @@ negative box result is inconclusive; refine source bounds only when useful, or
 retain the parent. In these controls the foreground accepts early; the interleave
 has an inconclusive cohort box but all1891 finer source boxes fit. Cohort bounds
 belong to existing native metadata; do not scan/rebuild them each frame.
+Support belongs to the bound cohort/placement/capture descriptor. Recompute when
+those inputs change, and reuse it for presentation-only camera changes that keep
+that descriptor. It is independent of lighting. Use existing product metadata/
+leases; this reference adds no scheduler or cache.
 
 `capture_source_support.py` borrows a bounded nonempty pair of Nx3 source bounds.
 The native-control placement sequence is Double translation followed by Float32
@@ -101,3 +105,19 @@ CPU/wall rounds and separate Memray/native-allocation traces. Comparison is
 outside timing. Held inputs/opponent precede incremental peaks; total copies,
 physical memory traffic, process/UMA peaks and native device/frame times remain
 unmeasured. Known Float32 roundtrip copies and corner expansion are explicit.
+
+On67058cbda, Linux/Python3.13.5/NumPy2.5.4/Memray1.20, host load
+3.26/4.48/3.78, full1891-source endpoints/corners cost1.577/9.350ms CPU for the
+foreground,1.311/9.643ms for the separated neighbour and1.378/9.822ms for the
+interleave. Endpoint requested allocation is1.998–2.000MB and incremental peak
+0.337–0.338MB; corners request12.170–12.171MB with2.394–2.395MB peak. Results
+are identical. These are warm Python function scopes, not native frame times.
+The single cohort box costs0.396–0.410ms CPU using endpoints, with71,331B requested
+and7,296B scoped peak; this Python overhead is not extrapolated to C++/devices.
+
+Numeric cohort endpoints need48B; the diagnostic still holds the full98,332B
+source metadata and derives the cohort envelope outside timing. Endpoint output
+is94,598B for1891 boxes versus98B for one box. Known Float32 roundtrip copying is
+136,152B for1891 boxes; the corner opponent additionally gathers363,072B of
+coordinates. Inputs/held opponents precede peaks; total copies and physical
+memory traffic remain unmeasured. Twelve separate raw allocation traces are kept.
