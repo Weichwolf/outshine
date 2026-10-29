@@ -18,7 +18,7 @@ class RoofFacadePlan:
     entrance: object
     elevations: tuple
     reason: str
-    entrance_counts: tuple
+    entrance_records: tuple
 
 
 class ElevationFacades(CrownFacades):
@@ -51,24 +51,37 @@ class ElevationFacades(CrownFacades):
             upper = {p.facade_id: p.frames()[-1] for p in plans}
             frames = tuple(upper.get(f["id"], f) for f in facades)
             self.roof_staged_elevations[row["id"]] = RoofFacadePlan(
-                tuple(facades), entry, plans, reason, counts
+                tuple(facades), entry, plans, reason, self._entrance_records(counts)
             )
             return frames
         except BaseException:
             self.roof_staged_elevations.pop(row["id"], None)
-            self._restore_entrances(counts)
+            self._discard_entrances(self._entrance_records(counts))
             raise
 
-    def _restore_entrances(self, counts):
-        for records, count in zip(
-            (self.entrances.planned, self.entrances.rejected), counts, strict=True
+    def _entrance_records(self, counts):
+        return tuple(
+            tuple(records[count:])
+            for records, count in zip(
+                (self.entrances.planned, self.entrances.rejected), counts, strict=True
+            )
+        )
+
+    def _discard_entrances(self, owned):
+        for records, selected in zip(
+            (self.entrances.planned, self.entrances.rejected), owned, strict=True
         ):
-            del records[count:]
+            for record in selected:
+                index = next(
+                    (i for i, value in enumerate(records) if value is record), None
+                )
+                if index is not None:
+                    del records[index]
 
     def discard_roof_facades(self, identifier):
         staged = self.roof_staged_elevations.pop(identifier, None)
         if staged is not None:
-            self._restore_entrances(staged.entrance_counts)
+            self._discard_entrances(staged.entrance_records)
 
     def surface(self, mesh, row, parameters, rhythm, material):
         projected, facades, identifier = super().surface(

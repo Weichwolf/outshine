@@ -295,6 +295,20 @@ class ActualDormerBayTests(unittest.TestCase):
         self.assertEqual(owner.entrances.planned, [])
         self.assertEqual(owner.entrances.rejected, [])
 
+    def test_discarding_one_prepared_source_preserves_later_source_records(self):
+        row, neighbors = self.rows[1]
+        owner = AlignedDormers([row, *neighbors], view_for(row))
+        source = owner.rows[0]
+        params = attributes(source["properties"])
+        roof = choose(source, params)
+        owner.stage_roof_facades(source, params | {"eave_m": roof.eave_m})
+        later = {"id": "another-source:entrance"}
+        owner.entrances.planned.append(later)
+        owner.discard_roof_facades(source["id"])
+        self.assertEqual(owner.entrances.planned, [later])
+        self.assertIs(owner.entrances.planned[0], later)
+        self.assertEqual(owner.entrances.rejected, [])
+
 
 if __name__ == "__main__":
     unittest.main()
