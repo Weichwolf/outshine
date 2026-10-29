@@ -72,6 +72,7 @@ def replay(atlas, source, declaration):
             radiance_binding=domain.radiance_binding,
             complete=declaration["complete"],
             depth_separated=declaration["depth_separated"],
+            composition_qualified=declaration["composition_qualified"],
         )
         sample = reconstruct(field, atlas["grid"], view)
         maximum_pixels = max(maximum_pixels, sample["output_pixels"])

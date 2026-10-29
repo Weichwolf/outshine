@@ -3,6 +3,8 @@
 import unittest
 from dataclasses import replace
 
+import numpy as np
+
 from field_view_admission import ViewDomain, select_field
 from field_view_sampling import FieldGrid, ImageView
 
@@ -25,6 +27,7 @@ class AdmissionTests(unittest.TestCase):
             "radiance_binding": self.domain.radiance_binding,
             "complete": True,
             "depth_separated": True,
+            "composition_qualified": True,
         }
 
     def test_enter_stay_exit_never_has_two_owners(self):
@@ -42,11 +45,29 @@ class AdmissionTests(unittest.TestCase):
         )
 
     def test_unknown_originals_or_depth_are_never_zero_cost_success(self):
-        for key in ("complete", "depth_separated"):
+        for key in ("complete", "depth_separated", "composition_qualified"):
             self.assertEqual(
                 select_field(self.domain, self.view, **(self.inputs | {key: False}))[0],
                 "parent",
             )
+
+    def test_depth_separation_does_not_remove_coverage_background_covariance(self):
+        coverage = np.array([1.0, 1, 0, 0])
+        background = np.array([1.0, 1, 0, 0])
+        true_filtered = np.mean(coverage + (1 - coverage) * background)
+        separately_filtered = (
+            coverage.mean() + (1 - coverage.mean()) * background.mean()
+        )
+        self.assertEqual(true_filtered, 0.5)
+        self.assertEqual(separately_filtered - true_filtered, 0.25)
+        self.assertEqual(
+            select_field(
+                self.domain,
+                self.view,
+                **(self.inputs | {"composition_qualified": False}),
+            ),
+            ("parent", "subpixel_composition_unqualified"),
+        )
 
     def test_changed_source_lighting_camera_and_failed_calibration_keep_parent(self):
         for key in ("source_binding", "radiance_binding"):

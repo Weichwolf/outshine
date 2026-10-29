@@ -19,6 +19,7 @@ class MotionTests(unittest.TestCase):
             "samples_per_second": 60,
             "complete": True,
             "depth_separated": True,
+            "composition_qualified": True,
             "camera": {"basis": [[1, 0, 0], [0, 1, 0], [0, 0, -1]], "focal_px": 900},
             "domain": {
                 "distance_m": [60000, 68000],

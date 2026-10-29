@@ -43,6 +43,7 @@ def select_field(
     radiance_binding,
     complete,
     depth_separated,
+    composition_qualified,
 ):
     if (
         source_binding != domain.source_binding
@@ -53,6 +54,8 @@ def select_field(
         return "parent", "original_remainder"
     if not depth_separated:
         return "parent", "external_depth_interleave_unqualified"
+    if not composition_qualified:
+        return "parent", "subpixel_composition_unqualified"
     # A declared research profile, not a global C/T certificate or device gate.
     if domain.measured_errors[0] > 0.05 or domain.measured_errors[1] > 0.03:
         return "parent", "empirical_quality_profile_failed"

@@ -136,6 +136,14 @@ source/material/light/shader changes invalidate the derived table; changed-light
 scheduling, resource leases and retained peaks belong to native owners. Other scene
 depth must be demonstrably separated or use an independently qualified depth/parent
 product. No new scheduler/cache or transparent main-depth policy is introduced.
+Depth separation alone does not qualify subpixel composition: averaging foreground
+coverage and a correlated varying background separately loses their covariance.
+The independent four-sample counterexample in the admission tests has0.25 absolute
+RGB error despite completely ordered depths. `composition_qualified` must therefore
+also be explicit: these probes use an isolated group/constant backdrop. General
+overlapping filtered groups or varying terrain/background require their own
+composition/error qualification or retain the parent; this is not inferred from
+the field's good isolated C/T or a depth gap.
 
 ## Reproduction
 
@@ -164,7 +172,7 @@ export PYTHONPATH=lib/src:test/experiments/render:test/experiments/buildings
   --field "$field" --held-query "$query" --output "$cost"
 ```
 
-Timed paths explicitly supply bindings, complete/depth-separated status, calibrated
+Timed paths explicitly supply bindings, complete/depth/composition status, calibrated
 domain, fixed camera and increasing timed eye knots. Handoff queries are exported
 for the same original renderer. Query-prefix selection permits reusing existing
 original outputs; raw or losslessly gzipped readbacks are accepted. Diagnostic
