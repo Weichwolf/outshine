@@ -69,7 +69,7 @@ python -B -m compare_building_sample_pbr --output /tmp/outshine-research-pbr/run
 python -B -m plot_building_sample_pbr --study /tmp/outshine-research-pbr/run --output /tmp/outshine-research-pbr/error.png
 ```
 
-Freeze actual kernels first; fresh private system-temp outputs only.28 focused
+Freeze actual kernels first; fresh private system-temp outputs only.29 focused
 controls pass, including independent cell/height coordinates, bounded expansion,
 same-view identity, invalid table/light/material rejection, all-point retention
 and actual capture/pixel opponents. The native source/model/error figure was

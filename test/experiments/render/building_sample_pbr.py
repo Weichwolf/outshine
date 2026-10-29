@@ -65,7 +65,7 @@ def point_responses(arrays, grid, view, tables):
         or roughness.shape != (len(points),)
         or not all(np.isfinite(v).all() for v in (albedo, roughness, normal))
         or np.any((albedo < 0) | (albedo > 1))
-        or np.any((roughness <= 0) | (roughness > 1))
+        or np.any((roughness < 0) | (roughness > 1))
         or np.any(np.linalg.norm(normal, axis=1) == 0)
         or np.any(arrays["source_metalness"][mask] != 0)
     ):

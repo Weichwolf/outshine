@@ -90,13 +90,23 @@ class SourcePbrControls(unittest.TestCase):
         arrays = self.source[1].copy()
         for channel, value in (
             ("source_metalness", 0.5),
-            ("source_roughness", 0),
+            ("source_roughness", -0.1),
             ("source_base_colour", np.nan),
         ):
             arrays[channel] = np.full_like(self.source[1][channel], value)
             with self.assertRaisesRegex(ValueError, "opaque dielectric"):
                 point_responses(arrays, *self.source[2:], self.tables)
             arrays[channel] = self.source[1][channel]
+
+    def test_zero_roughness_retains_the_existing_owned_endpoint(self):
+        arrays = self.source[1].copy()
+        arrays["source_roughness"] = np.zeros_like(arrays["source_roughness"])
+        fields, work = point_responses(arrays, *self.source[2:], self.tables)
+        self.assertEqual(work["source_points"], 43049)
+        for field in fields.values():
+            self.assertTrue(np.isfinite(field).all())
+            self.assertTrue((field >= 0).all())
+            np.testing.assert_array_equal(field[:, :, 3], arrays["source_depth"] > 0)
 
     def test_wrong_light_cannot_be_called_a_native_capture_positive_control(self):
         manifest = copy.deepcopy(self.source[0])
