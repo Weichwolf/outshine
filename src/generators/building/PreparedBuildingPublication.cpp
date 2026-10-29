@@ -155,13 +155,25 @@ PreparedBuildingAssets::ResumeBase(BaseWrite &prepared, const std::atomic_bool &
 std::expected<PreparedBuildingAssets::Base, StructureBakeError>
 PreparedBuildingAssets::RestoreBase(BaseWrite &prepared, const std::atomic_bool &stopping) {
   if (!prepared.State_) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  auto loaded = Load(prepared.State_->Key);
-  if (!loaded) { return std::unexpected(loaded.error()); }
-  if (!*loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  prepared.State_.reset();
+  std::optional<BaseWrite> replacement;
+  auto loaded = ReadBase(prepared.State_->Key, replacement, stopping);
+  if (replacement) {
+    if (replacement->State_) {
+      replacement->State_->RequestKey = std::move(prepared.State_->RequestKey);
+    }
+    prepared.Attempts_ += replacement->Attempts_;
+    prepared.State_ = std::move(replacement->State_);
+  }
   if (stopping.load(std::memory_order_relaxed)) {
+    prepared.State_.reset();
     return std::unexpected(StructureBakeErrorKind::Cancelled);
   }
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (!*loaded) {
+    if (replacement && prepared.State_) { return Base{}; }
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  prepared.State_.reset();
   return loaded;
 }
 

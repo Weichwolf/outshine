@@ -71,6 +71,15 @@ struct Fixture {
     Complete = std::move(*original);
     Basis = std::move(*basis);
     Database = std::move(*database);
+    if (!ReplaceWithLegacy()) { return false; }
+    sqlite3 *writer = nullptr;
+    const auto status = sqlite3_open((Root / "assets.sqlite").c_str(), &writer);
+    Writer.reset(writer);
+    CHECK(status == SQLITE_OK, "a second real connection controls writer admission");
+    return status == SQLITE_OK;
+  }
+
+  [[nodiscard]] bool ReplaceWithLegacy() const {
     const auto record = Database->Find(Key);
     const auto bytes = EncodePreparedStructureTile(Complete);
     CHECK(record && *record && bytes,
@@ -82,12 +91,7 @@ struct Fixture {
     const auto published = Database->Publish(std::span(&retained, 1), *bytes);
     CHECK(published.has_value(),
           "the fixture replaces the index with the supported complete native product");
-    if (!published) { return false; }
-    sqlite3 *writer = nullptr;
-    const auto status = sqlite3_open((Root / "assets.sqlite").c_str(), &writer);
-    Writer.reset(writer);
-    CHECK(status == SQLITE_OK, "a second real connection controls writer admission");
-    return status == SQLITE_OK;
+    return published.has_value();
   }
 
   [[nodiscard]] bool Begin() const {
@@ -255,11 +259,111 @@ void StopKeepsTheOriginalParent() {
         "canceling native conversion never removes or partially replaces the readable legacy "
         "product");
 }
+
+void RestoreKeepsPublicationBoundAfterLegacyReplacement() {
+  Fixture fixture;
+  if (!fixture.Seed()) { return; }
+  const std::atomic_bool stopping{false};
+  std::optional<PreparedBuildingAssets::BaseWrite> migration;
+  for (unsigned step = 0; step < 3; ++step) {
+    const auto advanced = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+    CHECK(advanced && !*advanced && migration,
+          "the original cell/index/basis steps leave an owned final restore");
+    if (!advanced || *advanced || !migration) { return; }
+  }
+  CHECK(fixture.IsIndex(), "the first writer has committed its native index before restoration");
+  const auto attempts = migration ? migration->PublicationAttempts() : 0;
+  const bool published = fixture.ReplaceWithLegacy();
+  CHECK(
+      published && !fixture.IsIndex(),
+      "another valid writer atomically replaces the logical key with the supported legacy format");
+  if (!published) { return; }
+  const auto before = fixture.Cache->Costs();
+  const auto restored = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+  const auto after = fixture.Cache->Costs();
+  Note("restore_nested_package_preparations",
+       static_cast<double>(after.BasePackagePreparations - before.BasePackagePreparations),
+       "packages");
+  Note("restore_nested_legacy_preparations",
+       static_cast<double>(after.LegacyPreparations - before.LegacyPreparations),
+       "products");
+  CHECK(after.BasePackagePreparations - before.BasePackagePreparations <= 1,
+        "one outer ReadBase step never hides a complete multi-package legacy migration");
+  CHECK(restored.has_value(), "the complete supported product remains a valid migration input");
+  CHECK(migration && migration->PublicationAttempts() == attempts + 1,
+        "the same logical continuation preserves its cumulative publication attempts");
+  PreparedBuildingAssets::Base ready = restored ? *restored : nullptr;
+  for (unsigned step = 0; step < 16 && !ready; ++step) {
+    auto result = fixture.Cache->ReadBase(fixture.Key, migration, stopping);
+    CHECK(result.has_value(), "the replacement continues through bounded native phases");
+    if (!result) { return; }
+    ready = std::move(*result);
+  }
+  CHECK(ready && fixture.IsIndex(), "the replacement finishes the original index migration");
+}
+
+void RestoreRetainsRequestAcrossReplacement(bool cancel) {
+  Fixture fixture;
+  if (!fixture.Seed()) { return; }
+  const auto heights = Heights();
+  std::atomic_bool stopping{false};
+  const std::string request(64, 'd');
+  auto cursor = fixture.Cache->PrepareBase(fixture.Key, Inputs(), *heights, stopping, request);
+  CHECK(cursor.has_value(), "the native publication owns an explicit request alias");
+  if (!cursor) { return; }
+  for (unsigned step = 0; step < 3; ++step) {
+    const auto result = fixture.Cache->ResumeBase(*cursor, stopping);
+    CHECK(result && !*result, "cell/index/basis publication yields before the final restore");
+    if (!result || *result) { return; }
+  }
+  const auto alias = fixture.Database->FindRequest(request);
+  CHECK(alias && *alias && (**alias).Parent == fixture.Key,
+        "the explicit request names the initially published native basis");
+  if (!alias || !*alias) { return; }
+  const auto removed = fixture.Database->Remove((**alias).Key);
+  const auto absent = fixture.Database->FindRequest(request);
+  CHECK(removed && absent && !*absent && fixture.IsIndex(),
+        "removing the basis retires its alias while retaining the valid parent index");
+  if (!removed || !absent || *absent || !fixture.ReplaceWithLegacy()) { return; }
+  const auto before = cursor->PublicationAttempts();
+  auto first = fixture.Cache->ResumeBase(*cursor, stopping);
+  CHECK(first && !*first && cursor->PublicationAttempts() == before + 1,
+        "a replacement keeps the original cursor and admits only one new publication");
+  if (!first || *first) { return; }
+  if (cancel) {
+    stopping.store(true);
+    const auto attempts = cursor->PublicationAttempts();
+    const auto stopped = fixture.Cache->ResumeBase(*cursor, stopping);
+    CHECK(!stopped && std::get_if<StructureBakeErrorKind>(&stopped.error()) &&
+              *std::get_if<StructureBakeErrorKind>(&stopped.error()) ==
+                  StructureBakeErrorKind::Cancelled &&
+              cursor->PublicationAttempts() == attempts && !fixture.IsIndex(),
+          "the original stop flag prevents the replacement index and basis writes");
+    const auto stillAbsent = fixture.Database->FindRequest(request);
+    CHECK(stillAbsent && !*stillAbsent, "canceled replacement cannot revive its request alias");
+    return;
+  }
+  PreparedBuildingAssets::Base ready;
+  for (unsigned step = 0; step < 16 && !ready; ++step) {
+    auto result = fixture.Cache->ResumeBase(*cursor, stopping);
+    CHECK(result.has_value(), "the same cursor completes the replacement migration");
+    if (!result) { return; }
+    ready = std::move(*result);
+  }
+  const auto restoredAlias = fixture.Database->FindRequest(request);
+  CHECK(ready && restoredAlias && *restoredAlias && (**restoredAlias).Key == (**alias).Key &&
+            (**restoredAlias).Parent == fixture.Key,
+        "bounded restart preserves and republishes the original explicit request binding");
+}
+
 }
 
 int main() {
   CursorKeepsCompletedPhases();
   TaskOwnsLegacyMigration();
   StopKeepsTheOriginalParent();
+  RestoreKeepsPublicationBoundAfterLegacyReplacement();
+  RestoreRetainsRequestAcrossReplacement(false);
+  RestoreRetainsRequestAcrossReplacement(true);
   return Report();
 }
