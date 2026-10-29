@@ -9,7 +9,14 @@ from outshine_ref.buildings.modelling.scope import scalar
 
 
 def surface(
-    top, eave_m, rise_m, *, run_fraction=0.15, height_fraction=0.65, max_triangles=65536
+    top,
+    eave_m,
+    rise_m,
+    *,
+    run_fraction=0.15,
+    height_fraction=0.65,
+    max_triangles=65536,
+    source_scope=None,
 ):
     eave, rise = scalar(eave_m), scalar(rise_m)
     run, height = scalar(run_fraction), scalar(height_fraction)
@@ -46,7 +53,8 @@ def surface(
                 "faces": np.arange(points.size // 3).reshape(-1, 3),
                 "uv": top["uv"][top["faces"]].reshape(-1, 2),
                 "materials": top["materials"],
-            }
+            },
+            scope=source_scope,
         )
     )
     if source.closed:
