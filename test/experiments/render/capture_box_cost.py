@@ -66,7 +66,7 @@ def measure(methods, output, scope):
 
 def run(args):
     producers = [
-        Path(__file__).with_name(name)
+        Path(__file__).parent / name
         for name in (
             "capture_box_cost.py",
             "capture_box_reference.py",
