@@ -94,7 +94,7 @@ std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroun
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-99",
+      "prepared-ground-region-100",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }

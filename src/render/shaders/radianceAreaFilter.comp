@@ -1,0 +1,47 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "radianceHalf.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D source;
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D destination;
+const uint lanes = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+shared vec4 partial[lanes];
+
+vec4 areaIntegral(uvec2 at, uvec2 from, uvec2 to, uint lane, uint step) {
+  uvec2 low = at * from;
+  uvec2 high = (at + 1u) * from;
+  uvec2 first = low / to;
+  uvec2 past = (high - 1u) / to + 1u;
+  uvec2 span = past - first;
+  vec4 sum = vec4(0.0);
+  for (uint index = lane; index < span.x * span.y; index += step) {
+    uvec2 sourceAt = first + uvec2(index % span.x, index / span.x);
+    uvec2 overlap = min((sourceAt + 1u) * to, high) - max(sourceAt * to, low);
+    sum += texelFetch(source, ivec2(sourceAt), 0) * (float(overlap.x) * float(overlap.y));
+  }
+  return sum;
+}
+
+void main() {
+  uvec2 from = uvec2(textureSize(source, 0));
+  uvec2 to = uvec2(imageSize(destination));
+  uvec2 spanMost = from / to + 2u * uvec2(notEqual(from % to, uvec2(0u)));
+  float area = float(from.x) * float(from.y);
+  if (spanMost.x * spanMost.y < lanes) {
+    uvec2 at = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(at, to))) { return; }
+    imageStore(destination, ivec2(at), halfRounded(areaIntegral(at, from, to, 0u, 1u) / area));
+    return;
+  }
+  uint lane = gl_LocalInvocationIndex;
+  partial[lane] = areaIntegral(gl_WorkGroupID.xy, from, to, lane, lanes);
+  barrier();
+  for (uint stride = lanes / 2u; stride > 0u; stride /= 2u) {
+    if (lane < stride) { partial[lane] += partial[lane + stride]; }
+    barrier();
+  }
+  if (lane == 0u) {
+    imageStore(destination, ivec2(gl_WorkGroupID.xy), halfRounded(partial[0] / area));
+  }
+}

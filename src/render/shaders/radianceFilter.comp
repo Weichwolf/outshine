@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "radianceHalf.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(set = 0, binding = 0) uniform sampler2D source;
@@ -6,17 +8,6 @@ layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D destination;
 const uint lanes = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
 shared vec4 partial[lanes];
 
-vec4 halfRounded(vec4 value) {
-  uvec4 bits = floatBitsToUint(value);
-  uvec4 quantumExponent = max((bits & 0x7fffffffu) >> 23u, uvec4(113u)) - 10u;
-  vec4 quantum = uintBitsToFloat(quantumExponent << 23u);
-  vec4 inverseQuantum = uintBitsToFloat((uvec4(254u) - quantumExponent) << 23u);
-  vec4 rounded = roundEven(value * inverseQuantum) * quantum;
-  uvec4 signBits = bits & 0x80000000u;
-  uvec4 result = floatBitsToUint(rounded) | signBits;
-  return uintBitsToFloat(mix(result, signBits | 0x7f800000u,
-                            greaterThanEqual(abs(value), vec4(65520.0))));
-}
 
 void main() {
   ivec2 size = imageSize(destination);

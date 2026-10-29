@@ -28,6 +28,7 @@ enum class ComputeShaderId : uint32_t {
   GeometryRootScan,
   GeometrySelectedCompact,
   RadianceFilter,
+  RadianceAreaFilter,
   Count
 };
 
@@ -108,6 +109,10 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::RadianceFilter,
         .Path = "radianceFilter.comp.spv",
+        .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 8, .GroupY = 8}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::RadianceAreaFilter,
+        .Path = "radianceAreaFilter.comp.spv",
         .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 8, .GroupY = 8}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {

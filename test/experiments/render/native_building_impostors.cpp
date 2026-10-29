@@ -704,13 +704,31 @@ struct RetainedRadiance {
     Atlas = atlas;
     SourceKey = sourceKey;
     auto &field = Field.emplace(std::move(*prepared));
-    ReadbackBytes = field.SourceLinear.size() * sizeof(float);
+    ReadbackBytes = (field.SourceLinear.size() + field.SourceDepth.size()) * sizeof(float);
     Key = key;
     ++Renders;
     ResolveMs = Milliseconds(began);
     return field;
   }
 };
+
+Json SourceDepthDescription(const Test::BuildingRadianceField &field, uint32_t pixels) {
+  const auto &camera = field.SourceCamera;
+  return {{"format", "reverse_z_0_1_float32"},
+          {"width_px", pixels},
+          {"height_px", pixels},
+          {"eye_m", camera.EyeM.Axis},
+          {"right", camera.Right.Axis},
+          {"up", camera.Up.Axis},
+          {"forward", camera.Forward.Axis},
+          {"orthographic", camera.Kind == Render::CameraKind::Orthographic},
+          {"x_mag_m", camera.XMagM},
+          {"y_mag_m", camera.YMagM},
+          {"yfov_rad", camera.YfovRad},
+          {"near_m", camera.ZNearM},
+          {"far_m", camera.ZFarM},
+          {"bytes", field.SourceDepth.size() * sizeof(float)}};
+}
 
 void RadianceViews(const Fs::path &root, const Json &input) {
   const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
@@ -768,6 +786,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
     const auto name = query.at("name").get<std::string>();
     if (!field.SourceLinear.empty()) {
       Write<float>(root / (name + "-source-field.f32"), field.SourceLinear);
+      Write<float>(root / (name + "-source-depth.f32"), field.SourceDepth);
     }
     const std::array colours{field.Radiance};
     auto result = DrawWith(
@@ -795,6 +814,9 @@ void RadianceViews(const Fs::path &root, const Json &input) {
          {"resident_image_bytes",
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height * 8}});
     result["field_filter_gpu_ms"] = nullptr;
+    if (!field.SourceDepth.empty()) {
+      result["source_depth"] = SourceDepthDescription(field, metadata.Pixels);
+    }
     result["field_gpu_scope"] = "relight_and_filter_single_submission";
     const auto allocations = renderer.FrameGraphAllocationCounts();
     result["framegraph_allocations"] = {{"textures", allocations.Textures},
