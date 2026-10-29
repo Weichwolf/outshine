@@ -19,12 +19,6 @@ struct GeneratedAssetPackage {
 
 using AssetFactory = std::function<std::expected<GeneratedAssetPackage, std::string>(size_t)>;
 
-[[nodiscard]] std::expected<AssetRecord, std::string>
-CommitAsset(AssetCache &cache,
-            std::string_view key,
-            size_t packageBytesMost,
-            const GeneratedAssetPackage &package);
-
 [[nodiscard]] std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,
                                                                    std::string_view key,
                                                                    size_t packageBytesMost,

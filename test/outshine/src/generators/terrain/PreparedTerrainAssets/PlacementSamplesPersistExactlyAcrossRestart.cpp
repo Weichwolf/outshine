@@ -4,6 +4,7 @@
 #include <cstddef>
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
+#include "StoreGroundPatch.h"
 #include "PreparedGroundPatchCodec.h"
 #include "SourceSet.h"
 #include <algorithm>
@@ -79,7 +80,8 @@ int main() {
   auto missing = assets->LoadPatch(key, at, 3);
   CHECK(missing && !*missing && assets->Costs().PatchMisses == 1,
         "absent samples are a miss, never fabricated geometry");
-  CHECK(assets->StorePatch(key, at, *original).has_value() && assets->Costs().PatchWrites == 1,
+  CHECK(outshine::Test::StoreGroundPatch(*assets, key, at, *original).has_value() &&
+            assets->Costs().PatchWrites == 1,
         "a complete miss atomically publishes the native patch");
   CHECK(assets->PatchKey(at, {}, 4, 13) != key && assets->PatchKey(at, {}, 3, 12) != key,
         "grid size and source sampling resolution are independent request parameters");

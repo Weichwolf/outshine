@@ -1,4 +1,3 @@
-#include "AssetGeneration.h"
 #include "AssetCache.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -18,7 +17,12 @@ std::string Key(const char *name) {
   return Sha256Hex(name);
 }
 
-GeneratedAssetPackage Package() {
+struct PackageData {
+  std::vector<AssetRecord> Records;
+  std::vector<uint8_t> Bytes;
+};
+
+PackageData Package() {
   return {.Records = {{.Key = Key("first"),
                        .Kind = "first",
                        .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
@@ -44,13 +48,16 @@ void CheckReceipt(const std::string &path) {
   CHECK(opened.has_value(), "the existing native asset store opens");
   if (!opened) { return; }
   const auto package = Package();
-  const auto missing = CommitAsset(**opened, Key("missing"), package.Bytes.size(), package);
-  CHECK(!missing && !(*opened)->Find(Key("first"))->has_value(),
-        "a commit cannot publish unrelated records without the demanded target");
-  const auto over = CommitAsset(**opened, Key("second"), package.Bytes.size() - 1, package);
-  CHECK(!over && !(*opened)->Find(Key("first"))->has_value(),
-        "whole-package admission is checked before publication");
-  const auto receipt = CommitAsset(**opened, Key("second"), package.Bytes.size(), package);
+  auto prepared = (*opened)->PreparePublication(package.Records, package.Bytes);
+  const auto before = (*opened)->Find(Key("first"));
+  CHECK(prepared && before && !*before,
+        "preparing normalized owning bytes does not publish any records");
+  if (!prepared) { return; }
+  CHECK((*opened)->Publish(*prepared).has_value(), "the prepared package commits atomically");
+  const auto found = (*opened)->Find(Key("second"));
+  CHECK(found && *found, "the persisted normalized slice has an independent metadata receipt");
+  if (!found || !*found) { return; }
+  const auto &receipt = *found;
   CHECK(receipt && receipt->Key == Key("second") && receipt->Kind == "second" &&
             receipt->Package == Sha256Hex(package.Bytes.data(), package.Bytes.size()) &&
             receipt->OffsetBytes == 3 && receipt->ByteCount == 3 && !receipt->RequestKey,
@@ -73,7 +80,8 @@ void CheckReceipt(const std::string &path) {
 
 int main() {
   using namespace outshine::Test;
-  auto root = (std::filesystem::temp_directory_path() / "outshine-commit-receipt-XXXXXX").string();
+  auto root =
+      (std::filesystem::temp_directory_path() / "outshine-prepared-receipt-XXXXXX").string();
   CHECK(mkdtemp(root.data()) != nullptr, "the receipt fixture owns an isolated store");
   if (!std::filesystem::is_directory(root)) { return Report(); }
   CheckReceipt(root + "/assets.sqlite");

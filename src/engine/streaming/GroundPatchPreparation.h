@@ -5,6 +5,7 @@
 #include "PreparedTerrainAssets.h"
 #include "Tasks.h"
 #include <expected>
+#include <functional>
 #include <memory>
 #include <stop_token>
 #include <string>
@@ -12,6 +13,7 @@
 namespace outshine {
 class GroundPatchPreparation {
 public:
+  // The pool outlives this owner and unfinished cleanup; Advance only posts due cache work.
   GroundPatchPreparation(Tasks &pool,
                          std::shared_ptr<Generators::PreparedTerrainAssets> assets,
                          std::string key,
@@ -28,9 +30,16 @@ public:
 
 private:
   using Result = std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string>;
+  using Attempt = std::expected<std::shared_ptr<const Generators::GroundPatch>,
+                                Generators::PreparedTerrainAssets::Failure>;
+  using Factory = std::function<Attempt(const std::stop_token &)>;
   enum class Phase { Reading, Generating, Storing, Ready, Failed };
   struct Work;
-  template <class Operation> void Post(Operation operation);
+  void Start(Factory factory);
+  void Post();
+  void Resume();
+  void Cancel();
+  static void Run(Work &work, const std::stop_token &stop);
 
   Tasks &Pool_;
   std::shared_ptr<Generators::PreparedTerrainAssets> Assets_;

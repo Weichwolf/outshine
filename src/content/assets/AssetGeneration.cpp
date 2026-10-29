@@ -72,18 +72,6 @@ std::expected<CachedAsset, std::string> Resolve(AssetCache &cache,
 }
 }
 
-std::expected<AssetRecord, std::string> CommitAsset(AssetCache &cache,
-                                                    std::string_view key,
-                                                    size_t packageBytesMost,
-                                                    const GeneratedAssetPackage &package) {
-  auto committed = CommitPackage(cache, key, packageBytesMost, package, Address::Product);
-  if (!committed) { return std::unexpected(std::move(committed.error())); }
-  auto record = cache.Find(key);
-  if (!record) { return std::unexpected(Describe(record.error())); }
-  if (!*record) { return std::unexpected("published asset package is unavailable"); }
-  return std::move(**record);
-}
-
 std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,
                                                      std::string_view key,
                                                      size_t packageBytesMost,
