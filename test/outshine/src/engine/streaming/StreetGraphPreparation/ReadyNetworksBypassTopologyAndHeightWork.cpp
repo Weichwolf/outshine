@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
@@ -37,9 +38,9 @@ std::optional<StreetGraphPreparation::Completed> Await(StreetGraphPreparation &w
 
 StreetGraphPreparation::Resolver
 Resolve(std::shared_ptr<Generators::Osm::PreparedStreetGraph> cache, std::string key) {
-  return [cache = std::move(cache), key = std::move(key)](const auto &factory) {
-    return cache->Resolve(key, factory);
-  };
+  return StreetGraphPreparation::CachedResolver(
+      std::move(cache),
+      [key = std::move(key)]() -> std::expected<std::string, std::string> { return key; });
 }
 
 std::shared_ptr<Generators::Osm::OsmField> Input(bool bridge) {

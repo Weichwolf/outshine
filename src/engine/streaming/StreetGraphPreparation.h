@@ -27,9 +27,12 @@ public:
 
   using JobFactory =
       std::function<std::expected<Generators::Osm::StreetGraphBuildJob, std::string>()>;
-  using Resolver =
-      std::function<std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string>(
-          const Generators::Osm::PreparedStreetGraph::Factory &)>;
+  using Resolver = std::function<Generators::Osm::PreparedStreetGraph::Result(
+      const Generators::Osm::PreparedStreetGraph::Factory &, const std::stop_token &)>;
+
+  using KeyFactory = std::function<std::expected<std::string, std::string>()>;
+  [[nodiscard]] static Resolver
+  CachedResolver(std::shared_ptr<Generators::Osm::PreparedStreetGraph> cache, KeyFactory key);
 
   StreetGraphPreparation(Tasks &pool, Generators::Osm::StreetGraphBuildJob job);
   StreetGraphPreparation(Tasks &pool, JobFactory factory, Resolver resolver = {});
@@ -49,6 +52,7 @@ private:
   static std::expected<Generators::Osm::StreetGraphBuilder::Built, std::string>
   Generate(Work &work, const std::stop_token &stop);
   static void Run(Work &work, const std::stop_token &stop);
+  Tasks &Pool_;
   std::shared_ptr<Work> Work_;
   std::stop_source Stop_;
 };

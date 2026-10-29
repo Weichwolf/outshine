@@ -86,11 +86,13 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   CHECK(originalKey && changedKey, "both captured terrain inputs can be identified");
   if (!originalKey || !changedKey) { return; }
   Counts counts;
+  Osm::PreparedStreetGraph::Resolution originalState(*originalKey);
+  Osm::PreparedStreetGraph::Resolution changedState(*changedKey);
   const auto cold = cache->Resolve(
-      *originalKey, [&] { return Generate(vectors, ways, originalTerrain, counts); });
+      originalState, [&] { return Generate(vectors, ways, originalTerrain, counts); });
   CHECK(cold && !cold->Hit && counts.Factories == 1, "the initial native graph is generated once");
   const auto changed =
-      cache->Resolve(*changedKey, [&] { return Generate(vectors, ways, changedTerrain, counts); });
+      cache->Resolve(changedState, [&] { return Generate(vectors, ways, changedTerrain, counts); });
   const auto profile = changed ? changed->Graph.Graph->Profile({.Way = 0, .StationM = 0})
                                : std::optional<Path::Network::Station>{};
   std::cout << "STREET_TERRAIN_BINDING keys_equal=" << (*originalKey == *changedKey)
@@ -106,8 +108,10 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
   CHECK(reopened, "a new cache owner opens both persisted terrain variants");
   if (!reopened) { return; }
   const auto samplesBefore = counts.Samples;
-  const auto warm = (*reopened)->Resolve(*changedKey, {});
-  const auto old = (*reopened)->Resolve(*originalKey, {});
+  Osm::PreparedStreetGraph::Resolution warmState(*changedKey);
+  Osm::PreparedStreetGraph::Resolution oldState(*originalKey);
+  const auto warm = (*reopened)->Resolve(warmState, {});
+  const auto old = (*reopened)->Resolve(oldState, {});
   const auto warmProfile = warm ? warm->Graph.Graph->Profile({.Way = 0, .StationM = 0})
                                 : std::optional<Path::Network::Station>{};
   const auto oldProfile = old ? old->Graph.Graph->Profile({.Way = 0, .StationM = 0})
