@@ -5,6 +5,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <array>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -25,7 +26,7 @@ struct Shape {
   uint32_t Width, Height;
 };
 
-std::vector<float> Pixels(Shape shape) {
+std::vector<float> Pixels(Shape shape, bool mixed) {
   std::vector<float> pixels(size_t{shape.Width} * shape.Height * 4);
   for (uint32_t y = 0; y < shape.Height; ++y) {
     for (uint32_t x = 0; x < shape.Width; ++x) {
@@ -35,6 +36,12 @@ std::vector<float> Pixels(Shape shape) {
       pixels[at + 1] = alpha * static_cast<float>(y % 11) / 8;
       pixels[at + 2] = alpha * 2;
       pixels[at + 3] = alpha;
+      if (mixed) {
+        const std::array<float, 4> values =
+            at == 0 ? std::array<float, 4>{16777216, 1048576, -16777216, 1}
+                    : std::array<float, 4>{.25f, .0009765625f, .125f, .5f};
+        std::ranges::copy(values, pixels.begin() + static_cast<std::ptrdiff_t>(at));
+      }
     }
   }
   return pixels;
@@ -86,8 +93,12 @@ std::array<double, 4> Integral(std::span<const float> pixels, Shape shape, Shape
   return result;
 }
 
-void Exercise(Device &device, const RadianceIntegral &integral, Shape shape, Format format) {
-  const auto pixels = Pixels(shape);
+void Exercise(Device &device,
+              const RadianceIntegral &integral,
+              Shape shape,
+              Format format,
+              bool mixed = false) {
+  const auto pixels = Pixels(shape, mixed);
   const auto source = Source(device, shape, format, pixels);
   const auto description =
       TextureDescription{.Width = 2 * (shape.Width + 1),
@@ -144,10 +155,12 @@ int main() {
   CHECK(!integral.Configure(*other), "another device cannot replace the configured owner");
   for (const Shape shape : {Shape{.Width = 1, .Height = 1},
                             Shape{.Width = 13, .Height = 7},
-                            Shape{.Width = 128, .Height = 64}}) {
+                            Shape{.Width = 128, .Height = 64},
+                            Shape{.Width = 129, .Height = 65}}) {
     for (const Format format : {Format::Rgba16Float, Format::Rgba32Float}) {
       Exercise(*device, integral, shape, format);
     }
   }
+  Exercise(*device, integral, {.Width = 129, .Height = 65}, Format::Rgba32Float, true);
   return Report();
 }

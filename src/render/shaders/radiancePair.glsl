@@ -6,10 +6,30 @@ struct RadiancePair {
   vec4 low;
 };
 
+vec4 radianceRoundedAdd(vec4 a, vec4 b) {
+#ifdef RADIANCE_PAIR_STRICT_COMPUTE
+  precise vec4 result = fma(vec4(1.0), a, b);
+#else
+  precise vec4 result = a + b;
+#endif
+  return result;
+}
+
+vec4 radianceRoundedSubtract(vec4 a, vec4 b) {
+#ifdef RADIANCE_PAIR_STRICT_COMPUTE
+  precise vec4 result = fma(vec4(-1.0), b, a);
+#else
+  precise vec4 result = a - b;
+#endif
+  return result;
+}
+
 RadiancePair radianceTwoSum(vec4 a, vec4 b) {
-  precise vec4 total = a + b;
-  precise vec4 back = total - a;
-  precise vec4 error = (a - (total - back)) + (b - back);
+  precise vec4 total = radianceRoundedAdd(a, b);
+  precise vec4 back = radianceRoundedSubtract(total, a);
+  precise vec4 error = radianceRoundedAdd(
+      radianceRoundedSubtract(a, radianceRoundedSubtract(total, back)),
+      radianceRoundedSubtract(b, back));
   return RadiancePair(total, error);
 }
 
@@ -18,7 +38,7 @@ RadiancePair radianceAddPair(RadiancePair a, RadiancePair b) {
   RadiancePair low = radianceTwoSum(a.low, b.low);
   RadiancePair middle = radianceTwoSum(high.low, low.high);
   RadiancePair combined = radianceTwoSum(high.high, middle.high);
-  precise vec4 tail = (low.low + middle.low) + combined.low;
+  precise vec4 tail = radianceRoundedAdd(radianceRoundedAdd(low.low, middle.low), combined.low);
   return radianceTwoSum(combined.high, tail);
 }
 
