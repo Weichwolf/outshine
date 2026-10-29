@@ -7,9 +7,9 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from registered_field_integral import INTEGRAL_ENCODING, decode_integral
 from export_field_backgrounds import native, read
 from field_background_inputs import ATTRIBUTES, digest, original_inputs, stage_mesh
+from registered_field_integral import INTEGRAL_ENCODING, decode_integral
 
 FIXTURE = (
     Path(__file__).resolve().parents[2]

@@ -21,4 +21,3 @@ def decode_integral(packed, report, width, height):
     if np.any(packed[0]) or np.any(packed[:, :2]):
         raise ValueError("paired integral border is not transparent zero")
     return packed[:, 0::2].astype(np.float64) + packed[:, 1::2].astype(np.float64)
-

@@ -3,7 +3,6 @@
 import unittest
 
 import numpy as np
-
 from registered_field_integral import INTEGRAL_ENCODING, decode_integral
 
 
