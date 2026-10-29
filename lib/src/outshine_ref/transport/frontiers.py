@@ -45,6 +45,26 @@ def _checked(records, roots):
         raise ValueError("bounded nonempty root identities required")
     if len({r["root_id"] for r in roots}) != len(roots):
         raise ValueError("unique explicit root identities required")
+    for root in roots:
+        if type(root.get("endpoint", False)) is not bool:
+            raise ValueError("explicit boolean original root-end role required")
+        if "initial_source_id" in root:
+            key = root["initial_source_id"]
+            if (
+                not isinstance(key, str)
+                or key not in result
+                or not result[key]["eligible"]
+            ):
+                raise ValueError("initial source must be an eligible original source")
+            node = _node_key(root["node"])
+            row = result[key]
+            if row["nodes"].count(node) != 1 or not (
+                root.get("endpoint", False)
+                or node in (row["nodes"][0], row["nodes"][-1])
+            ):
+                raise ValueError(
+                    "initial source must uniquely meet the original root role"
+                )
     return result
 
 
@@ -89,16 +109,16 @@ def _proposal(records, root, index, max_sources, max_visits, method):
                     limited = True
                     return
                 work["incidence_tests"] += 1
-            if key in queued or not (endpoint or target_end):
+            if parent is None and root.get("initial_source_id", key) != key:
                 continue
-            if parent is None and not target_end:
+            if key in queued or not (endpoint or target_end):
                 continue
             heapq.heappush(queue, (-records[key]["length_m"], key))
             queued.add(key)
             parents[key] = {"source_id": parent, "node": node}
             work["heap_pushes"] += 1
 
-    expand(_node_key(root["node"]), False, None)
+    expand(_node_key(root["node"]), root.get("endpoint", False), None)
     while queue and not limited and len(selected) < max_sources:
         _priority, key = heapq.heappop(queue)
         selected.append(key)
