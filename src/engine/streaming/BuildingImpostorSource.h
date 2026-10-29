@@ -9,8 +9,6 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <stop_token>
 #include <string>
 #include <vector>
@@ -42,15 +40,12 @@ public:
            const std::stop_token &stop = {});
 
 private:
-  [[nodiscard]] std::expected<const Generators::BuildingSourceView *, std::string> Source();
+  [[nodiscard]] std::expected<Generators::BuildingSourceView, std::string> Source() const;
   [[nodiscard]] Content::ImpostorViewAssets::Description
   Description(const Generators::BuildingSourceView &source) const;
   Recipe Recipe_;
   std::string Provenance_;
   std::shared_ptr<Generators::PreparedBuildingAssets> Assets_;
-  std::mutex Lock_;
-  std::optional<Generators::BuildingSourceView> Source_;
-  Vec3 AnchorEcef_;
 };
 }
 #endif

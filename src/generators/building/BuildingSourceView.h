@@ -53,6 +53,8 @@ public:
 
   [[nodiscard]] const Box &Bounds() const noexcept { return Bounds_; }
 
+  [[nodiscard]] const Vec3 &AnchorEcef() const noexcept { return Base_->AnchorEcef; }
+
   [[nodiscard]] std::span<const uint32_t> Sources() const noexcept { return Sources_; }
 
   [[nodiscard]] std::span<const uint32_t> Unsupported() const noexcept { return Unsupported_; }
