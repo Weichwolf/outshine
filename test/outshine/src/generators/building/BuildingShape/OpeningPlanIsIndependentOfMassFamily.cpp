@@ -9,12 +9,12 @@
 #include <numbers>
 
 namespace {
-std::array<double, 8> Rectangle(double lengthM, double widthM) {
+std::array<double, 8> Rectangle(const std::array<double, 2> &sizeM) {
   constexpr double latitude = 48.23;
   constexpr double longitude = 16.41;
   constexpr double metresPerDegree = 111320.0;
-  const double east = lengthM / (metresPerDegree * std::cos(latitude * std::numbers::pi / 180.0));
-  const double north = widthM / metresPerDegree;
+  const double east = sizeM[0] / (metresPerDegree * std::cos(latitude * std::numbers::pi / 180.0));
+  const double north = sizeM[1] / metresPerDegree;
   return {latitude,
           longitude,
           latitude,
@@ -31,9 +31,9 @@ int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   BuildingScratch scratch;
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   for (const auto &size : {std::array{80.0, 20.0, 24.0}, std::array{20.0, 14.0, 65.0}}) {
-    const auto ring = Rectangle(size[0], size[1]);
+    const auto ring = Rectangle({size[0], size[1]});
     StructurePlan plan;
     plan.RingLatLon = ring;
     plan.HeightM = size[2];
@@ -62,7 +62,7 @@ int main() {
               opened.RoofRun.size() == sealed.RoofRun.size(),
           "distant openings consume no additional shell triangles");
   }
-  const auto shaftRing = Rectangle(6, 6);
+  const auto shaftRing = Rectangle({6, 6});
   StructurePlan shaft;
   shaft.RingLatLon = shaftRing;
   shaft.HeightM = 80;
@@ -76,7 +76,7 @@ int main() {
   CHECK(declaredHousing && declaredHousing->size() == 1 &&
             declaredHousing->front().OpeningStyle == FacadeStyle::Block,
         "declared housing use overrides conservative shaft fallback");
-  const auto ring = Rectangle(80, 20);
+  const auto ring = Rectangle({80, 20});
   StructurePlan roofOnly;
   roofOnly.RingLatLon = ring;
   roofOnly.HeightM = 20.1;

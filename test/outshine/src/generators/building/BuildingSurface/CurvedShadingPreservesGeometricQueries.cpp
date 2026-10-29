@@ -4,6 +4,7 @@
 #include "BuildingWallNormals.h"
 #include "Check.h"
 #include <cmath>
+#include <cstddef>
 #include <numbers>
 #include <vector>
 

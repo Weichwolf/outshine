@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 #include "src/generators/building/BuildingMesh.h"
@@ -16,7 +17,7 @@ int main() {
   plan.HeightMeasured = true;
   plan.PitchedShare = 0.0;
   plan.Coarseness = LevelOfDetail::Shell;
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   Raised result;
   CHECK(mesher.Mesh(plan, *scratch, result).has_value(), "a tall measured shell meshes");

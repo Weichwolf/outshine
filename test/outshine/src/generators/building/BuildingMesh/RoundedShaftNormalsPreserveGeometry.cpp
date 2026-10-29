@@ -5,6 +5,8 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
 #include <numbers>
 #include <span>
 #include <vector>
@@ -31,8 +33,9 @@ int main() {
   plan.PitchedShare = 0;
   plan.Coarseness = LevelOfDetail::Shell;
   BuildingScratch scratch;
-  BuildingMesh mesher;
-  Raised curved, flat;
+  const BuildingMesh mesher;
+  Raised curved;
+  Raised flat;
   CHECK(mesher.Mesh(plan, scratch, curved).has_value(), "round closed shaft meshes");
   const auto source = BuildingSurface::Prepare(plan, scratch);
   CHECK(source && source->Shapes().size() == 1 && HasCurvedShaftWalls(source->Shapes().front()),

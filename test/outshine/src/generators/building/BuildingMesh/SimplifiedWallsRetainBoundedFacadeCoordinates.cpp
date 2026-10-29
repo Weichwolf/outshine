@@ -1,6 +1,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include "src/generators/building/BuildingMesh.h"
 #include "Check.h"
 
@@ -13,7 +14,7 @@ int main() {
   plan.HeightM = 9.0;
   plan.HeightMeasured = true;
   plan.Coarseness = LevelOfDetail::Shell;
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   Raised result;
   CHECK(mesher.Mesh(plan, *scratch, result).has_value(), "long simplified building meshes");
