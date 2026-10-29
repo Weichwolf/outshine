@@ -13,6 +13,9 @@ PresentLease::~PresentLease() {
   if (Available != VK_NULL_HANDLE) { vkDestroyFence(device, Available, nullptr); }
   if (Rendered != VK_NULL_HANDLE) { vkDestroySemaphore(device, Rendered, nullptr); }
   if (Acquired != VK_NULL_HANDLE) { vkDestroySemaphore(device, Acquired, nullptr); }
+  const auto dispatcher = Dispatcher.lock();
+  Target.reset();
+  if (dispatcher) { dispatcher->Wake(); }
 }
 
 bool PresentLease::Current() const noexcept {
