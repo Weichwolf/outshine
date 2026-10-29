@@ -6,11 +6,25 @@ import math
 
 import numpy as np
 from field_composition import opaque_points
-from field_view_sampling import FieldGrid
+from field_view_sampling import FieldGrid, ImageView
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def crop_view(manifest, query):
+    low, high = np.asarray(manifest["crop"]).reshape(2, 2)
+    if not np.array_equal(low + high, manifest["raster"]):
+        raise ValueError(
+            "This control requires a centred native crop with unchanged rays"
+        )
+    return ImageView(
+        tuple(query["eye"]),
+        tuple(map(tuple, query["basis"])),
+        query["focal_px"],
+        *map(int, high - low),
+    )
 
 
 def full_buffer_digest(value, clear, raster, crop):

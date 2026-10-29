@@ -9,10 +9,17 @@ import time
 from pathlib import Path
 
 import numpy as np
-from building_sample_inputs import capture_fields, digest, readbacks, same_sources
+from building_sample_inputs import (
+    capture_fields,
+    crop_view,
+    digest,
+    readbacks,
+    same_sources,
+)
+from building_sample_points import analyse_points
 from field_view_integrals import summed_field
 from field_view_projection import CapturePlane, displacement_bound
-from field_view_sampling import ImageView, reconstruct
+from field_view_sampling import reconstruct
 from process_memory import peak_rss_bytes
 from replay_building_radiance import compare
 
@@ -22,20 +29,6 @@ DATA = ROOT / "test/outshine/data/render/building-depth-samples"
 
 def errors(original, candidate):
     return compare(original.reshape(-1, 4).astype(float), candidate.reshape(-1, 4))
-
-
-def crop_view(manifest, query):
-    low, high = np.asarray(manifest["crop"]).reshape(2, 2)
-    if not np.array_equal(low + high, manifest["raster"]):
-        raise ValueError(
-            "This control requires a centred native crop with unchanged rays"
-        )
-    return ImageView(
-        tuple(query["eye"]),
-        tuple(map(tuple, query["basis"])),
-        query["focal_px"],
-        *map(int, high - low),
-    )
 
 
 def occupied_support(field, grid, view):
@@ -157,6 +150,7 @@ def analyse(primary, canonical, high):
     grid, fields = capture_fields(*canonical)
     source = fields["samples"]
     prefix = summed_field(source, dtype=np.float64)
+    point_rows, point_maps = analyse_points(primary, canonical, grid, source)
     rows, pictures = (
         [],
         {"canonical_original": fields["original"], "canonical_samples": source},
@@ -182,26 +176,31 @@ def analyse(primary, canonical, high):
     original_high = high[1][
         f"case0_original_ss{high_query['filter_axis_samples'] ** 2}"
     ]
-    return {
-        "capture_grid": {
-            "centre_m": grid.centre,
-            "toward_eye": grid.toward_eye,
-            "half_extent_m": grid.half_extent_m,
+    return (
+        {
+            "capture_grid": {
+                "centre_m": grid.centre,
+                "toward_eye": grid.toward_eye,
+                "half_extent_m": grid.half_extent_m,
+            },
+            "source_pixels": source.shape[0],
+            "held_source_bytes": source.nbytes,
+            "held_prefix_bytes": prefix.table.nbytes,
+            "prefix_dtype": str(prefix.table.dtype),
+            "canonical_original_vs_stored_sample_points": errors(
+                fields["original"], source
+            ),
+            "canonical_coverage_mask_mismatches": int(
+                np.count_nonzero(fields["original"][:, :, 3] != source[:, :, 3])
+            ),
+            "original_low_vs_high_reference": errors(original_high, original_low),
+            "reference_sample_axes": [low_axis, high_query["filter_axis_samples"]],
+            "rows": rows,
+            "native_sample_point_controls": point_rows,
         },
-        "source_pixels": source.shape[0],
-        "held_source_bytes": source.nbytes,
-        "held_prefix_bytes": prefix.table.nbytes,
-        "prefix_dtype": str(prefix.table.dtype),
-        "canonical_original_vs_stored_sample_points": errors(
-            fields["original"], source
-        ),
-        "canonical_coverage_mask_mismatches": int(
-            np.count_nonzero(fields["original"][:, :, 3] != source[:, :, 3])
-        ),
-        "original_low_vs_high_reference": errors(original_high, original_low),
-        "reference_sample_axes": [low_axis, high_query["filter_axis_samples"]],
-        "rows": rows,
-    }, pictures
+        pictures,
+        point_maps,
+    )
 
 
 def run(args):
@@ -209,7 +208,13 @@ def run(args):
         Path("/tmp").resolve()
     ):
         raise ValueError("Fresh explicit private system-temp output required")
-    tracked = [Path(__file__), Path(__file__).with_name("building_sample_inputs.py")]
+    tracked = [
+        Path(__file__),
+        *(
+            Path(__file__).with_name(name)
+            for name in ("building_sample_inputs.py", "building_sample_points.py")
+        ),
+    ]
     tracked.extend(
         Path(__file__).with_name(f"field_view_{name}.py")
         for name in ("integrals", "sampling")
@@ -222,7 +227,7 @@ def run(args):
     began, cpu, load = time.perf_counter(), time.process_time(), os.getloadavg()
     loaded = tuple(readbacks(path) for path in inputs)
     read_wall, read_cpu = time.perf_counter() - began, time.process_time() - cpu
-    result, images = analyse(*loaded)
+    result, images, point_maps = analyse(*loaded)
     result["analysis_cost"] = {
         "native_decode_and_full_buffer_verification_wall_s": read_wall,
         "native_decode_and_full_buffer_verification_cpu_s": read_cpu,
@@ -236,6 +241,11 @@ def run(args):
         ),
         "prefix_constructions": 1,
         "source_texels": result["source_pixels"] ** 2,
+        "point_candidate_cell_tests": sum(
+            r["candidate_cell_tests_all_budgets"]
+            for r in result["native_sample_point_controls"]
+        ),
+        "point_correspondence_array_bytes": sum(a.nbytes for a in point_maps.values()),
         "logical_prefix_evaluations": sum(
             r["sampling"]["logical_prefix_evaluations"] for r in result["rows"]
         ),
@@ -263,6 +273,8 @@ def run(args):
     args.output.mkdir(parents=True)
     np.savez_compressed(args.output / "prefix-controls.npz", **images)
     result["prefix_controls_sha256"] = digest(args.output / "prefix-controls.npz")
+    np.savez_compressed(args.output / "point-controls.npz", **point_maps)
+    result["point_controls_sha256"] = digest(args.output / "point-controls.npz")
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
         json.dumps(

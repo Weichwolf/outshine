@@ -11,6 +11,7 @@ from unittest.mock import patch
 import numpy as np
 from building_sample_inputs import (
     capture_fields,
+    crop_view,
     digest,
     full_buffer_digest,
     readbacks,
@@ -20,7 +21,6 @@ from compare_building_sample_reuse import (
     DATA,
     aligned_blocks,
     analyse,
-    crop_view,
     occupied_support,
 )
 from field_view_sampling import FieldGrid, ImageView
@@ -198,7 +198,7 @@ class NativeSampleReuse(unittest.TestCase):
         )
 
     def test_actual_prefix_matches_direct_points_without_admitting_source_quality(self):
-        result, _images = analyse(self.primary, self.canonical, self.high)
+        result, _images, _points = analyse(self.primary, self.canonical, self.high)
         self.assertEqual(result["canonical_coverage_mask_mismatches"], 0)
         self.assertEqual(result["reference_sample_axes"], [4, 64])
         self.assertEqual(len(result["rows"]), 5)
