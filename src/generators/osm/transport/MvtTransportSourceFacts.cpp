@@ -32,7 +32,8 @@ CaptureSourceFacts(const Sources &sources,
                               .Network = network,
                               .Field = field,
                               .Streets = streets};
-  const bool fits = segments.size() <= std::numeric_limits<uint32_t>::max() / 2 &&
+  const bool fits = groups->Groups.size() <= std::numeric_limits<uint32_t>::max() &&
+                    segments.size() <= std::numeric_limits<uint32_t>::max() / 2 &&
                     FitsSourceFacts(input, groups->Groups.size(), bytesMost, stop);
   if (stop.stop_requested()) { return std::unexpected("MVT transport normalization cancelled"); }
   if (!fits) {

@@ -29,7 +29,7 @@ void AppendWay(Sha256Prefix &hash, const MvtTransportWayFacts &way) {
 }
 
 std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
-  constexpr std::string_view kVersion = "outshine/mvt-source-facts/3";
+  constexpr std::string_view kVersion = "outshine/mvt-source-facts/4";
   Sha256Prefix hash(kVersion.data(), kVersion.size());
   const auto &revision = facts.Network->SourceIdentity().Revision;
   hash.Append(revision.data(), revision.size());
@@ -71,6 +71,12 @@ std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
     for (const auto &point : missing.Points) {
       Append(hash, point.LongitudeDeg);
       Append(hash, point.LatitudeDeg);
+    }
+    Append(hash, static_cast<uint8_t>(missing.OriginalWayState));
+    Append(hash, static_cast<uint64_t>(missing.OriginalPoints.size()));
+    for (const auto &point : missing.OriginalPoints) {
+      Append(hash, static_cast<uint8_t>(point.State));
+      Append(hash, point.Group);
     }
   }
   return hash.Digest(nullptr, 0);
