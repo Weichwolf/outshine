@@ -44,7 +44,7 @@ def optical_row(palette, manifest, row):
     }
 
 
-def prepared_sources(at, footprint, recipe, *, enabled, mask_needed=False):
+def prepared_sources(domain_bounds_m, footprint, recipe, *, enabled, mask_needed=False):
     """Diagnostic request selection before bounded table work, not an asset manager."""
     grain, height, coarse, fine = recipe
     valid = enabled and coarse > 0 and fine > 0
@@ -67,8 +67,7 @@ def prepared_sources(at, footprint, recipe, *, enabled, mask_needed=False):
                 }
             )
             continue
-        normalized = at / wavelength
-        bounds = np.stack((normalized.min(axis=0), normalized.max(axis=0)))
+        bounds = np.asarray(domain_bounds_m, dtype=float) / wavelength
         try:
             plane = prepare(bounds, halo=3 if name == "coarse" and mask_needed else 1)
         except ValueError as error:
@@ -100,22 +99,27 @@ def prepared_sources(at, footprint, recipe, *, enabled, mask_needed=False):
 
 def case(palette, manifest, row, extent_m, sign, *, width=256, height=192):
     values = optical_row(palette, manifest, row)
+    steps = np.array([extent_m / width, extent_m / height])
+    footprint = max(steps)
+    coverage, coarse = values["coverage"], values["recipe"][2]
+    mask_needed = 0 < coverage < 1 and coarse > 0 and footprint < 2 * coarse
+    domain_bounds = [[1000.1, -200.2], [1000.1 + extent_m, -200.2 + extent_m]]
+    base, base_records, base_fields = prepared_sources(
+        domain_bounds,
+        footprint,
+        values["recipe"],
+        enabled=coverage < 1,
+        mask_needed=mask_needed,
+    )
+    litter, litter_records, litter_fields = prepared_sources(
+        domain_bounds, footprint, values["litter_recipe"], enabled=coverage > 0
+    )
     x, y = np.meshgrid(
         (np.arange(width) + 0.5) * extent_m / width,
         (np.arange(height) + 0.5) * extent_m / height,
     )
     at = np.column_stack((x.ravel() + 1000.1, y.ravel() - 200.2))
-    steps = np.array([extent_m / width, extent_m / height])
     dx, dy = np.tile([steps[0], 0], (len(at), 1)), np.tile([0, steps[1]], (len(at), 1))
-    footprint = max(steps)
-    coverage, coarse = values["coverage"], values["recipe"][2]
-    mask_needed = 0 < coverage < 1 and coarse > 0 and footprint < 2 * coarse
-    base, base_records, base_fields = prepared_sources(
-        at, footprint, values["recipe"], enabled=coverage < 1, mask_needed=mask_needed
-    )
-    litter, litter_records, litter_fields = prepared_sources(
-        at, footprint, values["litter_recipe"], enabled=coverage > 0
-    )
     return {
         "values": values,
         "at": at,

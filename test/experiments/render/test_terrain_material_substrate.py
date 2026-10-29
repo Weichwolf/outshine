@@ -3,11 +3,12 @@
 import json
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 from ground_gradients import noise_gradient
 from ground_litter_reference import detail as reference
+from probe_terrain_material_substrate import prepared_sources
 from rock_direction import value
 from terrain_material_plane import hash_words, noise, prepare
 from terrain_material_substrate import detail
@@ -105,6 +106,37 @@ class SubstrateFields(unittest.TestCase):
         self.assertEqual(field.retained_bytes, 4 * 4 * 4)
         with self.assertRaisesRegex(ValueError, "outside"):
             noise([[8, 8]], words=field.get)
+
+    def test_request_selection_skips_field_preparation_before_any_raster_work(self):
+        with patch(
+            "probe_terrain_material_substrate.prepare",
+            side_effect=AssertionError("inactive field preparation"),
+        ):
+            _, records, fields = prepared_sources(
+                [[0, 0], [1000, 1000]], 1e6, [0.01, 0.004, 1.6, 0.239], enabled=True
+            )
+        self.assertEqual(fields, ())
+        self.assertTrue(
+            all(r["state"] == "inactive_before_preparation" for r in records)
+        )
+
+    def test_field_budget_falls_back_to_the_same_valid_analytic_material(self):
+        recipe = [0.01, 0.004, 1.6, 0.239]
+        sources, records, fields = prepared_sources(
+            [[0, 0], [1000, 1000]], 0.0001, recipe, enabled=True
+        )
+        self.assertEqual(fields, ())
+        self.assertTrue(
+            all(
+                r["state"] == "valid_analytic_budget_fallback" and r["reason"]
+                for r in records
+            )
+        )
+        points, dx, dy = [[0.1, 0.2]], [[0.0001, 0]], [[0, 0.0001]]
+        np.testing.assert_array_equal(
+            detail(points, dx, dy, recipe, 0.5),
+            detail(points, dx, dy, recipe, 0.5, word_sources=sources),
+        )
 
 
 if __name__ == "__main__":

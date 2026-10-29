@@ -62,7 +62,8 @@ PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
 ```
 
 The composition probe uses the unchanged versioned native palette and explicit
-controlled coordinates/footprints. Its test-driver selection prepares only needed
+controlled coordinates/footprints. Its test-driver selection uses two known patch
+bounds before creating fine raster queries, and prepares only needed
 coarse/fine/grain tables and retains the analytic path on a word-capacity miss.
 The partial-coverage mask shares the base coarse table with a three-cell halo.
 Coverage endpoints skip unused layers; these diagnostic requests are not a native
