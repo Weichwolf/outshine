@@ -64,7 +64,7 @@ BuildingSourceView::Open(std::shared_ptr<const PreparedStructureTile> base,
   for (size_t at = 0; at < base->Surfaces.size(); ++at) {
     if (!selected.contains(base->Structures[at].Layout.Cell.Index)) { continue; }
     const auto &source = base->Surfaces[at];
-    if (!source.SupportsProjection() || source.FaceCount() == 0 || source.Bounds().Empty()) {
+    if (source.FaceCount() == 0 || source.Bounds().Empty()) {
       unsupported.push_back(static_cast<uint32_t>(at));
       continue;
     }
