@@ -83,7 +83,7 @@ PreparedStreetGraph::Open(const std::string &directory, const Data::SourceSet &s
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared street graph cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-street-graph-3",
+      "prepared-street-graph-4",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("street source metadata cannot be encoded"); }
