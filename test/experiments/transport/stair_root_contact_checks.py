@@ -5,6 +5,7 @@ import unittest
 
 import numpy as np
 import shapely
+from stair_module_geometry import old_surfaces
 from stair_module_profiles import new_interior_checks
 from stair_module_roots import bind_root_pad
 from stair_module_source_contract import verify_source_contract
@@ -32,6 +33,28 @@ def original_contact():
     node = {"mvt_xy": [0, 0], "xy": [0, 0], "incident": [0]}
     line = np.array([[0, -1, -0.02], [0, 0, 0], [0, 1, 0.02]])
     return recipe, sources, row, node, line
+
+
+def cached_ground(sources):
+    xy = np.array([[0, -1], [5, -1], [5, 1], [0, 1]], float)
+    xyz = np.c_[xy, xy @ [0.01, 0.02]]
+    faces = np.array([[0, 1, 2], [0, 2, 3]])
+    return {
+        "resident_profile_roots": True,
+        "cached_module_rows": {
+            "old": {"xy": np.array(sources["old"]["xy_m"]), "width_m": 2}
+        },
+        "plan": {"xy": xy, "faces": faces, "ground": np.ones(2, bool)},
+        "heights": xyz[:, 2] - 0.3,
+        "road": {
+            "body_vertices": np.vstack([xyz, xyz - [0, 0, 0.3]]),
+            "top_faces": faces,
+            "bottom_faces": faces + 4,
+            "face_sources": np.ones(2, np.uint32),
+        },
+        "road_ground": np.ones(2, bool),
+        "report": {"candidate_source_ids": ["old"], "after": {"source_ids": ["old"]}},
+    }
 
 
 class PrimaryThroughContact(unittest.TestCase):
@@ -96,6 +119,28 @@ class PrimaryThroughContact(unittest.TestCase):
         sources["new"]["xy_m"][1][0] = 1e-12
         with self.assertRaisesRegex(ValueError, "different source frame"):
             new_through_root(recipe, sources)
+        recipe["endpoint_contacts"] = [{"unused": "cannot bypass root frame guard"}]
+        with self.assertRaisesRegex(ValueError, "different source frame"):
+            profile_interiors(recipe, sources)
+
+    def test_old_ground_and_complete_real_profile_are_still_required(self):
+        recipe, sources, _row, _node, line = original_contact()
+        state = cached_ground(sources)
+        descriptor, actual, *_ = old_surfaces(state, recipe, sources)
+        self.assertTrue(descriptor["new_through_root"])
+        self.assertFalse(descriptor["root_interior"])
+        np.testing.assert_allclose(actual, line, rtol=0, atol=1e-15)
+        state["road_ground"][:] = False
+        with self.assertRaisesRegex(ValueError, "actual ground"):
+            old_surfaces(state, recipe, sources)
+        state = cached_ground(sources)
+        state["road"]["body_vertices"][[0, 3], 0] = 0.001
+        with self.assertRaises(ValueError):
+            old_surfaces(state, recipe, sources)
+        state = cached_ground(sources)
+        state["road"]["body_vertices"][4:, 2] += 0.001
+        with self.assertRaisesRegex(ValueError, "cached source depth"):
+            old_surfaces(state, recipe, sources)
 
     def test_a_nearby_coordinate_without_the_original_node_cannot_bind(self):
         recipe, sources, *_ = original_contact()
