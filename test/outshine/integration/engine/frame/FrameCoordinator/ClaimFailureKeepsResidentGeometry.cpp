@@ -40,12 +40,13 @@ std::vector<uint8_t> Rendered(Engine &engine, Context &context) {
 }
 
 void RedCentre(const std::vector<uint8_t> &pixels, Extent extent) {
-  CHECK(pixels.size() == size_t(extent.WidthPx) * extent.HeightPx * 4,
+  CHECK(pixels.size() == static_cast<size_t>(extent.WidthPx) * extent.HeightPx * 4,
         "the original physical extent remains in use");
-  if (pixels.size() != size_t(extent.WidthPx) * extent.HeightPx * 4) { return; }
-  const size_t at = (size_t(extent.HeightPx / 2) * extent.WidthPx + extent.WidthPx / 2) * 4;
-  CHECK(unsigned(pixels[at]) > unsigned(pixels[at + 1]) + 16 &&
-            unsigned(pixels[at]) > unsigned(pixels[at + 2]) + 16,
+  if (pixels.size() != static_cast<size_t>(extent.WidthPx) * extent.HeightPx * 4) { return; }
+  const size_t at =
+      (static_cast<size_t>(extent.HeightPx / 2) * extent.WidthPx + extent.WidthPx / 2) * 4;
+  CHECK(static_cast<unsigned>(pixels[at]) > static_cast<unsigned>(pixels[at + 1]) + 16 &&
+            static_cast<unsigned>(pixels[at]) > static_cast<unsigned>(pixels[at + 2]) + 16,
         "the live unlit red geometry still supplies the centre pixel");
 }
 
@@ -122,8 +123,8 @@ int main() {
   if (!video) { return Report(); }
   {
     using Window = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
-    Window first(SDL_CreateWindow("retained geometry", 64, 64, 0), SDL_DestroyWindow);
-    Window candidate(SDL_CreateWindow("refused geometry", 80, 64, 0), SDL_DestroyWindow);
+    const Window first(SDL_CreateWindow("retained geometry", 64, 64, 0), SDL_DestroyWindow);
+    const Window candidate(SDL_CreateWindow("refused geometry", 80, 64, 0), SDL_DestroyWindow);
     CHECK(first && candidate, "borrowed windows are alive through device shutdown");
     if (first && candidate) { Exercise(first.get(), candidate.get()); }
   }

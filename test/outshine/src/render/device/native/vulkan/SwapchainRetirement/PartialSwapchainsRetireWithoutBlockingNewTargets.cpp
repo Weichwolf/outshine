@@ -101,8 +101,8 @@ int main() {
   if (!video) { return outshine::Test::Report(); }
   {
     using Window = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
-    Window first(SDL_CreateWindow("partial swapchain", 64, 64, 0), SDL_DestroyWindow);
-    Window second(SDL_CreateWindow("valid swapchain", 64, 64, 0), SDL_DestroyWindow);
+    const Window first(SDL_CreateWindow("partial swapchain", 64, 64, 0), SDL_DestroyWindow);
+    const Window second(SDL_CreateWindow("valid swapchain", 64, 64, 0), SDL_DestroyWindow);
     CHECK(first && second, "both borrowed native windows are alive during the entire case");
     if (first && second) { Exercise(first.get(), second.get()); }
   }
