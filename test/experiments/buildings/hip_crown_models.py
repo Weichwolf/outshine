@@ -10,18 +10,18 @@ from terraced_facade_probe import materials
 from tile_terraced_crowns import crown_definitions
 
 
-def export(owners, output, proof):
+def export(owners, output, proof, *, variants=(("flat", "flat"), ("auto", "hip"))):
     palette = materials() | {"60003": crown_definitions()["60003"]}
     queue = []
     for index, group in enumerate(owners):
-        original, current = group["flat"], group["auto"]
+        original, current = (group[key] for key, _label in variants)
         core = current.plan.body.core
         points = np.r_[original.draw(True)["vertices"], current.draw(True)["vertices"]]
         direction = np.r_[
             np.asarray(core.across_xy) - 1.25 * np.asarray(core.along_xy), 0.85
         ]
         view = overview(points, direction)
-        for mode, owner in (("flat", original), ("hip", current)):
+        for (key, mode), owner in zip(variants, (original, current), strict=True):
             name = f"{index}-{mode}"
             write(
                 output,
@@ -51,7 +51,7 @@ def export(owners, output, proof):
                 height=1080,
                 fov_deg=48,
             )
-            for mode, owner in (("flat", original), ("hip", current)):
+            for (key, mode), owner in zip(variants, (original, current), strict=True):
                 name = f"{index}-{mode}-roof"
                 write(
                     output,

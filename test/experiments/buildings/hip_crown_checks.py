@@ -3,6 +3,7 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
+import manifold3d as manifold
 import numpy as np
 import shapely
 from roof_components import above
@@ -10,6 +11,38 @@ from shapely.affinity import affine_transform
 from structural_shell_geometry import mesh_section
 from terraced_crown_probe import roof_checks
 from terraced_mass_admission import closed
+
+
+def bounded_section_union(pieces, transform):
+    area = sum(piece.area for piece in pieces)
+    try:
+        combined = shapely.union_all(pieces)
+        result = affine_transform(combined, transform)
+        if result.is_valid and abs(result.area - area) <= 1e-7:
+            return result
+    except shapely.errors.GEOSException:
+        pass
+    contours = []
+    for piece in pieces:
+        for polygon in shapely.get_parts(piece):
+            if polygon.geom_type != "Polygon" or polygon.is_empty:
+                continue
+            placed = shapely.orient_polygons(affine_transform(polygon, transform))
+            contours.append(
+                manifold.CrossSection(
+                    [
+                        np.asarray(ring.coords)[:-1] * 1000
+                        for ring in (placed.exterior, *placed.interiors)
+                    ]
+                )
+            )
+    combined = manifold.CrossSection.batch_boolean(contours, manifold.OpType.Add)
+    result = shapely.Polygon()
+    for points in combined.to_polygons():
+        result = result.symmetric_difference(shapely.Polygon(points / 1000))
+    if not result.is_valid or abs(result.area - area) > 1e-7:
+        raise ValueError("Hip facet section union is unresolved; no reference geometry")
+    return result
 
 
 def expected_section(product, relative_height_m):
@@ -24,7 +57,7 @@ def expected_section(product, relative_height_m):
     ]
     basis = np.asarray(product.chart_basis_xy)
     origin = np.asarray(product.chart_origin_xy) + np.asarray(plan.origin) @ basis
-    return affine_transform(shapely.union_all(pieces), [*basis.T.ravel(), *origin])
+    return bounded_section_union(pieces, [*basis.T.ravel(), *origin])
 
 
 def check(owner):
