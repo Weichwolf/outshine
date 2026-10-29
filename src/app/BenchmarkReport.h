@@ -3,6 +3,7 @@
 
 #include "BenchmarkMotion.h"
 #include "GpuFrameSample.h"
+#include "ProcessMemory.h"
 #include <Engine.h>
 #include <array>
 #include <optional>
@@ -38,6 +39,7 @@ struct ScenarioBenchmarkReport {
   double HardwareMs = 0;
   std::optional<std::array<double, 3>> LoadBefore;
   std::optional<std::array<double, 3>> LoadAfter;
+  ProcessMemorySnapshot Memory{};
   std::vector<BenchmarkFrameSample> Frames;
   std::vector<Render::GpuFrameSample> GpuSamples;
   std::vector<DiagnosticSample> Measures;
