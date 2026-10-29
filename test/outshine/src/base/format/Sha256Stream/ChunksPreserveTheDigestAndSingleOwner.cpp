@@ -14,10 +14,6 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 
-static_assert(!std::is_copy_constructible_v<Sha256Stream>);
-static_assert(!std::is_copy_assignable_v<Sha256Stream>);
-static_assert(std::is_nothrow_destructible_v<Sha256Stream>);
-
 void CheckBoundaries() {
   constexpr std::array<size_t, 17> lengths{
       0, 1, 55, 56, 63, 64, 65, 1023, 1024, 1025, 2047, 2048, 2049, 4095, 4096, 4097, 65537};
@@ -68,6 +64,10 @@ void CheckParallel() {
 }
 
 int main() {
+  CHECK(!std::is_copy_constructible_v<Sha256Stream>,
+        "a stream cannot duplicate its provider owner");
+  CHECK(!std::is_copy_assignable_v<Sha256Stream>, "a stream cannot replace its owner by copying");
+  CHECK(std::is_nothrow_destructible_v<Sha256Stream>, "stream destruction cannot throw");
   CheckParallel();
   CheckBoundaries();
   return Report();
