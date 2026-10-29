@@ -1,0 +1,61 @@
+{
+  "origin": {
+    "commit": "8bbebbcae",
+    "whole_case": "automatic three-source proposal recipe-1 from #1738/PR #1741",
+    "original_terrain_face_indices": [
+      346,
+      347,
+      56,
+      57
+    ],
+    "original_terrain_vertex_indices": [
+      66,
+      72,
+      162,
+      163
+    ],
+    "source_reference_fixture": "stair-north-bridges-vienna.json"
+  },
+  "xy_m": [
+    [
+      -587.00732421875,
+      301.33740234375
+    ],
+    [
+      -586.11181640625,
+      301.78515625
+    ],
+    [
+      -587.006863935115,
+      301.3369000407812
+    ],
+    [
+      -587.0060204839318,
+      301.3373224565947
+    ]
+  ],
+  "faces": [
+    [
+      1,
+      2,
+      3
+    ],
+    [
+      3,
+      1,
+      2
+    ],
+    [
+      2,
+      3,
+      0
+    ],
+    [
+      3,
+      1,
+      0
+    ]
+  ],
+  "expected_removed_facets": 2,
+  "expected_retained_faces": 2
+}
