@@ -1,0 +1,50 @@
+{
+  "schema": "outshine/native-mvt-source-reference/1",
+  "exporter_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
+  "native_producer_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
+  "native_schema": "outshine/native-mvt-snapshot-dump/1",
+  "source_facts_schema": "outshine/native-mvt-source-facts/4",
+  "tile": [
+    14,
+    8937,
+    5678
+  ],
+  "input_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "source_identity": {
+    "DatasetId": "outshine/mvt/transport",
+    "Revision": "1f4d8d2d6fc3999d6e1bd32881aab20df052b6a0cb0aae76853ba859f159f3df"
+  },
+  "source_generation": 1,
+  "source_way_count": 1557,
+  "files": {
+    "native.json.gz": {
+      "bytes": 820772,
+      "sha256": "7fb42ffecf73871dfe8b5a47c85c665a9e64faef31a1c7ac5ef498b8331f8e8b",
+      "raw_bytes": 5613320,
+      "raw_sha256": "a459e3eaa62ff5731a88bc62152e626c49028a74ba4ae5fc23beb5bf7df843c0"
+    },
+    "source-facts.json.gz": {
+      "bytes": 376287,
+      "sha256": "43a460d8c8a7f71e75f2e1a0a0c7b954c8f43c8cd458b8ba7ec262fbdce6051e",
+      "raw_bytes": 3300073,
+      "raw_sha256": "3adf40fd60e652df8ea0bd3b4cce83ba2c966557e655fe354ff11c1fb086c214"
+    },
+    "source.mvt.gz": {
+      "bytes": 132522,
+      "sha256": "d09f13d5b6aaa59f30e22df825e3ea6204ee8ef5c326fdb075e46f0dbe27c83d",
+      "raw_bytes": 218795,
+      "raw_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8"
+    }
+  },
+  "recipe_inputs": {
+    "data/world/vegetation.json": "aa45e156d194479404beff997b81201331e27ec983f27952fe23c77432dbca9b",
+    "data/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658"
+  },
+  "credits": "Vectors: OpenMapTiles/OpenStreetMap contributors. Original source and actual native captures retained.",
+  "scope": [
+    "Actual original MVT and native v4 DTOs; no manufactured point authority or solver oracle",
+    "Native Way/Node slots stay internal; Group indexes the exact bound canonical partition",
+    "Relative incidence only within supplied native Network; no geographic/C1/influence/World admission",
+    "No DEM input or qualified ground lease"
+  ]
+}
