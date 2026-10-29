@@ -293,6 +293,13 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_facts_json.cpp)
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_test(NAME outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    COMMAND $<TARGET_FILE:test_outshine_src_generators_osm_MvtTransportSnapshot_OriginalPointFactsMatchIndependentWire>
+      provider-unavailable)
+  set_tests_properties(outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" LABELS "generators/osm")
+endif()
 add_dependencies(outshine_tests test_harness_transport_source_export)
 add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport
