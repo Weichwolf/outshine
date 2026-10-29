@@ -1,4 +1,6 @@
 #include "BuildingSourceCapture.h"
+#include "AssetCache.h"
+#include "Sha256.h"
 #include "BuildingSourceView.h"
 #include "BuildingPlaneCapture.h"
 #include "BuildingMeshConversion.h"
@@ -32,6 +34,7 @@
 #include <span>
 #include <stop_token>
 #include <string>
+#include <system_error>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -321,9 +324,7 @@ struct BuildingSourceCapture::State {
     const auto cells = request.at("cells").get<std::unordered_set<uint32_t>>();
     for (const auto &form : input.at("forms")) {
       const uint32_t cell = form.at("cell");
-      if (cells.contains(cell)) {
-        BindCell(base, cell, inputPath.parent_path() / form.at("file").get<std::string>(), costs);
-      }
+      BindCell(base, cell, inputPath.parent_path() / form.at("file").get<std::string>(), costs);
     }
     const std::vector<uint32_t> selected(cells.begin(), cells.end());
     auto producer = BuildingSourceView::Open(base, selected, frame);
@@ -331,8 +332,7 @@ struct BuildingSourceCapture::State {
     const std::vector<uint32_t> ordinals(producer->Sources().begin(), producer->Sources().end());
     Json remainder = Json::array();
     for (const auto source : producer->Unsupported()) {
-      remainder.push_back(
-          {{"source", source}, {"reason", "unsupported analytical source metadata"}});
+      remainder.push_back({{"source", source}, {"reason", "unsupported original source metadata"}});
     }
     const auto bounds = producer->Bounds();
     const int pixels = request.at("pixels").get<int>();
@@ -372,6 +372,53 @@ BuildingSourceCapture::BuildingSourceCapture(const Fs::path &input, const Json &
     : State_(std::make_unique<State>(input, request)) {}
 
 BuildingSourceCapture::~BuildingSourceCapture() = default;
+
+std::expected<BuildingSourceDemand::Source, std::string>
+BuildingSourceCapture::StorePrepared(const Fs::path &directory) {
+  const auto &state = *State_;
+  if (!state.Source) { return std::unexpected("native source selection unavailable"); }
+  const auto encoded = EncodePreparedStructureTile(*state.Base);
+  if (!encoded) { return std::unexpected("complete prepared archive cannot be encoded"); }
+  const auto key = Sha256Hex(encoded->data(), encoded->size());
+  Box bounds;
+  for (const auto &surface : state.Base->Surfaces) {
+    if (surface.Bounds().Empty()) { continue; }
+    for (unsigned corner = 0; corner < 8; ++corner) {
+      bounds.Cover(state.Base->AnchorEcef + surface.Bounds().Corner(corner));
+    }
+  }
+  std::error_code error;
+  Fs::create_directories(directory, error);
+  if (error) { return std::unexpected("native source directory unavailable"); }
+  auto cache = AssetCache::Open((directory / "assets.sqlite").string());
+  if (!cache) { return std::unexpected("native source import cache unavailable"); }
+  const AssetRecord record{.Key = key,
+                           .Kind = "prepared-building-base",
+                           .Bounds = bounds,
+                           .Package = key,
+                           .ByteCount = encoded->size(),
+                           .Parent = {}};
+  if (!(**cache).Publish(std::span(&record, 1), *encoded)) {
+    return std::unexpected("native prepared source publication failed");
+  }
+  uint64_t cells = 0;
+  for (const auto source : state.Source->Sources()) {
+    const auto cell = state.Base->Structures[source].Layout.Cell.Index;
+    if (cell == 0 || cell > 64) { return std::unexpected("native source cell is not addressable"); }
+    cells |= uint64_t{1} << (cell - 1);
+  }
+  Box selected;
+  for (unsigned corner = 0; corner < 8; ++corner) {
+    selected.Cover(state.Base->AnchorEcef + state.Coordinates.Origin +
+                   state.Coordinates.SourceDirection(state.Source->Bounds().Corner(corner)));
+  }
+  return BuildingSourceDemand::Source{.RequestKey = {},
+                                      .BaseKey = key,
+                                      .Bounds = selected,
+                                      .AnchorEcef = state.Base->AnchorEcef,
+                                      .Cells = cells,
+                                      .HeightQualified = state.Base->HeightQualified};
+}
 
 const Render::ImpostorCapture &BuildingSourceCapture::Metadata() const noexcept {
   return State_->Metadata;
