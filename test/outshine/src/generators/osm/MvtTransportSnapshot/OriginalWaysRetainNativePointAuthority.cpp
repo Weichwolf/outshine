@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -69,12 +70,13 @@ void CheckAuthority(const OsmField &field, const StreetField &streets, int scena
       facts.MissingWays, [](const auto &missing) { return missing.Way.StreetWay == 0; });
   CHECK(found != facts.MissingWays.end(), "the first omitted source retains a separate record");
   if (found == facts.MissingWays.end()) { return; }
-  const auto expected = scenario == 1   ? WayState::InexactTagCandidate
-                        : scenario == 2 ? WayState::Exact
-                        : scenario == 3 ? WayState::AmbiguousExact
-                                        : WayState::AbsentInCapturedNetwork;
+  constexpr std::array<WayState, 4> expected{WayState::AbsentInCapturedNetwork,
+                                             WayState::InexactTagCandidate,
+                                             WayState::Exact,
+                                             WayState::AmbiguousExact};
   CHECK(
-      found->OriginalWayState == expected && found->OriginalPoints.size() == way.PointCount,
+      found->OriginalWayState == expected[static_cast<size_t>(scenario)] &&
+          found->OriginalPoints.size() == way.PointCount,
       "full-ring identity distinguishes absent, one-ULP mismatch, exact and ambiguous candidates");
   size_t published = 0;
   size_t unrepresented = 0;
