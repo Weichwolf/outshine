@@ -53,6 +53,9 @@ bit-identical to the original-union opponent. Independent filtering reaches
 0.109375 maximum RGBA difference. The interleave pair has542/542 sources:
 100 common rays see A first,97 see B first. Neither global order is correct.
 These are finite CPU controls, not an extension of #1663's pose calibration.
+The frozen producer also passes32×32 samples per pixel: the ordered pair remains
+exact, while the interleave has416 rays with A first and384 with B first.
+Separate filtering still differs by up to0.092461 RGBA in the ordered pair.
 
 ## Smallest native connection
 
@@ -94,3 +97,21 @@ selection kernels, checked composition, joint-prefix rebuild and held lookups.
 Nine rotating CPU/wall rounds and separate native-allocation traces retain actual
 work/output/table bytes. Scoped peaks exclude held inputs and are not RSS/UMA or
 device times. Source ray tracing/background acquisition are separate costs.
+
+On the local Linux host (Python3.13.5/NumPy2.5.4, load12.58/10.49/7.77), the
+24,576 Float32 point pairs produce96 pixels. Nine rotating rounds measure checked
+composition3.275ms CPU, compose+prefix6.022ms and held lookups0.779ms. These are
+Python scopes, not frame costs. Separate Memray1.20 traces report233/632/794
+allocation events,2,658,972/5,379,291/226,472 requested bytes and
+713,908/1,193,671/14,696 incremental high-watermark bytes respectively.
+Held inputs are786,432B, the combined image393,216B, the prefix398,352B;
+prefix lookup differs from direct Float32 reduction by at most1.416e-7 RGBA.
+
+Equal arithmetic/selection kernels use18 allocation events each but request
+527,880/429,864B; selection saves98,016B. CPU medians0.614/0.564ms under host load
+do not establish a portable winner; an earlier short probe reversed their order.
+The reference retains straightforward arithmetic. No native kernel decision is
+inferred. Recomposition costs24,576 point pairs plus prefix work, versus1,536
+logical RGBA fetches for held output lookups. Known owned-prefix copying is
+398,352B; total copies/physical memory traffic are unmeasured. This reinforces
+binding/reusing an unchanged joint product instead of blanket per-frame rebuilds.
