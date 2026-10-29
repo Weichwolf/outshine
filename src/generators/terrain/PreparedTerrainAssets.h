@@ -30,6 +30,7 @@ class PreparedTerrainAssets {
 public:
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Resident = 0, Writes = 0, ReadBytes = 0;
+    uint64_t FieldPreparations = 0, FieldPublicationAttempts = 0;
     uint64_t DeformationHits = 0, DeformationMisses = 0, DeformationWrites = 0,
              DeformationReadBytes = 0;
     uint64_t DeformationPreparations = 0, DeformationPublicationAttempts = 0;
@@ -94,10 +95,8 @@ public:
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources);
 
-  [[nodiscard]] ::outshine::Ground::TerrainGrid
-  Resolve(Data::TileId at,
-          const ::outshine::Ground::TerrainTiles::Shaped &shape,
-          const ::outshine::Ground::TerrainTiles::FieldFactory &factory);
+  [[nodiscard]] std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
+  RequestField(Data::TileId at, const ::outshine::Ground::TerrainTiles::Shaped &shape);
 
   [[nodiscard]] std::expected<std::optional<PreparedTerrainDeformation>, Failure>
   LoadDeformation(const std::string &key, size_t heapBytesMost = kTerrainDeformationBytesMost);
@@ -122,6 +121,14 @@ public:
 
 private:
   PreparedTerrainAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
+  class FieldRead;
+
+  struct Request {
+    std::mutex Lock;
+    std::weak_ptr<::outshine::Ground::TerrainTiles::FieldRequest> Field;
+  };
+
+  [[nodiscard]] std::shared_ptr<Request> RequestFor(const std::string &key);
   [[nodiscard]] std::shared_ptr<std::mutex> MutexForRequest(const std::string &key);
   [[nodiscard]] ::outshine::Ground::TerrainGrid Remember(const std::string &key,
                                                          ::outshine::Ground::TerrainField field);
@@ -132,11 +139,13 @@ private:
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
-  std::unordered_map<std::string, std::weak_ptr<std::mutex>> Requests_;
+  std::unordered_map<std::string, std::weak_ptr<Request>> Requests_;
+  std::weak_ptr<PreparedTerrainAssets> Self_;
   std::unordered_map<std::string, std::weak_ptr<const ::outshine::Ground::TerrainField>> Resident_;
   std::atomic_uint64_t DeformationHits_{0}, DeformationMisses_{0}, DeformationWrites_{0},
       DeformationReadBytes_{0};
   std::atomic_uint64_t DeformationPreparations_{0}, DeformationPublicationAttempts_{0};
+  std::atomic_uint64_t FieldPreparations_{0}, FieldPublicationAttempts_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, ResidentHits_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t PatchHits_{0}, PatchMisses_{0}, PatchWrites_{0}, PatchReadBytes_{0};
   std::atomic_uint64_t PatchPreparations_{0}, PatchPublicationAttempts_{0}, PatchDecodes_{0};
