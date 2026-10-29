@@ -15,13 +15,20 @@ struct LongitudeColumn {
 // Inclusive unwrapped columns; callers reduce modulo columns, visiting each cell once.
 [[nodiscard]] inline std::pair<int64_t, int64_t>
 ColumnsAlongShortestArc(LongitudeColumn from, LongitudeColumn to, int64_t columns) noexcept {
-  const double origin = from.Degrees - 360.0 * std::floor((from.Degrees + 180.0) / 360.0);
+  constexpr double kFullTurnDeg = 360.0;
+  constexpr double kHalfTurnDeg = kFullTurnDeg / 2;
   const double difference = to.Degrees - from.Degrees;
-  const double run = difference - 360.0 * std::floor(difference / 360.0 + 0.5);
+  if (from.Degrees >= -kHalfTurnDeg && from.Degrees < kHalfTurnDeg && to.Degrees >= -kHalfTurnDeg &&
+      to.Degrees < kHalfTurnDeg && difference > -kHalfTurnDeg && difference < kHalfTurnDeg) {
+    return {std::min(from.Index, to.Index), std::max(from.Index, to.Index)};
+  }
+  const double origin =
+      from.Degrees - kFullTurnDeg * std::floor((from.Degrees + kHalfTurnDeg) / kFullTurnDeg);
+  const double run = difference - kFullTurnDeg * std::floor(difference / kFullTurnDeg + 0.5);
   const bool reverse = run < 0.0;
   const int64_t first = reverse ? to.Index : from.Index;
   int64_t last = reverse ? from.Index : to.Index;
-  const bool wraps = reverse ? origin + run < -180.0 : origin + run >= 180.0;
+  const bool wraps = reverse ? origin + run < -kHalfTurnDeg : origin + run >= kHalfTurnDeg;
   if (wraps || last < first) { last += columns; }
   return {first, std::min(last, first + columns - 1)};
 }

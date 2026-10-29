@@ -75,6 +75,7 @@ double MetresPerDegreeLon(double latDeg, Sphere on) {
 
 [[nodiscard]] double LonApartDeg(double toDeg, double fromDeg) {
   const double apart = toDeg - fromDeg;
+  if (apart >= -kDegPerHalfTurn && apart < kDegPerHalfTurn) { return apart; }
   return apart - kDegPerTurn * std::floor(apart / kDegPerTurn + 0.5);
 }
 
