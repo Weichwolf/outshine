@@ -3,8 +3,10 @@
 This bounded Python comparison follows the measured A18 material cost in #1257.
 It changes no native shader, terrain normal, geometry LOD, class selection, asset
 address or cache. Current `groundRock.glsl`, `rockCrevice.glsl` and
-`surfaceNoise.glsl` own the rock response. `groundLayers.glsl` owns substrate,
-litter and class composition; those are not yet implemented by this rock probe.
+`surfaceNoise.glsl` own the rock response. The separate 2D reference retains
+`groundSubstrate.glsl` and `groundLayers.glsl` substrate/litter algebra, including
+the current nine-point oriented mask and its small-footprint point shortcut.
+Rock/class composition and actual native fragment inputs remain separate.
 
 The reference separates each original noise value and physical world gradient
 from the current footprint-dependent crevice and frequency-fade computation.
@@ -31,6 +33,14 @@ checks its product before allocating, queries require all original corners, and
 immutable arrays own their backing. This is an experiment, not a proposed native
 texture/codec/binding. No scheduler, persistent cache or global catalogue is added.
 Missing boxes do not justify clamping/wrapping or dropping material detail.
+
+`terrain_material_plane.py` holds original 2D words with explicit kernel halos:
+one cell for noise/grain neighbours, three for the bounded oriented mask.
+Substrate and litter retain the same current footprint tests before any word
+query. Whole-far queries, inactive grains and coverage-zero/one layers perform no
+unused hash/lookup work. Existing twenty material recipes and fourteen rows of
+the versioned captured native palette have independent reference controls; the
+palette is not a capture of current Jura/Koerbersee fragments.
 
 The probe uses a real unchanged limestone recipe but explicitly controlled phase,
 plane slopes, derivatives, contrast and lighting. Neither plane is a Jura or
@@ -65,7 +75,7 @@ Linearly filtered mean/second slope moments do not establish exact GGX filtering
 LEAN's Beckmann treatment is not substituted for Outshine's GGX response.
 
 Actual native Jura/Koerbersee points and their stable frame, derivatives, normals,
-classes and palette remain required under #1684/6488134049. The full substrate,
-litter, temporal/footprint controls and source-bound field cost comparison remain
-open. Procedure decision, terminal evidence and current delivery scope belong in
+classes and palette remain required under #1684/6488134049. Actual composed
+substrate/litter images and costs, temporal/footprint controls and source-bound
+field cost comparison remain open. Procedure decision, terminal evidence and current delivery scope belong in
 the PR. No native/default/device recommendation follows from the controlled probe.
