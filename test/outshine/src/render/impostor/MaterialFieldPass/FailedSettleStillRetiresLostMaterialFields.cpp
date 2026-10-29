@@ -47,7 +47,7 @@ struct Context {
   LossState &Loss;
 };
 
-void Exercise() {
+void Exercise(bool stored) {
   auto device = Require(CreateDevice({.Validation = true}));
   LossState loss;
   Context context{.DeviceRef = *device, .Loss = loss};
@@ -57,7 +57,8 @@ void Exercise() {
                                 std::make_unique<LossDevice>(state.DeviceRef, state.Loss));
                           }});
   Require(renderer.ConfigureMaterialFields());
-  const auto input = PreparedMaterialField({1, 0, 0, 1}, true);
+  const auto input =
+      stored ? PreparedStoredMaterialField() : PreparedMaterialField({1, 0, 0, 1}, true);
   const auto source = Require(renderer.PrepareMaterialField(input));
   MaterialFieldView view;
   view.Camera.Kind = CameraKind::Orthographic;
@@ -66,6 +67,11 @@ void Exercise() {
   view.Camera.ZNearM = .1;
   view.Camera.ZFarM = 10;
   view.Target = {.WidthPx = 16, .HeightPx = 16};
+  if (stored) {
+    view.Camera.EyeM = {{0, 0, 3}};
+    view.Camera.ZNearM = 1;
+    view.Camera.ZFarM = 5;
+  }
   const auto images = Require(renderer.RelightMaterialField(*source, view));
   Require(device->Wait(images.Filtered->Produced, std::chrono::seconds(5)));
   loss.Lost = true;
@@ -79,7 +85,8 @@ void Exercise() {
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for native field retirement");
-  Exercise();
+  Exercise(false);
+  Exercise(true);
   SDL_Quit();
   return outshine::Test::Report();
 }

@@ -227,3 +227,11 @@ vec3 shade(M surface,
                   surface.roughness, vec3(surface.f0), surface.specularWeight,
                   surface.emissive, vec3(0.0), lightSpace, sunShadowReceiverSlope(lightSpace), shadowMap);
 }
+
+void conserveThinSheetEnergy(inout M surface) {
+  float energy = max(max(surface.thinReflection.r, surface.thinReflection.g), surface.thinReflection.b) +
+                 max(max(surface.diffuseTransmission.r, surface.diffuseTransmission.g), surface.diffuseTransmission.b);
+  float keep = energy > 0.0 ? min(1.0, surface.thinWeight / energy) : 1.0;
+  surface.thinReflection *= keep;
+  surface.diffuseTransmission *= keep;
+}

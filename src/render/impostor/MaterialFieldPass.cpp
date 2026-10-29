@@ -1,10 +1,12 @@
 #include <optional>
+#include <array>
 #include <cstdint>
 #include <cstddef>
 #include <atomic>
 #include "MaterialFieldPassState.h"
 #include "MaterialFieldInputData.h"
 #include "UploadQueue.h"
+#include "PipelineFactory.h"
 #include <algorithm>
 #include <cassert>
 #include <expected>
@@ -48,6 +50,12 @@ Native::Result<void> MaterialFieldPass::Configure() {
   const auto geometry = renderer.Configure(
       pipelines.Geometry, gpu, nullptr, nullptr, false, GeometryPipelineScope::Meshes);
   if (!geometry) { return geometry; }
+  const std::array colours{
+      Native::ColourTarget{.Texels = Native::Format::Rgba16Float, .Rgb = {}, .Alpha = {}}};
+  auto raster = CreateFullscreenPipeline(
+      pipelines.Device, "materialFieldRaster.frag.spv", colours, Native::DepthTarget{});
+  if (!raster) { return std::unexpected(raster.error()); }
+  pipelines.Raster = std::move(*raster);
   const auto filtered = pipelines.Filter.Configure(pipelines.Device);
   if (!filtered) { return filtered; }
   const auto integrated = pipelines.Integral.Configure(pipelines.Device);
@@ -82,9 +90,46 @@ Native::Result<void> MaterialFieldPass::Collect() {
       return std::unexpected(completed.error());
     }
     if (*completed == Native::CompletionStatus::Ready) {
+      if (const auto &source = state.InFlight[at].Source; source && source->Stored) {
+        source->Stored->Staging.reset();
+      }
       state.InFlight.erase(state.InFlight.begin() + static_cast<std::ptrdiff_t>(at));
     } else {
       ++at;
+    }
+  }
+  return {};
+}
+
+Native::Result<void> MaterialFieldPass::State::PrepareGeometry(ResidentMaterialField::Data &source,
+                                                               const MaterialFieldInput &input,
+                                                               Native::Commands &commands) const {
+  Gpu gpu;
+  gpu.Device = &Pipelines->Device;
+  gpu.HdrFormat = Native::Format::Rgba16Float;
+  gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
+  (void)gpu.SceneColours.Add(Resource::SceneLinear);
+  auto attached = source.Renderer.AttachPipelines(Pipelines->Geometry, gpu);
+  if (!attached) { return std::unexpected(attached.error()); }
+  const auto mesh = input.Data_->Mesh();
+  std::string error;
+  if (!source.Renderer.ValidateMaterials(input.Data_->Materials, error)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
+  }
+  auto &residency = source.Scene.Meshes();
+  {
+    auto recording = residency.RecordUploads(commands);
+    if (!recording) { return std::unexpected(recording.error()); }
+    if (!source.Renderer.SetMaterials(input.Data_->Materials, error) ||
+        !source.Renderer.SetMesh(mesh, error)) {
+      return std::unexpected(
+          recording->Failure() != nullptr
+              ? *recording->Failure()
+              : Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
+    }
+    if (auto flushed = residency.SubmitPendingUploads(); !flushed) {
+      return std::unexpected(flushed.error());
     }
   }
   return {};
@@ -114,33 +159,13 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   auto source = std::make_shared<ResidentMaterialField::Data>(state.Pipelines);
   source->Raster = input->Data_->Raster;
   source->Capture = input->Data_->Capture;
-  Gpu gpu;
-  gpu.Device = &device;
-  gpu.HdrFormat = Native::Format::Rgba16Float;
-  gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
-  (void)gpu.SceneColours.Add(Resource::SceneLinear);
-  auto attached = source->Renderer.AttachPipelines(state.Pipelines->Geometry, gpu);
-  if (!attached) { return std::unexpected(attached.error()); }
-  const auto mesh = input->Data_->Mesh();
-  std::string error;
-  if (!source->Renderer.ValidateMaterials(input->Data_->Materials, error)) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
-  }
-  auto &residency = source->Scene.Meshes();
-  {
-    auto recording = residency.RecordUploads(**commands);
-    if (!recording) { return std::unexpected(recording.error()); }
-    if (!source->Renderer.SetMaterials(input->Data_->Materials, error) ||
-        !source->Renderer.SetMesh(mesh, error)) {
-      return std::unexpected(
-          recording->Failure() != nullptr
-              ? *recording->Failure()
-              : Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
-    }
-    if (auto flushed = residency.SubmitPendingUploads(); !flushed) {
-      return std::unexpected(flushed.error());
-    }
+  if (input->Data_->Stored) {
+    auto raster = MaterialFieldRaster::Prepare(device, **commands, *input->Data_->Stored);
+    if (!raster) { return std::unexpected(raster.error()); }
+    source->Stored = std::move(*raster);
+  } else {
+    auto uploaded = state.PrepareGeometry(*source, *input, **commands);
+    if (!uploaded) { return std::unexpected(uploaded.error()); }
   }
   if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Cancelled,
@@ -149,7 +174,7 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   auto produced = SubmitUpload(device, state.Uploads, std::move(*commands));
   if (!produced) { return std::unexpected(produced.error()); }
   source->Produced = *produced;
-  residency.ReleaseUploadScratch();
+  if (!source->Stored) { source->Scene.Meshes().ReleaseUploadScratch(); }
   state.Last = *produced;
   state.InFlight.push_back({.Completion = *produced, .Source = source, .Images = {}});
   return std::shared_ptr<const ResidentMaterialField>(new ResidentMaterialField(std::move(source)));

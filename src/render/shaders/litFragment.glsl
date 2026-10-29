@@ -139,11 +139,7 @@ void main() {
       albedo /= max(coverage * (1.0 - surface.thinWeight), 1e-8);
     }
 #endif
-    float energy = max(max(surface.thinReflection.r, surface.thinReflection.g), surface.thinReflection.b) +
-                   max(max(surface.diffuseTransmission.r, surface.diffuseTransmission.g), surface.diffuseTransmission.b);
-    float keep = energy > 0.0 ? min(1.0, surface.thinWeight / energy) : 1.0;
-    surface.thinReflection *= keep;
-    surface.diffuseTransmission *= keep;
+    conserveThinSheetEnergy(surface);
   }
 #endif
 #if SURFACE_BASE_LOCATION == 0

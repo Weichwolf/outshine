@@ -56,11 +56,11 @@ public:
   }
 };
 
-void Exercise() {
+void Exercise(bool stored) {
   auto actual = Require(CreateDevice({.Validation = true}));
   UploadFailure failures;
   NativeUploadFaultDevice device(std::move(actual), failures);
-  auto input = PreparedMaterialField({.4f, .5f, .6f, 1});
+  auto input = stored ? PreparedStoredMaterialField() : PreparedMaterialField({.4f, .5f, .6f, 1});
   MaterialFieldPass pass(device);
   Require(pass.Configure());
   failures.Point = UploadFailurePoint::DeviceBuffer;
@@ -97,7 +97,8 @@ void Exercise() {
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for native resources");
-  Exercise();
+  Exercise(false);
+  Exercise(true);
   SDL_Quit();
   return Report();
 }
