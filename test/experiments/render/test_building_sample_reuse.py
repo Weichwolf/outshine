@@ -24,6 +24,7 @@ from compare_building_sample_reuse import (
     occupied_support,
 )
 from field_view_sampling import FieldGrid, ImageView
+from plot_building_sample_reuse import inputs as plot_inputs
 
 
 class NativeSampleReuse(unittest.TestCase):
@@ -115,6 +116,30 @@ class NativeSampleReuse(unittest.TestCase):
             changed[key] = "changed"
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, key):
                 same_sources(self.primary[0], changed)
+
+    def test_query_light_change_is_not_misreported_as_view_reuse_error(self):
+        manifest = copy.deepcopy(self.primary[0])
+        manifest["cases"][0]["query"]["sun_elevation_deg"] += 1
+        with self.assertRaisesRegex(ValueError, "Fixed lighting"):
+            analyse((manifest, self.primary[1]), self.canonical, self.high)
+
+    def test_figure_checks_source_manifest_as_well_as_pixel_bytes(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-reuse-figure-") as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (root / "prefix-controls.npz").write_bytes(b"held control")
+            (source / "captures.npz").write_bytes(b"bound pixels")
+            (source / "manifest.json").write_text('{"frame": "original"}')
+            report = {
+                "prefix_controls_sha256": digest(root / "prefix-controls.npz"),
+                "input_npz": {str(source): digest(source / "captures.npz")},
+                "input_manifests": {str(source): digest(source / "manifest.json")},
+            }
+            (root / "report.json").write_text(json.dumps(report))
+            (source / "manifest.json").write_text('{"frame": "changed"}')
+            with self.assertRaisesRegex(ValueError, "comparison manifest changed"):
+                plot_inputs(root)
 
     def test_native_crop_preserves_full_frame_pixel_rays_and_focal_length(self):
         manifest = self.primary[0]

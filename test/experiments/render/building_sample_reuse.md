@@ -11,6 +11,8 @@ The frozen A18/Metal inputs are under `test/outshine/data/render/building-depth-
 The reader verifies NPZ and original full-buffer SHA256, restoring clear borders
 incrementally without allocating full1280×720 buffers. It preserves the actual
 native geometry/capture/driver/binary/light binding across the three input sets.
+Per-query sun elevation must match the canonical source; a light change cannot
+silently become a view/filter-reuse error. Figures also recheck manifest hashes.
 The declared source contains1558 originals/38476 triangles; source headers and
 native readbacks are authoritative here, not a new Python primitive replay.
 
@@ -82,12 +84,12 @@ python -B -m compare_building_sample_reuse --output /tmp/outshine-research-reuse
 python -B -m plot_building_sample_reuse --study /tmp/outshine-research-reuse/run --output /tmp/outshine-research-reuse/error.png
 ```
 
-Sources must be frozen and outputs fresh/outside the checkout.43 checks pass;
+Sources must be frozen and outputs fresh/outside the checkout.45 checks pass;
 the actual native-channel/error figure was generated and opened privately.
-The source of that figure is4c6dac144; current88d18e455 adds geometric bounds/cost
-metadata without changing its pixel arrays. No README/doc image publication.
+The source of that figure is4c6dac144; later geometric bounds/cost and binding
+checks retain all seven pixel arrays exactly. No README/doc image publication.
 
-One Linux/i5-1135G7/Python3.13.5/NumPy2.5.4 run at nice10 under load13.21/13.58/14.31:
+One88d18e455 Linux/i5-1135G7/Python3.13.5/NumPy2.5.4 run at nice10 under load13.21/13.58/14.31:
 full-buffer verification/decode0.878sCPU/1.304swall; prefix plus five comparisons
 0.121sCPU/0.222swall. Decoded arrays total7667712B;575078400B
 are incrementally hashed full-frame bytes. One16384-texel source,532512B Float64

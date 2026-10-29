@@ -16,6 +16,9 @@ def inputs(study):
     for directory, expected in report["input_npz"].items():
         if digest(Path(directory) / "captures.npz") != expected:
             raise ValueError("Actual native comparison input changed")
+    for directory, expected in report["input_manifests"].items():
+        if digest(Path(directory) / "manifest.json") != expected:
+            raise ValueError("Actual native comparison manifest changed")
     primary = [
         Path(p)
         for p in report["input_npz"]

@@ -147,6 +147,13 @@ def analyse(primary, canonical, high):
     manifest, arrays = primary
     same_sources(manifest, canonical[0])
     same_sources(manifest, high[0])
+    sun = canonical[0]["cases"][0]["query"]["sun_elevation_deg"]
+    if any(
+        case["query"]["sun_elevation_deg"] != sun
+        for data, _ in (primary, high)
+        for case in data["cases"]
+    ):
+        raise ValueError("Fixed lighting required to isolate view/filter reuse")
     grid, fields = capture_fields(*canonical)
     source = fields["samples"]
     prefix = summed_field(source, dtype=np.float64)
