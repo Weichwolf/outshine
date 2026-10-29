@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 from building_tree_load import read_tree
-from native_building_cell_reference import load_cells
+from native_building_cell_reference import load_cells, native_parts
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -89,26 +89,16 @@ def capture_frame_controls(queries, catalogue, centre):
 
 
 def write_native_parts(original, output):
-    role = original["binding"][:, 4].copy()
-    metres = np.any(original["metres"][original["indices"]] != 0, axis=(1, 2))
-    role[(role == 0) & metres] = 2
     parts = []
-    for index in range(3):
-        faces = original["indices"][role == index]
-        ids, inverse = np.unique(faces, return_inverse=True)
+    for index, values in enumerate(native_parts(original)):
         directory = output / str(index)
         directory.mkdir()
-        attributes = {
-            "positions": native_axes(original["positions"][ids]),
-            "normals": native_axes(original["vertex_normal"][ids]),
-            "uv": original["uv"][ids],
-            "uv1": original["metres"][ids],
-            "colours": original["colour"][ids],
-        }
-        for name, values in attributes.items():
-            np.asarray(values, dtype="<f4").tofile(directory / (name + ".bin"))
-        inverse.astype("<u4").tofile(directory / "indices.bin")
-        parts.append({"vertices": len(ids), "triangles": len(faces)})
+        for name, array in values.items():
+            if name != "binding":
+                array.tofile(directory / (name + ".bin"))
+        parts.append(
+            {"vertices": len(values["positions"]), "triangles": len(values["indices"])}
+        )
     return parts
 
 
