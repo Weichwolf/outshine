@@ -7,6 +7,10 @@ from numbers import Integral, Real
 
 
 def _node_key(value):
+    if len(value) == 2 and type(value[0]) is int and type(value[1]) is int:
+        a, b = value
+        if -(2**63) <= a < 2**63 and -(2**63) <= b < 2**63:
+            return a, b
     if len(value) != 2 or any(
         not isinstance(v, Integral) or isinstance(v, bool) or not -(2**63) <= v < 2**63
         for v in value

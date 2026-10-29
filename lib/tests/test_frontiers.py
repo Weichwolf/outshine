@@ -3,6 +3,8 @@
 import copy
 import unittest
 
+import numpy as np
+
 from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 
 
@@ -17,6 +19,29 @@ def record(key, nodes, *, eligible=True, length=10):
 
 
 class FrontierGraph(unittest.TestCase):
+    def test_plain_and_integral_original_keys_keep_the_same_int64_contract(self):
+        from outshine_ref.transport.frontiers import _node_key
+
+        bounds = (-(2**63), -4096, -1, 0, 1, 4096, 2**63 - 1)
+        for a in bounds:
+            for b in bounds:
+                for values in ([a, b], (a, b), np.array([a, b], dtype=np.int64)):
+                    actual = _node_key(values)
+                    self.assertEqual(actual, (a, b))
+                    self.assertTrue(all(type(v) is int for v in actual))
+        for wrong in (
+            (False, 0),
+            (0, True),
+            (0.0, 0),
+            (0, 1.0),
+            (-(2**63) - 1, 0),
+            (0, 2**63),
+            (0,),
+            (0, 0, 0),
+        ):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                _node_key(wrong)
+
     def test_index_matches_scan_on_branches_cycles_and_input_permutations(self):
         records = [
             record("a", [(0, 0), (1, 0)]),
