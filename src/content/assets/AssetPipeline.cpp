@@ -45,6 +45,32 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
 
 std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline::RequestResumable(
     const Consumer &consumer, const ResolvedRequest &request, ResumableProducer producer) {
+  return Submit(consumer,
+                {.Key = request.Key,
+                 .Domain = KeyDomain::Content,
+                 .Generation = request.Generation,
+                 .InputBytes = request.InputBytes,
+                 .ConsumerBytes = request.ConsumerBytes,
+                 .ReceiptBytesMost = request.ReceiptBytesMost},
+                std::move(producer));
+}
+
+std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline::RequestLogical(
+    const Consumer &consumer, const LogicalRequest &request, ResumableProducer producer) {
+  const auto key = AssetProductKey::Parse(request.Address);
+  if (!key) { return std::unexpected(AssetPublicationError::InvalidRequest); }
+  return Submit(consumer,
+                {.Key = *key,
+                 .Domain = KeyDomain::Request,
+                 .Generation = request.Generation,
+                 .InputBytes = request.InputBytes,
+                 .ConsumerBytes = request.ConsumerBytes,
+                 .ReceiptBytesMost = request.ReceiptBytesMost},
+                std::move(producer));
+}
+
+std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline::Submit(
+    const Consumer &consumer, const Submission &request, ResumableProducer producer) {
   if (consumer.State_ != State_ || !producer || request.ReceiptBytesMost == 0) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
@@ -64,7 +90,8 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
     if (State_->NextTicket == std::numeric_limits<uint64_t>::max()) {
       return std::unexpected(AssetPublicationError::InvalidRequest);
     }
-    const State::ScopedKey address{.Scope = owner->second.Scope, .Product = request.Key};
+    const State::ScopedKey address{
+        .Scope = owner->second.Scope, .Domain = request.Domain, .Key = request.Key};
     const auto found = State_->Jobs.find(address);
     std::shared_ptr<State::Job> job;
     if (found != State_->Jobs.end()) {
@@ -81,6 +108,7 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
       }
       job = std::make_shared<State::Job>();
       job->Key = request.Key;
+      job->Domain = request.Domain;
       job->Scope = address.Scope;
       job->InputBytes = request.InputBytes;
       job->Output = std::make_shared<State::Reservation>();

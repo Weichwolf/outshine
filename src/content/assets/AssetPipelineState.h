@@ -18,19 +18,22 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
 
   struct ScopedKey {
     AssetStoreScope Scope;
-    AssetProductKey Product;
+    KeyDomain Domain;
+    AssetProductKey Key;
   };
 
   struct KeyLess {
     [[nodiscard]] bool operator()(const ScopedKey &a, const ScopedKey &b) const noexcept {
       if (a.Scope.Identity.owner_before(b.Scope.Identity)) { return true; }
       if (b.Scope.Identity.owner_before(a.Scope.Identity)) { return false; }
-      return a.Product < b.Product;
+      if (a.Domain != b.Domain) { return a.Domain < b.Domain; }
+      return a.Key < b.Key;
     }
   };
 
   struct Job {
     AssetProductKey Key;
+    KeyDomain Domain;
     AssetStoreScope Scope;
     size_t References = 0, Demands = 0, InputBytes = 0;
     bool StopRequested = false, Finished = false, Running = true;
