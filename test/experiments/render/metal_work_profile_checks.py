@@ -102,6 +102,26 @@ class ComputeIntervals(unittest.TestCase):
 
 
 class BenchmarkFrames(unittest.TestCase):
+    def test_legacy_and_unpaced_reports_retain_the_same_measured_gpu_window(self):
+        legacy = timed(RASTER)
+        report = benchmark(12)
+        report["benchmark_version"] = 2
+        report["profile"] = {"pacing": "unpaced"}
+        current = timed(RASTER, report)
+        self.assertEqual(current["frames"], legacy["frames"])
+        self.assertEqual(current["peak_passes"], legacy["peak_passes"])
+        self.assertEqual((legacy["benchmark_version"], legacy["pacing"]), (1, "paced"))
+        self.assertEqual((current["benchmark_version"], current["pacing"]), (2, "unpaced"))
+
+    def test_unknown_schema_or_inconsistent_pacing_is_rejected(self):
+        for version, profile in ((0, {}), (3, {}), (2, {}), (2, {"pacing": "paced"})):
+            with self.subTest(version=version, profile=profile):
+                report = benchmark(12)
+                report["benchmark_version"] = version
+                report["profile"] = profile
+                with self.assertRaises(ValueError):
+                    timed(RASTER, report)
+
     def test_invalid_command_records_and_duplicate_raster_passes_are_rejected(self):
         for text in (
             RASTER.replace("gpu_ns=12000000", "gpu_ns=-1"),
