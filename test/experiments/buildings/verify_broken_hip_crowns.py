@@ -178,7 +178,9 @@ class BrokenHipCrownTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 product.source_triangle_ids.setflags(write=True)
 
-    def test_nondefault_profile_keeps_the_same_bound_source_and_exact_knot_contract(self):
+    def test_nondefault_profile_keeps_the_same_bound_source_and_exact_knot_contract(
+        self,
+    ):
         owner = RoofedProducts(
             with_broken_hip(self.original[1], run_fraction=0.25, height_fraction=0.75)
         )
