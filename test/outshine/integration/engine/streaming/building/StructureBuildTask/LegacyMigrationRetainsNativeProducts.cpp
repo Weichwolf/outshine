@@ -230,6 +230,46 @@ void TaskOwnsLegacyMigration() {
         "completion releases the task's retained publication package capacity");
 }
 
+void BasisReadReusesTheMigrationBasis() {
+  Fixture fixture;
+  if (!fixture.Seed()) { return; }
+  const auto base = fixture.Database->Find(fixture.Key);
+  CHECK(base && *base, "the complete native parent supplies conservative query bounds");
+  if (!base || !*base) { return; }
+  const auto records = fixture.Database->Select({.Bounds = (**base).Bounds,
+                                                 .Kind = "building-basis",
+                                                 .Level = std::nullopt,
+                                                 .Radius = std::nullopt,
+                                                 .Planes = {}});
+  CHECK(records && records->size() == 1 && records->front().Parent == fixture.Key,
+        "the private fixture identifies its sole basis without duplicating key construction");
+  if (!records || records->size() != 1) { return; }
+  CHECK(fixture.Database->Remove(records->front().Key),
+        "only the native basis is removed before reading the legacy parent");
+  const auto before = fixture.Cache->Costs();
+  PreparedBuildingAssets::BasisRead read;
+  const std::atomic_bool stopping{false};
+  PreparedBuildingAssets::Basis ready;
+  for (unsigned step = 0; step < 16 && !ready; ++step) {
+    auto result = fixture.Cache->ReadBasis(fixture.Key, read, stopping);
+    CHECK(result.has_value(), "the owned basis read completes each bounded native step");
+    if (!result) { return; }
+    ready = std::move(*result);
+  }
+  const auto after = fixture.Cache->Costs();
+  CHECK(ready && !read.Pending() && fixture.IsIndex() &&
+            after.LegacyPreparations == before.LegacyPreparations + 1 &&
+            after.BasePackagePreparations == before.BasePackagePreparations + 3 &&
+            after.BasisPreparations == before.BasisPreparations + 1,
+        "a basis already published by legacy migration is loaded without another reconstruction or "
+        "publication");
+  const auto mismatch = fixture.Cache->ReadBasis(fixture.Key + "other", read, stopping);
+  CHECK(!mismatch && std::get_if<StructureBakeErrorKind>(&mismatch.error()) &&
+            *std::get_if<StructureBakeErrorKind>(&mismatch.error()) ==
+                StructureBakeErrorKind::ArtifactInvalidProduct,
+        "a completed owned read still rejects a different content key");
+}
+
 void StopKeepsTheOriginalParent() {
   Fixture fixture;
   if (!fixture.Seed() || !fixture.Begin()) { return; }
@@ -261,5 +301,6 @@ int main() {
   CursorKeepsCompletedPhases();
   TaskOwnsLegacyMigration();
   StopKeepsTheOriginalParent();
+  BasisReadReusesTheMigrationBasis();
   return Report();
 }

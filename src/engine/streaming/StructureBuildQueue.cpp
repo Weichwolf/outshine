@@ -1,6 +1,7 @@
 #include <expected>
 #include <exception>
 #include "StructureBuildQueue.h"
+#include <atomic>
 
 #include <algorithm>
 #include <cassert>
@@ -1251,6 +1252,9 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
 }
 
 void StructureBuildQueue::Clear() {
+  for (const auto &entry : NativeLookups_) {
+    entry.second->Stopping.store(true, std::memory_order_relaxed);
+  }
   for (const auto &entry : NativeLookups_) {
     if (entry.second->Task != Tasks::kNoTask && Pool_ != nullptr) {
       Pool_->Wait(entry.second->Task);
