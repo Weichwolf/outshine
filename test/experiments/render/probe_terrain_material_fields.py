@@ -34,11 +34,13 @@ def response(fields, dx, dy, recipe):
     )
 
 
-def appearance(detail, basis, footprint, recipe):
+def appearance(
+    detail, basis, footprint, recipe, *, light=(0.5, 0.8, -0.2), view=(0, 1, 0.6)
+):
     normal = unit(np.cross(basis[:, 1], basis[:, 0]))
     dual = basis @ np.linalg.inv(basis.T @ basis)
     normals = unit(normal - detail[..., 2:] / footprint @ dual.T)
-    light, view = unit([0.5, 0.8, -0.2]), unit([0, 1, 0.6])
+    light, view = unit(light), unit(view)
     nl = np.maximum(normals @ light, 0)
     roughness = np.clip(recipe["roughness"] + detail[..., 1], 0.04, 1)
     albedo = np.clip(np.asarray(recipe["albedo"]) * detail[..., :1], 0, 1)

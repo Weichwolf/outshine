@@ -4,6 +4,7 @@ import unittest
 from functools import partial
 
 import numpy as np
+from probe_terrain_material_fields import appearance
 from rock_direction import value
 from terrain_material_grid import bake, sample
 from terrain_material_lattice import analytic, evaluate, prepare
@@ -66,6 +67,52 @@ def shader_rock(point, dx, dy):
 
 
 class TerrainMaterialFields(unittest.TestCase):
+    def test_translation_and_light_changes_reuse_the_same_original_fields(self):
+        origin = np.array([1000.13, 1770.31, -200.27])
+        basis = np.array([[1, 0], [0.7, -0.3], [0, 1]])
+        uv = np.array([[0.5, 0.5], [0.8, 1.2], [2.2, 1.5], [3.5, 3.1]])
+        corners = origin + np.array([[0, 0], [4, 0], [0, 4], [4, 4]]) @ basis.T
+        lattices = []
+        for matrix, wavelength in zip(MATRICES, (84, 7, 1.045), strict=True):
+            at = corners @ (matrix / wavelength).T
+            lattices.append(prepare(np.stack((at.min(axis=0), at.max(axis=0)))))
+        original_words = [g.words_zyx.tobytes() for g in lattices]
+        callbacks = tuple(partial(evaluate, g) for g in lattices)
+        steps = np.array([0.01, 0.015])
+        dx, dy = (
+            np.tile(basis[:, 0] * steps[0], (4, 1)),
+            np.tile(basis[:, 1] * steps[1], (4, 1)),
+        )
+        material_responses = []
+        for shift in ([0, 0], [0.1, 0.2]):
+            world = origin + (uv + shift) @ basis.T
+            direct = self.response(
+                rock_fields(world, 7, 1.045, noise_queries=(analytic,) * 3), dx, dy
+            ).reshape(2, 2, 4)
+            lookup = self.response(
+                rock_fields(world, 7, 1.045, noise_queries=callbacks), dx, dy
+            ).reshape(2, 2, 4)
+            self.assertEqual(direct.tobytes(), lookup.tobytes())
+            material_responses.append(direct.tobytes())
+            lights = []
+            for light, view in (
+                ([0.5, 0.8, -0.2], [0, 1, 0.6]),
+                ([-0.4, 0.8, 0.2], [0.1, 0.9, -0.2]),
+            ):
+                recipe = {"albedo": [0.3, 0.3, 0.3], "roughness": 0.72}
+                expected = appearance(
+                    direct, basis, steps, recipe, light=light, view=view
+                )
+                actual = appearance(
+                    lookup, basis, steps, recipe, light=light, view=view
+                )
+                self.assertEqual(expected[0].tobytes(), actual[0].tobytes())
+                self.assertEqual(expected[1].tobytes(), actual[1].tobytes())
+                lights.append(actual[1].tobytes())
+            self.assertNotEqual(*lights)
+        self.assertNotEqual(*material_responses)
+        self.assertEqual(original_words, [g.words_zyx.tobytes() for g in lattices])
+
     def response(self, fields, dx, dy):
         return rock_response(
             fields, dx, dy, coarse_m=7.0, fine_m=1.045, height_m=0.04, contrast=0.6
