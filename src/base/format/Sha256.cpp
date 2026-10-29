@@ -1,6 +1,8 @@
 #include "Sha256.h"
+#include "Sha256Stream.h"
 
 #include <array>
+#include <expected>
 #include <algorithm>
 #include <limits>
 #ifdef __APPLE__
@@ -19,6 +21,14 @@
 
 namespace outshine {
 namespace {
+#ifdef __linux__
+EVP_MD *Sha256Method() noexcept {
+  static const std::unique_ptr<EVP_MD, decltype(&EVP_MD_free)> method(
+      EVP_MD_fetch(nullptr, "SHA256", nullptr), &EVP_MD_free);
+  return method.get();
+}
+#endif
+
 std::string DigestHex(std::span<const uint8_t, 32> digest) {
   static constexpr std::string_view kHex = "0123456789abcdef";
   std::string out(digest.size() * 2, '0');
@@ -189,16 +199,66 @@ std::string Sha256Prefix::Hex(const void *data, size_t bytes) const {
 
 std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
 #ifdef __linux__
-  static const std::unique_ptr<EVP_MD, decltype(&EVP_MD_free)> method(
-      EVP_MD_fetch(nullptr, "SHA256", nullptr), &EVP_MD_free);
+  const auto *method = Sha256Method();
   std::array<uint8_t, 32> digest{};
   unsigned written = 0;
-  if (method && EVP_Digest(data, bytes, digest.data(), &written, method.get(), nullptr) == 1 &&
+  if (method != nullptr && EVP_Digest(data, bytes, digest.data(), &written, method, nullptr) == 1 &&
       written == digest.size()) {
     return digest;
   }
 #endif
   return Sha256Prefix(nullptr, 0).Digest(data, bytes);
+}
+
+Sha256Stream::Sha256Stream() noexcept {
+#ifdef __linux__
+  const auto *method = Sha256Method();
+  if (method == nullptr) { return; }
+  auto *context = EVP_MD_CTX_new();
+  Context_ = context;
+  if (context != nullptr && EVP_DigestInit_ex(context, method, nullptr) == 1) {
+    Status_ = Status::Ready;
+  }
+#else
+  Status_ = Status::Ready;
+#endif
+}
+
+Sha256Stream::~Sha256Stream() {
+#ifdef __linux__
+  EVP_MD_CTX_free(static_cast<EVP_MD_CTX *>(Context_));
+#endif
+}
+
+void Sha256Stream::Update(const void *data, size_t bytes) noexcept {
+  if (Status_ != Status::Ready || bytes == 0) { return; }
+#ifdef __linux__
+  if (EVP_DigestUpdate(static_cast<EVP_MD_CTX *>(Context_), data, bytes) != 1) {
+    Status_ = Status::Failed;
+  }
+#else
+  Prefix_.Append(data, bytes);
+#endif
+}
+
+std::expected<std::array<uint8_t, 32>, Sha256StreamError> Sha256Stream::Finish() noexcept {
+  if (Status_ == Status::Finished) { return std::unexpected(Sha256StreamError::Finished); }
+  Update(Buffer_.data(), Buffered_);
+  Buffered_ = 0;
+  if (Status_ == Status::Failed) { return std::unexpected(Sha256StreamError::Provider); }
+  Status_ = Status::Finished;
+#ifdef __linux__
+  std::array<uint8_t, 32> digest{};
+  unsigned written = 0;
+  if (EVP_DigestFinal_ex(static_cast<EVP_MD_CTX *>(Context_), digest.data(), &written) != 1 ||
+      written != digest.size()) {
+    Status_ = Status::Failed;
+    return std::unexpected(Sha256StreamError::Provider);
+  }
+  return digest;
+#else
+  return Prefix_.Digest(nullptr, 0);
+#endif
 }
 
 std::string Sha256Hex(const void *data, size_t bytes) {

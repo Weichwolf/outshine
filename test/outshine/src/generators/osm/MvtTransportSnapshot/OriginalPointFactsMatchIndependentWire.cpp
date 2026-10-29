@@ -1,11 +1,16 @@
 #include "MvtTransportSnapshotInternal.h"
+#include "Sha256Stream.h"
 #include "Check.h"
+#ifdef __linux__
+#include <openssl/evp.h>
+#endif
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -102,7 +107,20 @@ void CheckIndependentWire() {
 }
 }
 
-int main() {
+int main(int argc, char *const *argv) {
+  if (argc == 2 && std::string_view(argv[1]) == "provider-unavailable") {
+#ifdef __linux__
+    CHECK(EVP_set_default_properties(nullptr, "provider=outshine-unavailable") == 1,
+          "the process explicitly requests an unavailable provider before hashing");
+    Sha256Stream unavailable;
+    const auto digest = unavailable.Finish();
+    CHECK(!digest && digest.error() == Sha256StreamError::Provider,
+          "an unavailable hardware provider returns its explicit failure");
+#else
+    Unprepared("provider failure injection requires the Linux backend");
+    return Report();
+#endif
+  }
   CheckIndependentWire();
   return Report();
 }
