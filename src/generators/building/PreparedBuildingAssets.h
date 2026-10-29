@@ -26,6 +26,11 @@ public:
   using Base = std::shared_ptr<const PreparedStructureTile>;
   using Basis = std::shared_ptr<const PreparedBuildingBasis>;
 
+  struct GeometryWrite {
+    std::string Key;
+    PreparedAssetWrite Package;
+  };
+
   struct RequestedBasis {
     std::string BaseKey;
     Basis Product;
@@ -38,6 +43,7 @@ public:
     uint64_t BasisResidentHits = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
+    uint64_t GeometryPreparations = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -75,6 +81,13 @@ public:
                 const PreparedStructureTile &base,
                 const RawTile &view,
                 const BakedTile &tile);
+  [[nodiscard]] std::expected<GeometryWrite, StructureBakeError>
+  PrepareGeometry(const std::string &baseKey,
+                  const PreparedStructureTile &base,
+                  const RawTile &view,
+                  const BakedTile &tile);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  PublishGeometry(const GeometryWrite &prepared);
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
@@ -134,6 +147,7 @@ private:
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},
       GeometryReadBytes_{0};
+  std::atomic_uint64_t GeometryPreparations_{0};
 };
 }
 #endif

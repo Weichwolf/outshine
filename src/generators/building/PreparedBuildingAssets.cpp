@@ -192,6 +192,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
           .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
           .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
-          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed)};
+          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed),
+          .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed)};
 }
 }
