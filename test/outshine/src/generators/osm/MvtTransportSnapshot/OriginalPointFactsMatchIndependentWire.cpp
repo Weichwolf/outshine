@@ -107,7 +107,7 @@ void CheckIndependentWire() {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc == 2 && std::string_view(argv[1]) == "provider-unavailable") {
 #ifdef __linux__
     CHECK(EVP_set_default_properties(nullptr, "provider=outshine-unavailable") == 1,
