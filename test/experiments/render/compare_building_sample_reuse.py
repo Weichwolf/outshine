@@ -212,7 +212,11 @@ def run(args):
         Path(__file__),
         *(
             Path(__file__).with_name(name)
-            for name in ("building_sample_inputs.py", "building_sample_points.py")
+            for name in (
+                "building_sample_inputs.py",
+                "building_sample_points.py",
+                "process_memory.py",
+            )
         ),
     ]
     tracked.extend(

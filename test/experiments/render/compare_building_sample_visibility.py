@@ -27,6 +27,7 @@ def run(args):
                 "building_sample_inputs.py",
                 "field_view_visibility.py",
                 "triangle_image_reference.py",
+                "process_memory.py",
             )
         ),
     ]

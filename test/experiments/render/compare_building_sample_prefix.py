@@ -128,6 +128,7 @@ def run(args):
                 "compare_building_sample_reuse.py",
                 "field_view_sampling.py",
                 "field_view_integrals.py",
+                "process_memory.py",
             )
         ),
     ]
@@ -152,6 +153,7 @@ def run(args):
         "nice": os.getpriority(os.PRIO_PROCESS, 0),
         "loadavg_before": load,
         "platform": platform.platform(),
+            "python": platform.python_version(),
         "numpy": np.__version__,
         "scope": "Single diagnostic run. Named decode/verification and comparison costs; no allocation-event or total-copy measurement, native speedup or device admission. Held bytes are not added to RSS.",
     }
