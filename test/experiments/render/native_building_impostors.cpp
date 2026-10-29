@@ -1,3 +1,6 @@
+#include "AzimuthElevation.h"
+#include "MaterialFieldPass.h"
+#include "test/harness/render/NativeOffline.h"
 #include "ImpostorBaker.h"
 #include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
@@ -713,11 +716,10 @@ struct RetainedRadiance {
   }
 };
 
-Json SourceDepthDescription(const Test::BuildingRadianceField &field, uint32_t pixels) {
-  const auto &camera = field.SourceCamera;
+Json SourceDepthDescription(const Render::Viewpoint &camera, Extent raster, size_t bytes) {
   return {{"format", "reverse_z_0_1_float32"},
-          {"width_px", pixels},
-          {"height_px", pixels},
+          {"width_px", raster.WidthPx},
+          {"height_px", raster.HeightPx},
           {"eye_m", camera.EyeM.Axis},
           {"right", camera.Right.Axis},
           {"up", camera.Up.Axis},
@@ -728,7 +730,7 @@ Json SourceDepthDescription(const Test::BuildingRadianceField &field, uint32_t p
           {"yfov_rad", camera.YfovRad},
           {"near_m", camera.ZNearM},
           {"far_m", camera.ZFarM},
-          {"bytes", field.SourceDepth.size() * sizeof(float)}};
+          {"bytes", bytes}};
 }
 
 void RadianceViews(const Fs::path &root, const Json &input) {
@@ -817,7 +819,11 @@ void RadianceViews(const Fs::path &root, const Json &input) {
               (image.Encoding == Render::RadianceEncoding::Integral ? 16 : 8)}});
     result["field_filter_gpu_ms"] = nullptr;
     if (!field.SourceDepth.empty()) {
-      result["source_depth"] = SourceDepthDescription(field, metadata.Pixels);
+      result["source_depth"] =
+          SourceDepthDescription(field.SourceCamera,
+                                 {.WidthPx = static_cast<int>(metadata.Pixels),
+                                  .HeightPx = static_cast<int>(metadata.Pixels)},
+                                 field.SourceDepth.size() * sizeof(float));
     }
     result["field_gpu_scope"] = "relight_and_filter_single_submission";
     const auto allocations = renderer.FrameGraphAllocationCounts();
@@ -986,6 +992,92 @@ void SourceMeshViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native source-mesh report write failed"); }
 }
 
+Render::Viewpoint CaptureCamera(const Json &description) {
+  Render::Viewpoint camera;
+  camera.EyeM = Vector(description.at("eye_m"));
+  camera.Right = Vector(description.at("right"));
+  camera.Up = Vector(description.at("up"));
+  camera.Forward = Vector(description.at("forward"));
+  camera.Kind = description.at("orthographic").get<bool>() ? Render::CameraKind::Orthographic
+                                                           : Render::CameraKind::Perspective;
+  camera.XMagM = description.at("x_mag_m").get<double>();
+  camera.YMagM = description.at("y_mag_m").get<double>();
+  camera.YfovRad = description.at("yfov_rad").get<double>();
+  camera.ZNearM = description.at("near_m").get<double>();
+  camera.ZFarM = description.at("far_m").get<double>();
+  return camera;
+}
+
+void MaterialFieldViews(const Fs::path &root, const Json &input) {
+  const auto directory = root / "geometry" / "0";
+  std::ifstream file(directory / "input.json");
+  const auto description = Json::parse(file, nullptr, false);
+  if (!description.is_object() || input.at("queries").empty()) {
+    Fail("whole-original material field input unavailable");
+  }
+  auto mesh = Source(directory, description);
+  const auto statistics = MeshStatistics(mesh);
+  const auto &first = input.at("queries").front().at("capture");
+  const Extent raster{.WidthPx = first.at("width_px").get<int>(),
+                      .HeightPx = first.at("height_px").get<int>()};
+  auto prepared = Render::MaterialFieldInput::Prepare(std::move(mesh), raster);
+  if (!prepared) { Fail(prepared.error()); }
+  size_t deviceCreations = 0;
+  Render::SceneRenderer renderer{TimedSubmission(deviceCreations)};
+  const auto configured = renderer.ConfigureMaterialFields();
+  if (!configured) { Fail(configured.error().Message); }
+  constexpr auto budget = std::chrono::seconds(5);
+  const auto resident =
+      Test::Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(*prepared); }, budget);
+  if (!resident) { Fail(resident.error().Message); }
+  Json results{{"mode", "material-fields"}, {"geometry", statistics}, {"cases", Json::array()}};
+  for (const auto &query : input.at("queries")) {
+    const auto &capture = query.at("capture");
+    if (capture.at("width_px") != raster.WidthPx || capture.at("height_px") != raster.HeightPx) {
+      Fail("material field capture raster changed within held source");
+    }
+    std::array<Render::SceneLight, 1> lights{};
+    lights[0].Light.Intensity = 100;
+    const auto towardSun =
+        EastUpSouthDirection(0, query.value("sun_elevation_deg", 45.0) * std::numbers::pi / 180.0);
+    for (size_t axis = 0; axis < 3; ++axis) {
+      lights[0].Light.Direction[axis] = -static_cast<float>(towardSun[axis]);
+    }
+    const auto began = Clock::now();
+    const Render::MaterialFieldView view{.Camera = CaptureCamera(capture),
+                                         .Lights = lights,
+                                         .Environment = {},
+                                         .Target = raster,
+                                         .Encoding = Render::RadianceEncoding::Integral};
+    const auto images = Test::Gpu::RetryOffline(
+        [&] { return renderer.RelightMaterialField(**resident, view); }, budget);
+    if (!images) { Fail(images.error().Message); }
+    renderer.WaitForGpu();
+    auto &device = *images->Unfiltered->Device;
+    const auto colour = Test::ReadMaterialFieldImage(device, *images->Unfiltered->Texture);
+    const auto depth = Test::ReadMaterialFieldImage(device, *images->Depth);
+    const auto integral = Test::ReadMaterialFieldImage(device, *images->Filtered->Texture);
+    if (!colour || !depth || !integral) { Fail("whole-original field readback unavailable"); }
+    const auto name = query.at("name").get<std::string>();
+    Write<float>(root / (name + "-colour.f32"), *colour);
+    Write<float>(root / (name + "-depth.f32"), *depth);
+    Write<float>(root / (name + "-integral.f32"), *integral);
+    const std::array filtered{images->Filtered};
+    const auto &shape = images->Filtered->Texture->Description();
+    results["cases"].push_back(
+        {{"query", name},
+         {"capture", SourceDepthDescription(images->Camera, raster, depth->size() * sizeof(float))},
+         {"integral_width", shape.Width},
+         {"integral_height", shape.Height},
+         {"relight_filter_gpu_ms", FilterGpuMilliseconds(filtered)},
+         {"relight_and_readback_wall_ms", Milliseconds(began)}});
+  }
+  results["render_device_creations"] = deviceCreations;
+  std::ofstream report(root / "material-fields-result.json");
+  report << results.dump(2) << '\n';
+  if (!report) { Fail("material field report write failed"); }
+}
+
 void CompareOriginals(const Fs::path &root, const Json &input) {
   const auto sourceStarted = Clock::now();
   const auto original = Source(root, input);
@@ -1068,16 +1160,23 @@ void CompareOriginals(const Fs::path &root, const Json &input) {
 }
 
 int main(int argc, char *const *argv) {
+  const bool materialFields = argc == 3 && std::string_view(argv[2]) == "--material-fields";
   const bool cachedWorld = argc == 3 && std::string_view(argv[2]) == "--cached-world";
   const bool sourceMesh = argc == 3 && std::string_view(argv[2]) == "--source-mesh";
   const bool radianceWorld = argc == 3 && std::string_view(argv[2]) == "--radiance-world";
-  if (argc != 2 && !cachedWorld && !sourceMesh && !radianceWorld) {
-    Fail("expected a prepared input directory [--cached-world|--source-mesh|--radiance-world]");
+  if (argc != 2 && !cachedWorld && !sourceMesh && !radianceWorld && !materialFields) {
+    Fail("expected a prepared input directory "
+         "[--cached-world|--source-mesh|--radiance-world|--material-fields]");
   }
   const Fs::path root(argv[1]);
   std::ifstream file(root / "input.json");
   const auto input = Json::parse(file, nullptr, false);
   if (input.is_discarded() || !SDL_Init(SDL_INIT_VIDEO)) { Fail("input/video unavailable"); }
+  if (materialFields) {
+    MaterialFieldViews(root, input);
+    SDL_Quit();
+    return 0;
+  }
   if (cachedWorld || sourceMesh || radianceWorld) {
     if (radianceWorld) {
       RadianceViews(root, input);

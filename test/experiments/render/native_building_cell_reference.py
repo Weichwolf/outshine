@@ -98,3 +98,28 @@ def load_cells(manifest_path, archive, cells, frame):
         "decoded_array_bytes_after_transform": sum(v.nbytes for v in source.values()),
         "scope": "Delivered unprojected native geometry with current-policy source-material model. Explicit failed originals have no geometry: image excludes them and their actual price remains unknown. Reference CPU arrays/control files are not native asset IO or GPU upload prices.",
     }
+
+
+def native_parts(original):
+    role = original["binding"][:, 4].copy()
+    metres = np.any(original["metres"][original["indices"]] != 0, axis=(1, 2))
+    role[(role == 0) & metres] = 2
+    parts = []
+    for material in range(3):
+        faces = original["indices"][role == material]
+        ids, inverse = np.unique(faces, return_inverse=True)
+        part = {
+            "positions": original["positions"][ids][:, [0, 2, 1]].copy(),
+            "normals": original["vertex_normal"][ids][:, [0, 2, 1]].copy(),
+            "uv": original["uv"][ids],
+            "uv1": original["metres"][ids],
+            "colours": original["colour"][ids],
+            "indices": inverse.reshape(-1, 3),
+            "binding": original["binding"][role == material],
+        }
+        for key in ("positions", "normals"):
+            part[key][:, 2] *= -1
+        for key in ("positions", "normals", "uv", "uv1", "colours", "indices"):
+            part[key] = part[key].astype("<u4" if key == "indices" else "<f4")
+        parts.append(part)
+    return parts

@@ -35,6 +35,9 @@ struct BuildingRadianceField {
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
 
+[[nodiscard]] std::expected<std::vector<float>, std::string>
+ReadMaterialFieldImage(Render::Native::Device &device, const Render::Native::Texture &image);
+
 [[nodiscard]] std::expected<void, std::string>
 UpdateBuildingRadianceSupport(BuildingRadianceField &field,
                               const ImpostorAtlas &atlas,

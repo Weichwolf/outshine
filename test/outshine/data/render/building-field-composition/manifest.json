@@ -1,0 +1,357 @@
+{
+  "version": 1,
+  "native_commit": "e65f365d2811e4e64b250a29b50d935ce4c77126",
+  "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df",
+  "driver_sources_sha256": {
+    "export_field_backgrounds.py": "540059cdd08c4d8490d1a488ee4428f8e9afe3532879d0526c720fe679d962b8",
+    "field_background_inputs.py": "c11faea8a92c65619a0f34f653b09702febaf07e1bc245805adc9e778f5757e1",
+    "native_building_cell_reference.py": "68a8766372c69bd8159810eb3ac02069f5eb1dee816a8d332ea2d078a51abbac",
+    "native_building_impostors.cpp": "87fdfb9f2a7490c5d5797ccf357a85e7a48903fa1ed3498a8d45da7a000e97f9",
+    "BuildingRadianceField.cpp": "40b0e6c1abec28c1c19da6a79be1fab870b0d12f7fa5bbb928673d811ac4f20d"
+  },
+  "source": {
+    "native_product_commit": "077d9827e05f2f967204ccb80d700c5f8c7e9d50",
+    "native_product_tree": "c1844df44f1470f121b9636abe788ba581d49bfc",
+    "source_archive_sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac",
+    "cells": [
+      {
+        "cell": 25,
+        "sources": 508,
+        "triangles": 12327,
+        "expanded_bytes": 1775088,
+        "unsupported": [],
+        "file": "25.json.gz",
+        "bytes": 1109522,
+        "sha256": "404cf732a74522bf2a826c6c612d936a4904dc155fdd83ea3cc4b5e7c97a97ae",
+        "kind": "native producer control"
+      },
+      {
+        "cell": 33,
+        "sources": 576,
+        "triangles": 14169,
+        "expanded_bytes": 2040336,
+        "unsupported": [],
+        "archive_replay": {
+          "sources": 576,
+          "triangles": 14169,
+          "expanded_bytes": 2040336,
+          "opaque_assumption": true,
+          "material_scope": "Wall/roof streams and actual vertex colour/UV/normal/material-metre attributes preserved; GPU material bindings/opacity remain unqualified.",
+          "part_scope": "Analytic surfaces retain parts/faces. Cached whole-source triangle part IDs are unknown and remain null."
+        },
+        "file": "../cell.json.gz",
+        "bytes": 1270215,
+        "sha256": "31e296fdda1e8ffebba3303bf28f35e4de99c29410e19bc9983a6e375696d3da",
+        "kind": "archived geometry replay"
+      },
+      {
+        "cell": 34,
+        "sources": 474,
+        "triangles": 11980,
+        "expanded_bytes": 1725120,
+        "unsupported": [],
+        "file": "34.json.gz",
+        "bytes": 1128516,
+        "sha256": "bbd96d43b21e7439f876a1023f947fb3fac5397b9f4419daf9efcf8356439964",
+        "kind": "native producer control"
+      },
+      {
+        "cell": 41,
+        "sources": 335,
+        "triangles": 8413,
+        "expanded_bytes": 1211472,
+        "unsupported": [
+          {
+            "source": 3825,
+            "reason": "footprint cannot form a supported building mass"
+          },
+          {
+            "source": 3827,
+            "reason": "footprint cannot form a supported building mass"
+          }
+        ],
+        "file": "41.json.gz",
+        "bytes": 731401,
+        "sha256": "ecb25d9490b8f64e4a1f72d797636e9a76a8e448f402542fe61a78234aadfec9",
+        "kind": "native producer control"
+      }
+    ],
+    "unresolved_originals": [
+      {
+        "source": 3825,
+        "reason": "footprint cannot form a supported building mass"
+      },
+      {
+        "source": 3827,
+        "reason": "footprint cannot form a supported building mass"
+      }
+    ],
+    "decoded_array_bytes_before_transform": 9090600,
+    "decoded_array_bytes_after_transform": 10230588,
+    "scope": "Delivered unprojected native geometry with current-policy source-material model. Explicit failed originals have no geometry: image excludes them and their actual price remains unknown. Reference CPU arrays/control files are not native asset IO or GPU upload prices."
+  },
+  "geometry_loader": "field_background_inputs.original_inputs",
+  "geometry_arrays_sha256": {
+    "part0_positions": "f898e4143ebbd78c6642e7c8075726b3a68080ba33deff703c749e54b74b447e",
+    "part0_normals": "5a025e8b6b1d80bf4953634ebea0e29d8d8fc3dc033a2c90130e9f9f2f5ca4b5",
+    "part0_uv": "60ada671ae659a99d0b1c3d7f768849fe520c26b84778b4693a785647eae2d16",
+    "part0_uv1": "a586ec080e37c01e622b50c672a29d4aabb90ee4b8f653c6f6476a5268e1e548",
+    "part0_colours": "b81cf4f8b827f03d0ea5f5d6d6910a7f194526fe570d305d948523a56f9098b7",
+    "part0_indices": "695a42443fad593fb49c6d7ff521285d3031cac769d3a5ada29cba1753df3803",
+    "part0_binding": "8575388f8616ab5b3d856ce577fffb2aec9f2d784bcaa70786a23deef37b6489",
+    "part1_positions": "78f9fc5fd9bcaf62ae3c9eca9b9a0d971974fb9e70742a15f64a69bb8461b1db",
+    "part1_normals": "80a80f50337355c73195e49d99b2ac04f848cb46ec003bbfb0b2aafb948d1118",
+    "part1_uv": "ca4d1065f7aaf69f1837f105c9bb3472664237ce30ddae871306972a9d18b44d",
+    "part1_uv1": "77f636c7fcf661348f0207a120b9b18df18ff9d478d0d0f5766d47d7f147506d",
+    "part1_colours": "4b05d564dcd8075a85fe5dd1c87d7e694a58c91d8b77b9a2d0b1f4f4b4ba82de",
+    "part1_indices": "d1aa6f8640c0b0a831c2f2850abc20bc411a58632db1856dcefb95cb51c7dce0",
+    "part1_binding": "464d004db61532d77a1909f800243f7310ab0ee7b374d9088c9d9f0c813a8391",
+    "part2_positions": "9976c3759785a4bae2f847cc3cb06da460bc3632a30a8bbc90effc288681271d",
+    "part2_normals": "aa0a52ac5a35da3cf50a47b7d2135a2673bdfb786fac0e1fe731cfc0cd89151b",
+    "part2_uv": "b02060261bfc9be4f8d16d3793c693e5928c8fead2c99c801c5def549563fba2",
+    "part2_uv1": "9932b46cff9903d28c967d528d7621eae9fcb5b4d0117a2c02f0390783e66881",
+    "part2_colours": "a81f061c36e61ae5dff1cecc1057e0aca48160225e330e417ce3d6c04112639f",
+    "part2_indices": "1c0bc8016aa25220984a5099db7cb0fa4ae22cddb9eabcd3c00c6c39a9da91b5",
+    "part2_binding": "160b7f694dce643426bea8405eab9b45bfef2fcb8f468dbcfc04660464a82ce9"
+  },
+  "input_files": {
+    "source-plane-request.json": "4e7bb26300c621da679349e0dd43afa64c1df8ab33e8bf24c98927e25c7ff254",
+    "original-inputs.tar.gz": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac",
+    "native-cells/manifest.json": "28bd35921d96fcbc1ae7d36b53d060037927f232e521f66d134a56358b511dd4"
+  },
+  "field_capture": {
+    "input_sha256": "3414004eebe92a15b3ccb94bbd692b0aa1bd12a2ee3acf363786b403e075306b",
+    "report_sha256": "80b96f843efa5eef4cf9d91a9ebc31220cea15ffa1550e85271a9c6dab998955",
+    "asset_key": "0ac73188998af683619ad01ac30bae26b49a7a363ce034c563b19cf121d7f681",
+    "selected_view": 7,
+    "device": "Apple A18 Pro",
+    "query": {
+      "name": "motion-0",
+      "eye": [
+        -28813.631124051444,
+        44911.97046520588,
+        35314.95302280415
+      ],
+      "basis": [
+        [
+          0.7739572992033211,
+          0.0,
+          0.6332377902572626
+        ],
+        [
+          0.4443787923272244,
+          0.7124167940484075,
+          -0.5431296350666077
+        ],
+        [
+          0.45112923640537694,
+          -0.7017565899639197,
+          -0.5513801778287941
+        ]
+      ],
+      "focal_px": 900,
+      "sun_elevation_deg": 45.0,
+      "dump_source_field": true,
+      "filter_axis_samples": 1
+    },
+    "raw_colour_sha256": "badcba89588fded45dffbb5ea5d26e676251c6527c515a8b43cb3c20bdcac8d1",
+    "raw_depth_sha256": "4c0da1a99268928d42975f6f6b923947fdbd58b57b079b94f947c3d755d585e9"
+  },
+  "source_id_namespace": "source ordinal within source-plane-request parent; not an OSM ID",
+  "raster_origin": "upper-left; x right, y down; pixel centres at integer + 0.5",
+  "colour_encoding": "premultiplied linear HDR RGB; fourth channel coverage = 1-T",
+  "capture_camera": {
+    "bytes": 65536,
+    "eye_m": [
+      -31941.359994107323,
+      45254.38270345406,
+      32026.621641761307
+    ],
+    "far_m": 65892.08693493484,
+    "format": "reverse_z_0_1_float32",
+    "forward": [
+      0.5000000000000001,
+      -0.7071067811865475,
+      -0.49999999999999983
+    ],
+    "height_px": 128,
+    "near_m": 0.1,
+    "orthographic": true,
+    "right": [
+      0.7071067811865474,
+      0.0,
+      0.7071067811865477
+    ],
+    "up": [
+      0.5000000000000001,
+      0.7071067811865475,
+      -0.49999999999999983
+    ],
+    "width_px": 128,
+    "x_mag_m": 473.0217337337119,
+    "y_mag_m": 473.0217337337119,
+    "yfov_rad": 0.0
+  },
+  "viewer": {
+    "name": "view",
+    "eye": [
+      -28813.631124051444,
+      44911.97046520588,
+      35314.95302280415
+    ],
+    "basis": [
+      [
+        0.7739572992033211,
+        0.0,
+        0.6332377902572626
+      ],
+      [
+        0.4443787923272244,
+        0.7124167940484075,
+        -0.5431296350666077
+      ],
+      [
+        0.45112923640537694,
+        -0.7017565899639197,
+        -0.5513801778287941
+      ]
+    ],
+    "focal_px": 900,
+    "sun_elevation_deg": 45.0,
+    "dump_source_field": true,
+    "filter_axis_samples": 4,
+    "width_px": 1280,
+    "height_px": 720,
+    "near_m": 0.1,
+    "far_m": 0.0,
+    "depth": "reverse_z_0_1_float32",
+    "orthographic": false
+  },
+  "controlled_translations_m": {
+    "foreground": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "separated-background": [
+      [
+        834.119979665543,
+        -1297.5199683686224,
+        -1019.479975146775
+      ]
+    ],
+    "separated-original": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        834.119979665543,
+        -1297.5199683686224,
+        -1019.479975146775
+      ]
+    ],
+    "interleaved-background": [
+      [
+        71.5508101201151,
+        0.0,
+        58.5415719164578
+      ]
+    ],
+    "interleaved-original": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        71.5508101201151,
+        0.0,
+        58.5415719164578
+      ]
+    ]
+  },
+  "foreground_forward_interval_m": [
+    63679.05091725715,
+    64208.15787595305
+  ],
+  "checks": {
+    "separated": {
+      "common_pixel_centres": 14,
+      "foreground_nearer": 14,
+      "background_nearer": 0,
+      "equal_depth": 0,
+      "whole_depth_intervals_separated": true,
+      "background_forward_interval_m": [
+        65528.01109523742,
+        66057.11802443866
+      ],
+      "fractional_reference_pixels": 45,
+      "native_union_depth_exact": true,
+      "native_union_colour_exact": true,
+      "independent_filter_rgb_max_error": 0.7466888427734375,
+      "independent_filter_coverage_max_error": 0.25
+    },
+    "interleaved": {
+      "common_pixel_centres": 9,
+      "foreground_nearer": 4,
+      "background_nearer": 5,
+      "equal_depth": 0,
+      "whole_depth_intervals_separated": false,
+      "background_forward_interval_m": [
+        63679.05092184627,
+        64208.15787710034
+      ],
+      "fractional_reference_pixels": 55,
+      "native_union_depth_exact": true,
+      "native_union_colour_exact": true
+    }
+  },
+  "runs": {
+    "foreground": {
+      "terminal": 0,
+      "elapsed_ms": 564.4816248677671,
+      "mode": "--source-mesh",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    },
+    "separated-background": {
+      "terminal": 0,
+      "elapsed_ms": 451.4531660825014,
+      "mode": "--source-mesh",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    },
+    "separated-original": {
+      "terminal": 0,
+      "elapsed_ms": 451.44166611135006,
+      "mode": "--source-mesh",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    },
+    "interleaved-background": {
+      "terminal": 0,
+      "elapsed_ms": 451.30562502890825,
+      "mode": "--source-mesh",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    },
+    "interleaved-original": {
+      "terminal": 0,
+      "elapsed_ms": 448.4007500577718,
+      "mode": "--source-mesh",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    },
+    "raw-original": {
+      "terminal": 0,
+      "elapsed_ms": 501.5601250343025,
+      "mode": "--radiance-world",
+      "binary_sha256": "792307e6731b3aca626b8cecc4e6630fca3bbc928ad89d61e712823501df81df"
+    }
+  },
+  "native_array_bytes": 166641692,
+  "geometry_sources": 1891,
+  "geometry_triangles": 46889,
+  "npz_bytes": 271442,
+  "npz_sha256": "7d060cd589a94c9506660e1f3fc58ac7df73827b987c2ab12a8c3e3cb9b998fa",
+  "scope": "Controlled translations of complete supported original groups; two unsupported IDs and archived cell33 opacity remain unqualified. Single pixel-centre depth and finite 4x4 microcamera colour samples, not a continuous coverage/depth certificate, geographic neighbour, World admission or performance gate."
+}

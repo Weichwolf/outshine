@@ -58,44 +58,6 @@ ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
   return result;
 }
 
-std::expected<std::vector<float>, std::string> ReadField(Render::Native::Device &device,
-                                                         const Render::Native::Texture &image) {
-  const auto &shape = image.Description();
-  const bool depth = shape.Texels == Render::Native::Format::Depth32Float;
-  if (!depth && shape.Texels != Render::Native::Format::Rgba16Float) {
-    return std::unexpected("source field has an unsupported readback format");
-  }
-  auto transfer = Gpu::RetryOffline(
-      [&] {
-        return Render::ReadbackTransfer::Start(
-            device, image, {.Width = shape.Width, .Height = shape.Height});
-      },
-      kOfflineBudget);
-  if (!transfer) { return std::unexpected(transfer.error().Message); }
-  const auto pixels = transfer->Wait(device, kOfflineBudget);
-  if (!pixels) { return std::unexpected(pixels.error().Message); }
-  if (!*pixels) { return std::unexpected("source radiance readback exceeded its offline budget"); }
-  std::vector<float> result(size_t{shape.Width} * shape.Height * (depth ? 1 : 4));
-  if (depth) {
-    for (size_t row = 0; row < shape.Height; ++row) {
-      std::memcpy(result.data() + row * shape.Width,
-                  (*pixels)->data() + row * transfer->RowBytes(),
-                  size_t{shape.Width} * sizeof(float));
-    }
-  } else if (!SDL_ConvertPixels(static_cast<int>(shape.Width),
-                                static_cast<int>(shape.Height),
-                                SDL_PIXELFORMAT_RGBA64_FLOAT,
-                                (*pixels)->data(),
-                                static_cast<int>(transfer->RowBytes()),
-                                SDL_PIXELFORMAT_RGBA128_FLOAT,
-                                result.data(),
-                                static_cast<int>(shape.Width * 16)) ||
-             !std::ranges::all_of(result, [](float x) { return std::isfinite(x); })) {
-    return std::unexpected("source radiance field is incomplete or nonfinite");
-  }
-  return result;
-}
-
 std::expected<double, std::string> GpuMilliseconds(Render::Native::Device &device,
                                                    Render::Native::Completion produced) {
   const auto timing = device.SubmissionGpuTime(produced);
@@ -165,9 +127,9 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   }
   if (query.value("dump_source_field", true)) {
     began = Clock::now();
-    auto pixels = ReadField(*images->Unfiltered->Device, *images->Unfiltered->Texture);
+    auto pixels = ReadMaterialFieldImage(*images->Unfiltered->Device, *images->Unfiltered->Texture);
     if (!pixels) { return std::unexpected(pixels.error()); }
-    auto depths = ReadField(*images->Unfiltered->Device, *images->Depth);
+    auto depths = ReadMaterialFieldImage(*images->Unfiltered->Device, *images->Depth);
     if (!depths) { return std::unexpected(depths.error()); }
     result.SourceLinear = std::move(*pixels);
     result.SourceDepth = std::move(*depths);
@@ -176,6 +138,48 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   return {};
 }
 } // namespace
+
+std::expected<std::vector<float>, std::string>
+ReadMaterialFieldImage(Render::Native::Device &device, const Render::Native::Texture &image) {
+  const auto &shape = image.Description();
+  const bool depth = shape.Texels == Render::Native::Format::Depth32Float;
+  if (!depth && shape.Texels != Render::Native::Format::Rgba16Float &&
+      shape.Texels != Render::Native::Format::Rgba32Float) {
+    return std::unexpected("source field has an unsupported readback format");
+  }
+  auto transfer = Gpu::RetryOffline(
+      [&] {
+        return Render::ReadbackTransfer::Start(
+            device, image, {.Width = shape.Width, .Height = shape.Height});
+      },
+      kOfflineBudget);
+  if (!transfer) { return std::unexpected(transfer.error().Message); }
+  const auto pixels = transfer->Wait(device, kOfflineBudget);
+  if (!pixels) { return std::unexpected(pixels.error().Message); }
+  if (!*pixels) { return std::unexpected("source radiance readback exceeded its offline budget"); }
+  std::vector<float> result(size_t{shape.Width} * shape.Height * (depth ? 1 : 4));
+  if (depth || shape.Texels == Render::Native::Format::Rgba32Float) {
+    const size_t rowFloats = size_t{shape.Width} * (depth ? 1 : 4);
+    for (size_t row = 0; row < shape.Height; ++row) {
+      std::memcpy(result.data() + row * rowFloats,
+                  (*pixels)->data() + row * transfer->RowBytes(),
+                  rowFloats * sizeof(float));
+    }
+  } else if (!SDL_ConvertPixels(static_cast<int>(shape.Width),
+                                static_cast<int>(shape.Height),
+                                SDL_PIXELFORMAT_RGBA64_FLOAT,
+                                (*pixels)->data(),
+                                static_cast<int>(transfer->RowBytes()),
+                                SDL_PIXELFORMAT_RGBA128_FLOAT,
+                                result.data(),
+                                static_cast<int>(shape.Width * 16))) {
+    return std::unexpected("source radiance field is incomplete or nonfinite");
+  }
+  if (!std::ranges::all_of(result, [](float x) { return std::isfinite(x); })) {
+    return std::unexpected("material field readback is nonfinite");
+  }
+  return result;
+}
 
 std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceField &field,
                                                                const ImpostorAtlas &atlas,
