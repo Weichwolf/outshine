@@ -15,6 +15,7 @@ template <class T> using Checked = std::expected<T, GroundPortPlanError>;
 
 struct Part {
   size_t Body = 0;
+  World::TransportEdgeId Source;
   TransportPath Path;
   TransportInputReference Input;
   std::array<TransportCoreEnd, 2> Ends{};
@@ -33,9 +34,16 @@ PrepareParts(const GroundPortField &field,
              const std::stop_token &stop);
 
 [[nodiscard]] Checked<void> AppendProfiles(TransportPlan &plan,
+                                           const GroundPortField &field,
                                            std::vector<Part> &parts,
                                            GroundPortBodyRecipe recipe,
                                            GroundPortPlanBudget budget);
+
+[[nodiscard]] Checked<void> AppendSourceEnds(TransportPlan &plan,
+                                             const GroundPortField &field,
+                                             std::vector<Part> &parts,
+                                             GroundPortBodyRecipe recipe,
+                                             GroundPortPlanBudget budget);
 
 [[nodiscard]] Checked<void> BindInputs(TransportPlan &plan,
                                        const GroundPortBodies &sliced,

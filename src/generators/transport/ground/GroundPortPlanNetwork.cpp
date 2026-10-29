@@ -15,13 +15,11 @@ std::expected<TransportPlanNetwork, TransportPlanNetworkError> ProjectGroundPort
   const auto &source = field.Source();
   if (!source.Source) { return std::unexpected(Error::InvalidSource); }
   const auto &graph = source.Source->Topology();
-  const size_t exits = field.Scope() ? field.Scope()->Exits.size() : 0;
-  if (source.SourceEdges.size() > limits.DirectedEdges / 2 ||
-      exits > limits.DirectedEdges / 2 - source.SourceEdges.size()) {
+  if (source.SourceEdges.size() > limits.DirectedEdges / 2) {
     return std::unexpected(Error::CapacityExceeded);
   }
   std::vector<World::TransportEdgeId> selected;
-  selected.reserve((source.SourceEdges.size() + exits) * 2);
+  selected.reserve(source.SourceEdges.size() * 2);
   const auto append = [&](World::TransportEdgeId id) {
     selected.push_back(id);
     id.Direction = id.Direction == World::EdgeDirection::Forward ? World::EdgeDirection::Reverse
@@ -33,17 +31,11 @@ std::expected<TransportPlanNetwork, TransportPlanNetworkError> ProjectGroundPort
     if (index >= graph.Edges().size()) { return std::unexpected(Error::InvalidSource); }
     append(graph.Edges()[index].Id);
   }
-  if (field.Scope()) {
-    for (const auto &exit : field.Scope()->Exits) {
-      if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-      append(exit.External);
-    }
-  }
   std::ranges::sort(selected);
   selected.erase(std::ranges::unique(selected).begin(), selected.end());
   auto result = ProjectTransportPlanNetwork(*source.Source, selected, limits, stop);
   if (!result) { return std::unexpected(result.error()); }
-  result->Work.EdgeLookups += source.SourceEdges.size() + exits;
+  result->Work.EdgeLookups += source.SourceEdges.size();
   result->Work.ScratchCapacityBytes += selected.capacity() * sizeof(World::TransportEdgeId);
   return result;
 }

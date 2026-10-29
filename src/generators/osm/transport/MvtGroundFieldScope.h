@@ -28,6 +28,8 @@ struct MvtGroundFieldWork {
   size_t OriginalNodeLookups = 0;
   size_t QualifiedMemberVisits = 0;
   size_t ContentMemberVisits = 0;
+  size_t EndRelationVisits = 0;
+  size_t EndScratchCapacityBytes = 0;
   size_t CoverageTests = 0;
   size_t ContainerCapacityBytes = 0;
 };

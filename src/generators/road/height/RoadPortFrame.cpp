@@ -67,6 +67,30 @@ std::expected<RoadPortFrameSample, RoadPortQueryError> Finish(const TangentFrame
 }
 
 std::expected<RoadPortFrameSample, RoadPortQueryError>
+SampleRoadPortSectionFrame(RoadPortFieldQuery &query,
+                           const RoadPortFrameRequest &request,
+                           EastNorth centre,
+                           const std::stop_token &stop) noexcept {
+  if (stop.stop_requested()) { return std::unexpected(RoadPortQueryError::Canceled); }
+  if (!Valid(request)) { return std::unexpected(RoadPortQueryError::InvalidInput); }
+  const auto sampled = query.At(centre);
+  if (!sampled) { return std::unexpected(sampled.error()); }
+  const auto source = TangentFrame::At(request.SourceAnchor);
+  const auto target = TangentFrame::At(request.PortAnchor);
+  const auto point = target.ToLocalPosition(source.ToEcefPosition(
+      {.EastM = centre.EastM, .NorthM = centre.NorthM, .UpM = sampled->HeightM}));
+  if (!std::isfinite(point.EastM) || !std::isfinite(point.NorthM) || !std::isfinite(point.UpM) ||
+      std::abs(point.UpM) > kModelHeightMostM) {
+    return std::unexpected(RoadPortQueryError::UnqualifiedFrame);
+  }
+  RoadPortFrameSample result;
+  result.Port.Gate.EastM = point.EastM;
+  result.Port.Gate.NorthM = point.NorthM;
+  result.Port.Gate.GradeM = point.UpM;
+  return Finish(source, target, request, *sampled, result);
+}
+
+std::expected<RoadPortFrameSample, RoadPortQueryError>
 SampleRoadPortFrame(RoadPortFieldQuery &query,
                     const RoadPortFrameRequest &request,
                     const std::stop_token &stop) noexcept {

@@ -6,15 +6,16 @@
 #include <string_view>
 
 namespace outshine::Generators {
-std::expected<RoadPort, std::string_view>
-TransportPortInFrame(const TransportPort &port, const TangentFrame &frame, EastNorth interior) {
-  const auto source = TangentFrame::At(port.Anchor);
-  const auto &gate = port.Contact.Gate;
-  const auto &plane = port.Contact.Plane;
-  if (gate.EastM != 0 || gate.NorthM != 0) {
-    return std::unexpected("transport boundary contact is not in its canonical local frame");
-  }
-  const auto point = frame.ToLocalPosition(source.ToEcefPosition({.UpM = gate.GradeM}));
+namespace {
+std::expected<RoadPort, std::string_view> InFrame(LongitudeLatitude anchor,
+                                                  const RoadPort &contact,
+                                                  const TangentFrame &frame,
+                                                  EastNorth interior) {
+  const auto source = TangentFrame::At(anchor);
+  const auto &gate = contact.Gate;
+  const auto &plane = contact.Plane;
+  const auto point = frame.ToLocalPosition(
+      source.ToEcefPosition({.EastM = gate.EastM, .NorthM = gate.NorthM, .UpM = gate.GradeM}));
   const auto normal = frame.ToLocalDirection(
       source.ToEcefDirection({.EastM = -plane.SlopeE, .NorthM = -plane.SlopeN, .UpM = 1}));
   const auto across = frame.ToLocalDirection(
@@ -52,5 +53,19 @@ TransportPortInFrame(const TransportPort &port, const TangentFrame &frame, EastN
     return std::unexpected("transport boundary transformation is not finite");
   }
   return result;
+}
+}
+
+std::expected<RoadPort, std::string_view>
+TransportPortInFrame(const TransportPort &port, const TangentFrame &frame, EastNorth interior) {
+  if (port.Contact.Gate.EastM != 0 || port.Contact.Gate.NorthM != 0) {
+    return std::unexpected("transport boundary contact is not in its canonical local frame");
+  }
+  return InFrame(port.Anchor, port.Contact, frame, interior);
+}
+
+std::expected<RoadPort, std::string_view>
+TransportPortInFrame(const TransportSourceEnd &end, const TangentFrame &frame, EastNorth interior) {
+  return InFrame(end.Anchor, end.Contact, frame, interior);
 }
 }

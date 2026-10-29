@@ -1,5 +1,6 @@
 #include "MvtGroundFieldScopeInternal.h"
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -7,6 +8,7 @@
 #include <expected>
 #include <span>
 #include <tuple>
+#include <vector>
 
 namespace outshine::Generators::Osm::GroundFieldScopes {
 namespace {
@@ -18,6 +20,19 @@ struct Member {
   uint8_t PhysicalEnd;
   uint8_t Omissions;
 };
+
+TransportSourceMember Portable(const MvtTransportSourceMember &member, const Member &bound) {
+  return {.Edge = member.Edge,
+          .Node = member.DomainNode,
+          .SourceStep = member.SourceStep,
+          .PointCount = bound.Way->PointCount,
+          .End = member.End,
+          .Layer = bound.Edge->Layer,
+          .Bridge = bound.Edge->Bridge,
+          .Tunnel = bound.Edge->Tunnel,
+          .Terminal = member.SourceTerminal,
+          .OwnsEnd = bound.Way->OwnsEnds[bound.PhysicalEnd]};
+}
 
 Checked<Member> Bound(const State &state, const MvtTransportSourceMember &member) {
   const auto &graph = state.Source().Source->Topology();
@@ -125,9 +140,16 @@ Members(State &state, uint32_t index, std::span<const MvtTransportSourceMember> 
   const MvtTransportSourceMember *ground = nullptr;
   size_t groundCount = 0;
   const size_t firstExit = state.Output.Field.Info.Exits.size();
+  std::vector<TransportSourceMember> portable;
+  portable.reserve(members.size());
+  std::array<uint32_t, 2> grounds{};
+  state.Output.Work.EndScratchCapacityBytes =
+      std::max(state.Output.Work.EndScratchCapacityBytes,
+               portable.capacity() * sizeof(TransportSourceMember));
   for (const auto &member : members) {
     if (state.Stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-    if (state.Output.Work.OriginalMemberVisits + state.Output.Work.QualifiedMemberVisits >=
+    if (state.Output.Work.OriginalMemberVisits + state.Output.Work.QualifiedMemberVisits +
+            state.Output.Work.EndRelationVisits + state.Output.Work.ContentMemberVisits >=
         state.Limits.MemberVisits) {
       return std::unexpected(Error::CapacityExceeded);
     }
@@ -139,17 +161,21 @@ Members(State &state, uint32_t index, std::span<const MvtTransportSourceMember> 
       return std::unexpected(Error::Frontier);
     }
     if (bound->Owner != kAbsent) {
+      if (groundCount == grounds.size()) { return std::unexpected(Error::InvalidCandidate); }
+      grounds[groundCount] = static_cast<uint32_t>(portable.size());
       ground = &member;
       ++groundCount;
       if (auto checked = Ground(state, *bound); !checked) { return checked; }
     } else if (auto checked = External(state, index, member, *bound); !checked) {
       return checked;
     }
+    portable.push_back(Portable(member, *bound));
   }
   if (ground == nullptr || (members.size() == 1 && !ground->SourceTerminal)) {
     return std::unexpected(Error::IncompleteIncidence);
   }
-  return JoinExits(state, groundCount, *ground, firstExit);
+  if (auto joined = JoinExits(state, groundCount, *ground, firstExit); !joined) { return joined; }
+  return AppendEnds(state, portable, std::span(grounds).first(groundCount));
 }
 
 Checked<void> Group(State &state, uint32_t index) {
@@ -173,14 +199,20 @@ Checked<void> Qualify(State &state) {
     members += state.Facts.Groups[group].MemberCount;
   }
   const size_t bytes = state.Output.Work.ContainerCapacityBytes;
+  constexpr size_t perMember = sizeof(GroundPortFieldExit) + sizeof(TransportSourceEndTopology) +
+                               2 * sizeof(TransportSourceMember);
   if (bytes > state.Limits.ContainerBytes ||
-      members > (state.Limits.ContainerBytes - bytes) / sizeof(GroundPortFieldExit)) {
+      members > (state.Limits.ContainerBytes - bytes) / perMember) {
     return std::unexpected(Error::CapacityExceeded);
   }
   state.Output.Field.Info.Exits.reserve(members);
+  state.Output.Field.Info.Ends.reserve(members);
   for (const auto group : state.Groups) {
     if (auto qualified = Group(state, group); !qualified) { return qualified; }
   }
+  std::ranges::sort(state.Output.Field.Info.Ends, {}, [](const auto &end) {
+    return TransportSourceMemberKey(end.Ground);
+  });
   if (std::ranges::find(state.Seen, uint8_t{0}) != state.Seen.end()) {
     return std::unexpected(Error::IncompleteIncidence);
   }
@@ -194,6 +226,12 @@ Checked<void> Qualify(State &state) {
   }
   state.Output.Work.ContainerCapacityBytes +=
       state.Output.Field.Info.Exits.capacity() * sizeof(GroundPortFieldExit);
+  state.Output.Work.ContainerCapacityBytes +=
+      state.Output.Field.Info.Ends.capacity() * sizeof(TransportSourceEndTopology);
+  for (const auto &end : state.Output.Field.Info.Ends) {
+    state.Output.Work.ContainerCapacityBytes +=
+        end.Relations.capacity() * sizeof(TransportSourceMember);
+  }
   return {};
 }
 }

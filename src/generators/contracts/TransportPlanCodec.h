@@ -17,6 +17,8 @@ struct TransportPlanCodecLimits {
 };
 
 [[nodiscard]] size_t TransportPlanCapacityBytes(const TransportPlan &plan) noexcept;
+[[nodiscard]] std::array<uint8_t, 32>
+TransportSourceEndContentBinding(const TransportSourceEnd &end);
 
 enum class TransportPlanCodecError : uint8_t {
   CapacityExceeded,
@@ -31,7 +33,8 @@ enum class TransportPlanCodecError : uint8_t {
   InvalidBody,
   InvalidContact,
   InvalidNetwork,
-  InvalidOmission
+  InvalidOmission,
+  InvalidSourceEnd
 };
 
 [[nodiscard]] std::expected<std::array<uint8_t, 32>, TransportPlanCodecError>

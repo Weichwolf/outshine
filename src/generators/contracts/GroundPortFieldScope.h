@@ -26,6 +26,7 @@ struct GroundPortFieldScopeInfo {
   TransportInputReference Input;
   std::array<uint8_t, 32> ContentBinding{};
   std::vector<GroundPortFieldExit> Exits;
+  std::vector<TransportSourceEndTopology> Ends;
 };
 
 struct GroundPortFieldScope {

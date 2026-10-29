@@ -112,6 +112,22 @@ int main() {
   const auto frame = CoreFrame(core);
   CHECK(frame.has_value(), "the reference core has a valid tangent frame");
   if (!frame) { return Report(); }
+  TransportSourceEnd sourceEnd;
+  sourceEnd.Anchor = plan->Ports[0].Anchor;
+  sourceEnd.Contact = plan->Ports[0].Contact;
+  sourceEnd.Contact.Gate.EastM = .125;
+  sourceEnd.Contact.Gate.NorthM = -.25;
+  const auto sourceProfile = TransportPortInFrame(sourceEnd, *frame, {});
+  const auto sourceFrame = TangentFrame::At(sourceEnd.Anchor);
+  const auto &sourceGate = sourceEnd.Contact.Gate;
+  const auto expected = sourceFrame.ToEcefPosition(
+      {.EastM = sourceGate.EastM, .NorthM = sourceGate.NorthM, .UpM = sourceGate.GradeM});
+  CHECK(sourceProfile && Distance(expected,
+                                  frame->ToEcefPosition({.EastM = sourceProfile->Gate.EastM,
+                                                         .NorthM = sourceProfile->Gate.NorthM,
+                                                         .UpM = sourceProfile->Gate.GradeM})) <=
+                             64 * std::numeric_limits<double>::epsilon() * kEarthMeanRadiusM,
+        "an explicit source end preserves its physical offset in the target frame");
   auto invalid = plan->Ports[0];
   invalid.Contact.Gate.EastM = 1;
   CHECK(!TransportPortInFrame(invalid, *frame, {}),

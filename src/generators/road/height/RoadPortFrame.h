@@ -33,6 +33,13 @@ SampleRoadPortFrame(RoadPortFieldQuery &query,
                     const RoadPortFrameRequest &request,
                     const std::stop_token &stop = {}) noexcept;
 
+// The caller supplies the centre of an admitted source cross-section, in SourceAnchor's frame.
+[[nodiscard]] std::expected<RoadPortFrameSample, RoadPortQueryError>
+SampleRoadPortSectionFrame(RoadPortFieldQuery &query,
+                           const RoadPortFrameRequest &request,
+                           EastNorth centre,
+                           const std::stop_token &stop = {}) noexcept;
+
 [[nodiscard]] std::expected<LongitudeLatitude, RoadPortQueryError>
 RoadPortGroundPosition(const TangentFrame &source, EastNorth at) noexcept;
 

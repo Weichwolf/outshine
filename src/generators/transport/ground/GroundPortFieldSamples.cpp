@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <numeric>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <tuple>
@@ -49,6 +51,27 @@ OriginalSegment(const World::TransportTopology &graph, const World::TransportEdg
   if (edge.Id.Direction == World::EdgeDirection::Reverse) { std::ranges::reverse(result); }
   return result;
 }
+
+std::optional<EastNorth> SourceSectionCentre(const GroundPortSourceChain &source,
+                                             const RoadGroundField &domain,
+                                             uint32_t member,
+                                             LongitudeLatitude anchor) {
+  const auto nodes = source.Source->Topology().Nodes();
+  for (const bool last : std::array{false, true}) {
+    if (member != (last ? source.SourceEdges.back() : source.SourceEdges.front())) { continue; }
+    const auto &node = nodes[last ? source.Nodes.back() : source.Nodes.front()];
+    if (std::remainder(anchor.LongitudeDeg - node.LongitudeDeg, kDegreesPerTurn) != 0 ||
+        anchor.LatitudeDeg != node.LatitudeDeg) {
+      continue;
+    }
+    const size_t at = last ? domain.Vertices.size() - 2 : 0;
+    const auto &a = domain.Vertices[at];
+    const auto &b = domain.Vertices[at + 1];
+    return EastNorth{.EastM = std::midpoint(a.EastM, b.EastM),
+                     .NorthM = std::midpoint(a.NorthM, b.NorthM)};
+  }
+  return std::nullopt;
+}
 }
 
 std::expected<GroundPortFieldSamples, GroundPortFieldError>
@@ -70,8 +93,7 @@ GroundPortField::Sample(std::span<const GroundPortFieldRequestPoint> points,
   const auto edges = graph.Edges();
   for (const auto &point : points) {
     if (stop.stop_requested()) { return std::unexpected(GroundPortFieldError{Error::Canceled}); }
-    if (point.Edge.Direction != World::EdgeDirection::Forward &&
-        point.Edge.Direction != World::EdgeDirection::Reverse) {
+    if (point.Edge.Direction > World::EdgeDirection::Reverse) {
       return std::unexpected(GroundPortFieldError{Error::InvalidInput});
     }
     ++result.Work.MembershipLookups;
@@ -87,20 +109,20 @@ GroundPortField::Sample(std::span<const GroundPortFieldRequestPoint> points,
     if (!original || !OnSegment(point.Anchor, *original)) {
       return std::unexpected(GroundPortFieldError{Error::InvalidInput});
     }
-    ++result.Work.TerrainSamples;
-    const auto height = Data_.Terrain->At(point.Anchor);
+    const auto section = SourceSectionCentre(Data_.Source, Data_.Domain, *found, point.Anchor);
+    result.Work.TerrainSamples += static_cast<size_t>(!section);
+    const auto height = section ? std::optional(0.) : Data_.Terrain->At(point.Anchor);
     if (!height) {
       return std::unexpected(GroundPortFieldError{GroundPortTerrainError::MissingTerrain});
     }
-    const auto sampled =
-        SampleRoadPortFrame(*query,
-                            {.SourceAnchor = Data_.Domain.Anchor,
-                             .PortAnchor = point.Anchor,
-                             .OriginalSegment = *original,
-                             .HalfWidthM = Data_.Source.WidthM / 2,
-                             .InitialModelHeightM = *height,
-                             .MaximumLongitudinalGrade = Data_.Source.MaximumGradient},
-                            stop);
+    const RoadPortFrameRequest request{.SourceAnchor = Data_.Domain.Anchor,
+                                       .PortAnchor = point.Anchor,
+                                       .OriginalSegment = *original,
+                                       .HalfWidthM = Data_.Source.WidthM / 2,
+                                       .InitialModelHeightM = *height,
+                                       .MaximumLongitudinalGrade = Data_.Source.MaximumGradient};
+    const auto sampled = section ? SampleRoadPortSectionFrame(*query, request, *section, stop)
+                                 : SampleRoadPortFrame(*query, request, stop);
     if (!sampled) { return std::unexpected(GroundPortFieldError{sampled.error()}); }
     result.Ports.push_back(*sampled);
   }

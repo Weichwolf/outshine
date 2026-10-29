@@ -35,6 +35,9 @@ struct State {
 
 [[nodiscard]] Checked<void> Index(State &state);
 [[nodiscard]] Checked<void> Qualify(State &state);
+[[nodiscard]] Checked<void> AppendEnds(State &state,
+                                       std::span<const TransportSourceMember> members,
+                                       std::span<const uint32_t> grounds);
 [[nodiscard]] Checked<void> Coverage(State &state);
 void Bind(State &state);
 [[nodiscard]] Checked<void> BindContent(State &state);

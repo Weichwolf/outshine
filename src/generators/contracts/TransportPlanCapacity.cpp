@@ -32,6 +32,7 @@ size_t TransportPlanCapacityBytes(const TransportPlan &plan) noexcept {
   held.Vector(plan.Stations);
   held.Vector(plan.Junctions);
   held.Vector(plan.Ports);
+  held.Vector(plan.SourceEnds);
   held.Vector(plan.Bodies);
   held.Vector(plan.TerrainContacts);
   held.Vector(plan.Omissions);
@@ -53,6 +54,14 @@ size_t TransportPlanCapacityBytes(const TransportPlan &plan) noexcept {
     for (const auto &source : junction.Sources) { held.Text(source); }
   }
   for (const auto &port : plan.Ports) { held.Text(port.SourceId); }
+  for (const auto &end : plan.SourceEnds) {
+    held.Text(end.SourceId);
+    held.Text(end.Input.DatasetId);
+    held.Text(end.Input.Version);
+    held.Text(end.Input.Revision);
+    held.Text(end.Input.ItemId);
+    held.Vector(end.Topology.Relations);
+  }
   for (const auto &body : plan.Bodies) {
     held.Vector(body.Points);
     held.Vector(body.Faces);

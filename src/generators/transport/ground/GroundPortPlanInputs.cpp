@@ -84,9 +84,10 @@ Checked<void> BindInputs(TransportPlan &plan,
   const auto network = TransportPlanNetworkBinding(plan.Network, budget.BindingBytes);
   if (!network) { return std::unexpected(network.error()); }
   plan.Inputs.reserve(sliced.Inputs.size() + parts.size() +
-                      plan.Network->Provenance().Sources.size() + 1);
+                      plan.Network->Provenance().Sources.size() + plan.SourceEnds.size() + 1);
   for (const auto &input : sliced.Inputs) { plan.Inputs.push_back(input); }
   for (const auto &part : parts) { plan.Inputs.push_back(part.Input); }
+  for (const auto &end : plan.SourceEnds) { plan.Inputs.push_back(end.Input); }
   for (const auto &source : plan.Network->Provenance().Sources) {
     plan.Inputs.push_back({.DatasetId = source.Identity.DatasetId,
                            .Version = "native-source/1",

@@ -42,9 +42,13 @@ std::expected<GroundPortFieldRequest, GroundPortFieldError> GroundPortFieldReque
     return std::unexpected(GroundPortFieldError{GroundPortSourceError::InvalidSource});
   }
   const auto &input = scope.Info.Input;
-  const size_t bytes = scope.Info.Exits.capacity() * sizeof(GroundPortFieldExit) +
-                       input.DatasetId.capacity() + input.Version.capacity() +
-                       input.Revision.capacity() + input.ItemId.capacity() + 4;
+  size_t bytes = scope.Info.Exits.capacity() * sizeof(GroundPortFieldExit) +
+                 scope.Info.Ends.capacity() * sizeof(TransportSourceEndTopology) +
+                 input.DatasetId.capacity() + input.Version.capacity() + input.Revision.capacity() +
+                 input.ItemId.capacity() + 4;
+  for (const auto &end : scope.Info.Ends) {
+    bytes += end.Relations.capacity() * sizeof(TransportSourceMember);
+  }
   if (bytes > groundBudget.ContainerBytes) {
     return std::unexpected(GroundPortFieldError{RoadGroundError::CapacityExceeded});
   }

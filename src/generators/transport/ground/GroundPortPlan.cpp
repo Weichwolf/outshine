@@ -131,11 +131,12 @@ BuildGroundPortPartialPlan(const GroundPortField &field,
   auto parts = PrepareParts(
       field, wholeBodies, *reframed, *selection, recipes, product.Work.Samples, budget, stop);
   if (!parts) { return std::unexpected(parts.error()); }
+  if (auto appended = AppendProfiles(product.Plan, field, *parts, wholeBodies.Recipe, budget);
+      !appended) {
+    return std::unexpected(appended.error());
+  }
   if (auto bound = BindInputs(product.Plan, *reframed, *parts, budget); !bound) {
     return std::unexpected(bound.error());
-  }
-  if (auto appended = AppendProfiles(product.Plan, *parts, wholeBodies.Recipe, budget); !appended) {
-    return std::unexpected(appended.error());
   }
   MoveBodies(product.Plan, std::move(*reframed), product.Work);
   product.Work.Paths = product.Plan.Paths.size();

@@ -151,6 +151,49 @@ void CheckFailures(const RoadPortField &field) {
         "a missing source direction cannot become an invented tangent");
 }
 
+void CheckSourceSection(const RoadPortField &field) {
+  constexpr std::array<RoadPortFace, 1> faces{{{.Triangle = {{{.EastM = 1e-8, .NorthM = -2},
+                                                              {.EastM = 20, .NorthM = 0},
+                                                              {.EastM = 1e-8, .NorthM = 2}}},
+                                                .GradeFrame = {}}}};
+  auto query = RoadPortFieldQuery::Make(field, faces);
+  CHECK(query.has_value(), "the finite original cross section has its own domain");
+  if (!query) { return; }
+  const LongitudeLatitude anchor{.LongitudeDeg = 16, .LatitudeDeg = 48};
+  const RoadPortFrameRequest request{
+      .SourceAnchor = anchor,
+      .PortAnchor = anchor,
+      .OriginalSegment = {anchor, {.LongitudeDeg = 16.001, .LatitudeDeg = 48}},
+      .HalfWidthM = 2,
+      .InitialModelHeightM = kHeightM,
+      .MaximumLongitudinalGrade = .1};
+  const auto outside = SampleRoadPortFrame(*query, request);
+  CHECK(!outside && outside.error() == RoadPortQueryError::OutsideDomain,
+        "the original node ray remains outside without extending the field");
+  const auto result = SampleRoadPortSectionFrame(*query, request, {.EastM = 1e-8});
+  CHECK(result.has_value(), "the admitted cross-section centre supplies the original end profile");
+  if (result) {
+    const auto frame = TangentFrame::At(anchor);
+    const auto actual = frame.ToEcefPosition({.EastM = result->Port.Gate.EastM,
+                                              .NorthM = result->Port.Gate.NorthM,
+                                              .UpM = result->Port.Gate.GradeM});
+    const auto expected =
+        frame.ToEcefPosition({.EastM = 1e-8, .UpM = kHeightM + kGradient.SlopeE * 1e-8});
+    CHECK(Length(actual - expected) < 1e-8 && result->Port.Gate.EastM != 0 &&
+              result->RayIterations == 0,
+          "the full canonical frame retains the physical offset instead of inventing a ray hit");
+  }
+  const auto refused = SampleRoadPortSectionFrame(*query, request, {});
+  CHECK(!refused && refused.error() == RoadPortQueryError::OutsideDomain,
+        "section sampling cannot clamp an arbitrary outside point into the field");
+  std::stop_source stopped;
+  stopped.request_stop();
+  const auto canceled =
+      SampleRoadPortSectionFrame(*query, request, {.EastM = 1e-8}, stopped.get_token());
+  CHECK(!canceled && canceled.error() == RoadPortQueryError::Canceled,
+        "source-section work honors cancellation before querying");
+}
+
 void CheckWork(const RoadPortField &field) {
   constexpr size_t kPorts = 1000;
   const RoadPortFrameRequest request{.SourceAnchor = {},
@@ -195,6 +238,7 @@ int main() {
       CheckOwnFrame(*field, anchor);
     }
     CheckDomains(*field);
+    CheckSourceSection(*field);
     CheckFailures(*field);
     CheckWork(*field);
   }

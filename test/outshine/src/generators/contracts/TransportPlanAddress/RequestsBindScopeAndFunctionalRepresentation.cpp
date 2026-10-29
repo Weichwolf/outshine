@@ -19,8 +19,10 @@ int main() {
   const TransportPlanAddress address{.Definition = {.Core = {.Level = 9, .X = 270, .Y = 99}},
                                      .Inputs = TransportInputScopeId(binding)};
   const auto original = TransportPlanRequestKey(address);
-  CHECK(original && *original == "cf923a02cf23279bf813a229636646271ea653405a3097b781307836f9dace42",
+  CHECK(original && *original == "5a6c58fe35f4864e2b19a0537693b432c2d854300fb315720e30ac0aa6d8b615",
         "the request key has independently encoded fixed fields and explicit domain version");
+  CHECK(original && *original != "cf923a02cf23279bf813a229636646271ea653405a3097b781307836f9dace42",
+        "source-end products cannot reuse the previous recipe's persistent request alias");
   CHECK(TransportPlanRequestKey(address) == original,
         "identical known metadata resolves without source or plan state");
   auto moved = address;

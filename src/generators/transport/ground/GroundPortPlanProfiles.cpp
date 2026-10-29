@@ -60,6 +60,7 @@ Checked<Part> MakePart(const GroundPortField &field,
   }
   Part result;
   result.Body = index;
+  result.Source = edge->Id;
   result.SourceNodes = {edge->FromNodeId, edge->ToNodeId};
   const auto sourceIndex = static_cast<uint32_t>(edge - graph.Edges().data());
   const std::array fractions{body.SourceBegin, body.SourceEnd};
@@ -100,6 +101,20 @@ struct PendingPort {
   size_t End = 0;
   bool Primary = false;
 };
+
+size_t BoundaryPortCount(std::span<const Part> parts) {
+  size_t count = 0;
+  for (const auto &part : parts) {
+    for (size_t side = 0; side < part.Ends.size(); ++side) {
+      const auto &end = part.Ends[side];
+      if (end.Fraction == static_cast<double>(side)) { continue; }
+      for (const auto &boundary : end.Boundaries) {
+        count += static_cast<size_t>(boundary.has_value());
+      }
+    }
+  }
+  return count;
+}
 
 auto PortKey(const PendingPort &pending) {
   const auto &port = pending.Port;
@@ -177,18 +192,12 @@ Checked<std::vector<Part>> PrepareParts(const GroundPortField &field,
 }
 
 Checked<void> AppendProfiles(TransportPlan &plan,
+                             const GroundPortField &field,
                              std::vector<Part> &parts,
                              GroundPortBodyRecipe recipe,
                              GroundPortPlanBudget budget) {
   std::vector<PendingPort> ports;
-  size_t count = 0;
-  for (const auto &part : parts) {
-    for (const auto &end : part.Ends) {
-      for (const auto &boundary : end.Boundaries) {
-        count += static_cast<size_t>(boundary.has_value());
-      }
-    }
-  }
+  const size_t count = BoundaryPortCount(parts);
   if (count > budget.Ports) { return std::unexpected(InputError::CapacityExceeded); }
   ports.reserve(count);
   const auto frame = TangentFrame::At(plan.Anchor);
@@ -200,14 +209,16 @@ Checked<void> AppendProfiles(TransportPlan &plan,
     for (size_t end = 0; end < 2; ++end) {
       const auto &point = part.Ends[end];
       const auto &sample = part.Samples[end];
-      const auto centre = frame.ToLocalPosition({.LongitudeDeg = point.Geographic.LongitudeDeg,
-                                                 .LatitudeDeg = point.Geographic.LatitudeDeg,
-                                                 .HeightM = sample.Port.Gate.GradeM});
+      const auto sourceFrame = TangentFrame::At(point.Geographic);
+      const auto &gate = sample.Port.Gate;
+      const auto centre = frame.ToLocalPosition(sourceFrame.ToEcefPosition(
+          {.EastM = gate.EastM, .NorthM = gate.NorthM, .UpM = gate.GradeM}));
       plan.Stations.push_back(
           {.EastM = centre.EastM,
            .NorthM = centre.NorthM,
            .GradeM = centre.UpM,
            .Node = point.Fraction == static_cast<double>(end) ? part.SourceNodes[end] : 0});
+      if (point.Fraction == static_cast<double>(end)) { continue; }
       bool primary = true;
       for (const auto &boundary : point.Boundaries) {
         if (!boundary) { continue; }
@@ -234,6 +245,9 @@ Checked<void> AppendProfiles(TransportPlan &plan,
           TransportBoundaryPortReference{.Port = static_cast<uint32_t>(plan.Ports.size())};
     }
     plan.Ports.push_back(std::move(pending.Port));
+  }
+  if (auto appended = AppendSourceEnds(plan, field, parts, recipe, budget); !appended) {
+    return appended;
   }
   plan.Paths.reserve(parts.size());
   for (auto &part : parts) { plan.Paths.push_back(std::move(part.Path)); }

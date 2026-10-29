@@ -65,7 +65,7 @@ Checked<void> Groups(Sha256Prefix &hash, State &state) {
          std::span(state.Facts.Members).subspan(group.FirstMember, group.MemberCount)) {
       if (state.Stop.stop_requested()) { return std::unexpected(Error::Canceled); }
       if (state.Output.Work.OriginalMemberVisits + state.Output.Work.QualifiedMemberVisits +
-              state.Output.Work.ContentMemberVisits >=
+              state.Output.Work.ContentMemberVisits + state.Output.Work.EndRelationVisits >=
           state.Limits.MemberVisits) {
         return std::unexpected(Error::CapacityExceeded);
       }

@@ -42,8 +42,9 @@ void CheckOriginalRows(const GroundPortField &field, const TransportPlanNetwork 
   }
   if (field.Scope()) {
     for (const auto &exit : field.Scope()->Exits) {
-      CHECK(network.Topology().FindEdge(exit.External) != nullptr,
-            "the original typed bridge/layer exits remain explicit native connections");
+      CHECK(network.Topology().FindEdge(exit.External) == nullptr &&
+                source.Topology().FindEdge(exit.External) != nullptr,
+            "unqualified exits remain original source relations outside the functional network");
     }
   }
   for (const auto &path : network.Provenance().Paths) {

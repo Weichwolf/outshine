@@ -3,6 +3,7 @@
 #include "Check.h"
 #include "GroundPortCore.h"
 #include "GroundPortPlan.h"
+#include "ReadTextFile.h"
 #include "TransportNetworkSnapshot.h"
 #include "TransportPlanNetworkBinding.h"
 #include <algorithm>
@@ -12,7 +13,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <fstream>
+#include <ios>
+#include <string_view>
 #include <map>
+#include <memory>
 #include <limits>
 #include <numeric>
 #include <print>
@@ -75,6 +80,15 @@ std::vector<GeoCellId> Cores(const GroundPortField &field) {
     cells.emplace(x + 1, y);
     cells.emplace(x, y - 1);
     cells.emplace(x, y + 1);
+    for (const auto *endpoint : {a, b}) {
+      const auto ex = static_cast<uint32_t>((endpoint->LongitudeDeg + 180) / 360 * count);
+      const auto ey = static_cast<uint32_t>((endpoint->LatitudeDeg + 90) / 180 * count);
+      cells.emplace(ex, ey);
+      cells.emplace(ex - 1, ey);
+      cells.emplace(ex + 1, ey);
+      cells.emplace(ex, ey - 1);
+      cells.emplace(ex, ey + 1);
+    }
   }
   std::vector<GeoCellId> result;
   result.reserve(cells.size());
@@ -104,6 +118,91 @@ void CheckBodies(const GroundPortPlanProduct &product, const GroundPortBodies &e
   CHECK(contact == product.Plan.TerrainContacts.size() && product.BoundsEcef.Min == bounds.Min &&
             product.BoundsEcef.Max == bounds.Max,
         "the plan retains every owned contact and the actual full-geometry/contact ECEF bounds");
+}
+
+void CheckSourceRecords(const GroundPortField &field, const TransportPlan &plan) {
+  if (!field.Scope()) {
+    CHECK(plan.SourceEnds.empty(),
+          "a strict source snapshot without original incidence cannot invent natural endpoints");
+    return;
+  }
+  for (const auto &end : plan.SourceEnds) {
+    CHECK(
+        end.ScopeBinding == field.Scope()->ContentBinding &&
+            end.Input.Content == TransportSourceEndContentBinding(end),
+        "portable endpoint identity binds the qualified original scope and full physical profile");
+    const auto key = TransportSourceMemberKey(end.Topology.Ground);
+    const auto original = std::ranges::find_if(field.Scope()->Ends, [&](const auto &candidate) {
+      return TransportSourceMemberKey(candidate.Ground) == key;
+    });
+    CHECK(original != field.Scope()->Ends.end() && *original == end.Topology,
+          "all original directed ends, nodes, terminal ownership and relations remain owned");
+    for (const auto &relation : end.Topology.Relations) {
+      CHECK(field.Source().Source->Topology().FindEdge(relation.Edge) != nullptr,
+            "the retained original relation names an actual source edge");
+      if (end.Topology.Kind == TransportSourceEndKind::External) {
+        CHECK(plan.Network->Topology().FindEdge(relation.Edge) == nullptr,
+              "an unqualified original bridge/layer arm is not a functional plan edge");
+      }
+    }
+    auto reversed = end;
+    reversed.Topology.Ground.Edge.Direction =
+        reversed.Topology.Ground.Edge.Direction == World::EdgeDirection::Forward
+            ? World::EdgeDirection::Reverse
+            : World::EdgeDirection::Forward;
+    reversed.Topology.Ground.End ^= 1U;
+    CHECK(TransportSourceEndContentBinding(reversed) == end.Input.Content,
+          "a directed alias with the same physical endpoint preserves endpoint identity");
+    reversed.Topology.Ground.End ^= 1U;
+    CHECK(TransportSourceEndContentBinding(reversed) != end.Input.Content,
+          "changing only the physical endpoint is a different original relation");
+  }
+}
+
+void CheckSourceReferences(const TransportPlan &plan) {
+  for (const auto &path : plan.Paths) {
+    for (size_t side = 0; side < 2; ++side) {
+      const auto *reference = std::get_if<TransportSourceEndReference>(&path.Ends[side]);
+      if (reference == nullptr) { continue; }
+      CHECK(reference->End < plan.SourceEnds.size(),
+            "path endpoints reference their own plan table");
+      if (reference->End >= plan.SourceEnds.size()) { continue; }
+      const auto &end = plan.SourceEnds[reference->End];
+      const auto &station =
+          plan.Stations[path.FirstStation + (side == 0 ? 0 : path.StationCount - 1)];
+      CHECK(end.SourceId == path.SourceId && end.Topology.Ground.Node == station.Node,
+            "the physical endpoint and actual path station retain their original identity");
+    }
+  }
+}
+
+void CheckRejectedSourceEnds(const TransportPlan &plan) {
+  if (!plan.SourceEnds.empty()) {
+    auto corrupt = plan;
+    corrupt.SourceEnds.front().Topology.Ground.End ^= 1U;
+    CHECK(!ValidateTransportPlan(corrupt), "an end-side mutation invalidates its original binding");
+    corrupt = plan;
+    corrupt.SourceEnds.front().Contact.Gate.GradeM += 1;
+    CHECK(!ValidateTransportPlan(corrupt), "a profile mutation invalidates its endpoint binding");
+    corrupt = plan;
+    corrupt.SourceEnds.front().ScopeBinding.front() ^= 1U;
+    CHECK(!ValidateTransportPlan(corrupt), "another source scope cannot reinterpret an endpoint");
+    corrupt = plan;
+    for (auto &path : corrupt.Paths) {
+      for (auto &end : path.Ends) {
+        if (auto *reference = std::get_if<TransportSourceEndReference>(&end)) {
+          reference->End = std::numeric_limits<uint32_t>::max();
+        }
+      }
+    }
+    CHECK(!ValidateTransportPlan(corrupt), "dangling plan-local endpoint references are rejected");
+  }
+}
+
+void CheckSourceEnds(const GroundPortField &field, const TransportPlan &plan) {
+  CheckSourceRecords(field, plan);
+  CheckSourceReferences(plan);
+  CheckRejectedSourceEnds(plan);
 }
 
 struct PortEvidence {
@@ -256,6 +355,7 @@ CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) 
     if (frame) { CheckBodies(*product, *frame); }
   }
   evidence.Shared += CheckPorts(product->Plan, evidence.SeenPorts);
+  CheckSourceEnds(field, product->Plan);
   auto encoded = EncodeTransportPlan(product->Plan, kCodec);
   CHECK(encoded.has_value(), "the real functional product crosses the existing native plan codec");
   if (!evidence.RecipeChecked) {
@@ -290,14 +390,60 @@ CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) 
   }
   return std::move(*encoded);
 }
+
+void ObservePacket(size_t which,
+                   GeoCellId core,
+                   const std::vector<uint8_t> &encoded,
+                   std::map<std::pair<uint32_t, uint32_t>, std::vector<uint8_t>> &firstPublication,
+                   std::vector<uint8_t> &retained,
+                   size_t &sourceEnds) {
+  const auto decoded = DecodeTransportPlan(encoded, kCodec);
+  CHECK(decoded.has_value(), "actual endpoint cores remain decodable");
+  if (decoded) {
+    sourceEnds += decoded->SourceEnds.size();
+    if (retained.empty() && std::ranges::any_of(decoded->SourceEnds, [](const auto &end) {
+          return end.Topology.Kind == TransportSourceEndKind::External;
+        })) {
+      retained = encoded;
+    }
+  }
+  if (which == 2) { firstPublication.emplace(std::pair{core.X, core.Y}, encoded); }
+  if (which == 3) {
+    const auto old = firstPublication.find({core.X, core.Y});
+    CHECK(old != firstPublication.end() && old->second == encoded,
+          "actual repeated source publication and reverse core order preserve the full plan bytes");
+  }
 }
 
-int main() {
+int DecodePacket(const char *path) {
+  const auto bytes = ReadTextFile(path, kCodec.PackageBytesMost);
+  CHECK(bytes.has_value(), "a fresh codec process reads only its persisted native packet");
+  if (!bytes) { return Report(); }
+  const auto plan = DecodeTransportPlan(
+      std::span(reinterpret_cast<const uint8_t *>(bytes->data()), bytes->size()), kCodec);
+  CHECK(plan && !plan->SourceEnds.empty() && plan->Coverage == TransportCoverage::Partial,
+        "source-owned endpoint profiles restore without opening original sources");
+  if (plan) {
+    for (const auto &end : plan->SourceEnds) {
+      CHECK(end.Input.Content == TransportSourceEndContentBinding(end),
+            "the fresh decoder retains complete endpoint content binding");
+    }
+  }
+  return Report();
+}
+
+}
+
+int main(int argc, char **argv) {
+  if (argc == 3 && std::string_view(argv[1]) == "--decode") { return DecodePacket(argv[2]); }
   auto fields = CanonicalGroundFixture::LoadFields();
   CHECK(fields.size() == 4, "original affine/C1 fields and both actual MVT publications load");
+  if (fields.size() != 4) { return Report(); }
   std::map<std::pair<uint32_t, uint32_t>, std::vector<uint8_t>> firstPublication;
   size_t plans = 0;
   size_t shared = 0;
+  size_t sourceEnds = 0;
+  std::vector<uint8_t> retained;
   for (size_t which = 0; which < fields.size(); ++which) {
     const auto &field = fields[which];
     const auto whole = BuildGroundPortBodies(field, {.ThicknessM = .3, .ApronM = 2, .ReliefM = 3});
@@ -316,21 +462,27 @@ int main() {
     if ((which & 1U) != 0) { std::ranges::reverse(cores); }
     for (const auto core : cores) {
       const auto encoded = CheckCore(fixture, core, evidence);
-      if (encoded) {
-        if (which == 2) { firstPublication.emplace(std::pair{core.X, core.Y}, *encoded); }
-        if (which == 3) {
-          const auto old = firstPublication.find({core.X, core.Y});
-          CHECK(old != firstPublication.end() && old->second == *encoded,
-                "actual repeated source publication and reverse core order preserve the full plan "
-                "bytes");
-        }
-      }
+      if (encoded) { ObservePacket(which, core, *encoded, firstPublication, retained, sourceEnds); }
     }
     plans += evidence.Plans;
     shared += evidence.Shared;
   }
   CHECK(plans >= 8 && shared >= 4,
         "real adjacent cores exercise shared ports across affine/C1/scoped fields");
+  CHECK(sourceEnds > 0 && !retained.empty(),
+        "actual source endpoints and external relations are exercised, not just interior cuts");
+  const std::weak_ptr<const World::TransportNetworkSnapshot> released = fields[2].Source().Source;
+  fields.clear();
+  CHECK(released.expired(), "all original source leases expire before the retained plan restores");
+  CHECK(DecodeTransportPlan(retained, kCodec).has_value(),
+        "the persisted complete endpoint profile survives original source release");
+  if (argc == 3 && std::string_view(argv[1]) == "--save") {
+    std::ofstream output(argv[2], std::ios::binary);
+    output.write(reinterpret_cast<const char *>(retained.data()),
+                 static_cast<std::streamsize>(retained.size()));
+    CHECK(output.good(), "the actual owned plan is saved for an independent codec process");
+  }
+  std::println("GROUND_PLAN source_end_records={}", sourceEnds);
   std::println("GROUND_PLAN plans={} repeated_shared_ports={}", plans, shared);
   return Report();
 }
