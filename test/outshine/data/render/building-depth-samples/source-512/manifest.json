@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "owner_issue": 1759,
+  "native_binary_sha256": "bd295bc6351f558b2f0f0a51d89372bb48f74ea35c75516d45d3badef4020707",
+  "native_terminal_exit": 0,
+  "original_geometry_manifest_sha256": "db9230262a79725a5da37184ebbb806c2c3ea801d714630a452b72f4599ccb6e",
+  "original_control_manifest_sha256": "02d7eb7aa269000219e3a63b76593dbbffadd8a98c22a9e26197c6fa9ddc78df",
+  "parent_atlas_sha256": "795a1cf4bbfe9be86e8b5dbf475f4023684d050c4edf7f53a36739c8646e92ef",
+  "stored_field_sha256": "d485bf1c3aa8fc568f3b569633b71b01c9c3801b688ae2666cd0ed9b6abcd2b1",
+  "stored_field_provenance": "65cd38671101fce4403061e132a1e6c108335f8badd8dc8059a78090c8913ba1",
+  "stored_field_schema": 2,
+  "stored_field_bytes": 10486012,
+  "atlas_centre_m": [
+    2369.974738269353,
+    17.62096738161813,
+    5196.238342780132
+  ],
+  "atlas_half_extent_m": 383.3371926933919,
+  "toward_eye": [
+    0.0,
+    0.7071067811865475,
+    0.7071067811865475
+  ],
+  "capture": {
+    "bytes": 1048576,
+    "eye_m": [
+      2369.974738269353,
+      830.8019526851531,
+      6009.419328083667
+    ],
+    "far_m": 1916.6859634669595,
+    "format": "reverse_z_0_1_float32",
+    "forward": [
+      -0.0,
+      -0.7071067811865475,
+      -0.7071067811865475
+    ],
+    "height_px": 512,
+    "near_m": 383.3371926933919,
+    "orthographic": true,
+    "right": [
+      1.0,
+      0.0,
+      -0.0
+    ],
+    "up": [
+      -0.0,
+      0.7071067811865475,
+      -0.7071067811865475
+    ],
+    "width_px": 512,
+    "x_mag_m": 383.3371926933919,
+    "y_mag_m": 383.3371926933919,
+    "yfov_rad": 0.0
+  },
+  "query": {
+    "name": "px32-yaw0",
+    "eye": [
+      2369.974738269353,
+      12215.335746934641,
+      17393.953122333158
+    ],
+    "basis": [
+      [
+        1.0,
+        0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        0.7071067811865475,
+        -0.7071067811865475
+      ],
+      [
+        -0.0,
+        -0.7071067811865475,
+        -0.7071067811865475
+      ]
+    ],
+    "focal_px": 720,
+    "sun_elevation_deg": 45,
+    "filter_axis_samples": 64
+  },
+  "source_materials": 3,
+  "covered_source_samples": 43049,
+  "arrays": {
+    "stored_field_bytes": {
+      "dtype": "uint8",
+      "shape": [
+        10486012
+      ],
+      "sha256": "d485bf1c3aa8fc568f3b569633b71b01c9c3801b688ae2666cd0ed9b6abcd2b1"
+    },
+    "source_normal": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "sha256": "1d6974336388d0d9caed2abcda2871ecadad4bc9a212eab615f3455cbe02ed09"
+    },
+    "source_depth": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512
+      ],
+      "sha256": "716d348dcf986ebb6810681955e94c5b0d8335c0e6185ec1281c51c458b3e4d1"
+    },
+    "source_surface": {
+      "dtype": "uint32",
+      "shape": [
+        512,
+        512
+      ],
+      "sha256": "5c5fb0788ad484a111dcc5b6d27f000811ec61ca3a035fd8f6bf0b01b5da105e"
+    },
+    "source_base_colour": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "sha256": "dcbda29e29e222490344b903e5e5b32974afc77f8b8186d4ed9d929bb1c4310e"
+    },
+    "source_roughness": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512
+      ],
+      "sha256": "ff11b661c5d5a1d728549fc9783dd3c2c283cba0f47fab4533ac1fd6e84822c0"
+    },
+    "source_metalness": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512
+      ],
+      "sha256": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+    },
+    "source_lit_rgba": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512,
+        4
+      ],
+      "sha256": "6c84f6eb2b2b74d2c896e1dd78f350fc6e4b6da8f5718f133e07bc3f2cf31dd0"
+    },
+    "source_raster_depth": {
+      "dtype": "float32",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "sha256": "8a4e91ee7edfdc4299951484876c0c2aaca9b2f61d930d6a654e88ea47a4e877"
+    },
+    "prefix_linear": {
+      "dtype": "float32",
+      "shape": [
+        96,
+        128,
+        4
+      ],
+      "sha256": "11692300cf6e86d34e07d9c9b193f9f7c0b6c9d2709e522c3a7520e90b2da722"
+    },
+    "prefix_depth": {
+      "dtype": "float32",
+      "shape": [
+        96,
+        128,
+        1
+      ],
+      "sha256": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606"
+    },
+    "prefix_normal": {
+      "dtype": "float32",
+      "shape": [
+        96,
+        128,
+        4
+      ],
+      "sha256": "c63496ccb71952a6dc38e1b90e17143977235554dfea7bce2172c9cf38b3d4d5"
+    },
+    "prefix_ss4096": {
+      "dtype": "float32",
+      "shape": [
+        96,
+        128,
+        4
+      ],
+      "sha256": "0455661a136a5a35df31f8c4f8c2399eb000172bd5c0b01991508268ad2b353f"
+    }
+  },
+  "native_buffers": {
+    "px32-yaw0-source-field.f32": {
+      "array": "source_lit_rgba",
+      "sha256": "6c84f6eb2b2b74d2c896e1dd78f350fc6e4b6da8f5718f133e07bc3f2cf31dd0",
+      "bytes": 4194304
+    },
+    "px32-yaw0-source-depth.f32": {
+      "array": "source_raster_depth",
+      "sha256": "8a4e91ee7edfdc4299951484876c0c2aaca9b2f61d930d6a654e88ea47a4e877",
+      "bytes": 1048576
+    },
+    "px32-yaw0-radiance-world.linear": {
+      "array": "prefix_linear",
+      "sha256": "85abe53ba92c62cb54467f82672dbb4baf7944a6cba744e4bb7278e281f3f69b",
+      "bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "raster": [
+        1280,
+        720
+      ],
+      "crop": [
+        576,
+        312,
+        704,
+        408
+      ]
+    },
+    "px32-yaw0-radiance-world.depth": {
+      "array": "prefix_depth",
+      "sha256": "0c660f2bd3eff3150dd0040789abe2291613b9af319df870203d4f77a4913a5f",
+      "bytes": 3686400,
+      "clear": [
+        0.0
+      ],
+      "raster": [
+        1280,
+        720
+      ],
+      "crop": [
+        576,
+        312,
+        704,
+        408
+      ]
+    },
+    "px32-yaw0-radiance-world.normal": {
+      "array": "prefix_normal",
+      "sha256": "87091123b9eee4b81bd7ed0959d430ec464cd7934be2fed1180cdfb82884ccb9",
+      "bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "raster": [
+        1280,
+        720
+      ],
+      "crop": [
+        576,
+        312,
+        704,
+        408
+      ]
+    },
+    "px32-yaw0-radiance-world.ss4096": {
+      "array": "prefix_ss4096",
+      "sha256": "d5f73a5f4d2fc1bb5581bdf38e4c741f228d8892d343bad50607e4156cc2ddf9",
+      "bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "raster": [
+        1280,
+        720
+      ],
+      "crop": [
+        576,
+        312,
+        704,
+        408
+      ]
+    }
+  },
+  "npz_sha256": "1ed00e0609428c9689d890bc8f3b2f77a317986eb60ba774097f873bb3315923",
+  "npz_bytes": 1288052,
+  "scope": "Exact old 512 stored field/PBR, capture-lit source readback and same-query prefix SS64. Source lighting view remains capture direction, not independent perspective BRDF. No World/SSE/p99 admission. Parent795 differs from later e6 repetition: do not mix buffers. Stored-field encoding uses its own provenance, unlike the parent atlas."
+}
