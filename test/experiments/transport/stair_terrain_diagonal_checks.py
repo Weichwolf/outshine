@@ -115,6 +115,18 @@ class TerrainDiagonals(unittest.TestCase):
 
 
 class PiecewiseGroundContact(unittest.TestCase):
+    def test_existing_affine_extrema_control_also_checks_interior_and_coverage(self):
+        from stair_ground_overlay_cost import extrema_contact
+
+        contact, source = self.square([0, 1, 3, 2])
+        self.assertEqual(extrema_contact(contact, source), 0)
+        contact, source = self.square([0, 0, 1, 0])
+        with self.assertRaisesRegex(ValueError, "unchanged height bound"):
+            extrema_contact(contact, source)
+        contact, source = self.square([0, 1, 3, 2])
+        with self.assertRaisesRegex(ValueError, "complete source coverage"):
+            extrema_contact(contact, Mesh(source.vertices, source.triangles[:1]))
+
     def square(self, heights):
         xyz = np.c_[np.array([[0, 0], [1, 0], [1, 1], [0, 1]]), heights]
         return (
