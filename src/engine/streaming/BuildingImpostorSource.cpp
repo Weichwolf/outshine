@@ -112,7 +112,7 @@ BuildingImpostorSource::Generate(Content::ImpostorViewAssets::ViewIndex view,
   capture.Sources.push_back({.Mesh = std::move(*originals), .Instances = {Mat4{}}});
   std::string error;
   auto field = Render::ImpostorBaker::Bake(
-      std::move(capture), {.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1}, error);
+      std::move(capture), {.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1}, error, stop);
   if (!field) { return std::unexpected(std::move(error)); }
   if (stop.stop_requested()) { return std::unexpected("building field capture cancelled"); }
   return std::move(*field);

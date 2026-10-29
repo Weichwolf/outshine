@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -43,11 +44,15 @@ public:
   ImpostorBaker &operator=(const ImpostorBaker &) = delete;
 
   // Serialize captures on a content worker; this renderer never belongs to the frame loop.
-  [[nodiscard]] std::optional<ImpostorAtlas>
-  Capture(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error);
+  [[nodiscard]] std::optional<ImpostorAtlas> Capture(ImpostorCapture capture,
+                                                     ImpostorAtlasShape shape,
+                                                     std::string &error,
+                                                     const std::stop_token &stop = {});
 
-  [[nodiscard]] static std::optional<ImpostorAtlas>
-  Bake(ImpostorCapture capture, ImpostorAtlasShape shape, std::string &error);
+  [[nodiscard]] static std::optional<ImpostorAtlas> Bake(ImpostorCapture capture,
+                                                         ImpostorAtlasShape shape,
+                                                         std::string &error,
+                                                         const std::stop_token &stop = {});
 
   [[nodiscard]] static std::optional<ImpostorCaptureProjection>
   ProjectionFor(const ImpostorCapture &capture, ImpostorAtlasShape shape, std::string &error);
