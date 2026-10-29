@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 from probe_terrain_material_fields import appearance
+from terrain_material_capture import load
 from terrain_material_litter import compose
 from terrain_material_plane import hash_words, prepare
 
@@ -160,9 +161,22 @@ def preview(surface, data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--palette-capture", type=Path)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    palette, manifest = inputs()
+    if args.palette_capture is None:
+        palette, manifest = inputs()
+    else:
+        capture = load(args.palette_capture)
+        palette = capture.palette
+        manifest = {
+            "rows": int(capture.palette_words[0]),
+            "layer_offset_floats": int(capture.palette_words[3]),
+            "sha256": capture.metadata["palette_sha256"],
+            "native_producer_commit": capture.metadata["product_commit"],
+            "capture_input_sha256": capture.input_sha256,
+            "scope": "Actual captured palette only; positions, plane and footprints remain explicit controls.",
+        }
     reports = []
     canvas = Image.new("RGB", (512, 2 * 216), "white")
     labels = ImageDraw.Draw(canvas)

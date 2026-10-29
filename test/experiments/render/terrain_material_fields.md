@@ -6,7 +6,7 @@ address or cache. Current `groundRock.glsl`, `rockCrevice.glsl` and
 `surfaceNoise.glsl` own the rock response. The separate 2D reference retains
 `groundSubstrate.glsl` and `groundLayers.glsl` substrate/litter algebra, including
 the current nine-point oriented mask and its small-footprint point shortcut.
-Rock/class composition and actual native fragment inputs remain separate.
+Rock/class composition uses the separately validated native fragment inputs below.
 
 The reference separates each original noise value and physical world gradient
 from the current footprint-dependent crevice and frequency-fade computation.
@@ -58,11 +58,14 @@ PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
 PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
   OMP_NUM_THREADS=1 nice -n 10 .venv/bin/python -B \
   test/experiments/render/probe_terrain_material_substrate.py \
+  --palette-capture test/experiments/render/fixtures/terrain-material-fragments/jura.json \
   --output /tmp/outshine-terrain-substrate-fields
 ```
 
-The composition probe uses the unchanged versioned native palette and explicit
-controlled coordinates/footprints. Its test-driver selection uses two known patch
+The composition probe optionally uses the current captured native palette; its
+coordinates, planes and footprints remain explicit controls. Without that option
+it retains the historic versioned palette used by the independent reference tests.
+Its test-driver selection uses two known patch
 bounds before creating fine raster queries, and prepares only needed
 coarse/fine/grain tables and retains the analytic path on a word-capacity miss.
 The partial-coverage mask shares the base coarse table with a three-cell halo.
@@ -122,6 +125,31 @@ the six current Double material/derivative channels on the actual observations.
 Singleton integer fields are constructed inside this quality control: cumulative
 construction bytes do not estimate world residency or an amortized cache hit.
 The warm bounded-plane comparison reports preparation separately.
+
+## Procedure decision
+
+Prefer support-selected analytic evaluation for native investigation. The actual
+128 observations eliminate seven rock and fourteen first-substrate calls while
+retaining all six Double result channels exactly, without additional fields.
+Repeated matched CPU comparisons favour this simpler method. Prepared 2D word
+lookups remain slower and allocate more than analytic queries on both controlled
+patches, including after removal of an avoidable integer-array copy. The positive
+3D-only allocation result does not establish a win for complete material shading.
+Neither field representation is recommended as a native default from this study.
+
+The reproducible cost driver uses nine rotating query rounds, checks complete
+result equality, measures bounded preparation separately and records allocations
+in separate Memray traces. NumPy and Memray are required; native stacks are
+requested. Run measurements at normal priority with their host load reported:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
+  OMP_NUM_THREADS=1 .venv/bin/python -B \
+  test/experiments/render/measure_terrain_material_fields.py \
+  --input test/experiments/render/fixtures/terrain-material-fragments/jura.json \
+          test/experiments/render/fixtures/terrain-material-fragments/koerbersee.json \
+  --output /tmp/outshine-terrain-material-costs
+```
 
 Double-reference residuals against the instrumented GPU values are observations,
 not new acceptance tolerances. Final shading normals are not independently
