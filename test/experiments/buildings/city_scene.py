@@ -21,7 +21,7 @@ SCENES = ("Paris", "Rom", "Berlin", "London")
 
 def inputs(city, census):
     selected = next(row for row in census["cities"] if row["city"] == city)
-    buildings, _, sources = read(city, False)
+    buildings, _, sources = read(city, False, snapshot=selected["receipts"])
     expected = {r["url"]: r["sha256"] for r in selected["receipts"]}
     if {r["url"]: r["sha256"] for r in sources["receipts"]} != expected:
         raise ValueError("City source snapshot differs from the inspected census")

@@ -6,6 +6,7 @@ import math
 import numpy as np
 import shapely
 from outshine_ref.places import acquire, covering_tiles, decode_vector
+from outshine_ref.places.sources import tile_tuple
 from provider_contract import attributes
 from samples import GIRTH_M, SOURCES
 from special_sources import endpoint
@@ -40,13 +41,48 @@ def projector(city, tile):
     return project
 
 
-def read(city, fetch):
+def pinned_sources(snapshot, tiles):
+    result = {}
+    for receipt in snapshot:
+        tile = tile_tuple(receipt.get("tile"))
+        digest, url = receipt.get("sha256"), receipt.get("url")
+        if (
+            receipt.get("kind") != "vector"
+            or not isinstance(url, str)
+            or not url
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or any(c not in "0123456789abcdef" for c in digest)
+        ):
+            raise ValueError(
+                "Pinned city sources require explicit vector URIs and SHA256"
+            )
+        if tile in result:
+            raise ValueError("Pinned city source tile is duplicated")
+        result[tile] = receipt
+    if set(result) != set(tiles):
+        raise ValueError("Pinned city sources do not cover the complete survey scope")
+    return result
+
+
+def read(city, fetch, *, snapshot=None):
     latitude, longitude = CITIES[city]
-    template, definition, digest = endpoint()
+    tiles = covering_tiles(latitude, longitude, 1000.0, 14)
+    pinned = None if snapshot is None else pinned_sources(snapshot, tiles)
+    if pinned is None:
+        template, definition, digest = endpoint()
+    else:
+        template, definition, digest = None, "explicit pinned source receipts", None
     buildings, pois, receipts, omissions = [], [], [], []
-    for tile in covering_tiles(latitude, longitude, 1000.0, 14):
-        url = template.format(z=tile[0], x=tile[1], y=tile[2])
+    for tile in tiles:
+        url = (
+            template.format(z=tile[0], x=tile[1], y=tile[2])
+            if pinned is None
+            else pinned[tile]["url"]
+        )
         receipt = acquire(("vector", tile, url), SOURCES.parent, fetch=fetch)
+        if pinned is not None and receipt["sha256"] != pinned[tile]["sha256"]:
+            raise ValueError("Pinned city source payload hash changed before decode")
         receipts.append(receipt)
         layers = decode_vector(receipt)
         project = projector(city, tile)
