@@ -1,4 +1,5 @@
 #include "Wayfinding.h"
+#include "NetworkLongitudeSpan.h"
 
 #include <algorithm>
 #include <chrono>
@@ -140,8 +141,11 @@ std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
         cursor.Shape = Network_.ShapeRowOver(cursor.Row, Snap{.CellM = TieReachM_});
         const int64_t one = Network::ColumnIn(*cursor.Shape, a.LongitudeDeg);
         const int64_t two = Network::ColumnIn(*cursor.Shape, b.LongitudeDeg);
-        cursor.Column = std::min(one, two);
-        cursor.LastColumn = std::max(one, two);
+        const auto columns = ColumnsAlongShortestArc({.Degrees = a.LongitudeDeg, .Index = one},
+                                                     {.Degrees = b.LongitudeDeg, .Index = two},
+                                                     cursor.Shape->Columns);
+        cursor.Column = columns.first;
+        cursor.LastColumn = columns.second;
       }
       if (!Network_.IndexEdgeCell(
               cursor.Ends,
