@@ -324,6 +324,24 @@ endif()
 
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
+add_library(test_harness_stored_sample_quads STATIC EXCLUDE_FROM_ALL
+  test/harness/render/StoredSampleQuads.cpp)
+target_compile_options(test_harness_stored_sample_quads PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_stored_sample_quads PUBLIC outshine_render)
+
+add_executable(test_experiments_render_StoredSampleQuads EXCLUDE_FROM_ALL
+  test/experiments/render/test_stored_sample_quads.cpp)
+target_include_directories(test_experiments_render_StoredSampleQuads PRIVATE
+  "${PROJECT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/test/harness/shared")
+target_compile_options(test_experiments_render_StoredSampleQuads PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_StoredSampleQuads PRIVATE
+  test_harness_stored_sample_quads)
+add_dependencies(outshine_tests test_experiments_render_StoredSampleQuads)
+add_test(NAME experiments/render/StoredSampleQuads
+  COMMAND $<TARGET_FILE:test_experiments_render_StoredSampleQuads>)
+set_tests_properties(experiments/render/StoredSampleQuads PROPERTIES
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/render")
+
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
   test/experiments/render/BuildingSourceCapture.cpp
@@ -365,6 +383,7 @@ target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVA
   "${PROJECT_SOURCE_DIR}")
 target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  test_harness_stored_sample_quads
   outshine_core PkgConfig::nlohmann_json)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE

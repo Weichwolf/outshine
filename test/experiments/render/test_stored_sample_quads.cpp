@@ -1,4 +1,4 @@
-#include "MaterialFieldSamples.h"
+#include "test/harness/render/StoredSampleQuads.h"
 #include "ImpostorAtlas.h"
 #include "Check.h"
 #include <algorithm>
@@ -51,10 +51,10 @@ int main() {
   constexpr size_t meshBytes =
       size_t{2} * (size_t{4} * (3 + 3 + 2) * sizeof(float) + 6 * sizeof(uint32_t));
   constexpr size_t bytes = imageBytes + meshBytes;
-  CHECK(!MaterialFieldSamples::Prepare(*atlas, {.View = 0, .SourceBytesMost = bytes - 1}) &&
-            !MaterialFieldSamples::Prepare(*atlas, {.View = 1, .SourceBytesMost = bytes}),
+  CHECK(!StoredSampleQuads::Prepare(*atlas, {.View = 0, .SourceBytesMost = bytes - 1}) &&
+            !StoredSampleQuads::Prepare(*atlas, {.View = 1, .SourceBytesMost = bytes}),
         "source payload admission and view identity are checked before construction");
-  const auto input = MaterialFieldSamples::Prepare(*atlas, {.View = 0, .SourceBytesMost = bytes});
+  const auto input = StoredSampleQuads::Prepare(*atlas, {.View = 0, .SourceBytesMost = bytes});
   CHECK(input && input->SourceBytes == bytes, "exact logical source payload admission succeeds");
   if (!input) { return Report(); }
   const auto &geometry = input->Source;

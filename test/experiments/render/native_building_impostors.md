@@ -93,7 +93,7 @@ geometry with cards; no source mesher, silhouette fitting or World LOD admission
 
 For #1752, `--source-mesh` also accepts input JSON `stored_samples: true`,
 `atlas_file`, `atlas_sha256`, and optional `atlas_provenance` (default
-`native-original-impostor-1`). It draws existing `MaterialFieldSamples` through
+`native-original-impostor-1`). It draws diagnostic `Test::StoredSampleQuads` through
 the same native geometry/PBR/depth path. This branch needs no original geometry
 directory; the independent reference still loads its complete original meshes.
 The diagnostic uses no production renderer switch or additional asset format.

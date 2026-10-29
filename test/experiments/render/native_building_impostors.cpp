@@ -1,6 +1,6 @@
 #include "AzimuthElevation.h"
 #include "MaterialFieldPass.h"
-#include "MaterialFieldSamples.h"
+#include "test/harness/render/StoredSampleQuads.h"
 #include "test/harness/render/NativeOffline.h"
 #include "ImpostorBaker.h"
 #include "ImpostorOptics.h"
@@ -980,7 +980,7 @@ Geometry StoredSampleSource(const Json &input, size_t view) {
   auto atlas = ImpostorAtlas::Decode(
       bytes, input.value("atlas_provenance", std::string("native-original-impostor-1")), error);
   if (!atlas) { Fail(error); }
-  auto samples = Render::MaterialFieldSamples::Prepare(
+  auto samples = Test::StoredSampleQuads::Prepare(
       *atlas, {.View = view, .SourceBytesMost = size_t{64} * 1024 * 1024});
   if (!samples) { Fail(samples.error()); }
   return std::move(samples->Source);
