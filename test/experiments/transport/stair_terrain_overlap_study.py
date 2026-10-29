@@ -52,12 +52,22 @@ def run(args):
     state, _, _, _ = state_for(before, old_assets, supports, contacts, sources, recipe)
     _, _, ground, _ = old_surfaces(state, recipe, sources)
     original, captured = soil.remove_covered_duplicates, {}
+    diagonal_choice, diagonal = soil.repair_diagonals, {}
 
     def capture(xy, faces):
         captured.update(xy=xy.copy(), faces=faces.copy())
         return original(xy, faces)
 
-    with patch.object(soil, "remove_covered_duplicates", capture):
+    def capture_diagonal(xy, faces, classes):
+        result, note = diagonal_choice(xy, faces, classes)
+        if note:
+            diagonal.update(xy=xy.copy(), faces=faces.copy(), classes=classes.copy())
+        return result, note
+
+    with (
+        patch.object(soil, "remove_covered_duplicates", capture),
+        patch.object(soil, "repair_diagonals", capture_diagonal),
+    ):
         local, chosen, terrain = soil.prepare(
             state, saved["data"], ground, recipe, sample
         )
@@ -73,6 +83,8 @@ def run(args):
     support = read_arrays(support_path)
     args.output.mkdir()
     np.savez_compressed(args.output / "pre-cleanup.npz", **captured)
+    if diagonal:
+        np.savez_compressed(args.output / "pre-diagonal.npz", **diagonal)
     scenes = render_scenes(
         args.output,
         before,
@@ -96,9 +108,10 @@ def run(args):
         "sources_after": len(report["candidate_source_ids"]),
         "new_source_ids": recipe["source_ids"],
         "removed_overlap": proof,
+        "terrain_work": terrain["work"],
         "scenes": scenes,
         "native_admitted_source_ids": report["admitted_source_ids"],
-        "scope": "Whole alternative three-source module from the fixed 107-source baseline; immutable old assets, unchanged new body, exact terrain reproduction. Actual diagnostic meshes, no native/world/routing/device admission.",
+        "scope": "Whole source module from its fixed resident baseline; immutable old assets, unchanged new body, exact terrain reproduction. Actual diagnostic meshes, no native/world/routing/device admission.",
     }
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
