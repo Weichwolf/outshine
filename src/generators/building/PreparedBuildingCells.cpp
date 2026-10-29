@@ -17,25 +17,27 @@
 #include <utility>
 
 namespace outshine::Generators {
-namespace {}
+struct PreparedBuildingAssets::SurfaceRead {
+  std::vector<BuildingSurface> Product;
+  PreparedAssetWrite Package;
+};
 
 std::string PreparedBuildingAssets::SurfaceKey(const std::string &baseKey, uint32_t cell) {
   const auto identity = "prepared-building-cell-1/" + baseKey + "/" + std::to_string(cell);
   return Sha256Hex(reinterpret_cast<const uint8_t *>(identity.data()), identity.size());
 }
 
-std::expected<void, StructureBakeError>
-PreparedBuildingAssets::StoreSurfaceCell(const std::string &key,
-                                         uint32_t cell,
-                                         const Box &bounds,
-                                         std::span<const BuildingSurface *const> surfaces) {
-  auto prepared = PrepareSurfaceCell(key, cell, bounds, surfaces);
-  if (!prepared) { return std::unexpected(prepared.error()); }
+std::expected<std::vector<BuildingSurface>, StructureMeshError>
+PreparedBuildingAssets::PublishSurfaces(SurfaceRead &read) {
   const std::scoped_lock lock(Lock_);
-  const auto stored = Cache_->Publish(*prepared);
-  if (!stored) { return std::unexpected(CacheFailure(stored.error())); }
+  const auto stored = Cache_->Publish(read.Package);
+  if (!stored) {
+    return std::unexpected(stored.error() == AssetCacheError::Busy
+                               ? StructureMeshError::PreparedSurfaceBusy
+                               : StructureMeshError::PreparedSurfaceUnavailable);
+  }
   ++SurfaceCosts_.Writes;
-  return {};
+  return std::move(read.Product);
 }
 
 std::expected<PreparedAssetWrite, StructureBakeError>
@@ -43,6 +45,7 @@ PreparedBuildingAssets::PrepareSurfaceCell(const std::string &key,
                                            uint32_t cell,
                                            const Box &bounds,
                                            std::span<const BuildingSurface *const> surfaces) {
+  ++SurfaceCosts_.Preparations;
   auto bytes = EncodeBuildingSurfaceBlock(surfaces);
   if (!bytes || bytes->size() > kPackageBytesMost) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
@@ -73,13 +76,14 @@ void PreparedBuildingAssets::BindSurfaces(const std::string &key,
          root = std::weak_ptr(base),
          key,
          cell,
-         indices = std::move(
-             cells[cell])] -> std::expected<std::vector<BuildingSurface>, StructureMeshError> {
+         read = std::shared_ptr<SurfaceRead>{},
+         indices = std::move(cells[cell])]() mutable
+            -> std::expected<std::vector<BuildingSurface>, StructureMeshError> {
           const auto held = root.lock();
           if (!owner || !held) {
             return std::unexpected(StructureMeshError::PreparedSurfaceUnavailable);
           }
-          return owner->LoadSurfaces(key, cell + 1u, *held, indices);
+          return owner->LoadSurfaces(key, cell + 1u, *held, indices, read);
         });
   }
   std::array<uint32_t, kStructureCellsPerTile> offsets{};
@@ -96,7 +100,9 @@ std::expected<std::vector<BuildingSurface>, StructureMeshError>
 PreparedBuildingAssets::LoadSurfaces(const std::string &key,
                                      uint32_t cell,
                                      const PreparedStructureTile &base,
-                                     std::span<const uint32_t> indices) {
+                                     std::span<const uint32_t> indices,
+                                     std::shared_ptr<SurfaceRead> &read) {
+  if (read) { return PublishSurfaces(*read); }
   {
     const std::scoped_lock lock(Lock_);
     auto loaded = Cache_->Load(SurfaceKey(key, cell), kPackageBytesMost);
@@ -143,10 +149,11 @@ PreparedBuildingAssets::LoadSurfaces(const std::string &key,
   std::vector<const BuildingSurface *> references;
   references.reserve(surfaces.size());
   for (const auto &surface : surfaces) { references.push_back(&surface); }
-  if (!StoreSurfaceCell(key, cell, bounds, references)) {
-    return std::unexpected(StructureMeshError::PreparedSurfaceUnavailable);
-  }
-  return surfaces;
+  auto prepared = PrepareSurfaceCell(key, cell, bounds, references);
+  if (!prepared) { return std::unexpected(StructureMeshError::PreparedSurfaceUnavailable); }
+  read = std::make_shared<SurfaceRead>(
+      SurfaceRead{.Product = std::move(surfaces), .Package = std::move(*prepared)});
+  return PublishSurfaces(*read);
 }
 
 }

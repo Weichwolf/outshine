@@ -257,6 +257,9 @@ struct StructureBuildTask::NativeProducts {
   }
 
   static bool Busy(const Generators::StructureBakeError &error) noexcept {
+    if (const auto *mesh = std::get_if<StructureMeshError>(&error)) {
+      return *mesh == StructureMeshError::PreparedSurfaceBusy;
+    }
     const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&error);
     return kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy;
   }
@@ -432,6 +435,11 @@ struct StructureBuildTask::NativeProducts {
                  const Generators::PreparedStructureTile &base,
                  Output &output,
                  const std::atomic_bool &stopping) {
+    if (!output.Status && Busy(output.Status.error())) {
+      output.Status = {};
+      Defer();
+      return;
+    }
     if (!output.Tile || Current != Phase::Generating || stopping.load(std::memory_order_relaxed)) {
       return;
     }

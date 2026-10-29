@@ -191,6 +191,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
           .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
           .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed),
+          .SurfacePreparations = SurfaceCosts_.Preparations.load(std::memory_order_relaxed),
           .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed),
           .BasePreparations = BasePreparations_.load(std::memory_order_relaxed),
           .BasePackagePreparations = BasePackagePreparations_.load(std::memory_order_relaxed),

@@ -156,10 +156,11 @@ struct Fixture {
     return status == SQLITE_OK;
   }
 
-  void Start() {
+  void Start(std::optional<LevelOfDetail> detail = std::nullopt) {
     auto view = std::make_unique<RawTile>();
     view->Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
     view->Projection = {.FocalPx = 720};
+    view->RequestedDetail = detail;
     Job = std::make_unique<StructureBuildTask>(0,
                                                Basis,
                                                std::move(view),
@@ -256,6 +257,64 @@ void CheckBusy(bool cancel) {
     CHECK(gone && !*gone, "terminal retirement removes the current unusable request binding");
   }
 }
+
+void CheckBusyShapeCell() {
+  Fixture fixture;
+  const bool opened = fixture.Open() && Seed(*fixture.Cache);
+  CHECK(opened, "the lazy-cell case retains its actual native index and basis");
+  if (!opened) { return; }
+  const auto parent = fixture.Records->Find(Key(*fixture.Cache));
+  CHECK(parent && *parent, "native parent bounds identify the shape children");
+  if (!parent || !*parent) { return; }
+  const auto cells = fixture.Records->Select({.Bounds = (**parent).Bounds,
+                                              .Kind = "building-forms",
+                                              .Level = {},
+                                              .Radius = {},
+                                              .Planes = {}});
+  CHECK(cells && cells->size() == 1, "the fixture has exactly one occupied native form cell");
+  if (!cells || cells->size() != 1) { return; }
+  CHECK(fixture.Records->Remove(cells->front().Key), "only its regenerable form cell is missing");
+  const auto before = fixture.Cache->Costs();
+  CHECK(sqlite3_exec(fixture.Writer.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) ==
+            SQLITE_OK,
+        "another real writer prevents publication of that missing cell");
+  fixture.Start(LevelOfDetail::Shell);
+  const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+  while (std::chrono::steady_clock::now() < until && fixture.Job->Result().Status) {
+    fixture.Resume();
+  }
+  const auto waiting = fixture.Cache->Costs();
+  CHECK(fixture.Job->Result().Status && !fixture.Job->Result().Tile &&
+            waiting.SurfacePreparations == before.SurfacePreparations + 1 &&
+            waiting.SurfaceMisses == before.SurfaceMisses + 1 &&
+            waiting.SurfaceWrites == before.SurfaceWrites,
+        "the same actual task retains one prepared form product/package across real Busy");
+  const auto independent = fixture.Pool.Post([] {});
+  CHECK(independent != Tasks::kNoTask && fixture.Pool.AwaitCompletion(independent, 1),
+        "cell contention releases the single worker for independent admitted work");
+  if (independent != Tasks::kNoTask) { (void)fixture.Pool.TakeCompletion(independent); }
+  CHECK(sqlite3_exec(fixture.Writer.get(), "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "the writer releases native cell publication");
+  CHECK(fixture.Await(), "the same task resumes its retained geometry progress and publication");
+  const auto &tile = fixture.Job->Result().Tile;
+  if (!tile) { return; }
+  const auto heights = Heights();
+  const auto original = PrepareStructureTile(Inputs(), *heights);
+  CHECK(original, "the unchanged input yields an independent complete geometry reference");
+  if (!original) { return; }
+  RawTile view;
+  view.Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
+  view.Projection = {.FocalPx = 720};
+  view.RequestedDetail = LevelOfDetail::Shell;
+  auto scratch = fixture.Mesher.Scratch();
+  const auto expected = BakePreparedStructures(*original, view, fixture.Mesher, *scratch);
+  const auto &actual = *tile;
+  CHECK(expected && actual.Digest == expected->Digest && actual.Prints == expected->Prints &&
+            actual.Prints.size() == original->Structures.size() &&
+            fixture.Cache->Costs().SurfacePreparations == waiting.SurfacePreparations &&
+            fixture.Cache->Costs().SurfaceWrites == before.SurfaceWrites + 1,
+        "resumption preserves geometry/contacts without duplicate metadata or cell preparation");
+}
 }
 
 int main(int argc, char **argv) {
@@ -263,5 +322,6 @@ int main(int argc, char **argv) {
   CheckRepair(argv[0]);
   CheckBusy(false);
   CheckBusy(true);
+  CheckBusyShapeCell();
   return outshine::Test::Report();
 }
