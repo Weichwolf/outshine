@@ -1,7 +1,7 @@
 {
   "schema": "outshine/native-mvt-source-reference/1",
-  "exporter_commit": "ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d",
-  "native_producer_commit": "ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d",
+  "exporter_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
+  "native_producer_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
   "native_schema": "outshine/native-mvt-snapshot-dump/1",
   "source_facts_schema": "outshine/native-mvt-source-facts/4",
   "tile": [
@@ -44,7 +44,7 @@
   "scope": [
     "Actual native v4 capture on the unchanged versioned MVT; no DEM, local influence, C1, geographic closure or World admission proof"
   ],
-  "provenance": "Unmodified actual native v4 original capture by outshine_engine on ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d, input MVT identical to existing Vienna references. Paired wrapper copied after independent Python validation; no controlled states or generated test oracle. Native authority is captured-dataset incidence only, never C1/local influence/geographic closure.",
+  "provenance": "Unmodified actual native v4 original capture by outshine_engine on e09087ed4aacdf0a98d442298b2647d8efc686f8, input MVT identical to existing Vienna references. Paired wrapper copied after independent Python validation; no controlled states or generated test oracle. Native authority is captured-dataset incidence only, never C1/local influence/geographic closure. On the checked Intel i5-1135G7/Linux host, the public master-based producer reproduces the original ebf4bdf30 capture byte-for-byte; paired bytes and original input remain unchanged.",
   "expected_original_point_counts": {
     "missing_ways": 41,
     "points": 82,

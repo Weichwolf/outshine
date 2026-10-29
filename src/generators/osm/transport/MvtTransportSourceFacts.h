@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -50,6 +51,25 @@ struct MvtTransportWayFacts {
   std::array<bool, 2> OwnsEnds{};
 };
 
+enum class MvtTransportOriginalWayState : uint8_t {
+  Unresolved,
+  Exact,
+  AbsentInCapturedNetwork,
+  InexactTagCandidate,
+  AmbiguousExact
+};
+
+enum class MvtTransportOriginalPointState : uint8_t {
+  Unresolved,
+  ValidNativeNodeWithoutPublishedGroup,
+  PublishedGroup
+};
+
+struct MvtTransportOriginalPoint {
+  MvtTransportOriginalPointState State = MvtTransportOriginalPointState::Unresolved;
+  uint32_t Group = std::numeric_limits<uint32_t>::max();
+};
+
 struct MvtTransportSourceFacts {
   std::shared_ptr<const World::TransportNetworkSnapshot> Network;
   std::shared_ptr<const MvtTransportNodeGroups> NodeGroups;
@@ -66,6 +86,8 @@ struct MvtTransportSourceFacts {
     bool Bridge = false;
     bool Tunnel = false;
     std::vector<LongitudeLatitude> Points;
+    MvtTransportOriginalWayState OriginalWayState = MvtTransportOriginalWayState::Unresolved;
+    std::vector<MvtTransportOriginalPoint> OriginalPoints;
   };
 
   // Original geometry is evidence, not a certified network-influence bound.
