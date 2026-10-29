@@ -24,6 +24,7 @@ from stair_module_sections import (
 )
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_root_contact import new_through_root, profile_interiors
 from stair_shared_boxes import add_boxes, whole_sections
 from stair_source_owners import source_selection
 from stair_surface_contacts import bind_contacts
@@ -80,8 +81,11 @@ def old_surfaces(state, recipe, sources):
     )
     row["cached_box_grids"] = state["cached_box_grids"]
     row["additional_contacts"] = state["module_contacts"]
-    row["include_interiors"] = row["root_interior"] or bool(
-        recipe.get("endpoint_contacts")
+    row["new_through_root"] = state["new_through_root"] = new_through_root(
+        recipe, sources
+    )
+    row["include_interiors"] = state["profile_interiors"] = profile_interiors(
+        recipe, sources
     )
     ground_mesh = Mesh(old_xyz, plan["faces"][plan["ground"]])
     upper = Mesh(road["body_vertices"], road["bottom_faces"][~ground])
@@ -98,6 +102,7 @@ def prepared(rows, sources, frozen_row, line, ground):
             i
             for i, key in enumerate(keys)
             if any(sources[key]["mvt_xy"][end] == anchor for end in (0, -1))
+            or (frozen_row["new_through_root"] and anchor in sources[key]["mvt_xy"])
         ]
         if incident:
             node = {
@@ -115,7 +120,8 @@ def prepared(rows, sources, frozen_row, line, ground):
         rows,
         root[0],
         line,
-        include_interiors=frozen_row["root_interior"],
+        include_interiors=frozen_row["root_interior"] or frozen_row["new_through_root"],
+        allow_through=frozen_row["new_through_root"],
         cached_profiles=[c["profile"][:, :2] for c in at_root],
     )
     prepare_contacts(rows, nodes, [c for c in contacts if c["mvt_xy"] != anchor])

@@ -150,7 +150,13 @@ def inspect_pins(data, fixed, values, mode):
         raise ValueError("saved contact heights differ from immutable reference")
 
 
-def junction_pins(data, recipe, rows, nodes, line, contacts, fixed, values):
+def junction_pins(
+    data, recipe, rows, nodes, line, contacts, fixed, values, *, include_interiors=None
+):
+    if include_interiors is None:
+        include_interiors = "vertex" in recipe["port"] or bool(
+            recipe.get("endpoint_contacts")
+        )
     node_checks = []
     if recipe.get("junction_mode", "free") in ("level_box", "shared_box"):
         cached_points = [line[1, :2], *[c["xy"] for c in contacts]]
@@ -158,8 +164,7 @@ def junction_pins(data, recipe, rows, nodes, line, contacts, fixed, values):
             rows,
             nodes,
             cached_points,
-            include_interiors="vertex" in recipe["port"]
-            or bool(recipe.get("endpoint_contacts")),
+            include_interiors=include_interiors,
         )
         fixed, values = apply_heights(
             data["surface_vertices"][:, :2],
@@ -224,7 +229,15 @@ def audit(state, recipe, data, rows, planning, line, upper):
     )
     constructed = contact_regions(state.get("surface_contacts", []), original)
     fixed, values, node_checks = junction_pins(
-        data, recipe, rows, nodes, line, state["module_contacts"], fixed, values
+        data,
+        recipe,
+        rows,
+        nodes,
+        line,
+        state["module_contacts"],
+        fixed,
+        values,
+        include_interiors=state.get("profile_interiors"),
     )
     inspect_pins(data, fixed, values, mode)
     profile_note = (
@@ -238,6 +251,7 @@ def audit(state, recipe, data, rows, planning, line, upper):
             line,
             contacts=state.get("module_contacts", []),
             root_interior="vertex" in recipe["port"],
+            root_new_through=state.get("new_through_root", False),
             constructed=constructed,
             shared_box=recipe.get("junction_mode") == "shared_box",
         )
