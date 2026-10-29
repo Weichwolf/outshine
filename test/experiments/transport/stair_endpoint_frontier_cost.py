@@ -3,9 +3,12 @@
 import argparse
 import gc
 import hashlib
+import importlib.util
 import json
 import os
 import platform
+import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -56,14 +59,40 @@ def run(args):
         or manifest["source_ids"] != saved["index"]["before_source_ids"]
     ):
         raise ValueError("Actual original source/profile selection changed")
-    expected = {
-        name: discover_source_modules(records, roots, method=name)
+    args.output.mkdir()
+    calls = {
+        name: lambda name=name: discover_source_modules(records, roots, method=name)
         for name in ("index", "scan")
     }
+    reference = None
+    if args.reference_commit:
+        if not re.fullmatch(r"[0-9a-f]{40}", args.reference_commit):
+            raise ValueError("Full frozen historical source commit required")
+        code = subprocess.check_output(
+            [
+                "git",
+                "show",
+                args.reference_commit + ":lib/src/outshine_ref/transport/frontiers.py",
+            ]
+        )
+        path = args.output / "historical_frontiers.py"
+        path.write_bytes(code)
+        spec = importlib.util.spec_from_file_location("historical_frontiers", path)
+        if spec is None or spec.loader is None:
+            raise ValueError("Historical reference module cannot be loaded")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        calls["reference_index"] = lambda: module.discover_source_modules(
+            records, roots, method="index"
+        )
+        reference = {
+            "commit": args.reference_commit,
+            "source_sha256": hashlib.sha256(code).hexdigest(),
+        }
+    expected = {name: call() for name, call in calls.items()}
     fingerprint = meaning(saved["index"]["plan"])
     if any(meaning(r) != fingerprint for r in expected.values()):
         raise ValueError("Actual parent witnesses or source dispositions changed")
-    args.output.mkdir()
     load = os.getloadavg()
     costs = {name: {"rounds": []} for name in expected}
     names = tuple(costs)
@@ -71,7 +100,7 @@ def run(args):
         for name in names[turn % 2 :] + names[: turn % 2]:
             gc.collect()
             cpu, wall = time.process_time(), time.perf_counter()
-            result = discover_source_modules(records, roots, method=name)
+            result = calls[name]()
             costs[name]["rounds"].append(
                 {
                     "cpu_s": time.process_time() - cpu,
@@ -85,7 +114,7 @@ def run(args):
         gc.collect()
         result, memory = allocations(
             args.output / (name + ".bin"),
-            lambda name=name: discover_source_modules(records, roots, method=name),
+            calls[name],
         )
         if meaning(result) != fingerprint:
             raise ValueError("Profiled source result changed")
@@ -103,6 +132,7 @@ def run(args):
         "numpy": np.__version__,
         "load_before": load,
         "load_after": os.getloadavg(),
+        "reference": reference,
         "query_sha256": digest(args.query),
         "study_sha256": digest(args.study / "report.json"),
         "result_meaning_sha256": fingerprint,
@@ -127,4 +157,5 @@ if __name__ == "__main__":
     for name in ("resident", "query", "study", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--prior-module", type=Path, action="append", default=[])
+    parser.add_argument("--reference-commit")
     run(parser.parse_args())
