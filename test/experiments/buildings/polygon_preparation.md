@@ -25,9 +25,7 @@ On the same actual inputs, separate ring-delta reuse and batched planarity check
 gave only small or inconsistent CPU changes. Reusing already validated metadata
 with the original scalar predicate also reduced allocations and scoped peaks.
 The batched predicate is not adopted: it changes reduction grouping unnecessarily.
-The source arrays remain shared exactly as in the actual compiler. A first private
-comparison accidentally duplicated one input buffer per face; its report is marked
-invalid for locality/cost selection and its superseded traces were removed.
+The source arrays remain shared exactly as in the actual compiler.
 
 Nineteen focused controls cover the new path, existing Shape behaviour and facade
 frames. Independent cases check physical area/corner UVs, hole orientation and
