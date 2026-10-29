@@ -86,6 +86,15 @@ def plot_support(points, result, name, output):
     plt.close(fig)
 
 
+def plan_support(group_low, group_high, lower, upper, camera, translation):
+    group = capture_support(group_low, group_high, camera, translation=translation)
+    if group["inside"][0]:
+        inside = np.broadcast_to(group["inside"][0], (len(lower),))
+        return group, inside, group, 1
+    result = capture_support(lower, upper, camera, translation=translation)
+    return result, result["inside"], group, 1 + len(lower)
+
+
 def run(args):
     output = args.output.resolve()
     if (
@@ -99,31 +108,38 @@ def run(args):
     lower, upper, ids = [
         arrays[k] for k in ("source_least_m", "source_most_m", "source_ids")
     ]
-    # Fine geometry is loaded only for this independent opponent, after metadata.
+    group_low, group_high = lower.min(0, keepdims=True), upper.max(0, keepdims=True)
+    # The fixture derives the header once; native consumers borrow existing cohort
+    # metadata. No per-source query follows a proven-positive group enclosure.
     results = {
-        name: capture_support(
+        name: plan_support(
+            group_low,
+            group_high,
             lower,
             upper,
             manifest["capture_camera"],
-            translation=manifest["controlled_translations_m"][name][0],
+            manifest["controlled_translations_m"][name][0],
         )
         for name in PLACEMENTS
     }
+    # Fine geometry is loaded only for the opponent, after metadata decisions.
     parts = original_parts(manifest)
     records = []
     for name in PLACEMENTS:
         translation = manifest["controlled_translations_m"][name][0]
-        result = results[name]
+        result, source_inside, group, tested_bounds = results[name]
         corner = corner_support(
             lower, upper, manifest["capture_camera"], translation=translation
         )
-        for key in result:
-            np.testing.assert_array_equal(result[key], corner[key])
+        np.testing.assert_array_equal(source_inside, corner["inside"])
+        if not group["inside"][0]:
+            for key in result:
+                np.testing.assert_array_equal(result[key], corner[key])
         actual, points = original_projection(
             parts, ids, manifest["capture_camera"], translation
         )
         clipped = actual.any(1)
-        if np.any(result["inside"] & clipped):
+        if np.any(source_inside & clipped):
             raise ValueError("Metadata admitted a clipped original source")
         outside = (result["lower_m"] < result["capture_lower_m"]) | (
             result["upper_m"] > result["capture_upper_m"]
@@ -134,18 +150,21 @@ def run(args):
                 "placement": name,
                 "controlled_instance": 0 if name == "foreground" else 1,
                 "sources": len(ids),
-                "supported_group_geometrically_contained": bool(result["inside"].all()),
+                "metadata_bounds_tested": tested_bounds,
+                "cohort_box_contains_supported_group": bool(group["inside"][0]),
+                "per_source_refinement_needed_after_cohort_box": not bool(
+                    group["inside"][0]
+                ),
+                "supported_group_geometrically_contained": bool(source_inside.all()),
                 "unresolved_requested_sources_remain_unqualified": bool(
                     manifest["source"]["unresolved_originals"]
                 ),
-                "retained_source_ordinals": ids[~result["inside"]].tolist(),
-                "conservative_retained_sources": int((~result["inside"]).sum()),
+                "retained_source_ordinals": ids[~source_inside].tolist(),
+                "conservative_retained_sources": int((~source_inside).sum()),
                 "actual_clipped_sources": int(clipped.sum()),
                 "actual_axis_counts": actual.sum(0).tolist(),
                 "metadata_axis_counts": outside.sum(0).tolist(),
-                "conservative_extra_ordinals": ids[
-                    ~result["inside"] & ~clipped
-                ].tolist(),
+                "conservative_extra_ordinals": ids[~source_inside & ~clipped].tolist(),
                 "unknown_projection_sources": int((~result["finite"]).sum()),
                 "outside_original_vertices": int(
                     (

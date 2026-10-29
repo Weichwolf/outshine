@@ -12,6 +12,13 @@ source extents. This experiment does not implement their view-cell/PVS algorithm
 or infer occlusion. Fixed orthographic AABB projection here follows directly from
 the extrema of a linear function over a box.
 
+Test an existing complete cohort envelope first: one box uses18 directed products
+and48B of numeric endpoints. A positive enclosure avoids per-source work. A
+negative box result is inconclusive; refine source bounds only when useful, or
+retain the parent. In these controls the foreground accepts early; the interleave
+has an inconclusive cohort box but all1891 finer source boxes fit. Cohort bounds
+belong to existing native metadata; do not scan/rebuild them each frame.
+
 `capture_source_support.py` borrows a bounded nonempty pair of Nx3 source bounds.
 The native-control placement sequence is Double translation followed by Float32
 vertex storage. Both operations are monotone, so applying that sequence to

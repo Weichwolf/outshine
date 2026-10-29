@@ -85,23 +85,29 @@ def run(args):
     records = []
     load_before = os.getloadavg()
     for name in ("foreground", "separated-background", "interleaved-background"):
-        args_tuple = (lower, upper, manifest["capture_camera"])
         options = {"translation": manifest["controlled_translations_m"][name][0]}
-        methods = {
-            "endpoints": partial(capture_support, *args_tuple, **options),
-            "corners": partial(corner_support, *args_tuple, **options),
-        }
-        costs = measured(methods, output, name)
-        result = methods["endpoints"]()
-        records.append(
-            {
-                "placement": name,
-                "sources": len(lower),
-                "retained": int((~result["inside"]).sum()),
-                "costs": costs,
-                "owned_result_array_bytes": sum(a.nbytes for a in result.values()),
+        for scope, low, high in (
+            ("sources", lower, upper),
+            ("cohort", lower.min(0, keepdims=True), upper.max(0, keepdims=True)),
+        ):
+            args_tuple = (low, high, manifest["capture_camera"])
+            methods = {
+                "endpoints": partial(capture_support, *args_tuple, **options),
+                "corners": partial(corner_support, *args_tuple, **options),
             }
-        )
+            costs = measured(methods, output, name + "-" + scope)
+            result = methods["endpoints"]()
+            records.append(
+                {
+                    "placement": name,
+                    "scope": scope,
+                    "bounds": len(low),
+                    "bounds_not_proven_inside": int((~result["inside"]).sum()),
+                    "costs": costs,
+                    "input_endpoint_bytes": low.nbytes + high.nbytes,
+                    "owned_result_array_bytes": sum(a.nbytes for a in result.values()),
+                }
+            )
     n = len(lower)
     report = {
         "commit": subprocess.check_output(
@@ -120,11 +126,13 @@ def run(args):
             "corner_interval_coordinate_products": 144 * n,
             "expanded_corner_points": 8 * n,
             "endpoint_expanded_corner_points": 0,
+            "cohort_first_coordinate_products": 18,
+            "additional_source_refinement_products_if_needed": 18 * n,
             "known_float32_roundtrip_copy_bytes_each": 2 * 3 * n * (4 + 8),
             "known_corner_gather_copy_bytes": 8 * 3 * n * 8,
             "total_copy_bytes": None,
         },
-        "scope": "Nine rotating normal-priority CPU/wall rounds, comparison outside timing and separate Memray/native allocation traces. Identical result masks/intervals/limits. Inputs and held opponent precede scoped peaks. Metadata fixture checksum/decode, source geometry, images and GPU work excluded; no cold-IO, native frame/device or UMA claim. Fixed Double camera model, not a GPU transform/raster certificate.",
+        "scope": "Nine rotating normal-priority CPU/wall rounds, comparison outside timing and separate Memray/native allocation traces. Identical result masks/intervals/limits within each scope. Inputs and held opponent precede scoped peaks; cohort envelopes are precomputed outside timing. Diagnostic retains all source metadata: the 48B cohort endpoint payload is not total process residency. Metadata fixture checksum/decode, source geometry, images and GPU work excluded; no cold-IO, native frame/device or UMA claim. Fixed Double camera model, not a GPU transform/raster certificate.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(

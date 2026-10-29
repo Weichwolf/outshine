@@ -7,9 +7,11 @@ import unittest
 from fractions import Fraction
 from itertools import product
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from capture_source_support import capture_support, translated_bounds
+from capture_support_study import plan_support
 
 DATA = (
     Path(__file__).resolve().parents[2]
@@ -138,6 +140,41 @@ class CaptureSupportTests(unittest.TestCase):
                     result["upper_m"] > result["capture_upper_m"]
                 )
                 self.assertEqual(outside.sum(0).tolist(), [78, 0, 676])
+
+    def test_whole_cohort_box_accepts_early_but_failure_needs_refinement(self):
+        m = json.loads((DATA / "manifest.json").read_text())
+        with np.load(DATA / "captures.npz", allow_pickle=False) as d:
+            low, high = d["source_least_m"], d["source_most_m"]
+        for name, coarse_inside, fine_inside in (
+            ("foreground", True, 1891),
+            ("separated-background", False, 1181),
+            ("interleaved-background", False, 1891),
+        ):
+            options = {"translation": m["controlled_translations_m"][name][0]}
+            coarse = capture_support(
+                low.min(0, keepdims=True),
+                high.max(0, keepdims=True),
+                m["capture_camera"],
+                **options,
+            )
+            fine = capture_support(low, high, m["capture_camera"], **options)
+            self.assertEqual(bool(coarse["inside"][0]), coarse_inside)
+            self.assertEqual(int(fine["inside"].sum()), fine_inside)
+            with patch(
+                "capture_support_study.capture_support", wraps=capture_support
+            ) as query:
+                result, inside, _, count = plan_support(
+                    low.min(0, keepdims=True),
+                    high.max(0, keepdims=True),
+                    low,
+                    high,
+                    m["capture_camera"],
+                    options["translation"],
+                )
+            self.assertEqual(query.call_count, 1 if coarse_inside else 2)
+            self.assertEqual(count, 1 if coarse_inside else 1892)
+            self.assertEqual(int(inside.sum()), fine_inside)
+            self.assertEqual(len(result["inside"]), 1 if coarse_inside else 1891)
 
     def test_invalid_or_unbounded_inputs_do_not_become_empty_success(self):
         low, high = np.array([[0.0, 0, 1]]), np.array([[1.0, 1, 2]])
