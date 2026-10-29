@@ -97,6 +97,8 @@ class SubstrateFields(unittest.TestCase):
         forbidden.assert_not_called()
 
     def test_word_capacity_and_query_misses_remain_explicit(self):
+        with self.assertRaisesRegex(ValueError, "kernel halo"):
+            prepare([[-(2**31) + 1, 0], [-(2**31) + 1, 1]], halo=3)
         with self.assertRaisesRegex(ValueError, "word budget"):
             prepare([[0, 0], [1e6, 1e6]])
         field = prepare([[0, 0], [1, 1]])

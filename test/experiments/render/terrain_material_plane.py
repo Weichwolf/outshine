@@ -61,6 +61,8 @@ def prepare(bounds, *, word_limit=262144, halo=1):
         raise ValueError("bounded explicit material kernel halo required")
     low, high = np.floor(points).astype(np.int64)
     first, size = low - halo, high - low + 2 * halo + 1
+    if np.any(first < -(2**31)) or np.any(high + halo >= 2**31):
+        raise ValueError("kernel halo must remain in the original native integer lattice")
     if np.prod(size, dtype=object) > word_limit:
         raise ValueError("original material plane word budget")
     y, x = np.indices(tuple(size[::-1]), dtype=np.int64)

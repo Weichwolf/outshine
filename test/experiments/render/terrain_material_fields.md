@@ -55,7 +55,18 @@ PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
   OMP_NUM_THREADS=1 nice -n 10 .venv/bin/python -B \
   test/experiments/render/probe_terrain_material_fields.py \
   --output /tmp/outshine-terrain-material-fields
+PYTHONPATH=lib/src:test/experiments/render OPENBLAS_NUM_THREADS=1 \
+  OMP_NUM_THREADS=1 nice -n 10 .venv/bin/python -B \
+  test/experiments/render/probe_terrain_material_substrate.py \
+  --output /tmp/outshine-terrain-substrate-fields
 ```
+
+The composition probe uses the unchanged versioned native palette and explicit
+controlled coordinates/footprints. Its test-driver selection prepares only needed
+coarse/fine/grain tables and retains the analytic path on a word-capacity miss.
+The partial-coverage mask shares the base coarse table with a three-cell halo.
+Coverage endpoints skip unused layers; these diagnostic requests are not a native
+asset-address or streaming contract. No source is discarded on a capacity miss.
 
 Nominal integer-lattice reads are eight UInt32 words per active octave versus
 four RGBA32 texels for a bilinear raw-gradient grid. These are logical addresses,
