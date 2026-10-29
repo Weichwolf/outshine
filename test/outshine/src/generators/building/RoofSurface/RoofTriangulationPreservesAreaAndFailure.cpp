@@ -2,15 +2,23 @@
 #include "Check.h"
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <vector>
 
 int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const std::array<outshine::EastNorth, 4> rectangle{{{0, 0}, {4, 0}, {4, 4}, {0, 4}}};
-  const std::array<outshine::EastNorth, 6> concave{
-      {{0, 0}, {4, 0}, {4, 1}, {1, 1}, {1, 4}, {0, 4}}};
+  const std::array<outshine::EastNorth, 4> rectangle{{{.EastM = 0, .NorthM = 0},
+                                                      {.EastM = 4, .NorthM = 0},
+                                                      {.EastM = 4, .NorthM = 4},
+                                                      {.EastM = 0, .NorthM = 4}}};
+  const std::array<outshine::EastNorth, 6> concave{{{.EastM = 0, .NorthM = 0},
+                                                    {.EastM = 4, .NorthM = 0},
+                                                    {.EastM = 4, .NorthM = 1},
+                                                    {.EastM = 1, .NorthM = 1},
+                                                    {.EastM = 1, .NorthM = 4},
+                                                    {.EastM = 0, .NorthM = 4}}};
   BuildingScratch scratch;
   std::vector<outshine::EastNorth> triangles;
   CHECK(RoofSurface::Fill(rectangle, scratch, triangles), "convex polygon triangulates");
@@ -60,10 +68,13 @@ int main() {
     }
   }
   const double maximum = std::numeric_limits<double>::max();
-  const std::array<outshine::EastNorth, 3> overflowing{{{0, 0}, {maximum, 0}, {0, maximum}}};
+  const std::array<outshine::EastNorth, 3> overflowing{{{.EastM = 0, .NorthM = 0},
+                                                        {.EastM = maximum, .NorthM = 0},
+                                                        {.EastM = 0, .NorthM = maximum}}};
   CHECK(!RoofSurface::Fill(overflowing, scratch, triangles), "overflowing orientation rejected");
   preserved();
-  const std::array<outshine::EastNorth, 3> clockwise{{{0, 0}, {0, 1}, {1, 0}}};
+  const std::array<outshine::EastNorth, 3> clockwise{
+      {{.EastM = 0, .NorthM = 0}, {.EastM = 0, .NorthM = 1}, {.EastM = 1, .NorthM = 0}}};
   CHECK(!RoofSurface::Fill(clockwise, scratch, triangles), "unsupported winding rejected");
   preserved();
   CHECK(!RoofSurface::Fill({}, scratch, triangles), "empty polygon rejected");

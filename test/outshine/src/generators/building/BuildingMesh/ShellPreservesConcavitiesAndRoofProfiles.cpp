@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <span>
 
 namespace {
@@ -72,8 +73,12 @@ int main() {
   Vec3 anchor;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 0}, anchor);
   const double metresPerLon = kMPerDegLon * std::cos(47 * kDeg2Rad);
-  const std::array<LocalPoint, 6> shape{
-      {{0, 0, 0}, {40, 0, 0}, {40, 10, 0}, {10, 10, 0}, {10, 40, 0}, {0, 40, 0}}};
+  const std::array<LocalPoint, 6> shape{{{.East = 0, .North = 0, .Up = 0},
+                                         {.East = 40, .North = 0, .Up = 0},
+                                         {.East = 40, .North = 10, .Up = 0},
+                                         {.East = 10, .North = 10, .Up = 0},
+                                         {.East = 10, .North = 40, .Up = 0},
+                                         {.East = 0, .North = 40, .Up = 0}}};
   std::array<double, 12> concave{};
   for (size_t at = 0; at < shape.size(); ++at) {
     concave[2 * at] = 47 + shape[at].North / kMPerDegLat;
@@ -90,7 +95,10 @@ int main() {
                                         9};
   Raised boxed;
   boxed.RoofCorners.resize(4);
-  const std::array<LocalPoint, 4> box{{{0, 0, 9}, {40, 0, 9}, {40, 40, 9}, {0, 40, 9}}};
+  const std::array<LocalPoint, 4> box{{{.East = 0, .North = 0, .Up = 9},
+                                       {.East = 40, .North = 0, .Up = 9},
+                                       {.East = 40, .North = 40, .Up = 9},
+                                       {.East = 0, .North = 40, .Up = 9}}};
   for (size_t at = 0; at < box.size(); ++at) {
     for (int axis = 0; axis < 3; ++axis) {
       boxed.RoofCorners[at].pos[axis] =
@@ -102,7 +110,7 @@ int main() {
   CHECK(RoofCovers(boxed, axes, {35, 35, 0}),
         "independent bounding-box cap detects an incorrectly filled footprint notch");
   CHECK(!SlopedRoof(boxed, axes), "independent flat box lacks the pitched-profile signature");
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   size_t fineIndices = 0;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     StructurePlan plan;
