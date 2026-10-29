@@ -34,7 +34,8 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
     return;
   }
   if (lookup.Stage == NativeLookup::Phase::Request) {
-    lookup.Result = cache.LoadBasisRequest(request);
+    lookup.Result = cache.ReadBasisRequest(request, lookup.Read, lookup.Stopping);
+    if (lookup.Result && !lookup.Read.Pending()) { lookup.HeldBasis.reset(); }
     return;
   }
   if (!lookup.HeldBasis) {
@@ -54,17 +55,15 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
     return;
   }
   lookup.Stage = NativeLookup::Phase::Bind;
-  const auto bound = cache.BindBasisRequest(lookup.ContentKey, request);
+  const auto bound = cache.BindBasisRequestIfUnbound(lookup.ContentKey, request);
   if (!bound) {
     lookup.Result = std::unexpected(bound.error());
     return;
   }
-  lookup.Result = cache.LoadBasisRequest(request);
-  if (lookup.Result) {
-    lookup.HeldBasis.reset();
-    lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
-    lookup.Stage = NativeLookup::Phase::Content;
-  }
+  lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
+  lookup.Stage = NativeLookup::Phase::Request;
+  lookup.Result = cache.ReadBasisRequest(request, lookup.Read, lookup.Stopping);
+  if (lookup.Result && !lookup.Read.Pending()) { lookup.HeldBasis.reset(); }
 }
 
 void StructureBuildQueue::StartNativeLookup(

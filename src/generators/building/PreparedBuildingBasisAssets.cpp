@@ -87,7 +87,9 @@ PreparedBuildingAssets::BindBasisRequest(const std::string &key, const std::stri
 }
 
 std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
-PreparedBuildingAssets::LoadCachedBasis(const std::string &key) {
+PreparedBuildingAssets::LoadCachedBasis(const std::string &key,
+                                        std::optional<AssetRecord> &record) {
+  record.reset();
   const std::scoped_lock lock(Lock_);
   std::optional<PreparedBuildingBasis> basis;
   auto loaded = Cache_->LoadValidated(
@@ -100,53 +102,50 @@ PreparedBuildingAssets::LoadCachedBasis(const std::string &key) {
     return std::unexpected(CacheFailure(loaded.error()));
   }
   if (!*loaded || !basis) { return Basis{}; }
-  const auto &record = (**loaded).Record();
+  record = (**loaded).Record();
   ++BasisHits_;
   BasisReadBytes_ += (**loaded).Bytes().size();
   auto product = std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
   if (ResidentBases_.size() >= kResidentBasisEntriesMost) {
     std::erase_if(ResidentBases_, [](const auto &entry) { return entry.second.Product.expired(); });
   }
-  if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record.Key)) {
-    ResidentBases_.insert_or_assign(record.Key,
-                                    ResidentBasis{.Record = record, .Product = product});
+  if (ResidentBases_.size() < kResidentBasisEntriesMost || ResidentBases_.contains(record->Key)) {
+    ResidentBases_.insert_or_assign(record->Key,
+                                    ResidentBasis{.Record = *record, .Product = product});
   }
   return product;
 }
 
-std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
-PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
-  auto found = [&] {
-    const std::scoped_lock lock(Lock_);
-    return Cache_->FindRequest(requestKey);
-  }();
-  if (!found) { return std::unexpected(CacheFailure(found.error())); }
-  if (!*found) { return std::optional<RequestedBasis>{}; }
-  auto record = std::move(**found);
-  record.RequestKey.reset();
-  if (record.Kind != "building-basis" || record.Key != BasisKey(record.Parent)) {
-    ++BasisMisses_;
-    return std::optional<RequestedBasis>{};
-  }
-  {
-    const std::scoped_lock lock(Lock_);
-    const auto resident = ResidentBases_.find(record.Key);
-    if (resident != ResidentBases_.end()) {
-      if (resident->second.Record == record) {
-        if (auto product = resident->second.Product.lock()) {
-          Cache_->UsePackage(record.Package);
-          ++BasisResidentHits_;
-          return RequestedBasis{
-              .BaseKey = record.Parent, .Product = std::move(product), .Bounds = record.Bounds};
-        }
-      }
-      ResidentBases_.erase(resident);
+PreparedBuildingAssets::Basis PreparedBuildingAssets::LoadResidentBasis(const AssetRecord &record) {
+  const std::scoped_lock lock(Lock_);
+  const auto resident = ResidentBases_.find(record.Key);
+  if (resident == ResidentBases_.end()) { return {}; }
+  if (resident->second.Record == record) {
+    if (auto product = resident->second.Product.lock()) {
+      Cache_->UsePackage(record.Package);
+      return product;
     }
   }
-  auto basis = LoadBasis(record.Parent, requestKey);
-  if (!basis) { return std::unexpected(basis.error()); }
-  if (!*basis) { return std::optional<RequestedBasis>{}; }
-  return RequestedBasis{
-      .BaseKey = record.Parent, .Product = std::move(*basis), .Bounds = record.Bounds};
+  ResidentBases_.erase(resident);
+  return {};
+}
+
+std::expected<bool, StructureBakeError>
+PreparedBuildingAssets::BindBasisRequestIfUnbound(const std::string &key,
+                                                  const std::string &requestKey) {
+  const std::scoped_lock lock(Lock_);
+  const auto bound = Cache_->BindRequestIfUnbound(BasisKey(key), requestKey);
+  if (!bound) { return std::unexpected(CacheFailure(bound.error())); }
+  return *bound;
+}
+
+std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
+PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
+  BasisRead read;
+  const std::atomic_bool stopping{false};
+  for (;;) {
+    auto result = ReadBasisRequest(requestKey, read, stopping);
+    if (!result || *result || !read.Pending()) { return result; }
+  }
 }
 }

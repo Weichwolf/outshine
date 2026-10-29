@@ -29,6 +29,7 @@ void Exercise(const std::string &path) {
   const auto second = Key("second-product");
   const auto request = Key("generator/config/demand");
   const auto otherRequest = Key("generator/config/other-demand");
+  const auto repairRequest = Key("generator/config/repair-demand");
   std::array<AssetRecord, 2> records{{{.Key = first,
                                        .Kind = "native",
                                        .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
@@ -63,6 +64,13 @@ void Exercise(const std::string &path) {
   CHECK(replaced && *replaced, "another product atomically replaces the demand binding");
   auto found = cache.FindRequest(request);
   CHECK(found && *found && (**found).Key == second, "demand resolves the replacement");
+  const auto preserved = cache.BindRequestIfUnbound(first, request);
+  CHECK(preserved && !*preserved, "an older repair cannot replace a different current target");
+  const auto repaired = cache.BindRequestIfUnbound(first, repairRequest);
+  CHECK(repaired && *repaired, "an unbound request can acquire its existing native product");
+  CHECK(!cache.BindRequestIfUnbound(first, "bad"), "repair rejects invalid request identities");
+  const auto absent = cache.BindRequestIfUnbound(Key("missing"), Key("missing-repair"));
+  CHECK(absent && !*absent, "repair does not bind a missing product");
   const std::string trigger =
       "CREATE TRIGGER reject_binding BEFORE INSERT ON asset_requests WHEN NEW.asset_id="
       "(SELECT id FROM assets WHERE key='" +
@@ -86,6 +94,13 @@ void Exercise(const std::string &path) {
   const auto busy = cache.BindRequest(first, otherRequest);
   CHECK(!busy && busy.error() == AssetCacheError::Busy,
         "a real binding change still respects writer contention");
+  const auto repairBusy = cache.BindRequestIfUnbound(first, Key("held-repair"));
+  CHECK(!repairBusy && repairBusy.error() == AssetCacheError::Busy,
+        "a missing binding reports real writer contention without losing its caller's work");
+  const auto repairHit = cache.BindRequestIfUnbound(first, repairRequest);
+  const auto repairConflict = cache.BindRequestIfUnbound(first, request);
+  CHECK(repairHit && *repairHit && repairConflict && !*repairConflict,
+        "existing equal and different bindings resolve without a writer transaction");
   CHECK(sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
         "independent writer releases its transaction");
   CHECK(sqlite3_exec(database,
