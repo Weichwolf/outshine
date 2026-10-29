@@ -183,6 +183,14 @@ class NativeSampleReuse(unittest.TestCase):
                 self.assertLess(direct["maximum_rgba_absolute_error"], 1e-10)
         high = result["rows"][-1]
         self.assertEqual(high["query"]["name"], "px32-yaw0")
+        self.assertEqual(
+            high["declared_whole_source_flattening_bound"]["reason"],
+            "geometric_displacement_only",
+        )
+        self.assertLess(
+            high["declared_whole_source_flattening_bound"]["screen_l1_upper_px"],
+            0.23,
+        )
         self.assertGreater(
             high["native_original_vs_stored_samples"]["rgb_relative_l1"], 0.20
         )

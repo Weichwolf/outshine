@@ -2,12 +2,16 @@
 
 import argparse
 import json
+import os
+import resource
 import subprocess
+import time
 from pathlib import Path
 
 import numpy as np
 from building_sample_inputs import capture_fields, digest, readbacks, same_sources
 from field_view_integrals import summed_field
+from field_view_projection import CapturePlane, displacement_bound
 from field_view_sampling import ImageView, reconstruct
 from replay_building_radiance import compare
 
@@ -96,6 +100,12 @@ def case_result(manifest, arrays, index, grid, source, prefix):
     query = case["query"]
     axis = query["filter_axis_samples"]
     view = crop_view(manifest, query)
+    plane = CapturePlane(
+        tuple(manifest["bounds"]["least"]),
+        tuple(manifest["bounds"]["most"]),
+        grid.centre,
+        grid.toward_eye,
+    )
     bounds = occupied_support(source, grid, view)
     sampled = reconstruct(prefix, grid, view, approximate=True)
     candidate = np.zeros((view.height, view.width, 4), float)
@@ -117,6 +127,9 @@ def case_result(manifest, arrays, index, grid, source, prefix):
             )
     return {
         "query": query,
+        "declared_whole_source_flattening_bound": displacement_bound(
+            plane, view.eye, view.basis, view.focal_px
+        ),
         "native_original_vs_stored_samples": errors(original, native),
         "native_original_vs_held_radiance_prefix": errors(original, candidate),
         "held_prefix_vs_native_samples": errors(native, candidate),
@@ -198,7 +211,35 @@ def run(args):
     ):
         raise ValueError("Freeze the actual analysis and reused kernels first")
     inputs = [args.inputs, args.inputs / "same-rays", args.inputs / "high-sampling"]
-    result, images = analyse(*(readbacks(path) for path in inputs))
+    began, cpu, load = time.perf_counter(), time.process_time(), os.getloadavg()
+    loaded = tuple(readbacks(path) for path in inputs)
+    read_wall, read_cpu = time.perf_counter() - began, time.process_time() - cpu
+    result, images = analyse(*loaded)
+    result["analysis_cost"] = {
+        "native_decode_and_full_buffer_verification_wall_s": read_wall,
+        "native_decode_and_full_buffer_verification_cpu_s": read_cpu,
+        "prefix_and_comparisons_wall_s": time.perf_counter() - began - read_wall,
+        "prefix_and_comparisons_cpu_s": time.process_time() - cpu - read_cpu,
+        "decoded_native_array_bytes": sum(
+            a.nbytes for _, arrays in loaded for a in arrays.values()
+        ),
+        "full_frame_checksum_bytes": sum(
+            2 * 13 * 4 * 1280 * 720 * len(m["cases"]) for m, _ in loaded
+        ),
+        "prefix_constructions": 1,
+        "source_texels": result["source_pixels"] ** 2,
+        "logical_prefix_evaluations": sum(
+            r["sampling"]["logical_prefix_evaluations"] for r in result["rows"]
+        ),
+        "logical_prefix_texel_fetches": sum(
+            r["sampling"]["logical_texel_fetches"] for r in result["rows"]
+        ),
+        "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        * 1024,
+        "nice": os.getpriority(os.PRIO_PROCESS, 0),
+        "loadavg_before": load,
+        "scope": "Single CPU diagnostic run, immutable inputs and full-frame verification included as named. No allocation-event/total-copy measurement, alternative speedup or native/device/frame/UMA claim. Retained source and prefix bytes reported separately and not added to process RSS.",
+    }
     result.update(
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         profile=[1280, 720],
