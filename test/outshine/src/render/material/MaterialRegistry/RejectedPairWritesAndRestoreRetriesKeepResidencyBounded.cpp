@@ -5,6 +5,8 @@
 #include "Gpu.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -58,8 +60,10 @@ int main() {
   ImageFaults glassDevice(*native);
   RenderScene opaqueScene;
   RenderScene glassScene;
-  Require(opaqueScene.Meshes().StandsOn(&opaqueDevice));
-  Require(glassScene.Meshes().StandsOn(&glassDevice));
+  Require(RetryOffline([&] { return opaqueScene.Meshes().StandsOn(&opaqueDevice); },
+                       std::chrono::seconds(5)));
+  Require(RetryOffline([&] { return glassScene.Meshes().StandsOn(&glassDevice); },
+                       std::chrono::seconds(5)));
   GeometryRenderer opaque(opaqueScene);
   GeometryRenderer glass(glassScene, GeometryPassKind::Transmission);
   Render::Gpu gpu;
@@ -68,9 +72,9 @@ int main() {
   gpu.SurfaceFormat = Format::Rgba8Unorm;
   gpu.Width = gpu.Height = 2;
   CHECK(gpu.SceneColours.Add(Resource::SceneHdr), "the material target has a real colour output");
-  Require(opaque.Configure(gpu));
+  Require(RetryOffline([&] { return opaque.Configure(gpu); }, std::chrono::seconds(5)));
   gpu.Device = &glassDevice;
-  Require(glass.Configure(gpu));
+  Require(RetryOffline([&] { return glass.Configure(gpu); }, std::chrono::seconds(5)));
   MaterialRegistry registry;
   std::string error;
   for (size_t at = 0; at < 16; ++at) {
