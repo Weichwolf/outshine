@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "native_commit": "bfe7c0feee54c34d7b7c9b4c76737a349bac898a",
+  "native_commit_scope": "product code/shaders; diagnostic driver bound separately by SHA256",
+  "native_driver_sha256": "c3d8ff1ae275835d4dbc4d3afc9c0324f5368c603184ddc918114114dd15faf7",
+  "native_binary_sha256": "1e5d618ccd4d2d2abb22d16bc62d05e338ea404799247bf67d091c4ea6c479c1",
+  "atlas_sha256": "a480554234cdb76ff411986892ea19019da534cf9ff84726acf68295fd080c95",
+  "catalogue": [
+    [
+      0.0,
+      0.7071067811865475,
+      0.7071067811865475
+    ]
+  ],
+  "bounds": {
+    "least": [
+      2108.974365234375,
+      -1.935683012008667,
+      4943.72998046875
+    ],
+    "most": [
+      2641.727783203125,
+      39.56769561767578,
+      5448.908203125
+    ]
+  },
+  "original_geometry_files": {
+    "0/colours.bin": "6fd26847c19588f70fb925e4bec69cb413a70de22cf77b6dacf4a450c1fc0fab",
+    "0/indices.bin": "013a2b95f3f8451b71a6dc0b0a0da594e68bd72cf7a2eb4fb7c506ea3d4fcfa7",
+    "0/normals.bin": "7c05e685243b7c9aa3d06f09eb723d1d1f0a1077818f6a9de9c17278e9ddf5d0",
+    "0/positions.bin": "acd22eedab8530ce435cfe3fc229c0305eb387bd08fdf5a229137c92134431a2",
+    "0/uv.bin": "4b9801419d6c6ce33f0651013e587def54a2636dda27a40c73983f40d5f99f0c",
+    "0/uv1.bin": "340de3c4c58ae97f9705fbd562cb0c5aa3113602ac04c2702cb689024df8a96d",
+    "1/colours.bin": "234c5313d7cec5aa21edb26ee142bd92e7b48b9b1683fff0dc15b63d2b9ae513",
+    "1/indices.bin": "c1c968f28b90e8aa1e8821ef9011d37c7cd37bc12d3dd66a1b10775bd9b947cd",
+    "1/normals.bin": "c479ad0d53fd4025b5f42f4947211a1def8bcfc7943069fbc57451c2003cbbea",
+    "1/positions.bin": "6c2315241b3b70997ef3c5e9b35ac4ee868f797442967530c894ddd1155feb29",
+    "1/uv.bin": "a5f20f4f54ab827ff5741b1a09741d6d26ea2d6927d47777d50d9bcccb59771c",
+    "1/uv1.bin": "21163213d30217f8284f5f306bc1cb3d14a2ba551fbecbf1d239571dc4e8964d",
+    "2/colours.bin": "f8584a8884c72bc503027503c3e6e46751c0c1d23f1573dac854b5f8a0eca2ab",
+    "2/indices.bin": "1926e81bb65d01c4f7736ab236eb7f6a720c8a80b96b43caa667e8694d4a2378",
+    "2/normals.bin": "dc94b72984435267b2595bd00fec348f83cc33f03c3bc6082253af0f1b32b340",
+    "2/positions.bin": "db6fc6afb40f4e13c78bcc2dd88e02e53d84b6d56df531b5adb9491653b3ad7c",
+    "2/uv.bin": "d37c4191405f4859f0ef974baad25360c8091040640bd21a3c3968d6fe13d4a0",
+    "2/uv1.bin": "4a60c0f7eeb02e128bbc5d3e9e53a15ea46e50d92d8c875aa3325702ff32ed57",
+    "input.json": "ffab3aab7ecb89eac2a9bd8eac5f9ed3d35a46fd7f97899dae4fecfc7d4f43ca"
+  },
+  "raster": [
+    1280,
+    720
+  ],
+  "crop": [
+    576,
+    312,
+    704,
+    408
+  ],
+  "dtype": "little-endian Float32",
+  "coordinates": "native source frame; upper-left pixel origin",
+  "encoding": "premultiplied scene-linear RGBA; reverse-Z base depth; base normals",
+  "lighting": {
+    "key_lux": 100,
+    "haze": 0,
+    "exposure": 1
+  },
+  "scope": "Isolated source/sample draws and microcamera average; no World/pose/SSE/budget approval",
+  "cases": [
+    {
+      "query": {
+        "name": "px32-yaw0",
+        "eye": [
+          2369.974738269353,
+          12215.335746934641,
+          17393.953122333158
+        ],
+        "basis": [
+          [
+            1.0,
+            0.0,
+            -0.0
+          ],
+          [
+            -0.0,
+            0.7071067811865475,
+            -0.7071067811865475
+          ],
+          [
+            -0.0,
+            -0.7071067811865475,
+            -0.7071067811865475
+          ]
+        ],
+        "focal_px": 720,
+        "sun_elevation_deg": 45,
+        "filter_axis_samples": 64
+      },
+      "buffers": {
+        "case0_original_linear": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "bd3f0299f0b580db6cfabb3feb38e02eca11ae05b096e4a9479627e57a80f57f"
+        },
+        "case0_original_depth": {
+          "clear": [
+            0.0
+          ],
+          "full_sha256": "e5edb7b05be36864a2a73660e8b5ffd2e0fc1a7fd776c1b15fdc95b141be73dd"
+        },
+        "case0_original_normal": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "full_sha256": "fcdfd28f9948b2fe58ca5d01fda2c3b6430102d4acd6e8ef300f7b804183bd8d"
+        },
+        "case0_original_ss4096": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "8e18b98d72277b2674dd9177f60ca3814117090ea77da28bbd6965a50ef7f7d3"
+        },
+        "case0_samples_linear": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "4e75c6fb72615fd60d672b9cf8fc940215c5ce108caba519b24e79a82ecf438b"
+        },
+        "case0_samples_depth": {
+          "clear": [
+            0.0
+          ],
+          "full_sha256": "9f309a74dbf871e4540b74551d10f8a0c92539a65e01224f05973d814a802857"
+        },
+        "case0_samples_normal": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "full_sha256": "c266f7fa874c909b942241fa06ff9708b9710796af290901350b89e260852235"
+        },
+        "case0_samples_ss4096": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "44de37d942d6abde014368cfa7b3e1366c6c5588384201d838e851f43594905e"
+        }
+      },
+      "draws": {
+        "original": {
+          "device": "Apple A18 Pro",
+          "field_filter_gpu_ms": null,
+          "filter_axis_samples": 64,
+          "gpu_ms": [
+            0.5300417542457581,
+            0.472125131636858,
+            0.47437497414648533,
+            0.4681251011788845,
+            0.4750832449644804,
+            0.4707083571702242,
+            0.472750049084425,
+            0.472750049084425,
+            0.47174980863928795,
+            0.473416643217206,
+            0.4703332670032978,
+            0.47437497414648533,
+            0.47375005669891834,
+            0.4742499440908432,
+            0.4725833423435688,
+            0.4743332974612713,
+            0.4746250342577696,
+            0.471166567876935,
+            0.47129159793257713,
+            0.47404179349541664,
+            0.474041560664773,
+            0.43837493285536766,
+            0.2983750309795141,
+            0.3014584071934223
+          ],
+          "image_storage_bytes": 0,
+          "images": 0,
+          "normal_sum": [
+            4.46764600276947,
+            83.26514267921448,
+            73.45435619354248
+          ],
+          "query": "px32-yaw0",
+          "selected_view": 0,
+          "setup_ms": 181.965542,
+          "triangles": 38476,
+          "vertices": 78374
+        },
+        "samples": {
+          "device": "Apple A18 Pro",
+          "field_filter_gpu_ms": null,
+          "filter_axis_samples": 64,
+          "gpu_ms": [
+            0.3344165161252022,
+            0.27545844204723835,
+            0.27512479573488235,
+            0.2905000001192093,
+            0.232374994084239,
+            0.23099989630281925,
+            0.23308326490223408,
+            0.23424997925758362,
+            0.291208503767848,
+            0.23262505419552326,
+            0.23166672326624393,
+            0.232374994084239,
+            0.23187510669231415,
+            0.2893335185945034,
+            0.23370841518044472,
+            0.232374994084239,
+            0.23187510669231415,
+            0.23250002413988113,
+            0.23324997164309025,
+            0.28804177418351173,
+            0.23187510669231415,
+            0.23337500169873238,
+            0.2341249492019415,
+            0.2316250465810299
+          ],
+          "image_storage_bytes": 524288,
+          "images": 2,
+          "normal_sum": [
+            5.341218590736389,
+            91.62673592567444,
+            76.61645913124084
+          ],
+          "query": "px32-yaw0",
+          "selected_view": 0,
+          "setup_ms": 194.2785,
+          "triangles": 5374,
+          "vertices": 10748
+        }
+      }
+    }
+  ],
+  "npz_sha256": "6b41466cc0411560209a66a44ee06c883e9aab1ecd3fc2bf035500076d5dfa35",
+  "npz_bytes": 19397
+}

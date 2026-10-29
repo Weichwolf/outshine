@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "native_commit": "bfe7c0feee54c34d7b7c9b4c76737a349bac898a",
+  "native_commit_scope": "product code/shaders; diagnostic driver bound separately by SHA256",
+  "native_driver_sha256": "c3d8ff1ae275835d4dbc4d3afc9c0324f5368c603184ddc918114114dd15faf7",
+  "native_binary_sha256": "1e5d618ccd4d2d2abb22d16bc62d05e338ea404799247bf67d091c4ea6c479c1",
+  "atlas_sha256": "a480554234cdb76ff411986892ea19019da534cf9ff84726acf68295fd080c95",
+  "catalogue": [
+    [
+      0.0,
+      0.7071067811865475,
+      0.7071067811865475
+    ]
+  ],
+  "bounds": {
+    "least": [
+      2108.974365234375,
+      -1.935683012008667,
+      4943.72998046875
+    ],
+    "most": [
+      2641.727783203125,
+      39.56769561767578,
+      5448.908203125
+    ]
+  },
+  "original_geometry_files": {
+    "0/colours.bin": "6fd26847c19588f70fb925e4bec69cb413a70de22cf77b6dacf4a450c1fc0fab",
+    "0/indices.bin": "013a2b95f3f8451b71a6dc0b0a0da594e68bd72cf7a2eb4fb7c506ea3d4fcfa7",
+    "0/normals.bin": "7c05e685243b7c9aa3d06f09eb723d1d1f0a1077818f6a9de9c17278e9ddf5d0",
+    "0/positions.bin": "acd22eedab8530ce435cfe3fc229c0305eb387bd08fdf5a229137c92134431a2",
+    "0/uv.bin": "4b9801419d6c6ce33f0651013e587def54a2636dda27a40c73983f40d5f99f0c",
+    "0/uv1.bin": "340de3c4c58ae97f9705fbd562cb0c5aa3113602ac04c2702cb689024df8a96d",
+    "1/colours.bin": "234c5313d7cec5aa21edb26ee142bd92e7b48b9b1683fff0dc15b63d2b9ae513",
+    "1/indices.bin": "c1c968f28b90e8aa1e8821ef9011d37c7cd37bc12d3dd66a1b10775bd9b947cd",
+    "1/normals.bin": "c479ad0d53fd4025b5f42f4947211a1def8bcfc7943069fbc57451c2003cbbea",
+    "1/positions.bin": "6c2315241b3b70997ef3c5e9b35ac4ee868f797442967530c894ddd1155feb29",
+    "1/uv.bin": "a5f20f4f54ab827ff5741b1a09741d6d26ea2d6927d47777d50d9bcccb59771c",
+    "1/uv1.bin": "21163213d30217f8284f5f306bc1cb3d14a2ba551fbecbf1d239571dc4e8964d",
+    "2/colours.bin": "f8584a8884c72bc503027503c3e6e46751c0c1d23f1573dac854b5f8a0eca2ab",
+    "2/indices.bin": "1926e81bb65d01c4f7736ab236eb7f6a720c8a80b96b43caa667e8694d4a2378",
+    "2/normals.bin": "dc94b72984435267b2595bd00fec348f83cc33f03c3bc6082253af0f1b32b340",
+    "2/positions.bin": "db6fc6afb40f4e13c78bcc2dd88e02e53d84b6d56df531b5adb9491653b3ad7c",
+    "2/uv.bin": "d37c4191405f4859f0ef974baad25360c8091040640bd21a3c3968d6fe13d4a0",
+    "2/uv1.bin": "4a60c0f7eeb02e128bbc5d3e9e53a15ea46e50d92d8c875aa3325702ff32ed57",
+    "input.json": "ffab3aab7ecb89eac2a9bd8eac5f9ed3d35a46fd7f97899dae4fecfc7d4f43ca"
+  },
+  "raster": [
+    1280,
+    720
+  ],
+  "crop": [
+    576,
+    312,
+    704,
+    408
+  ],
+  "dtype": "little-endian Float32",
+  "coordinates": "native source frame; upper-left pixel origin",
+  "encoding": "premultiplied scene-linear RGBA; reverse-Z base depth; base normals",
+  "lighting": {
+    "key_lux": 100,
+    "haze": 0,
+    "exposure": 1
+  },
+  "scope": "Isolated source/sample draws and microcamera average; no World/pose/SSE/budget approval",
+  "cases": [
+    {
+      "query": {
+        "name": "canonical",
+        "eye": [
+          2369.974738269353,
+          3067.049662269874,
+          8245.667037668389
+        ],
+        "basis": [
+          [
+            1.0,
+            0.0,
+            -0.0
+          ],
+          [
+            -0.0,
+            0.7071067811865475,
+            -0.7071067811865475
+          ],
+          [
+            -0.0,
+            -0.7071067811865475,
+            -0.7071067811865475
+          ]
+        ],
+        "focal_px": 720,
+        "sun_elevation_deg": 45,
+        "filter_axis_samples": 1,
+        "capture": {
+          "bytes": 3686400,
+          "eye_m": [
+            2369.974738269353,
+            830.8019526851531,
+            6009.419328083667
+          ],
+          "far_m": 1916.6859634669595,
+          "format": "reverse_z_0_1_float32",
+          "forward": [
+            -0.0,
+            -0.7071067811865475,
+            -0.7071067811865475
+          ],
+          "height_px": 720,
+          "near_m": 383.3371926933919,
+          "orthographic": true,
+          "right": [
+            1.0,
+            0.0,
+            -0.0
+          ],
+          "up": [
+            -0.0,
+            0.7071067811865475,
+            -0.7071067811865475
+          ],
+          "width_px": 1280,
+          "x_mag_m": 3833.371926933919,
+          "y_mag_m": 2156.2717089003295,
+          "yfov_rad": 0.0
+        }
+      },
+      "buffers": {
+        "case0_original_linear": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "b621d506f8c3e2fd8bf6875a722189292b001b3a4287d0e68367e78a87ddd678"
+        },
+        "case0_original_depth": {
+          "clear": [
+            0.0
+          ],
+          "full_sha256": "5f7c8907257f626cb740bf56b374d2beda5ec054d36409725356b90f99f629da"
+        },
+        "case0_original_normal": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "full_sha256": "1c64463fe0d89e6f011f24aca92c53f72272e077811863a8d54c164ea9664235"
+        },
+        "case0_original_ss1": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "b621d506f8c3e2fd8bf6875a722189292b001b3a4287d0e68367e78a87ddd678"
+        },
+        "case0_samples_linear": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "ebcc234b86b316abed7b0293feafee38b362e74c69ae999c0170151e11d0fe8f"
+        },
+        "case0_samples_depth": {
+          "clear": [
+            0.0
+          ],
+          "full_sha256": "bdeda76e840ac14f528f468be5e3efbe5e6bd770068719c00855627c0cdf217d"
+        },
+        "case0_samples_normal": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "full_sha256": "9431f041050bd87c763b6be993bbb142336f7ff0bd052f8c812da53fd434c052"
+        },
+        "case0_samples_ss1": {
+          "clear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "full_sha256": "ebcc234b86b316abed7b0293feafee38b362e74c69ae999c0170151e11d0fe8f"
+        }
+      },
+      "draws": {
+        "original": {
+          "device": "Apple A18 Pro",
+          "field_filter_gpu_ms": null,
+          "filter_axis_samples": 1,
+          "gpu_ms": [
+            0.6713748443871737,
+            0.5478335078805685,
+            0.5603332538157701,
+            0.5550000350922346,
+            0.5496249068528414,
+            0.5787918344140053,
+            0.5617083515971899,
+            0.5644999910145998,
+            0.5539583507925272,
+            0.5520416889339685,
+            0.5585001781582832,
+            0.5578750278800726,
+            0.5507499445229769,
+            0.5542498547583818,
+            0.5591248627752066,
+            0.5818333011120558,
+            0.5781250074505806,
+            0.5505834706127644,
+            0.5568333435803652,
+            0.5522500723600388,
+            0.5600417498499155,
+            0.5492500495165586,
+            0.5507499445229769,
+            0.5520833656191826
+          ],
+          "image_storage_bytes": 0,
+          "images": 0,
+          "normal_sum": [
+            14.111075341701508,
+            1434.648249566555,
+            1091.7057970762253
+          ],
+          "query": "canonical",
+          "selected_view": 0,
+          "setup_ms": 258.381167,
+          "triangles": 38476,
+          "vertices": 78374
+        },
+        "samples": {
+          "device": "Apple A18 Pro",
+          "field_filter_gpu_ms": null,
+          "filter_axis_samples": 1,
+          "gpu_ms": [
+            0.4158334340900183,
+            0.3227917477488518,
+            0.2818333450704813,
+            0.34066662192344666,
+            0.28137490153312683,
+            0.2815835177898407,
+            0.2804999239742756,
+            0.28112507425248623,
+            0.278000021353364,
+            0.28074998408555984,
+            0.28241658583283424,
+            0.2861251123249531,
+            0.28645829297602177,
+            0.286041758954525,
+            0.3413751255720854,
+            0.2853749319911003,
+            0.2862915862351656,
+            0.28629181906580925,
+            0.25137513875961304,
+            0.2390833105891943,
+            0.23258337751030922,
+            0.23308349773287773,
+            0.2710833214223385,
+            0.2213751431554556
+          ],
+          "image_storage_bytes": 524288,
+          "images": 2,
+          "normal_sum": [
+            14.1153364777565,
+            1434.6560687422752,
+            1091.6999971866608
+          ],
+          "query": "canonical",
+          "selected_view": 0,
+          "setup_ms": 180.122083,
+          "triangles": 5374,
+          "vertices": 10748
+        }
+      }
+    }
+  ],
+  "npz_sha256": "8e5a5c0b5ea1f89ec5fe691b9b7a8dad428e046d8a17bf7c9d8752f11ec22511",
+  "npz_bytes": 119788
+}

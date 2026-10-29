@@ -86,6 +86,24 @@ for each unchanged query. A part's optional `material` role defaults to its arra
 index, preserving the original three-part input. It compares actual source-patch
 geometry with cards; no source mesher, silhouette fitting or World LOD admission.
 
+For #1752, `--source-mesh` also accepts input JSON `stored_samples: true`,
+`atlas_file`, `atlas_sha256`, and optional `atlas_provenance` (default
+`native-original-impostor-1`). It draws existing `MaterialFieldSamples` through
+the same native geometry/PBR/depth path. This branch needs no original geometry
+directory; the independent reference still loads its complete original meshes.
+The diagnostic uses no production renderer switch or additional asset format.
+An optional query `capture` uses the existing explicit camera description, including
+orthographic rays and clipping, for a same-ray control against perspective changes.
+
+`export_building_depth_samples.py --original "$original" --samples "$samples"
+--native-commit "$product_commit" --output "$output"` exports matching source-mesh
+runs. It retains base colour/depth/normal and the actual microcamera average,
+rejects crops that remove content, and binds full readback/geometry/driver hashes.
+Both directories require the actual successful `qualified-command.json` run receipt
+with `exit`, `binary_sha256` and `driver_sha256`; exporter-time source state is not
+substituted for the program that produced the images.
+The small shared native counterexample is `test/outshine/data/render/building-depth-samples/`.
+
 The metadata index contains fixed capture directions and source extent. Selection
 uses eye direction and the projected bounding sphere before product IO. Stored keys
 contain source/capture/policy identity, never a query name or camera position.

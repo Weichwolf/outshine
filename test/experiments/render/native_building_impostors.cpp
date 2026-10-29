@@ -1,5 +1,6 @@
 #include "AzimuthElevation.h"
 #include "MaterialFieldPass.h"
+#include "MaterialFieldSamples.h"
 #include "test/harness/render/NativeOffline.h"
 #include "ImpostorBaker.h"
 #include "ImpostorOptics.h"
@@ -225,6 +226,8 @@ Json FilterGpuMilliseconds(std::span<const std::shared_ptr<const Render::Radianc
   return timing->ElapsedNanoseconds / 1'000'000.0;
 }
 
+Render::Viewpoint CaptureCamera(const Json &description);
+
 Json DrawWith(Render::SceneRenderer &renderer,
               const Geometry &mesh,
               const Json &query,
@@ -256,6 +259,7 @@ Json DrawWith(Render::SceneRenderer &renderer,
   camera.Forward = Vector(query.at("basis").at(2));
   camera.YfovRad = 2 * std::atan(360.0 / query.at("focal_px").get<double>());
   camera.ZNearM = 0.1;
+  if (query.contains("capture")) { camera = CaptureCamera(query.at("capture")); }
   scene->Eye(camera);
   if (!scene->Draw(error)) { Fail(error); }
   const auto instances =
@@ -963,6 +967,25 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native world report write failed"); }
 }
 
+Geometry StoredSampleSource(const Json &input, size_t view) {
+  const Fs::path atlasFile(input.at("atlas_file").get<std::string>());
+  std::error_code fileError;
+  const auto size = Fs::file_size(atlasFile, fileError);
+  if (fileError) { Fail("stored sample atlas unavailable: " + fileError.message()); }
+  const auto bytes = Read<uint8_t>(atlasFile, size);
+  if (Sha256Hex(bytes.data(), bytes.size()) != input.at("atlas_sha256").get<std::string>()) {
+    Fail("stored sample atlas digest mismatch");
+  }
+  std::string error;
+  auto atlas = ImpostorAtlas::Decode(
+      bytes, input.value("atlas_provenance", std::string("native-original-impostor-1")), error);
+  if (!atlas) { Fail(error); }
+  auto samples = Render::MaterialFieldSamples::Prepare(
+      *atlas, {.View = view, .SourceBytesMost = size_t{64} * 1024 * 1024});
+  if (!samples) { Fail(samples.error()); }
+  return std::move(samples->Source);
+}
+
 void SourceMeshViews(const Fs::path &root, const Json &input) {
   Json results{{"mode", "source-mesh"}, {"cases", Json::array()}};
   const Vec3 centre = (Vector(input.at("least")) + Vector(input.at("most"))) * .5;
@@ -977,11 +1000,16 @@ void SourceMeshViews(const Fs::path &root, const Json &input) {
         best = score;
       }
     }
-    const auto directory = root / "geometry" / std::to_string(selected);
-    std::ifstream description(directory / "input.json");
-    const auto document = Json::parse(description, nullptr, false);
-    if (!document.is_object()) { Fail("source-plane geometry description unavailable"); }
-    const auto mesh = Source(directory, document);
+    Geometry mesh;
+    if (input.value("stored_samples", false)) {
+      mesh = StoredSampleSource(input, selected);
+    } else {
+      const auto directory = root / "geometry" / std::to_string(selected);
+      std::ifstream description(directory / "input.json");
+      const auto document = Json::parse(description, nullptr, false);
+      if (!document.is_object()) { Fail("source-plane geometry description unavailable"); }
+      mesh = Source(directory, document);
+    }
     const auto name = query.at("name").get<std::string>();
     auto record = Draw(mesh, query, root / (name + "-source-mesh"));
     record.update({{"query", name}, {"selected_view", selected}});
