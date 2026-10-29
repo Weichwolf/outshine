@@ -24,13 +24,19 @@ using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
-constexpr std::array<std::array<float, 3>, 4> kColours{
+using Colours = std::array<std::array<float, 3>, 4>;
+constexpr Colours kColours{
     {{.125f, .25f, .5f}, {.5f, .125f, .25f}, {.25f, .5f, .125f}, {.75f, .5f, .25f}}};
 
 void Quad(Geometry &into, std::array<float, 4> bounds, Vec4f colour, bool blended) {
   Material row;
   row.BaseColour = colour;
   row.Unlit = true;
+  if (colour[0] >= 1) {
+    row.BaseColour = {{0, 0, 0, 1}};
+    row.Emission = {{colour[0], colour[1], colour[2]}};
+    row.Unlit = false;
+  }
   row.DoubleSided = true;
   row.Alpha = blended ? AlphaMode::Blended : AlphaMode::Opaque;
   const auto material = into.addSurface("field", row);
@@ -57,13 +63,13 @@ void Quad(Geometry &into, std::array<float, 4> bounds, Vec4f colour, bool blende
         "the source and expanded support carry coherent world coordinates and UVs");
 }
 
-Geometry Source() {
+Geometry Source(const Colours &colours) {
   Geometry source;
-  for (size_t at = 0; at < kColours.size(); ++at) {
+  for (size_t at = 0; at < colours.size(); ++at) {
     const float left = static_cast<float>(at % 2) - 1;
     const size_t row = at / 2;
     const float bottom = static_cast<float>(row) - 1;
-    const auto &colour = kColours[at];
+    const auto &colour = colours[at];
     Quad(source,
          {left, bottom, left + 1, bottom + 1},
          {{colour[0], colour[1], colour[2], 1}},
@@ -72,10 +78,10 @@ Geometry Source() {
   return source;
 }
 
-std::array<double, 4> Average(std::array<double, 4> pixel) {
+std::array<double, 4> Average(std::array<double, 4> pixel, const Colours &colours) {
   std::array<double, 4> result{};
   const double area = (pixel[2] - pixel[0]) * (pixel[3] - pixel[1]);
-  for (size_t at = 0; at < kColours.size(); ++at) {
+  for (size_t at = 0; at < colours.size(); ++at) {
     const double left = static_cast<double>(at % 2) - 1;
     const size_t row = at / 2;
     const double bottom = static_cast<double>(row) - 1;
@@ -83,7 +89,7 @@ std::array<double, 4> Average(std::array<double, 4> pixel) {
         std::max(0.0, std::min(pixel[2], left + 1) - std::max(pixel[0], left)) *
         std::max(0.0, std::min(pixel[3], bottom + 1) - std::max(pixel[1], bottom)) / area;
     for (size_t channel = 0; channel < 3; ++channel) {
-      result[channel] += coverage * kColours[at][channel];
+      result[channel] += coverage * colours[at][channel];
     }
     result[3] += coverage;
   }
@@ -93,7 +99,8 @@ std::array<double, 4> Average(std::array<double, 4> pixel) {
 void CheckFrame(Core::RuntimeScene &scene,
                 SceneRenderer &renderer,
                 const std::shared_ptr<const RadianceImage> &image,
-                std::array<double, 2> offset) {
+                std::array<double, 2> offset,
+                const Colours &colours) {
   Viewpoint camera;
   camera.Kind = CameraKind::Orthographic;
   camera.EyeM = {{offset[0], offset[1], 4}};
@@ -111,9 +118,9 @@ void CheckFrame(Core::RuntimeScene &scene,
   ImpostorCards cards;
   cards.HalfExtentM = 1;
   cards.Views.push_back({.Direction = {{0, 0, 1}}, .Surface = std::move(*support)});
-  const std::array colours{image};
+  const std::array images{image};
   std::string error;
-  const auto instances = ImpostorInstances::Create(renderer, cards, 1, error, colours);
+  const auto instances = ImpostorInstances::Create(renderer, cards, 1, error, images);
   CHECK(instances, "the existing native instance path binds the integral material");
   if (!instances) { Failed(); }
   const Mat4 model;
@@ -131,8 +138,9 @@ void CheckFrame(Core::RuntimeScene &scene,
     for (size_t x = 0; x < 32; ++x) {
       const double left = offset[0] + (static_cast<double>(x) - 16) * .25;
       const double top = offset[1] + (16 - static_cast<double>(y)) * .25;
-      const auto expected = Average({left, top - .25, left + .25, top});
+      const auto expected = Average({left, top - .25, left + .25, top}, colours);
       for (size_t channel = 0; channel < 4; ++channel) {
+        if (channel == 0 && expected[0] > 1) { continue; }
         const auto actual = pixels[(y * 32 + x) * 4 + channel];
         CHECK(std::isfinite(actual) && std::abs(actual - expected[channel]) < .001,
               "direct prefix sampling matches independent world-space overlap, including support "
@@ -142,7 +150,7 @@ void CheckFrame(Core::RuntimeScene &scene,
   }
 }
 
-void Exercise() {
+void Exercise(const Colours &colours, int raster) {
   SceneRenderer renderer;
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
@@ -156,7 +164,8 @@ void Exercise() {
         "the ordinary render scene opens once");
   if (!scene) { Failed(); }
   Require(renderer.ConfigureMaterialFields());
-  const auto input = MaterialFieldInput::Prepare(Source(), {.WidthPx = 32, .HeightPx = 32});
+  const auto input =
+      MaterialFieldInput::Prepare(Source(colours), {.WidthPx = raster, .HeightPx = raster});
   CHECK(input, "the unlit source contains all four original colour regions");
   if (!input) { Failed(); }
   const auto source = Require(
@@ -167,20 +176,25 @@ void Exercise() {
   view.Camera.XMagM = view.Camera.YMagM = 1;
   view.Camera.ZNearM = .1;
   view.Camera.ZFarM = 10;
-  view.Target = {.WidthPx = 32, .HeightPx = 32};
-  view.Encoding = RadianceEncoding::Integral;
+  view.Target = {.WidthPx = raster, .HeightPx = raster};
+  view.Encoding = RadianceEncoding::IntegralPairs;
   const auto images = Require(RetryOffline(
       [&] { return renderer.RelightMaterialField(*source, view); }, std::chrono::seconds(5)));
   for (const auto offset :
        std::array<std::array<double, 2>, 3>{{{.02, .03}, {.13, .11}, {-.13, -.11}}}) {
-    CheckFrame(*scene, renderer, images.Filtered, offset);
+    CheckFrame(*scene, renderer, images.Filtered, offset, colours);
   }
 }
 }
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes the real frame consumer");
-  Exercise();
+  Exercise(kColours, 32);
+  auto hdr = kColours;
+  hdr[0][0] = 4096;
+  Exercise(hdr, 128);
+  hdr[0][0] = 1;
+  Exercise(hdr, 128);
   SDL_Quit();
   return Report();
 }

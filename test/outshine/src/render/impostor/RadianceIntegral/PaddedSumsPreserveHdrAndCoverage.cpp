@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <limits>
 #include <span>
 #include <utility>
 #include <vector>
@@ -89,7 +90,7 @@ void Exercise(Device &device, const RadianceIntegral &integral, Shape shape, For
   const auto pixels = Pixels(shape);
   const auto source = Source(device, shape, format, pixels);
   const auto description =
-      TextureDescription{.Width = shape.Width + 1,
+      TextureDescription{.Width = 2 * (shape.Width + 1),
                          .Height = shape.Height + 1,
                          .Texels = Format::Rgba32Float,
                          .Use = TextureUse::Storage | TextureUse::Sampled | TextureUse::CopySource};
@@ -105,16 +106,16 @@ void Exercise(Device &device, const RadianceIntegral &integral, Shape shape, For
   CHECK(Require(device.Wait(completion, std::chrono::seconds(5))) == CompletionStatus::Ready,
         "row and column passes complete in one accepted submission");
   const auto rows =
-      ReadImage(device, *target, {.Width = shape.Width + 1, .Height = shape.Height + 1});
+      ReadImage(device, *target, {.Width = 2 * (shape.Width + 1), .Height = shape.Height + 1});
   for (uint32_t y = 0; y <= shape.Height; ++y) {
     for (uint32_t x = 0; x <= shape.Width; ++x) {
-      std::array<float, 4> actual{};
+      std::array<float, 8> actual{};
       std::memcpy(
-          actual.data(), rows.Rows.data() + y * rows.RowBytes + uint64_t{x} * 16, sizeof(actual));
+          actual.data(), rows.Rows.data() + y * rows.RowBytes + uint64_t{x} * 32, sizeof(actual));
       const auto expected = Integral(pixels, shape, {.Width = x, .Height = y});
       for (size_t channel = 0; channel < 4; ++channel) {
-        CHECK(actual[channel] == expected[channel],
-              "exclusive zero-padded Float32 prefix matches independent source enumeration");
+        CHECK(double(actual[channel]) + actual[channel + 4] == expected[channel],
+              "exclusive zero-padded Float32 pair matches independent source enumeration");
       }
     }
   }
@@ -122,6 +123,19 @@ void Exercise(Device &device, const RadianceIntegral &integral, Shape shape, For
 }
 
 int main() {
+  const auto small = RadianceIntegral::StorageExtent({.WidthPx = 13, .HeightPx = 7}, 28);
+  CHECK(small && small->WidthPx == 28 && small->HeightPx == 8,
+        "physical paired storage preserves the logical source raster");
+  CHECK(!RadianceIntegral::StorageExtent({.WidthPx = 13, .HeightPx = 7}, 27),
+        "the physical paired width is checked against the actual device limit");
+  CHECK(!RadianceIntegral::StorageExtent({.WidthPx = 0, .HeightPx = 1}, 128) &&
+            !RadianceIntegral::StorageExtent({.WidthPx = -1, .HeightPx = 1}, 128) &&
+            !RadianceIntegral::StorageExtent({.WidthPx = 1, .HeightPx = 0}, 128),
+        "empty or negative source extents cannot enter the paired layout");
+  CHECK(
+      !RadianceIntegral::StorageExtent({.WidthPx = std::numeric_limits<int>::max(), .HeightPx = 1},
+                                       std::numeric_limits<uint32_t>::max()),
+      "paired width overflow is rejected before allocation");
   auto device = Require(CreateDevice({.Validation = true}));
   RadianceIntegral integral;
   Require(integral.Configure(*device));
