@@ -182,12 +182,13 @@ class BrokenHipCrownTests(unittest.TestCase):
         self,
     ):
         owner = RoofedProducts(
-            with_broken_hip(self.original[1], run_fraction=0.25, height_fraction=0.75)
+            with_broken_hip(self.plans[1], run_fraction=0.25, height_fraction=0.75)
         )
         proof = check(owner)
         self.assertLess(proof["exact_knot_area_error_m2"], 1e-7)
         self.assertEqual(owner.roof_crown.run_fraction, 0.25)
         self.assertIs(owner.plan.body, self.original[1].body)
+        self.assertIs(owner.roof_crown.base_hip, self.plans[1].crown.base_hip)
 
 
 if __name__ == "__main__":

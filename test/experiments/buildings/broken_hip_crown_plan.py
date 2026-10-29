@@ -5,6 +5,8 @@ from dataclasses import dataclass, fields, replace
 from hip_crown_plan import LIMITS, HipCrown, with_hip
 from outshine_ref.buildings.modelling.scope import scalar
 
+RECIPE = "outshine/source-height-broken-hip-crown/1"
+
 
 def parameters(run, height, method, maximum):
     run, height = scalar(run), scalar(height)
@@ -66,8 +68,18 @@ def with_broken_hip(
     run, height = parameters(
         run_fraction, height_fraction, profile_method, maximum_triangles
     )
-    if isinstance(plan.crown, BrokenHipCrown) or plan.access is not None:
+    if plan.access is not None:
         return plan
+    if isinstance(plan.crown, BrokenHipCrown):
+        old = plan.crown
+        if (run, height, profile_method, maximum_triangles) == (
+            old.run_fraction,
+            old.height_fraction,
+            old.profile_method,
+            old.maximum_triangles,
+        ):
+            return plan
+        plan = replace(plan, crown=old.base_hip)
     current = with_hip(plan, limits=limits)
     hip = current.crown
     if not isinstance(hip, HipCrown):

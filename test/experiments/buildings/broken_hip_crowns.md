@@ -13,6 +13,8 @@ floor/stair/window/terrace products and existing highest-roof access. Defaults
 remain unchanged. A far/repeated view keeps the complete compact crown without
 expanding a hip or profile; every new vertex obeys the old vertical displacement
 radius. This is not a temporal shadow/radiance/LOD qualification.
+Repeated identical profile parameters reuse the request; changed parameters
+create an updated request on the same bound hip and unchanged functional body.
 
 The existing hip is built in its unplaced core-local frame. Its upper facets are
 cut with the existing `broken_hip.surface`; the existing full logical split/emit
@@ -68,8 +70,10 @@ views, custom profile and highest-roof access. All101 historical default fields
 
 ## Equal-product cost and actual images
 
-Measured producer **45c2887528f3c48bb762acef5fc6dc4e940cef20**; later changes only
-extend checks/documentation. Linux/i5-1135G7, Python3.13.5, NumPy2.5.4, Memray1.20;
+Measured producer **45c2887528f3c48bb762acef5fc6dc4e940cef20**. Its profile/cap kernel
+and default parameters remain unchanged; later edits add request updates,
+explicit recipe metadata and geometry-only replay. Linux/i5-1135G7,
+Python3.13.5, NumPy2.5.4, Memray1.20;
 BLAS/OMP1, timings normal priority, checks/render nice10. Seven alternating rounds
 use the same prepared **unplaced** hip per source. An earlier world-placed-base
 cost prototype is discarded; all87 exported geometry fields match it exactly,
@@ -115,12 +119,14 @@ no package is added. Set `PYTHONPATH=lib/src:test/experiments/buildings:test/exp
 
 - `python -m unittest verify_broken_hip_crowns verify_hip_crowns verify_broken_hips`
 - `python test/experiments/buildings/replay_broken_hip_crowns.py --output /tmp/outshine-broken-crowns`
+- Add `--no-costs` for a fresh geometry/contract replay without repeated timing/traces.
 - Render each `render-queue.json` entry with `python test/experiments/buildings/blender_city.py <geometry> --output <temp-images> --samples 16`.
 
 Actual inputs, request parameters, source IDs/WKB hashes, producer hashes,
 geometry NPZ, cost traces and whole-body render metadata are retained by replay.
 Native consumers must retain the unplaced/placed frame boundary, effective
-fallback identity, complete source/body products and observed cost scopes.
+fallback identity, complete source/body products and observed cost scopes. Asset
+keys must include the recorded recipe version and profile parameters.
 Native World/cache/radiance/LOD/device integration remains separate. #618/#33
 and worldwide architecture diversity remain open; no whole988-source adoption.
 

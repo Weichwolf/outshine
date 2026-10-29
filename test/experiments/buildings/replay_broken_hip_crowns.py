@@ -7,13 +7,14 @@ import json
 import os
 import platform
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
 from allocation_measure import allocations
 from broken_hip_crown_checks import check
 from broken_hip_crown_geometry import profile
-from broken_hip_crown_plan import with_broken_hip
+from broken_hip_crown_plan import RECIPE, with_broken_hip
 from evidence import revision
 from hip_crown_geometry import build as hip_build
 from hip_crown_models import export
@@ -85,7 +86,7 @@ def measure_profiles(base, requests, output, index):
     return report
 
 
-def case(row, kind, index, output, buffers):
+def case(row, kind, index, output, buffers, *, costs=True):
     started = time.process_time()
     original = plan(row, kind)
     prepared_s = time.process_time() - started
@@ -116,23 +117,39 @@ def case(row, kind, index, output, buffers):
         }
         if name != "hip":
             results[name]["checks"] = check(owner)
+            crown = request.crown
+            results[name]["request"] = {
+                "recipe": RECIPE,
+                "identifier": crown.identifier,
+                "base_hip_identifier": crown.base_hip.identifier,
+                "run_fraction": crown.run_fraction,
+                "height_fraction": crown.height_fraction,
+                "profile_method": crown.profile_method,
+                "maximum_triangles": crown.maximum_triangles,
+                "deck_m": crown.deck_m,
+                "top_m": crown.top_m,
+                "limits": asdict(crown.limits),
+                "profile_frame": "Unplaced core-local ENU of the bound base hip",
+            }
         save_roof(buffers, f"{index}_{name}", owner)
         if name != "hip":
             buffers[f"{index}_{name}_source_triangles"] = owner.physical_roof()[
                 0
             ].source_triangle_ids
         owners[name] = owner
-    began = time.process_time()
-    (local_base,), _ = hip_build(plans["hip"].crown)
-    base_preparation_s = time.process_time() - began
-    costs = measure_profiles(
-        local_base,
-        {name: plans[name].crown for name in ("direct", "logical")},
-        output,
-        index,
-    )
-    for name in ("direct", "logical"):
-        results[name]["profile_cost"] = costs[name]
+    base_preparation_s = None
+    if costs:
+        began = time.process_time()
+        (local_base,), _ = hip_build(plans["hip"].crown)
+        base_preparation_s = time.process_time() - began
+        measured = measure_profiles(
+            local_base,
+            {name: plans[name].crown for name in ("direct", "logical")},
+            output,
+            index,
+        )
+        for name in ("direct", "logical"):
+            results[name]["profile_cost"] = measured[name]
     for name in ("hip", "direct"):
         # Both variants retain the same original functional body; image export
         # shares its prepared owner outside all measured profile/crown work.
@@ -154,6 +171,7 @@ def case(row, kind, index, output, buffers):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--costs", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
     output = args.output.resolve()
     if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
@@ -166,7 +184,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     groups, rows, buffers = [], [], {}
     for index, (source, kind) in enumerate(cases()):
-        owners, record = case(source, kind, index, output, buffers)
+        owners, record = case(source, kind, index, output, buffers, costs=args.costs)
         groups.append(owners)
         rows.append(record)
         print(
@@ -189,7 +207,8 @@ def main():
         "load_average": os.getloadavg(),
         "cases": rows,
         "saved_array_fields": len(buffers),
-        "scope": "Actual closed two-slope source-height crowns and unchanged functional bodies. Seven alternating equal-profile rounds, separate native/Python allocation traces; base hip/input/body/independent checks/exports/render outside profile costs. Whole crown construction reported separately as a single observation. No native World/Source/radiance/UMA/p99 acceptance.",
+        "costs_recorded": args.costs,
+        "scope": "Actual closed two-slope source-height crowns and unchanged functional bodies. When costs_recorded is true: seven alternating equal-profile rounds, separate native/Python allocation traces; base hip/input/body/independent checks/exports/render outside profile costs. Owner initialization and crown construction reported separately as single observations. No native World/Source/radiance/UMA/p99 acceptance.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
 
