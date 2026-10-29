@@ -28,13 +28,31 @@ public:
     [[nodiscard]] std::string Key() const;
   };
 
+  class MetadataPreparation {
+  public:
+    MetadataPreparation() noexcept;
+    MetadataPreparation(MetadataPreparation &&) noexcept;
+    MetadataPreparation &operator=(MetadataPreparation &&) noexcept;
+    ~MetadataPreparation();
+    // Inspect between worker steps. Package capacities exclude decoded native sources.
+    [[nodiscard]] size_t PublicationBytes() const noexcept;
+    [[nodiscard]] uint64_t Preparations() const noexcept;
+
+  private:
+    friend class BuildingImpostorSource;
+    struct State;
+    std::unique_ptr<State> State_;
+  };
+
   BuildingImpostorSource(Recipe recipe, std::shared_ptr<Generators::PreparedBuildingAssets> assets);
 
   [[nodiscard]] const std::string &Provenance() const noexcept { return Provenance_; }
 
   // Execute on the content worker; only complete selected source sets publish metadata.
-  [[nodiscard]] std::expected<Content::ImpostorViewAssets, std::string>
-  ResolveMetadata(AssetCache &cache, const std::stop_token &stop = {});
+  [[nodiscard]] std::expected<std::optional<Content::ImpostorViewAssets>, std::string>
+  ResolveMetadata(AssetCache &cache,
+                  MetadataPreparation &preparation,
+                  const std::stop_token &stop = {});
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
   Generate(Content::ImpostorViewAssets::ViewIndex view,
            size_t bytesMost,
@@ -43,6 +61,13 @@ public:
 
 private:
   [[nodiscard]] std::expected<const Generators::BuildingSourceView *, std::string> Source();
+  [[nodiscard]] std::expected<const Generators::BuildingSourceView *, std::string>
+  ReadMetadataSource(MetadataPreparation &preparation, const std::stop_token &stop);
+  [[nodiscard]] std::expected<void, std::string>
+  PrepareMetadata(AssetCache &cache, MetadataPreparation &preparation, const std::stop_token &stop);
+  // Lock_ is held; a previously published immutable view is never replaced.
+  [[nodiscard]] std::expected<const Generators::BuildingSourceView *, std::string>
+  SourceFromBase(const Generators::PreparedBuildingAssets::Base &base);
   [[nodiscard]] Content::ImpostorViewAssets::Description
   Description(const Generators::BuildingSourceView &source) const;
   Recipe Recipe_;

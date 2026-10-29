@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace outshine::Content {
@@ -31,6 +32,26 @@ public:
     std::optional<Mat4> WorldFromField = std::nullopt;
   };
 
+  class MetadataWrite {
+  public:
+    MetadataWrite(MetadataWrite &&) noexcept = default;
+    MetadataWrite &operator=(MetadataWrite &&) noexcept = default;
+
+    [[nodiscard]] size_t PublicationBytes() const noexcept { return Package_.CapacityBytes(); }
+
+  private:
+    friend class ImpostorViewAssets;
+
+    MetadataWrite(AssetRecord record, Description description, PreparedAssetWrite package)
+        : Record_(std::move(record)),
+          Description_(std::move(description)),
+          Package_(std::move(package)) {}
+
+    AssetRecord Record_;
+    Description Description_;
+    PreparedAssetWrite Package_;
+  };
+
   struct Selection {
     size_t View = 0;
     uint32_t Mip = 0;
@@ -41,6 +62,10 @@ public:
 
   [[nodiscard]] static std::expected<ImpostorViewAssets, AssetCacheError>
   Publish(AssetCache &cache, std::string_view provenance, Description description, Box bounds);
+  [[nodiscard]] static std::expected<MetadataWrite, AssetCacheError> PrepareMetadata(
+      AssetCache &cache, std::string_view provenance, Description description, Box bounds);
+  [[nodiscard]] static std::expected<ImpostorViewAssets, AssetCacheError>
+  Publish(AssetCache &cache, const MetadataWrite &prepared);
   [[nodiscard]] static std::expected<std::optional<ImpostorViewAssets>, AssetCacheError>
   Open(AssetCache &cache, std::string_view provenance);
 

@@ -185,14 +185,15 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
                                        std::move(source),
                                        demand.View,
                                        budget);
+  const auto preparation = std::make_shared<BuildingImpostorSource::MetadataPreparation>();
   auto metadata = ImpostorMetadataRequest::Start(
       pipeline,
       state->Consumer,
       workers,
       cache,
       producer->Provenance(),
-      [cache, producer](const std::stop_token &stop) {
-        return producer->ResolveMetadata(*cache, stop);
+      [cache, producer, preparation](const std::stop_token &stop) {
+        return producer->ResolveMetadata(*cache, *preparation, stop);
       },
       budget.ProducerBytes);
   if (!metadata) { return std::unexpected(metadata.error()); }

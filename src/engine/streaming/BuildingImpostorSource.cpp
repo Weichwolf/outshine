@@ -24,14 +24,20 @@ BuildingImpostorSource::Source() {
   }
   const auto base = Assets_->Load(Recipe_.BaseKey);
   if (!base || !*base) { return std::unexpected("prepared building source unavailable"); }
-  auto source = Generators::BuildingSourceView::Open(*base, Recipe_.Cells, Recipe_.Frame);
+  return SourceFromBase(*base);
+}
+
+std::expected<const Generators::BuildingSourceView *, std::string>
+BuildingImpostorSource::SourceFromBase(const Generators::PreparedBuildingAssets::Base &base) {
+  if (Source_) { return &*Source_; }
+  auto source = Generators::BuildingSourceView::Open(base, Recipe_.Cells, Recipe_.Frame);
   if (!source) { return std::unexpected(source.error().Message); }
   if (!source->Unsupported().empty()) {
     return std::unexpected("unsupported building source ordinal " +
                            std::to_string(source->Unsupported().front()) + " of " +
                            std::to_string(source->Unsupported().size()) + "; retain its parent");
   }
-  AnchorEcef_ = (*base)->AnchorEcef;
+  AnchorEcef_ = base->AnchorEcef;
   return &Source_.emplace(std::move(*source));
 }
 
@@ -61,28 +67,6 @@ BuildingImpostorSource::Description(const Generators::BuildingSourceView &source
           .Pixels = Recipe_.Pixels,
           .Directions = Recipe_.Directions,
           .WorldFromField = worldFromField};
-}
-
-std::expected<Content::ImpostorViewAssets, std::string>
-BuildingImpostorSource::ResolveMetadata(AssetCache &cache, const std::stop_token &stop) {
-  if (stop.stop_requested() || Provenance_.empty()) {
-    return std::unexpected("invalid or cancelled building source metadata request");
-  }
-  auto opened = Content::ImpostorViewAssets::Open(cache, Provenance_);
-  if (!opened) { return std::unexpected("building source metadata lookup failed"); }
-  if (*opened && (**opened).Metadata().WorldFromField) { return std::move(**opened); }
-  const auto source = Source();
-  if (!source) { return std::unexpected(source.error()); }
-  const auto description = Description(**source);
-  Box bounds;
-  for (unsigned corner = 0; corner < 8; ++corner) {
-    bounds.Cover(AnchorEcef_ + Recipe_.Frame.Origin +
-                 Recipe_.Frame.SourceDirection((**source).Bounds().Corner(corner)));
-  }
-  if (stop.stop_requested()) { return std::unexpected("building source metadata cancelled"); }
-  auto published = Content::ImpostorViewAssets::Publish(cache, Provenance_, description, bounds);
-  if (!published) { return std::unexpected("building source metadata publication failed"); }
-  return std::move(*published);
 }
 
 std::expected<ImpostorAtlas, std::string>
