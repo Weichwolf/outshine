@@ -45,7 +45,7 @@ class WordPlane:
             or np.any(cells >= 2**31)
         ):
             raise ValueError("bounded original integer sites required")
-        local = cells.astype(np.int64) - self.first_xy
+        local = cells.astype(np.int64, copy=False) - self.first_xy
         if np.any(local < 0) or np.any(local >= self.words_yx.shape[::-1]):
             raise ValueError("material query outside the prepared original plane")
         return self.words_yx[local[:, 1], local[:, 0]]
