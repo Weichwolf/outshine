@@ -1,5 +1,5 @@
 #include "SurfaceSession.h"
-#include "Paint.h"
+#include "PaintList.h"
 #include "Style.h"
 
 #include <algorithm>
@@ -101,7 +101,7 @@ bool SurfaceSession::Compose(std::span<const SurfaceDeclaration> surfaces, std::
                            error)) {
       return false;
     }
-    Painting painted;
+    PaintList painted;
     if (!painted.Build(laid.Placed, *Font_, error)) { return false; }
     AppendPaintQuads(painted.Quads(), laid.LeftPx, laid.TopPx, quads);
   }
