@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TRANSPORT_GROUND_GROUNDPORTPLAN_H
 #define OUTSHINE_GENERATORS_TRANSPORT_GROUND_GROUNDPORTPLAN_H
 #include "GroundPortBodies.h"
-#include "TransportPlanNetwork.h"
+#include "GroundPortPlanNetwork.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -22,7 +22,6 @@ struct GroundPortPlanPathRecipe {
 struct GroundPortPlanBudget {
   GroundPortBodyBudget Bodies{};
   GroundPortFieldQueryLimits Samples{};
-  TransportPlanNetworkLimits Network{};
   size_t Paths = 2048;
   size_t Ports = 8192;
   size_t RecipePaths = 16384;
@@ -34,7 +33,6 @@ struct GroundPortPlanWork {
   TransportCoreWork Core{};
   GroundPortBodyWork Bodies{};
   GroundPortFieldQueryWork Samples{};
-  TransportPlanNetworkWork Network{};
   size_t Paths = 0;
   size_t Ports = 0;
   size_t MovedVertices = 0;
@@ -70,6 +68,7 @@ using GroundPortPlanError = std::variant<GroundPortPlanInputError,
 
 [[nodiscard]] std::expected<GroundPortPlanProduct, GroundPortPlanError>
 BuildGroundPortPartialPlan(const GroundPortField &field,
+                           const GroundPortPlanNetwork &network,
                            const GroundPortBodies &wholeBodies,
                            GeoCellId core,
                            std::span<const GroundPortPlanPathRecipe> recipes,

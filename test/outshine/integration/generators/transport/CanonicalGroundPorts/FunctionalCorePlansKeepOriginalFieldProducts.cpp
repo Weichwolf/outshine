@@ -252,6 +252,7 @@ size_t CheckPorts(const TransportPlan &plan, Ports &ports) {
 }
 
 void CheckRecipeBinding(const GroundPortField &field,
+                        const GroundPortPlanNetwork &network,
                         const GroundPortBodies &whole,
                         GeoCellId core,
                         const std::vector<GroundPortPlanPathRecipe> &recipes,
@@ -259,7 +260,7 @@ void CheckRecipeBinding(const GroundPortField &field,
                         const GroundPortPlanProduct &original) {
   auto changed = recipes;
   for (auto &recipe : changed) { recipe.SpeedMps += 1; }
-  const auto altered = BuildGroundPortPartialPlan(field, whole, core, changed, omissions);
+  const auto altered = BuildGroundPortPartialPlan(field, network, whole, core, changed, omissions);
   CHECK(altered && altered->Plan.InputBinding != original.Plan.InputBinding,
         "consumed functional recipe changes invalidate the plan binding");
   if (altered) {
@@ -269,13 +270,13 @@ void CheckRecipeBinding(const GroundPortField &field,
   auto unused = recipes;
   unused.push_back(
       {.PathId = std::numeric_limits<uint64_t>::max(), .Material = "unused", .SpeedMps = 123});
-  const auto unrelated = BuildGroundPortPartialPlan(field, whole, core, unused, omissions);
+  const auto unrelated = BuildGroundPortPartialPlan(field, network, whole, core, unused, omissions);
   CHECK(unrelated && unrelated->Plan.InputBinding == original.Plan.InputBinding,
         "an unconsumed source recipe never enters the plan input binding");
   auto alternate = GroundPortPlanBudget{};
   alternate.OutputCapacityBytes *= 2;
   const auto admitted =
-      BuildGroundPortPartialPlan(field, whole, core, recipes, omissions, alternate);
+      BuildGroundPortPartialPlan(field, network, whole, core, recipes, omissions, alternate);
   CHECK(admitted && admitted->Plan.InputBinding == original.Plan.InputBinding,
         "admission capacity does not become functional content");
   auto full = original.Plan;
@@ -288,21 +289,29 @@ void CheckRecipeBinding(const GroundPortField &field,
         "real core bodies do not prove full geographic source closure");
   std::stop_source stopped;
   stopped.request_stop();
-  CHECK(
-      !BuildGroundPortPartialPlan(field, whole, core, recipes, omissions, {}, stopped.get_token()),
-      "canceled exports never publish an apparently complete product");
-  CHECK(!BuildGroundPortPartialPlan(field, whole, core, recipes, {}),
+  CHECK(!BuildGroundPortPartialPlan(
+            field, network, whole, core, recipes, omissions, {}, stopped.get_token()),
+        "canceled exports never publish an apparently complete product");
+  CHECK(!BuildGroundPortPartialPlan(field, network, whole, core, recipes, {}),
         "a caller must explicitly declare the partial query omissions");
-  CHECK(!BuildGroundPortPartialPlan(field, whole, core, {}, omissions),
+  CHECK(!BuildGroundPortPartialPlan(field, network, whole, core, {}, omissions),
         "missing consumed functional recipes are not fabricated");
   GroundPortPlanBudget cap;
   cap.Paths = 0;
-  CHECK(!BuildGroundPortPartialPlan(field, whole, core, recipes, omissions, cap),
+  CHECK(!BuildGroundPortPartialPlan(field, network, whole, core, recipes, omissions, cap),
         "a work cap refuses instead of publishing a shortened plan");
+  auto foreignBody = whole;
+  foreignBody.Inputs[1].Content[0] ^= uint8_t{1};
+  const auto foreign =
+      BuildGroundPortPartialPlan(field, network, foreignBody, core, recipes, omissions);
+  CHECK(!foreign && std::holds_alternative<HeightSolidError>(foreign.error()) &&
+            std::get<HeightSolidError>(foreign.error()) == HeightSolidError::InvalidInput,
+        "reusing a valid native projection cannot hide a foreign body or terrain binding");
 }
 
 struct FieldFixture {
   const GroundPortField &Field;
+  const GroundPortPlanNetwork &Network;
   const GroundPortBodies &Whole;
   const std::vector<GroundPortPlanPathRecipe> &Recipes;
   std::span<const TransportOmission> Omissions;
@@ -319,6 +328,7 @@ struct FieldEvidence {
 std::optional<std::vector<uint8_t>>
 CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) {
   const auto &field = fixture.Field;
+  const auto &network = fixture.Network;
   const auto &whole = fixture.Whole;
   const auto &recipes = fixture.Recipes;
   const auto omissions = fixture.Omissions;
@@ -333,7 +343,7 @@ CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) 
   if (!selection || selection->Segments.empty()) { return std::nullopt; }
   const auto start = std::chrono::steady_clock::now();
   BeginCppAllocationProbe();
-  auto product = BuildGroundPortPartialPlan(field, whole, core, recipes, omissions);
+  auto product = BuildGroundPortPartialPlan(field, network, whole, core, recipes, omissions);
   const auto allocations = EndCppAllocationProbe();
   const auto duration = std::chrono::steady_clock::now() - start;
   CHECK(product.has_value(), "the actual field exports its functional core plan");
@@ -346,6 +356,8 @@ CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) 
     return std::nullopt;
   }
   ++evidence.Plans;
+  CHECK(product->Plan.Network == network.Projection().Network,
+        "core plans share exactly the prepared immutable native network backing");
   CHECK(product->Plan.Coverage == TransportCoverage::Partial &&
             product->Plan.Paths.size() == product->Plan.Bodies.size() && product->Plan.Network &&
             product->Plan.Network->Coverage().empty(),
@@ -362,7 +374,7 @@ CheckCore(const FieldFixture &fixture, GeoCellId core, FieldEvidence &evidence) 
   auto encoded = EncodeTransportPlan(product->Plan, kCodec);
   CHECK(encoded.has_value(), "the real functional product crosses the existing native plan codec");
   if (!evidence.RecipeChecked) {
-    CheckRecipeBinding(field, whole, core, recipes, omissions, *product);
+    CheckRecipeBinding(field, network, whole, core, recipes, omissions, *product);
     evidence.RecipeChecked = true;
   }
   std::println("GROUND_PLAN field={} core={}/{}/{} paths={} ports={} contacts={} capacity_bytes={} "
@@ -459,8 +471,14 @@ int main(int argc, char **argv) {
         .SourceId = std::format("native-source/{}/{}", identity.DatasetId, identity.Revision),
         .Reason = TransportOmissionReason::UnsupportedRepresentation}};
     FieldEvidence evidence{.Which = which, .SeenPorts = {}};
-    const FieldFixture fixture{
-        .Field = field, .Whole = *whole, .Recipes = recipes, .Omissions = omissions};
+    const auto network = GroundPortPlanNetwork::Prepare(field);
+    CHECK(network.has_value(), "the immutable native network prepares once for every field core");
+    if (!network) { continue; }
+    const FieldFixture fixture{.Field = field,
+                               .Network = *network,
+                               .Whole = *whole,
+                               .Recipes = recipes,
+                               .Omissions = omissions};
     auto cores = Cores(field);
     if ((which & 1U) != 0) { std::ranges::reverse(cores); }
     for (const auto core : cores) {

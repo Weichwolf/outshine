@@ -136,7 +136,11 @@ void Prepare(const std::string &directory) {
   const std::array omissions{
       TransportOmission{.SourceId = "actual-qualified-field/remaining-world",
                         .Reason = TransportOmissionReason::UnsupportedRepresentation}};
-  const auto product = BuildGroundPortPartialPlan(field, *whole, core, recipes, omissions);
+  const auto network = GroundPortPlanNetwork::Prepare(field);
+  CHECK(network.has_value(), "the qualified native field network prepares before core export");
+  if (!network) { return; }
+  const auto product =
+      BuildGroundPortPartialPlan(field, *network, *whole, core, recipes, omissions);
   CHECK(product &&
             product->Plan.Definition.Representation == TransportRepresentation::FunctionalSubset &&
             !product->Plan.SourceEnds.empty(),

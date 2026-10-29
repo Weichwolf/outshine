@@ -1,5 +1,4 @@
 #include "GroundPortPlanAssembly.h"
-#include "TransportPlanNetworkBinding.h"
 #include "TransportNetworkSnapshot.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
@@ -80,9 +79,8 @@ TransportInputReference PathInput(const GroundPortBodies &whole,
 Checked<void> BindInputs(TransportPlan &plan,
                          const GroundPortBodies &sliced,
                          const std::vector<Part> &parts,
+                         const std::array<uint8_t, 32> &network,
                          GroundPortPlanBudget budget) {
-  const auto network = TransportPlanNetworkBinding(plan.Network, budget.BindingBytes);
-  if (!network) { return std::unexpected(network.error()); }
   plan.Inputs.reserve(sliced.Inputs.size() + parts.size() +
                       plan.Network->Provenance().Sources.size() + plan.SourceEnds.size() + 1);
   for (const auto &input : sliced.Inputs) { plan.Inputs.push_back(input); }
@@ -95,7 +93,7 @@ Checked<void> BindInputs(TransportPlan &plan,
                            .ItemId = source.Item,
                            .Content = source.Content});
   }
-  plan.Inputs.push_back(ScopeInput(plan, sliced, parts, *network));
+  plan.Inputs.push_back(ScopeInput(plan, sliced, parts, network));
   std::ranges::sort(plan.Inputs, {}, Key);
   size_t kept = 0;
   for (auto &input : plan.Inputs) {

@@ -48,6 +48,7 @@ PrepareParts(const GroundPortField &field,
 [[nodiscard]] Checked<void> BindInputs(TransportPlan &plan,
                                        const GroundPortBodies &sliced,
                                        const std::vector<Part> &parts,
+                                       const std::array<uint8_t, 32> &network,
                                        GroundPortPlanBudget budget);
 
 [[nodiscard]] TransportInputReference PathInput(const GroundPortBodies &whole,

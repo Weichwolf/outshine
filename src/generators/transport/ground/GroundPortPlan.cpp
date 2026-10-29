@@ -78,6 +78,7 @@ void MoveBodies(TransportPlan &plan, GroundPortBodies &&bodies, GroundPortPlanWo
 
 std::expected<GroundPortPlanProduct, GroundPortPlanError>
 BuildGroundPortPartialPlan(const GroundPortField &field,
+                           const GroundPortPlanNetwork &network,
                            const GroundPortBodies &wholeBodies,
                            GeoCellId core,
                            std::span<const GroundPortPlanPathRecipe> recipes,
@@ -85,6 +86,7 @@ BuildGroundPortPartialPlan(const GroundPortField &field,
                            GroundPortPlanBudget budget,
                            const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected(InputError::Canceled); }
+  if (!network.Matches(field)) { return std::unexpected(TransportPlanNetworkError::InvalidSource); }
   if (budget.Paths > std::numeric_limits<uint32_t>::max() / 2 ||
       budget.Ports > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected(InputError::CapacityExceeded);
@@ -124,11 +126,8 @@ BuildGroundPortPartialPlan(const GroundPortField &field,
   product.Plan.Anchor = anchor;
   product.Work.Core = selection->Work;
   product.Work.Bodies = reframed->Work;
-  auto network = ProjectGroundPortFieldNetwork(field, budget.Network, stop);
-  if (!network) { return std::unexpected(network.error()); }
-  product.Plan.Network = network->Network;
-  product.Work.Network = network->Work;
-  if (auto set = SetOmissions(product.Plan, omissions, *network, budget); !set) {
+  product.Plan.Network = network.Projection().Network;
+  if (auto set = SetOmissions(product.Plan, omissions, network.Projection(), budget); !set) {
     return std::unexpected(set.error());
   }
   auto parts = PrepareParts(
@@ -138,7 +137,7 @@ BuildGroundPortPartialPlan(const GroundPortField &field,
       !appended) {
     return std::unexpected(appended.error());
   }
-  if (auto bound = BindInputs(product.Plan, *reframed, *parts, budget); !bound) {
+  if (auto bound = BindInputs(product.Plan, *reframed, *parts, network.Binding(), budget); !bound) {
     return std::unexpected(bound.error());
   }
   MoveBodies(product.Plan, std::move(*reframed), product.Work);

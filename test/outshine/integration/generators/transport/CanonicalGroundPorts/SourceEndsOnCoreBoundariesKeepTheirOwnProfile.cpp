@@ -77,7 +77,10 @@ void CheckPlan(const GroundPortField &field,
       .PathId = 42, .Material = "asphalt", .Use = TransportUse::Road, .SpeedMps = 13}};
   const std::array omissions{TransportOmission{
       .SourceId = "scope/pending", .Reason = TransportOmissionReason::UnsupportedRepresentation}};
-  const auto product = BuildGroundPortPartialPlan(field, *body, core, recipes, omissions);
+  const auto network = GroundPortPlanNetwork::Prepare(field);
+  CHECK(network.has_value(), "the qualified native field network prepares before core export");
+  if (!network) { return; }
+  const auto product = BuildGroundPortPartialPlan(field, *network, *body, core, recipes, omissions);
   CHECK(product.has_value(),
         "a declared original end on the exact core boundary keeps its physical profile");
   if (!product) { return; }
