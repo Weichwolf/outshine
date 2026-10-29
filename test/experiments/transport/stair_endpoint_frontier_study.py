@@ -18,7 +18,7 @@ from stair_patch_inputs import fresh
 from stair_terrain_experiment import frozen
 
 
-def select(args, *, method="index"):
+def query_context(args):
     query = json.loads(args.query.read_text())
     xy = np.asarray(query["query_xy_m"], float)
     if (
@@ -47,7 +47,13 @@ def select(args, *, method="index"):
     state, _, _, work = state_for_axes(
         view, assets, supports, contacts, shapely.LineString(xy), allow_empty=True
     )
+    state["resident_source_ids"] = manifest["source_ids"]
     ref = {k: query[k] for k in ("reference_fixture", "reference_fixture_sha256")}
+    return state, sources, ref, work, manifest
+
+
+def select(args, *, method="index"):
+    state, sources, ref, work, manifest = query_context(args)
     plan, records, roots, deferred, recipes = proposals(
         state, sources, ref, method=method, strategy="prefix"
     )

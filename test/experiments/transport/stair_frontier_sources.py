@@ -41,7 +41,9 @@ def reason(source, cached, domain, profiles):
 def records_for(state, sources):
     xy = state["plan"]["xy"]
     domain = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
-    cached = set(state["report"]["candidate_source_ids"])
+    cached = set(
+        state.get("resident_source_ids", state["report"]["candidate_source_ids"])
+    )
     profiles = reference_profiles()
     records = []
     for key in sorted(sources):

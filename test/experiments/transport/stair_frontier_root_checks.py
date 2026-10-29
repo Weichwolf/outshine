@@ -3,8 +3,10 @@
 import unittest
 from unittest.mock import patch
 
+import numpy as np
+import shapely
 from stair_frontier_roots import root_seeds
-from stair_frontier_sources import module_recipe
+from stair_frontier_sources import module_recipe, records_for
 from stair_root_contact_checks import cached_ground, original_contact
 
 
@@ -22,6 +24,25 @@ def case():
 
 
 class ActualRootDiscovery(unittest.TestCase):
+    def test_resident_source_eligibility_does_not_depend_on_local_owner_masks(self):
+        state = {
+            "plan": {"xy": np.array([[0, 0], [10, 10]])},
+            "report": {"candidate_source_ids": []},
+            "resident_source_ids": ["cached"],
+        }
+        sources = {
+            "cached": {
+                "properties": {"class": "path", "subclass": "footway"},
+                "xy_m": [[2, 5], [8, 5]],
+                "mvt_xy": [[2, 5], [8, 5]],
+                "shape": shapely.LineString([[2, 5], [8, 5]]),
+            }
+        }
+        record = records_for(state, sources)[0]
+        self.assertFalse(record["eligible"])
+        self.assertEqual(record["reason"], "already_cached")
+        self.assertFalse(state["report"]["candidate_source_ids"])
+
     def test_legacy_interiors_keep_their_identity_and_precede_new_end_contacts(self):
         state, sources, records, _ = case()
         roots, deferred = root_seeds(state, sources, records)
