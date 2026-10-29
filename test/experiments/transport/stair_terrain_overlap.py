@@ -1,7 +1,7 @@
 """Remove duplicate terrain facets only after an exact non-circular cover proof."""
 
 from fractions import Fraction
-from itertools import pairwise
+from itertools import combinations, pairwise
 
 import numpy as np
 import shapely
@@ -69,6 +69,34 @@ def covered(triangle, neighbours, work):
     return False
 
 
+def convex_pair_cover(target, faces, candidates, triangle, work):
+    target = set(map(int, target))
+    members = {int(i): set(map(int, faces[i])) for i in candidates}
+    for left, right in combinations(candidates, 2):
+        work["pair_searches"] += 1
+        a_ids, b_ids = members[int(left)], members[int(right)]
+        shared, union = a_ids & b_ids, a_ids | b_ids
+        if len(shared) != 2 or len(union) != 4 or not target <= union:
+            continue
+        work["convex_pair_tests"] += 1
+        points = dict(zip(faces[left], triangle(left)))
+        points.update(zip(faces[right], triangle(right)))
+        a, b = [points[i] for i in sorted(shared)]
+        c = points[next(iter(a_ids - shared))]
+        d = points[next(iter(b_ids - shared))]
+        if side(a, b, c) * side(a, b, d) >= 0:
+            continue
+        polygon = [c, a, d, b]
+        turns = [
+            side(polygon[i], polygon[(i + 1) % 4], polygon[(i + 2) % 4])
+            for i in range(4)
+        ]
+        if all(v >= 0 for v in turns) or all(v <= 0 for v in turns):
+            work["convex_pair_proofs"] += 1
+            return True
+    return False
+
+
 def remove_covered_duplicates(
     xy, faces, *, max_groups=64, max_neighbours=64, max_clips=16384
 ):
@@ -114,6 +142,9 @@ def remove_covered_duplicates(
         "halfplane_clips": 0,
         "clip_budget": max_clips,
         "maximum_parts": 1,
+        "pair_searches": 0,
+        "convex_pair_tests": 0,
+        "convex_pair_proofs": 0,
     }
 
     def triangle(index):
@@ -131,7 +162,12 @@ def remove_covered_duplicates(
         candidates = candidates[~duplicate[candidates]]
         if len(candidates) > max_neighbours:
             raise ValueError("exact terrain overlap neighbour budget exhausted")
-        if covered(triangle(index), (triangle(j) for j in candidates), work):
+        original = triangle(index)
+        if area(original) == 0:
+            continue
+        if convex_pair_cover(
+            faces[index], faces, candidates, triangle, work
+        ) or covered(original, (triangle(j) for j in candidates), work):
             keep[inverse == group] = False
             work["removed_facets"] += int(counts[group])
     if not work["removed_facets"]:

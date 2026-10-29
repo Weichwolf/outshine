@@ -3,9 +3,12 @@
 import argparse
 import gc
 import hashlib
+import importlib.util
 import json
 import os
 import platform
+import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -57,6 +60,30 @@ def outcome(value, original, expected):
     }
 
 
+def reference(args):
+    if not re.fullmatch(r"[0-9a-f]{40}", args.reference_commit):
+        raise ValueError("Full frozen coverage reference commit required")
+    code = subprocess.check_output(
+        [
+            "git",
+            "show",
+            args.reference_commit
+            + ":test/experiments/transport/stair_terrain_overlap.py",
+        ]
+    )
+    path = args.output / "historical_overlap.py"
+    path.write_bytes(code)
+    spec = importlib.util.spec_from_file_location("historical_overlap", path)
+    if spec is None or spec.loader is None:
+        raise ValueError("Frozen coverage reference cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.remove_covered_duplicates, {
+        "commit": args.reference_commit,
+        "source_sha256": hashlib.sha256(code).hexdigest(),
+    }
+
+
 def run(args):
     commit = frozen()
     fresh(args.output)
@@ -80,6 +107,10 @@ def run(args):
         "geos_union": floating_cover,
         "area_threshold": area_filter,
     }
+    args.output.mkdir()
+    historical = None
+    if args.reference_commit:
+        methods["clip_reference"], historical = reference(args)
     required = {
         case: {
             name: outcome(call(xy, faces), faces, wanted)
@@ -97,7 +128,6 @@ def run(args):
         controls[name] = {
             key: outcome(call(xy, faces), faces, faces) for key, call in methods.items()
         }
-    args.output.mkdir()
     load = os.getloadavg()
     costs = {case: {name: {"rounds": []} for name in methods} for case in cases}
     names = tuple(methods)
@@ -136,6 +166,7 @@ def run(args):
         "numpy": np.__version__,
         "load_before": load,
         "load_after": os.getloadavg(),
+        "reference": historical,
         "study_sha256": digest(args.study / "report.json"),
         "pre_cleanup_sha256": digest(raw_path),
         "proof": proof,
@@ -155,4 +186,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("study", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--reference-commit")
     run(parser.parse_args())

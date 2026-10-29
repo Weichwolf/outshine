@@ -36,6 +36,8 @@ class CoveredTerrainDuplicates(unittest.TestCase):
         np.testing.assert_array_equal(result, faces[2:])
         self.assertEqual(work["removed_facets"], fixture["expected_removed_facets"])
         self.assertEqual(len(result), fixture["expected_retained_faces"])
+        self.assertEqual(work["convex_pair_proofs"], 1)
+        self.assertEqual(work["halfplane_clips"], 0)
         check_surface(xy, result)
 
     def test_multi_triangle_cover_does_not_require_one_owning_facet(self):
@@ -43,6 +45,7 @@ class CoveredTerrainDuplicates(unittest.TestCase):
         result, work = remove_covered_duplicates(xy, faces)
         np.testing.assert_array_equal(result, faces[:2])
         self.assertEqual(work["removed_facets"], 2)
+        self.assertGreater(work["halfplane_clips"], 0)
         self.assertTrue(
             shapely.union_all(shapely.polygons(xy[result])).equals(
                 shapely.box(0, 0, 2, 2)
@@ -86,6 +89,14 @@ class CoveredTerrainDuplicates(unittest.TestCase):
         self.assertIs(result, faces)
         self.assertEqual(work["removed_facets"], 0)
         self.assertEqual(work["triangle_tests"], 0)
+
+    def test_concave_pair_cannot_cover_the_missing_outer_triangle(self):
+        xy = np.array([[0, 0], [2, 0], [1, -1], [1, -0.5]], float)
+        faces = np.array([[0, 2, 1], [2, 1, 0], [0, 2, 3], [2, 1, 3]])
+        result, work = remove_covered_duplicates(xy, faces)
+        self.assertIs(result, faces)
+        self.assertEqual(work["convex_pair_proofs"], 0)
+        self.assertEqual(work["removed_facets"], 0)
 
     def test_unrelated_overlaps_without_duplicate_faces_remain_rejected(self):
         xy, faces = square_case()
