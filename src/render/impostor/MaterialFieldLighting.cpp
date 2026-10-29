@@ -16,6 +16,18 @@ bool Finite(const auto &values) {
 }
 }
 
+bool SameMaterialFieldCapture(const Viewpoint &capture, const Viewpoint &view) noexcept {
+  if (capture.Kind != CameraKind::Orthographic || view.Kind != capture.Kind ||
+      capture.XMagM != view.XMagM || capture.YMagM != view.YMagM || capture.Right != view.Right ||
+      capture.Up != view.Up || capture.Forward != view.Forward) {
+    return false;
+  }
+  const Vec3 offset = view.EyeM - capture.EyeM;
+  const double forward = Dot(offset, capture.Forward);
+  return Dot(offset, capture.Right) == 0 && Dot(offset, capture.Up) == 0 &&
+         view.ZNearM + forward == capture.ZNearM && view.ZFarM + forward == capture.ZFarM;
+}
+
 bool ValidMaterialFieldLighting(const MaterialFieldView &view) noexcept {
   const auto &environment = view.Environment;
   if (view.Lights.size() > kMaxUniformLights || !Nonnegative(environment.RadianceLinear) ||

@@ -138,6 +138,11 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "material field has no matching source or footprint"});
   }
+  if (data->Capture && !SameMaterialFieldCapture(*data->Capture, view.Camera)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "stored material samples require their original capture volume"});
+  }
   if (!ValidOutput(view, data->Raster, state.Pipelines->Device.Limits().MaxTextureExtent)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,

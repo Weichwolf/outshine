@@ -11,6 +11,8 @@
 namespace outshine::Render {
 inline constexpr double kMaterialFieldUnitTolerance = 1e-6;
 [[nodiscard]] bool ValidMaterialFieldLighting(const MaterialFieldView &view) noexcept;
+[[nodiscard]] bool SameMaterialFieldCapture(const Viewpoint &capture,
+                                            const Viewpoint &view) noexcept;
 
 struct MaterialFieldPipelines {
   explicit MaterialFieldPipelines(Native::Device &device) noexcept : Device(device) {}
@@ -31,6 +33,7 @@ struct ResidentMaterialField::Data {
   RenderScene Scene;
   GeometryRenderer Renderer;
   Extent Raster;
+  std::optional<Viewpoint> Capture;
   Native::Completion Produced;
 };
 

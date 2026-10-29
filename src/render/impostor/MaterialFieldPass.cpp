@@ -113,6 +113,7 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   if (!commands) { return std::unexpected(commands.error()); }
   auto source = std::make_shared<ResidentMaterialField::Data>(state.Pipelines);
   source->Raster = input->Data_->Raster;
+  source->Capture = input->Data_->Capture;
   Gpu gpu;
   gpu.Device = &device;
   gpu.HdrFormat = Native::Format::Rgba16Float;

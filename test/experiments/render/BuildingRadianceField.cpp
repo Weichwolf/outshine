@@ -1,6 +1,5 @@
 #include "AzimuthElevation.h"
 #include "BuildingRadianceField.h"
-#include "ImpostorSurface.h"
 #include "RadianceSupport.h"
 #include "ImpostorViewFrame.h"
 #include "MaterialFieldInput.h"
@@ -23,7 +22,6 @@
 #include <nlohmann/json.hpp>
 #include <numbers>
 #include <ratio>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,22 +35,21 @@ double Elapsed(Clock::time_point began) {
   return std::chrono::duration<double, std::milli>(Clock::now() - began).count();
 }
 
-std::expected<Render::MaterialFieldView, std::string>
-ViewOf(const ImpostorAtlas &atlas, size_t view, const nlohmann::json &query) {
+std::expected<Render::MaterialFieldView, std::string> ViewOf(const ImpostorAtlas &atlas,
+                                                             size_t view) {
   const Vec3 direction = atlas.Views()[view].TowardEye;
   const auto frame = ImpostorViewFrame::From(direction);
   if (!frame) { return std::unexpected("source view frame is singular"); }
-  const Vec3 eye{query.at("eye").get<std::array<double, 3>>()};
   Render::MaterialFieldView result;
   auto &camera = result.Camera;
-  camera.EyeM = atlas.CentreM() + direction * Length(eye - atlas.CentreM());
+  camera.EyeM = atlas.CentreM() + direction * (3 * atlas.HalfExtentM());
   camera.Right = frame->Right;
   camera.Up = frame->Up;
   camera.Forward = direction * -1.0;
   camera.Kind = Render::CameraKind::Orthographic;
   camera.XMagM = camera.YMagM = atlas.HalfExtentM();
-  camera.ZNearM = .1;
-  camera.ZFarM = Length(camera.EyeM - atlas.CentreM()) + 4 * atlas.HalfExtentM();
+  camera.ZNearM = atlas.HalfExtentM();
+  camera.ZFarM = 5 * atlas.HalfExtentM();
   result.Target = {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()};
   result.Encoding = Render::RadianceEncoding::IntegralPairs;
   return result;
@@ -82,11 +79,11 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   const bool uploaded = !result.Source;
   if (uploaded) {
     began = Clock::now();
-    auto geometry = original != nullptr ? std::optional(original->clone())
-                                        : Render::BuildImpostorSurface(atlas, view);
-    if (!geometry) { return std::unexpected("source material field unavailable"); }
-    auto input = Render::MaterialFieldInput::Prepare(
-        std::move(*geometry), {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()});
+    auto input =
+        original != nullptr
+            ? Render::MaterialFieldInput::Prepare(
+                  original->clone(), {.WidthPx = atlas.Pixels(), .HeightPx = atlas.Pixels()})
+            : Render::MaterialFieldInput::Prepare(atlas, view, size_t{64} * 1024 * 1024);
     if (!input) { return std::unexpected(input.error()); }
     result.SourcePrepareMs = Elapsed(began);
     began = Clock::now();
@@ -96,7 +93,7 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
     result.Source = std::move(*source);
     result.SourceUploadMs = Elapsed(began);
   }
-  auto placed = ViewOf(atlas, view, query);
+  auto placed = ViewOf(atlas, view);
   if (!placed) { return std::unexpected(placed.error()); }
   const auto toSun =
       EastUpSouthDirection(0, query.value("sun_elevation_deg", 0.0) * std::numbers::pi / 180.0);

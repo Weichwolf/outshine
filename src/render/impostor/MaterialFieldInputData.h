@@ -5,8 +5,10 @@
 #include "MaterialBinding.h"
 #include "MeshInput.h"
 #include "RenderGeometryStorage.h"
+#include "Viewing.h"
 #include <array>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -22,6 +24,7 @@ struct MaterialFieldInput::Data {
   DrawList Draws;
   std::vector<uint32_t> Indices;
   Extent Raster;
+  std::optional<Viewpoint> Capture;
 
   [[nodiscard]] std::expected<void, std::string> Prepare();
   [[nodiscard]] std::expected<void, std::string> PrepareTextures();
