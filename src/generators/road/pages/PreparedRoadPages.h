@@ -25,6 +25,44 @@ public:
 
   using Failure = std::variant<AssetCacheError, std::string>;
 
+  class PageWrite {
+  public:
+    struct Counters {
+      size_t MetadataReads = 0, Preparations = 0, Publications = 0;
+    };
+
+    [[nodiscard]] Counters Costs() const noexcept { return Costs_; }
+
+    [[nodiscard]] bool NeedsProducer() const noexcept {
+      return Phase_ == Phase::Lookup || Phase_ == Phase::Generate;
+    }
+
+    [[nodiscard]] size_t PublicationBytes() const noexcept {
+      return Package_ ? Package_->CapacityBytes() : 0;
+    }
+
+  private:
+    friend class PreparedRoadPages;
+    enum class Phase { Lookup, Generate, Check, Publish, Restore, Bind, Complete };
+
+    PageWrite(RoadPageRequest request, std::string key)
+        : Request_(std::move(request)), Key_(std::move(key)) {}
+
+    RoadPageRequest Request_;
+    std::string Key_;
+    Phase Phase_ = Phase::Lookup;
+    std::optional<PreparedAssetWrite> Package_;
+    AssetRecord Record_;
+    Counters Costs_;
+  };
+
+  [[nodiscard]] static std::string DescribeFailure(const Failure &failure);
+  [[nodiscard]] static std::expected<PageWrite, Failure> PreparePage(RoadPageRequest request);
+  [[nodiscard]] std::expected<AssetRecord, Failure>
+  Prepare(PageWrite &write,
+          const RoadPageProducer *producer = nullptr,
+          const std::stop_token &stop = {});
+
   class ManifestWrite {
   public:
     [[nodiscard]] const std::string &Key() const noexcept { return Key_; }
@@ -78,13 +116,13 @@ public:
 
 private:
   explicit PreparedRoadPages(std::unique_ptr<AssetCache> cache);
+  [[nodiscard]] std::expected<void, Failure> ResolvePageRecord(PageWrite &write);
+  [[nodiscard]] std::expected<void, Failure>
+  GeneratePage(PageWrite &write, const RoadPageProducer *producer, const std::stop_token &stop);
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
   Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
-  [[nodiscard]] std::expected<std::optional<AssetRecord>, std::string>
-  ReadRecord(const std::string &key,
-             const RoadPageAddress &address,
-             size_t bytesMost,
-             const std::string &requestKey = {});
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
+  ReadRecord(const std::string &key, const RoadPageAddress &address, size_t bytesMost);
   std::unique_ptr<AssetCache> Cache_;
   std::mutex Lock_;
 };

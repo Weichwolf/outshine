@@ -29,6 +29,7 @@ RoadPageQueue::~RoadPageQueue() {
   for (auto &[key, work] : Work_) {
     (void)work->Stop.request_stop();
     if (work->Ticket) { work->Ticket->Cancel(); }
+    CancelBinding(work);
   }
 }
 
@@ -108,13 +109,19 @@ void RoadPageQueue::Cancel(const std::string &key) {
   if (found != Work_.end()) {
     (void)found->second->Stop.request_stop();
     if (found->second->Ticket) { found->second->Ticket->Cancel(); }
+    CancelBinding(found->second);
   }
 }
 
 bool RoadPageQueue::SetGeneration(AssetConsumerGeneration generation) noexcept {
-  if (!Consumer_ || generation <= Consumer_->Generation()) { return false; }
-  for (auto &[key, work] : Work_) { (void)work->Stop.request_stop(); }
-  return Consumer_->Advance(generation);
+  if (!Consumer_) { return false; }
+  auto &consumer = *Consumer_;
+  if (generation <= consumer.Generation()) { return false; }
+  for (auto &[key, work] : Work_) {
+    (void)work->Stop.request_stop();
+    CancelBinding(work);
+  }
+  return consumer.Advance(generation);
 }
 
 std::vector<RoadPageQueue::Completed> RoadPageQueue::Collect() {

@@ -1,6 +1,9 @@
 #include "RoadPageQueueWork.h"
 #include "RoadPageProducer.h"
+#include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <limits>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -8,6 +11,7 @@
 #include <stop_token>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace outshine {
 namespace {
@@ -20,6 +24,36 @@ size_t RequestBytes(const Generators::RoadPageRequest &request) {
          request.Address.Parts.capacity() * sizeof(Generators::RoadPagePart) +
          request.Parent.capacity() + request.RequestKey.capacity();
 }
+
+struct PagePublication {
+  std::shared_ptr<Generators::PreparedRoadPages> Pages;
+  std::optional<Generators::RoadPageRequest> Request;
+  std::shared_ptr<const Generators::RoadPageProducer> Producer;
+  std::optional<Generators::PreparedRoadPages::PageWrite> Write;
+  size_t PackageBytesMost = 0;
+
+  std::expected<std::optional<AssetRecord>, std::string> Step(const std::stop_token &stop) {
+    using Cache = Generators::PreparedRoadPages;
+    if (!Write) {
+      if (!Request) { return std::unexpected("road publication lost its request"); }
+      auto prepared = Cache::PreparePage(std::move(*Request));
+      Request.reset();
+      if (!prepared) { return std::unexpected(Cache::DescribeFailure(prepared.error())); }
+      Write.emplace(std::move(*prepared));
+    }
+    auto record = Pages->Prepare(*Write, Producer.get(), stop);
+    if (!Write->NeedsProducer()) { Producer.reset(); }
+    if (Write->PublicationBytes() > PackageBytesMost) {
+      return std::unexpected("road page publication exceeds its package capacity");
+    }
+    if (!record) {
+      const auto *cache = std::get_if<AssetCacheError>(&record.error());
+      if (cache != nullptr && *cache == AssetCacheError::Busy) { return std::nullopt; }
+      return std::unexpected(Cache::DescribeFailure(record.error()));
+    }
+    return std::move(*record);
+  }
+};
 
 struct BoundReceipt {
   AssetRecord Record;
@@ -59,16 +93,34 @@ RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
   if (admission != Admission::Available) { return false; }
   auto context = request;
   request.RequestKey.clear();
-  const auto inputBytes = RequestBytes(request) + (producer ? producer->InputCapacityBytes() : 0);
-  auto factory = [pages = Pages_, request = std::move(request), producer = std::move(producer)](
-                     const std::stop_token &stop) {
-    return pages->Prepare(request, producer.get(), stop);
+  const auto requestBytes = RequestBytes(request);
+  const auto producerBytes = producer ? producer->InputCapacityBytes() : 0;
+  if (producerBytes > std::numeric_limits<size_t>::max() - requestBytes) {
+    return std::unexpected("road page producer input budget overflows");
+  }
+  const auto inputBytes = requestBytes + producerBytes;
+  if (request.NativeBytesMost > (std::numeric_limits<size_t>::max() - 2 * kReceiptBytesMost) / 2) {
+    return std::unexpected("road page publication budget overflows");
+  }
+  const size_t packageBytesMost = 2 * request.NativeBytesMost + kReceiptBytesMost;
+  auto publication =
+      std::make_shared<PagePublication>(PagePublication{.Pages = Pages_,
+                                                        .Request = std::move(request),
+                                                        .Producer = std::move(producer),
+                                                        .Write = {},
+                                                        .PackageBytesMost = packageBytesMost});
+  auto factory = [publication = std::move(publication)](const std::stop_token &stop) {
+    return publication->Step(stop);
   };
-  auto ticket = Publications_->RequestResolved(
+  constexpr size_t kFactoryBytes = sizeof(factory) + sizeof(PagePublication);
+  if (inputBytes > std::numeric_limits<size_t>::max() - kFactoryBytes) {
+    return std::unexpected("road page publication input budget overflows");
+  }
+  auto ticket = Publications_->RequestResumable(
       *Consumer_,
       {.Key = *product,
        .Generation = Consumer_->Generation(),
-       .InputBytes = inputBytes + sizeof(factory),
+       .InputBytes = inputBytes + kFactoryBytes,
        .ConsumerBytes = sizeof(Work) + RequestBytes(context) + kReceiptBytesMost,
        .ReceiptBytesMost = kReceiptBytesMost},
       std::move(factory));
@@ -87,7 +139,13 @@ RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
 }
 
 void RoadPageQueue::PollPublication(const std::shared_ptr<Work> &work) {
-  if (work->BindingQueued) { return; }
+  if (work->BindingQueued) {
+    if (work->BindingState.load(std::memory_order_acquire) == Work::BindingStatus::Deferred &&
+        std::chrono::steady_clock::now() >= work->RetryAt) {
+      PostBinding(work);
+    }
+    return;
+  }
   if (!work->Ticket || !work->Request) {
     work->Result = std::unexpected("road publication lost its admitted ticket or request");
     work->Complete.store(true, std::memory_order_release);
@@ -104,15 +162,7 @@ void RoadPageQueue::PollPublication(const std::shared_ptr<Work> &work) {
   } else {
     work->Published = std::move(publication.Receipt);
     work->BindingQueued = true;
-    const bool posted = Pool_.PostDetached([work, pages = Pages_] {
-      if (!work->Request) {
-        work->Bound.emplace(std::unexpected("road alias lost its request"));
-        work->Complete.store(true, std::memory_order_release);
-        return;
-      }
-      work->Bound.emplace(pages->Prepare(*work->Request, nullptr, work->Stop.get_token()));
-      work->Complete.store(true, std::memory_order_release);
-    });
+    const bool posted = Pool_.PostDetached([work, pages = Pages_] { RunBinding(work, pages); });
     if (posted) { return; }
     work->Result = std::unexpected("road page alias dispatcher stopped");
   }

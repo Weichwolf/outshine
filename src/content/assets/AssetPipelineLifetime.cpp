@@ -32,7 +32,10 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
     const auto at = Tickets.find(ticket);
     if (at != Tickets.end()) { stop = Cancel(at->second); }
   }
-  if (stop) { (void)stop->request_stop(); }
+  if (stop) {
+    (void)stop->request_stop();
+    WakeStopped();
+  }
 }
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
@@ -64,7 +67,10 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
     --released->Work->References;
     Remove(released->Work);
   }
-  if (stop) { (void)stop->request_stop(); }
+  if (stop) {
+    (void)stop->request_stop();
+    WakeStopped();
+  }
 }
 
 bool AssetPipeline::State::Advance(AssetConsumerId consumer,
@@ -86,6 +92,7 @@ bool AssetPipeline::State::Advance(AssetConsumerId consumer,
     }
   }
   for (auto &stop : stops) { (void)stop.request_stop(); }
+  if (!stops.empty()) { WakeStopped(); }
   return true;
 }
 
@@ -110,6 +117,7 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
     }
   }
   for (auto &stop : stops) { (void)stop.request_stop(); }
+  if (!stops.empty()) { WakeStopped(); }
 }
 
 AssetPipeline::Consumer::Consumer(std::shared_ptr<State> state, AssetConsumerId id)

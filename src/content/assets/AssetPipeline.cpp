@@ -4,6 +4,9 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stop_token>
+#include <string>
 #include <utility>
 
 namespace outshine {
@@ -29,6 +32,19 @@ AssetPipeline::OpenConsumer(AssetStoreScope scope) {
 
 std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline::RequestResolved(
     const Consumer &consumer, const ResolvedRequest &request, Producer producer) {
+  if (!producer) { return std::unexpected(AssetPublicationError::InvalidRequest); }
+  return RequestResumable(consumer,
+                          request,
+                          [producer = std::move(producer)](std::stop_token stop)
+                              -> std::expected<std::optional<AssetRecord>, std::string> {
+                            auto record = producer(std::move(stop));
+                            if (!record) { return std::unexpected(std::move(record.error())); }
+                            return std::move(*record);
+                          });
+}
+
+std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline::RequestResumable(
+    const Consumer &consumer, const ResolvedRequest &request, ResumableProducer producer) {
   if (consumer.State_ != State_ || !producer || request.ReceiptBytesMost == 0) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
