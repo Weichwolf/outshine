@@ -342,7 +342,43 @@ void RestoreKeepsPublicationBoundAfterLegacyReplacement() {
   CHECK(ready && fixture.IsIndex(), "the replacement finishes the original index migration");
 }
 
-void RestoreRetainsRequestAcrossReplacement(bool cancel) {
+enum class ReplacementFinish { Ready, Cancel, WriterDeferred, BasisRetired };
+
+bool PauseBeforeReplacementBinding(Fixture &fixture,
+                                   PreparedBuildingAssets::BaseWrite &cursor,
+                                   const std::atomic_bool &stopping,
+                                   ReplacementFinish finish,
+                                   const std::string &basisKey) {
+  if (finish != ReplacementFinish::WriterDeferred && finish != ReplacementFinish::BasisRetired) {
+    return true;
+  }
+  for (unsigned step = 0; step < 2; ++step) {
+    const auto advanced = fixture.Cache->ResumeBase(cursor, stopping);
+    CHECK(advanced && !*advanced, "the replacement publishes its index and basis before binding");
+    if (!advanced || *advanced) { return false; }
+  }
+  const auto beforeBinding = fixture.Cache->Costs();
+  if (finish == ReplacementFinish::WriterDeferred) {
+    if (!fixture.Begin()) { return false; }
+    const auto blocked = fixture.Cache->ResumeBase(cursor, stopping);
+    const auto repeated = fixture.Cache->ResumeBase(cursor, stopping);
+    const auto paused = fixture.Cache->Costs();
+    CHECK(!blocked && Busy(blocked.error()) && !repeated && Busy(repeated.error()) &&
+              paused.Hits == beforeBinding.Hits &&
+              paused.BasePackagePreparations == beforeBinding.BasePackagePreparations,
+          "writer-deferred request repair repeats neither index decode nor package preparation");
+    return fixture.Commit();
+  }
+  CHECK(fixture.Database->Remove(basisKey),
+        "a concurrent cleanup can retire the replacement basis before binding");
+  const auto pending = fixture.Cache->ResumeBase(cursor, stopping);
+  CHECK(pending && !*pending &&
+            fixture.Cache->Costs().BasePackagePreparations == beforeBinding.BasePackagePreparations,
+        "missing basis resumes its publication phase without claiming a completed alias");
+  return pending && !*pending;
+}
+
+void RestoreRetainsRequestAcrossReplacement(ReplacementFinish finish) {
   Fixture fixture;
   if (!fixture.Seed()) { return; }
   const auto heights = Heights();
@@ -370,7 +406,7 @@ void RestoreRetainsRequestAcrossReplacement(bool cancel) {
   CHECK(first && !*first && cursor->PublicationAttempts() == before + 1,
         "a replacement keeps the original cursor and admits only one new publication");
   if (!first || *first) { return; }
-  if (cancel) {
+  if (finish == ReplacementFinish::Cancel) {
     stopping.store(true);
     const auto attempts = cursor->PublicationAttempts();
     const auto stopped = fixture.Cache->ResumeBase(*cursor, stopping);
@@ -383,6 +419,7 @@ void RestoreRetainsRequestAcrossReplacement(bool cancel) {
     CHECK(stillAbsent && !*stillAbsent, "canceled replacement cannot revive its request alias");
     return;
   }
+  if (!PauseBeforeReplacementBinding(fixture, *cursor, stopping, finish, (**alias).Key)) { return; }
   PreparedBuildingAssets::Base ready;
   for (unsigned step = 0; step < 16 && !ready; ++step) {
     auto result = fixture.Cache->ResumeBase(*cursor, stopping);
@@ -438,7 +475,6 @@ void RestoreKeepsBlockedReplacement() {
         "the paused replacement completes exactly one cell/index/basis migration");
 }
 
-
 void RestoreKeepsANewerRequestBinding() {
   Fixture fixture;
   if (!fixture.Seed()) { return; }
@@ -483,8 +519,10 @@ int main() {
   RestoreKeepsPublicationBoundAfterLegacyReplacement();
   RestoreKeepsBlockedReplacement();
   RestoreKeepsANewerRequestBinding();
-  RestoreRetainsRequestAcrossReplacement(false);
-  RestoreRetainsRequestAcrossReplacement(true);
+  RestoreRetainsRequestAcrossReplacement(ReplacementFinish::Ready);
+  RestoreRetainsRequestAcrossReplacement(ReplacementFinish::Cancel);
+  RestoreRetainsRequestAcrossReplacement(ReplacementFinish::WriterDeferred);
+  RestoreRetainsRequestAcrossReplacement(ReplacementFinish::BasisRetired);
   BasisReadReusesTheMigrationBasis();
   return Report();
 }

@@ -14,10 +14,22 @@
 #include <vector>
 
 namespace outshine::Generators {
+namespace {
+std::expected<bool, AssetCacheError>
+RestoreRequestBinding(AssetCache &cache, const std::string &key, const std::string &request) {
+  auto bound = cache.BindRequestIfUnbound(key, request);
+  if (!bound || *bound) { return bound; }
+  auto current = cache.FindRequest(request);
+  if (!current) { return std::unexpected(current.error()); }
+  return current->has_value();
+}
+}
+
 struct PreparedBuildingAssets::BaseWrite::State {
   enum class Phase : uint8_t { Surfaces, Index, Basis, Restore };
   std::string Key;
   std::string RequestKey;
+  std::string RepairRequestKey;
   PreparedStructureTile Product;
   std::array<std::vector<const BuildingSurface *>, kStructureCellsPerTile> Cells;
   std::array<Box, kStructureCellsPerTile> Bounds;
@@ -155,11 +167,31 @@ PreparedBuildingAssets::ResumeBase(BaseWrite &prepared, const std::atomic_bool &
 std::expected<PreparedBuildingAssets::Base, StructureBakeError>
 PreparedBuildingAssets::RestoreBase(BaseWrite &prepared, const std::atomic_bool &stopping) {
   if (!prepared.State_) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+  if (stopping.load(std::memory_order_relaxed)) {
+    prepared.State_.reset();
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
+  if (!prepared.State_->RepairRequestKey.empty()) {
+    const std::scoped_lock lock(Lock_);
+    const auto bound = RestoreRequestBinding(
+        *Cache_, BasisKey(prepared.State_->Key), prepared.State_->RepairRequestKey);
+    if (!bound) { return std::unexpected(CacheFailure(bound.error())); }
+    if (!*bound) {
+      prepared.State_->Current = BaseWrite::State::Phase::Basis;
+      return Base{};
+    }
+  }
+  if (stopping.load(std::memory_order_relaxed)) {
+    prepared.State_.reset();
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
   std::optional<BaseWrite> replacement;
   auto loaded = ReadBase(prepared.State_->Key, replacement, stopping);
   if (replacement) {
     if (replacement->State_) {
-      replacement->State_->RequestKey = std::move(prepared.State_->RequestKey);
+      auto &request = prepared.State_->RepairRequestKey.empty() ? prepared.State_->RequestKey
+                                                                : prepared.State_->RepairRequestKey;
+      replacement->State_->RepairRequestKey = std::move(request);
     }
     prepared.Attempts_ += replacement->Attempts_;
     prepared.State_ = std::move(replacement->State_);
