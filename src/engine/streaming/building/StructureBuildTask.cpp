@@ -349,20 +349,24 @@ struct StructureBuildTask::NativeProducts {
       output.Status = std::unexpected(loaded.error());
       return false;
     }
-    if (!*loaded && BasePublication) { return false; }
-    if (!*loaded) {
-      const auto invalidated = Cache->InvalidateBasis(Key);
-      output.Status = std::unexpected(
-          invalidated ? Generators::StructureBakeError{Generators::StructureBakeErrorKind::
-                                                           NativeInputsMissing}
-                      : invalidated.error());
+    if (*loaded) {
+      base = std::move(*loaded);
+      BasePublication.reset();
+      output.PublicationBytes = 0;
+      Retries = 0;
+      return true;
+    }
+    if (BasePublication) { return false; }
+    const auto retired = Cache->RetireUnavailableBasis(Key);
+    if ((!retired && Busy(retired.error())) || (retired && !*retired)) {
+      Defer();
       return false;
     }
-    base = std::move(*loaded);
-    BasePublication.reset();
-    output.PublicationBytes = 0;
-    Retries = 0;
-    return true;
+    output.Status = std::unexpected(
+        retired ? Generators::
+                      StructureBakeError{Generators::StructureBakeErrorKind::NativeInputsMissing}
+                : retired.error());
+    return false;
   }
 
   bool Lookup(const Generators::RawTile &raw,

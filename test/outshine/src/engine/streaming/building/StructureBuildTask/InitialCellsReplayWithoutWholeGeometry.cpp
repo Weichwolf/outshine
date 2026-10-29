@@ -1,6 +1,7 @@
 #include "StructureBuildTask.h"
 #include "StructureCellAssembly.h"
 #include "PreparedBuildingAssets.h"
+#include "RemoveBuildingBasis.h"
 #include "PreparedBuildingBasis.h"
 #include "SourceSet.h"
 #include "BuildingMesh.h"
@@ -285,7 +286,7 @@ void ParallelReplay(const std::filesystem::path &root,
     });
   }
   start.arrive_and_wait();
-  const auto invalidated = cache->InvalidateBasis(std::string(kKey));
+  const auto invalidated = outshine::Test::RemoveBuildingBasis(root, std::string(kKey));
   for (auto &reader : readers) { reader.join(); }
   CHECK(invalidated && failed == 0,
         "basis invalidation preserves concurrent leased geometry reads");

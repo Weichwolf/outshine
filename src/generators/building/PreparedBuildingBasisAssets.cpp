@@ -58,14 +58,34 @@ PreparedBuildingAssets::PrepareBasis(const std::string &key,
   return std::move(*prepared);
 }
 
-std::expected<void, StructureBakeError>
-PreparedBuildingAssets::InvalidateBasis(const std::string &key) {
+std::expected<bool, StructureBakeError>
+PreparedBuildingAssets::RetireUnavailableBasis(const std::string &key) {
   const std::scoped_lock lock(Lock_);
   const auto basisKey = BasisKey(key);
-  const auto removed = Cache_->Remove(basisKey);
-  if (!removed) { return std::unexpected(CacheFailure(removed.error())); }
+  const auto retained = Cache_->LoadValidated(
+      basisKey,
+      "building-basis",
+      kPackageBytesMost,
+      [&](const CachedAsset &asset) -> std::expected<bool, AssetCacheError> {
+        if (asset.Record().Parent != key ||
+            !DecodePreparedBuildingBasis(asset.Bytes(), kResidentBytesMost)) {
+          return false;
+        }
+        const auto base = Cache_->Load(key, kPackageBytesMost);
+        if (!base) { return std::unexpected(base.error()); }
+        if (!*base) { return false; }
+        return DecodePreparedStructureIndex((**base).Bytes(), kResidentBytesMost).has_value() ||
+               DecodePreparedStructureTile((**base).Bytes(), kResidentBytesMost).has_value();
+      });
+  if (!retained) {
+    if (retained.error() != AssetCacheError::InvalidInput) {
+      return std::unexpected(CacheFailure(retained.error()));
+    }
+  } else if (*retained) {
+    return false;
+  }
   ResidentBases_.erase(basisKey);
-  return {};
+  return true;
 }
 
 std::expected<void, StructureBakeError>
