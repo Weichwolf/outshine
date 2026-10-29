@@ -38,19 +38,17 @@ def carried(value, shape):
 def coefficients(model, view, shift):
     """Ideal affine coefficients plus absolute original-monomial coefficients."""
     lower, upper, mass = [np.zeros((4, 4), float) for _ in range(3)]
-    for row in range(4):
-        for column in range(4):
-            for j in range(4):
-                # Products of two supplied binary32 numbers are exact binary64.
-                product = view[row, j] * model[j, column]
-                lower[row, column] = directed(lower[row, column] + product, False)
-                upper[row, column] = directed(upper[row, column] + product, True)
-                mass[row, column] = directed(mass[row, column] + abs(product), True)
-        for j in range(3):
-            product = view[row, j] * shift[j]
-            lower[row, 3] = directed(lower[row, 3] + product, False)
-            upper[row, 3] = directed(upper[row, 3] + product, True)
-            mass[row, 3] = directed(mass[row, 3] + abs(product), True)
+    for j in range(4):
+        # Products of two supplied binary32 numbers are exact binary64.
+        product = view[:, j, None] * model[j, None, :]
+        lower = directed(lower + product, False)
+        upper = directed(upper + product, True)
+        mass = directed(mass + abs(product), True)
+    for j in range(3):
+        product = view[:, j] * shift[j]
+        lower[:, 3] = directed(lower[:, 3] + product, False)
+        upper[:, 3] = directed(upper[:, 3] + product, True)
+        mass[:, 3] = directed(mass[:, 3] + abs(product), True)
     return lower, upper, mass
 
 
