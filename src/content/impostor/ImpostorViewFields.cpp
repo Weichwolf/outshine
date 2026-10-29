@@ -31,30 +31,46 @@ bool ImpostorViewAssets::MatchesField(const ImpostorAtlas &field, ViewIndex view
 std::expected<void, AssetCacheError> ImpostorViewAssets::PublishField(ViewIndex view,
                                                                       const ImpostorAtlas &field,
                                                                       size_t bytesMost) const {
-  const auto stored = StoreField(view, field, bytesMost);
-  if (!stored) { return std::unexpected(stored.error()); }
+  auto prepared = PrepareField(view, field, bytesMost);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const auto published = Publish(*prepared);
+  if (!published) { return std::unexpected(published.error()); }
   return {};
 }
 
-std::expected<std::vector<uint8_t>, AssetCacheError>
-ImpostorViewAssets::StoreField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const {
+std::expected<ImpostorViewAssets::ProductWrite, AssetCacheError> ImpostorViewAssets::PrepareField(
+    ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const {
+  auto encoded = EncodeField(view, field, bytesMost);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  return Prepare(std::move(*encoded));
+}
+
+std::expected<ImpostorViewAssets::EncodedProduct, AssetCacheError> ImpostorViewAssets::EncodeField(
+    ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const {
   if (!MatchesField(field, view)) { return std::unexpected(AssetCacheError::InvalidInput); }
   std::string error;
   const auto key = FieldKey(view);
   auto bytes = field.Encode(key, bytesMost, error);
   if (!bytes) { return std::unexpected(AssetCacheError::CapacityExceeded); }
-  const AssetRecord record{.Key = key,
-                           .Kind = std::string(kFieldKind),
-                           .Bounds = Record_.Bounds,
-                           .Package = {},
-                           .OffsetBytes = 0,
-                           .ByteCount = bytes->size(),
-                           .Level = 0,
-                           .Parent = Record_.Key,
-                           .RequestKey = {}};
-  const auto published = Cache_.Publish(std::span(&record, 1), *bytes);
+  AssetRecord record{.Key = key,
+                     .Kind = std::string(kFieldKind),
+                     .Bounds = Record_.Bounds,
+                     .Package = {},
+                     .OffsetBytes = 0,
+                     .ByteCount = bytes->size(),
+                     .Level = 0,
+                     .Parent = Record_.Key,
+                     .RequestKey = {}};
+  return EncodedProduct{.Record = std::move(record), .Bytes = std::move(*bytes)};
+}
+
+std::expected<std::vector<uint8_t>, AssetCacheError>
+ImpostorViewAssets::StoreField(ViewIndex view, const ImpostorAtlas &field, size_t bytesMost) const {
+  auto encoded = EncodeField(view, field, bytesMost);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  const auto published = Cache_.Publish(std::span(&encoded->Record, 1), encoded->Bytes);
   if (!published) { return std::unexpected(published.error()); }
-  return std::move(*bytes);
+  return std::move(encoded->Bytes);
 }
 
 std::expected<std::optional<ImpostorAtlas>, AssetCacheError>

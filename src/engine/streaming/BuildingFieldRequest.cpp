@@ -90,26 +90,26 @@ struct BuildingFieldRequest::State {
     const auto key = Value.Metadata->FieldKey(View);
     const auto parsed = AssetProductKey::Parse(key);
     if (!parsed) { return std::unexpected("building field has no valid product address"); }
-    ImpostorViewJob job{.Cache = Cache,
-                        .Provenance = Producer->Provenance(),
-                        .ProductKey = key,
-                        .BytesMost = Limits.FieldBytesMost,
-                        .Product = ImpostorViewJob::MaterialView{
-                            .Selected = View,
-                            .Generate = [source = Producer, budget = Limits.Capture](
-                                            Content::ImpostorViewAssets::ViewIndex view,
-                                            size_t bytes,
-                                            const std::stop_token &stop) {
-                              return source->Generate(view, bytes, budget, stop);
-                            }}};
-    auto requested = Pipeline->RequestResolved(
+    const ImpostorViewJob job{.Cache = Cache,
+                              .Provenance = Producer->Provenance(),
+                              .ProductKey = key,
+                              .BytesMost = Limits.FieldBytesMost,
+                              .Product = ImpostorViewJob::MaterialView{
+                                  .Selected = View,
+                                  .Generate = [source = Producer, budget = Limits.Capture](
+                                                  Content::ImpostorViewAssets::ViewIndex view,
+                                                  size_t bytes,
+                                                  const std::stop_token &stop) {
+                                    return source->Generate(view, bytes, budget, stop);
+                                  }}};
+    auto requested = Pipeline->RequestResumable(
         Consumer,
         {.Key = *parsed,
          .Generation = Consumer.Generation(),
          .InputBytes = Limits.ProducerBytes,
          .ConsumerBytes = Limits.ResidentBytes,
          .ReceiptBytesMost = Content::ImpostorViewAssets::MetadataBytesMost},
-        std::move(job));
+        job.Prepare());
     if (!requested) {
       if (requested.error() == AssetPublicationError::ResourceDeferred) { return false; }
       return std::unexpected("building field publication admission failed");

@@ -574,16 +574,16 @@ Content::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bou
 }
 
 AssetPipeline::RequestTicket
-ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorViewJob job) {
+ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, const ImpostorViewJob &job) {
   const auto product = AssetProductKey::Parse(key);
   if (!product) { Fail("invalid selected product key"); }
-  auto ticket = jobs.Pipeline.RequestResolved(jobs.Consumer,
-                                              {.Key = *product,
-                                               .Generation = jobs.Consumer.Generation(),
-                                               .InputBytes = 256,
-                                               .ConsumerBytes = 0,
-                                               .ReceiptBytesMost = 2048},
-                                              std::move(job));
+  auto ticket = jobs.Pipeline.RequestResumable(jobs.Consumer,
+                                               {.Key = *product,
+                                                .Generation = jobs.Consumer.Generation(),
+                                                .InputBytes = 256,
+                                                .ConsumerBytes = 0,
+                                                .ReceiptBytesMost = 2048},
+                                               job.Prepare());
   if (!ticket) { Fail("native view job admission failed"); }
   const auto until = Clock::now() + std::chrono::seconds(30);
   for (;;) {
@@ -603,7 +603,7 @@ std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorV
                                                         bool &hit) {
   constexpr size_t limit = size_t{64} * 1024 * 1024;
   const auto key = products.FieldKey({view});
-  ImpostorViewJob job{
+  const ImpostorViewJob job{
       .Cache = jobs.Cache,
       .Provenance = jobs.Source->Identity(),
       .ProductKey = key,
@@ -637,7 +637,7 @@ std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorV
                                          jobs.Source->Identity(),
                                          {view},
                                          limit,
-                                         ResolveProduct(jobs, key, std::move(job)));
+                                         ResolveProduct(jobs, key, job));
   if (!loader) { Fail(loader.error()); }
   const auto until = Clock::now() + std::chrono::seconds(30);
   for (;;) {
@@ -856,7 +856,7 @@ ImpostorCards ResolveView(const BuildingViewJobs &jobs,
                           size_t limit,
                           bool &hit) {
   const auto key = products.Key(selected);
-  ImpostorViewJob job{
+  const ImpostorViewJob job{
       .Cache = jobs.Cache,
       .Provenance = jobs.Source->Identity(),
       .ProductKey = key,
@@ -873,7 +873,7 @@ ImpostorCards ResolveView(const BuildingViewJobs &jobs,
             if (!geometry) { return std::unexpected("native source-view preparation failed"); }
             return std::move(*geometry);
           }}};
-  const auto ticket = ResolveProduct(jobs, key, std::move(job));
+  const auto ticket = ResolveProduct(jobs, key, job);
   auto ready = products.Load(selected, limit);
   if (!ready || !*ready) { Fail("published native view is unavailable"); }
   return std::move(**ready);

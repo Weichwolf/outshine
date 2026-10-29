@@ -130,7 +130,7 @@ std::optional<std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
   if (!consumer) { return std::nullopt; }
   std::atomic<size_t> calls{0};
   const auto key = metadata.FieldKey({0});
-  ImpostorViewJob job{
+  const ImpostorViewJob job{
       .Cache = cache,
       .Provenance = source->Provenance(),
       .ProductKey = key,
@@ -152,13 +152,13 @@ std::optional<std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
     CHECK(false, "native metadata has a valid field key");
     return std::nullopt;
   }
-  auto ticket = pipeline.RequestResolved(*consumer,
-                                         {.Key = *parsed,
-                                          .Generation = consumer->Generation(),
-                                          .InputBytes = 256,
-                                          .ConsumerBytes = 0,
-                                          .ReceiptBytesMost = 4096},
-                                         std::move(job));
+  auto ticket = pipeline.RequestResumable(*consumer,
+                                          {.Key = *parsed,
+                                           .Generation = consumer->Generation(),
+                                           .InputBytes = 256,
+                                           .ConsumerBytes = 0,
+                                           .ReceiptBytesMost = 4096},
+                                          job.Prepare());
   CHECK(ticket.has_value(), "the typed native source job admits");
   if (!ticket) { return std::nullopt; }
   const auto ready = Await(*ticket);

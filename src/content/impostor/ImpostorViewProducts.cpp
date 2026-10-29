@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine::Content {
 namespace {
@@ -50,6 +51,43 @@ bool ImpostorViewAssets::Matches(const ImpostorCards &cards, Selection selection
 
 std::expected<void, AssetCacheError>
 ImpostorViewAssets::Publish(Selection selection, Geometry geometry, size_t bytesMost) const {
+  auto prepared = Prepare(selection, std::move(geometry), bytesMost);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const auto published = Publish(*prepared);
+  if (!published) { return std::unexpected(published.error()); }
+  return {};
+}
+
+std::expected<ImpostorViewAssets::ProductWrite, AssetCacheError>
+ImpostorViewAssets::Prepare(Selection selection, Geometry geometry, size_t bytesMost) const {
+  auto encoded = EncodeProduct(selection, std::move(geometry), bytesMost);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  return Prepare(std::move(*encoded));
+}
+
+std::expected<ImpostorViewAssets::ProductWrite, AssetCacheError>
+ImpostorViewAssets::Prepare(EncodedProduct product) const {
+  std::vector<AssetRecord> records;
+  records.push_back(std::move(product.Record));
+  auto package = Cache_.PreparePublication(std::move(records), std::move(product.Bytes));
+  if (!package) { return std::unexpected(package.error()); }
+  return ProductWrite(std::move(*package));
+}
+
+std::expected<AssetRecord, AssetCacheError>
+ImpostorViewAssets::Publish(const ProductWrite &prepared) const {
+  const auto records = prepared.Package_.Records();
+  if (records.size() != 1 || records.front().Parent != Record_.Key ||
+      records.front().Bounds != Record_.Bounds) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  const auto published = Cache_.Publish(prepared.Package_);
+  if (!published) { return std::unexpected(published.error()); }
+  return records.front();
+}
+
+std::expected<ImpostorViewAssets::EncodedProduct, AssetCacheError>
+ImpostorViewAssets::EncodeProduct(Selection selection, Geometry geometry, size_t bytesMost) const {
   if (Pixels(selection) == 0) { return std::unexpected(AssetCacheError::InvalidInput); }
   ImpostorCards cards{
       .Centre = Description_.Centre, .HalfExtentM = Description_.HalfExtentM, .Views = {}};
@@ -57,18 +95,18 @@ ImpostorViewAssets::Publish(Selection selection, Geometry geometry, size_t bytes
       {.Direction = Description_.Directions[selection.View], .Surface = std::move(geometry)});
   if (!Matches(cards, selection)) { return std::unexpected(AssetCacheError::InvalidInput); }
   const auto key = Key(selection);
-  const auto bytes = cards.Encode(key, bytesMost);
+  auto bytes = cards.Encode(key, bytesMost);
   if (!bytes) { return std::unexpected(AssetCacheError::CapacityExceeded); }
-  const AssetRecord record{.Key = key,
-                           .Kind = std::string(kKind),
-                           .Bounds = Record_.Bounds,
-                           .Package = {},
-                           .OffsetBytes = 0,
-                           .ByteCount = bytes->size(),
-                           .Level = selection.Mip,
-                           .Parent = Record_.Key,
-                           .RequestKey = {}};
-  return Cache_.Publish(std::span(&record, 1), *bytes);
+  AssetRecord record{.Key = key,
+                     .Kind = std::string(kKind),
+                     .Bounds = Record_.Bounds,
+                     .Package = {},
+                     .OffsetBytes = 0,
+                     .ByteCount = bytes->size(),
+                     .Level = selection.Mip,
+                     .Parent = Record_.Key,
+                     .RequestKey = {}};
+  return EncodedProduct{.Record = std::move(record), .Bytes = std::move(*bytes)};
 }
 
 std::expected<std::optional<ImpostorCards>, AssetCacheError>

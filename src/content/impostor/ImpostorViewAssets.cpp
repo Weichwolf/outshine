@@ -129,25 +129,28 @@ ImpostorViewAssets::PrepareMetadata(AssetCache &cache,
                                     Box bounds) {
   auto bytes = Encode(description, provenance, bounds);
   if (!bytes) { return std::unexpected(AssetCacheError::InvalidInput); }
-  AssetRecord record{.Key = IndexKey(provenance),
+  std::vector<AssetRecord> records;
+  records.push_back({.Key = IndexKey(provenance),
                      .Kind = std::string(kKind),
                      .Bounds = bounds,
-                     .Package = Sha256Hex(bytes->data(), bytes->size()),
+                     .Package = {},
                      .OffsetBytes = 0,
                      .ByteCount = bytes->size(),
                      .Level = 0,
                      .Parent = {},
-                     .RequestKey = {}};
-  auto prepared = cache.PreparePublication({record}, std::move(*bytes));
+                     .RequestKey = {}});
+  auto prepared = cache.PreparePublication(std::move(records), std::move(*bytes));
   if (!prepared) { return std::unexpected(prepared.error()); }
-  return MetadataWrite(std::move(record), std::move(description), std::move(*prepared));
+  return MetadataWrite(std::move(description), std::move(*prepared));
 }
 
 std::expected<ImpostorViewAssets, AssetCacheError>
 ImpostorViewAssets::Publish(AssetCache &cache, const MetadataWrite &prepared) {
+  const auto records = prepared.Package_.Records();
+  if (records.size() != 1) { return std::unexpected(AssetCacheError::InvalidInput); }
   const auto published = cache.Publish(prepared.Package_);
   if (!published) { return std::unexpected(published.error()); }
-  return ImpostorViewAssets(cache, prepared.Record_, prepared.Description_);
+  return ImpostorViewAssets(cache, records.front(), prepared.Description_);
 }
 
 std::expected<std::optional<ImpostorViewAssets>, AssetCacheError>

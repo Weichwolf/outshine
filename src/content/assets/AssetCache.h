@@ -69,6 +69,9 @@ public:
 
   [[nodiscard]] size_t StoredBytes() const noexcept { return Bytes_.size(); }
 
+  // Normalized slices borrow their storage from this prepared packet.
+  [[nodiscard]] std::span<const AssetRecord> Records() const noexcept { return Records_; }
+
   // C++ object/buffer capacities, including inline strings; excludes allocator overhead.
   [[nodiscard]] size_t CapacityBytes() const noexcept;
 

@@ -53,11 +53,19 @@ void CheckReceipt(const std::string &path) {
   CHECK(prepared && before && !*before,
         "preparing normalized owning bytes does not publish any records");
   if (!prepared) { return; }
+  const auto records = prepared->Records();
+  CHECK(records.size() == 2 && records[0].RequestKey == Key("request") &&
+            records[1].Key == Key("second") && records[1].OffsetBytes == 3 &&
+            records[1].ByteCount == 3 &&
+            records[1].Package == Sha256Hex(package.Bytes.data(), package.Bytes.size()),
+        "the owned preparation exposes normalized receipts before any write or caller mutation");
   CHECK((*opened)->Publish(*prepared).has_value(), "the prepared package commits atomically");
   const auto found = (*opened)->Find(Key("second"));
   CHECK(found && *found, "the persisted normalized slice has an independent metadata receipt");
   if (!found || !*found) { return; }
   const auto &receipt = *found;
+  CHECK(records.size() == 2 && records[1] == *receipt,
+        "the prepared receipt is exactly the committed normalized record without a second digest");
   CHECK(receipt && receipt->Key == Key("second") && receipt->Kind == "second" &&
             receipt->Package == Sha256Hex(package.Bytes.data(), package.Bytes.size()) &&
             receipt->OffsetBytes == 3 && receipt->ByteCount == 3 && !receipt->RequestKey,
