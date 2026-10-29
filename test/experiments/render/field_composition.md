@@ -70,8 +70,33 @@ are met.
 A joint prefix binds every participating background/source/view/material/light
 revision. A changed background needs new joint work; it cannot silently reuse an
 isolated foreground prefix. Rebuilding every full joint field each frame is not
-the recommendation. The native matched-background export requested from Master
-remains necessary before actual field-error/World admission decisions.
+the recommendation. Native original/background controls from #1716 now verify
+the contract below. Jointly registered Raw-field/background error and World
+admission remain unqualified; the original point-image positive is not that result.
+
+## Native source/background controls
+
+`check_field_backgrounds.py` consumes the frozen #1716 A18/Metal input under
+`test/outshine/data/render/building-field-composition/`. It verifies all21 geometry/
+lineage hashes,1891 whole-source bounds, source receipts and Raw checksums before
+using the coupled observations. The controlled placements contain whole supported
+original groups, not geographic neighbours. Source ordinals3825/3827 remain
+unresolved per instance; the archived cell33 opacity assumption remains explicit.
+
+The complete-AABB intervals are deliberately looser than primitive extrema:
+63654.81–64340.39m versus65503.77–66189.35m in the ordered case. All14 common native
+pixel centres see the foreground first; point composition exactly matches native
+original-union colour. Independent16-sample averages then over-composition differ
+by up to0.25 coverage and0.746689 linear HDR RGB. The interleave has4/5 opposite
+depth orders, refuses whole-group order and defeats both global compositions.
+Fractional native averages are explicitly rejected by the point-sample operation.
+
+The128² Raw capture and1280×720 viewer differ in projection, raster, eye and basis;
+the consumer preserves those differences. Raw capture itself has6 coverage-mask
+disagreements and up to5.3792m common-hit depth error against its separate original
+capture. Neither raw first-hit depth nor the ordered native original control gives
+Raw-plus-background/World admission. Native main/shadow depth stays unchanged.
+The16-sample reference is finite and not a converged area-integral certificate.
 
 ## Reproduction and costs
 
@@ -90,6 +115,8 @@ basis `[[1,0,0],[0,1,0],[0,0,-1]]`. Run:
 .venv/bin/python -B test/experiments/render/field_composition_cost.py \
   --control /tmp/outshine-composition/originals \
   --output /tmp/outshine-composition/cost
+.venv/bin/python -B test/experiments/render/check_field_backgrounds.py \
+  --output /tmp/outshine-composition/native
 ```
 
 Freeze producer code before costs. The cost driver compares equal arithmetic and
