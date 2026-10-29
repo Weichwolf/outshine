@@ -130,6 +130,17 @@ def run(args):
             "prefix_bytes_each": (513 * 513 * 4 * 8),
             "held_field_array_bytes": sum(v.nbytes for v in fields.values()),
             "held_pixel_array_bytes": sum(v.nbytes for v in images.values()),
+            "known_copied_byte_subset": {
+                "masked_albedo_normal_roughness_channels": report["work"][
+                    "source_points"
+                ]
+                * 7
+                * 4,
+                "depth_float64_cast": report["work"]["source_points"] * 8,
+                "independent_block_mean_input_cast": fields["capture"].nbytes,
+                "three_immutable_prefix_table_copies": 3 * 513 * 513 * 4 * 8,
+                "scope": "Explicit payload-copy subset from masked source channels, Float64 casts and existing immutable-prefix tobytes. Excludes other temporaries/assignments/IO/compression; not total memory traffic or allocation bytes.",
+            },
             "peak_process_rss_bytes": peak_rss_bytes(),
             "nice": os.getpriority(os.PRIO_PROCESS, 0),
             "loadavg_before": load,
