@@ -46,7 +46,8 @@ enum class StructureBakeErrorKind {
   NativeInputsMissing,
   ArtifactFailure,
   ArtifactCapacityExceeded,
-  ArtifactInvalidProduct
+  ArtifactInvalidProduct,
+  ArtifactBusy
 };
 
 using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;
@@ -74,6 +75,7 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
       return "structure artifact exceeds byte budget";
     case StructureBakeErrorKind::ArtifactInvalidProduct:
       return "structure artifact product is invalid";
+    case StructureBakeErrorKind::ArtifactBusy: return "structure artifact cache is busy";
   }
   return "unknown structure bake error";
 }

@@ -56,6 +56,8 @@ public:
   LoadBasisRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadBasis(const std::string &key, const std::string &requestKey = {});
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  BindBasisRequest(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<void, StructureBakeError> InvalidateBasis(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError> Load(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError>
@@ -76,6 +78,7 @@ public:
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
+  [[nodiscard]] static StructureBakeError CacheFailure(AssetCacheError error) noexcept;
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kResidentBasisEntriesMost = 256;

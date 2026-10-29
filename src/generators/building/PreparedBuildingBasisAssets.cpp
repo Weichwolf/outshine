@@ -13,6 +13,11 @@
 #include <utility>
 
 namespace outshine::Generators {
+StructureBakeError PreparedBuildingAssets::CacheFailure(AssetCacheError error) noexcept {
+  return error == AssetCacheError::Busy ? StructureBakeErrorKind::ArtifactBusy
+                                        : StructureBakeErrorKind::ArtifactFailure;
+}
+
 std::string PreparedBuildingAssets::BasisKey(const std::string &key) {
   return Sha256Hex("prepared-building-basis-2/" + key);
 }
@@ -34,9 +39,8 @@ PreparedBuildingAssets::StoreBasis(const std::string &key,
                      .Parent = key};
   if (!requestKey.empty()) { record.RequestKey = requestKey; }
   const std::scoped_lock lock(Lock_);
-  if (!Cache_->Publish(std::span(&record, 1), *bytes)) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-  }
+  const auto published = Cache_->Publish(std::span(&record, 1), *bytes);
+  if (!published) { return std::unexpected(CacheFailure(published.error())); }
   ResidentBases_.erase(record.Key);
   ++BasisWrites_;
   return {};
@@ -46,10 +50,21 @@ std::expected<void, StructureBakeError>
 PreparedBuildingAssets::InvalidateBasis(const std::string &key) {
   const std::scoped_lock lock(Lock_);
   const auto basisKey = BasisKey(key);
-  if (!Cache_->Remove(basisKey)) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-  }
+  const auto removed = Cache_->Remove(basisKey);
+  if (!removed) { return std::unexpected(CacheFailure(removed.error())); }
   ResidentBases_.erase(basisKey);
+  return {};
+}
+
+std::expected<void, StructureBakeError>
+PreparedBuildingAssets::BindBasisRequest(const std::string &key, const std::string &requestKey) {
+  if (key.empty() || requestKey.empty()) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  const std::scoped_lock lock(Lock_);
+  const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
+  if (!bound) { return std::unexpected(CacheFailure(bound.error())); }
+  if (!*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   return {};
 }
 
@@ -57,19 +72,19 @@ std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
 PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::string &requestKey) {
   const std::scoped_lock lock(Lock_);
   auto loaded = Cache_->Load(BasisKey(key), kPackageBytesMost);
-  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
   if (!*loaded) { return Basis{}; }
   const auto &record = (**loaded).Record();
   auto basis = DecodePreparedBuildingBasis((**loaded).Bytes(), kResidentBytesMost);
   if (record.Kind != "building-basis" || record.Parent != key || !basis) {
-    if (!Cache_->Remove(BasisKey(key))) {
-      return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-    }
+    const auto removed = Cache_->Remove(BasisKey(key));
+    if (!removed) { return std::unexpected(CacheFailure(removed.error())); }
     return Basis{};
   }
   if (!requestKey.empty()) {
     const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
-    if (!bound || !*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+    if (!bound) { return std::unexpected(CacheFailure(bound.error())); }
+    if (!*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   }
   ++BasisHits_;
   BasisReadBytes_ += (**loaded).Bytes().size();
@@ -105,7 +120,7 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
     const std::scoped_lock lock(Lock_);
     return Cache_->FindRequest(requestKey);
   }();
-  if (!found) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!found) { return std::unexpected(CacheFailure(found.error())); }
   if (!*found) { return std::optional<RequestedBasis>{}; }
   auto record = std::move(**found);
   record.RequestKey.reset();
