@@ -3,12 +3,10 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -19,7 +17,6 @@ namespace {
 
 constexpr long kBlockTiles = 4;
 constexpr size_t kTilesPerLevel = kBlockTiles * kBlockTiles;
-constexpr size_t kMaxCascadeTiles = kTilesPerLevel * (kZoomLevels - 1);
 
 namespace Says {
 constexpr auto Input = "patchwork requires a supported positive zoom, positive levels, grid >= 2 "
@@ -27,43 +24,47 @@ constexpr auto Input = "patchwork requires a supported positive zoom, positive l
 constexpr auto Empty = "patchwork selected no valid terrain tiles";
 }
 
-struct TileRegion {
-  long X = 0;
-  long Y = 0;
+struct TileBlock {
+  int Zoom = 0;
+  long X = 0, Y = 0;
+  long ContactX = 0, ContactY = 0;
   long Span = 1;
-
-  [[nodiscard]] bool Contains(const TileRegion &other) const {
-    return other.X >= X && other.Y >= Y && other.X + other.Span <= X + Span &&
-           other.Y + other.Span <= Y + Span;
-  }
-
-  [[nodiscard]] uint64_t Cells() const {
-    return static_cast<uint64_t>(Span) * static_cast<uint64_t>(Span);
-  }
 };
 
 class Coverage {
 public:
-  [[nodiscard]] uint64_t CoveredCells(const TileRegion &region) const {
-    uint64_t cells = 0;
-    for (const auto &held : std::span(Regions_).first(Count_)) {
-      if (region.Contains(held)) { cells += held.Cells(); }
+  void BeginLevel(const TileBlock &block) {
+    if (!Empty_) {
+      std::array<uint64_t, kTilesPerLevel> parent{};
+      for (long row = 0; row < kBlockTiles; ++row) {
+        for (long column = 0; column < kBlockTiles; ++column) {
+          const long x = (X_ + column - 2 * block.X) / 2;
+          const long y = (Y_ + row - 2 * block.Y) / 2;
+          parent[static_cast<size_t>(y * kBlockTiles + x)] +=
+              Cells_[static_cast<size_t>(row * kBlockTiles + column)];
+        }
+      }
+      Cells_ = parent;
     }
-    return cells;
+    X_ = block.X;
+    Y_ = block.Y;
   }
 
-  void Add(const TileRegion &region) {
-    const auto active = std::span(Regions_).first(Count_);
-    const auto retained = std::ranges::remove_if(
-        active, [&](const TileRegion &held) { return region.Contains(held); });
-    Count_ = static_cast<size_t>(retained.begin() - active.begin());
-    assert(Count_ < Regions_.size());
-    Regions_[Count_++] = region;
+  [[nodiscard]] uint64_t CoveredCells(long x, long y) const { return Cells_[Index(x, y)]; }
+
+  void Add(long x, long y, uint64_t cells) {
+    Cells_[Index(x, y)] = cells;
+    Empty_ = false;
   }
 
 private:
-  std::array<TileRegion, kMaxCascadeTiles> Regions_{};
-  size_t Count_ = 0;
+  [[nodiscard]] size_t Index(long x, long y) const {
+    return static_cast<size_t>((y - Y_) * kBlockTiles + x - X_);
+  }
+
+  std::array<uint64_t, kTilesPerLevel> Cells_{};
+  long X_ = 0, Y_ = 0;
+  bool Empty_ = true;
 };
 
 long BlockOrigin(double tileCoordinate) {
@@ -75,20 +76,25 @@ long BlockOrigin(double tileCoordinate) {
          over.Grid >= 2 && std::isfinite(over.LatitudeDeg) && std::isfinite(over.LongitudeDeg);
 }
 
-template <typename Visit> void ForEachBlockTile(const Around &over, int level, Visit visit) {
+TileBlock BlockAt(const Around &over, int level) {
   const int zoom = over.Zoom - level;
-  const long span = 1L << static_cast<unsigned>(level);
   const auto at = Ground::ToTileFracClamped(
       {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}, zoom);
-  const long originX = BlockOrigin(at.X);
-  const long originY = BlockOrigin(at.Y);
+  return {.Zoom = zoom,
+          .X = BlockOrigin(at.X),
+          .Y = BlockOrigin(at.Y),
+          .ContactX = static_cast<long>(std::floor(at.X)),
+          .ContactY = static_cast<long>(std::floor(at.Y)),
+          .Span = 1L << static_cast<unsigned>(level)};
+}
+
+template <typename Visit> void ForEachBlockTile(const TileBlock &block, Visit visit) {
   for (long row = 0; row < kBlockTiles; ++row) {
     for (long column = 0; column < kBlockTiles; ++column) {
-      const long x = originX + column;
-      const long y = originY + row;
-      const bool contact = level == 0 && x == static_cast<long>(std::floor(at.X)) &&
-                           y == static_cast<long>(std::floor(at.Y));
-      visit(zoom, x, y, TileRegion{.X = x * span, .Y = y * span, .Span = span}, contact);
+      const long x = block.X + column;
+      const long y = block.Y + row;
+      const bool contact = block.Span == 1 && x == block.ContactX && y == block.ContactY;
+      visit(block.Zoom, x, y, contact);
     }
   }
 }
@@ -141,31 +147,31 @@ void LayLevel(TileMeshes &tiles,
               int lastLevel,
               Coverage &coverage,
               Patchwork &out) {
-  const int zoom = over.Zoom - level;
-  const long span = 1L << static_cast<unsigned>(level);
-  std::array<TileRegion, kTilesPerLevel> standing{};
-  size_t count = 0;
-  ForEachBlockTile(over, level, [&](int tileZoom, long x, long y, TileRegion region, bool contact) {
+  const TileBlock block = BlockAt(over, level);
+  coverage.BeginLevel(block);
+  const uint64_t cells = static_cast<uint64_t>(block.Span) * static_cast<uint64_t>(block.Span);
+  ForEachBlockTile(block, [&](int tileZoom, long x, long y, bool contact) {
     if (over.Access != TerrainTileAccess::Mesh && over.PlayableOnly && level != lastLevel &&
         !contact) {
       return;
     }
-    const uint64_t covered = coverage.CoveredCells(region);
-    if (covered == region.Cells()) {
+    const uint64_t covered = coverage.CoveredCells(x, y);
+    if (covered == cells) {
       ++out.Skipped;
       return;
     }
     if (covered > 0) { ++out.Overlapped; }
+    const long unwrappedX = x;
+    const long unwrappedY = y;
     if (!Ground::WrapTile(tileZoom, &x, &y)) { return; }
     const Data::TileId asked{
         .Zoom = tileZoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
     const bool ready = RequestTile(tiles, over, asked, out);
     if (contact && !ready) { ++out.ContactPending; }
-    if (ready) { standing[count++] = region; }
+    if (ready) { coverage.Add(unwrappedX, unwrappedY, cells); }
   });
-  for (const auto &region : std::span(standing).first(count)) { coverage.Add(region); }
-  out.ReachTiles = kBlockTiles * span;
-  out.CoarsestZoom = zoom;
+  out.ReachTiles = kBlockTiles * block.Span;
+  out.CoarsestZoom = block.Zoom;
 }
 
 }
@@ -191,7 +197,7 @@ std::expected<std::vector<Data::TileId>, std::string> PlanPatchworkTiles(const A
   std::vector<Data::TileId> tiles;
   tiles.reserve(kTilesPerLevel * static_cast<size_t>(levels));
   for (int level = 0; level < levels; ++level) {
-    ForEachBlockTile(over, level, [&](int zoom, long x, long y, TileRegion, bool) {
+    ForEachBlockTile(BlockAt(over, level), [&](int zoom, long x, long y, bool) {
       if (!Ground::WrapTile(zoom, &x, &y)) { return; }
       tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
     });
