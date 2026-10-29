@@ -1,4 +1,4 @@
-#include "MaterialFieldSamples.h"
+#include "StoredSampleQuads.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorViewFrame.h"
 #include "ImpostorCaptureMaterial.h"
@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Render {
+namespace outshine::Test {
 namespace {
 constexpr size_t kSampleMeshBytes = size_t{4} * (3 + 3 + 2) * sizeof(float) + 6 * sizeof(uint32_t);
 constexpr size_t kSampleImageBytes = size_t{2} * 4 * sizeof(float);
@@ -127,8 +127,8 @@ std::expected<void, std::string> Parts(Geometry &geometry,
 }
 }
 
-std::expected<MaterialFieldSamples, std::string>
-MaterialFieldSamples::Prepare(const ImpostorAtlas &atlas, Request request) {
+std::expected<StoredSampleQuads, std::string> StoredSampleQuads::Prepare(const ImpostorAtlas &atlas,
+                                                                         Request request) {
   if (request.View >= atlas.Views().size()) {
     return std::unexpected("material sample view unavailable");
   }
@@ -155,7 +155,7 @@ MaterialFieldSamples::Prepare(const ImpostorAtlas &atlas, Request request) {
       Append(meshes[view.Texels[at].Surface - 1], atlas, view, *frame, at);
     }
   }
-  MaterialFieldSamples samples;
+  StoredSampleQuads samples;
   samples.SourceBytes = imageBytes + covered * kSampleMeshBytes;
   const auto images = Images(samples.Source, atlas, view);
   if (!images) { return std::unexpected(images.error()); }
@@ -167,7 +167,7 @@ MaterialFieldSamples::Prepare(const ImpostorAtlas &atlas, Request request) {
   camera.Right = frame->Right;
   camera.Up = frame->Up;
   camera.Forward = view.TowardEye * -1.0;
-  camera.Kind = CameraKind::Orthographic;
+  camera.Kind = Render::CameraKind::Orthographic;
   camera.XMagM = camera.YMagM = atlas.HalfExtentM();
   camera.ZNearM = atlas.HalfExtentM();
   camera.ZFarM = 5 * atlas.HalfExtentM();
