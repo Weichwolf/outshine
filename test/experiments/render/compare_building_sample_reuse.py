@@ -208,6 +208,7 @@ def run(args):
     )
     args.output.mkdir(parents=True)
     np.savez_compressed(args.output / "prefix-controls.npz", **images)
+    result["prefix_controls_sha256"] = digest(args.output / "prefix-controls.npz")
     (args.output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
         json.dumps(
