@@ -27,6 +27,19 @@ namespace outshine::App {
 namespace {
 using ReportJson = nlohmann::json;
 
+ReportJson MemoryJson(const ProcessMemorySnapshot &sample) {
+  const auto bytes = [](std::optional<uint64_t> value) {
+    return value ? ReportJson(*value) : ReportJson(nullptr);
+  };
+  return {{"resident_bytes", bytes(sample.ResidentBytes)},
+          {"peak_resident_bytes", bytes(sample.PeakResidentBytes)},
+          {"footprint_bytes", bytes(sample.FootprintBytes)},
+          {"peak_footprint_bytes", bytes(sample.PeakFootprintBytes)},
+          {"collection_ns", bytes(sample.CollectionNs)},
+          {"peak_scope", "process_lifetime"},
+          {"sample_phase", "after_measurement"}};
+}
+
 ReportJson VectorJson(const Vec3 &value) {
   return ReportJson::array({value[0], value[1], value[2]});
 }
@@ -188,6 +201,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"backend", backend},
       {"logical_cpu_count", SDL_GetNumLogicalCPUCores()},
       {"ram_bytes", static_cast<uint64_t>(std::max(0, SDL_GetSystemRAM())) * 1024u * 1024u},
+      {"process_memory", MemoryJson(report.Memory)},
       {"build",
        {{"commit", kBuildCommit},
         {"flags", kBuildFlags},
