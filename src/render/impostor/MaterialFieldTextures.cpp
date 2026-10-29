@@ -43,7 +43,7 @@ std::expected<void, std::string> MaterialFieldInput::Data::PrepareTexture(Materi
   const int height = static_cast<int>(texture.Height);
   const auto bytes = LowerImageMipBytes(width, height, texture.Format);
   if (!bytes) { return std::unexpected("material field texture has invalid dimensions"); }
-  if (kind == ImageMipKind::Colour && texture.Format == ImagePixelFormat::Rgba16Float) {
+  if (kind == ImageMipKind::Colour && texture.Format != ImagePixelFormat::Rgba8Unorm) {
     kind = ImageMipKind::Linear;
   }
   auto &lower = texture.LowerMips[static_cast<size_t>(kind)];

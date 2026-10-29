@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <span>
 #include <vector>
@@ -21,8 +22,19 @@ uint8_t EncodeChannel(float value, bool colour) {
 }
 
 std::optional<std::vector<float>> DecodeBase(ImageView image, ImageMipKind kind) {
-  const size_t bytes = static_cast<size_t>(image.WidthPx) * image.HeightPx * 4u;
+  const size_t channels = static_cast<size_t>(image.WidthPx) * image.HeightPx * 4u;
   std::vector<float> linear;
+  if (image.Format == ImagePixelFormat::Rgba32Float) {
+    linear.resize(channels);
+    std::memcpy(linear.data(), image.Rgba.data(), channels * sizeof(float));
+    if (!std::ranges::all_of(linear, [](float value) { return std::isfinite(value); })) {
+      return std::nullopt;
+    }
+    if (kind == ImageMipKind::Normal) {
+      for (size_t at = 3; at < channels; at += 4) { linear[at] = 1.0f; }
+    }
+    return linear;
+  }
   if (image.Format == ImagePixelFormat::Rgba16Float) {
     auto decoded = UnpackHalfTexels({.WidthPx = static_cast<uint32_t>(image.WidthPx),
                                      .HeightPx = static_cast<uint32_t>(image.HeightPx)},
@@ -30,12 +42,12 @@ std::optional<std::vector<float>> DecodeBase(ImageView image, ImageMipKind kind)
     if (!decoded) { return std::nullopt; }
     linear = std::move(*decoded);
     if (kind == ImageMipKind::Normal) {
-      for (size_t at = 3; at < bytes; at += 4) { linear[at] = 1.0f; }
+      for (size_t at = 3; at < channels; at += 4) { linear[at] = 1.0f; }
     }
     return linear;
   }
-  linear.resize(bytes);
-  for (size_t at = 0; at < bytes; ++at) {
+  linear.resize(channels);
+  for (size_t at = 0; at < channels; ++at) {
     const bool alpha = at % 4 == 3;
     const float value = static_cast<float>(image.Rgba[at]) / kByteSteps;
     linear[at] =
@@ -64,6 +76,12 @@ std::optional<std::vector<uint8_t>> PrepareImageMips(ImageView image, ImageMipKi
   while (extent.WidthPx > 1 || extent.HeightPx > 1) {
     extent = HalveInPlace(linear, extent, smaller, filter);
     linear.swap(smaller);
+    if (image.Format == ImagePixelFormat::Rgba32Float) {
+      const auto previous = prepared.size();
+      prepared.resize(previous + linear.size() * sizeof(float));
+      std::memcpy(prepared.data() + previous, linear.data(), linear.size() * sizeof(float));
+      continue;
+    }
     if (image.Format == ImagePixelFormat::Rgba16Float) {
       auto packed = PackHalfTexels(extent, linear);
       if (!packed) { return std::nullopt; }

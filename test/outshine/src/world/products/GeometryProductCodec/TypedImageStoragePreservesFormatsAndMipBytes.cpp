@@ -26,7 +26,7 @@ int main() {
             LowerImageMipBytes(5, 3, format) == 24,
         "typed storage sizes every prepared level in bytes");
   auto invalid = view;
-  invalid.Format = static_cast<ImagePixelFormat>(2);
+  invalid.Format = static_cast<ImagePixelFormat>(255);
   CHECK(!invalid.valid() && !LowerImageMipBytes(2, 2, invalid.Format),
         "unknown image formats cannot publish an ambiguous byte interpretation");
   invalid = view;
@@ -74,7 +74,7 @@ int main() {
         "cloning preserves typed image ownership after the source is cleared");
   auto corrupt = *encoded;
   constexpr size_t kFormatOffset = sizeof(uint64_t) + 6 * sizeof(int);
-  corrupt[kFormatOffset] = 2;
+  corrupt[kFormatOffset] = 255;
   CHECK(!DecodeGeometryProduct(corrupt, corrupt.size()),
         "an unknown serialized image format cannot be read as default RGBA8");
   for (size_t count = 0; count < encoded->size(); ++count) {
