@@ -21,6 +21,9 @@ void LastLeaseRetiresAnIdleTarget() {
   auto context = std::make_shared<Context>();
   auto state = std::make_shared<PresentState>();
   state->Owner = context;
+  const auto started = state->Retirement.Start();
+  CHECK(started, "bounded retirement starts before the presentation worker");
+  if (!started) { return; }
   auto target = std::shared_ptr<SwapchainState>(new SwapchainState, [&](auto *value) {
     delete value;
     {
