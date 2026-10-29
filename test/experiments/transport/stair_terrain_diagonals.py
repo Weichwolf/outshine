@@ -26,7 +26,7 @@ def alternative(first, second):
     return np.array([[u, a, v], [u, v, b]], dtype=first.dtype)
 
 
-def repair_diagonals(xy, faces, classes, *, max_swaps=64, max_tests=192):
+def checked_coordinates(xy, faces, classes, max_swaps, max_tests):
     if (
         not isinstance(xy, np.ndarray)
         or xy.dtype != np.dtype(float)
@@ -57,11 +57,17 @@ def repair_diagonals(xy, faces, classes, *, max_swaps=64, max_tests=192):
     if not np.isfinite(quantized).all() or np.any(areas(xy, faces) <= 0):
         raise ValueError("positive finite original terrain facets required")
     bad = np.flatnonzero(areas(quantized, faces) <= 0)
+    if len(bad):
+        used = np.unique(faces)
+        if len(np.unique(quantized[used], axis=0)) != len(used):
+            raise ValueError("terrain diagonals cannot repair merged Float32 vertices")
+    return quantized, bad
+
+
+def repair_diagonals(xy, faces, classes, *, max_swaps=64, max_tests=192):
+    quantized, bad = checked_coordinates(xy, faces, classes, max_swaps, max_tests)
     if not len(bad):
         return faces, {}
-    used = np.unique(faces)
-    if len(np.unique(quantized[used], axis=0)) != len(used):
-        raise ValueError("terrain diagonals cannot repair merged Float32 vertices")
     result, rational = faces.copy(), {}
     work = {
         "swaps": 0,

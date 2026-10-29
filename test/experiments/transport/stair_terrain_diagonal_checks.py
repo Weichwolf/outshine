@@ -28,6 +28,21 @@ def boundary(faces):
 
 
 class TerrainDiagonals(unittest.TestCase):
+    def test_geos_reference_keeps_the_same_actual_choices_and_refusals(self):
+        from stair_terrain_diagonal_cost import geos_diagonals
+
+        xy, faces, _ = fixture()
+        classes = np.ones(4, int)
+        expected, _ = repair_diagonals(xy, faces, classes)
+        actual, _ = geos_diagonals(xy, faces, classes)
+        np.testing.assert_array_equal(expected, actual)
+        check_surface(xy, actual)
+        for neighbour in (2, 3):
+            with self.assertRaises(ValueError):
+                geos_diagonals(xy, faces[[0, neighbour]], np.ones(2, int))
+        with self.assertRaises(ValueError):
+            geos_diagonals(xy, faces, np.array([0, 1, 0, 0]))
+
     def test_actual_contact_repairs_only_two_facets_without_moving_any_point(self):
         xy, faces, _ = fixture()
         original_xy, original_faces = xy.copy(), faces.copy()
