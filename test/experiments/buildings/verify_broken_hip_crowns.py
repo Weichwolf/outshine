@@ -41,7 +41,8 @@ class BrokenHipCrownTests(unittest.TestCase):
         for original, owner in zip(self.original, self.owners, strict=True):
             self.assertIs(owner.plan.body, original.body)
             self.assertEqual(owner.plan.source_top_m, original.source_top_m)
-            old = RoofedProducts(original).body.facade.physical()
+            before = RoofedProducts(original)
+            old = before.body.facade.physical()
             new = owner.body.facade.physical()
             for name in ("shell", "stairs", "landing"):
                 a, b = getattr(old.floors, name), getattr(new.floors, name)
@@ -51,6 +52,8 @@ class BrokenHipCrownTests(unittest.TestCase):
                 np.testing.assert_array_equal(a.vertex_roots, b.vertex_roots)
             for key in old.frames:
                 np.testing.assert_array_equal(old.frames[key], new.frames[key])
+            for key, value in before.body.draw(True).items():
+                np.testing.assert_array_equal(owner.body.draw(True)[key], value)
 
     def test_compact_and_repeated_far_views_do_not_expand_profiles_or_skeletons(self):
         with patch(
@@ -174,6 +177,15 @@ class BrokenHipCrownTests(unittest.TestCase):
             self.assertEqual(product.profile_work["logical_split_outputs"], 2)
             with self.assertRaises(ValueError):
                 product.source_triangle_ids.setflags(write=True)
+
+    def test_nondefault_profile_keeps_the_same_bound_source_and_exact_knot_contract(self):
+        owner = RoofedProducts(
+            with_broken_hip(self.original[1], run_fraction=0.25, height_fraction=0.75)
+        )
+        proof = check(owner)
+        self.assertLess(proof["exact_knot_area_error_m2"], 1e-7)
+        self.assertEqual(owner.roof_crown.run_fraction, 0.25)
+        self.assertIs(owner.plan.body, self.original[1].body)
 
 
 if __name__ == "__main__":
