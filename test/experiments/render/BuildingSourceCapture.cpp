@@ -28,6 +28,7 @@
 #include <optional>
 #include <print>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -342,6 +343,39 @@ const Json &BuildingSourceCapture::Report() const {
                          {"source_decode_ms", State_->Costs.DecodeMs},
                          {"device_creations", State_->Devices}});
   return State_->Report;
+}
+
+std::expected<void, std::string> BuildingSourceCapture::ExportOriginals(
+    BuildingSourceBudget budget, const Fs::path &output, const std::stop_token &stop) {
+  auto &state = *State_;
+  if (!state.Producer) { return std::unexpected("source hierarchy is unavailable"); }
+  const auto began = Clock::now();
+  const auto mesh = state.Producer->Originals(budget, CaptureMaterials(), stop);
+  Json result{{"generation_ms", Milliseconds(began)}, {"success", mesh.has_value()}};
+  if (!mesh) {
+    result["error"] = mesh.error().Message;
+    result["error_kind"] = static_cast<int>(mesh.error().Kind);
+    result["source"] = mesh.error().Source ? Json(*mesh.error().Source) : Json(nullptr);
+    state.Report["originals"] = std::move(result);
+    return std::unexpected(mesh.error().Message);
+  }
+  size_t vertices = 0;
+  size_t triangles = 0;
+  size_t bytes = 0;
+  for (int part = 0; part < mesh->parts(); ++part) {
+    vertices += mesh->positionsOf(part).size() / 3;
+    triangles += mesh->trianglesOf(part).size() / 3;
+    bytes += mesh->positionsOf(part).size_bytes() + mesh->normalsOf(part).size_bytes() +
+             mesh->textureOf(part).size_bytes() + mesh->textureOf(part, UvSet::Uv1).size_bytes() +
+             mesh->coloursOf(part).size_bytes() + mesh->trianglesOf(part).size_bytes();
+  }
+  result.update({{"parts", mesh->parts()},
+                 {"vertices", vertices},
+                 {"triangles", triangles},
+                 {"logical_mesh_bytes", bytes}});
+  state.Report["originals"] = std::move(result);
+  SaveGeometry(*mesh, output);
+  return {};
 }
 
 ImpostorAtlas BuildingSourceCapture::Capture(std::optional<size_t> view,
