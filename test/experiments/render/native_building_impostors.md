@@ -5,6 +5,11 @@ This diagnostic uses fixed source geometry, capture directions, lighting and que
 It does not admit a World LOD, source occluder, smaller error bound or frame budget.
 Unsupported original sources retain the original manifest's unresolved status.
 
+The original-capture mode accepts `capture_pixels` (default128) and optional
+`capture_half_extent_m`. The view count follows `catalogue`; source geometry and
+the Baker's extent validation stay unchanged. Keep centre, extent, rays and clips
+fixed when comparing capture densities (#1756).
+
 Every base draw writes `.linear`, `.depth`, `.normal` and `.rgba`. The `.normal`
 file is the unchanged shading-normal attachment: 1280×720 row-major Float32×4,
 native byte order (little-endian on both target devices). XYZ is the scene-space
