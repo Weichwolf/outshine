@@ -152,6 +152,8 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       gpu["rendered_frames"].get<double>() == static_cast<double>(report.Motion.Frames);
   const auto unrefined =
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
+  const bool worldComplete =
+      measurementComplete && unrefined == 0 && report.FinalWorldBlockers.empty();
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
                        cpu["frame"]["p99_ms"].get<double>() <= budgetMs;
   ReportJson gpuPass = gpu["complete"].get<bool>()
@@ -205,15 +207,13 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
         {"final_gpu_flush", report.FlushMs},
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},
-      {"world_complete", measurementComplete && unrefined == 0},
+      {"world_complete", worldComplete},
       {"unrefined_frames", unrefined},
       {"final_world_blockers", report.FinalWorldBlockers},
       {"budget",
        {{"cpu_p99_met", cpuPass},
         {"gpu_p99_met", gpuPass},
-        {"met",
-         measurementComplete && unrefined == 0 && cpuPass && gpuPass.is_boolean() &&
-             gpuPass.get<bool>()}}},
+        {"met", worldComplete && cpuPass && gpuPass.is_boolean() && gpuPass.get<bool>()}}},
       {"cpu_times", std::move(cpu)},
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};

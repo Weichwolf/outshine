@@ -35,6 +35,14 @@ int main() {
   CHECK(json["measurement_complete"] == true && json["world_complete"] == true &&
             json["budget"]["met"] == true,
         "a complete measured window has an explicit independent budget result");
+  report.FinalWorldBlockers = "required geometry publication is pending";
+  json = decode();
+  CHECK(json["measurement_complete"] == true && json["world_complete"] == false &&
+            json["budget"]["met"] == false &&
+            json["final_world_blockers"] == report.FinalWorldBlockers,
+        "terminal world blockers reject acceptance without discarding the completed measurement");
+  report.FinalWorldBlockers.clear();
+  json = decode();
   CHECK(json["cpu_times"]["frame"]["p50_ms"] == 3 && json["cpu_times"]["frame"]["p99_ms"] == 4 &&
             json["gpu_times"]["frame"]["p50_ms"] == 1 && json["gpu_times"]["frame"]["p99_ms"] == 2,
         "CPU and GPU retain their own nearest-rank durations without adding asynchronous phases");
