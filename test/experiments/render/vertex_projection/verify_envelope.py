@@ -123,12 +123,18 @@ def inside(bounds, values):
     )
 
 
-def rational_bound(case):
+def family_limits(maximum):
+    """The existing #990 expression family's exact relative/noise limits."""
     unit = Q(1, 2**23)
     gamma, growth = 21 * unit / (1 - 21 * unit), 1 / (1 - 59 * unit)
+    noise = 238**3 * Q(1, 2**126) * maximum**2 * growth
+    return gamma, growth, noise
+
+
+def rational_bound(case):
     values = case["model"] + case["view"] + case["shift"][:3] + case["point"][:3]
     maximum = max(Q(1), *(abs(Q(v)) for v in values))
-    noise = 238**3 * Q(1, 2**126) * maximum**2 * growth
+    gamma, _, noise = family_limits(maximum)
     for row, (low, high) in enumerate(case["clip"]):
         exact_terms = [
             math.prod(Q(value) for value in term) for term in terms(case, row)

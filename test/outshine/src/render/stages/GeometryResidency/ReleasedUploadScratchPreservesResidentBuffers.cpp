@@ -42,7 +42,7 @@ void Exercise(Device *device) {
     const auto complete = Require(device->Submit(std::move(commands)));
     CHECK(Require(device->Wait(complete, std::chrono::seconds(5))) == CompletionStatus::Ready,
           "GPU completes submitted uploads within the explicit offline wait budget");
-    auto *const buffer = residency.Buffer(stream).get();
+    const auto *const buffer = residency.Buffer(stream).get();
     const auto resident = residency.Allocations().StreamBytes;
     residency.ReleaseUploadScratch();
     CHECK(residency.Allocations().TransferBytes == 0 &&
@@ -61,7 +61,7 @@ void Exercise(Device *device) {
 
 int main() {
   {
-    auto device = Require(CreateDevice({.Validation = true}));
+    const auto device = Require(CreateDevice({.Validation = true}));
     if (device) { Exercise(device.get()); }
   }
   return Report();

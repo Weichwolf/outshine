@@ -69,11 +69,9 @@ Native::Result<std::shared_ptr<Native::Texture>> Target(Native::Device &device,
 bool ValidOutput(const MaterialFieldView &view, Extent raster, uint32_t textureLimit) {
   switch (view.Encoding) {
     case RadianceEncoding::Texels: return true;
-    case RadianceEncoding::Integral:
-      return view.Target == raster && raster.WidthPx < std::numeric_limits<int>::max() &&
-             raster.HeightPx < std::numeric_limits<int>::max() &&
-             std::cmp_less(raster.WidthPx, textureLimit) &&
-             std::cmp_less(raster.HeightPx, textureLimit);
+    case RadianceEncoding::IntegralPairs:
+      return view.Target == raster &&
+             RadianceIntegral::StorageExtent(raster, textureLimit).has_value();
   }
   return false;
 }
@@ -86,10 +84,14 @@ Native::Result<FieldTargets>
 Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
   constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
                               Native::TextureUse::Storage | Native::TextureUse::CopySource;
-  const bool integral = view.Encoding == RadianceEncoding::Integral;
-  const Extent extent = integral
-                            ? Extent{.WidthPx = raster.WidthPx + 1, .HeightPx = raster.HeightPx + 1}
-                            : view.Target;
+  const bool integral = view.Encoding == RadianceEncoding::IntegralPairs;
+  const auto storage = RadianceIntegral::StorageExtent(raster, device.Limits().MaxTextureExtent);
+  if (integral && !storage) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "paired integral storage exceeds the device extent"});
+  }
+  const Extent extent = integral ? *storage : view.Target;
   auto raw = Target(device, raster, Native::Format::Rgba16Float, kColourUse);
   if (!raw) { return std::unexpected(raw.error()); }
   const auto use =
@@ -183,7 +185,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   if (!drawn) { return std::unexpected(drawn.error()); }
   auto ended = (*commands)->EndRenderPass();
   if (!ended) { return std::unexpected(ended.error()); }
-  if (view.Encoding == RadianceEncoding::Integral) {
+  if (view.Encoding == RadianceEncoding::IntegralPairs) {
     const auto integrated = state.Pipelines->Integral.Encode(**commands, *raw, *scratch, *filtered);
     if (!integrated) { return std::unexpected(integrated.error()); }
   } else if (view.Target != data->Raster) {

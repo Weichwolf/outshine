@@ -9,11 +9,13 @@ from pathlib import Path
 import numpy as np
 from export_field_backgrounds import native, read
 from field_background_inputs import ATTRIBUTES, digest, original_inputs, stage_mesh
+from registered_field_integral import INTEGRAL_ENCODING, decode_integral
 
 FIXTURE = (
     Path(__file__).resolve().parents[2]
     / "outshine/data/render/building-field-composition"
 )
+
 
 
 def compare(arrays, intervals):
@@ -113,9 +115,8 @@ def run(args):
             raise ValueError(
                 "registered point inputs need nonempty opaque native masks"
             )
-        prefix = read(root / "base-integral.f32", (height + 1, width + 1, 4))
-        if np.any(prefix[0]) or np.any(prefix[:, 0]):
-            raise ValueError("exclusive integral border is not transparent zero")
+        packed = read(root / "base-integral.f32", (height + 1, 2 * (width + 1), 4))
+        prefix = decode_integral(packed, report, width, height)
         exact = np.pad(
             colour.astype(float).cumsum(0).cumsum(1), ((1, 0), (1, 0), (0, 0))
         )
@@ -123,13 +124,13 @@ def run(args):
         gamma = (width + height) * unit / (1 - (width + height) * unit)
         if np.any(np.abs(prefix - exact) > gamma * exact):
             raise ValueError(
-                "native positive prefix exceeds serial Float32 accumulation bound"
+                "native paired prefix exceeds the Float32 compatibility bound"
             )
         arrays.update(
             {
                 name + "_colour": colour,
                 name + "_depth": depth,
-                name + "_integral": prefix,
+                name + "_integral_pairs": packed,
             }
         )
         runs[name].update(
@@ -140,6 +141,7 @@ def run(args):
     np.savez_compressed(output / "captures.npz", **arrays)
     result = {
         "camera": camera,
+        "integral_encoding": INTEGRAL_ENCODING,
         "source": source,
         "source_fixture_sha256": digest(FIXTURE / "manifest.json"),
         "translations_m": {

@@ -6,8 +6,9 @@
 #include <cstdint>
 
 namespace outshine::Render {
-enum class RadianceEncoding : uint8_t { Texels, Integral };
+enum class RadianceEncoding : uint8_t { Texels, IntegralPairs };
 
+// IntegralPairs stores adjacent hi/lo RGBA32F texels with a logical zero border.
 // Premultiplied scene-linear radiance/coverage, consumed on the producing device.
 struct RadianceImage {
   Native::Device *Device = nullptr;

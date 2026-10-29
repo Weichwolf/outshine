@@ -816,7 +816,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
          {"source_readback_bytes", retained.ReadbackBytes},
          {"resident_image_bytes",
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height *
-              (image.Encoding == Render::RadianceEncoding::Integral ? 16 : 8)}});
+              (image.Encoding == Render::RadianceEncoding::IntegralPairs ? 16 : 8)}});
     result["field_filter_gpu_ms"] = nullptr;
     if (!field.SourceDepth.empty()) {
       result["source_depth"] =
@@ -1048,7 +1048,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
                                          .Lights = lights,
                                          .Environment = {},
                                          .Target = raster,
-                                         .Encoding = Render::RadianceEncoding::Integral};
+                                         .Encoding = Render::RadianceEncoding::IntegralPairs};
     const auto images = Test::Gpu::RetryOffline(
         [&] { return renderer.RelightMaterialField(**resident, view); }, budget);
     if (!images) { Fail(images.error().Message); }
@@ -1067,6 +1067,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     results["cases"].push_back(
         {{"query", name},
          {"capture", SourceDepthDescription(images->Camera, raster, depth->size() * sizeof(float))},
+         {"integral_encoding", "rgba32f-hi-lo-pairs-v1"},
          {"integral_width", shape.Width},
          {"integral_height", shape.Height},
          {"relight_filter_gpu_ms", FilterGpuMilliseconds(filtered)},
