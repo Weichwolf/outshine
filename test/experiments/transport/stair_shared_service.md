@@ -60,6 +60,10 @@ Fixtures bind the unchanged original source/DEM fixture by hash. Refusals retain
 original data; a failed input does not publish a partial road or invent a height.
 No limit, contact guard or old source admission is loosened.
 
+The table records the frozen #1727 comparison. [Height repair #1731](stair_seed_height_rounding.md)
+now qualifies the same curved profile-refusal input after a bounded stored-height
+correction; its original geometry/DEM/recipe and strict profile limits are unchanged.
+
 The positive surface has 10 vertices/10 triangles; its closed 0.3 m body has
 36 triangles and volume 111.578390/111.578106 m³ in Float64/Float32. Whole source
 coverage, both complete outer profiles and their directions pass. Maximum

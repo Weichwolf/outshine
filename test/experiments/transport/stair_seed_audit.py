@@ -18,6 +18,7 @@ from stair_module_trace import compare
 from stair_seed_axes import seam_profile
 from stair_seed_crossings import crossings_for, inspect_crossings
 from stair_seed_geometry import plans_for
+from stair_seed_height_rounding import verify as verify_seed_rounding
 from stair_service_profile import SERVICE_ROLES
 from stair_service_vehicle import inspect_service
 
@@ -235,6 +236,18 @@ def audit(state, recipe, data, rows, planning, upper, *, sources=None):
                 )
             }
             if "unrounded_closed_heights" in data
+            else {}
+        ),
+        **(
+            {
+                "seed_height_rounding": verify_seed_rounding(
+                    data,
+                    face_frames(rows, xy, data["surface_faces"], data["owners"]),
+                    rows,
+                    plans,
+                )
+            }
+            if "unrounded_seed_heights" in data
             else {}
         ),
     }

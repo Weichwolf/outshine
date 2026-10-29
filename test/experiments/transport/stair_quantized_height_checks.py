@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-from stair_closed_height_rounding import normalized_grade
+from stair_height_contraction import normalized_grade
 from stair_joint_height_checks import strip
 from stair_joint_height_fit import level_groups
 from stair_quantized_joint_heights import fit_quantized_levels, lattice

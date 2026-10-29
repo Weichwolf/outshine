@@ -1,12 +1,14 @@
 """Whole ordinary-ground seed geometry without an artificial frozen root."""
 
+import time
+
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
-from stair_closed_height_rounding import correct
+from stair_height_contraction import correct
 from stair_joint_height_fit import bound_levels, fit_joint_levels
 from stair_joint_height_rounding import fit_rounded_levels
 from stair_junction_layout import arrangement, landings
@@ -19,6 +21,8 @@ from stair_network_inputs import junctions
 from stair_quantized_joint_heights import fit_quantized_levels
 from stair_seed_axes import axis_form
 from stair_seed_crossings import crossings_for
+from stair_seed_height_rounding import free_seed
+from stair_seed_height_rounding import repair as repair_seed_heights
 from stair_seed_level_clusters import merge_levels
 from stair_seed_precision import GRID_M
 
@@ -88,6 +92,7 @@ def build(rows, sources, ground, sample, *, recipe=None):
     frames = face_frames(rows, xy, faces, owners, reserve=0.0002)
     surface = Mesh(np.c_[xy, targets], faces)
     budget = HeightBudget(max_vertices=4096, max_faces=8192)
+    fit_began = time.perf_counter()
     levels = None
     if recipe and recipe.get("junction_height_mode") in (
         "joint",
@@ -115,13 +120,23 @@ def build(rows, sources, ground, sample, *, recipe=None):
     fixed, values = apply_heights(xy, np.zeros(len(xy), bool), targets, plans)
     vertices = result.mesh.vertices.copy()
     vertices[fixed, 2] = values[fixed]
-    closed, rounding = {}, None
+    witness, rounding, seed_rounding = {}, None, None
+    if free_seed(rows, plans, fixed):
+        original = vertices
+        vertices, seed_rounding = repair_seed_heights(
+            vertices,
+            faces,
+            face_frames(rows, xy, faces, owners),
+            seconds=max(0.0, budget.time_limit_s - (time.perf_counter() - fit_began)),
+        )
+        if seed_rounding is not None:
+            witness["unrounded_seed_heights"] = original[:, 2].copy()
     if (
         len(rows) == 1
         and axis_form(sources[rows[0]["source_id"]]) == "closed"
         and not plans
     ):
-        closed["unrounded_closed_heights"] = vertices[:, 2].copy()
+        witness["unrounded_closed_heights"] = vertices[:, 2].copy()
         vertices, rounding = correct(
             vertices, faces, face_frames(rows, xy, faces, owners)
         )
@@ -142,7 +157,7 @@ def build(rows, sources, ground, sample, *, recipe=None):
         "surface_materials": surface_slots(rows, owners),
         "body_vertices": body.vertices,
         "body_faces": body.triangles,
-        **closed,
+        **witness,
     }
     return (
         data,
@@ -150,6 +165,7 @@ def build(rows, sources, ground, sample, *, recipe=None):
             "arrangement": note,
             "fit": dict(result.report),
             **({"closed_height_rounding": rounding} if rounding else {}),
+            **({"seed_height_rounding": seed_rounding} if seed_rounding else {}),
         },
         planning,
     )
