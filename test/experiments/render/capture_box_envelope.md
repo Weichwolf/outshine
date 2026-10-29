@@ -40,7 +40,7 @@ one. Its shared noise conservatively bounds the noise at every stored point.
 
 Combine ideal model/view coefficients before projecting the source AABB; this
 avoids expanding a model AABB and then a view AABB when transforms cancel.
-Products of two binary32 inputs are exact normal binary64 values. Directed
+Products of two binary32 inputs are exact in binary64. Directed
 binary64 additions enclose the combined ideal coefficients, including shift in
 the constant coefficient. Signed coefficient/endpoint products and directed sums
 then enclose the whole ideal affine range.
@@ -116,9 +116,34 @@ kernel then evaluates 84 products per box (64 signed coefficient-endpoint,
 16 mass and four error scaling), versus eight times that point work for the
 corner opponent. This counts explicit numeric products, not validation or all
 instructions. Exact stored-position validation copies 72 bytes per box through
-Float32/Float64 arrays; corner expansion additionally gathers 192 bytes per box.
+Float32/Float64 arrays per evaluated box/point; the corner method evaluates eight
+points per input box and additionally gathers 192 bytes per input box.
 Total copies and physical traffic remain unmeasured. Returned numeric arrays
 occupy 160 bytes per box; source IDs are separate from the 48-byte endpoint pair.
+
+On34ec02768 (Linux/Python3.13.5/NumPy2.5.4/Memray1.20, host load
+8.06/5.77/4.55), the single complete cohort costs1.812ms CPU with the direct
+box and1.817ms with corners; that small timing difference is inconclusive.
+Direct/corner scoped requested allocation is474,192/488,000B and peak
+8,132/7,836B: the direct single-box path does not win every metric.
+At1,891 source boxes, direct/corner CPU is6.309/38.120ms, requested allocation
+9,581,027/73,678,964B and scoped peak739,288/6,239,388B. Four raw traces are
+retained. Both methods return all supported controls conditionally inside.
+
+The largest extra direct-box extent is6.773e-7 in homogeneous x,3.881e-7 in y
+and2.433e-9 in reverse-Z for the cohort, with identical w bounds. The eight-corner
+path buys no extra supported admission here. Keep the simpler direct interval
+path as reference; corners remain its numerical opponent. No universal speed,
+tightness or native-device winner is claimed. Older mesh controls demonstrate
+larger correlation loss, and an inconclusive cohort must retain/refine originals.
+
+Batching only the shared coefficient accumulation preserves all result fields
+bit-for-bit on2,492 boxes (current1,891 sources/cohort plus30 dense synthetic
+bindings of20 boxes). Compared with the frozen scalar implementation71ee724d5,
+cohort allocation events fall6,363→3,027 and requested bytes1,001,968→474,192.
+The scoped peak rises320B; input products and interval quality stay unchanged.
+Initial and final traces are separate; noisy Python timing is secondary to this
+direct work/allocation evidence. This does not establish a native speedup.
 
 ## Sources
 
