@@ -1,7 +1,6 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_BUILDINGSOURCEVIEW_H
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGSOURCEVIEW_H
 
-#include "BuildingPlaneCapture.h"
 #include "BuildingSourceBudget.h"
 #include "PreparedStructureTile.h"
 #include "Geometry.h"
@@ -32,16 +31,18 @@ public:
   BuildingSourceView(const BuildingSourceView &) = delete;
   BuildingSourceView &operator=(const BuildingSourceView &) = delete;
 
-  struct Error {
-    BuildingPlaneCapture::ErrorKind Kind = BuildingPlaneCapture::ErrorKind::InvalidInput;
-    std::optional<uint32_t> Source = std::nullopt;
-    std::string Message;
+  enum class ErrorKind {
+    InvalidInput,
+    WorkBudgetExceeded,
+    SourceUnavailable,
+    UnsupportedSource,
+    Cancelled
   };
 
-  struct Product {
-    Geometry Mesh;
-    uint64_t Rays = 0, Covered = 0, SourceTests = 0;
-    double SamplingMs = 0, ConversionMs = 0;
+  struct Error {
+    ErrorKind Kind = ErrorKind::InvalidInput;
+    std::optional<uint32_t> Source = std::nullopt;
+    std::string Message;
   };
 
   // Open uses prepared selection headers only; the retained base owns lazy source forms.
@@ -61,22 +62,14 @@ public:
             const std::array<Material, 3> &wallRoofMetreMaterials,
             const std::stop_token &stop = {}) const;
 
-  [[nodiscard]] std::expected<Product, Error>
-  Capture(BuildingPlaneCapture::View localView,
-          BuildingPlaneCapture::Budget budget,
-          const std::array<Material, 3> &wallRoofMetreMaterials,
-          const std::stop_token &stop = {}) const;
-
 private:
   BuildingSourceView(std::shared_ptr<const PreparedStructureTile> base,
                      BuildingCaptureFrame frame,
-                     BuildingPlaneCapture producer,
                      Box bounds,
                      std::vector<uint32_t> sources,
                      std::vector<uint32_t> unsupported);
   std::shared_ptr<const PreparedStructureTile> Base_;
   BuildingCaptureFrame Frame_;
-  BuildingPlaneCapture Producer_;
   Box Bounds_;
   std::vector<uint32_t> Sources_;
   std::vector<uint32_t> Unsupported_;
