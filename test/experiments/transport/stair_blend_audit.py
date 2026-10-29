@@ -43,7 +43,7 @@ def ground_subdivision(contact, ground, lipschitz):
     children = [[] for _ in polygons]
     max_height_error = 0.0
     candidates = 0
-    overlay_children, overlay_parts, overlay_vertices = 0, 0, 0
+    overlay_children, overlay_parts, overlay_vertices, overlay_parents = 0, 0, 0, 0
     for xyz in contact.vertices[contact.triangles]:
         shape = shapely.Polygon(xyz[:, :2])
         matched = False
@@ -65,6 +65,9 @@ def ground_subdivision(contact, ground, lipschitz):
             max_height_error = max(max_height_error, error)
             matched = True
         if not matched:
+            candidates += len(owners)
+            if candidates > 1000000:
+                raise ValueError("whole-contact parent candidate cap exhausted")
             pieces, error, count = contact_parts(
                 xyz,
                 owners,
@@ -80,6 +83,7 @@ def ground_subdivision(contact, ground, lipschitz):
             overlay_children += 1
             overlay_parts += len(pieces)
             overlay_vertices += count
+            overlay_parents += len(owners)
     for original, parts in zip(polygons, children, strict=True):
         if not parts or not shapely.union_all(parts).buffer(
             radius, quad_segs=32
@@ -100,6 +104,7 @@ def ground_subdivision(contact, ground, lipschitz):
                 "piecewise_overlay_children": overlay_children,
                 "piecewise_overlay_parts": overlay_parts,
                 "piecewise_overlay_vertices": overlay_vertices,
+                "piecewise_overlay_parent_tests": overlay_parents,
             }
             if overlay_children
             else {}
