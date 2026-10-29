@@ -228,7 +228,7 @@ void JitteredSelection(Device &device,
 }
 
 GeometryHierarchyAdmission
-UploadHierarchy(Device &device, GeometryResidency &resident, const Inputs &input) {
+UploadHierarchy(const Device &device, GeometryResidency &resident, const Inputs &input) {
   std::vector<GeometryClusterTemplate> templates;
   templates.reserve(input.Jobs.size());
   for (const auto &job : input.Jobs) {
@@ -298,7 +298,7 @@ void Exercise(Device &device) {
   GpuPlacement placement;
   placement.Current = kIdentity;
   Upload(resident, Stream::ClusterSpheres, spheres.data(), spheres.size() * sizeof(float));
-  auto hierarchy = UploadHierarchy(device, resident, input);
+  const auto hierarchy = UploadHierarchy(device, resident, input);
   Upload(resident, Stream::Placements, &placement, sizeof(placement));
   Upload(resident, Stream::Index, input.Source.data(), input.Source.size() * sizeof(uint32_t));
   Upload(resident,
@@ -306,11 +306,13 @@ void Exercise(Device &device) {
          input.Arguments.data(),
          input.Arguments.size() * sizeof(uint32_t));
   Require(RetryOffline([&] { return resident.SubmitPendingUploads(); }, std::chrono::seconds(5)));
-  for (const auto stream : {Stream::ClusterKept, Stream::ClusterSlot}) {
-    Require(resident.Grow(stream,
-                          {.Usage = BufferUse::Storage,
-                           .Bytes = static_cast<uint32_t>(input.Jobs.size() * sizeof(uint32_t))}));
-  }
+  std::vector<uint32_t> slots(input.Jobs.size(), std::numeric_limits<uint32_t>::max());
+  slots.resize(slots.size() + input.Arguments.size() / 5, kGeometryIndexCold);
+  Upload(resident, Stream::ClusterSlot, slots.data(), slots.size() * sizeof(uint32_t));
+  Require(RetryOffline([&] { return resident.SubmitPendingUploads(); }, std::chrono::seconds(5)));
+  Require(resident.Grow(Stream::ClusterKept,
+                        {.Usage = BufferUse::Storage,
+                         .Bytes = static_cast<uint32_t>(input.Jobs.size() * sizeof(uint32_t))}));
   Require(resident.Grow(Stream::DrawIndex,
                         {.Usage = BufferUse::Storage | BufferUse::Index,
                          .Bytes = static_cast<uint32_t>(input.Source.size() * sizeof(uint32_t))}));

@@ -7,6 +7,7 @@
 #include <type_traits>
 
 namespace outshine::Render {
+inline constexpr uint32_t kGeometryIndexCold = 2u;
 
 inline constexpr uint32_t kGeometryChunkClusters = 64;
 inline constexpr uint32_t kGeometryRootBound = 1;
@@ -47,7 +48,9 @@ struct alignas(16) GeometryHierarchyView {
   uint32_t ClusterCapacity = 0;
   uint32_t WorstChunks = 0;
   uint32_t GridWidth = 0;
-  std::array<uint32_t, 2> Reserved{};
+  // Slot buffer: LogicalCount offsets, then one cache-state word per batch.
+  uint32_t LogicalCount = 0;
+  uint32_t Reserved = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<GeometryRoot>);
@@ -80,7 +83,8 @@ static_assert(offsetof(GeometryHierarchyView, ChunkCapacity) == 8);
 static_assert(offsetof(GeometryHierarchyView, ClusterCapacity) == 12);
 static_assert(offsetof(GeometryHierarchyView, WorstChunks) == 16);
 static_assert(offsetof(GeometryHierarchyView, GridWidth) == 16 + sizeof(uint32_t));
-static_assert(offsetof(GeometryHierarchyView, Reserved) == 16 + 2 * sizeof(uint32_t));
+static_assert(offsetof(GeometryHierarchyView, LogicalCount) == 16 + 2 * sizeof(uint32_t) &&
+              offsetof(GeometryHierarchyView, Reserved) == 16 + 3 * sizeof(uint32_t));
 
 }
 #endif

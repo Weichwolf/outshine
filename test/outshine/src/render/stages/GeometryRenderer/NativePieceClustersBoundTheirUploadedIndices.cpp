@@ -7,7 +7,9 @@
 #include "test/harness/render/NativeGpuCheck.h"
 #include "Readback.h"
 #include "GeometryRenderer.h"
+#include "GeometryHierarchy.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -51,15 +53,24 @@ void Compare(const outshine::Render::GeometryRenderer &draw,
   Readback indices;
   Readback jobs;
   Readback spheres;
+  Readback layout;
   CHECK(read(GeometryResidency::Stream::Vertex, vertices) &&
             read(GeometryResidency::Stream::Index, indices) &&
             read(GeometryResidency::Stream::ClusterTemplates, jobs) &&
-            read(GeometryResidency::Stream::ClusterSpheres, spheres),
+            read(GeometryResidency::Stream::ClusterSpheres, spheres) &&
+            read(GeometryResidency::Stream::ClusterSlot, layout),
         "actual uploaded native vertex, index, job and sphere buffers are readable");
   if (vertices.Rows() == nullptr || indices.Rows() == nullptr || jobs.Rows() == nullptr ||
-      spheres.Rows() == nullptr) {
+      spheres.Rows() == nullptr || layout.Rows() == nullptr) {
     return;
   }
+  const auto logical = draw.Hierarchy().View.LogicalCount;
+  CHECK(logical == draw.ClusterJobs(), "the GPU view carries the complete logical slot count");
+  const std::span offsets(reinterpret_cast<const uint32_t *>(layout.Rows()), logical);
+  const std::span states(offsets.data() + logical, draw.ClusterBatchRows());
+  CHECK(std::ranges::all_of(offsets, [](uint32_t n) { return n == 0xffffffffu; }) &&
+            std::ranges::all_of(states, [](uint32_t n) { return n == kGeometryIndexCold; }),
+        "source replacement and buffer growth invalidate every previous compacted index range");
   const auto *points = reinterpret_cast<const float *>(vertices.Rows());
   const auto *run = reinterpret_cast<const uint32_t *>(indices.Rows());
   const auto *tasks = reinterpret_cast<const GeometryClusterTemplate *>(jobs.Rows());

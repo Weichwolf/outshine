@@ -137,7 +137,10 @@ Buffers Uploaded(Device &device, Commands &commands, const Inputs &inputs) {
   result.ClusterState = Upload(device, commands, Words(std::span(states)), stateUse);
   result.Visible = upload(std::vector<uint32_t>(inputs.Roots.size() + 16, kGuard));
   result.Kept = upload(std::vector<uint32_t>(inputs.Logical + 16, kGuard));
-  result.Slot = upload(std::vector<uint32_t>(inputs.Logical + 16, kGuard));
+  std::vector<uint32_t> slots(inputs.Logical, 0xffffffffu);
+  slots.resize(slots.size() + inputs.Batches.size() / 2, kGeometryIndexCold);
+  slots.resize(slots.size() + 16, kGuard);
+  result.Slot = upload(slots);
   result.Arguments = upload(inputs.Arguments);
   result.Index = upload(std::vector<uint32_t>(inputs.IndexWords + 16, kGuard));
   return result;
@@ -150,7 +153,7 @@ void Dispatch(Device &device,
               uint32_t groups,
               const Buffer *indirect = nullptr,
               uint32_t width = 7) {
-  auto pipeline = Require(device.CreateComputePipeline(Shader(shader)));
+  const auto pipeline = Require(device.CreateComputePipeline(Shader(shader)));
   if (indirect != nullptr) {
     Require(commands.DispatchIndirect(*pipeline, bindings, *indirect, 16));
   } else {
@@ -163,7 +166,7 @@ void Dispatch(Device &device,
 
 void Hierarchy(Device &device,
                Commands &commands,
-               Buffers &b,
+               const Buffers &b,
                const CullView &view,
                const GeometryHierarchyView &hierarchy,
                bool allRoots = false) {
@@ -315,7 +318,7 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   Hierarchy(device, *commands, reference, referenceView, admitted.View, true);
   if (reuse) {
     const std::array states{GeometryQueueState{}};
-    auto reset = Upload(device, *commands, Words(std::span(states)));
+    const auto reset = Upload(device, *commands, Words(std::span(states)));
     Require(commands->Copy(*reset, *actual.ChunkState, {.Bytes = sizeof(GeometryQueueState)}));
     Require(commands->Copy(*reset, *actual.ClusterState, {.Bytes = sizeof(GeometryQueueState)}));
     Require(commands->Copy(*reset, *reference.ChunkState, {.Bytes = sizeof(GeometryQueueState)}));
@@ -324,16 +327,16 @@ void Run(Device &device, const Inputs &inputs, Case test) {
     Hierarchy(device, *commands, actual, view, hierarchy);
     Hierarchy(device, *commands, reference, view, admitted.View, true);
   }
-  auto actualIndex = Download(device, *commands, *actual.Index);
-  auto referenceIndex = Download(device, *commands, *reference.Index);
-  auto actualArgs = Download(device, *commands, *actual.Arguments);
-  auto referenceArgs = Download(device, *commands, *reference.Arguments);
-  auto chunkState = Download(device, *commands, *actual.ChunkState);
-  auto clusterState = Download(device, *commands, *actual.ClusterState);
-  auto chunks = Download(device, *commands, *actual.Chunks);
-  auto clusters = Download(device, *commands, *actual.Clusters);
-  auto visible = Download(device, *commands, *actual.Visible);
-  auto kept = Download(device, *commands, *actual.Kept);
+  const auto actualIndex = Download(device, *commands, *actual.Index);
+  const auto referenceIndex = Download(device, *commands, *reference.Index);
+  const auto actualArgs = Download(device, *commands, *actual.Arguments);
+  const auto referenceArgs = Download(device, *commands, *reference.Arguments);
+  const auto chunkState = Download(device, *commands, *actual.ChunkState);
+  const auto clusterState = Download(device, *commands, *actual.ClusterState);
+  const auto chunks = Download(device, *commands, *actual.Chunks);
+  const auto clusters = Download(device, *commands, *actual.Clusters);
+  const auto visible = Download(device, *commands, *actual.Visible);
+  const auto kept = Download(device, *commands, *actual.Kept);
   const auto token = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(token, std::chrono::seconds(10))) == CompletionStatus::Ready,
         "both real GPU paths complete within the offline test budget");
