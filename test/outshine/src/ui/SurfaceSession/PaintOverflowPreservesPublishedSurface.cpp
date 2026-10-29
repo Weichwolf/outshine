@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include "Check.h"
 #include "Layout.h"
 #include "PaintList.h"
@@ -28,7 +29,7 @@ SurfaceDeclaration Tiles(size_t count) {
 }
 
 int main() {
-  AhemFont font;
+  outshine::Test::AhemFont font;
   SurfaceSession session;
   std::vector<PaintQuad> published;
   size_t attempts = 0;
