@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <span>
 #include <stop_token>
@@ -86,8 +87,8 @@ std::optional<Fixture> Make(Availability availability, std::optional<Vec3f> colo
                  .Frame = frame};
 }
 
-void Capture(Availability availability) {
-  auto fixture = Make(availability);
+void HeadersAndLifetime() {
+  auto fixture = Make(Availability::Ready);
   if (!fixture) { return; }
   const std::array<uint32_t, 2> cells{1, 1};
   auto view = BuildingSourceView::Open(fixture->Base, cells, fixture->Frame);
@@ -100,40 +101,22 @@ void Capture(Availability availability) {
   invalid.Axes.Up = invalid.Axes.Up * -1.0;
   CHECK(!BuildingSourceView::Open(fixture->Base, cells, invalid),
         "a reflected source frame is rejected");
-  const BuildingPlaneCapture::View camera{
-      .Centre = {}, .TowardEye = {{0, 0, -1}}, .HalfExtentM = 40, .Pixels = 32};
-  const std::array<Material, 3> materials{Material{}, Material{}, Material{}};
-  auto refused = view->Capture(camera, {.Samples = 1023, .SourceTests = 100000}, materials);
-  CHECK(!refused && refused.error().Kind == BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded &&
-            *fixture->Reads == 0,
-        "work admission precedes source forms and mesh allocation");
-  std::stop_source stop;
-  stop.request_stop();
-  auto cancelled =
-      view->Capture(camera, {.Samples = 1024, .SourceTests = 100000}, materials, stop.get_token());
-  CHECK(!cancelled && cancelled.error().Kind == BuildingPlaneCapture::ErrorKind::Cancelled &&
-            *fixture->Reads == 0,
-        "cancelled capture reads no forms");
+  CHECK(!BuildingSourceView::Open(fixture->Base, {}, fixture->Frame),
+        "an empty requested selection is rejected");
+  const std::array<uint32_t, 1> absent{9};
+  CHECK(!BuildingSourceView::Open(fixture->Base, absent, fixture->Frame),
+        "a selection with no supported sources is rejected");
+  invalid = fixture->Frame;
+  invalid.Origin = {{std::numeric_limits<double>::max(),
+                     std::numeric_limits<double>::max(),
+                     std::numeric_limits<double>::max()}};
+  const auto overflow = BuildingSourceView::Open(fixture->Base, cells, invalid);
+  CHECK(!overflow && overflow.error().Kind == BuildingSourceView::ErrorKind::InvalidInput &&
+            overflow.error().Source == 1 && *fixture->Reads == 0,
+        "nonfinite local bounds fail at the original ordinal before source IO");
   const std::weak_ptr<const PreparedStructureTile> retained = fixture->Base;
   fixture->Base.reset();
   CHECK(!retained.expired(), "the native view retains its descriptor and lazy source ownership");
-  auto result = view->Capture(camera, {.Samples = 1024, .SourceTests = 100000}, materials);
-  if (availability == Availability::Missing) {
-    CHECK(!result && result.error().Kind == BuildingPlaneCapture::ErrorKind::SourceUnavailable &&
-              result.error().Source == 1,
-          "source failures retain the original ordinal after filtering");
-  } else {
-    CHECK(result && result->Rays == 1024 && result->Covered > 0 && result->Mesh.parts() > 0,
-          "native source planes become renderable local geometry");
-    if (result) {
-      for (int part = 0; part < result->Mesh.parts(); ++part) {
-        CHECK(std::ranges::all_of(result->Mesh.positionsOf(part),
-                                  [](float x) { return std::isfinite(x) && std::abs(x) < 100; }),
-              "source coordinates transform into the declared local frame");
-      }
-    }
-  }
-  CHECK(*fixture->Reads == 1, "the selected source form loads at most once");
   view = std::unexpected(BuildingSourceView::Error{.Message = "retired"});
   CHECK(retained.expired(), "retiring the final native view releases the descriptor");
 }
@@ -190,12 +173,11 @@ void Originals(Availability availability) {
       .Samples = 1024, .Sources = 1, .Faces = 100, .TriangleAttempts = 1000};
   auto unsupported = incomplete->Originals(enough, materials);
   CHECK(!unsupported &&
-            unsupported.error().Kind == BuildingPlaneCapture::ErrorKind::UnsupportedSource &&
+            unsupported.error().Kind == BuildingSourceView::ErrorKind::UnsupportedSource &&
             *fixture->Reads == 0,
         "whole originals reject an unresolved member before lazy IO");
   const auto supported = std::make_shared<PreparedStructureTile>(*fixture->Base);
-  supported->Structures.erase(supported->Structures.begin());
-  supported->Surfaces.erase(supported->Surfaces.begin());
+  supported->Structures.front().Layout.Cell.Index = 2;
   auto source = BuildingSourceView::Open(supported, cells, fixture->Frame);
   CHECK(source.has_value(), "the complete supported source set opens");
   if (!source) { return; }
@@ -205,27 +187,26 @@ void Originals(Availability availability) {
   lowBudgets[2].TriangleAttempts = 0;
   for (const auto &low : lowBudgets) {
     const auto rejected = source->Originals(low, materials);
-    CHECK(!rejected &&
-              rejected.error().Kind == BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded &&
+    CHECK(!rejected && rejected.error().Kind == BuildingSourceView::ErrorKind::WorkBudgetExceeded &&
               *fixture->Reads == 0,
           "source/face/triangle admission precedes lazy forms");
   }
   std::stop_source stop;
   stop.request_stop();
   const auto cancelled = source->Originals(enough, materials, stop.get_token());
-  CHECK(!cancelled && cancelled.error().Kind == BuildingPlaneCapture::ErrorKind::Cancelled &&
+  CHECK(!cancelled && cancelled.error().Kind == BuildingSourceView::ErrorKind::Cancelled &&
             *fixture->Reads == 0,
         "cancelled original production performs no lazy IO");
   auto tiny = enough;
   tiny.TriangleAttempts = 1;
   const auto limited = source->Originals(tiny, materials);
   if (availability == Availability::Missing) {
-    CHECK(!limited && limited.error().Kind == BuildingPlaneCapture::ErrorKind::SourceUnavailable &&
-              limited.error().Source == 0 && *fixture->Reads == 1,
+    CHECK(!limited && limited.error().Kind == BuildingSourceView::ErrorKind::SourceUnavailable &&
+              limited.error().Source == 1 && *fixture->Reads == 1,
           "missing source reports the original ordinal without partial geometry");
     return;
   }
-  CHECK(!limited && limited.error().Kind == BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
+  CHECK(!limited && limited.error().Kind == BuildingSourceView::ErrorKind::WorkBudgetExceeded,
         "the native emitter stops at its triangle attempt limit");
   auto actual = source->Originals(enough, materials);
   CHECK(actual && actual->parts() > 0 && actual->parts() <= 3 && *fixture->Reads == 1,
@@ -234,7 +215,7 @@ void Originals(Availability availability) {
   BuildingScratch scratch;
   Raised reference;
   std::vector<BuildingSurface::Face> all;
-  const auto &surface = supported->Surfaces.front();
+  const auto &surface = supported->Surfaces[1];
   all.reserve(surface.FaceCount());
   for (size_t face = 0; face < surface.FaceCount(); ++face) { all.push_back(surface.FaceAt(face)); }
   CHECK(surface.MeshVisible(all, scratch, reference).has_value(),
@@ -314,8 +295,7 @@ void MixedColours(bool paintedFirst) {
 }
 
 int main() {
-  Capture(Availability::Ready);
-  Capture(Availability::Missing);
+  HeadersAndLifetime();
   Originals(Availability::Ready);
   Originals(Availability::Missing);
   MixedColours(false);
