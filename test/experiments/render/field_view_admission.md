@@ -37,6 +37,10 @@ for coverage. These are explicitly finite-reference thresholds, not an analytica
 bound on image error or a replacement for the project's runtime image gates.
 The nine controls measure at most4.491% RGB and2.052% coverage with a128² field.
 The existing256² native filtered-card path reaches10.949% and7.344% respectively.
+Additional SS64×64 originals at the centre and worst SS32 RGB pose give2.784% and
+4.542% RGB error,1.237% and1.374% coverage. SS32→SS64 originals differ by up to
+1.593% RGB/0.951% coverage. The finite-reference profile still passes these probes;
+this variation is not a rigorously bounded reference tail.
 
 An independent13-pose path measures at most3.995% RGB and1.872% coverage.
 A120s path, sampled60times/s at up to102.49m/s, evaluates7,201 held-field views:
@@ -53,8 +57,12 @@ Its error record is an explicitly supplied empirical calibration, not a mechanis
 that proves or generates one. The source/view and calibrated profile must match;
 neither nearest-view lookup nor a cache hit manufactures quality metadata.
 
-A second complete urban control has474 sources/11,980 triangles. Its nine region
-samples reach5.540% RGB/2.421% coverage; the5% RGB profile fails, so its parent stays.
+A second complete urban control has474 sources/11,980 triangles. Its nine SS32
+region samples reach5.540% RGB/2.421% coverage. At that worst RGB pose, an SS64
+original changes the field error to4.096%/2.156%; the two original references differ
+by2.996% RGB/0.800% coverage. Thus the apparent SS32 failure is not proof of a bad
+representation. Its parent conservatively stays because a trustworthy whole-region
+calibration is still missing; the threshold is not raised to admit it.
 An8° control reaches16.277%/11.076% there,13.291%/10.426% in the first control.
 The32km control is not intrinsically bad; being outside this tested scale domain
 does not establish a global distance threshold. Cell41 is refused with original
@@ -92,9 +100,9 @@ has14/468. This distinguishes geometry revealed by movement from atlas quantizat
 CPU centre rays disagree with native masks at1/10,1/8 and0/7 native hits; common
 depths differ by up to0.290m. CPU rays remain a separate geometric diagnostic and
 never overwrite the authoritative native colour/depth/normal arrays.
-Original SS16→SS32 convergence is measured, not assumed; finite dense references
-are not continuous-integral certificates. Higher-density control results belong
-in the issue/PR evidence, not in regenerated existing pins.
+Original reference convergence is measured, not assumed. Native finite shifted-
+camera averages are not continuous-pixel-integral certificates; their uncertainty
+is separate from the field error. Existing pins/oracles are not regenerated.
 
 ## Cost scopes and native handoff
 
@@ -107,9 +115,10 @@ All11 original128² per-query lit fields are byte-identical at fixed light; nati
 diagnostics still perform11 preparations because their current key includes eye.
 
 For64 output pixels, direct equal-box enumeration visits17,709 source cells versus
-1,024 logical RGBA prefix fetches. Seven local CPU rounds measure2.912ms versus
-0.428ms for pure integration; held full projection+sampling1.083ms, prefix build
-1.330ms. Separate native-allocation Memray traces: enumeration8,804 allocations,
+1,024 logical RGBA prefix fetches. Seven final local CPU rounds under foreign host
+work measure4.977ms versus0.704ms for pure integration; held full projection+
+sampling1.774ms, prefix build1.824ms. Separate native-allocation Memray traces:
+enumeration8,804 allocations,
 816,277B requested/17,083B scoped peak; lookups781/191,792B/11,376B; prefix build
 412/1,725,931B/536,151B. Inputs and already held tables precede those scoped peaks.
 Actual Python/NumPy overhead remains included. These are no native device timings.
