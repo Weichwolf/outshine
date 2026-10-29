@@ -2,13 +2,14 @@
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
   const std::array<double, 8> ring{47.0, 9.0, 47.0, 9.0001, 47.0001, 9.0001, 47.0001, 9.0};
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   StructurePlan plan;
   plan.RingLatLon = ring;
   plan.HeightM = 12.0;

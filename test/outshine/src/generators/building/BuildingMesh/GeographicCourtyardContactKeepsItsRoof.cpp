@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <span>
+#include <vector>
 
 namespace {
 // OpenFreeMap 20260927, 14/14549/6451, feature 213751370: a courtyard touches its exterior.
@@ -21,7 +23,8 @@ constexpr std::array<double, 26> kPoints{
 double Area(std::span<const outshine::EastNorth> ring) {
   double twice = 0;
   for (size_t at = 0; at < ring.size(); ++at) {
-    const auto &a = ring[at], &b = ring[(at + 1) % ring.size()];
+    const auto &a = ring[at];
+    const auto &b = ring[(at + 1) % ring.size()];
     twice += a.EastM * b.NorthM - b.EastM * a.NorthM;
   }
   return std::abs(twice) * 0.5;
@@ -40,7 +43,7 @@ int main() {
   plan.HeightM = 36;
   plan.HeightMeasured = true;
   plan.PitchedShare = 0;
-  BuildingMesh mesher;
+  const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   for (const auto level : {LevelOfDetail::Fine, LevelOfDetail::Shell}) {
     plan.Coarseness = level;

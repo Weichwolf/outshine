@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <numbers>
+#include <print>
 #include <vector>
 
 int main() {
@@ -22,7 +23,7 @@ int main() {
           0.123 + 2 * std::numbers::pi * static_cast<double>(at) / static_cast<double>(corners);
       shape.Ring.push_back({.EastM = 20 * std::cos(angle), .NorthM = 12 * std::sin(angle)});
     }
-    RoofSurface roof(shape);
+    const RoofSurface roof(shape);
     BuildingScratch scratch;
     std::vector<EastNorth> triangles;
     CHECK(roof.Cover(shape.Ring, scratch, triangles), "roof coverage is successfully triangulated");
@@ -57,10 +58,10 @@ int main() {
                1e-9,
                "roof peak m",
                "simplifying a round roof retains its peak instead of flattening it");
-    std::printf("%zu footprint corners: %zu roof triangles, peak %.9g m\n",
-                corners,
-                triangles.size() / 3,
-                highestM);
+    std::println("{} footprint corners: {} roof triangles, peak {:.9g} m",
+                 corners,
+                 triangles.size() / 3,
+                 highestM);
   }
   return Report();
 }

@@ -2,8 +2,12 @@
 #include "Geodesy.h"
 #include "src/generators/building/BuildingMesh.h"
 #include "src/generators/building/FacadeUv.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <span>
+#include <cstdint>
+#include <cstddef>
 
 namespace {
 using namespace outshine;
@@ -41,9 +45,8 @@ double GlassArea(const Raised &mesh) {
   }
   return area;
 }
-}
 
-void CheckFacade(outshine::FacadeStyle style, float width, float height) {
+void CheckFacade(outshine::FacadeStyle style, const std::array<float, 2> &opening) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr std::array<double, 8> ring{47, 9, 47, 9.00015, 47.0001, 9.00015, 47.0001, 9};
@@ -53,7 +56,7 @@ void CheckFacade(outshine::FacadeStyle style, float width, float height) {
   plan.HeightMeasured = true;
   plan.Facade = style;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 0}, plan.AnchorEcef);
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   Raised fine;
   CHECK(mesher.Mesh(plan, *scratch, fine).has_value(), "Fine housing meshes");
@@ -68,11 +71,11 @@ void CheckFacade(outshine::FacadeStyle style, float width, float height) {
     if (!IsGlazingUv(uv[0])) { continue; }
     const float bay = std::fmod(uv[0], 1.0f);
     const float storey = std::fmod(uv[1], 1.0f);
-    CHECK(std::abs(bay - (1.0f - width) * .5f) < 0.005f ||
-              std::abs(bay - (1.0f + width) * .5f) < 0.005f,
+    CHECK(std::abs(bay - (1.0f - opening[0]) * .5f) < 0.005f ||
+              std::abs(bay - (1.0f + opening[0]) * .5f) < 0.005f,
           "glass retains the same opening columns as the shell");
-    CHECK(std::abs(storey - (1.0f - height) * .5f) < 0.003f ||
-              std::abs(storey - (1.0f + height) * .5f) < 0.003f,
+    CHECK(std::abs(storey - (1.0f - opening[1]) * .5f) < 0.003f ||
+              std::abs(storey - (1.0f + opening[1]) * .5f) < 0.003f,
           "glass retains the same opening rows as the shell");
   }
   const double removed = std::abs(Volume(shell)) - std::abs(Volume(fine));
@@ -89,12 +92,14 @@ void CheckFacade(outshine::FacadeStyle style, float width, float height) {
   }
 }
 
+}
+
 int main() {
   using outshine::FacadeStyle;
-  CheckFacade(FacadeStyle::House, .48f, .53f);
-  CheckFacade(FacadeStyle::Commercial, .68f, .65f);
-  CheckFacade(FacadeStyle::Institutional, .57f, .62f);
-  CheckFacade(FacadeStyle::Hall, .30f, .22f);
-  CheckFacade(FacadeStyle::Religious, .25f, .55f);
+  CheckFacade(FacadeStyle::House, {.48f, .53f});
+  CheckFacade(FacadeStyle::Commercial, {.68f, .65f});
+  CheckFacade(FacadeStyle::Institutional, {.57f, .62f});
+  CheckFacade(FacadeStyle::Hall, {.30f, .22f});
+  CheckFacade(FacadeStyle::Religious, {.25f, .55f});
   return outshine::Test::Report();
 }
