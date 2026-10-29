@@ -85,24 +85,22 @@ EmitOriginal(const BuildingSurface &source,
                                   .Message = "original building forms unavailable"});
   }
   emitted.Clear();
-  for (size_t face = 0; face < source.FaceCount(); ++face) {
-    if (stop.stop_requested()) {
-      return std::unexpected(
-          BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::Cancelled,
-                                    .Message = "original building geometry cancelled"});
-    }
-    if (triangles.Remaining == 0) {
-      return std::unexpected(
-          BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
-                                    .Message = "original building triangle budget exhausted"});
-    }
-    const std::array selected{source.FaceAt(face)};
-    if (!source.MeshVisible(selected, scratch, emitted)) {
-      return std::unexpected(BuildingSourceView::Error{
-          .Kind = triangles.Exhausted ? BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded
-                                      : BuildingPlaneCapture::ErrorKind::UnsupportedSource,
-          .Message = "original building mesh emission failed"});
-    }
+  if (triangles.Remaining == 0) {
+    return std::unexpected(
+        BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded,
+                                  .Message = "original building triangle budget exhausted"});
+  }
+  const auto meshed = source.Mesh(scratch, emitted);
+  if (stop.stop_requested()) {
+    return std::unexpected(
+        BuildingSourceView::Error{.Kind = BuildingPlaneCapture::ErrorKind::Cancelled,
+                                  .Message = "original building geometry cancelled"});
+  }
+  if (!meshed) {
+    return std::unexpected(BuildingSourceView::Error{
+        .Kind = triangles.Exhausted ? BuildingPlaneCapture::ErrorKind::WorkBudgetExceeded
+                                    : BuildingPlaneCapture::ErrorKind::UnsupportedSource,
+        .Message = "original building mesh emission failed"});
   }
   return {};
 }

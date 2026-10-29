@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <optional>
 #include <span>
@@ -17,6 +18,31 @@
 namespace {
 
 using namespace outshine;
+
+bool SameCorners(std::span<const StoredVertex> a, std::span<const StoredVertex> b) {
+  return a.size() == b.size() &&
+         (a.empty() || std::memcmp(a.data(), b.data(), a.size_bytes()) == 0);
+}
+
+void CompleteMesh(const Generators::BuildingSurface &source, const Raised &reference) {
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  BuildingScratch scratch;
+  Raised mesh;
+  CHECK(source.Mesh(scratch, mesh).has_value(), "the complete prepared source meshes");
+  CHECK(mesh.WallRun == reference.WallRun && mesh.RoofRun == reference.RoofRun &&
+            SameCorners(mesh.WallCorners, reference.WallCorners) &&
+            SameCorners(mesh.RoofCorners, reference.RoofCorners) &&
+            mesh.WallColours == reference.WallColours &&
+            mesh.WallMaterialM == reference.WallMaterialM,
+        "complete source geometry retains original roof-break tessellation and attributes");
+  const auto &triangles =
+      scratch.Triangles.emplace(BuildingScratch::TriangleBudget{.Remaining = 1});
+  mesh.Clear();
+  CHECK(!source.Mesh(scratch, mesh) && triangles.Exhausted &&
+            mesh.WallRun.size() + mesh.RoofRun.size() <= 3,
+        "whole-source emission stops without writing past the triangle budget");
+}
 
 std::optional<double> Closest(const Raised &mesh, const Generators::BuildingSurface::Ray &ray) {
   double nearest = std::numeric_limits<double>::infinity();
@@ -80,6 +106,7 @@ int main() {
     Raised mesh;
     CHECK(mesher.Mesh(plan, scratch, mesh).has_value(),
           "an independent native shell reference meshes");
+    CompleteMesh(*source, mesh);
     size_t covered = 0;
     size_t wallHits = 0;
     for (int e = -7; e < 32; e += 3) {
