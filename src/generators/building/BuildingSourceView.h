@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGSOURCEVIEW_H
 
 #include "BuildingPlaneCapture.h"
+#include "BuildingSourceBudget.h"
 #include "PreparedStructureTile.h"
 #include "Geometry.h"
 #include "Geodesy.h"
@@ -54,6 +55,11 @@ public:
   [[nodiscard]] std::span<const uint32_t> Sources() const noexcept { return Sources_; }
 
   [[nodiscard]] std::span<const uint32_t> Unsupported() const noexcept { return Unsupported_; }
+
+  [[nodiscard]] std::expected<Geometry, Error>
+  Originals(BuildingSourceBudget budget,
+            const std::array<Material, 3> &wallRoofMetreMaterials,
+            const std::stop_token &stop = {}) const;
 
   [[nodiscard]] std::expected<Product, Error>
   Capture(BuildingPlaneCapture::View localView,
