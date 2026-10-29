@@ -11,7 +11,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mvt_source_fact_digest import native_source_fact_digest, validate_missing_source_ways
+from mvt_source_fact_digest import (
+    native_source_fact_digest,
+    validate_missing_source_ways,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -39,9 +42,13 @@ def group_digest(native, facts):
 
 
 def fact_digest(native, facts):
-    return list(native_source_fact_digest(
-        native["SourceIdentity"]["Revision"], bytes(facts["NodeGroups"]["Digest"]), facts
-    ))
+    return list(
+        native_source_fact_digest(
+            native["SourceIdentity"]["Revision"],
+            bytes(facts["NodeGroups"]["Digest"]),
+            facts,
+        )
+    )
 
 
 def edge_key(edge):
@@ -165,9 +172,11 @@ def check_capture(directory):
     facts = json.loads((directory / "source-facts.json").read_text())
     require(
         native["schema"] == "outshine/native-mvt-snapshot-dump/1"
-        and facts["schema"] in (
-            "outshine/native-mvt-source-facts/2", "outshine/native-mvt-source-facts/3",
-            "outshine/native-mvt-source-facts/4"
+        and facts["schema"]
+        in (
+            "outshine/native-mvt-source-facts/2",
+            "outshine/native-mvt-source-facts/3",
+            "outshine/native-mvt-source-facts/4",
         ),
         "unsupported native capture",
     )

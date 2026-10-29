@@ -1,7 +1,7 @@
 {
   "schema": "outshine/native-mvt-source-reference/1",
-  "exporter_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
-  "native_producer_commit": "e09087ed4aacdf0a98d442298b2647d8efc686f8",
+  "exporter_commit": "ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d",
+  "native_producer_commit": "ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d",
   "native_schema": "outshine/native-mvt-snapshot-dump/1",
   "source_facts_schema": "outshine/native-mvt-source-facts/4",
   "tile": [
@@ -40,11 +40,16 @@
     "data/world/vegetation.json": "aa45e156d194479404beff997b81201331e27ec983f27952fe23c77432dbca9b",
     "data/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658"
   },
-  "credits": "Vectors: OpenMapTiles/OpenStreetMap contributors. Original source and actual native captures retained.",
+  "credits": "Vectors: OpenMapTiles/OpenStreetMap contributors; elevation: Mapterhorn. Original source tables and capture receipts retained.",
   "scope": [
-    "Actual original MVT and native v4 DTOs; no manufactured point authority or solver oracle",
-    "Native Way/Node slots stay internal; Group indexes the exact bound canonical partition",
-    "Relative incidence only within supplied native Network; no geographic/C1/influence/World admission",
-    "No DEM input or qualified ground lease"
-  ]
+    "Actual native v4 capture on the unchanged versioned MVT; no DEM, local influence, C1, geographic closure or World admission proof"
+  ],
+  "provenance": "Unmodified actual native v4 original capture by outshine_engine on ebf4bdf30bcf6a534ce6b34ed12b4a2333e8170d, input MVT identical to existing Vienna references. Paired wrapper copied after independent Python validation; no controlled states or generated test oracle. Native authority is captured-dataset incidence only, never C1/local influence/geographic closure.",
+  "expected_original_point_counts": {
+    "missing_ways": 41,
+    "points": 82,
+    "published_group": 74,
+    "valid_native_node_without_published_group": 8,
+    "unresolved": 0
+  }
 }
