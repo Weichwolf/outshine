@@ -59,7 +59,8 @@ void CheckIndependentWire() {
   facts.OmissionsDigest = {132, 64,  123, 78,  78,  18,  190, 124, 189, 47,  162,
                            16,  3,   78,  202, 184, 237, 83,  137, 200, 222, 131,
                            223, 147, 183, 100, 54,  81,  54,  20,  5,   165};
-  MvtTransportSourceFacts::MissingWay missing{.Omission = 0, .Way = way, .Layer = -1, .Points = {}};
+  MvtTransportSourceFacts::MissingWay missing{
+      .Omission = 0, .Way = way, .Layer = -1, .Points = {}, .OriginalPoints = {}};
   missing.Way.StreetWay = 3;
   missing.Way.PointCount = 5;
   for (size_t at = 0; at < 5; ++at) {

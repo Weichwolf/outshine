@@ -188,7 +188,8 @@ std::expected<void, std::string> FillMissingSourceWays(MvtTransportSourceFacts &
                                                 .Layer = way.Attributes.Layer,
                                                 .Bridge = way.Attributes.Bridge,
                                                 .Tunnel = way.Attributes.Tunnel,
-                                                .Points = {}};
+                                                .Points = {},
+                                                .OriginalPoints = {}};
     missing.Points.reserve(way.PointCount);
     const size_t first = input.Streets.Ways()[at].FirstPoint;
     for (size_t point = 0; point < way.PointCount; ++point) {

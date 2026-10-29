@@ -87,7 +87,7 @@ struct MvtTransportSourceFacts {
     bool Tunnel = false;
     std::vector<LongitudeLatitude> Points;
     MvtTransportOriginalWayState OriginalWayState = MvtTransportOriginalWayState::Unresolved;
-    std::vector<MvtTransportOriginalPoint> OriginalPoints{};
+    std::vector<MvtTransportOriginalPoint> OriginalPoints;
   };
 
   // Original geometry is evidence, not a certified network-influence bound.
