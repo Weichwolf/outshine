@@ -438,6 +438,42 @@ void RestoreKeepsBlockedReplacement() {
         "the paused replacement completes exactly one cell/index/basis migration");
 }
 
+
+void RestoreKeepsANewerRequestBinding() {
+  Fixture fixture;
+  if (!fixture.Seed()) { return; }
+  const auto heights = Heights();
+  const std::atomic_bool stopping{false};
+  const std::string input = "owned-legacy-fixture-input";
+  constexpr Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const auto request = fixture.Cache->RequestKey(tile, {}, 1000, input);
+  auto cursor = fixture.Cache->PrepareBase(fixture.Key, Inputs(), *heights, stopping, request);
+  CHECK(cursor.has_value(), "the first producer owns its actual logical request binding");
+  if (!cursor) { return; }
+  for (unsigned step = 0; step < 3; ++step) {
+    const auto advanced = fixture.Cache->ResumeBase(*cursor, stopping);
+    CHECK(advanced && !*advanced, "the first producer completes its data before restoration");
+    if (!advanced || *advanced) { return; }
+  }
+  const auto newerKey = fixture.Cache->Key(tile, 23, {}, 1000, input);
+  const auto newer = fixture.Cache->Generate(newerKey, Inputs(), *heights, stopping, request);
+  const auto winner = fixture.Database->FindRequest(request);
+  CHECK(newer && *newer && winner && *winner && (**winner).Parent == newerKey &&
+            newerKey != fixture.Key,
+        "a current producer binds another valid street-dependent content product");
+  if (!newer || !*newer || !fixture.ReplaceWithLegacy()) { return; }
+  PreparedBuildingAssets::Base ready;
+  for (unsigned step = 0; step < 16 && !ready; ++step) {
+    auto result = fixture.Cache->ResumeBase(*cursor, stopping);
+    CHECK(result.has_value(), "the older content remains independently resumable");
+    if (!result) { return; }
+    ready = std::move(*result);
+  }
+  const auto retained = fixture.Database->FindRequest(request);
+  CHECK(ready && retained && *retained && (**retained).Parent == newerKey,
+        "repair of older content cannot overwrite a newer valid request binding");
+}
+
 }
 
 int main() {
@@ -446,6 +482,7 @@ int main() {
   StopKeepsTheOriginalParent();
   RestoreKeepsPublicationBoundAfterLegacyReplacement();
   RestoreKeepsBlockedReplacement();
+  RestoreKeepsANewerRequestBinding();
   RestoreRetainsRequestAcrossReplacement(false);
   RestoreRetainsRequestAcrossReplacement(true);
   BasisReadReusesTheMigrationBasis();
