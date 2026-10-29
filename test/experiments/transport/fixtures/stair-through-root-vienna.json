@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:39881120:19",
+    "end": 0
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:80922970:255"
+  ],
+  "source_profiles": {},
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "level_box",
+  "interior_contacts": [],
+  "endpoint_contacts": [],
+  "terrain_layout_mode": "free_region"
+}
