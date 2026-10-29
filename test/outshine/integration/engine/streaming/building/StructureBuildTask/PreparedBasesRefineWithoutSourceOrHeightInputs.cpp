@@ -2,6 +2,7 @@
 #include <string_view>
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
+#include "RemoveBuildingBasis.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "StructureBuildTask.h"
@@ -395,7 +396,7 @@ void RequestMigration(const std::filesystem::path &root) {
   const auto ready = (*cache)->LoadBasisRequest(request);
   CHECK(repaired && *repaired && ready && *ready && (**ready).BaseKey == replacement,
         "cached complete plans repair the request product without source acquisition");
-  CHECK((*cache)->InvalidateBasis(replacement).has_value() &&
+  CHECK(outshine::Test::RemoveBuildingBasis(root, replacement).has_value() &&
             !(*cache)->LoadBasisRequest(request)->has_value(),
         "invalidated basis cannot leave a false native request hit");
 }
@@ -501,7 +502,8 @@ void ResidentRequests(const std::filesystem::path &root) {
             reused.BasisReadBytes == before.BasisReadBytes && reused.ReadBytes == before.ReadBytes,
         "resident reuse performs no native payload or complete-plan reads");
   if (!CheckResidentMetadata(**cache, root, request, weak)) { return; }
-  CHECK((*cache)->InvalidateBasis(key).has_value(), "explicit native invalidation succeeds");
+  CHECK(outshine::Test::RemoveBuildingBasis(root, key).has_value(),
+        "explicit native invalidation succeeds");
   const auto invalidated = (*cache)->LoadBasisRequest(request);
   CHECK(invalidated && !*invalidated && !weak.expired(),
         "explicit invalidation remains a miss while old geometry still owns its basis");

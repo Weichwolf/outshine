@@ -117,7 +117,17 @@ ImpostorViewAssets::ImpostorViewAssets(AssetCache &cache,
 
 std::expected<ImpostorViewAssets, AssetCacheError> ImpostorViewAssets::Publish(
     AssetCache &cache, std::string_view provenance, Description description, Box bounds) {
-  const auto bytes = Encode(description, provenance, bounds);
+  auto prepared = PrepareMetadata(cache, provenance, std::move(description), bounds);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return Publish(cache, *prepared);
+}
+
+std::expected<ImpostorViewAssets::MetadataWrite, AssetCacheError>
+ImpostorViewAssets::PrepareMetadata(AssetCache &cache,
+                                    std::string_view provenance,
+                                    Description description,
+                                    Box bounds) {
+  auto bytes = Encode(description, provenance, bounds);
   if (!bytes) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetRecord record{.Key = IndexKey(provenance),
                      .Kind = std::string(kKind),
@@ -128,9 +138,16 @@ std::expected<ImpostorViewAssets, AssetCacheError> ImpostorViewAssets::Publish(
                      .Level = 0,
                      .Parent = {},
                      .RequestKey = {}};
-  const auto published = cache.Publish(std::span(&record, 1), *bytes);
+  auto prepared = cache.PreparePublication({record}, std::move(*bytes));
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return MetadataWrite(std::move(record), std::move(description), std::move(*prepared));
+}
+
+std::expected<ImpostorViewAssets, AssetCacheError>
+ImpostorViewAssets::Publish(AssetCache &cache, const MetadataWrite &prepared) {
+  const auto published = cache.Publish(prepared.Package_);
   if (!published) { return std::unexpected(published.error()); }
-  return ImpostorViewAssets(cache, std::move(record), std::move(description));
+  return ImpostorViewAssets(cache, prepared.Record_, prepared.Description_);
 }
 
 std::expected<std::optional<ImpostorViewAssets>, AssetCacheError>

@@ -263,12 +263,12 @@ UrbanAreaStreaming::AdvanceGroups(const View &view,
                                   uint64_t childrenRevision) {
   std::erase_if(Retiring_, [](const auto &slot) { return !slot->InFlight(); });
   WantedChildrenRevision_ = childrenRevision;
-  size_t running = Costs().InFlight;
+  size_t admitted = Costs().Admitted;
   bool captured = false;
   bool published = false;
   for (auto &group : Groups_) {
-    const bool wasRunning = group.Slot->InFlight();
-    const auto admission = wasRunning || running < kJobsMost
+    const bool wasAdmitted = group.Slot->HoldsAdmission();
+    const auto admission = wasAdmitted || admitted < kJobsMost
                                ? UrbanPrismSlot::Admission::AllowWork
                                : UrbanPrismSlot::Admission::CollectOnly;
     auto advanced = group.Slot->Advance(
@@ -288,9 +288,9 @@ UrbanAreaStreaming::AdvanceGroups(const View &view,
         },
         admission);
     if (!advanced) { return std::unexpected(advanced.error()); }
-    const bool isRunning = group.Slot->InFlight();
-    if (isRunning && !wasRunning) { ++running; }
-    if (!isRunning && wasRunning) { --running; }
+    const bool isAdmitted = group.Slot->HoldsAdmission();
+    if (isAdmitted && !wasAdmitted) { ++admitted; }
+    if (!isAdmitted && wasAdmitted) { --admitted; }
     if (published || Renderer_ == nullptr || !group.Slot->Ready()) { continue; }
     auto placed = Publish(group, view, children, childrenRevision);
     if (!placed) { return std::unexpected(placed.error()); }
@@ -326,15 +326,20 @@ UrbanAreaStreaming::Counters UrbanAreaStreaming::Costs() const noexcept {
                  .Groups = Groups_.size(),
                  .Resident = 0,
                  .InFlight = Retiring_.size(),
+                 .Admitted = 0,
                  .Missing = 0,
                  .Captures = Captures_,
                  .Publications = Publications_};
+  for (const auto &slot : Retiring_) {
+    if (slot->HoldsAdmission()) { ++costs.Admitted; }
+  }
   for (const auto &area : Areas_) {
     if (!area.SourceDelivery.Product) { ++costs.Missing; }
   }
   for (const auto &group : Groups_) {
     if (group.Handle) { ++costs.Resident; }
     if (group.Slot->InFlight()) { ++costs.InFlight; }
+    if (group.Slot->HoldsAdmission()) { ++costs.Admitted; }
   }
   return costs;
 }

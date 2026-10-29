@@ -242,12 +242,50 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
                       .HighLat = prepared.Bounds.MaxLatDeg,
                       .LowLon = prepared.Bounds.MinLonDeg,
                       .HighLon = prepared.Bounds.MaxLonDeg};
+  const double statedM =
+      raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
+  const auto detail = DetailOf(raw, bounds, statedM);
+  const auto level = detail.Envelope;
+  const bool massOnly =
+      level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0;
+
+  auto plan = PreparedStructurePlan(prepared, pts, holes, corners, raw.AnchorEcef);
+  plan.Prepared = surface;
+  plan.Coarseness = level;
+  plan.RecessedOpenings = detail.RecessedOpenings;
+  const auto empty = mesher.KnownEmptySurface(plan);
+  if (!empty) { return std::unexpected(empty.error()); }
+  std::optional<double> shellError;
+  if (!*empty) {
+    const auto mass = StructureMassOf(bounds,
+                                      {.BaseM = base,
+                                       .SeatM = seat,
+                                       .HeightM = fp.HeightM,
+                                       .RoofAreaM2 = prepared.AreaM2,
+                                       .Pitched = one.Pitched != 0,
+                                       .WallColour = one.WallColour,
+                                       .Level = level},
+                                      one.Cell.Index);
+    if (!raw.RequestedDetail) {
+      shellError = selection.Add(plan, mass, out.Prints.size(), mesher, scratch);
+    } else if (massOnly) {
+      shellError = mesher.ShellSurfaceErrorM(plan, scratch);
+      masses.push_back(mass);
+      ++out.Lumped;
+    } else {
+      const size_t wallFirst = out.Built.WallCorners.size();
+      const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
+      if (!built) { return std::unexpected(built.error()); }
+      shellError =
+          level <= LevelOfDetail::Shell
+              ? mesher.ShellSurfaceErrorM(std::span(out.Built.WallCorners).subspan(wallFirst))
+              : mesher.ShellSurfaceErrorM(plan, scratch);
+    }
+  }
   IncludeFootprint(out, one.Cell);
   out.SeatSpreadM.push_back(seat - base);
   out.AcrossM.push_back(prepared.AcrossM);
   out.Fronted += static_cast<int>(fp.Street.Known);
-  const double statedM =
-      raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
   out.OsmHeights +=
       static_cast<int>(fp.Source == ::outshine::Ground::BuildingHeightSource::Declared);
   out.DefaultHeights +=
@@ -255,50 +293,14 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
   const size_t cellAt = one.Cell.Index - 1u;
   out.CellMaxHeightM[cellAt] = std::max(out.CellMaxHeightM[cellAt], fp.HeightM);
 
-  const auto detail = DetailOf(raw, bounds, statedM);
-  const auto level = detail.Envelope;
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
-
-  auto plan = PreparedStructurePlan(prepared, pts, holes, corners, raw.AnchorEcef);
-  plan.Prepared = surface;
-  plan.Coarseness = level;
-  plan.RecessedOpenings = detail.RecessedOpenings;
-  if (mesher.KnownEmptySurface(plan)) {
+  if (*empty) {
     ++out.UnsupportedMeshes;
-    return {};
+  } else {
+    IncludeShellError(out, cellAt, shellError);
   }
 
-  const auto mass = StructureMassOf(bounds,
-                                    {.BaseM = base,
-                                     .SeatM = seat,
-                                     .HeightM = fp.HeightM,
-                                     .RoofAreaM2 = prepared.AreaM2,
-                                     .Pitched = one.Pitched != 0,
-                                     .WallColour = one.WallColour,
-                                     .Level = level},
-                                    one.Cell.Index);
-  if (!raw.RequestedDetail) {
-    IncludeShellError(
-        out, cellAt, selection.Add(plan, mass, out.Prints.size() - 1u, mesher, scratch));
-    return {};
-  }
-  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
-    IncludeShellError(out, cellAt, mesher.ShellSurfaceErrorM(plan, scratch));
-    masses.push_back(mass);
-    ++out.Lumped;
-    return {};
-  }
-
-  const size_t wallFirst = out.Built.WallCorners.size();
-  const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
-  if (!built) { return std::unexpected(built.error()); }
-  IncludeShellError(
-      out,
-      cellAt,
-      level <= LevelOfDetail::Shell
-          ? mesher.ShellSurfaceErrorM(std::span(out.Built.WallCorners).subspan(wallFirst))
-          : mesher.ShellSurfaceErrorM(plan, scratch));
   return {};
 }
 

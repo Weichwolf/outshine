@@ -26,6 +26,44 @@ public:
   using Base = std::shared_ptr<const PreparedStructureTile>;
   using Basis = std::shared_ptr<const PreparedBuildingBasis>;
 
+  class BaseWrite {
+  public:
+    BaseWrite(BaseWrite &&) noexcept;
+    BaseWrite &operator=(BaseWrite &&) noexcept;
+    ~BaseWrite();
+    [[nodiscard]] size_t PublicationBytes() const noexcept;
+
+    [[nodiscard]] uint64_t PublicationAttempts() const noexcept { return Attempts_; }
+
+  private:
+    friend class PreparedBuildingAssets;
+    struct State;
+    explicit BaseWrite(std::unique_ptr<State> state);
+    [[nodiscard]] bool ForKey(std::string_view key) const noexcept;
+    std::unique_ptr<State> State_;
+    uint64_t Attempts_ = 0;
+  };
+
+  class BasisRead {
+  public:
+    BasisRead() noexcept;
+    BasisRead(BasisRead &&) noexcept;
+    BasisRead &operator=(BasisRead &&) noexcept;
+    ~BasisRead();
+    // Inspect only between worker steps; a pending owner keeps its lookup admission.
+    [[nodiscard]] bool Pending() const noexcept;
+
+  private:
+    friend class PreparedBuildingAssets;
+    struct State;
+    std::unique_ptr<State> State_;
+  };
+
+  struct GeometryWrite {
+    std::string Key;
+    PreparedAssetWrite Package;
+  };
+
   struct RequestedBasis {
     std::string BaseKey;
     Basis Product;
@@ -38,6 +76,9 @@ public:
     uint64_t BasisResidentHits = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
+    uint64_t SurfacePreparations = 0;
+    uint64_t GeometryPreparations = 0, BasePreparations = 0, BasePackagePreparations = 0;
+    uint64_t LegacyPreparations = 0, BasisPreparations = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -56,14 +97,40 @@ public:
   LoadBasisRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadBasis(const std::string &key, const std::string &requestKey = {});
-  [[nodiscard]] std::expected<void, StructureBakeError> InvalidateBasis(const std::string &key);
+  // One bounded read/preparation/publication step. Empty + Pending means resume.
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  ReadBasis(const std::string &key, BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError> ReadBasisRequest(
+      const std::string &requestKey, BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  BindBasisRequest(const std::string &key, const std::string &requestKey);
+  [[nodiscard]] std::expected<bool, StructureBakeError>
+  BindBasisRequestIfUnbound(const std::string &key, const std::string &requestKey);
+  // True means no usable basis remains; false preserves a concurrently repaired base.
+  [[nodiscard]] std::expected<bool, StructureBakeError>
+  RetireUnavailableBasis(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError> Load(const std::string &key);
+  // Busy preserves this key's migration. Empty Base with a continuation means another
+  // bounded publication step is needed; empty Base without one is a native miss.
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  ReadBase(const std::string &key,
+           std::optional<BaseWrite> &continuation,
+           const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<Base, StructureBakeError>
   Generate(const std::string &key,
            const RawTile &raw,
            const ::outshine::Ground::HeightField &heights,
            const std::atomic_bool &stopping,
            const std::string &requestKey = {});
+  [[nodiscard]] std::expected<BaseWrite, StructureBakeError>
+  PrepareBase(const std::string &key,
+              const RawTile &raw,
+              const ::outshine::Ground::HeightField &heights,
+              const std::atomic_bool &stopping,
+              const std::string &requestKey = {});
+  // One package attempt or final restore; an empty Base means more work remains.
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  ResumeBase(BaseWrite &prepared, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
@@ -73,25 +140,36 @@ public:
                 const PreparedStructureTile &base,
                 const RawTile &view,
                 const BakedTile &tile);
+  [[nodiscard]] std::expected<GeometryWrite, StructureBakeError>
+  PrepareGeometry(const std::string &baseKey,
+                  const PreparedStructureTile &base,
+                  const RawTile &view,
+                  const BakedTile &tile);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  PublishGeometry(const GeometryWrite &prepared);
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
+  [[nodiscard]] static StructureBakeError CacheFailure(AssetCacheError error) noexcept;
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kResidentBasisEntriesMost = 256;
   [[nodiscard]] static std::string BasisKey(const std::string &key);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreBasis(const std::string &key,
-             const Box &bounds,
-             const PreparedBuildingBasis &basis,
-             const std::string &requestKey = {});
   [[nodiscard]] std::expected<Basis, StructureBakeError>
-  LoadCachedBasis(const std::string &key, const std::string &requestKey);
+  ReadBasisInput(BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
+  FinishBasisRequest(BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
+  RetireBasisBinding(const AssetRecord &binding, BasisRead &read);
+  [[nodiscard]] Basis LoadResidentBasis(const AssetRecord &record);
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  LoadCachedBasis(const std::string &key, std::optional<AssetRecord> &record);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
 
   struct SurfaceCosts {
     std::atomic_uint64_t Hits{0}, Misses{0}, Writes{0}, ReadBytes{0};
+    std::atomic_uint64_t Preparations{0};
   };
 
   struct ResidentBasis {
@@ -100,26 +178,37 @@ private:
   };
 
   PreparedBuildingAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
-  [[nodiscard]] std::expected<std::vector<uint8_t>, StructureBakeError>
-  StoreBase(const std::string &key,
-            const PreparedStructureTile &base,
-            const std::string &requestKey = {});
+  [[nodiscard]] static BaseWrite
+  PrepareBaseWrite(std::string key, PreparedStructureTile base, std::string requestKey);
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  RestoreBase(BaseWrite &prepared, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  CompleteBase(BaseWrite &prepared, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareBasePackage(BaseWrite::State &state);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareBasis(const std::string &key,
+               const Box &bounds,
+               const PreparedBuildingBasis &basis,
+               const std::string &requestKey);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareSurfaceCell(const std::string &key,
+                     uint32_t cell,
+                     const Box &bounds,
+                     std::span<const BuildingSurface *const> surfaces);
   [[nodiscard]] static Box Bounds(const PreparedStructureTile &base);
   [[nodiscard]] static Box StructureBounds(const PreparedStructureTile &base, size_t index);
   [[nodiscard]] static std::string SurfaceKey(const std::string &baseKey, uint32_t cell);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreSurfaces(const std::string &key, const PreparedStructureTile &base);
   void BindSurfaces(const std::string &key, const std::shared_ptr<PreparedStructureTile> &base);
+  struct SurfaceRead;
   [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
   LoadSurfaces(const std::string &key,
                uint32_t cell,
                const PreparedStructureTile &base,
-               std::span<const uint32_t> indices);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreSurfaceCell(const std::string &key,
-                   uint32_t cell,
-                   const Box &bounds,
-                   std::span<const BuildingSurface *const> surfaces);
+               std::span<const uint32_t> indices,
+               std::shared_ptr<SurfaceRead> &read);
+  [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
+  PublishSurfaces(SurfaceRead &read);
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
@@ -127,10 +216,12 @@ private:
   std::unordered_map<std::string, ResidentBasis> ResidentBases_;
   SurfaceCosts SurfaceCosts_;
   std::atomic_uint64_t BasisHits_{0}, BasisMisses_{0}, BasisWrites_{0}, BasisReadBytes_{0};
+  std::atomic_uint64_t LegacyPreparations_{0}, BasisPreparations_{0};
   std::atomic_uint64_t BasisResidentHits_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},
       GeometryReadBytes_{0};
+  std::atomic_uint64_t GeometryPreparations_{0}, BasePreparations_{0}, BasePackagePreparations_{0};
 };
 }
 #endif

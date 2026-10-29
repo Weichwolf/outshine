@@ -1,6 +1,7 @@
 #include "StructureBuildQueue.h"
 #include "PreparedBuildingAssets.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -10,11 +11,101 @@
 #include <ratio>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace outshine {
 size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
-  return static_cast<size_t>(std::ranges::count_if(
+  return static_cast<size_t>(std::ranges::count_if(NativeLookups_, [](const auto &entry) {
+    return entry.second->Task != Tasks::kNoTask ||
+           entry.second->Stage == NativeLookup::Phase::Bind || entry.second->Read.Pending();
+  }));
+}
+
+void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
+                                           const std::string &request,
+                                           NativeLookup &lookup) {
+  const auto cancel = [&lookup] {
+    lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
+    lookup.HeldBasis.reset();
+    lookup.Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  };
+  if (lookup.Stopping.load(std::memory_order_relaxed)) {
+    cancel();
+    return;
+  }
+  if (lookup.Stage == NativeLookup::Phase::Request) {
+    lookup.Result = cache.ReadBasisRequest(request, lookup.Read, lookup.Stopping);
+    if (lookup.Result && !lookup.Read.Pending()) { lookup.HeldBasis.reset(); }
+    return;
+  }
+  if (!lookup.HeldBasis) {
+    auto basis = cache.ReadBasis(lookup.ContentKey, lookup.Read, lookup.Stopping);
+    if (!basis) {
+      lookup.Result = std::unexpected(basis.error());
+      return;
+    }
+    if (!*basis) {
+      lookup.Result = std::optional<Generators::PreparedBuildingAssets::RequestedBasis>{};
+      return;
+    }
+    lookup.HeldBasis = std::move(*basis);
+  }
+  if (lookup.Stopping.load(std::memory_order_relaxed)) {
+    cancel();
+    return;
+  }
+  lookup.Stage = NativeLookup::Phase::Bind;
+  const auto bound = cache.BindBasisRequestIfUnbound(lookup.ContentKey, request);
+  if (!bound) {
+    lookup.Result = std::unexpected(bound.error());
+    return;
+  }
+  lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
+  lookup.Stage = NativeLookup::Phase::Request;
+  lookup.Result = cache.ReadBasisRequest(request, lookup.Read, lookup.Stopping);
+  if (lookup.Result && !lookup.Read.Pending()) { lookup.HeldBasis.reset(); }
+}
+
+void StructureBuildQueue::StartNativeLookup(
+    const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+    const std::string &request,
+    NativeLookup &lookup) {
+  lookup.Task = Pool_->Post([output = &lookup, cache, request] {
+    const auto began = std::chrono::steady_clock::now();
+    ReadNativeLookup(*cache, request, *output);
+    const auto *kind =
+        output->Result ? nullptr
+                       : std::get_if<Generators::StructureBakeErrorKind>(&output->Result.error());
+    if (kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy) {
+      const auto exponent = std::min(output->Retries, 4U);
+      output->Retries = std::min(output->Retries + 1U, 4U);
+      output->RetryAt =
+          std::chrono::steady_clock::now() + std::chrono::milliseconds(int64_t{1} << exponent);
+    } else {
+      output->Retries = 0;
+    }
+    output->ReadMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  });
+  if (lookup.Task == Tasks::kNoTask) {
+    lookup.Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  }
+}
+
+StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
+    const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+    const std::string &request,
+    NativeLookup &lookup) {
+  if (std::chrono::steady_clock::now() < lookup.RetryAt) { return nullptr; }
+  const auto running = static_cast<size_t>(std::ranges::count_if(
       NativeLookups_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; }));
+  if (running >= kCandidateWindow ||
+      (lookup.Stage != NativeLookup::Phase::Bind && !lookup.Read.Pending() &&
+       PendingBasisLookups() >= kCandidateWindow)) {
+    return nullptr;
+  }
+  StartNativeLookup(cache, request, lookup);
+  return lookup.Task == Tasks::kNoTask ? &lookup : nullptr;
 }
 
 StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
@@ -23,7 +114,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   if (found != NativeLookups_.end()) {
     const auto &previous = *found->second;
     if (previous.Task == Tasks::kNoTask && previous.Stage == NativeLookup::Phase::Request &&
-        previous.Result && !*previous.Result &&
+        previous.Result && !*previous.Result && !previous.Read.Pending() &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
       NativeLookups_.erase(found);
       found = NativeLookups_.end();
@@ -33,24 +124,17 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     if (PendingBasisLookups() >= kCandidateWindow) { return nullptr; }
     constexpr size_t kLookupsMost = 256;
     if (NativeLookups_.size() >= kLookupsMost) {
-      const auto idle = std::ranges::find_if(
-          NativeLookups_, [](const auto &entry) { return entry.second->Task == Tasks::kNoTask; });
+      const auto idle = std::ranges::find_if(NativeLookups_, [](const auto &entry) {
+        return entry.second->Task == Tasks::kNoTask &&
+               entry.second->Stage != NativeLookup::Phase::Bind && !entry.second->Read.Pending();
+      });
       if (idle == NativeLookups_.end()) { return nullptr; }
       NativeLookups_.erase(idle);
     }
     auto lookup = std::make_unique<NativeLookup>();
     lookup->BasisWrites = cache->Costs().BasisWrites;
     auto *const output = lookup.get();
-    output->Task = Pool_->Post([output, cache, request] {
-      const auto began = std::chrono::steady_clock::now();
-      output->Result = cache->LoadBasisRequest(request);
-      output->ReadMs =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
-    });
-    if (output->Task == Tasks::kNoTask) {
-      output->Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-    }
+    StartNativeLookup(cache, request, *output);
     NativeLookups_.emplace(request, std::move(lookup));
     return output->Task == Tasks::kNoTask ? output : nullptr;
   }
@@ -59,6 +143,13 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     if (!Pool_->TakeCompletion(lookup.Task)) { return nullptr; }
     lookup.Task = Tasks::kNoTask;
   }
+  if (!lookup.Result) {
+    const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&lookup.Result.error());
+    if (kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy) {
+      return RetryNativeLookup(cache, request, lookup);
+    }
+  }
+  if (lookup.Result && lookup.Read.Pending()) { return RetryNativeLookup(cache, request, lookup); }
   return &lookup;
 }
 
@@ -155,23 +246,12 @@ bool StructureBuildQueue::SelectNativeBasis(
     NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;
   }
+  if (PendingBasisLookups() >= kCandidateWindow) { return false; }
+  lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
   lookup.Stage = NativeLookup::Phase::Content;
   lookup.ContentKey = key;
   lookup.StreetDigest = *digest;
-  lookup.Task = Pool_->Post([output = &lookup, cache, key, request = selected.RequestKey] {
-    const auto began = std::chrono::steady_clock::now();
-    auto basis = cache->LoadBasis(key, request);
-    if (!basis) {
-      output->Result = std::unexpected(basis.error());
-    } else if (*basis) {
-      output->Result = Generators::PreparedBuildingAssets::RequestedBasis{
-          .BaseKey = key, .Product = std::move(*basis), .Bounds = {}};
-    } else {
-      output->Result = std::optional<Generators::PreparedBuildingAssets::RequestedBasis>{};
-    }
-    output->ReadMs +=
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  });
+  StartNativeLookup(cache, selected.RequestKey, lookup);
   return false;
 }
 }

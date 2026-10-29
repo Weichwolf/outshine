@@ -14,6 +14,7 @@
 #include <optional>
 #include <ratio>
 #include <utility>
+#include <variant>
 #include <string>
 
 #include "Heap.h"
@@ -244,37 +245,131 @@ struct StructureBuildTask::Comparison {
 };
 
 struct StructureBuildTask::NativeProducts {
-  enum class Phase : uint8_t { Lookup, Generating, Complete };
+  enum class Phase : uint8_t { Lookup, Generating, Publishing, Complete };
 
   NativeProducts(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
                  std::string key,
                  std::string requestKey)
       : Cache(std::move(cache)), Key(std::move(key)), RequestKey(std::move(requestKey)) {}
 
+  [[nodiscard]] bool ReadyToResume() const noexcept {
+    return std::chrono::steady_clock::now() >= RetryAt;
+  }
+
+  static bool Busy(const Generators::StructureBakeError &error) noexcept {
+    if (const auto *mesh = std::get_if<StructureMeshError>(&error)) {
+      return *mesh == StructureMeshError::PreparedSurfaceBusy;
+    }
+    const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&error);
+    return kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy;
+  }
+
+  void Defer() {
+    const auto exponent = std::min(Retries, 4U);
+    Retries = std::min(Retries + 1U, 4U);
+    RetryAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(int64_t{1} << exponent);
+  }
+
+  void Cancel(Output &output) {
+    PendingTile.reset();
+    Geometry.reset();
+    BasePublication.reset();
+    output.PublicationBytes = 0;
+    output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+    Current = Phase::Complete;
+  }
+
+  void Publish(Output &output, const std::atomic_bool &stopping) {
+    if (stopping.load(std::memory_order_relaxed)) {
+      Cancel(output);
+      return;
+    }
+    if (!Geometry || !PendingTile) {
+      output.Status = std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
+      Geometry.reset();
+      PendingTile.reset();
+      output.PublicationBytes = 0;
+      Current = Phase::Complete;
+      return;
+    }
+    ++output.PublicationAttempts;
+    const auto stored = Cache->PublishGeometry(*Geometry);
+    if (!stored && Busy(stored.error())) {
+      Defer();
+      return;
+    }
+    if (stopping.load(std::memory_order_relaxed)) {
+      Cancel(output);
+      return;
+    }
+    if (stored) {
+      PendingTile->GeometryAssetKey = std::move(Geometry->Key);
+      output.Tile = std::move(PendingTile);
+    } else {
+      output.Status = std::unexpected(stored.error());
+    }
+    PendingTile.reset();
+    Geometry.reset();
+    output.PublicationBytes = 0;
+    Retries = 0;
+    Current = Phase::Complete;
+  }
+
   bool EnsureBase(const Generators::RawTile &raw,
                   const Ground::HeightField *heights,
                   std::shared_ptr<const Generators::PreparedStructureTile> &base,
                   const Generators::PreparedBuildingBasis *basis,
                   Output &output,
-                  const std::atomic_bool &stopping) const {
+                  const std::atomic_bool &stopping) {
     if (base) { return true; }
     assert(basis != nullptr || heights != nullptr);
-    auto loaded = basis != nullptr ? Cache->Load(Key)
-                                   : Cache->Generate(Key, raw, *heights, stopping, RequestKey);
+    if (basis == nullptr && !BasePublication) {
+      auto prepared = Cache->PrepareBase(Key, raw, *heights, stopping, RequestKey);
+      if (!prepared) {
+        output.Status = std::unexpected(prepared.error());
+        return false;
+      }
+      BasePublication = std::move(*prepared);
+    }
+    const auto attempts = BasePublication ? BasePublication->PublicationAttempts() : 0;
+    auto loaded = [&]()
+        -> std::expected<Generators::PreparedBuildingAssets::Base, Generators::StructureBakeError> {
+      if (basis != nullptr) { return Cache->ReadBase(Key, BasePublication, stopping); }
+      if (BasePublication) { return Cache->ResumeBase(*BasePublication, stopping); }
+      return std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
+    }();
+    if (BasePublication) {
+      output.PublicationAttempts += BasePublication->PublicationAttempts() - attempts;
+    }
+    output.PublicationBytes = BasePublication ? BasePublication->PublicationBytes() : 0;
     if (!loaded) {
+      if (Busy(loaded.error())) {
+        Defer();
+        return false;
+      }
+      BasePublication.reset();
+      output.PublicationBytes = 0;
       output.Status = std::unexpected(loaded.error());
       return false;
     }
-    if (!*loaded) {
-      const auto invalidated = Cache->InvalidateBasis(Key);
-      output.Status = std::unexpected(
-          invalidated ? Generators::StructureBakeError{Generators::StructureBakeErrorKind::
-                                                           NativeInputsMissing}
-                      : invalidated.error());
+    if (*loaded) {
+      base = std::move(*loaded);
+      BasePublication.reset();
+      output.PublicationBytes = 0;
+      Retries = 0;
+      return true;
+    }
+    if (BasePublication) { return false; }
+    const auto retired = Cache->RetireUnavailableBasis(Key);
+    if ((!retired && Busy(retired.error())) || (retired && !*retired)) {
+      Defer();
       return false;
     }
-    base = std::move(*loaded);
-    return true;
+    output.Status = std::unexpected(
+        retired ? Generators::
+                      StructureBakeError{Generators::StructureBakeErrorKind::NativeInputsMissing}
+                : retired.error());
+    return false;
   }
 
   bool Lookup(const Generators::RawTile &raw,
@@ -285,6 +380,10 @@ struct StructureBuildTask::NativeProducts {
     auto cached = basis != nullptr ? Cache->LoadGeometry(Key, basis, raw)
                                    : Cache->LoadGeometry(Key, *base, raw);
     if (!cached) {
+      if (Busy(cached.error())) {
+        Defer();
+        return true;
+      }
       output.Status = std::unexpected(cached.error());
       return true;
     }
@@ -305,6 +404,10 @@ struct StructureBuildTask::NativeProducts {
                   const Generators::PreparedBuildingAssets::Basis &basis,
                   Output &output,
                   const std::atomic_bool &stopping) {
+    if (Current == Phase::Publishing) {
+      Publish(output, stopping);
+      return true;
+    }
     if (Current != Phase::Lookup) { return false; }
     if (basis == nullptr && !EnsureBase(raw, heights, base, basis.get(), output, stopping)) {
       return true;
@@ -332,16 +435,26 @@ struct StructureBuildTask::NativeProducts {
                  const Generators::PreparedStructureTile &base,
                  Output &output,
                  const std::atomic_bool &stopping) {
+    if (!output.Status && Busy(output.Status.error())) {
+      output.Status = {};
+      Defer();
+      return;
+    }
     if (!output.Tile || Current != Phase::Generating || stopping.load(std::memory_order_relaxed)) {
       return;
     }
-    auto stored = Cache->StoreGeometry(Key, base, raw, *output.Tile);
-    if (stored) {
-      output.Tile->GeometryAssetKey = std::move(*stored);
-    } else {
-      output.Status = std::unexpected(stored.error());
+    auto prepared = Cache->PrepareGeometry(Key, base, raw, *output.Tile);
+    if (!prepared) {
+      output.Status = std::unexpected(prepared.error());
+      output.Tile.reset();
+      Current = Phase::Complete;
+      return;
     }
-    Current = Phase::Complete;
+    Geometry = std::move(*prepared);
+    PendingTile = std::exchange(output.Tile, std::nullopt);
+    output.PublicationBytes = Geometry->Package.CapacityBytes();
+    Current = Phase::Publishing;
+    Publish(output, stopping);
   }
 
   std::shared_ptr<Generators::PreparedBuildingAssets> Cache;
@@ -349,6 +462,11 @@ struct StructureBuildTask::NativeProducts {
   std::string RequestKey;
   Phase Current = Phase::Lookup;
   std::optional<uint64_t> Cells;
+  std::optional<Generators::PreparedBuildingAssets::BaseWrite> BasePublication;
+  std::optional<Generators::PreparedBuildingAssets::GeometryWrite> Geometry;
+  std::optional<Generators::BakedTile> PendingTile;
+  unsigned Retries = 0;
+  std::chrono::steady_clock::time_point RetryAt;
 };
 
 StructureBuildTask::StructureBuildTask(uint32_t tile,
@@ -540,7 +658,11 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
     output->LastProofWork = 0;
     output->LastRangeMs = 0.0;
     if (stopping->load(std::memory_order_relaxed)) {
-      output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      if (native != nullptr) {
+        native->Cancel(*output);
+      } else {
+        output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      }
       return;
     }
     if (native && native->BeforeBake(*raw, heights, *base, basis, *output, *stopping)) {
@@ -574,6 +696,11 @@ void StructureBuildTask::Start(Tasks &pool, const StructureMesher &mesher) {
 void StructureBuildTask::Resume(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ == State::Completed && Output_->Status && !Output_->Tile);
   Posts(pool, mesher);
+}
+
+bool StructureBuildTask::CanResume() const noexcept {
+  return State_ == State::Completed && Output_->Status && !Output_->Tile &&
+         (!Native_ || Native_->ReadyToResume());
 }
 
 void StructureBuildTask::RequestStop() noexcept {

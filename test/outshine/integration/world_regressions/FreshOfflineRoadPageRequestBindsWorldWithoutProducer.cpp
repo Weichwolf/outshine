@@ -1,3 +1,4 @@
+#include "StoreRoadManifest.h"
 #include "Earth.h"
 #include "PreparedRoadPages.h"
 #include "RoadPageMeshProducer.h"
@@ -91,7 +92,7 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
                             .ByteCount = cold->ByteCount,
                             .Level = 0,
                             .Parts = request.Address.Parts});
-  auto key = pages.StoreManifest(manifest);
+  auto key = ::outshine::Test::StoreRoadManifest(pages, manifest);
   if (!key) { return std::nullopt; }
   return Fixture{
       .Manifest = std::move(*key), .Request = request.RequestKey, .Payload = cold->Package};
@@ -136,7 +137,7 @@ std::optional<Fixture> SeedBound(const std::filesystem::path &directory) {
                             .Parts = request.Address.Parts,
                             .Appearance = request.Address.Appearance});
   manifest.Appearance = RoadPageAppearanceV2{RoadPageManifestAppearanceKey(manifest.Pages)};
-  auto key = (*opened)->StoreManifest(manifest);
+  auto key = ::outshine::Test::StoreRoadManifest(**opened, manifest);
   if (!key) { return std::nullopt; }
   return Fixture{
       .Manifest = std::move(*key), .Request = request.RequestKey, .Payload = cold->Package};

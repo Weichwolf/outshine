@@ -4,6 +4,7 @@
 #include <atomic>
 #include <array>
 #include <condition_variable>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -188,6 +189,9 @@ private:
     double TileDist = 0.0;
 
     std::optional<Data::SourceRequest> Ask;
+    std::shared_ptr<TerrainTiles::FieldWork> Preparation;
+    std::chrono::steady_clock::time_point ReadyAt;
+    std::chrono::milliseconds RetryDelay{1};
   };
 
   enum class SourceDelivery { Pending, Taken };
@@ -207,6 +211,7 @@ private:
     uint64_t Admission = 0;
     uint64_t TerrainScope = 0;
     bool Parked = false;
+    std::shared_ptr<TerrainTiles::FieldWork> Preparation;
   };
 
   struct CacheEntry {
@@ -275,6 +280,7 @@ private:
   void Work(int slot);
   void ScheduleCompute();
   void ScheduleComputeLocked();
+  [[nodiscard]] std::chrono::steady_clock::time_point NextRetryLocked() const;
   void FinishCompute(int slot);
   void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
@@ -331,6 +337,7 @@ private:
   std::vector<std::atomic<size_t>> ContextBytes_;
   struct ComputeContext;
   std::vector<std::unique_ptr<ComputeContext>> Contexts_;
+  std::vector<std::shared_ptr<TerrainTiles::FieldWork>> ActivePreparations_;
   enum class ComputeState { Idle, Queued, Working };
   std::vector<ComputeState> ComputeStates_;
   size_t ActiveCompute_ = 0;

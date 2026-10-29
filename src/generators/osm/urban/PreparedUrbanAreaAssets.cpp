@@ -2,15 +2,14 @@
 #include "UrbanAreaAsset.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
-#include "AssetGeneration.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <mutex>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <utility>
 
@@ -51,40 +50,44 @@ bool PreparedUrbanAreas::Matches(const UrbanArea &area, const Definition &input)
                         area.Inputs[1].Identity.Tile == parent);
 }
 
-std::expected<PreparedUrbanAreas::Loaded, std::string>
-PreparedUrbanAreas::Load(const std::string &request, const Definition &input) {
-  const std::scoped_lock lock(CacheMutex_);
+std::expected<PreparedUrbanAreas::Loaded, AssetCacheError>
+PreparedUrbanAreas::Load(const std::string &request, const Definition &input, bool publication) {
   auto record = Cache_->FindRequest(request);
-  if (!record) { return std::unexpected("could not find native urban-area asset"); }
+  if (!record) { return std::unexpected(record.error()); }
   if (!*record) {
-    ++Misses_;
+    if (!publication) { ++Misses_; }
     return Loaded{};
   }
   auto loaded = Cache_->Load((**record).Key, kUrbanAreaBytesMost);
-  if (!loaded) { return std::unexpected("could not load native urban-area asset"); }
+  if (!loaded) { return std::unexpected(loaded.error()); }
   if (!*loaded) {
-    ++Misses_;
+    if (!publication) { ++Misses_; }
     return Loaded{};
   }
-  ReadBytes_ += (**loaded).Bytes().size();
+  if (publication) {
+    PublicationReadBytes_ += (**loaded).Bytes().size();
+  } else {
+    ReadBytes_ += (**loaded).Bytes().size();
+  }
   auto area = DecodeUrbanArea((**loaded).Bytes());
   if ((**loaded).Record().Kind != "urban-area" || !area || !Matches(*area, input)) {
-    return std::unexpected("native urban-area asset does not match its request or budget");
+    return std::unexpected(AssetCacheError::InvalidInput);
   }
-  ++Hits_;
+  if (!publication) { ++Hits_; }
   return Loaded{.Area = std::make_shared<UrbanArea>(std::move(*area)),
                 .Key = (**loaded).Record().Key};
 }
 
 std::expected<PreparedUrbanAreas::Loaded, std::string>
-PreparedUrbanAreas::Generate(const std::string &request, const Work &work) {
-  if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
+PreparedUrbanAreas::Generate(const std::string &request, Work &work) {
+  const std::stop_callback stopped(Stop_.get_token(), [&work] { work.Stop.request_stop(); });
+  if (work.Stop.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
   const UrbanAreaLimits limits{.CellsMost = Budget_.CellsMost,
                                .SourceVerticesMost = Budget_.SourceVerticesMost,
                                .FeaturesMost = Budget_.FeaturesMost,
                                .Deadline =
                                    std::chrono::steady_clock::now() + Budget_.GenerationTime,
-                               .Stop = Stop_.get_token()};
+                               .Stop = work.Stop.get_token()};
   std::array<const OsmField *, 2> sources{};
   size_t sourceBytes = 0;
   for (size_t index = 0; index < work.SourceCount; ++index) {
@@ -101,31 +104,17 @@ PreparedUrbanAreas::Generate(const std::string &request, const Work &work) {
       GenerateUrbanArea(std::span(sources.data(), work.SourceCount), work.Input.Recipe, limits);
   if (!area) { return std::unexpected(std::move(area.error())); }
   GeneratedCells_ += area->Tiers.size();
-  if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
-  const std::scoped_lock lock(CacheMutex_);
-  bool generated = false;
-  auto published =
-      ResolveAssetRequest(*Cache_,
-                          request,
-                          kUrbanAreaBytesMost,
-                          [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-                            if (Stop_.stop_requested()) {
-                              return std::unexpected("urban-area preparation cancelled");
-                            }
-                            generated = true;
-                            return PackageUrbanArea(*area, request, budget);
-                          });
-  if (!published) { return std::unexpected(std::move(published.error())); }
-  if (generated) {
-    ++Writes_;
-  } else {
-    ReadBytes_ += published->Bytes().size();
-  }
-  auto complete = DecodeUrbanArea(published->Bytes());
-  if (published->Record().Kind != "urban-area" || !complete || !Matches(*complete, work.Input)) {
-    return std::unexpected("published native urban-area asset failed validation");
-  }
-  return Loaded{.Area = std::make_shared<UrbanArea>(std::move(*complete)),
-                .Key = published->Record().Key};
+  if (work.Stop.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
+  auto package = PackageUrbanArea(*area, request, kUrbanAreaBytesMost);
+  if (!package) { return std::unexpected(std::move(package.error())); }
+  *area = UrbanArea{};
+  work.Sources = {};
+  work.Layouts = {};
+  auto prepared =
+      Cache_->PreparePublication(std::move(package->Records), std::move(package->Bytes));
+  if (!prepared) { return std::unexpected("could not prepare native urban-area publication"); }
+  if (work.Stop.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
+  SetPublication(work, std::move(*prepared));
+  return Loaded{};
 }
 }

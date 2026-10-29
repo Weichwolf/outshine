@@ -783,10 +783,15 @@ double ShellErrorAtMagnitude(double magnitudeM) noexcept {
 
 }
 
-bool BuildingMesh::KnownEmptySurface(const StructurePlan &plan) const noexcept {
-  return plan.Prepared != nullptr && plan.Prepared->FaceCount() == 0 &&
-         ValidFootprintCoordinates(plan.RingLatLon) && ValidPlanParameters(plan) &&
-         plan.Prepared->RequireShapes() && plan.Prepared->Shapes().empty();
+std::expected<bool, StructureMeshError>
+BuildingMesh::KnownEmptySurface(const StructurePlan &plan) const noexcept {
+  if (plan.Prepared == nullptr || plan.Prepared->FaceCount() != 0 ||
+      !ValidFootprintCoordinates(plan.RingLatLon) || !ValidPlanParameters(plan)) {
+    return false;
+  }
+  const auto ready = plan.Prepared->RequireShapes();
+  if (!ready) { return std::unexpected(ready.error()); }
+  return plan.Prepared->Shapes().empty();
 }
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {

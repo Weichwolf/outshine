@@ -13,6 +13,7 @@
 #include <expected>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <cmath>
@@ -101,21 +102,52 @@ std::string PreparedBuildingAssets::RequestKey(Data::TileId tile,
 
 std::expected<PreparedBuildingAssets::Base, StructureBakeError>
 PreparedBuildingAssets::Load(const std::string &key) {
+  std::optional<BaseWrite> continuation;
+  const std::atomic_bool stopping{false};
+  auto loaded = ReadBase(key, continuation, stopping);
+  if (!loaded || *loaded || !continuation) { return loaded; }
+  return CompleteBase(*continuation, stopping);
+}
+
+std::expected<PreparedBuildingAssets::Base, StructureBakeError>
+PreparedBuildingAssets::ReadBase(const std::string &key,
+                                 std::optional<BaseWrite> &continuation,
+                                 const std::atomic_bool &stopping) {
+  if (stopping.load(std::memory_order_relaxed)) {
+    continuation.reset();
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
+  if (continuation) {
+    if (!continuation->ForKey(key)) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+    }
+    auto loaded = ResumeBase(*continuation, stopping);
+    if (loaded && *loaded) { continuation.reset(); }
+    return loaded;
+  }
   auto loaded = [&] {
     const std::scoped_lock lock(Lock_);
     return Cache_->Load(key, kPackageBytesMost);
   }();
-  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
+  if (stopping.load(std::memory_order_relaxed)) {
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
   if (*loaded) {
     const auto bytes = (**loaded).Bytes();
     auto base = DecodePreparedStructureIndex(bytes, kResidentBytesMost);
     if (!base) {
-      const auto original = DecodePreparedStructureTile(bytes, kResidentBytesMost);
+      if (stopping.load(std::memory_order_relaxed)) {
+        return std::unexpected(StructureBakeErrorKind::Cancelled);
+      }
+      auto original = DecodePreparedStructureTile(bytes, kResidentBytesMost);
       if (original) {
-        const auto stored = StoreBase(key, *original);
-        if (!stored) { return std::unexpected(stored.error()); }
-        base = DecodePreparedStructureIndex(*stored, kResidentBytesMost);
-        if (!base) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+        if (stopping.load(std::memory_order_relaxed)) {
+          return std::unexpected(StructureBakeErrorKind::Cancelled);
+        }
+        continuation = PrepareBaseWrite(key, std::move(*original), {});
+        ++LegacyPreparations_;
+        return ResumeBase(*continuation, stopping);
       }
     }
     if (base) {
@@ -136,43 +168,9 @@ PreparedBuildingAssets::Generate(const std::string &key,
                                  const ::outshine::Ground::HeightField &heights,
                                  const std::atomic_bool &stopping,
                                  const std::string &requestKey) {
-  auto base = PrepareStructureTile(raw, heights, &stopping);
-  if (!base) { return std::unexpected(base.error()); }
-  if (stopping.load(std::memory_order_relaxed)) {
-    return std::unexpected(StructureBakeErrorKind::Cancelled);
-  }
-  const auto stored = StoreBase(key, *base, requestKey);
-  if (!stored) { return std::unexpected(stored.error()); }
-  return Load(key);
-}
-
-std::expected<std::vector<uint8_t>, StructureBakeError> PreparedBuildingAssets::StoreBase(
-    const std::string &key, const PreparedStructureTile &base, const std::string &requestKey) {
-  const auto surfaces = StoreSurfaces(key, base);
-  if (!surfaces) { return std::unexpected(surfaces.error()); }
-  auto encoded = EncodePreparedStructureIndex(base);
-  if (!encoded || encoded->size() > kPackageBytesMost) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
-  }
-  if (!DecodePreparedStructureIndex(*encoded, kResidentBytesMost)) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
-  }
-  const AssetRecord record{.Key = key,
-                           .Kind = "buildings",
-                           .Bounds = Bounds(base),
-                           .Package = {},
-                           .ByteCount = encoded->size(),
-                           .Parent = {}};
-  {
-    const std::scoped_lock lock(Lock_);
-    const auto stored = Cache_->Publish(std::span(&record, 1), *encoded);
-    if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
-    ++Writes_;
-  }
-  const auto storedBasis =
-      StoreBasis(key, Bounds(base), PreparedBuildingBasis::Of(base), requestKey);
-  if (!storedBasis) { return std::unexpected(storedBasis.error()); }
-  return std::move(*encoded);
+  auto prepared = PrepareBase(key, raw, heights, stopping, requestKey);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return CompleteBase(*prepared, stopping);
 }
 
 PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept {
@@ -192,6 +190,12 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
           .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
           .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
-          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed)};
+          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed),
+          .SurfacePreparations = SurfaceCosts_.Preparations.load(std::memory_order_relaxed),
+          .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed),
+          .BasePreparations = BasePreparations_.load(std::memory_order_relaxed),
+          .BasePackagePreparations = BasePackagePreparations_.load(std::memory_order_relaxed),
+          .LegacyPreparations = LegacyPreparations_.load(std::memory_order_relaxed),
+          .BasisPreparations = BasisPreparations_.load(std::memory_order_relaxed)};
 }
 }

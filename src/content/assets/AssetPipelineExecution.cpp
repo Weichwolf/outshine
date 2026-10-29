@@ -1,5 +1,6 @@
 #include "AssetPipelineState.h"
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -7,6 +8,7 @@
 #include <mutex>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -58,6 +60,7 @@ void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
   result.Finished = true;
   job->Result = std::move(result);
   job->Finished = true;
+  job->Running = false;
   --Held.Running;
   Held.InputBytes -= job->InputBytes;
   job->InputBytes = 0;
@@ -69,7 +72,17 @@ void AssetPipeline::State::Execution::Run() {
   if (Work->Stop.stop_requested()) {
     result = Failed(AssetPublicationError::ProducerFailed, "asset publication canceled");
   } else {
-    result = State::Receipt(Work, Produce(Work->Stop.get_token()));
+    auto step = Produce(Work->Stop.get_token());
+    if (!step) {
+      result = Failed(AssetPublicationError::ProducerFailed, std::move(step.error()));
+    } else if (!*step && Owner->Defer(Work, std::move(Produce))) {
+      Ended = true;
+      return;
+    } else if (Work->Stop.stop_requested() || !*step) {
+      result = Failed(AssetPublicationError::Cancelled, "asset publication canceled");
+    } else {
+      result = State::Receipt(Work, std::move(**step));
+    }
   }
   Produce = {};
   Owner->Finish(Work, std::move(result));
@@ -85,7 +98,54 @@ AssetPipeline::State::Execution::~Execution() {
   }
 }
 
-AssetPublication AssetPipeline::State::Poll(uint64_t ticket) const noexcept {
+bool AssetPipeline::State::Defer(const std::shared_ptr<Job> &job, ResumableProducer producer) {
+  const std::scoped_lock lock(Lock);
+  if (job->StopRequested) { return false; }
+  job->Resume = std::move(producer);
+  job->RetryAt = std::chrono::steady_clock::now() + job->Delay;
+  job->Delay = std::min(job->Delay * 2, std::chrono::milliseconds(16));
+  job->Running = false;
+  --Held.Running;
+  return true;
+}
+
+void AssetPipeline::State::Dispatch(const std::shared_ptr<Job> &job) {
+  std::shared_ptr<Execution> execution;
+  {
+    const std::scoped_lock lock(Lock);
+    if (job->Finished || job->Running || !job->Resume ||
+        (!job->StopRequested && std::chrono::steady_clock::now() < job->RetryAt)) {
+      return;
+    }
+    execution = std::make_shared<Execution>();
+    execution->Owner = shared_from_this();
+    execution->Work = job;
+    execution->Produce = std::exchange(job->Resume, {});
+    job->Running = true;
+    ++Held.Running;
+  }
+  if (!Pool.PostDetached([execution] { execution->Run(); })) { execution.reset(); }
+}
+
+void AssetPipeline::State::WakeStopped() {
+  std::vector<std::shared_ptr<Job>> stopped;
+  {
+    const std::scoped_lock lock(Lock);
+    for (const auto &[key, job] : Jobs) {
+      if (job->StopRequested && !job->Finished && !job->Running) { stopped.push_back(job); }
+    }
+  }
+  for (const auto &job : stopped) { Dispatch(job); }
+}
+
+AssetPublication AssetPipeline::State::Poll(uint64_t ticket) noexcept {
+  std::shared_ptr<Job> job;
+  {
+    const std::scoped_lock lock(Lock);
+    const auto at = Tickets.find(ticket);
+    if (at != Tickets.end()) { job = at->second.Work; }
+  }
+  if (job) { Dispatch(job); }
   const std::scoped_lock lock(Lock);
   const auto at = Tickets.find(ticket);
   if (at == Tickets.end()) {

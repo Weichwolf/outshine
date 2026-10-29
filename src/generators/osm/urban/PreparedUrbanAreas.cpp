@@ -9,6 +9,7 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -45,6 +46,7 @@ PreparedUrbanAreas::Open(const std::string &directory,
   constexpr auto maxTime = std::chrono::seconds(60);
   if (!prepared || budget.PendingMost == 0 || budget.PendingMost > maxPending ||
       budget.SourceBytesMost == 0 || budget.SourceBytesMost > maxSourceBytes ||
+      budget.PublicationBytesMost == 0 || budget.PublicationBytesMost > maxSourceBytes ||
       budget.CellsMost == 0 || budget.CellsMost > maxCells || budget.SourceVerticesMost == 0 ||
       budget.FeaturesMost == 0 || budget.GenerationTime < std::chrono::milliseconds::zero() ||
       budget.GenerationTime > maxTime) {
@@ -89,11 +91,14 @@ void PreparedUrbanAreas::Observe(Work &work, const std::shared_ptr<const uint8_t
 
 void PreparedUrbanAreas::RetireUnused() {
   std::erase_if(Pending_, [this](const auto &entry) {
-    const auto &work = *entry.second;
+    auto &work = *entry.second;
     if (std::ranges::any_of(work.Owners, [](const auto &held) { return !held.expired(); })) {
       return false;
     }
-    return work.Task == Tasks::kNoTask || Compute_.TakeCompletion(work.Task);
+    work.Stop.request_stop();
+    if (work.Task != Tasks::kNoTask && !Compute_.TakeCompletion(work.Task)) { return false; }
+    SetPublication(work, std::nullopt);
+    return true;
   });
 }
 
@@ -104,13 +109,24 @@ PreparedUrbanAreas::Acquire(Data::SourceReader &reader, const Request &request) 
       .Owner = request.Owner_, .Schema = request.Schema_, .Recipe = request.Recipe_};
   const auto key = RequestKey(input);
   if (key.empty() || !request.Demand_) { return std::unexpected("invalid urban-area request"); }
-  if (Pending_.size() >= Budget_.PendingMost) { RetireUnused(); }
+  if (Pending_.size() >= Budget_.PendingMost ||
+      PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
+    RetireUnused();
+  }
   const auto found = Pending_.find(key);
   if (found != Pending_.end()) {
     const auto work = found->second;
+    if (work->Stop.stop_requested()) {
+      if (work->Task == Tasks::kNoTask || Compute_.TakeCompletion(work->Task)) {
+        SetPublication(*work, std::nullopt);
+        Pending_.erase(found);
+      }
+      return SourceDelivery{};
+    }
     Observe(*work, request.Demand_);
     auto result = Advance(reader, key, work);
     if (!result || result->Status == State::Ready || result->Status == State::Absent) {
+      SetPublication(*work, std::nullopt);
       Pending_.erase(key);
     }
     return result;
@@ -122,11 +138,7 @@ PreparedUrbanAreas::Acquire(Data::SourceReader &reader, const Request &request) 
   auto work = std::make_shared<Work>();
   work->Input = input;
   Observe(*work, request.Demand_);
-  work->Task = Compute_.Post([this, work, key] {
-    work->Result = Stop_.stop_requested()
-                       ? std::unexpected(std::string("urban-area preparation cancelled"))
-                       : Load(key, work->Input);
-  });
+  work->Task = Compute_.Post([this, work, key] { Lookup(key, *work); });
   if (work->Task == Tasks::kNoTask) {
     return std::unexpected("urban-area lookup task was not accepted");
   }
@@ -139,16 +151,37 @@ std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanArea
   if (work->Task != Tasks::kNoTask) {
     if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
     work->Task = Tasks::kNoTask;
-    if (!work->Result) { return std::unexpected(work->Result.error()); }
-    if (work->Result->Area) {
-      return SourceDelivery{.Status = State::Ready,
-                            .Product = std::move(work->Result->Area),
-                            .AssetKey = std::move(work->Result->Key)};
+    if (work->Stage == Work::Phase::Generate && work->Publication) {
+      work->Stage = Work::Phase::Publish;
     }
-    if (work->Stage == Work::Phase::Generate) {
-      return std::unexpected("urban-area generation returned no complete asset");
+  }
+  if (!work->Result) { return std::unexpected(work->Result.error()); }
+  if (work->Result->Area) {
+    return SourceDelivery{.Status = State::Ready,
+                          .Product = std::move(work->Result->Area),
+                          .AssetKey = std::move(work->Result->Key)};
+  }
+  if (work->Stage == Work::Phase::Generate) {
+    return std::unexpected("urban-area generation returned no complete asset");
+  }
+  if (work->Stage == Work::Phase::Lookup || work->Stage == Work::Phase::Publish ||
+      work->Stage == Work::Phase::Restore) {
+    if (std::chrono::steady_clock::now() < work->RetryAt) { return SourceDelivery{}; }
+    work->Task = Compute_.Post([this, work, key] {
+      if (work->Stage == Work::Phase::Lookup) {
+        Lookup(key, *work);
+      } else {
+        Publish(key, *work);
+      }
+    });
+    if (work->Task == Tasks::kNoTask) {
+      return std::unexpected("urban-area publication task was not accepted");
     }
-    work->Stage = Work::Phase::Source;
+    return SourceDelivery{};
+  }
+  if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
+    ++Deferred_;
+    return SourceDelivery{};
   }
   auto sources = GatherSources(reader, *work);
   if (!sources || sources->Status != State::Ready) { return sources; }
@@ -207,7 +240,12 @@ PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {
           .ReadBytes = ReadBytes_.load(),
           .SourcePolls = SourcePolls_.load(),
           .GeneratedCells = GeneratedCells_.load(),
-          .Deferred = Deferred_.load()};
+          .Deferred = Deferred_.load(),
+          .PublicationAttempts = PublicationAttempts_.load(),
+          .PublicationDeferred = PublicationDeferred_.load(),
+          .PublicationBytes = PublicationBytes_.load(),
+          .PublicationPeakBytes = PublicationPeakBytes_.load(),
+          .PublicationReadBytes = PublicationReadBytes_.load()};
 }
 
 bool PreparedUrbanAreas::AwaitProgress(double seconds) const {

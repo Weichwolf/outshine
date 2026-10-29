@@ -13,6 +13,10 @@ bool UrbanPrismSlot::InFlight() const noexcept {
   return (Job_ && Job_->InFlight()) || (Retiring_ && Retiring_->InFlight());
 }
 
+bool UrbanPrismSlot::HoldsAdmission() const noexcept {
+  return (Job_ && Job_->HoldsAdmission()) || (Retiring_ && Retiring_->HoldsAdmission());
+}
+
 bool UrbanPrismSlot::AwaitProgress(double seconds) const {
   if (Retiring_ && Retiring_->InFlight()) { return Retiring_->AwaitProgress(seconds); }
   return !Job_ || Job_->AwaitProgress(seconds);
@@ -56,7 +60,8 @@ UrbanPrismSlot::Advance(const std::string &request,
     ++Costs_.Started;
   }
   const Generators::Osm::UrbanPrismPreparation::Capture noCapture;
-  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture);
+  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture,
+                              admission == Admission::AllowWork);
   if (!result) { return std::unexpected(result.error()); }
   if (!*result) { return false; }
   Ready_ = std::move(*result);

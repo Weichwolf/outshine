@@ -224,14 +224,15 @@ Metadata(const std::shared_ptr<AssetCache> &cache,
                           .ReceiptBytesMost = 4096});
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { return std::unexpected("native metadata consumer unavailable"); }
+  const auto preparation = std::make_shared<BuildingImpostorSource::MetadataPreparation>();
   auto request = ImpostorMetadataRequest::Start(
       pipeline,
       *consumer,
       workers,
       cache,
       source->Provenance(),
-      [cache, source](const std::stop_token &stop) {
-        return source->ResolveMetadata(*cache, stop);
+      [cache, source, preparation](const std::stop_token &stop) {
+        return source->ResolveMetadata(*cache, *preparation, stop);
       },
       256);
   if (!request) { return std::unexpected("native metadata admission failed"); }
@@ -419,13 +420,14 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
       .WallRoofMetreMaterials = {},
       .Pixels = 32};
   for (uint32_t cell = 1; cell <= 64; ++cell) { recipe.Cells.push_back(cell); }
-  BuildingImpostorSource source(std::move(recipe), *assets);
-  const auto metadata = source.ResolveMetadata(**cache);
+  const auto source = std::make_shared<BuildingImpostorSource>(std::move(recipe), *assets);
+  const std::shared_ptr<AssetCache> sharedCache(std::move(*cache));
+  const auto metadata = Metadata(sharedCache, source);
   CHECK(!metadata && metadata.error().contains("unsupported building source ordinal"),
         "real unresolved originals prevent a complete-source metadata declaration");
   CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,
         "incomplete source rejection requires no form loading or generation");
-  const auto absent = Content::ImpostorViewAssets::Open(**cache, source.Provenance());
+  const auto absent = Content::ImpostorViewAssets::Open(*sharedCache, source->Provenance());
   CHECK(absent && !*absent, "an incomplete original set publishes no replacement metadata");
 }
 

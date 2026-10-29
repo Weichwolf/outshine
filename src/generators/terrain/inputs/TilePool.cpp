@@ -8,6 +8,7 @@
 #include "Vec3.h"
 
 #include <algorithm>
+#include <functional>
 #include <expected>
 #include <cassert>
 #include <cstdint>
@@ -220,6 +221,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::SourceT
   const int n = Compute_->Threads();
   ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
   Contexts_.resize(static_cast<size_t>(n));
+  ActivePreparations_.resize(static_cast<size_t>(n));
   ComputeStates_.resize(static_cast<size_t>(n), ComputeState::Idle);
   const int carriers = CarrierCount_ > 0 ? CarrierCount_ : 2;
   Carriers_.reserve(static_cast<size_t>(carriers));
@@ -241,6 +243,9 @@ TilePool::~TilePool() {
   {
     const std::scoped_lock lock(QueueMutex_);
     Stopping_ = true;
+    Posted_.Visit([](uint64_t, const Reservation &held) {
+      if (held.Preparation) { held.Preparation->Cancel(); }
+    });
   }
   Wake_.notify_all();
   {
@@ -484,8 +489,32 @@ size_t TilePool::SchedulerBytes() const {
     for (const Job &job : jobs) { bytes += job.Ask ? job.Ask->Key().capacity() : 0u; }
     return bytes;
   };
-  size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_) + CapacityBytes(Contexts_) +
-                 CapacityBytes(ComputeStates_);
+  std::vector<const TerrainTiles::FieldWork *> preparations;
+  const auto collect = [&preparations](const std::shared_ptr<TerrainTiles::FieldWork> &work) {
+    if (work) { preparations.push_back(work.get()); }
+  };
+  Posted_.Visit([&collect](uint64_t, const Reservation &held) { collect(held.Preparation); });
+  for (const auto &work : ActivePreparations_) { collect(work); }
+  for (const auto &job : Queue_) { collect(job.Preparation); }
+  Awaiting_.Visit([&collect](uint64_t, const std::vector<Job> &jobs) {
+    for (const auto &job : jobs) { collect(job.Preparation); }
+  });
+  std::ranges::sort(preparations, std::less<const TerrainTiles::FieldWork *>{});
+  const auto repeatedPreparations = std::ranges::unique(preparations);
+  preparations.erase(repeatedPreparations.begin(), repeatedPreparations.end());
+  std::vector<std::shared_ptr<const std::atomic_size_t>> requests;
+  requests.reserve(preparations.size());
+  for (const auto *work : preparations) {
+    if (auto request = work->Memory()) { requests.push_back(std::move(request)); }
+  }
+  const auto address = [](const auto &request) { return request.get(); };
+  std::ranges::sort(requests, std::less<const std::atomic_size_t *>{}, address);
+  const auto repeatedRequests = std::ranges::unique(requests, {}, address);
+  requests.erase(repeatedRequests.begin(), repeatedRequests.end());
+  size_t nativeBytes = preparations.size() * sizeof(TerrainTiles::FieldWork);
+  for (const auto &request : requests) { nativeBytes += request->load(); }
+  size_t bytes = nativeBytes + CapacityBytes(ActivePreparations_) + jobBytes(Queue_) +
+                 jobBytes(Carrying_) + CapacityBytes(Contexts_) + CapacityBytes(ComputeStates_);
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
     bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Build.Sources) +
@@ -875,16 +904,23 @@ std::optional<TilePool::Job> TilePool::NextJob(int slot) {
   const std::scoped_lock lock(QueueMutex_);
   ComputeStates_[static_cast<size_t>(slot)] = ComputeState::Working;
   if (Stopping_ || Queue_.empty()) { return std::nullopt; }
-  size_t best = 0;
-  for (size_t i = 1; i < Queue_.size(); i++) {
+  const auto now = std::chrono::steady_clock::now();
+  size_t best = Queue_.size();
+  for (size_t i = 0; i < Queue_.size(); i++) {
     const Job &a = Queue_[i];
-    const Job &b = Queue_[best];
-    if (std::tuple(a.Kind, -a.Z, a.TileDist, a.Y, a.X) <
-        std::tuple(b.Kind, -b.Z, b.TileDist, b.Y, b.X)) {
+    if (IsCurrentJob(a) && a.ReadyAt > now) { continue; }
+    if (best == Queue_.size() ||
+        std::tuple(a.Kind, -a.Z, a.TileDist, a.Y, a.X) < std::tuple(Queue_[best].Kind,
+                                                                    -Queue_[best].Z,
+                                                                    Queue_[best].TileDist,
+                                                                    Queue_[best].Y,
+                                                                    Queue_[best].X)) {
       best = i;
     }
   }
+  if (best == Queue_.size()) { return std::nullopt; }
   Job job = Queue_[best];
+  ActivePreparations_[static_cast<size_t>(slot)] = job.Preparation;
   Queue_.erase(Queue_.begin() + static_cast<long>(best));
   return job;
 }
@@ -937,6 +973,16 @@ void TilePool::PublishResult(const Job &job, Result result) {
     result.Admission = job.Admission;
     result.TerrainScope = job.TerrainScope;
 
+    if (result.State == Reply::Pending && job.Preparation) {
+      if (job.Preparation->AwaitingCache()) {
+        Job pending = job;
+        pending.ReadyAt = std::chrono::steady_clock::now() + pending.RetryDelay;
+        pending.RetryDelay = std::min(pending.RetryDelay * 2, std::chrono::milliseconds(16));
+        Queue_.push_back(std::move(pending));
+        Landed_.notify_all();
+        return;
+      }
+    }
     if (result.State == Reply::Pending) {
       ReleaseReservation({.Key = job.Key, .Admission = job.Admission});
       {
@@ -998,7 +1044,10 @@ void TilePool::ScheduleCompute() {
 void TilePool::ScheduleComputeLocked() {
   if (Stopping_) { return; }
   const auto queued = static_cast<size_t>(std::ranges::count(ComputeStates_, ComputeState::Queued));
-  size_t waiting = Queue_.size() > queued ? Queue_.size() - queued : 0;
+  const auto now = std::chrono::steady_clock::now();
+  const auto due = static_cast<size_t>(std::ranges::count_if(
+      Queue_, [&](const Job &job) { return !IsCurrentJob(job) || job.ReadyAt <= now; }));
+  size_t waiting = due > queued ? due - queued : 0;
   for (size_t slot = 0; slot < ComputeStates_.size() && waiting != 0; ++slot) {
     if (ComputeStates_[slot] != ComputeState::Idle) { continue; }
     ComputeStates_[slot] = ComputeState::Queued;
@@ -1017,12 +1066,25 @@ void TilePool::ScheduleComputeLocked() {
   }
 }
 
+std::chrono::steady_clock::time_point TilePool::NextRetryLocked() const {
+  const auto now = std::chrono::steady_clock::now();
+  auto next = std::chrono::steady_clock::time_point::max();
+  for (const Job &job : Queue_) {
+    if (IsCurrentJob(job) && job.ReadyAt > now) { next = std::min(next, job.ReadyAt); }
+  }
+  return next;
+}
+
 void TilePool::FinishCompute(int slot) {
-  const std::scoped_lock lock(QueueMutex_);
-  ComputeStates_[static_cast<size_t>(slot)] = ComputeState::Idle;
-  --ActiveCompute_;
-  ScheduleComputeLocked();
-  Landed_.notify_all();
+  std::shared_ptr<TerrainTiles::FieldWork> retired;
+  {
+    const std::scoped_lock lock(QueueMutex_);
+    retired = std::move(ActivePreparations_[static_cast<size_t>(slot)]);
+    ComputeStates_[static_cast<size_t>(slot)] = ComputeState::Idle;
+    --ActiveCompute_;
+    ScheduleComputeLocked();
+    Landed_.notify_all();
+  }
 }
 
 void TilePool::Work(int slot) {
@@ -1057,7 +1119,10 @@ void TilePool::Work(int slot) {
   tAwaited = 0;
   tWorkingJob = job.Key;
   tWorkingAdmission = job.Admission;
+  tiles.BindFieldWork(job.Preparation.get());
   result = RunJob(tiles, job);
+  tiles.BindFieldWork(nullptr);
+  if (job.Preparation && result.State != Reply::Pending) { job.Preparation->SetRequest(nullptr); }
   retainBytes();
   tWorkingJob = 0;
   tWorkingAdmission = 0;
@@ -1074,7 +1139,8 @@ void TilePool::Work(int slot) {
       Ledger_.FieldCpuMs += cpuMs;
     }
   }
-  if (result.State == Reply::Pending && tAwaited != 0) {
+  if (result.State == Reply::Pending && tAwaited != 0 &&
+      (!job.Preparation || !job.Preparation->AwaitingCache())) {
     const uint64_t awaited = tAwaited;
     tAwaited = 0;
     if (AwaitDependency(job, awaited)) { return; }
@@ -1122,6 +1188,7 @@ void TilePool::ReleaseReservation(ReservationOwner owner) {
   const Reservation *held = Posted_.Find(owner.Key);
   if (held == nullptr || held->Admission != owner.Admission) { return; }
   if (held->Parked) { --CurrentParkedJobs_; }
+  if (held->Preparation) { held->Preparation->Cancel(); }
   Posted_.Erase(owner.Key);
 }
 
@@ -1190,6 +1257,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   if (const Reservation *held = Posted_.Find(job.Key)) {
     if (held->TerrainScope == scope) {
       ++Repeats_;
+      ScheduleComputeLocked();
       return Reply::Pending;
     }
     ReleaseReservation({.Key = job.Key, .Admission = held->Admission});
@@ -1206,8 +1274,12 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     return Reply::Deferred;
   }
   const uint64_t admission = ++AdmissionClock_;
-  const auto posted =
-      Posted_.Emplace(job.Key, Reservation{.Admission = admission, .TerrainScope = scope});
+  auto preparation = job.Kind != Rank::SourceRequest && PreparedFields_
+                         ? std::make_shared<TerrainTiles::FieldWork>()
+                         : nullptr;
+  const auto posted = Posted_.Emplace(
+      job.Key,
+      Reservation{.Admission = admission, .TerrainScope = scope, .Preparation = preparation});
   if (!posted) {
     lock.unlock();
     DeferredAdmission();
@@ -1221,6 +1293,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   Job posting = job;
   posting.Admission = admission;
   posting.TerrainScope = scope;
+  posting.Preparation = std::move(preparation);
   if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
     Data::TileId locality{.Zoom = posting.Z, .X = posting.X, .Y = posting.Y};
     if (posting.Kind == Rank::Field && locality.Zoom > 0) {
@@ -1259,7 +1332,10 @@ TilePool::Reply TilePool::Wants(Data::TileId of, int grid) {
   const uint64_t key = MeshKey(z, x, y);
   {
     const std::scoped_lock lock(QueueMutex_);
-    if (const auto state = MeshStatusLocked(key)) { return *state; }
+    if (const auto state = MeshStatusLocked(key)) {
+      ScheduleComputeLocked();
+      return *state;
+    }
   }
   Job job;
   job.Kind = Rank::Mesh;
@@ -1282,6 +1358,11 @@ void TilePool::Shapes(const ShapedGround &how) {
   if (Shape_ == how) { return; }
   Shape_ = how;
   TerrainScopeRevision_.fetch_add(1, std::memory_order_release);
+  Posted_.Visit([](uint64_t, const Reservation &held) {
+    if (held.Preparation) { held.Preparation->Cancel(); }
+  });
+  ScheduleComputeLocked();
+  Landed_.notify_all();
 }
 
 TilePool::Reply TilePool::Mesh(Data::TileId of, int grid, TileBuild *out) {
@@ -1341,28 +1422,41 @@ TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out)
   const uint64_t key = MeshKey(of.Zoom, of.X, of.Y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(lock, [&] { return Done_.Holds(key) || !Posted_.Holds(key); });
+    while (!Stopping_ && !Done_.Holds(key) && Posted_.Holds(key)) {
+      ScheduleComputeLocked();
+      Landed_.wait_until(lock, NextRetryLocked());
+    }
   }
   return Mesh(of, grid, out);
 }
 
 bool TilePool::AwaitLanding(double seconds) {
   if (seconds <= 0.0) { return false; }
+  const auto until = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  const bool ready = Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
-    return Stopping_ || UnclaimedResults_ != 0;
-  });
-  return ready && UnclaimedResults_ != 0;
+  while (!Stopping_ && UnclaimedResults_ == 0 && std::chrono::steady_clock::now() < until) {
+    ScheduleComputeLocked();
+    Landed_.wait_until(lock,
+                       std::min<std::chrono::steady_clock::time_point>(
+                           std::chrono::time_point_cast<std::chrono::steady_clock::duration>(until),
+                           NextRetryLocked()));
+  }
+  return UnclaimedResults_ != 0;
 }
 
 bool TilePool::AwaitLanding(double seconds, LandingCursor &cursor) {
   if (seconds <= 0.0) { return false; }
+  const auto until = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  const bool ready =
-      Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this, &cursor] {
-        return Stopping_ || cursor.Revision != CompletionRevision_;
-      });
-  if (!ready || cursor.Revision == CompletionRevision_) { return false; }
+  while (!Stopping_ && cursor.Revision == CompletionRevision_ &&
+         std::chrono::steady_clock::now() < until) {
+    ScheduleComputeLocked();
+    Landed_.wait_until(lock,
+                       std::min<std::chrono::steady_clock::time_point>(
+                           std::chrono::time_point_cast<std::chrono::steady_clock::duration>(until),
+                           NextRetryLocked()));
+  }
+  if (cursor.Revision == CompletionRevision_) { return false; }
   cursor.Revision = CompletionRevision_;
   return true;
 }
@@ -1374,6 +1468,7 @@ void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
     ReleaseReservation({.Key = key, .Admission = held->Admission});
   }
   EraseDone(key);
+  ScheduleComputeLocked();
 }
 
 bool TilePool::Known(uint64_t key) {

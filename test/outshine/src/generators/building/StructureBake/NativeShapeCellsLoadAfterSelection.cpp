@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <sqlite3.h>
 #include <string>
 
 namespace {
@@ -92,6 +93,61 @@ void MissingCellIsGenerated(const std::filesystem::path &root,
   const auto built = BakePreparedStructures(**metadata, view, mesher, *scratch);
   CHECK(built && cache.Costs().SurfaceMisses == 1,
         "needed missing cell is a generator miss, not missing visible geometry");
+}
+
+void BusyMissingCellResumes(const std::filesystem::path &root,
+                            const std::string &key,
+                            PreparedBuildingAssets &cache) {
+  const auto path = (root / "assets.sqlite").string();
+  auto database = AssetCache::Open(path);
+  CHECK(database, "the shared native store opens for the lazy-cell contention case");
+  if (!database) { return; }
+  const auto parent = (*database)->Find(key);
+  CHECK(parent && *parent, "the existing index still identifies its native shape children");
+  if (!parent || !*parent) { return; }
+  const auto children = (*database)->Select({.Bounds = (**parent).Bounds,
+                                             .Kind = "building-forms",
+                                             .Level = {},
+                                             .Radius = {},
+                                             .Planes = {}});
+  CHECK(children && !children->empty(), "the native shape children exist before the repair");
+  if (!children || children->empty()) { return; }
+  for (const auto &child : *children) {
+    CHECK((*database)->Remove(child.Key), "only regenerable private shape children are removed");
+  }
+  const auto held = cache.Load(key);
+  CHECK(held && *held && !(**held).Surfaces.empty(),
+        "the same lazy native index survives the shape-child miss");
+  if (!held || !*held || (**held).Surfaces.empty()) { return; }
+  sqlite3 *connection = nullptr;
+  const auto opened = sqlite3_open(path.c_str(), &connection);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> writer(connection, sqlite3_close);
+  CHECK(opened == SQLITE_OK && writer != nullptr, "an independent actual writer opens");
+  if (opened != SQLITE_OK || writer == nullptr) { return; }
+  CHECK(sqlite3_exec(writer.get(), "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "another connection holds native cell publication admission");
+  const auto pending = (**held).Surfaces.front().RequireShapes();
+  CHECK(!pending && pending.error() == StructureMeshError::PreparedSurfaceBusy,
+        "a needed missing native cell reports typed temporary contention");
+  const auto waiting = cache.Costs();
+  for (int retry = 0; retry < 8; ++retry) {
+    const auto again = (**held).Surfaces.front().RequireShapes();
+    CHECK(!again && again.error() == StructureMeshError::PreparedSurfaceBusy,
+          "the same selected cell remains pending at the writer boundary");
+  }
+  CHECK(cache.Costs().SurfacePreparations == waiting.SurfacePreparations &&
+            cache.Costs().SurfaceMisses == waiting.SurfaceMisses &&
+            cache.Costs().SurfaceWrites == waiting.SurfaceWrites,
+        "busy retries retain native cell geometry and its encoded package");
+  CHECK(sqlite3_exec(writer.get(), "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "the independent writer releases publication admission");
+  const auto current = cache.Load(key);
+  CHECK(current && *current && (**current).Surfaces.front().RequireShapes(),
+        "a fresh native owner can reconstruct that same valid shape cell after release");
+  const auto resumed = (**held).Surfaces.front().RequireShapes();
+  CHECK(resumed,
+        "the original lazy owner must resume after temporary contention instead of retaining a "
+        "permanent failed load");
 }
 
 void OriginalStorageIsReused(const std::filesystem::path &root,
@@ -214,6 +270,7 @@ int main() {
         "loaded form is a native hit after source and height owners disappear");
   base->reset();
   MissingCellIsGenerated(root, key, **cache);
+  BusyMissingCellResumes(root, key, **cache);
   OriginalStorageIsReused(root, key, *reference, **cache);
   cache->reset();
   std::filesystem::remove_all(root);

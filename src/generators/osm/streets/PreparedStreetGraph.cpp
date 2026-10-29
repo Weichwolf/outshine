@@ -2,7 +2,6 @@
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "SourceSet.h"
-#include "AssetGeneration.h"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -10,10 +9,11 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
+#include <stop_token>
+#include <variant>
 #include <utility>
 #include <vector>
 
@@ -91,55 +91,99 @@ PreparedStreetGraph::Open(const std::string &directory, const Data::SourceSet &s
       new PreparedStreetGraph(std::move(*cache), std::move(recipe)));
 }
 
-std::expected<PreparedStreetGraph::Loaded, std::string>
-PreparedStreetGraph::Resolve(const std::string &key, const Factory &factory) {
-  const std::scoped_lock lock(Lock_);
-  auto existing = Cache_->Load(key, kPackageBytesMost);
-  if (!existing) { return std::unexpected("could not read the prepared street graph"); }
-  if (*existing) {
-    auto decoded = Decode((**existing).Bytes());
-    if (decoded) {
-      return Loaded{
-          .Graph = std::move(*decoded), .Hit = true, .ReadBytes = (**existing).Bytes().size()};
+std::expected<void, PreparedStreetGraph::Failure>
+PreparedStreetGraph::Prepare(Resolution &state, const Factory &factory) {
+  if (!factory) { return std::unexpected(std::string("street graph miss has no generator")); }
+  auto generated = factory();
+  if (!generated) { return std::unexpected(std::move(generated.error())); }
+  auto &built = state.Generated_.emplace(std::move(*generated));
+  if (built.Elevated.Refused != 0) { return {}; }
+  auto encoded = Encode(built, kPackageBytesMost);
+  if (!encoded) {
+    return std::unexpected(std::string("street graph is incomplete or exceeds its budget"));
+  }
+  auto bounds = built.Graph->BoundsEcef();
+  if (bounds.Empty()) { bounds.Cover(Vec3{}); }
+  std::vector<AssetRecord> records{{.Key = state.Key_,
+                                    .Kind = "street-network",
+                                    .Bounds = bounds,
+                                    .Package = {},
+                                    .ByteCount = encoded->size(),
+                                    .Parent = {}}};
+  auto package = Cache_->PreparePublication(std::move(records), std::move(*encoded));
+  if (!package) { return std::unexpected(package.error()); }
+  state.Package_ = std::move(*package);
+  ++state.Preparations_;
+  state.Current_ = Resolution::Phase::Publish;
+  return {};
+}
+
+PreparedStreetGraph::Result PreparedStreetGraph::Restore(Resolution &state) {
+  auto loaded = Cache_->Load(state.Key_, kPackageBytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (!*loaded) { return std::unexpected(std::string("published asset package is unavailable")); }
+  auto decoded = Decode((**loaded).Bytes());
+  if (!decoded || !state.Generated_) {
+    return std::unexpected(std::string("published street graph failed native validation"));
+  }
+  state.Generated_->Graph = std::move(decoded->Graph);
+  return Loaded{.Graph = std::move(*state.Generated_), .ReadBytes = (**loaded).Bytes().size()};
+}
+
+PreparedStreetGraph::Result PreparedStreetGraph::Resume(Resolution &state,
+                                                        const Factory &factory,
+                                                        const std::stop_token &stop) {
+  using Phase = Resolution::Phase;
+  if (state.Current_ == Phase::Lookup) {
+    auto existing = Cache_->Load(state.Key_, kPackageBytesMost);
+    if (!existing) { return std::unexpected(existing.error()); }
+    if (*existing) {
+      auto decoded = Decode((**existing).Bytes());
+      if (decoded) {
+        return Loaded{
+            .Graph = std::move(*decoded), .Hit = true, .ReadBytes = (**existing).Bytes().size()};
+      }
     }
-    if (!Cache_->Remove(key)) {
-      return std::unexpected("could not remove an invalid prepared street graph");
+    state.Current_ = Phase::Generate;
+  }
+  if (state.Current_ == Phase::Generate) {
+    const auto prepared = Prepare(state, factory);
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    if (state.Generated_ && state.Generated_->Elevated.Refused != 0) {
+      return Loaded{.Graph = std::move(*state.Generated_)};
     }
   }
-  std::optional<StreetGraphBuilder::Built> generated;
-  auto loaded =
-      ResolveAsset(*Cache_,
-                   key,
-                   kPackageBytesMost,
-                   [&](size_t bytesMost) -> std::expected<GeneratedAssetPackage, std::string> {
-                     if (!factory) { return std::unexpected("street graph miss has no generator"); }
-                     auto built = factory();
-                     if (!built) { return std::unexpected(std::move(built.error())); }
-                     generated = std::move(*built);
-                     auto encoded = Encode(*generated, bytesMost);
-                     if (!encoded) {
-                       return std::unexpected("street graph is incomplete or exceeds its budget");
-                     }
-                     auto bounds = generated->Graph->BoundsEcef();
-                     if (bounds.Empty()) { bounds.Cover(Vec3{}); }
-                     return GeneratedAssetPackage{.Records = {{.Key = key,
-                                                               .Kind = "street-network",
-                                                               .Bounds = bounds,
-                                                               .Package = {},
-                                                               .ByteCount = encoded->size(),
-                                                               .Parent = {}}},
-                                                  .Bytes = std::move(*encoded)};
-                   });
-  if (generated && generated->Elevated.Refused != 0) {
-    return Loaded{.Graph = std::move(*generated)};
+  if (stop.stop_requested()) {
+    return std::unexpected(std::string("street graph candidate canceled"));
   }
-  if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-  auto decoded = Decode(loaded->Bytes());
-  if (!decoded) { return std::unexpected("published street graph failed native validation"); }
-  if (generated) {
-    generated->Graph = std::move(decoded->Graph);
-    return Loaded{.Graph = std::move(*generated), .ReadBytes = loaded->Bytes().size()};
+  if (state.Current_ == Phase::Publish) {
+    if (!state.Package_) {
+      return std::unexpected(std::string("prepared street graph publication is missing"));
+    }
+    ++state.Attempts_;
+    const auto published = Cache_->Publish(*state.Package_);
+    if (!published) { return std::unexpected(published.error()); }
+    state.Current_ = Phase::Restore;
   }
-  return Loaded{.Graph = std::move(*decoded), .Hit = true, .ReadBytes = loaded->Bytes().size()};
+  if (state.Current_ == Phase::Restore) { return Restore(state); }
+  return std::unexpected(std::string("street graph resolution is already complete"));
+}
+
+PreparedStreetGraph::Result PreparedStreetGraph::Resolve(Resolution &state,
+                                                         const Factory &factory,
+                                                         const std::stop_token &stop) {
+  auto resolved = stop.stop_requested()
+                      ? Result(std::unexpected(std::string("street graph candidate canceled")))
+                      : Resume(state, factory, stop);
+  if (stop.stop_requested()) {
+    resolved = std::unexpected(std::string("street graph candidate canceled"));
+  }
+  const auto *error = resolved ? nullptr : std::get_if<AssetCacheError>(&resolved.error());
+  if (error == nullptr || *error != AssetCacheError::Busy) {
+    state.Package_.reset();
+    state.Generated_.reset();
+    state.Current_ = Resolution::Phase::Complete;
+  }
+  return resolved;
 }
 }

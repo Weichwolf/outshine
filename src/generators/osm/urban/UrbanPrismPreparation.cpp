@@ -1,9 +1,10 @@
 #include "UrbanPrismPreparation.h"
-#include "AssetCache.h"
+#include "UrbanPrismPreparationWork.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <mutex>
@@ -14,68 +15,6 @@
 #include <utility>
 
 namespace outshine::Generators::Osm {
-struct UrbanPrismPreparation::Work {
-  Result Value;
-  Costs Measured;
-  std::atomic<bool> Complete{false};
-  std::mutex Mutex;
-  std::condition_variable Landed;
-
-  void Finish() {
-    {
-      const std::scoped_lock lock(Mutex);
-      Complete.store(true, std::memory_order_release);
-    }
-    Landed.notify_all();
-  }
-};
-
-namespace {
-using Preparation = UrbanPrismPreparation;
-
-Preparation::Result
-DecodeProduct(const CachedAsset &loaded, size_t bytesMost, Preparation::Costs &costs) {
-  if (loaded.Record().Kind != "urban-prisms") {
-    return std::unexpected("ready prism demand refers to another asset kind");
-  }
-  costs.ReadBytes += loaded.Bytes().size();
-  auto decoded = DecodeUrbanPrisms(loaded.Bytes(), bytesMost);
-  if (!decoded) { return std::unexpected(std::move(decoded.error())); }
-  return Preparation::Product(std::make_shared<Generators::Osm::UrbanPrisms>(std::move(*decoded)));
-}
-
-Preparation::Result ReadProduct(const AssetCache &cache,
-                                const std::string &request,
-                                size_t bytesMost,
-                                Preparation::Costs &costs) {
-  const auto record = cache.FindRequest(request);
-  if (!record) { return std::unexpected("could not look up ready prism asset"); }
-  if (!*record) { return Preparation::Product{}; }
-  auto loaded = cache.Load((**record).Key, bytesMost);
-  if (!loaded) { return std::unexpected("could not read ready prism asset"); }
-  if (!*loaded) { return Preparation::Product{}; }
-  return DecodeProduct(**loaded, bytesMost, costs);
-}
-
-Preparation::Result BuildProduct(AssetCache &cache,
-                                 const std::string &request,
-                                 size_t bytesMost,
-                                 const AssetFactory &factory,
-                                 std::stop_token stop,
-                                 Preparation::Costs &costs) {
-  const auto bounded = [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-    if (stop.stop_requested()) { return std::unexpected("prism preparation canceled"); }
-    ++costs.Generations;
-    auto package = factory(budget);
-    if (stop.stop_requested()) { return std::unexpected("prism preparation canceled"); }
-    return package;
-  };
-  auto stored = ResolveAssetRequest(cache, request, bytesMost, bounded);
-  if (!stored) { return std::unexpected(std::move(stored.error())); }
-  return DecodeProduct(*stored, bytesMost, costs);
-}
-}
-
 UrbanPrismPreparation::UrbanPrismPreparation(Tasks &pool,
                                              std::string database,
                                              std::string request,
@@ -98,6 +37,12 @@ bool UrbanPrismPreparation::InFlight() const noexcept {
   return Work_ && !Work_->Complete.load(std::memory_order_acquire);
 }
 
+bool UrbanPrismPreparation::HoldsAdmission() const noexcept {
+  if (InFlight()) { return true; }
+  if (Stop_.stop_requested()) { return false; }
+  return Phase_ == Phase::Reading || Phase_ == Phase::Building;
+}
+
 bool UrbanPrismPreparation::AwaitProgress(double seconds) const {
   if (!Work_) { return true; }
   if (!(seconds > 0.0)) { return Work_->Complete.load(std::memory_order_acquire); }
@@ -111,30 +56,29 @@ UrbanPrismPreparation::~UrbanPrismPreparation() {
   Cancel();
 }
 
+void UrbanPrismPreparation::Cancel() noexcept {
+  Stop_.request_stop();
+  if (!InFlight()) {
+    Work_.reset();
+    Pending_.reset();
+    Factory_ = {};
+    Costs_.PublicationBytes = 0;
+  }
+}
+
 void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
   Work_ = std::make_shared<Work>();
+  Work_->Next = operation;
+  Work_->Package = std::exchange(Pending_, std::nullopt);
+  Work_->Factory = factory ? std::move(factory) : std::exchange(Factory_, {});
   auto run = [work = Work_,
               stop = Stop_.get_token(),
               database = Database_,
               request = Request_,
               bytesMost = BytesMost_,
-              operation,
-              factory = std::move(factory)] mutable {
+              operation] {
     const auto began = std::chrono::steady_clock::now();
-    if (stop.stop_requested()) {
-      work->Value = std::unexpected("prism preparation canceled");
-    } else {
-      auto cache = AssetCache::Open(database);
-      if (!cache) {
-        work->Value = std::unexpected("could not open ready prism cache");
-      } else {
-        work->Value =
-            operation == Operation::Read
-                ? ReadProduct(**cache, request, bytesMost, work->Measured)
-                : BuildProduct(**cache, request, bytesMost, factory, stop, work->Measured);
-      }
-    }
-    factory = {};
+    work->Run(database, bytesMost, request, stop);
     const double elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (operation == Operation::Read) {
@@ -146,30 +90,63 @@ void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
   };
   if (Pool_.PostDetached(std::move(run))) { return; }
   Work_->Value = std::unexpected("prism preparation compute queue is closed");
+  Work_->Package.reset();
+  Work_->Factory = {};
   Work_->Finish();
 }
 
-UrbanPrismPreparation::Result UrbanPrismPreparation::Advance(const Capture &capture) {
+void UrbanPrismPreparation::Defer() {
+  const auto exponent = std::min(Retries_, 4U);
+  Retries_ = std::min(Retries_ + 1U, 4U);
+  RetryAt_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(int64_t{1} << exponent);
+}
+
+void UrbanPrismPreparation::Collect() {
+  Result_ = std::move(Work_->Value);
+  Costs_.ReadWorkerMs += Work_->Measured.ReadWorkerMs;
+  Costs_.BuildWorkerMs += Work_->Measured.BuildWorkerMs;
+  Costs_.ReadBytes += Work_->Measured.ReadBytes;
+  Costs_.Generations += Work_->Measured.Generations;
+  Costs_.PublicationPreparations += Work_->Measured.PublicationPreparations;
+  Costs_.PublicationAttempts += Work_->Measured.PublicationAttempts;
+  Pending_ = std::move(Work_->Package);
+  Factory_ = std::move(Work_->Factory);
+  Costs_.PublicationBytes = Pending_ ? Pending_->CapacityBytes() : 0;
+  Next_ = Work_->Next;
+  const bool busy = Work_->Busy;
+  Work_.reset();
+  if (busy) {
+    Defer();
+  } else if (!Result_) {
+    Phase_ = Phase::Failed;
+  } else if (*Result_) {
+    Phase_ = Phase::Ready;
+  } else if (Next_ == Operation::Read) {
+    Phase_ = Phase::Inputs;
+  } else {
+    Phase_ = Phase::Building;
+    Retries_ = 0;
+    RetryAt_ = std::chrono::steady_clock::time_point{};
+  }
+}
+
+UrbanPrismPreparation::Result UrbanPrismPreparation::Advance(const Capture &capture,
+                                                             bool allowWork) {
   if (Stop_.stop_requested()) {
+    Cancel();
     Phase_ = Phase::Failed;
     Result_ = std::unexpected("prism preparation canceled");
   }
   if (Phase_ == Phase::Reading || Phase_ == Phase::Building) {
-    if (!Work_->Complete.load(std::memory_order_acquire)) { return Product{}; }
-    Result_ = std::move(Work_->Value);
-    Costs_.ReadWorkerMs += Work_->Measured.ReadWorkerMs;
-    Costs_.BuildWorkerMs += Work_->Measured.BuildWorkerMs;
-    Costs_.ReadBytes += Work_->Measured.ReadBytes;
-    Costs_.Generations += Work_->Measured.Generations;
-    Work_.reset();
-    if (!Result_) {
-      Phase_ = Phase::Failed;
-    } else {
-      Phase_ = *Result_ ? Phase::Ready : Phase::Inputs;
+    if (InFlight()) { return Product{}; }
+    if (Work_) { Collect(); }
+    if (Phase_ == Phase::Reading || Phase_ == Phase::Building) {
+      if (allowWork && std::chrono::steady_clock::now() >= RetryAt_) { Post(Next_); }
+      return Product{};
     }
   }
   if (Phase_ == Phase::Ready || Phase_ == Phase::Failed) { return Result_; }
-  if (!capture) { return Product{}; }
+  if (!allowWork || !capture) { return Product{}; }
   const auto began = std::chrono::steady_clock::now();
   auto captured = capture(Stop_.get_token());
   Costs_.CaptureMainMs +=

@@ -120,7 +120,8 @@ enum class StructureMeshError {
   AllocationFailed,
   BuildFailed,
   UnsupportedFootprint,
-  PreparedSurfaceUnavailable
+  PreparedSurfaceUnavailable,
+  PreparedSurfaceBusy
 };
 
 struct ProjectedStructureMesh {
@@ -138,6 +139,8 @@ struct ProjectedStructureMesh {
       return "footprint cannot form a supported building mass";
     case StructureMeshError::PreparedSurfaceUnavailable:
       return "prepared building surface could not be loaded";
+    case StructureMeshError::PreparedSurfaceBusy:
+      return "prepared building surface publication is busy";
   }
   return "unknown structure mesh error";
 }
@@ -161,7 +164,7 @@ public:
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
 
-  [[nodiscard]] virtual bool
+  [[nodiscard]] virtual std::expected<bool, StructureMeshError>
   KnownEmptySurface([[maybe_unused]] const StructurePlan &plan) const noexcept {
     return false;
   }

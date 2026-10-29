@@ -6,6 +6,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 
@@ -14,8 +15,9 @@ class ImpostorMetadataRequest {
   struct State;
 
 public:
-  using Resolver = std::function<std::expected<Content::ImpostorViewAssets, std::string>(
-      const std::stop_token &)>;
+  using Resolver =
+      std::function<std::expected<std::optional<Content::ImpostorViewAssets>, std::string>(
+          const std::stop_token &)>;
   // The consumer uses cache as its store-scope identity; workers outlive the request.
   [[nodiscard]] static std::expected<ImpostorMetadataRequest, AssetPublicationError>
   Start(AssetPipeline &pipeline,

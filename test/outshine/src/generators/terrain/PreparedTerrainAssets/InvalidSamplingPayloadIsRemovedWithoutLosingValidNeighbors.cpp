@@ -2,6 +2,7 @@
 #include <string>
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
+#include "StoreGroundPatch.h"
 #include "PreparedGroundPatchCodec.h"
 #include "SourceSet.h"
 #include <array>
@@ -26,7 +27,8 @@ int main() {
   const auto patch = GroundPatch::Complete(Tile(at.Zoom, at.X, at.Y), 2, postings);
   const auto key = assets->PatchKey(at, {}, 2, 13);
   const auto neighbor = assets->PatchKey(at, {}, 2, 12);
-  CHECK(patch && assets->StorePatch(key, at, *patch) && assets->StorePatch(neighbor, at, *patch),
+  CHECK(patch && outshine::Test::StoreGroundPatch(*assets, key, at, *patch) &&
+            outshine::Test::StoreGroundPatch(*assets, neighbor, at, *patch),
         "independent complete sampling requests coexist");
   auto storage = AssetCache::Open((root / "assets/assets.sqlite").string());
   CHECK(storage.has_value(), "fixture can inject a semantically invalid but intact package");
@@ -49,7 +51,7 @@ int main() {
   CHECK(absent && !*absent && preserved && *preserved &&
             (*preserved)->HeightAslM({}) == patch->HeightAslM({}),
         "repair removes only the invalid record and retains neighboring valid products");
-  CHECK(assets->StorePatch(key, at, *patch).has_value(),
+  CHECK(outshine::Test::StoreGroundPatch(*assets, key, at, *patch).has_value(),
         "the miss can atomically replace the damaged product");
   auto repaired = assets->LoadPatch(key, at, 2);
   CHECK(repaired && *repaired && (*repaired)->HeightAslM({}) == patch->HeightAslM({}),

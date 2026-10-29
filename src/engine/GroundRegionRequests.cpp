@@ -88,21 +88,11 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
     World.GroundLookupRequest = std::move(*request);
     World.GroundLookup = std::make_unique<GroundRegionPreparation>(
         *World.Pool,
-        [assets, key = World.GroundLookupRequest](const std::stop_token &stop)
-            -> std::expected<GroundRegionPreparation::Completed, std::string> {
-          if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-          auto loaded = assets->LoadRequest(key);
-          if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-          const auto product = *loaded ? (**loaded).Key : std::string{};
-          return GroundRegionPreparation::Completed{.Key = product,
-                                                    .Loaded = std::move(*loaded),
-                                                    .RequestKey = key,
-                                                    .RequestHit = true,
-                                                    .SurfacePages = nullptr};
-        },
+        GroundRegionPreparation::Lookup(assets, World.GroundLookupRequest),
         World.Stack.RoadAssets());
   }
   if (!World.GroundLookup) { return true; }
+  World.GroundLookup->Advance();
   const auto *result = World.GroundLookup->Peek();
   if (result == nullptr) { return false; }
   if (!*result) { return std::unexpected(result->error()); }
