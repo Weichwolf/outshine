@@ -27,7 +27,8 @@ std::optional<uint64_t> ResidentBytes() noexcept {
   (void)std::fclose(file);
   if (!read) { return {}; }
   const char *const end = line.data() + std::strlen(line.data());
-  uint64_t virtualPages = 0, residentPages = 0;
+  uint64_t virtualPages = 0;
+  uint64_t residentPages = 0;
   const auto first = std::from_chars(line.data(), end, virtualPages);
   if (first.ec != std::errc{}) { return {}; }
   const char *at = first.ptr;
