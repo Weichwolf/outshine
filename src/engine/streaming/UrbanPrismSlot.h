@@ -26,6 +26,7 @@ public:
           Admission admission = Admission::AllowWork);
   void Clear();
   [[nodiscard]] bool InFlight() const noexcept;
+  [[nodiscard]] bool HoldsAdmission() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
 
   [[nodiscard]] const Generators::Osm::UrbanPrismPreparation::Product &Ready() const noexcept {

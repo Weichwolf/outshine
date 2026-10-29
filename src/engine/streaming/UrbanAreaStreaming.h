@@ -37,7 +37,7 @@ public:
   };
 
   struct Counters {
-    size_t Sources = 0, Groups = 0, Resident = 0, InFlight = 0, Missing = 0;
+    size_t Sources = 0, Groups = 0, Resident = 0, InFlight = 0, Admitted = 0, Missing = 0;
     uint64_t Captures = 0, Publications = 0;
   };
 
