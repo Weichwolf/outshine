@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
+from stair_ground_overlay import contact_parts
 from stair_terrain_audit import body_proof, clearance
 from surface_height_checks import normal_gradients
 
@@ -42,10 +43,12 @@ def ground_subdivision(contact, ground, lipschitz):
     children = [[] for _ in polygons]
     max_height_error = 0.0
     candidates = 0
+    overlay_children, overlay_parts, overlay_vertices, overlay_parents = 0, 0, 0, 0
     for xyz in contact.vertices[contact.triangles]:
         shape = shapely.Polygon(xyz[:, :2])
         matched = False
-        for owner in tree.query(shape, predicate="dwithin", distance=guard):
+        owners = tree.query(shape, predicate="dwithin", distance=guard)
+        for owner in owners:
             candidates += 1
             if candidates > 1000000:
                 raise ValueError("whole-contact parent candidate cap exhausted")
@@ -62,7 +65,25 @@ def ground_subdivision(contact, ground, lipschitz):
             max_height_error = max(max_height_error, error)
             matched = True
         if not matched:
-            raise ValueError("ground cap lacks a whole original affine parent")
+            candidates += len(owners)
+            if candidates > 1000000:
+                raise ValueError("whole-contact parent candidate cap exhausted")
+            pieces, error, count = contact_parts(
+                xyz,
+                owners,
+                source,
+                polygons,
+                gradients,
+                radius,
+                sampler.height_tolerance_m,
+            )
+            for owner, part in pieces:
+                children[owner].append(part)
+            max_height_error = max(max_height_error, error)
+            overlay_children += 1
+            overlay_parts += len(pieces)
+            overlay_vertices += count
+            overlay_parents += len(owners)
     for original, parts in zip(polygons, children, strict=True):
         if not parts or not shapely.union_all(parts).buffer(
             radius, quad_segs=32
@@ -78,6 +99,16 @@ def ground_subdivision(contact, ground, lipschitz):
         "maximum_source_facet_grade": source_slope,
         "derived_double_contact_bound_m": max_height_error
         + (lipschitz + source_slope) * radius,
+        **(
+            {
+                "piecewise_overlay_children": overlay_children,
+                "piecewise_overlay_parts": overlay_parts,
+                "piecewise_overlay_vertices": overlay_vertices,
+                "piecewise_overlay_parent_tests": overlay_parents,
+            }
+            if overlay_children
+            else {}
+        ),
     }
 
 
