@@ -11,7 +11,7 @@ import numpy as np
 from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import HeightBudget, fit_surface_heights
-from stair_closed_height_rounding import normalized_grade
+from stair_height_contraction import normalized_grade
 from stair_free_terrain_cost import preload
 from stair_joint_height_fit import fit_joint_levels, level_groups
 from stair_joint_height_rounding import fit_rounded_levels

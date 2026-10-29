@@ -10,7 +10,7 @@ from outshine_ref.transport.heights import (
     _gradient_matrix,
     _gradient_weights,
 )
-from stair_closed_height_rounding import normalized_grade
+from stair_height_contraction import normalized_grade
 from stair_joint_height_fit import level_groups
 
 

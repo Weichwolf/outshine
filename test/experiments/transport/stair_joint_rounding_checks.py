@@ -8,7 +8,7 @@ import numpy as np
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import HeightBudget
 from outshine_ref.transport.level_heights._rounding import repair
-from stair_closed_height_rounding import normalized_grade
+from stair_height_contraction import normalized_grade
 from stair_joint_height_checks import strip
 from stair_joint_height_fit import level_groups
 from stair_joint_height_rounding import fit_rounded_levels
