@@ -11,9 +11,14 @@ Checked<void> AppendEnds(State &state,
                          std::span<const TransportSourceMember> members,
                          std::span<const uint32_t> grounds) {
   if (grounds.empty() || grounds.size() > 2) { return std::unexpected(Error::InvalidCandidate); }
+  if (std::ranges::any_of(grounds, [&](uint32_t ground) { return ground >= members.size(); })) {
+    return std::unexpected(Error::InvalidBinding);
+  }
+  if (grounds.size() == 2 && members[grounds[0]].Node != members[grounds[1]].Node) {
+    return std::unexpected(Error::MissingTopology);
+  }
   for (const auto ground : grounds) {
     if (state.Stop.stop_requested()) { return std::unexpected(Error::Canceled); }
-    if (ground >= members.size()) { return std::unexpected(Error::InvalidBinding); }
     TransportSourceEndTopology end;
     end.Ground = members[ground];
     end.Kind = TransportSourceEndKind::External;

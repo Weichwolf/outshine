@@ -30,8 +30,9 @@ bool TopologyBound(const World::TransportTopology &graph,
     const auto *related = graph.FindEdge(relation.Edge);
     if (topology.Kind == TransportSourceEndKind::External) { return related == nullptr; }
     return topology.Kind != TransportSourceEndKind::SourceNode ||
-           (related != nullptr && Matches(*related, relation) && relation.Layer == ground.Layer &&
-            relation.Bridge == ground.Bridge && relation.Tunnel == ground.Tunnel);
+           (relation.Node == ground.Node && related != nullptr && Matches(*related, relation) &&
+            relation.Layer == ground.Layer && relation.Bridge == ground.Bridge &&
+            relation.Tunnel == ground.Tunnel);
   });
 }
 

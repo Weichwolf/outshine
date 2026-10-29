@@ -6,7 +6,9 @@
 #include "GroundPortField.h"
 #include "GroundPortTerrain.h"
 #include "MvtGroundFieldScope.h"
+#include "MvtGroundFieldScopeInternal.h"
 #include "ScopedGroundSourceFixture.h"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -15,6 +17,7 @@
 #include <optional>
 #include <print>
 #include <ratio>
+#include <stop_token>
 #include <utility>
 #include <variant>
 
@@ -25,6 +28,45 @@ using namespace outshine::Generators::Osm;
 using namespace outshine::Test;
 constexpr std::array<World::TransportEdgeId, 2> kSeeds{
     {{.PathId = 8409897393650800292ULL}, {.PathId = 11909413124558356807ULL}}};
+
+void CheckNodeIncidence(const ScopedGroundFixture::Source &source,
+                        const MvtGroundFieldScope &scope,
+                        const MvtGroundFieldLimits &limits) {
+  const auto end = std::ranges::find(
+      scope.Field.Info.Ends, TransportSourceEndKind::SourceNode, &TransportSourceEndTopology::Kind);
+  CHECK(end != scope.Field.Info.Ends.end() && end->Relations.size() == 1,
+        "the actual qualified two-span field contains one original node connection");
+  if (end == scope.Field.Info.Ends.end() || end->Relations.size() != 1) { return; }
+  std::array members{end->Ground, end->Relations.front()};
+  const std::array<uint32_t, 2> grounds{0, 1};
+  const std::stop_token stop;
+  GroundFieldScopes::State state{.Snapshot = source.Snapshot,
+                                 .Inputs = source.Inputs,
+                                 .Facts = *source.Snapshot.SourceFacts,
+                                 .Limits = limits,
+                                 .Stop = stop,
+                                 .Output = {},
+                                 .NodeOwners = {},
+                                 .EdgeOwners = {},
+                                 .Ways = {},
+                                 .Groups = {},
+                                 .Seen = {},
+                                 .KnownUnknown = {}};
+  CHECK(GroundFieldScopes::AppendEnds(state, members, grounds) &&
+            state.Output.Field.Info.Ends.size() == 2,
+        "the actual portable members qualify both sides of the same native-node connection");
+  state.Output.Field.Info.Ends.clear();
+  const auto &nodes = source.Snapshot.Network->Topology().Nodes();
+  const auto other = std::ranges::find_if(
+      nodes, [&](const auto &node) { return node.SourceNodeId != members.front().Node; });
+  CHECK(other != nodes.end(), "the unchanged source contains a genuinely different native node");
+  if (other == nodes.end()) { return; }
+  members.back().Node = other->SourceNodeId;
+  const auto unconnected = GroundFieldScopes::AppendEnds(state, members, grounds);
+  CHECK(!unconnected && unconnected.error() == MvtGroundFieldError::MissingTopology &&
+            state.Output.Field.Info.Ends.empty(),
+        "a source partition cannot qualify a connection between different native nodes");
+}
 
 std::optional<GroundPortField> Field(ScopedGroundFixture::Source &source,
                                      const std::shared_ptr<const GroundPortTerrain> &terrain,
@@ -53,6 +95,7 @@ std::optional<GroundPortField> Field(ScopedGroundFixture::Source &source,
   CHECK(scoped && scoped->Field.Info.Exits.size() == 2,
         "actual V2 Original/SourceTerminal facts qualify exactly both typed finite field exits");
   if (!scoped) { return {}; }
+  CheckNodeIncidence(source, *scoped, limits);
   std::println("NATIVE_SCOPE ms={} allocations={} requested_bytes={} original_visits={} "
                "qualified_visits={} coverage_tests={} container_capacity_bytes={}",
                elapsed,

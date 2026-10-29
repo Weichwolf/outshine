@@ -130,11 +130,57 @@ void CheckNatural(TransportPlan fixture) {
   CHECK(!ValidateTransportPlan(missing),
         "an endpoint reference cannot exceed its owned source table");
 }
+
+void CheckSourceNodes(TransportPlan fixture) {
+  auto plan = NaturalPlan(std::move(fixture));
+  auto &topology = plan.SourceEnds.front().Topology;
+  topology.Kind = TransportSourceEndKind::SourceNode;
+  topology.Relations = {{.Edge = {.PathId = 42},
+                         .Node = 7,
+                         .PointCount = 2,
+                         .End = 0,
+                         .Terminal = true,
+                         .OwnsEnd = true}};
+  CHECK(Bind(plan), "the opposite-end counterexample has a fully rebuilt input binding");
+  const auto wrong = ValidateTransportPlan(plan);
+  CHECK(!wrong && wrong.error() == TransportPlanCodecError::InvalidSourceEnd,
+        "different actual native nodes cannot declare a SourceNode connection after rehashing");
+  topology.Ground.Node = 7;
+  topology.Ground.End = 0;
+  topology.Relations = {{.Edge = {.PathId = 42, .SegmentOrdinal = 1},
+                         .Node = 7,
+                         .SourceStep = 1,
+                         .PointCount = 3,
+                         .End = 1,
+                         .Terminal = true,
+                         .OwnsEnd = true}};
+  auto &end = plan.SourceEnds.front();
+  end.Anchor = plan.Anchor;
+  end.Contact.Gate = plan.Junctions.front().Gates.front();
+  end.Contact.Plane = plan.Junctions.front().Plane;
+  auto &path = plan.Paths.front();
+  path.Ends = {TransportSourceEndReference{.End = 0}, TransportBoundaryPortReference{.Port = 0}};
+  plan.Stations[path.FirstStation + path.StationCount - 1].Node = 0;
+  CHECK(Bind(plan) && ValidateTransportPlan(plan),
+        "different original segments incident to the same native node retain a valid connection");
+  const auto encoded = EncodeTransportPlan(plan, kTransportFixtureLimits);
+  CHECK(encoded && DecodeTransportPlan(*encoded, kTransportFixtureLimits),
+        "the qualified native-node connection survives the owned codec boundary");
+  auto alias = plan;
+  auto &relation = alias.SourceEnds.front().Topology.Relations.front();
+  relation.Edge.Direction = World::EdgeDirection::Reverse;
+  relation.End = 0;
+  CHECK(Bind(alias) && ValidateTransportPlan(alias) && alias.InputBinding == plan.InputBinding,
+        "the opposite directed alias preserves the same physical native-node incidence");
+}
 }
 
 int main() {
   const auto fixture = outshine::Test::TransportPlanFixture();
   CHECK(fixture.has_value(), "the declared native fixture is available");
-  if (fixture) { CheckNatural(*fixture); }
+  if (fixture) {
+    CheckNatural(*fixture);
+    CheckSourceNodes(*fixture);
+  }
   return outshine::Test::Report();
 }
