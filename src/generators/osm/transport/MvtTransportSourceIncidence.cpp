@@ -164,6 +164,6 @@ std::expected<void, std::string> FillSourceFacts(MvtTransportSourceFacts &facts,
                                       : 0;
   }
   if (auto ways = FillSourceWayFacts(facts, input, stop); !ways) { return ways; }
-  return FillMissingSourceWays(facts, input, stop);
+  return FillMissingSourceWays(facts, input, *mapped, stop);
 }
 }

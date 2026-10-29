@@ -59,7 +59,7 @@ void WriteSourceFacts(std::FILE *f,
   const auto &identity = facts.Network->SourceIdentity();
   std::print(
       f,
-      R"({{"schema":"outshine/native-mvt-source-facts/3","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
+      R"({{"schema":"outshine/native-mvt-source-facts/4","InputSha256":"{}","Tile":[{},{},{}],"NetworkIdentity":{{"DatasetId":"{}","Revision":"{}"}},"SourceGeneration":{},"SourceWayCount":{},"Digest":)",
       field.Tiles().front().InputDigest,
       tile[0],
       tile[1],
@@ -141,6 +141,17 @@ void WriteSourceFacts(std::FILE *f,
       std::print(f, R"(,"LatitudeDeg":)");
       WriteCoordinate(f, missing.Points[i].LatitudeDeg);
       std::print(f, "}}");
+    }
+    std::print(f,
+               R"(],"OriginalWayState":{},"OriginalPoints":[)",
+               static_cast<uint8_t>(missing.OriginalWayState));
+    for (size_t i = 0; i < missing.OriginalPoints.size(); ++i) {
+      const auto &point = missing.OriginalPoints[i];
+      std::print(f,
+                 R"({}{{"State":{},"Group":{}}})",
+                 i != 0 ? "," : "",
+                 static_cast<uint8_t>(point.State),
+                 point.Group);
     }
     std::print(f, "]}}");
   }
