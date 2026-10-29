@@ -1120,8 +1120,12 @@ void CompareOriginals(const Fs::path &root, const Json &input) {
   }
   std::string error;
   const auto began = Clock::now();
-  const auto atlas =
-      Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = 128, .Views = 9}, error);
+  if (input.contains("capture_half_extent_m")) {
+    capture.HalfExtentM = input.at("capture_half_extent_m").get<double>();
+  }
+  const ImpostorAtlasShape shape{.Pixels = input.value("capture_pixels", 128),
+                                 .Views = static_cast<unsigned>(capture.ViewDirections.size())};
+  const auto atlas = Render::ImpostorBaker::Bake(std::move(capture), shape, error);
   if (!atlas) { Fail(error); }
   const double bakeMs = Milliseconds(began);
   const auto encoded = atlas->Encode("native-original-impostor-1", error);
