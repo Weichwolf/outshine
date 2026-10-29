@@ -1,6 +1,6 @@
 #include "MaterialFieldInputData.h"
 #include "MaterialResolution.h"
-#include "MaterialFieldSamples.h"
+#include "MaterialFieldRasterInput.h"
 #include "ImpostorAtlas.h"
 #include <algorithm>
 #include <array>
@@ -34,13 +34,12 @@ MaterialFieldInput::Prepare(Geometry source, Extent raster) {
 std::expected<std::shared_ptr<const MaterialFieldInput>, std::string>
 MaterialFieldInput::Prepare(const ImpostorAtlas &source, size_t view, size_t sourceBytesMost) {
   auto samples =
-      MaterialFieldSamples::Prepare(source, {.View = view, .SourceBytesMost = sourceBytesMost});
+      MaterialFieldRasterInput::Prepare(source, {.View = view, .BytesMost = sourceBytesMost});
   if (!samples) { return std::unexpected(samples.error()); }
   auto data = std::make_unique<Data>();
-  data->Source = std::make_shared<Geometry>(std::move(samples->Source));
   data->Raster = {.WidthPx = source.Pixels(), .HeightPx = source.Pixels()};
   data->Capture = samples->Capture;
-  if (auto ready = data->Prepare(); !ready) { return std::unexpected(std::move(ready.error())); }
+  data->Stored = std::move(*samples);
   return std::shared_ptr<const MaterialFieldInput>(new MaterialFieldInput(std::move(data)));
 }
 

@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_IMPOSTOR_MATERIALFIELDPASSSTATE_H
 #include "MaterialFieldPass.h"
 #include "GeometryRenderer.h"
+#include "MaterialFieldRaster.h"
 #include "RadianceFilter.h"
 #include "RadianceIntegral.h"
 #include "RenderScene.h"
@@ -19,6 +20,7 @@ struct MaterialFieldPipelines {
 
   Native::Device &Device;
   GeometryPipelineBinding Geometry;
+  std::unique_ptr<Native::GraphicsPipeline> Raster;
   RadianceFilter Filter;
   RadianceIntegral Integral;
   std::shared_ptr<Native::Sampler> Sampling;
@@ -33,8 +35,12 @@ struct ResidentMaterialField::Data {
   RenderScene Scene;
   GeometryRenderer Renderer;
   Extent Raster;
+  std::unique_ptr<MaterialFieldRaster> Stored;
   std::optional<Viewpoint> Capture;
   Native::Completion Produced;
+
+  [[nodiscard]] Native::Result<void>
+  Encode(const MaterialFieldView &view, const FrameContext &frame, const PassRecording &recording);
 };
 
 struct MaterialFieldPass::State {
@@ -55,6 +61,10 @@ struct MaterialFieldPass::State {
   std::thread::id Owner;
   std::vector<Pending> InFlight;
   std::optional<Native::Completion> Last;
+
+  [[nodiscard]] Native::Result<void> PrepareGeometry(ResidentMaterialField::Data &source,
+                                                     const MaterialFieldInput &input,
+                                                     Native::Commands &commands) const;
 
   [[nodiscard]] bool OnOwner() const noexcept { return Owner == std::this_thread::get_id(); }
 };

@@ -126,6 +126,22 @@ Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
 
 }
 
+Native::Result<void> ResidentMaterialField::Data::Encode(const MaterialFieldView &view,
+                                                         const FrameContext &frame,
+                                                         const PassRecording &recording) {
+  if (Stored) {
+    return Stored->Encode(
+        *recording.Commands, *Pipelines->Raster, *Pipelines->Sampling, view, frame, Raster);
+  }
+  std::string error;
+  if (!Renderer.SetLights(view.Lights, error)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
+  }
+  Renderer.SetEnvironment(view.Environment);
+  return Renderer.Encode(frame, recording);
+}
+
 Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMaterialField &source,
                                                                const MaterialFieldView &view,
                                                                const std::atomic_bool *stopping) {
@@ -165,12 +181,6 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   auto targets = Targets(device, data->Raster, view);
   if (!targets) { return std::unexpected(targets.error()); }
   auto &[raw, filtered, depth, scratch] = *targets;
-  std::string error;
-  if (!data->Renderer.SetLights(view.Lights, error)) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
-  }
-  data->Renderer.SetEnvironment(view.Environment);
   StageSubmission submission;
   const auto width = static_cast<uint32_t>(data->Raster.WidthPx);
   const auto height = static_cast<uint32_t>(data->Raster.HeightPx);
@@ -186,7 +196,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
        .Depth =
            Native::DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Native::Load::Clear}});
   if (!begun) { return std::unexpected(begun.error()); }
-  auto drawn = data->Renderer.Encode(*frame, recording);
+  auto drawn = data->Encode(view, *frame, recording);
   if (!drawn) { return std::unexpected(drawn.error()); }
   auto ended = (*commands)->EndRenderPass();
   if (!ended) { return std::unexpected(ended.error()); }

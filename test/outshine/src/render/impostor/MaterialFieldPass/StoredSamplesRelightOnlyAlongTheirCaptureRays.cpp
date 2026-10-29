@@ -1,5 +1,5 @@
 #include "MaterialFieldPass.h"
-#include "MaterialFieldSamples.h"
+#include "MaterialFieldRasterInput.h"
 #include "ImpostorAtlas.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
@@ -15,6 +15,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -27,7 +28,16 @@ using namespace outshine::Test::Gpu;
 struct Tracking final : NativeDeviceProxy {
   explicit Tracking(Device &device) : NativeDeviceProxy(device) {}
 
-  size_t Submits = 0;
+  size_t Submits = 0, MeshBuffers = 0;
+
+  Result<std::unique_ptr<Buffer>> CreateBuffer(BufferDescription description,
+                                               std::string_view label = {}) override {
+    if ((static_cast<uint32_t>(description.Use) &
+         static_cast<uint32_t>(BufferUse::Vertex | BufferUse::Index)) != 0) {
+      ++MeshBuffers;
+    }
+    return Backing().CreateBuffer(description, label);
+  }
 
   Result<Completion> Submit(std::unique_ptr<Commands> commands) override {
     ++Submits;
@@ -35,7 +45,7 @@ struct Tracking final : NativeDeviceProxy {
   }
 };
 
-ImpostorAtlas Source() {
+ImpostorAtlas Source(ScatteringModel scattering) {
   ImpostorAtlas::View view;
   view.TowardEye = {{0, 0, 1}};
   view.Texels.resize(16);
@@ -44,21 +54,31 @@ ImpostorAtlas Source() {
     view.Texels[at] = {.Normal = {{.6f, 0, .8f}}, .Depth = at == 0 ? .375f : .625f, .Surface = 1};
     view.Materials[at] = {.BaseColour = {{.12345679f, .23456789f, .3456789f}},
                           .Roughness = .456789f,
-                          .Metalness = .567891f};
+                          .Metalness =
+                              scattering == ScatteringModel::MetallicRoughness ? .567891f : 0};
   }
   std::string error;
-  auto atlas = ImpostorAtlas::Create(4, {}, 2, {Material{}}, {std::move(view)}, error);
+  Material material;
+  material.Scattering = scattering;
+  if (scattering != ScatteringModel::MetallicRoughness) {
+    material.DiffuseTransmission = {{.1f, .2f, .3f}};
+  }
+  auto atlas = ImpostorAtlas::Create(4, {}, 2, {material}, {std::move(view)}, error);
   CHECK(atlas, "independent floating point samples form a valid atlas");
   if (!atlas) { Failed(); }
   return std::move(*atlas);
 }
 
-Geometry Original() {
+Geometry Original(ScatteringModel scattering) {
   Geometry source;
   Material material;
   material.BaseColour = {{.12345679f, .23456789f, .3456789f, 1}};
   material.Roughness = .456789f;
-  material.Metalness = .567891f;
+  material.Metalness = scattering == ScatteringModel::MetallicRoughness ? .567891f : 0;
+  material.Scattering = scattering;
+  if (scattering != ScatteringModel::MetallicRoughness) {
+    material.DiffuseTransmission = {{.1f, .2f, .3f}};
+  }
   const auto row = source.addSurface("original", material);
   CHECK(row, "independent original material is valid");
   if (!row) { Failed(); }
@@ -132,27 +152,30 @@ void SamePixels(Device &device, const MaterialFieldImages &a, const MaterialFiel
   }
 }
 
-void Exercise() {
+void Exercise(ScatteringModel scattering) {
   auto native = Require(CreateDevice({.Validation = true}));
   Tracking device(*native);
   MaterialFieldImages held;
   {
     MaterialFieldPass pass(device);
     Require(pass.Configure());
-    const auto atlas = Source();
-    const auto samples = MaterialFieldSamples::Prepare(atlas, {.View = 0, .SourceBytesMost = 1024});
+    const auto atlas = Source(scattering);
+    const auto samples = MaterialFieldRasterInput::Prepare(atlas, {.View = 0, .BytesMost = 1024});
     CHECK(samples, "capture frame is available without a GPU");
     if (!samples) { Failed(); }
     auto input = MaterialFieldInput::Prepare(atlas, 0, 1024);
     CHECK(input, "stored samples prepare without display simplification or byte repacking");
     if (!input) { Failed(); }
+    const auto meshBuffers = device.MeshBuffers;
     const auto source =
         Require(RetryOffline([&] { return pass.Prepare(*input); }, std::chrono::seconds(5)));
+    CHECK(device.MeshBuffers == meshBuffers,
+          "stored raster upload creates no vertex or index buffers");
     const std::weak_ptr<const MaterialFieldInput> cpu = *input;
     input->reset();
     CHECK(cpu.expired(), "resident samples do not retain their decoded CPU input");
     const auto originalInput =
-        MaterialFieldInput::Prepare(Original(), {.WidthPx = 4, .HeightPx = 4});
+        MaterialFieldInput::Prepare(Original(scattering), {.WidthPx = 4, .HeightPx = 4});
     CHECK(originalInput, "independent original prepares through the existing geometry input");
     if (!originalInput) { Failed(); }
     const auto original = Require(
@@ -165,6 +188,17 @@ void Exercise() {
     view.Lights = lights;
     for (const Vec3f direction : {Vec3f{{0, 0, -1}}, Vec3f{{-.6f, 0, -.8f}}}) {
       lights[0].Light.Direction = direction;
+      held = Require(
+          RetryOffline([&] { return pass.Relight(*source, view); }, std::chrono::seconds(5)));
+      const auto reference = Require(
+          RetryOffline([&] { return pass.Relight(*original, view); }, std::chrono::seconds(5)));
+      SamePixels(device, held, reference);
+    }
+    lights[0].PositionM = {{0, 0, 10}};
+    lights[0].Light.Direction = {{0, 0, -1}};
+    view.Environment.RadianceLinear = {{.1f, .2f, .3f}};
+    for (const auto kind : {LightKind::Point, LightKind::Spot}) {
+      lights[0].Light.Kind = kind;
       held = Require(
           RetryOffline([&] { return pass.Relight(*source, view); }, std::chrono::seconds(5)));
       const auto reference = Require(
@@ -206,7 +240,10 @@ void Exercise() {
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for native sample resources");
-  Exercise();
+  for (const auto scattering :
+       {ScatteringModel::MetallicRoughness, ScatteringModel::DiffuseThinSheet}) {
+    Exercise(scattering);
+  }
   SDL_Quit();
   return Report();
 }
