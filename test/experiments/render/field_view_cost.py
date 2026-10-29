@@ -2,6 +2,7 @@
 
 import argparse
 import gc
+import hashlib
 import json
 import platform
 import subprocess
@@ -82,8 +83,19 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    sources = [
+        Path(__file__).with_name(name)
+        for name in (
+            "field_view_cost.py",
+            "field_view_inputs.py",
+            "field_view_integrals.py",
+            "field_view_sampling.py",
+            "field_view_projection.py",
+            "compare_vertex_field_words.py",
+        )
+    ]
     if subprocess.check_output(
-        ["git", "status", "--porcelain", "--", __file__], text=True
+        ["git", "status", "--porcelain", "--", *map(str, sources)], text=True
     ):
         raise ValueError("Freeze the measured producer before recording costs")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -124,7 +136,11 @@ def main():
     record = {
         "commit": revision,
         "platform": platform.platform(),
+        "python": platform.python_version(),
+        "numpy": np.__version__,
         "field_key": atlas["key"],
+        "raw_view_sha256": atlas["sha256"],
+        "lit_source_sha256": hashlib.sha256(source.tobytes()).hexdigest(),
         "source_texels": n * n,
         "output_pixels": len(lower),
         "profile": [1280, 720],
