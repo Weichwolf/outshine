@@ -8,6 +8,7 @@
 
 namespace outshine::Render {
 
+inline constexpr float kIntegralRadianceScattering = 3;
 inline constexpr size_t kMaterialScalarCount = 40;
 inline constexpr size_t kMaterialUvMatrixFloats = 6;
 inline constexpr size_t kMaterialUvSetFloats = 1;

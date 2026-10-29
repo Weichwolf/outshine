@@ -3,6 +3,7 @@
 #include "MaterialFieldPass.h"
 #include "GeometryRenderer.h"
 #include "RadianceFilter.h"
+#include "RadianceIntegral.h"
 #include "RenderScene.h"
 #include <thread>
 #include <vector>
@@ -17,6 +18,7 @@ struct MaterialFieldPipelines {
   Native::Device &Device;
   GeometryPipelineBinding Geometry;
   RadianceFilter Filter;
+  RadianceIntegral Integral;
   std::shared_ptr<Native::Sampler> Sampling;
   bool Ready = false;
 };
@@ -42,6 +44,7 @@ struct MaterialFieldPass::State {
     Native::Completion Completion;
     std::shared_ptr<ResidentMaterialField::Data> Source;
     MaterialFieldImages Images;
+    std::shared_ptr<Native::Texture> Scratch = nullptr;
   };
 
   std::shared_ptr<MaterialFieldPipelines> Pipelines;

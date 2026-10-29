@@ -50,6 +50,8 @@ Native::Result<void> MaterialFieldPass::Configure() {
   if (!geometry) { return geometry; }
   const auto filtered = pipelines.Filter.Configure(pipelines.Device);
   if (!filtered) { return filtered; }
+  const auto integrated = pipelines.Integral.Configure(pipelines.Device);
+  if (!integrated) { return integrated; }
   auto sampler = pipelines.Device.CreateSampler({.Min = Native::Filter::Nearest,
                                                  .Mag = Native::Filter::Nearest,
                                                  .Mip = Native::Filter::Nearest,
