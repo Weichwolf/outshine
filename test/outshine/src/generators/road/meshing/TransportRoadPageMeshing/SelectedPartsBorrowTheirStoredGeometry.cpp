@@ -85,5 +85,28 @@ int main() {
   plan->Coverage = TransportCoverage::Partial;
   CHECK(!MeshTransportRoadPage(mesher, *plan, selected),
         "unqualified partial data cannot fulfill a complete functional page request");
+  constexpr auto subset = TransportRepresentation::FunctionalSubset;
+  CHECK(!MeshTransportRoadPage(mesher, *plan, selected, {}, subset),
+        "partial coverage under a complete representation does not become an explicit subset");
+  plan->Definition.Representation = subset;
+  plan->Definition.RepresentationVersion = 1;
+  CHECK(!MeshTransportRoadPage(mesher, *plan, selected, {}, subset),
+        "a subset without its declared omissions cannot satisfy the mesher contract");
+  plan->Omissions.push_back({.SourceId = "fixture/omitted",
+                             .Reason = TransportOmissionReason::UnsupportedRepresentation});
+  const auto subsetBody = MeshTransportRoadPage(mesher, *plan, selected, {}, subset);
+  CHECK(subsetBody && body && subsetBody->Mesh.PositionM == body->Mesh.PositionM &&
+            subsetBody->Mesh.NormalM == body->Mesh.NormalM &&
+            subsetBody->Mesh.Index == body->Mesh.Index,
+        "an explicitly qualified subset emits its original body with identical geometry");
+  CHECK(!MeshTransportRoadPage(mesher, *plan, selected),
+        "a valid explicit subset still cannot satisfy the default complete request");
+  CHECK(!MeshTransportRoadPage(mesher, *plan, selected, stopped.get_token(), subset),
+        "the explicit subset obeys the same cancellation boundary");
+  CHECK(!MeshTransportRoadPage(mesher, *plan, duplicate, {}, subset),
+        "the explicit subset cannot duplicate selected geometry");
+  plan->Network.reset();
+  CHECK(!MeshTransportRoadPage(mesher, *plan, selected, {}, subset),
+        "a geometry-only partial plan cannot satisfy a functional subset request");
   return Report();
 }

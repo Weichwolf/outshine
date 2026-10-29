@@ -251,6 +251,9 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE outshine_generators_road)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
+  if(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/SavedSubsetRestoresWithoutSources")
+    target_link_libraries(${target} PRIVATE outshine_engine_streaming)
+  endif()
   if(name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/FunctionalCorePlansKeepOriginalFieldProducts"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/SavedSubsetRestoresWithoutSources"
       OR name STREQUAL "outshine/integration/generators/transport/CanonicalGroundPorts/PreparedNetworksKeepTheirExactSourceSelection"

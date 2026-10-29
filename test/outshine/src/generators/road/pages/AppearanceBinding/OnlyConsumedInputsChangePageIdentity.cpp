@@ -14,6 +14,7 @@
 #include <limits>
 #include <memory>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <utility>
 #include <variant>
@@ -128,6 +129,67 @@ void CheckAddress(const TransportPlanLease &plan) {
       "admission conservatively charges the retained plan capacity separately from physical peaks");
 }
 
+void CheckSubset(const TransportPlan &complete) {
+  constexpr auto representation = TransportRepresentation::FunctionalSubset;
+  auto subset = std::make_shared<TransportPlan>(complete);
+  subset->Definition.Representation = representation;
+  subset->Definition.RepresentationVersion = 1;
+  subset->Coverage = TransportCoverage::Partial;
+  subset->Omissions.push_back({.SourceId = "fixture/omitted",
+                               .Reason = TransportOmissionReason::UnsupportedRepresentation});
+  const auto fullKey = TransportPlanContentKey(complete.Definition, complete.InputBinding);
+  const auto key = TransportPlanContentKey(subset->Definition, subset->InputBinding);
+  CHECK(fullKey && key && *fullKey != *key,
+        "complete and subset plans give their render pages different functional identities");
+  if (!fullKey || !key) { return; }
+  const std::vector<RoadPagePartAppearance> parts{
+      {.Part = {.Kind = RoadPagePartKind::Interval, .Index = 0},
+       .WearsLinear = {{kColour, kColour, kColour}}}};
+  const RoadPageAddress address{.PlanKey = *key,
+                                .MaterialKey = MaterialKey(kColour),
+                                .MaterialIndex = 0,
+                                .Anchor = subset->Anchor,
+                                .Level = 0,
+                                .Parts = {parts[0].Part},
+                                .Appearance = RoadPageAppearanceV2{RoadPageAppearanceKey(parts)}};
+  CHECK(!TransportRoadPageProducer::Bind(subset, address, parts),
+        "a qualified subset still cannot bind the default complete producer");
+  const auto bound = TransportRoadPageProducer::Bind(subset, address, parts, representation);
+  CHECK(bound.has_value(), "only an explicit matching representation binds the subset producer");
+  if (!bound) { return; }
+  const RoadPageRequest request{
+      .Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = kLimit};
+  subset.reset();
+  const auto mesh = bound->Produce(request, {});
+  CHECK(mesh && !mesh->Mesh.Index.empty(),
+        "the bound producer retains its immutable plan after the caller releases its lease");
+  std::stop_source stopped;
+  stopped.request_stop();
+  CHECK(!bound->Produce(request, stopped.get_token()),
+        "an explicit subset cannot emit a canceled page");
+  auto changed = request;
+  changed.Address.PlanKey = *fullKey;
+  CHECK(!bound->Produce(changed, {}),
+        "a subset producer cannot fulfill the equivalent complete page address");
+  subset = std::make_shared<TransportPlan>(complete);
+  CHECK(!TransportRoadPageProducer::Bind(subset, address, parts, representation),
+        "an explicit subset request cannot consume a complete plan lease");
+  subset->Definition.Representation = representation;
+  subset->Definition.RepresentationVersion = 1;
+  subset->Coverage = TransportCoverage::Partial;
+  CHECK(!TransportRoadPageProducer::Bind(subset, address, parts, representation),
+        "a partial representation without explicit omissions remains invalid");
+  subset->Omissions.push_back({.SourceId = "fixture/omitted",
+                               .Reason = TransportOmissionReason::UnsupportedRepresentation});
+  subset->Definition.RepresentationVersion = 2;
+  CHECK(!TransportRoadPageProducer::Bind(subset, address, parts, representation),
+        "an unknown subset version cannot alias the supported functional contract");
+  subset->Definition.RepresentationVersion = 1;
+  subset->Network.reset();
+  CHECK(!TransportRoadPageProducer::Bind(subset, address, parts, representation),
+        "geometry-only data cannot bind the functional subset producer");
+}
+
 void CheckPalette() {
   const auto bindings = [] {
     return std::array{
@@ -149,7 +211,10 @@ void CheckPalette() {
 int main() {
   const auto fixture = TransportPlanFixture();
   CHECK(fixture.has_value(), "the existing complete functional fixture is available");
-  if (fixture) { CheckAddress(std::make_shared<const TransportPlan>(*fixture)); }
+  if (fixture) {
+    CheckAddress(std::make_shared<const TransportPlan>(*fixture));
+    CheckSubset(*fixture);
+  }
   CheckPalette();
   return Report();
 }

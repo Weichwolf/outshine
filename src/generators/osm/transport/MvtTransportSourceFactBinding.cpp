@@ -85,15 +85,15 @@ template <class Hash> void WriteFacts(Hash &hash, const MvtTransportSourceFacts 
 std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
   Sha256Stream hash;
   WriteFacts(hash, facts);
-  if (const auto digest = hash.Finish()) {
-    return *digest;
-  }
+  if (const auto digest = hash.Finish()) { return *digest; }
   Sha256Prefix fallback(nullptr, 0);
   WriteFacts(fallback, facts);
   return fallback.Digest(nullptr, 0);
 }
 
-void BindSourceFacts(MvtTransportSourceFacts &facts) { facts.Digest = SourceFactDigest(facts); }
+void BindSourceFacts(MvtTransportSourceFacts &facts) {
+  facts.Digest = SourceFactDigest(facts);
+}
 
 std::array<uint8_t, 32> GroundInputOmissionDigest(std::span<const MvtTransportOmission> omissions) {
   constexpr std::string_view kVersion = "outshine/mvt-ground-omissions/1";

@@ -1,6 +1,12 @@
 #include "CanonicalGroundFieldFixture.h"
 #include "GroundPortPlan.h"
 #include "PreparedTransportPlans.h"
+#include "PreparedRoadPages.h"
+#include "TransportRoadPageProducer.h"
+#include "RoadPageQueue.h"
+#include "RoadPublicationFixture.h"
+#include "GeometryProductCodec.h"
+#include "Sha256.h"
 #include "BinaryValueArchive.h"
 #include "ReadTextFile.h"
 #include "Check.h"
@@ -8,15 +14,20 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <ios>
 #include <memory>
 #include <optional>
+#include <ratio>
 #include <spawn.h>
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <utility>
+#include <variant>
 #include <sys/wait.h>
 #include <system_error>
 #include <unistd.h>
@@ -76,6 +87,106 @@ std::optional<Replay> ReadRequest(const std::string &directory) {
       .Binding = binding};
 }
 
+void BuildRoadPages(const TransportPlanLease &plan, const std::string &directory) {
+  Geometry materials;
+  CHECK(materials.addSurface("streets", Material{}), "a native material binds the offline page");
+  const auto material = EncodeGeometryProduct(materials, kLimits.PackageBytesMost);
+  const auto key = TransportPlanContentKey(plan->Definition, plan->InputBinding);
+  auto opened = PreparedRoadPages::Open(directory);
+  CHECK(material && key && opened && !plan->Paths.empty(),
+        "the restored actual subset has selectable paths and an existing page store");
+  if (!material || !key || !opened || plan->Paths.empty()) { return; }
+  std::vector<RoadPagePartAppearance> parts;
+  RoadPageAddress address{.PlanKey = *key,
+                          .MaterialKey = Sha256Hex(material->data(), material->size()),
+                          .MaterialIndex = 0,
+                          .Anchor = plan->Anchor,
+                          .Level = 0,
+                          .Parts = {},
+                          .Appearance = LegacyRoadPageV1{}};
+  for (size_t index = 0; index < plan->Paths.size(); ++index) {
+    const RoadPagePart part{.Kind = RoadPagePartKind::Interval,
+                            .Index = static_cast<uint32_t>(index)};
+    address.Parts.push_back(part);
+    parts.push_back({.Part = part, .WearsLinear = {{.5f, .5f, .5f}}});
+  }
+  address.Appearance = RoadPageAppearanceV2{RoadPageAppearanceKey(parts)};
+  CHECK(!TransportRoadPageProducer::Bind(plan, address, parts),
+        "the actual persisted subset cannot bind a complete road page producer");
+  auto bound = TransportRoadPageProducer::Bind(
+      plan, address, parts, TransportRepresentation::FunctionalSubset);
+  CHECK(bound.has_value(), "the actual persisted subset binds only its explicit page contract");
+  if (!bound) { return; }
+  auto producer = std::make_shared<const TransportRoadPageProducer>(std::move(*bound));
+  const auto inputBytes = producer->InputCapacityBytes();
+  const std::shared_ptr<PreparedRoadPages> pages(std::move(*opened));
+  Tasks tasks(1);
+  const auto publications = RoadPublications(tasks);
+  RoadPageQueue queue(
+      tasks, pages, {.PendingMost = 1, .PageBytesMost = kLimits.PackageBytesMost}, publications);
+  const RoadPageRequest request{.Address = address,
+                                .Parent = {},
+                                .RequestKey = {},
+                                .NativeBytesMost = kLimits.PackageBytesMost};
+  const auto began = std::chrono::steady_clock::now();
+  const auto admitted = queue.RequestRecord(request, producer);
+  CHECK(admitted && *admitted, "the existing bounded queue admits the stored subset producer");
+  if (!admitted || !*admitted) { return; }
+  producer.reset();
+  std::vector<RoadPageQueue::Completed> done;
+  const auto deadline = began + std::chrono::seconds(5);
+  do {
+    done = queue.Collect();
+    if (done.empty()) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+  } while (done.empty() && std::chrono::steady_clock::now() < deadline);
+  CHECK(done.size() == 1 && done[0].Result && *done[0].Result,
+        "the real page consumer completes after the caller releases its producer");
+  if (done.size() != 1) { return; }
+  const auto &result = done.front().Result;
+  if (!result || !*result) { return; }
+  const auto queueMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  const auto *receipt = std::get_if<RoadPageQueue::Receipt>(&**result);
+  CHECK(receipt && *receipt && (**receipt).Key == RoadPageKey(address),
+        "bounded publication yields the exact subset page content address");
+  const auto readBegan = std::chrono::steady_clock::now();
+  const auto loaded = pages->Load(address, kLimits.PackageBytesMost);
+  const auto readMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - readBegan)
+          .count();
+  CHECK(loaded && *loaded && !(**loaded).Page->Geometry.Mesh.Index.empty() &&
+            (**loaded).Page->Geometry.Parts == address.Parts,
+        "all selected actual body parts survive native meshing and page persistence");
+  const auto warmBegan = std::chrono::steady_clock::now();
+  const auto hit = pages->Prepare(request);
+  const auto warmMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - warmBegan)
+          .count();
+  CHECK(hit && hit->Key == RoadPageKey(address),
+        "the warm subset page needs neither a producer nor another plan operation");
+  std::ofstream output(std::filesystem::path(directory) / "page-key", std::ios::binary);
+  output << RoadPageKey(address);
+  output.close();
+  CHECK(output.good(), "only the exact page key passes to another source-free process");
+  Note("subset_page_queue_elapsed_ms", queueMs, "ms");
+  Note("subset_page_read_elapsed_ms", readMs, "ms");
+  Note("subset_page_warm_prepare_elapsed_ms", warmMs, "ms");
+  Note("subset_page_producer_input_capacity", static_cast<double>(inputBytes), "B");
+  if (hit) { Note("subset_page_package_bytes", static_cast<double>(hit->ByteCount), "B"); }
+}
+
+int PageHit(const std::string &directory) {
+  const auto key = ReadTextFile((std::filesystem::path(directory) / "page-key").string(), 64);
+  auto pages = PreparedRoadPages::Open(directory);
+  CHECK(key && pages, "a separate process opens only page metadata and the existing asset store");
+  if (!key || !pages) { return Report(); }
+  const auto page = (*pages)->LoadKey(*key, kLimits.PackageBytesMost);
+  CHECK(page && *page && !(**page).Page->Geometry.Mesh.Index.empty() &&
+            !(**page).Page->Geometry.Parts.empty(),
+        "a fresh page hit needs no source, functional plan decode, or live planning job");
+  return Report();
+}
+
 int Offline(const std::string &directory) {
   const auto request = ReadRequest(directory);
   auto cache = PreparedTransportPlans::Open(directory);
@@ -106,6 +217,7 @@ int Offline(const std::string &directory) {
   const auto refused = (*cache)->BindRequest(full, **hit);
   CHECK(!refused && refused.error() == TransportPlanAssetError::WrongProduct,
         "a valid subset receipt cannot bind the complete contract");
+  BuildRoadPages((**hit).Plan, directory);
   return Report();
 }
 
@@ -176,8 +288,8 @@ void Prepare(const std::string &directory) {
         "the declared request binds the actual stored product and small replay metadata");
 }
 
-bool Spawn(const char *executable, const std::string &directory) {
-  std::array<std::string, 3> values{executable, "--offline", directory};
+bool Spawn(const char *executable, const std::string &directory, const char *mode) {
+  std::array<std::string, 3> values{executable, mode, directory};
   std::array<char *, 4> arguments{values[0].data(), values[1].data(), values[2].data(), nullptr};
 #ifdef __APPLE__
   char *const *const environment = *_NSGetEnviron();
@@ -195,6 +307,7 @@ bool Spawn(const char *executable, const std::string &directory) {
 
 int main(int argc, char **argv) {
   if (argc == 3 && std::string_view(argv[1]) == "--offline") { return Offline(argv[2]); }
+  if (argc == 3 && std::string_view(argv[1]) == "--pages") { return PageHit(argv[2]); }
   const auto directory = std::filesystem::temp_directory_path() /
                          ("outshine-ground-subset-replay-" + std::to_string(getpid()));
   std::error_code error;
@@ -202,8 +315,10 @@ int main(int argc, char **argv) {
   CHECK(!error, "the actual subset has a private asset directory");
   if (error) { return Report(); }
   Prepare(directory.string());
-  CHECK(Spawn(argv[0], directory.string()),
+  CHECK(Spawn(argv[0], directory.string(), "--offline"),
         "a fresh process restores the actual subset without loading original fields");
+  CHECK(Spawn(argv[0], directory.string(), "--pages"),
+        "a second fresh process restores only the completed native road page");
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "the private replay store is removed after all processes release");
   return Report();
