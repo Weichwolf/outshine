@@ -159,6 +159,8 @@ private:
   ReadBasisInput(BasisRead &read, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
   FinishBasisRequest(BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
+  RetireBasisBinding(const AssetRecord &binding, BasisRead &read);
   [[nodiscard]] Basis LoadResidentBasis(const AssetRecord &record);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadCachedBasis(const std::string &key, std::optional<AssetRecord> &record);

@@ -108,6 +108,9 @@ public:
   // Missing bindings may be repaired; an existing different target wins.
   [[nodiscard]] std::expected<bool, AssetCacheError>
   BindRequestIfUnbound(std::string_view key, std::string_view requestKey);
+  // Removes only this observed binding; changed bindings and target products survive.
+  [[nodiscard]] std::expected<bool, AssetCacheError>
+  UnbindRequestIfMatches(const AssetRecord &binding);
 
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;

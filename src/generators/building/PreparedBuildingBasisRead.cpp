@@ -148,12 +148,11 @@ PreparedBuildingAssets::ReadBasisRequest(const std::string &requestKey,
   if (!found) { return std::unexpected(CacheFailure(found.error())); }
   if (*found) {
     auto record = std::move(**found);
-    record.RequestKey.reset();
-    if (record.Kind != "building-basis" || record.Key != BasisKey(record.Parent)) {
-      ++BasisMisses_;
-      read = BasisRead{};
-      return std::optional<RequestedBasis>{};
+    if (record.Kind != "building-basis" || record.Parent.empty() ||
+        record.Key != BasisKey(record.Parent)) {
+      return RetireBasisBinding(record, read);
     }
+    record.RequestKey.reset();
     if (auto resident = LoadResidentBasis(record)) {
       ++BasisResidentHits_;
       read = BasisRead{};
@@ -182,6 +181,30 @@ PreparedBuildingAssets::ReadBasisRequest(const std::string &requestKey,
     return std::optional<RequestedBasis>{};
   }
   return FinishBasisRequest(read, stopping);
+}
+
+std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
+PreparedBuildingAssets::RetireBasisBinding(const AssetRecord &binding, BasisRead &read) {
+  if (!binding.RequestKey) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  if (!read.State_ || !read.State_->Key.empty() || read.State_->Binding != binding) {
+    read = BasisRead{};
+    read.State_ = std::make_unique<BasisRead::State>();
+    read.State_->RequestKey = *binding.RequestKey;
+    read.State_->Binding = binding;
+    read.State_->BindingPending = true;
+  }
+  const auto removed = [&] {
+    const auto lock = std::scoped_lock(Lock_);
+    return Cache_->UnbindRequestIfMatches(binding);
+  }();
+  if (!removed) { return std::unexpected(CacheFailure(removed.error())); }
+  if (*removed) {
+    ++BasisMisses_;
+    read = BasisRead{};
+  }
+  return std::optional<RequestedBasis>{};
 }
 
 std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
