@@ -159,6 +159,36 @@ class PlaceHeightTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Elevation([record]).sample(0, 0)
 
+    def test_single_tile_broadcast_repeated_positions_and_empty_shape(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
+            fine = stored(root, ((100, 110), (120, 130)), (1, 1, 1))
+            elevation = Elevation([fine])
+            latitude = np.array(((0,), (-66.51326044311186,)))
+            longitude = np.array((0, 90, 0, 90))
+            height, zoom = elevation.sample_with_zoom(latitude, longitude)
+            np.testing.assert_allclose(
+                height, ((100, 105, 100, 105), (110, 115, 110, 115)), atol=3e-14
+            )
+            np.testing.assert_array_equal(zoom, np.ones((2, 4), dtype=np.int16))
+            scalar, scalar_zoom = elevation.sample_with_zoom(0, 0)
+            self.assertEqual(scalar.shape, ())
+            self.assertEqual((float(scalar), int(scalar_zoom)), (100, 1))
+            height, zoom = elevation.sample_with_zoom(np.empty((2, 0)), 0)
+            self.assertEqual(height.shape, (2, 0))
+            self.assertEqual(zoom.shape, (2, 0))
+
+    def test_tile_boundaries_keep_missing_child_fallback_and_query_order(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
+            coarse = stored(root, np.full((2, 2), 13), name="coarse")
+            northwest = stored(root, np.full((2, 2), 41), (1, 0, 0), "northwest")
+            southeast = stored(root, np.full((2, 2), 44), (1, 1, 1), "southeast")
+            elevation = Elevation([coarse, southeast, northwest])
+            latitude = np.array((0.001, -0.001, 0.001, -0.001, 0, 0))
+            longitude = np.array((-0.001, 0.001, 0.001, -0.001, 0, -0.001))
+            height, zoom = elevation.sample_with_zoom(latitude, longitude)
+            np.testing.assert_array_equal(height, (41, 44, 13, 13, 44, 13))
+            np.testing.assert_array_equal(zoom, (1, 1, 0, 0, 1, 0))
+
 
 class PlaceSourceTests(unittest.TestCase):
     def test_retained_bytes_no_automatic_network_refresh_and_pinned_hash(self):
