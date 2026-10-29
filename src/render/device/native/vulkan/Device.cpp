@@ -1,5 +1,6 @@
 #ifdef __linux__
 #include "Recording.h"
+#include "VulkanGraphics.h"
 #include <print>
 #include <expected>
 #include <algorithm>
@@ -38,7 +39,7 @@ struct CompletedTiming {
 class VulkanDevice final : public Device {
 public:
   VulkanDevice(std::shared_ptr<Context> context, std::unique_ptr<Presenter> presenter)
-      : Context_(std::move(context)), Presenter_(std::move(presenter)) {}
+      : Context_(std::move(context)), Graphics_(Context_), Presenter_(std::move(presenter)) {}
 
   ~VulkanDevice() override {
     assert(OnOwner(*Context_));
@@ -98,7 +99,7 @@ public:
   [[nodiscard]] Result<std::unique_ptr<GraphicsPipeline>>
   CreateGraphicsPipeline(const GraphicsDescription &description) override {
     if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
-    return CreateGraphics(Context_, description);
+    return Graphics_.Create(description);
   }
 
   [[nodiscard]] Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override {
@@ -306,6 +307,7 @@ private:
   static constexpr uint32_t kMaxLiveRecordings = 8;
   static constexpr size_t kRetainedTimings = 8;
   std::shared_ptr<Context> Context_;
+  GraphicsPrograms Graphics_;
   std::unique_ptr<Presenter> Presenter_;
   std::deque<Pending> Pending_;
   std::vector<CompletedTiming> Timings_;

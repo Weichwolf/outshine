@@ -3,9 +3,21 @@ file(STRINGS "${PROJECT_SOURCE_DIR}/test/world-gate.txt" gate_scopes)
 file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/test/outshine/integration/*.cpp")
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  list(FILTER cases EXCLUDE REGEX "/native/vulkan/PresentLease/")
+  list(FILTER cases EXCLUDE REGEX "/native/vulkan/(PresentLease|GraphicsPrograms)/")
 endif()
 add_custom_target(outshine_tests)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  foreach(probe IN ITEMS NativeDescriptorProbe NativeDepthClampProbe VulkanWorkProfilePresence)
+    add_executable(test_harness_${probe} EXCLUDE_FROM_ALL
+      "${PROJECT_SOURCE_DIR}/test/harness/render/${probe}.cpp")
+    target_include_directories(test_harness_${probe} PRIVATE
+      "${PROJECT_SOURCE_DIR}"
+      "${PROJECT_SOURCE_DIR}/test/harness/shared"
+      "${PROJECT_SOURCE_DIR}/src/render/device/native/vulkan")
+    target_compile_options(test_harness_${probe} PRIVATE -fno-exceptions)
+    target_link_libraries(test_harness_${probe} PRIVATE outshine_render_device)
+  endforeach()
+endif()
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
 set(pipeline_test_shaders ${OUTSHINE_SHADER_ARTIFACTS})
@@ -63,6 +75,25 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/device/native/vulkan/GraphicsPrograms/LivingProgramsKeepIndependentWrappersAndFences")
+    set(graphics_reuse_shaders "")
+    foreach(stage IN ITEMS vert frag)
+      set(output "${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${output}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/graphics-reuse.${stage}" -o "${output}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/graphics-reuse.${stage}"
+        VERBATIM)
+      list(APPEND graphics_reuse_shaders "${output}")
+    endforeach()
+    add_custom_target(test_graphics_reuse_shaders DEPENDS ${graphics_reuse_shaders})
+    add_dependencies(${target} test_graphics_reuse_shaders)
+    target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_GRAPHICS_VERTEX=\"${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.vert.spv\""
+      "OUTSHINE_GRAPHICS_FRAGMENT=\"${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.frag.spv\"")
+  endif()
   if(name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema" AND CMAKE_DL_LIBS)
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
   endif()
