@@ -118,16 +118,6 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   (void)gpu.SceneColours.Add(Resource::SceneLinear);
   auto attached = source->Renderer.AttachPipelines(state.Pipelines->Geometry, gpu);
   if (!attached) { return std::unexpected(attached.error()); }
-  auto depth = device.CreateTexture({.Width = static_cast<uint32_t>(source->Raster.WidthPx),
-                                     .Height = static_cast<uint32_t>(source->Raster.HeightPx),
-                                     .Texels = Native::Format::Depth32Float,
-                                     .Use = Native::TextureUse::DepthAttachment});
-  if (!depth) { return std::unexpected(depth.error()); }
-  if (!*depth) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
-                                         .Message = "material field has no depth target"});
-  }
-  source->Depth = std::move(*depth);
   const auto mesh = input->Data_->Mesh();
   std::string error;
   if (!source->Renderer.ValidateMaterials(input->Data_->Materials, error)) {
