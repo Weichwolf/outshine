@@ -105,6 +105,24 @@ The qualified114-source module preserves all28 previous body assets,193 arrays
 and982785 array bytes exactly. Generator8.202s/145956864B peak RSS; independent
 reader10.475s/172707840B, under concurrent work. These whole-generation/reader
 times are separate from candidate selection and are not frame/device claims.
+
+Unchanged whole consumers, frozen at0616308c2, independently confirm114 transport
+sources,65 actual Buildings and four whole SITE plants from394 habitat parts and
+1024 proposals, using the prior `--order boundary` policy (four attempts).
+All four plant world origins remain equal. One building's86 vertices move only
+in Z by-0.105266204m as its terrain support changes; all other building array
+fields, its XY/topology and complete volume/contact checks remain intact.
+The initial nearest-default invocation is retained as a compact0/128 control,
+not substituted for the matched four-plant comparison.
+
+Actual private contact before/after, whole Buildings and whole Plants PNGs were
+rendered and opened at1280x720/16samples. The new whole footway is visibly present;
+128980/921600 contact pixels change,23138 by more than1/255, mean RGB channel
+error0.314456/255 (including changed terrain shading). Sparse/coarse terrain,
+pointed local soil facets, simple family materials and open outer source ends
+remain visible limitations. Whole plants occupy very few pixels in this camera;
+complete emitted geometry and readers establish their presence, not image size.
+
 Source/world/routing authority, worldwide coverage, generic regional physical
 contract #717, native implementation, UMA reserve and both devices' p99 remain
 open. The Outshine research goal continues after this packet.
