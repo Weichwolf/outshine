@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "origin_lat_lon": [
+    48.242427962074906,
+    16.386505365371704
+  ],
+  "query_xy_m": [
+    [
+      -540.8739612603823,
+      290.61838010459405
+    ],
+    [
+      -587.0073285443561,
+      301.3376263889254
+    ],
+    [
+      -601.3245804600721,
+      232.25768459390957
+    ],
+    [
+      -618.8234439126139,
+      258.85753169143754
+    ]
+  ],
+  "origin": "Fixed test query follows the original axis in the independently checked through-root case; source and port selection are performed by the discovery procedure."
+}

@@ -1,4 +1,4 @@
-"""Explicit ordinary-ground eligibility and actual cached-interior seed binding."""
+"""Explicit ordinary-ground eligibility and bounded actual cached-profile recipes."""
 
 from collections import defaultdict
 
@@ -6,8 +6,8 @@ import numpy as np
 import shapely
 from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 from stair_frontier_endpoints import endpoint_bindings
+from stair_frontier_roots import root_seeds
 from stair_module_inputs import reference_profiles
-from stair_module_roots import root_profile
 
 
 def reason(source, cached, domain, profiles):
@@ -41,7 +41,9 @@ def reason(source, cached, domain, profiles):
 def records_for(state, sources):
     xy = state["plan"]["xy"]
     domain = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
-    cached = set(state["report"]["candidate_source_ids"])
+    cached = set(
+        state.get("resident_source_ids", state["report"]["candidate_source_ids"])
+    )
     profiles = reference_profiles()
     records = []
     for key in sorted(sources):
@@ -57,35 +59,6 @@ def records_for(state, sources):
             }
         )
     return records
-
-
-def root_seeds(state, sources, records, *, max_profiles=64):
-    if type(max_profiles) is not int or not 0 <= max_profiles <= 64:
-        raise ValueError("bounded actual profile probe capacity required")
-    endpoints = defaultdict(list)
-    for row in records:
-        if row["eligible"]:
-            for end in (0, -1):
-                endpoints[tuple(row["nodes"][end])].append(row["source_id"])
-    roots, deferred = [], []
-    for key in sorted(state.get("cached_module_rows", {})):
-        for vertex, node in enumerate(sources[key]["mvt_xy"][1:-1], 1):
-            if tuple(node) not in endpoints:
-                continue
-            port = {"source_id": key, "vertex": vertex}
-            root_id = key + "@" + str(vertex)
-            if len(roots) + len(deferred) >= max_profiles:
-                deferred.append(
-                    {"root_id": root_id, "reason": "verified_seed_probe_budget"}
-                )
-                continue
-            try:
-                root_profile(state, {"port": port, "contact_mode": "profile"}, sources)
-            except ValueError as error:
-                deferred.append({"root_id": root_id, "reason": str(error)})
-                continue
-            roots.append({"root_id": root_id, "node": node, "port": port})
-    return roots, deferred
 
 
 def contact_bindings(state, sources, root, keys):
@@ -116,6 +89,8 @@ def contact_bindings(state, sources, root, keys):
 
 def module_recipe(reference, state, sources, root, proposal):
     keys = proposal["source_ids"]
+    if root.get("initial_source_id", keys[0]) != keys[0]:
+        raise ValueError("whole-source prefix must retain its explicit first source")
     profiles = {
         key: "unclassified"
         for key in keys
@@ -135,9 +110,14 @@ def module_recipe(reference, state, sources, root, proposal):
         "contact_mode": "profile",
         "traffic_mode": "source_clearance",
         "junction_mode": "level_box",
+        **({"terrain_layout_mode": "free_region"} if root.get("endpoint") else {}),
         "interior_contacts": interiors,
         **({"endpoint_contacts": endpoints} if endpoints else {}),
-        "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory.",
+        "scope": (
+            "Automatically proposed whole original ground sources at a verified cached outer profile; whole geometry admission remains mandatory."
+            if root.get("endpoint")
+            else "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory."
+        ),
     }
 
 
