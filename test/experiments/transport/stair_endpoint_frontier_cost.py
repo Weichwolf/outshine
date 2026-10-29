@@ -50,7 +50,8 @@ def run(args):
         raise ValueError(
             "Successful actual automatic study for the same query required"
         )
-    state, sources, _, _, manifest = query_context(args)
+    context = query_context(args)
+    state, sources, manifest = context.state, context.sources, context.manifest
     records = records_for(state, sources)
     roots, deferred = root_seeds(state, sources, records)
     if (

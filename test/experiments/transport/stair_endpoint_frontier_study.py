@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +16,19 @@ from stair_local_context import state_for_axes
 from stair_local_replay import load_chain
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
+
+
+@dataclass(frozen=True)
+class QueryContext:
+    state: dict
+    sources: dict
+    reference: dict
+    work: dict
+    manifest: dict
+    view: object
+    assets: tuple
 
 
 def query_context(args):
@@ -49,15 +62,16 @@ def query_context(args):
     )
     state["resident_source_ids"] = manifest["source_ids"]
     ref = {k: query[k] for k in ("reference_fixture", "reference_fixture_sha256")}
-    return state, sources, ref, work, manifest
+    return QueryContext(state, sources, ref, work, manifest, view, assets)
 
 
 def select(args, *, method="index"):
-    state, sources, ref, work, manifest = query_context(args)
+    context = query_context(args)
+    state, sources, manifest = context.state, context.sources, context.manifest
     plan, records, roots, deferred, recipes = proposals(
-        state, sources, ref, method=method, strategy="prefix"
+        state, sources, context.reference, method=method, strategy="prefix"
     )
-    return {
+    result = {
         "plan": plan,
         "roots": roots,
         "deferred": deferred,
@@ -65,10 +79,36 @@ def select(args, *, method="index"):
         "source_count": len(records),
         "eligible_sources": sum(r["eligible"] for r in records),
         "before_source_ids": manifest["source_ids"],
-        "context": work,
+        "context": context.work,
         "resident_sha256": manifest["root_resident_sha256"],
         "parent_reports": manifest["parent_reports"],
     }
+    if not recipes:
+        xy = state["plan"]["xy"]
+        bounds = np.r_[xy.min(axis=0), xy.max(axis=0)]
+        seeds = select_seed(
+            context.view,
+            context.assets,
+            manifest,
+            sources,
+            context.reference,
+            method=method,
+            requested_bounds=bounds,
+        )
+        result.update(
+            plan=seeds["plan"],
+            roots=seeds["roots"],
+            recipes=seeds["recipes"],
+            deferred=[*deferred, *seeds["deferred_profiles"]],
+            family="seed",
+            eligible_sources=seeds["eligible_sources"],
+            attached_eligible_sources=result["eligible_sources"],
+            attached_verified_roots=len(roots),
+            fallback_reason="no_qualified_attached_recipe",
+            requested_bounds_xy_m=seeds["requested_bounds_xy_m"],
+            seed_work=seeds["seed_work"],
+        )
+    return result
 
 
 def child_command(args, output, fixture, script):
@@ -176,6 +216,8 @@ def run(args):
         "attempts": attempts,
         "chosen_module": chosen,
         "valid_automatic_module": chosen is not None,
+        **({"valid_retained_baseline": True} if chosen is None else {}),
+        **({"selection_family": selection["family"]} if "family" in selection else {}),
         "source_dispositions": source_dispositions(selection["plan"], attempts, chosen),
         "scope": "Bounded whole-source proposals from the original geometric request; each actual product independently read. No native/routing/world/device admission.",
     }
