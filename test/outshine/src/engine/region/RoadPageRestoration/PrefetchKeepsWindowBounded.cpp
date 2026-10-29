@@ -1,3 +1,4 @@
+#include "StoreRoadManifest.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
 #include "RoadPageRestoration.h"
@@ -73,7 +74,7 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
                                .Level = 0,
                                .Parts = address.Parts});
   }
-  auto key = pages->StoreManifest(*manifest);
+  auto key = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   if (!key) { return std::nullopt; }
   return Fixture{
       .Pages = std::move(pages), .Manifest = std::move(manifest), .Key = std::move(*key)};

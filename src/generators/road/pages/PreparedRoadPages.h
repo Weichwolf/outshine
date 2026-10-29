@@ -7,21 +7,57 @@
 #include "RoadPageProduct.h"
 #include "RoadPageProducer.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <stop_token>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <variant>
+#include <utility>
+#include <vector>
 
 namespace outshine::Generators {
 class PreparedRoadPages {
 public:
   static constexpr size_t ManifestBytesMost = size_t{8} * 1024u * 1024u;
 
-  [[nodiscard]] std::expected<std::string, std::string>
-  StoreManifest(const RoadPageManifest &manifest);
-  [[nodiscard]] std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, std::string>
+  using Failure = std::variant<AssetCacheError, std::string>;
+
+  class ManifestWrite {
+  public:
+    [[nodiscard]] const std::string &Key() const noexcept { return Key_; }
+
+    // Prepared bytes; the dependency snapshot has an independent owner until checked.
+    [[nodiscard]] size_t PublicationBytes() const noexcept { return Package_.CapacityBytes(); }
+
+  private:
+    friend class PreparedRoadPages;
+
+    struct Dependency {
+      std::string Key;
+      uint64_t ByteCount = 0;
+      uint32_t Level = 0;
+    };
+
+    ManifestWrite(std::string key, PreparedAssetWrite package, std::vector<Dependency> dependencies)
+        : Dependencies_(std::move(dependencies)),
+          Key_(std::move(key)),
+          Package_(std::move(package)) {}
+
+    std::vector<Dependency> Dependencies_;
+    std::string Key_;
+    PreparedAssetWrite Package_;
+    size_t NextDependency_ = 0;
+    bool DependenciesReady_ = false, Committed_ = false;
+  };
+
+  [[nodiscard]] std::expected<ManifestWrite, Failure>
+  PrepareManifest(const RoadPageManifest &manifest);
+  [[nodiscard]] std::expected<std::string, Failure> StoreManifest(ManifestWrite &write,
+                                                                  const std::stop_token &stop = {});
+  [[nodiscard]] std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, Failure>
   LoadManifest(const std::string &key);
   [[nodiscard]] std::expected<void, std::string> InvalidateManifest(const std::string &key);
 
@@ -42,8 +78,6 @@ public:
 
 private:
   explicit PreparedRoadPages(std::unique_ptr<AssetCache> cache);
-  [[nodiscard]] std::expected<bool, std::string>
-  ManifestReady(const RoadPageManifest &manifest) const;
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, std::string>
   Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
   [[nodiscard]] std::expected<std::optional<AssetRecord>, std::string>

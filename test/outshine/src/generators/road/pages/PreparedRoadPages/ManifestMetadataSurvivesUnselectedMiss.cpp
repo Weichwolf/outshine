@@ -1,3 +1,4 @@
+#include "StoreRoadManifest.h"
 #include "PreparedRoadPageFixture.h"
 #include "Earth.h"
 #include "ControlledRoadPageProducer.h"
@@ -76,7 +77,7 @@ void CheckRemoval(PreparedRoadPages &pages,
   const auto selected = pages.LoadKey(manifest.Pages[0].Key, kLimit);
   CHECK(selected && *selected,
         "selected native payload remains independently readable after the unrelated eviction");
-  CHECK(!pages.StoreManifest(manifest),
+  CHECK(!::outshine::Test::StoreRoadManifest(pages, manifest),
         "publication still requires all promised native dependencies to exist");
   const auto absent = pages.LoadKey(manifest.Pages[1].Key, kLimit);
   CHECK(absent && !*absent, "a needed missing payload remains an explicit ordinary miss");
@@ -103,9 +104,10 @@ int main() {
   CHECK(pages.has_value(), "the native road page service opens");
   const auto manifest = pages ? Prepare(**pages) : std::nullopt;
   CHECK(manifest.has_value(), "two independently stored native pages prepare shared metadata");
-  const auto key = manifest
-                       ? (*pages)->StoreManifest(*manifest)
-                       : std::expected<std::string, std::string>(std::unexpected("no fixture"));
+  const auto key =
+      manifest
+          ? ::outshine::Test::StoreRoadManifest(**pages, *manifest)
+          : std::expected<std::string, PreparedRoadPages::Failure>(std::unexpected("no fixture"));
   CHECK(key.has_value(), "a complete manifest publishes before any eviction");
   auto cache = AssetCache::Open((directory / "assets.sqlite").string());
   CHECK(cache.has_value(), "the underlying native cache opens for a controlled eviction");
