@@ -1,6 +1,8 @@
 #include "BuildingSourceCapture.h"
 #include "BuildingSourceView.h"
 #include "BuildingPlaneCapture.h"
+#include "BuildingMeshConversion.h"
+#include "ImpostorViewFrame.h"
 #include "BuildingSurfaceBlock.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructureTile.h"
@@ -168,7 +170,38 @@ void SaveGeometry(const Geometry &geometry, const Fs::path &path) {
   if (!description) { Fail("source mesh description write failed"); }
 }
 
-ImpostorAtlas CapturePlaneViews(const BuildingSourceView &producer,
+std::expected<Geometry, std::string> PlaneGeometry(const Raised &raised,
+                                                   const BuildingCaptureFrame &frame,
+                                                   const std::array<Material, 3> &materials) {
+  Geometry geometry;
+  for (const auto &material : materials) {
+    if (!geometry.addSurface("original-source", material)) {
+      return std::unexpected("invalid building source material");
+    }
+  }
+  const std::array parts{BuildingMeshPart{.Vertices = raised.WallCorners,
+                                          .Indices = raised.WallRun,
+                                          .Colours = raised.WallColours,
+                                          .MaterialM = raised.WallMaterialM},
+                         BuildingMeshPart{.Vertices = raised.RoofCorners,
+                                          .Indices = raised.RoofRun,
+                                          .Colours = {},
+                                          .MaterialM = {}}};
+  for (size_t at = 0; at < parts.size(); ++at) {
+    if (parts[at].Vertices.empty()) { continue; }
+    const int material = at == 0 && !parts[at].MaterialM.empty() ? 2 : static_cast<int>(at);
+    auto mesh = ConvertBuildingMesh(parts[at], frame.Axes, frame.Origin);
+    if (!mesh) { return std::unexpected(std::string(mesh.error())); }
+    const auto part = geometry.addPart("source-plane", MaterialInstance(material));
+    if (!part || !geometry.adoptMesh(*part, *mesh)) {
+      return std::unexpected("invalid building source plane geometry");
+    }
+  }
+  return geometry;
+}
+
+ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
+                                const Frame &frame,
                                 const Render::ImpostorCapture &metadata,
                                 const Render::ImpostorCaptureProjection &projection,
                                 int pixels,
@@ -180,21 +213,28 @@ ImpostorAtlas CapturePlaneViews(const BuildingSourceView &producer,
   std::vector<ImpostorAtlas::View> views;
   std::vector<Material> materials;
   for (const auto &direction : metadata.ViewDirections) {
+    const auto began = Clock::now();
+    const auto screen = ImpostorViewFrame::From(direction);
+    if (!screen) { Fail("invalid building source direction"); }
     auto sampled =
-        producer.Capture({.Centre = projection.Centre,
-                          .TowardEye = direction,
+        producer.Capture({.Centre = frame.Origin + frame.SourceDirection(projection.Centre),
+                          .TowardEye = frame.SourceDirection(direction),
                           .HalfExtentM = projection.HalfExtentM,
-                          .Pixels = static_cast<uint32_t>(pixels)},
+                          .Pixels = static_cast<uint32_t>(pixels),
+                          .Frame = ImpostorViewFrame{.Right = frame.SourceDirection(screen->Right),
+                                                     .Up = frame.SourceDirection(screen->Up)}},
                          {.Samples = static_cast<uint64_t>(pixels) * static_cast<uint64_t>(pixels),
-                          .SourceTests = sourceTests},
-                         CaptureMaterials());
-    if (!sampled) { Fail(sampled.error().Message); }
+                          .SourceTests = sourceTests});
+    if (!sampled) { Fail("building source capture failed"); }
+    const auto conversion = Clock::now();
+    auto converted = PlaneGeometry(sampled->Mesh, frame, CaptureMaterials());
+    if (!converted) { Fail(converted.error()); }
     Render::ImpostorCapture capture;
     capture.LeastM = metadata.LeastM;
     capture.MostM = metadata.MostM;
     capture.HalfExtentM = projection.HalfExtentM;
     capture.ViewDirections = {direction};
-    auto geometry = std::move(sampled->Mesh);
+    auto geometry = std::move(*converted);
     const auto conversionDone = Clock::now();
     if (geometryOutput != nullptr) {
       SaveGeometry(geometry, *geometryOutput / "geometry" / std::to_string(views.size()));
@@ -218,8 +258,9 @@ ImpostorAtlas CapturePlaneViews(const BuildingSourceView &producer,
          {"source_tests", sampled->SourceTests},
          {"triangles", triangles},
          {"vertices", vertices},
-         {"source_ms", sampled->SamplingMs},
-         {"conversion_ms", sampled->ConversionMs},
+         {"source_ms", std::chrono::duration<double, std::milli>(conversion - began).count()},
+         {"conversion_ms",
+          std::chrono::duration<double, std::milli>(conversionDone - conversion).count()},
          {"export_ms",
           std::chrono::duration<double, std::milli>(captureStarted - conversionDone).count()},
          {"capture_ms",
@@ -238,7 +279,10 @@ ImpostorAtlas CapturePlaneViews(const BuildingSourceView &producer,
 }
 
 struct BuildingSourceCapture::State {
-  std::optional<BuildingSourceView> Producer;
+  std::shared_ptr<const PreparedStructureTile> Base;
+  std::optional<BuildingSourceView> Source;
+  std::optional<BuildingPlaneCapture> RayCapture;
+  Frame Coordinates;
   Render::ImpostorCapture Metadata;
   Render::ImpostorCaptureProjection Projection;
   int Pixels = 0;
@@ -313,7 +357,9 @@ struct BuildingSourceCapture::State {
                 {"least", {bounds.Min[0], bounds.Min[1], bounds.Min[2]}},
                 {"most", {bounds.Max[0], bounds.Max[1], bounds.Max[2]}},
                 {"half_extent_m", projection->HalfExtentM}};
-    Producer = std::move(*producer);
+    Base = base;
+    Source = std::move(*producer);
+    Coordinates = frame;
     Metadata = std::move(metadata);
     Projection = *projection;
     Pixels = pixels;
@@ -348,9 +394,9 @@ const Json &BuildingSourceCapture::Report() const {
 std::expected<void, std::string> BuildingSourceCapture::ExportOriginals(
     BuildingSourceBudget budget, const Fs::path &output, const std::stop_token &stop) {
   auto &state = *State_;
-  if (!state.Producer) { return std::unexpected("source hierarchy is unavailable"); }
+  if (!state.Source) { return std::unexpected("source hierarchy is unavailable"); }
   const auto began = Clock::now();
-  const auto mesh = state.Producer->Originals(budget, CaptureMaterials(), stop);
+  const auto mesh = state.Source->Originals(budget, CaptureMaterials(), stop);
   Json result{{"generation_ms", Milliseconds(began)}, {"success", mesh.has_value()}};
   if (!mesh) {
     result["error"] = mesh.error().Message;
@@ -402,8 +448,19 @@ ImpostorAtlas BuildingSourceCapture::Capture(std::optional<size_t> view,
       }};
   Render::ImpostorBaker baker(submission);
   state.Report["views"] = Json::array();
-  if (!state.Producer) { Fail("source hierarchy is unavailable"); }
-  return CapturePlaneViews(*state.Producer,
+  if (!state.Source) { Fail("original source view is unavailable"); }
+  if (!state.RayCapture) {
+    std::vector<const BuildingSurface *> surfaces;
+    surfaces.reserve(state.Source->Sources().size());
+    for (const auto ordinal : state.Source->Sources()) {
+      surfaces.push_back(&state.Base->Surfaces[ordinal]);
+    }
+    auto planes = BuildingPlaneCapture::Prepare(surfaces);
+    if (!planes) { Fail("building source hierarchy unavailable"); }
+    state.RayCapture = std::move(*planes);
+  }
+  return CapturePlaneViews(*state.RayCapture,
+                           state.Coordinates,
                            metadata,
                            state.Projection,
                            state.Pixels,
