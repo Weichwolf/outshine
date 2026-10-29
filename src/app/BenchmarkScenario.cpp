@@ -188,6 +188,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   }
   const auto hardwareAt = Clock::now();
   report.Cpu = HostProcessorName();
+  report.Memory = ReadProcessMemory();
   report.Gpu = engine.renderer().gpuName();
   report.HardwareMs = ElapsedMs(hardwareAt);
   report.LoadAfter = HostLoad();

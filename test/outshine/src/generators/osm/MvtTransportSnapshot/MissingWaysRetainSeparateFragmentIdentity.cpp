@@ -174,7 +174,7 @@ int main() {
   expected.erase(duplicate.begin(), duplicate.end());
   CHECK(expected.size() == 2 && expected[0] != expected[1],
         "complete topology gives the absent source ways distinct existing identities");
-  auto partial = streets.Without(0).Without(1);
+  const auto partial = streets.Without(0).Without(1);
   const auto graph = StreetGraphBuilder::BuildOneShot(
       partial, field.Points(), [](LongitudeLatitude) -> std::optional<double> { return 0.0; });
   CHECK(graph.Graph && graph.Graph->WayCount() == 1,
