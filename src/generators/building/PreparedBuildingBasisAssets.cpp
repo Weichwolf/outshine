@@ -22,26 +22,12 @@ std::string PreparedBuildingAssets::BasisKey(const std::string &key) {
   return Sha256Hex("prepared-building-basis-2/" + key);
 }
 
-std::expected<void, StructureBakeError>
-PreparedBuildingAssets::StoreBasis(const std::string &key,
-                                   const Box &bounds,
-                                   const PreparedBuildingBasis &basis,
-                                   const std::string &requestKey) {
-  auto prepared = PrepareBasis(key, bounds, basis, requestKey);
-  if (!prepared) { return std::unexpected(prepared.error()); }
-  const std::scoped_lock lock(Lock_);
-  const auto published = Cache_->Publish(*prepared);
-  if (!published) { return std::unexpected(CacheFailure(published.error())); }
-  ResidentBases_.erase(BasisKey(key));
-  ++BasisWrites_;
-  return {};
-}
-
 std::expected<PreparedAssetWrite, StructureBakeError>
 PreparedBuildingAssets::PrepareBasis(const std::string &key,
                                      const Box &bounds,
                                      const PreparedBuildingBasis &basis,
                                      const std::string &requestKey) {
+  ++BasisPreparations_;
   auto bytes = EncodePreparedBuildingBasis(basis);
   if (!bytes || bytes->size() > kPackageBytesMost) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
@@ -101,7 +87,7 @@ PreparedBuildingAssets::BindBasisRequest(const std::string &key, const std::stri
 }
 
 std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
-PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::string &requestKey) {
+PreparedBuildingAssets::LoadCachedBasis(const std::string &key) {
   const std::scoped_lock lock(Lock_);
   std::optional<PreparedBuildingBasis> basis;
   auto loaded = Cache_->LoadValidated(
@@ -115,11 +101,6 @@ PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::strin
   }
   if (!*loaded || !basis) { return Basis{}; }
   const auto &record = (**loaded).Record();
-  if (!requestKey.empty()) {
-    const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
-    if (!bound) { return std::unexpected(CacheFailure(bound.error())); }
-    if (!*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
-  }
   ++BasisHits_;
   BasisReadBytes_ += (**loaded).Bytes().size();
   auto product = std::make_shared<const PreparedBuildingBasis>(std::move(*basis));
@@ -131,21 +112,6 @@ PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::strin
                                     ResidentBasis{.Record = record, .Product = product});
   }
   return product;
-}
-
-std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
-PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &requestKey) {
-  auto cached = LoadCachedBasis(key, requestKey);
-  if (!cached) { return std::unexpected(cached.error()); }
-  if (*cached) { return cached; }
-  ++BasisMisses_;
-  const auto base = Load(key);
-  if (!base) { return std::unexpected(base.error()); }
-  if (!*base) { return Basis{}; }
-  auto basis = std::make_shared<const PreparedBuildingBasis>(PreparedBuildingBasis::Of(**base));
-  const auto stored = StoreBasis(key, Bounds(**base), *basis, requestKey);
-  if (!stored) { return std::unexpected(stored.error()); }
-  return basis;
 }
 
 std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>

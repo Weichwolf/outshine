@@ -297,6 +297,8 @@ private:
         Result;
     std::string ContentKey;
     Generators::PreparedBuildingAssets::Basis HeldBasis;
+    Generators::PreparedBuildingAssets::BasisRead Read;
+    std::atomic_bool Stopping{false};
     unsigned Retries = 0;
     std::chrono::steady_clock::time_point RetryAt;
     uint64_t BasisWrites = 0;

@@ -44,6 +44,21 @@ public:
     uint64_t Attempts_ = 0;
   };
 
+  class BasisRead {
+  public:
+    BasisRead() noexcept;
+    BasisRead(BasisRead &&) noexcept;
+    BasisRead &operator=(BasisRead &&) noexcept;
+    ~BasisRead();
+    // Inspect only between worker steps; a pending owner keeps its lookup admission.
+    [[nodiscard]] bool Pending() const noexcept;
+
+  private:
+    friend class PreparedBuildingAssets;
+    struct State;
+    std::unique_ptr<State> State_;
+  };
+
   struct GeometryWrite {
     std::string Key;
     PreparedAssetWrite Package;
@@ -62,7 +77,7 @@ public:
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
     uint64_t GeometryPreparations = 0, BasePreparations = 0, BasePackagePreparations = 0;
-    uint64_t LegacyPreparations = 0;
+    uint64_t LegacyPreparations = 0, BasisPreparations = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -81,6 +96,9 @@ public:
   LoadBasisRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadBasis(const std::string &key, const std::string &requestKey = {});
+  // One bounded read/preparation/publication step. Empty + Pending means resume.
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  ReadBasis(const std::string &key, BasisRead &read, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<void, StructureBakeError>
   BindBasisRequest(const std::string &key, const std::string &requestKey);
   // True means no usable basis remains; false preserves a concurrently repaired base.
@@ -132,13 +150,9 @@ private:
   static constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kResidentBasisEntriesMost = 256;
   [[nodiscard]] static std::string BasisKey(const std::string &key);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreBasis(const std::string &key,
-             const Box &bounds,
-             const PreparedBuildingBasis &basis,
-             const std::string &requestKey = {});
   [[nodiscard]] std::expected<Basis, StructureBakeError>
-  LoadCachedBasis(const std::string &key, const std::string &requestKey);
+  ReadBasisInput(BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<Basis, StructureBakeError> LoadCachedBasis(const std::string &key);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
 
@@ -191,7 +205,7 @@ private:
   std::unordered_map<std::string, ResidentBasis> ResidentBases_;
   SurfaceCosts SurfaceCosts_;
   std::atomic_uint64_t BasisHits_{0}, BasisMisses_{0}, BasisWrites_{0}, BasisReadBytes_{0};
-  std::atomic_uint64_t LegacyPreparations_{0};
+  std::atomic_uint64_t LegacyPreparations_{0}, BasisPreparations_{0};
   std::atomic_uint64_t BasisResidentHits_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},

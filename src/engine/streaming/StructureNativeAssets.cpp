@@ -1,6 +1,7 @@
 #include "StructureBuildQueue.h"
 #include "PreparedBuildingAssets.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -15,19 +16,29 @@
 namespace outshine {
 size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
   return static_cast<size_t>(std::ranges::count_if(NativeLookups_, [](const auto &entry) {
-    return entry.second->Task != Tasks::kNoTask || entry.second->Stage == NativeLookup::Phase::Bind;
+    return entry.second->Task != Tasks::kNoTask ||
+           entry.second->Stage == NativeLookup::Phase::Bind || entry.second->Read.Pending();
   }));
 }
 
 void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
                                            const std::string &request,
                                            NativeLookup &lookup) {
+  const auto cancel = [&lookup] {
+    lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
+    lookup.HeldBasis.reset();
+    lookup.Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  };
+  if (lookup.Stopping.load(std::memory_order_relaxed)) {
+    cancel();
+    return;
+  }
   if (lookup.Stage == NativeLookup::Phase::Request) {
     lookup.Result = cache.LoadBasisRequest(request);
     return;
   }
   if (!lookup.HeldBasis) {
-    auto basis = cache.LoadBasis(lookup.ContentKey);
+    auto basis = cache.ReadBasis(lookup.ContentKey, lookup.Read, lookup.Stopping);
     if (!basis) {
       lookup.Result = std::unexpected(basis.error());
       return;
@@ -38,6 +49,10 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
     }
     lookup.HeldBasis = std::move(*basis);
   }
+  if (lookup.Stopping.load(std::memory_order_relaxed)) {
+    cancel();
+    return;
+  }
   lookup.Stage = NativeLookup::Phase::Bind;
   const auto bound = cache.BindBasisRequest(lookup.ContentKey, request);
   if (!bound) {
@@ -47,6 +62,7 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
   lookup.Result = cache.LoadBasisRequest(request);
   if (lookup.Result) {
     lookup.HeldBasis.reset();
+    lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
     lookup.Stage = NativeLookup::Phase::Content;
   }
 }
@@ -85,7 +101,8 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
   const auto running = static_cast<size_t>(std::ranges::count_if(
       NativeLookups_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; }));
   if (running >= kCandidateWindow ||
-      (lookup.Stage != NativeLookup::Phase::Bind && PendingBasisLookups() >= kCandidateWindow)) {
+      (lookup.Stage != NativeLookup::Phase::Bind && !lookup.Read.Pending() &&
+       PendingBasisLookups() >= kCandidateWindow)) {
     return nullptr;
   }
   StartNativeLookup(cache, request, lookup);
@@ -98,7 +115,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   if (found != NativeLookups_.end()) {
     const auto &previous = *found->second;
     if (previous.Task == Tasks::kNoTask && previous.Stage == NativeLookup::Phase::Request &&
-        previous.Result && !*previous.Result &&
+        previous.Result && !*previous.Result && !previous.Read.Pending() &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
       NativeLookups_.erase(found);
       found = NativeLookups_.end();
@@ -110,7 +127,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     if (NativeLookups_.size() >= kLookupsMost) {
       const auto idle = std::ranges::find_if(NativeLookups_, [](const auto &entry) {
         return entry.second->Task == Tasks::kNoTask &&
-               entry.second->Stage != NativeLookup::Phase::Bind;
+               entry.second->Stage != NativeLookup::Phase::Bind && !entry.second->Read.Pending();
       });
       if (idle == NativeLookups_.end()) { return nullptr; }
       NativeLookups_.erase(idle);
@@ -133,6 +150,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
       return RetryNativeLookup(cache, request, lookup);
     }
   }
+  if (lookup.Result && lookup.Read.Pending()) { return RetryNativeLookup(cache, request, lookup); }
   return &lookup;
 }
 
@@ -230,6 +248,7 @@ bool StructureBuildQueue::SelectNativeBasis(
     return false;
   }
   if (PendingBasisLookups() >= kCandidateWindow) { return false; }
+  lookup.Read = Generators::PreparedBuildingAssets::BasisRead{};
   lookup.Stage = NativeLookup::Phase::Content;
   lookup.ContentKey = key;
   lookup.StreetDigest = *digest;

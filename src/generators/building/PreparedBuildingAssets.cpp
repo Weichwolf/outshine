@@ -194,6 +194,7 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed),
           .BasePreparations = BasePreparations_.load(std::memory_order_relaxed),
           .BasePackagePreparations = BasePackagePreparations_.load(std::memory_order_relaxed),
-          .LegacyPreparations = LegacyPreparations_.load(std::memory_order_relaxed)};
+          .LegacyPreparations = LegacyPreparations_.load(std::memory_order_relaxed),
+          .BasisPreparations = BasisPreparations_.load(std::memory_order_relaxed)};
 }
 }
