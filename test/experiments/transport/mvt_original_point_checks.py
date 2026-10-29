@@ -6,6 +6,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest.mock import patch
 
@@ -183,6 +184,32 @@ def controlled_pair(destination, change=None):
 
 
 class OriginalPointReader(unittest.TestCase):
+    def test_actual_native_v4_pair_and_all_original_points(self):
+        fixture = FIXTURE.with_name("original-point-source-facts")
+        source, groups, _, binding, _ = load_bridge_source_facts(fixture)
+        rows = source.binding["missing_original_ways"]
+        self.assertEqual(len(rows), 41)
+        self.assertEqual(Counter(row["OriginalWayState"] for row in rows), {1: 41})
+        points = [point for row in rows for point in row["OriginalPoints"]]
+        self.assertEqual(Counter(point["State"] for point in points), {2: 74, 1: 8})
+        for row in rows:
+            self.assertEqual(len(row["OriginalPoints"]), len(row["Points"]))
+            self.assertEqual(len(row["OriginalPoints"]), row["Way"]["PointCount"])
+        for point in points:
+            if point["State"] == 2:
+                self.assertLess(point["Group"], len(groups))
+            else:
+                self.assertEqual(point["Group"], UNKNOWN)
+        self.assertEqual(
+            binding["source_facts_digest"],
+            "3a8f50ed7948e639f6cb9b28301949f1809d37f1ccc380fc1807a34811af9610",
+        )
+        self.assertEqual(
+            source.binding["source_facts_digest"], binding["source_facts_digest"]
+        )
+        with self.assertRaises(TypeError):
+            points[0]["State"] = 0
+
     def test_invalid_or_unbound_states_fail_before_source_preparation(self):
         def downgrade(facts):
             facts["schema"] = "outshine/native-mvt-source-facts/3"
