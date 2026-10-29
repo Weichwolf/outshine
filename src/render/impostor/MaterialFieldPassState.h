@@ -28,7 +28,6 @@ struct ResidentMaterialField::Data {
   std::shared_ptr<MaterialFieldPipelines> Pipelines;
   RenderScene Scene;
   GeometryRenderer Renderer;
-  std::unique_ptr<Native::Texture> Depth;
   Extent Raster;
   Native::Completion Produced;
 };

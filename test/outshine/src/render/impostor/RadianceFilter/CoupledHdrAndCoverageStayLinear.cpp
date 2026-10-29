@@ -23,11 +23,11 @@ using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 constexpr uint32_t kWidth = 128, kHeight = 64;
 
-std::vector<float> SourcePixels() {
-  std::vector<float> result(size_t{kWidth} * kHeight * 4);
-  for (uint32_t y = 0; y < kHeight; ++y) {
-    for (uint32_t x = 0; x < kWidth; ++x) {
-      const size_t at = (size_t{y} * kWidth + x) * 4;
+std::vector<float> SourcePixels(uint32_t width = kWidth, uint32_t height = kHeight) {
+  std::vector<float> result(size_t{width} * height * 4);
+  for (uint32_t y = 0; y < height; ++y) {
+    for (uint32_t x = 0; x < width; ++x) {
+      const size_t at = (size_t{y} * width + x) * 4;
       const float alpha = static_cast<float>((x + y * 3) % 5) / 4;
       result[at] = alpha * static_cast<float>(x % 31) / 2;
       result[at + 1] = alpha * static_cast<float>(y % 17) / 4;
@@ -38,35 +38,68 @@ std::vector<float> SourcePixels() {
   return result;
 }
 
-std::unique_ptr<Texture> Source(Device &device, std::span<const float> pixels) {
-  const auto bytes = uint64_t{kWidth} * kHeight * 8;
+std::unique_ptr<Texture> Source(Device &device,
+                                std::span<const float> pixels,
+                                uint32_t width = kWidth,
+                                uint32_t height = kHeight) {
+  const auto bytes = uint64_t{width} * height * 8;
   auto staging = Require(device.CreateBuffer(
       {.Bytes = bytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
   const auto mapped = Require(device.MapWrite(*staging, {.Bytes = bytes}));
-  CHECK(SDL_ConvertPixels(kWidth,
-                          kHeight,
+  CHECK(SDL_ConvertPixels(width,
+                          height,
                           SDL_PIXELFORMAT_RGBA128_FLOAT,
                           pixels.data(),
-                          kWidth * 16,
+                          width * 16,
                           SDL_PIXELFORMAT_RGBA64_FLOAT,
                           mapped.data(),
-                          kWidth * 8),
+                          width * 8),
         "dyadic HDR samples encode exactly in the source half format");
   Require(device.Unmap(*staging));
   auto texture =
-      Require(device.CreateTexture({.Width = kWidth,
-                                    .Height = kHeight,
+      Require(device.CreateTexture({.Width = width,
+                                    .Height = height,
                                     .Texels = Format::Rgba16Float,
                                     .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
   auto commands = Require(device.Begin());
   Require(commands->Copy(
       *staging,
       *texture,
-      {.RowBytes = uint64_t{kWidth} * 8, .Region = {.Width = kWidth, .Height = kHeight}}));
+      {.RowBytes = uint64_t{width} * 8, .Region = {.Width = width, .Height = height}}));
   const auto submitted = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(submitted, std::chrono::seconds(5))) == CompletionStatus::Ready,
         "fixture upload completes within its offline deadline");
   return texture;
+}
+
+struct Pixel {
+  uint32_t X, Y;
+};
+
+std::array<double, 4> AreaAverage(std::span<const float> pixels,
+                                  const TextureDescription &from,
+                                  const TextureDescription &to,
+                                  Pixel pixel) {
+  std::array<double, 4> sum{};
+  for (uint32_t row = 0; row < from.Height; ++row) {
+    const int64_t down =
+        std::max(int64_t{0},
+                 std::min(int64_t{row + 1} * to.Height, int64_t{pixel.Y + 1} * from.Height) -
+                     std::max(int64_t{row} * to.Height, int64_t{pixel.Y} * from.Height));
+    if (down == 0) { continue; }
+    for (uint32_t column = 0; column < from.Width; ++column) {
+      const int64_t across =
+          std::max(int64_t{0},
+                   std::min(int64_t{column + 1} * to.Width, int64_t{pixel.X + 1} * from.Width) -
+                       std::max(int64_t{column} * to.Width, int64_t{pixel.X} * from.Width));
+      const auto at = (size_t{row} * from.Width + column) * 4;
+      for (size_t channel = 0; channel < 4; ++channel) {
+        sum[channel] += pixels[at + channel] * static_cast<double>(across * down);
+      }
+    }
+  }
+  for (auto &value : sum) { value /= static_cast<double>(from.Width) * from.Height; }
+  return sum;
 }
 
 void Compare(Device &device,
@@ -96,19 +129,12 @@ void Compare(Device &device,
                           actual.data(),
                           static_cast<int>(width * 16)),
         "the selected GPU footprint decodes without changing its HDR format");
-  const uint32_t across = kWidth / width;
-  const uint32_t down = kHeight / height;
   for (uint32_t y = 0; y < height; ++y) {
     for (uint32_t x = 0; x < width; ++x) {
-      std::array<double, 4> sum{};
-      for (uint32_t row = y * down; row < (y + 1) * down; ++row) {
-        for (uint32_t column = x * across; column < (x + 1) * across; ++column) {
-          const auto at = (size_t{row} * kWidth + column) * 4;
-          for (size_t channel = 0; channel < 4; ++channel) { sum[channel] += pixels[at + channel]; }
-        }
-      }
+      const auto average =
+          AreaAverage(pixels, source.Description(), destination->Description(), {.X = x, .Y = y});
       for (size_t channel = 0; channel < 4; ++channel) {
-        const double expected = sum[channel] / (across * down);
+        const double expected = average[channel];
         const float value = actual[(size_t{y} * width + x) * 4 + channel];
         const double ulp = expected == 0 ? std::ldexp(1.0, -24)
                                          : std::max(std::ldexp(1.0, std::ilogb(expected) - 10),
@@ -136,9 +162,9 @@ int main() {
   CHECK(!filter.Encode(*commands, *source, *source),
         "read/write aliasing is rejected before dispatch");
   const auto invalid = Require(device->CreateTexture(
-      {.Width = 7, .Height = 3, .Texels = Format::Rgba16Float, .Use = TextureUse::Storage}));
+      {.Width = 129, .Height = 3, .Texels = Format::Rgba16Float, .Use = TextureUse::Storage}));
   CHECK(!filter.Encode(*commands, *source, *invalid),
-        "partial integer footprints need an explicit policy");
+        "an enlarged axis is refused even when the other axis shrinks");
   const auto wrongFormat = Require(device->CreateTexture(
       {.Width = 32, .Height = 16, .Texels = Format::Rgba8Unorm, .Use = TextureUse::Storage}));
   CHECK(!filter.Encode(*commands, *source, *wrongFormat),
@@ -152,5 +178,15 @@ int main() {
     Compare(*device, filter, *source, pixels, width, width / 2);
   }
   Compare(*device, filter, *source, pixels, 1, 1);
+  for (const auto [width, height] : std::array<std::array<uint32_t, 2>, 6>{
+           {{127, 63}, {7, 3}, {63, 1}, {1, 31}, {127, 1}, {17, 9}}}) {
+    Compare(*device, filter, *source, pixels, width, height);
+  }
+  const auto oddPixels = SourcePixels(13, 11);
+  const auto oddSource = Source(*device, oddPixels, 13, 11);
+  for (const auto [width, height] :
+       std::array<std::array<uint32_t, 2>, 4>{{{7, 3}, {2, 1}, {12, 10}, {1, 1}}}) {
+    Compare(*device, filter, *oddSource, oddPixels, width, height);
+  }
   return Report();
 }

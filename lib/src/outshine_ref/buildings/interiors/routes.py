@@ -65,16 +65,22 @@ def graph(space, anchors):
             links.append((index, index + 1))
         if index + len(x) < len(points) and legal[index + len(x)]:
             links.append((index, index + len(x)))
-    segments = (
-        shapely.linestrings(np.asarray([[points[a], points[b]] for a, b in links]))
-        if links
-        else []
-    )
+    edge_points = points[np.asarray(links, dtype=np.intp)] if links else None
+    segments = shapely.linestrings(edge_points) if links else []
     contained = shapely.covers(space, segments)
     adjacency = [[] for _ in points]
+    lengths = (
+        iter(
+            np.linalg.norm(
+                edge_points[contained, 0] - edge_points[contained, 1], axis=1
+            )
+        )
+        if links
+        else iter(())
+    )
     for (a, b), valid in zip(links, contained):
         if valid:
-            distance = float(np.linalg.norm(points[a] - points[b]))
+            distance = float(next(lengths))
             adjacency[a].append((b, distance))
             adjacency[b].append((a, distance))
     indices = [

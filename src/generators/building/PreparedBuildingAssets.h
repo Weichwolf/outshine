@@ -99,8 +99,12 @@ public:
   // One bounded read/preparation/publication step. Empty + Pending means resume.
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   ReadBasis(const std::string &key, BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError> ReadBasisRequest(
+      const std::string &requestKey, BasisRead &read, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<void, StructureBakeError>
   BindBasisRequest(const std::string &key, const std::string &requestKey);
+  [[nodiscard]] std::expected<bool, StructureBakeError>
+  BindBasisRequestIfUnbound(const std::string &key, const std::string &requestKey);
   // True means no usable basis remains; false preserves a concurrently repaired base.
   [[nodiscard]] std::expected<bool, StructureBakeError>
   RetireUnavailableBasis(const std::string &key);
@@ -152,7 +156,11 @@ private:
   [[nodiscard]] static std::string BasisKey(const std::string &key);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   ReadBasisInput(BasisRead &read, const std::atomic_bool &stopping);
-  [[nodiscard]] std::expected<Basis, StructureBakeError> LoadCachedBasis(const std::string &key);
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
+  FinishBasisRequest(BasisRead &read, const std::atomic_bool &stopping);
+  [[nodiscard]] Basis LoadResidentBasis(const AssetRecord &record);
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  LoadCachedBasis(const std::string &key, std::optional<AssetRecord> &record);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
 

@@ -105,6 +105,9 @@ public:
 
   [[nodiscard]] std::expected<bool, AssetCacheError> BindRequest(std::string_view key,
                                                                  std::string_view requestKey);
+  // Missing bindings may be repaired; an existing different target wins.
+  [[nodiscard]] std::expected<bool, AssetCacheError>
+  BindRequestIfUnbound(std::string_view key, std::string_view requestKey);
 
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
@@ -131,6 +134,8 @@ private:
   struct Publication;
   [[nodiscard]] std::expected<void, AssetCacheError>
   PublishPrepared(const Publication &publication);
+  [[nodiscard]] std::expected<bool, AssetCacheError>
+  BindRequest(std::string_view key, std::string_view requestKey, bool replace);
   explicit AssetCache(std::unique_ptr<State> state);
   std::unique_ptr<State> State_;
 };

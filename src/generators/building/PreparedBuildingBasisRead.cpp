@@ -11,6 +11,10 @@ namespace outshine::Generators {
 struct PreparedBuildingAssets::BasisRead::State {
   enum class Phase { Cached, Base, Publish, Ready, Missing };
   std::string Key;
+  std::string RequestKey;
+  std::optional<AssetRecord> Binding;
+  std::optional<AssetRecord> ProductRecord;
+  bool BindingPending = false;
   std::optional<BaseWrite> Migration;
   std::optional<PreparedAssetWrite> Package;
   Basis Product;
@@ -24,8 +28,8 @@ PreparedBuildingAssets::BasisRead::operator=(BasisRead &&) noexcept = default;
 PreparedBuildingAssets::BasisRead::~BasisRead() = default;
 
 bool PreparedBuildingAssets::BasisRead::Pending() const noexcept {
-  return State_ && State_->Current != State::Phase::Ready &&
-         State_->Current != State::Phase::Missing;
+  return State_ && (State_->BindingPending || (State_->Current != State::Phase::Ready &&
+                                               State_->Current != State::Phase::Missing));
 }
 
 std::expected<PreparedBuildingAssets::Basis, StructureBakeError> PreparedBuildingAssets::ReadBasis(
@@ -43,7 +47,7 @@ std::expected<PreparedBuildingAssets::Basis, StructureBakeError> PreparedBuildin
   if (state.Key != key) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   switch (state.Current) {
     case Phase::Cached: {
-      auto cached = LoadCachedBasis(key);
+      auto cached = LoadCachedBasis(key, state.ProductRecord);
       if (!cached) { return std::unexpected(cached.error()); }
       if (*cached) {
         state.Product = std::move(*cached);
@@ -124,5 +128,113 @@ PreparedBuildingAssets::LoadBasis(const std::string &key, const std::string &req
     }
     if (!read.Pending()) { return result; }
   }
+}
+
+std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
+PreparedBuildingAssets::ReadBasisRequest(const std::string &requestKey,
+                                         BasisRead &read,
+                                         const std::atomic_bool &stopping) {
+  if (stopping.load(std::memory_order_relaxed)) {
+    read = BasisRead{};
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
+  if (read.State_ && read.State_->RequestKey != requestKey) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  auto found = [&] {
+    const std::scoped_lock lock(Lock_);
+    return Cache_->FindRequest(requestKey);
+  }();
+  if (!found) { return std::unexpected(CacheFailure(found.error())); }
+  if (*found) {
+    auto record = std::move(**found);
+    record.RequestKey.reset();
+    if (record.Kind != "building-basis" || record.Key != BasisKey(record.Parent)) {
+      ++BasisMisses_;
+      read = BasisRead{};
+      return std::optional<RequestedBasis>{};
+    }
+    if (auto resident = LoadResidentBasis(record)) {
+      ++BasisResidentHits_;
+      read = BasisRead{};
+      return RequestedBasis{
+          .BaseKey = record.Parent, .Product = std::move(resident), .Bounds = record.Bounds};
+    }
+    if (read.State_ && (read.State_->Key != record.Parent ||
+                        (read.State_->Binding && *read.State_->Binding != record))) {
+      read = BasisRead{};
+    }
+    if (!read.State_) {
+      read.State_ = std::make_unique<BasisRead::State>();
+      read.State_->Key = record.Parent;
+      read.State_->RequestKey = requestKey;
+      read.State_->BindingPending = true;
+    }
+    read.State_->Binding = std::move(record);
+  } else if (!read.State_ || read.State_->Key.empty()) {
+    read = BasisRead{};
+    return std::optional<RequestedBasis>{};
+  }
+  auto basis = ReadBasis(read.State_->Key, read, stopping);
+  if (!basis) { return std::unexpected(basis.error()); }
+  if (!*basis) {
+    if (read.State_->Current == BasisRead::State::Phase::Missing) { read = BasisRead{}; }
+    return std::optional<RequestedBasis>{};
+  }
+  return FinishBasisRequest(read, stopping);
+}
+
+std::expected<std::optional<PreparedBuildingAssets::RequestedBasis>, StructureBakeError>
+PreparedBuildingAssets::FinishBasisRequest(BasisRead &read, const std::atomic_bool &stopping) {
+  if (stopping.load(std::memory_order_relaxed)) {
+    read = BasisRead{};
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
+  auto &state = *read.State_;
+  const auto bound = BindBasisRequestIfUnbound(state.Key, state.RequestKey);
+  if (!bound) { return std::unexpected(bound.error()); }
+  const auto found = [&] {
+    const std::scoped_lock lock(Lock_);
+    return Cache_->FindRequest(state.RequestKey);
+  }();
+  if (!found) { return std::unexpected(CacheFailure(found.error())); }
+  if (!*found) {
+    if (!*bound) {
+      read = BasisRead{};
+    } else {
+      state.Current = BasisRead::State::Phase::Cached;
+      state.Product.reset();
+      state.ProductRecord.reset();
+    }
+    return std::optional<RequestedBasis>{};
+  }
+  if (!*bound || (**found).Key != BasisKey(state.Key)) {
+    state.Binding.reset();
+    state.Key.clear();
+    state.Product.reset();
+    state.ProductRecord.reset();
+    state.Current = BasisRead::State::Phase::Cached;
+    return std::optional<RequestedBasis>{};
+  }
+  auto record = **found;
+  record.RequestKey.reset();
+  auto product = state.Product;
+  if (!state.ProductRecord || *state.ProductRecord != record) {
+    auto cached = LoadCachedBasis(state.Key, state.ProductRecord);
+    if (!cached) { return std::unexpected(cached.error()); }
+    product = std::move(*cached);
+  }
+  if (!product) {
+    state.Current = BasisRead::State::Phase::Cached;
+    state.Product.reset();
+    return std::optional<RequestedBasis>{};
+  }
+  if (!state.ProductRecord) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  state.Product = product;
+  state.BindingPending = false;
+  return RequestedBasis{
+      .BaseKey = state.Key, .Product = std::move(product), .Bounds = state.ProductRecord->Bounds};
 }
 }
