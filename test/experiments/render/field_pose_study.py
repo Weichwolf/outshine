@@ -280,7 +280,7 @@ def run(args):
         "records": records,
         "native_orthographic_carrier_geometry": native,
         "scope": "Whole supported originals, geometric continuous-box bound only. 0.25 px is an explicit diagnostic budget, not product policy. Moving matrices and tilted-control plane are supplied finite controls, not new GPU observations or fitted native fields. Source 3825/3827 and Cell33 opacity remain unqualified. No colour, coverage, visibility, main/shadowdepth or World replacement certificate.",
-        "loaded_fine_after_admission_bytes": points.nbytes
+        "known_original_position_array_bytes_after_decisions": points.nbytes
         + submitted["vertex_positions_f32"].nbytes,
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")

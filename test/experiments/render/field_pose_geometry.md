@@ -136,6 +136,11 @@ authority. Exact-rational tests separately check corners and interior points,
 rotated frames, dense projection, near/eye crossings and raster changes.
 The opened diagnostic compares complete projected original points and their
 plane counterparts. It is not a new native World render or image-quality gate.
+Fixture receipt validation hashes the entire combined NPZ before preparing
+metadata, including packaged fine-image bytes. This diagnostic packaging is
+therefore **not** a metadata-only disk-load benchmark. The admission kernel has
+no IO; actual opponent geometry is decoded after its decisions. Production uses
+the existing small bound descriptor rather than hashing fine payloads to decide.
 
 Use the existing .venv, NumPy/Matplotlib and fixed input dependencies; Memray only
 for costs. PYTHONPATH includes lib/src and test/experiments/{render,buildings,transport}.
@@ -164,6 +169,31 @@ eye/basis, projection and raster occupy 304 additional bytes if all are stored
 as separate Float64 values plus two UInt32 counts. They mostly already exist in
 the consumer. The flat header choice adds zero on-disk bytes. Binding keys,
 statuses, Python-object and metadata-container overhead are separate.
+
+On db7cbaadc, Linux/Python3.13.5/i5-1135G7, load5.12/6.39/7.68, existing tight
+perspective/general tight projection cost0.336/1.064ms process CPU, with
+3,780/7,684 allocation events and7,552/22,696B scoped peak. Keep the cheaper
+existing special case when its preconditions apply. Header derivation costs
+1.697ms once per binding (9,851 events/805,712B requested/9,556B scoped peak).
+The same-header expanded-AABB/oriented-hull pose calls cost0.663/1.054ms,
+7,684/7,938 events,670,371/698,612B requested and22,696/22,656B scoped peak.
+These loaded-host Python medians are noisy; no native/device winner is inferred.
+
+At1280×720 and the study's0.25px diagnostic geometry budget:
+
+| Pose | Header expanded AABB | Same header, oriented hull | Oriented candidate |
+| --- | ---: | ---: | --- |
+|32km|5.26667px|0.81058px|retain original|
+|64km|1.27958px|0.19961px|geometric candidate|
+|240km|0.08915px|0.01404px|geometric candidate|
+|64km plus lateral16km|8.44747px|4.07076px|retain original|
+|64km with camera turn12°|1.32803px|0.20700px|geometric candidate|
+
+The oriented hull admits3/7 supplied poses versus1/7 for its expanded AABB, on
+identical persisted metadata, flat plane and requirement. This is a finite
+admission-breadth comparison, not an image-error or continuous motion-domain
+calibration. All28 controls enclose the actual whole original positions; a near
+control whose coarse hull crosses the projective eye deliberately has no bound.
 
 Architecture acceptance: one Python geometric kernel consumes the existing
 CapturePlane and directed scalar operations. Source/capture preparation, fine
