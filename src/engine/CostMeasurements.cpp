@@ -96,6 +96,24 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
   PublishPreparedAssetCosts(published, osm, 3);
   published.RecordMetric("cost.assets.osm_tiles.read_ms", osm.ReadMs, "ms");
   published.RecordMetric("cost.assets.osm_tiles.generation_ms", osm.GenerationMs, "ms");
+  published.RecordMetric(
+      "cost.assets.osm_tiles.generations", static_cast<double>(osm.Generations), "tiles");
+  published.RecordMetric("cost.assets.osm_tiles.publication_attempts",
+                         static_cast<double>(osm.PublicationAttempts),
+                         "attempts");
+  published.RecordMetric("cost.assets.osm_tiles.publication_deferred",
+                         static_cast<double>(osm.PublicationDeferred),
+                         "retries");
+  published.RecordMetric("cost.assets.osm_tiles.publication_bytes",
+                         static_cast<double>(osm.PublicationBytes),
+                         "bytes");
+  published.RecordMetric("cost.assets.osm_tiles.publication_peak_bytes",
+                         static_cast<double>(osm.PublicationPeakBytes),
+                         "bytes");
+  published.RecordMetric("cost.assets.osm_tiles.publication_read_bytes",
+                         static_cast<double>(osm.PublicationReadBytes),
+                         "bytes");
+  published.RecordMetric("cost.assets.osm_tiles.publication_ms", osm.PublicationMs, "ms");
   const auto terrain = stack.PreparedTerrainCosts();
   PublishPreparedAssetCosts(published, terrain, 0);
   published.RecordMetric(
