@@ -35,7 +35,8 @@ constexpr double kFullTurnDeg = 360.0;
 constexpr int64_t kExtent = 4096;
 constexpr int64_t kTileX = 8744;
 constexpr int64_t kWholeTileY = 5705;
-constexpr double kWorldGrid = static_cast<double>(kExtent) * (uint32_t{1} << kZoom);
+constexpr double kWorldGrid =
+    static_cast<double>(kExtent) * (uint32_t{1} << static_cast<unsigned>(kZoom));
 constexpr std::array<GridPoint, 4> kCut{{{587, 42}, {649, 58}, {648, 64}, {581, 64}}};
 constexpr std::array<GridPoint, 4> kWhole{{{587, 42}, {649, 58}, {641, 89}, {579, 73}}};
 constexpr std::array<std::string_view, 2> kInputDigests{
@@ -78,7 +79,7 @@ Footprint ShapeOf(std::span<const double> points, uint32_t first, uint32_t count
   return SameRing(shape, kCut) ? Footprint::Cut : Footprint::Other;
 }
 
-int ReadOriginals(OsmField &vectors, char **paths) {
+int ReadOriginals(OsmField &vectors, char *const *paths) {
   for (size_t i = 0; i < kInputDigests.size(); ++i) {
     std::ifstream input(paths[i], std::ios::binary);
     if (!input) { return 3; }
@@ -157,7 +158,7 @@ void Inspect(const OsmField &vectors, size_t at, Counts &counts) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc != 3) { return 2; }
   const std::array<std::string, 1> layers{"buildings"};
   outshine::Generators::Osm::OsmField vectors(

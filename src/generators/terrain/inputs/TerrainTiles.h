@@ -151,8 +151,12 @@ class TerrainTiles {
 public:
   struct Shaped;
   using FieldFactory = std::function<TerrainGrid()>;
-  using FieldResolver =
-      std::function<TerrainGrid(Data::TileId, const Shaped &, const FieldFactory &)>;
+
+  struct FieldStep;
+  class FieldRequest;
+  class FieldWork;
+
+  using FieldResolver = std::function<std::shared_ptr<FieldRequest>(Data::TileId, const Shaped &)>;
 
   struct Config {
     uint32_t Stride = 1;
@@ -195,6 +199,9 @@ public:
 
   TerrainGrid StitchedGrid(int z, uint32_t x, uint32_t y);
 
+  // A worker borrows the current reservation's state only while executing its step.
+  void BindFieldWork(FieldWork *work) noexcept { FieldWork_ = work; }
+
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(int z, uint32_t x, uint32_t y);
 
   [[nodiscard]] std::shared_ptr<const TerrainField> HeldStitched(Data::TileId of) const;
@@ -215,6 +222,7 @@ public:
 
 private:
   Shaped Shape_;
+  FieldWork *FieldWork_ = nullptr;
 
   enum class Side { West, East, North, South };
   enum class Corner { NorthWest, NorthEast, SouthWest, SouthEast };

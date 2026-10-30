@@ -1,3 +1,4 @@
+#include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedTerrainCodec.h"
@@ -54,10 +55,8 @@ public:
 Ground::TerrainTiles::Config
 Resolver(const std::shared_ptr<Generators::PreparedTerrainAssets> &assets) {
   Ground::TerrainTiles::Config config{};
-  config.PreparedFields = [assets](Data::TileId at,
-                                   const Ground::TerrainTiles::Shaped &shape,
-                                   const Ground::TerrainTiles::FieldFactory &factory) {
-    return assets->Resolve(at, shape, factory);
+  config.PreparedFields = [assets](Data::TileId at, const Ground::TerrainTiles::Shaped &shape) {
+    return assets->RequestField(at, shape);
   };
   return config;
 }
@@ -152,12 +151,15 @@ int main() {
         "persistent replay does not promote missing boundary data to known geometry");
   Ground::TerrainTiles::Shaped changed;
   changed.Seed = 1;
-  const auto miss = assets->Resolve(at, changed, [] { return Ground::TerrainGrid::Deferred(); });
+  const auto miss = assets->RequestField(at, changed)
+                        ->Resume([] { return Ground::TerrainGrid::Deferred(); })
+                        .Grid;
   CHECK(miss.Where() == Ground::TerrainGrid::State::Deferred && assets->Costs().Misses == 1 &&
             assets->Costs().Writes == 0,
         "changed generation parameters cause a real miss and pending work cannot publish a partial "
         "asset");
-  const auto unknown = assets->Resolve(at, {}, [] { return Ground::TerrainGrid::Refused(); });
+  const auto unknown =
+      assets->RequestField(at, {})->Resume([] { return Ground::TerrainGrid::Refused(); }).Grid;
   CHECK(unknown.TryField() && offline.Calls == 0,
         "pending generation does not overwrite the existing complete asset");
   assets.reset();

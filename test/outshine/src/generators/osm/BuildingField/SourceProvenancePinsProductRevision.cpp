@@ -47,7 +47,7 @@ int main() {
   CHECK(field.InputOfTile(0)->SourceKey != firstKey,
         "original dataset revision participates without a vector tile surrogate");
   const uint64_t revisionKey = field.InputOfTile(0)->SourceKey;
-  auto payloadSource = std::make_shared<Data::SourceProvenance>(*geometry->Origin.Provenance);
+  const auto payloadSource = std::make_shared<Data::SourceProvenance>(*geometry->Origin.Provenance);
   payloadSource->PayloadSha256 = {std::string(64, 'a'), std::string(64, 'b')};
   geometry = std::make_shared<Ground::BuildingGeometry>(*geometry);
   geometry->Origin.Provenance = payloadSource;
@@ -56,7 +56,7 @@ int main() {
   field.ReplaceAcceptance(std::move(pinned), product);
   const uint64_t payloadKey = field.InputOfTile(0)->SourceKey;
   CHECK(payloadKey != revisionKey, "actual original payload pins qualify the published product");
-  auto reorderedSource = std::make_shared<Data::SourceProvenance>(*payloadSource);
+  const auto reorderedSource = std::make_shared<Data::SourceProvenance>(*payloadSource);
   std::ranges::reverse(reorderedSource->PayloadSha256);
   geometry = std::make_shared<Ground::BuildingGeometry>(*geometry);
   geometry->Origin.Provenance = reorderedSource;
@@ -65,7 +65,7 @@ int main() {
   field.ReplaceAcceptance(std::move(reordered), product);
   CHECK(field.InputOfTile(0)->SourceKey == payloadKey,
         "acquisition completion order does not change product identity");
-  auto changedSource = std::make_shared<Data::SourceProvenance>(*reorderedSource);
+  const auto changedSource = std::make_shared<Data::SourceProvenance>(*reorderedSource);
   changedSource->PayloadSha256.front() = std::string(64, 'c');
   geometry = std::make_shared<Ground::BuildingGeometry>(*geometry);
   geometry->Origin.Provenance = changedSource;
