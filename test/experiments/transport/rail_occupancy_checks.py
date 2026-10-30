@@ -7,11 +7,13 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import BuildingFootprint, HeightInterval, LocalFrame, Mesh
 from outshine_ref.transport.supports import SupportVolumeBuilder
+from rail_occupancy_guard import RoundingGuardQuery, round_bounds
 from rail_occupancy_inputs import RailProducts, deck_asset, supplements
 from rail_occupancy_reference import whole_raised
 from shared_bridge_geometry import layout
 from stair_occupancy_candidate_sources import bound_support_sources
-from stair_occupancy_candidates import CandidateQuery, CandidateVolumes
+from stair_occupancy_candidates import CandidateQuery, CandidateVolumes, VolumeSource
+from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
 from surface_solid_methods import close_surface
 
@@ -121,6 +123,69 @@ class RaisedVolumeHandoff(unittest.TestCase):
                 bound_support_sources(
                     self.rail.supports, self.rail.contacts, owners, "identity"
                 )
+
+    def test_real_rounded_cut_crossing_requires_construction_room(self):
+        a = np.deg2rad(33)
+        matrix = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+
+        def rotate(mesh):
+            return Mesh(
+                np.c_[mesh.vertices[:, :2] @ matrix.T, mesh.vertices[:, 2]],
+                mesh.triangles,
+            )
+
+        rail = replace(
+            self.rail,
+            rows=[{**r, "xy": r["xy"] @ matrix.T} for r in self.rail.rows],
+            deck=rotate(self.rail.deck),
+            supports=[rotate(b) for b in self.rail.supports],
+            contacts=[(rotate(l), rotate(h)) for l, h in self.rail.contacts],
+        )
+        query = CandidateQuery(CandidateVolumes(self.frame, supplements(rail)))
+        probe = BuildingFootprint(
+            "building", shapely.box(5, 0, 10, 8), HeightInterval(6, 7)
+        )
+        rounded = OccupancyQuery(whole_raised(rail, cast=True)[0])
+
+        def actual_conflict(cut):
+            shape = shapely.transform(
+                probe.geometry.difference(cut),
+                lambda xy: xy.astype("f4").astype(float),
+            )
+            return rounded.conflict(BuildingFootprint("actual", shape, probe.heights))[
+                0
+            ]
+
+        raw, _work = query.conflict(probe)
+        self.assertGreater(actual_conflict(raw).area, 0)
+        guarded = RoundingGuardQuery(
+            CandidateQuery(CandidateVolumes(self.frame, ())), query, round_bounds(rail)
+        )
+        cut, work = guarded.conflict(probe)
+        self.assertTrue(actual_conflict(cut).is_empty)
+        self.assertTrue(raw.difference(cut).is_empty)
+        self.assertLess(work["derived_xy_guard_m"], 0.005)
+
+    def test_old_and_raised_queries_share_one_product_capacity(self):
+        far = np.array([[100, 100, 0, 101, 101, 1]], float)
+        far.setflags(write=False)
+
+        def forbidden(_face):
+            raise AssertionError("Far metadata cannot construct geometry")
+
+        old = CandidateVolumes(
+            self.frame,
+            tuple(VolumeSource(f"old:{i}", far, forbidden) for i in range(255)),
+        )
+        raised = CandidateVolumes(self.frame, supplements(self.rail))
+        query = RoundingGuardQuery(
+            CandidateQuery(old), CandidateQuery(raised), round_bounds(self.rail)
+        )
+        probe = BuildingFootprint(
+            "underpass", shapely.box(1, 0, 2, 1), HeightInterval(0, 1)
+        )
+        with self.assertRaisesRegex(OccupancyError, "product_budget_exhausted"):
+            query.conflict(probe)
 
 
 if __name__ == "__main__":

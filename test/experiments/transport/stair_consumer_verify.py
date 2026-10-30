@@ -26,7 +26,9 @@ def meshes(path):
         return [Mesh(saved[f"{i}_vertices"], saved[f"{i}_faces"]) for i in range(count)]
 
 
-def check_bodies(data, ledger, before, after, reservations, query):
+def check_bodies(
+    data, ledger, before, after, reservations, query, *, planning_query=None
+):
     originals, rejected = source_rows(data, "building")
     by_id = {r["id"]: r for r in originals}
     if len(ledger) != len(originals) + len(rejected):
@@ -67,7 +69,7 @@ def check_bodies(data, ledger, before, after, reservations, query):
             "query_heights_m"
         ]:
             raise ValueError("query band does not bound actual original recipe")
-        cut, _note = query.conflict(
+        cut, _note = (query if planning_query is None else planning_query).conflict(
             BuildingFootprint(row["id"], original["polygon"], requested.heights),
             method="scan",
         )

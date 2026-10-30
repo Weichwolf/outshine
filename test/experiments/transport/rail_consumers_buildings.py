@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from camera_height_inputs import digest
 from process_memory import peak_rss_bytes
+from rail_occupancy_guard import planning
 from rail_occupancy_inputs import catalog, load
 from rail_occupancy_reference import RailReference, whole_raised
 from stair_consumer_buildings import body_query
@@ -49,7 +50,12 @@ def generate(args):
     inputs.resident = Path(deck_report["resident"])
     inputs.prior_module = [Path(p["path"]) for p in deck_report["prior_modules"]]
     report = generate_buildings(
-        inputs, rail.state, data, rail.originals, catalog=catalog(rail)
+        inputs,
+        rail.state,
+        data,
+        rail.originals,
+        catalog=catalog(rail),
+        query_factory=lambda prepared: planning(rail, prepared=prepared),
     )
     report.update(
         elevated_supports=str(args.supports.resolve()),
@@ -101,6 +107,7 @@ def verify(args):
         after,
         json.loads((args.products / "building-reservations.json").read_text()),
         RailReference(baseline, rail),
+        planning_query=planning(rail, baseline=baseline),
     )
     rounded = OccupancyQuery(whole_raised(rail, cast=True)[0])
     for index, body in enumerate(after):

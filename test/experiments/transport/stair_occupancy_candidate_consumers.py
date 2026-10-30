@@ -19,11 +19,11 @@ from stair_occupancy_inputs import actual_sources
 from stair_terrain_experiment import frozen
 
 
-def generate(args, state, data, sources, *, catalog=None):
+def generate(args, state, data, sources, *, catalog=None, query_factory=CandidateQuery):
     catalog, info = retained(
         from_state(state, sources) if catalog is None else catalog, 8192
     )
-    before, after, occupied, ledger, context = buildings(data, CandidateQuery(catalog))
+    before, after, occupied, ledger, context = buildings(data, query_factory(catalog))
     source_rows = {r["id"]: r for r in ledger if r.get("state") == "prepared"}
     reservations = [
         {
