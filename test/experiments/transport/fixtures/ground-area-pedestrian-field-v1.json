@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "kind": "actual whole pedestrian area and unchanged held local terrain",
+  "source": {
+    "receipt": {
+      "kind": "vector",
+      "tile": [
+        14,
+        8937,
+        5678
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8937/5678.pbf",
+      "bytes": 218795,
+      "sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+      "extent": 4096,
+      "native_payload_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+      "full_payload_matches_native": true,
+      "native_original_features_match": true
+    },
+    "extent": 4096,
+    "feature_ordinal": 7,
+    "feature": {
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1926,
+              3284
+            ],
+            [
+              1954,
+              3263
+            ],
+            [
+              1969,
+              3284
+            ],
+            [
+              1941,
+              3305
+            ],
+            [
+              1926,
+              3284
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "subclass": "pedestrian",
+        "class": "path"
+      },
+      "id": 1123829462,
+      "type": "Feature"
+    },
+    "payload_relative_path": "test/outshine/data/transport/wien-junction-14-8937-5678.pbf"
+  },
+  "projection": {
+    "kind": "same local equirectangular-metre interpretation as captured transport",
+    "origin_lat_lon": [
+      48.242427962074906,
+      16.386505365371704
+    ],
+    "longitude_latitude_metres_per_degree": [
+      74136.92219641394,
+      111132.0
+    ]
+  },
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "terrain": {
+    "vertices": [
+      [
+        -486.91168797589995,
+        -28.97397457220592,
+        162.2239055473397
+      ],
+      [
+        -486.91168797589995,
+        -5.061645817983333,
+        162.4067480518278
+      ],
+      [
+        -474.9941221752701,
+        -5.061645817983333,
+        162.2500000000027
+      ],
+      [
+        -463.0765563746402,
+        -52.886303326428504,
+        162.2500000000012
+      ],
+      [
+        -463.0765563746402,
+        -28.97397457220592,
+        162.32890190985606
+      ]
+    ],
+    "triangles": [
+      [
+        3,
+        4,
+        0
+      ],
+      [
+        1,
+        0,
+        4
+      ],
+      [
+        4,
+        2,
+        1
+      ]
+    ],
+    "face_keys": [
+      [
+        "terrain-0fba857ae0f5d78b0541cc23309a68f272c9673029b0c494359a629952239684",
+        5714
+      ],
+      [
+        "terrain-0fba857ae0f5d78b0541cc23309a68f272c9673029b0c494359a629952239684",
+        6053
+      ],
+      [
+        "terrain-0fba857ae0f5d78b0541cc23309a68f272c9673029b0c494359a629952239684",
+        6054
+      ]
+    ],
+    "ground": [
+      false,
+      false,
+      false
+    ],
+    "constructed": [
+      false,
+      false,
+      false
+    ]
+  },
+  "parent_snapshot": {
+    "building_report_sha256": "07a71150e9166ef9c7a6e87b08795b660c402966ac5e411ce4461715b6b9914f",
+    "building_reader_sha256": "d2ba4cb93b4751c126f2a9eae885f6420d5b4609fed64334cf32ae743f98c70e",
+    "building_producer_commit": "3237d787f229b136dcf4603cd5bd6f68b48f77ec"
+  },
+  "query_work": {
+    "resident_patches": 30,
+    "patch_bounds_tests": 30,
+    "candidate_upper_bound": 27056,
+    "face_tests": 3,
+    "returned_faces": 3,
+    "raw_triangle_xyz_bytes": 216,
+    "unique_vertex_bytes": 120,
+    "canonical_face_label_bytes": 72,
+    "owned_mesh_bytes": 156
+  },
+  "scope": "Fixed actual source input, not a generated oracle, source/world authority, terrain update or device benchmark. False ground marks free terrain here; true denotes retained transport contact. Full old source/consumer context remains in the parent delivery.",
+  "source_profile": {
+    "layer": "streets",
+    "speedMps": 2.78,
+    "priority": 1,
+    "sealed": 1,
+    "clearanceM": 4.5,
+    "kind": "pedestrian",
+    "rank": 82,
+    "widthM": 6.0,
+    "maxGradient": 0.1,
+    "lanes": 1,
+    "oneway": 0
+  }
+}
