@@ -13,6 +13,7 @@ const float kPi = acos(-1.0);
 #include "microfacetEnergy.glsl"
 #if SURFACE_BASE_LOCATION == 0
 #include "surfaceLighting.glsl"
+#include "shadowReceiverPlane.glsl"
 #endif
 #include "groundClass.glsl"
 #include "groundMaterial.glsl"
@@ -30,11 +31,21 @@ const float kPi = acos(-1.0);
 #endif
 #endif
 void main() {
-  readSurfaceVaryings();
+  readSurfaceVaryings(interpolateAtOffset(positionMetric, vec2(0.0)));
+  vec3 positionDx = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.25, 0.0)).xyz - position);
+  vec3 positionDy = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.0, 0.25)).xyz - position);
+  vec3 worldM = groundWorldM;
+  vec3 worldDx = positionDx * vec3(1.0, 1.0, -1.0);
+  vec3 worldDy = positionDy * vec3(1.0, 1.0, -1.0);
 #if GROUND_PATCHES
   vec3 surfaceNormal = groundFineNormal();
 #if SURFACE_BASE_LOCATION == 0
-  vec4 shadowLightSpace = fineGroundShadow();
+  vec2 receiverSlope;
+  vec4 shadowLightSpace = fineGroundShadow(lightSpace, receiverSlope);
+  if ((groundSampleCode & kGroundLodMask) == 0u) {
+    receiverSlope = shadowReceiverPlaneSlope(shadowLightSpace,
+        s.lightFromWorld * vec4(positionDx, 0.0), s.lightFromWorld * vec4(positionDy, 0.0));
+  }
 #endif
 #else
   vec3 surfaceNormal = normal;
@@ -44,7 +55,7 @@ void main() {
   float edgeM;
   float haloM;
   int runnerUp;
-  float acrossM = max(groundHalfFootprint(dFdx(uv), dFdy(uv)), 5.0e-5);
+  float acrossM = max(groundHalfFootprint(worldDx.xz, worldDy.xz), 5.0e-5);
   int which = groundMaterialAt(uv, acrossM, edgeM, runnerUp, haloM);
   uint rows = floatBitsToUint(groundPalette[0]);
   float reachM = groundBoundaryReach(which, runnerUp, rows);
@@ -53,9 +64,6 @@ void main() {
   float slopeDeg = degrees(acos(clamp(dot(normalize(surfaceNormal), normalize(lights.up.xyz)), 0.0, 1.0)));
   float rockWeight = groundRockWeight(which, rows, slopeDeg);
   float otherRockWeight = edgeM < kGroundNoEdgeM ? groundRockWeight(runnerUp, rows, slopeDeg) : rockWeight;
-  vec3 worldM = groundWorldM;
-  vec3 worldDx = dFdx(worldM);
-  vec3 worldDy = dFdy(worldM);
   int rockRow = int(floatBitsToUint(groundPalette[1]));
   GroundSurface rock = groundSurface(groundWears(rockRow, rows), GroundDetail(1.0, 0.0, vec2(0.0)));
   if (max(rockWeight, otherRockWeight) > 0.0) {
@@ -74,7 +82,7 @@ void main() {
     composed = blendGroundSurfaces(other, composed, classWeight);
   }
   vec2 heightDxDy = composed.BumpDxDy;
-  shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), heightDxDy.x, heightDxDy.y);
+  shadingNormal = bumpNormal(shadingNormal, shadingNormal, positionDx, positionDy, heightDxDy.x, heightDxDy.y);
   vec3 albedo = clamp(composed.Albedo, vec3(0.0), vec3(1.0));
   float roughness = clamp(composed.Roughness, 0.04, 1.0);
 #if SURFACE_BASE_LOCATION > 0
@@ -84,7 +92,7 @@ void main() {
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,
       surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0),
 #if GROUND_PATCHES
-      shadowLightSpace, sunShadowReceiverSlope(shadowLightSpace),
+      shadowLightSpace, receiverSlope,
 #else
       lightSpace, sunShadowReceiverSlope(lightSpace),
 #endif

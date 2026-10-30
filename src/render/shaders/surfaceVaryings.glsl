@@ -40,14 +40,15 @@ void writeSurfaceVaryings() {
   localPositionMetric = vec4(localPosition, groundWorldM.z);
 }
 #else
-void readSurfaceVaryings() {
+void readSurfaceVaryings(vec4 sampledPositionMetric) {
 #if !SURFACE_CONSTANT_UV
   uv = textureCoordinates.xy;
   uv1 = textureCoordinates.zw;
 #endif
   normal = normalMetric.xyz;
-  position = positionMetric.xyz;
+  position = sampledPositionMetric.xyz;
   localPosition = localPositionMetric.xyz;
-  groundWorldM = vec3(normalMetric.w, positionMetric.w, localPositionMetric.w);
+  groundWorldM = vec3(normalMetric.w, sampledPositionMetric.w, localPositionMetric.w);
 }
+void readSurfaceVaryings() { readSurfaceVaryings(positionMetric); }
 #endif

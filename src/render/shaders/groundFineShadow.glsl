@@ -6,8 +6,9 @@ vec3 fineGroundPoint(uint page, ivec2 node, vec4 north, vec4 south, float sagInv
   return vec3(en, fineGroundHeight(page, node) - 0.5 * dot(en, en) * sagInv);
 }
 
-vec4 fineGroundShadow() {
-  if ((groundSampleCode & kGroundLodMask) == 0u) { return lightSpace; }
+vec4 fineGroundShadow(vec4 coarse, out vec2 receiverSlope) {
+  receiverSlope = vec2(0.0);
+  if ((groundSampleCode & kGroundLodMask) == 0u) { return coarse; }
   const uint code = groundSampleCode & ~(kGroundUniformBit | kGroundLodMask);
   const uint tile = (code >> kGroundPatchBits) * 7u;
   const vec4 info = groundTiles[tile + 6u];
@@ -19,16 +20,23 @@ vec4 fineGroundShadow() {
   const vec3 a = fineGroundPoint(page, cell, north, south, info.y);
   const vec3 c = fineGroundPoint(page, cell + 1, north, south, info.y);
   vec3 local;
+  vec3 second;
   if (uv.x >= uv.y) {
     const vec3 b = fineGroundPoint(page, cell + ivec2(1, 0), north, south, info.y);
+    second = b;
     local = (1.0 - uv.x) * a + (uv.x - uv.y) * b + uv.y * c;
   } else {
     const vec3 e = fineGroundPoint(page, cell + ivec2(0, 1), north, south, info.y);
+    second = e;
     local = (1.0 - uv.y) * a + (uv.y - uv.x) * e + uv.x * c;
   }
   const mat4 model = mat4(groundTiles[tile],
                           groundTiles[tile + 1u],
                           groundTiles[tile + 2u],
                           groundTiles[tile + 3u] + vec4(s.shift.xyz, 0.0));
-  return s.lightFromWorld * (model * vec4(local, 1.0));
+  vec4 projected = s.lightFromWorld * (model * vec4(local, 1.0));
+  vec4 dx = s.lightFromWorld * (model * vec4(second - a, 0.0));
+  vec4 dy = s.lightFromWorld * (model * vec4(c - a, 0.0));
+  receiverSlope = shadowReceiverPlaneSlope(projected, dx, dy);
+  return projected;
 }
