@@ -36,7 +36,7 @@ unsupported arithmetic retain the whole original group. Malformed layouts are
 rejected. Limits: 262144 vertices, 131072 triangles, 4194304 preflight box pairs,
 65536 pairs per chunk. A pair-budget failure retains all original indices before
 pair expansion. A guard covering the viewport also keeps the original group
-before potentially overflowing dilation arithmetic. Full per-vertex/per-triangle scratch still exists; the pair
+before potentially overflowing dilation arithmetic. Projected output and triangle scratch still span the full source; the pair
 chunk is not the total memory bound. Empty selection is valid geometrically;
 this nonempty native fixture adapter explicitly rejects it before rendering.
 No live revision/lifetime, deformation, MSAA, arbitrary clipping, raster-device,
@@ -44,7 +44,8 @@ cache-demand or World admission is provided. Other views require new selection.
 
 ## Frozen finite result
 
-Measured source: `04227166524f427b0251a97b1137862a282ad200`.
+Initial whole-vertex measured source: `04227166524f427b0251a97b1137862a282ad200`.
+The bounded follow-up below replaces this projection scratch default.
 Fixed native packet SHA-256:
 `57bd6f0f241ca76d38cd891d7b829fc308aec96c3bc63fb4f8ea2cdd5e826300`.
 Full 19 operands /1558 sources /38476 triangles /78374 vertices retained as input.
@@ -100,6 +101,44 @@ Existing native comparison gains `--selection raster-envelope --raster-guard-px 
 all other native arguments and PBR/derivative processing remain unchanged.
 Native HDR/depth comparison remains open at this delivery. Runtime retains its
 original group; all reports explicitly keep `qualified_gpu_raster=false`.
+
+## Bounded projection follow-up
+
+Measured source `2bbe7a4b7a6d6d2acd155e45920bc4f1a8829094` releases intermediate
+projection arrays per8192 vertices; only the full projected centers/radii stay.
+Whole-vertex control uses the same arithmetic function with limit262144.
+All four modes have bit-identical center/radius words and selected original IDs
+for both poses. Native source inputs are unchanged; existing opened diagnostics
+and the original material consumer remain applicable.25 targeted cases passed,
+including a bad later block retaining the whole source and three guard controls.
+
+Same Linux host, normal priority, BLAS/OMP1; concurrent builds at nice10 and
+another compute process. Load7.59/6.57/5.96. Seven grouped timing rounds and
+separate Memray traces; medians in ms, scoped peaks in bytes:
+
+| Vertex limit | Near query | Side query | Near query peak | Side query peak |
+| --- | ---: | ---: | ---: | ---: |
+| Whole262144 | 116.442 | 119.728 | 30167264 | 30167264 |
+| 512 | 177.153 | 178.977 | 8258599 | 8450455 |
+| **8192** | **116.231** | **118.055** | **8256751** | **8448607** |
+| 32768 | 107.840 | 129.585 | 15163104 | 15163104 |
+
+Projection-only peak30166968/30165792→5724936B; full-query peak falls72.6%/72.0%.
+8192 reaches the same full-query memory plateau as512 with much less loop work.
+Three interleaved ABBA windows per pose give whole→8192 wall medians
+137.435→133.842ms /125.824→124.975ms; this is no general CPU/device speedup claim.
+Whole→8192 allocations1708→9904 per query; requested bytes
+122824853→147047133 /123426556→147648836B. Lower peak therefore trades more
+allocation traffic. The wrapper explicitly copies2507968B projected output per
+query; held center/radius output is also2507968B. These are scoped numeric counts,
+not all physical copies or a universal memory ceiling for larger inputs.
+
+Reproduce with the same environment using
+`python test/experiments/render/source_raster_projection_cost.py --output /tmp/outshine-raster-projection-<commit>`.
+The fresh directory contains report.json and16 scoped allocation traces, including
+all raw grouped/ABBA timings and output hashes. Projection-only and full-query
+measurements overlap and must not be added. No additional source loads, native
+passes, GPU ABI, raster assumptions or World/IO/UMA/frame admission are introduced.
 
 ## Primary method references
 
