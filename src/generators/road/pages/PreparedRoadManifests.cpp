@@ -7,52 +7,82 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <stop_token>
+#include <vector>
 #include <utility>
 
 namespace outshine::Generators {
-std::expected<bool, std::string>
-PreparedRoadPages::ManifestReady(const RoadPageManifest &manifest) const {
-  for (const auto &page : manifest.Pages) {
-    const auto record = Cache_->Find(page.Key);
-    if (!record) { return std::unexpected("could not inspect road manifest dependencies"); }
-    if (!*record || (**record).Kind != "road-render-page" ||
-        (**record).ByteCount != page.ByteCount || (**record).Level != page.Level) {
-      return false;
-    }
-  }
-  return true;
-}
-
-std::expected<std::string, std::string>
-PreparedRoadPages::StoreManifest(const RoadPageManifest &manifest) {
-  const auto bytes = EncodeRoadPageManifest(manifest, ManifestBytesMost);
+std::expected<PreparedRoadPages::ManifestWrite, PreparedRoadPages::Failure>
+PreparedRoadPages::PrepareManifest(const RoadPageManifest &manifest) {
+  auto bytes = EncodeRoadPageManifest(manifest, ManifestBytesMost);
   if (!bytes) {
-    return std::unexpected("road page manifest is invalid or exceeds its byte budget");
+    return std::unexpected(std::string("road page manifest is invalid or exceeds its byte budget"));
   }
-  std::string key = Sha256Hex(bytes->data(), bytes->size());
-  const std::scoped_lock lock(Lock_);
-  const auto ready = ManifestReady(manifest);
-  if (!ready) { return std::unexpected(ready.error()); }
-  if (!*ready) { return std::unexpected("road page manifest has missing native dependencies"); }
-  const AssetRecord record{.Key = key,
-                           .Kind = "road-page-manifest",
-                           .Bounds = RoadPageManifestBounds(manifest),
-                           .Package = {},
-                           .ByteCount = bytes->size(),
-                           .Parent = {}};
-  const auto published = Cache_->Publish(std::span{&record, size_t{1}}, *bytes);
-  if (!published) { return std::unexpected("could not publish the native road page manifest"); }
-  return key;
+  auto key = Sha256Hex(bytes->data(), bytes->size());
+  std::vector<AssetRecord> records{{.Key = key,
+                                    .Kind = "road-page-manifest",
+                                    .Bounds = RoadPageManifestBounds(manifest),
+                                    .Package = {},
+                                    .ByteCount = bytes->size(),
+                                    .Parent = {}}};
+  auto prepared = Cache_->PreparePublication(std::move(records), std::move(*bytes));
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  std::vector<ManifestWrite::Dependency> dependencies;
+  dependencies.reserve(manifest.Pages.size());
+  for (const auto &page : manifest.Pages) {
+    dependencies.push_back({.Key = page.Key, .ByteCount = page.ByteCount, .Level = page.Level});
+  }
+  return ManifestWrite(std::move(key), std::move(*prepared), std::move(dependencies));
 }
 
-std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, std::string>
+std::expected<std::string, PreparedRoadPages::Failure>
+PreparedRoadPages::StoreManifest(ManifestWrite &write, const std::stop_token &stop) {
+  if (stop.stop_requested()) {
+    return std::unexpected(std::string("road manifest publication canceled"));
+  }
+  if (!write.DependenciesReady_) {
+    while (write.NextDependency_ < write.Dependencies_.size()) {
+      if (stop.stop_requested()) {
+        return std::unexpected(std::string("road manifest publication canceled"));
+      }
+      const auto &page = write.Dependencies_[write.NextDependency_];
+      const auto record = Cache_->Find(page.Key);
+      if (!record) { return std::unexpected(record.error()); }
+      if (!*record || (**record).Kind != "road-render-page" ||
+          (**record).ByteCount != page.ByteCount || (**record).Level != page.Level) {
+        return std::unexpected(std::string("road page manifest has missing native dependencies"));
+      }
+      ++write.NextDependency_;
+    }
+    write.DependenciesReady_ = true;
+    std::vector<ManifestWrite::Dependency>().swap(write.Dependencies_);
+  }
+  if (!write.Committed_) {
+    if (stop.stop_requested()) {
+      return std::unexpected(std::string("road manifest publication canceled"));
+    }
+    const auto published = Cache_->Publish(write.Package_);
+    if (!published) { return std::unexpected(published.error()); }
+    write.Committed_ = true;
+  }
+  auto restored = LoadManifest(write.Key_);
+  if (!restored) { return std::unexpected(std::move(restored.error())); }
+  if (!*restored) {
+    return std::unexpected(std::string("published road manifest failed native validation"));
+  }
+  if (stop.stop_requested()) {
+    return std::unexpected(std::string("road manifest publication canceled"));
+  }
+  return write.Key_;
+}
+
+std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>, PreparedRoadPages::Failure>
 PreparedRoadPages::LoadManifest(const std::string &key) {
-  const std::scoped_lock lock(Lock_);
   auto package = Cache_->Load(key, ManifestBytesMost);
-  if (!package) { return std::unexpected("could not load the native road page manifest"); }
+  if (!package) { return std::unexpected(package.error()); }
   if (!*package) { return std::nullopt; }
   if ((**package).Record().Kind != "road-page-manifest") {
-    return std::unexpected("road manifest references a different native product kind");
+    return std::unexpected(std::string("road manifest references a different native product kind"));
   }
   const auto bytes = (**package).Bytes();
   auto manifest = DecodeRoadPageManifest(bytes, ManifestBytesMost);
