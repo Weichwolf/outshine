@@ -64,7 +64,12 @@ def model_image(field, capture, world, raster, outer_crop, region):
         value.reverse_z.reshape(local_shape),
         value.evaluated.reshape(local_shape),
     )
-    return Reprojected(colour, depth, evaluated, value.work)
+    work = dict(value.work)
+    work["known_region_scatter_bytes"] = sum(
+        v.nbytes for v in (value.rgba, value.reverse_z, value.evaluated)
+    )
+    work["result_payload_bytes"] = colour.nbytes + depth.nbytes + evaluated.nbytes
+    return Reprojected(colour, depth, evaluated, work)
 
 
 def reduce_samples(image, crop, axis):

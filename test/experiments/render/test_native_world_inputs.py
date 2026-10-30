@@ -14,7 +14,7 @@ import numpy as np
 from building_sample_inputs import full_buffer_digest
 from compare_native_world_fields import capture_for_pose, composition, reduce_samples
 from field_depth_reprojection import Reprojected
-from native_world_inputs import DATA, digest, load
+from native_world_inputs import DATA, bound_archive, digest, load
 
 
 class NativeWorldTests(unittest.TestCase):
@@ -139,6 +139,18 @@ class NativeWorldTests(unittest.TestCase):
             capture_for_pose(
                 self.arrays, self.cases, "revealing-side", "near-direction"
             )
+
+    def test_decode_consumes_the_same_pinned_bytes_as_header_and_hash_checks(self):
+        def invalidate_disk_after_check(payload, manifest):
+            bound_archive(payload, manifest)
+            (self.root / "samples.npz").write_bytes(b"replaced after validation")
+
+        with patch(
+            "native_world_inputs.bound_archive", side_effect=invalidate_disk_after_check
+        ):
+            _manifest, arrays, _cases, _original = load(self.root)
+        for key in arrays:
+            np.testing.assert_array_equal(arrays[key], self.arrays[key])
 
     def test_sample_reduction_keeps_global_phase_at_an_odd_crop_origin(self):
         crop = [3, 1, 6, 5]

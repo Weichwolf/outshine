@@ -1,7 +1,9 @@
 """Bound executed native World/capture point fixtures, without live admission."""
 
 import hashlib
+import io
 import json
+import os
 from itertools import product
 from math import prod
 from pathlib import Path
@@ -49,7 +51,17 @@ def clip_from_original(case):
     return values.reshape(4, 4, order="F") @ translation
 
 
-def bound_archive(path, manifest):
+def read_bounded(path, bytes_most=1024**2):
+    with path.open("rb") as stream:
+        if os.fstat(stream.fileno()).st_size > bytes_most:
+            raise ValueError("Bounded unchanged native World input required")
+        value = stream.read(bytes_most + 1)
+    if len(value) > bytes_most:
+        raise ValueError("Bounded unchanged native World input required")
+    return value
+
+
+def bound_archive(payload, manifest):
     records = manifest["arrays"]
     names = {}
     for record in records.values():
@@ -57,12 +69,9 @@ def bound_archive(path, manifest):
         if name in names and names[name] != record:
             raise ValueError("Aliased native array declarations differ")
         names[name] = record
-    if (
-        path.stat().st_size > 1024**2
-        or digest(path.read_bytes()) != manifest["npz_sha256"]
-    ):
+    if digest(payload) != manifest["npz_sha256"]:
         raise ValueError("Bounded unchanged native World archive required")
-    with ZipFile(path) as archive:
+    with ZipFile(io.BytesIO(payload)) as archive:
         members = archive.infolist()
         if (
             len(members) != len(names)
@@ -248,14 +257,12 @@ def verify_points(manifest, arrays):
 
 def load(directory=DATA):
     path = directory / "manifest.json"
-    if path.stat().st_size > 1024**2:
-        raise ValueError("Bounded native World manifest required")
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(read_bounded(path))
     layout(manifest)
     cases = contexts(manifest)
-    archive_path = directory / "samples.npz"
-    bound_archive(archive_path, manifest)
-    with np.load(archive_path, allow_pickle=False) as saved:
+    payload = read_bounded(directory / "samples.npz")
+    bound_archive(payload, manifest)
+    with np.load(io.BytesIO(payload), allow_pickle=False) as saved:
         physical = {r["array"]: None for r in manifest["arrays"].values()}
         physical = {key: saved[key] for key in physical}
         arrays = {name: physical[r["array"]] for name, r in manifest["arrays"].items()}
