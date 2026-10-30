@@ -1,0 +1,418 @@
+{
+  "version": 1,
+  "scope": "Finite A18 native-raster input/reference; not a runtime visibility certificate or free oracle",
+  "native_base_commit": "c2ec71929b3e14d0c43c40922782d64fccc62c8d",
+  "source_geometry_manifest_sha256": "db9230262a79725a5da37184ebbb806c2c3ea801d714630a452b72f4599ccb6e",
+  "world_manifest_sha256": "1558334ca512d3f2f9ff9c4e85f7a5bc7d3ff8a650c3eab1740186445fff2013",
+  "raster": [
+    2560,
+    1440
+  ],
+  "sample_axis": 2,
+  "source_count": 1558,
+  "original_operands": 19,
+  "original_triangles": 38476,
+  "cases": {
+    "near-direction": {
+      "native_covered_samples": 204,
+      "parts": [
+        0,
+        1,
+        2
+      ]
+    },
+    "revealing-side": {
+      "native_covered_samples": 201,
+      "parts": [
+        0,
+        1,
+        2
+      ]
+    }
+  },
+  "samples_sha256": "57bd6f0f241ca76d38cd891d7b829fc308aec96c3bc63fb4f8ea2cdd5e826300",
+  "producer": {
+    "method": "Deindex whole original only for diagnostic; all three corners carry ordinal/material in UV1; split ordinal bytes in RGBA16F, decode after native depth rasterization",
+    "visibility_depth_matches_original": true,
+    "selected_original_rgba_and_depth_match_whole": true,
+    "private_control_shader_sha256": "99182ec764bdb4b7d5f21326a84490d8d1dca5583abab62f0cdd742141ce7b5f",
+    "binary_sha256": "0e366acb843097bfee4b0e5188c1976fbb171e19636e69179b9aa3e13a897233",
+    "gpu": "Apple A18 Pro",
+    "backend": "Metal",
+    "validation": true
+  },
+  "selected_triangles": 401,
+  "arrays": {
+    "near-direction/pixel_xy": {
+      "shape": [
+        204,
+        2
+      ],
+      "dtype": "<i4",
+      "sha256": "66a1e32f9416f1df811203978a81f03bc5a07f1c3f841a0975e62b099a42840d"
+    },
+    "near-direction/triangle_ordinal": {
+      "shape": [
+        204
+      ],
+      "dtype": "<i4",
+      "sha256": "9af4f3a26068a59ac8e8fd5dd0e681898434f22b20bb66e57591d220440c75be"
+    },
+    "near-direction/rgba": {
+      "shape": [
+        204,
+        4
+      ],
+      "dtype": "<f4",
+      "sha256": "ea8f98208f547e9c79f5e4b830609754aa14dd8248a2ada29044eb3872b7769b"
+    },
+    "near-direction/depth": {
+      "shape": [
+        204
+      ],
+      "dtype": "<f4",
+      "sha256": "5977c5e1368537e7a0e764e31358ac3b5b771b717f9adcf699b03ebce766b7e4"
+    },
+    "revealing-side/pixel_xy": {
+      "shape": [
+        201,
+        2
+      ],
+      "dtype": "<i4",
+      "sha256": "4d3292eeefa860a555869c2121a9ca826613c0942b187735bfab53b338186245"
+    },
+    "revealing-side/triangle_ordinal": {
+      "shape": [
+        201
+      ],
+      "dtype": "<i4",
+      "sha256": "c41009b12077479f156b2624967d82b356f55fcfbdae3b8b53e1340a94c9a754"
+    },
+    "revealing-side/rgba": {
+      "shape": [
+        201,
+        4
+      ],
+      "dtype": "<f4",
+      "sha256": "136879a2b15a417cb0320aca4d563c1fb446802c10f9527f3de339c3ab5106fd"
+    },
+    "revealing-side/depth": {
+      "shape": [
+        201
+      ],
+      "dtype": "<f4",
+      "sha256": "632b2894a5eb23dd9abdf5fd118249ba11f15a28bb33f80cbf7b4a0c99375a08"
+    },
+    "selection/original_triangle_ordinals": {
+      "shape": [
+        401
+      ],
+      "dtype": "<i4",
+      "sha256": "be7fb75065fd8a8904cad05dfae8926dfbea86b4caa8608cc8fb187bfa5f0303"
+    },
+    "near-direction/view_words": {
+      "shape": [
+        56
+      ],
+      "dtype": "<u4",
+      "sha256": "e7c60f944db0453cb2ac02db8f4f208d738abf5fa56585ea025558240b9314ff"
+    },
+    "revealing-side/view_words": {
+      "shape": [
+        56
+      ],
+      "dtype": "<u4",
+      "sha256": "1fa85ac62bb9a494e5c6ee4bea71b7f7029cf0e19feb3b1059f18900bd4159c0"
+    },
+    "repeat/view_words": {
+      "shape": [
+        56
+      ],
+      "dtype": "<u4",
+      "sha256": "e7c60f944db0453cb2ac02db8f4f208d738abf5fa56585ea025558240b9314ff"
+    },
+    "placements/words": {
+      "shape": [
+        1,
+        36
+      ],
+      "dtype": "<u4",
+      "sha256": "1764268b25715deacd275e1a7680136fdcd4dcab6cc9f52cf29273a4a01b2bde"
+    }
+  },
+  "upload_capture": {
+    "scope": "Actual CPU bytes supplied to Native::Uniform and the placement storage upload; not GPU buffer readback or guaranteed shader arithmetic replay",
+    "native_base_commit": "4b0931b44e7c7ada4cff9ad4bf9d7cfaba226bec",
+    "binary_sha256": "0c157e9477ad37f07eb11d1b4ac19028fcce62cbffe6facfb8753de58ae04bcc",
+    "compile_commands_sha256": "ed3656c393fc146da40e56d790be7d1e9068c49177c030761d9755d63af04994",
+    "shader_inventory_sha256": "96bd378ad3e6d51432596c642c0c1ecf67335070f799013a43826cc2381ef95b",
+    "shader_modules": 552,
+    "producer_source_sha256": {
+      "src/render/stages/GeometryEncoding.cpp": "b02f1c3533851938fb53cd4024441e4fe633966d54170d16354185fca659f769",
+      "src/render/stages/ScenePlacementUpload.cpp": "3e0be656afd1f7c24dccebf23aed672ab416f613315c3c09a50283184c94261a"
+    },
+    "queries": [
+      {
+        "name": "near-direction",
+        "capture": {
+          "bytes": 14745600,
+          "eye_m": [
+            2468.705156946426,
+            22645.037965351137,
+            27823.43994404819
+          ],
+          "far_m": 240000.0,
+          "format": "reverse_z_0_1_float32",
+          "forward": [
+            -0.0030853255836585246,
+            -0.7071067811865475,
+            -0.7071000500396268
+          ],
+          "height_px": 1440,
+          "near_m": 0.1,
+          "orthographic": false,
+          "right": [
+            0.9999904807207345,
+            0.0,
+            -0.004363309284746571
+          ],
+          "up": [
+            -0.0030853255836585246,
+            0.7071067811865475,
+            -0.7071000500396268
+          ],
+          "width_px": 2560,
+          "x_mag_m": 0.0,
+          "y_mag_m": 0.0,
+          "yfov_rad": 0.9272952180016123
+        },
+        "field_lighting": "viewer",
+        "lighting_camera": {
+          "capture": {
+            "bytes": 14745600,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 1440,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 2560,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          }
+        },
+        "sun_elevation_deg": 45
+      },
+      {
+        "name": "revealing-side",
+        "capture": {
+          "bytes": 14745600,
+          "eye_m": [
+            15348.527943793795,
+            22645.037965351137,
+            23731.533233646343
+          ],
+          "far_m": 240000.0,
+          "format": "reverse_z_0_1_float32",
+          "forward": [
+            -0.4055797876726388,
+            -0.7071067811865475,
+            -0.5792279653395691
+          ],
+          "height_px": 1440,
+          "near_m": 0.1,
+          "orthographic": false,
+          "right": [
+            0.8191520442889918,
+            0.0,
+            -0.573576436351046
+          ],
+          "up": [
+            -0.4055797876726388,
+            0.7071067811865475,
+            -0.5792279653395691
+          ],
+          "width_px": 2560,
+          "x_mag_m": 0.0,
+          "y_mag_m": 0.0,
+          "yfov_rad": 0.9272952180016123
+        },
+        "field_lighting": "viewer",
+        "lighting_camera": {
+          "capture": {
+            "bytes": 14745600,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 1440,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 2560,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          }
+        },
+        "sun_elevation_deg": 45
+      },
+      {
+        "name": "repeat",
+        "capture": {
+          "bytes": 14745600,
+          "eye_m": [
+            2468.705156946426,
+            22645.037965351137,
+            27823.43994404819
+          ],
+          "far_m": 240000.0,
+          "format": "reverse_z_0_1_float32",
+          "forward": [
+            -0.0030853255836585246,
+            -0.7071067811865475,
+            -0.7071000500396268
+          ],
+          "height_px": 1440,
+          "near_m": 0.1,
+          "orthographic": false,
+          "right": [
+            0.9999904807207345,
+            0.0,
+            -0.004363309284746571
+          ],
+          "up": [
+            -0.0030853255836585246,
+            0.7071067811865475,
+            -0.7071000500396268
+          ],
+          "width_px": 2560,
+          "x_mag_m": 0.0,
+          "y_mag_m": 0.0,
+          "yfov_rad": 0.9272952180016123
+        },
+        "field_lighting": "viewer",
+        "lighting_camera": {
+          "capture": {
+            "bytes": 14745600,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 1440,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 2560,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          }
+        },
+        "sun_elevation_deg": 45
+      }
+    ],
+    "placement_rows": 1,
+    "view_layout_float32_words": {
+      "view_projection_column_major": [
+        0,
+        16
+      ],
+      "previous_view_projection_column_major": [
+        16,
+        32
+      ],
+      "light_from_world_column_major": [
+        32,
+        48
+      ],
+      "anchor_plus_pre_view_translation": [
+        48,
+        51
+      ],
+      "previous_anchor_plus_pre_view_translation": [
+        52,
+        55
+      ]
+    },
+    "placement_layout_bytes": {
+      "stride": 144,
+      "current_column_major": 0,
+      "previous_column_major": 64,
+      "colour_offset_uint32": 128,
+      "tangent_offset_uint32": 132,
+      "reserved_uint32_pair": 136
+    },
+    "binding_checks": [
+      {
+        "pose": "near-direction",
+        "rgba_and_depth_equal_bound_original": true
+      },
+      {
+        "pose": "revealing-side",
+        "rgba_and_depth_equal_bound_original": true
+      },
+      {
+        "pose": "repeat",
+        "rgba_and_depth_equal_bound_original": true
+      }
+    ],
+    "gpu": "Apple A18 Pro",
+    "backend": "Metal",
+    "validation": true
+  }
+}

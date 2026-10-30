@@ -413,3 +413,20 @@ files and twelve accepted PNGs are restored exactly. Private inputs, applicable
 patch, shader controls, commands, raw windows and restoration hashes remain in
 `/tmp/outshine-ground-fragment-isolation-d2bd/`. Diagnostic images stay outside
 the repository; none replaces a Place reference or quality gate.
+
+## Perspective eye-halfspace control
+
+For a finite world AABB and the homogeneous projection row `r`, the largest
+clip-space `w` is `dot(r.xyz, support) + r.w`. Each support coordinate is the
+upper bound for a nonnegative coefficient and the lower bound otherwise.
+The control subtracts no geometry error: it rejects only when that maximum is
+below a negative Float32 rounding margin. Zero perspective rows, uncertain or
+nonfinite values and eye-crossing boxes retain the original conservative path.
+The existing 0.5 px displacement allowance is unchanged.
+
+The standalone bound and native selection controls do not establish complete
+image invariance. The native experiment preserved survivor IDs/order and full
+depth, but changed terrain colour and provided no useful general frame gain.
+No production culler or diagnostic reader is retained. Native inputs, exact
+controls, counterexamples, timings and the decision belong to
+[#1843](https://github.com/Weichwolf/outshine/issues/1843).
