@@ -186,6 +186,22 @@ class BaselinePrefixChecks(unittest.TestCase):
         check_export(path, report)
         with self.assertRaisesRegex(ValueError, "ownership missing"):
             read(path, report)
+        path.write_text(
+            json.dumps(
+                [
+                    {
+                        "owner_id": "inverted",
+                        "geometry_wkb": shapely.box(0, 0, 1, 1).wkb_hex,
+                        "purpose": "transport.body-and-headroom",
+                        "origin_xy_m": [0, 0],
+                        "lower_plane_m": [0, 0, 0],
+                        "upper_plane_m": [-1, 0, 0],
+                    }
+                ]
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "positive affine volume"):
+            read(path, {"volumes": {"sha256": digest(path)}})
         too_large = SimpleNamespace(
             stat=lambda: SimpleNamespace(st_size=16 * 1024**2 + 1)
         )
