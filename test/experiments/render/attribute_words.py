@@ -46,7 +46,8 @@ class WordRows:
         if self.mode == "direct":
             values = self.table[rows]
         elif self.mode == "constant":
-            values = np.broadcast_to(self.table[0], (*rows.shape, self.columns)).copy()
+            values = np.empty((*rows.shape, self.columns), "<u4")
+            values[...] = self.table[0]
         else:
             values = self.table[:, : self.columns][self.indices[rows]]
         return values.view("<f4")[..., columns]

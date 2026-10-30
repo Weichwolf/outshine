@@ -27,6 +27,10 @@ class VertexColourPalette(unittest.TestCase):
             encode(colours, 16)
         np.testing.assert_array_equal(decode(encode(colours, 32)), colours)
 
+    def test_noncontiguous_rows_and_automatic_width_keep_original_word_order(self):
+        words = np.arange(200, dtype="<u4").reshape(50, 4)[::-3]
+        np.testing.assert_array_equal(decode(encode(words, None)), words)
+
     def test_malformed_lengths_header_and_indices_fail(self):
         original = encode(np.zeros((1, 4), dtype="<u4"), 16)
         for payload in (original[:-1], original + bytes(16)):

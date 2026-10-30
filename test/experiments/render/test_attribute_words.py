@@ -1,6 +1,8 @@
 """Exact original words, adaptive choices, selected reads and bounded failures."""
 
+import gc
 import unittest
+import weakref
 from unittest.mock import patch
 
 import attribute_words as rows
@@ -11,6 +13,15 @@ from test_source_fragment_inputs import CAPTURE, inputs, source
 
 
 class AttributeWordsTests(unittest.TestCase):
+    def test_compact_product_does_not_retain_plain_attribute_snapshots(self):
+        material, _ = inputs(source(), np.array([[0.0, 0.0]]))
+        refs = [weakref.ref(material.source[key]) for key in compact.KEYS]
+        candidate = compact.compact(material)
+        del material
+        gc.collect()
+        self.assertTrue(all(ref() is None for ref in refs))
+        self.assertEqual(candidate.source["colour"].shape[1], 4)
+
     def test_selected_corner_layout_preserves_consumer_reduction_order(self):
         rng = np.random.default_rng(47)
         weights = rng.random((512, 3))

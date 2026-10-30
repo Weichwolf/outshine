@@ -7,6 +7,7 @@ import os
 import platform
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import compact_fragment_inputs as compact
 import numpy as np
@@ -237,6 +238,21 @@ def run(args):
                 )
             costs[mode] = cost
         report["prepare_costs"] = costs
+        with patch(
+            "vertex_colour_palette.unique_rows",
+            lambda words: np.unique(words, axis=0, return_inverse=True),
+        ):
+            value, cost = measured(
+                lambda: compact.prepare(field, source),
+                args.output,
+                "prepare-adaptive-axis-control",
+            )
+        for key in compact.KEYS:
+            np.testing.assert_array_equal(
+                value.source[key][np.arange(len(field.positions))].view(np.uint32),
+                raw.source[key].view(np.uint32),
+            )
+        report["prepare_costs"]["adaptive_axis_control"] = cost
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
