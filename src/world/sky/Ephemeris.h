@@ -1,9 +1,7 @@
 #ifndef OUTSHINE_WORLD_SKY_EPHEMERIS_H
 #define OUTSHINE_WORLD_SKY_EPHEMERIS_H
-#include <algorithm>
 #include <cmath>
 #include "Earth.h"
-#include "State.h"
 #include "Units.h"
 
 namespace outshine {
@@ -100,20 +98,6 @@ struct Solar {
           .MoonElDeg = static_cast<float>(moon.Sees.ElevationDeg),
           .MoonAzDeg = static_cast<float>(moon.Sees.AzimuthDeg),
           .MoonPhase = static_cast<float>(moon.Phase)};
-}
-
-inline void SolarToEnv(const Solar &s, State &st) {
-  st.Env.SunElDeg = s.SunElDeg;
-  st.Env.SunAzDeg = s.SunAzDeg;
-  st.Env.MoonElDeg = s.MoonElDeg;
-  st.Env.MoonAzDeg = s.MoonAzDeg;
-  st.Env.MoonPhase = s.MoonPhase;
-  st.Env.H.Publish(st.NowS);
-}
-
-inline double DaylightFactor(double sunElDeg) {
-  const double t = std::clamp((sunElDeg + 9.0) / 12.0, 0.0, 1.0);
-  return t * t * (3.0 - 2.0 * t);
 }
 
 }
