@@ -113,10 +113,17 @@ may still require its entire fine asset, so local pixel fallback alone proves
 no IO/residency saving. Main/shadow depth, other shading passes and GPU lifetime
 remain native consumer obligations.
 
-The concrete remaining native packet is requested in #1797/6527093219: actual
+The concrete native packet was requested in #1797/6527093219: actual
 terrain/source/union World opponents for a small positive pose change and a
 lateral/disoccluding negative, with submitted projection/frame/sample operands.
 No live revision is fabricated and no CPU result lowers the native LOD bound.
+
+The packet is now integrated in #1831. Its bound whole-original/terrain/opening
+consumer, original-group fallback, complete-capture region optimization and
+separate720p subpixel-reference requirement are documented in
+`native_world_composition.md`. The old #1716 comparison additionally evaluates
+complete original-Capture pairs to distinguish capture error from the remaining
+novel-raster residual; it never combines mismatched colour/depth/masks.
 
 ## Reproduction and costs
 
