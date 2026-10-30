@@ -5,12 +5,17 @@
 #include "TerrainTiles.h"
 #include "PreparedTerrainDeformation.h"
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stop_token>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <variant>
 
 namespace outshine::Data {
 class SourceSet;
@@ -27,7 +32,32 @@ public:
     uint64_t DeformationHits = 0, DeformationMisses = 0, DeformationWrites = 0,
              DeformationReadBytes = 0;
     uint64_t PatchHits = 0, PatchMisses = 0, PatchWrites = 0, PatchReadBytes = 0;
+    uint64_t PatchPreparations = 0, PatchPublicationAttempts = 0, PatchDecodes = 0;
   };
+
+  using Failure = std::variant<AssetCacheError, std::string>;
+
+  class PatchWrite {
+  public:
+    [[nodiscard]] size_t PublicationBytes() const noexcept {
+      return Package_ ? Package_->CapacityBytes() : 0;
+    }
+
+  private:
+    friend class PreparedTerrainAssets;
+
+    PatchWrite(std::string key, Data::TileId at, int side, PreparedAssetWrite package)
+        : Key_(std::move(key)), At_(at), Side_(side), Package_(std::move(package)) {}
+
+    std::string Key_;
+    Data::TileId At_;
+    int Side_;
+    std::optional<PreparedAssetWrite> Package_;
+    std::shared_ptr<const GroundPatch> Ready_;
+    bool Published_ = false;
+  };
+
+  [[nodiscard]] static std::string DescribeFailure(const Failure &failure);
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources);
@@ -46,10 +76,12 @@ public:
                                      const ::outshine::Ground::TerrainTiles::Shaped &shape,
                                      int side,
                                      int blockZoom) const;
-  [[nodiscard]] std::expected<std::shared_ptr<const GroundPatch>, std::string>
+  [[nodiscard]] std::expected<std::shared_ptr<const GroundPatch>, Failure>
   LoadPatch(const std::string &key, Data::TileId at, int side);
-  [[nodiscard]] std::expected<void, std::string>
-  StorePatch(const std::string &key, Data::TileId at, const GroundPatch &patch);
+  [[nodiscard]] std::expected<PatchWrite, Failure>
+  PreparePatch(const std::string &key, Data::TileId at, const GroundPatch &patch);
+  [[nodiscard]] std::expected<std::shared_ptr<const GroundPatch>, Failure>
+  StorePatch(PatchWrite &write, const std::stop_token &stop = {});
 
   [[nodiscard]] Counters Costs() const noexcept;
 
@@ -68,6 +100,7 @@ private:
       DeformationReadBytes_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, ResidentHits_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t PatchHits_{0}, PatchMisses_{0}, PatchWrites_{0}, PatchReadBytes_{0};
+  std::atomic_uint64_t PatchPreparations_{0}, PatchPublicationAttempts_{0}, PatchDecodes_{0};
 };
 
 }
