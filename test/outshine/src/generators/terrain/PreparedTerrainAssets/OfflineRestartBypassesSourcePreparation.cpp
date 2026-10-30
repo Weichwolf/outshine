@@ -83,7 +83,7 @@ int main() {
   constexpr Data::TileId at{.Zoom = 3, .X = 3, .Y = 3};
   Fields original;
   Ground::TerrainTiles plain(original, Ground::EnuFrame::At(Ground::Geo{}), {});
-  auto reference = plain.StitchedGrid(at.Zoom, at.X, at.Y);
+  const auto reference = plain.StitchedGrid(at.Zoom, at.X, at.Y);
   CHECK(reference.TryField() != nullptr && original.Calls > 0,
         "cold reference performs source acquisition and edge/corner stitching");
   if (reference.TryField() == nullptr) { return outshine::Test::Report(); }
@@ -96,7 +96,7 @@ int main() {
     auto prepared = cold.StitchedGrid(at.Zoom, at.X, at.Y);
     CHECK(prepared.TryField() && Equal(*prepared.TryField(), *reference.TryField()),
           "cache miss publishes and reloads every sample, boundary flag and source identity");
-    auto held = prepared.ShareField();
+    const auto held = prepared.ShareField();
     const auto calls = original.Calls;
     auto repeated = cold.StitchedGrid(at.Zoom, at.X, at.Y);
     CHECK(repeated.ShareField() == held && original.Calls == calls && assets->Costs().Resident == 1,
@@ -152,7 +152,7 @@ int main() {
         "persistent replay does not promote missing boundary data to known geometry");
   Ground::TerrainTiles::Shaped changed;
   changed.Seed = 1;
-  auto miss = assets->Resolve(at, changed, [] { return Ground::TerrainGrid::Deferred(); });
+  const auto miss = assets->Resolve(at, changed, [] { return Ground::TerrainGrid::Deferred(); });
   CHECK(miss.Where() == Ground::TerrainGrid::State::Deferred && assets->Costs().Misses == 1 &&
             assets->Costs().Writes == 0,
         "changed generation parameters cause a real miss and pending work cannot publish a partial "
