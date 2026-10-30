@@ -1,5 +1,6 @@
 #include "AzimuthElevation.h"
 #include "MaterialFieldPass.h"
+#include "Lens.h"
 #include "test/harness/render/StoredSampleQuads.h"
 #include "test/harness/render/NativeOffline.h"
 #include "ImpostorBaker.h"
@@ -1145,6 +1146,16 @@ MaterialFieldSource(const Fs::path &root, const Json &input, Extent raster, Json
   return std::move(*prepared);
 }
 
+Json CameraLensOperands(const Render::Viewpoint &camera, Extent raster) {
+  const auto lens = Render::Lens::From(camera, raster.WidthPx, raster.HeightPx);
+  if (!lens) { Fail("material field export has no native lens"); }
+  return {{"projection_f32_column_major", lens->Projection().Column},
+          {"view_projection_f32_column_major", lens->ViewProjection(camera).Column},
+          {"pre_view_translation_f64", {-camera.EyeM[0], -camera.EyeM[1], -camera.EyeM[2]}},
+          {"jitter_px", lens->Jitter.Axis},
+          {"scope", "native Lens operands recomputed from effective camera; not GPU readback"}};
+}
+
 void MaterialFieldViews(const Fs::path &root, const Json &input) {
   if (input.at("queries").empty()) { Fail("material field query required"); }
   const auto &first = input.at("queries").front().at("capture");
@@ -1214,6 +1225,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     results["cases"].push_back(
         {{"query", name},
          {"capture", SourceDepthDescription(images->Camera, raster, depth->size() * sizeof(float))},
+         {"lens_operands", CameraLensOperands(images->Camera, raster)},
          {"lighting_camera",
           {{"eye_m", images->LightingCamera.EyeM.Axis},
            {"forward", images->LightingCamera.Forward.Axis},
@@ -1225,6 +1237,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
          {"relight_and_readback_wall_ms", Milliseconds(began)}});
   }
   results["render_device_creations"] = deviceCreations;
+  results["render_device_name"] = renderer.GpuName();
   std::ofstream report(root / "material-fields-result.json");
   report << results.dump(2) << '\n';
   if (!report) { Fail("material field report write failed"); }
