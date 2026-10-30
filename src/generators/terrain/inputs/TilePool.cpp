@@ -9,6 +9,7 @@
 #include "Vec3.h"
 
 #include <algorithm>
+#include <functional>
 #include <expected>
 #include <cassert>
 #include <cstdint>
@@ -491,9 +492,7 @@ size_t TilePool::SchedulerBytes() const {
   };
   std::vector<const TerrainTiles::FieldWork *> preparations;
   const auto collect = [&preparations](const std::shared_ptr<TerrainTiles::FieldWork> &work) {
-    if (work && std::ranges::find(preparations, work.get()) == preparations.end()) {
-      preparations.push_back(work.get());
-    }
+    if (work) { preparations.push_back(work.get()); }
   };
   Posted_.Visit([&collect](uint64_t, const Reservation &held) { collect(held.Preparation); });
   for (const auto &work : ActivePreparations_) { collect(work); }
@@ -501,15 +500,20 @@ size_t TilePool::SchedulerBytes() const {
   Awaiting_.Visit([&collect](uint64_t, const std::vector<Job> &jobs) {
     for (const auto &job : jobs) { collect(job.Preparation); }
   });
+  std::ranges::sort(preparations, std::less<const TerrainTiles::FieldWork *>{});
+  const auto repeatedPreparations = std::ranges::unique(preparations);
+  preparations.erase(repeatedPreparations.begin(), repeatedPreparations.end());
   std::vector<std::shared_ptr<const std::atomic_size_t>> requests;
-  size_t nativeBytes = preparations.size() * sizeof(TerrainTiles::FieldWork);
-  for (const auto &work : preparations) {
-    auto request = work->Memory();
-    if (request && std::ranges::find(requests, request) == requests.end()) {
-      nativeBytes += request->load();
-      requests.push_back(std::move(request));
-    }
+  requests.reserve(preparations.size());
+  for (const auto *work : preparations) {
+    if (auto request = work->Memory()) { requests.push_back(std::move(request)); }
   }
+  const auto address = [](const auto &request) { return request.get(); };
+  std::ranges::sort(requests, std::less<const std::atomic_size_t *>{}, address);
+  const auto repeatedRequests = std::ranges::unique(requests, {}, address);
+  requests.erase(repeatedRequests.begin(), repeatedRequests.end());
+  size_t nativeBytes = preparations.size() * sizeof(TerrainTiles::FieldWork);
+  for (const auto &request : requests) { nativeBytes += request->load(); }
   size_t bytes = nativeBytes + CapacityBytes(ActivePreparations_) + jobBytes(Queue_) +
                  jobBytes(Carrying_) + CapacityBytes(Contexts_) + CapacityBytes(ComputeStates_);
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
