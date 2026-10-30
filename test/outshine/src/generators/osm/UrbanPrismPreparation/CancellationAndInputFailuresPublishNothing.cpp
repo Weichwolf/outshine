@@ -17,7 +17,7 @@ int main() {
   Tasks pool(1);
   const auto request = Sha256Hex("urban-prism-job/failure");
   std::promise<void> release;
-  auto gate = release.get_future().share();
+  const auto gate = release.get_future().share();
   CHECK(pool.PostDetached([gate] { (void)gate.wait_for(std::chrono::seconds(2)); }),
         "a bounded controlled job delays the lookup");
   {

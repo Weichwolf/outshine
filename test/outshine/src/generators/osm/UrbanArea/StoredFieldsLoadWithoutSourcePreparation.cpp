@@ -12,6 +12,8 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <expected>
+#include <utility>
 
 namespace {
 using namespace outshine;

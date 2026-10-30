@@ -15,7 +15,7 @@ int main() {
   std::filesystem::create_directories(directory);
   const auto path = (directory / "assets.sqlite").string();
   {
-    auto initialized = AssetCache::Open(path);
+    const auto initialized = AssetCache::Open(path);
     CHECK(initialized, "the native cache schema and usage table are initialized");
   }
   sqlite3 *writer = nullptr;

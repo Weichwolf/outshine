@@ -19,7 +19,9 @@ int main() {
   CHECK(original && original->size() == 64 &&
             original->find_first_not_of("0123456789abcdef") == std::string::npos,
         "complete native dependencies produce a persistent request identity");
-  CHECK(Osm::UrbanPrismRequestKey(std::string(source), terrain, patches, 3) == original,
+  const std::string sourceCopy(source.begin(), source.end());
+  CHECK(sourceCopy.data() != source.data() &&
+            Osm::UrbanPrismRequestKey(sourceCopy, terrain, patches, 3) == original,
         "equal content and selection reproduce the request independently of object addresses");
   CHECK(Osm::UrbanPrismRequestKey(
             Sha256Hex("changed source recipe or evidence"), terrain, patches, 3) != original,
