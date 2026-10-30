@@ -7,6 +7,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 
@@ -78,11 +79,17 @@ public:
   };
 
   using Producer = std::function<std::expected<AssetRecord, std::string>(std::stop_token)>;
+  // An empty successful step retains admission and resumes after a bounded delay on Poll.
+  // The pool must outlive every unfinished job, including deferred jobs.
+  using ResumableProducer =
+      std::function<std::expected<std::optional<AssetRecord>, std::string>(std::stop_token)>;
   AssetPipeline(Tasks &pool, Limits limits);
   [[nodiscard]] std::expected<Consumer, AssetPublicationError>
   OpenConsumer(AssetStoreScope scope = {});
   [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>
   RequestResolved(const Consumer &consumer, const ResolvedRequest &request, Producer producer);
+  [[nodiscard]] std::expected<RequestTicket, AssetPublicationError> RequestResumable(
+      const Consumer &consumer, const ResolvedRequest &request, ResumableProducer producer);
   [[nodiscard]] Snapshot Counts() const noexcept;
 
 private:

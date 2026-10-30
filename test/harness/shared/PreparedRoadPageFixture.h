@@ -17,7 +17,9 @@ PrepareAndLoadRoadPage(Generators::PreparedRoadPages &pages,
   auto loaded = request.RequestKey.empty()
                     ? pages.Load(request.Address, request.NativeBytesMost)
                     : pages.LoadRequest(request.RequestKey, request.NativeBytesMost);
-  if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+  if (!loaded) {
+    return std::unexpected(Generators::PreparedRoadPages::DescribeFailure(loaded.error()));
+  }
   if (!*loaded) { return std::unexpected("prepared native road page is unavailable"); }
   return std::move(**loaded);
 }

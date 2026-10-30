@@ -1,9 +1,9 @@
 #include "PreparedRoadPages.h"
 #include "Sha256.h"
+#include <algorithm>
 #include <cstddef>
 #include <expected>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -90,19 +90,36 @@ PreparedRoadPages::LoadManifest(const std::string &key) {
   return std::make_shared<const RoadPageManifest>(std::move(*manifest));
 }
 
-std::expected<void, std::string> PreparedRoadPages::InvalidateManifest(const std::string &key) {
+std::expected<void, PreparedRoadPages::Failure> PreparedRoadPages::InvalidateManifest(
+    const std::string &key, const std::string &failedPage, size_t pageBytesMost) {
   if (key.empty()) { return {}; }
-  const std::scoped_lock lock(Lock_);
-  const auto found = Cache_->Find(key);
-  if (!found) { return std::unexpected("could not inspect the incomplete road page manifest"); }
-  if (!*found) { return {}; }
-  if ((**found).Kind != "road-page-manifest") {
-    return std::unexpected("incomplete road pages reference another native product kind");
+  if (failedPage.empty() || pageBytesMost == 0) {
+    return std::unexpected(
+        std::string("road manifest invalidation needs its failed selected page"));
   }
-  const auto removed = Cache_->Remove(key);
-  if (!removed) {
-    return std::unexpected("could not invalidate the incomplete road page manifest");
-  }
+  const auto loaded = Cache_->LoadValidated(
+      key,
+      "road-page-manifest",
+      ManifestBytesMost,
+      [&](const CachedAsset &asset) -> std::expected<bool, AssetCacheError> {
+        auto manifest = DecodeRoadPageManifest(asset.Bytes(), ManifestBytesMost);
+        if (!manifest || Sha256Hex(asset.Bytes().data(), asset.Bytes().size()) != key) {
+          return false;
+        }
+        const auto found = std::ranges::find(manifest->Pages, failedPage, &RoadPageReference::Key);
+        if (found == manifest->Pages.end()) { return true; }
+        const auto child = Cache_->Load(failedPage, pageBytesMost);
+        if (!child) { return std::unexpected(child.error()); }
+        if (!*child || (**child).Record().Kind != "road-render-page" ||
+            (**child).Record().ByteCount != found->ByteCount ||
+            (**child).Record().Level != found->Level) {
+          return false;
+        }
+        const auto page = DecodeRoadPageAsset((**child).Bytes(), pageBytesMost);
+        return page && RoadPageKey(page->Address) == failedPage &&
+               page->Address.Level == found->Level;
+      });
+  if (!loaded) { return std::unexpected(loaded.error()); }
   return {};
 }
 
