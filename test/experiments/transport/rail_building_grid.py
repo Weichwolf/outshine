@@ -36,12 +36,36 @@ def construct(requested):
         raise ValueError(
             "Building construction changes a courtyard or bounded topology"
         )
+    original_holes = [
+        shapely.Polygon(ring)
+        for part in shapely.get_parts(requested)
+        for ring in part.interiors
+    ]
+    actual_holes = [
+        shapely.Polygon(ring)
+        for part in shapely.get_parts(actual)
+        for ring in part.interiors
+    ]
+    matched = set()
+    for hole in original_holes:
+        matches = [
+            i
+            for i, candidate in enumerate(actual_holes)
+            if candidate.covers(hole.representative_point())
+        ]
+        if len(matches) != 1 or matches[0] in matched:
+            raise ValueError(
+                "Building construction replaces or merges an original courtyard"
+            )
+        matched.add(matches[0])
     core = requested.buffer(-BAND_M, join_style="mitre")
     envelope = requested.buffer(BAND_M, join_style="mitre")
     if not core.difference(actual).is_empty or not actual.difference(envelope).is_empty:
         raise ValueError("Actual construction escapes its declared whole boundary band")
     points = shapely.get_coordinates(actual)
-    if not np.array_equal(points, points.astype("f4").astype(float)):
+    if len(points) > 8192 or not np.array_equal(
+        points, points.astype("f4").astype(float)
+    ):
         raise ValueError("Binary construction vertices must be exactly Float32")
     return actual, {
         "model": "topological-binary-boundary/1",

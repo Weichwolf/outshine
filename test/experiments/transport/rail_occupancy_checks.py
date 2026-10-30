@@ -248,6 +248,21 @@ class BinaryBuildingConstruction(unittest.TestCase):
             ],
         )
 
+    def test_equal_hole_counts_cannot_replace_an_original_courtyard(self):
+        from stair_seed_precision import GRID_M
+
+        bay = shapely.box(5, 5, 8, 8).union(shapely.box(6, 8, 6 + GRID_M / 8, 11))
+        original = (
+            shapely.box(0, 0, 10, 10)
+            .difference(bay)
+            .difference(shapely.box(2.00001, 2.00001, 2.0001, 2.0001))
+        )
+        rounded = shapely.set_precision(original, GRID_M)
+        self.assertEqual(len(original.interiors), len(rounded.interiors))
+        self.assertEqual(len(original.interiors), 1)
+        with self.assertRaisesRegex(ValueError, "original courtyard"):
+            construct(original)
+
     def test_far_coordinates_and_invalid_domains_are_not_silently_snapped(self):
         for source in (
             shapely.box(8190, 0, 8191, 1),
