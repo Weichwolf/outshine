@@ -30,12 +30,13 @@ def run(args):
     with np.load(args.study / "candidates.npz", allow_pickle=False) as saved:
         candidates = dict(saved)
     args.output.mkdir(parents=True)
+    whole_scene = dict(scene)
     origin = report["methods"]["flat"]["fit"]["origin_xy_m"]
     z = report["methods"]["flat"]["fit"]["coefficients"][2]
     scene.update(
         target=[*origin, z],
         eye=[origin[0] + 600, origin[1] - 600, z + 600],
-        span_m=650,
+        span_m=900,
         detail_view=True,
         profile=[1280, 720],
         samples=16,
@@ -57,20 +58,22 @@ def run(args):
                 raise ValueError("Original full-scene array prefix changed")
             mesh_path = args.output / (method + ".npz")
             np.savez_compressed(mesh_path, **shown)
-        row = dict(
-            scene,
-            id="raised-rail-candidate-" + method,
-            mesh=str(mesh_path.resolve()),
-            mesh_sha256=digest(mesh_path),
-            output=str(args.output / (method + ".png")),
-        )
-        (args.output / (method + "-scene.json")).write_text(
-            json.dumps(row, indent=2) + "\n"
-        )
-        rows[method] = {
-            "mesh_sha256": row["mesh_sha256"],
-            "scene_sha256": digest(args.output / (method + "-scene.json")),
-        }
+        for prefix, camera in (("", scene), ("whole-", whole_scene)):
+            name = prefix + method
+            row = dict(
+                camera,
+                id="raised-rail-candidate-" + name,
+                mesh=str(mesh_path.resolve()),
+                mesh_sha256=digest(mesh_path),
+                output=str(args.output / (name + ".png")),
+            )
+            (args.output / (name + "-scene.json")).write_text(
+                json.dumps(row, indent=2) + "\n"
+            )
+            rows[name] = {
+                "mesh_sha256": row["mesh_sha256"],
+                "scene_sha256": digest(args.output / (name + "-scene.json")),
+            }
     (args.output / "display-report.json").write_text(
         json.dumps(
             {
