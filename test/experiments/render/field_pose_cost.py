@@ -11,10 +11,12 @@ from pathlib import Path
 import numpy as np
 from capture_support_reference import metadata_inputs
 from experiment_output import create_output
+from field_capture_hull import capture_hull
 from field_pose_geometry import projection_bound
 from field_pose_study import DATA, ROOT, controls
 from field_view_cost import measured
-from field_view_projection import displacement_bound
+from field_view_projection import CapturePlane, displacement_bound
+from field_view_sampling import FieldGrid
 
 
 def run(args):
@@ -28,12 +30,31 @@ def run(args):
         [[1.5625, 0, 0, 0], [0, 1.5625, 0, 0], [0, 0, 0, 0.1], [0, 0, 1, 0]],
         dtype=np.float32,
     )
+    grid = FieldGrid(
+        plane.centre, plane.toward_eye, manifest["capture_camera"]["x_mag_m"]
+    )
+    hull = capture_hull(grid, complete_original_capture_domain=True)
+    coarse = CapturePlane(hull["lower"], hull["upper"], grid.centre, grid.toward_eye)
     functions = {
         "existing-perspective": lambda: displacement_bound(
             plane, case["eye"], case["basis"], 800
         ),
         "homogeneous-projection": lambda: projection_bound(
             plane, case["eye"], case["basis"], matrix, (1024, 1024)
+        ),
+        "header-derive-on-binding": lambda: capture_hull(
+            grid, complete_original_capture_domain=True
+        ),
+        "header-aabb-projection": lambda: projection_bound(
+            coarse, case["eye"], case["basis"], matrix, (1024, 1024)
+        ),
+        "header-oriented-projection": lambda: projection_bound(
+            coarse,
+            case["eye"],
+            case["basis"],
+            matrix,
+            (1024, 1024),
+            source_hull=hull["vertices"],
         ),
     }
     expected = {k: f() for k, f in functions.items()}
@@ -68,6 +89,7 @@ def run(args):
             ).hexdigest()
             for p in (
                 "field_pose_geometry.py",
+                "field_capture_hull.py",
                 "field_pose_cost.py",
                 "field_view_projection.py",
             )

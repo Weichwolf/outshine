@@ -12,7 +12,7 @@ from field_view_projection import CapturePlane, displacement_bound
 
 def exact_error(plane, p, eye, basis, matrix, raster, normal):
     def vec(a):
-        return tuple(F(float(x)) for x in a)
+        return tuple(x if isinstance(x, F) else F(float(x)) for x in a)
 
     def dot(a, b):
         return sum(x * y for x, y in zip(a, b, strict=True))

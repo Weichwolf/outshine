@@ -56,13 +56,42 @@ def magnitude(interval):
     return max(abs(interval[0]), abs(interval[1]))
 
 
-def projection_bound(plane, eye, basis, projection, raster, *, normal=None):
+def hull_vertices(plane, source_hull):
+    if source_hull is None:
+        return tuple(
+            tuple(map(point, p))
+            for p in product(*zip(plane.lower, plane.upper, strict=True))
+        )
+    vertices = tuple(
+        tuple(tuple(float(x) for x in interval) for interval in p) for p in source_hull
+    )
+    if len(vertices) != 8 or any(
+        len(p) != 3
+        or any(
+            len(v) != 2
+            or not all(map(math.isfinite, v))
+            or not plane.lower[i] <= v[0] <= v[1] <= plane.upper[i]
+            for i, v in enumerate(p)
+        )
+        for p in vertices
+    ):
+        raise ValueError(
+            "Eight finite interval vertices inside the bound source AABB required"
+        )
+    return vertices
+
+
+def projection_bound(
+    plane, eye, basis, projection, raster, *, normal=None, source_hull=None
+):
     """Bound p versus q=p-d*dot(p-c,n)/dot(d,n) over the complete source AABB.
 
     plane is the existing CapturePlane descriptor. Its centre lies on the actual
     physical support, d is the capture ray direction, and n can describe a fitted
     tilted support. A negative result retains the whole group's original owner.
     The finite supplied matrix is geometric data, not an unrounded ideal lens.
+    Optional source_hull encloses the vertices of a bound complete-source convex
+    hull; this preserves capture-frame correlation instead of expanding its AABB.
     """
     eye, basis, projection, raster = operands(eye, basis, projection, raster)
     direction = tuple(map(point, plane.toward_eye))
@@ -72,14 +101,13 @@ def projection_bound(plane, eye, basis, projection, raster, *, normal=None):
         raise ValueError("Capture rays must intersect the support plane")
     projected_direction = clip_point(direction, basis, projection, direction=True)
     terms = []
-    for corner in product(*zip(plane.lower, plane.upper, strict=True)):
+    for corner in hull_vertices(plane, source_hull):
         local = tuple(
-            subtract(point(p), point(c))
-            for p, c in zip(corner, plane.centre, strict=True)
+            subtract(p, point(c)) for p, c in zip(corner, plane.centre, strict=True)
         )
         height = divide(dot(local, normal), denominator)
         relative = tuple(
-            subtract(point(p), point(e)) for p, e in zip(corner, eye, strict=True)
+            subtract(p, point(e)) for p, e in zip(corner, eye, strict=True)
         )
         original = clip_point(relative, basis, projection)
         support = tuple(
