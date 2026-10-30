@@ -1,6 +1,10 @@
 #ifndef OUTSHINE_TEST_BUILDINGASSETFIXTURE_H
 #define OUTSHINE_TEST_BUILDINGASSETFIXTURE_H
 #include "StructureBake.h"
+#include "PreparedBuildingAssets.h"
+#include <expected>
+#include <string>
+#include <utility>
 #include "StructureCell.h"
 #include "HeightField.h"
 #include "Geodesy.h"
@@ -37,6 +41,19 @@ inline std::shared_ptr<const Ground::HeightField> Heights() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes = {125, 125, 125, 125};
   return Ground::HeightField::Of(0, {block});
+}
+
+inline std::expected<std::string, Generators::StructureBakeError>
+StoreGeometry(Generators::PreparedBuildingAssets &cache,
+              const std::string &key,
+              const Generators::PreparedStructureTile &base,
+              const Generators::RawTile &view,
+              const Generators::BakedTile &tile) {
+  auto prepared = cache.PrepareGeometry(key, base, view, tile);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const auto stored = cache.PublishGeometry(*prepared);
+  if (!stored) { return std::unexpected(stored.error()); }
+  return std::move(prepared->Key);
 }
 
 }

@@ -44,6 +44,9 @@ public:
     double FinalizationMs = 0.0;
     double LastQueueMs = 0.0;
     double LastTaskMs = 0.0;
+    // Retained package capacity; the baked CPU product remains a separate owner.
+    size_t PublicationBytes = 0;
+    uint64_t PublicationAttempts = 0;
   };
 
   StructureBuildTask(uint32_t tile,
@@ -78,6 +81,8 @@ public:
   void SelectNextCell(uint32_t cell);
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
+  [[nodiscard]] bool CanResume() const noexcept;
+  [[nodiscard]] double ResumeDelaySeconds() const noexcept;
   void RequestStop() noexcept;
   [[nodiscard]] bool TakeCompletion(Tasks &pool);
   void Join(Tasks &pool);

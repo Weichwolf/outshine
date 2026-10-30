@@ -176,22 +176,28 @@ std::expected<std::vector<uint8_t>, StructureBakeError> PreparedBuildingAssets::
 }
 
 PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept {
-  return {.Hits = Hits_.load(std::memory_order_relaxed),
-          .Misses = Misses_.load(std::memory_order_relaxed),
-          .Writes = Writes_.load(std::memory_order_relaxed),
-          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
-          .BasisHits = BasisHits_.load(std::memory_order_relaxed),
-          .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
-          .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
-          .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
-          .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
-          .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
-          .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
-          .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
-          .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed),
-          .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
-          .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
-          .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
-          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed)};
+  return {
+      .Hits = Hits_.load(std::memory_order_relaxed),
+      .Misses = Misses_.load(std::memory_order_relaxed),
+      .Writes = Writes_.load(std::memory_order_relaxed),
+      .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+      .BasisHits = BasisHits_.load(std::memory_order_relaxed),
+      .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
+      .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
+      .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
+      .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
+      .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
+      .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
+      .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
+      .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed),
+      .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
+      .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
+      .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
+      .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed),
+      .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed),
+      .GeometryPublicationAttempts = GeometryPublicationAttempts_.load(std::memory_order_relaxed),
+      .GeometryPublicationDeferred = GeometryPublicationDeferred_.load(std::memory_order_relaxed),
+      .GeometryPublicationPeakBytes =
+          GeometryPublicationPeakBytes_.load(std::memory_order_relaxed)};
 }
 }
