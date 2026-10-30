@@ -1,11 +1,13 @@
 """Same original support, bounded vertex scratch versus whole-vertex control."""
 
 import argparse
+import gc
 import hashlib
 import json
 import os
 import platform
 import subprocess
+import time
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +19,31 @@ from native_world_inputs import load
 from source_raster_candidates import MAX_VERTICES, projection, select
 
 SIZES = (MAX_VERTICES, 512, 8192, 32768)
+
+
+def paired_queries(source, view, placement, raster, expected):
+    """Interleave the existing whole/default paths while host load can change."""
+    rounds = []
+    for size in (MAX_VERTICES, 8192, 8192, MAX_VERTICES) * 3:
+        gc.collect()
+        cpu, wall = time.process_time(), time.perf_counter()
+        ids, _ = select(
+            source, view, placement, raster, raster_guard_px=0.0, vertex_batch_size=size
+        )
+        elapsed = (time.process_time() - cpu, time.perf_counter() - wall)
+        np.testing.assert_array_equal(ids, expected)
+        rounds.append({"size": size, "process_cpu_s": elapsed[0], "wall_s": elapsed[1]})
+    return {
+        "rounds": rounds,
+        "medians": {
+            str(size): {
+                key: float(np.median([r[key] for r in rounds if r["size"] == size]))
+                for key in ("process_cpu_s", "wall_s")
+            }
+            for size in (MAX_VERTICES, 8192)
+        },
+        "load_average_after": list(os.getloadavg()),
+    }
 
 
 def main():
@@ -124,7 +151,12 @@ def main():
                         ids.tobytes()
                     ).hexdigest(),
                 }
-            report["poses"][pose] = row
+            report["poses"][pose] = {
+                "profiles": row,
+                "paired_queries": paired_queries(
+                    source, view, placement, manifest["raster"], expected_ids
+                ),
+            }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(
@@ -136,7 +168,7 @@ def main():
                             "ms": round(c["whole_query"]["wall_median_s"] * 1000, 3),
                             "peak": c["whole_query"]["scoped_peak_bytes"],
                         }
-                        for s, c in row.items()
+                        for s, c in row["profiles"].items()
                     }
                     for p, row in report["poses"].items()
                 },
