@@ -47,6 +47,31 @@ def prefix_reduced(image):
     return (box_integrals(field, lo, lo + 4) / 16).reshape(h // 4, w // 4, 4)
 
 
+def fallback_controls(a, native, capture):
+    binding = a.binding
+    changed_capture = dict(
+        capture, eye_m=[capture["eye_m"][0] + 1, *capture["eye_m"][1:]]
+    )
+    changes = {
+        "capture": canonical(changed_capture),
+        "lighting": "changed-sun-direction",
+        "pbr_view": "changed-BRDF-eye",
+        "world_revision": "changed-world",
+        "sources": ("missing-whole-source",),
+    }
+    results = {"unknown_native_coverage_or_depth": compose(native, a)}
+    for key, value in changes.items():
+        wanted = replace(binding, **{key: value})
+        results[key] = compose_registered(a, a, wanted_a=wanted, wanted_b=wanted)
+    invalid = a.rgba.copy()
+    invalid[0, 0, 0] = np.nan
+    results["invalid_sample_value"] = compose(replace(a, rgba=invalid), a)
+    results["equal_depth"] = compose(a, a)
+    if any(result.rgba is not None or result.bindings for result in results.values()):
+        raise ValueError("Invalid/stale/unknown points silently replaced parent")
+    return {key: result.reason for key, result in results.items()}
+
+
 def panel(path, truth, actual, wrong):
     images = [truth, actual, wrong, abs(wrong - truth)]
     canvas = Image.new("RGB", (1024, 280), "#171717")
@@ -181,15 +206,7 @@ def run(args):
     )
     # No current native coverage/error certificate: retain the parent even if
     # this finite observation looks close. Old capture-view PBR stays explicit.
-    native_fallback = compose(native, a)
-    controls = {"unknown_native_coverage_or_depth": native_fallback.reason}
-    for key in ("capture", "lighting", "pbr_view", "world_revision", "sources"):
-        value = ("missing-whole-source",) if key == "sources" else "changed"
-        changed = replace(a, binding=replace(binding, **{key: value}))
-        result = compose_registered(changed, a, wanted_a=binding, wanted_b=binding)
-        if result.rgba is not None:
-            raise ValueError("Changed request silently replaced parent")
-        controls[key] = result.reason
+    controls = fallback_controls(a, native, provenance["capture_subset"])
     report = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
