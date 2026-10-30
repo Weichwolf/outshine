@@ -13,7 +13,7 @@ from stair_local_context import radius
 from stair_module_inputs import FIXTURE, reference_profiles, source_context
 
 
-def sources(recipe_path, cached_ids):
+def read_sources(recipe_path, cached_ids):
     recipe = json.loads(recipe_path.read_text())
     reference = FIXTURE.with_name(recipe["reference_fixture"])
     if (
@@ -78,6 +78,11 @@ def sources(recipe_path, cached_ids):
             }
         )
     apply_joints(rows)
+    return recipe, context, available, rows
+
+
+def sources(recipe_path, cached_ids):
+    recipe, context, available, rows = read_sources(recipe_path, cached_ids)
     surface, domain, work = layout(rows)
     return recipe, context, available, rows, surface, domain, work
 
