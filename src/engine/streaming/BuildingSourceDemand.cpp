@@ -83,8 +83,8 @@ bool BuildingSourceDemand::Advance(StructureBuildQueue &queue,
     changed = true;
   } else if (BasisWrites_ != writes) {
     for (auto &entry : Entries_) {
-      if (entry.Where == Phase::Missing) {
-        entry.Where = Phase::Unrequested;
+      if (entry.Where != Phase::Unrequested && entry.Where != Phase::Pending) {
+        entry = {};
         changed = true;
       }
     }

@@ -17,6 +17,7 @@
 #include <string>
 #include <thread>
 #include <variant>
+#include <sqlite3.h>
 
 namespace {
 using namespace outshine;
@@ -156,6 +157,122 @@ void FreshWarmAndStoreScope(Fixture &original) {
   CHECK(demand.Advance(warm.Queue, warm.Stack, 1) && demand.Entries().empty(),
         "unavailable current inputs invalidate previously ready source descriptions");
 }
+
+void RepublishedSources() {
+  Fixture fixture;
+  CHECK(fixture.Open(), "the World source revision fixture opens");
+  if (!fixture.Stack.Opened()) { return; }
+  const auto original = fixture.Generate(11);
+  CHECK(original, "the first native source revision publishes");
+  if (!original) { return; }
+  BuildingSourceDemand demand;
+  CHECK(WaitFor(demand, fixture, BuildingSourceDemand::Phase::Ready),
+        "the first native source becomes a ready World descriptor");
+  if (demand.Entries().empty()) { return; }
+  const auto &first = demand.Entries()[0].Value;
+  if (!first) { return; }
+  const auto request = first->RequestKey;
+  const auto replacement = fixture.Generate(12);
+  CHECK(replacement && replacement != original, "a changed native input publishes another basis");
+  if (!replacement) { return; }
+  const auto binding = fixture.Stack.BuildingAssets()->LoadBasisRequest(request);
+  CHECK(binding && *binding && (**binding).BaseKey == *replacement,
+        "the actual persisted request now binds the replacement source");
+  const auto before = fixture.Stack.BuildingAssets()->Costs();
+  CHECK(demand.Advance(fixture.Queue, fixture.Stack, 0) && demand.Counts().Ready == 0 &&
+            !demand.Entries()[0].Value,
+        "a new publication invalidates a ready descriptor even without lookup admission");
+  CHECK(WaitFor(demand, fixture, BuildingSourceDemand::Phase::Ready),
+        "bounded World discovery reads the replacement source metadata");
+  const auto &latest = demand.Entries()[0].Value;
+  CHECK(latest && latest->BaseKey == *replacement && latest->RequestKey == request,
+        "a stable request address cannot keep an obsolete ready content identity");
+  const auto after = fixture.Stack.BuildingAssets()->Costs();
+  CHECK(after.SurfaceReadBytes == before.SurfaceReadBytes &&
+            after.GeometryReadBytes == before.GeometryReadBytes,
+        "revision discovery opens no source forms or geometry");
+}
+
+void ReboundLookup(bool present, bool collected) {
+  Fixture fixture;
+  CHECK(fixture.Open(), "the completion-order fixture opens");
+  if (!fixture.Stack.Opened()) { return; }
+  if (present) { CHECK(fixture.Generate(31), "the first source exists before its metadata read"); }
+  StructureBuildQueue queue;
+  queue.Opens(&fixture.Worker, nullptr);
+  const auto pending = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+  using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
+  CHECK(pending && pending->Where == Phase::Pending, "the real request lookup runs off thread");
+  const auto barrier = fixture.Worker.Post([] {});
+  fixture.Worker.Wait(barrier);
+  if (collected) {
+    const auto previous = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+    CHECK(previous && previous->Where == (present ? Phase::Ready : Phase::Missing),
+          "the first completed result stays in the ordinary queue cache");
+  }
+  const auto replacement = fixture.Generate(32);
+  CHECK(replacement, "a newer request binding publishes after the old metadata read finished");
+  if (!replacement) { return; }
+  const auto before = fixture.Stack.BuildingAssets()->Costs();
+  const auto changed = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+  CHECK(changed && changed->Where == Phase::Pending,
+        "an observed newer publication prevents an old completed lookup from becoming current");
+  const auto deadline = std::chrono::steady_clock::now() + kDeadline;
+  std::optional<std::string> latest;
+  do {
+    const auto next = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+    if (!next) { break; }
+    if (next->Where == Phase::Ready) {
+      latest = next->Source->BaseKey;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  } while (std::chrono::steady_clock::now() < deadline);
+  CHECK(latest == replacement, "the next completed request identifies the latest native basis");
+  const auto after = fixture.Stack.BuildingAssets()->Costs();
+  CHECK(after.SurfaceReadBytes == before.SurfaceReadBytes &&
+            after.GeometryReadBytes == before.GeometryReadBytes && queue.Queued() == 0,
+        "revalidating request metadata adds no form IO or geometry jobs");
+}
+
+void FailedLookupRecovers() {
+  Fixture fixture;
+  CHECK(fixture.Open(), "the failed metadata fixture opens");
+  if (!fixture.Stack.Opened()) { return; }
+  CHECK(fixture.Generate(41), "the original native source publishes before the read fault");
+  sqlite3 *connection = nullptr;
+  const int opened =
+      sqlite3_open((fixture.Directory.Path / "assets/assets.sqlite").c_str(), &connection);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(connection, sqlite3_close);
+  CHECK(opened == SQLITE_OK && database, "the independent fixture database connection opens");
+  if (opened != SQLITE_OK || !database) { return; }
+  const int hidden = sqlite3_exec(database.get(),
+                                  "ALTER TABLE asset_requests RENAME TO held_requests",
+                                  nullptr,
+                                  nullptr,
+                                  nullptr);
+  CHECK(hidden == SQLITE_OK, "a real database read fault replaces the request table temporarily");
+  if (hidden != SQLITE_OK) { return; }
+  BuildingSourceDemand demand;
+  CHECK(WaitFor(demand, fixture, BuildingSourceDemand::Phase::Failed),
+        "the actual asynchronous request read exposes the database failure");
+  CHECK(sqlite3_exec(database.get(),
+                     "ALTER TABLE held_requests RENAME TO asset_requests",
+                     nullptr,
+                     nullptr,
+                     nullptr) == SQLITE_OK,
+        "the fixture restores the original request table");
+  const auto replacement = fixture.Generate(42);
+  CHECK(replacement, "a valid new native revision publishes after the read fault");
+  if (!replacement) { return; }
+  CHECK(demand.Advance(fixture.Queue, fixture.Stack, 0) && demand.Counts().Failed == 0,
+        "new publication invalidates a previously failed World descriptor");
+  CHECK(WaitFor(demand, fixture, BuildingSourceDemand::Phase::Ready),
+        "the failed queue lookup is replaced by a current successful read");
+  const auto &latest = demand.Entries()[0].Value;
+  CHECK(latest && latest->BaseKey == *replacement,
+        "a transient read failure cannot permanently pin an obsolete request result");
+}
 }
 
 int main() {
@@ -167,5 +284,10 @@ int main() {
   CoalescedAndBounded(fixture);
   CompactLeaseAndCamera(fixture);
   FreshWarmAndStoreScope(fixture);
+  RepublishedSources();
+  for (const bool present : {false, true}) {
+    for (const bool collected : {false, true}) { ReboundLookup(present, collected); }
+  }
+  FailedLookupRecovers();
   return Report();
 }

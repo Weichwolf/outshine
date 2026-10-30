@@ -127,7 +127,6 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   if (found != NativeLookups_.end()) {
     const auto &previous = *found->second;
     if (previous.Task == Tasks::kNoTask && previous.Stage == NativeLookup::Phase::Request &&
-        previous.Result && !*previous.Result &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
       NativeLookups_.erase(found);
       found = NativeLookups_.end();
@@ -154,6 +153,11 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   if (lookup.Task != Tasks::kNoTask) {
     if (!Pool_->TakeCompletion(lookup.Task)) { return nullptr; }
     lookup.Task = Tasks::kNoTask;
+  }
+  if (lookup.Stage == NativeLookup::Phase::Request &&
+      lookup.BasisWrites != cache->Costs().BasisWrites) {
+    NativeLookups_.erase(found);
+    return nullptr;
   }
   if (!lookup.Result) {
     const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&lookup.Result.error());
