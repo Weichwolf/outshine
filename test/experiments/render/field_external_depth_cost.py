@@ -1,6 +1,7 @@
 """Same finite original/field opponent: trace, compose-prefix and held lookups."""
 
 import argparse
+import ast
 import gc
 import hashlib
 import json
@@ -16,7 +17,7 @@ import numpy as np
 from allocation_measure import allocations
 from building_sample_inputs import digest
 from compare_field_external_depth import DATA, bound, compose, prefix_reduced, reduced
-from field_external_depth import SampleBinding
+from field_external_depth import SampleBinding, interval, over_constant_background
 from field_external_opponents import foreign_ring, join, load, point_image, terrain
 from field_view_integrals import box_integrals, summed_field
 from process_memory import peak_rss_bytes
@@ -56,7 +57,6 @@ def baseline_compose(commit, a, b, output):
     dependencies = (
         "field_composition.py",
         "field_view_integrals.py",
-        "compare_field_external_depth.py",
     )
     changed = subprocess.run(
         [
@@ -73,6 +73,26 @@ def baseline_compose(commit, a, b, output):
         raise ValueError(
             "Baseline requires unchanged point validation and prefix/mean dependencies"
         )
+    compare_path = Path(__file__).with_name("compare_field_external_depth.py")
+    previous = subprocess.check_output(
+        [
+            "git",
+            "show",
+            commit + ":test/experiments/render/compare_field_external_depth.py",
+        ],
+        text=True,
+    )
+
+    def functions(source):
+        return {
+            n.name: ast.dump(n, include_attributes=False)
+            for n in ast.parse(source).body
+            if isinstance(n, ast.FunctionDef)
+            and n.name in ("reduced", "prefix_reduced")
+        }
+
+    if functions(previous) != functions(compare_path.read_text()):
+        raise ValueError("Baseline requires identical mean/prefix evaluation functions")
     source = subprocess.check_output(
         ["git", "show", commit + ":test/experiments/render/field_external_depth.py"]
     )
@@ -99,7 +119,21 @@ def baseline_compose(commit, a, b, output):
     return call, {"commit": commit, "source_sha256": hashlib.sha256(source).hexdigest()}
 
 
-def run(args):
+def constant_method(a, b, lookup):
+    low_a, _high_a = interval(a)
+    _low_b, high_b = interval(b)
+    common = (a.reverse_z > 0) & (b.reverse_z > 0)
+    if not np.all(b.rgba == b.rgba[0, 0]) or np.any(common & (low_a <= high_b)):
+        raise ValueError("Actual ordered constant background required")
+    source_prefix = summed_field(a.rgba, dtype=np.float64)
+    constant = b.rgba[0, 0].astype(np.float64)
+    return (
+        lambda: over_constant_background(lookup(source_prefix), constant),
+        source_prefix,
+    )
+
+
+def prepare_measurement(output):
     if os.getpriority(os.PRIO_PROCESS, 0) != 0:
         raise ValueError("Normal measurement priority required")
     paths = [
@@ -117,9 +151,13 @@ def run(args):
         ["git", "status", "--porcelain", "--", *map(str, paths)], text=True
     ):
         raise ValueError("Freeze measured source before recording costs")
-    if not args.output.resolve().is_relative_to(Path("/tmp")):
+    if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("Explicit system-temp output required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=False)
+
+
+def run(args):
+    prepare_measurement(args.output)
     control = json.loads((args.control / "report.json").read_text())
     original, provenance, _raw, capture, rays, shape = load(args.inputs)
     if provenance != control["originals"]:
@@ -127,7 +165,7 @@ def run(args):
     binding = SampleBinding(
         **dict(control["binding"], sources=tuple(control["binding"]["sources"]))
     )
-    path = args.control / "terrain-and-foreign-opening.npz"
+    path = args.control / (args.case + ".npz")
     row = next(v for v in control["cases"] if v["name"] == path.stem)
     if digest(path) != row["arrays_sha256"]:
         raise ValueError("Saved point opponent changed")
@@ -137,10 +175,12 @@ def run(args):
         )
         b = bound(
             tuple(saved["b_" + key] for key in ("rgba", "depth", "error")),
-            replace(binding, sources=("terrain-and-foreign-opening",)),
+            replace(binding, sources=(args.case,)),
         )
         expected = reduced(saved["original_rgba"])
-    external = join(terrain(original, capture), foreign_ring(capture, a.reverse_z))
+    external = terrain(original, capture)
+    if args.case == "terrain-and-foreign-opening":
+        external = join(external, foreign_ring(capture, a.reverse_z))
     union = join(original, external)
     prepared = prepare_source(union)
     held = summed_field(compose(a, b).rgba, dtype=np.float64)
@@ -151,14 +191,19 @@ def run(args):
     def direct():
         return reduced(point_image(union, rays, capture, shape, prepared=prepared)[0])
 
-    def lookup():
-        return (box_integrals(held, lower, lower + 4) / 16).reshape(*expected.shape)
+    def lookup(prefix=held):
+        return (box_integrals(prefix, lower, lower + 4) / 16).reshape(*expected.shape)
 
     methods = {
         "prepared-original-trace": direct,
         "checked-compose-prefix": lambda: prefix_reduced(compose(a, b).rgba),
         "held-joint-prefix": lookup,
     }
+    source_prefix = None
+    if args.case == "terrain":
+        methods["held-source-over-constant"], source_prefix = constant_method(
+            a, b, lookup
+        )
     baseline = None
     if args.baseline_commit:
         methods["baseline-compose-prefix"], baseline = baseline_compose(
@@ -179,6 +224,7 @@ def run(args):
         "load_after": os.getloadavg(),
         "measurements": report,
         "baseline": baseline,
+        "case": args.case,
         "work": {
             "whole_original_sources": provenance["source_count"],
             "union_triangles": len(union["indices"]),
@@ -196,6 +242,9 @@ def run(args):
                 for v in (s.rgba, s.reverse_z, s.error, s.known)
             ),
             "joint_prefix_bytes": held.table.nbytes,
+            "separate_source_prefix_bytes": source_prefix.table.nbytes
+            if source_prefix
+            else 0,
             "known_owned_prefix_copy_bytes_per_rebuild": held.table.nbytes,
             "returned_pixels_bytes": expected.nbytes,
             "total_copies_or_physical_traffic": None,
@@ -220,5 +269,10 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=Path, default=DATA)
     parser.add_argument("--control", type=Path, required=True)
     parser.add_argument("--baseline-commit")
+    parser.add_argument(
+        "--case",
+        choices=("terrain", "terrain-and-foreign-opening"),
+        default="terrain-and-foreign-opening",
+    )
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())

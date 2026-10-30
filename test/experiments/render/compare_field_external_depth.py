@@ -9,7 +9,12 @@ from pathlib import Path
 
 import numpy as np
 from building_sample_inputs import digest
-from field_external_depth import PointSamples, SampleBinding, compose_registered
+from field_external_depth import (
+    PointSamples,
+    SampleBinding,
+    compose_registered,
+    over_constant_background,
+)
 from field_external_opponents import (
     canonical,
     foreign_ring,
@@ -120,6 +125,22 @@ def compare_case(
     af, bf = reduced(source.rgba), reduced(b.rgba)
     wrong = af + (1 - af[:, :, 3:]) * bf
     common = (source.reverse_z > 0) & (b.reverse_z > 0)
+    constant_control = None
+    if np.all(b.rgba == b.rgba[0, 0]) and not np.any(
+        common & (source.reverse_z <= b.reverse_z)
+    ):
+        constant = b.rgba[0, 0].astype(np.float64)
+        after = over_constant_background(af, constant)
+        delta = float(abs(truth - after).max())
+        if delta > 1e-10:
+            raise ValueError("Ordered constant-background postfilter control failed")
+        constant_control = {
+            "rgba": constant.tolist(),
+            "all_registered_background_points_exactly_constant": True,
+            "source_before_background_at_every_common_point": True,
+            "maximum_rgba_error": delta,
+            "scope": "Only these finite normalized footprints; not a certificate of native/background constancy between samples or arbitrary view validity.",
+        }
     np.savez_compressed(
         output / (name + ".npz"),
         a_rgba=source.rgba,
@@ -139,6 +160,7 @@ def compare_case(
         "point_pairs": int(np.prod(shape)),
         "whole_union_point_rgba_and_depth_exact": True,
         "prefix_rgba_max_abs": float(abs(truth - actual).max()),
+        "constant_background_after_filter": constant_control,
         "source_first_common_points": int(
             np.count_nonzero(common & (source.reverse_z > b.reverse_z))
         ),

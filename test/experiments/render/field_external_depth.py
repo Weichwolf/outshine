@@ -100,6 +100,40 @@ def interval(samples, *, where=None):
     return low, high
 
 
+def over_constant_background(front_mean, background, *, pixels_most=16384):
+    """A sufficient exact-after-filter case in real arithmetic, not admission.
+
+    The caller must establish common nonnegative normalized footprint weights, complete
+    ordered foreground coverage, and a background C/T constant over every input
+    sample of every footprint. Equal filtered averages do not establish this.
+    Then mean(C_A + T_A C_B) = mean(C_A) + mean(T_A) C_B, likewise for T.
+    Pose, bindings, whole-source validity and floating error remain separate.
+    """
+    if type(pixels_most) is not int or pixels_most < 1:
+        raise ValueError("Positive output-pixel capacity required")
+    if (
+        not isinstance(front_mean, np.ndarray)
+        or front_mean.ndim != 3
+        or front_mean.shape[2] != 4
+        or min(front_mean.shape[:2]) < 1
+        or front_mean.shape[0] * front_mean.shape[1] > pixels_most
+        or front_mean.dtype not in (np.dtype(np.float32), np.dtype(np.float64))
+        or not isinstance(background, np.ndarray)
+        or background.shape != (4,)
+        or background.dtype != front_mean.dtype
+    ):
+        raise ValueError("Bounded HxWx4 means and one matching constant RGBA required")
+    for image in (front_mean, background):
+        if (
+            not np.isfinite(image).all()
+            or np.any(image < 0)
+            or np.any(image[..., 3] > 1)
+            or np.any(image[..., :3][image[..., 3] == 0] != 0)
+        ):
+            raise ValueError("Finite linear premultiplied HDR/coverage required")
+    return front_mean + (1 - front_mean[:, :, 3:4]) * background
+
+
 def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
     """Return a complete point product, or keep the whole parent without output.
 
