@@ -27,6 +27,31 @@ def run(args):
         if digest(path) != report["artifacts"][path.name]:
             raise ValueError("saved architecture body arrays changed")
         bodies[phase] = meshes(path)
+    before_binding = None
+    if bool(args.before_products) != bool(args.before_verification):
+        raise ValueError("Before snapshot and complete verification receipt are a pair")
+    if args.before_products:
+        previous = json.loads((args.before_products / "comparison.json").read_text())
+        proof = json.loads(args.before_verification.read_text())
+        path = args.before_products / "buildings-after.npz"
+        if (
+            proof["report_sha256"] != digest(args.before_products / "comparison.json")
+            or not proof[
+                "all_source_attributes_roots_heights_and_whole_body_conflicts_checked"
+            ]
+            or previous["frame"] != report["frame"]
+            or previous["source_ids"] != report["source_ids"]
+            or digest(path) != previous["artifacts"][path.name]
+        ):
+            raise ValueError(
+                "Verified whole before snapshot in the same source/frame required"
+            )
+        bodies["before"] = meshes(path)
+        before_binding = {
+            "path": str(args.before_products.resolve()),
+            "report_sha256": digest(args.before_products / "comparison.json"),
+            "receipt_sha256": digest(args.before_verification),
+        }
     scene = json.loads(args.scene.read_text())
     if scene["profile"] != [1280, 720] or scene.get("detail_view"):
         raise ValueError("whole 1280x720 scene required")
@@ -37,7 +62,12 @@ def run(args):
         base = {key: saved[key] for key in saved.files}
     scene = whole_camera(scene, base["vertices"], [*bodies["before"], *bodies["after"]])
     palette = np.array([*scene["colours"], [0.52, 0.46, 0.38, 1]])
-    receipts = {"commit": commit, "producer": report["commit"], "phases": {}}
+    receipts = {
+        "commit": commit,
+        "producer": report["commit"],
+        "phases": {},
+        "before_snapshot": before_binding,
+    }
     for phase, phase_bodies in bodies.items():
         path = args.output / (phase + ".npz")
         shown = append(base, [(p, len(palette) - 1) for p in phase_bodies], palette)
@@ -66,4 +96,6 @@ if __name__ == "__main__":
     parser.add_argument("--verification", type=Path, required=True)
     parser.add_argument("--scene", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--before-products", type=Path)
+    parser.add_argument("--before-verification", type=Path)
     run(parser.parse_args())
