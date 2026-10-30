@@ -79,17 +79,17 @@ EmitOriginal(const BuildingSurface &source,
              const BuildingScratch::TriangleBudget &triangles,
              Raised &emitted,
              const std::stop_token &stop) {
+  if (triangles.Remaining == 0) {
+    return std::unexpected(
+        BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::WorkBudgetExceeded,
+                                  .Message = "original building triangle budget exhausted"});
+  }
   if (!source.RequireShapes()) {
     return std::unexpected(
         BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::SourceUnavailable,
                                   .Message = "original building forms unavailable"});
   }
   emitted.Clear();
-  if (triangles.Remaining == 0) {
-    return std::unexpected(
-        BuildingSourceView::Error{.Kind = BuildingSourceView::ErrorKind::WorkBudgetExceeded,
-                                  .Message = "original building triangle budget exhausted"});
-  }
   const auto meshed = source.Mesh(scratch, emitted);
   if (stop.stop_requested()) {
     return std::unexpected(
