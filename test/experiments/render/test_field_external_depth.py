@@ -109,16 +109,19 @@ class ExternalDepthTests(unittest.TestCase):
 
     def test_invalid_capacity_fractional_colour_depth_and_error_rejected(self):
         a, b = samples([[0.8, 0.7]], [1, 0, 0]), samples([[0.2, 0.3]], [0, 1, 0])
+        self.assertIsNone(compose(a, b, texels_most=1).rgba)
         with self.assertRaises(ValueError):
-            compose(a, b, texels_most=1)
+            compose(a, b, texels_most=0)
         for field, value in (
             ("rgba", np.full((1, 2, 4), 0.5, np.float32)),
             ("reverse_z", np.array([[np.nan, 0.5]], np.float32)),
             ("error", np.array([[-0.1, 0]])),
             ("known", np.ones((1, 2))),
         ):
-            with self.subTest(field=field), self.assertRaises(ValueError):
-                compose(replace(a, **{field: value}), b)
+            with self.subTest(field=field):
+                result = compose(replace(a, **{field: value}), b)
+                self.assertEqual(result.reason, "invalid_or_over_capacity_samples")
+                self.assertIsNone(result.rgba)
 
 
 if __name__ == "__main__":

@@ -112,12 +112,13 @@ def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
     for name in ("frame", "capture", "world_revision", "lighting", "pbr_view"):
         if getattr(a.binding, name) != getattr(b.binding, name):
             return Composition("unregistered_rays_or_radiance")
-    validate(a, texels_most)
-    validate(b, texels_most)
+    try:
+        validate(a, texels_most)
+        validate(b, texels_most)
+    except ValueError:
+        return Composition("invalid_or_over_capacity_samples")
     if a.rgba.shape != b.rgba.shape or a.rgba.dtype != b.rgba.dtype:
-        raise ValueError(
-            "Matching registered point shapes and arithmetic profiles required"
-        )
+        return Composition("mismatched_sample_profile")
     if not a.known.all() or not b.known.all():
         return Composition("incomplete_sample_domain")
     hit_a, hit_b = a.reverse_z > 0, b.reverse_z > 0
