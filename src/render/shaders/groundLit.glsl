@@ -32,10 +32,8 @@ const float kPi = acos(-1.0);
 #endif
 void main() {
   readSurfaceVaryings(interpolateAtOffset(positionMetric, vec2(0.0)));
-  vec3 positionDx = 2.0 * (interpolateAtOffset(positionMetric, vec2(0.25, 0.0)).xyz -
-                           interpolateAtOffset(positionMetric, vec2(-0.25, 0.0)).xyz);
-  vec3 positionDy = 2.0 * (interpolateAtOffset(positionMetric, vec2(0.0, 0.25)).xyz -
-                           interpolateAtOffset(positionMetric, vec2(0.0, -0.25)).xyz);
+  vec3 positionDx = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.25, 0.0)).xyz - position);
+  vec3 positionDy = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.0, 0.25)).xyz - position);
   vec3 worldM = groundWorldM;
   vec3 worldDx = positionDx * vec3(1.0, 1.0, -1.0);
   vec3 worldDy = positionDy * vec3(1.0, 1.0, -1.0);
