@@ -70,13 +70,13 @@ Vec3 Vector(const Json &value) {
 }
 
 template <class T> std::vector<T> Read(const Fs::path &path, size_t count) {
-  if (count == 0 || count > (size_t{64} * 1024 * 1024) / sizeof(T)) {
-    Fail("invalid input extent");
-  }
+  if (count > (size_t{64} * 1024 * 1024) / sizeof(T)) { Fail("invalid input extent"); }
   std::vector<T> data(count);
   std::ifstream file(path, std::ios::binary);
-  file.read(reinterpret_cast<char *>(data.data()),
-            static_cast<std::streamsize>(data.size() * sizeof(T)));
+  if (count != 0) {
+    file.read(reinterpret_cast<char *>(data.data()),
+              static_cast<std::streamsize>(data.size() * sizeof(T)));
+  }
   if (!file || file.peek() != std::char_traits<char>::eof()) {
     Fail("invalid input: " + path.string());
   }
