@@ -187,6 +187,30 @@ class UploadProjection(unittest.TestCase):
         self.assertEqual(work["reason"], "raster_guard_covers_viewport")
         self.assertTrue(work["original_group_retained"])
 
+    def test_unknown_later_vertex_block_retains_the_whole_original(self):
+        mesh = source(np.tile(self.mesh["positions"], (2, 1)), [[0, 1, 2], [3, 4, 5]])
+        mesh["positions"][5, 0] = np.nextafter(np.float32(0), np.float32(1))
+        ids, work = candidates.select(
+            mesh,
+            self.view,
+            self.placement,
+            [4, 4],
+            raster_guard_px=0.0,
+            vertex_batch_size=3,
+        )
+        np.testing.assert_array_equal(ids, [0, 1])
+        self.assertEqual(work["reason"], "clip_or_arithmetic_unknown")
+        self.assertEqual(work["tested_pairs"], 0)
+        with self.assertRaises(ValueError):
+            candidates.select(
+                mesh,
+                self.view,
+                self.placement,
+                [4, 4],
+                raster_guard_px=0.0,
+                vertex_batch_size=0,
+            )
+
     def test_source_words_and_winding_remain_untouched(self):
         self.mesh["positions"][2, 0] = -0.0
         before = {k: a.tobytes() for k, a in self.mesh.items()}
@@ -199,6 +223,56 @@ class UploadProjection(unittest.TestCase):
 
 
 class NativeCounterexample(unittest.TestCase):
+    def test_vertex_batches_preserve_projection_and_selected_original_ids(self):
+        manifest, _, _, mesh = load(DATA, attributes=True)
+        bound_selection(DATA, mesh)
+        with np.load(
+            DATA / "native-visible-triangles.npz", allow_pickle=False
+        ) as archive:
+            for pose in ("near-direction", "revealing-side"):
+                view, placement = (
+                    archive[pose + "/view_words"],
+                    archive["placements/words"],
+                )
+                whole = candidates.projection(
+                    mesh["positions"],
+                    view,
+                    placement,
+                    np.asarray(manifest["raster"]),
+                    vertex_batch_size=candidates.MAX_VERTICES,
+                )
+                for size in (512, 8192, 32768):
+                    batched = candidates.projection(
+                        mesh["positions"],
+                        view,
+                        placement,
+                        np.asarray(manifest["raster"]),
+                        vertex_batch_size=size,
+                    )
+                    for actual, expected in zip(batched, whole, strict=True):
+                        np.testing.assert_array_equal(
+                            actual.view(np.uint64), expected.view(np.uint64)
+                        )
+                for guard in (0.0, 1 / 16, 0.5):
+                    expected, _ = candidates.select(
+                        mesh,
+                        view,
+                        placement,
+                        manifest["raster"],
+                        raster_guard_px=guard,
+                        vertex_batch_size=candidates.MAX_VERTICES,
+                    )
+                    for size in (512, 8192, 32768):
+                        actual, _ = candidates.select(
+                            mesh,
+                            view,
+                            placement,
+                            manifest["raster"],
+                            raster_guard_px=guard,
+                            vertex_batch_size=size,
+                        )
+                        np.testing.assert_array_equal(actual, expected)
+
     def test_each_pose_independently_contains_native_reference_owners(self):
         manifest, _, _, mesh = load(DATA, attributes=True)
         bound_selection(DATA, mesh)

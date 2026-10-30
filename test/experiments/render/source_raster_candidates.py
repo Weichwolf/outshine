@@ -10,9 +10,10 @@ MAX_VERTICES = 262144
 MAX_TRIANGLES = 131072
 MAX_PAIRS = 4194304
 MAX_CHUNK = 65536
+VERTEX_BATCH = 8192
 
 
-def projection(positions, view_words, placement_words, raster):
+def _project_block(positions, view_words, placement_words, raster):
     """Static litVertex order; finite FP32 normal arithmetic is an assumption."""
     view = view_words.view("<f4")
     placement = (
@@ -76,6 +77,28 @@ def projection(positions, view_words, placement_words, raster):
     return center, np.nextafter(radius, np.inf)
 
 
+def projection(
+    positions, view_words, placement_words, raster, *, vertex_batch_size=VERTEX_BATCH
+):
+    """Retain projected outputs, release bounded intermediate vertex scratch."""
+    if type(vertex_batch_size) is not int or not 1 <= vertex_batch_size <= MAX_VERTICES:
+        raise ValueError("Bounded positive vertex batch required")
+    if len(positions) <= vertex_batch_size:
+        return _project_block(positions, view_words, placement_words, raster)
+    center = np.empty((len(positions), 2), float)
+    radius = np.empty_like(center)
+    for begin in range(0, len(positions), vertex_batch_size):
+        end = min(len(positions), begin + vertex_batch_size)
+        result = _project_block(
+            positions[begin:end], view_words, placement_words, raster
+        )
+        if result is None:
+            return None
+        center[begin:end], radius[begin:end] = result
+        del result
+    return center, radius
+
+
 def select(
     source,
     view_words,
@@ -85,6 +108,7 @@ def select(
     raster_guard_px,
     pairs_most=MAX_PAIRS,
     chunk_pairs=MAX_CHUNK,
+    vertex_batch_size=VERTEX_BATCH,
 ):
     """Minkowski rectangle support; all viewport pixel centers are requested."""
     p, triangles = source["positions"], source["indices"]
@@ -116,6 +140,8 @@ def select(
         or not 0 <= pairs_most <= MAX_PAIRS
         or type(chunk_pairs) is not int
         or not 1 <= chunk_pairs <= MAX_CHUNK
+        or type(vertex_batch_size) is not int
+        or not 1 <= vertex_batch_size <= MAX_VERTICES
     ):
         raise ValueError(
             "Bounded original geometry, actual upload layout and explicit raster guard required"
@@ -131,6 +157,7 @@ def select(
         "pair_chunks": 0,
         "max_chunk_pairs": 0,
         "qualified_gpu_raster": False,
+        "vertex_batch_limit": vertex_batch_size,
     }
 
     def fallback(reason):
@@ -143,7 +170,13 @@ def select(
 
     if raster_guard_px >= int(raster.max()):
         return fallback("raster_guard_covers_viewport")
-    projected = projection(p, view_words, placement_words, raster.astype(float))
+    projected = projection(
+        p,
+        view_words,
+        placement_words,
+        raster.astype(float),
+        vertex_batch_size=vertex_batch_size,
+    )
     if projected is None:
         return fallback("clip_or_arithmetic_unknown")
     xy, vertex_error = projected
