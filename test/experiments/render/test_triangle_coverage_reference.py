@@ -3,8 +3,7 @@
 import unittest
 
 import numpy as np
-from compare_group_coverage import front_source
-from triangle_coverage_reference import four_samples, integrate
+from triangle_coverage_reference import four_samples, front_source, integrate
 
 VIEW = (np.zeros(3), np.eye(3), 1.0, 2, 2)
 BOX = np.array([[0, 0], [2, 2]])
@@ -37,6 +36,21 @@ class TriangleCoverage(unittest.TestCase):
         np.testing.assert_array_equal(areas, [[0.5, 0], [0, 0]])
         self.assertEqual(silhouette.area, 0.5)
         self.assertEqual(work["area_sum_residual_px"], 0)
+
+    def test_orthographic_front_selection_keeps_constant_ray_direction(self):
+        geometry = source(rectangle(0, 0, 1, 1))
+        front = geometry["indices"].copy()
+        geometry["indices"] = np.vstack((front, front[:, ::-1]))
+        selected, _ = front_source(geometry, toward_eye=[0, 0, -1])
+        np.testing.assert_array_equal(selected["indices"], front)
+        for kwargs in (
+            {},
+            {"eye": VIEW[0], "toward_eye": [0, 0, -1]},
+            {"toward_eye": [0, 0, 0]},
+            {"eye": [np.nan, 0, 0]},
+        ):
+            with self.assertRaises(ValueError):
+                front_source(geometry, **kwargs)
 
     def test_overlapping_triangles_count_union_instead_of_area_sum(self):
         triangles = rectangle(0, 0, 2, 2)
