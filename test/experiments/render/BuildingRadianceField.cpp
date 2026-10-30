@@ -182,6 +182,23 @@ std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceF
                                                                const ImpostorAtlas &atlas,
                                                                size_t view,
                                                                const nlohmann::json &query) {
+  field.SupportFitMs = 0;
+  field.SupportDepth = {};
+  const auto mode = query.value("support_plane", "capture");
+  if (mode == "fitted") {
+    if (!field.SupportFit) {
+      const auto began = Clock::now();
+      auto fit = Render::FitRadiancePlane(
+          atlas,
+          {.View = view, .TexelsMost = (size_t{64} * 1024 * 1024) / sizeof(ImpostorAtlas::Texel)});
+      if (!fit) { return std::unexpected(fit.error()); }
+      field.SupportFitMs = Elapsed(began);
+      field.SupportFit = *fit;
+    }
+    field.SupportDepth = field.SupportFit->DepthCoefficients;
+  } else if (mode != "capture") {
+    return std::unexpected("unknown radiance support plane mode");
+  }
   Render::Viewpoint camera;
   camera.EyeM = Vec3{query.at("eye").get<std::array<double, 3>>()};
   camera.Right = Vec3{query.at("basis").at(0).get<std::array<double, 3>>()};
@@ -193,7 +210,8 @@ std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceF
   if (!lens) { return std::unexpected("radiance viewer has no valid lens"); }
   auto surface = Render::BuildProjectedRadianceSupport({.Centre = atlas.CentreM(),
                                                         .TowardEye = atlas.Views()[view].TowardEye,
-                                                        .HalfExtentM = atlas.HalfExtentM()},
+                                                        .HalfExtentM = atlas.HalfExtentM(),
+                                                        .DepthCoefficients = field.SupportDepth},
                                                        camera,
                                                        *lens);
   if (!surface) { return std::unexpected(surface.error()); }
@@ -211,10 +229,13 @@ PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         size_t view,
                         const nlohmann::json &query,
                         const Geometry *original,
-                        const std::shared_ptr<const Render::ResidentMaterialField> &source) {
+                        const BuildingRadianceField *resident) {
   const auto began = Clock::now();
   BuildingRadianceField result;
-  result.Source = source;
+  if (resident != nullptr) {
+    result.Source = resident->Source;
+    result.SupportFit = resident->SupportFit;
+  }
   const auto shaded = Shade(renderer, atlas, view, query, result, original);
   if (!shaded) { return std::unexpected(shaded.error()); }
   const auto placed = UpdateBuildingRadianceSupport(result, atlas, view, query);

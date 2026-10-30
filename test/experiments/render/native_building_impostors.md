@@ -282,3 +282,13 @@ Compare SS16/1024/4096 before attributing a discrepancy to the new representatio
 none is a continuous-integral bound or permission to regenerate existing pins.
 Movement/history, angular error, changed-light scheduling, bounded World residency
 and whole-frame costs remain open under #1570/#1127/#1524.
+
+`--radiance-world` accepts query `support_plane: "fitted"`; default `"capture"`
+preserves the archived control. Native bounded Givens-QR fits all occupied depths
+once per retained source. Source changes invalidate it; pose/light changes reuse
+its three coefficients with the resident source. Geometry changes only physical
+support; capture UV, one coupled prefix and two triangles remain. The output binds
+active coefficients, source point count, normalized RMS and fit wall time. RMS is
+not a surface bound or depth authority. Changing support alone reuses radiance;
+the source/light key stays independent of support placement. Inputs, original
+opponents and existing shader filtering remain unchanged.

@@ -21,7 +21,15 @@ struct Projection {
   const CameraBasis &Camera;
   const Lens &Optics;
   Mat4f Matrix;
-  Vec3 Normal;
+  Vec3 Normal, Centre, CaptureDirection;
+  ImpostorViewFrame Capture;
+
+  [[nodiscard]] Vec3 Point(double u, double v) const {
+    const auto &depth = Source.DepthCoefficients;
+    return Source.Centre + Capture.Right * (u * Source.HalfExtentM) +
+           Capture.Up * (v * Source.HalfExtentM) +
+           CaptureDirection * ((depth[0] * u + depth[1] * v + depth[2]) * Source.HalfExtentM);
+  }
 
   [[nodiscard]] std::optional<Vec2> Screen(const Vec3 &point) const {
     const Vec3 local = point - Camera.EyeM;
@@ -50,7 +58,7 @@ struct Projection {
     const Vec3 direction = orthographic ? Camera.Forward : Camera.Forward + offset;
     const double denominator = Dot(Normal, direction);
     if (std::abs(denominator) < kLeastRayPlaneDenominator) { return std::nullopt; }
-    const double distance = Dot(Normal, Source.Centre - origin) / denominator;
+    const double distance = Dot(Normal, Centre - origin) / denominator;
     const Vec3 point = origin + direction * distance;
     if (!(distance > 0) || !std::isfinite(Length(point))) { return std::nullopt; }
     return point;
@@ -67,14 +75,25 @@ std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const Radianc
   if (!frame || !Normalise(normal) || !(source.HalfExtentM > 0) ||
       !std::isfinite(source.HalfExtentM) || !(lens.WidePx > 0) || !(lens.HighPx > 0) ||
       !std::isfinite(lens.WidePx) || !std::isfinite(lens.HighPx) || !validLens ||
-      !(Dot(normal, camera.EyeM - source.Centre) > 0)) {
+      !std::ranges::all_of(source.DepthCoefficients, [](double x) { return std::isfinite(x); })) {
     return std::unexpected("radiance plane or viewer is invalid");
+  }
+  const auto &depth = source.DepthCoefficients;
+  const double scale = std::hypot(1.0, depth[0], depth[1]);
+  Vec3 physicalNormal =
+      normal * (1.0 / scale) - frame->Right * (depth[0] / scale) - frame->Up * (depth[1] / scale);
+  const Vec3 centre = source.Centre + normal * (depth[2] * source.HalfExtentM);
+  if (!Normalise(physicalNormal) || !(Dot(physicalNormal, camera.EyeM - centre) > 0)) {
+    return std::unexpected("radiance physical support faces away from its viewer");
   }
   const Projection projection{.Source = source,
                               .Camera = camera,
                               .Optics = lens,
                               .Matrix = lens.Projection(),
-                              .Normal = normal};
+                              .Normal = physicalNormal,
+                              .Centre = centre,
+                              .CaptureDirection = normal,
+                              .Capture = *frame};
   if (!(projection.Matrix[0] > 0) || !(projection.Matrix[5] > 0)) {
     return std::unexpected("radiance projection is invalid");
   }
@@ -84,8 +103,7 @@ std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const Radianc
   double bottom = right;
   for (const double x : {-1.0, 1.0}) {
     for (const double y : {-1.0, 1.0}) {
-      const auto pixel = projection.Screen(source.Centre + frame->Right * (x * source.HalfExtentM) +
-                                           frame->Up * (y * source.HalfExtentM));
+      const auto pixel = projection.Screen(projection.Point(x, y));
       if (!pixel) { return std::unexpected("radiance plane crosses the near plane"); }
       left = std::min(left, (*pixel)[0]);
       right = std::max(right, (*pixel)[0]);
@@ -113,7 +131,7 @@ std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const Radianc
     const Vec3 offset = *point - source.Centre;
     for (size_t axis = 0; axis < 3; ++axis) {
       positions.push_back(static_cast<float>((*point)[axis]));
-      normals.push_back(static_cast<float>(normal[axis]));
+      normals.push_back(static_cast<float>(physicalNormal[axis]));
     }
     uv.push_back(static_cast<float>(.5 + Dot(offset, frame->Right) / (2 * source.HalfExtentM)));
     uv.push_back(static_cast<float>(.5 - Dot(offset, frame->Up) / (2 * source.HalfExtentM)));

@@ -706,7 +706,7 @@ struct RetainedRadiance {
     LoadMs = Milliseconds(loading);
     if (!SourceHit) { ++Writes; }
     auto prepared = Test::PrepareBuildingRadiance(
-        renderer, *atlas, 0, query, request.Original, SourceReused ? Field->Source : nullptr);
+        renderer, *atlas, 0, query, request.Original, SourceReused ? &*Field : nullptr);
     if (!prepared) { Fail(prepared.error()); }
     if (!SourceReused) { ++SourceUploads; }
     Atlas = atlas;
@@ -735,6 +735,18 @@ Json SourceDepthDescription(const Render::Viewpoint &camera, Extent raster, size
           {"near_m", camera.ZNearM},
           {"far_m", camera.ZFarM},
           {"bytes", bytes}};
+}
+
+Json RadianceSupportReport(const Test::BuildingRadianceField &field, const Json &query) {
+  Json result{{"support_plane", query.value("support_plane", "capture")},
+              {"support_depth_coefficients", field.SupportDepth.Axis},
+              {"support_fit_ms", field.SupportFitMs}};
+  if (field.SupportFit) {
+    result["support_fit"] = {{"source_points", field.SupportFit->SourcePoints},
+                             {"normalized_depth_rms", field.SupportFit->NormalizedDepthRms},
+                             {"coefficients", field.SupportFit->DepthCoefficients.Axis}};
+  }
+  return result;
 }
 
 void RadianceViews(const Fs::path &root, const Json &input) {
@@ -821,6 +833,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
          {"resident_image_bytes",
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height *
               (image.Encoding == Render::RadianceEncoding::IntegralPairs ? 16 : 8)}});
+    result.update(RadianceSupportReport(field, query));
     result["field_filter_gpu_ms"] = nullptr;
     if (!field.SourceDepth.empty()) {
       result["source_depth"] =

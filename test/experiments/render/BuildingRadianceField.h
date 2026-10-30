@@ -3,6 +3,8 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "RadianceImage.h"
+#include "RadianceSupport.h"
+#include <optional>
 #include "Viewing.h"
 #include <cstddef>
 #include <expected>
@@ -28,6 +30,9 @@ struct BuildingRadianceField {
   double RelightEncodeMs = 0;
   double WaitMs = 0;
   double ReadbackMs = 0;
+  double SupportFitMs = 0;
+  Vec3 SupportDepth{};
+  std::optional<Render::RadiancePlaneFit> SupportFit;
   std::shared_ptr<const Render::ResidentMaterialField> Source;
   std::vector<float> SourceLinear;
   std::vector<float> SourceDepth;
@@ -50,6 +55,6 @@ PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         size_t view,
                         const nlohmann::json &query,
                         const Geometry *original = nullptr,
-                        const std::shared_ptr<const Render::ResidentMaterialField> &source = {});
+                        const BuildingRadianceField *resident = nullptr);
 } // namespace outshine::Test
 #endif
