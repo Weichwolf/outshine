@@ -90,3 +90,74 @@ def read_source(directory, high_directory):
     ):
         raise ValueError("Native point coverage and source-lit coverage differ")
     return manifest, arrays, grid, crop_view(high, manifest["query"])
+
+
+def read_query(directory, source_directory, high_directory):
+    """Exact archived depth-preserving512 source-mesh opponent, no new GPU run."""
+    manifest = json.loads((directory / "manifest.json").read_text())
+    source_path = source_directory / "manifest.json"
+    high_path = high_directory / "manifest.json"
+    source, high = (
+        json.loads(source_path.read_text()),
+        json.loads(high_path.read_text()),
+    )
+    path = directory / "captures.npz"
+    if (
+        manifest["version"] != 1
+        or manifest["native_terminal_exit"] != 0
+        or manifest["native_mode"] != "source-mesh, stored_samples=true"
+        or manifest["source_fields_manifest_sha256"] != digest(source_path)
+        or manifest["original_control_manifest_sha256"] != digest(high_path)
+        or manifest["native_binary_sha256"] != source["native_binary_sha256"]
+        or manifest["parent_atlas_sha256"] != source["parent_atlas_sha256"]
+        or manifest["query"] != source["query"]
+        or manifest["query"] != high["cases"][0]["query"]
+        or manifest["raster"] != high["raster"]
+        or manifest["crop"] != high["crop"]
+        or manifest["query"]["filter_axis_samples"] != 64
+        or path.stat().st_size != manifest["npz_bytes"]
+        or digest(path) != manifest["npz_sha256"]
+    ):
+        raise ValueError(
+            "Exact512 depth-preserving query/source/original binding required"
+        )
+    arrays = {}
+    with np.load(path, allow_pickle=False) as saved:
+        expected = {"linear", "depth", "normal", "ss4096"}
+        bindings = list(manifest["native_buffers"].values())
+        if (
+            set(saved.files) != expected
+            or {b["array"] for b in bindings} != expected
+            or len(bindings) != 4
+        ):
+            raise ValueError("Complete native query inventory required")
+        for binding in bindings:
+            name = binding["array"]
+            value = saved[name]
+            channels = 1 if name == "depth" else 4
+            w, h = np.asarray(manifest["crop"])[2:] - manifest["crop"][:2]
+            if (
+                value.dtype != np.dtype("<f4")
+                or value.shape != (h, w, channels)
+                or list(value.shape) != binding["shape"]
+                or not np.isfinite(value).all()
+                or hashlib.sha256(value.tobytes()).hexdigest() != binding["crop_sha256"]
+                or full_buffer_digest(
+                    value, binding["clear"], manifest["raster"], manifest["crop"]
+                )
+                != binding["full_sha256"]
+                or binding["full_bytes"]
+                != int(np.prod(manifest["raster"])) * channels * 4
+            ):
+                raise ValueError("Lossless full native query buffer changed: " + name)
+            arrays[name] = value
+    report = manifest["native_report"]["cases"]
+    if len(report) != 1 or (
+        report[0]["query"] != manifest["query"]["name"]
+        or report[0]["triangles"] != 2 * source["covered_source_samples"]
+        or report[0]["vertices"] != 4 * source["covered_source_samples"]
+        or report[0]["images"] != 2
+        or report[0]["image_storage_bytes"] != 512 * 512 * 32
+    ):
+        raise ValueError("Depth-preserving native source inventory changed")
+    return manifest, arrays
