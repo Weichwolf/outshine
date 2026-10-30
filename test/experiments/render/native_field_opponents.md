@@ -29,6 +29,8 @@ effective cameras and every array. `samples.npz` holds lossless Float32 C/T and
 depth arrays. Identical buffers share one physical array; each logical name has an
 `array` reference, shape, dtype and raw-byte SHA. Read with `allow_pickle=False`.
 Commands, terminal exits and native reports remain beside the arrays.
+Repeat failures are recorded in `reference_failures`; complete diagnostics are
+saved before the exporter exits unsuccessfully. A later pass does not erase them.
 
 Comparisons report native stored/original mask, depth and PBR differences, plus
 point composition against directly rendered unions. They report observations;

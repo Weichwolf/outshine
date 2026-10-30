@@ -242,7 +242,7 @@ def export(args):
     root.mkdir(parents=True, exist_ok=False)
     controls = document(args.controls)
     provenance, requests = prepare(root, controls)
-    arrays, reports = {}, {}
+    arrays, reports, failures = {}, {}, []
     for name, request in requests.items():
         reports[name] = execute(args.binary, root / name, request)
         for query in request["queries"]:
@@ -252,7 +252,9 @@ def export(args):
         if not np.array_equal(
             arrays[name + "/viewer/rgba"], arrays[name + "/repeat/rgba"]
         ):
-            raise ValueError("identical observer repeat changed native radiance")
+            failures.append(
+                name + ": identical observer repeat changed native radiance"
+            )
         for query in ("moved", "repeat", "light"):
             if not np.array_equal(
                 arrays[name + "/viewer/depth"], arrays[name + "/" + query + "/depth"]
@@ -318,6 +320,7 @@ def export(args):
         "reports": reports,
         "arrays": records,
         "comparisons": comparisons(arrays),
+        "reference_failures": failures,
         "npz_sha256": digest(root / "samples.npz"),
         "scope": "Registered finite native opaque PBR samples; no continuous error bound, World admission or device-budget acceptance.",
     }
@@ -331,9 +334,12 @@ def export(args):
                 "positive_queries": 24,
                 "arrays": len(arrays),
                 "npz_bytes": (root / "samples.npz").stat().st_size,
+                "reference_failures": failures,
             }
         )
     )
+    if failures:
+        raise ValueError("reference verification failed; complete diagnostics retained")
 
 
 if __name__ == "__main__":
