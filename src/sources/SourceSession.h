@@ -36,7 +36,7 @@ public:
     std::optional<SourceSet::Query> Query_;
   };
 
-  // The transport outlives the read; Poll and cancellation run on its owning worker.
+  // The transport outlives the read; serialize Poll, Cancel, moves and destruction.
   // Creating a read only selects declared sources and starts no source IO.
   [[nodiscard]] static std::expected<Read, std::string>
   Request(std::shared_ptr<SourceSession> session,

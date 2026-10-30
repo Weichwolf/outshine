@@ -23,6 +23,7 @@ public:
     Tasks &Compute;
   };
 
+  // Pools and transport outlive the loader; destruction drains its outstanding work.
   WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
                         Data::SourceTransport &transport,
                         Workers workers,
