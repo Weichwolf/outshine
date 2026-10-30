@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from elevated_rail_joints import inspect as inspect_joints
 from elevated_rail_plane import slope_rows
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import vertical_clearance
@@ -43,6 +44,7 @@ def inspect(body, top_faces, rows, groups, thickness, along, cross):
         shape = shapely.union_all(shapely.polygons(vertices[top_faces, :2]))
         if not all(shape.covers(domain) for domain in original_domains):
             raise ValueError("Actual deck lost whole original source width")
+        joint_proof = inspect_joints(rows, shape)
         gradient = normal_gradients(vertices[:n, :2], top_faces, vertices[:n, 2])
         normalized = abs(gradient @ directions.T) / limits
         if normalized.max() > 1:
@@ -70,6 +72,7 @@ def inspect(body, top_faces, rows, groups, thickness, along, cross):
                 "volume_m3": volume,
                 "maximum_normalized_profile": float(normalized.max()),
                 "whole_source_widths": len(rows),
+                "joint_profiles": joint_proof,
                 "clearances": clearances,
                 **topology,
             }

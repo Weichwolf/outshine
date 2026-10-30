@@ -5,6 +5,7 @@ import json
 import numpy as np
 import shapely
 from camera_height_inputs import digest
+from elevated_rail_joints import apply as apply_joints
 from elevated_rail_plane import lower_constraints
 from outshine_ref.contracts import Mesh
 from shared_bridge_geometry import layout
@@ -76,6 +77,7 @@ def sources(recipe_path, cached_ids):
                 "original_mvt_xy": source["mvt_xy"],
             }
         )
+    apply_joints(rows)
     surface, domain, work = layout(rows)
     return recipe, context, available, rows, surface, domain, work
 

@@ -7,6 +7,9 @@ import numpy as np
 import shapely
 from elevated_rail_audit import inspect
 from elevated_rail_inputs import add_surface, sources
+from elevated_rail_joints import apply as apply_joints
+from elevated_rail_joints import inspect as inspect_joints
+from elevated_rail_joints import joints
 from elevated_rail_plane import fit_plane, lower_constraints
 from outshine_ref.contracts import Mesh
 from shared_bridge_geometry import layout
@@ -132,10 +135,66 @@ class RaisedRailTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "local affine"):
             fit_plane(np.array([[10000, 0, 3]]), self.domain, self.axes)
 
+    def corner_rows(self, angle=0.356):
+        radians = np.deg2rad(angle)
+        return [
+            {
+                "source_id": "incoming",
+                "xy": np.array([[-10.0, 0], [0, 0]]),
+                "width_m": 3.8,
+                "source_grid_m": 2**-11,
+                "end_heights_m": [3.12, 3.12],
+                "original_mvt_xy": [[-10, 0], [0, 0]],
+            },
+            {
+                "source_id": "outgoing",
+                "xy": np.array(
+                    [[0.0, 0], [10 * np.cos(radians), 10 * np.sin(radians)]]
+                ),
+                "width_m": 3.8,
+                "source_grid_m": 2**-11,
+                "end_heights_m": [3.12, 3.12],
+                "original_mvt_xy": [[0, 0], [10, 1]],
+            },
+        ]
+
+    def test_flat_cap_corner_loses_whole_profile_even_when_union_is_closed(self):
+        rows = self.corner_rows()
+        _, domain, _ = layout(rows)
+        section = shapely.LineString(joints(rows)[0]["section"])
+        self.assertGreater(section.difference(domain).length, 1.4)
+        with self.assertRaisesRegex(ValueError, "Whole shared"):
+            inspect_joints(rows, domain)
+        apply_joints(rows)
+        top, domain, _ = layout(rows)
+        self.assertEqual(inspect_joints(rows, domain)[0]["uncovered_length_m"], 0)
+        body = close_surface(top, 0.6)
+        proof = inspect(body, top.triangles, rows, [], 0.6, 0.04, 0.03)
+        self.assertTrue(
+            all(p["joint_profiles"][0]["uncovered_length_m"] == 0 for p in proof)
+        )
+
+    def test_straight_joint_needs_no_added_pad(self):
+        rows = self.corner_rows(0)
+        apply_joints(rows)
+        self.assertTrue(all("junction_pads_xy_m" not in row for row in rows))
+        _, domain, _ = layout(rows)
+        self.assertEqual(inspect_joints(rows, domain)[0]["uncovered_length_m"], 0)
+
+    def test_sharp_or_three_way_rail_joints_remain_explicitly_unsupported(self):
+        with self.assertRaisesRegex(ValueError, "bounded simple joint"):
+            apply_joints(self.corner_rows(60))
+        rows = self.corner_rows()
+        rows.append({**rows[1], "source_id": "third"})
+        with self.assertRaisesRegex(ValueError, "two-source"):
+            apply_joints(rows)
+        self.assertTrue(all("junction_pads_xy_m" not in row for row in rows))
+
     def body(self):
         rows = [
             {
                 "source_id": "original-rail",
+                "original_mvt_xy": [[0, 0], [1, 0]],
                 "xy": np.array([[-1.0, 0], [1, 0]]),
                 "width_m": 0.5,
                 "source_grid_m": 2**-11,
