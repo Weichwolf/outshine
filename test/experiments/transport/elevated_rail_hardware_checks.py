@@ -1,12 +1,18 @@
 """Physical endpads connect whole sources without inventing source topology."""
 
 import copy
+import io
+import tempfile
 import unittest
+import zipfile
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import shapely
 from elevated_rail_hardware import chains, conflict
 from elevated_rail_hardware_verify import (
+    arrays,
     float32_instances,
     instances,
     profile,
@@ -25,6 +31,30 @@ def source(key, points, nodes):
         "original_mvt_xy": nodes,
         "width_m": 3.8,
     }
+
+
+class HardwareArchiveChecks(unittest.TestCase):
+    def test_small_member_cannot_claim_a_large_allocation_before_payload_admission(
+        self,
+    ):
+        header = io.BytesIO()
+        np.lib.format.write_array_header_1_0(
+            header, {"descr": "<f8", "fortran_order": False, "shape": (1000000000, 3)}
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.rail-header."
+        ) as temporary:
+            archive = Path(temporary) / "truncated.npz"
+            with zipfile.ZipFile(archive, "w") as saved:
+                saved.writestr("rail_vertices.npy", header.getvalue())
+            with (
+                patch(
+                    "elevated_rail_hardware_verify.np.load",
+                    side_effect=AssertionError("array decoder reached"),
+                ),
+                self.assertRaisesRegex(ValueError, "payload length"),
+            ):
+                arrays(archive, ("rail_vertices",))
 
 
 class RaisedHardwareChecks(unittest.TestCase):

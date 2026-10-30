@@ -4,6 +4,7 @@ import argparse
 import json
 import zipfile
 from dataclasses import asdict
+from math import prod
 from pathlib import Path
 
 import numpy as np
@@ -24,8 +25,36 @@ from stair_terrain_experiment import frozen
 
 def arrays(path, names):
     with zipfile.ZipFile(path) as archive:
-        if sum(item.file_size for item in archive.infolist()) > 32 * 1024**2:
+        members = archive.infolist()
+        expected = {name + ".npy" for name in names}
+        if len(members) != len(expected) or {m.filename for m in members} != expected:
+            raise ValueError(
+                "Exact complete hardware array inventory required before decode"
+            )
+        if sum(item.file_size for item in members) > 32 * 1024**2:
             raise ValueError("Bounded whole hardware payload required before decode")
+        readers = {
+            (1, 0): np.lib.format.read_array_header_1_0,
+            (2, 0): np.lib.format.read_array_header_2_0,
+        }
+        for member in members:
+            with archive.open(member) as stream:
+                version = np.lib.format.read_magic(stream)
+                if version not in readers:
+                    raise ValueError("Known bounded hardware array header required")
+                shape, _fortran, dtype = readers[version](stream)
+                if (
+                    not 1 <= len(shape) <= 3
+                    or any(type(n) is not int or n < 0 for n in shape)
+                    or dtype.kind not in "fu"
+                    or dtype.itemsize > 8
+                    or dtype.fields is not None
+                    or dtype.subdtype is not None
+                    or prod(shape) * dtype.itemsize != member.file_size - stream.tell()
+                ):
+                    raise ValueError(
+                        "Exact bounded primitive hardware payload length required before decode"
+                    )
     with np.load(path, allow_pickle=False) as saved:
         if set(saved.files) != set(names):
             raise ValueError("Exact complete hardware array inventory required")
