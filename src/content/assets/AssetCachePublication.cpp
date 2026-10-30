@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <string>
@@ -14,6 +16,37 @@
 #include <zlib.h>
 
 namespace outshine {
+size_t PreparedAssetWrite::CapacityBytes() const noexcept {
+  size_t bytes = sizeof(*this);
+  const auto add = [&bytes](size_t count) {
+    bytes = count > std::numeric_limits<size_t>::max() - bytes ? std::numeric_limits<size_t>::max()
+                                                               : bytes + count;
+  };
+  const auto text = [&add](const std::string &value) {
+    add(value.capacity());
+    add(1);
+  };
+  add(Bytes_.capacity());
+  add(Records_.capacity() * sizeof(AssetRecord));
+  text(Key_);
+  for (const auto &record : Records_) {
+    text(record.Key);
+    text(record.Kind);
+    text(record.Package);
+    text(record.Parent);
+    if (record.RequestKey) { text(*record.RequestKey); }
+  }
+  return bytes;
+}
+
+struct AssetCache::Publication {
+  std::span<const AssetRecord> Records;
+  std::span<const uint8_t> Bytes;
+  std::string_view Key;
+  size_t NativeBytes = 0;
+  bool Compressed = false;
+};
+
 namespace {
 
 constexpr auto kBindRequest =
@@ -41,6 +74,31 @@ public:
 private:
   sqlite3 *Database_;
 };
+
+std::expected<void, AssetCacheError> Erase(sqlite3 *database, std::string_view key) {
+  for (const auto *sql :
+       {"DELETE FROM asset_requests WHERE asset_id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
+        "DELETE FROM assets WHERE key=?"}) {
+    AssetSql::Statement statement;
+    auto prepared = AssetSql::Prepare(database, sql, statement);
+    if (!prepared) { return prepared; }
+    if (!AssetSql::Text(statement.Value, 1, key)) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    const int code = sqlite3_step(statement.Value);
+    if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+  }
+  return {};
+}
+
+std::expected<bool, AssetCacheError> Validate(const std::optional<CachedAsset> &asset,
+                                              std::string_view kind,
+                                              const AssetCache::Validator &validate) {
+  if (!asset) { return false; }
+  if (asset->Record().Kind != kind) { return std::unexpected(AssetCacheError::InvalidInput); }
+  return validate(*asset);
+}
 
 bool Bind(sqlite3_stmt *statement, const AssetRecord &record) {
   bool bound =
@@ -103,8 +161,7 @@ std::expected<void, AssetCacheError> RebindRequest(sqlite3_stmt *statement,
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError> PrepareRecords(
-    std::span<const AssetRecord> records, size_t payloadBytes, const std::string &package) {
-  std::vector<AssetRecord> publishing(records.begin(), records.end());
+    std::vector<AssetRecord> publishing, size_t payloadBytes, const std::string &package) {
   std::unordered_set<std::string_view> identities;
   std::unordered_set<std::string_view> requests;
   for (auto &record : publishing) {
@@ -127,23 +184,74 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
                                                          std::span<const uint8_t> payload) {
   if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
   std::unique_lock lock(*State_->Mutex);
-  if (payload.size() >
-      static_cast<size_t>(sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+  if (std::cmp_greater(payload.size(), sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   lock.unlock();
   const std::string key = Sha256Hex(payload.data(), payload.size());
-  auto publishing = PrepareRecords(records, payload.size(), key);
+  auto publishing =
+      PrepareRecords(std::vector<AssetRecord>(records.begin(), records.end()), payload.size(), key);
   if (!publishing) { return std::unexpected(publishing.error()); }
   const auto compressed = AssetSql::Compress(payload);
   if (!compressed) { return std::unexpected(compressed.error()); }
-  const int codec = compressed->empty() ? 0 : 1;
-  const auto bytes = codec == 0 ? payload : std::span<const uint8_t>(*compressed);
-  lock.lock();
+  const bool encoded = !compressed->empty();
+  const auto bytes = encoded ? std::span<const uint8_t>(*compressed) : payload;
+  return PublishPrepared({.Records = *publishing,
+                          .Bytes = bytes,
+                          .Key = key,
+                          .NativeBytes = payload.size(),
+                          .Compressed = encoded});
+}
+
+std::expected<PreparedAssetWrite, AssetCacheError>
+AssetCache::PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload) {
+  if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
+  {
+    const std::scoped_lock lock(*State_->Mutex);
+    if (std::cmp_greater(payload.size(),
+                         sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+      return std::unexpected(AssetCacheError::CapacityExceeded);
+    }
+  }
+  auto key = Sha256Hex(payload.data(), payload.size());
+  auto publishing = PrepareRecords(std::move(records), payload.size(), key);
+  if (!publishing) { return std::unexpected(publishing.error()); }
+  auto compressed = AssetSql::Compress(payload);
+  if (!compressed) { return std::unexpected(compressed.error()); }
+  PreparedAssetWrite prepared;
+  prepared.NativeBytes_ = payload.size();
+  prepared.Compressed_ = !compressed->empty();
+  prepared.Records_ = std::move(*publishing);
+  prepared.Key_ = std::move(key);
+  prepared.Bytes_ = prepared.Compressed_ ? std::move(*compressed) : std::move(payload);
+  return prepared;
+}
+
+std::expected<void, AssetCacheError> AssetCache::Publish(const PreparedAssetWrite &prepared) {
+  if (prepared.Records_.empty() || prepared.Key_.empty()) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  return PublishPrepared({.Records = prepared.Records_,
+                          .Bytes = prepared.Bytes_,
+                          .Key = prepared.Key_,
+                          .NativeBytes = prepared.NativeBytes_,
+                          .Compressed = prepared.Compressed_});
+}
+
+std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publication &publication) {
+  const std::scoped_lock lock(*State_->Mutex);
+  if (std::cmp_greater(publication.NativeBytes,
+                       sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  const auto stored = StorePackage(State_->Database, key, bytes, codec, payload.size());
+  const auto stored = StorePackage(State_->Database,
+                                   publication.Key,
+                                   publication.Bytes,
+                                   publication.Compressed ? 1 : 0,
+                                   publication.NativeBytes);
   if (!stored) { return stored; }
   AssetSql::Statement asset;
   AssetSql::Statement bounds;
@@ -168,7 +276,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
   if (!prepared) { return prepared; }
   prepared = AssetSql::Prepare(State_->Database, kBindRequest, request);
   if (!prepared) { return prepared; }
-  for (const auto &record : *publishing) {
+  for (const auto &record : publication.Records) {
     sqlite3_reset(asset.Value);
     sqlite3_reset(bounds.Value);
     if (!Bind(asset.Value, record) || !AssetSql::Text(bounds.Value, 1, record.Key)) {
@@ -182,7 +290,7 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     if (!rebound) { return rebound; }
   }
   auto committed = transaction.Commit();
-  if (committed) { State_->Observe(key, bytes.size(), true); }
+  if (committed) { State_->Observe(publication.Key, publication.Bytes.size(), true); }
   return committed;
 }
 
@@ -192,20 +300,49 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  for (const auto *sql :
-       {"DELETE FROM asset_requests WHERE asset_id IN (SELECT id FROM assets WHERE key=?)",
-        "DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE key=?)",
-        "DELETE FROM assets WHERE key=?"}) {
-    AssetSql::Statement statement;
-    auto prepared = AssetSql::Prepare(State_->Database, sql, statement);
-    if (!prepared) { return prepared; }
-    if (!AssetSql::Text(statement.Value, 1, key)) {
-      return std::unexpected(AssetCacheError::Storage);
-    }
-    const int code = sqlite3_step(statement.Value);
-    if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
-  }
+  const auto erased = Erase(State_->Database, key);
+  if (!erased) { return erased; }
   return transaction.Commit();
+}
+
+std::expected<std::optional<CachedAsset>, AssetCacheError>
+AssetCache::LoadValidated(std::string_view key,
+                          std::string_view kind,
+                          size_t packageBytesMost,
+                          const Validator &validate) {
+  if (!AssetSql::ValidKey(key) || kind.empty() || packageBytesMost == 0 || !validate) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  auto loaded = Load(key, packageBytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  auto valid = Validate(*loaded, kind, validate);
+  if (!valid) { return std::unexpected(valid.error()); }
+  if (*valid) { return std::move(*loaded); }
+  const std::scoped_lock lock(*State_->Mutex);
+  const auto found = Find(key);
+  if (!found) { return std::unexpected(found.error()); }
+  if (!*found) { return std::nullopt; }
+  if ((**found).Kind != kind) { return std::unexpected(AssetCacheError::InvalidInput); }
+  const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  if (!began) { return std::unexpected(began.error()); }
+  Transaction transaction(State_->Database);
+  loaded = Load(key, packageBytesMost);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  valid = Validate(*loaded, kind, validate);
+  if (!valid) { return std::unexpected(valid.error()); }
+  if (*valid) { return std::move(*loaded); }
+  if (!*loaded) {
+    const auto current = Find(key);
+    if (!current) { return std::unexpected(current.error()); }
+    if (*current && (**current).Kind != kind) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+  }
+  const auto erased = Erase(State_->Database, key);
+  if (!erased) { return std::unexpected(erased.error()); }
+  const auto committed = transaction.Commit();
+  if (!committed) { return std::unexpected(committed.error()); }
+  return std::nullopt;
 }
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,

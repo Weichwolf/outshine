@@ -40,7 +40,7 @@ int main() {
   auto encoded = EncodePreparedGroundPatch(at, *original);
   CHECK(encoded && encoded->size() == 24 + values.size() * sizeof(double),
         "native sampling patch stores one spatial header and exact doubles, no source fields");
-  auto decoded = encoded ? DecodePreparedGroundPatch(at, 3, *encoded) : nullptr;
+  const auto decoded = encoded ? DecodePreparedGroundPatch(at, 3, *encoded) : nullptr;
   CHECK(decoded && decoded->Region() == at &&
             std::ranges::equal(values,
                                decoded->HeightsAslM(),

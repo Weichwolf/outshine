@@ -3,6 +3,7 @@
 #include "Check.h"
 #include "SourceSet.h"
 #include "MvtWireFixture.h"
+#include "OsmCacheFixture.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -20,52 +21,8 @@ using namespace outshine;
 using namespace outshine::Data;
 using namespace outshine::Generators::Osm;
 
-class NoTransport final : public SourceTransport {
-public:
-  FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
-
-  Wire Collect(Ticket /*ticket*/) override { return Wire::Never(); }
-
-  void Cancel(Ticket /*ticket*/) override {}
-};
-
-class VectorSource final : public Source {
-public:
-  VectorSource(std::string revision, std::vector<uint8_t> bytes, std::atomic_uint &calls)
-      : Decl_{}, Bytes_(std::move(bytes)), Calls_(calls) {
-    Decl_.Id = "fixture-vector";
-    Decl_.Revision = std::move(revision);
-    Decl_.Kind = DataKind::VectorMap;
-    Decl_.Wire = WireFormat::MapboxVectorTile;
-    Decl_.Keeps = Cacheability::Never;
-  }
-
-  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
-
-  [[nodiscard]] Coverage Covers(const SourceRequest & /*request*/) const noexcept override {
-    return Coverage::Inside;
-  }
-
-  [[nodiscard]] Address Serves(const SourceRequest &request) const noexcept override {
-    return request.Where();
-  }
-
-  FetchStart Begin(const Address & /*address*/, SourceTransport & /*transport*/) const override {
-    return Ticket::None;
-  }
-
-  SourceResponse Collect(const Address & /*address*/,
-                         Ticket /*ticket*/,
-                         SourceTransport & /*transport*/) const override {
-    ++Calls_;
-    return SourceResponse::Delivered(Bytes_);
-  }
-
-private:
-  SourceDecl Decl_;
-  std::vector<uint8_t> Bytes_;
-  std::atomic_uint &Calls_;
-};
+using outshine::Test::OsmCache::NoTransport;
+using outshine::Test::OsmCache::VectorSource;
 
 struct Snapshot {
   std::vector<double> Points;

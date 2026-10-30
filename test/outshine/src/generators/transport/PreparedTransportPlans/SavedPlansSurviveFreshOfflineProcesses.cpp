@@ -121,7 +121,7 @@ void Prepare(const std::string &directory) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc == 3 && std::string_view(argv[1]) == "--offline") { return Offline(argv[2]); }
   const auto directory = std::filesystem::temp_directory_path() /
                          ("outshine-engine-transport-plan-" + std::to_string(getpid()));

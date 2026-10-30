@@ -97,12 +97,12 @@ int main() {
     Heights heights(region);
     heights.Waiting = true;
     GroundPatchPreparation warm(pool, assets, key, region, 5);
-    auto loaded = Await(warm, heights);
+    const auto loaded = Await(warm, heights);
     CHECK(loaded && reference && loaded->HeightAslM({}) == reference->HeightAslM({}) &&
               heights.Samples == 0 && heights.Blocks == 0 && assets->Costs().PatchHits == 1 &&
               assets->Costs().PatchWrites == 0,
           "a fresh offline hit bypasses all height queries and generation");
-    auto changed = assets->PatchKey(at, {}, 5, 14);
+    const auto changed = assets->PatchKey(at, {}, 5, 14);
     GroundPatchPreparation pending(pool, assets, changed, region, 5);
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (heights.Samples == 0 && std::chrono::steady_clock::now() < until) {

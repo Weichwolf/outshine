@@ -196,7 +196,7 @@ bool Spawn(const std::string &executable,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc == 5 && std::string_view(argv[1]) == "--offline") {
     return Offline(argv[2], argv[3], argv[4]);
   }

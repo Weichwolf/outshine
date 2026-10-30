@@ -9,6 +9,7 @@
 #include <sqlite3.h>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -36,7 +37,7 @@ void Exercise(const std::filesystem::path &path) {
   cache->reset();
   sqlite3 *raw = nullptr;
   const int opened = sqlite3_open(path.string().c_str(), &raw);
-  std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
   CHECK(opened == SQLITE_OK, "independent usage fixture opens");
   if (opened != SQLITE_OK) { return; }
   CHECK(sqlite3_exec(database.get(),
@@ -65,7 +66,7 @@ void Exercise(const std::filesystem::path &path) {
         "resident-only usage persists through the ordinary batched index");
   if (prepared != SQLITE_OK || sqlite3_data_count(statement.get()) != 4) { return; }
   const auto stored = sqlite3_column_int64(statement.get(), 0);
-  CHECK(stored > 0 && stored < static_cast<sqlite3_int64>(bytes.size()) &&
+  CHECK(stored > 0 && std::cmp_less(stored, bytes.size()) &&
             stored == sqlite3_column_int64(statement.get(), 1),
         "resident use records actual compressed package bytes rather than decoded slice size");
   CHECK(sqlite3_column_type(statement.get(), 2) == SQLITE_NULL &&

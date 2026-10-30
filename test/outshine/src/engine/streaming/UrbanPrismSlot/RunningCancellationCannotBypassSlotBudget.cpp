@@ -23,7 +23,7 @@ int main() {
   std::promise<void> release;
   std::promise<void> entered;
   auto gate = release.get_future().share();
-  auto running = entered.get_future();
+  const auto running = entered.get_future();
   size_t captures = 0;
   const UrbanPrismPreparation::Capture slow =
       [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {

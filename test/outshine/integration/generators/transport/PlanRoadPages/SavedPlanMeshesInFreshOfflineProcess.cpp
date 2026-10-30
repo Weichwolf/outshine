@@ -100,7 +100,7 @@ bool Prepare(const std::string &directory, const TransportPlan &plan) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   if (argc == 4 && std::string_view(argv[1]) == "--offline") { return Offline(argv[2], argv[3]); }
   const auto directory = std::filesystem::temp_directory_path() /
                          ("outshine-engine-plan-mesh-" + std::to_string(getpid()));

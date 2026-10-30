@@ -69,7 +69,7 @@ int main() {
         "parallel handles of one database preserve every independently prepared product");
   const auto path = (directory / "assets.sqlite").string();
   {
-    auto reopened = AssetCache::Open(path);
+    const auto reopened = AssetCache::Open(path);
     CHECK(reopened, "the concurrent cache reopens after all worker handles retire");
   }
   sqlite3 *database = nullptr;

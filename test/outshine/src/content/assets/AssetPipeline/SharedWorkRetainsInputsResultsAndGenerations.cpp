@@ -185,7 +185,7 @@ void CheckGenerations() {
     return;
   }
   const auto control = std::make_shared<Control>();
-  auto oldRequest = Request(*a, 'a');
+  const auto oldRequest = Request(*a, 'a');
   auto old =
       pipeline->RequestResolved(*a, oldRequest, Held(control, pipeline, std::make_shared<int>(1)));
   if (!old) {

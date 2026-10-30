@@ -218,7 +218,7 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
   auto opened = PreparedRoadPages::Open(directory.string());
   CHECK(opened.has_value(), "the consumer starts with a fresh page service");
   if (!opened) { return; }
-  auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
+  const auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
   RoadPageQueue queue(pool,
                       pages,
                       {.PendingMost = 1, .PageBytesMost = kPageBytesMost},
