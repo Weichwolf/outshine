@@ -83,6 +83,33 @@ def verified(output):
         raise ValueError("successful independent local verification receipt required")
 
 
+def append_verified(state, path):
+    if len(state[4]["parent_reports"]) >= 32:
+        raise ValueError("bounded ordered local-module input capacity exhausted")
+    verified(path)
+    view, assets, supports, contacts, before, report, _saved = apply_product(
+        state, path
+    )
+    catalog = Path(path) / "source-catalog.json"
+    manifest = dict(
+        before,
+        source_ids=report["candidate_source_ids"],
+        catalog=str(catalog.resolve()),
+        catalog_sha256=digest(catalog),
+        parent_reports=[
+            *before["parent_reports"],
+            digest(Path(path) / "comparison.json"),
+        ],
+        borrowed_headroom_contacts=[
+            *before["borrowed_headroom_contacts"],
+            *declarations(report, report["artifacts"].get("module.npz")),
+        ],
+    )
+    if len(manifest["borrowed_headroom_contacts"]) > 128:
+        raise ValueError("resident borrowed headroom declaration budget exhausted")
+    return view, assets, supports, contacts, manifest
+
+
 def load_chain(resident, prior=()):
     if len(prior) > 32 or len({Path(p).resolve() for p in prior}) != len(prior):
         raise ValueError("bounded unique ordered local-module inputs required")
@@ -95,28 +122,7 @@ def load_chain(resident, prior=()):
     )
     state = view, assets, supports, contacts, manifest
     for path in prior:
-        verified(path)
-        view, assets, supports, contacts, before, report, _saved = apply_product(
-            state, path
-        )
-        catalog = Path(path) / "source-catalog.json"
-        manifest = dict(
-            before,
-            source_ids=report["candidate_source_ids"],
-            catalog=str(catalog.resolve()),
-            catalog_sha256=digest(catalog),
-            parent_reports=[
-                *before["parent_reports"],
-                digest(Path(path) / "comparison.json"),
-            ],
-            borrowed_headroom_contacts=[
-                *before["borrowed_headroom_contacts"],
-                *declarations(report, report["artifacts"].get("module.npz")),
-            ],
-        )
-        if len(manifest["borrowed_headroom_contacts"]) > 128:
-            raise ValueError("resident borrowed headroom declaration budget exhausted")
-        state = view, assets, supports, contacts, manifest
+        state = append_verified(state, path)
     return state
 
 

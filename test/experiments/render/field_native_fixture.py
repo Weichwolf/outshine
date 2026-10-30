@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from building_sample_originals import read_original
+from field_execution_inputs import read_execution_inputs
 from field_external_depth import PointSamples, SampleBinding, validate
 from field_native_points import canonical, capture_description, observer_description
 
@@ -74,7 +75,7 @@ def raw_arrays(path, manifest):
     }
 
 
-def frames(manifest, status, arrays, manifest_sha):
+def frames(manifest, status, arrays, manifest_sha, execution):
     result, checked = {}, set()
     expected_capture = capture_description(manifest["controls"]["capture"], 262144)
     for role in ROLES:
@@ -96,14 +97,14 @@ def frames(manifest, status, arrays, manifest_sha):
             revision = tuple(
                 manifest["arrays"][prefix + c]["sha256"] for c in ("rgba", "depth")
             )
-            # A per-case immutable capture cohort is not a live illumination or
-            # World revision. Missing physical light operands remain unknown.
+            # Recorded operands identify this diagnostic cohort, never a live
+            # illumination or World revision. Query names are not physical keys.
             cohort = hashlib.sha256(
                 canonical(
                     {
                         "fixture": status["fixture_revision"],
                         "manifest": manifest_sha,
-                        "case": query,
+                        "executed_parameters": execution[role, query],
                     }
                 ).encode()
             ).hexdigest()
@@ -164,6 +165,9 @@ def read_fixture(directory=DATA):
     _geometry, provenance = read_original(original_dir)
     if provenance != manifest["original"]:
         raise ValueError("Whole native original accounting changed")
+    manifest_sha = digest(directory / "manifest.json")
+    execution, provenance = read_execution_inputs(directory, manifest, manifest_sha)
     arrays, work = raw_arrays(directory / "samples.npz", manifest)
-    samples = frames(manifest, status, arrays, digest(directory / "manifest.json"))
+    work["execution"] = provenance
+    samples = frames(manifest, status, arrays, manifest_sha, execution)
     return manifest, status, samples, work

@@ -119,7 +119,7 @@ def run(args):
         "reference_failures": manifest["reference_failures"],
         "work": work,
         "cases": rows,
-        "illumination_binding": "per-case immutable diagnostic cohort; physical per-case request operands not present in this manifest",
+        "illumination_binding": "actual byte-bound executed capture/full PBR camera/light operands identify diagnostic cohorts; query labels are excluded; live World/light revisions remain unknown",
         "scope": "Consumes actual A18/Metal MaterialFieldInput atlas and independent original/outer/union captures from #1805. Fixed finite captured points and PBR observers; no new GPU execution. Known #1806 repeatability failure is preserved; no general error, pose, live World or device-budget claim.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
