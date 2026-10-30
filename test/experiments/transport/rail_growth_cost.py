@@ -8,6 +8,7 @@ import statistics
 from pathlib import Path
 
 from camera_height_inputs import digest
+from experiment_output import create_output
 from rail_consumers_buildings import bound_products
 from rail_occupancy_growth import extend
 from rail_occupancy_inputs import load
@@ -18,6 +19,7 @@ from stair_terrain_experiment import frozen
 
 def run(args):
     commit = frozen()
+    create_output(args.output)
     report = json.loads((args.buildings / "comparison.json").read_text())
     receipt = json.loads(args.receipt.read_text())
     if receipt.get("report_sha256") != digest(
@@ -32,7 +34,6 @@ def run(args):
         "full_ground_replay": lambda: load_chain(resident, (*prior, *extensions)),
         "append_to_held_base": lambda: extend(base, extensions)[0].state,
     }
-    args.output.mkdir(parents=True, exist_ok=False)
     result = {
         "commit": commit,
         "building_report_sha256": digest(args.buildings / "comparison.json"),
@@ -114,6 +115,4 @@ if __name__ == "__main__":
     parser.add_argument("--pairs", type=int, choices=range(1, 8), default=5)
     parser.add_argument("--profile", action="store_true")
     args = parser.parse_args()
-    if args.output.exists() or not args.output.resolve().is_relative_to(Path("/tmp")):
-        parser.error("Fresh explicit private system-temp output required")
     run(args)

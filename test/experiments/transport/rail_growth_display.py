@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 from camera_height_inputs import digest
 from cycle_bridge_display import append
+from experiment_output import create_output
 from outshine_ref.contracts import Mesh
 from rail_consumers_buildings import bound_products
 from stair_consumer_verify import meshes
@@ -119,7 +120,7 @@ def run(args):
     original_scene = json.loads(args.scene.read_text())
     if original_scene["profile"] != [1280, 720]:
         raise ValueError("Explicit whole 1280x720 diagnostic camera required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    create_output(args.output)
     phases, reports, rails, snapshots, cache = {}, {}, {}, {}, {}
     for phase in ("before", "after"):
         building = getattr(args, phase + "_buildings")
@@ -218,6 +219,4 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--scene", type=Path, required=True)
     args = parser.parse_args()
-    if args.output.exists() or not args.output.resolve().is_relative_to(Path("/tmp")):
-        parser.error("Fresh explicit private system-temp output required")
     run(args)
