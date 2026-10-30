@@ -104,6 +104,19 @@ struct BuildingFieldRequest::State {
       return std::unexpected(
           "building field metadata does not match its requested capture binding");
     }
+    if (Requested.GeometricView) {
+      const auto &metadata = Value.Metadata->Metadata();
+      const auto hull = Render::ImpostorPoseBounds::From(
+          metadata.Centre, metadata.Directions[Requested.View.Value], metadata.HalfExtentM);
+      if (!hull) { return std::unexpected(hull.error()); }
+      const auto &pose = *Requested.GeometricView;
+      const auto error = hull->Project(pose.Camera, pose.Optics);
+      if (!error) { return std::unexpected(error.error()); }
+      if (!error->DepthInside || error->L1UpperPx > pose.GeometryErrorMostPx) {
+        return std::unexpected("building field pose exceeds its geometric domain or error budget");
+      }
+      Value.GeometricError = *error;
+    }
     return true;
   }
 
@@ -195,6 +208,10 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
       budget.Capture.Sources == 0 || budget.Capture.Faces == 0 ||
       budget.Capture.TriangleAttempts == 0 || !std::isfinite(Length(source.AnchorEcef)) ||
       Length(source.AnchorEcef) == 0) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  if (demand.GeometricView && (!std::isfinite(demand.GeometricView->GeometryErrorMostPx) ||
+                               demand.GeometricView->GeometryErrorMostPx < 0)) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
   auto recipe = RecipeOf(source, demand);

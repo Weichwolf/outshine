@@ -5,6 +5,22 @@ import numpy as np
 COLOUR_ATTRIBUTE = "transport_source_base_colour"
 
 
+def material_parameters(count, values=None):
+    if values is None:
+        return [{"metallic": 0.0, "roughness": 0.86} for _ in range(count)]
+    if not isinstance(values, list) or len(values) != count:
+        raise ValueError("One explicit PBR parameter record per material required")
+    for value in values:
+        if not isinstance(value, dict) or set(value) != {"metallic", "roughness"}:
+            raise ValueError("Explicit metallic and roughness parameters required")
+        if any(
+            type(x) not in (int, float) or not np.isfinite(x) or not 0 <= x <= 1
+            for x in value.values()
+        ):
+            raise ValueError("Finite unit-range PBR parameters required")
+    return values
+
+
 def attach_face_colours(obj, colours):
     colours = np.asarray(colours)
     count = len(obj.data.polygons)

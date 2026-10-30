@@ -20,6 +20,7 @@
 #include <thread>
 #include <utility>
 #include <span>
+#include <limits>
 
 namespace {
 using namespace outshine;
@@ -209,6 +210,79 @@ void CheckMetadataBinding(const Fixture &fixture,
   }
 }
 
+void GeometricRequests(const Fixture &fixture,
+                       const BuildingFieldRequest::Product &original,
+                       const std::string &provenance) {
+  auto opened = AssetCache::Open((fixture.Directory.Path / "pose-fields.sqlite").string());
+  CHECK(opened, "geometric requests use an independent metadata-only store");
+  if (!opened) { return; }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  const auto &description = original.Metadata->Metadata();
+  const auto metadata = Content::ImpostorViewAssets::Publish(
+      *cache, provenance, description, original.Metadata->Receipt().Bounds);
+  CHECK(metadata, "whole native capture metadata is persisted without fine field bytes");
+  if (!metadata) { return; }
+  Tasks workers(1);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 2,
+                          .ConsumersMost = 2,
+                          .TicketsMost = 4,
+                          .InputBytesMost = 8 * kMiB,
+                          .ReceiptBytesMost = 16384});
+  auto demand = Demand();
+  const auto direction = description.Directions[demand.View.Value];
+  const auto camera = Render::Viewpoint::LookAt(
+      {.EyeM = description.Centre + direction * 240000.0, .AimM = description.Centre},
+      Vec3{{0, 1, 0}});
+  CHECK(camera, "the pose is expressed in the actual capture-local frame");
+  if (!camera) { return; }
+  demand.GeometricView = BuildingFieldRequest::Pose{
+      .Camera = *camera,
+      .Optics = {.WidePx = 1280, .HighPx = 720, .FovDeg = 90, .NearM = .1f, .FarM = 1000000},
+      .GeometryErrorMostPx = 0};
+  for (const double limit :
+       {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    auto invalid = demand;
+    invalid.GeometricView->GeometryErrorMostPx = limit;
+    CHECK(!BuildingFieldRequest::Start(
+              pipeline, workers, cache, nullptr, original.Source, invalid, Budget()) &&
+              pipeline.Counts().Jobs == 0 && pipeline.Counts().Consumers == 0,
+          "an invalid geometric budget admits no metadata work or consumer");
+  }
+  for (const bool crossing : {false, true}) {
+    auto rejected = demand;
+    if (crossing) {
+      rejected.GeometricView->GeometryErrorMostPx = 1;
+      rejected.GeometricView->Camera.EyeM = description.Centre + direction;
+    }
+    auto request = BuildingFieldRequest::Start(
+        pipeline, workers, cache, nullptr, original.Source, rejected, Budget());
+    CHECK(request, "a metadata-only pose request enters the existing asynchronous pipeline");
+    if (!request) { continue; }
+    const auto result = Await(*request);
+    CHECK(!result &&
+              (result.error().contains("geometric") || result.error().contains("projective eye")),
+          "an over-budget or eye-crossing pose is refused before the missing fine product");
+    CHECK(pipeline.Counts().Tickets == 1,
+          "only the metadata ticket exists: no fine publication, generation or decode is admitted");
+    const auto repeated = request->Poll();
+    CHECK(!result && !repeated && result.error() == repeated.error(),
+          "a rejected pose stays rejected without falling through on a later Poll");
+  }
+  CHECK(metadata->PublishField({0}, *original.Field, kMiB),
+        "a valid fine product is persisted after the rejection controls");
+  demand.GeometricView->GeometryErrorMostPx = 1;
+  auto request = BuildingFieldRequest::Start(
+      pipeline, workers, cache, nullptr, original.Source, demand, Budget());
+  CHECK(request, "a far pose uses the same source-free request and persisted field");
+  if (!request) { return; }
+  const auto result = Await(*request);
+  CHECK(result && *result && (**result).GeometricError && (**result).GeometricError->DepthInside &&
+            (**result).GeometricError->L1UpperPx <= 1 &&
+            Hash(*(**result).Field) == Hash(*original.Field),
+        "a valid geometric candidate reports its bound and retains exact native cached bytes");
+}
+
 void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Product &original) {
   const auto &source = original.Source;
   const auto &anchor = source.AnchorEcef;
@@ -228,6 +302,7 @@ void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Produc
   const auto provenance = recipe.Key();
   CHECK(Content::ImpostorViewAssets::MetadataKey(provenance) == original.Metadata->Receipt().Key,
         "the independent cache fixture addresses the actual requested recipe");
+  GeometricRequests(fixture, original, provenance);
   const auto &metadata = original.Metadata->Metadata();
   CHECK(metadata.WorldFromField, "the original metadata has a complete frame");
   if (!metadata.WorldFromField) { return; }

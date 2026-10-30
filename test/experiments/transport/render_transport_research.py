@@ -16,12 +16,13 @@ from outshine_ref.rendering.blender_camera import configure_camera, verify_camer
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_mesh import mesh_object
 from regional_render_frame import bind_positions, render_camera, scene_bindings, vector
-from transport_surface_colour import attach_face_colours
+from transport_surface_colour import attach_face_colours, material_parameters
 
 NORMAL_ATTRIBUTE = "transport_source_normal"
 
 
-def materials(colours):
+def materials(colours, parameters=None):
+    parameters = material_parameters(len(colours), parameters)
     result = []
     for index, colour in enumerate(colours):
         surface = bpy.data.materials.new(f"transport-{index}")
@@ -29,8 +30,8 @@ def materials(colours):
         surface.diffuse_color = colour
         shader = surface.node_tree.nodes.get("Principled BSDF")
         shader.inputs["Base Color"].default_value = colour
-        shader.inputs["Roughness"].default_value = 0.86
-        shader.inputs["Metallic"].default_value = 0
+        shader.inputs["Roughness"].default_value = parameters[index]["roughness"]
+        shader.inputs["Metallic"].default_value = parameters[index]["metallic"]
         attribute = surface.node_tree.nodes.new("ShaderNodeAttribute")
         attribute.attribute_name = NORMAL_ATTRIBUTE
         transform = surface.node_tree.nodes.new("ShaderNodeVectorTransform")
@@ -61,7 +62,7 @@ def import_body(row, render_origin=None):
             saved[k] for k in ("vertices", "triangles", "normals", "materials")
         )
         colours = saved.get("face_base_colour_linear_rgba", None)
-    surfaces = materials(row["colours"])
+    surfaces = materials(row["colours"], row.get("material_parameters"))
     obj = mesh_object(
         row["id"], vertices, faces, normals, surfaces[0], corner_normals=True
     )
