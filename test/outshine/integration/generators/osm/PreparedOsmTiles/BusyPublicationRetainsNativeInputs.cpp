@@ -115,7 +115,7 @@ void Resume(const std::filesystem::path &root, bool constrained) {
   const PreparedOsmTiles::Budget budget{
       .PendingMost = 128, .PublicationBytesMost = constrained ? 1 : size_t{128} * 1024 * 1024};
   if (!fixture.Open(root, budget)) { return; }
-  auto writer = OpenWriter(root);
+  const auto writer = OpenWriter(root);
   if (!writer || !Begin(writer.get())) { return; }
   if (!RetainWhileBusy(fixture, constrained)) { return; }
   CHECK(sqlite3_exec(writer.get(), "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
@@ -148,7 +148,7 @@ void Resume(const std::filesystem::path &root, bool constrained) {
 void Cancel(const std::filesystem::path &root) {
   Fixture fixture;
   if (!fixture.Open(root, {})) { return; }
-  auto writer = OpenWriter(root);
+  const auto writer = OpenWriter(root);
   if (!writer || !Begin(writer.get())) { return; }
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (fixture.Cache->Costs().PublicationDeferred == 0 &&
@@ -177,7 +177,7 @@ void Cancel(const std::filesystem::path &root) {
 void RejectPermanentFailure(const std::filesystem::path &root) {
   Fixture fixture;
   if (!fixture.Open(root, {})) { return; }
-  auto writer = OpenWriter(root);
+  const auto writer = OpenWriter(root);
   if (!writer) { return; }
   CHECK(sqlite3_exec(writer.get(),
                      "CREATE TRIGGER reject_native_write BEFORE INSERT ON assets "

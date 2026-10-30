@@ -65,7 +65,7 @@ void OwnedPackageSurvivesContention(const std::string &path) {
         "the independent writer releases publication admission");
   sqlite3_close(writer);
   if (!prepared) { return; }
-  auto retained = std::move(*prepared);
+  const auto retained = std::move(*prepared);
   CHECK(cache.Publish(retained), "the retained package publishes after contention ends");
   auto fresh = AssetCache::Open(path);
   CHECK(fresh, "a fresh native owner opens the completed publication");

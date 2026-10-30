@@ -21,9 +21,9 @@ TransportNetworkFixture(LongitudeLatitude anchor, GeographicBounds coverage) {
   TransportEdge edge{.Id = {.PathId = pathId},
                      .FromNodeId = 7,
                      .ToNodeId = 8,
-                     .Modes = static_cast<uint8_t>(TransportMode::Motor) |
-                              static_cast<uint8_t>(TransportMode::Walk) |
-                              static_cast<uint8_t>(TransportMode::Cycle),
+                     .Modes = static_cast<unsigned>(TransportMode::Motor) |
+                              static_cast<unsigned>(TransportMode::Walk) |
+                              static_cast<unsigned>(TransportMode::Cycle),
                      .Facility = TransportFacility::LocalStreet,
                      .Surface = TransportSurface::Asphalt,
                      .WidthM = 8,

@@ -44,6 +44,11 @@ int FreshProcess(const std::filesystem::path &directory) {
 
 void CheckFreshProcess(const char *program, const std::filesystem::path &directory) {
   using namespace outshine::Test;
+  std::error_code error;
+  const auto executable = std::filesystem::canonical(program, error);
+  CHECK(!error && std::filesystem::is_regular_file(executable),
+        "fresh-process executable resolves");
+  if (error || !std::filesystem::is_regular_file(executable)) { return; }
   const auto child = fork();
   CHECK(child >= 0, "fresh-process check starts without carrying fixture threads");
   if (child == 0) {
@@ -53,7 +58,7 @@ void CheckFreshProcess(const char *program, const std::filesystem::path &directo
       constexpr int redirectFailure = 126;
       _exit(redirectFailure);
     }
-    execl(program, program, directory.c_str(), static_cast<char *>(nullptr));
+    execl(executable.c_str(), executable.c_str(), directory.c_str(), static_cast<char *>(nullptr));
     constexpr int execFailure = 127;
     _exit(execFailure);
   }
@@ -65,7 +70,7 @@ void CheckFreshProcess(const char *program, const std::filesystem::path &directo
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   using namespace UrbanAssetFixture;
   using namespace outshine::Test;
   if (argc == 2) { return FreshProcess(argv[1]); }

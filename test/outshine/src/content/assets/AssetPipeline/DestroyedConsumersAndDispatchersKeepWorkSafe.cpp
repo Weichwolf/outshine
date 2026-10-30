@@ -138,7 +138,7 @@ void CheckDispatcher() {
     block->Release.release();
     return;
   }
-  std::jthread shutdown([closing = std::move(pool)]() mutable { closing.reset(); });
+  std::jthread shutdown([closing = std::move(pool)] mutable { closing.reset(); });
   const auto result = Wait(*ticket);
   CHECK(result.Status == AssetPublicationStatus::Failed &&
             result.Error == AssetPublicationError::DispatcherStopped && retained.expired() &&

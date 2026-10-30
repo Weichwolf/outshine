@@ -119,7 +119,7 @@ void CheckAddress(const TransportPlanLease &plan) {
   changed.Level = 1;
   CHECK(!TransportRoadPageProducer::Bind(plan, changed, selected),
         "unsupported representations cannot silently alias the implemented level");
-  auto partial = std::make_shared<TransportPlan>(*plan);
+  const auto partial = std::make_shared<TransportPlan>(*plan);
   partial->Coverage = TransportCoverage::Partial;
   CHECK(!TransportRoadPageProducer::Bind(partial, address, selected),
         "partial functional coverage is never offered as a complete page producer");

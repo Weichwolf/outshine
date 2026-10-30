@@ -41,7 +41,7 @@ int main() {
         "one initial lookup and capture produce one resident product");
 
   std::promise<void> release;
-  auto gate = release.get_future().share();
+  const auto gate = release.get_future().share();
   CHECK(pool.PostDetached([gate] { (void)gate.wait_for(std::chrono::seconds(3)); }),
         "a bounded controlled worker holds the next lookup in its queue");
   CHECK(slot.Advance(canceled), "a replacement lookup is admitted without blocking");

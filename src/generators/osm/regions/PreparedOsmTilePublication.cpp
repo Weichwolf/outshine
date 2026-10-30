@@ -28,7 +28,7 @@ void PreparedOsmTiles::Defer(Work &work) {
   const auto exponent = std::min(work.Retries, 4U);
   work.Retries = std::min(work.Retries + 1U, 4U);
   work.RetryAt =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(int64_t{1} << exponent);
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(uint64_t{1} << exponent);
   ++PublicationDeferred_;
 }
 

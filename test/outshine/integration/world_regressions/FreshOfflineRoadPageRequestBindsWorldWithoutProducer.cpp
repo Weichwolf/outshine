@@ -157,7 +157,7 @@ void CheckAppearance(Tasks &pool,
                      const std::shared_ptr<PreparedRoadPages> &pages,
                      const std::shared_ptr<const RoadPageManifest> &manifest) {
   using namespace outshine::Test;
-  auto foreign =
+  const auto foreign =
       std::make_shared<RoadPageManifest>(RoadPageManifest{.PlanKey = manifest->PlanKey,
                                                           .MaterialKey = manifest->MaterialKey,
                                                           .Anchor = manifest->Anchor,

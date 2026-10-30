@@ -18,7 +18,7 @@ int main() {
   const auto first = Sha256Hex("prism slot/credit original");
   const auto next = Sha256Hex("prism slot/credit replacement");
   size_t captures = 0;
-  auto capture = [&](const std::string &request) -> UrbanPrismPreparation::Capture {
+  const auto capture = [&](const std::string &request) -> UrbanPrismPreparation::Capture {
     return [&, request](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
       ++captures;
       return AssetFactory{[request](size_t most) {
