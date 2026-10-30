@@ -12,6 +12,7 @@ class PreparedTerrainAssets;
 
 class TerrainDeformationTask {
 public:
+  // The pool outlives this owner and unfinished callbacks; Advance posts due cache work.
   TerrainDeformationTask(Tasks &pool,
                          std::shared_ptr<PreparedTerrainAssets> cache,
                          std::vector<EarthworkStamp> stamps,
@@ -30,6 +31,9 @@ public:
 
 private:
   struct State;
+  void Post() const;
+
+  Tasks &Pool_;
   std::shared_ptr<State> State_;
 };
 }

@@ -1,3 +1,4 @@
+#include "PublishTerrainDeformation.h"
 #include "Check.h"
 #include "TerrainDeformationTask.h"
 #include "PreparedTerrainAssets.h"
@@ -98,7 +99,7 @@ int main() {
   for (const auto &legacyKey : legacyKeys) {
     CHECK(key != legacyKey,
           "corrected contact selection cannot select products of solver revisions eight or nine");
-    CHECK((*cache)->StoreDeformation(legacyKey, legacy).has_value(),
+    CHECK(PublishTerrainDeformation(**cache, legacyKey, legacy).has_value(),
           "old solver products remain stored alongside current products");
   }
   Patchwork cold = Inputs();
