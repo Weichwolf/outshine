@@ -13,26 +13,13 @@ from compare_directed_groups import retained_subset, transformed
 from compare_vertex_cluster_meshes import ready_source, setup_view
 from full_view_reference import load
 from process_memory import peak_rss_bytes
-from triangle_coverage_reference import four_samples, integrate
+from triangle_coverage_reference import four_samples, front_source, integrate
 from triangle_image_reference import average_samples, intersect_source
 
 
 def read(path):
     with np.load(path, allow_pickle=False) as archive:
         return dict(archive)
-
-
-def front_source(source, eye):
-    """Keep the faces viewed from their positive geometric-normal half-space."""
-    triangles = source["positions"].astype(float)[source["indices"]]
-    normals = np.cross(
-        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
-    )
-    front = np.einsum("ij,ij->i", normals, eye - triangles[:, 0]) > 0
-    return {
-        "positions": source["positions"],
-        "indices": source["indices"][front],
-    }, triangles.nbytes
 
 
 def render(areas, sampled, output):
