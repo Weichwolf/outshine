@@ -113,10 +113,11 @@ std::expected<PreparedOsmTiles::Product, std::string> PreparedOsmTiles::Generate
                      .ByteCount = encoded->size(),
                      .Level = static_cast<uint32_t>(layout.Zoom),
                      .Parent = {},
-                     .RequestKey = request};
+                     .RequestKey = std::nullopt};
   auto prepared = Cache_->PreparePublication({std::move(record)}, std::move(*encoded));
   if (!prepared) { return std::unexpected("could not prepare native OSM publication"); }
   if (work.Cancelled.load()) { return std::unexpected("native OSM preparation cancelled"); }
+  work.ProductKey = key;
   SetPublication(work, std::move(*prepared));
   return Product{};
 }
