@@ -89,8 +89,11 @@ def validate(samples, texels_most):
         )
 
 
-def interval(samples):
-    z, e = samples.reverse_z.astype(float), samples.error.astype(float)
+def interval(samples, *, where=None):
+    z, e = samples.reverse_z, samples.error
+    if where is not None:
+        z, e = z[where], e[where]
+    z, e = z.astype(float, copy=False), e.astype(float, copy=False)
     with np.errstate(over="ignore"):
         low = np.maximum(0, np.nextafter(z - e, -np.inf))
         high = np.minimum(1, np.nextafter(z + e, np.inf))
@@ -107,6 +110,11 @@ def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
     """
     if type(texels_most) is not int or texels_most < 1:
         raise ValueError("Positive point capacity required")
+    if not all(
+        isinstance(value, SampleBinding)
+        for value in (a.binding, b.binding, wanted_a, wanted_b)
+    ):
+        return Composition("invalid_point_binding")
     if a.binding != wanted_a or b.binding != wanted_b:
         return Composition("changed_source_material_or_demand")
     for name in ("frame", "capture", "world_revision", "lighting", "pbr_view"):
@@ -122,13 +130,19 @@ def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
     if not a.known.all() or not b.known.all():
         return Composition("incomplete_sample_domain")
     hit_a, hit_b = a.reverse_z > 0, b.reverse_z > 0
-    low_a, high_a = interval(a)
-    low_b, high_b = interval(b)
     common = hit_a & hit_b
-    first_a, first_b = low_a > high_b, low_b > high_a
-    if np.any(common & ~(first_a | first_b)):
-        return Composition("ambiguous_depth_retains_parent")
-    choose_a = hit_a & (~hit_b | first_a)
+    choose_a = hit_a
+    if common.any():
+        where = None if common.all() else common
+        low_a, high_a = interval(a, where=where)
+        low_b, high_b = interval(b, where=where)
+        first_a, first_b = low_a > high_b, low_b > high_a
+        if np.any(~(first_a | first_b)):
+            return Composition("ambiguous_depth_retains_parent")
+        if where is None:
+            choose_a = first_a
+        else:
+            choose_a[common] = first_a
     return Composition(
         "complete_registered_points",
         np.where(choose_a[:, :, None], a.rgba, b.rgba),

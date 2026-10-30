@@ -2,9 +2,11 @@
 
 import argparse
 import gc
+import hashlib
 import json
 import os
 import platform
+import runpy
 import subprocess
 import time
 from dataclasses import replace
@@ -24,7 +26,8 @@ from triangle_image_reference import prepare_source
 def measure(methods, expected, output):
     report = {name: {"rounds": []} for name in methods}
     for round_index in range(5):
-        order = list(methods)[round_index % 3 :] + list(methods)[: round_index % 3]
+        start = round_index % len(methods)
+        order = list(methods)[start:] + list(methods)[:start]
         for name in order:
             gc.collect()
             start = time.process_time(), time.perf_counter()
@@ -47,6 +50,53 @@ def measure(methods, expected, output):
                 np.median([v[clock + "_s"] for v in report[name]["rounds"]])
             )
     return report
+
+
+def baseline_compose(commit, a, b, output):
+    dependencies = (
+        "field_composition.py",
+        "field_view_integrals.py",
+        "compare_field_external_depth.py",
+    )
+    changed = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--quiet",
+            commit,
+            "--",
+            *(str(Path(__file__).with_name(name)) for name in dependencies),
+        ],
+        check=False,
+    )
+    if changed.returncode:
+        raise ValueError(
+            "Baseline requires unchanged point validation and prefix/mean dependencies"
+        )
+    source = subprocess.check_output(
+        ["git", "show", commit + ":test/experiments/render/field_external_depth.py"]
+    )
+    snapshot = output / "baseline.py"
+    snapshot.write_bytes(source)
+    module = runpy.run_path(str(snapshot))
+
+    def convert(s):
+        binding = module["SampleBinding"](
+            **{k: getattr(s.binding, k) for k in s.binding.__dataclass_fields__}
+        )
+        return module["PointSamples"](binding, s.rgba, s.reverse_z, s.error, s.known)
+
+    left, right = convert(a), convert(b)
+
+    def call():
+        result = module["compose_registered"](
+            left, right, wanted_a=left.binding, wanted_b=right.binding
+        )
+        if result.rgba is None:
+            raise ValueError("Baseline rejected the same actual point opponent")
+        return prefix_reduced(result.rgba)
+
+    return call, {"commit": commit, "source_sha256": hashlib.sha256(source).hexdigest()}
 
 
 def run(args):
@@ -109,6 +159,11 @@ def run(args):
         "checked-compose-prefix": lambda: prefix_reduced(compose(a, b).rgba),
         "held-joint-prefix": lookup,
     }
+    baseline = None
+    if args.baseline_commit:
+        methods["baseline-compose-prefix"], baseline = baseline_compose(
+            args.baseline_commit, a, b, args.output
+        )
     load_before = os.getloadavg()
     report = measure(methods, expected, args.output)
     result = {
@@ -123,12 +178,16 @@ def run(args):
         "load_before": load_before,
         "load_after": os.getloadavg(),
         "measurements": report,
+        "baseline": baseline,
         "work": {
             "whole_original_sources": provenance["source_count"],
             "union_triangles": len(union["indices"]),
             "original_rays_per_trace": len(rays[0]),
             "original_internal_visits": None,
             "compose_point_pairs": int(np.prod(shape)),
+            "common_covered_points": int(
+                np.count_nonzero((a.reverse_z > 0) & (b.reverse_z > 0))
+            ),
             "held_output_pixels": len(lower),
             "held_logical_rgba_fetches": 16 * len(lower),
             "held_field_inputs_bytes": sum(
@@ -160,5 +219,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, default=DATA)
     parser.add_argument("--control", type=Path, required=True)
+    parser.add_argument("--baseline-commit")
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())

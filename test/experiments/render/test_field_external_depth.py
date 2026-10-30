@@ -30,6 +30,33 @@ def compose(a, b, **kwargs):
 
 
 class ExternalDepthTests(unittest.TestCase):
+    def test_no_common_hits_and_fully_covered_rasters_preserve_exact_ownership(self):
+        cases = (
+            ([[0, 0], [0, 0]], [[0, 0], [0, 0]]),
+            ([[0.8, 0], [0, 0.2]], [[0, 0.7], [0.4, 0]]),
+            ([[0.8, 0.2], [0.6, 0.1]], [[0.3, 0.7], [0.4, 0.9]]),
+        )
+        for dtype in (np.float32, np.float64):
+            for left, right in cases:
+                a, b = samples(left, [3, 2, 1]), samples(right, [1, 4, 2])
+                a, b = [
+                    replace(
+                        s,
+                        rgba=s.rgba.astype(dtype),
+                        reverse_z=s.reverse_z.astype(dtype),
+                    )
+                    for s in (a, b)
+                ]
+                result = compose(a, b)
+                nearer = a.reverse_z > b.reverse_z
+                np.testing.assert_array_equal(
+                    result.rgba, np.where(nearer[:, :, None], a.rgba, b.rgba)
+                )
+                np.testing.assert_array_equal(
+                    result.reverse_z, np.maximum(a.reverse_z, b.reverse_z)
+                )
+                np.testing.assert_array_equal(result.error, np.zeros((2, 2)))
+
     def test_outward_intervals_enclose_exact_binary_operands(self):
         rng = np.random.default_rng(1797)
         a = samples(rng.uniform(0.01, 0.99, (3, 7)), [2, 1, 0])
@@ -92,6 +119,10 @@ class ExternalDepthTests(unittest.TestCase):
 
     def test_every_binding_change_invalidates_held_product(self):
         a, b = samples([[0.8]], [1, 0, 0]), samples([[0.2]], [0, 1, 0])
+        self.assertIsNone(compose(replace(a, binding=None), b).rgba)
+        self.assertIsNone(
+            compose_registered(a, b, wanted_a=None, wanted_b=b.binding).rgba
+        )
         for field in a.binding.__dataclass_fields__:
             value = ("other",) if field == "sources" else "other"
             changed = replace(a, binding=replace(a.binding, **{field: value}))
