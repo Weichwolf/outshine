@@ -40,6 +40,30 @@ class CameraInput(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requested raster/profile"):
             camera_inputs(self.controls, 1, self.directory)
 
+    def test_camera_metadata_neither_reads_nor_admits_pixel_arrays(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.camera-header."
+        ) as temporary:
+            directory = Path(temporary)
+            shutil.copyfile(
+                self.directory / "manifest.json", directory / "manifest.json"
+            )
+            cameras, _, _ = camera_inputs(self.controls, 2, directory)
+            self.assertEqual(cameras, self.manifest["world_cameras"])
+            with self.assertRaises(FileNotFoundError):
+                load(directory)
+
+    def test_another_source_control_cannot_supply_camera_provenance(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.camera-source."
+        ) as temporary:
+            directory = Path(temporary)
+            changed = copy.deepcopy(self.manifest)
+            changed["controls_sha256"] = "0" * 64
+            (directory / "manifest.json").write_text(json.dumps(changed))
+            with self.assertRaisesRegex(ValueError, "source/control binding"):
+                camera_inputs(self.controls, 2, directory)
+
     def test_one_ulp_request_change_is_not_accepted_after_rehash(self):
         with tempfile.TemporaryDirectory(
             prefix="outshine-tests.camera-input."

@@ -26,7 +26,9 @@ from export_native_field_opponents import (
 )
 from field_pose_geometry import projection_bound
 from field_view_projection import CapturePlane
-from native_world_inputs import load as load_world
+from native_world_inputs import contexts as world_contexts
+from native_world_inputs import layout as world_layout
+from native_world_inputs import read_bounded
 
 LAYERS = ("original", "terrain", "external", "union-terrain", "union-external")
 
@@ -237,7 +239,12 @@ def camera_inputs(controls, sample_axis, bound=None):
             },
             None,
         )
-    manifest, _, _, _ = load_world(bound)
+    payload = read_bounded(bound / "manifest.json")
+    manifest = json.loads(payload)
+    world_layout(manifest)
+    world_contexts(manifest)
+    if manifest["controls_sha256"] != digest(CONTROLS):
+        raise ValueError("Bound camera input has a different source/control binding")
     if (
         manifest["sample_axis"] != sample_axis
         or manifest["raster"] != [1280 * sample_axis, 720 * sample_axis]
@@ -249,7 +256,8 @@ def camera_inputs(controls, sample_axis, bound=None):
         pose: manifest["world_cameras"][pose]
         for pose in ("near-direction", "revealing-side")
     }
-    return cameras, manifest["capture"], digest(bound / "manifest.json")
+    # Geometry and raw point validation remain with prepare() and World load().
+    return cameras, manifest["capture"], hashlib.sha256(payload).hexdigest()
 
 
 def export(args):
@@ -330,7 +338,7 @@ def main():
     parser.add_argument(
         "--camera-input",
         type=Path,
-        help="Existing validated World packet directory; reuse camera values without regeneration",
+        help="World packet directory; validate camera/control metadata and reuse values exactly",
     )
     parser.add_argument(
         "--native-driver-source",
