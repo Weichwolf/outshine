@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <dlfcn.h>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -26,8 +27,6 @@
 #include <variant>
 #include <vector>
 
-struct sqlite3_api_routines;
-
 namespace {
 using namespace outshine;
 using namespace outshine::Generators;
@@ -39,6 +38,7 @@ TraceHook *ActiveHook = nullptr;
 struct TraceHook {
   std::string Path;
   std::atomic_size_t Reads{0};
+  std::atomic_size_t Connections{0};
   explicit TraceHook(std::string path);
   ~TraceHook();
   TraceHook(const TraceHook &) = delete;
@@ -54,22 +54,11 @@ int Trace(unsigned event, void * /*context*/, void *statement, void * /*detail*/
   return 0;
 }
 
-int Install(sqlite3 *database,
-            [[maybe_unused]] char **error,
-            [[maybe_unused]] const sqlite3_api_routines *api) {
-  const auto *path = sqlite3_db_filename(database, "main");
-  if (ActiveHook == nullptr || path == nullptr || ActiveHook->Path != path) { return SQLITE_OK; }
-  return sqlite3_trace_v2(database, SQLITE_TRACE_STMT, Trace, nullptr);
-}
-
 TraceHook::TraceHook(std::string path) : Path(std::move(path)) {
   ActiveHook = this;
-  CHECK(sqlite3_auto_extension(reinterpret_cast<void (*)()>(Install)) == SQLITE_OK,
-        "native SQL reads are observed without a product hook");
 }
 
 TraceHook::~TraceHook() {
-  (void)sqlite3_cancel_auto_extension(reinterpret_cast<void (*)()>(Install));
   ActiveHook = nullptr;
 }
 
@@ -108,6 +97,8 @@ struct Fixture {
                .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 0}}};
     auto pages = PreparedRoadPages::Open(Directory.string());
     auto records = AssetCache::Open((Directory / "assets.sqlite").string());
+    CHECK(Hook.Connections.load(std::memory_order_relaxed) >= 2,
+          "both native readers install their SQL observer through the real open boundary");
     if (!pages || !records) { return false; }
     Pages = std::move(*pages);
     Records = std::move(*records);
@@ -242,7 +233,7 @@ void InvalidPayload(bool cancel) {
     CHECK(missing && !*missing,
           "the native repair owner retires the invalid payload after writer release");
     CHECK(f.Seed(), "a native producer repairs the current page before reader resumption");
-    auto done = Wait(queue);
+    const auto done = Wait(queue);
     const auto *product = ReadyProduct(done);
     CHECK(product != nullptr && std::holds_alternative<RoadPageLease>(*product) &&
               queue.Pending() == 0,
@@ -306,6 +297,20 @@ void WarmMetadataAndBudget() {
         "a permanent native capacity failure terminates instead of retrying like Busy");
   f.Release();
 }
+}
+
+extern "C" int sqlite3_open_v2(const char *filename, sqlite3 **ppDb, int flags, const char *zVfs) {
+  using Open = int (*)(const char *, sqlite3 **, int, const char *);
+  static const auto open = reinterpret_cast<Open>(dlsym(RTLD_NEXT, "sqlite3_open_v2"));
+  if (open == nullptr) { return SQLITE_CANTOPEN; }
+  const int status = open(filename, ppDb, flags, zVfs);
+  if (status == SQLITE_OK && ActiveHook != nullptr && filename != nullptr &&
+      ActiveHook->Path == filename) {
+    const int traced = sqlite3_trace_v2(*ppDb, SQLITE_TRACE_STMT, Trace, nullptr);
+    if (traced != SQLITE_OK) { return traced; }
+    ActiveHook->Connections.fetch_add(1, std::memory_order_relaxed);
+  }
+  return status;
 }
 
 int main() {

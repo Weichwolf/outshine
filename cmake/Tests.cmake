@@ -102,7 +102,8 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS} Vulkan::Vulkan)
   endif()
   if(CMAKE_DL_LIBS AND (name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema"
-      OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"))
+      OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
+      OR name STREQUAL "outshine/integration/engine/streaming/RoadPageQueue/BusyReadsRetainSlotsAndSelectedCoverage"))
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
   endif()
   if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
