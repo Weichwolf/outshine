@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from field_depth_reprojection import cell_segment, crossed_cells
+from triangle_pair_batches import MAX_PAIRS, MAX_TRIANGLES, TriangleBatches
 from triangle_query_support import potential_samples
 
 
@@ -63,7 +64,7 @@ def prepare(source, capture, size=64, *, references_most=1048576):
         or t.ndim != 2
         or t.shape[1] != 3
         or t.dtype.kind not in "iu"
-        or not 1 <= len(t) <= 131072
+        or not 1 <= len(t) <= MAX_TRIANGLES
         or t.min() < 0
         or t.max() >= len(p)
         or c.shape != (4, 4)
@@ -158,6 +159,7 @@ def query(
     cells_most=512,
     time_limit_s=10,
     whole_support=True,
+    pair_batch_size=4096,
 ):
     """Synchronous bounded reference. Unknown samples require the original group."""
     points, world, raster = (
@@ -182,6 +184,8 @@ def query(
         or not np.isfinite(time_limit_s)
         or time_limit_s < 0
         or type(whole_support) is not bool
+        or type(pair_batch_size) is not int
+        or not 0 <= pair_batch_size <= MAX_PAIRS
     ):
         raise ValueError("Bounded World samples and cooperative work limits required")
     began = time.monotonic()
@@ -209,6 +213,7 @@ def query(
         ~potential,
     )
     visited = references = pairs = 0
+    batch = None
     for row, i in enumerate(selected):
         if time.monotonic() - began > time_limit_s:
             break
@@ -238,6 +243,18 @@ def query(
                 )
             )
             pairs += len(candidates)
+            if pair_batch_size:
+                if batch is None:
+                    batch = TriangleBatches(
+                        field.positions,
+                        field.triangles,
+                        origins,
+                        directions,
+                        pair_batch_size,
+                    )
+                batch.add(row, candidates)
+                evaluated[i] = True
+                continue
             distance, owner[i] = nearest(
                 field.positions,
                 field.triangles,
@@ -252,6 +269,19 @@ def query(
                     continue
                 depth[i] = z
         evaluated[i] = True
+    if batch is not None:
+        batch.flush()
+        for row in np.flatnonzero(batch.unknown):
+            evaluated[selected[row]] = False
+        for row in np.flatnonzero(np.isfinite(batch.distance) & ~batch.unknown):
+            i = selected[row]
+            owner[i] = batch.owner[row]
+            hit = world @ np.r_[origins[row] + batch.distance[row] * directions[row], 1]
+            z = hit[2] / hit[3]
+            if hit[3] <= 0 or not 0 < z <= 1:
+                evaluated[i] = False
+                continue
+            depth[i] = z
     return (
         depth,
         owner,
@@ -268,5 +298,6 @@ def query(
             "failed_samples": int((~evaluated).sum()),
             "direct_triangle_pairs": len(points) * len(field.triangles),
             "result_payload_bytes": depth.nbytes + owner.nbytes + evaluated.nbytes,
+            "intersection_work": batch.work() if batch is not None else None,
         },
     )

@@ -39,8 +39,17 @@ def query_costs(
     result = {"trimesh_version": trimesh.__version__, "numpy_version": np.__version__}
     methods = {
         "columns64": lambda: query(field, world, points, raster),
+        "columns64-scalar-support": lambda: query(
+            field, world, points, raster, pair_batch_size=0
+        ),
+        "columns64-batch512": lambda: query(
+            field, world, points, raster, pair_batch_size=512
+        ),
+        "columns64-batch16384": lambda: query(
+            field, world, points, raster, pair_batch_size=16384
+        ),
         "columns64-unbounded-control": lambda: query(
-            field, world, points, raster, whole_support=False
+            field, world, points, raster, whole_support=False, pair_batch_size=0
         ),
         **references,
     }
