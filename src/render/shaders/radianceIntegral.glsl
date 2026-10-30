@@ -1,4 +1,3 @@
-#define RADIANCE_PAIR_STRICT_COMPUTE 1
 #include "radiancePair.glsl"
 layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform sampler2D source;
