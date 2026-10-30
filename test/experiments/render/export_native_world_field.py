@@ -26,6 +26,9 @@ from export_native_field_opponents import (
 )
 from field_pose_geometry import projection_bound
 from field_view_projection import CapturePlane
+from native_world_inputs import contexts as world_contexts
+from native_world_inputs import layout as world_layout
+from native_world_inputs import read_bounded
 
 LAYERS = ("original", "terrain", "external", "union-terrain", "union-external")
 
@@ -223,20 +226,51 @@ def geometric_checks(capture, reports):
     return result
 
 
+def camera_inputs(controls, sample_axis, bound=None):
+    """Reuse validated native requests exactly, including their Float64 values."""
+    if bound is None:
+        return (
+            world_cameras(controls, sample_axis),
+            {
+                **controls["capture"],
+                "width_px": 128,
+                "height_px": 128,
+                "bytes": 128 * 128 * 4,
+            },
+            None,
+        )
+    payload = read_bounded(bound / "manifest.json")
+    manifest = json.loads(payload)
+    world_layout(manifest)
+    world_contexts(manifest)
+    if manifest["controls_sha256"] != digest(CONTROLS):
+        raise ValueError("Bound camera input has a different source/control binding")
+    if (
+        manifest["sample_axis"] != sample_axis
+        or manifest["raster"] != [1280 * sample_axis, 720 * sample_axis]
+        or set(manifest["world_cameras"]) != {"near-direction", "revealing-side"}
+        or [manifest["capture"][k] for k in ("width_px", "height_px")] != [128, 128]
+    ):
+        raise ValueError("Bound camera input must retain the requested raster/profile")
+    cameras = {
+        pose: manifest["world_cameras"][pose]
+        for pose in ("near-direction", "revealing-side")
+    }
+    # Geometry and raw point validation remain with prepare() and World load().
+    return cameras, manifest["capture"], hashlib.sha256(payload).hexdigest()
+
+
 def export(args):
+    controls = document(CONTROLS)
+    cameras, capture, camera_input_hash = camera_inputs(
+        controls, args.sample_axis, args.camera_input
+    )
+    native_driver_hash = digest(args.native_driver_source)
     root = args.output.resolve()
     create_output(root)
     geometry = root / "geometry-inputs"
     geometry.mkdir()
-    controls = document(CONTROLS)
     provenance, _ = prepare(geometry, controls)
-    cameras = world_cameras(controls, args.sample_axis)
-    capture = {
-        **controls["capture"],
-        "width_px": 128,
-        "height_px": 128,
-        "bytes": 128 * 128 * 4,
-    }
     requests = {"capture": queries(cameras, capture)}
     requests.update({layer: queries(cameras) for layer in LAYERS})
     arrays, reports, executions, bounds = native_export(
@@ -257,9 +291,10 @@ def export(args):
         "system": platform.platform(),
         "binary_sha256": digest(args.binary),
         "driver_sha256": digest(Path(__file__)),
-        "native_driver_sha256": digest(
-            ROOT / "test/experiments/render/native_building_impostors.cpp"
-        ),
+        "native_driver_sha256": native_driver_hash,
+        "native_driver_source": str(args.native_driver_source.resolve()),
+        "native_driver_binding": "Observed source file only; binary hash is separate. Source-to-binary qualification belongs to the native owner.",
+        "camera_input_manifest_sha256": camera_input_hash,
         "controls_sha256": digest(CONTROLS),
         "original_geometry": provenance,
         "capture": capture,
@@ -300,6 +335,17 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sample-axis", type=int, choices=(1, 2), default=1)
+    parser.add_argument(
+        "--camera-input",
+        type=Path,
+        help="World packet directory; validate camera/control metadata and reuse values exactly",
+    )
+    parser.add_argument(
+        "--native-driver-source",
+        type=Path,
+        default=ROOT / "test/experiments/render/native_building_impostors.cpp",
+        help="Observed source for an external native binary; not a build-provenance certificate",
+    )
     args = parser.parse_args()
     args.binary = args.binary.resolve()
     return export(args)
