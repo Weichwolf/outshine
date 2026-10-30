@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from camera_height_inputs import digest
 from process_memory import peak_rss_bytes
 from rail_building_grid import construct
+from rail_occupancy_growth import extend
 from rail_occupancy_guard import planning
 from rail_occupancy_inputs import catalog, load
 from rail_occupancy_reference import RailReference, whole_raised
@@ -18,6 +19,7 @@ from stair_consumer_buildings import body_query, buildings
 from stair_consumer_experiment import save
 from stair_consumer_inputs import candidate_inputs
 from stair_consumer_verify import check_bodies, meshes
+from stair_local_physics import piers
 from stair_occupancy_candidate_consumers import save_products
 from stair_occupancy_candidate_reuse import retained
 from stair_occupancy_handoff import OccupancyQuery
@@ -26,32 +28,44 @@ from stair_terrain_experiment import frozen
 
 
 def bound_products(report):
+    references = report.get("transport_extensions", [])
+    if (
+        not isinstance(references, list)
+        or len(references) > 32
+        or any(
+            not isinstance(row, dict) or not isinstance(row.get("path"), str)
+            for row in references
+        )
+    ):
+        raise ValueError("bounded explicit whole transport extension records required")
     root = Path(report["elevated_supports"])
     if (
         digest(root / "report.json") != report["elevated_report_sha256"]
         or digest(root / "verification.json") != report["elevated_receipt_sha256"]
     ):
         raise ValueError("Same whole elevated input and reader receipt required")
-    return load(root)
+    base = load(root)
+    grown, actual = extend(base, [Path(row["path"]) for row in references])
+    if actual != references:
+        raise ValueError("Exact saved whole transport extension bindings differ")
+    return grown
 
 
 def generate(args):
     frozen()
     start, cpu, loadavg = time.perf_counter(), time.process_time(), os.getloadavg()
-    rail = load(args.supports)
+    rail, extensions = extend(
+        load(args.supports), getattr(args, "extension_module", ())
+    )
     data = candidate_inputs(args.baseline, rail.state)
     prepared = time.perf_counter()
     args.output.mkdir(parents=True, exist_ok=False)
     inputs = SimpleNamespace(
         output=args.output,
         baseline=args.baseline,
-        resident=Path(json.loads((args.supports / "report.json").read_text())["deck"]),
-        prior_module=[],
+        resident=rail.state_inputs[0],
+        prior_module=list(rail.state_inputs[1]),
     )
-    # The old ordered module chain is retained; elevated bodies are separate inputs.
-    deck_report = json.loads((inputs.resident / "report.json").read_text())
-    inputs.resident = Path(deck_report["resident"])
-    inputs.prior_module = [Path(p["path"]) for p in deck_report["prior_modules"]]
     prepared_catalog, info = retained(catalog(rail), 8192)
     query = planning(rail, prepared=prepared_catalog)
     result = buildings(data, query, construction=construct, admission=query.physical)
@@ -68,8 +82,10 @@ def generate(args):
             "process_peak_rss_bytes": peak_rss_bytes(),
             "loadavg_before": loadavg,
         },
-        scope="Actual existing Buildings recipes consume unchanged114 old sources plus separate qualified raised deck/pier/headroom volumes. No Ground conversion, new Source/World admission or native/device proof.",
+        scope="Actual existing Buildings recipes consume retained whole old sources, explicit independently read disjoint ground extensions and separate qualified raised deck/pier/headroom volumes. No raised-to-Ground conversion, new Source/World admission or native/device proof.",
     )
+    if extensions:
+        report["transport_extensions"] = extensions
     save(args.output, "comparison.json", report)
     return report
 
@@ -126,6 +142,10 @@ def verify(args):
         float32_bodies_against_actual_raised_volumes=True,
         scope="Fresh whole saved-body/source/root/full-volume reader; all old partitions plus independently scanned actual raised caps/headroom. Actual rounded buildings also tested against rounded new volumes; no full old-world Float32/native/Source/World/device admission.",
     )
+    if report.get("transport_extensions"):
+        result["retained_raised_pier_terrain_contacts"] = piers(
+            rail.state[0], rail.contacts
+        )
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     return result
 
@@ -136,6 +156,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--supports", type=Path)
     parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--extension-module", type=Path, action="append", default=[])
     parser.add_argument("--products", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
