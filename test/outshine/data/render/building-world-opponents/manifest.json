@@ -1,0 +1,3870 @@
+{
+  "version": 1,
+  "base_commit": "7fbbdab4d63124c048fd8325655e137d23a83ec4",
+  "source_binding": "base commit plus explicit modified native driver hash",
+  "system": "macOS-27.0.1-arm64-arm-64bit",
+  "binary_sha256": "958c4a52653361c75577adfee96ca3a8f89925573a9919448ff0e54a5cb91982",
+  "driver_sha256": "833d7dfe06b44adc690b42d6d04dccb2bdca0cc96d0b069b813e1aa6adffaf09",
+  "native_driver_sha256": "ad19f31d8576b74260521688743f98b38199059ca30f01f75f0c44c558e003f7",
+  "controls_sha256": "65533ac240d0bd17d781b89e380387759e6d0919fcc78dc5808a5a6e89efa0bc",
+  "original_geometry": {
+    "source_count": 1558,
+    "triangles": 38476,
+    "vertices": 78374,
+    "verified_files": 19,
+    "decoded_operand_bytes": 4850833,
+    "joined_position_bytes": 940488,
+    "joined_int64_index_bytes": 923424,
+    "scope": "All19 file hashes match actual native readbacks. Float32 positions unmodified; part indices offset in int64. Group source count preserved; no invented per-face SourceIDs or transforms."
+  },
+  "capture": {
+    "bytes": 65536,
+    "eye_m": [
+      2369.974738269353,
+      830.8019526851531,
+      6009.419328083667
+    ],
+    "far_m": 1916.6859634669595,
+    "format": "reverse_z_0_1_float32",
+    "forward": [
+      -0.0,
+      -0.7071067811865475,
+      -0.7071067811865475
+    ],
+    "height_px": 128,
+    "near_m": 383.3371926933919,
+    "orthographic": true,
+    "right": [
+      1.0,
+      0.0,
+      -0.0
+    ],
+    "up": [
+      -0.0,
+      0.7071067811865475,
+      -0.7071067811865475
+    ],
+    "width_px": 128,
+    "x_mag_m": 383.3371926933919,
+    "y_mag_m": 383.3371926933919,
+    "yfov_rad": 0.0
+  },
+  "world_cameras": {
+    "near-direction": {
+      "eye_m": [
+        2468.705156946426,
+        22645.037965351137,
+        27823.43994404819
+      ],
+      "right": [
+        0.9999904807207345,
+        0.0,
+        -0.004363309284746571
+      ],
+      "up": [
+        -0.0030853255836585246,
+        0.7071067811865475,
+        -0.7071000500396268
+      ],
+      "forward": [
+        -0.0030853255836585246,
+        -0.7071067811865475,
+        -0.7071000500396268
+      ],
+      "orthographic": false,
+      "width_px": 1280,
+      "height_px": 720,
+      "yfov_rad": 0.9272952180016123,
+      "near_m": 0.1,
+      "far_m": 240000.0,
+      "x_mag_m": 0.0,
+      "y_mag_m": 0.0
+    },
+    "revealing-side": {
+      "eye_m": [
+        15348.527943793795,
+        22645.037965351137,
+        23731.533233646343
+      ],
+      "right": [
+        0.8191520442889918,
+        0.0,
+        -0.573576436351046
+      ],
+      "up": [
+        -0.4055797876726388,
+        0.7071067811865475,
+        -0.5792279653395691
+      ],
+      "forward": [
+        -0.4055797876726388,
+        -0.7071067811865475,
+        -0.5792279653395691
+      ],
+      "orthographic": false,
+      "width_px": 1280,
+      "height_px": 720,
+      "yfov_rad": 0.9272952180016123,
+      "near_m": 0.1,
+      "far_m": 240000.0,
+      "x_mag_m": 0.0,
+      "y_mag_m": 0.0
+    }
+  },
+  "crops_xyxy": {
+    "near-direction": [
+      608,
+      336,
+      672,
+      385
+    ],
+    "revealing-side": [
+      600,
+      330,
+      680,
+      391
+    ],
+    "repeat": [
+      608,
+      336,
+      672,
+      385
+    ]
+  },
+  "raster": [
+    1280,
+    720
+  ],
+  "sampling": {
+    "origin": "top-left",
+    "pixel_centres": [
+      0.5,
+      0.5
+    ],
+    "depth": "raw reverse-Z Depth32Float [0,1], clear zero",
+    "colour": "unfiltered premultiplied linear float32, clear zero",
+    "samples_per_pixel": 1,
+    "jitter_px": [
+      0,
+      0
+    ],
+    "crop_reconstruction": "zero-fill full raster then place crop at xyxy"
+  },
+  "runtime_world_from_field": null,
+  "runtime_world_revision": null,
+  "scope": "native original references, not normal World field admission or GPU uniform readback",
+  "executions": {
+    "capture": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/original",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "bytes": 65536,
+              "eye_m": [
+                2369.974738269353,
+                830.8019526851531,
+                6009.419328083667
+              ],
+              "far_m": 1916.6859634669595,
+              "format": "reverse_z_0_1_float32",
+              "forward": [
+                -0.0,
+                -0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "height_px": 128,
+              "near_m": 383.3371926933919,
+              "orthographic": true,
+              "right": [
+                1.0,
+                0.0,
+                -0.0
+              ],
+              "up": [
+                -0.0,
+                0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "width_px": 128,
+              "x_mag_m": 383.3371926933919,
+              "y_mag_m": 383.3371926933919,
+              "yfov_rad": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "bytes": 65536,
+              "eye_m": [
+                2369.974738269353,
+                830.8019526851531,
+                6009.419328083667
+              ],
+              "far_m": 1916.6859634669595,
+              "format": "reverse_z_0_1_float32",
+              "forward": [
+                -0.0,
+                -0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "height_px": 128,
+              "near_m": 383.3371926933919,
+              "orthographic": true,
+              "right": [
+                1.0,
+                0.0,
+                -0.0
+              ],
+              "up": [
+                -0.0,
+                0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "width_px": 128,
+              "x_mag_m": 383.3371926933919,
+              "y_mag_m": 383.3371926933919,
+              "yfov_rad": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "bytes": 65536,
+              "eye_m": [
+                2369.974738269353,
+                830.8019526851531,
+                6009.419328083667
+              ],
+              "far_m": 1916.6859634669595,
+              "format": "reverse_z_0_1_float32",
+              "forward": [
+                -0.0,
+                -0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "height_px": 128,
+              "near_m": 383.3371926933919,
+              "orthographic": true,
+              "right": [
+                1.0,
+                0.0,
+                -0.0
+              ],
+              "up": [
+                -0.0,
+                0.7071067811865475,
+                -0.7071067811865475
+              ],
+              "width_px": 128,
+              "x_mag_m": 383.3371926933919,
+              "y_mag_m": 383.3371926933919,
+              "yfov_rad": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "5a4df2f8f813e341c3cac6f14fe4f9f9ea21bfeaf28960d84ae23a33a9db5277",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/capture",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "2399aeb6c0507d674d9c11efb6849fdb7fcd287118187f8812a56906ddc81897",
+      "buffers": {
+        "capture/near-direction/rgba": "318f7e2ea605dcbaa6f92958f300d3d0a0846583930f768df1d2fc326ad5eb7f",
+        "capture/near-direction/depth": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6",
+        "capture/revealing-side/rgba": "17972050f22f561657bc11d73c33446b314a951a0f1e6ac20f19a2624894f141",
+        "capture/revealing-side/depth": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6",
+        "capture/repeat/rgba": "318f7e2ea605dcbaa6f92958f300d3d0a0846583930f768df1d2fc326ad5eb7f",
+        "capture/repeat/depth": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6"
+      }
+    },
+    "original": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/original",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "eye_m": [
+                15348.527943793795,
+                22645.037965351137,
+                23731.533233646343
+              ],
+              "right": [
+                0.8191520442889918,
+                0.0,
+                -0.573576436351046
+              ],
+              "up": [
+                -0.4055797876726388,
+                0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "forward": [
+                -0.4055797876726388,
+                -0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "9138f5e3b1bff5009c8efbf54d7d826c5ec645f5ce186e3954181aced8f1e498",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/original",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "dbd9f4ba99541732b3f6ae1dfa5f9b945c8d6e14b8451e5ae0ecb439f5869995",
+      "buffers": {
+        "original/near-direction/rgba": "b8e52caa8a7e454f58b50251f1669a1066f6f2ac17c3a50dbd946b83318bef38",
+        "original/near-direction/depth": "c6022c626d5d6fdbdc9599be4ac698a1fbb7884425a01b6cfd87dc3ad63a6a8a",
+        "original/revealing-side/rgba": "a39d38464107d3434ff409869d2fb1259e8a6a212b42a8fe026b83841193a7df",
+        "original/revealing-side/depth": "291a404e2903eeca865bb7c77e8cd88915228ecd3f120b596b0e82d61bd7a101",
+        "original/repeat/rgba": "b8e52caa8a7e454f58b50251f1669a1066f6f2ac17c3a50dbd946b83318bef38",
+        "original/repeat/depth": "c6022c626d5d6fdbdc9599be4ac698a1fbb7884425a01b6cfd87dc3ad63a6a8a"
+      }
+    },
+    "terrain": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/terrain",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "eye_m": [
+                15348.527943793795,
+                22645.037965351137,
+                23731.533233646343
+              ],
+              "right": [
+                0.8191520442889918,
+                0.0,
+                -0.573576436351046
+              ],
+              "up": [
+                -0.4055797876726388,
+                0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "forward": [
+                -0.4055797876726388,
+                -0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "a3d3865fbf4fd773c9b74b0ef8520d46f578adbc6dd87a21c9a3b82ef332b1df",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/terrain",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "86be39d5233230d8673c9ba9b240005d93e7f8abd2ed64205aac2a3825dd9c5a",
+      "buffers": {
+        "terrain/near-direction/rgba": "c3c3a49f7710fe98c440c640789565cd5b65a1e077aab9957d8521648387375c",
+        "terrain/near-direction/depth": "c9e6f4b03fa0d31b0a24f727ef75777e34b94c18d2b09f3d8d9cb8c459d780e1",
+        "terrain/revealing-side/rgba": "108094904373113ad4b15fbfe256340c286cbdd7bede29c39a5fc659a3ac817e",
+        "terrain/revealing-side/depth": "2659b409a369a870570d6c0ef254b0fbaef6312b9a9353674b549a5f0004f107",
+        "terrain/repeat/rgba": "c3c3a49f7710fe98c440c640789565cd5b65a1e077aab9957d8521648387375c",
+        "terrain/repeat/depth": "c9e6f4b03fa0d31b0a24f727ef75777e34b94c18d2b09f3d8d9cb8c459d780e1"
+      }
+    },
+    "external": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/external",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "eye_m": [
+                15348.527943793795,
+                22645.037965351137,
+                23731.533233646343
+              ],
+              "right": [
+                0.8191520442889918,
+                0.0,
+                -0.573576436351046
+              ],
+              "up": [
+                -0.4055797876726388,
+                0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "forward": [
+                -0.4055797876726388,
+                -0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "841ebeaec4e329ad24746b37dde41e13513fa0455dc195f9e9f4c4cf27b70429",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/external",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "c7335ec04e1ae5b76799079037cbda483c73f7e3385a31fed4c9a025c4a224c8",
+      "buffers": {
+        "external/near-direction/rgba": "de77571858f7e010bd100cca0dd485b43661154975d783a9cb1cf652fd443916",
+        "external/near-direction/depth": "de51466c0e179287d0cc0620fb1720d031606a94d5e7059e296eed6a0e7bd253",
+        "external/revealing-side/rgba": "96b197ec625da3d02725bd5e03141956d3c59bedf396eea86880ae9bb4705c9e",
+        "external/revealing-side/depth": "9fe0b075646757967f40766cafc215d1cf6d778ee1b2966828f52754be7f1cd8",
+        "external/repeat/rgba": "de77571858f7e010bd100cca0dd485b43661154975d783a9cb1cf652fd443916",
+        "external/repeat/depth": "de51466c0e179287d0cc0620fb1720d031606a94d5e7059e296eed6a0e7bd253"
+      }
+    },
+    "union-terrain": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/union-terrain",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "eye_m": [
+                15348.527943793795,
+                22645.037965351137,
+                23731.533233646343
+              ],
+              "right": [
+                0.8191520442889918,
+                0.0,
+                -0.573576436351046
+              ],
+              "up": [
+                -0.4055797876726388,
+                0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "forward": [
+                -0.4055797876726388,
+                -0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "0a2dc4b1cc1308121c6e2749f15d817c51e7e62105d1944df2218d127cad0066",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/union-terrain",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "c0d80dfc171f37aa9d0550f74b1c4264a39328993dc37773456c2b08ed8eadee",
+      "buffers": {
+        "union-terrain/near-direction/rgba": "e34ff3dc9e327210af8a664d9dddadec1a51a5a62dd3475de26f02303aaeb3a4",
+        "union-terrain/near-direction/depth": "f218edb9fdb074e7afee924eea180dfd762b2271e3e3a57e7da9a88ed5d59102",
+        "union-terrain/revealing-side/rgba": "2d0e584c0982fd0b1d5481328600135571e9733a586cfc922b2dbc41530631f4",
+        "union-terrain/revealing-side/depth": "54da7a7338e8c16f7ce1eee64e8c0180e4b9b67a4acbda908d88dea2cc8ce222",
+        "union-terrain/repeat/rgba": "e34ff3dc9e327210af8a664d9dddadec1a51a5a62dd3475de26f02303aaeb3a4",
+        "union-terrain/repeat/depth": "f218edb9fdb074e7afee924eea180dfd762b2271e3e3a57e7da9a88ed5d59102"
+      }
+    },
+    "union-external": {
+      "input": {
+        "directory": "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/geometry-inputs/union-external",
+        "queries": [
+          {
+            "name": "near-direction",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "revealing-side",
+            "capture": {
+              "eye_m": [
+                15348.527943793795,
+                22645.037965351137,
+                23731.533233646343
+              ],
+              "right": [
+                0.8191520442889918,
+                0.0,
+                -0.573576436351046
+              ],
+              "up": [
+                -0.4055797876726388,
+                0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "forward": [
+                -0.4055797876726388,
+                -0.7071067811865475,
+                -0.5792279653395691
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  15348.527943793795,
+                  22645.037965351137,
+                  23731.533233646343
+                ],
+                "right": [
+                  0.8191520442889918,
+                  0.0,
+                  -0.573576436351046
+                ],
+                "up": [
+                  -0.4055797876726388,
+                  0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "forward": [
+                  -0.4055797876726388,
+                  -0.7071067811865475,
+                  -0.5792279653395691
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          },
+          {
+            "name": "repeat",
+            "capture": {
+              "eye_m": [
+                2468.705156946426,
+                22645.037965351137,
+                27823.43994404819
+              ],
+              "right": [
+                0.9999904807207345,
+                0.0,
+                -0.004363309284746571
+              ],
+              "up": [
+                -0.0030853255836585246,
+                0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "forward": [
+                -0.0030853255836585246,
+                -0.7071067811865475,
+                -0.7071000500396268
+              ],
+              "orthographic": false,
+              "width_px": 1280,
+              "height_px": 720,
+              "yfov_rad": 0.9272952180016123,
+              "near_m": 0.1,
+              "far_m": 240000.0,
+              "x_mag_m": 0.0,
+              "y_mag_m": 0.0
+            },
+            "field_lighting": "viewer",
+            "lighting_camera": {
+              "capture": {
+                "eye_m": [
+                  2468.705156946426,
+                  22645.037965351137,
+                  27823.43994404819
+                ],
+                "right": [
+                  0.9999904807207345,
+                  0.0,
+                  -0.004363309284746571
+                ],
+                "up": [
+                  -0.0030853255836585246,
+                  0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "forward": [
+                  -0.0030853255836585246,
+                  -0.7071067811865475,
+                  -0.7071000500396268
+                ],
+                "orthographic": false,
+                "width_px": 1280,
+                "height_px": 720,
+                "yfov_rad": 0.9272952180016123,
+                "near_m": 0.1,
+                "far_m": 240000.0,
+                "x_mag_m": 0.0,
+                "y_mag_m": 0.0
+              }
+            },
+            "sun_elevation_deg": 45
+          }
+        ]
+      },
+      "input_sha256": "522f9685a9e4861f480be0f635521d36096bdc3e80a97fed87c4a7a6ca43a953",
+      "command": [
+        "/Users/cosmo/Git/outshine/build/test_experiments_render_NativeBuildingImpostors",
+        "/private/var/folders/2l/phm03dsx7yn6rl45375x9yjm0000gn/T/outshine-master-world-field-7fbbdab4d-onvbf5v4/release/union-external",
+        "--material-fields"
+      ],
+      "exit": 0,
+      "report_sha256": "06dc254db4583a906b416c26b45da257b6a023958d8c848ca6e2b3418a2a696d",
+      "buffers": {
+        "union-external/near-direction/rgba": "d23b0a4ab45ee9dff4d81dfb37ceb902be7fa22c67a6d3e4abae62c95dd574c7",
+        "union-external/near-direction/depth": "03bf896ce83e695d4e426ff8c00b46a5640de6c2669f67dec1c93353d7974650",
+        "union-external/revealing-side/rgba": "7c543deb1016668497915b310ae783ee937a2fbb367c63a90eeebdfc8461c193",
+        "union-external/revealing-side/depth": "2b05ca0a539318a26067822cb0454d6af6f9e8f750caa09cbf61308a37cbda6d",
+        "union-external/repeat/rgba": "d23b0a4ab45ee9dff4d81dfb37ceb902be7fa22c67a6d3e4abae62c95dd574c7",
+        "union-external/repeat/depth": "03bf896ce83e695d4e426ff8c00b46a5640de6c2669f67dec1c93353d7974650"
+      }
+    }
+  },
+  "native_reports": {
+    "capture": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 65536,
+            "eye_m": [
+              2369.974738269353,
+              830.8019526851531,
+              6009.419328083667
+            ],
+            "far_m": 1916.6859634669595,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0,
+              -0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "height_px": 128,
+            "near_m": 383.3371926933919,
+            "orthographic": true,
+            "right": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "up": [
+              -0.0,
+              0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "width_px": 128,
+            "x_mag_m": 383.3371926933919,
+            "y_mag_m": 383.3371926933919,
+            "yfov_rad": 0.0
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 129,
+          "integral_width": 258,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2369.974738269353,
+              -830.8019526851531,
+              -6009.419328083667
+            ],
+            "projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0006521673640236259,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              -0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 8.354416,
+          "relight_filter_gpu_ms": 2.38724984228611
+        },
+        {
+          "capture": {
+            "bytes": 65536,
+            "eye_m": [
+              2369.974738269353,
+              830.8019526851531,
+              6009.419328083667
+            ],
+            "far_m": 1916.6859634669595,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0,
+              -0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "height_px": 128,
+            "near_m": 383.3371926933919,
+            "orthographic": true,
+            "right": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "up": [
+              -0.0,
+              0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "width_px": 128,
+            "x_mag_m": 383.3371926933919,
+            "y_mag_m": 383.3371926933919,
+            "yfov_rad": 0.0
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 129,
+          "integral_width": 258,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2369.974738269353,
+              -830.8019526851531,
+              -6009.419328083667
+            ],
+            "projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0006521673640236259,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              -0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 4.815708,
+          "relight_filter_gpu_ms": 2.3580000270158052
+        },
+        {
+          "capture": {
+            "bytes": 65536,
+            "eye_m": [
+              2369.974738269353,
+              830.8019526851531,
+              6009.419328083667
+            ],
+            "far_m": 1916.6859634669595,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0,
+              -0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "height_px": 128,
+            "near_m": 383.3371926933919,
+            "orthographic": true,
+            "right": [
+              1.0,
+              0.0,
+              -0.0
+            ],
+            "up": [
+              -0.0,
+              0.7071067811865475,
+              -0.7071067811865475
+            ],
+            "width_px": 128,
+            "x_mag_m": 383.3371926933919,
+            "y_mag_m": 383.3371926933919,
+            "yfov_rad": 0.0
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 129,
+          "integral_width": 258,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2369.974738269353,
+              -830.8019526851531,
+              -6009.419328083667
+            ],
+            "projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0006521673640236259,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.0026086694560945034,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              -0.0018446078756824136,
+              0.0004611519689206034,
+              0.0,
+              0.0,
+              0.0,
+              1.25,
+              1.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 4.050041,
+          "relight_filter_gpu_ms": 2.3915832862257957
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 38476,
+        "vertices": 78374
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    },
+    "original": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 76.634791,
+          "relight_filter_gpu_ms": 11.59112504683435
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -15348.527943793795,
+              -22645.037965351137,
+              -23731.533233646343
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.9215459823608398,
+              -0.8111594319343567,
+              1.6899164734240912e-07,
+              -0.4055797755718231,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.6452734470367432,
+              -1.1584558486938477,
+              2.4134510567819234e-07,
+              -0.5792279839515686,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 223.577584,
+          "relight_filter_gpu_ms": 9.852958377450705
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 77.971,
+          "relight_filter_gpu_ms": 11.947541730478406
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 38476,
+        "vertices": 78374
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    },
+    "terrain": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 72.480291,
+          "relight_filter_gpu_ms": 11.524291709065437
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -15348.527943793795,
+              -22645.037965351137,
+              -23731.533233646343
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.9215459823608398,
+              -0.8111594319343567,
+              1.6899164734240912e-07,
+              -0.4055797755718231,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.6452734470367432,
+              -1.1584558486938477,
+              2.4134510567819234e-07,
+              -0.5792279839515686,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 74.560083,
+          "relight_filter_gpu_ms": 7.942124968394637
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 76.66925,
+          "relight_filter_gpu_ms": 12.852499959990382
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 2,
+        "vertices": 4
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    },
+    "external": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 75.628,
+          "relight_filter_gpu_ms": 11.68720843270421
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -15348.527943793795,
+              -22645.037965351137,
+              -23731.533233646343
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.9215459823608398,
+              -0.8111594319343567,
+              1.6899164734240912e-07,
+              -0.4055797755718231,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.6452734470367432,
+              -1.1584558486938477,
+              2.4134510567819234e-07,
+              -0.5792279839515686,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 71.585791,
+          "relight_filter_gpu_ms": 9.325375081971288
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 66.627084,
+          "relight_filter_gpu_ms": 11.939125135540962
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 10,
+        "vertices": 20
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    },
+    "union-terrain": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 70.979084,
+          "relight_filter_gpu_ms": 11.524500092491508
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -15348.527943793795,
+              -22645.037965351137,
+              -23731.533233646343
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.9215459823608398,
+              -0.8111594319343567,
+              1.6899164734240912e-07,
+              -0.4055797755718231,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.6452734470367432,
+              -1.1584558486938477,
+              2.4134510567819234e-07,
+              -0.5792279839515686,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 62.00725,
+          "relight_filter_gpu_ms": 9.023499907925725
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 80.506625,
+          "relight_filter_gpu_ms": 11.666750069707632
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 38478,
+        "vertices": 78378
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    },
+    "union-external": {
+      "additional_sources": [],
+      "cases": [
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "near-direction",
+          "relight_and_readback_wall_ms": 54.453125,
+          "relight_filter_gpu_ms": 11.649625143036246
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.8191520442889918,
+              0.0,
+              -0.573576436351046
+            ],
+            "up": [
+              -0.4055797876726388,
+              0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -15348.527943793795,
+              -22645.037965351137,
+              -23731.533233646343
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              0.9215459823608398,
+              -0.8111594319343567,
+              1.6899164734240912e-07,
+              -0.4055797755718231,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.6452734470367432,
+              -1.1584558486938477,
+              2.4134510567819234e-07,
+              -0.5792279839515686,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              15348.527943793795,
+              22645.037965351137,
+              23731.533233646343
+            ],
+            "forward": [
+              -0.4055797876726388,
+              -0.7071067811865475,
+              -0.5792279653395691
+            ],
+            "orthographic": false
+          },
+          "query": "revealing-side",
+          "relight_and_readback_wall_ms": 60.805583,
+          "relight_filter_gpu_ms": 9.430416626855731
+        },
+        {
+          "capture": {
+            "bytes": 3686400,
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "far_m": 240000.0,
+            "format": "reverse_z_0_1_float32",
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "height_px": 720,
+            "near_m": 0.1,
+            "orthographic": false,
+            "right": [
+              0.9999904807207345,
+              0.0,
+              -0.004363309284746571
+            ],
+            "up": [
+              -0.0030853255836585246,
+              0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "width_px": 1280,
+            "x_mag_m": 0.0,
+            "y_mag_m": 0.0,
+            "yfov_rad": 0.9272952180016123
+          },
+          "integral_encoding": "rgba32f-hi-lo-pairs-v1",
+          "integral_height": 721,
+          "integral_width": 2562,
+          "lens_operands": {
+            "jitter_px": [
+              0.0,
+              0.0
+            ],
+            "pre_view_translation_f64": [
+              -2468.705156946426,
+              -22645.037965351137,
+              -27823.43994404819
+            ],
+            "projection_f32_column_major": [
+              1.1249998807907104,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.999999761581421,
+              0.0,
+              0.0,
+              -0.0,
+              -0.0,
+              4.1666683614494104e-07,
+              -1.0,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ],
+            "scope": "native Lens operands recomputed from effective camera; not GPU readback",
+            "view_projection_f32_column_major": [
+              1.1249891519546509,
+              -0.006170650012791157,
+              1.2855527753430351e-09,
+              -0.0030853254720568657,
+              0.0,
+              1.4142134189605713,
+              2.9462793804668763e-07,
+              -0.7071067690849304,
+              -0.00490872235968709,
+              -1.414199948310852,
+              2.94625124297454e-07,
+              -0.7071000337600708,
+              0.0,
+              0.0,
+              0.1000000387430191,
+              0.0
+            ]
+          },
+          "lighting_camera": {
+            "eye_m": [
+              2468.705156946426,
+              22645.037965351137,
+              27823.43994404819
+            ],
+            "forward": [
+              -0.0030853255836585246,
+              -0.7071067811865475,
+              -0.7071000500396268
+            ],
+            "orthographic": false
+          },
+          "query": "repeat",
+          "relight_and_readback_wall_ms": 62.051208,
+          "relight_filter_gpu_ms": 12.162250000983477
+        }
+      ],
+      "geometry": {
+        "image_storage_bytes": 0,
+        "images": 0,
+        "triangles": 38486,
+        "vertices": 78394
+      },
+      "mode": "material-fields",
+      "render_device_creations": 1,
+      "render_device_name": "Apple A18 Pro"
+    }
+  },
+  "comparisons": {
+    "near-direction": {
+      "terrain": {
+        "source_pixels": 54,
+        "outer_pixels": 1526,
+        "source_first": 54,
+        "outer_first": 0,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      },
+      "external": {
+        "source_pixels": 54,
+        "outer_pixels": 1526,
+        "source_first": 25,
+        "outer_first": 29,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      }
+    },
+    "revealing-side": {
+      "terrain": {
+        "source_pixels": 57,
+        "outer_pixels": 1502,
+        "source_first": 57,
+        "outer_first": 0,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      },
+      "external": {
+        "source_pixels": 57,
+        "outer_pixels": 1502,
+        "source_first": 35,
+        "outer_first": 22,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      }
+    },
+    "repeat": {
+      "terrain": {
+        "source_pixels": 54,
+        "outer_pixels": 1526,
+        "source_first": 54,
+        "outer_first": 0,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      },
+      "external": {
+        "source_pixels": 54,
+        "outer_pixels": 1526,
+        "source_first": 25,
+        "outer_first": 29,
+        "ties": 0,
+        "depth_equal": true,
+        "coverage_equal": true,
+        "rgb_max_abs": 0.0
+      }
+    }
+  },
+  "python_geometric_displacement_only": {
+    "near-direction": {
+      "axis_upper_px": [
+        0.04949975377223918,
+        0.026791702710533494
+      ],
+      "screen_l1_upper_px": 0.07629145648277269,
+      "minimum_w": [
+        31804.980002124066,
+        31999.160629679227
+      ],
+      "depth_inside": true,
+      "source_corners": 8,
+      "reason": "geometric_displacement_only"
+    },
+    "revealing-side": {
+      "axis_upper_px": [
+        1.8380051022582926,
+        0.4366734609013977
+      ],
+      "screen_l1_upper_px": 2.2746785631596906,
+      "minimum_w": [
+        31727.910328265567,
+        31872.23396174514
+      ],
+      "depth_inside": true,
+      "source_corners": 8,
+      "reason": "geometric_displacement_only"
+    },
+    "repeat": {
+      "axis_upper_px": [
+        0.04949975377223918,
+        0.026791702710533494
+      ],
+      "screen_l1_upper_px": 0.07629145648277269,
+      "minimum_w": [
+        31804.980002124066,
+        31999.160629679227
+      ],
+      "depth_inside": true,
+      "source_corners": 8,
+      "reason": "geometric_displacement_only"
+    }
+  },
+  "reference_failures": [],
+  "arrays": {
+    "capture/near-direction/rgba": {
+      "array": "capture/near-direction/rgba",
+      "shape": [
+        128,
+        128,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "318f7e2ea605dcbaa6f92958f300d3d0a0846583930f768df1d2fc326ad5eb7f"
+    },
+    "capture/near-direction/depth": {
+      "array": "capture/near-direction/depth",
+      "shape": [
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6"
+    },
+    "capture/revealing-side/rgba": {
+      "array": "capture/revealing-side/rgba",
+      "shape": [
+        128,
+        128,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "17972050f22f561657bc11d73c33446b314a951a0f1e6ac20f19a2624894f141"
+    },
+    "capture/revealing-side/depth": {
+      "array": "capture/near-direction/depth",
+      "shape": [
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6"
+    },
+    "capture/repeat/rgba": {
+      "array": "capture/near-direction/rgba",
+      "shape": [
+        128,
+        128,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "318f7e2ea605dcbaa6f92958f300d3d0a0846583930f768df1d2fc326ad5eb7f"
+    },
+    "capture/repeat/depth": {
+      "array": "capture/near-direction/depth",
+      "shape": [
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "sha256": "e4e5ac6a97983dea64d4e2668f87b8795b5e5303b9f66bde3bb916c68e8589d6"
+    },
+    "original/near-direction/rgba": {
+      "array": "original/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "2a5d3d415b73989f49dac1821f018ec47da5c80a1e0ed3b0e011bfec30b3666c"
+    },
+    "original/near-direction/depth": {
+      "array": "original/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "c5662ab6ffef47acd886bbb8937037ab2a6e874baca5e511d610fb676d30e3ee"
+    },
+    "original/revealing-side/rgba": {
+      "array": "original/revealing-side/rgba",
+      "shape": [
+        61,
+        80,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "ba8d9d93653ca44ba73435b30093210ecd6f9cd8230b28e7c2496e156e6a4926"
+    },
+    "original/revealing-side/depth": {
+      "array": "original/revealing-side/depth",
+      "shape": [
+        61,
+        80
+      ],
+      "dtype": "float32",
+      "sha256": "6666d379fd141fab2c8d20476f48c282f7e3133c73b80e45f42c9c48670d543a"
+    },
+    "original/repeat/rgba": {
+      "array": "original/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "2a5d3d415b73989f49dac1821f018ec47da5c80a1e0ed3b0e011bfec30b3666c"
+    },
+    "original/repeat/depth": {
+      "array": "original/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "c5662ab6ffef47acd886bbb8937037ab2a6e874baca5e511d610fb676d30e3ee"
+    },
+    "terrain/near-direction/rgba": {
+      "array": "terrain/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "d2b895716dd6d0f4d5701ac5eb855307b69eb4579eef6a85b0e1eb582c96698f"
+    },
+    "terrain/near-direction/depth": {
+      "array": "terrain/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d756cb5e7e6572b6d28f23de69e63a4f0bdee2c809a8a5ab86e038157a431d4b"
+    },
+    "terrain/revealing-side/rgba": {
+      "array": "terrain/revealing-side/rgba",
+      "shape": [
+        61,
+        80,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "8f28313e6309c7c8462a4ed112257d2cae7be64e708a1703b02d7c5c60b9701c"
+    },
+    "terrain/revealing-side/depth": {
+      "array": "terrain/revealing-side/depth",
+      "shape": [
+        61,
+        80
+      ],
+      "dtype": "float32",
+      "sha256": "e962ecf91d1c2ae006ededf851c847755151869272344cd22cc1f1755692cc5a"
+    },
+    "terrain/repeat/rgba": {
+      "array": "terrain/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "d2b895716dd6d0f4d5701ac5eb855307b69eb4579eef6a85b0e1eb582c96698f"
+    },
+    "terrain/repeat/depth": {
+      "array": "terrain/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d756cb5e7e6572b6d28f23de69e63a4f0bdee2c809a8a5ab86e038157a431d4b"
+    },
+    "external/near-direction/rgba": {
+      "array": "external/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "93bdaadb206e74c95d2a5f4c45f502709320778ca1105d3292dc76226e274012"
+    },
+    "external/near-direction/depth": {
+      "array": "external/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "be71b93bc4b7caed63bfd48289a9f2e9228311667093b4426bb724d8fcd4cf8b"
+    },
+    "external/revealing-side/rgba": {
+      "array": "external/revealing-side/rgba",
+      "shape": [
+        61,
+        80,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "f8904313d0e8b2d9ff650b184622b55af9226ca6e4bc8c5e29092c3cc7d6b618"
+    },
+    "external/revealing-side/depth": {
+      "array": "external/revealing-side/depth",
+      "shape": [
+        61,
+        80
+      ],
+      "dtype": "float32",
+      "sha256": "569d655aeb4071338fbd87712c590d8995d46f9d46473a0ab981368bc3ffc156"
+    },
+    "external/repeat/rgba": {
+      "array": "external/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "93bdaadb206e74c95d2a5f4c45f502709320778ca1105d3292dc76226e274012"
+    },
+    "external/repeat/depth": {
+      "array": "external/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "be71b93bc4b7caed63bfd48289a9f2e9228311667093b4426bb724d8fcd4cf8b"
+    },
+    "union-terrain/near-direction/rgba": {
+      "array": "union-terrain/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "b55e514185491e75595f82a436b6cabe3320eeeebc102f8299d1daadcdeed4a8"
+    },
+    "union-terrain/near-direction/depth": {
+      "array": "union-terrain/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d58e73ce44efc1ffa85a8512f5de80c7f8b2f9130a25d35b8ad28a14d976667f"
+    },
+    "union-terrain/revealing-side/rgba": {
+      "array": "union-terrain/revealing-side/rgba",
+      "shape": [
+        61,
+        80,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "b560e2a8af931270310a8d55ff295f78229e2eda8d2c11e5cc4de184ebab1ca4"
+    },
+    "union-terrain/revealing-side/depth": {
+      "array": "union-terrain/revealing-side/depth",
+      "shape": [
+        61,
+        80
+      ],
+      "dtype": "float32",
+      "sha256": "8455a262d2eecf2b5b35c7fde0f0b80225340c54c436c22675df7fa56ebba1ec"
+    },
+    "union-terrain/repeat/rgba": {
+      "array": "union-terrain/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "b55e514185491e75595f82a436b6cabe3320eeeebc102f8299d1daadcdeed4a8"
+    },
+    "union-terrain/repeat/depth": {
+      "array": "union-terrain/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d58e73ce44efc1ffa85a8512f5de80c7f8b2f9130a25d35b8ad28a14d976667f"
+    },
+    "union-external/near-direction/rgba": {
+      "array": "union-external/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "bacb98848b45751c8f1a9b7999e6baa3f98ba33e5a045878188ee132527a7b93"
+    },
+    "union-external/near-direction/depth": {
+      "array": "union-external/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d39ae3951e452c155026f38ae14c33730016b565c6f6edc6e86ac005379bb18b"
+    },
+    "union-external/revealing-side/rgba": {
+      "array": "union-external/revealing-side/rgba",
+      "shape": [
+        61,
+        80,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "a75b82088caf86d3716c05b9f48d3e100eb73f6a66e6624d19a863b4e459e289"
+    },
+    "union-external/revealing-side/depth": {
+      "array": "union-external/revealing-side/depth",
+      "shape": [
+        61,
+        80
+      ],
+      "dtype": "float32",
+      "sha256": "22b59c664d89cadb257780c5cc560c50b2d5f43ca84c10fa7d44b2e8e7e4cb70"
+    },
+    "union-external/repeat/rgba": {
+      "array": "union-external/near-direction/rgba",
+      "shape": [
+        49,
+        64,
+        4
+      ],
+      "dtype": "float32",
+      "sha256": "bacb98848b45751c8f1a9b7999e6baa3f98ba33e5a045878188ee132527a7b93"
+    },
+    "union-external/repeat/depth": {
+      "array": "union-external/near-direction/depth",
+      "shape": [
+        49,
+        64
+      ],
+      "dtype": "float32",
+      "sha256": "d39ae3951e452c155026f38ae14c33730016b565c6f6edc6e86ac005379bb18b"
+    }
+  },
+  "npz_sha256": "3a796d93498a842dbc842cc0346d5be4c807261a7f766c928e00e4ded2ecc69e"
+}
