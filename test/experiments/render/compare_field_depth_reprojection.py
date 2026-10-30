@@ -67,6 +67,25 @@ def crop(lower, upper, world, raster):
     return low, high
 
 
+def model_inside_crop(depth, capture, world, raster, low, high):
+    """Bound every represented cell corner before allocating World samples."""
+    y, x = np.nonzero(depth > 0)
+    if not len(x):
+        return True
+    height, width = depth.shape
+    bounds = (
+        (2 * int(x.min()) / width - 1, 2 * (int(x.max()) + 1) / width - 1),
+        (1 - 2 * (int(y.max()) + 1) / height, 1 - 2 * int(y.min()) / height),
+        (float(depth[depth > 0].min()), float(depth.max())),
+    )
+    corners = np.array(list(product(*bounds)))
+    clip = np.c_[corners, np.ones(8)] @ (world @ np.linalg.inv(capture)).T
+    if np.any(clip[:, 3] <= 0):
+        return False
+    xy = (clip[:, :2] / clip[:, 3:] * [1, -1] + 1) * raster / 2
+    return bool(np.isfinite(xy).all() and (xy >= low).all() and (xy <= high).all())
+
+
 def errors(actual, truth):
     delta = abs(actual.astype(float) - truth)
     return {
@@ -260,6 +279,12 @@ def run(args):
     low, high = crop(
         arrays["source_least_m"].min(0), arrays["source_most_m"].max(0), world, raster
     )
+    if not model_inside_crop(
+        arrays["field_capture_depth"], capture, world, raster, low, high
+    ):
+        raise ValueError(
+            "Complete reprojected cell hull leaves the original diagnostic crop"
+        )
     y, x = np.mgrid[low[1] : high[1], low[0] : high[0]]
     pixels = np.c_[x.ravel(), y.ravel()] + 0.5
     shape = (*x.shape, 4)

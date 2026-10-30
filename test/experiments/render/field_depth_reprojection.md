@@ -59,7 +59,9 @@ field coordinates rather than using the segment/grid traversal.
 whole-original fixture and #1724 submitted capture operands. It checks both
 receipts and source provenance. All supported originals and both unsupported
 source IDs/archived material-opacity limitations remain explicit. A complete
-source-bound crop is selected before allocating World samples.
+source-bound crop is selected before allocating World samples. A separate
+eight-corner capture-cell hull checks that the full represented model also fits
+that crop, including pixel edges rather than just stored hit centres.
 
 The 128×128 capture and 1280×720 perspective World view differ in projection,
 eye, basis and raster. The capture matrix uses the actual packed coefficients
