@@ -5,6 +5,10 @@ the #1663 projection identity, using its directed intervals, rather than fitting
 another distance/angle domain. #1720 owns capture inclusion; #1724 owns the
 conditional packed-operand arithmetic envelope. Their existing SIGGRAPH sources
 and qualifications remain applicable; no new compiler or optical error theorem.
+In particular, Duff, SIGGRAPH1992, *Interval Arithmetic and Recursive Subdivision
+for Implicit Functions and Constructive Solid Geometry*, local
+`doc/references/vegetation/siggraph/1992-interval-arithmetic-csg.pdf`, PDF page2,
+was inspected again including the interval rules and rounding discussion.
 
 ## Small operands before fine IO
 
@@ -130,6 +134,15 @@ peak is inferred. Numeric source bounds are 48 bytes; general supplied plane,
 eye/basis, projection and raster occupy 304 additional bytes if all are stored
 as separate Float64 values plus two UInt32 counts. They mostly already exist in
 the consumer. Binding keys, statuses and metadata-container overhead are separate.
+
+On502a70761, Linux/Python3.13.5, i5-1135G7, load9.14/7.47/10.11, the existing
+special case/general homogeneous path cost0.520/0.711ms median process CPU,
+3,780/7,650 allocation events,321,840/670,075 requested bytes and7,552/20,936B
+scoped peak. Both solve the identical held group/perspective problem and agree
+within1e-12px. The general path loses that cost comparison; keep the existing
+special case where its preconditions hold, and use the general reference for
+other submitted projections or tilted supports. These small loaded-host Python
+measurements do not establish a native/device winner. The raw traces are separate.
 
 Architecture acceptance: one Python geometric kernel consumes the existing
 CapturePlane and directed scalar operations. Source/capture preparation, fine
