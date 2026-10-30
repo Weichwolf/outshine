@@ -260,6 +260,18 @@ def load(directory=DATA):
     manifest = json.loads(read_bounded(path))
     layout(manifest)
     cases = contexts(manifest)
+    controls = read_bounded(
+        ROOT / "test/outshine/data/render/building-native-opponents/controls.json"
+    )
+    geometry = (
+        ROOT / "test/outshine/data/render/building-depth-samples/original-geometry"
+    )
+    if (
+        digest(controls) != manifest["controls_sha256"]
+        or digest(read_bounded(geometry / "manifest.json"))
+        != json.loads(controls)["original_manifest_sha256"]
+    ):
+        raise ValueError("Whole original source/control binding differs")
     payload = read_bounded(directory / "samples.npz")
     bound_archive(payload, manifest)
     with np.load(io.BytesIO(payload), allow_pickle=False) as saved:
@@ -271,9 +283,7 @@ def load(directory=DATA):
             raise ValueError("Native cropped array checksum differs")
         value.setflags(write=False)
     verify_points(manifest, arrays)
-    original, provenance = read_original(
-        ROOT / "test/outshine/data/render/building-depth-samples/original-geometry"
-    )
+    original, provenance = read_original(geometry)
     if provenance != manifest["original_geometry"]:
         raise ValueError("Whole original operand/source provenance differs")
     return manifest, arrays, cases, original

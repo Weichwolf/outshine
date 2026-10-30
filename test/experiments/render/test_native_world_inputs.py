@@ -63,6 +63,12 @@ class NativeWorldTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Full native buffer differs"):
             load(self.root)
 
+    def test_counts_do_not_substitute_for_the_whole_source_control_identity(self):
+        self.changed["controls_sha256"] = "0" * 64
+        self.save()
+        with self.assertRaisesRegex(ValueError, "source/control binding"):
+            load(self.root)
+
     def test_union_is_independently_checked_after_all_hashes_are_amended(self):
         logical = "union-terrain/near-direction/rgba"
         key = self.changed["arrays"][logical]["array"]
