@@ -1,12 +1,16 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "Geometry.h"
+#include "Texture.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <expected>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -18,23 +22,73 @@ bool CastAt(const std::vector<float> &atlas, int x) {
                static_cast<size_t>(column)] > 0;
 }
 
+enum class MipMask {
+  Split,
+  OpaqueLower,
+  TransparentLower,
+  OpaqueLowerDisabled,
+  TransparentLowerDisabled
+};
+
 struct MaskCase {
   int uvSet;
   float vertexAlpha;
   bool textured;
   bool reverse = false;
   bool instanced = false;
+  MipMask mips = MipMask::Split;
 };
 
+bool MipsEnabled(MipMask mask) {
+  return mask != MipMask::OpaqueLowerDisabled && mask != MipMask::TransparentLowerDisabled;
+}
+
+bool LowerOpaque(MipMask mask) {
+  return mask == MipMask::OpaqueLower || mask == MipMask::OpaqueLowerDisabled;
+}
+
+std::expected<int, outshine::GeometryImageError> MaskImage(outshine::Geometry &geometry,
+                                                           MipMask mask) {
+  using namespace outshine;
+  if (mask == MipMask::Split) {
+    return geometry.addImage(2, 1, std::array<uint8_t, 8>{255, 255, 255, 255, 255, 255, 255, 0});
+  }
+  constexpr int dimension = 2048;
+  const bool opaque = LowerOpaque(mask);
+  std::vector<uint8_t> base(size_t{dimension} * dimension * 4, 255);
+  for (size_t at = 3; at < base.size(); at += 4) { base[at] = opaque ? 0 : 255; }
+  std::vector<uint8_t> lower;
+  for (int side = dimension / 2; side > 0; side /= 2) {
+    const size_t first = lower.size();
+    lower.resize(first + static_cast<size_t>(side) * static_cast<size_t>(side) * 4, 255);
+    for (size_t at = first + 3; at < lower.size(); at += 4) { lower[at] = opaque ? 255 : 0; }
+  }
+  ImageMipData prepared;
+  prepared[static_cast<size_t>(ImageMipKind::Colour)] = std::move(lower);
+  return geometry.addImage(ImageView{.WidthPx = dimension,
+                                     .HeightPx = dimension,
+                                     .Rgba = base,
+                                     .LowerMips = ViewImageMips(prepared)});
+}
+
+void CheckCoverage(const std::vector<float> &atlas, MaskCase mask, bool covered) {
+  const bool split = mask.mips == MipMask::Split;
+  const bool left = (mask.uvSet == 0) != mask.reverse;
+  const bool prepared = MipsEnabled(mask.mips) ? LowerOpaque(mask.mips) : !LowerOpaque(mask.mips);
+  CHECK(CastAt(atlas, -40) == (covered && (!mask.textured || (split ? left : prepared))),
+        "left shadow matches source alpha, selected UV and prepared mip coverage");
+  CHECK(CastAt(atlas, 40) == (covered && (!mask.textured || (split ? !left : prepared))),
+        "right shadow matches source alpha, selected UV and prepared mip coverage");
+}
+
 void CheckMask(MaskCase mask) {
-  const auto [uvSet, vertexAlpha, textured, reverse, instanced] = mask;
+  const auto [uvSet, vertexAlpha, textured, reverse, instanced, mips] = mask;
   constexpr float kMaterialAlpha = .75f;
   constexpr float kKeyLux = 10000;
   constexpr double kOwnerOffsetM = 10000;
   constexpr double kEyeHeightM = 100;
   constexpr double kFarM = 20000;
   constexpr double kNearM = .1;
-  constexpr int kSampleOffset = 40;
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
@@ -44,12 +98,14 @@ void CheckMask(MaskCase mask) {
   material.BaseColour[3] = kMaterialAlpha;
   material.DoubleSided = true;
   if (textured) {
-    const auto image =
-        geometry.addImage(2, 1, std::array<uint8_t, 8>{255, 255, 255, 255, 255, 255, 255, 0});
+    const auto image = MaskImage(geometry, mips);
     CHECK(image.has_value(), "mask image exists");
     if (!image) { return; }
     material.BaseColourMap.Image = *image;
     material.BaseColourMap.Set = uvSet == 0 ? UvSet::Uv0 : UvSet::Uv1;
+    if (mips != MipMask::Split) {
+      material.BaseColourMap.Sampler.Mip = MipsEnabled(mips) ? MipFilter::Linear : MipFilter::None;
+    }
     if (reverse) {
       material.BaseColourMap.Uv.ScaleUv = {{-1, 1}};
       material.BaseColourMap.Uv.OffsetUv = {{1, 0}};
@@ -124,17 +180,18 @@ void CheckMask(MaskCase mask) {
   std::vector<float> atlas;
   CHECK(renderer.ReadShadowAtlas(atlas) == ReadState::Ready, "shadow atlas reads back");
   const bool covered = kMaterialAlpha * vertexAlpha >= material.CoverageCut;
-  const bool left = (uvSet == 0) != reverse;
-  CHECK(CastAt(atlas, -kSampleOffset) == (covered && (!textured || left)),
-        "left shadow matches source alpha, selected UV and vertex coverage");
-  CHECK(CastAt(atlas, kSampleOffset) == (covered && (!textured || !left)),
-        "transparent half never casts a rectangular shadow");
+  CheckCoverage(atlas, mask, covered);
 }
 }
 
 int main() {
   using namespace outshine::Test;
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for masked shadows");
+  const bool initialized = SDL_Init(SDL_INIT_VIDEO);
+  CHECK(initialized, "video initializes for masked shadows");
+  if (!initialized) {
+    Note(SDL_GetError());
+    return Report();
+  }
   for (const int uv : {0, 1}) {
     CheckMask({.uvSet = uv, .vertexAlpha = 1, .textured = true});
     CheckMask({.uvSet = uv, .vertexAlpha = .5f, .textured = true});
@@ -145,6 +202,12 @@ int main() {
   CheckMask({.uvSet = 1, .vertexAlpha = 1, .textured = true, .reverse = true});
   CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .reverse = false, .instanced = true});
   CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .reverse = true, .instanced = true});
+  for (const auto mips : {MipMask::OpaqueLower,
+                          MipMask::TransparentLower,
+                          MipMask::OpaqueLowerDisabled,
+                          MipMask::TransparentLowerDisabled}) {
+    CheckMask({.uvSet = 0, .vertexAlpha = 1, .textured = true, .mips = mips});
+  }
   SDL_Quit();
   return Report();
 }
