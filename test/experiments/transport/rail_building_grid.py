@@ -47,7 +47,6 @@ def construct(requested):
         "model": "topological-binary-boundary/1",
         "grid_m": GRID_M,
         "boundary_band_m": BAND_M,
-        "requested_footprint_wkb": shapely.normalize(requested).wkb_hex,
         "requested_parts": len(shapely.get_parts(requested)),
         "constructed_parts": len(shapely.get_parts(actual)),
         "requested_holes": holes(requested),
