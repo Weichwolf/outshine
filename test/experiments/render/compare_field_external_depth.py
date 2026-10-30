@@ -77,10 +77,10 @@ def fallback_controls(a, native, capture):
     return {key: result.reason for key, result in results.items()}
 
 
-def panel(path, truth, actual, wrong):
+def panel(path, truth, actual, wrong, *, labels=None):
     images = [truth, actual, wrong, abs(wrong - truth)]
     canvas = Image.new("RGB", (1024, 280), "#171717")
-    labels = [
+    labels = labels or [
         "Whole original union",
         "Registered points, then filter",
         "Separate filtering / global order",

@@ -92,7 +92,7 @@ def terrain(original, capture):
     )
 
 
-def foreign_ring(capture, source_depth):
+def foreign_ring(capture, source_depth, *, extent_m=None):
     values = np.unique(source_depth[source_depth > 0]).astype(float)
     central = np.flatnonzero(
         (values[:-1] > np.quantile(values, 0.4))
@@ -107,7 +107,7 @@ def foreign_ring(capture, source_depth):
         capture["forward"]
     )
     right, up = np.asarray(capture["right"]), np.asarray(capture["up"])
-    extent = capture["x_mag_m"]
+    extent = capture["x_mag_m"] if extent_m is None else extent_m
     rectangles = [
         (-0.8, -0.15, -0.8, 0.8),
         (0.15, 0.8, -0.8, 0.8),
