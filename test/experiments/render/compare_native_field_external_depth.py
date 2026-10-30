@@ -110,6 +110,9 @@ def compare(name, external, saved, reference, capture, rays, output):
     original_rgba, original_z = reference
     original_first = original_z > z
     truth = np.where(original_first[:, :, None], original_rgba, rgba)
+    np.testing.assert_array_equal(
+        result.rgba, np.where(original_first[:, :, None], saved.rgba, rgba)
+    )
     expected_field_depth = np.where(original_first, saved.reverse_z, z)
     np.testing.assert_array_equal(result.reverse_z, expected_field_depth)
     np.testing.assert_array_equal(result.rgba[:, :, 3], truth[:, :, 3])
@@ -120,9 +123,14 @@ def compare(name, external, saved, reference, capture, rays, output):
         abs(result.rgba[:, :, :3].astype(float) - truth[:, :, :3]).max()
     )
     actual, target = reduced(result.rgba), reduced(truth)
+    source_l1 = float(
+        abs(saved.rgba[:, :, :3].astype(float) - original_rgba[:, :, :3]).sum()
+    )
+    pixel_l1 = float(abs(actual[:, :, :3] - target[:, :, :3]).sum())
     if (
         point_error > source_error
         or abs(actual[:, :, :3] - target[:, :, :3]).max() > source_error
+        or pixel_l1 > source_l1 / 16 + 1e-10
     ):
         raise ValueError(
             "Composition/filter amplified the finite original-point RGB error"
@@ -161,6 +169,9 @@ def compare(name, external, saved, reference, capture, rays, output):
         "coverage_exact": True,
         "finite_source_rgb_max_error": source_error,
         "point_rgb_max_error": point_error,
+        "source_rgb_l1": source_l1,
+        "filtered_rgb_l1": pixel_l1,
+        "filtered_source_rgb_l1_upper_bound": source_l1 / 16,
         "filtered_rgb_max_error": float(abs(actual[:, :, :3] - target[:, :, :3]).max()),
         "constant_after_filter_eligible": outside_first == 0,
         "after_filter_without_order_rgb_max_error": float(
