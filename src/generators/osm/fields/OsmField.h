@@ -177,6 +177,11 @@ public:
   SnapshotQueries(std::shared_ptr<const OsmField> previous = {}) const;
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
+  // Fresh libc++/libstdc++ decoder storage, excluding input and allocator overhead.
+  // This allocation-free structural scan does not validate geometry semantics.
+  [[nodiscard]] static std::optional<size_t>
+  NativeTileDecodeBytes(std::span<const uint8_t> bytes,
+                        size_t bytesMost = std::numeric_limits<size_t>::max());
   [[nodiscard]] static std::unique_ptr<OsmField> DecodeNativeTile(std::span<const uint8_t> bytes,
                                                                   size_t bytesMost);
 
