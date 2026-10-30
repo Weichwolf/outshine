@@ -105,7 +105,7 @@ class ResidentGrowth(unittest.TestCase):
             self.assertEqual(len(state["report"]["candidate_source_ids"]), 1)
             calls.append(recipe["port"])
 
-        with patch("stair_frontier_sources.root_profile", side_effect=profile):
+        with patch("stair_frontier_roots.root_profile", side_effect=profile):
             result = select(terrain(), assets, {"source_ids": old_keys}, sources, {})
         self.assertEqual(len(calls), 64)
         self.assertEqual(
