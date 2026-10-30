@@ -74,6 +74,8 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
             self.assertEqual(struct.unpack('>II', png[16:24]), (32, 32))
             metrics = {metric['name']: metric['value'] for metric in report['metrics']}
+            self.assertEqual(metrics.get('cull snapshot: available'), 0)
+            self.assertGreaterEqual(report['phases_ms']['final_inspection'], 0)
             for axis, value in zip(('east', 'up', 'south'),
                                    report['motion']['finish']['position_m'], strict=True):
                 self.assertAlmostEqual(metrics[f'render last submitted camera: eye {axis}'],
@@ -122,6 +124,9 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = json.loads(result.stdout)
             self.assertEqual(report['profile']['fps'], 30)
+            metrics = {metric['name']: metric['value'] for metric in report['metrics']}
+            self.assertEqual(metrics.get('cull snapshot: available'), 0)
+            self.assertGreaterEqual(report['phases_ms']['final_inspection'], 0)
             self.assertEqual(len(report['cpu_times']['samples']), 1)
             self.assertEqual(report['gpu_times']['rendered_frames'], 1)
 

@@ -99,6 +99,9 @@ Result FinishMeasurement(Engine &engine,
   if (const auto samples = renderer.gpuSamples(report.GpuSamples); !samples) { return samples; }
   report.Finished = engine.loading();
   report.FinalWorldBlockers = engine.unsettledReasons(WorldQuality::Refined);
+  const auto inspectionAt = Clock::now();
+  if (const auto inspected = engine.inspect(); !inspected) { return inspected; }
+  report.InspectionMs = ElapsedMs(inspectionAt);
   const auto measures = engine.measures();
   report.Measures.assign(measures.begin(), measures.end());
   if (!options.Image.empty()) {
