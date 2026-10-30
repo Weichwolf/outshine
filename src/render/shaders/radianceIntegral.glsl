@@ -3,6 +3,17 @@ layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform sampler2D source;
 layout(rgba32f, set = 1, binding = 0) uniform writeonly image2D destination;
 
+#if INTEGRAL_AXIS == 0
+RadiancePair radianceAddSample(RadiancePair a, vec4 b) {
+  RadiancePair high = radianceTwoSum(a.high, b);
+  precise vec4 low = a.low + vec4(0.0);
+  RadiancePair middle = radianceTwoSum(high.low, low);
+  RadiancePair combined = radianceTwoSum(high.high, middle.high);
+  precise vec4 tail = (vec4(0.0) + middle.low) + combined.low;
+  return radianceTwoSum(combined.high, tail);
+}
+#endif
+
 void main() {
   ivec2 physical = imageSize(destination);
   ivec2 size = ivec2(physical.x / 2, physical.y);
@@ -14,8 +25,7 @@ void main() {
   imageStore(destination, ivec2(1, line), sum.low);
   for (int x = 1; x < size.x; ++x) {
     if (line > 0) {
-      sum = radianceAddPair(sum,
-                            RadiancePair(texelFetch(source, ivec2(x - 1, line - 1), 0), vec4(0.0)));
+      sum = radianceAddSample(sum, texelFetch(source, ivec2(x - 1, line - 1), 0));
     }
     imageStore(destination, ivec2(2 * x, line), sum.high);
     imageStore(destination, ivec2(2 * x + 1, line), sum.low);
