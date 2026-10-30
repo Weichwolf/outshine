@@ -21,6 +21,34 @@ from process_memory import peak_rss_bytes
 from triangle_image_reference import prepare_source
 
 
+def measure(methods, expected, output):
+    report = {name: {"rounds": []} for name in methods}
+    for round_index in range(5):
+        order = list(methods)[round_index % 3 :] + list(methods)[: round_index % 3]
+        for name in order:
+            gc.collect()
+            start = time.process_time(), time.perf_counter()
+            value = methods[name]()
+            report[name]["rounds"].append(
+                {
+                    "cpu_s": time.process_time() - start[0],
+                    "wall_s": time.perf_counter() - start[1],
+                }
+            )
+            np.testing.assert_array_equal(value, expected)
+            del value
+    for name, call in methods.items():
+        gc.collect()
+        value, memory = allocations(output / (name + ".bin"), call)
+        np.testing.assert_array_equal(value, expected)
+        report[name].update(memory)
+        for clock in ("cpu", "wall"):
+            report[name][clock + "_median_s"] = float(
+                np.median([v[clock + "_s"] for v in report[name]["rounds"]])
+            )
+    return report
+
+
 def run(args):
     if os.getpriority(os.PRIO_PROCESS, 0) != 0:
         raise ValueError("Normal measurement priority required")
@@ -81,31 +109,8 @@ def run(args):
         "checked-compose-prefix": lambda: prefix_reduced(compose(a, b).rgba),
         "held-joint-prefix": lookup,
     }
-    report = {name: {"rounds": []} for name in methods}
     load_before = os.getloadavg()
-    for round_index in range(5):
-        order = list(methods)[round_index % 3 :] + list(methods)[: round_index % 3]
-        for name in order:
-            gc.collect()
-            start = time.process_time(), time.perf_counter()
-            value = methods[name]()
-            report[name]["rounds"].append(
-                {
-                    "cpu_s": time.process_time() - start[0],
-                    "wall_s": time.perf_counter() - start[1],
-                }
-            )
-            np.testing.assert_array_equal(value, expected)
-            del value
-    for name, call in methods.items():
-        gc.collect()
-        value, memory = allocations(args.output / (name + ".bin"), call)
-        np.testing.assert_array_equal(value, expected)
-        report[name].update(memory)
-        for clock in ("cpu", "wall"):
-            report[name][clock + "_median_s"] = float(
-                np.median([v[clock + "_s"] for v in report[name]["rounds"]])
-            )
+    report = measure(methods, expected, args.output)
     result = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
