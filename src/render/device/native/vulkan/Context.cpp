@@ -190,6 +190,21 @@ Result<void> SelectPhysical(Context &context) {
   return {};
 }
 
+Result<void> CheckRequiredFeatures(const VkPhysicalDeviceFeatures2 &features,
+                                   const VkPhysicalDeviceVulkan13Features &supported) {
+  if (supported.synchronization2 == VK_FALSE || supported.dynamicRendering == VK_FALSE) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported,
+              .Message = "Vulkan synchronization2/dynamicRendering is unavailable"});
+  }
+  if (features.features.sampleRateShading == VK_FALSE) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported,
+              .Message = "Vulkan shader interpolation functions are unavailable"});
+  }
+  return {};
+}
+
 Result<void> InitLogical(Context &context) {
   VkPhysicalDeviceVulkan13Features supported{};
   supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -209,10 +224,8 @@ Result<void> InitLogical(Context &context) {
   features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.pNext = &supported;
   vkGetPhysicalDeviceFeatures2(context.Physical, &features);
-  if (supported.synchronization2 == VK_FALSE || supported.dynamicRendering == VK_FALSE) {
-    return std::unexpected(
-        Error{.Kind = ErrorKind::Unsupported,
-              .Message = "Vulkan synchronization2/dynamicRendering is unavailable"});
+  if (const auto required = CheckRequiredFeatures(features, supported); !required) {
+    return std::unexpected(required.error());
   }
   context.PresentCapable = candidate && maintenance.swapchainMaintenance1 != VK_FALSE;
   if (context.Surface != VK_NULL_HANDLE && !context.PresentCapable) {
@@ -230,6 +243,7 @@ Result<void> InitLogical(Context &context) {
   core.independentBlend = features.features.independentBlend;
   core.multiDrawIndirect = features.features.multiDrawIndirect;
   core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
+  core.sampleRateShading = VK_TRUE;
   core.depthClamp = features.features.depthClamp;
   context.DepthClamp = core.depthClamp != VK_FALSE;
   context.IndependentBlend = core.independentBlend != VK_FALSE;

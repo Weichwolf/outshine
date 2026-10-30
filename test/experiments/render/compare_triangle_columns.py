@@ -119,6 +119,7 @@ def pose_result(args, manifest, arrays, cases, source, prepared, fields, pose):
             )
         np.testing.assert_array_equal(z > 0, expected > 0)
         np.testing.assert_allclose(z, expected, atol=1e-18, rtol=1e-12)
+        np.testing.assert_array_equal(face, expected_face)
         records[str(size)] = {
             "work": work,
             "reference_mask_differences": int(
@@ -133,6 +134,13 @@ def pose_result(args, manifest, arrays, cases, source, prepared, fields, pose):
             selected = z, face, evaluated
     if selected is None:
         raise ValueError("The fixed 64-square comparison is required")
+    control = query(fields[64], world, points, raster, whole_support=False)
+    for actual, original in zip(selected, control[:3], strict=True):
+        np.testing.assert_array_equal(actual, original)
+    records["64-unbounded-control"] = {
+        "work": control[3],
+        "all_geometry_outputs_equal": True,
+    }
     shape = crop[3] - crop[1], crop[2] - crop[0]
     candidate = np.zeros(shape)
     tile = np.s_[
@@ -185,6 +193,7 @@ def pose_result(args, manifest, arrays, cases, source, prepared, fields, pose):
             points,
             raster,
             expected,
+            expected_face,
             args.output,
             pose,
             {
@@ -203,6 +212,7 @@ def run(args):
     names = (
         "compare_triangle_columns.py",
         "triangle_columns.py",
+        "triangle_query_support.py",
         "triangle_columns_cost.py",
         "native_world_inputs.py",
         "building_sample_originals.py",

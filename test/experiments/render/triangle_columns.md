@@ -1,6 +1,6 @@
 # Whole-source triangle columns
 
-Owner #1845, parent #1797. This bounded geometric reference supplies the surface
+Owners #1845 and #1858, parent #1797. This bounded geometric reference supplies the surface
 information absent from the first-hit model in #1842. It is not a new renderer,
 runtime field format, distance LOD or qualified replacement for the native group.
 
@@ -56,6 +56,30 @@ runtime qualification keeps its original path. `evaluated` alone never admits
 the field. Query source arrays stay unchanged; field geometry is an owned snapshot.
 No IO, threads, publication, cache policy or World lifetime is introduced.
 
+### Whole-source support before ray expansion (#1858)
+
+Preparation also owns a 24 B immutable Float32 min/max box of all original
+positions. Each query transforms its eight corners. For positive homogeneous w
+throughout this box, a linear-fractional projection reaches its extrema at box
+vertices. Outward rounding after every binary64 multiply, sum and division
+encloses the projected box without a pixel epsilon. The y inversion and pixel
+conversion use the same interval treatment. Fraction-based tests check exact
+rational projections of the given binary floating-point inputs.
+
+Only sample rows inside that enclosing rectangle expand rays and traverse cells.
+Outside rows are known empty for this source; complete result arrays retain their
+original order and size. Unknown or nonfinite projection, including a box touching,
+crossing or behind the eye plane, keeps every sample on the previous path. Inside
+rows still obey existing cell/reference/time limits and remain unknown on failure.
+This support bound does not certify native raster rounding or the floating-point
+ray-triangle algorithm. It adds neither dilation of rendered geometry nor runtime
+field admission. The explicit `whole_support=False` comparison control retains
+the complete previous query; it is not a second product representation.
+
+There is no repeated scan of all vertices in the query, extra BVH or new cache.
+Source min/max is built once with the already owned geometry. Current callers
+and source-hash manifests include this helper; material/corner bindings stay intact.
+
 ## Native finite result
 
 Both poses use the same geometric field. Across all requested rays and all three
@@ -86,14 +110,25 @@ For the 64-square grid, actual nearest-triangle tests are 23109/246334, after
 27200/72675 B. `direct_triangle_pairs` is the hypothetical full Cartesian product,
 not measured R-tree work. Its internal tree/candidate operations are unmeasured.
 
-The field's numeric payload is 1695316 B, including 1402200 B copied geometry.
+The field's numeric payload is 1695340 B, including 1402200 B copied geometry and
+the new 24 B source box (the #1845 measurement preceded this box).
 Its immutable snapshot copies that payload at least once; other NumPy copy
 traffic is unmeasured. The retained attribute payload adds 3448456 B, giving
-5143772 B before Python objects. All original fine topology is still present.
+5143796 B before part metadata and Python objects. All original fine topology is still present.
 This is larger than the old 327680 B decoded first-hit Capture per pose and is
 not a low-memory distant asset winner. The observed R-tree build has 6498096 B
 of distinct numeric arrays, excluding its native heap, Python objects and later
 query caches; it is not a full residency measure.
+
+The frozen #1858 same-run comparison reduced ray rows from 1600/4275 to 432/792
+and visited cells from 1595/18953 to 527/12780. Geometry outputs, raw attributes
+and the existing native coverage errors remain unchanged. Query CPU measured
+109/282 ms versus 205/492 ms for the unbounded control; allocation events and
+incremental peaks also decreased. R-tree256 remained about equal sideways, so
+there is still no universal method winner. No frame/IO/UMA claim follows.
+The exact qualified commit, counters, timing scopes, load and owner acceptance
+belong to the delivery PR. Paired-intersection batching has only a developmental
+kernel comparison so far; bounded full-query integration remains in #1858.
 
 There is no universal CPU winner: columns reduce preparation/scoped peak and
 slightly improve the near query, while the existing R-tree is faster sideways.
