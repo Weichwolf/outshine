@@ -11,5 +11,8 @@
     1806
   ],
   "error_bound": null,
-  "scope": "The delivery run passed its finite checks. Earlier identical-view roof radiance failure remains unresolved; this fixture is not a general repeatability, error, pose, World or budget oracle."
+  "scope": "The delivery run passed its finite checks. Earlier identical-view roof radiance failure remains unresolved; this fixture is not a general repeatability, error, pose, World or budget oracle.",
+  "fixture_revision": "c72ee73ca68b194d2fcd613ca3ba0153539f0c8d4cd57d9cebc3fa41395321fb",
+  "world_revision": null,
+  "world_scope": "Immutable whole-source geometry fixture, not a live World. Fixture identity cannot prove World coverage or substitute for a runtime World revision."
 }
