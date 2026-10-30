@@ -35,6 +35,32 @@ class PlaneTests(unittest.TestCase):
         self.assertEqual(work["source_points"], 9)
         np.testing.assert_allclose(plane.coefficients, [0, 0, -2], atol=1e-14)
 
+    def test_curved_source_reports_large_residual_instead_of_certifying_a_plane(self):
+        y, x = np.mgrid[:16, :16]
+        u, v = (x + 0.5) / 16 * 2 - 1, 1 - (y + 0.5) / 16 * 2
+        height = 0.5 * (u * u + v * v)
+        _, work = fit_plane((height + 2) / 4, np.ones((16, 16), bool))
+        self.assertGreater(work["normalized_depth_rms"], 0.1)
+        self.assertGreater(work["normalized_depth_maximum_residual"], 0.3)
+
+    def test_capture_frame_translation_rotation_and_scale_preserve_plane_coordinates(
+        self,
+    ):
+        grid = FieldGrid((10000, 20000, 30000), (0.5, 2**-0.5, 0.5), 100)
+        plane = FieldPlane((0.2, -0.3, 0.1))
+        uv = np.array([[-0.7, 0.4], [0.2, -0.3]])
+        points = plane.points(grid, uv)
+        right, up = grid.axes()
+        np.testing.assert_allclose(
+            (points - grid.centre) @ right / grid.half_extent_m, uv[:, 0], atol=1e-13
+        )
+        np.testing.assert_allclose(
+            (points - grid.centre) @ up / grid.half_extent_m, uv[:, 1], atol=1e-13
+        )
+        np.testing.assert_allclose(
+            (points - plane.centre(grid)) @ plane.normal(grid), 0, atol=1e-11
+        )
+
     def test_sparse_noncollinear_points_and_rank_deficiency_are_distinct(self):
         depth = np.full((5, 5), 0.6)
         mask = np.zeros((5, 5), bool)
