@@ -105,7 +105,13 @@ public:
     ResumableProducer Produce;
   };
 
-  using LogicalStep = std::variant<std::optional<AssetProduct>, ResolvedWork>;
+  // The next call starts only after this total input bound replaces the current one.
+  // The producer releases old stage buffers before requesting a smaller bound.
+  struct InputAdmission {
+    size_t Bytes = 0;
+  };
+
+  using LogicalStep = std::variant<std::optional<AssetProduct>, ResolvedWork, InputAdmission>;
   using LogicalProducer = std::function<std::expected<LogicalStep, std::string>(std::stop_token)>;
   AssetPipeline(Tasks &pool, Limits limits);
   [[nodiscard]] std::expected<Consumer, AssetPublicationError>

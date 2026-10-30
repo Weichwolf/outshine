@@ -37,6 +37,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     KeyDomain Domain;
     AssetStoreScope Scope;
     size_t References = 0, Demands = 0, InputBytes = 0;
+    std::optional<size_t> NextInputBytes;
     bool StopRequested = false, Finished = false, Running = true;
     LogicalProducer Resume;
     std::chrono::steady_clock::time_point RetryAt;
@@ -68,6 +69,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     LogicalProducer Produce;
     bool Ended = false;
     bool Joined = false;
+    [[nodiscard]] std::expected<bool, AssetPublicationError> PrepareStep();
     void Run();
     ~Execution();
   };
@@ -83,6 +85,8 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   void Dispatch(const std::shared_ptr<Job> &job);
   void WakeStopped();
   [[nodiscard]] bool Defer(const std::shared_ptr<Job> &job, LogicalProducer producer);
+  [[nodiscard]] std::expected<bool, AssetPublicationError>
+  AdmitInput(const std::shared_ptr<Job> &job);
   [[nodiscard]] std::expected<bool, AssetPublicationError> Resolve(const std::shared_ptr<Job> &job,
                                                                    const ResolvedWork &resolved);
   void Join(const std::shared_ptr<Job> &from, const std::shared_ptr<Job> &to);

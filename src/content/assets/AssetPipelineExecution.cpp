@@ -79,17 +79,32 @@ void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
   Remove(job);
 }
 
+std::expected<bool, AssetPublicationError> AssetPipeline::State::Execution::PrepareStep() {
+  if (Work->Stop.stop_requested()) { return std::unexpected(AssetPublicationError::Cancelled); }
+  auto admitted = Owner->AdmitInput(Work);
+  if (!admitted || *admitted) { return admitted; }
+  Ended = Owner->Defer(Work, std::move(Produce));
+  if (!Ended) { return std::unexpected(AssetPublicationError::Cancelled); }
+  return false;
+}
+
 void AssetPipeline::State::Execution::Run() {
   AssetPublication result;
   for (;;) {
-    if (Work->Stop.stop_requested()) {
-      result = Failed(AssetPublicationError::Cancelled, "asset publication canceled");
+    auto admitted = PrepareStep();
+    if (!admitted) {
+      result = Failed(admitted.error(), "asset stage cannot continue within active admission");
       break;
     }
+    if (!*admitted) { return; }
     auto step = Produce(Work->Stop.get_token());
     if (!step) {
       result = Failed(AssetPublicationError::ProducerFailed, std::move(step.error()));
       break;
+    }
+    if (const auto *input = std::get_if<InputAdmission>(&*step)) {
+      Work->NextInputBytes = input->Bytes;
+      continue;
     }
     if (auto *resolved = std::get_if<ResolvedWork>(&*step)) {
       Produce = {};
@@ -121,6 +136,22 @@ void AssetPipeline::State::Execution::Run() {
   Produce = {};
   Owner->Finish(Work, std::move(result));
   Ended = true;
+}
+
+std::expected<bool, AssetPublicationError>
+AssetPipeline::State::AdmitInput(const std::shared_ptr<Job> &job) {
+  const std::scoped_lock lock(Lock);
+  if (!job->NextInputBytes) { return true; }
+  const size_t wanted = *job->NextInputBytes;
+  if (wanted > Budget.InputBytesMost) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  const size_t others = Held.InputBytes - job->InputBytes;
+  if (wanted > Budget.InputBytesMost - others) { return false; }
+  Held.InputBytes = others + wanted;
+  job->InputBytes = wanted;
+  job->NextInputBytes.reset();
+  return true;
 }
 
 AssetPipeline::State::Execution::~Execution() {
