@@ -16,6 +16,8 @@ CPU-uploaded static `litVertex.glsl` view/placement words. The modeled order is
 placement, uploaded shift, view projection, division, then viewport transform.
 Each four-term dot product receives a seven-operation FP32 error envelope;
 shift, division intervals and viewport rounding are expanded separately.
+Usual round-to-nearest FP32 relative-error bounds are assumed; native fast-math
+and fixed-point setup are not qualified.
 `raster_guard_px` is an additional, explicitly supplied axis-aligned vertex
 displacement bound in **2560×1440 raw raster pixels**, not logical pixels.
 Zero adds no hardware snapping allowance. These are arithmetic/raster model
@@ -33,7 +35,8 @@ Any possible clip-boundary crossing, nonfinite/subnormal upload operands or
 unsupported arithmetic retain the whole original group. Malformed layouts are
 rejected. Limits: 262144 vertices, 131072 triangles, 4194304 preflight box pairs,
 65536 pairs per chunk. A pair-budget failure retains all original indices before
-pair expansion. Full per-vertex/per-triangle scratch still exists; the pair
+pair expansion. A guard covering the viewport also keeps the original group
+before potentially overflowing dilation arithmetic. Full per-vertex/per-triangle scratch still exists; the pair
 chunk is not the total memory bound. Empty selection is valid geometrically;
 this nonempty native fixture adapter explicitly rejects it before rendering.
 No live revision/lifetime, deformation, MSAA, arbitrary clipping, raster-device,
@@ -41,7 +44,7 @@ cache-demand or World admission is provided. Other views require new selection.
 
 ## Frozen finite result
 
-Measured source: `bc8d7bdcac464ec19d1fc8b4fd568c9ed270ce15`.
+Measured source: `04227166524f427b0251a97b1137862a282ad200`.
 Fixed native packet SHA-256:
 `57bd6f0f241ca76d38cd891d7b829fc308aec96c3bc63fb4f8ea2cdd5e826300`.
 Full 19 operands /1558 sources /38476 triangles /78374 vertices retained as input.
@@ -61,19 +64,19 @@ First-hit selects 203/202 and misses 4/5; its union is not a native substitute.
 Whole-column union and the half-pixel control retain all 38476 triangles.
 
 Linux i5-1135G7, NumPy2.5.4, one BLAS/OMP thread, normal priority; seven timing
-rounds, separate Memray1.20.0 allocation trace, load average 2.94/4.46/5.91:
+rounds, separate Memray1.20.0 allocation trace, load average 3.00/3.83/5.42:
 
 | Query | Wall median | Allocation events | Requested bytes | Scoped peak |
 | --- | ---: | ---: | ---: | ---: |
-| Near first-hit, prepared columns | 63.767 ms | 260652 | 33023708 B | 1486997 B |
-| Near envelope, guard0 | 90.248 ms | 1689 | 122823585 B | 30166760 B |
-| Side first-hit, prepared columns | 259.612 ms | 1059624 | 235338349 B | 1667624 B |
-| Side envelope, guard0 | 86.917 ms | 1689 | 123425288 B | 30166760 B |
+| Near first-hit, prepared columns | 65.325 ms | 260652 | 33023708 B | 1486997 B |
+| Near envelope, guard0 | 98.953 ms | 1705 | 122824465 B | 30166760 B |
+| Side first-hit, prepared columns | 273.927 ms | 1059624 | 235338349 B | 1667624 B |
+| Side envelope, guard0 | 91.610 ms | 1705 | 123426168 B | 30166760 B |
 
 Envelope includes full vertex validation/projection each query: 1398/1969 tested
 box pairs, one chunk. It holds no new persistent acceleration structure.
-Column preparation separately costs40.916ms/13590479B peak and holds1695340B.
-Fixed fixture loading/hashing separately costs1.313s/11088062B scoped peak;
+Column preparation separately costs45.266ms/13590479B peak and holds1695340B.
+Fixed fixture loading/hashing separately costs1.322s/11088121B scoped peak;
 this is not production cache-hit timing. All original geometry is already loaded.
 The union's packed native input would be3165 vertices /13284 index bytes /
 190524 total array bytes, versus4850656B whole source. These are numeric payload
@@ -89,9 +92,9 @@ and `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1`, run
 `python test/experiments/render/compare_source_raster_candidates.py --output /tmp/outshine-raster-<commit>`.
 The fresh host-temp directory contains report.json, traces, ordinals and two PNGs.
 Focused checks: `python -m unittest test_source_raster_candidates test_source_triangle_materials`.
-22 cases passed, including exact rational perturbed-triangle witnesses,
+23 cases passed, including exact rational perturbed-triangle witnesses,
 thin/disconnected/overlapping/degenerate support, reversed winding, clipping,
-capacity and chunk invariance. Ruff/format/diff checks passed.
+capacity, extreme finite guard fallback and chunk invariance. Ruff/format/diff checks passed.
 
 Existing native comparison gains `--selection raster-envelope --raster-guard-px 0`;
 all other native arguments and PBR/derivative processing remain unchanged.
