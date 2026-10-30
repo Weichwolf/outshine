@@ -275,26 +275,28 @@ struct Case {
   bool AllBounds = false;
   bool Occludes = false;
   bool UnknownDeformation = false;
+  bool ShadowOnly = false;
 };
 
+std::pair<uint32_t, uint32_t> ExpectedLeafWork(const Inputs &inputs, const Case &test) {
+  if (test.ShadowOnly) { return {0, 0}; }
+  if (test.UnknownDeformation) { return {inputs.Logical, inputs.Logical}; }
+  uint32_t visited = 1254;
+  if (test.Away) { visited = test.AllBounds ? 0u : 418u; }
+  uint32_t accepted = 0;
+  if (!test.Away && !test.Occludes) { accepted = test.ErrorPerMetre == 0 ? 1254u : 636u; }
+  return {visited, accepted};
+}
+
 void Run(Device &device, const Inputs &inputs, Case test) {
-  const auto [chunkCapacity,
-              clusterCapacity,
-              errorPerMetre,
-              away,
-              width,
-              reuse,
-              allBounds,
-              occluded,
-              deformed] = test;
   auto commands = Require(device.Begin());
   auto actual = Uploaded(device, *commands, inputs);
   auto reference = Uploaded(device, *commands, inputs);
-  CullView view{.Jobs = inputs.Logical, .ErrorPerMetre = errorPerMetre};
-  view.Occludes = uint32_t{occluded};
-  if (away && !reuse) { view.Shift[0] = 100; }
+  CullView view{.Jobs = inputs.Logical, .ErrorPerMetre = test.ErrorPerMetre};
+  view.Occludes = uint32_t{test.Occludes};
+  if (test.Away && !test.Reuse) { view.Shift[0] = 100; }
   auto limits = device.Limits();
-  limits.MaxWorkgroupCount[0] = width;
+  limits.MaxWorkgroupCount[0] = test.GridWidth;
   const auto admitted = Require(
       AdmitGeometryHierarchy({.Roots = inputs.Roots,
                               .Templates = inputs.Templates,
@@ -306,17 +308,17 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   CHECK(admitted.ChunkPrefix == inputs.Prefix && admitted.IndexWords == inputs.IndexWords,
         "CPU admission establishes the exact complete fallback prefix and destination capacity");
   auto hierarchy = admitted.View;
-  hierarchy.ChunkCapacity = chunkCapacity;
-  hierarchy.ClusterCapacity = clusterCapacity;
+  hierarchy.ChunkCapacity = test.ChunkCapacity;
+  hierarchy.ClusterCapacity = test.ClusterCapacity;
   Hierarchy(device, *commands, actual, view, hierarchy);
   auto referenceView = view;
-  if (deformed) {
+  if (test.UnknownDeformation) {
     referenceView.Planes.fill(0);
     referenceView.ErrorPerMetre = 0;
     referenceView.Occludes = 0;
   }
   Hierarchy(device, *commands, reference, referenceView, admitted.View, true);
-  if (reuse) {
+  if (test.Reuse) {
     const std::array states{GeometryQueueState{}};
     const auto reset = Upload(device, *commands, Words(std::span(states)));
     Require(commands->Copy(*reset, *actual.ChunkState, {.Bytes = sizeof(GeometryQueueState)}));
@@ -348,22 +350,19 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   const auto leafState = clusterState.Read(device);
   CheckState(
       rootState,
-      {.Capacity = chunkCapacity, .Work = inputs.Prefix.back(), .Width = hierarchy.GridWidth});
-  CheckState(leafState,
-             {.Capacity = clusterCapacity, .Work = inputs.Logical, .Width = hierarchy.GridWidth});
+      {.Capacity = test.ChunkCapacity, .Work = inputs.Prefix.back(), .Width = hierarchy.GridWidth});
+  CheckState(
+      leafState,
+      {.Capacity = test.ClusterCapacity, .Work = inputs.Logical, .Width = hierarchy.GridWidth});
   CHECK(rootState[2] == inputs.Roots.size(), "each admitted root is examined exactly once");
-  CHECK(leafState[2] == (deformed ? inputs.Logical
-                         : away   ? (allBounds ? 0u : 418u)
-                                  : 1254u),
+  const auto [visited, accepted] = ExpectedLeafWork(inputs, test);
+  CHECK(leafState[2] == visited,
         "rejected roots avoid all descendant cluster visits even during overflow fallback");
-  CHECK(leafState[3] == (deformed             ? inputs.Logical
-                         : away || occluded   ? 0u
-                         : errorPerMetre == 0 ? 1254u
-                                              : 636u),
+  CHECK(leafState[3] == accepted,
         "qualified LOD/depth selection and unqualified deformation retain their contracts");
   for (auto [buffer, first] :
-       std::array{std::pair{chunks.Read(device), static_cast<size_t>(chunkCapacity) * 2},
-                  std::pair{clusters.Read(device), static_cast<size_t>(clusterCapacity) * 2},
+       std::array{std::pair{chunks.Read(device), static_cast<size_t>(test.ChunkCapacity) * 2},
+                  std::pair{clusters.Read(device), static_cast<size_t>(test.ClusterCapacity) * 2},
                   std::pair{visible.Read(device), inputs.Roots.size()},
                   std::pair{kept.Read(device), static_cast<size_t>(inputs.Logical)}}) {
     CHECK(std::ranges::all_of(std::span(buffer).subspan(first),
@@ -372,12 +371,12 @@ void Run(Device &device, const Inputs &inputs, Case test) {
   }
   std::println("HIERARCHY chunks={}/{} selected={}/{} visited={} lod={} away={}",
                rootState[0],
-               chunkCapacity,
+               test.ChunkCapacity,
                leafState[0],
-               clusterCapacity,
+               test.ClusterCapacity,
                leafState[2],
-               errorPerMetre,
-               away);
+               test.ErrorPerMetre,
+               test.Away);
 }
 }
 
@@ -435,5 +434,12 @@ int main() {
        .Away = true,
        .Occludes = true,
        .UnknownDeformation = true});
+  auto shadow = inputs;
+  for (auto &root : shadow.Roots) { root.Flags |= kGeometryShadowOnly; }
+  for (const uint32_t capacity : {shadow.Prefix.back(), 0u}) {
+    Run(device,
+        shadow,
+        {.ChunkCapacity = capacity, .ClusterCapacity = shadow.Logical, .ShadowOnly = true});
+  }
   return Report();
 }

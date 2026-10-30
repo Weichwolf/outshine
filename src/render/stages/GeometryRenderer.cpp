@@ -577,6 +577,10 @@ bool GeometryRenderer::HandStreams(const VertexInput &pose, bool deferred, std::
 
 bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error) const {
   if (IsTransmission()) { return false; }
+  if (!ValidGeometryPasses(piece.Passes)) {
+    error = "piece has invalid geometry passes";
+    return false;
+  }
   if (!ValidPieceUv1(piece)) {
     error = kPieceUv1Error;
     return false;
@@ -678,6 +682,7 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   held.IndexCount = indices;
   held.Surface = piece.Surface;
   held.ProductOrder = piece.ProductOrder;
+  held.Passes = piece.Passes;
   held.Emitted.reset();
   held.MaxInstances = piece.MaxInstances;
   held.Rows.reserve(piece.MaxInstances);
@@ -703,8 +708,32 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   TablesStale_ = true;
   RowsStale_ = true;
   ++Reshaped_;
-  RecordPieceShadowChange(std::nullopt, 0, held.WorldSphere, held.Rows.size());
+  if (held.Passes != GeometryPasses::Main) {
+    RecordPieceShadowChange(std::nullopt, 0, held.WorldSphere, held.Rows.size());
+  }
   return id;
+}
+
+bool GeometryRenderer::SetPiecePasses(PieceId which, GeometryPasses passes, std::string &error) {
+  if (which >= Pieces_.size() || !Pieces_[which].Live || !ValidGeometryPasses(passes)) {
+    error = "geometry pass update names no live piece or invalid passes";
+    return false;
+  }
+  auto &piece = Pieces_[which];
+  if (piece.Passes == passes) { return true; }
+  const bool before = piece.Passes != GeometryPasses::Main;
+  const bool after = passes != GeometryPasses::Main;
+  if (before != after) {
+    RecordPieceShadowChange(piece.WorldSphere,
+                            before ? piece.Rows.size() : 0,
+                            piece.WorldSphere,
+                            after ? piece.Rows.size() : 0);
+  }
+  piece.Passes = passes;
+  TablesStale_ = true;
+  ShadowCasters_.Invalidate();
+  ++Reshaped_;
+  return true;
 }
 
 bool GeometryRenderer::SetPieceInstances(PieceId which,
@@ -724,7 +753,9 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
   const size_t previousRows = piece.Rows.size();
   piece.Rows.assign(rows.begin(), rows.end());
   piece.WorldSphere = WorldSphereOf(piece.LocalSphere, piece.Rows);
-  RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
+  if (piece.Passes != GeometryPasses::Main) {
+    RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
+  }
   RowsStale_ = true;
   if (previousRows != piece.Rows.size()) {
     TablesStale_ = true;
@@ -749,7 +780,9 @@ void GeometryRenderer::UpdatePieceBounds(const Piece &piece) {
 void GeometryRenderer::ReleasePiece(PieceId which) {
   if (which >= Pieces_.size() || !Pieces_[which].Live) { return; }
   Piece &held = Pieces_[which];
-  RecordPieceShadowChange(held.WorldSphere, held.Rows.size(), std::nullopt, 0);
+  if (held.Passes != GeometryPasses::Main) {
+    RecordPieceShadowChange(held.WorldSphere, held.Rows.size(), std::nullopt, 0);
+  }
   Bound().GiveVertices(held.V);
   Bound().GiveIndices(held.I);
   Bound().GiveColours(held.C);
@@ -925,6 +958,7 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
     batch.Motion = VertexMotion::Rigid;
+    batch.Passes = one.Passes;
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
@@ -941,7 +975,8 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
                      .BatchRow = row,
                      .ModelSlot = batch.ModelSlot,
                      .IndexCapacity = static_cast<uint32_t>(capacity),
-                     .Flags = one.LocalSphere ? kGeometryRootBound : 0u},
+                     .Flags = (one.LocalSphere ? kGeometryRootBound : 0u) |
+                              (one.Passes == GeometryPasses::Shadow ? kGeometryShadowOnly : 0u)},
                     error)) {
       return false;
     }

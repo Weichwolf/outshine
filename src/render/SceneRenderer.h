@@ -349,6 +349,11 @@ public:
         ActiveContent().Geometry(), which, rows, error);
   }
 
+  [[nodiscard]] bool SetPiecePasses(PieceHandle which, GeometryPasses passes, std::string &error) {
+    return ActiveContent().Scene().Resources().SetPiecePasses(
+        ActiveContent().Geometry(), which, passes, error);
+  }
+
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error) {
     return ActiveContent().Geometry().SetPieceInstances(which, rows, error);

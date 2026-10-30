@@ -3,6 +3,7 @@
 
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
+#include "GeometryPasses.h"
 #include "ResourceHandle.h"
 #include "Mat4.h"
 #include "Vec3.h"
@@ -29,7 +30,8 @@ public:
          const ImpostorCards &cards,
          uint32_t maxInstances,
          std::string &error,
-         std::span<const std::shared_ptr<const RadianceImage>> colours = {});
+         std::span<const std::shared_ptr<const RadianceImage>> colours = {},
+         GeometryPasses passes = GeometryPasses::MainAndShadow);
   ~ImpostorInstances();
   ImpostorInstances(const ImpostorInstances &) = delete;
   ImpostorInstances &operator=(const ImpostorInstances &) = delete;

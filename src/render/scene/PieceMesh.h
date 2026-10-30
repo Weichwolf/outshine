@@ -12,6 +12,7 @@
 #include "MaterialRegistration.h"
 #include "StoredVertex.h"
 #include "ClusterDag.h"
+#include "GeometryPasses.h"
 
 namespace outshine::Render {
 
@@ -54,6 +55,7 @@ struct PieceMesh {
   PieceSurface Surface;
   bool Textured = false;
   std::array<uint64_t, 3> ProductOrder{};
+  GeometryPasses Passes = GeometryPasses::MainAndShadow;
 };
 
 inline constexpr auto kPieceUv1Error =

@@ -12,6 +12,7 @@ inline constexpr uint32_t kGeometryIndexCold = 2u;
 inline constexpr uint32_t kGeometryChunkClusters = 64;
 inline constexpr uint32_t kGeometryRootBound = 1;
 inline constexpr uint32_t kGeometryUnboundedDeformation = 2;
+inline constexpr uint32_t kGeometryShadowOnly = 4;
 
 struct alignas(16) GeometryRoot {
   std::array<float, 4> LocalSphere{};

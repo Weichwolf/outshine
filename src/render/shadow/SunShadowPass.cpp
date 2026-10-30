@@ -387,6 +387,7 @@ Native::Result<void> SunShadowPass::CastGeometry(const PassRecording &into,
   const auto mainMeshRows = Geometry_->MainMeshRows();
   for (size_t batchIndex = 0; batchIndex < batches.size(); ++batchIndex) {
     const auto &batch = batches[batchIndex];
+    if (batch.Passes == GeometryPasses::Main) { continue; }
     if (!SurfaceState::WritesDepth(batch.Kind)) { continue; }
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < mainMeshRows) { continue; }
     const auto instances = batch.ModelSlot < mainMeshRows

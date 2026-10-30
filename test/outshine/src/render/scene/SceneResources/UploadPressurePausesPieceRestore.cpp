@@ -80,6 +80,7 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
                                            StoredVertex::Of({{1, 2, 3}}, {}, {{0, 1, 0}}));
   const std::array<uint32_t, 3> indices{0, 1, 2};
   PieceMesh mesh;
+  mesh.Passes = GeometryPasses::Shadow;
   mesh.Verts = vertices;
   mesh.Indices = indices;
   std::array<PieceHandle, kPieces> handles;
@@ -90,6 +91,12 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
     handle = *placed;
   }
   CHECK(published.Residency().SubmitPendingUploads().has_value(), "published uploads complete");
+  std::string passError;
+  CHECK(original.SetPiecePasses(published, handles[0], GeometryPasses::Main, passError),
+        "resource-owned participation can change without replacing its source");
+  CHECK(
+      !original.SetPiecePasses(published, handles[0], static_cast<GeometryPasses>(255), passError),
+      "invalid resource participation changes are rejected before mutation");
   copied.CopySourcesFrom(original, SceneResources::PieceSources::Copy);
   device.Acquire = acquire;
   device.SubmitBusy = !acquire;
@@ -119,6 +126,13 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
   CHECK(copied.AdvancePieceRestore(candidate, next, kPieces).value_or(false),
         "completed restoration remains idempotent");
   std::string error;
+  CHECK(candidate.HandTables(error) && candidate.Drawn().size() == kPieces,
+        "restored piece batches retain every source");
+  if (candidate.Drawn().size() == kPieces) {
+    CHECK(candidate.Drawn()[0].Passes == GeometryPasses::Main &&
+              candidate.Drawn()[1].Passes == GeometryPasses::Shadow,
+          "source copying and incremental restore preserve changed and initial participation");
+  }
   for (const auto handle : handles) {
     CHECK(original.SetPieceInstances(published, handle, {}, error) &&
               copied.SetPieceInstances(candidate, handle, {}, error),

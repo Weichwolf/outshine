@@ -35,11 +35,15 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .MaxInstances = MaxInstances,
           .Surface = Surface,
           .Textured = Textured,
-          .ProductOrder = ProductOrder};
+          .ProductOrder = ProductOrder,
+          .Passes = Passes};
 }
 
 std::expected<PieceHandle, std::string>
 SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, PieceOwner owner) {
+  if (!ValidGeometryPasses(piece.Passes)) {
+    return std::unexpected("piece has invalid geometry passes");
+  }
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
   if (piece.Surface.From == PieceSurface::Source::Registered &&
       !HasMaterialRegistration(
@@ -63,7 +67,8 @@ SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, P
              .Surface = piece.Surface,
              .Owner = owner,
              .Textured = piece.Textured,
-             .ProductOrder = piece.ProductOrder};
+             .ProductOrder = piece.ProductOrder,
+             .Passes = piece.Passes};
   if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
   auto placed = geometry.PlacePiece(held.Mesh());
   if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
@@ -113,6 +118,20 @@ SceneResources::ReconcileStructurePieces(GeometryRenderer &geometry,
 
 bool SceneResources::HasPiece(PieceHandle handle) const noexcept {
   return handle.Slot < Pieces_.size() && Pieces_[handle.Slot].State.Matches(handle.Generation);
+}
+
+bool SceneResources::SetPiecePasses(GeometryRenderer &geometry,
+                                    PieceHandle which,
+                                    GeometryPasses passes,
+                                    std::string &error) {
+  if (!HasPiece(which)) {
+    error = Says::MissingPiece;
+    return false;
+  }
+  auto &piece = Pieces_[which.Slot];
+  if (!geometry.SetPiecePasses(piece.Resident, passes, error)) { return false; }
+  piece.Passes = passes;
+  return true;
 }
 
 bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
