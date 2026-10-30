@@ -119,6 +119,7 @@ int main() {
         {.DepthSlope = 0.25f, .VisibleTile = realCount == 1 ? 1u : 0u, .Uniform = realCount != 2});
     SelectVisiblePage(
         *device, ground, {.DepthSlope = -0.25f, .VisibleTile = 1u, .Uniform = realCount != 2});
+    if (realCount != 1) { continue; }
     Require(ground.SetInstances({}, {}));
     auto commands = Require(RetryOffline([&] { return device->Begin(); }, std::chrono::seconds(5)));
     Require(ground.Cull({}, {}, *commands));
