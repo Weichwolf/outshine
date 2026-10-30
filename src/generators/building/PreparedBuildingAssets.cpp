@@ -105,7 +105,7 @@ PreparedBuildingAssets::Load(const std::string &key) {
     const std::scoped_lock lock(Lock_);
     return Cache_->Load(key, kPackageBytesMost);
   }();
-  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
   if (*loaded) {
     const auto bytes = (**loaded).Bytes();
     auto base = DecodePreparedStructureIndex(bytes, kResidentBytesMost);

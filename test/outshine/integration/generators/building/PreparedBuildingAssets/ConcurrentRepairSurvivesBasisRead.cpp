@@ -37,14 +37,14 @@ struct Fixture {
   std::string Key, Request;
   AssetRecord Record;
 
-  bool Open(const std::filesystem::path &directory, bool seed) {
+  bool Open(const std::filesystem::path &directory, bool seed, uint64_t digest = 17) {
     auto cache = PreparedBuildingAssets::Open(directory.string(), Sources);
     auto store = AssetCache::Open((directory / "assets.sqlite").string());
     if (!cache || !store) { return false; }
     Cache = std::move(*cache);
     Store = std::move(*store);
     const Data::TileId at{.Zoom = 0, .X = 0, .Y = 0};
-    Key = Cache->Key(at, 17, {}, 1000, "basis-repair-native-inputs");
+    Key = Cache->Key(at, digest, {}, 1000, "basis-repair-native-inputs");
     Request = Cache->RequestKey(at, {}, 1000, "basis-repair-native-inputs");
     if (seed) {
       const auto heights = BuildingAssetFixture::Heights();
@@ -73,9 +73,9 @@ struct Fixture {
   }
 };
 
-int Repair(const std::filesystem::path &directory) {
+int Repair(const std::filesystem::path &directory, bool replace = false) {
   Fixture fixture;
-  return fixture.Open(directory, true) ? 0 : 1;
+  return fixture.Open(directory, true, replace ? 18 : 17) ? 0 : 1;
 }
 
 struct Hook;
@@ -148,6 +148,29 @@ void CheckRepair(std::string_view executable, const std::filesystem::path &direc
         "the returned native product matches every byte of the committed repaired basis");
 }
 
+void CheckReplacement(std::string_view executable, const std::filesystem::path &directory) {
+  Fixture fixture;
+  CHECK(fixture.Open(directory, true), "the original source has a native durable request");
+  if (!fixture.Cache || fixture.Record.Key.empty()) { return; }
+  Hook hook((directory / "assets.sqlite").string(),
+            fixture.Record.Key,
+            ShellArgument(executable) + " --replace " + ShellArgument(directory.string()));
+  auto reader = PreparedBuildingAssets::Open(directory.string(), fixture.Sources);
+  CHECK(reader, "a fresh native request reader opens before concurrent rebinding");
+  if (!reader) { return; }
+  const auto expected =
+      (*reader)->Key({.Zoom = 0, .X = 0, .Y = 0}, 18, {}, 1000, "basis-repair-native-inputs");
+  hook.Armed = true;
+  const auto loaded = (*reader)->LoadBasisRequest(fixture.Request);
+  CHECK(hook.Pauses == 1 && hook.ChildStatus == 0,
+        "a separate process replaces the request after the actual native reader observed its old "
+        "target");
+  const auto current = fixture.Store->FindRequest(fixture.Request);
+  CHECK(loaded && *loaded && (**loaded).BaseKey == expected && current && *current &&
+            (**current).Parent == expected,
+        "a native request read returns the current binding and cannot restore its obsolete target");
+}
+
 void CheckInvalidAndForeign(const std::filesystem::path &directory) {
   Fixture fixture;
   CHECK(fixture.Open(directory, true), "the invalidation fixture has native inputs");
@@ -211,12 +234,18 @@ extern "C" int sqlite3_open_v2(const char *filename, sqlite3 **ppDb, int flags, 
 }
 
 int main(int argc, const char *const *argv) {
-  if (argc == 3 && std::string_view(argv[1]) == "--repair") { return Repair(argv[2]); }
+  if (argc == 3) {
+    const std::string_view command(argv[1]);
+    if (command == "--repair" || command == "--replace") {
+      return Repair(argv[2], command == "--replace");
+    }
+  }
   const auto directory =
       std::filesystem::temp_directory_path() /
       ("outshine-native-building-basis-read-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   CheckRepair(argv[0], directory / "repair");
+  CheckReplacement(argv[0], directory / "rebind");
   CheckInvalidAndForeign(directory / "invalid");
   CheckWriter(directory / "writer");
   std::error_code error;
