@@ -1,3 +1,4 @@
+#include "StoreRoadManifest.h"
 #include "PreparedRoadPageFixture.h"
 #include "RoadPublicationFixture.h"
 #include "ControlledRoadPageProducer.h"
@@ -200,7 +201,7 @@ void CheckSelection(Tasks &pool,
         return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
       }).get());
   CHECK(repaired && repairs == 1, "exactly one generation repairs the corrupt native package");
-  const auto published = pages->StoreManifest(*manifest);
+  const auto published = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   auto complete = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
   Geometry rebuilt;
   CHECK(published && *published == key && complete && Complete(**complete, rebuilt) &&
@@ -222,7 +223,7 @@ void CheckSelection(Tasks &pool,
         ++repairs;
         return std::expected<RoadPageGeometry, std::string>((**retained).Page->Geometry);
       }).get());
-  CHECK(corrected && repairs == 2 && pages->StoreManifest(*manifest),
+  CHECK(corrected && repairs == 2 && ::outshine::Test::StoreRoadManifest(*pages, *manifest),
         "the next generation repairs the invalid level and restores complete dependencies");
 }
 
@@ -319,7 +320,7 @@ void CheckBuild(const std::filesystem::path &directory,
             [](const auto &page) { return !page.Parts.empty() && page.Parts.size() <= 64; }),
         "spatial construction retains the existing bounded whole-part work per page");
   CheckBindings(*manifest);
-  const auto manifestKey = pages->StoreManifest(*manifest);
+  const auto manifestKey = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   CHECK(manifestKey.has_value(), "complete pages publish their independent native manifest");
   if (!manifestKey) { return; }
   CheckWarm(pool, pages, *plan, site, key, *manifest);

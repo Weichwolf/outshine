@@ -228,47 +228,6 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   return digest;
 }
 
-std::expected<GroundRegionPreparation::Completed, std::string>
-ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
-                 const Generators::Osm::OsmField &vectors,
-                 const Ground::ShapedGround &shape,
-                 std::span<const uint8_t> parameters,
-                 std::string request,
-                 bool checked,
-                 const std::stop_token &stop) {
-  if (request.empty()) { return std::unexpected("ground request key exceeds its encoding limit"); }
-  if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-  using Loaded = Generators::Osm::PreparedGroundRegions::Loaded;
-  auto demanded = checked ? std::expected<std::optional<Loaded>, std::string>{std::nullopt}
-                          : assets.LoadRequest(request);
-  if (!demanded) { return std::unexpected(std::move(demanded.error())); }
-  if (*demanded) {
-    auto key = (**demanded).Key;
-    return GroundRegionPreparation::Completed{.Key = std::move(key),
-                                              .Loaded = std::move(*demanded),
-                                              .RequestKey = std::move(request),
-                                              .RequestHit = true,
-                                              .SurfacePages = nullptr};
-  }
-  if (std::ranges::any_of(vectors.Tiles(),
-                          [](const auto &tile) { return tile.InputDigest.empty(); })) {
-    return std::unexpected("ground region contains unbound vector inputs");
-  }
-  auto key = assets.Key(vectors, shape, parameters);
-  if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
-  if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-  auto loaded = assets.Load(key);
-  if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-  if (*loaded) {
-    auto bound = assets.BindRequest(key, request);
-    if (!bound) { return std::unexpected(std::move(bound.error())); }
-  }
-  return GroundRegionPreparation::Completed{.Key = std::move(key),
-                                            .Loaded = std::move(*loaded),
-                                            .RequestKey = std::move(request),
-                                            .SurfacePages = nullptr};
-}
-
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.InputsReady() : stack.InputsReadyWithin(0);
 }
@@ -1419,12 +1378,17 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
   }
   state.BeginRegion(
       *World.Pool,
-      [assets, vectors, shape, native, request = std::move(request), checked](
-          const std::stop_token &stop) mutable
-          -> std::expected<GroundRegionPreparation::Completed, std::string> {
-        return ReadGroundRegion(
-            *assets, *vectors, shape, *native, std::move(request), checked, stop);
-      },
+      GroundRegionPreparation::Lookup(
+          assets,
+          std::move(request),
+          [assets, vectors, shape, native] -> std::expected<std::string, std::string> {
+            if (std::ranges::any_of(vectors->Tiles(),
+                                    [](const auto &tile) { return tile.InputDigest.empty(); })) {
+              return std::unexpected("ground region contains unbound vector inputs");
+            }
+            return assets->Key(*vectors, shape, *native);
+          },
+          checked),
       Phase::Loading,
       World.Stack.RoadAssets());
   return GroundBuildProgress::Pending;
@@ -1645,30 +1609,16 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
   const auto roadAssets = World.Stack.RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
-  state.BeginRegion(
-      *World.Pool,
-      [assets, region, key, request, water, roadManifest, roadAssets](const std::stop_token &stop)
-          -> std::expected<GroundRegionPreparation::Completed, std::string> {
-        if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
-        if (roadManifest) {
-          if (!roadAssets) { return std::unexpected("road manifest has no native cache service"); }
-          const auto stored = roadAssets->StoreManifest(*roadManifest);
-          if (!stored) { return std::unexpected(stored.error()); }
-          if (*stored != region->SurfaceManifest) {
-            return std::unexpected("stored road manifest differs from its region reference");
-          }
-        }
-        auto bounds = GroundRegionBoundsEcef(*region);
-        if (roadManifest) { bounds.Cover(Generators::RoadPageManifestBounds(*roadManifest)); }
-        auto loaded = assets->Store(key, bounds, *region, *water, request);
-        if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{.Key = key,
-                                                  .Loaded = std::move(*loaded),
-                                                  .RequestKey = request,
-                                                  .SurfacePages = nullptr};
-      },
-      Phase::Storing,
-      roadAssets);
+  state.BeginRegion(*World.Pool,
+                    GroundRegionPreparation::PrepareStore({.Assets = assets,
+                                                           .Key = key,
+                                                           .RequestKey = request,
+                                                           .Region = region,
+                                                           .Water = water,
+                                                           .Manifest = roadManifest,
+                                                           .Pages = roadAssets}),
+                    Phase::Storing,
+                    roadAssets);
   return GroundBuildProgress::Pending;
 }
 

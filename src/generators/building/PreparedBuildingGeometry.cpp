@@ -107,7 +107,7 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const auto loaded = Cache_->Load(key, kGeometryBytesMost);
-  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
   if (*loaded) {
     auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, 0);
     if (tile && ValidCeilings(*tile, coordinatePoints)) {
@@ -135,16 +135,17 @@ PreparedBuildingAssets::LoadGeometry(const std::string &baseKey, Basis basis, co
   return loaded;
 }
 
-std::expected<std::string, StructureBakeError>
-PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
-                                      const PreparedStructureTile &base,
-                                      const RawTile &view,
-                                      const BakedTile &tile) {
+std::expected<PreparedBuildingAssets::GeometryWrite, StructureBakeError>
+PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
+                                        const PreparedStructureTile &base,
+                                        const RawTile &view,
+                                        const BakedTile &tile) {
   auto key = GeometryKey(baseKey, view);
   if (key.empty() || !ValidCeilings(tile, base.PointsLatLon.size() / 2u)) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
-  const auto encoded = EncodeStructureArtifact(tile, key);
+  ++GeometryPreparations_;
+  auto encoded = EncodeStructureArtifact(tile, key);
   if (!encoded) {
     if (encoded.error() == StructureArtifactError::CapacityExceeded) {
       return std::unexpected(StructureBakeErrorKind::ArtifactCapacityExceeded);
@@ -154,7 +155,7 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
   if (encoded->size() > kGeometryBytesMost) {
     return std::unexpected(StructureBakeErrorKind::ArtifactCapacityExceeded);
   }
-  const AssetRecord record{
+  AssetRecord record{
       .Key = key,
       .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod",
       .Bounds = view.RequestedDetail ? GeometryBounds(tile, base.AnchorEcef) : Bounds(base),
@@ -162,10 +163,28 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
       .ByteCount = encoded->size(),
       .Level = static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine)),
       .Parent = baseKey};
+  auto prepared = Cache_->PreparePublication({std::move(record)}, std::move(*encoded));
+  if (!prepared) { return std::unexpected(CacheFailure(prepared.error())); }
+  const auto bytes = static_cast<uint64_t>(prepared->CapacityBytes());
+  auto previous = GeometryPublicationPeakBytes_.load(std::memory_order_relaxed);
+  while (previous < bytes && !GeometryPublicationPeakBytes_.compare_exchange_weak(
+                                 previous, bytes, std::memory_order_relaxed)) {}
+  return GeometryWrite{.Key = std::move(key), .Package = std::move(*prepared)};
+}
+
+std::expected<void, StructureBakeError>
+PreparedBuildingAssets::PublishGeometry(const GeometryWrite &prepared) {
+  if (prepared.Key.empty()) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
   const std::scoped_lock lock(Lock_);
-  const auto stored = Cache_->Publish(std::span(&record, 1), *encoded);
-  if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
+  ++GeometryPublicationAttempts_;
+  const auto stored = Cache_->Publish(prepared.Package);
+  if (!stored) {
+    if (stored.error() == AssetCacheError::Busy) { ++GeometryPublicationDeferred_; }
+    return std::unexpected(CacheFailure(stored.error()));
+  }
   ++GeometryWrites_;
-  return key;
+  return {};
 }
 }

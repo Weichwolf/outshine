@@ -1,3 +1,4 @@
+#include "TerrainFieldPreparation.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedTerrainCodec.h"
 #include "PreparedGroundPatchCodec.h"
@@ -114,20 +115,28 @@ PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet 
   auto recipe =
       AssetSourceRecipe("prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation});
   if (recipe.empty()) { return std::unexpected("terrain source metadata cannot be encoded"); }
-  return std::shared_ptr<PreparedTerrainAssets>(
+  auto assets = std::shared_ptr<PreparedTerrainAssets>(
       new PreparedTerrainAssets(std::move(*cache), std::move(recipe)));
+  assets->Self_ = assets;
+  return assets;
 }
 
-std::shared_ptr<std::mutex> PreparedTerrainAssets::MutexForRequest(const std::string &key) {
+std::shared_ptr<PreparedTerrainAssets::Request>
+PreparedTerrainAssets::RequestFor(const std::string &key) {
   const std::scoped_lock lock(Lock_);
   std::erase_if(Requests_, [](const auto &entry) { return entry.second.expired(); });
   auto &pending = Requests_[key];
   auto request = pending.lock();
   if (!request) {
-    request = std::make_shared<std::mutex>();
+    request = std::make_shared<Request>();
     pending = request;
   }
   return request;
+}
+
+std::shared_ptr<std::mutex> PreparedTerrainAssets::MutexForRequest(const std::string &key) {
+  const auto request = RequestFor(key);
+  return {request, &request->Lock};
 }
 
 ::outshine::Ground::TerrainGrid
@@ -142,65 +151,182 @@ PreparedTerrainAssets::Remember(const std::string &key, ::outshine::Ground::Terr
   return ::outshine::Ground::TerrainGrid::Holding(std::move(shared));
 }
 
-::outshine::Ground::TerrainGrid
-PreparedTerrainAssets::Resolve(Data::TileId at,
-                               const ::outshine::Ground::TerrainTiles::Shaped &shape,
-                               const ::outshine::Ground::TerrainTiles::FieldFactory &factory) {
+class PreparedTerrainAssets::FieldRead final
+    : public ::outshine::Ground::TerrainTiles::FieldRequest {
+public:
+  FieldRead(std::shared_ptr<PreparedTerrainAssets> owner,
+            std::string key,
+            Data::TileId at,
+            std::shared_ptr<Request> request)
+      : Owner_(std::move(owner)), Key_(std::move(key)), At_(at), Request_(std::move(request)) {
+    Measure();
+  }
+
+  [[nodiscard]] ::outshine::Ground::TerrainTiles::FieldStep
+  Resume(const ::outshine::Ground::TerrainTiles::FieldFactory &factory,
+         const std::stop_token &stop) override;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept override { return Bytes_->load(); }
+
+  [[nodiscard]] std::shared_ptr<const std::atomic_size_t> Memory() const noexcept override {
+    return Bytes_;
+  }
+
+private:
+  enum class Phase { Inspect, Generate, Publish, Restore };
+  [[nodiscard]] ::outshine::Ground::TerrainTiles::FieldStep Read();
+  [[nodiscard]] ::outshine::Ground::TerrainTiles::FieldStep
+  Generate(const ::outshine::Ground::TerrainTiles::FieldFactory &factory,
+           const std::stop_token &stop);
+  [[nodiscard]] ::outshine::Ground::TerrainTiles::FieldStep Failed(AssetCacheError error);
+  void Measure() noexcept;
+
+  std::shared_ptr<PreparedTerrainAssets> Owner_;
+  std::string Key_;
+  Data::TileId At_;
+  std::shared_ptr<Request> Request_;
+  std::optional<PreparedAssetWrite> Package_;
+  std::weak_ptr<const ::outshine::Ground::TerrainField> Resident_;
+  Phase Next_ = Phase::Inspect;
+  std::shared_ptr<std::atomic_size_t> Bytes_ = std::make_shared<std::atomic_size_t>(0);
+};
+
+void PreparedTerrainAssets::FieldRead::Measure() noexcept {
+  Bytes_->store(sizeof(FieldRead) + sizeof(Request) + sizeof(std::atomic_size_t) + Key_.capacity() +
+                (Package_ ? Package_->CapacityBytes() - sizeof(PreparedAssetWrite) : 0u));
+}
+
+::outshine::Ground::TerrainTiles::FieldStep
+PreparedTerrainAssets::FieldRead::Failed(AssetCacheError error) {
   using namespace ::outshine::Ground;
-  if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
-      at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
-      at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom))) {
-    return Refused(at, Data::SourceFailureReason::InvalidRequest);
+  switch (error) {
+    case AssetCacheError::Busy: return {.Grid = TerrainGrid::Deferred(), .CacheDeferred = true};
+    case AssetCacheError::CapacityExceeded:
+      return {.Grid = Refused(At_, Data::SourceFailureReason::CapacityRefused)};
+    case AssetCacheError::InvalidInput:
+      return {.Grid = Refused(At_, Data::SourceFailureReason::InvalidRequest)};
+    case AssetCacheError::UnsupportedVersion:
+      return {.Grid = Refused(At_, Data::SourceFailureReason::CorruptPayload)};
+    case AssetCacheError::Storage:
+      return {.Grid = Refused(At_, Data::SourceFailureReason::Unavailable)};
   }
-  const auto key = Key(Recipe_, at, shape);
-  if (key.empty()) { return Refused(at, Data::SourceFailureReason::InvalidRequest); }
-  const auto request = MutexForRequest(key);
-  const std::scoped_lock preparing(*request);
-  {
-    const std::scoped_lock lock(Lock_);
-    const auto held = Resident_.find(key);
-    if (held != Resident_.end()) {
-      if (auto field = held->second.lock()) {
-        ResidentHits_.fetch_add(1, std::memory_order_relaxed);
-        return TerrainGrid::Holding(std::move(field));
-      }
-    }
-  }
+  std::unreachable();
+}
+
+::outshine::Ground::TerrainTiles::FieldStep PreparedTerrainAssets::FieldRead::Read() {
+  using namespace ::outshine::Ground;
   std::optional<TerrainField> cached;
-  auto loaded = Cache_->LoadValidated(
-      key, "terrain-field", kPreparedTerrainBytesMost, [&](const CachedAsset &asset) {
-        cached = DecodePreparedTerrain(at, asset.Bytes(), kPreparedTerrainBytesMost);
+  auto loaded = Owner_->Cache_->LoadValidated(
+      Key_, "terrain-field", kPreparedTerrainBytesMost, [&](const CachedAsset &asset) {
+        cached = DecodePreparedTerrain(At_, asset.Bytes(), kPreparedTerrainBytesMost);
         return cached.has_value();
       });
-  if (!loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
+  if (!loaded) { return Failed(loaded.error()); }
   if (*loaded && cached) {
-    Hits_.fetch_add(1, std::memory_order_relaxed);
-    ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
-    return Remember(key, std::move(*cached));
+    if (Next_ == Phase::Inspect) {
+      Owner_->Hits_.fetch_add(1, std::memory_order_relaxed);
+      Owner_->ReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
+    }
+    auto result = Owner_->Remember(Key_, std::move(*cached));
+    Resident_ = result.ShareField();
+    return {.Grid = std::move(result)};
   }
-  Misses_.fetch_add(1, std::memory_order_relaxed);
-  if (!factory) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
+  Owner_->Misses_.fetch_add(1, std::memory_order_relaxed);
+  Next_ = Phase::Generate;
+  return {.Grid = TerrainGrid::Deferred()};
+}
+
+::outshine::Ground::TerrainTiles::FieldStep PreparedTerrainAssets::FieldRead::Generate(
+    const ::outshine::Ground::TerrainTiles::FieldFactory &factory, const std::stop_token &stop) {
+  if (!factory) { return {.Grid = Refused(At_, Data::SourceFailureReason::ProviderRefused)}; }
   auto generated = factory();
   const auto *field = generated.TryField();
-  if (field == nullptr) { return generated; }
-  auto encoded = EncodePreparedTerrain(at, *field);
-  if (!encoded) { return Refused(at, Data::SourceFailureReason::CorruptPayload); }
-  const AssetRecord record{.Key = key,
+  if (stop.stop_requested()) { return {.Grid = ::outshine::Ground::TerrainGrid::Deferred()}; }
+  if (field == nullptr) {
+    Next_ = Phase::Inspect;
+    return {.Grid = std::move(generated)};
+  }
+  auto encoded = EncodePreparedTerrain(At_, *field);
+  if (!encoded) { return {.Grid = Refused(At_, Data::SourceFailureReason::CorruptPayload)}; }
+  const AssetRecord record{.Key = Key_,
                            .Kind = "terrain-field",
-                           .Bounds = Bounds(at, *field),
+                           .Bounds = Bounds(At_, *field),
                            .Package = {},
                            .ByteCount = encoded->size(),
-                           .Level = static_cast<uint32_t>(at.Zoom),
+                           .Level = static_cast<uint32_t>(At_.Zoom),
                            .Parent = {}};
-  if (!Cache_->Publish({&record, 1}, *encoded)) {
-    return Refused(at, Data::SourceFailureReason::ProviderRefused);
+  if (stop.stop_requested()) { return {.Grid = ::outshine::Ground::TerrainGrid::Deferred()}; }
+  auto package = Owner_->Cache_->PreparePublication({record}, std::move(*encoded));
+  if (!package) { return Failed(package.error()); }
+  Package_ = std::move(*package);
+  Owner_->FieldPreparations_.fetch_add(1, std::memory_order_relaxed);
+  Next_ = Phase::Publish;
+  Measure();
+  return {.Grid = ::outshine::Ground::TerrainGrid::Deferred()};
+}
+
+::outshine::Ground::TerrainTiles::FieldStep PreparedTerrainAssets::FieldRead::Resume(
+    const ::outshine::Ground::TerrainTiles::FieldFactory &factory, const std::stop_token &stop) {
+  using namespace ::outshine::Ground;
+  if (stop.stop_requested()) { return {.Grid = TerrainGrid::Deferred()}; }
+  const std::unique_lock preparing(Request_->Lock, std::try_to_lock);
+  if (!preparing.owns_lock()) { return {.Grid = TerrainGrid::Deferred(), .CacheDeferred = true}; }
+  if (Key_.empty()) { return {.Grid = Refused(At_, Data::SourceFailureReason::InvalidRequest)}; }
+  if (Resident_.expired()) {
+    const std::scoped_lock lock(Owner_->Lock_);
+    const auto held = Owner_->Resident_.find(Key_);
+    if (held != Owner_->Resident_.end()) { Resident_ = held->second; }
   }
-  Writes_.fetch_add(1, std::memory_order_relaxed);
-  loaded = Cache_->Load(key, kPreparedTerrainBytesMost);
-  if (!loaded || !*loaded) { return Refused(at, Data::SourceFailureReason::ProviderRefused); }
-  auto ready = DecodePreparedTerrain(at, (**loaded).Bytes(), kPreparedTerrainBytesMost);
-  return ready ? Remember(key, std::move(*ready))
-               : Refused(at, Data::SourceFailureReason::CorruptPayload);
+  if (auto resident = Resident_.lock()) {
+    Owner_->ResidentHits_.fetch_add(1, std::memory_order_relaxed);
+    return {.Grid = TerrainGrid::Holding(std::move(resident))};
+  }
+  if (Next_ == Phase::Inspect) {
+    auto read = Read();
+    if (Next_ != Phase::Generate) { return read; }
+  }
+  if (Next_ == Phase::Generate) {
+    auto generated = Generate(factory, stop);
+    if (Next_ != Phase::Publish) { return generated; }
+  }
+  if (stop.stop_requested()) { return {.Grid = TerrainGrid::Deferred()}; }
+  if (Next_ == Phase::Publish) {
+    if (!Package_) { return {.Grid = Refused(At_, Data::SourceFailureReason::CorruptPayload)}; }
+    Owner_->FieldPublicationAttempts_.fetch_add(1, std::memory_order_relaxed);
+    const auto published = Owner_->Cache_->Publish(*Package_);
+    if (!published) { return Failed(published.error()); }
+    Owner_->Writes_.fetch_add(1, std::memory_order_relaxed);
+    Package_.reset();
+    Next_ = Phase::Restore;
+    Measure();
+  }
+  if (stop.stop_requested()) { return {.Grid = TerrainGrid::Deferred()}; }
+  auto restored = Read();
+  if (restored.Grid.TryField() == nullptr && !restored.CacheDeferred) {
+    return {.Grid = Refused(At_, Data::SourceFailureReason::CorruptPayload)};
+  }
+  return restored;
+}
+
+std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
+PreparedTerrainAssets::RequestField(Data::TileId at,
+                                    const ::outshine::Ground::TerrainTiles::Shaped &shape) {
+  const auto key = at.Zoom >= 0 && at.Zoom <= Data::TileId::MaximumZoom &&
+                           at.X < (uint32_t{1} << static_cast<unsigned>(at.Zoom)) &&
+                           at.Y < (uint32_t{1} << static_cast<unsigned>(at.Zoom))
+                       ? Key(Recipe_, at, shape)
+                       : std::string{};
+  if (key.empty()) {
+    return std::make_shared<FieldRead>(Self_.lock(), key, at, std::make_shared<Request>());
+  }
+  const auto owner = RequestFor(key);
+  const std::scoped_lock lock(Lock_);
+  auto request = owner->Field.lock();
+  if (!request) {
+    request = std::make_shared<FieldRead>(Self_.lock(), key, at, owner);
+    owner->Field = request;
+  }
+  return request;
 }
 
 PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
@@ -209,6 +335,8 @@ PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
           .Resident = ResidentHits_.load(std::memory_order_relaxed),
           .Writes = Writes_.load(std::memory_order_relaxed),
           .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+          .FieldPreparations = FieldPreparations_.load(std::memory_order_relaxed),
+          .FieldPublicationAttempts = FieldPublicationAttempts_.load(std::memory_order_relaxed),
           .DeformationHits = DeformationHits_.load(std::memory_order_relaxed),
           .DeformationMisses = DeformationMisses_.load(std::memory_order_relaxed),
           .DeformationWrites = DeformationWrites_.load(std::memory_order_relaxed),

@@ -10,7 +10,7 @@ int main() {
   const Data::TileId parent{.Zoom = 1, .X = 0, .Y = 0};
   const Data::TileId child{.Zoom = 2, .X = 0, .Y = 0};
   for (const bool partial : {false, true}) {
-    auto field = std::make_shared<TerrainField>(2, 2);
+    const auto field = std::make_shared<TerrainField>(2, 2);
     field->AddSource({.Kind = Data::DataKind::Elevation,
                       .Tile = parent,
                       .SourceId = "boundary-dem",

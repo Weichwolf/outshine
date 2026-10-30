@@ -1063,7 +1063,7 @@ void CachedWorldViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native world report write failed"); }
 }
 
-Geometry StoredSampleSource(const Json &input, size_t view) {
+ImpostorAtlas StoredAtlas(const Json &input) {
   const Fs::path atlasFile(input.at("atlas_file").get<std::string>());
   std::error_code fileError;
   const auto size = Fs::file_size(atlasFile, fileError);
@@ -1076,8 +1076,13 @@ Geometry StoredSampleSource(const Json &input, size_t view) {
   auto atlas = ImpostorAtlas::Decode(
       bytes, input.value("atlas_provenance", std::string("native-original-impostor-1")), error);
   if (!atlas) { Fail(error); }
+  return std::move(*atlas);
+}
+
+Geometry StoredSampleSource(const Json &input, size_t view) {
+  const auto atlas = StoredAtlas(input);
   auto samples = Test::StoredSampleQuads::Prepare(
-      *atlas, {.View = view, .SourceBytesMost = size_t{64} * 1024 * 1024});
+      atlas, {.View = view, .SourceBytesMost = size_t{64} * 1024 * 1024});
   if (!samples) { Fail(samples.error()); }
   return std::move(samples->Source);
 }
@@ -1116,27 +1121,44 @@ void SourceMeshViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native source-mesh report write failed"); }
 }
 
-void MaterialFieldViews(const Fs::path &root, const Json &input) {
+std::shared_ptr<const Render::MaterialFieldInput>
+MaterialFieldSource(const Fs::path &root, const Json &input, Extent raster, Json &statistics) {
+  if (input.contains("atlas_file")) {
+    const auto atlas = StoredAtlas(input);
+    const auto view = input.value("view", size_t{0});
+    auto prepared = Render::MaterialFieldInput::Prepare(atlas, view, size_t{64} * 1024 * 1024);
+    if (!prepared) { Fail(prepared.error()); }
+    statistics = {{"representation", "stored-field"},
+                  {"pixels", atlas.Pixels()},
+                  {"view", view},
+                  {"atlas_sha256", input.at("atlas_sha256")}};
+    return std::move(*prepared);
+  }
   const auto directory = root / "geometry" / "0";
   std::ifstream file(directory / "input.json");
   const auto description = Json::parse(file, nullptr, false);
-  if (!description.is_object() || input.at("queries").empty()) {
-    Fail("whole-original material field input unavailable");
-  }
+  if (!description.is_object()) { Fail("whole-original material field input unavailable"); }
   auto mesh = Source(directory, description);
-  const auto statistics = MeshStatistics(mesh);
+  statistics = MeshStatistics(mesh);
+  auto prepared = Render::MaterialFieldInput::Prepare(std::move(mesh), raster);
+  if (!prepared) { Fail(prepared.error()); }
+  return std::move(*prepared);
+}
+
+void MaterialFieldViews(const Fs::path &root, const Json &input) {
+  if (input.at("queries").empty()) { Fail("material field query required"); }
   const auto &first = input.at("queries").front().at("capture");
   const Extent raster{.WidthPx = first.at("width_px").get<int>(),
                       .HeightPx = first.at("height_px").get<int>()};
-  auto prepared = Render::MaterialFieldInput::Prepare(std::move(mesh), raster);
-  if (!prepared) { Fail(prepared.error()); }
+  Json statistics;
+  const auto prepared = MaterialFieldSource(root, input, raster, statistics);
   size_t deviceCreations = 0;
   Render::SceneRenderer renderer{TimedSubmission(deviceCreations)};
   const auto configured = renderer.ConfigureMaterialFields();
   if (!configured) { Fail(configured.error().Message); }
   constexpr auto budget = std::chrono::seconds(5);
   const auto resident =
-      Test::Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(*prepared); }, budget);
+      Test::Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(prepared); }, budget);
   if (!resident) { Fail(resident.error().Message); }
   Json results{{"mode", "material-fields"}, {"geometry", statistics}, {"cases", Json::array()}};
   for (const auto &query : input.at("queries")) {
@@ -1151,12 +1173,15 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     for (size_t axis = 0; axis < 3; ++axis) {
       lights[0].Light.Direction[axis] = -static_cast<float>(towardSun[axis]);
     }
+    const auto observer = Test::BuildingLightingObserver(query);
+    if (!observer) { Fail(observer.error()); }
     const auto began = Clock::now();
     const Render::MaterialFieldView view{.Camera = Test::BuildingCaptureCamera(capture),
                                          .Lights = lights,
                                          .Environment = {},
                                          .Target = raster,
-                                         .Encoding = Render::RadianceEncoding::IntegralPairs};
+                                         .Encoding = Render::RadianceEncoding::IntegralPairs,
+                                         .LightingCamera = *observer};
     const auto images = Test::Gpu::RetryOffline(
         [&] { return renderer.RelightMaterialField(**resident, view); }, budget);
     if (!images) { Fail(images.error().Message); }
@@ -1175,6 +1200,10 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     results["cases"].push_back(
         {{"query", name},
          {"capture", SourceDepthDescription(images->Camera, raster, depth->size() * sizeof(float))},
+         {"lighting_camera",
+          {{"eye_m", images->LightingCamera.EyeM.Axis},
+           {"forward", images->LightingCamera.Forward.Axis},
+           {"orthographic", images->LightingCamera.Kind == Render::CameraKind::Orthographic}}},
          {"integral_encoding", "rgba32f-hi-lo-pairs-v1"},
          {"integral_width", shape.Width},
          {"integral_height", shape.Height},

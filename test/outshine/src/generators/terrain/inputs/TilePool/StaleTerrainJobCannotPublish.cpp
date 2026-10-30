@@ -105,7 +105,7 @@ void CheckStaleJob(Mode mode) {
   const bool mesh = mode != Mode::FieldScope;
   const bool cancelled = mode == Mode::MeshCancelled;
   const float expectedHeight = cancelled ? 0.0f : 9.0f;
-  auto gate = std::make_shared<Gate>();
+  const auto gate = std::make_shared<Gate>();
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(store);
   NoNetwork transport;

@@ -187,9 +187,9 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0);
   const auto heights = Ground::HeightField::Of(0, {block});
-  for (auto error : {StructureMeshError::InvalidPlan,
-                     StructureMeshError::IncompatibleScratch,
-                     StructureMeshError::BuildFailed}) {
+  for (const auto error : {StructureMeshError::InvalidPlan,
+                           StructureMeshError::IncompatibleScratch,
+                           StructureMeshError::BuildFailed}) {
     const RefusingMesher mesher(error);
     auto scratch = mesher.Scratch();
     Generators::BakedTile output;

@@ -347,16 +347,78 @@ AssetCache::LoadValidated(std::string_view key,
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,
                                                              std::string_view requestKey) {
+  return BindRequest(key, requestKey, true);
+}
+
+std::expected<bool, AssetCacheError> AssetCache::BindRequestIfUnbound(std::string_view key,
+                                                                      std::string_view requestKey) {
+  return BindRequest(key, requestKey, false);
+}
+
+std::expected<bool, AssetCacheError> AssetCache::BindRequestIfMatches(std::string_view key,
+                                                                      const AssetRecord &binding) {
+  if (!binding.RequestKey || !AssetSql::ValidKey(*binding.RequestKey) ||
+      !AssetSql::Valid(binding)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  return BindRequest(key, *binding.RequestKey, true, &binding);
+}
+
+std::expected<bool, AssetCacheError>
+AssetCache::UnbindRequestIfMatches(const AssetRecord &binding) {
+  const auto &request = binding.RequestKey;
+  if (!request || !AssetSql::ValidKey(*request) || !AssetSql::Valid(binding)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  const auto matches = [&](const auto &found) { return found && *found == binding; };
+  const auto guard = std::scoped_lock(*State_->Mutex);
+  const auto previous = FindRequest(*request);
+  if (!previous) { return std::unexpected(previous.error()); }
+  if (!matches(*previous)) { return false; }
+  const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  if (!began) { return std::unexpected(began.error()); }
+  Transaction transaction(State_->Database);
+  const auto current = FindRequest(*request);
+  if (!current) { return std::unexpected(current.error()); }
+  if (!matches(*current)) { return false; }
+  AssetSql::Statement erase;
+  const auto prepared =
+      AssetSql::Prepare(State_->Database, "DELETE FROM asset_requests WHERE request_key=?", erase);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  if (!AssetSql::Text(erase.Value, 1, *request)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  const int code = sqlite3_step(erase.Value);
+  if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+  const auto committed = transaction.Commit();
+  if (!committed) { return std::unexpected(committed.error()); }
+  return true;
+}
+
+std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,
+                                                             std::string_view requestKey,
+                                                             bool replace,
+                                                             const AssetRecord *binding) {
   const std::scoped_lock lock(*State_->Mutex);
   if (!AssetSql::ValidKey(key) || !AssetSql::ValidKey(requestKey)) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
+  const auto allowed = [&](const std::optional<AssetRecord> &current) {
+    return binding != nullptr ? current && *current == *binding : replace || !current;
+  };
   const auto previous = FindRequest(requestKey);
   if (!previous) { return std::unexpected(previous.error()); }
   if (*previous && (**previous).Key == key) { return true; }
+  if (!allowed(*previous)) { return false; }
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
+  if (!replace || binding != nullptr) {
+    const auto current = FindRequest(requestKey);
+    if (!current) { return std::unexpected(current.error()); }
+    if (*current && (**current).Key == key) { return true; }
+    if (!allowed(*current)) { return false; }
+  }
   auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }
   if (!*found) { return false; }

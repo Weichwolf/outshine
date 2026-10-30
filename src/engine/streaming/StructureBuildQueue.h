@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
 #include <ProjectedErrorBudget.h>
+#include <chrono>
 #include <expected>
 #include <functional>
 #include <cstdint>
@@ -232,17 +233,7 @@ public:
 
   [[nodiscard]] size_t QueuedStructures() const;
 
-  [[nodiscard]] bool AwaitSlice(double seconds) const {
-    if (Pool_ == nullptr) { return false; }
-    if (PendingBasisLookups() != 0) { return Pool_->AwaitCompletion(seconds); }
-    if (OriginalPreparation_ && OriginalPreparation_->Running()) {
-      return OriginalPreparation_->AwaitSlice(seconds);
-    }
-    for (const QueuedBuild &build : Queue_) {
-      if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
-    }
-    return false;
-  }
+  [[nodiscard]] bool AwaitSlice(double seconds) const;
 
 private:
   [[nodiscard]] bool
@@ -288,13 +279,16 @@ private:
   };
 
   struct NativeLookup {
-    enum class Phase : uint8_t { Request, Content };
+    enum class Phase : uint8_t { Request, Content, Bind };
     Phase Stage = Phase::Request;
     Tasks::Handle Task = Tasks::kNoTask;
     std::expected<std::optional<Generators::PreparedBuildingAssets::RequestedBasis>,
                   Generators::StructureBakeError>
         Result;
     std::string ContentKey;
+    Generators::PreparedBuildingAssets::Basis HeldBasis;
+    unsigned Retries = 0;
+    std::chrono::steady_clock::time_point RetryAt;
     uint64_t BasisWrites = 0;
     uint64_t StreetDigest = 0;
     double ReadMs = 0.0;
@@ -304,6 +298,16 @@ private:
   [[nodiscard]] NativeLookup *
   AdvanceNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
                       const std::string &request);
+  [[nodiscard]] NativeLookup *
+  RetryNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+                    const std::string &request,
+                    NativeLookup &lookup);
+  void StartNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+                         const std::string &request,
+                         NativeLookup &lookup);
+  static void ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
+                               const std::string &request,
+                               NativeLookup &lookup);
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
                                        uint32_t tile,

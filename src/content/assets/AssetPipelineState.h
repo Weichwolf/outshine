@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETPIPELINESTATE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETPIPELINESTATE_H
 #include "AssetPipeline.h"
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -32,7 +33,10 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     AssetProductKey Key;
     AssetStoreScope Scope;
     size_t References = 0, Demands = 0, InputBytes = 0;
-    bool StopRequested = false, Finished = false;
+    bool StopRequested = false, Finished = false, Running = true;
+    ResumableProducer Resume;
+    std::chrono::steady_clock::time_point RetryAt;
+    std::chrono::milliseconds Delay{1};
     std::stop_source Stop;
     std::shared_ptr<Reservation> Output;
     AssetPublication Result;
@@ -56,7 +60,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   struct Execution {
     std::shared_ptr<State> Owner;
     std::shared_ptr<Job> Work;
-    Producer Produce;
+    ResumableProducer Produce;
     bool Ended = false;
     void Run();
     ~Execution();
@@ -69,7 +73,10 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   void ReleaseTicket(uint64_t ticket) noexcept;
   void Retire(AssetConsumerId consumer) noexcept;
   [[nodiscard]] bool Advance(AssetConsumerId consumer, AssetConsumerGeneration generation) noexcept;
-  [[nodiscard]] AssetPublication Poll(uint64_t ticket) const noexcept;
+  [[nodiscard]] AssetPublication Poll(uint64_t ticket) noexcept;
+  void Dispatch(const std::shared_ptr<Job> &job);
+  void WakeStopped();
+  [[nodiscard]] bool Defer(const std::shared_ptr<Job> &job, ResumableProducer producer);
   void Finish(const std::shared_ptr<Job> &job, AssetPublication result) noexcept;
   [[nodiscard]] static AssetPublication Receipt(const std::shared_ptr<Job> &job,
                                                 std::expected<AssetRecord, std::string> result);

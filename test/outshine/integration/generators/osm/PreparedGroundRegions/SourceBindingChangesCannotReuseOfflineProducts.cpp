@@ -1,3 +1,4 @@
+#include "StoreGroundRegion.h"
 #include "Check.h"
 #include "GroundRegionAsset.h"
 #include "OsmField.h"
@@ -82,8 +83,12 @@ bool Prime(const std::filesystem::path &root) {
                             .Postings = 2}};
   region.Terrain.Tiles = 1;
   const auto key = Sha256Hex("source-framing-native-fixture-product");
-  const auto stored = (*opened)->Store(
-      key, GroundRegionBoundsEcef(region), region, Generators::WaterAsset{}, Request(**opened));
+  const auto stored = ::outshine::Test::StoreGroundRegion(**opened,
+                                                          key,
+                                                          GroundRegionBoundsEcef(region),
+                                                          region,
+                                                          Generators::WaterAsset{},
+                                                          Request(**opened));
   CHECK(stored, "the complete native product is committed with its current source binding");
   if (!stored) { return false; }
   const auto bound = (*opened)->BindRequest(key, kLegacyRequest);

@@ -1,3 +1,4 @@
+#include "test/harness/shared/BuildingAssetFixture.h"
 #include <span>
 #include <string_view>
 #include "PreparedStructureTile.h"
@@ -218,7 +219,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
       CHECK(a && b && *a == *b && !original->SelectedView && !remote->SelectedView,
             "explicit LOD payload and contacts are independent of eye and pixel projection");
       const auto writes = cache.Costs().GeometryWrites;
-      CHECK(cache.StoreGeometry(key, base, near, *original).has_value(),
+      CHECK(BuildingAssetFixture::StoreGeometry(cache, key, base, near, *original).has_value(),
             "one intrinsic LOD is published for its source, cell and layout");
       if (a) { CheckStoredLod(cache, key, base, far, identity, *a, writes); }
     }
@@ -239,7 +240,7 @@ void IntrinsicLODs(const std::filesystem::path &root,
   adaptive.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
   const auto selected = BakePreparedStructures(base, adaptive, mesher, *scratch);
   CHECK(selected && selected->SelectedView &&
-            cache.StoreGeometry(key, base, adaptive, *selected).has_value(),
+            BuildingAssetFixture::StoreGeometry(cache, key, base, adaptive, *selected).has_value(),
         "automatic view selection remains an explicitly scoped product");
   adaptive.Eye.LongitudeDeg += 0.01;
   const auto moved = cache.LoadGeometry(key, base, adaptive);
@@ -274,8 +275,9 @@ void NativeCache(const std::filesystem::path &root) {
                                   std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct));
   CHECK(geometry.has_value(), "native basis supplies the reusable selected LOD geometry");
   if (!geometry || !generated || !*generated) { return; }
-  CHECK((*opened)->StoreGeometry(key, **generated, view, *geometry).has_value(),
-        "native selected geometry is published beside the enriched base");
+  CHECK(
+      BuildingAssetFixture::StoreGeometry(**opened, key, **generated, view, *geometry).has_value(),
+      "native selected geometry is published beside the enriched base");
   opened->reset();
   auto restarted = PreparedBuildingAssets::Open(directory, sources);
   CHECK(restarted.has_value(), "building cache service survives a new connection");
@@ -472,8 +474,10 @@ void ResidentRequests(const std::filesystem::path &root) {
   view.RequestedDetail = LevelOfDetail::Shell;
   view.Eye = {.LongitudeDeg = 10, .LatitudeDeg = 47};
   const auto built = BakePreparedStructures(**generated, view, mesher, *scratch);
-  CHECK(built && (*cache)->StoreGeometry(key, **generated, view, *built).has_value(),
-        "resident fixture stores the actual intrinsic geometry consumer");
+  CHECK(
+      built &&
+          BuildingAssetFixture::StoreGeometry(**cache, key, **generated, view, *built).has_value(),
+      "resident fixture stores the actual intrinsic geometry consumer");
   if (!built) { return; }
   auto first = (*cache)->LoadBasisRequest(request);
   CHECK(first && *first, "initial request decodes a complete native basis");
