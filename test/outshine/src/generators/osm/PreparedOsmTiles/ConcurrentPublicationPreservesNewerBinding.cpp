@@ -34,8 +34,7 @@ constexpr auto kDeadline = std::chrono::seconds(10);
 
 struct Fixture {
   std::atomic_uint Calls{0};
-  RawSourceCache Store{{.Directory = {}, .Using = RawSourceCache::Use::Off}};
-  SourceSet Sources{Store};
+  std::shared_ptr<SourceSession> Session;
   OsmCache::NoTransport Wire;
   Tasks Compute{1};
   std::unique_ptr<Ground::TilePool> Pool;
@@ -43,13 +42,15 @@ struct Fixture {
   std::unique_ptr<OsmField> Field;
 
   bool Open(const std::filesystem::path &root, std::vector<uint8_t> input) {
-    if (Sources.Add(std::make_unique<OsmCache::VectorSource>("r1", std::move(input), Calls)) !=
-        SourceSet::Registration::Accepted) {
-      return false;
-    }
+    auto session = OsmCache::OpenSession(
+        std::make_unique<OsmCache::VectorSource>("r1", std::move(input), Calls));
+    if (!session) { return false; }
+    Session = std::move(*session);
     Pool = std::make_unique<Ground::TilePool>(
-        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}}, Sources, Wire);
-    auto cache = PreparedOsmTiles::Open(root.string(), Sources, Compute);
+        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
+        Session->Sources(),
+        Wire);
+    auto cache = PreparedOsmTiles::Open(root.string(), Session, Wire, Compute);
     if (!cache) { return false; }
     Cache = std::move(*cache);
     const std::array<std::string, 2> layers{"buildings", "water_polygons"};

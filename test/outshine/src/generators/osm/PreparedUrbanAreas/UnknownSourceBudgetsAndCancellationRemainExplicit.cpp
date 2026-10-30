@@ -43,10 +43,9 @@ void Cancelled(const std::filesystem::path &directory) {
   Fixture fixture(directory, Availability::Ready);
   if (!fixture.Urban) { return; }
   const PreparedUrbanAreas::Request request(kOwner, MvtSchema::OpenMapTiles);
-  CHECK(fixture.Urban->Acquire(*fixture.Pool, request), "bounded lookup can be submitted");
+  CHECK(fixture.Urban->Acquire(request), "bounded lookup can be submitted");
   fixture.Urban->Cancel();
-  CHECK(!fixture.Urban->Acquire(*fixture.Pool, request),
-        "cancellation rejects all later admission");
+  CHECK(!fixture.Urban->Acquire(request), "cancellation rejects all later admission");
   fixture.Urban.reset();
   CHECK(fixture.Calls == 0 && fixture.Tiles->Costs().Misses == 0,
         "cancelled lookup never progresses into source acquisition");
@@ -62,13 +61,13 @@ void InvalidRequests(const std::filesystem::path &directory) {
       PreparedUrbanAreas::Request({.Zoom = 0, .X = 1, .Y = 0}, MvtSchema::OpenMapTiles),
       PreparedUrbanAreas::Request(kOwner, MvtSchema::OpenMapTiles, recipe)};
   for (const auto &request : requests) {
-    CHECK(!fixture.Urban->Acquire(*fixture.Pool, request),
+    CHECK(!fixture.Urban->Acquire(request),
           "invalid tile or recipe fails before cache and source work");
   }
   PreparedUrbanAreas::Budget budget;
   budget.PendingMost = 0;
   CHECK(!PreparedUrbanAreas::Open(
-            directory.string(), fixture.Sources, fixture.Compute, fixture.Tiles, budget),
+            directory.string(), fixture.Session->Sources(), fixture.Compute, fixture.Tiles, budget),
         "zero work capacity is rejected explicitly");
   CHECK(fixture.Calls == 0 && fixture.Urban->Costs().Misses == 0,
         "invalid requests schedule no asset or source work");
@@ -90,8 +89,8 @@ void RetiredDemand(const std::filesystem::path &directory) {
                                            MvtSchema::OpenMapTiles);
   {
     const PreparedUrbanAreas::Request abandoned(kOwner, MvtSchema::OpenMapTiles);
-    CHECK(fixture.Urban->Acquire(*fixture.Pool, abandoned), "one pending slot is admitted");
-    const auto deferred = fixture.Urban->Acquire(*fixture.Pool, wanted);
+    CHECK(fixture.Urban->Acquire(abandoned), "one pending slot is admitted");
+    const auto deferred = fixture.Urban->Acquire(wanted);
     CHECK(deferred && deferred->Status == PreparedUrbanAreas::State::Pending &&
               fixture.Urban->Costs().Deferred == 1,
           "full producer capacity defers later work instead of growing its task set");

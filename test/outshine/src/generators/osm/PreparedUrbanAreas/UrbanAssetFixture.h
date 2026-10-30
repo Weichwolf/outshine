@@ -1,12 +1,11 @@
 #ifndef OUTSHINE_TEST_URBANASSETFIXTURE_H
 #define OUTSHINE_TEST_URBANASSETFIXTURE_H
 
-#include "TilePool.h"
-
 #include "PreparedUrbanAreas.h"
 #include "SourceSet.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
+#include "OsmCacheFixture.h"
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -104,29 +103,26 @@ private:
 
 struct Fixture {
   std::atomic_uint Calls{0};
-  RawSourceCache Store{{.Directory = {}, .Using = RawSourceCache::Use::Off}};
-  SourceSet Sources{Store};
+  std::shared_ptr<SourceSession> Session;
   NoTransport SourceTransport;
   Tasks Compute{1};
-  std::unique_ptr<Ground::TilePool> Pool;
   std::shared_ptr<PreparedOsmTiles> Tiles;
   std::shared_ptr<PreparedUrbanAreas> Urban;
 
   Fixture(const std::filesystem::path &directory,
           Availability availability,
           PreparedUrbanAreas::Budget budget = {}) {
-    CHECK(Sources.Add(std::make_unique<VectorSource>(Calls, availability)) ==
-              SourceSet::Registration::Accepted,
-          "fixture source metadata registers");
-    Pool = std::make_unique<Ground::TilePool>(
-        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
-        Sources,
-        SourceTransport);
-    auto tiles = PreparedOsmTiles::Open(directory.string(), Sources, Compute);
+    auto session =
+        outshine::Test::OsmCache::OpenSession(std::make_unique<VectorSource>(Calls, availability));
+    CHECK(session, "fixture source session opens");
+    if (!session) { return; }
+    Session = std::move(*session);
+    auto tiles = PreparedOsmTiles::Open(directory.string(), Session, SourceTransport, Compute);
     CHECK(tiles, "source-product cache opens");
     if (!tiles) { return; }
     Tiles = *tiles;
-    auto urban = PreparedUrbanAreas::Open(directory.string(), Sources, Compute, Tiles, budget);
+    auto urban =
+        PreparedUrbanAreas::Open(directory.string(), Session->Sources(), Compute, Tiles, budget);
     CHECK(urban, "urban cache-first producer opens");
     if (urban) { Urban = *urban; }
   }
@@ -136,7 +132,7 @@ inline std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 Await(Fixture &fixture, const PreparedUrbanAreas::Request &request) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
-    auto result = fixture.Urban->Acquire(*fixture.Pool, request);
+    auto result = fixture.Urban->Acquire(request);
     if (!result || result->Status != PreparedUrbanAreas::State::Pending) { return result; }
     (void)fixture.Urban->AwaitProgress(
         std::chrono::duration<double>(std::chrono::milliseconds(1)).count());

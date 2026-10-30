@@ -69,16 +69,16 @@ SurfacePreparation::BindRegionCache(const ContentDirectories &under,
   return {};
 }
 
-std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::string &directory,
-                                                                     const Data::SourceSet &sources,
-                                                                     Tasks &compute) {
+std::expected<void, std::string> SurfacePreparation::BindAssetCaches(
+    const std::string &directory, Data::SourceTransport &transport, Tasks &compute) {
+  const auto &sources = Sources_->Sources();
   auto terrain = Generators::PreparedTerrainAssets::Open(directory, sources);
   if (!terrain) { return std::unexpected(std::move(terrain.error())); }
   auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources);
   if (!buildings) { return std::unexpected(std::move(buildings.error())); }
   auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources);
   if (!network) { return std::unexpected(std::move(network.error())); }
-  auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, sources, compute);
+  auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, Sources_, transport, compute);
   if (!vectors) { return std::unexpected(std::move(vectors.error())); }
   auto urban = Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors);
   if (!urban) { return std::unexpected(std::move(urban.error())); }
@@ -159,7 +159,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
   if (!under.Assets.empty()) {
-    if (auto bound = BindAssetCaches(under.Assets, sources, compute); !bound) {
+    if (auto bound = BindAssetCaches(under.Assets, wire, compute); !bound) {
       Close();
       return std::unexpected(std::move(bound.error()));
     }

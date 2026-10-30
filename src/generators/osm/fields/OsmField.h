@@ -259,8 +259,7 @@ private:
 
   [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(Data::SourceReader &sources,
                                                                         TileAt at);
-  [[nodiscard]] std::expected<SourceResponse, std::string_view>
-  AddNativeTile(Data::SourceReader &sources, TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddNativeTile(TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
   AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);

@@ -4,6 +4,7 @@
 #include "OsmField.h"
 #include "Tasks.h"
 #include "AssetCache.h"
+#include "SourceSession.h"
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -15,10 +16,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-
-namespace outshine::Data {
-class SourceSet;
-}
 
 namespace outshine::Generators::Osm {
 class PreparedOsmTiles {
@@ -44,13 +41,21 @@ public:
     size_t PublicationBytesMost = size_t{128} * 1024u * 1024u;
   };
 
+  // The transport and compute pool outlive this service and its unfinished work.
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
+  Open(const std::string &directory,
+       std::shared_ptr<Data::SourceSession> sources,
+       Data::SourceTransport &transport,
+       Tasks &compute);
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute, Budget budget);
+  Open(const std::string &directory,
+       std::shared_ptr<Data::SourceSession> sources,
+       Data::SourceTransport &transport,
+       Tasks &compute,
+       Budget budget);
   ~PreparedOsmTiles();
-  [[nodiscard]] std::expected<SourceDelivery, std::string_view>
-  Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout);
+  [[nodiscard]] std::expected<SourceDelivery, std::string_view> Acquire(TileAt at,
+                                                                        const OsmField &layout);
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
@@ -70,6 +75,8 @@ private:
     Tasks::Handle Task = Tasks::kNoTask;
     std::expected<Product, std::string> Result;
     std::optional<PreparedAssetWrite> Publication;
+    std::optional<Data::SourceSession::Read> Input;
+    Data::SourceDelivery::State InputState = Data::SourceDelivery::State::Pending;
     std::string ProductKey;
     size_t PublicationBytes = 0;
     bool Generating = false;
@@ -81,6 +88,8 @@ private:
   enum class ReadCause : uint8_t { Lookup, Publication };
 
   PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
+                   std::shared_ptr<Data::SourceSession> sources,
+                   Data::SourceTransport &transport,
                    Tasks &compute,
                    std::string recipe,
                    Budget budget);
@@ -88,11 +97,9 @@ private:
   void Forget(Work &work);
   [[nodiscard]] bool CompleteTask(Work &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string_view>
-  Advance(Data::SourceReader &sources,
-          TileAt at,
-          const std::string &request,
-          const std::shared_ptr<Work> &work);
+  Advance(TileAt at, const std::string &request, const std::shared_ptr<Work> &work);
   void Lookup(const std::string &request, Work &work);
+  void PollSource(TileAt at, const std::string &request, Work &work);
   void Publish(const std::string &request, Work &work);
   void Restore(const std::string &request, Work &work);
   void Defer(Work &work);
@@ -107,6 +114,8 @@ private:
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;
   std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<Data::SourceSession> Sources_;
+  Data::SourceTransport &Transport_;
   Tasks &Compute_;
   std::string Recipe_;
   Budget Budget_;

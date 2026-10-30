@@ -349,7 +349,7 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
 
 std::expected<OsmField::SourceResponse, std::string_view>
 OsmField::AddTile(Data::SourceReader &sources, TileAt at) {
-  if (Prepared_) { return AddNativeTile(sources, at); }
+  if (Prepared_) { return AddNativeTile(at); }
   const Data::SourceRequest request(
       Data::DataKind::VectorMap,
       Data::Address::At(Data::TileId{

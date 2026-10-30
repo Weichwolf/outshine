@@ -33,9 +33,8 @@ std::expected<bool, std::string_view> OsmField::PollTile(Data::SourceReader &sou
   return true;
 }
 
-std::expected<OsmField::SourceResponse, std::string_view>
-OsmField::AddNativeTile(Data::SourceReader &sources, TileAt at) {
-  auto delivery = Prepared_->Acquire(sources, at, *this);
+std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddNativeTile(TileAt at) {
+  auto delivery = Prepared_->Acquire(at, *this);
   if (!delivery) { return std::unexpected(delivery.error()); }
   using State = PreparedOsmTiles::State;
   switch (delivery->Status) {

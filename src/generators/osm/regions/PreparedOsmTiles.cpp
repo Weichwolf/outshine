@@ -20,18 +20,33 @@
 
 namespace outshine::Generators::Osm {
 PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
+                                   std::shared_ptr<Data::SourceSession> sources,
+                                   Data::SourceTransport &transport,
                                    Tasks &compute,
                                    std::string recipe,
                                    Budget budget)
-    : Cache_(std::move(cache)), Compute_(compute), Recipe_(std::move(recipe)), Budget_(budget) {}
+    : Cache_(std::move(cache)),
+      Sources_(std::move(sources)),
+      Transport_(transport),
+      Compute_(compute),
+      Recipe_(std::move(recipe)),
+      Budget_(budget) {}
 
-std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::Open(
-    const std::string &directory, const Data::SourceSet &sources, Tasks &compute) {
-  return Open(directory, sources, compute, {});
+std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
+PreparedOsmTiles::Open(const std::string &directory,
+                       std::shared_ptr<Data::SourceSession> sources,
+                       Data::SourceTransport &transport,
+                       Tasks &compute) {
+  return Open(directory, std::move(sources), transport, compute, {});
 }
 
-std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::Open(
-    const std::string &directory, const Data::SourceSet &sources, Tasks &compute, Budget budget) {
+std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
+PreparedOsmTiles::Open(const std::string &directory,
+                       std::shared_ptr<Data::SourceSession> sources,
+                       Data::SourceTransport &transport,
+                       Tasks &compute,
+                       Budget budget) {
+  if (!sources) { return std::unexpected("native OSM preparation requires configured sources"); }
   if (budget.PendingMost == 0 || budget.PublicationBytesMost == 0) {
     return std::unexpected("invalid native OSM publication budget");
   }
@@ -41,10 +56,10 @@ std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open native OSM tile cache"); }
   const auto recipe = Generators::AssetSourceRecipe(
-      "prepared-osm-tile-3", sources, std::array{Data::DataKind::VectorMap});
+      "prepared-osm-tile-3", sources->Sources(), std::array{Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("OSM source metadata cannot be encoded"); }
-  return std::shared_ptr<PreparedOsmTiles>(
-      new PreparedOsmTiles(std::move(*cache), compute, recipe, budget));
+  return std::shared_ptr<PreparedOsmTiles>(new PreparedOsmTiles(
+      std::move(*cache), std::move(sources), transport, compute, recipe, budget));
 }
 
 PreparedOsmTiles::~PreparedOsmTiles() {
@@ -111,7 +126,7 @@ std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const 
 }
 
 std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
-PreparedOsmTiles::Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout) {
+PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
   if (layout.Zoom_ < 0 || layout.Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 ||
       at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint32_t{1} << static_cast<unsigned>(layout.Zoom_)) ||
@@ -149,7 +164,7 @@ PreparedOsmTiles::Acquire(Data::SourceReader &sources, TileAt at, const OsmField
     return SourceDelivery{};
   }
   Observe(*work, layout.Demand_);
-  auto result = Advance(sources, at, request, work);
+  auto result = Advance(at, request, work);
   if (result && (result->Status == State::Ready || result->Status == State::Absent)) {
     Forget(*work);
     Pending_.erase(request);
@@ -157,11 +172,8 @@ PreparedOsmTiles::Acquire(Data::SourceReader &sources, TileAt at, const OsmField
   return result;
 }
 
-std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
-PreparedOsmTiles::Advance(Data::SourceReader &sources,
-                          TileAt at,
-                          const std::string &request,
-                          const std::shared_ptr<Work> &work) {
+std::expected<PreparedOsmTiles::SourceDelivery, std::string_view> PreparedOsmTiles::Advance(
+    TileAt at, const std::string &request, const std::shared_ptr<Work> &work) {
   if (!CompleteTask(*work)) { return SourceDelivery{}; }
   if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
   if (*work->Result) {
@@ -194,32 +206,14 @@ PreparedOsmTiles::Advance(Data::SourceReader &sources,
       PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
     return SourceDelivery{};
   }
-  auto delivery =
-      sources.Poll(Data::SourceRequest(Data::DataKind::VectorMap,
-                                       Data::Address::At({.Zoom = work->Definition.Zoom,
-                                                          .X = static_cast<uint32_t>(at.X),
-                                                          .Y = static_cast<uint32_t>(at.Y)})));
-  switch (delivery.Where()) {
-    case Data::SourceDelivery::State::Vacant:
-    case Data::SourceDelivery::State::Undeclared:
-      return SourceDelivery{.Status = State::Absent, .Product = {}};
-    case Data::SourceDelivery::State::Refused:
-      return SourceDelivery{.Status = State::Refused, .Product = {}};
-    case Data::SourceDelivery::State::Pending: return SourceDelivery{};
-    case Data::SourceDelivery::State::Consumed:
-      return std::unexpected("native OSM source reader returned no payload");
-    case Data::SourceDelivery::State::Delivered: break;
+  if (work->InputState == Data::SourceDelivery::State::Vacant ||
+      work->InputState == Data::SourceDelivery::State::Undeclared) {
+    return SourceDelivery{.Status = State::Absent, .Product = {}};
   }
-  auto landing = delivery.Take();
-  if (!landing) { return std::unexpected("native OSM source reader returned no payload"); }
-  work->Stage = Work::Phase::Generate;
-  work->Task = Compute_.Post([this, work, at, request, landing = std::move(*landing)] mutable {
-    const auto began = std::chrono::steady_clock::now();
-    work->Result = Generate(at, std::move(landing), request, *work);
-    GenerationMs_.fetch_add(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-  });
+  if (work->InputState == Data::SourceDelivery::State::Refused) {
+    return SourceDelivery{.Status = State::Refused, .Product = {}};
+  }
+  work->Task = Compute_.Post([this, work, at, request] { PollSource(at, request, *work); });
   if (work->Task == Tasks::kNoTask) {
     work->Result = std::unexpected("native OSM tile generation was not accepted");
     return std::unexpected(std::string_view(work->Result.error()));
@@ -227,6 +221,47 @@ PreparedOsmTiles::Advance(Data::SourceReader &sources,
   work->Generating = true;
   ++Generating_;
   return SourceDelivery{};
+}
+
+void PreparedOsmTiles::PollSource(TileAt at, const std::string &request, Work &work) {
+  if (work.Cancelled.load()) {
+    work.Input.reset();
+    return;
+  }
+  if (!work.Input) {
+    auto read = Data::SourceSession::Request(
+        Sources_,
+        Data::SourceRequest(Data::DataKind::VectorMap,
+                            Data::Address::At({.Zoom = work.Definition.Zoom,
+                                               .X = static_cast<uint32_t>(at.X),
+                                               .Y = static_cast<uint32_t>(at.Y)})),
+        Transport_);
+    if (!read) {
+      work.Result = std::unexpected(std::move(read.error()));
+      return;
+    }
+    work.Input.emplace(std::move(*read));
+  }
+  auto delivery = work.Input->Poll();
+  work.InputState = delivery.Where();
+  if (work.InputState == Data::SourceDelivery::State::Pending) { return; }
+  work.Input.reset();
+  if (work.InputState != Data::SourceDelivery::State::Delivered) {
+    if (work.InputState == Data::SourceDelivery::State::Consumed) {
+      work.Result = std::unexpected("native OSM source reader returned no payload");
+    }
+    return;
+  }
+  auto landing = delivery.Take();
+  if (!landing) {
+    work.Result = std::unexpected("native OSM source reader returned no payload");
+    return;
+  }
+  work.Stage = Work::Phase::Generate;
+  const auto began = std::chrono::steady_clock::now();
+  work.Result = Generate(at, std::move(*landing), request, work);
+  GenerationMs_.fetch_add(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
 }
 
 PreparedOsmTiles::Counters PreparedOsmTiles::Costs() const noexcept {
