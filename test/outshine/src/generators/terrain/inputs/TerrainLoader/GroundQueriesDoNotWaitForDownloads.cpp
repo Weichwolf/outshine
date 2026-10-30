@@ -130,7 +130,7 @@ int main() {
                               return identity.SourceId == "delayed" && identity.Revision == "r1";
                             }),
         "height snapshot retains provider revision");
-  auto terrain = std::make_shared<Ground::TerrainField>(2, 2);
+  const auto terrain = std::make_shared<Ground::TerrainField>(2, 2);
   for (uint32_t row = 0; row < 2; ++row) {
     for (uint32_t column = 0; column < 2; ++column) { terrain->SetM(row, column, 42.0f); }
   }

@@ -131,7 +131,7 @@ void CheckPhysicalPlane(const PreparedStructureTile &base) {
 }
 
 int main() {
-  auto fixture = Inputs();
+  const auto fixture = Inputs();
   if (!fixture.Heights) { return Report(); }
   const auto base = PrepareStructureTile(fixture.Raw, *fixture.Heights);
   CHECK(base && base->Structures.size() == 3, "all recipe classes prepare from the sloping DEM");

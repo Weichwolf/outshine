@@ -15,7 +15,7 @@ int main() {
   const Data::TileId child{.Zoom = 2, .X = 0, .Y = 0};
   const auto stamp = *index.IssueDeliveryStamp(parent);
   for (const bool partial : {false, true}) {
-    auto raster = std::make_shared<TerrainField>(2, 2);
+    const auto raster = std::make_shared<TerrainField>(2, 2);
     raster->AddSource({.Kind = Data::DataKind::Elevation,
                        .Tile = parent,
                        .SourceId = "certificate-dem",
@@ -39,7 +39,7 @@ int main() {
                 block.Certificate.Dependencies()[0] == stamp,
             "transfer retains exact registration and delivery identity");
       const auto zoom = block.At.Zoom;
-      auto field = HeightField::Of(zoom, {std::move(block)});
+      const auto field = HeightField::Of(zoom, {std::move(block)});
       CHECK(field && field->Certificate().IsComplete() == !partial,
             "height input never promotes a partial certificate");
       CHECK(field && index.AreCurrent(field->Certificate().Dependencies()),
