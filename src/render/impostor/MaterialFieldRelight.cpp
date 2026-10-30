@@ -18,16 +18,21 @@
 
 namespace outshine::Render {
 namespace {
-Native::Result<FrameContext> FrameOf(const Viewpoint &camera, Extent extent) {
+bool ValidCameraBasis(const Viewpoint &camera) {
   const auto finite = [](const auto &values) {
     return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
   };
-  if (!finite(camera.EyeM) || !finite(camera.Right) || !finite(camera.Up) ||
-      !finite(camera.Forward) ||
-      std::abs(Dot(camera.Right, camera.Right) - 1) > kMaterialFieldUnitTolerance ||
-      std::abs(Dot(camera.Up, camera.Up) - 1) > kMaterialFieldUnitTolerance ||
-      std::abs(Dot(camera.Forward, camera.Forward) - 1) > kMaterialFieldUnitTolerance ||
-      Dot(Cross(camera.Right, camera.Up), camera.Forward) > -1 + kMaterialFieldUnitTolerance) {
+  return (camera.Kind == CameraKind::Perspective || camera.Kind == CameraKind::Orthographic) &&
+         finite(camera.EyeM) && finite(camera.Right) && finite(camera.Up) &&
+         finite(camera.Forward) &&
+         std::abs(Dot(camera.Right, camera.Right) - 1) <= kMaterialFieldUnitTolerance &&
+         std::abs(Dot(camera.Up, camera.Up) - 1) <= kMaterialFieldUnitTolerance &&
+         std::abs(Dot(camera.Forward, camera.Forward) - 1) <= kMaterialFieldUnitTolerance &&
+         Dot(Cross(camera.Right, camera.Up), camera.Forward) <= -1 + kMaterialFieldUnitTolerance;
+}
+
+Native::Result<FrameContext> FrameOf(const Viewpoint &camera, Extent extent) {
+  if (!ValidCameraBasis(camera)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "material field camera has an invalid basis"});
   }
@@ -47,6 +52,30 @@ Native::Result<FrameContext> FrameOf(const Viewpoint &camera, Extent extent) {
     }
     frame.ViewPosition[3] = 0;
   }
+  return frame;
+}
+
+Native::Result<FrameContext> FrameOf(const MaterialFieldView &view, Extent extent) {
+  auto frame = FrameOf(view.Camera, extent);
+  if (!frame || !view.LightingCamera) { return frame; }
+  const auto &camera = *view.LightingCamera;
+  if (!ValidCameraBasis(camera)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "material field lighting camera has an invalid basis"});
+  }
+  const bool parallel = camera.Kind == CameraKind::Orthographic;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double value =
+        parallel ? -camera.Forward[axis] : camera.EyeM[axis] + frame->PreViewTranslation[axis];
+    if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max()) {
+      return std::unexpected(
+          Native::Error{.Kind = Native::ErrorKind::Invalid,
+                        .Message = "material field lighting eye exceeds its frame"});
+    }
+    frame->ViewPosition[axis] = static_cast<float>(value);
+  }
+  frame->ViewPosition[3] = parallel ? 0 : 1;
   return frame;
 }
 
@@ -168,7 +197,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "material field lighting is invalid"});
   }
-  auto frame = FrameOf(view.Camera, data->Raster);
+  auto frame = FrameOf(view, data->Raster);
   if (!frame) { return std::unexpected(frame.error()); }
   if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Cancelled,
@@ -226,7 +255,8 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
                                                .Produced = *produced,
                                                .Encoding = view.Encoding}),
                              .Depth = depth,
-                             .Camera = view.Camera};
+                             .Camera = view.Camera,
+                             .LightingCamera = view.LightingCamera.value_or(view.Camera)};
   state.Last = *produced;
   state.InFlight.push_back(
       {.Completion = *produced, .Source = data, .Images = images, .Scratch = std::move(scratch)});
