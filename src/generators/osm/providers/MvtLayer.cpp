@@ -459,9 +459,9 @@ std::expected<void, MvtLayer::ParseError> MvtLayer::Decode(std::span<const uint8
     if (*header.Version != 2) { return std::unexpected(ParseError::UnsupportedVersion); }
     Extent_ = static_cast<int>(header.Extent);
 
-    const auto featureBodies = ReadLayerTables(std::span(L.P, L.End));
-    if (!featureBodies) { return std::unexpected(featureBodies.error()); }
-    const auto decoded = DecodeFeatures(*featureBodies);
+    const auto features = ReadLayerTables(std::span(L.P, L.End));
+    if (!features) { return std::unexpected(features.error()); }
+    const auto decoded = DecodeFeatures(*features);
     if (!decoded) { return decoded; }
     found = true;
   }
@@ -470,43 +470,51 @@ std::expected<void, MvtLayer::ParseError> MvtLayer::Decode(std::span<const uint8
   return {};
 }
 
-std::expected<std::vector<std::span<const uint8_t>>, MvtLayer::ParseError>
+std::expected<std::span<const uint8_t>, MvtLayer::ParseError>
 MvtLayer::ReadLayerTables(std::span<const uint8_t> bytes) {
   Reader L{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
   FieldHeader field;
-  std::vector<std::span<const uint8_t>> featureBodies;
-  while (L.ReadField(field)) {
+  std::span<const uint8_t> features(bytes.data() + bytes.size(), size_t{0});
+  for (;;) {
+    const auto *start = L.P;
+    if (!L.ReadField(field)) { break; }
     if (field.Number == 3 && field.Wire == 2) {
       const Reader s = L.Bytes();
       if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
       Keys_.emplace_back(reinterpret_cast<const char *>(s.P), static_cast<size_t>(s.End - s.P));
     } else if (field.Number == 4 && field.Wire == 2) {
       const auto body = L.Bytes();
-      if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
       auto value = ReadValue(body);
       if (!value) { return std::unexpected(ParseError::InvalidTile); }
       Values_.push_back(value->Number);
       ValueStrs_.push_back(std::move(value->Text));
       ValueIsNum_.push_back(value->IsNumber);
     } else if (field.Number == 2 && field.Wire == 2) {
-      const Reader body = L.Bytes();
+      (void)L.Bytes();
       if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-      featureBodies.emplace_back(body.P, body.End);
+      features = std::span(features.empty() ? start : features.data(), L.P);
     } else if (!L.Skip(field.Wire)) {
       return std::unexpected(ParseError::InvalidTile);
     }
   }
 
   if (!L.Ok) { return std::unexpected(ParseError::InvalidTile); }
-  return featureBodies;
+  return features;
 }
 
 std::expected<void, MvtLayer::ParseError>
-MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies) {
+MvtLayer::DecodeFeatures(std::span<const uint8_t> layerBytes) {
+  Reader layer{.P = layerBytes.data(), .End = layerBytes.data() + layerBytes.size(), .Ok = true};
+  FieldHeader field;
   EncodedFeature encoded;
-  for (const auto bytes : featureBodies) {
-    const Reader body{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
-    if (!ReadFeature(body, encoded) || !ValidTags(encoded.Tags, Keys_.size(), Values_.size()) ||
+  while (layer.ReadField(field)) {
+    if (field.Number != 2 || field.Wire != 2) {
+      if (!layer.Skip(field.Wire)) { return std::unexpected(ParseError::InvalidTile); }
+      continue;
+    }
+    const Reader body = layer.Bytes();
+    if (!layer.Ok || !ReadFeature(body, encoded) ||
+        !ValidTags(encoded.Tags, Keys_.size(), Values_.size()) ||
         encoded.Tags.size() > std::numeric_limits<uint32_t>::max() - Tags_.size()) {
       return std::unexpected(ParseError::InvalidTile);
     }
@@ -515,7 +523,7 @@ MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies
     f.Type = encoded.Type;
     f.ProviderFeatureId = encoded.ProviderFeatureId;
     f.HasContentDigest = true;
-    f.ContentDigest = Sha256Digest(bytes.data(), bytes.size());
+    f.ContentDigest = Sha256Digest(body.P, static_cast<size_t>(body.End - body.P));
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
@@ -525,6 +533,7 @@ MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies
     f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
     Features_.push_back(f);
   }
+  if (!layer.Ok) { return std::unexpected(ParseError::InvalidTile); }
   return {};
 }
 

@@ -361,6 +361,14 @@ target_include_directories(test_harness_osm_native_tile_decode PRIVATE
 target_compile_options(test_harness_osm_native_tile_decode PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_osm_native_tile_decode PRIVATE outshine_generators_osm)
 
+add_executable(test_harness_osm_prepare EXCLUDE_FROM_ALL
+  test/experiments/osm/native_tile_prepare_cost.cpp
+  test/harness/shared/CppAllocationProbe.cpp)
+target_include_directories(test_harness_osm_prepare PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared")
+target_compile_options(test_harness_osm_prepare PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_osm_prepare PRIVATE outshine_generators_osm)
+
 add_executable(test_harness_weather_snapshot EXCLUDE_FROM_ALL
   test/experiments/weather/weather_snapshot.cpp)
 target_link_libraries(test_harness_weather_snapshot PRIVATE outshine_generators_weather
