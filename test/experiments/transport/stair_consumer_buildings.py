@@ -45,7 +45,7 @@ def body_query(identity, mesh, dz):
     return world, BuildingFootprint(identity, projected_domain(world), heights)
 
 
-def one(row, neighbors, data, query, view):
+def one(row, neighbors, data, query, view, *, construction=None, admission=None):
     contact = root_contact(data, row["polygon"])
     local_frame = contact["world_frame"] + ":flat-architecture:" + row["id"]
     dz = contact["root_enu_m"][2]
@@ -55,6 +55,9 @@ def one(row, neighbors, data, query, view):
     footprint = BuildingFootprint(row["id"], row["polygon"], requested.heights)
     cut, cost = query.conflict(footprint)
     remaining = polygonal_conflict(row["polygon"].difference(cut))
+    construction_note = None
+    if construction is not None:
+        remaining, construction_note = construction(remaining)
     bodies, receipts, reservations, unbuilt = [], [], [], []
     for part, polygon in enumerate(shapely.get_parts(remaining)):
         if polygon.is_empty:
@@ -76,7 +79,9 @@ def one(row, neighbors, data, query, view):
             )
             continue
         world, occupied = body_query(row["id"], actual, dz)
-        residual, checked = query.conflict(occupied)
+        residual, checked = (query if admission is None else admission).conflict(
+            occupied
+        )
         if not residual.is_empty:
             raise OccupancyError("actual architecture body still enters transport")
         bodies.append(world)
@@ -107,12 +112,17 @@ def one(row, neighbors, data, query, view):
             "query": cost,
             "original_producer": original_info,
             "products": receipts,
+            **(
+                {"construction": construction_note}
+                if construction_note is not None
+                else {}
+            ),
             **({"unbuilt_parts": unbuilt} if unbuilt else {}),
         },
     )
 
 
-def buildings(data, query, *, maximum=128):
+def buildings(data, query, *, maximum=128, construction=None, admission=None):
     rows, rejected = source_rows(data, "building")
     context = attach(
         rows,
@@ -130,7 +140,15 @@ def buildings(data, query, *, maximum=128):
             if index >= maximum:
                 raise ValueError("architecture source-part budget exhausted")
             neighbors = [r for r in rows if r["id"] != row["id"]]
-            old, bodies, occupied, receipt = one(row, neighbors, data, query, view)
+            old, bodies, occupied, receipt = one(
+                row,
+                neighbors,
+                data,
+                query,
+                view,
+                construction=construction,
+                admission=admission,
+            )
             before.append(old)
             after.extend(bodies)
             reservations.extend(occupied)

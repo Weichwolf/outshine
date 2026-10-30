@@ -27,7 +27,15 @@ def meshes(path):
 
 
 def check_bodies(
-    data, ledger, before, after, reservations, query, *, planning_query=None
+    data,
+    ledger,
+    before,
+    after,
+    reservations,
+    query,
+    *,
+    planning_query=None,
+    construction=None,
 ):
     originals, rejected = source_rows(data, "building")
     by_id = {r["id"]: r for r in originals}
@@ -74,6 +82,14 @@ def check_bodies(
             method="scan",
         )
         remaining = polygonal_conflict(original["polygon"].difference(cut))
+        if construction is not None:
+            remaining, expected = construction(remaining)
+            if result.get("construction") != expected:
+                raise ValueError(
+                    "Saved whole construction model or requested boundary changed"
+                )
+        elif "construction" in result:
+            raise ValueError("Saved construction requires its explicit consumer model")
         verify_parts(remaining, result, row["id"])
         for part in result["products"]:
             _, body = body_query(row["id"], after[j], 0)

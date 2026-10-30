@@ -7,6 +7,7 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import BuildingFootprint, HeightInterval, LocalFrame, Mesh
 from outshine_ref.transport.supports import SupportVolumeBuilder
+from rail_building_grid import BAND_M, construct
 from rail_occupancy_guard import RoundingGuardQuery, round_bounds
 from rail_occupancy_inputs import RailProducts, deck_asset, supplements
 from rail_occupancy_reference import whole_raised
@@ -158,9 +159,7 @@ class RaisedVolumeHandoff(unittest.TestCase):
 
         raw, _work = query.conflict(probe)
         self.assertGreater(actual_conflict(raw).area, 0)
-        guarded = RoundingGuardQuery(
-            CandidateQuery(CandidateVolumes(self.frame, ())), query, round_bounds(rail)
-        )
+        guarded = RoundingGuardQuery(query, round_bounds(rail))
         cut, work = guarded.conflict(probe)
         self.assertTrue(actual_conflict(cut).is_empty)
         self.assertTrue(raw.difference(cut).is_empty)
@@ -179,13 +178,83 @@ class RaisedVolumeHandoff(unittest.TestCase):
         )
         raised = CandidateVolumes(self.frame, supplements(self.rail))
         query = RoundingGuardQuery(
-            CandidateQuery(old), CandidateQuery(raised), round_bounds(self.rail)
+            CandidateQuery(
+                CandidateVolumes(self.frame, (*old.sources, *raised.sources))
+            ),
+            round_bounds(self.rail),
         )
         probe = BuildingFootprint(
             "underpass", shapely.box(1, 0, 2, 1), HeightInterval(0, 1)
         )
         with self.assertRaisesRegex(OccupancyError, "product_budget_exhausted"):
             query.conflict(probe)
+
+
+class BinaryBuildingConstruction(unittest.TestCase):
+    def test_binary_domain_keeps_courtyard_and_actual_rounded_roof(self):
+        from building_mesh import solid
+        from stair_consumer_buildings import projected_domain
+
+        original = shapely.Polygon(
+            [
+                (0.1234567, 0),
+                (10.1234567, 0),
+                (10.1234567, 4),
+                (5.1234567, 4),
+                (5.1234567 + 1e-12, 4 - 1e-12),
+                (0.1234567, 4),
+            ],
+            holes=[[(2, 1), (3, 1), (3, 2), (2, 2)]],
+        )
+        actual, note = construct(original)
+        self.assertEqual(note["requested_holes"], note["constructed_holes"])
+        self.assertTrue(original.buffer(-BAND_M, join_style="mitre").covered_by(actual))
+        self.assertTrue(actual.covered_by(original.buffer(BAND_M, join_style="mitre")))
+        storage = ([], [], [], [])
+        solid(storage, actual, 0, 4, 0)
+        body = Mesh(storage[0], storage[1])
+        np.testing.assert_array_equal(
+            body.vertices, body.vertices.astype("f4").astype(float)
+        )
+        self.assertTrue(projected_domain(body).equals(actual))
+        self.assertEqual(note["omitted_requested_parts"], [])
+
+    def test_whole_collapse_and_courtyard_filling_are_refused(self):
+        with self.assertRaisesRegex(ValueError, "collapses"):
+            construct(shapely.box(0, 0, 1e-7, 1e-7))
+        source = shapely.Polygon(
+            [(0, 0), (4, 0), (4, 4), (0, 4)],
+            holes=[[(2, 2), (2 + 1e-7, 2), (2 + 1e-7, 2 + 1e-7), (2, 2 + 1e-7)]],
+        )
+        with self.assertRaisesRegex(ValueError, "courtyard"):
+            construct(source)
+
+    def test_local_collapsed_component_retains_original_shape_and_reason(self):
+        source = shapely.MultiPolygon(
+            [shapely.box(0, 0, 4, 4), shapely.box(10, 10, 10 + 1e-7, 10 + 1e-7)]
+        )
+        actual, note = construct(source)
+        self.assertTrue(actual.equals(shapely.box(0, 0, 4, 4)))
+        self.assertEqual(note["requested_parts"], 2)
+        self.assertEqual(note["constructed_parts"], 1)
+        self.assertEqual(
+            note["omitted_requested_parts"],
+            [
+                {
+                    "input_part": 1,
+                    "reason": "below_binary_construction_precision",
+                    "footprint_wkb": shapely.get_parts(source)[1].wkb_hex,
+                }
+            ],
+        )
+
+    def test_far_coordinates_and_invalid_domains_are_not_silently_snapped(self):
+        for source in (
+            shapely.box(8190, 0, 8191, 1),
+            shapely.Polygon([(0, 0), (2, 2), (0, 2), (2, 0)]),
+        ):
+            with self.assertRaisesRegex(ValueError, "valid local"):
+                construct(source)
 
 
 if __name__ == "__main__":
