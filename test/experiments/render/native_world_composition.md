@@ -10,10 +10,10 @@ The previously opened equations/figures and its disocclusion limitation apply.
 ## Inputs and actual ownership
 
 `native_world_inputs.py` reads the versioned
-`test/outshine/data/render/building-world-opponents` packet. It checks all36
-logical arrays,23 unique physical arrays, full native buffer reconstruction,
+`test/outshine/data/render/building-world-opponents` packet. It checks all 36
+logical arrays, 23 unique physical arrays, full native buffer reconstruction,
 actual executed requests/effective cameras, separate World PBR observer and
-the19 unchanged original operands with1558 sources/38476 triangles. Native
+the 19 unchanged original operands with 1558 sources/38476 triangles. Native
 original unions and repeats are independently recomputed, not trusted because
 their manifest says they passed. Aliases share read-only arrays.
 
@@ -26,39 +26,39 @@ consumer and its IO/preparation is not timed as field sampling.
 
 Effective native Lens matrices/pre-view translation are used as real geometric
 operands. Their producer explicitly recomputed them rather than reading GPU
-uniforms. A whole-original capture-volume check records all78374 vertices and
+uniforms. A whole-original capture-volume check records all 78374 vertices and
 its numerical margins. This does not supply a conservative GPU arithmetic bound.
 Missing runtime WorldFromField/live revision stay null. They do not prevent
 the declared frozen comparison and are never fabricated to enable runtime use.
 
 ## World sampling and local fallback
 
-`compare_native_world_fields.py` reprojects the coupled128² source C/coverage/
+`compare_native_world_fields.py` reprojects the coupled 128² source C/coverage/
 raw depth to actual World sample positions, then orders source and native
 terrain/opening at those same samples. The joint result is filtered once.
 The independent-filter/global-over image remains an explicit negative opponent.
 
-The output profile is always1280×720. `--sample-axis 1` uses the existing native
+The output profile is always 1280×720. `--sample-axis 1` uses the existing native
 1280×720 point raster; it is a finite pixel-centre comparison, not a converged
-pixel integral. `--sample-axis 2` requires an actual2560×1440 native reference
-and resolves its common2×2 samples to1280×720. Applying it to the old1280×720
-packet is refused; it must not silently qualify640×360. Odd crop origins and
+pixel integral. `--sample-axis 2` requires an actual 2560×1440 native reference
+and resolves its common 2×2 samples to 1280×720. Applying it to the old 1280×720
+packet is refused; it must not silently qualify 640×360. Odd crop origins and
 ends retain global pixel phase; all added border samples are proven clear by
 the lossless full-buffer reconstruction.
 
-The explicit working comparison limits are maximum0.25 per existing native
-linear HDR RGB component and0.125 visible-source coverage per output pixel.
+The explicit working comparison limits are maximum 0.25 per existing native
+linear HDR RGB component and 0.125 visible-source coverage per output pixel.
 CLI values/report units make them reviewable; these are research limits, not a
 new general product/camera-response budget. They allow nonzero error and do
 not require bitwise proxy reconstruction of originals. The current unfiltered
 point inputs fail them; their sparse point aliasing does not establish the
 filtered720p result either way.
 
-Final union alpha is insufficient: opaque terrain can make it exactly1 even
+Final union alpha is insufficient: opaque terrain can make it exactly 1 even
 when the source silhouette is wrong. Visible source coverage is therefore
 measured separately after depth ordering, before/after the common sample mean.
-The finite near-pose source has11 mask disagreements despite zero union-alpha
-error; the geometric0.0763px bound alone cannot accept those samples.
+The finite near-pose source has 11 mask disagreements despite zero union-alpha
+error; the geometric 0.0763px bound alone cannot accept those samples.
 
 On excessive error or incomplete model evaluation, the selected whole source
 group retains its original point product. Those actual original samples are
@@ -68,6 +68,7 @@ four native unions exactly. Stale PBR-view reuse is refused before reprojection;
 identical-observer repeat names may reuse their semantically identical capture.
 Per-frame comparison against an oracle is not proposed as runtime admission.
 Native live selection needs a qualified pose/error/light contract separately.
+A missing qualified envelope selects the original before field sampling.
 Fine original IO/residency remains necessary on group fallback. Other groups,
 shadow/simulation needs and their independently owned products are unchanged.
 
@@ -80,8 +81,8 @@ inside it. A volume crossing the eye or leaving the bounded reference crop
 retains the original group. The2px numerical/diagnostic border is not a newly
 certified GPU margin.
 
-On identical whole model outputs, near pose needs484 instead of3136 rays and
-the side pose1240 instead of4880. Visited cells remain584 and8934 respectively:
+On identical whole model outputs, near pose needs 484 instead of 3136 rays and
+the side pose 1240 instead of 4880. Visited cells remain 584 and 8934 respectively:
 the omitted rays would not visit a source cell. Colour/depth/model-evaluation
 arrays remain exactly equal. This equality qualifies an optimization of the
 same approximation, not its image quality against original geometry.
@@ -98,9 +99,9 @@ loading, fixture checks, correctness/rendering and imports precede timing.
 
 The existing #1716 driver also keeps complete original-Capture and field-Capture
 C/coverage/depth pairs separate. No colour/mask/depth is mixed across them.
-The original-capture depth-cell model still reaches0.3125 native SS16 coverage
+The original-capture depth-cell model still reaches 0.3125 native SS16 coverage
 error versus the World original; the field/original reprojected captures differ
-by at most0.0625 coverage on that opponent. Their HDR maxima are1.8153 and1.8680,
+by at most 0.0625 coverage on that opponent. Their HDR maxima are 1.8153 and 1.8680,
 not a monotonic improvement from using original capture. Fixing only the field
 capture approximation cannot remove this observed novel-raster residual.
 The residual also includes resampling, disocclusion, frozen radiance and finite
@@ -130,7 +131,7 @@ sparse oversized payloads, forged huge NPY shape before NumPy, input replacement
 after validation, PBR mismatch, global sample phase and the opaque-union trap.
 
 Remaining P0 input is the common subpixel native World reference requested in
-#1797/6528716212. It will decide filtered image acceptance at the same720p output
+#1797/6528716212. It will decide filtered image acceptance at the same 720p output
 profile; no smaller profile or silent higher error limit replaces it. Capture
 pose/visibility/radiance/error qualification, actual native World consumer,
 GPU depth/shadows/resource lifetime and both full device budgets remain open.

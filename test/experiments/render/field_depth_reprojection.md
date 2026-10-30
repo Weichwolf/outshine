@@ -113,7 +113,7 @@ may still require its entire fine asset, so local pixel fallback alone proves
 no IO/residency saving. Main/shadow depth, other shading passes and GPU lifetime
 remain native consumer obligations.
 
-The concrete remaining native packet is requested in #1797/6527093219: actual
+The concrete native packet was requested in #1797/6527093219: actual
 terrain/source/union World opponents for a small positive pose change and a
 lateral/disoccluding negative, with submitted projection/frame/sample operands.
 No live revision is fabricated and no CPU result lowers the native LOD bound.
