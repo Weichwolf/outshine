@@ -1,6 +1,7 @@
 #include "OsmField.h"
 #include "BinaryValueArchive.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -77,6 +78,56 @@ struct NativeReader : BinaryValueReader {
   size_t Remaining;
 };
 
+struct NativeSizeReader : BinaryValueReader {
+  static constexpr bool Reading = true;
+
+  NativeSizeReader(std::span<const uint8_t> bytes, size_t most)
+      : BinaryValueReader(bytes), Most(most) {}
+
+  using BinaryValueReader::Value;
+
+  template <class... T> bool operator()(T &...value) { return (Value(value) && ...); }
+
+  template <size_t N> bool Value(std::array<uint8_t, N> &value) {
+    return In.Take(value.size()).has_value();
+  }
+
+  bool Add(size_t count, size_t width = 1) {
+    if (Bytes > Most || count > (Most - Bytes) / width) { return false; }
+    Bytes += count * width;
+    return true;
+  }
+
+  bool String(const std::string &text) {
+    uint32_t length = 0;
+    return (*this)(length) && In.Take(length).has_value() && Add(length, 2) &&
+           Add(text.capacity() + 2);
+  }
+
+  template <class T> bool Array(const std::vector<T> &items) {
+    uint32_t count = 0;
+    return (*this)(count) && count <= items.max_size() && count <= In.Remaining() / sizeof(T) &&
+           Add(count, sizeof(T)) && In.Take(static_cast<size_t>(count) * sizeof(T)).has_value();
+  }
+
+  template <class T, class Each> bool Sequence(const std::vector<T> &items, Each each) {
+    uint32_t count = 0;
+    if (!(*this)(count) || count > items.max_size() || count > In.Remaining() ||
+        !Add(count, sizeof(T))) {
+      return false;
+    }
+    for (uint32_t at = 0; at < count; ++at) {
+      T item{};
+      if (!each(*this, item)) { return false; }
+    }
+    return true;
+  }
+
+  size_t Bytes = sizeof(OsmField) + sizeof(OsmField::Tile) + sizeof(uint64_t) +
+                 2 * (4 * sizeof(void *) + sizeof(uint8_t));
+  size_t Most;
+};
+
 template <class Archive, class T> bool Optional(Archive &archive, T &value) {
   Transfer<Archive, bool> present = value.has_value();
   if (!archive(present)) { return false; }
@@ -96,6 +147,21 @@ bool Range(uint32_t first, uint32_t count, size_t size) {
 }
 
 struct OsmField::NativeCodec {
+  struct Layout {
+    int Zoom_ = 0, Extent_ = 0;
+    MvtSchema Schema_ = MvtSchema::Shortbread;
+    long Missing_ = 0;
+    std::array<OsmField::Tile, 1> Tiles_;
+    decltype(OsmField::Layers_) Layers_;
+    decltype(OsmField::Points_) Points_;
+    decltype(OsmField::Tags_) Tags_;
+    decltype(OsmField::Keys_) Keys_;
+    decltype(OsmField::Strings_) Strings_;
+    decltype(OsmField::Values_) Values_;
+    decltype(OsmField::Rings_) Rings_;
+    decltype(OsmField::Features_) Features_;
+  };
+
   template <class Archive, class Field> static bool Values(Archive &archive, Field &field) {
     const auto text = [](auto &in, auto &value) { return in.String(value); };
     return archive.Sequence(field.Layers_, text) && archive.Array(field.Points_) &&
@@ -235,6 +301,8 @@ std::optional<std::vector<uint8_t>> OsmField::EncodeNativeTile(size_t bytesMost)
 std::unique_ptr<OsmField> OsmField::DecodeNativeTile(std::span<const uint8_t> bytes,
                                                      size_t bytesMost) {
   if (bytes.size() > bytesMost) { return {}; }
+  const auto required = NativeTileDecodeBytes(bytes, bytesMost);
+  if (!required) { return {}; }
   NativeReader in(bytes, bytesMost);
   uint32_t version = 0;
   auto field = std::make_unique<OsmField>(0, std::span<const std::string>{});
@@ -255,5 +323,19 @@ std::unique_ptr<OsmField> OsmField::DecodeNativeTile(std::span<const uint8_t> by
   field->Settled_.push_back((static_cast<uint64_t>(static_cast<uint32_t>(tile.X)) << 32u) |
                             static_cast<uint32_t>(tile.Y));
   return field->HeapBytes() <= bytesMost ? std::move(field) : nullptr;
+}
+
+std::optional<size_t> OsmField::NativeTileDecodeBytes(std::span<const uint8_t> bytes,
+                                                      size_t bytesMost) {
+  NativeSizeReader in(bytes, bytesMost);
+  if (in.Bytes > bytesMost) { return std::nullopt; }
+  uint32_t version = 0;
+  NativeCodec::Layout layout;
+  if (!in(version) || version != kNativeTileVersion || !NativeCodec::Metadata(in, layout) ||
+      !NativeCodec::Tile(in, layout) || !NativeCodec::Values(in, layout) ||
+      in.In.Remaining() != 0) {
+    return std::nullopt;
+  }
+  return in.Bytes;
 }
 }
