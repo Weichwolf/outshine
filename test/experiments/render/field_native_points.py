@@ -105,10 +105,12 @@ def read_file(path, size, expected):
     ):
         raise ValueError("Pinned native raw file size/SHA256 required")
     with path.open("rb") as stream:
-        raw = stream.read(size + 1)
-    if len(raw) != size or hashlib.sha256(raw).hexdigest() != expected:
+        raw = np.fromfile(stream, dtype="<f4", count=size // 4)
+        trailing = stream.read(1)
+    if trailing or raw.nbytes != size or hashlib.sha256(raw).hexdigest() != expected:
         raise ValueError("Native raw payload changed or differs from its pin")
-    return np.frombuffer(raw, dtype="<f4")
+    raw.setflags(write=False)
+    return raw
 
 
 def read_native_points(
@@ -129,6 +131,7 @@ def read_native_points(
     operands for source_depth or lighting_observer, or normalize either camera.
     """
     binding, capture = native_binding(record, provenance, texels_most=texels_most)
+    binding = replace(binding, sample_revision=(colour_sha256, depth_sha256))
     shape = capture["height_px"], capture["width_px"]
     size = shape[0] * shape[1]
     rgba = read_file(colour_path, size * 16, colour_sha256).reshape(*shape, 4)

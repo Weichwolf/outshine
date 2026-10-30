@@ -101,9 +101,15 @@ def baseline_compose(commit, a, b, output):
     module = runpy.run_path(str(snapshot))
 
     def convert(s):
-        binding = module["SampleBinding"](
-            **{k: getattr(s.binding, k) for k in s.binding.__dataclass_fields__}
-        )
+        values = {
+            k: getattr(s.binding, k)
+            for k in module["SampleBinding"].__dataclass_fields__
+        }
+        # The old arithmetic baseline has no fixture mode. Its context token is
+        # used only for this same-fixture value/cost comparison, never a World.
+        if values["world_revision"] is None:
+            values["world_revision"] = s.binding.fixture_revision
+        binding = module["SampleBinding"](**values)
         return module["PointSamples"](binding, s.rgba, s.reverse_z, s.error, s.known)
 
     left, right = convert(a), convert(b)
@@ -162,9 +168,16 @@ def run(args):
     original, provenance, _raw, capture, rays, shape = load(args.inputs)
     if provenance != control["originals"]:
         raise ValueError("Same complete original and exact capture subset required")
-    binding = SampleBinding(
-        **dict(control["binding"], sources=tuple(control["binding"]["sources"]))
+    fields = dict(control["binding"])
+    fields["sources"] = tuple(fields["sources"])
+    fields["sample_revision"] = tuple(fields.get("sample_revision", ()))
+    # Legacy reports from this controlled geometry study called their fixture
+    # identity world_revision. Keep that identity diagnostic-only on input.
+    fields["fixture_revision"] = (
+        fields.get("fixture_revision") or fields["world_revision"]
     )
+    fields["world_revision"] = None
+    binding = SampleBinding(**fields)
     path = args.control / (args.case + ".npz")
     row = next(v for v in control["cases"] if v["name"] == path.stem)
     if digest(path) != row["arrays_sha256"]:

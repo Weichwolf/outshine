@@ -1,6 +1,7 @@
 """Finite registered-point opponents; current native PBR/World admission stays separate."""
 
 import argparse
+import hashlib
 import json
 import subprocess
 import time
@@ -32,11 +33,20 @@ DATA = (
 
 
 def bound(values, binding):
-    return PointSamples(binding, *values, np.ones(values[1].shape, bool))
+    revision = tuple(
+        hashlib.sha256(np.ascontiguousarray(value)).hexdigest() for value in values[:2]
+    )
+    return PointSamples(
+        replace(binding, sample_revision=revision),
+        *values,
+        np.ones(values[1].shape, bool),
+    )
 
 
 def compose(a, b):
-    return compose_registered(a, b, wanted_a=a.binding, wanted_b=b.binding)
+    return compose_registered(
+        a, b, wanted_a=a.binding, wanted_b=b.binding, diagnostic_fixture=True
+    )
 
 
 def reduced(image):
@@ -67,7 +77,9 @@ def fallback_controls(a, native, capture):
     results = {"unknown_native_coverage_or_depth": compose(native, a)}
     for key, value in changes.items():
         wanted = replace(binding, **{key: value})
-        results[key] = compose_registered(a, a, wanted_a=wanted, wanted_b=wanted)
+        results[key] = compose_registered(
+            a, a, wanted_a=wanted, wanted_b=wanted, diagnostic_fixture=True
+        )
     invalid = a.rgba.copy()
     invalid[0, 0, 0] = np.nan
     results["invalid_sample_value"] = compose(replace(a, rgba=invalid), a)
@@ -186,7 +198,7 @@ def run(args):
     binding = SampleBinding(
         "unchanged-native-source-frame",
         canonical(provenance["capture_subset"]),
-        digest(args.inputs / "original-geometry/manifest.json"),
+        None,
         (
             "whole-native-group:"
             + digest(args.inputs / "original-geometry/geometry.npz"),
@@ -194,6 +206,7 @@ def run(args):
         "explicit-uniform-HDR-Lambert-control",
         "directional-0.3-0.8-0.5-plus-ambient",
         canonical(capture["eye_m"]),
+        fixture_revision=digest(args.inputs / "original-geometry/manifest.json"),
     )
     a = bound(point_image(original, rays, capture, shape), binding)
     ground = terrain(original, capture)

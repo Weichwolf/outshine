@@ -100,6 +100,25 @@ class NativePointTests(unittest.TestCase):
         np.testing.assert_array_equal(actual.rgba, self.rgba)
         self.assertEqual(actual.binding, self.read().binding)
 
+    def test_new_payload_with_same_source_and_camera_changes_sample_revision(self):
+        before = self.read()
+        changed = self.rgba.copy()
+        changed[0, 0, 0] += 0.01
+        changed.tofile(self.colour)
+        self.pins["colour_sha256"] = hashlib.sha256(
+            self.colour.read_bytes()
+        ).hexdigest()
+        after = self.read()
+        self.assertEqual(before.binding.sources, after.binding.sources)
+        self.assertEqual(before.binding.capture, after.binding.capture)
+        self.assertNotEqual(
+            before.binding.sample_revision, after.binding.sample_revision
+        )
+        result = compose_registered(
+            after, before, wanted_a=before.binding, wanted_b=before.binding
+        )
+        self.assertEqual(result.reason, "changed_source_material_or_demand")
+
     def test_pbr_identity_uses_eye_for_perspective_direction_for_orthographic(self):
         original = record()
         base, _ = native_binding(original, provenance())

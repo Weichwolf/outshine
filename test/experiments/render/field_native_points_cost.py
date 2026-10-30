@@ -37,15 +37,31 @@ def owned_file(path, size, expected):
     return result
 
 
+def bytes_file(path, size, expected):
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or path.stat().st_size != size
+    ):
+        raise ValueError("Pinned native raw file size/SHA256 required")
+    with path.open("rb") as stream:
+        raw = stream.read(size + 1)
+    if len(raw) != size or hashlib.sha256(raw).hexdigest() != expected:
+        raise ValueError("Borrowed byte baseline differs from its pin")
+    return np.frombuffer(raw, dtype="<f4")
+
+
 def measure(call, paths, output):
     expected = call(read_file)
     methods = {
         "owned-array-and-hash-copy": owned_file,
-        "borrowed-immutable-bytes": read_file,
+        "borrowed-immutable-bytes": bytes_file,
+        "owned-array-buffer-hash": read_file,
     }
     results = {name: {"rounds": []} for name in methods}
     for round_index in range(9):
-        names = list(methods) if round_index % 2 else list(reversed(methods))
+        start = round_index % len(methods)
+        names = list(methods)[start:] + list(methods)[:start]
         for name in names:
             gc.collect()
             start = time.process_time(), time.perf_counter()
@@ -109,11 +125,12 @@ def run(args):
     provenance = SampleBinding(
         "exact-archived-source-frame",
         "requested-capture",
-        "controlled-cost-scene",
+        None,
         (record["field_asset_key"],),
         "archived-source-materials",
         "archived-capture-lighting",
         "requested-observer",
+        fixture_revision="controlled-cost-scene:" + metadata["stored_field_sha256"],
     )
 
     def call(reader):

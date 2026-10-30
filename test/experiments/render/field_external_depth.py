@@ -22,19 +22,19 @@ class SampleBinding:
 
     frame: str
     capture: str
-    world_revision: str
+    world_revision: str | None
     sources: tuple
     materials: str
-    lighting: str
+    lighting: str | None
     pbr_view: str
+    fixture_revision: str | None = None
+    sample_revision: tuple = ()
 
     def __post_init__(self):
         strings = (
             self.frame,
             self.capture,
-            self.world_revision,
             self.materials,
-            self.lighting,
             self.pbr_view,
         )
         if (
@@ -43,6 +43,15 @@ class SampleBinding:
             or not self.sources
             or any(not isinstance(v, str) or not v for v in self.sources)
             or len(set(self.sources)) != len(self.sources)
+            or any(
+                value is not None and (not isinstance(value, str) or not value)
+                for value in (self.world_revision, self.fixture_revision, self.lighting)
+            )
+            or not isinstance(self.sample_revision, tuple)
+            or any(
+                not isinstance(value, str) or not value
+                for value in self.sample_revision
+            )
         ):
             raise ValueError(
                 "Explicit whole-source, raster and radiance bindings required"
@@ -65,6 +74,7 @@ class Composition:
     reverse_z: object = None
     error: object = None
     bindings: tuple = ()
+    domain: str = ""
 
 
 def validate(samples, texels_most):
@@ -134,16 +144,24 @@ def over_constant_background(front_mean, background, *, pixels_most=16384):
     return front_mean + (1 - front_mean[:, :, 3:4]) * background
 
 
-def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
+def compose_registered(
+    a, b, *, wanted_a, wanted_b, texels_most=262144, diagnostic_fixture=False
+):
     """Return a complete point product, or keep the whole parent without output.
 
     Reverse-Z is larger for nearer hits. Error is an absolute conservative bound
     in that same [0,1] coordinate, not metres or an observed maximum. Clear black
     is a proven miss only where known is true. Equality/overlap retains the parent.
     Caller-owned inputs are borrowed for this synchronous operation and unchanged.
+    Fixture evaluation is an explicit diagnostic mode. An immutable fixture ID
+    cannot stand in for a live World revision; default calls retain that parent.
     """
     if type(texels_most) is not int or texels_most < 1:
         raise ValueError("Positive point capacity required")
+    if type(diagnostic_fixture) is not bool:
+        raise ValueError(
+            "Fixture evaluation must be an explicit boolean diagnostic choice"
+        )
     if not all(
         isinstance(value, SampleBinding)
         for value in (a.binding, b.binding, wanted_a, wanted_b)
@@ -151,7 +169,14 @@ def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
         return Composition("invalid_point_binding")
     if a.binding != wanted_a or b.binding != wanted_b:
         return Composition("changed_source_material_or_demand")
-    for name in ("frame", "capture", "world_revision", "lighting", "pbr_view"):
+    context = "fixture_revision" if diagnostic_fixture else "world_revision"
+    if getattr(a.binding, context) is None or getattr(b.binding, context) is None:
+        return Composition("unknown_" + context)
+    if not diagnostic_fixture and (
+        a.binding.lighting is None or b.binding.lighting is None
+    ):
+        return Composition("unknown_lighting")
+    for name in ("frame", "capture", context, "lighting", "pbr_view"):
         if getattr(a.binding, name) != getattr(b.binding, name):
             return Composition("unregistered_rays_or_radiance")
     try:
@@ -178,9 +203,12 @@ def compose_registered(a, b, *, wanted_a, wanted_b, texels_most=262144):
         else:
             choose_a[common] = first_a
     return Composition(
-        "complete_registered_points",
+        "complete_registered_fixture_points"
+        if diagnostic_fixture
+        else "complete_registered_points",
         np.where(choose_a[:, :, None], a.rgba, b.rgba),
         np.where(choose_a, a.reverse_z, b.reverse_z),
         np.where(choose_a, a.error, b.error),
         (a.binding, b.binding),
+        "fixture" if diagnostic_fixture else "world",
     )

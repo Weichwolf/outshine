@@ -30,6 +30,41 @@ def compose(a, b, **kwargs):
 
 
 class ExternalDepthTests(unittest.TestCase):
+    def test_fixture_identity_never_grants_default_world_admission(self):
+        a, b = samples([[0.8]], [1, 0, 0]), samples([[0.2]], [0, 1, 0])
+        a, b = [
+            replace(
+                s,
+                binding=replace(
+                    s.binding, world_revision=None, fixture_revision="immutable-fixture"
+                ),
+            )
+            for s in (a, b)
+        ]
+        self.assertEqual(compose(a, b).reason, "unknown_world_revision")
+        result = compose_registered(
+            a, b, wanted_a=a.binding, wanted_b=b.binding, diagnostic_fixture=True
+        )
+        self.assertEqual(result.domain, "fixture")
+        self.assertIsNone(result.bindings[0].world_revision)
+        np.testing.assert_array_equal(result.rgba, a.rgba)
+        changed = replace(
+            b, binding=replace(b.binding, fixture_revision="different-fixture")
+        )
+        self.assertIsNone(
+            compose_registered(
+                a,
+                changed,
+                wanted_a=a.binding,
+                wanted_b=changed.binding,
+                diagnostic_fixture=True,
+            ).rgba
+        )
+        world = replace(
+            a, binding=replace(a.binding, world_revision="live-world", lighting=None)
+        )
+        self.assertEqual(compose(world, world).reason, "unknown_lighting")
+
     def test_no_common_hits_and_fully_covered_rasters_preserve_exact_ownership(self):
         cases = (
             ([[0, 0], [0, 0]], [[0, 0], [0, 0]]),
@@ -124,7 +159,7 @@ class ExternalDepthTests(unittest.TestCase):
             compose_registered(a, b, wanted_a=None, wanted_b=b.binding).rgba
         )
         for field in a.binding.__dataclass_fields__:
-            value = ("other",) if field == "sources" else "other"
+            value = ("other",) if field in ("sources", "sample_revision") else "other"
             changed = replace(a, binding=replace(a.binding, **{field: value}))
             self.assertIsNone(
                 compose_registered(

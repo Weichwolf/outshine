@@ -6,6 +6,7 @@ exact paired points. They are not a producer's general geometry-error bound.
 """
 
 import argparse
+import hashlib
 import json
 import subprocess
 from dataclasses import replace
@@ -70,13 +71,14 @@ def load(directory):
                 "samples": "native pixel centres",
             }
         ),
-        manifest["npz_sha256"],
+        None,
         ("whole-source-atlas:" + manifest["atlas_sha256"],),
         manifest["native_driver_sha256"],
         canonical(
             dict(manifest["lighting"], sun_elevation_deg=query["sun_elevation_deg"])
         ),
         canonical({"profile": "archived capture observer", "capture": capture}),
+        fixture_revision=manifest["npz_sha256"],
     )
     rgba, z = arrays["case0_samples_linear"], arrays["case0_samples_depth"][:, :, 0]
     truth_rgba, truth_z = (
@@ -86,6 +88,16 @@ def load(directory):
     known = (z > 0) == (truth_z > 0)
     error = np.where(z > 0, np.nextafter(abs(z.astype(float) - truth_z), np.inf), 0)
     saved = PointSamples(binding, rgba, z, error, known)
+    saved = replace(
+        saved,
+        binding=replace(
+            binding,
+            sample_revision=(
+                hashlib.sha256(rgba).hexdigest(),
+                hashlib.sha256(z).hexdigest(),
+            ),
+        ),
+    )
     return original, provenance, manifest, saved, (truth_rgba, truth_z), capture, rays
 
 
