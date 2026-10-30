@@ -78,6 +78,11 @@ class PlantQuery:
                 "distance_face_tests",
                 "distance_geometry_candidates",
                 "distance_volume_materializer_calls",
+                "distance_index_queries",
+                "distance_returned_metadata_boxes",
+                "distance_preparation_candidates",
+                "distance_preparation_metadata_boxes",
+                "distance_indexed_calls",
             ),
             0,
         )
@@ -96,8 +101,20 @@ class PlantQuery:
     def nearest_distance(self, geometry):
         self.counts["distance_calls"] += 1
         distance, work = self.transport.nearest_distance(geometry)
-        for key in ("face_tests", "geometry_candidates", "volume_materializer_calls"):
+        for key in (
+            "face_tests",
+            "geometry_candidates",
+            "volume_materializer_calls",
+            "index_queries",
+            "returned_metadata_boxes",
+            "preparation_candidates",
+            "preparation_metadata_boxes",
+        ):
             self.counts["distance_" + key] += work.get(key, 0)
+        if work.get("face_tests_are_upper_bound"):
+            self.counts["distance_indexed_calls"] += 1
+            self.counts["distance_face_tests_are_upper_bound"] = True
+            self.counts["distance_tree_internal_visits"] = None
         if self.buildings is not None:
             index = int(self.buildings.tree.nearest(geometry))
             distance = min(
@@ -122,7 +139,9 @@ def candidate_query(state, buildings, *, extra_sources=()):
     if extra_sources:
         catalog = CandidateVolumes(catalog.frame, (*catalog.sources, *extra_sources))
     catalog, info = retained(catalog, 8192)
-    return PlantQuery(CandidateQuery(catalog, budget=budget), buildings), info
+    return PlantQuery(
+        CandidateQuery(catalog, budget=budget, distance_method="indexed"), buildings
+    ), info
 
 
 class ReferenceDistance:

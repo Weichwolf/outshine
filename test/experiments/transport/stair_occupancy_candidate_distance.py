@@ -144,12 +144,22 @@ def nearest(catalog, geometry, budget, *, method="coarse", prepared=None):
 
 
 def selected_distance(source, face, geometry, work):
+    shapes = footprints(source, face, work)
+    best = np.inf
+    for shape in shapes:
+        distance = float(geometry.distance(shape))
+        if not np.isfinite(distance) or distance < 0:
+            raise OccupancyError("distance geometry unresolved")
+        best = min(best, distance)
+    return best
+
+
+def footprints(source, face, work):
     if source.xy_geometry is None:
         work["volume_materializer_calls"] += 1
         shapes = [row.geometry for row, _keys, _error in source.materialize(face)]
     else:
         shapes = [source.xy_geometry(face)]
-    best = np.inf
     for shape in shapes:
         if shape.is_empty or not shape.is_valid:
             raise OccupancyError("invalid selected XY footprint")
@@ -158,8 +168,4 @@ def selected_distance(source, face, geometry, work):
             xy = np.array(shape.bounds)
             if np.any(xy[:2] < bounds[:2]) or np.any(xy[2:] > bounds[3:5]):
                 raise OccupancyError("XY footprint escapes numeric metadata")
-        distance = float(geometry.distance(shape))
-        if not np.isfinite(distance) or distance < 0:
-            raise OccupancyError("distance geometry unresolved")
-        best = min(best, distance)
-    return best
+    return tuple(shapes)

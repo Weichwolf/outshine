@@ -191,10 +191,17 @@ class CandidateQuery:
     def catalog(self, value):
         self._catalog = value
         self._flat_distance = None
+        self._box_distance = None
 
     def nearest_distance(self, geometry):
         from stair_occupancy_candidate_distance import FlatDistance, nearest
 
+        if self.distance_method == "indexed":
+            from stair_occupancy_distance_index import BoxDistance
+
+            if self._box_distance is None:
+                self._box_distance = BoxDistance()
+            return self._box_distance.query(self.catalog, geometry, self.budget)
         if self.distance_method == "flat" and self._flat_distance is None:
             self._flat_distance = FlatDistance()
         return nearest(
