@@ -120,8 +120,8 @@ private:
   [[nodiscard]] std::expected<void, Failure> ResolvePageRecord(PageWrite &write);
   [[nodiscard]] std::expected<void, Failure>
   GeneratePage(PageWrite &write, const RoadPageProducer *producer, const std::stop_token &stop);
-  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>
-  Read(const std::string &key, size_t bytesMost, const std::string &requestKey = {});
+  [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure> Read(const std::string &key,
+                                                                          size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   ReadRecord(const std::string &key, const RoadPageAddress &address, size_t bytesMost);
   std::unique_ptr<AssetCache> Cache_;

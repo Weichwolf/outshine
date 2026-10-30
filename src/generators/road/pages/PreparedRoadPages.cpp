@@ -91,7 +91,7 @@ PreparedRoadPages::Open(const std::string &directory) {
 }
 
 std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
-PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::string &requestKey) {
+PreparedRoadPages::Read(const std::string &key, size_t bytesMost) {
   std::optional<RoadPageAsset> page;
   auto cached =
       Cache_->LoadValidated(key, "road-render-page", bytesMost, [&](const CachedAsset &asset) {
@@ -102,8 +102,6 @@ PreparedRoadPages::Read(const std::string &key, size_t bytesMost, const std::str
   if (!cached) { return std::unexpected(cached.error()); }
   if (!*cached || !page) { return std::optional<RoadPageLease>{}; }
   auto record = (**cached).Record();
-  auto bound = BindRecord(*Cache_, record, requestKey);
-  if (!bound) { return std::unexpected(std::move(bound.error())); }
   return RoadPageLease{.Page = std::make_unique<RoadPageAsset>(std::move(*page)),
                        .Record = std::move(record),
                        .NativeBytes = (**cached).Bytes().size()};
@@ -155,10 +153,25 @@ PreparedRoadPages::LoadKey(const std::string &key, size_t bytesMost) {
 
 std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::LoadRequest(const std::string &requestKey, size_t bytesMost) {
-  auto found = Cache_->FindRequest(requestKey);
-  if (!found) { return std::unexpected(found.error()); }
-  if (!*found) { return std::optional<RoadPageLease>{}; }
-  return Read((**found).Key, bytesMost, requestKey);
+  constexpr unsigned kAttemptsMost = 2;
+  for (unsigned attempt = 0; attempt < kAttemptsMost; ++attempt) {
+    auto found = Cache_->FindRequest(requestKey);
+    if (!found) { return std::unexpected(found.error()); }
+    if (!*found) { return std::optional<RoadPageLease>{}; }
+    auto loaded = Read((**found).Key, bytesMost);
+    auto current = Cache_->FindRequest(requestKey);
+    if (!current) { return std::unexpected(current.error()); }
+    if (!*current) { return std::optional<RoadPageLease>{}; }
+    if (!loaded || !*loaded) {
+      if (**current != **found) { continue; }
+      return loaded;
+    }
+    (**current).RequestKey.reset();
+    if (**current != (**loaded).Record) { continue; }
+    (**loaded).Record.RequestKey = requestKey;
+    return loaded;
+  }
+  return std::unexpected(AssetCacheError::Busy);
 }
 
 std::string PreparedRoadPages::DescribeFailure(const Failure &failure) {

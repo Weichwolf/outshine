@@ -174,10 +174,19 @@ PreparedGroundRegions::PlanRequest(LongitudeLatitude focus,
 
 PreparedGroundRegions::ReadResult
 PreparedGroundRegions::LoadRequest(const std::string &requestKey) {
-  auto found = Cache_->FindRequest(requestKey);
-  if (!found) { return std::unexpected(found.error()); }
-  if (!*found) { return std::optional<Loaded>{}; }
-  return Read((**found).Key);
+  constexpr unsigned kAttemptsMost = 2;
+  for (unsigned attempt = 0; attempt < kAttemptsMost; ++attempt) {
+    auto found = Cache_->FindRequest(requestKey);
+    if (!found) { return std::unexpected(found.error()); }
+    if (!*found) { return std::optional<Loaded>{}; }
+    auto loaded = Read((**found).Key);
+    const auto current = Cache_->FindRequest(requestKey);
+    if (!current) { return std::unexpected(current.error()); }
+    if (!*current) { return std::optional<Loaded>{}; }
+    if (**current != **found) { continue; }
+    return loaded;
+  }
+  return std::unexpected(AssetCacheError::Busy);
 }
 
 std::expected<void, PreparedGroundRegions::Failure>
