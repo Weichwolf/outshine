@@ -109,6 +109,8 @@ def verify(args):
         planning_query=planning(rail, baseline=baseline),
         construction=construct,
     )
+    if result["actual_adjusted_bodies"] != report["actual_building_bodies"]:
+        raise ValueError("Whole saved building count differs from its report")
     rounded = OccupancyQuery(whole_raised(rail, cast=True)[0])
     for index, body in enumerate(after):
         _, footprint = body_query(

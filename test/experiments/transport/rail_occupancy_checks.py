@@ -1,7 +1,9 @@
 """Raised decks preserve underpasses while actual piers and rail headroom block."""
 
+import json
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -16,6 +18,7 @@ from stair_occupancy_candidate_sources import bound_support_sources
 from stair_occupancy_candidates import CandidateQuery, CandidateVolumes, VolumeSource
 from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
+from stair_support_audit import quantized
 from surface_solid_methods import close_surface
 
 
@@ -191,6 +194,42 @@ class RaisedVolumeHandoff(unittest.TestCase):
 
 
 class BinaryBuildingConstruction(unittest.TestCase):
+    def test_actual_saved_cap_counterexamples_do_not_return_after_construction(self):
+        from building_mesh import solid
+        from stair_consumer_buildings import projected_domain
+
+        path = (
+            Path(__file__).parents[2]
+            / "outshine/data/transport/building-elevated-cut-grid.json"
+        )
+        fixture = json.loads(path.read_text())
+        foreign = [
+            shapely.from_wkb(fixture[k])
+            for k in ("foreign_double_wkb", "foreign_float32_wkb")
+        ]
+        for case in fixture["cases"]:
+            with self.subTest(source=case["owner_id"]):
+                old = np.asarray(case["old_degenerate_cap_triangles_xyz"])
+                self.assertLess(
+                    shapely.area(shapely.polygons(old[:, :, :2])).max(), 1e-10
+                )
+                rounded = shapely.union_all(
+                    shapely.polygons(old.astype("f4").astype(float)[:, :, :2])
+                )
+                self.assertGreater(rounded.intersection(foreign[1]).area, 0)
+                actual, _note = construct(
+                    shapely.from_wkb(case["construction_requested_wkb"])
+                )
+                storage = ([], [], [], [])
+                solid(storage, actual, *case["world_heights_m"], 0)
+                body = Mesh(storage[0], storage[1])
+                for mesh, exclusion in zip(
+                    (body, quantized(body)), foreign, strict=True
+                ):
+                    self.assertTrue(
+                        projected_domain(mesh).intersection(exclusion).is_empty
+                    )
+
     def test_binary_domain_keeps_courtyard_and_actual_rounded_roof(self):
         from building_mesh import solid
         from stair_consumer_buildings import projected_domain
