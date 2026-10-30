@@ -70,6 +70,7 @@ private:
     Tasks::Handle Task = Tasks::kNoTask;
     std::expected<Product, std::string> Result;
     std::optional<PreparedAssetWrite> Publication;
+    std::string ProductKey;
     size_t PublicationBytes = 0;
     bool Generating = false;
     std::atomic_bool Cancelled{false};
@@ -93,6 +94,7 @@ private:
           const std::shared_ptr<Work> &work);
   void Lookup(const std::string &request, Work &work);
   void Publish(const std::string &request, Work &work);
+  void Restore(const std::string &request, Work &work);
   void Defer(Work &work);
   void SetPublication(Work &work, std::optional<PreparedAssetWrite> publication);
   static void Observe(Work &work, const std::shared_ptr<const uint8_t> &owner);

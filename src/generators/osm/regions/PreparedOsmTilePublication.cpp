@@ -77,8 +77,7 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
     return;
   }
   if (work.Stage == Work::Phase::Restore) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::unexpected("published native OSM tile is unavailable");
+    Restore(request, work);
     return;
   }
   if (!work.Publication) {
@@ -99,7 +98,31 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
   ++Writes_;
   work.Stage = Work::Phase::Restore;
   work.Retries = 0;
-  loaded = Load(request, work.Definition, ReadCause::Publication);
+  Restore(request, work);
+}
+
+void PreparedOsmTiles::Restore(const std::string &request, Work &work) {
+  if (work.Cancelled.load()) {
+    SetPublication(work, std::nullopt);
+    work.Result = std::unexpected("native OSM preparation cancelled");
+    return;
+  }
+  if (!work.Publication || work.ProductKey.empty()) {
+    SetPublication(work, std::nullopt);
+    work.Result = std::unexpected("native OSM binding has no prepared content owner");
+    return;
+  }
+  const auto bound = Cache_->BindRequestIfUnbound(work.ProductKey, request);
+  if (!bound) {
+    if (bound.error() == AssetCacheError::Busy) {
+      Defer(work);
+    } else {
+      SetPublication(work, std::nullopt);
+      work.Result = std::unexpected("native OSM request binding failed");
+    }
+    return;
+  }
+  auto loaded = Load(request, work.Definition, ReadCause::Publication);
   if (!loaded) {
     if (loaded.error() == AssetCacheError::Busy) {
       Defer(work);
@@ -110,8 +133,8 @@ void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
     return;
   }
   if (!*loaded) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::unexpected("published native OSM tile is unavailable");
+    work.Stage = Work::Phase::Publish;
+    Defer(work);
     return;
   }
   work.Result = std::move(*loaded);
