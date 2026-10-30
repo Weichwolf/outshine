@@ -196,7 +196,7 @@ void DeliveryAndEarlyDestruction() {
   CHECK(session.has_value(), "the completed-delivery session opens");
   if (!session) { return; }
   {
-    auto unused = SourceSession::Request(*session, Request(), fixture.Wire);
+    const auto unused = SourceSession::Request(*session, Request(), fixture.Wire);
     CHECK(unused.has_value(), "an unpolled source request owns its declaration selection");
   }
   CHECK(fixture.State->Began == 0 && fixture.State->Canceled == 0,
@@ -215,7 +215,7 @@ void DeliveryAndEarlyDestruction() {
           "completed input delivery is consumed once");
   }
   CHECK(fixture.State->Canceled == 0, "a completed provider ticket is never canceled again");
-  auto absent = SourceSession::Request({}, Request(), fixture.Wire);
+  const auto absent = SourceSession::Request({}, Request(), fixture.Wire);
   CHECK(!absent && fixture.Wire.Began == 0, "a missing source session fails before any IO");
 }
 }
