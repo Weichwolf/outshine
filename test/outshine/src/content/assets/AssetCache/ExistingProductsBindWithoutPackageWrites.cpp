@@ -19,6 +19,48 @@ std::string Key(const std::string &value) {
   return Sha256Hex(value.data(), value.size());
 }
 
+void ConditionalReplacement(AssetCache &cache,
+                            sqlite3 *database,
+                            const std::string &first,
+                            const std::string &second) {
+  const auto request = Key("conditional-replacement");
+  CHECK(cache.BindRequest(first, request), "the compare-and-bind case has a real initial target");
+  const auto observed = cache.FindRequest(request);
+  CHECK(observed && *observed, "the exact current native binding is observed");
+  if (!observed || !*observed) { return; }
+  CHECK(sqlite3_exec(database, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "an independent writer blocks a matching conditional replacement");
+  const auto busy = cache.BindRequestIfMatches(second, **observed);
+  const auto same = cache.BindRequestIfMatches(first, **observed);
+  CHECK(!busy && busy.error() == AssetCacheError::Busy && same && *same,
+        "matching mutation reports Busy while an idempotent match stays read-only");
+  CHECK(sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "the conditional writer is released");
+  const auto replaced = cache.BindRequestIfMatches(second, **observed);
+  const auto current = cache.FindRequest(request);
+  CHECK(replaced && *replaced && current && *current && (**current).Key == second,
+        "an unchanged observed binding can atomically select a new complete product");
+  CHECK(sqlite3_exec(database, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "an independent writer blocks only actual mutations");
+  const auto stale = cache.BindRequestIfMatches(first, **observed);
+  CHECK(stale && !*stale, "a changed binding survives stale replacement without writer admission");
+  CHECK(sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "the read-only stale check leaves writer ownership unchanged");
+  if (!current || !*current) { return; }
+  const auto missing = cache.BindRequestIfMatches(Key("absent-conditional-product"), **current);
+  CHECK(missing && !*missing, "a missing product cannot replace an observed valid binding");
+  auto invalid = **current;
+  invalid.RequestKey.reset();
+  const auto rejected = cache.BindRequestIfMatches(first, invalid);
+  CHECK(!rejected && rejected.error() == AssetCacheError::InvalidInput,
+        "conditional replacement rejects metadata without its request identity");
+  CHECK(cache.UnbindRequestIfMatches(**current), "the actual observed binding can be removed");
+  const auto absent = cache.BindRequestIfMatches(first, **current);
+  const auto stillAbsent = cache.FindRequest(request);
+  CHECK(absent && !*absent && stillAbsent && !*stillAbsent,
+        "a stale observed binding never resurrects an explicitly removed request");
+}
+
 void Exercise(const std::string &path) {
   auto opened = AssetCache::Open(path);
   CHECK(opened, "native store opens");
@@ -103,6 +145,7 @@ void Exercise(const std::string &path) {
         "existing equal and different bindings resolve without a writer transaction");
   CHECK(sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
         "independent writer releases its transaction");
+  ConditionalReplacement(cache, database, first, second);
   CHECK(sqlite3_exec(database,
                      "CREATE TRIGGER forbid_request_insert BEFORE INSERT ON asset_requests "
                      "BEGIN SELECT RAISE(ABORT,'request rewritten'); END;"

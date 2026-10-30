@@ -29,6 +29,10 @@ effective cameras and every array. `samples.npz` holds lossless Float32 C/T and
 depth arrays. Identical buffers share one physical array; each logical name has an
 `array` reference, shape, dtype and raw-byte SHA. Read with `allow_pickle=False`.
 Commands, terminal exits and native reports remain beside the arrays.
+New manifests include executed request JSONs, their byte hashes/exit codes and
+the exporter source hash. The shared historical fixture keeps these saved inputs
+in `execution-inputs.json`, bound to its unchanged manifest. Its versioned exporter
+source is identified; the historical runtime script hash was not recorded.
 Repeat failures are recorded in `reference_failures`; complete diagnostics are
 saved before the exporter exits unsuccessfully. A later pass does not erase them.
 

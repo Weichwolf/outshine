@@ -1,3 +1,4 @@
+#include "test/harness/shared/BuildingAssetFixture.h"
 #include "StructureBuildTask.h"
 #include "StructureCellAssembly.h"
 #include "PreparedBuildingAssets.h"
@@ -332,7 +333,8 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
   const auto whole = BakePreparedStructures(**base, raw, mesher, *scratch);
   CHECK(whole, "a valid whole product can be prepared");
   if (!whole) { return; }
-  const auto stored = (*cache)->StoreGeometry(std::string(kKey), **base, raw, *whole);
+  const auto stored =
+      BuildingAssetFixture::StoreGeometry(**cache, std::string(kKey), **base, raw, *whole);
   CHECK(stored, "a valid bounded whole product already exists before initial admission");
   if (!stored) { return; }
   const auto basis = (*cache)->LoadBasis(std::string(kKey));
@@ -362,8 +364,8 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
             clustered->Walls.Clusters != whole->Walls.Clusters,
         "different real cluster products can share the old geometry fold");
   if (!clustered) { return; }
-  const auto clusteredKey =
-      (*cache)->StoreGeometry(std::string(kKey), **base, clusteredRaw, *clustered);
+  const auto clusteredKey = BuildingAssetFixture::StoreGeometry(
+      **cache, std::string(kKey), **base, clusteredRaw, *clustered);
   CHECK(clusteredKey && *clusteredKey != *stored,
         "the complete geometry asset key distinguishes the changed cluster operator");
   const auto loaded = (*cache)->LoadGeometry(std::string(kKey), **base, clusteredRaw);

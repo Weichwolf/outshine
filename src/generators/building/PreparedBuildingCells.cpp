@@ -29,40 +29,34 @@ PreparedBuildingAssets::StoreSurfaceCell(const std::string &key,
                                          uint32_t cell,
                                          const Box &bounds,
                                          std::span<const BuildingSurface *const> surfaces) {
-  auto bytes = EncodeBuildingSurfaceBlock(surfaces);
-  if (!bytes || bytes->size() > kPackageBytesMost) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
-  }
-  const AssetRecord record{.Key = SurfaceKey(key, cell),
-                           .Kind = "building-forms",
-                           .Bounds = bounds,
-                           .Package = {},
-                           .ByteCount = bytes->size(),
-                           .Level = 1,
-                           .Parent = key};
+  auto prepared = PrepareSurfaceCell(key, cell, bounds, surfaces);
+  if (!prepared) { return std::unexpected(prepared.error()); }
   const std::scoped_lock lock(Lock_);
-  if (!Cache_->Publish(std::span(&record, 1), *bytes)) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-  }
+  const auto stored = Cache_->Publish(*prepared);
+  if (!stored) { return std::unexpected(CacheFailure(stored.error())); }
   ++SurfaceCosts_.Writes;
   return {};
 }
 
-std::expected<void, StructureBakeError>
-PreparedBuildingAssets::StoreSurfaces(const std::string &key, const PreparedStructureTile &base) {
-  std::array<std::vector<const BuildingSurface *>, kStructureCellsPerTile> cells;
-  std::array<Box, kStructureCellsPerTile> bounds;
-  for (size_t index = 0; index < base.Structures.size(); ++index) {
-    const auto cell = base.Structures[index].Layout.Cell.Index - 1u;
-    cells[cell].push_back(&base.Surfaces[index]);
-    bounds[cell].Cover(StructureBounds(base, index));
+std::expected<PreparedAssetWrite, StructureBakeError>
+PreparedBuildingAssets::PrepareSurfaceCell(const std::string &key,
+                                           uint32_t cell,
+                                           const Box &bounds,
+                                           std::span<const BuildingSurface *const> surfaces) {
+  auto bytes = EncodeBuildingSurfaceBlock(surfaces);
+  if (!bytes || bytes->size() > kPackageBytesMost) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
-  for (uint32_t cell = 0; cell < cells.size(); ++cell) {
-    if (cells[cell].empty()) { continue; }
-    auto stored = StoreSurfaceCell(key, cell + 1u, bounds[cell], cells[cell]);
-    if (!stored) { return stored; }
-  }
-  return {};
+  std::vector<AssetRecord> records{{.Key = SurfaceKey(key, cell),
+                                    .Kind = "building-forms",
+                                    .Bounds = bounds,
+                                    .Package = {},
+                                    .ByteCount = bytes->size(),
+                                    .Level = 1,
+                                    .Parent = key}};
+  auto prepared = Cache_->PreparePublication(std::move(records), std::move(*bytes));
+  if (!prepared) { return std::unexpected(CacheFailure(prepared.error())); }
+  return std::move(*prepared);
 }
 
 void PreparedBuildingAssets::BindSurfaces(const std::string &key,

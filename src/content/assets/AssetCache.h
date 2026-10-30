@@ -108,6 +108,8 @@ public:
   // Missing bindings may be repaired; an existing different target wins.
   [[nodiscard]] std::expected<bool, AssetCacheError>
   BindRequestIfUnbound(std::string_view key, std::string_view requestKey);
+  [[nodiscard]] std::expected<bool, AssetCacheError>
+  BindRequestIfMatches(std::string_view key, const AssetRecord &binding);
   // Removes only this observed binding; changed bindings and target products survive.
   [[nodiscard]] std::expected<bool, AssetCacheError>
   UnbindRequestIfMatches(const AssetRecord &binding);
@@ -138,7 +140,10 @@ private:
   [[nodiscard]] std::expected<void, AssetCacheError>
   PublishPrepared(const Publication &publication);
   [[nodiscard]] std::expected<bool, AssetCacheError>
-  BindRequest(std::string_view key, std::string_view requestKey, bool replace);
+  BindRequest(std::string_view key,
+              std::string_view requestKey,
+              bool replace,
+              const AssetRecord *binding = nullptr);
   explicit AssetCache(std::unique_ptr<State> state);
   std::unique_ptr<State> State_;
 };

@@ -110,12 +110,11 @@ PreparedBuildingAssets::Load(const std::string &key) {
     const auto bytes = (**loaded).Bytes();
     auto base = DecodePreparedStructureIndex(bytes, kResidentBytesMost);
     if (!base) {
-      const auto original = DecodePreparedStructureTile(bytes, kResidentBytesMost);
+      auto original = DecodePreparedStructureTile(bytes, kResidentBytesMost);
       if (original) {
-        const auto stored = StoreBase(key, *original);
-        if (!stored) { return std::unexpected(stored.error()); }
-        base = DecodePreparedStructureIndex(*stored, kResidentBytesMost);
-        if (!base) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+        auto prepared = PrepareBaseWrite(key, std::move(*original), {});
+        const std::atomic_bool stopping{false};
+        return CompleteBase(prepared, stopping);
       }
     }
     if (base) {
@@ -136,62 +135,35 @@ PreparedBuildingAssets::Generate(const std::string &key,
                                  const ::outshine::Ground::HeightField &heights,
                                  const std::atomic_bool &stopping,
                                  const std::string &requestKey) {
-  auto base = PrepareStructureTile(raw, heights, &stopping);
-  if (!base) { return std::unexpected(base.error()); }
-  if (stopping.load(std::memory_order_relaxed)) {
-    return std::unexpected(StructureBakeErrorKind::Cancelled);
-  }
-  const auto stored = StoreBase(key, *base, requestKey);
-  if (!stored) { return std::unexpected(stored.error()); }
-  return Load(key);
-}
-
-std::expected<std::vector<uint8_t>, StructureBakeError> PreparedBuildingAssets::StoreBase(
-    const std::string &key, const PreparedStructureTile &base, const std::string &requestKey) {
-  const auto surfaces = StoreSurfaces(key, base);
-  if (!surfaces) { return std::unexpected(surfaces.error()); }
-  auto encoded = EncodePreparedStructureIndex(base);
-  if (!encoded || encoded->size() > kPackageBytesMost) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
-  }
-  if (!DecodePreparedStructureIndex(*encoded, kResidentBytesMost)) {
-    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
-  }
-  const AssetRecord record{.Key = key,
-                           .Kind = "buildings",
-                           .Bounds = Bounds(base),
-                           .Package = {},
-                           .ByteCount = encoded->size(),
-                           .Parent = {}};
-  {
-    const std::scoped_lock lock(Lock_);
-    const auto stored = Cache_->Publish(std::span(&record, 1), *encoded);
-    if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
-    ++Writes_;
-  }
-  const auto storedBasis =
-      StoreBasis(key, Bounds(base), PreparedBuildingBasis::Of(base), requestKey);
-  if (!storedBasis) { return std::unexpected(storedBasis.error()); }
-  return std::move(*encoded);
+  auto prepared = PrepareBase(key, raw, heights, stopping, requestKey);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return CompleteBase(*prepared, stopping);
 }
 
 PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept {
-  return {.Hits = Hits_.load(std::memory_order_relaxed),
-          .Misses = Misses_.load(std::memory_order_relaxed),
-          .Writes = Writes_.load(std::memory_order_relaxed),
-          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
-          .BasisHits = BasisHits_.load(std::memory_order_relaxed),
-          .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
-          .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
-          .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
-          .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
-          .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
-          .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
-          .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
-          .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed),
-          .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
-          .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
-          .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
-          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed)};
+  return {
+      .Hits = Hits_.load(std::memory_order_relaxed),
+      .Misses = Misses_.load(std::memory_order_relaxed),
+      .Writes = Writes_.load(std::memory_order_relaxed),
+      .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+      .BasisHits = BasisHits_.load(std::memory_order_relaxed),
+      .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
+      .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
+      .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
+      .BasisResidentHits = BasisResidentHits_.load(std::memory_order_relaxed),
+      .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
+      .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
+      .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
+      .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed),
+      .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
+      .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
+      .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
+      .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed),
+      .GeometryPreparations = GeometryPreparations_.load(std::memory_order_relaxed),
+      .GeometryPublicationAttempts = GeometryPublicationAttempts_.load(std::memory_order_relaxed),
+      .GeometryPublicationDeferred = GeometryPublicationDeferred_.load(std::memory_order_relaxed),
+      .GeometryPublicationPeakBytes = GeometryPublicationPeakBytes_.load(std::memory_order_relaxed),
+      .BasePreparations = BasePreparations_.load(std::memory_order_relaxed),
+      .BasePackagePreparations = BasePackagePreparations_.load(std::memory_order_relaxed)};
 }
 }

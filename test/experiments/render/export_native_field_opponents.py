@@ -314,6 +314,18 @@ def export(args):
                 "test/experiments/render/native_building_impostors.cpp",
             )
         },
+        "exporter": {
+            "path": str(Path(__file__).resolve().relative_to(ROOT)),
+            "sha256": digest(Path(__file__).resolve()),
+        },
+        "requests": {
+            name: {
+                "input_sha256": digest(root / name / "input.json"),
+                "request": document(root / name / "input.json"),
+                "terminal_exit": int((root / name / "terminal.exit").read_text()),
+            }
+            for name in (*requests, "invalid-observer", "invalid-capture")
+        },
         "host": platform.platform(),
         "controls": controls,
         "original": provenance,

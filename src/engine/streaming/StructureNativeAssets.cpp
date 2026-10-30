@@ -15,9 +15,16 @@
 namespace outshine {
 bool StructureBuildQueue::AwaitSlice(double seconds) const {
   if (Pool_ == nullptr) { return false; }
+  double wait = seconds;
+  bool pendingGeometry = false;
+  for (const QueuedBuild &build : Queue_) {
+    if (build.Finished && build.Task.Result().Status && !build.Task.Result().Tile) {
+      pendingGeometry = true;
+      wait = std::min(wait, build.Task.ResumeDelaySeconds());
+    }
+  }
   if (PendingBasisLookups() != 0) {
     const auto now = std::chrono::steady_clock::now();
-    double wait = seconds;
     for (const auto &entry : NativeLookups_) {
       const auto &lookup = *entry.second;
       if (lookup.Task == Tasks::kNoTask && lookup.Retries != 0) {
@@ -28,12 +35,12 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
     return Pool_->AwaitCompletion(wait);
   }
   if (OriginalPreparation_ && OriginalPreparation_->Running()) {
-    return OriginalPreparation_->AwaitSlice(seconds);
+    return OriginalPreparation_->AwaitSlice(wait);
   }
   for (const QueuedBuild &build : Queue_) {
-    if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
+    if (build.Task.Running()) { return build.Task.AwaitCompletion(wait); }
   }
-  return false;
+  return pendingGeometry && Pool_->AwaitCompletion(wait);
 }
 
 size_t StructureBuildQueue::PendingBasisLookups() const noexcept {

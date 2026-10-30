@@ -1,3 +1,4 @@
+#include "StoreRoadManifest.h"
 #include "PreparedRoadPages.h"
 #include "TransportRoadPageProducer.h"
 #include "TransportPlanCodec.h"
@@ -133,7 +134,7 @@ std::optional<std::string> StoreLegacyTwin(PreparedRoadPages &pages,
   const auto current = EncodeRoadPageManifest(bound, kLimit);
   CHECK(previous && current && current->size() == previous->size() + 2 * kAppearanceBytes,
         "a one-page manifest adds only its root and per-reference appearance hashes");
-  const auto stored = pages.StoreManifest(legacy);
+  const auto stored = ::outshine::Test::StoreRoadManifest(pages, legacy);
   return stored ? std::optional(*stored) : std::nullopt;
 }
 
@@ -214,7 +215,7 @@ int main(int argc, char *const *argv) {
     {
       auto pages = PreparedRoadPages::Open(directory.string());
       if (!pages) { return 1; }
-      const auto stored = (*pages)->StoreManifest(*manifest);
+      const auto stored = ::outshine::Test::StoreRoadManifest(**pages, *manifest);
       CHECK(stored.has_value(), "the fully bound manifest persists after its dependency");
       if (stored) { key = *stored; }
       const auto legacy = StoreLegacyTwin(**pages, *manifest);
