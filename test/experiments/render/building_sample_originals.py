@@ -7,7 +7,7 @@ import numpy as np
 from building_sample_inputs import digest
 
 
-def read_original(directory):
+def read_original(directory, *, attributes=False):
     manifest = json.loads((directory / "manifest.json").read_text())
     parent_path = directory.parent / "manifest.json"
     parent = json.loads(parent_path.read_text())
@@ -50,6 +50,21 @@ def read_original(directory):
         faces.append(ids.astype(np.int64) + offset)
         offset += len(xyz)
     source = {"positions": np.concatenate(vertices), "indices": np.concatenate(faces)}
+    if attributes:
+        # Retain verified original part/vertex bindings without inventing FaceIDs.
+        source["parts"] = tuple(parts)
+        source["attributes"] = tuple(
+            {
+                name: values[f"{i}/{name}.bin"].reshape(part["vertices"], columns)
+                for name, columns in (
+                    ("normals", 3),
+                    ("uv", 2),
+                    ("uv1", 2),
+                    ("colours", 4),
+                )
+            }
+            for i, part in enumerate(parts)
+        )
     if (
         len(source["positions"]) != manifest["vertices"]
         or len(source["indices"]) != manifest["triangles"]
