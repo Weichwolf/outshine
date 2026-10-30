@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from building_sample_inputs import digest
+from experiment_output import create_output
 from field_external_depth import (
     PointSamples,
     SampleBinding,
@@ -191,9 +192,7 @@ def compare_case(
 
 
 def run(args):
-    if not args.output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("Explicit system-temp output required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    create_output(args.output)
     original, provenance, raw, capture, rays, shape = load(args.inputs)
     binding = SampleBinding(
         "unchanged-native-source-frame",

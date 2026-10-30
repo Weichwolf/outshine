@@ -17,6 +17,7 @@ import numpy as np
 from allocation_measure import allocations
 from building_sample_inputs import digest
 from compare_field_external_depth import DATA, bound, compose, prefix_reduced, reduced
+from experiment_output import create_output
 from field_external_depth import SampleBinding, interval, over_constant_background
 from field_external_opponents import foreign_ring, join, load, point_image, terrain
 from field_view_integrals import box_integrals, summed_field
@@ -157,9 +158,7 @@ def prepare_measurement(output):
         ["git", "status", "--porcelain", "--", *map(str, paths)], text=True
     ):
         raise ValueError("Freeze measured source before recording costs")
-    if not output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("Explicit system-temp output required")
-    output.mkdir(parents=True, exist_ok=False)
+    create_output(output)
 
 
 def run(args):
