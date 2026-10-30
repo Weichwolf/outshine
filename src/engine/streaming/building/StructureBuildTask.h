@@ -44,7 +44,7 @@ public:
     double FinalizationMs = 0.0;
     double LastQueueMs = 0.0;
     double LastTaskMs = 0.0;
-    // Retained package capacity; the baked CPU product remains a separate owner.
+    // Retained package capacity; raw/baked CPU products remain separate owners.
     size_t PublicationBytes = 0;
     uint64_t PublicationAttempts = 0;
   };

@@ -58,6 +58,12 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
       "cost.assets.building_lod.writes", static_cast<double>(costs.GeometryWrites), "packages");
   published.RecordMetric(
       "cost.assets.building_lod.read_bytes", static_cast<double>(costs.GeometryReadBytes), "bytes");
+  published.RecordMetric("cost.assets.building_lod.base_preparations",
+                         static_cast<double>(costs.BasePreparations),
+                         "products");
+  published.RecordMetric("cost.assets.building_lod.base_package_preparations",
+                         static_cast<double>(costs.BasePackagePreparations),
+                         "packages");
   published.RecordMetric("cost.assets.building_lod.preparations",
                          static_cast<double>(costs.GeometryPreparations),
                          "packages");

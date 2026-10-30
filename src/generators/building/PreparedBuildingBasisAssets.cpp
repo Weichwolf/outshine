@@ -27,6 +27,21 @@ PreparedBuildingAssets::StoreBasis(const std::string &key,
                                    const Box &bounds,
                                    const PreparedBuildingBasis &basis,
                                    const std::string &requestKey) {
+  auto prepared = PrepareBasis(key, bounds, basis, requestKey);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const std::scoped_lock lock(Lock_);
+  const auto published = Cache_->Publish(*prepared);
+  if (!published) { return std::unexpected(CacheFailure(published.error())); }
+  ResidentBases_.erase(BasisKey(key));
+  ++BasisWrites_;
+  return {};
+}
+
+std::expected<PreparedAssetWrite, StructureBakeError>
+PreparedBuildingAssets::PrepareBasis(const std::string &key,
+                                     const Box &bounds,
+                                     const PreparedBuildingBasis &basis,
+                                     const std::string &requestKey) {
   auto bytes = EncodePreparedBuildingBasis(basis);
   if (!bytes || bytes->size() > kPackageBytesMost) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
@@ -38,12 +53,9 @@ PreparedBuildingAssets::StoreBasis(const std::string &key,
                      .ByteCount = bytes->size(),
                      .Parent = key};
   if (!requestKey.empty()) { record.RequestKey = requestKey; }
-  const std::scoped_lock lock(Lock_);
-  const auto published = Cache_->Publish(std::span(&record, 1), *bytes);
-  if (!published) { return std::unexpected(CacheFailure(published.error())); }
-  ResidentBases_.erase(record.Key);
-  ++BasisWrites_;
-  return {};
+  auto prepared = Cache_->PreparePublication({std::move(record)}, std::move(*bytes));
+  if (!prepared) { return std::unexpected(CacheFailure(prepared.error())); }
+  return std::move(*prepared);
 }
 
 std::expected<void, StructureBakeError>

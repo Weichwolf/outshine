@@ -26,6 +26,23 @@ public:
   using Base = std::shared_ptr<const PreparedStructureTile>;
   using Basis = std::shared_ptr<const PreparedBuildingBasis>;
 
+  class BaseWrite {
+  public:
+    BaseWrite(BaseWrite &&) noexcept;
+    BaseWrite &operator=(BaseWrite &&) noexcept;
+    ~BaseWrite();
+    [[nodiscard]] size_t PublicationBytes() const noexcept;
+
+    [[nodiscard]] uint64_t PublicationAttempts() const noexcept { return Attempts_; }
+
+  private:
+    friend class PreparedBuildingAssets;
+    struct State;
+    explicit BaseWrite(std::unique_ptr<State> state);
+    std::unique_ptr<State> State_;
+    uint64_t Attempts_ = 0;
+  };
+
   struct GeometryWrite {
     std::string Key;
     PreparedAssetWrite Package;
@@ -45,6 +62,7 @@ public:
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
     uint64_t GeometryPreparations = 0, GeometryPublicationAttempts = 0;
     uint64_t GeometryPublicationDeferred = 0, GeometryPublicationPeakBytes = 0;
+    uint64_t BasePreparations = 0, BasePackagePreparations = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -73,6 +91,15 @@ public:
            const ::outshine::Ground::HeightField &heights,
            const std::atomic_bool &stopping,
            const std::string &requestKey = {});
+  [[nodiscard]] std::expected<BaseWrite, StructureBakeError>
+  PrepareBase(const std::string &key,
+              const RawTile &raw,
+              const ::outshine::Ground::HeightField &heights,
+              const std::atomic_bool &stopping,
+              const std::string &requestKey = {});
+  // One package attempt or final restore; an empty Base means more work remains.
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  ResumeBase(BaseWrite &prepared, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
@@ -113,15 +140,29 @@ private:
   };
 
   PreparedBuildingAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
-  [[nodiscard]] std::expected<std::vector<uint8_t>, StructureBakeError>
-  StoreBase(const std::string &key,
-            const PreparedStructureTile &base,
-            const std::string &requestKey = {});
+  [[nodiscard]] static BaseWrite
+  PrepareBaseWrite(std::string key, PreparedStructureTile base, std::string requestKey);
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  RestoreBase(BaseWrite &prepared, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<Base, StructureBakeError>
+  CompleteBase(BaseWrite &prepared, const std::atomic_bool &stopping);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareBasePackage(BaseWrite::State &state);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  PublishBasePackage(BaseWrite &prepared, const PreparedAssetWrite &package);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareBasis(const std::string &key,
+               const Box &bounds,
+               const PreparedBuildingBasis &basis,
+               const std::string &requestKey);
+  [[nodiscard]] std::expected<PreparedAssetWrite, StructureBakeError>
+  PrepareSurfaceCell(const std::string &key,
+                     uint32_t cell,
+                     const Box &bounds,
+                     std::span<const BuildingSurface *const> surfaces);
   [[nodiscard]] static Box Bounds(const PreparedStructureTile &base);
   [[nodiscard]] static Box StructureBounds(const PreparedStructureTile &base, size_t index);
   [[nodiscard]] static std::string SurfaceKey(const std::string &baseKey, uint32_t cell);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreSurfaces(const std::string &key, const PreparedStructureTile &base);
   void BindSurfaces(const std::string &key, const std::shared_ptr<PreparedStructureTile> &base);
   [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
   LoadSurfaces(const std::string &key,
@@ -146,6 +187,7 @@ private:
       GeometryReadBytes_{0};
   std::atomic_uint64_t GeometryPreparations_{0}, GeometryPublicationAttempts_{0};
   std::atomic_uint64_t GeometryPublicationDeferred_{0}, GeometryPublicationPeakBytes_{0};
+  std::atomic_uint64_t BasePreparations_{0}, BasePackagePreparations_{0};
 };
 }
 #endif
