@@ -222,8 +222,14 @@ bool TerrainDeformationTask::Advance() const {
 bool TerrainDeformationTask::AwaitSlice(double seconds) const {
   if (Advance() || !(seconds > 0.0)) { return State_->Finished(); }
   std::unique_lock lock(State_->CompletionLock);
-  (void)State_->Ready.wait_for(
-      lock, std::chrono::duration<double>(seconds), [state = State_] { return state->Completed; });
+  const bool deferred = State_->Deferred;
+  const auto wait = deferred ? std::min(std::chrono::duration<double>(seconds),
+                                        std::chrono::duration<double>(
+                                            State_->RetryAt - std::chrono::steady_clock::now()))
+                             : std::chrono::duration<double>(seconds);
+  (void)State_->Ready.wait_for(lock, wait, [state = State_, deferred] {
+    return state->Completed || (!deferred && state->Deferred);
+  });
   lock.unlock();
   return Advance();
 }

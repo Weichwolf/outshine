@@ -269,6 +269,30 @@ void PermanentStorageFailure() {
   const auto absent = fixture.Cache->LoadDeformation(*key);
   CHECK(absent && !*absent, "the rejected publication leaves no visible partial native product");
 }
+
+void AwaitFollowsRetryDeadline() {
+  Fixture fixture;
+  if (!fixture.Cache || !fixture.Writer) { return; }
+  CHECK(fixture.Hold(), "a real writer keeps the native retry deferred");
+  auto input = Inputs();
+  TerrainDeformationTask task(
+      fixture.Pool, fixture.Cache, Stamps(), input, TangentFrame::At({}), kLayout, 30);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (fixture.Cache->Costs().DeformationPublicationAttempts < 6 &&
+         std::chrono::steady_clock::now() < deadline) {
+    (void)task.AwaitSlice(0.001);
+  }
+  CHECK(fixture.Cache->Costs().DeformationPublicationAttempts >= 6,
+        "the real retry reaches its bounded maximum backoff");
+  fixture.Drain();
+  const auto began = std::chrono::steady_clock::now();
+  const bool complete = task.AwaitSlice(0.5);
+  CHECK(!complete && std::chrono::steady_clock::now() - began < std::chrono::milliseconds(250),
+        "a deferred retry yields near its deadline rather than idling through the entire slice");
+  fixture.Release();
+  const auto result = Complete(task, input);
+  CHECK(result && result->Nodes > 0, "the same task completes normally after the writer releases");
+}
 }
 
 int main() {
@@ -276,5 +300,6 @@ int main() {
   InvalidRead();
   CancelledPublication();
   PermanentStorageFailure();
+  AwaitFollowsRetryDeadline();
   return outshine::Test::Report();
 }
