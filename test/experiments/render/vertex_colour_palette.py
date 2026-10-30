@@ -6,11 +6,19 @@ from time import perf_counter
 import numpy as np
 
 
+def unique_rows(words):
+    keys = np.ascontiguousarray(words).view("V16").reshape(-1)
+    table, indices = np.unique(keys, return_inverse=True)
+    return table.view("<u4").reshape(-1, 4), indices
+
+
 def encode(colours, width):
     words = np.asarray(colours, dtype="<u4")
-    if words.ndim != 2 or words.shape[1] != 4 or width not in (16, 32):
+    if words.ndim != 2 or words.shape[1] != 4 or width not in (None, 16, 32):
         raise ValueError("expected four UInt32 colour words and 16/32-bit indices")
-    table, indices = np.unique(words, axis=0, return_inverse=True)
+    table, indices = unique_rows(words)
+    if width is None:
+        width = 16 if len(table) <= 65536 else 32
     if len(table) > 1 << width or len(words) > 0xFFFFFFFF:
         raise ValueError("palette or colour count exceeds the selected encoding")
     packed = indices.astype("<u2" if width == 16 else "<u4").tobytes()
@@ -22,7 +30,8 @@ def encode(colours, width):
     return header.tobytes() + padded + table.tobytes()
 
 
-def decode(payload):
+def view(payload):
+    """Validate unchanged palette bytes, then borrow table/index views only."""
     if len(payload) < 16 or len(payload) % 16:
         raise ValueError("truncated palette buffer")
     first, count, unique, width = map(int, np.frombuffer(payload, "<u4", count=4))
@@ -36,6 +45,11 @@ def decode(payload):
     if count and (unique == 0 or int(indices.max()) >= unique):
         raise ValueError("colour index exceeds the palette")
     table = np.frombuffer(payload, "<u4", unique * 4, first * 4).reshape(-1, 4)
+    return table, indices
+
+
+def decode(payload):
+    table, indices = view(payload)
     return table[indices]
 
 

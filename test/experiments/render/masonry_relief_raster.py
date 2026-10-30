@@ -19,12 +19,12 @@ def sources(directory, enabled, normal_export=True):
     directory.mkdir(parents=True, exist_ok=True)
     shader = ROOT / "src/render/shaders"
     fragment = (shader / "litFragment.glsl").read_text()
-    old = "outputSurface(vec4(0.0), shadingNormal, surface.identity);"
+    old = "outputSurface(vec4(0.0), sampled.Normal, surface.identity);"
     assert fragment.count(old) == 1
     if normal_export:
         fragment = fragment.replace(
             old,
-            "outputSurface(vec4(shadingNormal, 1.0), shadingNormal, surface.identity);",
+            "outputSurface(vec4(sampled.Normal, 1.0), sampled.Normal, surface.identity);",
         )
     facade = (shader / "facadePattern.glsl").read_text()
     old = "materialM, materialDx, materialDy, filtered.xyz);"
