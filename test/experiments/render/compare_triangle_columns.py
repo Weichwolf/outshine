@@ -23,9 +23,22 @@ from triangle_columns import ColumnLimit, prepare, query, world_rays
 from triangle_image_reference import intersect_source, prepare_source
 
 
-def reference(source, prepared, world, points, raster):
+def reference(source, prepared, world, points, raster, *, ray_batch=None):
     origins, directions = world_rays(world, points, raster)
-    distance, owner = intersect_source(source, origins, directions, prepared=prepared)
+    if ray_batch is None:
+        distance, owner = intersect_source(
+            source, origins, directions, prepared=prepared
+        )
+    else:
+        distance, owner = (
+            np.full(len(points), np.inf),
+            np.full(len(points), -1, np.int64),
+        )
+        for begin in range(0, len(points), ray_batch):
+            end = begin + ray_batch
+            distance[begin:end], owner[begin:end] = intersect_source(
+                source, origins[begin:end], directions[begin:end], prepared=prepared
+            )
     mask = np.isfinite(distance)
     point = (
         np.c_[
@@ -174,7 +187,14 @@ def pose_result(args, manifest, arrays, cases, source, prepared, fields, pose):
             expected,
             args.output,
             pose,
-            lambda: reference(source, prepared, world, points, raster),
+            {
+                "existing-rtree256": lambda: reference(
+                    source, prepared, world, points, raster
+                ),
+                "existing-rtree32": lambda: reference(
+                    source, prepared, world, points, raster, ray_batch=32
+                ),
+            },
         )
     return result
 

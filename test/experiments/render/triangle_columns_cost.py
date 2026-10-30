@@ -31,14 +31,12 @@ def known_rtree_arrays(prepared):
     }
 
 
-def query_costs(field, world, points, raster, expected, output, pose, reference_call):
+def query_costs(field, world, points, raster, expected, output, pose, references):
     import trimesh
 
     result = {"trimesh_version": trimesh.__version__, "numpy_version": np.__version__}
-    for name, call in (
-        ("columns64", lambda: query(field, world, points, raster)),
-        ("existing-rtree", reference_call),
-    ):
+    methods = {"columns64": lambda: query(field, world, points, raster), **references}
+    for name, call in methods.items():
         value, cost = measured(call, output, pose + "-" + name)
         np.testing.assert_array_equal(value[0] > 0, expected > 0)
         np.testing.assert_allclose(value[0], expected, atol=1e-18, rtol=1e-12)
