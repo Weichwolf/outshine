@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_TERRAIN_TERRAINRENDERER_H
 
 #include "TerrainLattice.h"
+#include "TerrainVisibilityOrder.h"
 
 #include <array>
 #include <cstdint>
@@ -184,6 +185,7 @@ private:
   TerrainPatchSelection Selection_;
   std::unique_ptr<Native::Buffer> PatchList_, Visible_, VisibleStaging_;
   std::vector<TerrainInstance> Seen_;
+  std::vector<TerrainVisibleSource> Order_;
   uint32_t VisibleReal_ = 0, VisibleVirtual_ = 0, VisibleRoom_ = 0;
 };
 }

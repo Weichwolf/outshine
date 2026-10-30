@@ -60,6 +60,8 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
   Selection_.BeginFrame();
+  Seen_.clear();
+  Order_.clear();
   if (Resident_->Held_.empty()) { return {}; }
   if (Resident_->Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -71,16 +73,25 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
                                      ctx.PreViewTranslation[static_cast<int>(axis)]);
   }
   const SidePlanes planes = SidePlanesOf(ctx.Mvp);
-  Seen_.clear();
   for (size_t at = 0; at < Resident_->Held_.size(); ++at) {
     if (!Intersects(planes, Resident_->Bounds_[at], shift)) { continue; }
-    Seen_.push_back(Resident_->Held_[at]);
-    Selection_.Include(at);
+    const auto &sphere = Resident_->Bounds_[at];
+    const double depth =
+        static_cast<double>(ctx.Mvp[3]) * (static_cast<double>(sphere[0]) + shift[0]) +
+        static_cast<double>(ctx.Mvp[7]) * (static_cast<double>(sphere[1]) + shift[1]) +
+        static_cast<double>(ctx.Mvp[11]) * (static_cast<double>(sphere[2]) + shift[2]) +
+        ctx.Mvp[15];
+    Order_.push_back({.Index = at, .Depth = depth});
     if (at < Resident_->RealCount_) {
       ++VisibleReal_;
     } else {
       ++VisibleVirtual_;
     }
+  }
+  OrderTerrainSources(Order_, Resident_->RealCount_);
+  for (const auto &source : Order_) {
+    Seen_.push_back(Resident_->Held_[source.Index]);
+    Selection_.Include(source.Index);
   }
 
   if (!Seen_.empty()) {
