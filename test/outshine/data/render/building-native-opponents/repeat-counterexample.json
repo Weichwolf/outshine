@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "issue": 1806,
+  "native_commit": "bf80bfcc9",
+  "controls_sha256": "65533ac240d0bd17d781b89e380387759e6d0919fcc78dc5808a5a6e89efa0bc",
+  "representation": "union-terrain",
+  "query_a": "viewer",
+  "query_b": "repeat",
+  "depth_byte_equal": true,
+  "changed_pixels": [
+    {
+      "x": 229,
+      "y": 348,
+      "before": [
+        0.01355743408203125,
+        0.007671356201171875,
+        0.00647735595703125,
+        1.0
+      ],
+      "after": [
+        0.0135345458984375,
+        0.007663726806640625,
+        0.0064697265625,
+        1.0
+      ]
+    },
+    {
+      "x": 229,
+      "y": 349,
+      "before": [
+        0.032989501953125,
+        0.0186767578125,
+        0.0157623291015625,
+        1.0
+      ],
+      "after": [
+        0.03314208984375,
+        0.0187530517578125,
+        0.015838623046875,
+        1.0
+      ]
+    },
+    {
+      "x": 230,
+      "y": 350,
+      "before": [
+        0.0154571533203125,
+        0.00875091552734375,
+        0.00738525390625,
+        1.0
+      ],
+      "after": [
+        0.01355743408203125,
+        0.007671356201171875,
+        0.006473541259765625,
+        1.0
+      ]
+    }
+  ],
+  "scope": "Observed red counterexample. These samples do not bound future variation and do not claim a proven cause."
+}

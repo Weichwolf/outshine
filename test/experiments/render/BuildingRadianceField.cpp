@@ -175,7 +175,9 @@ BuildingLightingObserver(const nlohmann::json &query) {
   if (mode != "capture" && mode != "viewer") {
     return std::unexpected("unknown material field lighting observer");
   }
-  const auto camera = BuildingQueryCamera(query);
+  const auto &description =
+      mode == "viewer" && query.contains("lighting_camera") ? query.at("lighting_camera") : query;
+  const auto camera = BuildingQueryCamera(description);
   if (!Render::ValidMaterialFieldCameraBasis(camera)) {
     return std::unexpected("material field query camera has an invalid basis");
   }
