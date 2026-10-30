@@ -103,10 +103,13 @@ void UncompressedWritesAndInvalidInputs(const std::string &path) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  static_assert(!std::is_copy_constructible_v<PreparedAssetWrite>);
-  static_assert(!std::is_copy_assignable_v<PreparedAssetWrite>);
-  static_assert(std::is_nothrow_move_constructible_v<PreparedAssetWrite>);
-  static_assert(std::is_nothrow_move_assignable_v<PreparedAssetWrite>);
+  CHECK(!std::is_copy_constructible_v<PreparedAssetWrite>, "prepared writes cannot copy ownership");
+  CHECK(!std::is_copy_assignable_v<PreparedAssetWrite>,
+        "prepared write assignment cannot copy ownership");
+  CHECK(std::is_nothrow_move_constructible_v<PreparedAssetWrite>,
+        "prepared writes move without throwing");
+  CHECK(std::is_nothrow_move_assignable_v<PreparedAssetWrite>,
+        "prepared write assignment moves without throwing");
   const std::filesystem::path root(PlantedPath("prepared-asset-write"));
   std::filesystem::create_directories(root);
   OwnedPackageSurvivesContention((root / "compressed.sqlite").string());
