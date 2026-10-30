@@ -213,6 +213,9 @@ PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
           .DeformationMisses = DeformationMisses_.load(std::memory_order_relaxed),
           .DeformationWrites = DeformationWrites_.load(std::memory_order_relaxed),
           .DeformationReadBytes = DeformationReadBytes_.load(std::memory_order_relaxed),
+          .DeformationPreparations = DeformationPreparations_.load(std::memory_order_relaxed),
+          .DeformationPublicationAttempts =
+              DeformationPublicationAttempts_.load(std::memory_order_relaxed),
           .PatchHits = PatchHits_.load(std::memory_order_relaxed),
           .PatchMisses = PatchMisses_.load(std::memory_order_relaxed),
           .PatchWrites = PatchWrites_.load(std::memory_order_relaxed),
