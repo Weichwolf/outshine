@@ -12,7 +12,9 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kFormat = 0x0003314e4c5054ULL;
+constexpr uint64_t kPreviousFormat = 0x0003314e4c5054ULL;
+constexpr uint64_t kFormat = 0x0004314e4c5054ULL;
+constexpr uint32_t kPreviousRecipe = 3;
 
 bool DefinitionFields(BinaryValueWriter &out, const TransportPlanDefinition &definition) {
   return out(static_cast<uint32_t>(definition.Core.Level),
@@ -68,6 +70,9 @@ bool WriteProducts(BinaryValueWriter &out, const TransportPlan &plan) {
               std::span(plan.Ports),
               [&](const auto &port) { return TransportFormat::Port(out, port); }) &&
          List(out,
+              std::span(plan.SourceEnds),
+              [&](const auto &end) { return TransportFormat::SourceEnd(out, end); }) &&
+         List(out,
               std::span(plan.Bodies),
               [&](const auto &body) { return TransportFormat::Body(out, body); }) &&
          List(out,
@@ -78,7 +83,7 @@ bool WriteProducts(BinaryValueWriter &out, const TransportPlan &plan) {
          });
 }
 
-bool ReadProducts(TransportFormat::Reader &in, TransportPlan &plan) {
+bool ReadProducts(TransportFormat::Reader &in, TransportPlan &plan, bool sourceEnds) {
   constexpr size_t pathBytes = 83;
   constexpr size_t junctionBytes = 36;
   constexpr size_t portBytes = 168;
@@ -95,6 +100,9 @@ bool ReadProducts(TransportFormat::Reader &in, TransportPlan &plan) {
                  [&](auto &junction) { return TransportFormat::Junction(in, junction); }) &&
          in.List(
              plan.Ports, portBytes, [&](auto &port) { return TransportFormat::Port(in, port); }) &&
+         (!sourceEnds || in.List(plan.SourceEnds,
+                                 256,
+                                 [&](auto &end) { return TransportFormat::SourceEnd(in, end); })) &&
          in.List(
              plan.Bodies, bodyBytes, [&](auto &body) { return TransportFormat::Body(in, body); }) &&
          in.List(plan.TerrainContacts,
@@ -157,7 +165,8 @@ DecodeTransportPlan(std::span<const uint8_t> bytes, TransportPlanCodecLimits lim
   uint64_t format = 0;
   uint32_t recipe = 0;
   if (!in(format, recipe)) { return std::unexpected(TransportPlanCodecError::Malformed); }
-  if (format != kFormat || recipe != kTransportPlanRecipeVersion) {
+  if ((format != kFormat || recipe != kTransportPlanRecipeVersion) &&
+      (format != kPreviousFormat || recipe != kPreviousRecipe)) {
     return std::unexpected(TransportPlanCodecError::UnsupportedFormat);
   }
   TransportPlan plan(TransportPlanDefinition{});
@@ -171,7 +180,9 @@ DecodeTransportPlan(std::span<const uint8_t> bytes, TransportPlanCodecLimits lim
   if (Sha256Digest(manifest.data(), manifest.size()) != plan.InputBinding) {
     return std::unexpected(TransportPlanCodecError::InvalidInputs);
   }
-  if (!ReadProducts(in, plan) || in.RemainingBytes() != 0) { return std::unexpected(in.Failure()); }
+  if (!ReadProducts(in, plan, format == kFormat) || in.RemainingBytes() != 0) {
+    return std::unexpected(in.Failure());
+  }
   const auto valid = ValidateTransportPlan(plan);
   if (!valid) { return std::unexpected(valid.error()); }
   return plan;

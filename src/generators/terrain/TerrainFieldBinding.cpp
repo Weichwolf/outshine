@@ -1,4 +1,5 @@
 #include "TerrainFieldSet.h"
+#include "HeightField.h"
 #include "Address.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
@@ -13,6 +14,7 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -22,9 +24,10 @@ using Error = TerrainFieldSet::BindingError;
 using Entry = TerrainFieldSet::Entry;
 constexpr size_t kMetadataBytesMost = size_t{256} * 1024u * 1024u;
 
-std::vector<size_t> CanonicalFields(std::span<const Entry> fields, int zoom) {
-  const auto included = [zoom](const Entry &entry) {
-    return entry.first.Zoom >= 0 && entry.first.Zoom <= zoom;
+std::expected<std::vector<size_t>, Error>
+CanonicalFields(std::span<const Entry> fields, int zoom, bool unique) {
+  const auto included = [zoom, unique](const Entry &entry) {
+    return unique ? entry.first.Zoom == zoom : entry.first.Zoom >= 0 && entry.first.Zoom <= zoom;
   };
   std::vector<size_t> order;
   order.reserve(static_cast<size_t>(std::ranges::count_if(fields, included)));
@@ -40,7 +43,10 @@ std::vector<size_t> CanonicalFields(std::span<const Entry> fields, int zoom) {
   size_t kept = 0;
   for (const size_t at : order) {
     const auto &[tile, field] = fields[at];
-    if (previous == tile) { continue; }
+    if (previous == tile) {
+      if (unique) { return std::unexpected(Error::InvalidRequest); }
+      continue;
+    }
     previous = tile;
     if (field && field->Meshable()) { order[kept++] = at; }
   }
@@ -81,17 +87,42 @@ RasterDigest(const ::outshine::Ground::TerrainField &field, size_t bytes) {
 
 std::expected<TerrainFieldSet::Binding, TerrainFieldSet::BindingError>
 TerrainFieldSet::BindingAt(int zoom) const {
+  return BindAt(zoom, {}, {}, {});
+}
+
+std::expected<TerrainFieldSet::Binding, TerrainFieldSet::BindingError>
+TerrainFieldSet::BilinearBindingAt(int zoom,
+                                   std::string_view sourceDatum,
+                                   std::string_view heightMapping) const {
+  if (sourceDatum.empty() || heightMapping.empty()) {
+    return std::unexpected(BindingError::InvalidRequest);
+  }
+  return BindAt(
+      zoom, ::outshine::Ground::HeightField::BilinearSamplingSemantics, sourceDatum, heightMapping);
+}
+
+std::expected<TerrainFieldSet::Binding, TerrainFieldSet::BindingError>
+TerrainFieldSet::BindAt(int zoom,
+                        std::string_view sampling,
+                        std::string_view sourceDatum,
+                        std::string_view heightMapping) const {
   if (zoom < 0 || zoom > Data::TileId::MaximumZoom) {
     return std::unexpected(BindingError::InvalidRequest);
   }
-  const auto order = CanonicalFields(Fields_, zoom);
+  const auto order = CanonicalFields(Fields_, zoom, !sampling.empty());
+  if (!order) { return std::unexpected(order.error()); }
+  if (!sampling.empty() && order->empty()) { return std::unexpected(BindingError::InvalidRequest); }
   BinaryValueWriter out(kMetadataBytesMost);
-  if (!out.Text("sourced-terrain-view-1") ||
-      !out(static_cast<int32_t>(zoom), static_cast<uint64_t>(order.size()))) {
+  const auto *const schema =
+      sampling.empty() ? "sourced-terrain-view-1" : "sourced-terrain-bilinear-view-1";
+  if (!out.Text(schema) ||
+      (!sampling.empty() &&
+       (!out.Text(sampling) || !out.Text(sourceDatum) || !out.Text(heightMapping))) ||
+      !out(static_cast<int32_t>(zoom), static_cast<uint64_t>(order->size()))) {
     return std::unexpected(BindingError::OverBudget);
   }
   Binding binding{};
-  for (const size_t at : order) {
+  for (const size_t at : *order) {
     const auto &[tile, held] = Fields_[at];
     const auto &field = *held;
     if (field.Rows() > std::numeric_limits<size_t>::max() / sizeof(float) / field.Cols()) {

@@ -43,27 +43,31 @@ void CheckShoulders() {
   constexpr double stepM = 0.001;
   const std::array<EastNorth, 3> points{
       {{.NorthM = 2 - stepM}, {.NorthM = 2}, {.NorthM = 2 + stepM}}};
-  for (const bool profile : {false, true}) {
-    for (const bool pad : {false, true}) {
-      for (const bool reverse : {false, true}) {
-        for (const double sourceM : {-10., 0., 10.}) {
-          for (const double bedM : {-6., 6.}) {
-            std::array stamps{Contact(-2, bedM, profile, false), Contact(10, -bedM, false, pad)};
-            if (reverse) { std::ranges::reverse(stamps); }
-            std::array heights{sourceM, sourceM, sourceM};
-            const auto result = ApplyEarthworkStamps(stamps, points, heights, kMostEarthworkM);
-            CHECK(result.Structures == 0, "all proposed contacts fit the height bound");
-            CHECK(std::abs(heights[0] - bedM) < 1.e-6 && std::abs(heights[1] - bedM) < 1.e-6,
-                  "foreign road and foundation aprons cannot replace physical road support");
-            CHECK(std::abs(heights[2] - heights[1]) / stepM < 0.001,
-                  "mixed apron kinds meet the shoulder with continuous height and slope");
-            std::array staged{sourceM, sourceM, sourceM};
-            EarthworkDeformationJob job(stamps, points, staged, kMostEarthworkM);
-            while (!job.Advance(1)) {}
-            (void)job.Take();
-            CHECK(staged == heights, "bounded work resolves the same contact and apron field");
-          }
-        }
+  constexpr std::array<std::array<bool, 3>, 8> variants{{{false, false, false},
+                                                         {false, false, true},
+                                                         {false, true, false},
+                                                         {false, true, true},
+                                                         {true, false, false},
+                                                         {true, false, true},
+                                                         {true, true, false},
+                                                         {true, true, true}}};
+  for (const auto [profile, pad, reverse] : variants) {
+    for (const double sourceM : {-10., 0., 10.}) {
+      for (const double bedM : {-6., 6.}) {
+        std::array stamps{Contact(-2, bedM, profile, false), Contact(10, -bedM, false, pad)};
+        if (reverse) { std::ranges::reverse(stamps); }
+        std::array heights{sourceM, sourceM, sourceM};
+        const auto result = ApplyEarthworkStamps(stamps, points, heights, kMostEarthworkM);
+        CHECK(result.Structures == 0, "all proposed contacts fit the height bound");
+        CHECK(std::abs(heights[0] - bedM) < 1.e-6 && std::abs(heights[1] - bedM) < 1.e-6,
+              "foreign road and foundation aprons cannot replace physical road support");
+        CHECK(std::abs(heights[2] - heights[1]) / stepM < 0.001,
+              "mixed apron kinds meet the shoulder with continuous height and slope");
+        std::array staged{sourceM, sourceM, sourceM};
+        EarthworkDeformationJob job(stamps, points, staged, kMostEarthworkM);
+        while (!job.Advance(1)) {}
+        (void)job.Take();
+        CHECK(staged == heights, "bounded work resolves the same contact and apron field");
       }
     }
   }

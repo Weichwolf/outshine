@@ -9,5 +9,7 @@
 namespace outshine::Generators {
 [[nodiscard]] std::expected<RoadPort, std::string_view>
 TransportPortInFrame(const TransportPort &port, const TangentFrame &frame, EastNorth interior);
+[[nodiscard]] std::expected<RoadPort, std::string_view>
+TransportPortInFrame(const TransportSourceEnd &end, const TangentFrame &frame, EastNorth interior);
 }
 #endif

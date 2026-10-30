@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "EarthworkDeformation.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -34,7 +35,9 @@ int main() {
     const auto result = ApplyEarthworkStamps(stamps, points, heights, 30.0);
     CHECK(result.Held == 0 && heights.front() == 0 && heights.back() == 20,
           "clearance preserves its core ceiling and returns to unchanged source terrain");
-    double mostGradient = 0, mostGradientStep = 0, previous = 0;
+    double mostGradient = 0;
+    double mostGradientStep = 0;
+    double previous = 0;
     for (size_t i = 1; i < heights.size(); ++i) {
       const double gradient = (heights[i] - heights[i - 1]) / stepM;
       mostGradient = std::max(mostGradient, std::abs(gradient));

@@ -54,6 +54,16 @@ EndPort(const TransportPlan &plan,
     return std::optional<RoadPort>(
         RoadPort{.Gate = junction.Gates[gate->Gate], .Plane = junction.Plane});
   }
+  if (const auto *source = std::get_if<TransportSourceEndReference>(&reference)) {
+    if (source->End >= plan.SourceEnds.size()) {
+      return std::unexpected("road page path refers to a missing source-end contact");
+    }
+    const auto interior = InteriorPoint(stations, end);
+    if (!interior) { return std::unexpected(interior.error()); }
+    const auto contact = TransportPortInFrame(plan.SourceEnds[source->End], frame, *interior);
+    if (!contact) { return std::unexpected(contact.error()); }
+    return std::optional<RoadPort>(*contact);
+  }
   return std::nullopt;
 }
 

@@ -12,7 +12,9 @@ bool AppendRoadBodyMesh(const HeightSolid &body, const Vec3f &colour, RoadMeshBu
       body.Faces.size() > (std::numeric_limits<uint32_t>::max() - first) / 3) {
     return false;
   }
-  for (const auto face : body.Faces) {
+  for (size_t index = 0; index < body.Faces.size(); ++index) {
+    if (!HeightSolidExposesFace(body, index)) { continue; }
+    const auto face = body.Faces[index];
     std::array<std::array<double, 3>, 3> points;
     for (size_t at = 0; at < face.size(); ++at) {
       const auto source = body.Points[face[at]];

@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "EarthworkDeformation.h"
 
+#include <cstddef>
 #include <array>
 #include <cmath>
 #include <vector>

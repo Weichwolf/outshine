@@ -1,0 +1,9 @@
+{
+  "producer_commit": "87846f0be929f705e0eee85311055c79851fe7d5",
+  "producer": "EncodeTransportPlan(TransportPlanFixture(), kTransportFixtureLimits)",
+  "fixture": "test/harness/shared/TransportPlanFixture.h",
+  "format": 3,
+  "recipe": 3,
+  "bytes": 2313,
+  "sha256": "7b1f5d38cce79cf56b3c7d61dff723618f233a0a40cbc6283fdf269c10be8caa"
+}

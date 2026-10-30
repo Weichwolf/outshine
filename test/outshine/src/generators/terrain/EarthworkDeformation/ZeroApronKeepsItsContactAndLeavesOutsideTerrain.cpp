@@ -21,7 +21,8 @@ int main() {
                                            .YieldM = 6,
                                            .Fills = true,
                                            .Kind = kind}};
-    const std::array<EastNorth, 3> samples{{{0, 0}, {0, 2}, {0, 2.001}}};
+    const std::array<EastNorth, 3> samples{
+        {{.EastM = 0, .NorthM = 0}, {.EastM = 0, .NorthM = 2}, {.EastM = 0, .NorthM = 2.001}}};
     std::array<double, 3> heights{};
     (void)ApplyEarthworkStamps(stamps, samples, heights, kMostEarthworkM);
     CHECK(heights[0] == -6 && heights[1] == -6,

@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "TerrainDeformation.h"
 
+#include <memory>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -32,11 +33,12 @@ int main() {
     }
   }
   Patchwork candidate;
-  TerrainDeformationJob job(std::move(stamps), candidate, TangentFrame::At({}), {}, 30);
-  CHECK(job.HeapBytes() == expected,
+  auto job = std::make_unique<TerrainDeformationJob>(
+      std::move(stamps), candidate, TangentFrame::At({}), TerrainPageLayout{}, 30);
+  CHECK(job->HeapBytes() == expected,
         "a zero-work job owns outer slots, rings, seams and retained empty hole capacity");
-  TerrainDeformationJob moved(std::move(job));
-  CHECK(moved.HeapBytes() == expected && job.HeapBytes() == 0,
+  TerrainDeformationJob moved(std::move(*job));
+  CHECK(moved.HeapBytes() == expected && job->HeapBytes() == 0,
         "moving the job transfers every owned stamp allocation once");
   CHECK(moved.Advance(1, 1) && moved.Take().Nodes == 0 && moved.HeapBytes() == expected,
         "completing a zero-work job retains its owned stamp capacity");
@@ -44,10 +46,11 @@ int main() {
   std::vector<EarthworkStamp> empty;
   empty.reserve(3);
   const size_t emptyBytes = empty.capacity() * sizeof(EarthworkStamp);
-  TerrainDeformationJob unstarted(std::move(empty), candidate, TangentFrame::At({}), {}, 30);
-  CHECK(unstarted.HeapBytes() == emptyBytes, "empty input still owns its reserved stamp slots");
-  moved = std::move(unstarted);
-  CHECK(moved.HeapBytes() == emptyBytes && unstarted.HeapBytes() == 0,
+  auto unstarted = std::make_unique<TerrainDeformationJob>(
+      std::move(empty), candidate, TangentFrame::At({}), TerrainPageLayout{}, 30);
+  CHECK(unstarted->HeapBytes() == emptyBytes, "empty input still owns its reserved stamp slots");
+  moved = std::move(*unstarted);
+  CHECK(moved.HeapBytes() == emptyBytes && unstarted->HeapBytes() == 0,
         "move assignment retires the former stamp allocation and adopts the new owner");
   return Report();
 }

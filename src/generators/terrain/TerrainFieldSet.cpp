@@ -128,6 +128,22 @@ TerrainFieldSet::TerrainFieldSet(std::vector<Entry> fields,
   if (!std::ranges::is_sorted(Fields_, {}, key)) { std::ranges::stable_sort(Fields_, {}, key); }
 }
 
+bool TerrainFieldSet::ShareOriginalField(Data::TileId tile,
+                                         ::outshine::Ground::HeightField::Block &into) const {
+  if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
+    return false;
+  }
+  const Entry *selected = nullptr;
+  for (const auto &entry : Fields_) {
+    if (entry.first != tile) { continue; }
+    if (selected != nullptr) { return false; }
+    selected = &entry;
+  }
+  return selected != nullptr && selected->second && selected->second->Meshable() &&
+         !selected->second->Sources().empty() && !selected->second->HasMissingBoundary() &&
+         ::outshine::Ground::HeightField::SharesField(selected->second, tile, into);
+}
+
 bool TerrainFieldSet::ShareSourcedField(Data::TileId tile,
                                         ::outshine::Ground::HeightField::Block &into) const {
   return Share(Fields_, tile, into);

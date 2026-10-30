@@ -32,6 +32,21 @@ int main() {
         "the actual native closed body retains all indexed shape data");
   CHECK(source->Bodies[0].Work.NodeQueries > 0 && decoded->Bodies[0].Work.NodeQueries == 0,
         "transient construction telemetry is excluded from the immutable product");
+  auto interface = *source;
+  interface.Bodies[0].WallKinds[0] = HeightSolidWallKind::Interface;
+  const auto interfaceBytes = EncodeTransportPlan(interface, kTransportFixtureLimits);
+  CHECK(interfaceBytes.has_value(),
+        "explicit internal closures preserve the existing native body wire layout");
+  if (interfaceBytes) {
+    const auto restored = DecodeTransportPlan(*interfaceBytes, kTransportFixtureLimits);
+    CHECK(restored && restored->Bodies[0].WallKinds[0] == HeightSolidWallKind::Interface &&
+              !HeightSolidExposesFace(restored->Bodies[0], 2 * restored->Bodies[0].SurfaceFaces),
+          "stored functional bodies retain the distinction between outer surfaces and internal "
+          "closures");
+  }
+  interface.Bodies[0].WallKinds[0] = static_cast<HeightSolidWallKind>(255);
+  CHECK(!EncodeTransportPlan(interface, kTransportFixtureLimits),
+        "unknown wall semantics are refused rather than reinterpreted as exposed surfaces");
   const auto *gate = std::get_if<TransportJunctionGateReference>(decoded->Paths[0].Ends.data());
   const auto *port = std::get_if<TransportBoundaryPortReference>(&decoded->Paths[0].Ends[1]);
   CHECK(gate && port && gate->Junction == 0 && gate->Gate == 0 && port->Port == 0,

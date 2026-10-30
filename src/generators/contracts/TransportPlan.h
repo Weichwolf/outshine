@@ -7,11 +7,13 @@
 #include "TransportBoundary.h"
 #include "TransportGeometry.h"
 #include "TransportPlanAddress.h"
+#include "TransportTopology.h"
 #include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <variant>
 #include <vector>
 
@@ -52,8 +54,57 @@ struct TransportJunctionGateReference {
   uint32_t Gate = 0;
 };
 
-using TransportPathEnd =
-    std::variant<std::monostate, TransportBoundaryPortReference, TransportJunctionGateReference>;
+enum class TransportSourceEndKind : uint8_t { SourceNode, Natural, External, Unresolved };
+
+struct TransportSourceMember {
+  World::TransportEdgeId Edge;
+  uint64_t Node = 0;
+  uint32_t SourceStep = 0;
+  uint32_t PointCount = 0;
+  uint8_t End = 0;
+  int32_t Layer = 0;
+  bool Bridge = false;
+  bool Tunnel = false;
+  bool Terminal = false;
+  bool OwnsEnd = false;
+  bool operator==(const TransportSourceMember &) const = default;
+};
+
+[[nodiscard]] inline auto TransportSourceMemberKey(const TransportSourceMember &member) noexcept {
+  return std::tuple{member.Edge.PathId,
+                    member.Edge.SegmentOrdinal,
+                    static_cast<uint8_t>(member.End ^ static_cast<uint8_t>(member.Edge.Direction))};
+}
+
+struct TransportSourceEndTopology {
+  TransportSourceEndKind Kind = TransportSourceEndKind::SourceNode;
+  TransportSourceMember Ground;
+  std::vector<TransportSourceMember> Relations;
+  bool operator==(const TransportSourceEndTopology &) const = default;
+};
+
+struct TransportSourceEnd {
+  TransportInputReference Input;
+  std::string SourceId;
+  std::array<uint8_t, 32> ScopeBinding{};
+  std::array<uint8_t, 32> Inputs{};
+  TransportSourceEndTopology Topology;
+  LongitudeLatitude Anchor{};
+  RoadPort Contact{};
+  RoadProfile Profile = RoadProfile::Simple;
+  double CrossfallRad = 0;
+  int32_t Layer = 0;
+  TransportUse Use = TransportUse::Road;
+};
+
+struct TransportSourceEndReference {
+  uint32_t End = 0;
+};
+
+using TransportPathEnd = std::variant<std::monostate,
+                                      TransportBoundaryPortReference,
+                                      TransportJunctionGateReference,
+                                      TransportSourceEndReference>;
 
 struct TransportPath {
   std::string PartId;
@@ -112,6 +163,7 @@ struct TransportPlan {
   std::vector<RoadStation> Stations;
   std::vector<TransportJunction> Junctions;
   std::vector<TransportPort> Ports;
+  std::vector<TransportSourceEnd> SourceEnds;
   std::vector<HeightSolid> Bodies;
   std::vector<EarthworkStamp> TerrainContacts;
   std::vector<TransportOmission> Omissions;

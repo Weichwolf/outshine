@@ -2,6 +2,7 @@
 #include "EarthworkDeformation.h"
 #include "GroundMesher.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -79,6 +80,8 @@ int main() {
         "connected graded corridor has one smooth field independent of subdivision and order");
 
   auto unrelated = Span(1.0, 3.0, 99);
+  CHECK(unrelated.Profile.has_value(), "the disconnected corridor fixture has its profile");
+  if (!unrelated.Profile) { return Report(); }
   unrelated.Profile->BeginBedM += 10.0;
   unrelated.Profile->EndBedM += 10.0;
   std::array withUnrelated{coarse[0], coarse[1], unrelated};

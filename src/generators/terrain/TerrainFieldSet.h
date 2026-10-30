@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -38,6 +39,12 @@ public:
   };
 
   [[nodiscard]] std::expected<Binding, BindingError> BindingAt(int zoom) const;
+
+  [[nodiscard]] std::expected<Binding, BindingError>
+  BilinearBindingAt(int zoom, std::string_view sourceDatum, std::string_view heightMapping) const;
+
+  [[nodiscard]] bool ShareOriginalField(Data::TileId tile,
+                                        ::outshine::Ground::HeightField::Block &into) const;
 
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile,
                                        ::outshine::Ground::HeightField::Block &into) const;
@@ -80,6 +87,11 @@ public:
   AslRangeOver(int zoom, ::outshine::Ground::GeoBounds bounds, size_t nodesMost) const;
 
 private:
+  [[nodiscard]] std::expected<Binding, BindingError> BindAt(int zoom,
+                                                            std::string_view sampling,
+                                                            std::string_view sourceDatum,
+                                                            std::string_view heightMapping) const;
+
   std::vector<Entry> Fields_;
   ::outshine::Ground::TerrainRevisionIndex::Reservation Metadata_;
 };

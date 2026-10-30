@@ -2,7 +2,9 @@
 #include "ByteArchive.h"
 #include "Sha256.h"
 #include "Sha256Stream.h"
+#include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace outshine::Generators::Osm::MvtTransport {
@@ -80,15 +82,28 @@ template <class Hash> void WriteFacts(Hash &hash, const MvtTransportSourceFacts 
 }
 }
 
-void BindSourceFacts(MvtTransportSourceFacts &facts) {
+std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
   Sha256Stream hash;
   WriteFacts(hash, facts);
-  if (const auto digest = hash.Finish()) {
-    facts.Digest = *digest;
-    return;
-  }
+  if (const auto digest = hash.Finish()) { return *digest; }
   Sha256Prefix fallback(nullptr, 0);
   WriteFacts(fallback, facts);
-  facts.Digest = fallback.Digest(nullptr, 0);
+  return fallback.Digest(nullptr, 0);
+}
+
+void BindSourceFacts(MvtTransportSourceFacts &facts) {
+  facts.Digest = SourceFactDigest(facts);
+}
+
+std::array<uint8_t, 32> GroundInputOmissionDigest(std::span<const MvtTransportOmission> omissions) {
+  constexpr std::string_view kVersion = "outshine/mvt-ground-omissions/1";
+  Sha256Prefix hash(kVersion.data(), kVersion.size());
+  Append(hash, static_cast<uint64_t>(omissions.size()));
+  for (const auto &omission : omissions) {
+    Append(hash, omission.Source);
+    hash.Append(omission.Feature.data(), omission.Feature.size());
+    Append(hash, static_cast<uint8_t>(omission.Reason));
+  }
+  return hash.Digest(nullptr, 0);
 }
 }

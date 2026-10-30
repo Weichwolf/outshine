@@ -26,5 +26,15 @@ int main() {
   CHECK(!mesh.NormalM.empty() &&
             std::ranges::all_of(mesh.NormalM, [](float normal) { return std::isfinite(normal); }),
         "normal construction retains the nonzero cross product of representable thin faces");
+  const auto volume = solid->VolumeM3;
+  solid->WallKinds[0] = HeightSolidWallKind::Interface;
+  RoadMeshBuffers connected;
+  CHECK(AppendRoadBodyMesh(*solid, {{1, 1, 1}}, connected) &&
+            connected.Index.size() + 3 == mesh.Index.size() && solid->VolumeM3 == volume,
+        "the actual render consumer omits an internal closure while preserving the whole "
+        "functional solid");
+  CHECK(!HeightSolidExposesFace(*solid, 2 * solid->SurfaceFaces) &&
+            HeightSolidExposesFace(*solid, 0),
+        "render and functional surface queries share the explicit interface distinction");
   return Report();
 }

@@ -4,6 +4,7 @@
 #include "TileGeodesy.h"
 #include "TriangleBvh.h"
 
+#include <cstddef>
 #include <array>
 #include <cmath>
 #include <cstdint>

@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "SurfaceBody.h"
 #include "SurfaceEarthworks.h"
+#include "HeightSolidTerrainContact.h"
 #include "TerrainDeformation.h"
 #include "TerrainMesh.h"
 #include "TriangleBvh.h"
@@ -9,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <span>
 #include <stop_token>
 #include <vector>
@@ -169,6 +171,25 @@ void ExplicitRolesAndBoundedInputsAreRequired() {
   const auto canceled = BuildSurfaceEarthworks(*body, sources, {}, stop.get_token());
   CHECK(!canceled && canceled.error() == SurfaceEarthworkError::Canceled,
         "canceled terrain conversion never publishes partial contacts");
+  const SurfaceGroundSource ground{.Effect = SurfaceGroundEffect::GroundContact, .ContactKey = 7};
+  CHECK(!BuildHeightSolidTerrainContact(body->Geometry, body->Geometry.SurfaceFaces, ground, 0) &&
+            !BuildHeightSolidTerrainContact({}, 0, ground, 0),
+        "the shared underside operation rejects missing faces before index access");
+  CHECK(!BuildHeightSolidTerrainContact(body->Geometry, 0, ground, -1) &&
+            !BuildHeightSolidTerrainContact(
+                body->Geometry, 0, ground, std::numeric_limits<double>::infinity()) &&
+            !BuildHeightSolidTerrainContact(body->Geometry, 0, {}, 0) &&
+            !BuildHeightSolidTerrainContact(body->Geometry, 0, sources[0], 0),
+        "an individual stamp requires a real physical role and valid apron");
+  auto corrupt = body->Geometry;
+  corrupt.Faces[corrupt.SurfaceFaces][0] = std::numeric_limits<uint32_t>::max();
+  CHECK(!BuildHeightSolidTerrainContact(corrupt, 0, ground, 0),
+        "invalid underside point indices never escape the shared native conversion");
+  corrupt = body->Geometry;
+  corrupt.Points[corrupt.Faces[corrupt.SurfaceFaces][0]][2] =
+      std::numeric_limits<double>::quiet_NaN();
+  CHECK(!BuildHeightSolidTerrainContact(corrupt, 0, ground, 0),
+        "invalid underside coordinates never produce a terrain plane");
 }
 }
 

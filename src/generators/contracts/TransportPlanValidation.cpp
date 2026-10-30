@@ -23,13 +23,18 @@ template <class Range, class Before> bool StrictlyOrdered(const Range &items, Be
          }) == items.end();
 }
 
-bool ValidEnd(const TransportPlan &plan, const TransportPath &path, const TransportPathEnd &end) {
+bool ValidBoundary(const TransportPlan &plan, const TransportPath &path, uint32_t index) {
+  if (index >= plan.Ports.size()) { return false; }
+  const auto &port = plan.Ports[index];
+  return port.SourceId == path.SourceId && port.Layer == path.Layer && port.Use == path.Use &&
+         port.Profile == path.Profile && port.Contact.Gate.HalfWidthM == path.HalfWidthM &&
+         (path.Body || port.CrossfallRad == path.CrossfallRad);
+}
+
+bool ValidEnd(const TransportPlan &plan, const TransportPath &path, size_t side) {
+  const auto &end = path.Ends[side];
   if (const auto *boundary = std::get_if<TransportBoundaryPortReference>(&end)) {
-    if (boundary->Port >= plan.Ports.size()) { return false; }
-    const auto &port = plan.Ports[boundary->Port];
-    return port.SourceId == path.SourceId && port.Layer == path.Layer && port.Use == path.Use &&
-           port.Profile == path.Profile && port.Contact.Gate.HalfWidthM == path.HalfWidthM &&
-           port.CrossfallRad == path.CrossfallRad;
+    return ValidBoundary(plan, path, boundary->Port);
   }
   if (const auto *gate = std::get_if<TransportJunctionGateReference>(&end)) {
     if (gate->Junction >= plan.Junctions.size()) { return false; }
@@ -37,6 +42,15 @@ bool ValidEnd(const TransportPlan &plan, const TransportPath &path, const Transp
     return gate->Gate < junction.Gates.size() &&
            junction.Gates[gate->Gate].HalfWidthM == path.HalfWidthM &&
            std::ranges::binary_search(junction.Sources, path.SourceId);
+  }
+  if (const auto *source = std::get_if<TransportSourceEndReference>(&end)) {
+    if (source->End >= plan.SourceEnds.size()) { return false; }
+    const auto &value = plan.SourceEnds[source->End];
+    const auto &station =
+        plan.Stations[path.FirstStation + (side == 0 ? 0 : path.StationCount - 1)];
+    return value.SourceId == path.SourceId && value.Layer == path.Layer && value.Use == path.Use &&
+           value.Profile == path.Profile && value.Contact.Gate.HalfWidthM == path.HalfWidthM &&
+           value.Topology.Ground.Node == station.Node;
   }
   return std::holds_alternative<std::monostate>(end);
 }
@@ -82,8 +96,8 @@ bool ValidPath(const TransportPlan &plan, const TransportPath &path) {
          std::isfinite(path.MaximumGradient) && path.MaximumGradient >= 0 &&
          std::isfinite(path.SpeedMps) && path.SpeedMps >= 0 && path.Lanes >= 0 &&
          TransportFormat::ValidProfile(path.Profile) && TransportFormat::ValidUse(path.Use) &&
-         (!path.Body || *path.Body < plan.Bodies.size()) && ValidEnd(plan, path, path.Ends[0]) &&
-         ValidEnd(plan, path, path.Ends[1]) && ProfileFits(plan, path);
+         (!path.Body || *path.Body < plan.Bodies.size()) && ValidEnd(plan, path, 0) &&
+         ValidEnd(plan, path, 1) && ProfileFits(plan, path);
 }
 
 bool ValidJunction(const TransportJunction &junction) {
@@ -151,6 +165,9 @@ std::expected<void, TransportPlanCodecError> ValidateTransportPlan(const Transpo
   }
   if (!TransportFormat::NetworkInputsBound(plan)) {
     return std::unexpected(TransportPlanCodecError::InvalidNetwork);
+  }
+  if (!TransportFormat::SourceEndsBound(plan)) {
+    return std::unexpected(TransportPlanCodecError::InvalidSourceEnd);
   }
   if (!PathsPartitionStations(plan) ||
       !std::ranges::all_of(plan.Stations,

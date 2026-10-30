@@ -35,7 +35,9 @@ bool HasSoftApron(const EarthworkStamp &stamp) {
   return stamp.Kind != EarthworkKind::Basin;
 }
 
-double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
+}
+
+double EarthworkApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) noexcept {
   return stamp.ApronM > 0.0 &&
                  (stamp.Kind == EarthworkKind::Corridor || stamp.Kind == EarthworkKind::Pad ||
                   stamp.Kind == EarthworkKind::Clearance)
@@ -44,6 +46,8 @@ double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
              : stamp.ApronM;
 }
+
+namespace {
 
 double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
   const size_t corners = ring.size() / 2u;
@@ -254,7 +258,7 @@ struct PressWorkspace {
     WidthsM.reserve(stamps.size());
     ReliefM.reserve(stamps.size());
     for (const auto &stamp : stamps) {
-      WidthsM.push_back(ApronWidthM(stamp, mostEarthworkM));
+      WidthsM.push_back(EarthworkApronWidthM(stamp, mostEarthworkM));
       ReliefM.push_back(std::min(std::abs(stamp.YieldM), mostEarthworkM));
     }
   }
@@ -499,7 +503,6 @@ void ApplyAt(std::span<const EarthworkStamp> these,
   upM[one] = under.WantedM;
   ++told.Moved;
 }
-
 }
 
 EarthworkDeformationResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,

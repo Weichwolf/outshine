@@ -13,6 +13,9 @@ bool End(BinaryValueWriter &out, const TransportPathEnd &end) {
   if (const auto *junction = std::get_if<TransportJunctionGateReference>(&end)) {
     return out(uint32_t{2}, junction->Junction, junction->Gate);
   }
+  if (const auto *source = std::get_if<TransportSourceEndReference>(&end)) {
+    return out(uint32_t{3}, source->End);
+  }
   return out(uint32_t{0});
 }
 
@@ -31,6 +34,12 @@ bool End(Reader &in, TransportPathEnd &end) {
       TransportJunctionGateReference junction;
       if (!in(junction.Junction, junction.Gate)) { return false; }
       end = junction;
+      return true;
+    }
+    case 3: {
+      TransportSourceEndReference source;
+      if (!in(source.End)) { return false; }
+      end = source;
       return true;
     }
     default: return false;
