@@ -11,7 +11,7 @@ import numpy as np
 from camera_height_inputs import digest
 from outshine_ref.contracts import Reservation
 from rail_consumers_buildings import bound_products
-from rail_occupancy_inputs import supplements
+from rail_occupancy_inputs import bound_state, supplements
 from rail_occupancy_reference import RailReference, whole_raised
 from stair_candidate_plants import generate
 from stair_candidate_plants_verify import verify as verify_plants
@@ -38,18 +38,14 @@ def adapter():
         if not proof.get("float32_bodies_against_actual_raised_volumes"):
             raise ValueError("Complete saved raised Buildings reader required")
         rail = bound_products(report)
-        data, state, baseline, buildings = inputs(products, receipt, allow_raised=True)
-        for key in (
-            "source_ids",
-            "origin_lat_lon",
-            "root_resident_sha256",
-            "parent_reports",
-            "support_sha256",
-        ):
-            if state[4][key] != rail.state[4][key]:
-                raise ValueError(
-                    "Raised/Buildings/Plants whole old state binding differs"
-                )
+        data, state, baseline, buildings = inputs(
+            products,
+            receipt,
+            allow_raised=True,
+            state_loader=partial(bound_state, rail),
+        )
+        if state is not rail.state:
+            raise ValueError("Same bound whole old transport snapshot required")
         held["rail"] = rail
         return data, state, baseline, buildings
 

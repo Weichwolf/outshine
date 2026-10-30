@@ -37,6 +37,7 @@ class RailProducts:
     owners: dict
     identity: str
     support_identity: str
+    state_inputs: tuple | None = None
 
 
 def load(products, fixture=DEFAULT_FIXTURE):
@@ -76,10 +77,9 @@ def load(products, fixture=DEFAULT_FIXTURE):
         or deck_report["fixture_sha256"] != report["fixture_sha256"]
     ):
         raise ValueError("Same qualified flat elevated deck required")
-    state = load_chain(
-        Path(deck_report["resident"]),
-        [Path(p["path"]) for p in deck_report["prior_modules"]],
-    )
+    resident = Path(deck_report["resident"]).resolve()
+    prior = tuple(Path(p["path"]).resolve() for p in deck_report["prior_modules"])
+    state = load_chain(resident, prior)
     if (
         state[4]["source_ids"] != report["old_source_ids"]
         or old_arrays(state[1]) != report["old_road_arrays"]
@@ -123,7 +123,22 @@ def load(products, fixture=DEFAULT_FIXTURE):
         owners,
         report["deck_candidates_sha256"],
         methods[selected]["mesh_sha256"],
+        (resident, prior),
     )
+
+
+def bound_state(products, resident, prior):
+    """Reuse the verified in-call snapshot only for its exact ordered lineage."""
+    resident = Path(resident).resolve()
+    prior = tuple(Path(p).resolve() for p in prior)
+    if products.state_inputs != (resident, prior):
+        raise ValueError("Bound whole transport input paths or order differ")
+    manifest = products.state[4]
+    if digest(resident / "resident.json") != manifest.get("root_resident_sha256") or [
+        digest(p / "comparison.json") for p in prior
+    ] != manifest.get("parent_reports"):
+        raise ValueError("Bound whole transport resident or parent reports changed")
+    return products.state
 
 
 def deck_asset(products, *, cast=False):
