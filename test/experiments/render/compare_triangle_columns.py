@@ -91,7 +91,7 @@ def pose_result(args, manifest, arrays, cases, source, prepared, fields, pose):
     capture, world = (
         clip_from_original(cases[k, pose]) for k in ("capture", "original")
     )
-    raster, crop = np.array(manifest["raster"]), np.array(manifest["crops_xyxy"][pose])
+    raster, crop = manifest["raster"], np.array(manifest["crops_xyxy"][pose])
     region = capture_region(capture, world, raster)
     if np.any(region[:2] < crop[:2]) or np.any(region[2:] > crop[2:]):
         raise ValueError("Complete capture region must fit the native reference crop")
