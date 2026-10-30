@@ -141,6 +141,8 @@ def select(
             "original_group_retained": True,
         }
 
+    if raster_guard_px >= int(raster.max()):
+        return fallback("raster_guard_covers_viewport")
     projected = projection(p, view_words, placement_words, raster.astype(float))
     if projected is None:
         return fallback("clip_or_arithmetic_unknown")
@@ -211,7 +213,7 @@ def select(
         **work,
         "complete_model": True,
         "reason": None,
-        "original_group_retained": False,
+        "original_group_retained": len(ids) == len(triangles),
         "selected_triangles": len(ids),
         "output_index_bytes": len(ids) * 12,
     }

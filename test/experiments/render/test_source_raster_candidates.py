@@ -175,6 +175,18 @@ class UploadProjection(unittest.TestCase):
                 self.mesh, self.view[:55], self.placement, [4, 4], raster_guard_px=0.0
             )
 
+    def test_extreme_finite_guard_retains_original_before_overflow(self):
+        ids, work = candidates.select(
+            self.mesh,
+            self.view,
+            self.placement,
+            [4, 4],
+            raster_guard_px=float(np.finfo(float).max),
+        )
+        np.testing.assert_array_equal(ids, [0])
+        self.assertEqual(work["reason"], "raster_guard_covers_viewport")
+        self.assertTrue(work["original_group_retained"])
+
     def test_source_words_and_winding_remain_untouched(self):
         self.mesh["positions"][2, 0] = -0.0
         before = {k: a.tobytes() for k, a in self.mesh.items()}
