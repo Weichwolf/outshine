@@ -10,7 +10,6 @@ from cycle_bridge_display import append
 from outshine_ref.contracts import Mesh
 from rail_consumers_buildings import bound_products
 from stair_consumer_verify import meshes
-from stair_module_inputs import read_arrays
 from stair_module_materials import colour_component
 from stair_occupancy_display import whole_camera
 from stair_patch_inputs import whole
@@ -32,13 +31,16 @@ def checked(root, receipt, required):
 
 
 def world(rail, buildings, scene):
-    view, assets, supports, _contacts, manifest = rail.state
-    path = Path(manifest["base_display"])
-    if digest(path) != manifest["base_display_sha256"]:
-        raise ValueError("Original whole road display changed")
-    shown = read_arrays(path)
+    view, assets, supports, _contacts, _manifest = rail.state
+    shown = {
+        "vertices": np.empty((0, 3), "f4"),
+        "triangles": np.empty((0, 3), "i4"),
+        "normals": np.empty((0, 3), "f4"),
+        "materials": np.empty(0, "i4"),
+        "face_base_colour_linear_rgba": np.empty((0, 4), "f4"),
+    }
     palette = np.array([*scene["colours"], [0.52, 0.46, 0.38, 1]])
-    for asset in assets[1:]:
+    for asset in assets:
         first = len(shown["triangles"])
         shown = append(
             shown,
@@ -114,6 +116,9 @@ def plants(root, scene, output, cache):
 
 def run(args):
     commit = frozen()
+    original_scene = json.loads(args.scene.read_text())
+    if original_scene["profile"] != [1280, 720]:
+        raise ValueError("Explicit whole 1280x720 diagnostic camera required")
     args.output.mkdir(parents=True, exist_ok=False)
     phases, reports, rails, snapshots, cache = {}, {}, {}, {}, {}
     for phase in ("before", "after"):
@@ -135,10 +140,7 @@ def run(args):
             raise ValueError("SITE must consume the same complete Buildings")
         rail = bound_products(report)
         rails[phase] = rail
-        camera = Path(rail.state[4]["support_scene"])
-        if digest(camera) != rail.state[4]["support_scene_sha256"]:
-            raise ValueError("Original camera/palette source changed")
-        scene = json.loads(camera.read_text())
+        scene = dict(original_scene)
         shown, palette = world(rail, meshes(building / "buildings-after.npz"), scene)
         path = args.output / (phase + ".npz")
         np.savez_compressed(path, **shown)
@@ -198,6 +200,7 @@ def run(args):
         json.dumps(
             {
                 "commit": commit,
+                "camera_palette_source_sha256": digest(args.scene),
                 "phases": reports,
                 "scope": "Actual full saved ground replay/terrain and unchanged raised bodies, complete adjusted Buildings and complete SITE plants. Matched 1280x720 whole/detail inspection only; no native, World, device or publication admission.",
             },
@@ -213,6 +216,7 @@ if __name__ == "__main__":
         for field in ("buildings", "receipt", "plants", "plant-receipt"):
             parser.add_argument("--" + phase + "-" + field, type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scene", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists() or not args.output.resolve().is_relative_to(Path("/tmp")):
         parser.error("Fresh explicit private system-temp output required")
