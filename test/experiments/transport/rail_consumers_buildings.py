@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import resource
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -128,6 +129,8 @@ def verify(args):
 
 
 if __name__ == "__main__":
+    resource.setrlimit(resource.RLIMIT_CPU, (600, 600))
+    resource.setrlimit(resource.RLIMIT_AS, (4 * 1024**3,) * 2)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--supports", type=Path)
     parser.add_argument("--baseline", type=Path)
