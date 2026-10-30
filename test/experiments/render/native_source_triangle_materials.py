@@ -112,6 +112,9 @@ def main():
     parser.add_argument(
         "--selection", choices=("native-reference", "geometric"), required=True
     )
+    parser.add_argument(
+        "--vertices", choices=("original", "referenced"), default="referenced"
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     manifest, _, cases, source = load(args.input, attributes=True)
@@ -120,7 +123,12 @@ def main():
         selected, binding = geometric_selection(source, manifest, cases)
     create_output(args.output)
     write_source(source, np.arange(len(source["indices"])), args.output / "whole")
-    write_source(source, selected, args.output / "selected")
+    write_source(
+        source,
+        selected,
+        args.output / "selected",
+        referenced_vertices=args.vertices == "referenced",
+    )
     request = queries(
         {pose: cases["original", pose]["capture"] for pose in POSES if pose != "repeat"}
     )
@@ -157,6 +165,17 @@ def main():
         "selection_binding": binding,
         "original_triangles": len(source["indices"]),
         "selected_triangles": len(selected),
+        "vertex_input": args.vertices,
+        "vertex_counts": {
+            mode: native_reports[mode]["geometry"]["vertices"]
+            for mode in ("whole", "selected")
+        },
+        "source_array_bytes": {
+            mode: sum(
+                path.stat().st_size for path in (args.output / mode).rglob("*.bin")
+            )
+            for mode in ("whole", "selected")
+        },
         "native_reports": native_reports,
         "cases": result,
         "finite_native_material_comparison_equal": qualified,
