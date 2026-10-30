@@ -7,6 +7,7 @@ All matrices map the same field frame to clip coordinates (reverse-Z in [0,1]).
 """
 
 from dataclasses import dataclass
+from math import ceil, floor
 
 import numpy as np
 from depth_reprojection import transfer_matrix
@@ -59,26 +60,38 @@ def cell_segment(a, b, depth_range, dimensions):
 def crossed_cells(segment, dimensions, cells_most):
     """Enumerate grid crossings, bounded before expanding integer coordinates."""
     start, delta, low, high = segment
+    start, delta = tuple(map(float, start)), tuple(map(float, delta))
+    low, high = float(low), float(high)
     breaks = [low, high]
     ranges = []
     for axis, limit in enumerate(dimensions):
         first, last = sorted(
             (start[axis] + low * delta[axis], start[axis] + high * delta[axis])
         )
-        begin, stop = max(0, int(np.ceil(first))), min(limit, int(np.floor(last))) + 1
+        begin, stop = max(0, ceil(first)), min(int(limit), floor(last)) + 1
         ranges.append((begin, stop))
     if 3 + sum(max(0, stop - begin) for begin, stop in ranges) > cells_most:
         return None
     for axis, (begin, stop) in enumerate(ranges):
         if delta[axis] != 0:
-            breaks.extend((np.arange(begin, stop) - start[axis]) / delta[axis])
-    breaks = np.unique(np.clip(breaks, low, high))
+            breaks.extend(
+                (edge - start[axis]) / delta[axis] for edge in range(begin, stop)
+            )
+    breaks = sorted({max(low, min(high, t)) for t in breaks})
     # Endpoints preserve the half-open cell on a grid edge or a tangent ray.
-    values = np.r_[breaks, (breaks[:-1] + breaks[1:]) / 2]
-    cells = np.floor(start + values[:, None] * delta).astype(np.int64)
-    inside = ((cells >= 0) & (cells < dimensions)).all(1)
-    cells = np.unique(cells[inside], axis=0)
-    return cells if len(cells) <= cells_most else None
+    values = breaks + [
+        (a + b) / 2 for a, b in zip(breaks[:-1], breaks[1:], strict=True)
+    ]
+    cells = set()
+    for t in values:
+        x, y = (floor(start[k] + t * delta[k]) for k in (0, 1))
+        if 0 <= x < dimensions[0] and 0 <= y < dimensions[1]:
+            cells.add((x, y))
+    return (
+        np.asarray(sorted(cells), dtype=np.int64).reshape(-1, 2)
+        if len(cells) <= cells_most
+        else None
+    )
 
 
 def ray_hit(a, b, cells, rgba, depth, dimensions):

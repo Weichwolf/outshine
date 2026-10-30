@@ -126,7 +126,16 @@ def external_opponents(arrays, candidate, shape, selection, output):
             "scope": "Frozen actual native World pixel centres, then a declared 2x2 filter. Not native SS16 sample access, terrain, continuous pixel integration or admission of reprojected coverage/depth.",
         }
         image_panel(
-            output / (mode + "-composition.png"), target, reduce_two(actual), after
+            output / (mode + "-composition.png"),
+            target,
+            reduce_two(actual),
+            after,
+            labels=(
+                "native originals",
+                "compose then filter",
+                "filter then over",
+                "absolute error",
+            ),
         )
     return records
 
@@ -167,11 +176,17 @@ def centre_cost(rgba, depth, flat, capture, world, pixels, raster, output):
     return records
 
 
-def image_panel(output, truth, actual, flat):
+def image_panel(
+    output,
+    truth,
+    actual,
+    flat,
+    *,
+    labels=("native original", "raw-depth cells", "flat cells", "absolute error"),
+):
     width, height = truth.shape[1], truth.shape[0]
     images = (truth, actual, flat, abs(actual - truth))
     panel = Image.new("RGB", (4 * width * 16, height * 16 + 32), "#222222")
-    labels = ("native original", "raw-depth cells", "flat cells", "absolute error")
     draw = ImageDraw.Draw(panel)
     for at, (label, values) in enumerate(zip(labels, images, strict=True)):
         rgb = values[:, :, :3].astype(float)

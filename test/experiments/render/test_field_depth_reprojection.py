@@ -129,6 +129,25 @@ class ReprojectionTests(unittest.TestCase):
         self.assertEqual(result.reverse_z[0], 0)
         np.testing.assert_array_equal(result.rgba[0], [0, 0, 0, 0])
 
+    def test_perspective_capture_matches_explicit_planes_and_half_open_edges(self):
+        rng = np.random.default_rng(17971)
+        depth = rng.uniform(0.02, 0.04, (4, 5)).astype(np.float32)
+        rgba = rng.uniform(0, 2, (4, 5, 4)).astype(np.float32)
+        rgba[:, :, 3] = 1
+        capture, world = perspective((0, 0, -2)), perspective((0.3, -0.2, -3))
+        pixels = rng.uniform([0, 0], [20, 16], (192, 2))
+        result = reproject(rgba, depth, capture, world, pixels, (20, 16))
+        truth, truth_z = brute_cells(rgba, depth, capture, world, pixels, (20, 16))
+        self.assertTrue(result.evaluated.all())
+        np.testing.assert_array_equal(result.rgba, truth)
+        np.testing.assert_allclose(result.reverse_z, truth_z, rtol=1e-12, atol=1e-15)
+        # Raster grid edges belong to the right/lower cell, including actual (0,0).
+        pixels = np.array([[0, 0], [1, 1], [2, 1], [4, 3]], dtype=float)
+        edge = reproject(rgba, depth, capture, capture, pixels, (5, 4))
+        np.testing.assert_array_equal(
+            edge.rgba, rgba[pixels[:, 1].astype(int), pixels[:, 0].astype(int)]
+        )
+
     def test_work_exhaustion_is_local_unknown_not_clear(self):
         depth = np.full((4, 4), 0.5, np.float32)
         rgba = np.ones((4, 4, 4), np.float32)
