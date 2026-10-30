@@ -96,7 +96,9 @@ class TriangleSupportTests(unittest.TestCase):
             for size in (4, 16, 64):
                 field = prepare(source, CAPTURE, size)
                 bounded = query(field, world, points, [2, 2])
-                original = query(field, world, points, [2, 2], whole_support=False)
+                original = query(
+                    field, world, points, [2, 2], whole_support=False, pair_batch_size=0
+                )
                 for a, b in zip(bounded[:3], original[:3], strict=True):
                     np.testing.assert_array_equal(a, b)
 
@@ -105,7 +107,7 @@ class TriangleSupportTests(unittest.TestCase):
         world = WORLD.copy()
         world[3] = [0, 0, 1, -1.5]
         a = query(field, world, POINTS, [2, 2])
-        b = query(field, world, POINTS, [2, 2], whole_support=False)
+        b = query(field, world, POINTS, [2, 2], whole_support=False, pair_batch_size=0)
         for actual, expected in zip(a[:3], b[:3], strict=True):
             np.testing.assert_array_equal(actual, expected)
         self.assertFalse(a[3]["support_bounds_available"])
