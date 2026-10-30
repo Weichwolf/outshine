@@ -53,6 +53,7 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
                                            const std::string &request,
                                            NativeLookup &lookup) {
   if (lookup.Stage == NativeLookup::Phase::Request) {
+    lookup.BasisWrites = cache.Costs().BasisWrites;
     lookup.Result = cache.LoadBasisRequest(request);
     return;
   }
@@ -74,6 +75,7 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
     lookup.Result = std::unexpected(bound.error());
     return;
   }
+  lookup.BasisWrites = cache.Costs().BasisWrites;
   lookup.Result = cache.LoadBasisRequest(request);
   if (lookup.Result) {
     lookup.HeldBasis.reset();
@@ -126,7 +128,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   auto found = NativeLookups_.find(request);
   if (found != NativeLookups_.end()) {
     const auto &previous = *found->second;
-    if (previous.Task == Tasks::kNoTask && previous.Stage == NativeLookup::Phase::Request &&
+    if (previous.Task == Tasks::kNoTask && previous.Retries == 0 &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
       NativeLookups_.erase(found);
       found = NativeLookups_.end();
@@ -154,8 +156,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     if (!Pool_->TakeCompletion(lookup.Task)) { return nullptr; }
     lookup.Task = Tasks::kNoTask;
   }
-  if (lookup.Stage == NativeLookup::Phase::Request &&
-      lookup.BasisWrites != cache->Costs().BasisWrites) {
+  if (lookup.Retries == 0 && lookup.BasisWrites != cache->Costs().BasisWrites) {
     NativeLookups_.erase(found);
     return nullptr;
   }

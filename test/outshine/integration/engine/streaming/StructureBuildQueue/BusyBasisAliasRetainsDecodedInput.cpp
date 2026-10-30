@@ -195,6 +195,28 @@ void Rebound() {
   CHECK(ready && ready->Source && ready->Source->BaseKey == *replacement && durable && *durable &&
             (**durable).BaseKey == *replacement,
         "old retained work neither overwrites nor returns the superseded request target");
+  const auto later = test.Env.Generate(test.Digest + 2);
+  CHECK(later && later != replacement,
+        "another native revision follows the completed alias repair");
+  if (!later) { return; }
+  const auto changed =
+      test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+  using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
+  CHECK(changed && changed->Where == Phase::Pending,
+        "the completed content repair retains no stale mutable request binding");
+  const auto refreshDeadline = std::chrono::steady_clock::now() + kDeadline;
+  std::optional<std::string> latest;
+  do {
+    const auto next =
+        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+    if (!next) { break; }
+    if (next->Where == Phase::Ready) {
+      latest = next->Source->BaseKey;
+      break;
+    }
+    (void)test.Env.Worker.AwaitCompletion(0.001);
+  } while (std::chrono::steady_clock::now() < refreshDeadline);
+  CHECK(latest == later, "repaired request consumers discover later native publications");
 }
 
 void Cancel() {
