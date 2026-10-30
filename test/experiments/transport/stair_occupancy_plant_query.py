@@ -18,7 +18,7 @@ from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import actual_sources
 
 
-def inputs(products, receipt, *, allow_raised=False):
+def inputs(products, receipt, *, allow_raised=False, state_loader=None):
     report = json.loads((products / "comparison.json").read_text())
     if "elevated_supports" in report and not allow_raised:
         raise ValueError(
@@ -42,7 +42,7 @@ def inputs(products, receipt, *, allow_raised=False):
             or digest(path) != expected
         ):
             raise ValueError("actual complete Buildings artifact changed")
-    state = load_chain(
+    state = (load_chain if state_loader is None else state_loader)(
         Path(report["resident"]), [Path(p) for p in report["prior_modules"]]
     )
     if (
