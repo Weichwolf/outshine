@@ -50,9 +50,10 @@ The explicit working comparison limits are maximum 0.25 per existing native
 linear HDR RGB component and 0.125 visible-source coverage per output pixel.
 CLI values/report units make them reviewable; these are research limits, not a
 new general product/camera-response budget. They allow nonzero error and do
-not require bitwise proxy reconstruction of originals. The current unfiltered
-point inputs fail them; their sparse point aliasing does not establish the
-filtered720p result either way.
+not require bitwise proxy reconstruction of originals. The unfiltered point
+inputs and subsequently delivered native common quarter-pixel inputs both fail
+them. The latter really resolve to 1280×720; the finite residual and missing
+first-hit information are recorded in `single_hit_information.md` (#1842).
 
 Final union alpha is insufficient: opaque terrain can make it exactly 1 even
 when the source silhouette is wrong. Visible source coverage is therefore
@@ -132,8 +133,10 @@ Tests include amended hashes/incorrect unions, changed effective camera/crop,
 sparse oversized payloads, forged huge NPY shape before NumPy, input replacement
 after validation, PBR mismatch, global sample phase and the opaque-union trap.
 
-Remaining P0 input is the common subpixel native World reference requested in
-#1797/6528716212. It will decide filtered image acceptance at the same 720p output
-profile; no smaller profile or silent higher error limit replaces it. Capture
-pose/visibility/radiance/error qualification, actual native World consumer,
-GPU depth/shadows/resource lifetime and both full device budgets remain open.
+The common subpixel native World reference is now delivered in #1838 under
+`building-world-opponents/ss2`. It confirms the finite filtered failure at the
+same 720p output profile, with all four original-group fallbacks still exact.
+#1842 records the resulting information/representation decision; no smaller
+profile or higher error limit replaces it. Capture pose/visibility/radiance/error
+qualification, actual native World consumer, GPU depth/shadows/resource lifetime
+and both full device budgets remain open.
