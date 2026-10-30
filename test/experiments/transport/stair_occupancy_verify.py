@@ -19,12 +19,16 @@ from stair_shared_headroom_verify import verify_shared
 from stair_terrain_experiment import frozen
 
 
-def read(path, report):
+def check_export(path, report):
     if (
         path.stat().st_size > 16 * 1024**2
         or digest(path) != report["volumes"]["sha256"]
     ):
         raise ValueError("bounded complete saved volume export required")
+
+
+def read(path, report):
+    check_export(path, report)
     data = json.loads(path.read_text())
     if not 1 <= len(data) <= 8192 or len({r["owner_id"] for r in data}) != len(data):
         raise ValueError("saved volume ownership missing or duplicated")
