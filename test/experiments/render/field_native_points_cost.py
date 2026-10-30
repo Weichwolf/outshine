@@ -15,6 +15,7 @@ import numpy as np
 from allocation_measure import allocations
 from building_sample_source import read_source
 from compare_field_external_depth import DATA
+from experiment_output import create_output
 from field_external_depth import SampleBinding
 from field_native_points import read_file, read_native_points
 from process_memory import peak_rss_bytes
@@ -99,9 +100,7 @@ def run(args):
         ["git", "status", "--porcelain", "--", *map(str, paths)], text=True
     ):
         raise ValueError("Freeze the measured source first")
-    if not args.output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("Explicit system-temp output required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    create_output(args.output)
     metadata, arrays, _grid, _view = read_source(
         args.inputs / "source-512", args.inputs / "high-sampling"
     )
