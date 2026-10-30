@@ -1,7 +1,6 @@
 #include <algorithm>
 #include "Check.h"
 #include "HeightField.h"
-#include <algorithm>
 #include <memory>
 #include <utility>
 

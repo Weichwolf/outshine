@@ -2,6 +2,7 @@
 #include "EarthworkDeformation.h"
 #include "GroundMesher.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -52,7 +53,10 @@ outshine::EarthworkStamp Span(double fromM, double toM) {
 
 std::vector<outshine::EarthworkStamp> Partition(double stepM) {
   std::vector<outshine::EarthworkStamp> stamps;
-  for (double fromM = 0.0; fromM < kArcLengthM; fromM += stepM) {
+  const auto segments = static_cast<size_t>(std::ceil(kArcLengthM / stepM));
+  stamps.reserve(segments);
+  for (size_t segment = 0; segment < segments; ++segment) {
+    const double fromM = static_cast<double>(segment) * stepM;
     stamps.push_back(Span(fromM, std::min(fromM + stepM, kArcLengthM)));
   }
   return stamps;
@@ -112,6 +116,7 @@ int main() {
     double referenceErrorM = 0.0;
     double impulseErrorM = 0.0;
     std::vector<double> reference;
+    reference.reserve(points.size());
     for (size_t at = 0; at < points.size(); ++at) {
       reference.push_back(ReferenceHeight(radialM, (static_cast<double>(at) + 5.0) * 0.01));
     }

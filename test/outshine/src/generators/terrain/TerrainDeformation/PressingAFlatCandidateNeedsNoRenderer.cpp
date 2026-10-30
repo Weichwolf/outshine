@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "TerrainDeformation.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -14,13 +15,13 @@ constexpr int kZoom = 20;
 
 outshine::Patchwork FlatCandidate() {
   constexpr uint32_t centre = 1u << (kZoom - 1);
+  constexpr size_t expandedSide = kSide + 2 * kHalo;
   outshine::Patchwork candidate;
-  candidate.Sheets.push_back(
-      {.Tile = {.Zoom = kZoom, .X = centre, .Y = centre},
-       .Nodes = std::vector<float>((kSide + 2 * kHalo) * (kSide + 2 * kHalo), 0.0f),
-       .Side = kSide,
-       .Postings = kSide,
-       .Virtual = true});
+  candidate.Sheets.push_back({.Tile = {.Zoom = kZoom, .X = centre, .Y = centre},
+                              .Nodes = std::vector<float>(expandedSide * expandedSide, 0.0f),
+                              .Side = kSide,
+                              .Postings = kSide,
+                              .Virtual = true});
   return candidate;
 }
 }

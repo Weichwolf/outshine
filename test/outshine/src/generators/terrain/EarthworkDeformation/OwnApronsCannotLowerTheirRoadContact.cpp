@@ -1,13 +1,15 @@
 #include "Check.h"
 #include "EarthworkDeformation.h"
 
+#include <cstdint>
 #include <algorithm>
 #include <array>
 #include <cmath>
 
 namespace {
 
-outshine::EarthworkStamp Road(double lowE, double highE, uint64_t key) {
+outshine::EarthworkStamp Road(std::array<double, 2> boundsM, uint64_t key) {
+  const auto [lowE, highE] = boundsM;
   outshine::EarthworkStamp stamp;
   stamp.RingEastNorthM = {lowE, -2, highE, -2, highE, 2, lowE, 2};
   stamp.LowE = lowE;
@@ -33,7 +35,7 @@ void CheckOpposingAprons() {
   for (const bool reverse : {false, true}) {
     for (const double sourceM : {-10., 0., 10.}) {
       for (const double bedM : {-6., 6.}) {
-        std::array stamps{Road(-20, 20, 1), Road(20, 40, 1)};
+        std::array stamps{Road({-20, 20}, 1), Road({20, 40}, 1)};
         stamps[0].PlateauM = bedM;
         stamps[1].PlateauM = -bedM;
         for (auto &stamp : stamps) { stamp.YieldM = std::abs(stamp.PlateauM - sourceM); }
@@ -64,7 +66,7 @@ int main() {
   const std::array<EastNorth, 1> point{{{.EastM = 0, .NorthM = 0}}};
   for (const bool reverse : {false, true}) {
     for (const uint64_t neighbor : {1u, 2u}) {
-      std::array stamps{Road(-20, 20, 1), Road(20, 40, neighbor)};
+      std::array stamps{Road({-20, 20}, 1), Road({20, 40}, neighbor)};
       if (reverse) { std::ranges::reverse(stamps); }
       std::array<double, 1> heights{0};
       const auto result = ApplyEarthworkStamps(stamps, point, heights, kMostEarthworkM);
@@ -72,24 +74,24 @@ int main() {
       CHECK(std::abs(heights[0] - 10) < 0.00001,
             "outside aprons cannot lower a physical road contact regardless of ownership");
     }
-    EarthworkStamp ceiling = Road(-20, 20, 0);
+    EarthworkStamp ceiling = Road({-20, 20}, 0);
     ceiling.Kind = EarthworkKind::Clearance;
     ceiling.PlateauM = 8;
     ceiling.ApronM = 0;
-    std::array stamps{Road(-20, 20, 1), Road(20, 40, 1), ceiling};
+    std::array stamps{Road({-20, 20}, 1), Road({20, 40}, 1), ceiling};
     if (reverse) { std::ranges::reverse(stamps); }
     std::array<double, 1> heights{0};
     (void)ApplyEarthworkStamps(stamps, point, heights, kMostEarthworkM);
     CHECK(heights[0] == 8, "true clearance ceilings continue to limit road support fill");
   }
-  const std::array stamps{Road(-20, 20, 1), Road(20, 40, 1)};
+  const std::array stamps{Road({-20, 20}, 1), Road({20, 40}, 1)};
   const std::array<EastNorth, 3> shoulder{
       {{.EastM = 0, .NorthM = 1.999}, {.EastM = 0, .NorthM = 2}, {.EastM = 0, .NorthM = 2.001}}};
   std::array<double, 3> heights{0, 0, 0};
   (void)ApplyEarthworkStamps(stamps, shoulder, heights, kMostEarthworkM);
   CHECK(std::abs(heights[0] - heights[1]) < 0.00001 && std::abs(heights[1] - heights[2]) < 0.00001,
         "ownership applies through the shoulder apron without a jump at the core edge");
-  auto incline = Road(-20, 20, 1);
+  auto incline = Road({-20, 20}, 1);
   incline.SlopeE = 0.25;
   const std::array<EastNorth, 2> ends{{{.EastM = -21, .NorthM = 0}, {.EastM = 21, .NorthM = 0}}};
   const double part = 1 / std::hypot(30, 1.875 * 10 * 1.5);
@@ -100,9 +102,7 @@ int main() {
     CHECK(std::abs(endHeights[0] - 5 * (1 - fade)) < 0.00001 &&
               std::abs(endHeights[1] - 15 * (1 - fade)) < 0.00001,
           "end aprons use finite contact heights independently of polygon start vertex");
-    std::rotate(incline.RingEastNorthM.begin(),
-                incline.RingEastNorthM.begin() + 2,
-                incline.RingEastNorthM.end());
+    std::ranges::rotate(incline.RingEastNorthM, incline.RingEastNorthM.begin() + 2);
   }
   return Report();
 }

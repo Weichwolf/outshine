@@ -16,8 +16,9 @@ constexpr int kZoom = 20;
 outshine::Patchwork Candidate() {
   constexpr uint32_t centre = 1u << (kZoom - 1);
   outshine::Patchwork candidate;
-  for (uint32_t offset = 0; offset < 4; ++offset) {
-    const size_t nodes = offset == 1 ? 4u : offset == 2 ? 0u : 25u;
+  constexpr std::array<size_t, 4> nodeCounts{25, 4, 0, 25};
+  for (uint32_t offset = 0; offset < nodeCounts.size(); ++offset) {
+    const size_t nodes = nodeCounts[offset];
     candidate.Sheets.push_back({.Tile = {.Zoom = kZoom, .X = centre + offset, .Y = centre},
                                 .Nodes = std::vector<float>(nodes, offset == 1 ? 7.0f : 0.0f),
                                 .Side = kSide,
@@ -27,7 +28,7 @@ outshine::Patchwork Candidate() {
   return candidate;
 }
 
-outshine::EarthworkStamp StampOf(double halfWidth, double height, outshine::EarthworkKind kind) {
+outshine::EarthworkStamp StampOf(double halfWidth, outshine::EarthworkKind kind, double height) {
   outshine::EarthworkStamp stamp;
   stamp.RingEastNorthM = {
       -halfWidth, -halfWidth, halfWidth, -halfWidth, halfWidth, halfWidth, -halfWidth, halfWidth};
@@ -64,10 +65,10 @@ int main() {
 
   const Patchwork source = Candidate();
   std::vector<EarthworkStamp> stamps;
-  stamps.push_back(StampOf(100.0, 5.0, EarthworkKind::Pad));
-  stamps.push_back(StampOf(70.0, 2.0, EarthworkKind::Corridor));
+  stamps.push_back(StampOf(100.0, EarthworkKind::Pad, 5.0));
+  stamps.push_back(StampOf(70.0, EarthworkKind::Corridor, 2.0));
   stamps.back().SlopeE = 0.03;
-  stamps.push_back(StampOf(15.0, -3.0, EarthworkKind::Basin));
+  stamps.push_back(StampOf(15.0, EarthworkKind::Basin, -3.0));
 
   Patchwork oneShot = source;
   const TerrainDeformationMetrics expected =
@@ -95,7 +96,7 @@ int main() {
           "mixed stamps and skipped sheets keep byte-identical heights and floor diagnostics");
   }
 
-  Patchwork published = source;
+  const Patchwork published = Candidate();
   {
     Patchwork cancelled = source;
     TerrainDeformationJob job(
