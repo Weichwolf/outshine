@@ -68,6 +68,12 @@ public:
   Relight(const ResidentMaterialField &source,
           const MaterialFieldView &view,
           const std::atomic_bool *stopping = nullptr);
+  // Common registered opaque capture; World/pose admission remains with the caller.
+  [[nodiscard]] Native::Result<MaterialFieldImages>
+  Relight(const ResidentMaterialField &source,
+          std::span<const std::shared_ptr<const ResidentMaterialField>> additional,
+          const MaterialFieldView &view,
+          const std::atomic_bool *stopping = nullptr);
   [[nodiscard]] Native::Result<void> Collect();
   [[nodiscard]] std::optional<Native::Completion> LastSubmission() const noexcept;
 

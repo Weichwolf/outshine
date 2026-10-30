@@ -231,6 +231,12 @@ public:
                        const MaterialFieldView &view,
                        const std::atomic_bool *stopping = nullptr);
 
+  [[nodiscard]] Native::Result<MaterialFieldImages>
+  RelightMaterialField(const ResidentMaterialField &source,
+                       std::span<const std::shared_ptr<const ResidentMaterialField>> additional,
+                       const MaterialFieldView &view,
+                       const std::atomic_bool *stopping = nullptr);
+
   // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
   [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
 

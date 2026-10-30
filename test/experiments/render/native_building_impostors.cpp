@@ -1134,7 +1134,7 @@ MaterialFieldSource(const Fs::path &root, const Json &input, Extent raster, Json
                   {"atlas_sha256", input.at("atlas_sha256")}};
     return std::move(*prepared);
   }
-  const auto directory = root / "geometry" / "0";
+  const auto directory = root / input.value("directory", std::string(".")) / "geometry" / "0";
   std::ifstream file(directory / "input.json");
   const auto description = Json::parse(file, nullptr, false);
   if (!description.is_object()) { Fail("whole-original material field input unavailable"); }
@@ -1160,7 +1160,21 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
   const auto resident =
       Test::Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(prepared); }, budget);
   if (!resident) { Fail(resident.error().Message); }
-  Json results{{"mode", "material-fields"}, {"geometry", statistics}, {"cases", Json::array()}};
+  std::vector<std::shared_ptr<const Render::ResidentMaterialField>> additional;
+  Json extraStatistics = Json::array();
+  for (const auto &layer : input.value("additional_sources", Json::array())) {
+    Json stats;
+    const auto extra = MaterialFieldSource(root, layer, raster, stats);
+    const auto uploaded =
+        Test::Gpu::RetryOffline([&] { return renderer.PrepareMaterialField(extra); }, budget);
+    if (!uploaded) { Fail(uploaded.error().Message); }
+    additional.push_back(*uploaded);
+    extraStatistics.push_back(std::move(stats));
+  }
+  Json results{{"mode", "material-fields"},
+               {"geometry", statistics},
+               {"additional_sources", extraStatistics},
+               {"cases", Json::array()}};
   for (const auto &query : input.at("queries")) {
     const auto &capture = query.at("capture");
     if (capture.at("width_px") != raster.WidthPx || capture.at("height_px") != raster.HeightPx) {
@@ -1183,7 +1197,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
                                          .Encoding = Render::RadianceEncoding::IntegralPairs,
                                          .LightingCamera = *observer};
     const auto images = Test::Gpu::RetryOffline(
-        [&] { return renderer.RelightMaterialField(**resident, view); }, budget);
+        [&] { return renderer.RelightMaterialField(**resident, additional, view); }, budget);
     if (!images) { Fail(images.error().Message); }
     renderer.WaitForGpu();
     auto &device = *images->Unfiltered->Device;

@@ -42,3 +42,17 @@ they do not manufacture a continuous error interval or general pose/World
 admission. Ties, unknown coverage, changed bindings and unsupported views still
 require the existing parent. Readback/prefix generation is diagnostic work, not
 a frame-time or device-memory benchmark. References and ownership: #1797 / #1805.
+
+Prepared original or stored sources can share one native depth/colour pass through
+`additional_sources`, with each original `directory` pointing to an existing
+export root. All opaque sources share the declared capture raster and PBR view;
+filtering follows their joint raster. Blend/transmission inputs retain the
+separate existing path. Native equal-depth draw order is not uncertain-interval
+admission. Reproduce against an explicit preserved source export:
+
+```sh
+python test/experiments/render/compare_native_resident_unions.py \
+  --binary build/test_experiments_render_NativeBuildingImpostors \
+  --reference "$system_temp/previous-native-field-opponents" \
+  --output "$system_temp/new-native-resident-unions"
+```

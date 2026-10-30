@@ -35,6 +35,7 @@ struct ResidentMaterialField::Data {
   RenderScene Scene;
   GeometryRenderer Renderer;
   Extent Raster;
+  bool OpaqueSamples = false;
   std::unique_ptr<MaterialFieldRaster> Stored;
   std::optional<Viewpoint> Capture;
   Native::Completion Produced;
@@ -52,6 +53,7 @@ struct MaterialFieldPass::State {
   struct Pending {
     Native::Completion Completion;
     std::shared_ptr<ResidentMaterialField::Data> Source;
+    std::vector<std::shared_ptr<ResidentMaterialField::Data>> Additional;
     MaterialFieldImages Images;
     std::shared_ptr<Native::Texture> Scratch = nullptr;
   };
@@ -65,6 +67,18 @@ struct MaterialFieldPass::State {
   [[nodiscard]] Native::Result<void> PrepareGeometry(ResidentMaterialField::Data &source,
                                                      const MaterialFieldInput &input,
                                                      Native::Commands &commands) const;
+
+  [[nodiscard]] Native::Result<std::vector<std::shared_ptr<ResidentMaterialField::Data>>>
+  AdditionalSources(const ResidentMaterialField::Data &primary,
+                    std::span<const std::shared_ptr<const ResidentMaterialField>> sources,
+                    const MaterialFieldView &view) const;
+
+  [[nodiscard]] static Native::Result<void>
+  EncodeSources(ResidentMaterialField::Data &primary,
+                std::span<const std::shared_ptr<ResidentMaterialField::Data>> additional,
+                const MaterialFieldView &view,
+                const FrameContext &frame,
+                const PassRecording &recording);
 
   [[nodiscard]] bool OnOwner() const noexcept { return Owner == std::this_thread::get_id(); }
 };

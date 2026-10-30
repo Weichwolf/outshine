@@ -93,6 +93,9 @@ Native::Result<void> MaterialFieldPass::Collect() {
       if (const auto &source = state.InFlight[at].Source; source && source->Stored) {
         source->Stored->Staging.reset();
       }
+      for (const auto &source : state.InFlight[at].Additional) {
+        if (source->Stored) { source->Stored->Staging.reset(); }
+      }
       state.InFlight.erase(state.InFlight.begin() + static_cast<std::ptrdiff_t>(at));
     } else {
       ++at;
@@ -159,6 +162,10 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   auto source = std::make_shared<ResidentMaterialField::Data>(state.Pipelines);
   source->Raster = input->Data_->Raster;
   source->Capture = input->Data_->Capture;
+  source->OpaqueSamples = input->Data_->Stored.has_value() ||
+                          std::ranges::all_of(input->Data_->Materials, [](const auto &material) {
+                            return material.State().Kind() == SurfaceKind::Opaque;
+                          });
   if (input->Data_->Stored) {
     auto raster = MaterialFieldRaster::Prepare(device, **commands, *input->Data_->Stored);
     if (!raster) { return std::unexpected(raster.error()); }
@@ -176,7 +183,8 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   source->Produced = *produced;
   if (!source->Stored) { source->Scene.Meshes().ReleaseUploadScratch(); }
   state.Last = *produced;
-  state.InFlight.push_back({.Completion = *produced, .Source = source, .Images = {}});
+  state.InFlight.push_back(
+      {.Completion = *produced, .Source = source, .Additional = {}, .Images = {}});
   return std::shared_ptr<const ResidentMaterialField>(new ResidentMaterialField(std::move(source)));
 }
 }

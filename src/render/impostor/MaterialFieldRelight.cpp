@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <atomic>
 #include "MaterialFieldPassState.h"
+#include <span>
+#include <vector>
 #include "FrameContext.h"
 #include "Lens.h"
 #include "StageSubmission.h"
@@ -13,7 +15,6 @@
 #include <expected>
 #include <memory>
 #include <limits>
-#include <span>
 #include <utility>
 
 namespace outshine::Render {
@@ -97,6 +98,25 @@ struct FieldTargets {
   std::shared_ptr<Native::Texture> Raw, Filtered, Depth, Scratch;
 };
 
+MaterialFieldImages ImagesOf(MaterialFieldPipelines &pipelines,
+                             const FieldTargets &targets,
+                             const MaterialFieldView &view,
+                             Native::Completion produced) {
+  return MaterialFieldImages{
+      .Unfiltered = std::make_shared<RadianceImage>(RadianceImage{.Device = &pipelines.Device,
+                                                                  .Texture = targets.Raw,
+                                                                  .Sampling = pipelines.Sampling,
+                                                                  .Produced = produced}),
+      .Filtered = std::make_shared<RadianceImage>(RadianceImage{.Device = &pipelines.Device,
+                                                                .Texture = targets.Filtered,
+                                                                .Sampling = pipelines.Sampling,
+                                                                .Produced = produced,
+                                                                .Encoding = view.Encoding}),
+      .Depth = targets.Depth,
+      .Camera = view.Camera,
+      .LightingCamera = view.LightingCamera.value_or(view.Camera)};
+}
+
 Native::Result<FieldTargets>
 Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
   constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
@@ -159,9 +179,59 @@ Native::Result<void> ResidentMaterialField::Data::Encode(const MaterialFieldView
   return Renderer.Encode(frame, recording);
 }
 
+Native::Result<std::vector<std::shared_ptr<ResidentMaterialField::Data>>>
+MaterialFieldPass::State::AdditionalSources(
+    const ResidentMaterialField::Data &primary,
+    std::span<const std::shared_ptr<const ResidentMaterialField>> sources,
+    const MaterialFieldView &view) const {
+  if (!sources.empty() && !primary.OpaqueSamples) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "material field union requires opaque sources"});
+  }
+  std::vector<std::shared_ptr<ResidentMaterialField::Data>> result;
+  result.reserve(sources.size());
+  for (const auto &source : sources) {
+    if (!source || !source->Data_ || source->Data_->Pipelines != Pipelines ||
+        source->Data_->Raster != primary.Raster || !source->Data_->OpaqueSamples ||
+        (source->Data_->Capture &&
+         !SameMaterialFieldCapture(*source->Data_->Capture, view.Camera))) {
+      return std::unexpected(Native::Error{
+          .Kind = Native::ErrorKind::Invalid,
+          .Message =
+              "material field union needs opaque sources with matching pass, raster and capture"});
+    }
+    result.push_back(source->Data_);
+  }
+  return result;
+}
+
+Native::Result<void> MaterialFieldPass::State::EncodeSources(
+    ResidentMaterialField::Data &primary,
+    std::span<const std::shared_ptr<ResidentMaterialField::Data>> additional,
+    const MaterialFieldView &view,
+    const FrameContext &frame,
+    const PassRecording &recording) {
+  const auto first = primary.Encode(view, frame, recording);
+  if (!first) { return std::unexpected(first.error()); }
+  for (const auto &layer : additional) {
+    const auto encoded = layer->Encode(view, frame, recording);
+    if (!encoded) { return std::unexpected(encoded.error()); }
+  }
+  return {};
+}
+
 Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMaterialField &source,
                                                                const MaterialFieldView &view,
                                                                const std::atomic_bool *stopping) {
+  return Relight(source, {}, view, stopping);
+}
+
+Native::Result<MaterialFieldImages>
+MaterialFieldPass::Relight(const ResidentMaterialField &source,
+                           std::span<const std::shared_ptr<const ResidentMaterialField>> additional,
+                           const MaterialFieldView &view,
+                           const std::atomic_bool *stopping) {
   auto &state = *State_;
   const auto &data = source.Data_;
   if (!state.OnOwner() || !state.Pipelines->Ready || !data || data->Pipelines != state.Pipelines ||
@@ -185,6 +255,8 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "material field lighting is invalid"});
   }
+  auto extra = state.AdditionalSources(*data, additional, view);
+  if (!extra) { return std::unexpected(extra.error()); }
   auto frame = FrameOf(view, data->Raster);
   if (!frame) { return std::unexpected(frame.error()); }
   if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
@@ -213,7 +285,7 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
        .Depth =
            Native::DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Native::Load::Clear}});
   if (!begun) { return std::unexpected(begun.error()); }
-  auto drawn = data->Encode(view, *frame, recording);
+  const auto drawn = State::EncodeSources(*data, *extra, view, *frame, recording);
   if (!drawn) { return std::unexpected(drawn.error()); }
   auto ended = (*commands)->EndRenderPass();
   if (!ended) { return std::unexpected(ended.error()); }
@@ -231,23 +303,13 @@ Native::Result<MaterialFieldImages> MaterialFieldPass::Relight(const ResidentMat
   auto produced = SubmitUpload(device, state.Uploads, std::move(*commands));
   if (!produced) { return std::unexpected(produced.error()); }
   submission.Commit();
-  MaterialFieldImages images{.Unfiltered = std::make_shared<RadianceImage>(
-                                 RadianceImage{.Device = &device,
-                                               .Texture = raw,
-                                               .Sampling = state.Pipelines->Sampling,
-                                               .Produced = *produced}),
-                             .Filtered = std::make_shared<RadianceImage>(
-                                 RadianceImage{.Device = &device,
-                                               .Texture = filtered,
-                                               .Sampling = state.Pipelines->Sampling,
-                                               .Produced = *produced,
-                                               .Encoding = view.Encoding}),
-                             .Depth = depth,
-                             .Camera = view.Camera,
-                             .LightingCamera = view.LightingCamera.value_or(view.Camera)};
+  auto images = ImagesOf(*state.Pipelines, *targets, view, *produced);
   state.Last = *produced;
-  state.InFlight.push_back(
-      {.Completion = *produced, .Source = data, .Images = images, .Scratch = std::move(scratch)});
+  state.InFlight.push_back({.Completion = *produced,
+                            .Source = data,
+                            .Additional = std::move(*extra),
+                            .Images = images,
+                            .Scratch = std::move(scratch)});
   return images;
 }
 }
