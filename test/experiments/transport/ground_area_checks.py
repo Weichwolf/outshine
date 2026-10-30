@@ -1,14 +1,19 @@
 """Whole supported caps, holes and bounded failure of the area-floor recipe."""
 
+import json
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 import shapely
 from foot_ramp_geometry import close_caps
 from ground_area_bounds import verify_geometry
-from ground_area_inputs import load
+from ground_area_inputs import FIXTURE, load
+from ground_area_product import produce, read_product
 from ground_area_recipe import AreaRecipe, construct, prepare
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.canonical_ports._affine import AffineGround
@@ -150,6 +155,64 @@ class AreaRecipeChecks(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "actually used"):
             prepare(shapely.box(-2, -2, 2, 2), unused, AreaRecipe())
+
+
+class SavedAreaChecks(unittest.TestCase):
+    def make(self, root):
+        output = Path(root) / "product"
+        with patch("ground_area_product.frozen", return_value="unit-saved-product"):
+            produce(SimpleNamespace(case=FIXTURE, method="affine", output=output))
+        return output
+
+    def test_saved_actual_input_roundtrip_and_changed_request_binding(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.area-product."
+        ) as temporary:
+            output = self.make(temporary)
+            values = read_product(output)
+            self.assertTrue(values[-1]["whole_supported_floor"])
+            other = Path(temporary) / "other.json"
+            case = json.loads(FIXTURE.read_text())
+            case["frame"] = "changed-frame"
+            other.write_text(json.dumps(case))
+            with self.assertRaisesRegex(ValueError, "requested complete"):
+                read_product(output, other)
+
+    def test_oversized_primitive_is_refused_before_payload_hash_or_array_decode(self):
+        from ground_area_product import digest
+
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.area-product."
+        ) as temporary:
+            output = self.make(temporary)
+            path = output / "body-vertices.f64"
+            with path.open("wb") as stream:
+                stream.truncate(2**30)
+            report = json.loads((output / "report.json").read_text())
+            report["artifacts"][path.name]["bytes"] = 2**30
+            (output / "report.json").write_text(json.dumps(report))
+
+            def bounded_hash(file):
+                if file == path:
+                    raise AssertionError("oversized payload read before admission")
+                return digest(file)
+
+            with (
+                patch("ground_area_product.digest", side_effect=bounded_hash),
+                self.assertRaisesRegex(ValueError, "before hashing"),
+            ):
+                read_product(output)
+
+    def test_same_input_with_rehashed_wrong_frame_still_refuses(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.area-product."
+        ) as temporary:
+            output = self.make(temporary)
+            report = json.loads((output / "report.json").read_text())
+            report["frame"] = "other-frame"
+            (output / "report.json").write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "binding changed"):
+                read_product(output)
 
 
 if __name__ == "__main__":
