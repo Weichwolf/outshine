@@ -21,6 +21,11 @@ int Measure(std::string_view path) {
     return 2;
   }
   const auto bytes = std::span(reinterpret_cast<const uint8_t *>(input->data()), input->size());
+  const auto required = outshine::Generators::Osm::OsmField::NativeTileDecodeBytes(bytes);
+  if (!required) {
+    std::println(stderr, "invalid native tile structure: {}", path);
+    return 3;
+  }
   std::array<double, 7> elapsed{};
   outshine::Test::CppAllocationCounts allocated;
   size_t heap = 0;
@@ -38,16 +43,22 @@ int Measure(std::string_view path) {
       std::println(stderr, "native tile decode rejected: {}", path);
       return 3;
     }
+    if (cost.Bytes > *required || field->HeapBytes() > *required) {
+      std::println(stderr, "native tile exceeds its decoder admission: {}", path);
+      return 4;
+    }
     allocated = cost;
     heap = field->HeapBytes();
     features = field->Features().size();
     points = field->Points().size() / 2;
   }
   std::ranges::sort(elapsed);
-  std::println("{{\"native_bytes\":{},\"model_capacity_bytes\":{},\"cpp_allocation_calls\":{},"
+  std::println("{{\"native_bytes\":{},\"admitted_decode_bytes\":{},\"model_capacity_bytes\":{},"
+               "\"cpp_allocation_calls\":{},"
                "\"cpp_allocated_total_bytes\":{},\"features\":{},\"points\":{},"
                "\"samples\":7,\"median_decode_ms\":{:.9g}}}",
                bytes.size(),
+               *required,
                heap,
                allocated.Calls,
                allocated.Bytes,
