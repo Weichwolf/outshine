@@ -1,4 +1,5 @@
 #include "Check.h"
+#include "test/harness/render/NativeBufferReadback.h"
 #include <utility>
 #include "TerrainPatchBounds.h"
 #include "TerrainLattice.h"
@@ -12,7 +13,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <numeric>
 #include <span>
 #include <vector>
@@ -29,21 +29,6 @@ using namespace outshine::Test::Gpu;
 constexpr uint32_t kImageSide = 64;
 constexpr float kBehind = 0.25f, kInFront = 0.9f, kWall = 0.75f;
 constexpr Mat4f kIdentity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-
-std::vector<uint32_t> Read(Device &device, const Buffer &buffer, uint64_t offset, uint64_t bytes) {
-  auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
-  auto read = Require(device.CreateBuffer(
-      {.Bytes = bytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
-  Require(commands->Copy(buffer, *read, {.SourceOffset = offset, .Bytes = bytes}));
-  const auto done = Require(device.Submit(std::move(commands)));
-  CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
-        "native patch readback completes");
-  const auto mapped = Require(device.MapRead(*read, {.Bytes = bytes}));
-  std::vector<uint32_t> result(bytes / sizeof(uint32_t));
-  std::memcpy(result.data(), mapped.data(), static_cast<size_t>(bytes));
-  Require(device.Unmap(*read));
-  return result;
-}
 
 struct SelectionParameters {
   size_t Tiles = 1;
@@ -83,10 +68,10 @@ void Select(Device &device,
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
         "current-depth cull, reused scan and stable compaction finish");
-  const auto args = Read(device,
-                         *selection.Arguments(),
-                         selection.ArgumentOffset(),
-                         4u * sizeof(IndexedIndirectArguments));
+  const auto args = ReadBufferWords(device,
+                                    *selection.Arguments(),
+                                    selection.ArgumentOffset(),
+                                    4u * sizeof(IndexedIndirectArguments));
   const uint64_t room = selection.Codes()->Description().Bytes / (4u * sizeof(uint32_t));
   uint32_t firstIndex = 0;
   for (uint32_t level = 0; level < 4; ++level) {
@@ -98,10 +83,11 @@ void Select(Device &device,
     firstIndex += TerrainPatchIndexCounts()[level];
   }
   if (!expected.empty()) {
-    const auto selected = Read(device,
-                               *selection.Codes(),
-                               uint64_t{args[5u * expectedLevel + 4u]} * sizeof(uint32_t),
-                               expected.size_bytes());
+    const auto selected =
+        ReadBufferWords(device,
+                        *selection.Codes(),
+                        uint64_t{args[5u * expectedLevel + 4u]} * sizeof(uint32_t),
+                        expected.size_bytes());
     std::vector<uint32_t> wanted(expected.begin(), expected.end());
     for (auto &code : wanted) { code |= expectedLevel << TerrainLattice::kGroundLodShift; }
     CHECK(std::ranges::equal(selected, wanted),
