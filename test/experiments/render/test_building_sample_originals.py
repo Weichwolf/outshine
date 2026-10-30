@@ -12,6 +12,24 @@ from compare_building_sample_reuse import DATA
 
 
 class OriginalSampleInputs(unittest.TestCase):
+    def test_optional_attributes_keep_verified_original_parts_and_vertex_bindings(self):
+        source, audit = read_original(DATA / "original-geometry", attributes=True)
+        vertex, face = 0, 0
+        payload = 0
+        for part, attributes in zip(source["parts"], source["attributes"], strict=True):
+            local = source["indices"][face : face + part["triangles"]] - vertex
+            self.assertGreaterEqual(local.min(), 0)
+            self.assertLess(local.max(), part["vertices"])
+            self.assertIn("material", part)
+            for name, width in (("normals", 3), ("uv", 2), ("uv1", 2), ("colours", 4)):
+                self.assertEqual(attributes[name].shape, (part["vertices"], width))
+                self.assertEqual(attributes[name].dtype, np.float32)
+                payload += attributes[name].nbytes
+            vertex += part["vertices"]
+            face += part["triangles"]
+        self.assertEqual((vertex, face), (audit["vertices"], audit["triangles"]))
+        self.assertEqual(payload, vertex * 44)
+
     def test_all_native_geometry_operands_preserve_original_frame(self):
         source, audit = read_original(DATA / "original-geometry")
         self.assertEqual(audit["verified_files"], 19)

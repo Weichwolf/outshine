@@ -257,7 +257,7 @@ def verify_points(manifest, arrays):
             raise ValueError("Actual native original point union differs")
 
 
-def load(directory=DATA):
+def load(directory=DATA, *, attributes=False):
     path = directory / "manifest.json"
     manifest = json.loads(read_bounded(path))
     layout(manifest)
@@ -285,7 +285,11 @@ def load(directory=DATA):
             raise ValueError("Native cropped array checksum differs")
         value.setflags(write=False)
     verify_points(manifest, arrays)
-    original, provenance = read_original(geometry)
+    original, provenance = (
+        read_original(geometry, attributes=True)
+        if attributes
+        else read_original(geometry)
+    )
     if provenance != manifest["original_geometry"]:
         raise ValueError("Whole original operand/source provenance differs")
     return manifest, arrays, cases, original
