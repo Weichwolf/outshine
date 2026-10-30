@@ -7,6 +7,7 @@ All matrices map the same field frame to clip coordinates (reverse-Z in [0,1]).
 """
 
 from dataclasses import dataclass
+from itertools import pairwise
 from math import ceil, floor
 
 import numpy as np
@@ -79,9 +80,7 @@ def crossed_cells(segment, dimensions, cells_most):
             )
     breaks = sorted({max(low, min(high, t)) for t in breaks})
     # Endpoints preserve the half-open cell on a grid edge or a tangent ray.
-    values = breaks + [
-        (a + b) / 2 for a, b in zip(breaks[:-1], breaks[1:], strict=True)
-    ]
+    values = breaks + [(a + b) / 2 for a, b in pairwise(breaks)]
     cells = set()
     for t in values:
         x, y = (floor(start[k] + t * delta[k]) for k in (0, 1))
