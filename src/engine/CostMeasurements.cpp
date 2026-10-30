@@ -124,6 +124,14 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
       "cost.assets.terrain_patch.writes", static_cast<double>(terrain.PatchWrites), "packages");
   published.RecordMetric(
       "cost.assets.terrain_patch.read_bytes", static_cast<double>(terrain.PatchReadBytes), "bytes");
+  published.RecordMetric("cost.assets.terrain_patch.preparations",
+                         static_cast<double>(terrain.PatchPreparations),
+                         "patches");
+  published.RecordMetric("cost.assets.terrain_patch.publication_attempts",
+                         static_cast<double>(terrain.PatchPublicationAttempts),
+                         "attempts");
+  published.RecordMetric(
+      "cost.assets.terrain_patch.decodes", static_cast<double>(terrain.PatchDecodes), "patches");
   published.RecordMetric(
       "cost.assets.terrain_deformed.hits", static_cast<double>(terrain.DeformationHits), "reads");
   published.RecordMetric("cost.assets.terrain_deformed.misses",
