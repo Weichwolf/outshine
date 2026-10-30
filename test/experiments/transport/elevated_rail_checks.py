@@ -234,6 +234,29 @@ class RaisedRailTests(unittest.TestCase):
         self.assertIn("Float32", result["tilted"]["reason"])
         self.assertIn("flat_vertices", arrays)
 
+    def test_actual_rail_joint_retains_the_float32_tilt_counterexample(self):
+        recipe, _, _, rows, top, _, _ = sources(
+            FIXTURE.with_name("stair-elevated-rail-vienna.json"), []
+        )
+        # Fixed input witness, not an expected solver solution or generated oracle.
+        origin = np.array([166.06239050857826, 94.14096877467338])
+        coefficients = np.array(
+            [-0.01423530526232489, 0.020366154359393134, 168.75090398182496]
+        )
+        vertices = top.vertices.copy()
+        vertices[:, 2] = (vertices[:, :2] - origin) @ coefficients[:2] + coefficients[2]
+        body = close_surface(Mesh(vertices, top.triangles), recipe["deck_thickness_m"])
+        with self.assertRaisesRegex(ValueError, "float32=True"):
+            inspect(
+                body,
+                top.triangles,
+                rows,
+                [],
+                recipe["deck_thickness_m"],
+                recipe["along_grade"],
+                recipe["cross_grade"],
+            )
+
     def test_actual_bottom_and_too_little_whole_clearance_are_rejected(self):
         body, faces, rows = self.body()
         with self.assertRaisesRegex(ValueError, "clearance failed"):
