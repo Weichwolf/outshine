@@ -6,52 +6,64 @@
 #include <expected>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace outshine {
 namespace {
 constexpr size_t kErrorBytesMost = 256;
 
-size_t ReceiptBytes(const AssetRecord &record) {
-  size_t bytes = sizeof(AssetRecord) + record.Key.capacity() + record.Kind.capacity() +
-                 record.Package.capacity() + record.Parent.capacity();
-  if (record.RequestKey) { bytes += record.RequestKey->capacity(); }
-  return bytes;
-}
-
 AssetPublication Failed(AssetPublicationError code, std::string message) {
   std::string bounded(message.data(), std::min(message.size(), kErrorBytesMost));
   return {.Status = AssetPublicationStatus::Failed,
           .Receipt = {},
           .Error = code,
-          .Message = std::move(bounded)};
+          .Message = std::move(bounded),
+          .Native = {}};
 }
 
 struct StoredReceipt {
-  AssetRecord Record;
   std::shared_ptr<void> Reservation;
+  AssetProduct Product;
 };
 }
 
 AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
-                                               std::expected<AssetRecord, std::string> result) {
+                                               std::expected<AssetProduct, std::string> result) {
   if (!result) { return Failed(AssetPublicationError::ProducerFailed, std::move(result.error())); }
-  const auto key = AssetProductKey::Parse(result->Key);
-  if (!key || *key != job->Key || !AssetProductKey::Parse(result->Package) ||
-      result->ByteCount == 0 || result->Kind.empty() || result->RequestKey ||
-      ReceiptBytes(*result) > job->Output->Bytes) {
+  const auto &content = result->Record();
+  const size_t backingBytes = result->BackingBytes();
+  const auto key = AssetProductKey::Parse(content.Key);
+  const auto request =
+      content.RequestKey ? AssetProductKey::Parse(*content.RequestKey) : std::nullopt;
+  const bool binding = job->Domain == KeyDomain::Request
+                           ? request && *request == job->Key
+                           : !content.RequestKey && key && *key == job->Key;
+  if (!key || !binding || !AssetProductKey::Parse(content.Package) || content.ByteCount == 0 ||
+      content.Kind.empty() || result->CapacityBytes() - backingBytes > job->Output->Bytes ||
+      backingBytes > job->InputBytes) {
     return Failed(AssetPublicationError::InvalidReceipt,
                   "producer returned an invalid publication receipt");
   }
+  result->ClearRequestBinding();
   const auto stored = std::make_shared<StoredReceipt>(
-      StoredReceipt{.Record = std::move(*result), .Reservation = job->Output});
-  std::shared_ptr<const AssetRecord> record(stored, &stored->Record);
+      StoredReceipt{.Reservation = job->Output, .Product = std::move(*result)});
+  {
+    const std::scoped_lock lock(job->Output->Owner->Lock);
+    job->InputBytes -= backingBytes;
+    job->Output->InputBytes = backingBytes;
+  }
+  std::shared_ptr<const AssetRecord> record(stored, &stored->Product.Record());
+  std::shared_ptr<const CachedAsset> native;
+  if (const auto *backing = stored->Product.Native()) { native = {stored, backing}; }
   return {.Status = AssetPublicationStatus::Ready,
           .Receipt = std::move(record),
           .Error = AssetPublicationError::InvalidRequest,
-          .Message = {}};
+          .Message = {},
+          .Native = std::move(native)};
 }
 
 void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
@@ -69,20 +81,42 @@ void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
 
 void AssetPipeline::State::Execution::Run() {
   AssetPublication result;
-  if (Work->Stop.stop_requested()) {
-    result = Failed(AssetPublicationError::ProducerFailed, "asset publication canceled");
-  } else {
+  for (;;) {
+    if (Work->Stop.stop_requested()) {
+      result = Failed(AssetPublicationError::Cancelled, "asset publication canceled");
+      break;
+    }
     auto step = Produce(Work->Stop.get_token());
     if (!step) {
       result = Failed(AssetPublicationError::ProducerFailed, std::move(step.error()));
-    } else if (!*step && Owner->Defer(Work, std::move(Produce))) {
+      break;
+    }
+    if (auto *resolved = std::get_if<ResolvedWork>(&*step)) {
+      Produce = {};
+      auto joined = Owner->Resolve(Work, *resolved);
+      if (!joined) {
+        result = Failed(joined.error(), "discovered content cannot use its admitted job");
+        break;
+      }
+      if (*joined) {
+        Joined = true;
+        Ended = true;
+        return;
+      }
+      Produce = std::move(resolved->Produce);
+      continue;
+    }
+    auto record = std::get<std::optional<AssetProduct>>(std::move(*step));
+    if (!record && Owner->Defer(Work, std::move(Produce))) {
       Ended = true;
       return;
-    } else if (Work->Stop.stop_requested() || !*step) {
+    }
+    if (Work->Stop.stop_requested() || !record) {
       result = Failed(AssetPublicationError::Cancelled, "asset publication canceled");
     } else {
-      result = State::Receipt(Work, std::move(**step));
+      result = State::Receipt(Work, std::move(*record));
     }
+    break;
   }
   Produce = {};
   Owner->Finish(Work, std::move(result));
@@ -90,6 +124,7 @@ void AssetPipeline::State::Execution::Run() {
 }
 
 AssetPipeline::State::Execution::~Execution() {
+  if (Joined) { Owner->RetireJoined(Work); }
   if (!Ended) {
     Produce = {};
     Owner->Finish(
@@ -98,7 +133,7 @@ AssetPipeline::State::Execution::~Execution() {
   }
 }
 
-bool AssetPipeline::State::Defer(const std::shared_ptr<Job> &job, ResumableProducer producer) {
+bool AssetPipeline::State::Defer(const std::shared_ptr<Job> &job, LogicalProducer producer) {
   const std::scoped_lock lock(Lock);
   if (job->StopRequested) { return false; }
   job->Resume = std::move(producer);
@@ -152,26 +187,29 @@ AssetPublication AssetPipeline::State::Poll(uint64_t ticket) noexcept {
     return {.Status = AssetPublicationStatus::Cancelled,
             .Receipt = {},
             .Error = AssetPublicationError::InvalidRequest,
-            .Message = {}};
+            .Message = {},
+            .Native = {}};
   }
   const auto &demand = at->second;
+  auto result = demand.Work->Finished ? demand.Work->Result : AssetPublication{};
+  result.RequestKey = demand.Address;
   const auto owner = Consumers.find(demand.Consumer);
   if (owner == Consumers.end() || !owner->second.Alive ||
       owner->second.Generation != demand.Generation) {
-    return {.Status = AssetPublicationStatus::Cancelled,
-            .Receipt = {},
-            .Error = AssetPublicationError::StaleGeneration,
-            .Message = {},
-            .Finished = demand.Work->Finished};
+    result.Status = AssetPublicationStatus::Cancelled;
+    result.Receipt.reset();
+    result.Native.reset();
+    result.Error = AssetPublicationError::StaleGeneration;
+    result.Message.clear();
+    result.Finished = demand.Work->Finished;
+  } else if (demand.Cancelled) {
+    result.Status = AssetPublicationStatus::Cancelled;
+    result.Receipt.reset();
+    result.Native.reset();
+    result.Error = AssetPublicationError::Cancelled;
+    result.Message.clear();
+    result.Finished = demand.Work->Finished;
   }
-  if (demand.Cancelled) {
-    return {.Status = AssetPublicationStatus::Cancelled,
-            .Receipt = {},
-            .Error = AssetPublicationError::Cancelled,
-            .Message = {},
-            .Finished = demand.Work->Finished};
-  }
-  if (!demand.Work->Finished) { return {}; }
-  return demand.Work->Result;
+  return result;
 }
 }

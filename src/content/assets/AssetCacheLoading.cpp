@@ -44,12 +44,12 @@ void AssetCache::UsePackage(std::string_view packageKey) const {
   State_->Observe(packageKey, bytes);
 }
 
-CachedAsset::CachedAsset(AssetRecord record, std::shared_ptr<const std::vector<uint8_t>> bytes)
+CachedAsset::CachedAsset(AssetRecord record, std::vector<uint8_t> bytes)
     : Record_(std::move(record)), Package_(std::move(bytes)) {}
 
 std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
-  return std::span(*Package_).subspan(static_cast<size_t>(Record_.OffsetBytes),
-                                      static_cast<size_t>(Record_.ByteCount));
+  return std::span(Package_).subspan(static_cast<size_t>(Record_.OffsetBytes),
+                                     static_cast<size_t>(Record_.ByteCount));
 }
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
@@ -118,8 +118,7 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
   if (!decoded) { return std::optional<CachedAsset>{}; }
   lock.lock();
   State_->Observe(record.Package, bytes);
-  return CachedAsset(std::move(**found),
-                     std::make_shared<const std::vector<uint8_t>>(std::move(*decoded)));
+  return CachedAsset(std::move(**found), std::move(*decoded));
 }
 
 }

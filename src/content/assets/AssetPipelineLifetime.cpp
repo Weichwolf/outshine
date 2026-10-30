@@ -11,6 +11,7 @@ namespace outshine {
 AssetPipeline::State::Reservation::~Reservation() {
   const std::scoped_lock lock(Owner->Lock);
   Owner->Held.ReceiptBytes -= Bytes;
+  Owner->Held.InputBytes -= InputBytes;
 }
 
 std::optional<std::stop_source> AssetPipeline::State::Cancel(Demand &demand) {
@@ -40,7 +41,7 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
   if (job->Finished && job->References == 0) {
-    Jobs.erase(ScopedKey{.Scope = job->Scope, .Product = job->Key});
+    std::erase_if(Jobs, [&](const auto &entry) { return entry.second == job; });
     --Held.Jobs;
   }
 }
@@ -64,6 +65,7 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
       Consumers.erase(owner);
       --Held.Consumers;
     }
+    PruneRequest(*released);
     --released->Work->References;
     Remove(released->Work);
   }
@@ -180,6 +182,7 @@ AssetPublication AssetPipeline::RequestTicket::Poll() const noexcept {
                 : AssetPublication{.Status = AssetPublicationStatus::Cancelled,
                                    .Receipt = {},
                                    .Error = AssetPublicationError::InvalidRequest,
-                                   .Message = {}};
+                                   .Message = {},
+                                   .Native = {}};
 }
 }

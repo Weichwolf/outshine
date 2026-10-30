@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETPIPELINE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETPIPELINE_H
 #include "AssetPublication.h"
+#include "AssetProduct.h"
 #include "Tasks.h"
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +11,8 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <string_view>
+#include <variant>
 
 namespace outshine {
 class AssetPipeline {
@@ -26,6 +29,7 @@ public:
 
   struct Snapshot {
     size_t Jobs = 0;
+    size_t Addresses = 0;
     size_t Running = 0;
     size_t Consumers = 0;
     size_t Tickets = 0;
@@ -78,11 +82,31 @@ public:
     size_t ReceiptBytesMost = 0;
   };
 
-  using Producer = std::function<std::expected<AssetRecord, std::string>(std::stop_token)>;
+  struct LogicalRequest {
+    // Address binds the product recipe and immutable input scope.
+    std::string_view Address;
+    AssetConsumerGeneration Generation;
+    size_t InputBytes = 0;
+    size_t ConsumerBytes = 0;
+    size_t ReceiptBytesMost = 0;
+  };
+
+  // Native backings retain their portion of InputBytes through the last published alias.
+  // ReceiptBytesMost bounds metadata; one shared RAM bound covers inputs and held backings.
+
+  using Producer = std::function<std::expected<AssetProduct, std::string>(std::stop_token)>;
   // An empty successful step retains admission and resumes after a bounded delay on Poll.
   // The pool must outlive every unfinished job, including deferred jobs.
   using ResumableProducer =
-      std::function<std::expected<std::optional<AssetRecord>, std::string>(std::stop_token)>;
+      std::function<std::expected<std::optional<AssetProduct>, std::string>(std::stop_token)>;
+
+  struct ResolvedWork {
+    AssetProductKey Key;
+    ResumableProducer Produce;
+  };
+
+  using LogicalStep = std::variant<std::optional<AssetProduct>, ResolvedWork>;
+  using LogicalProducer = std::function<std::expected<LogicalStep, std::string>(std::stop_token)>;
   AssetPipeline(Tasks &pool, Limits limits);
   [[nodiscard]] std::expected<Consumer, AssetPublicationError>
   OpenConsumer(AssetStoreScope scope = {});
@@ -90,9 +114,28 @@ public:
   RequestResolved(const Consumer &consumer, const ResolvedRequest &request, Producer producer);
   [[nodiscard]] std::expected<RequestTicket, AssetPublicationError> RequestResumable(
       const Consumer &consumer, const ResolvedRequest &request, ResumableProducer producer);
+  // Address is borrowed only during submission; jobs retain its parsed digest.
+  // A hit returns its bound record; a miss returns ResolvedWork after input resolution.
+  // ResolvedWork inherits the admitted input/output bounds and never submits a child job.
+  // Each ticket retains its address; all resolved consumers share an unannotated receipt.
+  [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>
+  RequestLogical(const Consumer &consumer, const LogicalRequest &request, LogicalProducer producer);
   [[nodiscard]] Snapshot Counts() const noexcept;
 
 private:
+  enum class KeyDomain : uint8_t { Content, Request };
+
+  struct Submission {
+    AssetProductKey Key;
+    KeyDomain Domain;
+    AssetConsumerGeneration Generation;
+    size_t InputBytes = 0;
+    size_t ConsumerBytes = 0;
+    size_t ReceiptBytesMost = 0;
+  };
+
+  [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>
+  Submit(const Consumer &consumer, const Submission &request, LogicalProducer producer);
   std::shared_ptr<State> State_;
 };
 }

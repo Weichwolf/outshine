@@ -47,15 +47,22 @@ enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, Ca
 
 class CachedAsset {
 public:
+  // Transfer the package; share published handles together with their admission ownership.
+  CachedAsset(CachedAsset &&) noexcept = default;
+  CachedAsset &operator=(CachedAsset &&) noexcept = default;
+  CachedAsset(const CachedAsset &) = delete;
+  CachedAsset &operator=(const CachedAsset &) = delete;
+
   [[nodiscard]] const AssetRecord &Record() const noexcept { return Record_; }
 
   [[nodiscard]] std::span<const uint8_t> Bytes() const noexcept;
 
 private:
   friend class AssetCache;
-  CachedAsset(AssetRecord record, std::shared_ptr<const std::vector<uint8_t>> bytes);
+  friend class AssetProduct;
+  CachedAsset(AssetRecord record, std::vector<uint8_t> bytes);
   AssetRecord Record_;
-  std::shared_ptr<const std::vector<uint8_t>> Package_;
+  std::vector<uint8_t> Package_;
 };
 
 class PreparedAssetWrite {
