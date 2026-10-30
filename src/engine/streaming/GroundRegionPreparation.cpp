@@ -105,7 +105,7 @@ void GroundRegionPreparation::Work::Fail(const Failure &error) {
   if (cache != nullptr && *cache == AssetCacheError::Busy) {
     const auto exponent = std::min(Retries, 4U);
     Retries = std::min(Retries + 1U, 4U);
-    RetryAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(int64_t{1} << exponent);
+    RetryAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(uint64_t{1} << exponent);
   } else {
     Result.emplace(std::unexpected(Describe(error)));
   }

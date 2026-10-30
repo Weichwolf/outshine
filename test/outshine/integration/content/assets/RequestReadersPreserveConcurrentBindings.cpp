@@ -94,7 +94,7 @@ int ReplaceRoad(const std::filesystem::path &directory, const RequestBinding &bi
   auto page = std::move((**loaded).Page);
   auto address = page->Address;
   address.PlanKey = Sha256Hex("concurrently replaced native road plan");
-  auto producer =
+  const auto producer =
       RoadProducer([geometry = std::move(page->Geometry)](
                        const RoadPageRequest &, const std::stop_token &) { return geometry; });
   const auto stored = (*cache)->Prepare({.Address = std::move(address),

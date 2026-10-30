@@ -1381,7 +1381,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
       GroundRegionPreparation::Lookup(
           assets,
           std::move(request),
-          [assets, vectors, shape, native]() -> std::expected<std::string, std::string> {
+          [assets, vectors, shape, native] -> std::expected<std::string, std::string> {
             if (std::ranges::any_of(vectors->Tiles(),
                                     [](const auto &tile) { return tile.InputDigest.empty(); })) {
               return std::unexpected("ground region contains unbound vector inputs");

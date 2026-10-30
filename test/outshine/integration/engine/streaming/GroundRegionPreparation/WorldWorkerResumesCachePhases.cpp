@@ -55,7 +55,7 @@ void WarmBindAndPeek() {
   std::atomic_uint32_t keys{0};
   std::atomic_uint32_t attempts{0};
   auto actual = GroundRegionPreparation::Lookup(
-      fixture.Cache, fixture.Request, [&]() -> std::expected<std::string, std::string> {
+      fixture.Cache, fixture.Request, [&] -> std::expected<std::string, std::string> {
         ++keys;
         return fixture.Key;
       });
@@ -156,7 +156,7 @@ void RunningCancelAndTypedErrors() {
   if (!opened) { return; }
   std::promise<void> entered;
   std::promise<void> release;
-  auto running = entered.get_future();
+  const auto running = entered.get_future();
   const auto gate = release.get_future().share();
   fixture.Job = std::make_unique<GroundRegionPreparation>(
       fixture.Pool, [&entered, gate](const std::stop_token &) -> GroundRegionPreparation::Attempt {
