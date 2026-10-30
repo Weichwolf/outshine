@@ -143,6 +143,12 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
   published.RecordMetric("cost.assets.terrain_deformed.read_bytes",
                          static_cast<double>(terrain.DeformationReadBytes),
                          "bytes");
+  published.RecordMetric("cost.assets.terrain_deformed.preparations",
+                         static_cast<double>(terrain.DeformationPreparations),
+                         "packages");
+  published.RecordMetric("cost.assets.terrain_deformed.publication_attempts",
+                         static_cast<double>(terrain.DeformationPublicationAttempts),
+                         "attempts");
   if (const auto &buildings = stack.BuildingAssets()) {
     const auto costs = buildings->Costs();
     PublishPreparedAssetCosts(published, costs, 1);
