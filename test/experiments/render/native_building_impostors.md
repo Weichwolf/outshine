@@ -292,3 +292,24 @@ active coefficients, source point count, normalized RMS and fit wall time. RMS i
 not a surface bound or depth authority. Changing support alone reuses radiance;
 the source/light key stays independent of support placement. Inputs, original
 opponents and existing shader filtering remain unchanged.
+
+`field_lighting` chooses `capture` (the existing default) or `viewer`. Viewer uses
+exactly the query camera used by the original geometry draw and projected support,
+including an explicit `capture` override. Source raster rays remain unchanged.
+The retained radiance key binds the perspective eye or orthographic direction;
+focal changes, perspective rotation at the same eye and orthographic translation
+reuse the PBR result. Source GPU data and the source-only support fit remain held
+across observer/light changes. `lighting_observer` records the actual producer
+binding, including on reuse. This is an explicit finite diagnostic, not World
+pose admission or a relight-every-frame policy.
+
+```sh
+python test/experiments/render/replay_radiance_observer.py \
+  --client "$build/test_experiments_render_NativeBuildingImpostors" \
+  --warm "$stored_field_run" --output "$new_system_temp_directory"
+```
+
+The replay checks source-free loading, changed and irrelevant PBR inputs, unchanged
+capture depth/rays, the default control and invalid observer rejection. It keeps
+losslessly verified compressed readbacks. Its timing is diagnostic; it establishes
+no World, pose, shadow, p99 or total memory budget.

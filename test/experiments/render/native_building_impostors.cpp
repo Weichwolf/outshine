@@ -226,8 +226,6 @@ Json FilterGpuMilliseconds(std::span<const std::shared_ptr<const Render::Radianc
   return timing->ElapsedNanoseconds / 1'000'000.0;
 }
 
-Render::Viewpoint CaptureCamera(const Json &description);
-
 Json DrawWith(Render::SceneRenderer &renderer,
               const Geometry &mesh,
               const Json &query,
@@ -252,14 +250,7 @@ Json DrawWith(Render::SceneRenderer &renderer,
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
   if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) { Fail(error); }
-  Render::Viewpoint camera;
-  camera.EyeM = Vector(query.at("eye"));
-  camera.Right = Vector(query.at("basis").at(0));
-  camera.Up = Vector(query.at("basis").at(1));
-  camera.Forward = Vector(query.at("basis").at(2));
-  camera.YfovRad = 2 * std::atan(360.0 / query.at("focal_px").get<double>());
-  camera.ZNearM = 0.1;
-  if (query.contains("capture")) { camera = CaptureCamera(query.at("capture")); }
+  const auto camera = Test::BuildingQueryCamera(query);
   scene->Eye(camera);
   if (!scene->Draw(error)) { Fail(error); }
   const auto instances =
@@ -678,7 +669,17 @@ struct RetainedRadiance {
     const auto began = Clock::now();
     const auto &query = request.Query;
     const auto sourceKey = request.Products.FieldKey({request.View});
+    const auto observer = Test::BuildingLightingObserver(query);
+    if (!observer) { Fail(observer.error()); }
+    Json lighting = nullptr;
+    if (*observer) {
+      const auto &camera = **observer;
+      const bool parallel = camera.Kind == Render::CameraKind::Orthographic;
+      lighting = {{"orthographic", parallel},
+                  {"view", parallel ? camera.Forward.Axis : camera.EyeM.Axis}};
+    }
     const auto key = Json{{"source", sourceKey},
+                          {"lighting_observer", lighting},
                           {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
                           {"source_snapshot", query.value("dump_source_field", true)}}
                          .dump();
@@ -738,7 +739,8 @@ Json SourceDepthDescription(const Render::Viewpoint &camera, Extent raster, size
 }
 
 Json RadianceSupportReport(const Test::BuildingRadianceField &field, const Json &query) {
-  Json result{{"support_plane", query.value("support_plane", "capture")},
+  Json result{{"field_lighting", query.value("field_lighting", "capture")},
+              {"support_plane", query.value("support_plane", "capture")},
               {"support_depth_coefficients", field.SupportDepth.Axis},
               {"support_fit_ms", field.SupportFitMs}};
   if (field.SupportFit) {
@@ -834,6 +836,10 @@ void RadianceViews(const Fs::path &root, const Json &input) {
           size_t{image.Texture->Description().Width} * image.Texture->Description().Height *
               (image.Encoding == Render::RadianceEncoding::IntegralPairs ? 16 : 8)}});
     result.update(RadianceSupportReport(field, query));
+    result["lighting_observer"] = {
+        {"eye_m", field.LightingCamera.EyeM.Axis},
+        {"forward", field.LightingCamera.Forward.Axis},
+        {"orthographic", field.LightingCamera.Kind == Render::CameraKind::Orthographic}};
     result["field_filter_gpu_ms"] = nullptr;
     if (!field.SourceDepth.empty()) {
       result["source_depth"] =
@@ -1033,22 +1039,6 @@ void SourceMeshViews(const Fs::path &root, const Json &input) {
   if (!report) { Fail("native source-mesh report write failed"); }
 }
 
-Render::Viewpoint CaptureCamera(const Json &description) {
-  Render::Viewpoint camera;
-  camera.EyeM = Vector(description.at("eye_m"));
-  camera.Right = Vector(description.at("right"));
-  camera.Up = Vector(description.at("up"));
-  camera.Forward = Vector(description.at("forward"));
-  camera.Kind = description.at("orthographic").get<bool>() ? Render::CameraKind::Orthographic
-                                                           : Render::CameraKind::Perspective;
-  camera.XMagM = description.at("x_mag_m").get<double>();
-  camera.YMagM = description.at("y_mag_m").get<double>();
-  camera.YfovRad = description.at("yfov_rad").get<double>();
-  camera.ZNearM = description.at("near_m").get<double>();
-  camera.ZFarM = description.at("far_m").get<double>();
-  return camera;
-}
-
 void MaterialFieldViews(const Fs::path &root, const Json &input) {
   const auto directory = root / "geometry" / "0";
   std::ifstream file(directory / "input.json");
@@ -1085,7 +1075,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
       lights[0].Light.Direction[axis] = -static_cast<float>(towardSun[axis]);
     }
     const auto began = Clock::now();
-    const Render::MaterialFieldView view{.Camera = CaptureCamera(capture),
+    const Render::MaterialFieldView view{.Camera = Test::BuildingCaptureCamera(capture),
                                          .Lights = lights,
                                          .Environment = {},
                                          .Target = raster,

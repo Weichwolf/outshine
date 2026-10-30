@@ -21,6 +21,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <numbers>
+#include <optional>
 #include <ratio>
 #include <string>
 #include <utility>
@@ -95,6 +96,9 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   }
   auto placed = ViewOf(atlas, view);
   if (!placed) { return std::unexpected(placed.error()); }
+  const auto observer = BuildingLightingObserver(query);
+  if (!observer) { return std::unexpected(observer.error()); }
+  placed->LightingCamera = *observer;
   const auto toSun =
       EastUpSouthDirection(0, query.value("sun_elevation_deg", 0.0) * std::numbers::pi / 180.0);
   std::array<Render::SceneLight, 1> lights{};
@@ -110,6 +114,7 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   result.RelightEncodeMs = Elapsed(began);
   result.Radiance = images->Filtered;
   result.SourceCamera = images->Camera;
+  result.LightingCamera = images->LightingCamera;
   began = Clock::now();
   renderer.WaitForGpu();
   result.WaitMs = Elapsed(began);
@@ -135,6 +140,42 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   return {};
 }
 } // namespace
+
+Render::Viewpoint BuildingCaptureCamera(const nlohmann::json &description) {
+  Render::Viewpoint camera;
+  camera.EyeM = Vec3{description.at("eye_m").get<std::array<double, 3>>()};
+  camera.Right = Vec3{description.at("right").get<std::array<double, 3>>()};
+  camera.Up = Vec3{description.at("up").get<std::array<double, 3>>()};
+  camera.Forward = Vec3{description.at("forward").get<std::array<double, 3>>()};
+  camera.Kind = description.at("orthographic").get<bool>() ? Render::CameraKind::Orthographic
+                                                           : Render::CameraKind::Perspective;
+  camera.XMagM = description.at("x_mag_m").get<double>();
+  camera.YMagM = description.at("y_mag_m").get<double>();
+  camera.YfovRad = description.at("yfov_rad").get<double>();
+  camera.ZNearM = description.at("near_m").get<double>();
+  camera.ZFarM = description.at("far_m").get<double>();
+  return camera;
+}
+
+Render::Viewpoint BuildingQueryCamera(const nlohmann::json &query) {
+  if (query.contains("capture")) { return BuildingCaptureCamera(query.at("capture")); }
+  Render::Viewpoint camera;
+  camera.EyeM = Vec3{query.at("eye").get<std::array<double, 3>>()};
+  camera.Right = Vec3{query.at("basis").at(0).get<std::array<double, 3>>()};
+  camera.Up = Vec3{query.at("basis").at(1).get<std::array<double, 3>>()};
+  camera.Forward = Vec3{query.at("basis").at(2).get<std::array<double, 3>>()};
+  camera.YfovRad = 2 * std::atan(360.0 / query.at("focal_px").get<double>());
+  camera.ZNearM = .1;
+  return camera;
+}
+
+std::expected<std::optional<Render::Viewpoint>, std::string>
+BuildingLightingObserver(const nlohmann::json &query) {
+  const auto mode = query.value("field_lighting", "capture");
+  if (mode == "capture") { return std::nullopt; }
+  if (mode == "viewer") { return BuildingQueryCamera(query); }
+  return std::unexpected("unknown material field lighting observer");
+}
 
 std::expected<std::vector<float>, std::string>
 ReadMaterialFieldImage(Render::Native::Device &device, const Render::Native::Texture &image) {
@@ -199,13 +240,7 @@ std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceF
   } else if (mode != "capture") {
     return std::unexpected("unknown radiance support plane mode");
   }
-  Render::Viewpoint camera;
-  camera.EyeM = Vec3{query.at("eye").get<std::array<double, 3>>()};
-  camera.Right = Vec3{query.at("basis").at(0).get<std::array<double, 3>>()};
-  camera.Up = Vec3{query.at("basis").at(1).get<std::array<double, 3>>()};
-  camera.Forward = Vec3{query.at("basis").at(2).get<std::array<double, 3>>()};
-  camera.YfovRad = 2 * std::atan(360.0 / query.at("focal_px").get<double>());
-  camera.ZNearM = .1;
+  const auto camera = BuildingQueryCamera(query);
   const auto lens = Render::Lens::From(camera, 1280, 720);
   if (!lens) { return std::unexpected("radiance viewer has no valid lens"); }
   auto surface = Render::BuildProjectedRadianceSupport({.Centre = atlas.CentreM(),
