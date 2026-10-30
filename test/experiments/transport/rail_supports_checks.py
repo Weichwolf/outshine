@@ -156,6 +156,22 @@ class RailSupportsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "elevated rail roles"):
             plan(context(), [row])
 
+    def test_selection_preserves_better_station_coverage_within_complete_span_quality(
+        self,
+    ):
+        from rail_supports_study import choose
+
+        methods = {
+            "fixed": {"accepted": 89, "source_spacing": [{"within_recipe_span": True}]},
+            "longitudinal": {
+                "accepted": 94,
+                "source_spacing": [{"within_recipe_span": True}],
+            },
+        }
+        self.assertEqual(choose(methods), "longitudinal")
+        methods["longitudinal"]["source_spacing"][0]["within_recipe_span"] = False
+        self.assertEqual(choose(methods), "fixed")
+
     def test_prepared_foreign_masks_match_direct_whole_traffic_distance(self):
         vertices = np.array([[0, 0, 0], [10, 0, 0], [10, 2, 0], [0, 2, 0]], float)
         faces = np.array([[0, 1, 2], [0, 2, 3]])

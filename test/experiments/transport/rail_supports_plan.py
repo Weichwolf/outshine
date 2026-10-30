@@ -10,7 +10,6 @@ from stair_support_plan import station_choices
 VARIANTS = {
     "fixed": ((0, 0),),
     "longitudinal": ((0, 0), (-2, 0), (2, 0), (-4, 0), (4, 0)),
-    "lateral": ((0, 0), (-2, 0), (2, 0), (0, -1.2), (0, 1.2)),
 }
 
 
@@ -86,7 +85,7 @@ def admit_station(context, product, expected, previous, work):
     return actual, physical
 
 
-def plan(context, rows, *, method="lateral", seconds=8, precheck=True):
+def plan(context, rows, *, method="longitudinal", seconds=8, precheck=True):
     if (
         method not in VARIANTS
         or not np.isfinite(seconds)

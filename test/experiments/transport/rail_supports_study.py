@@ -23,11 +23,7 @@ def choose(methods):
         if note["accepted"]
         and all(s["within_recipe_span"] for s in note["source_spacing"])
     ]
-    return (
-        complete[0]
-        if complete
-        else max(methods, key=lambda name: methods[name]["accepted"])
-    )
+    return max(complete or list(methods), key=lambda name: methods[name]["accepted"])
 
 
 def run(args):
