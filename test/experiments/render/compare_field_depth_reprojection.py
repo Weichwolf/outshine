@@ -159,18 +159,55 @@ def external_opponents(arrays, candidate, shape, selection, output):
     return records
 
 
-def centre_cost(rgba, depth, flat, capture, world, pixels, raster, output):
-    """Held-input point query only; both image approximations remain unqualified."""
-    methods = {"depth": depth, "flat": flat}
+def capture_methods(arrays):
+    """Keep complete original and field capture pairs coupled, including masks."""
+    methods = {}
+    for prefix, name in (("field", ""), ("original", "original-")):
+        rgba, depth = (
+            arrays[prefix + "_capture_" + key] for key in ("colour", "depth")
+        )
+        hit = depth[depth > 0]
+        if not len(hit):
+            raise ValueError("Nonempty whole capture controls required")
+        flat = np.where(depth > 0, (float(hit.min()) + float(hit.max())) / 2, 0).astype(
+            depth.dtype
+        )
+        methods[name + "depth"] = rgba, depth
+        methods[name + "flat"] = rgba, flat
+    return methods
+
+
+def capture_errors(arrays, camera):
+    field, original = (arrays[p + "_capture_colour"] for p in ("field", "original"))
+    field_z, original_z = (arrays[p + "_capture_depth"] for p in ("field", "original"))
+    common = (field_z > 0) & (original_z > 0)
+    delta = abs(field_z.astype(float) - original_z)
+    return {
+        "mask_disagreements": int(np.count_nonzero((field_z > 0) != (original_z > 0))),
+        "common_hits": int(np.count_nonzero(common)),
+        "capture_rgba": errors(field, original),
+        "common_hit_rgb_max": float(
+            abs(field[:, :, :3].astype(float) - original[:, :, :3])[common].max()
+        ),
+        "common_hit_reverse_z_max": float(delta[common].max()),
+        "common_hit_declared_forward_depth_difference_m": float(
+            delta[common].max() * (camera["far_m"] - camera["near_m"])
+        ),
+        "scope": "Finite native same-capture differences. Metric depth uses the declared orthographic lens range, not a conservative GPU/original-surface error bound. Whole opaque pairs are never mixed across captures.",
+    }
+
+
+def centre_cost(methods, capture, world, pixels, raster, output):
+    """Held-input point queries; the image approximations remain unqualified."""
     records = {name: {"cpu_rounds_s": []} for name in methods}
     expected = {}
-    for name, values in methods.items():
-        expected[name] = reproject(rgba, values, capture, world, pixels, raster)
+    for name, (rgba, depth) in methods.items():
+        expected[name] = reproject(rgba, depth, capture, world, pixels, raster)
     for at in range(7):
         for name in tuple(methods) if at % 2 else tuple(reversed(methods)):
             gc.collect()
             start = time.process_time()
-            value = reproject(rgba, methods[name], capture, world, pixels, raster)
+            value = reproject(*methods[name], capture, world, pixels, raster)
             records[name]["cpu_rounds_s"].append(time.process_time() - start)
             np.testing.assert_array_equal(value.rgba, expected[name].rgba)
             np.testing.assert_array_equal(value.reverse_z, expected[name].reverse_z)
@@ -178,9 +215,7 @@ def centre_cost(rgba, depth, flat, capture, world, pixels, raster, output):
         gc.collect()
         value, memory = allocations(
             output / (name + "-centre.memray"),
-            lambda values=values: reproject(
-                rgba, values, capture, world, pixels, raster
-            ),
+            lambda values=values: reproject(*values, capture, world, pixels, raster),
         )
         np.testing.assert_array_equal(value.rgba, expected[name].rgba)
         np.testing.assert_array_equal(value.reverse_z, expected[name].reverse_z)
@@ -202,19 +237,20 @@ def image_panel(
     flat,
     *,
     labels=("native original", "raw-depth cells", "flat cells", "absolute error"),
+    scale=16,
 ):
     width, height = truth.shape[1], truth.shape[0]
     images = (truth, actual, flat, abs(actual - truth))
-    panel = Image.new("RGB", (4 * width * 16, height * 16 + 32), "#222222")
+    panel = Image.new("RGB", (4 * width * scale, height * scale + 32), "#222222")
     draw = ImageDraw.Draw(panel)
     for at, (label, values) in enumerate(zip(labels, images, strict=True)):
         rgb = values[:, :, :3].astype(float)
         rgb = np.power(np.maximum(rgb, 0) / (1 + np.maximum(rgb, 0)), 1 / 2.2)
         tile = Image.fromarray(np.round(rgb * 255).astype(np.uint8)).resize(
-            (width * 16, height * 16), Image.Resampling.NEAREST
+            (width * scale, height * scale), Image.Resampling.NEAREST
         )
-        panel.paste(tile, (at * width * 16, 32))
-        draw.text((at * width * 16 + 2, 8), label, fill="white")
+        panel.paste(tile, (at * width * scale, 32))
+        draw.text((at * width * scale + 2, 8), label, fill="white")
     panel.save(output)
 
 
@@ -249,6 +285,8 @@ def run(args):
             for key in (
                 "field_capture_colour",
                 "field_capture_depth",
+                "original_capture_colour",
+                "original_capture_depth",
                 "foreground_linear",
                 "foreground_depth",
                 "foreground_ss16",
@@ -279,21 +317,17 @@ def run(args):
     low, high = crop(
         arrays["source_least_m"].min(0), arrays["source_most_m"].max(0), world, raster
     )
-    if not model_inside_crop(
-        arrays["field_capture_depth"], capture, world, raster, low, high
-    ):
-        raise ValueError(
-            "Complete reprojected cell hull leaves the original diagnostic crop"
-        )
+    methods = capture_methods(arrays)
+    for _rgba, depths in methods.values():
+        if not model_inside_crop(depths, capture, world, raster, low, high):
+            raise ValueError(
+                "Complete reprojected cell hull leaves the original diagnostic crop"
+            )
     y, x = np.mgrid[low[1] : high[1], low[0] : high[0]]
     pixels = np.c_[x.ravel(), y.ravel()] + 0.5
     shape = (*x.shape, 4)
-    rgba, depth = arrays["field_capture_colour"], arrays["field_capture_depth"]
-    flat = np.where(
-        depth > 0, (float(depth[depth > 0].min()) + float(depth.max())) / 2, 0
-    ).astype(depth.dtype)
     records, images, centres = {}, {}, {}
-    for name, depths in (("depth", depth), ("flat", flat)):
+    for name, (rgba, depths) in methods.items():
         centre = reproject(rgba, depths, capture, world, pixels, raster)
         if not centre.evaluated.all():
             raise ValueError(
@@ -325,6 +359,34 @@ def run(args):
         }
     truth = arrays["foreground_ss16"][selection]
     image_panel(args.output / "comparison.png", truth, images["depth"], images["flat"])
+    image_panel(
+        args.output / "original-capture-comparison.png",
+        truth,
+        images["original-depth"],
+        images["original-flat"],
+        labels=(
+            "native World original",
+            "original depth cells",
+            "original flat cells",
+            "absolute error",
+        ),
+    )
+    original, field = (arrays[p + "_capture_colour"] for p in ("original", "field"))
+    coverage = abs(original[:, :, 3] - field[:, :, 3])
+    coverage = np.stack((coverage, coverage, coverage, np.ones_like(coverage)), axis=2)
+    image_panel(
+        args.output / "capture-comparison.png",
+        original,
+        field,
+        coverage,
+        labels=(
+            "original capture",
+            "field capture",
+            "coverage mismatch",
+            "absolute colour error",
+        ),
+        scale=2,
+    )
     np.savez_compressed(args.output / "comparison.npz", original=truth, **images)
     report = {
         "commit": subprocess.check_output(
@@ -341,7 +403,9 @@ def run(args):
         "world_from_field": world.tolist(),
         "crop_xyxy": [*low.tolist(), *high.tolist()],
         "raster": raster,
-        "raw_capture_bytes": rgba.nbytes + depth.nbytes,
+        "raw_capture_bytes": {
+            name: sum(v.nbytes for v in values) for name, values in methods.items()
+        },
         "source_sha256": {
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in paths
@@ -352,6 +416,10 @@ def run(args):
         "nice": os.getpriority(os.PRIO_PROCESS, 0),
         "source_provenance": manifest["source"],
         "methods": records,
+        "capture_error": capture_errors(arrays, manifest["capture_camera"]),
+        "field_vs_original_capture_after_reprojection": errors(
+            images["depth"], images["original-depth"]
+        ),
         "external_composition": external_opponents(
             arrays, centres["depth"], shape, selection, args.output
         ),
@@ -359,7 +427,7 @@ def run(args):
     }
     if args.cost:
         report["centre_cost"] = centre_cost(
-            rgba, depth, flat, capture, world, pixels, raster, args.output
+            methods, capture, world, pixels, raster, args.output
         )
         report["cost_scope"] = (
             "Seven normal-priority held-input rounds and separate native Memray traces, World centre samples only. Field validation/transfer inversion included, imports/held native input loading/image checks excluded. Result payload is owned output, not physical traffic; library temporaries remain in Memray totals. Neither approximation meets a declared image budget here, so no equal-quality winner, cache/native/UMA/frame inference."
