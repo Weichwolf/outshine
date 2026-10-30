@@ -23,7 +23,7 @@ struct Context {
   uint64_t Submissions = 0;
 };
 
-std::vector<uint8_t> Rendered(Engine &engine, Context &context) {
+std::vector<uint8_t> Rendered(Engine &engine, const Context &context) {
   const auto before = context.Submissions;
   const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   bool accepted = true;
@@ -66,7 +66,12 @@ void Exercise(SDL_Window *first, SDL_Window *candidate) {
              if (result) { ++static_cast<Context *>(opaque)->Submissions; }
              return result;
            }});
-  CHECK(engine.setRenderTarget(first), "the original window is configured");
+  const auto targeted = engine.setRenderTarget(first);
+  CHECK(targeted, "the original window is configured");
+  if (!targeted) {
+    Note(targeted.error().c_str());
+    return;
+  }
   const auto extent = engine.frameExtent();
   Geometry geometry;
   Material material;

@@ -37,8 +37,14 @@ struct BuildingRadianceField {
   std::vector<float> SourceLinear;
   std::vector<float> SourceDepth;
   Render::Viewpoint SourceCamera;
+  Render::Viewpoint LightingCamera;
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
+
+[[nodiscard]] Render::Viewpoint BuildingCaptureCamera(const nlohmann::json &description);
+[[nodiscard]] Render::Viewpoint BuildingQueryCamera(const nlohmann::json &query);
+[[nodiscard]] std::expected<std::optional<Render::Viewpoint>, std::string>
+BuildingLightingObserver(const nlohmann::json &query);
 
 [[nodiscard]] std::expected<std::vector<float>, std::string>
 ReadMaterialFieldImage(Render::Native::Device &device, const Render::Native::Texture &image);
