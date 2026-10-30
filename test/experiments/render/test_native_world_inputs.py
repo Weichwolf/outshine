@@ -45,6 +45,36 @@ class NativeWorldTests(unittest.TestCase):
         self.assertIsNone(self.manifest["runtime_world_revision"])
         self.assertTrue(all(not a.flags.writeable for a in self.arrays.values()))
 
+    def test_subpixel_fixture_preserves_originals_pose_and_capture_resolution(self):
+        manifest, arrays, cases, original = load(DATA / "ss2")
+        self.assertEqual(manifest["raster"], [2560, 1440])
+        self.assertEqual(manifest["output_raster"], [1280, 720])
+        self.assertEqual(manifest["sample_axis"], 2)
+        self.assertEqual(
+            manifest["original_geometry"], self.manifest["original_geometry"]
+        )
+        self.assertEqual(manifest["capture"], self.manifest["capture"])
+        self.assertIsNone(manifest["runtime_world_from_field"])
+        self.assertIsNone(manifest["runtime_world_revision"])
+        for name, value in original.items():
+            np.testing.assert_array_equal(value, self.original[name])
+        for key, case in cases.items():
+            self.assertEqual(
+                case["lighting_camera"], self.cases[key]["lighting_camera"]
+            )
+            for name, value in self.cases[key]["capture"].items():
+                scale = (
+                    2
+                    if key[0] != "capture" and name in ("width_px", "height_px")
+                    else 1
+                )
+                if name == "bytes" and key[0] != "capture":
+                    scale = 4
+                self.assertEqual(
+                    case["capture"][name], value * scale if scale != 1 else value
+                )
+        self.assertEqual(len(arrays), 36)
+
     def test_changed_executed_camera_is_refused_even_after_rehash(self):
         execution = self.changed["executions"]["capture"]
         execution["input"]["queries"][0]["capture"]["eye_m"][0] += 1
