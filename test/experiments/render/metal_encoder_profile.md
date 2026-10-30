@@ -43,33 +43,20 @@ python3 test/experiments/render/metal_encoder_profile.py probe \
   --output "${TMPDIR:-/tmp}/outshine-metal-encoder-probe"
 ```
 
-Select PLACE in the calling shell/test driver. Keep normal content and profile.
+Select SCENARIO and VIEW in the calling shell/test driver. Keep normal content
+and the declared 1280×720/60 profile.
 The diagnostic file name comes from the printed line; pass that path as TRACE.
 
 ```sh
 profile_root="${TMPDIR:-/tmp}/outshine-metal-encoders"
 mkdir -p "$profile_root"
 OUTSHINE_METAL_ENCODER_PROFILE="$profile_root/frame" \
-  build/outshine-client shots --offline --rows --stats \
-  --scenario-overrides '{"render":{"fps":60}}' "$PLACE" \
-  > "$profile_root/shot.log" 2>&1
+  build/outshine benchmark --scenario "$SCENARIO" --view "$VIEW" \
+  --frames 60 --angular-velocity '0,-360,0' --preload-seconds 120 --offline \
+  --image "$profile_root/image.png" --output "$profile_root/benchmark.json" \
+  > "$profile_root/benchmark.log" 2>&1
 python3 test/experiments/render/metal_encoder_profile.py analyse \
-  --trace "$TRACE" --log "$profile_root/shot.log" \
-  --output "$profile_root/summary"
-```
-
-The analyser requires exactly one complete GPUROW. Its selected serial-ordered
-tail must reproduce that actual measured submission sum, including every declared
-frame/query. Earlier preparation remains in the raw file. A wrong fresh-process
-log with identical image/content is rejected; mismatched windows, dropped records
-or unavailable samples are not converted into timings.
-
-The current application also writes benchmark JSON with explicit submission IDs.
-Use `--benchmark` instead of `--log` for that output:
-
-```sh
-python3 test/experiments/render/metal_encoder_profile.py analyse \
-  --trace "$TRACE" --benchmark "$BENCHMARK_JSON" \
+  --trace "$TRACE" --benchmark "$profile_root/benchmark.json" \
   --output "$profile_root/summary"
 ```
 
@@ -78,7 +65,10 @@ Each serial and individual elapsed time must match its actual trace submission;
 matching only a sum is insufficient. Preparation and later readbacks remain in
 the trace but are excluded by IDs. Tests reject swapped durations with equal
 totals, missing/duplicate/reordered/cross-device samples and incomplete windows.
-Historical GPUROW analysis retains its stricter tail-window requirement.
+Historical GPUROW logs can use `--log`: exactly one complete GPUROW is required,
+and the serial-ordered trace tail must reproduce its entire measured sum. A wrong
+fresh-process log, mismatched windows, dropped records and unavailable samples
+are refused rather than converted into timings.
 
 ## Current e2ae80985 countercheck
 
