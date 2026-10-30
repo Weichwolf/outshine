@@ -3,10 +3,12 @@
 
 #include "RawSourceCache.h"
 #include "SourceSet.h"
+#include "SourceRequest.h"
 #include <Provider.h>
 #include <SourceProvider.h>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -14,6 +16,33 @@
 namespace outshine::Data {
 class SourceSession {
 public:
+  class Read {
+  public:
+    Read(Read &&other) noexcept;
+    Read &operator=(Read &&other);
+    ~Read();
+    Read(const Read &) = delete;
+    Read &operator=(const Read &) = delete;
+    [[nodiscard]] SourceDelivery Poll();
+    void Cancel();
+
+  private:
+    friend class SourceSession;
+    Read(std::shared_ptr<SourceSession> session,
+         const SourceRequest &request,
+         SourceTransport &transport);
+    std::shared_ptr<SourceSession> Session_;
+    SourceTransport *Transport_ = nullptr;
+    std::optional<SourceSet::Query> Query_;
+  };
+
+  // The transport outlives the read; Poll and cancellation run on its owning worker.
+  // Creating a read only selects declared sources and starts no source IO.
+  [[nodiscard]] static std::expected<Read, std::string>
+  Request(std::shared_ptr<SourceSession> session,
+          const SourceRequest &request,
+          SourceTransport &transport);
+
   [[nodiscard]] static std::expected<std::shared_ptr<SourceSession>, std::string>
   Open(const RawSourceCache::Config &config,
        std::span<const SourceProvider> providers,

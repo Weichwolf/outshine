@@ -12,9 +12,11 @@
 
 namespace outshine::Generators::Weather {
 struct WeatherSnapshotLoader::Work {
-  Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS);
+  Work(std::shared_ptr<Data::SourceSession> sources,
+       Data::SourceTransport &transport,
+       int64_t utcS);
   std::shared_ptr<Data::SourceSession> Sources;
-  Data::SourceSet::Query Query;
+  std::optional<Data::SourceSession::Read> Input;
   int64_t UtcS;
   std::atomic_bool Stopping = false;
   Data::SourceDelivery Delivery = Data::SourceDelivery::Waiting();
@@ -25,20 +27,33 @@ struct WeatherSnapshotLoader::Work {
   bool Abandoned = false;
 };
 
-WeatherSnapshotLoader::Work::Work(std::shared_ptr<Data::SourceSession> sources, int64_t utcS)
-    : Sources(std::move(sources)),
-      Query(Sources->Sources().Ask(
-          Data::SourceRequest(Data::DataKind::Weather, Data::Address::Whole(0)))),
-      UtcS(utcS) {}
+WeatherSnapshotLoader::Work::Work(std::shared_ptr<Data::SourceSession> sources,
+                                  Data::SourceTransport &transport,
+                                  int64_t utcS)
+    : Sources(std::move(sources)), UtcS(utcS) {
+  auto read = Data::SourceSession::Request(
+      Sources, Data::SourceRequest(Data::DataKind::Weather, Data::Address::Whole(0)), transport);
+  if (!read) {
+    Error = std::move(read.error());
+    Outcome = Phase::Failed;
+    Abandoned = true;
+    return;
+  }
+  Input.emplace(std::move(*read));
+}
 
 WeatherSnapshotLoader::WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
                                              Data::SourceTransport &transport,
                                              Workers workers,
                                              int64_t utcS)
-    : Transport_(transport),
-      Io_(workers.Io),
+    : Io_(workers.Io),
       Compute_(workers.Compute),
-      Work_(std::make_unique<Work>(std::move(sources), utcS)) {}
+      Work_(std::make_unique<Work>(std::move(sources), transport, utcS)) {
+  if (!Work_->Input) {
+    Error_ = Work_->Error;
+    Phase_ = Phase::Failed;
+  }
+}
 
 WeatherSnapshotLoader::~WeatherSnapshotLoader() {
   Cancel();
@@ -61,10 +76,10 @@ void WeatherSnapshotLoader::Cancel() noexcept {
 
 void WeatherSnapshotLoader::Abandon() {
   Work *const work = Work_.get();
-  Data::SourceTransport *const transport = &Transport_;
   ActivePool_ = &Io_;
-  Handle_ = Io_.Post([work, transport] {
-    Data::SourceSet::Abandon(work->Query, *transport);
+  Handle_ = Io_.Post([work] {
+    if (work->Input) { work->Input->Cancel(); }
+    work->Input.reset();
     work->Answer.reset();
     work->Delivery = Data::SourceDelivery::Consumed();
     work->Snapshot.reset();
@@ -139,11 +154,10 @@ WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
     Error_ = "weather source acquisition was refused";
   } else {
     Work *const work = Work_.get();
-    Data::SourceTransport *const transport = &Transport_;
     ActivePool_ = &Io_;
-    Handle_ = Io_.Post([work, transport] {
+    Handle_ = Io_.Post([work] {
       if (!work->Stopping.load(std::memory_order_relaxed)) {
-        work->Delivery = work->Sources->Sources().Collect(work->Query, *transport);
+        if (work->Input) { work->Delivery = work->Input->Poll(); }
       }
     });
   }

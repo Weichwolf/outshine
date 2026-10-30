@@ -51,7 +51,6 @@ private:
   void Decode();
   void Abandon();
   void Publish();
-  Data::SourceTransport &Transport_;
   Tasks &Io_;
   Tasks &Compute_;
   Tasks *ActivePool_ = nullptr;
