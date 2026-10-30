@@ -116,6 +116,12 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
   published.RecordMetric("cost.assets.osm_tiles.publication_ms", osm.PublicationMs, "ms");
   const auto terrain = stack.PreparedTerrainCosts();
   PublishPreparedAssetCosts(published, terrain, 0);
+  published.RecordMetric("cost.assets.terrain.field_preparations",
+                         static_cast<double>(terrain.FieldPreparations),
+                         "fields");
+  published.RecordMetric("cost.assets.terrain.field_publication_attempts",
+                         static_cast<double>(terrain.FieldPublicationAttempts),
+                         "attempts");
   published.RecordMetric(
       "cost.assets.terrain_patch.hits", static_cast<double>(terrain.PatchHits), "reads");
   published.RecordMetric(
