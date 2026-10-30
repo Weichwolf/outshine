@@ -28,7 +28,14 @@ def pool_rows(pool):
     ]
 
 
-def generate(args, *, order=None, order_id="unchanged nearest order"):
+def generate(
+    args,
+    *,
+    order=None,
+    order_id="unchanged nearest order",
+    prepare=inputs,
+    query_for=candidate_query,
+):
     commit = frozen()
     if not args.output.resolve().is_relative_to(Path("/tmp")) or args.output.exists():
         raise ValueError("fresh private /tmp whole-plant output required")
@@ -36,8 +43,8 @@ def generate(args, *, order=None, order_id="unchanged nearest order"):
         raise ValueError("prototype and verification receipt are a pair")
     args.output.mkdir(parents=True)
     start = time.perf_counter()
-    data, state, baseline, buildings = inputs(args.buildings, args.building_receipt)
-    query, info = candidate_query(state, buildings)
+    data, state, baseline, buildings = prepare(args.buildings, args.building_receipt)
+    query, info = query_for(state, buildings)
     loaded = time.perf_counter()
     prior = previous(args.prototype, args.prototype_receipt) if args.prototype else None
     proto, artifacts, work = physical_form(args.output / "prototype", prior)

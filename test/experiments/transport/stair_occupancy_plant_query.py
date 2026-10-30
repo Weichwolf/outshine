@@ -12,14 +12,18 @@ from stair_local_replay import load_chain
 from stair_occupancy_candidate_reference import PartitionReference
 from stair_occupancy_candidate_reuse import retained
 from stair_occupancy_candidate_sources import from_state
-from stair_occupancy_candidates import CandidateBudget, CandidateQuery
+from stair_occupancy_candidates import CandidateBudget, CandidateQuery, CandidateVolumes
 from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import actual_sources
 
 
-def inputs(products, receipt):
+def inputs(products, receipt, *, allow_raised=False):
     report = json.loads((products / "comparison.json").read_text())
+    if "elevated_supports" in report and not allow_raised:
+        raise ValueError(
+            "Raised transport requires the complete elevated consumer adapter"
+        )
     checked = json.loads(receipt.read_text())
     if (
         checked["report_sha256"] != digest(products / "comparison.json")
@@ -102,7 +106,7 @@ class PlantQuery:
         return distance, work
 
 
-def candidate_query(state, buildings):
+def candidate_query(state, buildings, *, extra_sources=()):
     _context, sources, *_ = actual_sources()
     budget = CandidateBudget()
     count = len(buildings)
@@ -114,7 +118,10 @@ def candidate_query(state, buildings):
         face_tests=budget.face_tests - count,
         candidates=budget.candidates - count,
     )
-    catalog, info = retained(from_state(state, sources), 8192)
+    catalog = from_state(state, sources)
+    if extra_sources:
+        catalog = CandidateVolumes(catalog.frame, (*catalog.sources, *extra_sources))
+    catalog, info = retained(catalog, 8192)
     return PlantQuery(CandidateQuery(catalog, budget=budget), buildings), info
 
 

@@ -88,7 +88,16 @@ def support_sources(supports, contacts, manifest):
     )
     stations = report["methods"][report["selected"]]["stations"]
     owners = {r["product"]: r["source_id"] for r in stations if "product" in r}
-    if set(owners) != set(range(len(supports))):
+    return bound_support_sources(supports, contacts, owners, manifest["support_sha256"])
+
+
+def bound_support_sources(supports, contacts, owners, identity):
+    if (
+        set(owners) != set(range(len(supports)))
+        or not all(isinstance(key, str) and key for key in owners.values())
+        or not isinstance(identity, str)
+        or not identity
+    ):
         raise ValueError("whole original support ownership required")
     result = []
     for index, (body, (low, high)) in enumerate(zip(supports, contacts, strict=True)):
@@ -104,7 +113,7 @@ def support_sources(supports, contacts, manifest):
 
         def make(face, index=index, low=low, high=high):
             row, error = volume(
-                f"{manifest['support_sha256']}:support:{index}:face:{face}",
+                f"{identity}:support:{index}:face:{face}",
                 low.vertices[high.triangles[face]],
                 high.vertices[high.triangles[face]],
                 0,
@@ -116,7 +125,7 @@ def support_sources(supports, contacts, manifest):
         )
         result.append(
             VolumeSource(
-                f"{manifest['support_sha256']}:support:{index}",
+                f"{identity}:support:{index}",
                 bounds,
                 make,
                 xy_geometry=xy_geometry(high.vertices, high.triangles),

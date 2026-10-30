@@ -21,7 +21,13 @@ from stair_terrain_experiment import frozen
 
 def generate(args, state, data, sources):
     catalog, info = retained(from_state(state, sources), 8192)
-    before, after, occupied, ledger, context = buildings(data, CandidateQuery(catalog))
+    return save_products(
+        args, state, data, buildings(data, CandidateQuery(catalog)), info
+    )
+
+
+def save_products(args, state, data, result, info):
+    before, after, occupied, ledger, context = result
     source_rows = {r["id"]: r for r in ledger if r.get("state") == "prepared"}
     reservations = [
         {

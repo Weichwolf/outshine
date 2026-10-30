@@ -68,7 +68,7 @@ def attempted_prefix(products, report, canonical):
     return len(ordered), attempts
 
 
-def verify(products, output):
+def verify(products, output, *, prepare=inputs, reference_for=reference_query):
     commit = frozen()
     if not output.resolve().is_relative_to(Path("/tmp")) or output.exists():
         raise ValueError("fresh private /tmp whole-plant receipt required")
@@ -86,13 +86,13 @@ def verify(products, output):
         or digest(receipt) != report["building_receipt_sha256"]
     ):
         raise ValueError("identical verified whole building input required")
-    data, state, baseline, bodies = inputs(buildings, receipt)
+    data, state, baseline, bodies = prepare(buildings, receipt)
     if (
         report["frame"] != data["frame"].identifier
         or report["source_ids"] != state[4]["source_ids"]
     ):
         raise ValueError("whole current frame/source ownership changed")
-    query = reference_query(baseline, state, bodies)
+    query = reference_for(baseline, state, bodies)
     mesh, proto = replay_prototype(products)
     if (
         report["prototype_vertices"] != len(mesh.vertices)
