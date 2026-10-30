@@ -11,8 +11,64 @@ from outshine_ref.places import decode_vector, tile_geography
 from stair_local_replay import load_chain
 from stair_module_inputs import INPUT
 from stair_occupancy_inputs import actual_sources
-from stair_occupancy_verify import read
+from stair_occupancy_verify import check_export, read
 from stair_patch_inputs import whole
+
+
+def _baseline_is_prefix(report, state):
+    if state is None:
+        return False
+    manifest = state[4]
+    if (
+        not {"root_resident_sha256", "parent_reports", "source_ids", "frame"}
+        <= report.keys()
+        or not {
+            "root_resident_sha256",
+            "parent_reports",
+            "source_ids",
+            "frame",
+            "origin_lat_lon",
+            "support_sha256",
+        }
+        <= manifest.keys()
+    ):
+        return False
+    resident = Path(report["resident"])
+    prior = tuple(Path(p).resolve() for p in report["prior_modules"])
+    if len(prior) > 32 or len(set(prior)) != len(prior):
+        raise ValueError("bounded unique ordered local-module inputs required")
+    if (
+        digest(resident / "resident.json") != report["root_resident_sha256"]
+        or report["root_resident_sha256"] != manifest["root_resident_sha256"]
+    ):
+        raise ValueError("baseline root differs from verified current snapshot")
+    parents = [digest(p / "comparison.json") for p in prior]
+    if (
+        parents != report["parent_reports"]
+        or not isinstance(manifest["parent_reports"], (list, tuple))
+        or parents != list(manifest["parent_reports"][: len(parents)])
+    ):
+        raise ValueError("baseline parents are not the verified snapshot prefix")
+    root = json.loads((resident / "resident.json").read_text())
+    prefix = (
+        json.loads((prior[-1] / "comparison.json").read_text()).get(
+            "candidate_source_ids"
+        )
+        if prior
+        else root.get("source_ids")
+    )
+    if (
+        not isinstance(prefix, list)
+        or prefix != report["source_ids"]
+        or prefix != manifest["source_ids"][: len(prefix)]
+        or root.get("frame") != report["frame"]
+        or root.get("frame") != manifest["frame"]
+        or root.get("frame") != state[0].patches[0].frame.identifier
+        or root.get("origin_lat_lon") != manifest["origin_lat_lon"]
+        or root.get("support_sha256") != manifest["support_sha256"]
+    ):
+        raise ValueError("whole baseline source/frame/origin/support prefix differs")
+    return True
 
 
 def _inputs(products, current_state=None):
@@ -22,11 +78,19 @@ def _inputs(products, current_state=None):
         "products_report_sha256"
     ] != digest(products / "comparison.json"):
         raise ValueError("verified complete transport products required")
-    view, assets, supports, contacts, manifest = load_chain(
-        Path(report["resident"]), [Path(p) for p in report["prior_modules"]]
-    )
-    if tuple(manifest["source_ids"]) != tuple(report["source_ids"]):
-        raise ValueError("transport source ownership changed")
+    if _baseline_is_prefix(report, current_state):
+        check_export(products / "volumes.json", report)
+        rows = None
+        view, assets, supports, contacts, _manifest = current_state
+    else:
+        view, assets, supports, contacts, manifest = load_chain(
+            Path(report["resident"]), [Path(p) for p in report["prior_modules"]]
+        )
+        if tuple(manifest["source_ids"]) != tuple(report["source_ids"]):
+            raise ValueError("transport source ownership changed")
+        rows, _ = read(products / "volumes.json", report)
+        if current_state is not None:
+            view, assets, supports, contacts, _manifest = current_state
     context, *_ = actual_sources()
     origin = np.array(context["origin_lat_lon"])
     scale = np.array([111320 * np.cos(np.deg2rad(origin[0])), 111132])
@@ -38,9 +102,6 @@ def _inputs(products, current_state=None):
     native = json.loads(INPUT.read_text())
     path = INPUT.with_name(native["origin"]["payload_file"])
     layers = decode_vector(dict(context["vector"], path=str(path)))
-    rows, _ = read(products / "volumes.json", report)
-    if current_state is not None:
-        view, assets, supports, contacts, _manifest = current_state
     terrain = whole(view).mesh
     return {
         "report": report,
