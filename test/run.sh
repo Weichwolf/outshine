@@ -40,15 +40,15 @@ case "$mode" in
   list) exec ctest --test-dir "$BUILD" --show-only ;;
   all)
     cmake --build "$BUILD" --target outshine_tests outshine --parallel
-    exec ctest --test-dir "$BUILD" --output-on-failure
+    exec ctest --test-dir "$BUILD" --no-tests=error --output-on-failure
     ;;
 esac
 if [ -z "$scopes" ]; then
   cmake --build "$BUILD" --target outshine_gate --parallel
-  exec ctest --test-dir "$BUILD" -L world-gate --output-on-failure
+  exec ctest --test-dir "$BUILD" -L world-gate --no-tests=error --output-on-failure
 fi
 for scope in $scopes; do
   target=$(printf 'test_%s' "${scope%/}" | tr / _)
   cmake --build "$BUILD" --target "$target" --parallel
-  ctest --test-dir "$BUILD" -R "^${scope%/}(/|\$)" --output-on-failure
+  ctest --test-dir "$BUILD" -R "^${scope%/}(/|\$)" --no-tests=error --output-on-failure
 done
