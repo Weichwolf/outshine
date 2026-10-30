@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from building_sample_inputs import digest, readbacks
 from building_sample_originals import read_original
-from compare_field_external_depth import DATA, compose, panel, reduced
+from compare_field_external_depth import DATA, bound, compose, panel, reduced
 from field_external_depth import PointSamples, SampleBinding, over_constant_background
 from field_external_opponents import (
     canonical,
@@ -107,12 +107,9 @@ def compare(name, external, saved, reference, capture, rays, output):
     # A declared emitting reference surface supplies constant scene-linear C/T.
     # It shares the scene but makes no claim about native terrain PBR/shadows.
     rgba[z > 0, :3] = [0.2, 0.3, 0.1]
-    outside = PointSamples(
+    outside = bound(
+        (rgba, z, error),
         replace(saved.binding, sources=(name,), materials="fixed-radiance-reference"),
-        rgba,
-        z,
-        error,
-        np.ones(shape, bool),
     )
     result = compose(saved, outside)
     if result.rgba is None:
@@ -218,16 +215,13 @@ def thin_occluder(saved, reference, capture, rays, output):
         raise ValueError(
             "Thin geometric control must cover exactly the selected native point"
         )
-    outside = PointSamples(
+    outside = bound(
+        (rgba, z, error),
         replace(
             saved.binding,
             sources=("thin-occluder",),
             materials="fixed-radiance-reference",
         ),
-        rgba,
-        z,
-        error,
-        np.ones(z.shape, bool),
     )
     safe = compose(saved, outside)
     if safe.rgba is not None or safe.reason != "ambiguous_depth_retains_parent":
