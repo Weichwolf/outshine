@@ -36,6 +36,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/engine/frame/FrameCoordinator/ClaimFailureKeepsResidentGeometry
   outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
   outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
