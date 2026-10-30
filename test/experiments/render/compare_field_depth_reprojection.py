@@ -16,7 +16,6 @@ from itertools import product
 from pathlib import Path
 
 import numpy as np
-from allocation_measure import allocations
 from capture_box_reference import submitted_inputs
 from experiment_output import create_output
 from field_composition import compose_points
@@ -199,6 +198,8 @@ def capture_errors(arrays, camera):
 
 def centre_cost(methods, capture, world, pixels, raster, output):
     """Held-input point queries; the image approximations remain unqualified."""
+    from allocation_measure import allocations
+
     records = {name: {"cpu_rounds_s": []} for name in methods}
     expected = {}
     for name, (rgba, depth) in methods.items():
