@@ -201,9 +201,7 @@ Result<void> MetalCommands::PrepareDraw(const DrawState &state,
                                     count:hazards.size()
                               afterStages:stages
                              beforeStages:stages];
-      std::erase_if(Accesses, [&](const TrackedResource &one) {
-        return std::ranges::find(hazards, one.Resource) != hazards.end();
-      });
+      EraseAccesses(hazards);
     }
     auto bound = Bind(*Render, ShaderStage::Vertex, graphics.Vertex, *vertex);
     if (!bound) { return bound; }

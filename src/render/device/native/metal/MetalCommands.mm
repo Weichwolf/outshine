@@ -3,6 +3,11 @@
 #include <limits>
 
 namespace outshine::Render::Native::Metal {
+namespace {
+const void *ResourceKey(id<MTLResource> resource) noexcept {
+  return (__bridge const void *)resource;
+}
+}
 
 Reservation::~Reservation() {
   if (State) {
@@ -48,13 +53,12 @@ void MetalCommands::Finish() {
 }
 
 Result<void> MetalCommands::Hold(const std::shared_ptr<BufferState> &state) {
-  if (std::ranges::any_of(Held, [&](const Reservation &one) { return one.State == state; })) {
-    return {};
-  }
+  if (HeldStates.contains(state.get())) { return {}; }
   const std::scoped_lock lock(state->Mutex);
   if (state->Mapped) { return Failure(ErrorKind::Busy, "Metal buffer is still mapped"); }
   ++state->Uses;
   Held.emplace_back(state);
+  HeldStates.insert(state.get());
   return {};
 }
 
@@ -95,8 +99,9 @@ Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, Buff
 void MetalCommands::TrackHazard(id<MTLResource> resource,
                                 Access usage,
                                 std::vector<id<MTLResource>> &hazards) const {
-  const auto previous = std::ranges::find(Accesses, resource, &TrackedResource::Resource);
-  if (previous != Accesses.end() && (previous->Usage != Access::Read || usage != Access::Read) &&
+  const auto previous = Accesses.find(ResourceKey(resource));
+  if (previous != Accesses.end() &&
+      (previous->second.Usage != Access::Read || usage != Access::Read) &&
       std::ranges::find(hazards, resource) == hazards.end()) {
     hazards.push_back(resource);
   }
@@ -130,12 +135,13 @@ Result<void> MetalCommands::PrepareResources(std::span<const ShaderArgument> arg
 
 void MetalCommands::UpdateAccess(id<MTLResource> resource, Access usage) {
   if (resource == nil) { return; }
-  const auto existing = std::ranges::find(Accesses, resource, &TrackedResource::Resource);
-  if (existing == Accesses.end()) {
-    Accesses.push_back({.Resource = resource, .Usage = usage});
-  } else if (existing->Usage != usage) {
-    existing->Usage = Access::ReadWrite;
-  }
+  const auto [existing, inserted] = Accesses.try_emplace(
+      ResourceKey(resource), TrackedResource{.Resource = resource, .Usage = usage});
+  if (!inserted && existing->second.Usage != usage) { existing->second.Usage = Access::ReadWrite; }
+}
+
+void MetalCommands::EraseAccesses(std::span<const id<MTLResource>> resources) {
+  for (const auto &resource : resources) { Accesses.erase(ResourceKey(resource)); }
 }
 
 void MetalCommands::UpdateAccesses(std::span<const ShaderArgument> arguments) {

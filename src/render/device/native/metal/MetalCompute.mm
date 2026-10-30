@@ -50,9 +50,7 @@ Result<void> MetalCommands::PrepareCompute(const MetalPipeline &pipeline,
   }
   if (!hazards.empty()) {
     [Compute memoryBarrierWithResources:hazards.data() count:hazards.size()];
-    std::erase_if(Accesses, [&](const TrackedResource &buffer) {
-      return std::ranges::find(hazards, buffer.Resource) != hazards.end();
-    });
+    EraseAccesses(hazards);
   }
   [Compute setComputePipelineState:pipeline.State->Native];
   const auto bound = Bind(Compute, pipeline.State->Translated, *arguments);
