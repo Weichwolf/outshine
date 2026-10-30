@@ -27,7 +27,19 @@ def bound_input(buildings, receipt):
         buildings / "comparison.json"
     ) or not proof.get("float32_bodies_against_actual_raised_volumes"):
         raise ValueError("Independently read whole raised Buildings input required")
-    return bound_products(report)
+    for name, expected in report["artifacts"].items():
+        path = (buildings / name).resolve()
+        if not path.is_relative_to(buildings.resolve()) or digest(path) != expected:
+            raise ValueError("Complete actual saved Buildings changed")
+    products = bound_products(report)
+    if (
+        report["frame"] != products.state[4]["frame"]
+        or report["source_ids"] != products.state[4]["source_ids"]
+        or report["separate_elevated_source_ids"]
+        != [r["source_id"] for r in products.rows]
+    ):
+        raise ValueError("Exact whole ground/raised source and frame binding required")
+    return products
 
 
 def chains(rows):
@@ -186,12 +198,15 @@ def generate(args):
         total_sleepers += len(hardware.sleeper_transforms)
         footprints.append(hardware.footprints)
         name = f"component-{len(rows)}.npz"
+        vertices = hardware.rails.vertices.copy()
+        vertices[:, 2] = hardware.horizontal.rails.vertices[:, 2]
+        transforms = hardware.sleeper_transforms.copy()
+        transforms[:, 2, 3] = 0
         np.savez_compressed(
             args.output / name,
-            rail_vertices=hardware.rails.vertices,
+            rail_vertices=vertices,
             rail_triangles=hardware.rails.triangles,
-            sleeper_transforms=hardware.sleeper_transforms,
-            sleeper_bottoms=hardware.sleeper_bottoms,
+            sleeper_transforms=transforms,
         )
         template = hardware.horizontal.sleeper
         rows.append(
@@ -212,7 +227,7 @@ def generate(args):
         )
         artifacts[path.name] = digest(path)
     report = {
-        "version": 1,
+        "version": 2,
         "commit": commit,
         "buildings": str(args.buildings.resolve()),
         "building_report_sha256": digest(args.buildings / "comparison.json"),
@@ -226,11 +241,14 @@ def generate(args):
         "recipe": asdict(recipe),
         "budget": asdict(budget),
         "datum_m": float(triangle[0, 2]),
+        "object_origin_m": [0.0, 0.0, float(triangle[0, 2])],
+        "object_axes": np.eye(3).tolist(),
+        "running_surface_offset_m": recipe.sleeper_height_m + 0.172,
         "gauge_basis": "Explicit procedural recipe; supplied gauge is never silently replaced",
         "components": rows,
         "omitted": omitted,
         "artifacts": artifacts,
-        "scope": "Whole hardware on existing selected finite flat raised bed and explicit physical endpads. Compact shared sleeper prototype/instances. No new source/routing/vehicle-clearance/World/native/device admission; all old ground/deck/pier/consumer products retained.",
+        "scope": "Whole hardware in a common local metric object frame on the existing selected finite flat raised bed and explicit physical endpads. Compact shared sleeper prototype/instances; no redundant saved lower corners. No new source/routing/vehicle-clearance/World/native/device admission; all old ground/deck/pier/consumer products retained.",
     }
     save(args.output, "report.json", report)
     print(
