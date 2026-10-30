@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <span>
 #include <string>
@@ -35,7 +36,11 @@ struct Fixture {
   PieceId Piece = kNoPiece;
   std::string Error;
 
-  Fixture(Device &device, bool clustered, std::span<const Mat4> rows) {
+  Fixture(Device &device,
+          bool clustered,
+          std::span<const Mat4> rows,
+          float heightM = 0,
+          AlphaMode alpha = AlphaMode::Opaque) {
     outshine::Render::Gpu gpu{.Device = &device,
                               .HdrFormat = Format::Rgba16Float,
                               .SurfaceFormat = Format::Rgba8Srgb,
@@ -46,6 +51,7 @@ struct Fixture {
     Require(Geometry.Configure(gpu));
     MaterialBinding material;
     material.Row.DoubleSided = true;
+    material.Row.Alpha = alpha;
     CheckSceneUpload(Geometry.SetMaterials(std::span(&material, 1), Error), Error);
     Geometry.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
     Require(Shadow.Configure(Geometry, gpu));
@@ -60,14 +66,16 @@ struct Fixture {
                                            {{kDistantX - 20, 20, 8}}}};
     std::array<StoredVertex, points.size()> vertices;
     for (size_t at = 0; at < points.size(); ++at) {
-      vertices[at] = StoredVertex::Of(points[at], {}, {{0, 0, 1}});
+      auto position = points[at];
+      position[2] += heightM;
+      vertices[at] = StoredVertex::Of(position, {}, {{0, 0, 1}});
     }
-    const std::array<DagCluster, 2> clusters{{{.SelfCenter = {{0, 0, 4}},
+    const std::array<DagCluster, 2> clusters{{{.SelfCenter = {{0, 0, 4 + heightM}},
                                                .SelfRadius = 32,
                                                .ParentErr = kDagRootErr,
                                                .First = 0,
                                                .Count = 6},
-                                              {.SelfCenter = {{kDistantX, 0, 8}},
+                                              {.SelfCenter = {{kDistantX, 0, 8 + heightM}},
                                                .SelfRadius = 32,
                                                .ParentErr = kDagRootErr,
                                                .First = 6,
@@ -122,11 +130,37 @@ void Compare(Device &device, Fixture &selected, Fixture &complete, const FrameCo
   CHECK(std::ranges::any_of(actual, [](std::byte value) { return value != std::byte{}; }),
         "the image equivalence includes actual rasterized occluder pixels");
 }
+
+void SunwardCasters(Device &device) {
+  constexpr float kSunwardHeightM = 100000;
+  const std::array<Mat4, 1> rows{};
+  for (const auto alpha : {AlphaMode::Opaque, AlphaMode::Masked}) {
+    Fixture selected(device, true, rows, kSunwardHeightM, alpha);
+    Fixture complete(device, false, rows, kSunwardHeightM, alpha);
+    const FrameContext frame;
+    Compare(device, selected, complete, frame);
+    const auto &projection = selected.Shadow.RegionProjection(0);
+    CHECK(projection[10] * (kSunwardHeightM + 4) + projection[14] > 1,
+          "the actual sunward caster is beyond the shadow projection's near depth plane");
+    const auto pixels = selected.Pixels(device);
+    bool clamped = true;
+    size_t occupied = 0;
+    for (size_t at = 0; at < pixels.size(); at += sizeof(float)) {
+      float depth = 0;
+      std::memcpy(&depth, pixels.data() + at, sizeof(depth));
+      clamped = clamped && (depth == 0 || depth == 1);
+      occupied += depth == 1 ? 1u : 0u;
+    }
+    CHECK(clamped && occupied > 0,
+          "opaque and masked native casters write exact clamped D32 depth instead of clipping");
+  }
+}
 }
 
 int main() {
   auto actual = Require(CreateDevice({.Validation = true}));
   NativeOfflineDevice device(*actual);
+  SunwardCasters(device);
   std::array<Mat4, 2> rows{};
   rows[1][12] = 100000;
   Fixture selected(device, true, rows);
