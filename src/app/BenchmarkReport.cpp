@@ -228,6 +228,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
         {"preload", report.PreloadMs},
         {"unpaced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
+        {"final_inspection", report.InspectionMs},
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},
       {"world_complete", worldComplete},

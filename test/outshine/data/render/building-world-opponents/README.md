@@ -15,3 +15,6 @@ Both original unions and identical repeats are exact in this saved input. This
 does not close intermittent #1806 or qualify reconstructed fields. The geometric
 Python bounds are 0.0763/2.2747 px; they exclude coverage, PBR and GPU arithmetic.
 Runtime World revision/WorldFromField remain absent, rather than fabricated.
+
+[ss2/](ss2/) preserves the separate #1838 quarter-pixel World reference;
+the point inputs above remain unchanged.

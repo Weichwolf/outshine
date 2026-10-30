@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+from building_sample_inputs import full_buffer_digest
 from building_sample_originals import read_original
 from experiment_output import create_output
 from export_native_field_opponents import (
@@ -29,7 +30,7 @@ from field_view_projection import CapturePlane
 LAYERS = ("original", "terrain", "external", "union-terrain", "union-external")
 
 
-def world_cameras(controls):
+def world_cameras(controls, sample_axis=1):
     capture = controls["capture"]
     centre = np.asarray(capture["eye_m"]) + np.asarray(capture["forward"]) * (
         (capture["near_m"] + capture["far_m"]) / 2
@@ -46,8 +47,8 @@ def world_cameras(controls):
                 zip(("right", "up", "forward"), (a.tolist() for a in axes), strict=True)
             ),
             "orthographic": False,
-            "width_px": 1280,
-            "height_px": 720,
+            "width_px": 1280 * sample_axis,
+            "height_px": 720 * sample_axis,
             "yfov_rad": 2 * math.atan(0.5),
             "near_m": 0.1,
             "far_m": 240000.0,
@@ -73,7 +74,7 @@ def queries(cameras, capture=None):
 
 
 def native_export(binary, root, geometry, requests):
-    arrays, reports, executions = {}, {}, {}
+    arrays, reports, executions, bounds = {}, {}, {}, {}
     for layer, request in requests.items():
         folder = root / layer
         declaration = {"directory": str(geometry / layer), "queries": request}
@@ -99,27 +100,38 @@ def native_export(binary, root, geometry, requests):
                 raise ValueError("effective PBR viewer differs")
             name = query["name"]
             colour, depth = read_samples(folder, name, case["capture"])
+            height, width = depth.shape
+            x0, y0, x1, y1 = 0, 0, width, height
+            if layer != "capture":
+                y, x = np.nonzero(depth)
+                x0, y0, x1, y1 = (
+                    (int(x.min()), int(y.min()), int(x.max()) + 1, int(y.max()) + 1)
+                    if len(x)
+                    else (0, 0, 1, 1)
+                )
+            bounds[layer + "/" + name] = [x0, y0, x1, y1]
             for channel, value in (("rgba", colour), ("depth", depth)):
                 key = layer + "/" + name + "/" + channel
-                arrays[key] = value
+                arrays[key] = value[y0:y1, x0:x1].copy()
                 executions[layer]["buffers"][key] = hashlib.sha256(
-                    value.tobytes()
+                    memoryview(value)
                 ).hexdigest()
-    return arrays, reports, executions
+    return arrays, reports, executions, bounds
 
 
-def common_crop(arrays, pose, margin=8):
-    covered = np.logical_or.reduce(
-        [arrays[layer + "/" + pose + "/depth"] > 0 for layer in LAYERS]
-    )
-    y, x = np.nonzero(covered)
-    if not len(x):
+def common_crop(arrays, bounds, pose, raster, margin=8):
+    occupied = [
+        bounds[layer + "/" + pose]
+        for layer in LAYERS
+        if np.any(arrays[layer + "/" + pose + "/depth"])
+    ]
+    if not occupied:
         raise ValueError("whole world opponent is outside its raster")
     return [
-        max(0, int(x.min()) - margin),
-        max(0, int(y.min()) - margin),
-        min(1280, int(x.max()) + margin + 1),
-        min(720, int(y.max()) + margin + 1),
+        max(0, min(v[0] for v in occupied) - margin),
+        max(0, min(v[1] for v in occupied) - margin),
+        min(raster[0], max(v[2] for v in occupied) + margin),
+        min(raster[1], max(v[3] for v in occupied) + margin),
     ]
 
 
@@ -144,10 +156,28 @@ def comparison(arrays, pose, opponent):
     }
 
 
-def crop_and_check(arrays, cameras):
+def crop_and_check(arrays, cameras, bounds, executions):
     crops, checks, failures = {}, {}, []
     for pose in (*cameras, "repeat"):
-        crops[pose] = common_crop(arrays, pose)
+        camera = cameras[next(iter(cameras)) if pose == "repeat" else pose]
+        raster = [camera[k] for k in ("width_px", "height_px")]
+        crops[pose] = common_crop(arrays, bounds, pose, raster)
+        x0, y0, x1, y1 = crops[pose]
+        for layer in LAYERS:
+            left, top, right, bottom = bounds[layer + "/" + pose]
+            for channel in ("rgba", "depth"):
+                key = layer + "/" + pose + "/" + channel
+                value = arrays[key]
+                cropped = np.zeros((y1 - y0, x1 - x0, *value.shape[2:]), value.dtype)
+                if np.any(value):
+                    cropped[top - y0 : bottom - y0, left - x0 : right - x0] = value
+                points = cropped if channel == "rgba" else cropped[:, :, None]
+                checksum = full_buffer_digest(
+                    points, [0] * points.shape[2], raster, crops[pose]
+                )
+                if checksum != executions[layer]["buffers"][key]:
+                    raise ValueError("crop discards nonzero native data")
+                arrays[key] = cropped
         checks[pose] = {k: comparison(arrays, pose, k) for k in ("terrain", "external")}
         for opponent, record in checks[pose].items():
             if not record["depth_equal"] or not record["coverage_equal"]:
@@ -156,17 +186,6 @@ def crop_and_check(arrays, cameras):
                 )
             if record["rgb_max_abs"] != 0:
                 failures.append(pose + "/" + opponent + ": union colour differs")
-        x0, y0, x1, y1 = crops[pose]
-        for layer in LAYERS:
-            for channel in ("rgba", "depth"):
-                key = layer + "/" + pose + "/" + channel
-                whole = arrays[key]
-                cropped = whole[y0:y1, x0:x1].copy()
-                restored = np.zeros_like(whole)
-                restored[y0:y1, x0:x1] = cropped
-                if not np.array_equal(restored, whole):
-                    raise ValueError("crop discards nonzero native data")
-                arrays[key] = cropped
     for layer in ("capture", *LAYERS):
         for channel in ("rgba", "depth"):
             a = arrays[layer + "/near-direction/" + channel]
@@ -199,7 +218,7 @@ def geometric_checks(capture, reports):
             camera["eye_m"],
             [camera[k] for k in ("right", "up", "forward")],
             matrix,
-            (1280, 720),
+            (camera["width_px"], camera["height_px"]),
         )
     return result
 
@@ -211,7 +230,7 @@ def export(args):
     geometry.mkdir()
     controls = document(CONTROLS)
     provenance, _ = prepare(geometry, controls)
-    cameras = world_cameras(controls)
+    cameras = world_cameras(controls, args.sample_axis)
     capture = {
         **controls["capture"],
         "width_px": 128,
@@ -220,8 +239,10 @@ def export(args):
     }
     requests = {"capture": queries(cameras, capture)}
     requests.update({layer: queries(cameras) for layer in LAYERS})
-    arrays, reports, executions = native_export(args.binary, root, geometry, requests)
-    crops, checks, failures = crop_and_check(arrays, cameras)
+    arrays, reports, executions, bounds = native_export(
+        args.binary, root, geometry, requests
+    )
+    crops, checks, failures = crop_and_check(arrays, cameras, bounds, executions)
     original = document(DATA / "original-geometry/manifest.json")
     for name, record in original["files"].items():
         if digest(geometry / "original/geometry/0" / name) != record["sha256"]:
@@ -232,7 +253,7 @@ def export(args):
         "base_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
-        "source_binding": "base commit plus explicit modified native driver hash",
+        "source_binding": "base commit with explicit exporter and native driver hashes",
         "system": platform.platform(),
         "binary_sha256": digest(args.binary),
         "driver_sha256": digest(Path(__file__)),
@@ -244,7 +265,9 @@ def export(args):
         "capture": capture,
         "world_cameras": cameras,
         "crops_xyxy": crops,
-        "raster": [1280, 720],
+        "raster": [1280 * args.sample_axis, 720 * args.sample_axis],
+        "output_raster": [1280, 720],
+        "sample_axis": args.sample_axis,
         "sampling": {
             "origin": "top-left",
             "pixel_centres": [0.5, 0.5],
@@ -276,6 +299,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--sample-axis", type=int, choices=(1, 2), default=1)
     args = parser.parse_args()
     args.binary = args.binary.resolve()
     return export(args)

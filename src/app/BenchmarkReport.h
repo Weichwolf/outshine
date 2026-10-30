@@ -35,6 +35,7 @@ struct ScenarioBenchmarkReport {
   double PreloadMs = 0;
   double WindowMs = 0;
   double FlushMs = 0;
+  double InspectionMs = 0;
   double ImageMs = 0;
   double HardwareMs = 0;
   std::optional<std::array<double, 3>> LoadBefore;

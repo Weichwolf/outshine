@@ -15,6 +15,7 @@ int main() {
   report.Motion.Frames = 2;
   report.Motion.RateHz = 60;
   report.Frame = {.WidthPx = 32, .HeightPx = 32};
+  report.InspectionMs = 1'000'000;
   report.Scenario = "quote\" and newline\n";
   report.Frames = {{.WallMs = 3, .AdvanceMs = 1, .RenderMs = 2, .Refined = true},
                    {.WallMs = 4, .AdvanceMs = 1, .RenderMs = 3, .Refined = true}};
@@ -35,6 +36,8 @@ int main() {
   CHECK(json["measurement_complete"] == true && json["world_complete"] == true &&
             json["budget"]["met"] == true,
         "a complete measured window has an explicit independent budget result");
+  CHECK(json["phases_ms"]["final_inspection"] == report.InspectionMs,
+        "post-window inspection is explicit and never charged to the frame budget");
   report.FinalWorldBlockers = "required geometry publication is pending";
   json = decode();
   CHECK(json["measurement_complete"] == true && json["world_complete"] == false &&
