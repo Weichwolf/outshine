@@ -57,7 +57,9 @@ Actual attribute payload including 24 B of shared part/material metadata:
 
 Adaptive uses three UInt16 palettes and one 16 B constant colour. It reduces this
 attribute payload by 71.49%. All 1695316 B of fine geometric payload remain;
-combined numeric payload is 2678524 B instead of 5143796 B, before Python objects.
+combined numeric payload in the #1855 comparison was 2678524 B instead of
+5143796 B, before Python objects. #1858 adds a 24 B source box to either geometry
+product: current totals are 2678548/5143820 B; no extra attributes are retained.
 Original/reference input buffers remain alive in the comparison process.
 
 Seven CPU rounds and separate Memray traces measure cold preparation and selected

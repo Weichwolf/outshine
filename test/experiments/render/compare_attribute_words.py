@@ -144,6 +144,7 @@ def run(args):
         "native_world_inputs.py",
         "building_sample_originals.py",
         "triangle_columns.py",
+        "triangle_query_support.py",
         "triangle_image_reference.py",
         "compare_source_fragment_inputs.py",
         "compare_native_world_fields.py",

@@ -21,7 +21,8 @@ parameters are inferred from material indices 0/1/2. The whole verified 19-file,
 1558-source/38476-triangle/78374-vertex provenance is still checked by the reader.
 
 The prepared attribute payload is 3448480 B, including the 24 B of part/material
-metadata. Shared geometric payload is 1695316 B. Numeric payload totals 5143796 B
+metadata. At #1850, shared geometric payload was 1695316 B, totaling 5143796 B.
+#1858 adds a 24 B immutable source box; current total numeric payload is 5143820 B
 before Python objects; the experiment also keeps original/reference buffers alive.
 This is not reduced fine residency or a compact far asset. Known preparation
 copies include attribute concatenation and immutable snapshots, at least 6896936 B;
