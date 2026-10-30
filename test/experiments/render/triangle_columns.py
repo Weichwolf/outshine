@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from field_depth_reprojection import cell_segment, crossed_cells
+from triangle_query_support import potential_samples
 
 
 class ColumnLimit(ValueError):
@@ -29,6 +30,7 @@ class TriangleColumns:
     depth_range: tuple
     offsets: np.ndarray
     faces: np.ndarray
+    bounds: np.ndarray
 
     @property
     def payload_bytes(self):
@@ -40,6 +42,7 @@ class TriangleColumns:
                 self.capture,
                 self.offsets,
                 self.faces,
+                self.bounds,
             )
         )
 
@@ -103,6 +106,7 @@ def prepare(source, capture, size=64, *, references_most=1048576):
         (float(ndc[:, 2].min()), float(ndc[:, 2].max())),
         immutable(offsets, np.uint32),
         immutable(face[order], np.uint32),
+        immutable(np.stack((p.min(0), p.max(0))), np.float32),
     )
 
 
@@ -145,7 +149,15 @@ def nearest(positions, triangles, candidates, origin, direction):
 
 
 def query(
-    field, world, points, raster, *, pairs_most=4194304, cells_most=512, time_limit_s=10
+    field,
+    world,
+    points,
+    raster,
+    *,
+    pairs_most=4194304,
+    cells_most=512,
+    time_limit_s=10,
+    whole_support=True,
 ):
     """Synchronous bounded reference. Unknown samples require the original group."""
     points, world, raster = (
@@ -169,16 +181,24 @@ def query(
         or not 1 <= cells_most <= 1024
         or not np.isfinite(time_limit_s)
         or time_limit_s < 0
+        or type(whole_support) is not bool
     ):
         raise ValueError("Bounded World samples and cooperative work limits required")
     began = time.monotonic()
-    origins, directions = world_rays(world, points, raster)
+    potential, bound_available = (
+        potential_samples(field.bounds, world, points, raster)
+        if whole_support
+        else (np.ones(len(points), bool), False)
+    )
+    selected = range(len(points)) if potential.all() else np.flatnonzero(potential)
+    samples = points[selected] if len(selected) != len(points) else points
+    origins, directions = world_rays(world, samples, raster)
     transfer = field.capture @ np.linalg.inv(world)
     a = (
         np.c_[
-            points / raster * [2, -2] + [-1, 1],
-            np.zeros(len(points)),
-            np.ones(len(points)),
+            samples / raster * [2, -2] + [-1, 1],
+            np.zeros(len(samples)),
+            np.ones(len(samples)),
         ]
         @ transfer.T
     )
@@ -186,13 +206,13 @@ def query(
     depth, owner, evaluated = (
         np.zeros(len(points)),
         np.full(len(points), -1, np.int64),
-        np.zeros(len(points), bool),
+        ~potential,
     )
     visited = references = pairs = 0
-    for i in range(len(points)):
+    for row, i in enumerate(selected):
         if time.monotonic() - began > time_limit_s:
             break
-        segment = cell_segment(a[i], b, field.depth_range, (field.size, field.size))
+        segment = cell_segment(a[row], b, field.depth_range, (field.size, field.size))
         if segment is None:
             continue
         if not segment:
@@ -219,10 +239,14 @@ def query(
             )
             pairs += len(candidates)
             distance, owner[i] = nearest(
-                field.positions, field.triangles, candidates, origins[i], directions[i]
+                field.positions,
+                field.triangles,
+                candidates,
+                origins[row],
+                directions[row],
             )
             if np.isfinite(distance):
-                hit = world @ np.r_[origins[i] + distance * directions[i], 1]
+                hit = world @ np.r_[origins[row] + distance * directions[row], 1]
                 z = hit[2] / hit[3]
                 if hit[3] <= 0 or not 0 < z <= 1:
                     continue
@@ -234,6 +258,10 @@ def query(
         evaluated,
         {
             "samples": len(points),
+            "ray_rows": len(samples),
+            "support_rejected_samples": int((~potential).sum()),
+            "support_bounds_available": bound_available,
+            "source_bound_corners": 8 if whole_support else 0,
             "visited_cells": visited,
             "triangle_references": references,
             "triangle_tests": pairs,

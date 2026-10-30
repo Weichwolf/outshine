@@ -31,20 +31,31 @@ def known_rtree_arrays(prepared):
     }
 
 
-def query_costs(field, world, points, raster, expected, output, pose, references):
+def query_costs(
+    field, world, points, raster, expected, expected_face, output, pose, references
+):
     import trimesh
 
     result = {"trimesh_version": trimesh.__version__, "numpy_version": np.__version__}
-    methods = {"columns64": lambda: query(field, world, points, raster), **references}
+    methods = {
+        "columns64": lambda: query(field, world, points, raster),
+        "columns64-unbounded-control": lambda: query(
+            field, world, points, raster, whole_support=False
+        ),
+        **references,
+    }
     for name, call in methods.items():
         value, cost = measured(call, output, pose + "-" + name)
         np.testing.assert_array_equal(value[0] > 0, expected > 0)
         np.testing.assert_allclose(value[0], expected, atol=1e-18, rtol=1e-12)
-        if name == "columns64" and not value[2].all():
+        np.testing.assert_array_equal(value[1], expected_face)
+        if name.startswith("columns64") and not value[2].all():
             raise ValueError(
                 "Instrumentation reached cooperative limit; result unqualified"
             )
         result[name] = cost
+        if name.startswith("columns64"):
+            result[name]["work"] = value[3]
     return result
 
 
