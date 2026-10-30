@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 from camera_height_inputs import digest
-from elevated_rail_hardware import bound_input, selected_bed
+from elevated_rail_hardware import MATERIALS, bound_input, selected_bed
 from elevated_rail_joints import joints
 from experiment_output import create_output
 from outshine_ref.contracts import Mesh
@@ -295,6 +295,7 @@ def verify(root):
         report.get("version") != 2
         or report["recipe"] != asdict(RailRecipe())
         or report["budget"] != asdict(RailBudget())
+        or report["material_recipe"] != list(MATERIALS)
     ):
         raise ValueError(
             "Current explicit complete hardware schema/recipe/budget required"

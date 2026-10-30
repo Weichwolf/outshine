@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -15,9 +16,28 @@ from outshine_ref.transport.rail_hardware import (
     RailRecipe,
     build_planar_rail_hardware,
 )
+from outshine_ref.transport.rail_hardware._geometry import SLEEPER
+from process_memory import peak_rss_bytes
 from rail_consumers_buildings import bound_products
 from stair_consumer_experiment import save
 from stair_terrain_experiment import frozen
+
+MATERIALS = (
+    {
+        "role": "rail",
+        "basis": "procedural steel",
+        "colour": [0.55, 0.57, 0.59, 1],
+        "metallic": 1.0,
+        "roughness": 0.35,
+    },
+    {
+        "role": "sleeper",
+        "basis": "procedural timber",
+        "colour": [0.26, 0.15, 0.07, 1],
+        "metallic": 0.0,
+        "roughness": 0.86,
+    },
+)
 
 
 def bound_input(buildings, receipt):
@@ -138,15 +158,11 @@ def conflict(shapes, previous):
     return bool(np.any(areas > 0))
 
 
-def generate(args):
-    commit = frozen()
-    create_output(args.output)
-    products = bound_input(args.buildings, args.receipt)
+def construct(products):
     specs, omitted = chains(products.rows)
     bed, triangle = selected_bed(products)
     recipe, budget = RailRecipe(), RailBudget()
     rows, total_sleepers, footprints = [], 0, []
-    template = None
     for spec in specs:
         keys = [m["source_id"] for m in spec["members"]]
         source_rows = [r for r in products.rows if r["source_id"] in keys]
@@ -197,33 +213,48 @@ def generate(args):
             continue
         total_sleepers += len(hardware.sleeper_transforms)
         footprints.append(hardware.footprints)
-        name = f"component-{len(rows)}.npz"
         vertices = hardware.rails.vertices.copy()
         vertices[:, 2] = hardware.horizontal.rails.vertices[:, 2]
         transforms = hardware.sleeper_transforms.copy()
         transforms[:, 2, 3] = 0
-        np.savez_compressed(
-            args.output / name,
-            rail_vertices=vertices,
-            rail_triangles=hardware.rails.triangles,
-            sleeper_transforms=transforms,
-        )
-        template = hardware.horizontal.sleeper
+        data = {
+            "rail_vertices": vertices,
+            "rail_triangles": hardware.rails.triangles,
+            "sleeper_transforms": transforms,
+        }
+        for value in data.values():
+            value.setflags(write=False)
         rows.append(
             {
-                "file": name,
-                "sha256": digest(args.output / name),
+                "arrays": data,
                 "members": spec["members"],
                 "axis_xy_m": spec["xy"].tolist(),
                 "segment_sources": spec["segment_sources"],
                 "construction": note,
             }
         )
+    return rows, omitted, triangle
+
+
+def generate(args):
+    commit = frozen()
+    create_output(args.output)
+    cpu, wall = time.process_time(), time.perf_counter()
+    products = bound_input(args.buildings, args.receipt)
+    prepared = time.perf_counter()
+    components, omitted, triangle = construct(products)
+    constructed = time.perf_counter()
+    rows = []
+    for component in components:
+        name = f"component-{len(rows)}.npz"
+        np.savez_compressed(args.output / name, **component["arrays"])
+        rows.append({k: v for k, v in component.items() if k != "arrays"})
+        rows[-1].update(file=name, sha256=digest(args.output / name))
     artifacts = {r["file"]: r["sha256"] for r in rows}
-    if template is not None:
+    if rows:
         path = args.output / "sleeper-template.npz"
         np.savez_compressed(
-            path, vertices=template.vertices, triangles=template.triangles
+            path, vertices=SLEEPER.vertices, triangles=SLEEPER.triangles
         )
         artifacts[path.name] = digest(path)
     report = {
@@ -238,16 +269,24 @@ def generate(args):
         "raised_source_rows": [
             {k: v for k, v in r.items() if k != "xy"} for r in products.rows
         ],
-        "recipe": asdict(recipe),
-        "budget": asdict(budget),
+        "recipe": asdict(RailRecipe()),
+        "budget": asdict(RailBudget()),
         "datum_m": float(triangle[0, 2]),
         "object_origin_m": [0.0, 0.0, float(triangle[0, 2])],
         "object_axes": np.eye(3).tolist(),
-        "running_surface_offset_m": recipe.sleeper_height_m + 0.172,
+        "running_surface_offset_m": RailRecipe().sleeper_height_m + 0.172,
+        "material_recipe": list(MATERIALS),
         "gauge_basis": "Explicit procedural recipe; supplied gauge is never silently replaced",
         "components": rows,
         "omitted": omitted,
         "artifacts": artifacts,
+        "cost": {
+            "source_prepare_wall_s": prepared - wall,
+            "whole_hardware_wall_s": constructed - prepared,
+            "total_wall_s": time.perf_counter() - wall,
+            "total_cpu_s": time.process_time() - cpu,
+            "process_peak_rss_bytes": peak_rss_bytes(),
+        },
         "scope": "Whole hardware in a common local metric object frame on the existing selected finite flat raised bed and explicit physical endpads. Compact shared sleeper prototype/instances; no redundant saved lower corners. No new source/routing/vehicle-clearance/World/native/device admission; all old ground/deck/pier/consumer products retained.",
     }
     save(args.output, "report.json", report)
@@ -255,7 +294,7 @@ def generate(args):
         json.dumps(
             {
                 "components": len(rows),
-                "sleepers": total_sleepers,
+                "sleepers": sum(r["construction"]["sleepers"] for r in rows),
                 "omitted": len(omitted),
             }
         )
