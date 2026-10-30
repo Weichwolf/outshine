@@ -36,40 +36,75 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission
+  outshine/integration/engine/GpuSubmission/NativePieceNormalsFollowAffinePlanes
   outshine/integration/engine/frame/FrameCoordinator/ClaimFailureKeepsResidentGeometry
-  outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
-  outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
   outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
+  outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
+  outshine/src/render/device/ReadbackTransfer/MovesRetainCompletionAndMappedBytes
+  outshine/src/render/device/ReadbackTransfer/TextureBatchesShareOneCompletion
+  outshine/src/render/device/UploadQueue/BackpressureRetainsAcceptedTransfers
+  outshine/src/render/impostor/RadianceFilter/CoupledHdrAndCoverageStayLinear
+  outshine/src/render/impostor/RadianceFilter/HalfBoundariesRoundToNearestEven
+  outshine/src/render/impostor/RadianceIntegral/PaddedSumsPreserveHdrAndCoverage
+  outshine/src/render/material/MaterialRegistry/RadianceLeasesFollowMaterialConsumers
+  outshine/src/render/material/MaterialRegistry/RejectedPairWritesAndRestoreRetriesKeepResidencyBounded
+  outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/src/render/prism/PrismDrawing/ReceiverPlanesPreserveAffineShadowDepth
+  outshine/src/render/prism/PrismDrawing/SurfaceDifferentialsUseTheOriginalPlane
+  outshine/src/render/prism/PrismResidency/CameraPlanesRejectZeroAreaAndKeepGrazingHits
+  outshine/src/render/prism/PrismResidency/RasterDepthMatchesIndependentPrismBounds
+  outshine/src/render/prism/PrismResidency/TransfersAndReleasePreserveRecordedProducts
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
   outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
+  outshine/src/render/shadow/SunShadowPass/AtlasAllocationRetainsItsOwner
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
+  outshine/src/render/stages/AerialPerspectiveStage/OrthographicOriginsPreserveOpticalTransfer
+  outshine/src/render/stages/GeometryCullStage/HierarchyQueuesPreserveStableGeometry
+  outshine/src/render/stages/GeometryCullStage/IndexLayoutsReuseOnlyUnchangedSourceRanges
+  outshine/src/render/stages/GeometryCullStage/ResidentQueuesPreserveOriginalIndices
   outshine/src/render/stages/GeometryCullStage/RootBoundsKeepVisibleDescendants
   outshine/src/render/stages/GeometryRenderer/AcceptedPiecesSurviveMainMeshReplacement
   outshine/src/render/stages/GeometryRenderer/EmissionUploadsFollowUnlitDrawConsumers
   outshine/src/render/stages/GeometryRenderer/GroundPagesUseConfiguredUploadAdmission
   outshine/src/render/stages/GeometryRenderer/InstancesShareTheirPieceClusterSpheres
+  outshine/src/render/stages/GeometryRenderer/MovingInstancesKeepResidentClusterTables
   outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
   outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
   outshine/src/render/stages/GeometryRenderer/PassPipelinesExcludeUnreachableMaterials
+  outshine/src/render/stages/GeometryRenderer/ResidentIndexCapacityRejectsWrappedDestinations
+  outshine/src/render/stages/GeometryRenderer/ResidentSelectionPreservesMaterialPixels
   outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
+  outshine/src/render/stages/GeometryResidency/CancelledImagesReleaseStagingAndRecordedCopiesRetainResources
+  outshine/src/render/stages/GeometryResidency/DeferredBatchesBoundTransfersAndPreserveEveryUpload
+  outshine/src/render/stages/GeometryResidency/DeferredGrowthPreservesAcceptedBytesAcrossRetry
   outshine/src/render/stages/GeometryResidency/DeferredImagesSurviveBackpressureAndRejectedSubmission
+  outshine/src/render/stages/GeometryResidency/FloatImagesRetainExactValuesAcrossDeferredUpload
   outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
+  outshine/src/render/stages/GeometryResidency/IsolatedUploadsRecordWithoutQueueSubmissions
   outshine/src/render/stages/GeometryResidency/LargeReservationsFitAdmissionAndPreserveAcceptedData
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice
+  outshine/src/render/stages/GeometryResidency/RadianceBindingsRetainWithoutUploading
+  outshine/src/render/stages/GeometryResidency/ReleasedUploadScratchPreservesResidentBuffers
   outshine/src/render/stages/GeometryResidency/UnboundMapsShareDeviceResources
   outshine/src/render/stages/ShadowCasterSelection/ClusterQueriesMatchCompleteShadowPixels
+  outshine/src/render/terrain/PackedTerrainClassification/NativeGridsPackAndUploadWithoutSourceOwnership
+  outshine/src/render/terrain/TerrainMaterialBuffers/SharedInputsPreservePublishedValues
+  outshine/src/render/terrain/TerrainMaterialBuffers/TerrainMaterialBuffersPublishesCompleteUploads
   outshine/src/render/terrain/TerrainRenderer/AdaptivePatchesKeepFineNormals
+  outshine/src/render/terrain/TerrainRenderer/CurrentDepthSelectsStablePatches
   outshine/src/render/terrain/TerrainRenderer/DrawArgumentsCountAdaptiveInstances
   outshine/src/render/terrain/TerrainRenderer/OuterSkirtsFaceTheGap
+  outshine/src/render/terrain/TerrainRenderer/ShadowRegionsSubmitOnlyPotentialCasters
   outshine/src/render/terrain/TerrainRenderer/SharedInputsPreserveIndependentGrids
   outshine/src/render/terrain/TerrainRenderer/SurfacePatchesPreserveRasterAndFractions
+  outshine/src/render/terrain/TerrainRenderer/TerrainRendererRejectsIncompleteUploads
+  outshine/src/render/visibility/DepthPyramidPass/AllocationRetainsItsOwner
   outshine/src/render/visibility/DepthPyramidPass/PartialBlocksPreserveUncoveredPixels
-
 )
 foreach(source IN LISTS cases)
   file(RELATIVE_PATH name "${PROJECT_SOURCE_DIR}/test" "${source}")
