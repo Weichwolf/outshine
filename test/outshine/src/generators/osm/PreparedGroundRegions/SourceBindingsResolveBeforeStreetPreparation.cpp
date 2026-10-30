@@ -1,3 +1,4 @@
+#include "StoreGroundRegion.h"
 #include "PreparedGroundRegions.h"
 #include "OsmField.h"
 #include "WaterField.h"
@@ -119,8 +120,8 @@ int main() {
   const NoHeights ground;
   const outshine::Generators::RegionSurfaceRecipes rules;
   (void)water.Ingest(ground, vectors, rules);
-  const auto saved =
-      cache->Store(key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
+  const auto saved = ::outshine::Test::StoreGroundRegion(
+      *cache, key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
   CHECK(saved, "complete native region is stored under source and demand bindings");
   const auto hit = cache->Load(key);
   CHECK(hit && *hit && (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
