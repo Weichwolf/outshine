@@ -113,7 +113,9 @@ class IndexChecks(unittest.TestCase):
         )
         self.assertEqual(value, 0)
         self.assertNotIn("index_queries", work)
-        distance.query(source, shapely.Point(0, 0), CandidateBudget())
+        _value, cold = distance.query(source, shapely.Point(0, 0), CandidateBudget())
+        self.assertEqual(cold["face_tests"], 6)
+        self.assertEqual(cold["preparation_metadata_boxes"], 2)
         layout = distance.layout
         for array in (layout.bounds, layout.ids, layout.starts):
             self.assertFalse(array.flags.writeable)
@@ -121,7 +123,11 @@ class IndexChecks(unittest.TestCase):
             "stair_occupancy_distance_index.prepare",
             side_effect=AssertionError("must reuse"),
         ):
-            distance.query(source, shapely.Point(0, 0), CandidateBudget())
+            _value, warm = distance.query(
+                source, shapely.Point(0, 0), CandidateBudget(face_tests=4)
+            )
+            self.assertEqual(warm["face_tests"], 4)
+            self.assertEqual(warm["preparation_metadata_boxes"], 0)
             self.assertIs(distance.layout, layout)
             with self.assertRaises(OccupancyError):
                 distance.query(

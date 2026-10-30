@@ -85,23 +85,27 @@ class BoxDistance:
             raise OccupancyError("distance catalog has no verified facets")
         if self.metadata is None:
             count = sum(len(s.bounds) for s in catalog.sources)
+            if count > budget.face_tests:
+                raise OccupancyError("distance metadata face budget exhausted")
             unknown = sum(
                 len(s.bounds)
                 for s in catalog.sources
                 if s.always or s.xy_geometry is None
             )
             local = all(
-                np.max(abs(s.bounds[:, [0, 1, 3, 4]])) <= 1e6 for s in catalog.sources
+                np.max(abs(box[[0, 1, 3, 4]])) <= 1e6 for box in catalog.envelopes
             )
             self.metadata = count, unknown, local
         count, unknown, local = self.metadata
         if count > budget.face_tests:
             raise OccupancyError("distance metadata face budget exhausted")
-        # Two tree operations may inspect two full leaf sets. Preparation also
-        # consumes the original facet/candidate budgets, never extra allowances.
+        cold = self.layout is None
+        preparation_faces = count + unknown if cold else 0
+        # Charge two full leaf sets plus cold packing and unknown footprints.
+        # Internal tree nodes are opaque; this is not an instruction count.
         if (
-            2 * count + unknown > budget.face_tests
-            or unknown + 1 > budget.candidates
+            2 * count + preparation_faces > budget.face_tests
+            or (unknown if cold else 0) + 1 > budget.candidates
             or not local
             or np.max(abs(np.asarray(geometry.bounds))) > 1e6
         ):
@@ -115,6 +119,7 @@ class BoxDistance:
             "index_queries": 0,
             "returned_metadata_boxes": 0,
             "preparation_candidates": 0,
+            "preparation_metadata_boxes": 0,
             "face_tests_are_upper_bound": True,
             "tree_internal_visits": None,
             "preparation_cpu_s": 0.0,
@@ -124,18 +129,20 @@ class BoxDistance:
             if self.layout is None:
                 cpu, wall = time.process_time(), time.perf_counter()
                 layout = prepare(catalog.sources, work)
+                work["preparation_metadata_boxes"] = count
                 work["preparation_cpu_s"] = time.process_time() - cpu
                 work["preparation_wall_s"] = time.perf_counter() - wall
                 if layout is None:
                     remaining = replace(
                         budget,
-                        face_tests=budget.face_tests - unknown,
+                        face_tests=budget.face_tests - preparation_faces,
                         candidates=budget.candidates - work["preparation_candidates"],
                     )
                     value, flat = nearest(
                         catalog, geometry, remaining, method="flat", prepared=self.flat
                     )
-                    flat["face_tests"] += unknown
+                    flat["face_tests"] += preparation_faces
+                    flat["preparation_metadata_boxes"] = count
                     flat["preparation_candidates"] = work["preparation_candidates"]
                     flat["volume_materializer_calls"] += work[
                         "volume_materializer_calls"
@@ -144,7 +151,7 @@ class BoxDistance:
                     flat["preparation_wall_s"] = work["preparation_wall_s"]
                     return value, flat
                 self.layout = layout
-                work["face_tests"] += unknown
+                work["face_tests"] += preparation_faces
             value = self.search(geometry, budget, work)
         except (ValueError, shapely.errors.GEOSException) as error:
             raise OccupancyError(

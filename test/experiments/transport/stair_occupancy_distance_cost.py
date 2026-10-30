@@ -38,6 +38,7 @@ def measured(query, inputs):
             "index_queries",
             "returned_metadata_boxes",
             "preparation_candidates",
+            "preparation_metadata_boxes",
             "preparation_cpu_s",
             "preparation_wall_s",
         ):

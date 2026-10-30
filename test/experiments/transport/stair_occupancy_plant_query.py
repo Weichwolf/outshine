@@ -81,6 +81,7 @@ class PlantQuery:
                 "distance_index_queries",
                 "distance_returned_metadata_boxes",
                 "distance_preparation_candidates",
+                "distance_preparation_metadata_boxes",
                 "distance_indexed_calls",
             ),
             0,
@@ -107,6 +108,7 @@ class PlantQuery:
             "index_queries",
             "returned_metadata_boxes",
             "preparation_candidates",
+            "preparation_metadata_boxes",
         ):
             self.counts["distance_" + key] += work.get(key, 0)
         if work.get("face_tests_are_upper_bound"):
