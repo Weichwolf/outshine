@@ -1,11 +1,74 @@
 #include "TransportPlanFixture.h"
 #include "Check.h"
+#include "BinaryValueArchive.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
 #include <string_view>
+#include <utility>
+#include <vector>
+
+namespace {
+void BodyFailures(const outshine::Generators::TransportPlan &source,
+                  std::span<const uint8_t> bytes) {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  CHECK(!source.Bodies.empty(), "the body layout control contains a solid");
+  if (source.Bodies.empty()) { return; }
+  auto broken = source;
+  auto rejects = [&](const char *reason) {
+    const auto result = EncodeTransportPlan(broken, kTransportFixtureLimits);
+    CHECK(!result && result.error() == TransportPlanCodecError::InvalidBody, reason);
+    broken = source;
+  };
+  broken.Bodies.front().Faces.resize(broken.Bodies.front().SurfaceFaces);
+  broken.Bodies.front().WallParents.clear();
+  broken.Bodies.front().WallKinds.clear();
+  rejects("a body without bottom and wall faces cannot be stored");
+  broken.Bodies.front().WallParents.clear();
+  broken.Bodies.front().WallKinds.clear();
+  rejects("a body with missing wall metadata cannot be stored");
+  broken.Bodies.front().WallParents.push_back(0);
+  broken.Bodies.front().WallKinds.push_back(HeightSolidWallKind::Boundary);
+  rejects("a body with excessive wall metadata cannot be stored");
+  broken.Bodies.front().SurfaceFaces = std::numeric_limits<size_t>::max();
+  rejects("a body surface count cannot overflow cap/wall layout checks");
+  broken.Bodies.front().VolumeM3 = 0;
+  rejects("a nonempty body with zero volume cannot be stored");
+  broken.Bodies.front().VolumeM3 = -1;
+  rejects("a nonempty body with negative volume cannot be stored");
+  BinaryValueWriter marker(16);
+  CHECK(marker(static_cast<uint64_t>(source.Bodies.front().SurfaceFaces),
+               source.Bodies.front().VolumeM3),
+        "the body scalar marker encodes");
+  const auto found = std::ranges::search(bytes, marker.Out.Bytes());
+  CHECK(!found.empty(), "the valid body scalar marker exists in the package");
+  if (found.empty()) { return; }
+  CHECK(std::ranges::search(bytes.subspan(static_cast<size_t>(found.end() - bytes.begin())),
+                            marker.Out.Bytes())
+            .empty(),
+        "the body scalar marker is unambiguous");
+  const size_t offset = static_cast<size_t>(found.begin() - bytes.begin());
+  for (const auto [surfaces, volume] :
+       {std::pair{static_cast<uint64_t>(source.Bodies.front().SurfaceFaces), 0.0},
+        std::pair{static_cast<uint64_t>(source.Bodies.front().SurfaceFaces + 1),
+                  source.Bodies.front().VolumeM3},
+        std::pair{std::numeric_limits<uint64_t>::max(), source.Bodies.front().VolumeM3}}) {
+    BinaryValueWriter replacement(16);
+    CHECK(replacement(surfaces, volume), "the malformed body scalar replacement encodes");
+    std::vector<uint8_t> corrupt(bytes.begin(), bytes.end());
+    std::ranges::copy(replacement.Out.Bytes(),
+                      corrupt.begin() + static_cast<std::ptrdiff_t>(offset));
+    const auto decoded = DecodeTransportPlan(corrupt, kTransportFixtureLimits);
+    CHECK(!decoded && decoded.error() == TransportPlanCodecError::InvalidBody,
+          "stored malformed body layouts and nonpositive volumes fail during "
+          "decoding");
+  }
+}
+}
 
 int main() {
   using namespace outshine;
@@ -17,6 +80,7 @@ int main() {
   const auto bytes = EncodeTransportPlan(*source, kTransportFixtureLimits);
   CHECK(bytes.has_value(), "the valid control encodes before corruption");
   if (!bytes) { return Report(); }
+  BodyFailures(*source, *bytes);
   bool prefixesFail = true;
   for (size_t size = 0; size < bytes->size(); ++size) {
     const auto result = DecodeTransportPlan(std::span(*bytes).first(size), kTransportFixtureLimits);

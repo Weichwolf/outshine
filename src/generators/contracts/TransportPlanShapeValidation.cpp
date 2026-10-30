@@ -114,8 +114,10 @@ bool ValidPort(const TransportPort &port, GeoCellId core) {
 
 bool ValidBody(const HeightSolid &body) {
   return !body.Points.empty() && !body.Faces.empty() && body.SurfaceFaces > 0 &&
-         body.SurfaceFaces <= body.Faces.size() && std::isfinite(body.VolumeM3) &&
-         body.VolumeM3 >= 0 && body.WallParents.size() == body.WallKinds.size() &&
+         body.SurfaceFaces <= body.Faces.size() / 2 && std::isfinite(body.VolumeM3) &&
+         body.VolumeM3 > 0 &&
+         body.WallParents.size() == body.Faces.size() - 2 * body.SurfaceFaces &&
+         body.WallParents.size() == body.WallKinds.size() &&
          std::ranges::all_of(body.Points, [](const auto &point) { return Finite(point); }) &&
          std::ranges::all_of(body.Faces,
                              [&](const auto &face) {
