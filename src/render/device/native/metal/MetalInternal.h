@@ -16,6 +16,7 @@
 #include <thread>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace outshine::Render::Native::Metal {
@@ -288,17 +289,19 @@ private:
   uint64_t Device;
   id<MTLCommandBuffer> Native;
   std::vector<Reservation> Held;
+  std::unordered_set<const BufferState *> HeldStates;
   std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
   std::shared_ptr<EncoderProfile> Profile;
   std::unique_ptr<PresentFrame> Presentation;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
-  std::vector<TrackedResource> Accesses;
+  std::unordered_map<const void *, TrackedResource> Accesses;
   std::array<std::vector<ShaderArgument>, 2> ArgumentBuffers;
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
   void UpdateAccess(id<MTLResource> resource, Access usage);
+  void EraseAccesses(std::span<const id<MTLResource>> resources);
   [[nodiscard]] Result<void> PrepareReads(std::span<const std::shared_ptr<BufferState>> buffers,
                                           std::vector<id<MTLResource>> &hazards);
   [[nodiscard]] Result<void> PrepareDraw(const DrawState &state,
