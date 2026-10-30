@@ -55,6 +55,16 @@ class NativeFixtureTests(unittest.TestCase):
         )
         self.assertIsNone(actual.rgba)
 
+    def test_identical_executed_parameters_share_cohort_without_query_name(self):
+        viewer, repeat = (self.samples["stored", k] for k in ("viewer", "repeat"))
+        self.assertEqual(
+            viewer.binding.fixture_revision, repeat.binding.fixture_revision
+        )
+        self.assertIsNone(self.work["execution"]["exporter"]["runtime_sha256"])
+        self.assertIsNone(self.work["execution"]["world_revision"])
+        self.assertIsNone(self.work["execution"]["light_revision"])
+        self.assertEqual(len(self.work["execution"]["request_sha256"]), 8)
+
     def test_metadata_world_forgery_or_wrong_physical_alias_reject(self):
         with tempfile.TemporaryDirectory(prefix="outshine-native-fixture-") as stage:
             root = Path(stage)
@@ -65,6 +75,7 @@ class NativeFixtureTests(unittest.TestCase):
                 "reference-status.json",
                 "controls.json",
                 "samples.npz",
+                "execution-inputs.json",
             ):
                 if name == "samples.npz":
                     os.link(DATA / name, folder / name)
