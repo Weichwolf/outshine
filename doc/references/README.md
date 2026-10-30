@@ -758,6 +758,14 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
 ## Relevanz: Gering
 
+- **The Exponential Time Hypothesis is False**, OpenAI, Preprint 2026.
+  [Versionierte Primärquelle](https://github.com/openai/math/tree/4eaee87548250b2682affda7d05d947c05554bae/preprints/The-Exponential-Time-Hypothesis-is-False-October-25-2026) ·
+  [PDF](procedural/2026-exponential-time-hypothesis-is-false.pdf).
+  - **Einsatz:** Reserve für diskrete Rezeptwahl/Zählung; konkrete Reduktions- und
+    Parameterprüfung [#1835](https://github.com/Weichwolf/outshine/issues/1835).
+  - **Grenzen:** Keine aktuelle Solverübernahme, kontinuierliche Geometrie oder
+    Laufzeit-/8-GB-Ableitung. [Lokaler Screen](../../test/experiments/transport/recipe_cnf_screen.md).
+
 - **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
   [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
   [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
