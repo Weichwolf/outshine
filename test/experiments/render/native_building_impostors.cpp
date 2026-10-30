@@ -16,7 +16,6 @@
 #include "BuildingRadianceField.h"
 #include "NativeMaterialMemory.h"
 #include "ImpostorInstances.h"
-#include "WorldCandidate.h"
 #include "AssetCache.h"
 #include "Sha256.h"
 #include "RuntimeScene.h"
@@ -160,28 +159,108 @@ void Filtered(Render::SceneRenderer &renderer,
   Write<float>(output.string() + ".ss" + std::to_string(samplesAxis * samplesAxis), average);
 }
 
-std::unique_ptr<Render::ImpostorInstances>
-PublishCard(Render::SceneRenderer &renderer,
-            std::unique_ptr<Core::RuntimeScene> &scene,
-            const ImpostorCards &cards,
-            const Vec3 &eye,
-            std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
-  Core::WorldCandidate candidate(renderer);
-  if (const auto prepared = candidate.Prepare(*scene, nullptr); !prepared) {
-    Fail(prepared.error());
-  }
+std::expected<std::unique_ptr<Render::ImpostorInstances>, std::string>
+PrepareCards(Render::SceneRenderer &renderer,
+             const ImpostorCards &cards,
+             const Vec3 &eye,
+             std::span<const std::shared_ptr<const Render::RadianceImage>> colours) {
   std::string error;
-  if (!candidate.SetGeometry(Geometry{}, 0, error)) { Fail(error); }
-  std::unique_ptr<Render::ImpostorInstances> instances;
-  {
-    const auto edit = renderer.EditWorldCandidate();
-    instances = Render::ImpostorInstances::Create(renderer, cards, 1, error, colours);
-    const Mat4 model;
-    if (!instances || !instances->Update(std::span(&model, 1), eye, error)) { Fail(error); }
+  auto instances = Render::ImpostorInstances::Create(renderer, cards, 1, error, colours);
+  const Mat4 model;
+  if (!instances || !instances->Update(std::span(&model, 1), eye, error)) {
+    return std::unexpected(error);
   }
-  if (const auto published = candidate.Publish(scene); !published) { Fail(published.error()); }
   return instances;
 }
+
+struct NativeFrame {
+  std::unique_ptr<Core::RuntimeScene> Scene;
+  std::unique_ptr<Render::ImpostorInstances> Instances;
+  Render::Viewpoint Camera;
+  size_t Creations = 0;
+  size_t RejectedHandoffs = 0;
+
+  [[nodiscard]] std::expected<void, std::string>
+  Replace(Render::SceneRenderer &renderer,
+          const ImpostorCards &cards,
+          const Vec3 &eye,
+          std::span<const std::shared_ptr<const Render::RadianceImage>> colours) {
+    auto next = PrepareCards(renderer, cards, eye, colours);
+    if (!next) { return std::unexpected(next.error()); }
+    Instances = std::move(*next);
+    return {};
+  }
+
+  void ProbeRejectedHandoff(Render::SceneRenderer &renderer,
+                            const ImpostorCards &cards,
+                            std::span<const std::shared_ptr<const Render::RadianceImage>> colours) {
+    if (cards.Views.empty() || colours.empty()) { Fail("handoff probe needs a radiance view"); }
+    std::vector<float> before;
+    std::vector<float> after;
+    renderer.WaitForGpu();
+    if (renderer.ReadSceneLinear(before) != Render::ReadState::Ready) {
+      Fail("handoff probe has no prior readable frame");
+    }
+    const auto sources = renderer.PieceSourceCount();
+    ImpostorCards invalid;
+    invalid.Centre = cards.Centre;
+    invalid.Views.push_back({.Direction = cards.Views.front().Direction,
+                             .Surface = cards.Views.front().Surface.clone()});
+    invalid.Views.push_back({.Direction = cards.Views.front().Direction, .Surface = Geometry{}});
+    const std::array images{colours.front(), colours.front()};
+    const auto rejected = Replace(renderer, invalid, Camera.EyeM, images);
+    if (rejected || rejected.error() != "impostor view has no native card geometry" ||
+        renderer.PieceSourceCount() != sources) {
+      Fail("partial rejected handoff changed the live representation");
+    }
+    if (const auto rendered = renderer.RenderFrame(); !rendered) { Fail(rendered.error()); }
+    renderer.WaitForGpu();
+    if (renderer.ReadSceneLinear(after) != Render::ReadState::Ready || before != after) {
+      Fail("the old live representation did not survive the rejected handoff");
+    }
+    ++RejectedHandoffs;
+  }
+
+  void Prepare(Render::SceneRenderer &renderer,
+               const Geometry &mesh,
+               const Json &query,
+               const ImpostorCards *cards,
+               std::span<const std::shared_ptr<const Render::RadianceImage>> colours) {
+    std::string error;
+    Camera = Test::BuildingQueryCamera(query);
+    if (!Scene) {
+      Core::Declaration declaration;
+      declaration.InitialGeometry = mesh.parts() > 0 ? &mesh : nullptr;
+      declaration.SurfaceWidthPx = 1280;
+      declaration.SurfaceHeightPx = 720;
+      declaration.KeyLux = 100;
+      declaration.KeyElevationDeg = query.value("sun_elevation_deg", 0.0);
+      declaration.Haze = 0;
+      declaration.Exposure = 1;
+      declaration.Stages = {"opaqueGeometry"};
+      if (cards != nullptr) {
+        declaration.Stages = {"opaqueGeometry", "transmissiveGeometry", "compositeTransmission"};
+      }
+      declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
+
+      if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, Scene, error)) { Fail(error); }
+      ++Creations;
+      Scene->Eye(Camera);
+      if (!Scene->Draw(error)) { Fail(error); }
+    } else if (cards == nullptr || mesh.parts() > 0) {
+      Fail("retained native frame requires explicit radiance cards");
+    }
+    if (cards != nullptr) {
+      if (Instances && RejectedHandoffs == 0 && !colours.empty()) {
+        ProbeRejectedHandoff(renderer, *cards, colours);
+      }
+      const auto placed = Replace(renderer, *cards, Camera.EyeM, colours);
+      if (!placed) { Fail(placed.error()); }
+    }
+    Scene->Eye(Camera);
+    if (!Scene->Draw(error)) { Fail(error); }
+  }
+};
 
 Json MeshStatistics(const Geometry &mesh) {
   size_t triangles = 0;
@@ -231,34 +310,14 @@ Json DrawWith(Render::SceneRenderer &renderer,
               const Json &query,
               const Fs::path &output,
               const ImpostorCards *cards = nullptr,
-              std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {}) {
+              std::span<const std::shared_ptr<const Render::RadianceImage>> colours = {},
+              NativeFrame *retained = nullptr) {
   const int samplesAxis = FilterSamples(query);
   const auto began = Clock::now();
-  Core::Declaration declaration;
-  declaration.InitialGeometry = mesh.parts() > 0 ? &mesh : nullptr;
-  declaration.SurfaceWidthPx = 1280;
-  declaration.SurfaceHeightPx = 720;
-  declaration.KeyLux = 100;
-  declaration.KeyElevationDeg = query.value("sun_elevation_deg", 0.0);
-  declaration.Haze = 0;
-  declaration.Exposure = 1;
-  declaration.Stages = {"opaqueGeometry"};
-  if (cards != nullptr) {
-    declaration.Stages = {"opaqueGeometry", "transmissiveGeometry", "compositeTransmission"};
-  }
-  declaration.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
-  std::unique_ptr<Core::RuntimeScene> scene;
-  std::string error;
-  if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) { Fail(error); }
-  const auto camera = Test::BuildingQueryCamera(query);
-  scene->Eye(camera);
-  if (!scene->Draw(error)) { Fail(error); }
-  const auto instances =
-      cards != nullptr ? PublishCard(renderer, scene, *cards, camera.EyeM, colours) : nullptr;
-  if (instances) {
-    scene->Eye(camera);
-    if (!scene->Draw(error)) { Fail(error); }
-  }
+  NativeFrame once;
+  auto &sceneFrame = retained != nullptr ? *retained : once;
+  sceneFrame.Prepare(renderer, mesh, query, cards, colours);
+  const auto &camera = sceneFrame.Camera;
   renderer.WaitForGpu();
   const double setupMs = Milliseconds(began);
   const Json filterTime = FilterGpuMilliseconds(colours);
@@ -751,6 +810,23 @@ Json RadianceSupportReport(const Test::BuildingRadianceField &field, const Json 
   return result;
 }
 
+Json NativeResidencyReport(const Render::SceneRenderer &renderer, const NativeFrame &frame) {
+  Json result;
+  const auto allocations = renderer.FrameGraphAllocationCounts();
+  result["framegraph_allocations"] = {{"textures", allocations.Textures},
+                                      {"buffers", allocations.Buffers},
+                                      {"samplers", allocations.Samplers}};
+  result["scene_creations"] = frame.Creations;
+  result["rejected_handoffs"] = frame.RejectedHandoffs;
+  result["piece_sources"] = renderer.PieceSourceCount();
+  result["piece_slots"] = renderer.PieceSlots();
+  result["geometry_held_bytes"] = renderer.PieceBytesHeld();
+  if (const auto bytes = Test::MaterialDeviceAllocatedBytes()) {
+    result["metal_allocated_bytes"] = *bytes;
+  }
+  return result;
+}
+
 void RadianceViews(const Fs::path &root, const Json &input) {
   const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
       .AtlasFile = root / "atlas.bin",
@@ -789,6 +865,7 @@ void RadianceViews(const Fs::path &root, const Json &input) {
   size_t creations = 0;
   Render::SceneRenderer renderer{TimedSubmission(creations)};
   RetainedRadiance retained;
+  NativeFrame frame;
   Json report{{"mode", "radiance-world"}, {"cases", Json::array()}};
   for (const auto &query : input.at("queries")) {
     const Vec3 toward = Vector(query.at("eye")) - metadata.Centre;
@@ -810,8 +887,13 @@ void RadianceViews(const Fs::path &root, const Json &input) {
       Write<float>(root / (name + "-source-depth.f32"), field.SourceDepth);
     }
     const std::array colours{field.Radiance};
-    auto result = DrawWith(
-        renderer, Geometry{}, query, root / (name + "-radiance-world"), &field.Cards, colours);
+    auto result = DrawWith(renderer,
+                           Geometry{},
+                           query,
+                           root / (name + "-radiance-world"),
+                           &field.Cards,
+                           colours,
+                           &frame);
     const auto &image = *field.Radiance;
     result.update(
         {{"query", name},
@@ -849,17 +931,11 @@ void RadianceViews(const Fs::path &root, const Json &input) {
                                  field.SourceDepth.size() * sizeof(float));
     }
     result["field_gpu_scope"] = "relight_and_filter_single_submission";
-    const auto allocations = renderer.FrameGraphAllocationCounts();
-    result["framegraph_allocations"] = {{"textures", allocations.Textures},
-                                        {"buffers", allocations.Buffers},
-                                        {"samplers", allocations.Samplers}};
-    result["geometry_held_bytes"] = renderer.PieceBytesHeld();
-    if (const auto bytes = Test::MaterialDeviceAllocatedBytes()) {
-      result["metal_allocated_bytes"] = *bytes;
-    }
+    result.update(NativeResidencyReport(renderer, frame));
     report["cases"].push_back(std::move(result));
   }
   report["render_device_creations"] = creations;
+  report.update(NativeResidencyReport(renderer, frame));
   report["field_renders"] = retained.Renders;
   report["field_source_uploads"] = retained.SourceUploads;
   report["field_reuses"] = retained.Reuses;

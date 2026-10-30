@@ -313,3 +313,18 @@ The replay checks source-free loading, changed and irrelevant PBR inputs, unchan
 capture depth/rays, the default control and invalid observer rejection. It keeps
 losslessly verified compressed readbacks. Its timing is diagnostic; it establishes
 no World, pose, shadow, p99 or total memory budget.
+
+The radiance sequence retains one RuntimeScene. Camera, light, source and image
+changes prepare a replacement through the existing piece/material APIs; only a
+fully placed replacement releases the previous instances. No WorldCandidate or
+RuntimeScene reconstruction occurs at a query handoff. `scene_creations`,
+`piece_sources`, `piece_slots`, `geometry_held_bytes` and the current Metal
+allocation report describe this live scene, rather than resetting it per query.
+One deliberately malformed two-view replacement checks partial rollback: the
+first view prepares, the second fails, and the old representation still renders
+byte-identical linear colour with the same live piece count. `rejected_handoffs`
+records this explicit diagnostic control; it is outside the measured samples.
+
+The diagnostic still waits for setup, timing and readback. This validates live
+publication/leases; it is not an asynchronous World-demand adapter, main/shadow
+separation, general representation admission or a 60fps budget result.

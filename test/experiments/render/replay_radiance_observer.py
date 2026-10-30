@@ -58,6 +58,13 @@ def controls(request, capture):
 
 def verify(folder, cases, report):
     expected = [reuse for _, _, reuse in cases]
+    if report["scene_creations"] != 1 or report["rejected_handoffs"] != 1:
+        raise ValueError("field handoffs replaced the scene or missed the rollback control")
+    if any(
+        c["scene_creations"] != 1 or c["piece_sources"] != 1 or c["piece_slots"] > 2
+        for c in report["cases"]
+    ):
+        raise ValueError("field publication grew live pieces or failed bounded slot reuse")
     if [c["field_reused"] for c in report["cases"]] != expected:
         raise ValueError("relighting did not follow actual observer/light inputs")
     if (
@@ -114,6 +121,8 @@ def verify(folder, cases, report):
         "field_renders": 7,
         "field_reuses": 9,
         "field_source_uploads": 1,
+        "scene_creations": 1,
+        "rejected_handoffs": 1,
         "unchanged_depth_cases": len(cases),
         "equal_source_radiance_pairs": pairs,
     }
