@@ -16,6 +16,7 @@ import numpy as np
 from building_sample_inputs import digest, readbacks
 from building_sample_originals import read_original
 from compare_field_external_depth import DATA, bound, compose, panel, reduced
+from experiment_output import create_output
 from field_external_depth import PointSamples, SampleBinding, over_constant_background
 from field_external_opponents import (
     canonical,
@@ -277,9 +278,7 @@ def thin_occluder(saved, reference, capture, rays, output):
 
 
 def run(args):
-    if not args.output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("Fresh explicit system-temp output required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    create_output(args.output)
     original, provenance, manifest, saved, reference, capture, rays = load(args.inputs)
     base = terrain(original, capture)
     crop_width = saved.rgba.shape[1]

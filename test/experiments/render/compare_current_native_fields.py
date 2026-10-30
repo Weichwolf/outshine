@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from compare_field_external_depth import panel, reduced
+from experiment_output import create_output
 from field_external_depth import compose_registered
 from field_native_fixture import DATA, QUERIES, read_fixture
 
@@ -102,9 +103,7 @@ def compare(samples, query, role, output):
 
 
 def run(args):
-    if not args.output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("Fresh explicit system-temp output required")
-    args.output.mkdir(parents=True, exist_ok=False)
+    create_output(args.output)
     manifest, status, samples, work = read_fixture(args.inputs)
     rows = [
         compare(samples, query, role, args.output)
