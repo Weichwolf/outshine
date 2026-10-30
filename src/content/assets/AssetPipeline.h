@@ -66,6 +66,10 @@ public:
     RequestTicket &operator=(const RequestTicket &) = delete;
     void Cancel() noexcept;
     [[nodiscard]] AssetPublication Poll() const noexcept;
+    // Replace this ticket's consumer retention before allocating owner buffers.
+    // Release old buffers before shrinking; cancellation retains bytes until ticket destruction.
+    [[nodiscard]] std::expected<void, AssetPublicationError>
+    SetConsumerBytes(size_t bytes) noexcept;
 
   private:
     friend class AssetPipeline;

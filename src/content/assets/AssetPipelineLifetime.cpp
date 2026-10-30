@@ -1,5 +1,7 @@
 #include "AssetPipelineState.h"
 #include <cstdint>
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -175,6 +177,27 @@ AssetPipeline::RequestTicket::~RequestTicket() {
 
 void AssetPipeline::RequestTicket::Cancel() noexcept {
   if (State_) { State_->CancelTicket(Id_); }
+}
+
+std::expected<void, AssetPublicationError>
+AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
+  if (!State_) { return std::unexpected(AssetPublicationError::InvalidRequest); }
+  auto &state = *State_;
+  const std::scoped_lock lock(state.Lock);
+  const auto at = state.Tickets.find(Id_);
+  if (at == state.Tickets.end() || at->second.Cancelled) {
+    return std::unexpected(AssetPublicationError::Cancelled);
+  }
+  if (bytes > state.Budget.InputBytesMost) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  const size_t others = state.Held.InputBytes - at->second.Bytes;
+  if (bytes > state.Budget.InputBytesMost - others) {
+    return std::unexpected(AssetPublicationError::ResourceDeferred);
+  }
+  state.Held.InputBytes = others + bytes;
+  at->second.Bytes = bytes;
+  return {};
 }
 
 AssetPublication AssetPipeline::RequestTicket::Poll() const noexcept {
