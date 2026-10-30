@@ -249,7 +249,7 @@ SceneRenderer::StandsOffscreen(FrameResources &frame, const ExecutionPlan *plan,
 
 std::expected<void, std::string> SceneRenderer::Init(Extent frame,
                                                      std::shared_ptr<const ExecutionPlan> plan) {
-  return InitForTarget(frame, std::move(plan), Showing_ != nullptr);
+  return InitForTarget(frame, std::move(plan), Showing_);
 }
 
 bool SceneRenderer::BeginsWorldCandidate(std::string &error,
@@ -433,7 +433,7 @@ void SceneRenderer::LogReadyPlan(Native::Device *device) const {
 }
 
 std::expected<void, std::string> SceneRenderer::InitForTarget(
-    Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents) {
+    Extent frame, std::shared_ptr<const ExecutionPlan> plan, SDL_Window *presents) {
   const auto offline = OfflineUploads(std::chrono::seconds(5));
   ActiveState().WhyNot.clear();
   if (const auto valid = ValidateExecutablePlan(*plan); !valid) { return valid; }
@@ -441,12 +441,27 @@ std::expected<void, std::string> SceneRenderer::InitForTarget(
   ActiveContent().Scene().GroundMaterials().UploadsFrom(Uploads_.get());
   const auto reused = ReuseFrameResources(frame, *plan);
   if (!reused) { return std::unexpected(reused.error()); }
-  if (*reused) { return {}; }
-  auto candidate = BuildFrameResources(frame, *plan, presents);
-  if (!candidate) { return std::unexpected(candidate.error()); }
-  Native::Device *const device = Device_.get();
-  PublishFrameResources(std::move(*candidate), std::move(plan));
-  LogReadyPlan(device);
+  std::optional<FrameResources> candidate;
+  if (!*reused) {
+    auto built = BuildFrameResources(frame, *plan, presents != nullptr);
+    if (!built) {
+      if (ActiveState().Ready) { BindFrameResources(); }
+      return std::unexpected(built.error());
+    }
+    candidate.emplace(std::move(*built));
+  }
+  if (Showing_ != presents) {
+    auto claimed = ClaimWindow(presents);
+    if (!claimed) {
+      if (ActiveState().Ready) { BindFrameResources(); }
+      return std::unexpected(claimed.error());
+    }
+  }
+  if (candidate) {
+    Native::Device *const device = Device_.get();
+    PublishFrameResources(std::move(*candidate), std::move(plan));
+    LogReadyPlan(device);
+  }
   return {};
 }
 
@@ -1623,24 +1638,15 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
   if (!Stands()) { return std::unexpected(ActiveState().WhyNot); }
   ActiveContent().Scene().GroundMaterials().UploadsFrom(Uploads_.get());
   const bool changed = Showing_ != presents;
-  if (changed) {
-    auto claimed = ClaimWindow(presents);
-    if (!claimed) { return std::unexpected(claimed.error()); }
-  }
   if (ActiveState().Plan) {
-    auto rebuilt = InitForTarget(
-        {.WidthPx = widthPx, .HeightPx = heightPx}, ActiveState().Plan, presents != nullptr);
-    if (!rebuilt) {
-      if (changed) {
-        auto restored = Device_->SetPresentTarget(Showing_);
-        if (!restored) {
-          return std::unexpected(rebuilt.error() +
-                                 "; target rollback failed: " + restored.error().Message);
-        }
-      }
-      return std::unexpected(rebuilt.error());
-    }
+    auto rebuilt =
+        InitForTarget({.WidthPx = widthPx, .HeightPx = heightPx}, ActiveState().Plan, presents);
+    if (!rebuilt) { return std::unexpected(rebuilt.error()); }
   } else {
+    if (changed) {
+      auto claimed = ClaimWindow(presents);
+      if (!claimed) { return std::unexpected(claimed.error()); }
+    }
     ActiveFrame().Width = widthPx;
     ActiveFrame().Height = heightPx;
   }

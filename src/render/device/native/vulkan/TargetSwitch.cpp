@@ -17,47 +17,72 @@ bool Matches(const std::shared_ptr<SwapchainState> &target,
   return target && surface && target->Surface->WindowId == surface->WindowId;
 }
 
-Result<std::shared_ptr<SwapchainState>> Prepare(const std::shared_ptr<PresentState> &state,
-                                                TargetRequest &request) {
-  if (!request.Surface) { return std::shared_ptr<SwapchainState>{}; }
-  std::erase_if(state->Inactive, [](const std::shared_ptr<SwapchainState> &target) {
-    return target.use_count() == 1;
-  });
-  if (state->Active && state->Active->DriverRetired && state->Active.use_count() == 1) {
-    state->Active.reset();
-  }
-  std::shared_ptr<SwapchainState> before;
-  bool retired = false;
+Error RetiringTarget() {
+  return {.Kind = ErrorKind::Busy, .Message = "previous presentation targets are still retiring"};
+}
+
+struct ExistingTargets {
+  std::shared_ptr<SwapchainState> Usable;
+  bool Retired = false;
+};
+
+ExistingTargets FindTargets(const PresentState &state,
+                            const std::shared_ptr<SurfaceState> &surface) {
+  ExistingTargets result;
   const auto inspect = [&](const std::shared_ptr<SwapchainState> &target) {
-    if (!Matches(target, request.Surface)) { return; }
+    if (!Matches(target, surface)) { return; }
     if (target->DriverRetired) {
-      retired = true;
+      result.Retired = true;
     } else {
-      before = target;
+      result.Usable = target;
     }
   };
-  inspect(state->Active);
-  for (const auto &target : state->Inactive) { inspect(target); }
-  if (!before && retired) {
-    return std::unexpected(Error{.Kind = ErrorKind::Busy,
-                                 .Message = "the previous target generation is still retiring"});
+  inspect(state.Active);
+  for (const auto &target : state.Inactive) { inspect(target); }
+  return result;
+}
+
+Result<bool> ExtentMatches(const SwapchainState &target, VkExtent2D extent) {
+  const auto supported = ReadSurfaceCapabilities(*target.Surface);
+  if (!supported) { return std::unexpected(supported.error()); }
+  const auto &caps = *supported;
+  const bool current = caps.currentExtent.width == std::numeric_limits<uint32_t>::max() ||
+                       (caps.currentExtent.width == target.Extent.width &&
+                        caps.currentExtent.height == target.Extent.height);
+  return current && target.Extent.width == extent.width && target.Extent.height == extent.height;
+}
+
+Result<std::shared_ptr<SwapchainState>> Prepare(const std::shared_ptr<PresentState> &state,
+                                                TargetRequest &request) {
+  if (!request.Surface) {
+    if (!CanReplaceTarget(*state)) { return std::unexpected(RetiringTarget()); }
+    return std::shared_ptr<SwapchainState>{};
+  }
+  const auto existing = FindTargets(*state, request.Surface);
+  const auto &before = existing.Usable;
+  if (!before && existing.Retired) {
+    RetireInactive(*state);
+    if (state->Active && state->Active->DriverRetired && state->Active.use_count() == 1) {
+      (void)state->Retirement.Take(state->Active);
+    }
+    return std::unexpected(RetiringTarget());
+  }
+  if (!before && state->Retirement.BlocksWindow(request.Surface->WindowId)) {
+    return std::unexpected(RetiringTarget());
   }
   if (before) {
     if (before == state->Active && state->Failed) { return std::unexpected(*state->Failed); }
-    const auto supported = ReadSurfaceCapabilities(*before->Surface);
-    if (!supported) { return std::unexpected(supported.error()); }
-    const auto &caps = *supported;
     request.Surface = before->Surface;
-    const bool currentExtent = caps.currentExtent.width == std::numeric_limits<uint32_t>::max() ||
-                               (caps.currentExtent.width == before->Extent.width &&
-                                caps.currentExtent.height == before->Extent.height);
-    if (currentExtent && before->Extent.width == request.Extent.width &&
-        before->Extent.height == request.Extent.height) {
-      return before;
+    const auto sameExtent = ExtentMatches(*before, request.Extent);
+    if (!sameExtent) { return std::unexpected(sameExtent.error()); }
+    if (*sameExtent && before != state->Active && !CanReplaceTarget(*state)) {
+      return std::unexpected(RetiringTarget());
     }
+    if (*sameExtent) { return before; }
   }
-  auto prepared =
-      CreateSwapchain(request.Surface, request.Extent, state->Generation.load() + 1, before);
+  if (!CanReplaceTarget(*state)) { return std::unexpected(RetiringTarget()); }
+  auto prepared = CreateSwapchain(
+      *state, request.Surface, request.Extent, state->Generation.load() + 1, before);
   if (!prepared && prepared.error().Kind == ErrorKind::Busy &&
       (request.Extent.width == 0 || request.Extent.height == 0)) {
     return std::shared_ptr<SwapchainState>{};
@@ -82,6 +107,9 @@ void SwitchTarget(const std::shared_ptr<PresentState> &state) {
                       : Prepare(state, *request);
   if (!prepared) {
     request->Failure = prepared.error();
+    if (state->Active && state->Active->DriverRetired && prepared.error().Kind != ErrorKind::Busy) {
+      FailPresentation(*state, prepared.error(), state->Generation.load());
+    }
   } else {
     if (state->Active && state->Active != *prepared) {
       state->Inactive.push_back(std::move(state->Active));

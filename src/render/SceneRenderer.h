@@ -1136,7 +1136,7 @@ private:
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
-  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents);
+  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, SDL_Window *presents);
   [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const ExecutionPlan &plan);
   [[nodiscard]] std::expected<bool, std::string> ReuseFrameResources(Extent frame,
                                                                      const ExecutionPlan &plan);

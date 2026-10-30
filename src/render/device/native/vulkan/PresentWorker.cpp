@@ -1,6 +1,5 @@
 #ifdef __linux__
 #include "Presenter.h"
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -32,10 +31,19 @@ bool Target(const std::shared_ptr<PresentState> &state, const Request &request) 
       request.Extent.height == 0) {
     return false;
   }
-  if (state->Active && state->Active->Generation == request.Generation) { return true; }
+  if (state->Active && state->Active->Generation == request.Generation &&
+      !state->Active->DriverRetired) {
+    return true;
+  }
+  if (state->Active && state->Active->DriverRetired &&
+      (state->Active.use_count() != 1 || !state->Retirement.Take(state->Active))) {
+    return false;
+  }
+  if (!state->Active && state->Retirement.BlocksWindow(request.Surface->WindowId)) { return false; }
+  if (!CanReplaceTarget(*state)) { return false; }
   const auto before =
       state->Active && state->Active->Surface == request.Surface ? state->Active : nullptr;
-  auto made = CreateSwapchain(request.Surface, request.Extent, request.Generation, before);
+  auto made = CreateSwapchain(*state, request.Surface, request.Extent, request.Generation, before);
   if (!made) {
     if (made.error().Kind != ErrorKind::Busy) {
       FailPresentation(*state, made.error(), request.Generation);
@@ -112,9 +120,7 @@ void RunPresenter(const std::shared_ptr<PresentState> &state) {
     const auto request = Requested(*state);
     bool pending = Progress(state, request, false);
     if (Target(state, request)) { pending = Fill(state) || pending; }
-    std::erase_if(state->Inactive, [](const std::shared_ptr<SwapchainState> &target) {
-      return target.use_count() == 1;
-    });
+    RetireInactive(*state);
     std::unique_lock lock(state->Gate);
     if (state->Stop.load()) { break; }
     const bool waitingTarget =
