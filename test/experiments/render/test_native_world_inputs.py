@@ -69,6 +69,15 @@ class NativeWorldTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "source/control binding"):
             load(self.root)
 
+    def test_consistent_wrong_depth_format_cannot_change_point_semantics(self):
+        self.changed["capture"]["format"] = "forward_z_0_1_float32"
+        for report in self.changed["native_reports"].values():
+            for case in report["cases"]:
+                case["capture"]["format"] = "forward_z_0_1_float32"
+        self.save()
+        with self.assertRaisesRegex(ValueError, "reverse-Z Float32"):
+            load(self.root)
+
     def test_union_is_independently_checked_after_all_hashes_are_amended(self):
         logical = "union-terrain/near-direction/rgba"
         key = self.changed["arrays"][logical]["array"]
@@ -211,6 +220,24 @@ class NativeWorldTests(unittest.TestCase):
                 self.root / ("near-direction-" + kind + "-composition.npz")
             ) as saved:
                 np.testing.assert_array_equal(saved["chosen"], truth)
+
+        # Image tolerance cannot resolve equal depth, even when both colours match.
+        source[1, 1] = other[1, 1]
+        for kind in ("terrain", "external"):
+            arrays["union-" + kind + "/near-direction/rgba"] = other
+        tied_depth = np.zeros((3, 3))
+        tied_depth[1, 1] = 0.5
+        tied = Reprojected(source.copy(), tied_depth, np.ones((3, 3), bool), {})
+        target = self.root / "depth-tie"
+        target.mkdir()
+        result = composition(
+            arrays, "near-direction", tied, [0, 0, 3, 3], 1, target, 2.0, 1.0
+        )
+        for value in result.values():
+            self.assertEqual(value["composed_image_error"]["rgb_max"], 0)
+            self.assertEqual(value["unresolved_equal_depth_samples"], 1)
+            self.assertTrue(value["original_group_retained"])
+            self.assertEqual(value["chosen_sample_depth_error_max"], 0)
 
 
 if __name__ == "__main__":

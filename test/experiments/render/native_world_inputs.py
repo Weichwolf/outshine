@@ -123,6 +123,8 @@ def contexts(manifest):
                 "near-direction" if pose == "repeat" else pose
             ]
             effective = case["capture"]
+            if effective["format"] != "reverse_z_0_1_float32":
+                raise ValueError("Native point depth must be reverse-Z Float32")
             lighting = query["lighting_camera"]["capture"]
             if (
                 query["name"] != pose

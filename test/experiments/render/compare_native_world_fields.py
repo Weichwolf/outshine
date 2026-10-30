@@ -111,8 +111,10 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             ).max()
         )
         error = errors(candidate, target)
+        ties = (model.reverse_z > 0) & (model.reverse_z == other_z)
         passes = bool(
             model.evaluated.all()
+            and not ties.any()
             and error["rgb_max"] <= rgb_limit
             and visibility_error <= coverage_limit
         )
@@ -122,6 +124,7 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             "inside_configured_finite_error_limits": passes,
             "original_group_retained": not passes,
             "runtime_admission": False,
+            "unresolved_equal_depth_samples": int(np.count_nonzero(ties)),
         }
         # Re-evaluate the retained whole original group at the same samples.
         # The union oracle is used only to check it, never to fill failed pixels.

@@ -60,7 +60,7 @@ measured separately after depth ordering, before/after the common sample mean.
 The finite near-pose source has 11 mask disagreements despite zero union-alpha
 error; the geometric 0.0763px bound alone cannot accept those samples.
 
-On excessive error or incomplete model evaluation, the selected whole source
+On excessive error, unresolved equal depth or incomplete model evaluation, the selected whole source
 group retains its original point product. Those actual original samples are
 reordered with unchanged terrain/opening and filtered at the same locations;
 the oracle union never fills failed pixels. Current chosen paths reproduce all
