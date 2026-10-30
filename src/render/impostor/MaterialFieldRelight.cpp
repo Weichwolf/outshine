@@ -18,21 +18,9 @@
 
 namespace outshine::Render {
 namespace {
-bool ValidCameraBasis(const Viewpoint &camera) {
-  const auto finite = [](const auto &values) {
-    return std::ranges::all_of(values, [](double value) { return std::isfinite(value); });
-  };
-  return (camera.Kind == CameraKind::Perspective || camera.Kind == CameraKind::Orthographic) &&
-         finite(camera.EyeM) && finite(camera.Right) && finite(camera.Up) &&
-         finite(camera.Forward) &&
-         std::abs(Dot(camera.Right, camera.Right) - 1) <= kMaterialFieldUnitTolerance &&
-         std::abs(Dot(camera.Up, camera.Up) - 1) <= kMaterialFieldUnitTolerance &&
-         std::abs(Dot(camera.Forward, camera.Forward) - 1) <= kMaterialFieldUnitTolerance &&
-         Dot(Cross(camera.Right, camera.Up), camera.Forward) <= -1 + kMaterialFieldUnitTolerance;
-}
 
 Native::Result<FrameContext> FrameOf(const Viewpoint &camera, Extent extent) {
-  if (!ValidCameraBasis(camera)) {
+  if (!ValidMaterialFieldCameraBasis(camera)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "material field camera has an invalid basis"});
   }
@@ -59,7 +47,7 @@ Native::Result<FrameContext> FrameOf(const MaterialFieldView &view, Extent exten
   auto frame = FrameOf(view.Camera, extent);
   if (!frame || !view.LightingCamera) { return frame; }
   const auto &camera = *view.LightingCamera;
-  if (!ValidCameraBasis(camera)) {
+  if (!ValidMaterialFieldCameraBasis(camera)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "material field lighting camera has an invalid basis"});

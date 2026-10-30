@@ -46,7 +46,7 @@ const std::array<DagCluster, 1> secondClusters{{{.SelfCenter = {{4, 5, 6}},
 }
 
 namespace {
-void VerifyResidentTables(outshine::Render::GeometryRenderer &draw,
+void VerifyResidentTables(const outshine::Render::GeometryRenderer &draw,
                           outshine::Render::Native::Device &device,
                           std::span<const outshine::Mat4> instances,
                           std::span<const outshine::Mat4> otherInstances) {

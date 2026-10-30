@@ -165,7 +165,8 @@ PrepareCards(Render::SceneRenderer &renderer,
              const Vec3 &eye,
              std::span<const std::shared_ptr<const Render::RadianceImage>> colours) {
   std::string error;
-  auto instances = Render::ImpostorInstances::Create(renderer, cards, 1, error, colours);
+  auto instances = Render::ImpostorInstances::Create(
+      renderer, cards, 1, error, colours, Render::GeometryPasses::Main);
   const Mat4 model;
   if (!instances || !instances->Update(std::span(&model, 1), eye, error)) {
     return std::unexpected(error);

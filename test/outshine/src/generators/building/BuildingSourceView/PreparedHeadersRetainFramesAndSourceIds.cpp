@@ -243,6 +243,46 @@ void Originals(Availability availability) {
         "whole original triangle topology, position, normal, UV, metres and colour are exact");
 }
 
+void ExhaustedBudgetPrecedesNextLoad() {
+  auto fixture = Make(Availability::Ready);
+  if (!fixture) { return; }
+  fixture->Base->Structures.front().Layout.Cell.Index = 2;
+  BuildingScratch scratch;
+  scratch.Triangles.emplace(BuildingScratch::TriangleBudget{.Remaining = 10000});
+  Raised mesh;
+  const auto first = fixture->Base->Surfaces[1].Mesh(scratch, mesh);
+  const uint64_t attempts = 10000 - scratch.Triangles->Remaining;
+  CHECK(first && attempts > 0 && *fixture->Reads == 1,
+        "the first original has a measured nonzero triangle cost and one lazy load");
+  if (!first || attempts == 0) { return; }
+  auto next = fixture->Base->Surfaces[1];
+  next.BindShapes(
+      std::make_shared<BuildingSurfaceBlock>(
+          [reads =
+               fixture->Reads] -> std::expected<std::vector<BuildingSurface>, StructureMeshError> {
+            ++*reads;
+            return std::unexpected(StructureMeshError::PreparedSurfaceUnavailable);
+          }),
+      0);
+  fixture->Base->Structures.push_back(fixture->Base->Structures[1]);
+  fixture->Base->Surfaces.push_back(std::move(next));
+  const std::array<uint32_t, 1> cells{1};
+  const auto source = BuildingSourceView::Open(fixture->Base, cells, fixture->Frame);
+  CHECK(source && source->Sources().size() == 2, "both independently loaded headers are selected");
+  if (!source) { return; }
+  BuildingSourceBudget budget{.Sources = 2, .Faces = 1000, .TriangleAttempts = attempts};
+  const auto materials = BuildingSurfaceMaterials();
+  const auto exhausted = source->Originals(budget, materials);
+  CHECK(!exhausted && exhausted.error().Kind == BuildingSourceView::ErrorKind::WorkBudgetExceeded &&
+            exhausted.error().Source == 2 && *fixture->Reads == 1,
+        "an exact first-source budget rejects the second source before its lazy load");
+  ++budget.TriangleAttempts;
+  const auto admitted = source->Originals(budget, materials);
+  CHECK(!admitted && admitted.error().Kind == BuildingSourceView::ErrorKind::SourceUnavailable &&
+            admitted.error().Source == 2 && *fixture->Reads == 2,
+        "remaining work admits the second load and preserves its actual source failure");
+}
+
 void MixedColours(bool paintedFirst) {
   auto plain = Make(Availability::Ready);
   auto painted = Make(Availability::Ready, Vec3f{{0.2f, 0.4f, 0.6f}});
@@ -298,6 +338,7 @@ int main() {
   HeadersAndLifetime();
   Originals(Availability::Ready);
   Originals(Availability::Missing);
+  ExhaustedBudgetPrecedesNextLoad();
   MixedColours(false);
   MixedColours(true);
   return Report();

@@ -16,6 +16,16 @@ bool Finite(const auto &values) {
 }
 }
 
+bool ValidMaterialFieldCameraBasis(const Viewpoint &camera) noexcept {
+  return (camera.Kind == CameraKind::Perspective || camera.Kind == CameraKind::Orthographic) &&
+         Finite(camera.EyeM) && Finite(camera.Right) && Finite(camera.Up) &&
+         Finite(camera.Forward) &&
+         std::abs(Dot(camera.Right, camera.Right) - 1) <= kMaterialFieldUnitTolerance &&
+         std::abs(Dot(camera.Up, camera.Up) - 1) <= kMaterialFieldUnitTolerance &&
+         std::abs(Dot(camera.Forward, camera.Forward) - 1) <= kMaterialFieldUnitTolerance &&
+         Dot(Cross(camera.Right, camera.Up), camera.Forward) <= -1 + kMaterialFieldUnitTolerance;
+}
+
 bool SameMaterialFieldCapture(const Viewpoint &capture, const Viewpoint &view) noexcept {
   if (capture.Kind != CameraKind::Orthographic || view.Kind != capture.Kind ||
       capture.XMagM != view.XMagM || capture.YMagM != view.YMagM || capture.Right != view.Right ||

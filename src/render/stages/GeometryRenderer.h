@@ -181,6 +181,7 @@ public:
 
   [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
   void ReleasePiece(PieceId which);
+  [[nodiscard]] bool SetPiecePasses(PieceId which, GeometryPasses passes, std::string &error);
   [[nodiscard]] bool
   SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
   void SetNativePieceSurfaces(std::span<const uint32_t> slots);
@@ -588,6 +589,7 @@ private:
     std::optional<std::array<float, 4>> LocalSphere, WorldSphere;
     bool Live = false;
     std::array<uint64_t, 3> ProductOrder{};
+    GeometryPasses Passes = GeometryPasses::MainAndShadow;
   };
 
   std::vector<DrawBatch> MainMeshBatches_;

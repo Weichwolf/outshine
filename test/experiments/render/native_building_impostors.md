@@ -325,6 +325,11 @@ first view prepares, the second fails, and the old representation still renders
 byte-identical linear colour with the same live piece count. `rejected_handoffs`
 records this explicit diagnostic control; it is outside the measured samples.
 
+Radiance cards explicitly use `GeometryPasses::Main`. Their planar geometry does
+not cast shadows or invalidate the shadow atlas on view changes. The separate
+native Piece/Shadow tests cover main/shadow participation and retained atlas data;
+this diagnostic does not establish shadow authority for the original source group.
+
 The diagnostic still waits for setup, timing and readback. This validates live
-publication/leases; it is not an asynchronous World-demand adapter, main/shadow
-separation, general representation admission or a 60fps budget result.
+publication/leases; it is not an asynchronous World-demand adapter, general
+representation admission or a 60fps budget result.

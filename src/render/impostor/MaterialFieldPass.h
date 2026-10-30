@@ -26,6 +26,9 @@ private:
   std::shared_ptr<Data> Data_;
 };
 
+// Camera kind, finite eye and orthonormal basis; capture lens validation is separate.
+[[nodiscard]] bool ValidMaterialFieldCameraBasis(const Viewpoint &camera) noexcept;
+
 struct MaterialFieldView {
   Viewpoint Camera;
   std::span<const SceneLight> Lights;

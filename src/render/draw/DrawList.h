@@ -12,6 +12,7 @@
 
 #include "ClusterDag.h"
 #include "DrawKey.h"
+#include "GeometryPasses.h"
 
 namespace outshine::Render {
 
@@ -218,6 +219,7 @@ struct DrawBatch {
   uint32_t JobCount = 0;
   VertexMotion Motion = VertexMotion::Deforming;
   std::optional<std::array<float, 4>> WorldSphere;
+  GeometryPasses Passes = GeometryPasses::MainAndShadow;
 };
 
 struct IndexRun {

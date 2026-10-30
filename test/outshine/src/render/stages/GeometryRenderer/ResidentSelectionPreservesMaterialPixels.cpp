@@ -114,6 +114,16 @@ void Pixels(Device &device, const Texture &image, const std::array<uint16_t, 4> 
       }
     }
   }
+  if (errors != 0) {
+    const size_t centre = (size_t{kHeight / 2} * kWidth + kWidth / 2) * 4;
+    std::println(stderr,
+                 "surface mismatch: {} channels; centre {:04x}/{:04x}/{:04x}/{:04x}",
+                 errors,
+                 pixels[centre],
+                 pixels[centre + 1],
+                 pixels[centre + 2],
+                 pixels[centre + 3]);
+  }
   CHECK(errors == 0,
         "every native base-colour pixel matches independent quad coverage and material values");
 }
@@ -122,7 +132,8 @@ void Draw(Device &device,
           GeometryRenderer &renderer,
           Targets &targets,
           GeometryCullStage *cull = nullptr,
-          const std::array<uint16_t, 4> &values = kBaseValues) {
+          const std::array<uint16_t, 4> &values = kBaseValues,
+          uint32_t drawCalls = 1) {
   auto commands = Require(device.Begin());
   Require(renderer.FlushCrossings(commands.get()));
   FrameContext frame;
@@ -150,8 +161,8 @@ void Draw(Device &device,
   Require(device.Submit(std::move(commands)));
   renderer.CommitCrossings();
   submission.Commit();
-  CHECK(renderer.EncodedDrawCalls() == 1,
-        "the native mesh retains one draw for its compiled batch");
+  CHECK(renderer.EncodedDrawCalls() == drawCalls,
+        "the native mesh issues only the requested main-pass draws");
   Pixels(device, *targets.Colours[3], values);
 }
 
@@ -248,6 +259,17 @@ void PieceUv1(Device &device,
   CheckSceneUpload(renderer.HandTables(error), error);
   constexpr std::array<uint16_t, 4> blue{0, 0, 0x3a00, 0x3c00};
   Draw(device, renderer, targets, nullptr, blue);
+  CheckSceneUpload(renderer.SetPiecePasses(*id, GeometryPasses::Shadow, error), error);
+  CheckSceneUpload(renderer.HandTables(error), error);
+  Draw(device, renderer, targets, nullptr, {}, 0);
+  const auto generation = renderer.Generation();
+  CHECK(!renderer.SetPiecePasses(*id, static_cast<GeometryPasses>(255), error) &&
+            renderer.Generation() == generation,
+        "invalid pass updates preserve the accepted piece state");
+  Draw(device, renderer, targets, nullptr, {}, 0);
+  CheckSceneUpload(renderer.SetPiecePasses(*id, GeometryPasses::Main, error), error);
+  CheckSceneUpload(renderer.HandTables(error), error);
+  Draw(device, renderer, targets, nullptr, blue);
   renderer.ReleasePiece(*id);
 }
 
@@ -278,6 +300,71 @@ void PreparedMipChain(Device &device, GeometryRenderer &renderer, Targets &targe
                    error);
   constexpr std::array<uint16_t, 4> expected{0, 0x3800, 0, 0x3c00};
   Draw(device, renderer, targets, nullptr, expected);
+}
+
+void MixedPiecePasses(Device &device,
+                      GeometryRenderer &renderer,
+                      Targets &targets,
+                      const outshine::Render::Gpu &gpu) {
+  std::string error;
+  CheckSceneUpload(renderer.SetMesh({}, error), error);
+  MaterialBinding material;
+  material.Row.DoubleSided = true;
+  material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
+  CheckSceneUpload(renderer.SetMaterials(std::span(&material, 1), error), error);
+  renderer.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
+  std::array<StoredVertex, 4> vertices;
+  for (size_t at = 0; at < vertices.size(); ++at) {
+    vertices[at] = StoredVertex::Of(
+        {{kPositions[at * 3], kPositions[at * 3 + 1], kPositions[at * 3 + 2]}}, {}, {{0, 0, 1}});
+  }
+  const std::array<DagCluster, 1> clusters{{{.SelfCenter = {{0, 0, 0.5f}},
+                                             .SelfRadius = 1,
+                                             .ParentCenter = {{0, 0, 0.5f}},
+                                             .ParentRadius = 1,
+                                             .ParentErr = kDagRootErr,
+                                             .Count = 6}}};
+  constexpr std::array passes{GeometryPasses::Shadow,
+                              GeometryPasses::Main,
+                              GeometryPasses::Shadow,
+                              GeometryPasses::Main,
+                              GeometryPasses::Shadow};
+  std::array<PieceId, passes.size()> pieces{};
+  for (size_t at = 0; at < passes.size(); ++at) {
+    PieceMesh piece;
+    piece.Verts = vertices;
+    piece.Indices = kIndices;
+    piece.Clusters = clusters;
+    piece.Passes = passes[at];
+    pieces[at] = Require(renderer.PlacePiece(piece));
+  }
+  CheckSceneUpload(renderer.HandTables(error), error);
+  CheckSceneUpload(renderer.HandPlacements(false, error), error);
+  GeometryCullStage stage;
+  Require(stage.Configure({.Resident = &renderer.Resident(),
+                           .AnchorM = renderer.AnchorM(),
+                           .Jobs = renderer.ClusterJobs(),
+                           .BatchRows = renderer.ClusterBatchRows(),
+                           .Hierarchy = &renderer.Hierarchy(),
+                           .Generation = renderer.Generation(),
+                           .GroundGeneration = renderer.Ground().Generation()},
+                          gpu));
+  Draw(device, renderer, targets, &stage, kBaseValues, 1);
+  CHECK(renderer.Work().IndirectInputTriangles == 4 && renderer.Work().DirectTriangles == 0,
+        "main-pass input accounting excludes shadow-only triangles in a shared indirect run");
+  const auto &buffer = renderer.Resident().Buffer(GeometryResidency::Stream::DrawArguments);
+  std::array<uint32_t, passes.size() * 5> arguments{};
+  auto read = Require(ReadbackTransfer::Start(device, *buffer, {.Bytes = sizeof(arguments)}));
+  const auto data = Require(read.Wait(device, std::chrono::seconds(5)));
+  CHECK(data && data->size() >= sizeof(arguments), "mixed native indirect arguments read back");
+  if (data && data->size() >= sizeof(arguments)) {
+    std::memcpy(arguments.data(), data->data(), sizeof(arguments));
+    for (size_t at = 0; at < passes.size(); ++at) {
+      CHECK(arguments[at * 5] == (passes[at] == GeometryPasses::Shadow ? 0u : 6u),
+            "GPU selection retains main indices and eliminates interleaved shadow-only work");
+    }
+  }
+  for (const auto piece : pieces) { renderer.ReleasePiece(piece); }
 }
 
 }
@@ -321,5 +408,6 @@ int main() {
   Indirect(device, renderer, targets, source, gpu);
   PieceUv1(device, renderer, targets, source);
   PreparedMipChain(device, renderer, targets);
+  MixedPiecePasses(device, renderer, targets, gpu);
   return Report();
 }

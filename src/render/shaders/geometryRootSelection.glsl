@@ -1,4 +1,5 @@
 bool geometryRootVisible(GeometryRoot root) {
+  if ((root.instance.w & kGeometryShadowOnly) != 0u) { return false; }
   if ((root.instance.w & kGeometryRootBound) == 0u) { return true; }
   const mat4 model = placements[root.instance.x].current;
   float widest;

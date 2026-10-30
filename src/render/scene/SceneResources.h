@@ -57,6 +57,10 @@ public:
              PieceOwner owner = PieceOwner::Independent);
   [[nodiscard]] std::expected<size_t, std::string>
   ReconcileStructurePieces(GeometryRenderer &geometry, std::span<const PieceHandle> held);
+  [[nodiscard]] bool SetPiecePasses(GeometryRenderer &geometry,
+                                    PieceHandle which,
+                                    GeometryPasses passes,
+                                    std::string &error);
   [[nodiscard]] bool SetPieceInstances(GeometryRenderer &geometry,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
@@ -161,6 +165,7 @@ private:
     PieceOwner Owner = PieceOwner::Independent;
     bool Textured = false;
     std::array<uint64_t, 3> ProductOrder{};
+    GeometryPasses Passes = GeometryPasses::MainAndShadow;
 
     [[nodiscard]] PieceMesh Mesh() const noexcept;
   };

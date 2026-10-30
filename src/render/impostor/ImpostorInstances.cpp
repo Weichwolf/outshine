@@ -36,7 +36,8 @@ ImpostorInstances::Create(SceneRenderer &renderer,
                           const ImpostorCards &cards,
                           uint32_t maxInstances,
                           std::string &error,
-                          std::span<const std::shared_ptr<const RadianceImage>> colours) {
+                          std::span<const std::shared_ptr<const RadianceImage>> colours,
+                          GeometryPasses passes) {
   if (maxInstances == 0 || cards.Views.empty() ||
       (!colours.empty() && colours.size() != cards.Views.size())) {
     error = Says::Capacity;
@@ -68,6 +69,7 @@ ImpostorInstances::Create(SceneRenderer &renderer,
                            {{normals[at * 3], normals[at * 3 + 1], normals[at * 3 + 2]}});
     }
     PieceMesh piece;
+    piece.Passes = passes;
     piece.Verts = vertices;
     piece.Indices = geometry.trianglesOf(0);
     piece.Tangents = geometry.tangentsOf(0);
