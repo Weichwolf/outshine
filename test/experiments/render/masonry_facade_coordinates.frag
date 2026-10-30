@@ -33,7 +33,8 @@ void main() {
     perM = 0.0;
   }
   vec3 regions = facadeFootprintCoverage(fractions, at, dx, dy, perM);
-  float field = facadeMasonryField(fractions, at, dx, dy, perM, uv1, dxM, dyM, regions);
+  vec2 heightChange;
+  float field = facadeMasonryField(fractions, at, dx, dy, perM, uv1, dxM, dyM, regions, heightChange);
   outAt = vec4(regions, field) * materialAt().base.a;
   outDx = vec4(perM, fractions, 1.0);
   outDy = vec4(0.0);

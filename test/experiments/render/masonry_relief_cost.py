@@ -15,13 +15,6 @@ from masonry_relief_raster import sources
 
 def compile_fused(output):
     original = (ROOT / "test/experiments/render/masonry_facade_probe.comp").read_text()
-    assert original.count("atM, dxM, dyM, filtered.xyz);") == 1
-    original = original.replace(
-        "atM, dxM, dyM, filtered.xyz);", "atM, dxM, dyM, filtered.xyz, heightChange);"
-    )
-    original = original.replace(
-        "float field = 0.0;", "float field = 0.0;\n  vec2 heightChange = vec2(0.0);"
-    )
     original = original.replace(
         "vec4(filtered.xyz, field)", "vec4(filtered.x, field, heightChange)"
     )

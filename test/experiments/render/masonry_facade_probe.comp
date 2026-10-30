@@ -30,12 +30,13 @@ void main() {
   float roughness = palette[7];
   FacadeGlazing surface = facadeCoatedWindow(filtered, source, roughness);
   float field = 0.0;
+  vec2 heightChange;
 #if FACADE_MASONRY
   vec2 atM = vec2(palette[offset + 12], palette[offset + 13]);
   vec2 dxM = vec2(palette[offset + 14], palette[offset + 15]);
   vec2 dyM = vec2(palette[offset + 16], palette[offset + 17]);
   field = facadeMasonryField(fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, perM,
-                             atM, dxM, dyM, filtered.xyz);
+                             atM, dxM, dyM, filtered.xyz, heightChange);
   surface.albedo += facadeMasonryAmplitude(source, facadeCoatingAmplitude(source)) * field;
   float amplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
   surface.roughness += amplitude * field;
