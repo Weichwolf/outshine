@@ -104,7 +104,7 @@ void CheckConcurrentPublication(const SourceRequest &askA) {
   SourceSet sources(store);
   NoNetwork transport;
   auto provider = std::make_unique<Provider>();
-  auto gate = std::make_shared<FirstDeliveryGate>();
+  const auto gate = std::make_shared<FirstDeliveryGate>();
   provider->Gate = gate;
   CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "concurrent provider registers");

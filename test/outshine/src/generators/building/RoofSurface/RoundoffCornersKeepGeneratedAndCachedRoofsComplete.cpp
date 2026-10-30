@@ -1,3 +1,4 @@
+#include <utility>
 #include "Check.h"
 #include "HipRoofCodec.h"
 #include "RoofSurface.h"
@@ -109,7 +110,7 @@ int main() {
   if (restored && *restored) {
     CHECK(HipRoofCodec::BoundTo(restored, shape.Ring, {}),
           "cache retains original source ownership");
-    shape.HipRoof = restored;
+    shape.HipRoof = std::move(restored);
     Complete(shape);
   }
   return Report();

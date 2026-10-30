@@ -26,7 +26,7 @@ int main() {
       {.DatasetId = "native-input", .Revision = "one"});
   CHECK(parsed.has_value(), "original raised part parses");
   if (!parsed) { return Report(); }
-  auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+  const auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
       outshine::Generators::Osm::SourceSnapshot{
           .Elements = std::move(*parsed), .Coverage = {}, .Chunks = {}});
   const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
