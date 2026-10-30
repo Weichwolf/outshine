@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "parent_manifest_sha256": "a13fc0300ae466d47b297beb3fb74f22e9e11a7a2522f80e12675aa7835d32b3",
+  "source_count": 1558,
+  "triangles": 38476,
+  "vertices": 78374,
+  "coordinates": "exact native source frame of the parent readbacks; no scene-frame reconstruction or transforms",
+  "files": {
+    "0/colours.bin": {
+      "array": "0_colours_bin",
+      "dtype": "<f4",
+      "shape": [
+        205932
+      ],
+      "sha256": "6fd26847c19588f70fb925e4bec69cb413a70de22cf77b6dacf4a450c1fc0fab",
+      "bytes": 823728
+    },
+    "0/indices.bin": {
+      "array": "0_indices_bin",
+      "dtype": "<u4",
+      "shape": [
+        83088
+      ],
+      "sha256": "013a2b95f3f8451b71a6dc0b0a0da594e68bd72cf7a2eb4fb7c506ea3d4fcfa7",
+      "bytes": 332352
+    },
+    "0/normals.bin": {
+      "array": "0_normals_bin",
+      "dtype": "<f4",
+      "shape": [
+        154449
+      ],
+      "sha256": "7c05e685243b7c9aa3d06f09eb723d1d1f0a1077818f6a9de9c17278e9ddf5d0",
+      "bytes": 617796
+    },
+    "0/positions.bin": {
+      "array": "0_positions_bin",
+      "dtype": "<f4",
+      "shape": [
+        154449
+      ],
+      "sha256": "acd22eedab8530ce435cfe3fc229c0305eb387bd08fdf5a229137c92134431a2",
+      "bytes": 617796
+    },
+    "0/uv.bin": {
+      "array": "0_uv_bin",
+      "dtype": "<f4",
+      "shape": [
+        102966
+      ],
+      "sha256": "4b9801419d6c6ce33f0651013e587def54a2636dda27a40c73983f40d5f99f0c",
+      "bytes": 411864
+    },
+    "0/uv1.bin": {
+      "array": "0_uv1_bin",
+      "dtype": "<f4",
+      "shape": [
+        102966
+      ],
+      "sha256": "340de3c4c58ae97f9705fbd562cb0c5aa3113602ac04c2702cb689024df8a96d",
+      "bytes": 411864
+    },
+    "1/colours.bin": {
+      "array": "1_colours_bin",
+      "dtype": "<f4",
+      "shape": [
+        81732
+      ],
+      "sha256": "234c5313d7cec5aa21edb26ee142bd92e7b48b9b1683fff0dc15b63d2b9ae513",
+      "bytes": 326928
+    },
+    "1/indices.bin": {
+      "array": "1_indices_bin",
+      "dtype": "<u4",
+      "shape": [
+        22422
+      ],
+      "sha256": "c1c968f28b90e8aa1e8821ef9011d37c7cd37bc12d3dd66a1b10775bd9b947cd",
+      "bytes": 89688
+    },
+    "1/normals.bin": {
+      "array": "1_normals_bin",
+      "dtype": "<f4",
+      "shape": [
+        61299
+      ],
+      "sha256": "c479ad0d53fd4025b5f42f4947211a1def8bcfc7943069fbc57451c2003cbbea",
+      "bytes": 245196
+    },
+    "1/positions.bin": {
+      "array": "1_positions_bin",
+      "dtype": "<f4",
+      "shape": [
+        61299
+      ],
+      "sha256": "6c2315241b3b70997ef3c5e9b35ac4ee868f797442967530c894ddd1155feb29",
+      "bytes": 245196
+    },
+    "1/uv.bin": {
+      "array": "1_uv_bin",
+      "dtype": "<f4",
+      "shape": [
+        40866
+      ],
+      "sha256": "a5f20f4f54ab827ff5741b1a09741d6d26ea2d6927d47777d50d9bcccb59771c",
+      "bytes": 163464
+    },
+    "1/uv1.bin": {
+      "array": "1_uv1_bin",
+      "dtype": "<f4",
+      "shape": [
+        40866
+      ],
+      "sha256": "21163213d30217f8284f5f306bc1cb3d14a2ba551fbecbf1d239571dc4e8964d",
+      "bytes": 163464
+    },
+    "2/colours.bin": {
+      "array": "2_colours_bin",
+      "dtype": "<f4",
+      "shape": [
+        25832
+      ],
+      "sha256": "f8584a8884c72bc503027503c3e6e46751c0c1d23f1573dac854b5f8a0eca2ab",
+      "bytes": 103328
+    },
+    "2/indices.bin": {
+      "array": "2_indices_bin",
+      "dtype": "<u4",
+      "shape": [
+        9918
+      ],
+      "sha256": "1926e81bb65d01c4f7736ab236eb7f6a720c8a80b96b43caa667e8694d4a2378",
+      "bytes": 39672
+    },
+    "2/normals.bin": {
+      "array": "2_normals_bin",
+      "dtype": "<f4",
+      "shape": [
+        19374
+      ],
+      "sha256": "dc94b72984435267b2595bd00fec348f83cc33f03c3bc6082253af0f1b32b340",
+      "bytes": 77496
+    },
+    "2/positions.bin": {
+      "array": "2_positions_bin",
+      "dtype": "<f4",
+      "shape": [
+        19374
+      ],
+      "sha256": "db6fc6afb40f4e13c78bcc2dd88e02e53d84b6d56df531b5adb9491653b3ad7c",
+      "bytes": 77496
+    },
+    "2/uv.bin": {
+      "array": "2_uv_bin",
+      "dtype": "<f4",
+      "shape": [
+        12916
+      ],
+      "sha256": "d37c4191405f4859f0ef974baad25360c8091040640bd21a3c3968d6fe13d4a0",
+      "bytes": 51664
+    },
+    "2/uv1.bin": {
+      "array": "2_uv1_bin",
+      "dtype": "<f4",
+      "shape": [
+        12916
+      ],
+      "sha256": "4a60c0f7eeb02e128bbc5d3e9e53a15ea46e50d92d8c875aa3325702ff32ed57",
+      "bytes": 51664
+    },
+    "input.json": {
+      "array": "input_json",
+      "dtype": "u1",
+      "shape": [
+        177
+      ],
+      "sha256": "ffab3aab7ecb89eac2a9bd8eac5f9ed3d35a46fd7f97899dae4fecfc7d4f43ca",
+      "bytes": 177
+    }
+  },
+  "npz_sha256": "e39137f4cf53df3d0e26df07ece6f0dd60ef832d0d706e8e286e0e6ee0e2d5bf",
+  "npz_bytes": 809656,
+  "raw_bytes": 4850833,
+  "scope": "Exact immutable original geometry for #1759, not a World asset or geometry-error admission."
+}

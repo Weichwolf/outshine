@@ -8,6 +8,9 @@
 #include "flatVaryings.glsl"
 #if FLAT_TEXTURED || FLAT_KIND == 3
 layout(set = 2, binding = 0) uniform sampler2D imageMap;
+#if FLAT_TEXTURED
+#include "radianceSampling.glsl"
+#endif
 #endif
 #include "surfaceOutput.glsl"
 #include "surfaceTransfer.glsl"
@@ -19,7 +22,7 @@ void main() {
 #endif
   vec4 tap = vec4(1.0);
 #if FLAT_TEXTURED
-  tap = texture(imageMap, materialColourUv(surface, uv, uv1));
+  tap = radianceSample(imageMap, materialColourUv(surface, uv, uv1), surface.scattering);
   if (surface.scattering > 1.5) { tap.rgb /= max(tap.a, 1e-8); }
 #endif
 #if FLAT_KIND == 1

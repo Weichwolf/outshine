@@ -4,6 +4,7 @@
 #include <bit>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -19,7 +20,10 @@ bool Valid(FilterImages images) {
   const auto &to = images.Target;
   return from.Type == Native::TextureType::Image2D && to.Type == Native::TextureType::Image2D &&
          from.Layers == 1 && to.Layers == 1 && from.Width > 0 && from.Height > 0 && to.Width > 0 &&
-         to.Height > 0 && from.Width % to.Width == 0 && from.Height % to.Height == 0 &&
+         to.Height > 0 && to.Width <= from.Width && to.Height <= from.Height &&
+         uint64_t{from.Width} * to.Width <= std::numeric_limits<uint32_t>::max() &&
+         uint64_t{from.Height} * to.Height <= std::numeric_limits<uint32_t>::max() &&
+         uint64_t{from.Width} * from.Height <= std::numeric_limits<uint32_t>::max() &&
          from.Texels == Native::Format::Rgba16Float && to.Texels == Native::Format::Rgba16Float &&
          (static_cast<uint32_t>(from.Use) & static_cast<uint32_t>(Native::TextureUse::Sampled)) !=
              0 &&
@@ -30,9 +34,8 @@ bool Valid(FilterImages images) {
 Native::Result<std::shared_ptr<const RadianceImage>>
 RadianceFilter::Apply(Native::Device &device, const Native::Texture &source, Extent target) {
   if (target.WidthPx <= 0 || target.HeightPx <= 0) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "radiance target requires an integer footprint"});
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "radiance target requires a positive raster"});
   }
   const Native::TextureDescription description{.Width = static_cast<uint32_t>(target.WidthPx),
                                                .Height = static_cast<uint32_t>(target.HeightPx),
@@ -43,7 +46,7 @@ RadianceFilter::Apply(Native::Device &device, const Native::Texture &source, Ext
   if (!Valid({.Source = source.Description(), .Target = description})) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "radiance filtering requires linear HDR integer footprints"});
+                      .Message = "radiance filtering requires bounded linear HDR reduction"});
   }
   if (const auto configured = Configure(device); !configured) {
     return std::unexpected(configured.error());
@@ -77,6 +80,8 @@ Native::Result<void> RadianceFilter::Configure(Native::Device &device) {
   }
   auto pipeline = CreateComputePipeline(device, ComputeShaderId::RadianceFilter);
   if (!pipeline) { return std::unexpected(pipeline.error()); }
+  auto areaPipeline = CreateComputePipeline(device, ComputeShaderId::RadianceAreaFilter);
+  if (!areaPipeline) { return std::unexpected(areaPipeline.error()); }
   auto sampler = device.CreateSampler({.Min = Native::Filter::Nearest,
                                        .Mag = Native::Filter::Nearest,
                                        .Mip = Native::Filter::Nearest,
@@ -91,6 +96,7 @@ Native::Result<void> RadianceFilter::Configure(Native::Device &device) {
                       .Message = "radiance sampler allocation returned no sampler"});
   }
   Pipeline_ = std::move(*pipeline);
+  AreaPipeline_ = std::move(*areaPipeline);
   Sampler_ = std::move(*sampler);
   Device_ = &device;
   return {};
@@ -101,11 +107,11 @@ Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
                                             Native::Texture &destination) const {
   const auto &from = source.Description();
   const auto &to = destination.Description();
-  if (!Pipeline_ || !Sampler_ || &source == &destination ||
+  if (!Pipeline_ || !AreaPipeline_ || !Sampler_ || &source == &destination ||
       !Valid({.Source = from, .Target = to})) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "radiance filter needs distinct linear HDR integer footprints"});
+                      .Message = "radiance filter needs distinct bounded linear HDR rasters"});
   }
   const std::array bindings{
       Native::Binding{
@@ -115,11 +121,19 @@ Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
       Native::Binding{
           .Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = {.Image = &destination}}}};
   constexpr auto shape = FindComputeShader(ComputeShaderId::RadianceFilter)->Shape;
+  constexpr auto areaShape = FindComputeShader(ComputeShaderId::RadianceAreaFilter)->Shape;
+  static_assert(shape.GroupX == areaShape.GroupX && shape.GroupY == areaShape.GroupY &&
+                shape.GroupZ == areaShape.GroupZ);
   constexpr uint32_t lanes = shape.GroupX * shape.GroupY;
   static_assert(shape.GroupZ == 1 && std::has_single_bit(lanes));
-  const bool cooperative = uint64_t{from.Width / to.Width} * (from.Height / to.Height) >= lanes;
+  const bool fractional = from.Width % to.Width != 0 || from.Height % to.Height != 0;
+  const auto footprint = [](uint32_t source, uint32_t target) {
+    return uint64_t{source / target} + (source % target == 0 ? 0u : 2u);
+  };
+  const bool cooperative =
+      footprint(from.Width, to.Width) * footprint(from.Height, to.Height) >= lanes;
   return commands.Dispatch(
-      *Pipeline_,
+      fractional ? *AreaPipeline_ : *Pipeline_,
       bindings,
       {.X = cooperative ? to.Width : (to.Width + shape.GroupX - 1) / shape.GroupX,
        .Y = cooperative ? to.Height : (to.Height + shape.GroupY - 1) / shape.GroupY,

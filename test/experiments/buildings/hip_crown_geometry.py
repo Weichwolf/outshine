@@ -12,6 +12,8 @@ from outshine_ref.buildings.rooflight_panels import triangle_surface
 from structural_shell_geometry import native
 from terraced_crown_plan import ROOF_MATERIAL
 
+HEIGHT_EPSILON_M = 1e-9
+
 
 @dataclass(frozen=True)
 class ClosedHip:
@@ -73,7 +75,10 @@ def build(crown):
     if solid.volume() <= 0:
         raise ValueError("Hip crown lacks a positive closed volume")
     low, high = mesh["vertices"][:, 2].min(), mesh["vertices"][:, 2].max()
-    if low < crown.deck_m - 1e-9 or abs(high - crown.top_m) > 1e-9:
+    if (
+        low < crown.deck_m - HEIGHT_EPSILON_M
+        or abs(high - crown.top_m) > HEIGHT_EPSILON_M
+    ):
         raise ValueError("Hip crown leaves its reserved source-height interval")
     origin, basis = chart(source)
     product = ClosedHip(

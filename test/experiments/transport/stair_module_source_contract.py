@@ -5,6 +5,7 @@ from collections import defaultdict
 import numpy as np
 import shapely
 from stair_landing_pads import node_profiles
+from stair_root_contact import profile_interiors
 from stair_shared_boxes import box_plans
 
 
@@ -41,11 +42,8 @@ def verify_source_contract(
 ):
     if recipe.get("cached_box_grids_m") and not cached_grids:
         raise ValueError("independently bound cached box grids required")
-    port = recipe.get("port", {})
-    include_interiors = (
-        recipe.get("contact_mode") == "seed"
-        or "vertex" in port
-        or bool(recipe.get("endpoint_contacts"))
+    include_interiors = profile_interiors(
+        dict(recipe, source_ids=[row["source_id"] for row in rows]), sources
     )
     expected, positions, root = shared_nodes(rows, sources, recipe, contacts)
     if (

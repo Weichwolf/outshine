@@ -95,12 +95,14 @@ def source_context(source_recipe):
 
 
 def reference_profiles():
-    return {
+    profiles = {
         p["kind"]: p
         for template in json.loads(PROFILES.read_text())["templates"]
         for p in template.get("osm", [])
         if p.get("layer") == "streets"
     }
+    profiles["shared_service"] = dict(profiles["service"], kind="shared_service")
+    return profiles
 
 
 def inputs(path=FIXTURE):

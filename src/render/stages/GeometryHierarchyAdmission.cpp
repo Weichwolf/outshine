@@ -131,7 +131,8 @@ AdmitGeometryHierarchy(const GeometryHierarchyInputs &inputs, const Native::Capa
                  .ChunkCapacity = static_cast<uint32_t>(chunks),
                  .ClusterCapacity = static_cast<uint32_t>(logical),
                  .WorstChunks = static_cast<uint32_t>(chunks),
-                 .GridWidth = width};
+                 .GridWidth = width,
+                 .LogicalCount = static_cast<uint32_t>(logical)};
   result.RootGroups = *rootGroups;
   result.ScanGroups = *scanGroups;
   result.IndexWords = static_cast<uint32_t>(indices);

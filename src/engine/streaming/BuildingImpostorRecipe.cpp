@@ -81,7 +81,7 @@ std::string BuildingImpostorSource::Recipe::Key() const {
   const auto duplicates = std::ranges::unique(cells);
   cells.erase(duplicates.begin(), duplicates.end());
   BinaryValueWriter out(kRecipeBytesMost);
-  if (!out.Text("building-complete-material-view-2") || !out.Text(BaseKey) ||
+  if (!out.Text("building-complete-original-view-4") || !out.Text(BaseKey) ||
       !out(Pixels, static_cast<uint32_t>(cells.size()))) {
     return {};
   }

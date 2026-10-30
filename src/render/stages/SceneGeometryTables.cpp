@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine::Render {
 namespace {
@@ -141,6 +142,7 @@ void GeometryRenderer::OrderPieces() {
       return MaterialSlotFor(left) < MaterialSlotFor(right);
     }
     if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
+    if (left.ProductOrder != right.ProductOrder) { return left.ProductOrder < right.ProductOrder; }
     return a < b;
   });
 }
@@ -184,11 +186,14 @@ bool GeometryRenderer::UploadTables(std::string &error) {
                                        .Bytes = static_cast<uint32_t>(values.size_bytes())};
   };
   const std::array<GeometryQueueState, 1> reset{};
+  std::vector<uint32_t> slots(Jobs_, std::numeric_limits<uint32_t>::max());
+  slots.resize(slots.size() + Batches.size(), kGeometryIndexCold);
   std::array cut{
       crossing(S::ClusterSpheres, std::span<const float>(TableSpheres_)),
       crossing(S::ClusterTemplates, std::span<const GeometryClusterTemplate>(TableTemplates_)),
       crossing(S::ClusterRoots, std::span<const GeometryRoot>(TableRoots_)),
       crossing(S::ClusterPrefix, std::span<const uint32_t>(Hierarchy_.ChunkPrefix)),
+      crossing(S::ClusterSlot, std::span<const uint32_t>(slots)),
       GeometryResidency::Crossing{.Which = S::ClusterReset,
                                   .Usage = Native::BufferUse::CopySource,
                                   .From = reset.data(),
@@ -204,7 +209,6 @@ bool GeometryRenderer::UploadTables(std::string &error) {
   const auto &view = Hierarchy_.View;
   const auto indirect = read | Native::BufferUse::Indirect;
   if (!grow(S::ClusterKept, Jobs_ * sizeof(uint32_t), read) ||
-      !grow(S::ClusterSlot, Jobs_ * sizeof(uint32_t), read) ||
       !grow(S::ClusterVisible, view.RootCount * sizeof(uint32_t), read) ||
       !grow(S::ClusterChunks, view.ChunkCapacity * sizeof(std::array<uint32_t, 2>), read) ||
       !grow(S::ClusterSelected, view.ClusterCapacity * sizeof(std::array<uint32_t, 2>), read) ||

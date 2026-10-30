@@ -153,7 +153,10 @@ void Compare(Device &device,
         "both atlas consumers retain identical regional uniforms");
 }
 
-PieceId Place(GeometryRenderer &geometry, float depth, const Mat4 &row = {}) {
+PieceId Place(GeometryRenderer &geometry,
+              float depth,
+              const Mat4 &row = {},
+              GeometryPasses passes = GeometryPasses::MainAndShadow) {
   constexpr std::array<Vec3f, 4> points{
       {{{-20, -20, 0}}, {{20, -20, 0}}, {{20, 20, 0}}, {{-20, 20, 0}}}};
   std::array<StoredVertex, 4> vertices;
@@ -163,6 +166,7 @@ PieceId Place(GeometryRenderer &geometry, float depth, const Mat4 &row = {}) {
     vertices[at] = StoredVertex::Of(point, {}, {{0, 0, 1}});
   }
   PieceMesh piece;
+  piece.Passes = passes;
   piece.Verts = vertices;
   piece.Indices = kIndices;
   piece.Row = row;
@@ -212,6 +216,44 @@ void Changes(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &
   CHECK(Read(device, partial) != retained, "the signed seam case actually changes native pixels");
   geometry.ReleasePiece(background);
   Compare(device, geometry, partial, full, frame);
+}
+
+void PiecePasses(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &full) {
+  FrameContext frame;
+  for (size_t axis = 0; axis < 3; ++axis) { frame.PreViewTranslation[axis] = -kAnchor[axis]; }
+  Compare(device, geometry, partial, full, frame);
+  const auto before = Read(device, partial);
+  const auto piece = Place(geometry, 0, {}, GeometryPasses::Main);
+  std::string error;
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.Casting() && Read(device, partial) == before,
+        "main-only publication retains every shadow texel without updating the atlas");
+  Mat4 row;
+  row[12] = 5;
+  CheckSceneUpload(geometry.SetPieceInstances(piece, std::span(&row, 1), error), error);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.Casting() && Read(device, partial) == before,
+        "main-only motion does not invalidate retained shadows");
+  CheckSceneUpload(geometry.SetPiecePasses(piece, GeometryPasses::Shadow, error), error);
+  Compare(device, geometry, partial, full, frame);
+  const auto shadow = Read(device, partial);
+  CHECK(shadow != before, "a shadow-only piece changes the actual retained depth atlas");
+  CheckSceneUpload(geometry.SetPiecePasses(piece, GeometryPasses::MainAndShadow, error), error);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.Casting() && Read(device, partial) == shadow,
+        "adding main participation preserves shadow-only depth without recomputation");
+  CheckSceneUpload(geometry.SetPiecePasses(piece, GeometryPasses::Shadow, error), error);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.Casting(), "removing main participation preserves the shadow cache");
+  CheckSceneUpload(geometry.SetPiecePasses(piece, GeometryPasses::Main, error), error);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(Read(device, partial) == before,
+        "removing shadow participation invalidates retained depth");
+  geometry.ReleasePiece(piece);
+  Compare(device, geometry, partial, full, frame);
+  CHECK(!partial.Shadow.Casting(), "main-only retirement preserves the shadow cache");
+  CHECK(!geometry.SetPiecePasses(piece, GeometryPasses::Shadow, error),
+        "a released piece cannot change participation");
 }
 
 void Materials(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &full) {
@@ -326,6 +368,7 @@ int main() {
   Atlas partial(geometry, gpu);
   Atlas full(geometry, gpu);
   Changes(device, geometry, partial, full);
+  PiecePasses(device, geometry, partial, full);
   Materials(device, geometry, partial, full);
   const auto *const atlas = partial.Shadow.Atlas();
   const bool submitted = partial.Shadow.HasSubmittedData();

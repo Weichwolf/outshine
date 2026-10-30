@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <span>
 #include <vector>
 
@@ -56,9 +57,9 @@ void Coherent(const RoofSurface &roof, std::span<const EastNorth> triangles) {
 
 BuildingShape Triangle() {
   BuildingShape shape;
-  shape.Ring = {{0, 0}, {12, 0}, {0, 9}};
-  shape.Centre = {6, 4.5};
-  shape.AxisU = {1, 0};
+  shape.Ring = {{.EastM = 0, .NorthM = 0}, {.EastM = 12, .NorthM = 0}, {.EastM = 0, .NorthM = 9}};
+  shape.Centre = {.EastM = 6, .NorthM = 4.5};
+  shape.AxisU = {.EastM = 1, .NorthM = 0};
   shape.HalfUm = 6;
   shape.HalfVm = 4.5;
   shape.AreaM2 = 54;
@@ -79,7 +80,10 @@ void TriangleAndClip() {
   for (const auto p : shape.Ring) {
     CHECK_NEAR(roof.HeightAt(p), 0, 1e-9, "roof metres", "all actual eaves stay level");
   }
-  const std::array<EastNorth, 4> clip{{{0, 0}, {4, 0}, {4, 6}, {0, 6}}};
+  const std::array<EastNorth, 4> clip{{{.EastM = 0, .NorthM = 0},
+                                       {.EastM = 4, .NorthM = 0},
+                                       {.EastM = 4, .NorthM = 6},
+                                       {.EastM = 0, .NorthM = 6}}};
   triangles.clear();
   CHECK(roof.Cover(clip, scratch, triangles),
         "requested roof subregion is clipped to native facets");
@@ -105,8 +109,14 @@ void CourtyardAndPreparation() {
       shape.RiseM, 1.5, 1e-9, "roof metres", "rise follows actual inradius and allowed slope");
   CHECK(RoofSurface::PrepareHip(shape).has_value() && prepared == shape.HipRoof,
         "repeated preparation reuses immutable plan instead of rebuilding skeleton");
-  shape.Ring = {{0, 0}, {20, 0}, {20, 20}, {0, 20}};
-  shape.Holes = {{{8, 8}, {8, 12}, {12, 12}, {12, 8}}};
+  shape.Ring = {{.EastM = 0, .NorthM = 0},
+                {.EastM = 20, .NorthM = 0},
+                {.EastM = 20, .NorthM = 20},
+                {.EastM = 0, .NorthM = 20}};
+  shape.Holes = {{{.EastM = 8, .NorthM = 8},
+                  {.EastM = 8, .NorthM = 12},
+                  {.EastM = 12, .NorthM = 12},
+                  {.EastM = 12, .NorthM = 8}}};
   shape.HipRoof.reset();
   shape.RiseM = 2;
   CHECK(RoofSurface::PrepareHip(shape).has_value(),

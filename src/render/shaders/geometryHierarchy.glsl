@@ -14,9 +14,11 @@ layout(std140, set = 2, binding = GEOMETRY_HIERARCHY_BINDING) uniform GeometryHi
   uvec4 counts;
   uvec4 work;
 } hierarchy;
+const uint kGeometryIndexCold = 2u;
 const uint kGeometryChunkClusters = 64u;
 const uint kGeometryRootBound = 1u;
 const uint kGeometryUnboundedDeformation = 2u;
+const uint kGeometryShadowOnly = 4u;
 uint geometryGroup() {
   return gl_WorkGroupID.y * hierarchy.work.y + gl_WorkGroupID.x;
 }

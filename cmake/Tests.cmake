@@ -2,7 +2,22 @@ file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-output")
 file(STRINGS "${PROJECT_SOURCE_DIR}/test/world-gate.txt" gate_scopes)
 file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/test/outshine/integration/*.cpp")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  list(FILTER cases EXCLUDE REGEX "/native/vulkan/(PresentLease|GraphicsPrograms|SwapchainRetirement)/")
+endif()
 add_custom_target(outshine_tests)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  foreach(probe IN ITEMS NativeDescriptorProbe NativeDepthClampProbe VulkanWorkProfilePresence)
+    add_executable(test_harness_${probe} EXCLUDE_FROM_ALL
+      "${PROJECT_SOURCE_DIR}/test/harness/render/${probe}.cpp")
+    target_include_directories(test_harness_${probe} PRIVATE
+      "${PROJECT_SOURCE_DIR}"
+      "${PROJECT_SOURCE_DIR}/test/harness/shared"
+      "${PROJECT_SOURCE_DIR}/src/render/device/native/vulkan")
+    target_compile_options(test_harness_${probe} PRIVATE -fno-exceptions)
+    target_link_libraries(test_harness_${probe} PRIVATE outshine_render_device Vulkan::Vulkan)
+  endforeach()
+endif()
 add_custom_target(outshine_gate)
 add_dependencies(outshine_gate outshine)
 set(pipeline_test_shaders ${OUTSHINE_SHADER_ARTIFACTS})
@@ -21,6 +36,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/engine/frame/FrameCoordinator/ClaimFailureKeepsResidentGeometry
   outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
   outshine/src/render/pipelines/PipelineShape/ShaderReflectionRejectsWrongBindings
   outshine/integration/render/scene/RenderScene/ViewsShareTerrainWithoutRebuilding
@@ -67,6 +83,34 @@ foreach(source IN LISTS cases)
   if(name MATCHES "^outshine/integration/generators/transport/CanonicalGroundPorts/")
     target_link_libraries(${target} PRIVATE outshine_generators_road_height
       outshine_generators_terrain outshine_generators_terrain_inputs outshine_generators_terrain_providers ZLIB::ZLIB)
+  endif()
+  if(name STREQUAL "outshine/src/render/device/native/vulkan/GraphicsPrograms/LivingProgramsKeepIndependentWrappersAndFences")
+    set(graphics_reuse_shaders "")
+    foreach(stage IN ITEMS vert frag)
+      set(output "${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${output}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/graphics-reuse.${stage}" -o "${output}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/graphics-reuse.${stage}"
+        VERBATIM)
+      list(APPEND graphics_reuse_shaders "${output}")
+    endforeach()
+    add_custom_target(test_graphics_reuse_shaders DEPENDS ${graphics_reuse_shaders})
+    add_dependencies(${target} test_graphics_reuse_shaders)
+    target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_GRAPHICS_VERTEX=\"${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.vert.spv\""
+      "OUTSHINE_GRAPHICS_FRAGMENT=\"${PROJECT_BINARY_DIR}/test-shaders/graphics-reuse.frag.spv\"")
+  endif()
+  if(name STREQUAL "outshine/src/render/device/native/vulkan/SwapchainRetirement/StartupFailuresPreserveOwnership")
+    target_link_options(${target} PRIVATE "-Wl,--wrap=pthread_create")
+  endif()
+  if(name STREQUAL "outshine/src/render/device/native/vulkan/SwapchainRetirement/PartialSwapchainsRetireWithoutBlockingNewTargets")
+    target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS} Vulkan::Vulkan)
+  endif()
+  if(name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema" AND CMAKE_DL_LIBS)
+    target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
   endif()
   if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
     set(indirect_shaders "")
@@ -334,6 +378,13 @@ add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
   test/experiments/transport/native_transport_facts_json.cpp)
 target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_test(NAME outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    COMMAND $<TARGET_FILE:test_outshine_src_generators_osm_MvtTransportSnapshot_OriginalPointFactsMatchIndependentWire>
+      provider-unavailable)
+  set_tests_properties(outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
+    PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" LABELS "generators/osm")
+endif()
 add_dependencies(outshine_tests test_harness_transport_source_export)
 add_dependencies(outshine_gate test_harness_transport_source_export)
 add_test(NAME experiments/transport/NativeSourceFactsExport
@@ -355,6 +406,24 @@ endif()
 
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
+add_library(test_harness_stored_sample_quads STATIC EXCLUDE_FROM_ALL
+  test/harness/render/StoredSampleQuads.cpp)
+target_compile_options(test_harness_stored_sample_quads PRIVATE -fno-exceptions)
+target_link_libraries(test_harness_stored_sample_quads PUBLIC outshine_render)
+
+add_executable(test_experiments_render_StoredSampleQuads EXCLUDE_FROM_ALL
+  test/experiments/render/test_stored_sample_quads.cpp)
+target_include_directories(test_experiments_render_StoredSampleQuads PRIVATE
+  "${PROJECT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/test/harness/shared")
+target_compile_options(test_experiments_render_StoredSampleQuads PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_StoredSampleQuads PRIVATE
+  test_harness_stored_sample_quads)
+add_dependencies(outshine_tests test_experiments_render_StoredSampleQuads)
+add_test(NAME experiments/render/StoredSampleQuads
+  COMMAND $<TARGET_FILE:test_experiments_render_StoredSampleQuads>)
+set_tests_properties(experiments/render/StoredSampleQuads PROPERTIES
+  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/render")
+
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
   test/experiments/render/BuildingSourceCapture.cpp
@@ -362,6 +431,19 @@ add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
   test/experiments/render/native_building_source_planes.cpp
   test/experiments/render/BuildingSourceCapture.cpp)
+add_executable(test_experiments_render_NativeBuildingOriginals EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_originals.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
+target_compile_options(test_experiments_render_NativeBuildingOriginals PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingOriginals PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
+add_executable(test_experiments_render_NativeBuildingSourceFields EXCLUDE_FROM_ALL
+  test/experiments/render/native_building_source_fields.cpp
+  test/experiments/render/BuildingSourceCapture.cpp)
+add_dependencies(test_experiments_render_NativeBuildingSourceFields outshine_shaders)
+target_compile_options(test_experiments_render_NativeBuildingSourceFields PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeBuildingSourceFields PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
 add_dependencies(test_experiments_render_NativeBuildingSourcePlanes outshine_shaders)
 target_compile_options(test_experiments_render_NativeBuildingSourcePlanes PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingSourcePlanes PRIVATE
@@ -383,6 +465,7 @@ target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVA
   "${PROJECT_SOURCE_DIR}")
 target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  test_harness_stored_sample_quads
   outshine_core PkgConfig::nlohmann_json)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingParents PRIVATE

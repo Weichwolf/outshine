@@ -8,6 +8,8 @@ from stair_blend_solve import solve
 from stair_free_terrain import retained_seeds
 from stair_module_topology import check_surface
 from stair_pier_ground import fixed
+from stair_terrain_diagonals import repair_diagonals
+from stair_terrain_overlap import remove_covered_duplicates
 from stair_terrain_solid import retaining_body
 
 
@@ -55,6 +57,7 @@ def tessellate(old_xy, seed_ids, fixed_triangles, free_parts):
     cross = a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0]
     faces, cross = faces[cross != 0], cross[cross != 0]
     faces[cross < 0] = faces[cross < 0, ::-1]
+    faces, overlap = remove_covered_duplicates(xy, faces)
     used, mapped = np.unique(faces, return_inverse=True)
     return (
         xy[used],
@@ -66,6 +69,7 @@ def tessellate(old_xy, seed_ids, fixed_triangles, free_parts):
             "unique_xy_bytes": unique.nbytes,
             "raw_to_unique_bytes": inverse.nbytes,
             "unused_vertices_removed": len(xy) - len(used),
+            **({"covered_duplicate_facets": overlap} if overlap else {}),
         },
     )
 
@@ -126,11 +130,26 @@ def prepare(state, data, ground, recipe, sample):
         or region.symmetric_difference(shapely.union_all(polygons)).area > 1e-7
     ):
         raise ValueError("local terrain lost original coverage")
-    check_surface(xy, faces)
     actual_ground = shapely.union_all(
         shapely.polygons(np.vstack([old_ground, new_tri])[:, :, :2])
     )
     kinds = shapely.covers(actual_ground, shapely.point_on_surface(polygons))
+    classes = np.where(
+        kinds,
+        1,
+        np.where(
+            shapely.covers(protected_shape, shapely.point_on_surface(polygons)), 2, 0
+        ),
+    )
+    faces, diagonals = repair_diagonals(xy, faces, classes)
+    check_surface(xy, faces)
+    if diagonals:
+        work["terrain_diagonals"] = diagonals
+        polygons = shapely.polygons(xy[faces])
+        if not np.array_equal(
+            kinds, shapely.covers(actual_ground, shapely.point_on_surface(polygons))
+        ):
+            raise ValueError("terrain diagonal changed an actual ground class")
     references.append(Mesh(new_bed, data["surface_faces"]))
     values = sampled_pins(xy, references)
     if (

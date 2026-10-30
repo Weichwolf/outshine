@@ -1,0 +1,43 @@
+{
+  "source_id": "openfreemap:14/8937/5678:transportation:9609826400:1",
+  "source_commit": "d5fcb33d0a7ff652fa96b08dcc3ebe60ce224838",
+  "whole_fixture": "stair-service-shared-profile-refusal-vienna.json",
+  "original_face": 12,
+  "vertices": [
+    [
+      -540.47607421875,
+      791.6220703125,
+      162.1804510337416
+    ],
+    [
+      -538.99169921875,
+      792.55078125,
+      162.2326024726023
+    ],
+    [
+      -540.47607421875,
+      791.62255859375,
+      162.18046028641822
+    ]
+  ],
+  "faces": [
+    [
+      0,
+      1,
+      2
+    ]
+  ],
+  "grade_frames": [
+    [
+      [
+        4.422478162139514,
+        -7.06301149297122
+      ],
+      [
+        28.25204597188488,
+        17.689912648558057
+      ]
+    ]
+  ],
+  "scope": "Exact original thin face and nominal profile frame, not a complete source or global quantization bound"
+}

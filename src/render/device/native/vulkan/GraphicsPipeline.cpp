@@ -194,20 +194,40 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
   return {};
 }
 
-Result<std::unique_ptr<GraphicsPipeline>> CreateGraphics(std::shared_ptr<Context> context,
-                                                         const GraphicsDescription &description) {
-  if (auto valid = CheckGraphics(*context, description); !valid) {
+namespace {
+std::shared_ptr<GraphicsState> StateFor(std::shared_ptr<PipelineState> pipeline,
+                                        const GraphicsLayout &layout,
+                                        const GraphicsDescription &description) {
+  auto state = std::make_shared<GraphicsState>();
+  state->Pipeline = std::move(pipeline);
+  for (const auto &binding : layout.Bindings) { state->Bindings.push_back(binding.Resource); }
+  state->Streams.assign(description.Streams.begin(), description.Streams.end());
+  state->Attributes.assign(description.Attributes.begin(), description.Attributes.end());
+  state->Colours.assign(description.Colours.begin(), description.Colours.end());
+  state->Depth = description.Depth;
+  return state;
+}
+}
+
+Result<std::unique_ptr<GraphicsPipeline>>
+GraphicsPrograms::Create(const GraphicsDescription &description) {
+  if (auto owner = CheckOwner(*Context_); !owner) { return std::unexpected(owner.error()); }
+  if (auto valid = CheckGraphics(*Context_, description); !valid) {
     return std::unexpected(valid.error());
   }
-  auto reflected = ReflectGraphics(*context, description);
+  auto recipe = GraphicsRecipe::From(description);
+  if (auto found = Find(recipe)) {
+    auto state = StateFor(std::move(found->Pipeline), found->Layout, description);
+    return std::make_unique<VulkanGraphicsPipeline>(std::move(state), std::move(found->Layout));
+  }
+  auto reflected = ReflectGraphics(*Context_, description);
   if (!reflected) { return std::unexpected(reflected.error()); }
-  auto state = std::make_shared<GraphicsState>();
-  state->Pipeline = std::make_shared<PipelineState>();
-  state->Pipeline->Owner = std::move(context);
-  state->Pipeline->Images = std::move(reflected->Images);
+  auto native = std::make_shared<PipelineState>();
+  native->Owner = Context_;
+  native->Images = std::move(reflected->Images);
+  auto state = StateFor(std::move(native), reflected->Layout, description);
   std::vector<VkShaderStageFlags> stages;
   for (const auto &binding : reflected->Layout.Bindings) {
-    state->Bindings.push_back(binding.Resource);
     const auto flags = static_cast<uint32_t>(binding.Stages);
     stages.push_back(
         ((flags & static_cast<uint32_t>(ShaderStage::Vertex)) != 0 ? VK_SHADER_STAGE_VERTEX_BIT
@@ -215,16 +235,13 @@ Result<std::unique_ptr<GraphicsPipeline>> CreateGraphics(std::shared_ptr<Context
         ((flags & static_cast<uint32_t>(ShaderStage::Fragment)) != 0 ? VK_SHADER_STAGE_FRAGMENT_BIT
                                                                      : 0u));
   }
-  state->Streams.assign(description.Streams.begin(), description.Streams.end());
-  state->Attributes.assign(description.Attributes.begin(), description.Attributes.end());
-  state->Colours.assign(description.Colours.begin(), description.Colours.end());
-  state->Depth = description.Depth;
   if (auto layouts = CreateLayouts(*state->Pipeline, state->Bindings, stages); !layouts) {
     return std::unexpected(layouts.error());
   }
   if (auto pipeline = BuildGraphics(*state, description); !pipeline) {
     return std::unexpected(pipeline.error());
   }
+  Remember(std::move(recipe), state->Pipeline, reflected->Layout);
   return std::make_unique<VulkanGraphicsPipeline>(std::move(state), std::move(reflected->Layout));
 }
 

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:4935280960:0",
+    "openfreemap:14/8937/5678:transportation:81129490:4",
+    "openfreemap:14/8937/5678:transportation:81129490:5"
+  ],
+  "deck_thickness_m": 0.6,
+  "construction_reserve_m": 0.02,
+  "along_grade": 0.04,
+  "cross_grade": 0.03,
+  "scope": "Whole original elevated subway source slab candidate; source roles retained. Bed width from existing profiles, thickness/gradient and construction reserve are procedural assumptions, no legal/structural/curvature/routing/World/consumer admission."
+}

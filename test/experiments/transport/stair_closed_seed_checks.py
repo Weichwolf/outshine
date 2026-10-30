@@ -8,7 +8,8 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
-from stair_closed_height_rounding import MAX_REPAIR_M, correct, normalized_grade, verify
+from stair_closed_height_rounding import verify
+from stair_height_contraction import MAX_REPAIR_M, correct, normalized_grade
 from stair_module_roots import root_profile
 from stair_seed_audit import audit
 from stair_seed_axes import axis_form

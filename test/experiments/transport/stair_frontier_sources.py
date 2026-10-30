@@ -1,4 +1,4 @@
-"""Explicit ordinary-ground eligibility and actual cached-interior seed binding."""
+"""Explicit ordinary-ground eligibility and bounded actual cached-profile recipes."""
 
 from collections import defaultdict
 
@@ -6,11 +6,11 @@ import numpy as np
 import shapely
 from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 from stair_frontier_endpoints import endpoint_bindings
+from stair_frontier_roots import root_seeds
 from stair_module_inputs import reference_profiles
-from stair_module_roots import root_profile
 
 
-def reason(source, cached, domain, profiles):
+def reason(source, cached, domain, profiles, *, requested=None, work=None):
     if source["source_id"] in cached:
         return "already_cached"
     props = source["properties"]
@@ -30,23 +30,71 @@ def reason(source, cached, domain, profiles):
     ):
         return "whole_axis_geometry_budget_or_degeneracy"
     half = profiles["unclassified" if ordinary else kind]["widthM"] / 2
+    if requested is not None:
+        bounds, query = source["shape"].bounds, requested.bounds
+        guard = 64 * np.finfo(float).eps * max(1.0, *map(abs, bounds))
+        # GEOS clips a limited mitre on a segment centred at 2r with half-length r.
+        # Its endpoints can reach sqrt(5)r, beyond the nominal mitre limit 2r.
+        reach = np.hypot(2.0, 1.0) * half + guard
+        if work is not None:
+            work["request_bounds_tests"] += 1
+        if (
+            bounds[2] + reach < query[0]
+            or bounds[3] + reach < query[1]
+            or bounds[0] - reach > query[2]
+            or bounds[1] - reach > query[3]
+        ):
+            if work is not None:
+                work["request_bounds_rejections"] += 1
+            return "outside_requested_source_bounds"
+    if work is not None:
+        work["corridor_builds"] += 1
     band = source["shape"].buffer(
         half, cap_style="flat", join_style="mitre", mitre_limit=2
     )
+    if requested is not None and not requested.intersects(band):
+        return "outside_requested_source_bounds"
     if not domain.covers(band):
         return "outside_current_complete_terrain"
     return ""
 
 
-def records_for(state, sources):
+def records_for(state, sources, *, requested_bounds=None, work=None):
+    requested = None
+    if requested_bounds is not None:
+        bounds = np.asarray(requested_bounds, float)
+        if (
+            bounds.shape != (4,)
+            or not np.isfinite(bounds).all()
+            or abs(bounds).max() > 1e6
+            or np.any(bounds[:2] >= bounds[2:])
+        ):
+            raise ValueError("bounded finite nonempty requested source bounds required")
+        requested = shapely.box(*bounds)
+    if work is not None:
+        work.update(
+            source_headers=len(sources),
+            request_bounds_tests=0,
+            request_bounds_rejections=0,
+            corridor_builds=0,
+        )
     xy = state["plan"]["xy"]
     domain = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
-    cached = set(state["report"]["candidate_source_ids"])
+    cached = set(
+        state.get("resident_source_ids", state["report"]["candidate_source_ids"])
+    )
     profiles = reference_profiles()
     records = []
     for key in sorted(sources):
         source = sources[key]
-        why = reason(dict(source, source_id=key), cached, domain, profiles)
+        why = reason(
+            dict(source, source_id=key),
+            cached,
+            domain,
+            profiles,
+            requested=requested,
+            work=work,
+        )
         records.append(
             {
                 "source_id": key,
@@ -57,35 +105,6 @@ def records_for(state, sources):
             }
         )
     return records
-
-
-def root_seeds(state, sources, records, *, max_profiles=64):
-    if type(max_profiles) is not int or not 0 <= max_profiles <= 64:
-        raise ValueError("bounded actual profile probe capacity required")
-    endpoints = defaultdict(list)
-    for row in records:
-        if row["eligible"]:
-            for end in (0, -1):
-                endpoints[tuple(row["nodes"][end])].append(row["source_id"])
-    roots, deferred = [], []
-    for key in sorted(state.get("cached_module_rows", {})):
-        for vertex, node in enumerate(sources[key]["mvt_xy"][1:-1], 1):
-            if tuple(node) not in endpoints:
-                continue
-            port = {"source_id": key, "vertex": vertex}
-            root_id = key + "@" + str(vertex)
-            if len(roots) + len(deferred) >= max_profiles:
-                deferred.append(
-                    {"root_id": root_id, "reason": "verified_seed_probe_budget"}
-                )
-                continue
-            try:
-                root_profile(state, {"port": port, "contact_mode": "profile"}, sources)
-            except ValueError as error:
-                deferred.append({"root_id": root_id, "reason": str(error)})
-                continue
-            roots.append({"root_id": root_id, "node": node, "port": port})
-    return roots, deferred
 
 
 def contact_bindings(state, sources, root, keys):
@@ -116,6 +135,8 @@ def contact_bindings(state, sources, root, keys):
 
 def module_recipe(reference, state, sources, root, proposal):
     keys = proposal["source_ids"]
+    if root.get("initial_source_id", keys[0]) != keys[0]:
+        raise ValueError("whole-source prefix must retain its explicit first source")
     profiles = {
         key: "unclassified"
         for key in keys
@@ -135,9 +156,14 @@ def module_recipe(reference, state, sources, root, proposal):
         "contact_mode": "profile",
         "traffic_mode": "source_clearance",
         "junction_mode": "level_box",
+        **({"terrain_layout_mode": "free_region"} if root.get("endpoint") else {}),
         "interior_contacts": interiors,
         **({"endpoint_contacts": endpoints} if endpoints else {}),
-        "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory.",
+        "scope": (
+            "Automatically proposed whole original ground sources at a verified cached outer profile; whole geometry admission remains mandatory."
+            if root.get("endpoint")
+            else "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory."
+        ),
     }
 
 

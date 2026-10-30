@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -79,6 +80,22 @@ struct BuildingCornerHash {
 };
 
 struct BuildingScratch final : MeshScratch {
+  struct TriangleBudget {
+    uint64_t Remaining = 0;
+    bool Exhausted = false;
+
+    [[nodiscard]] bool Take() noexcept {
+      if (Remaining == 0) {
+        Exhausted = true;
+        return false;
+      }
+      --Remaining;
+      return true;
+    }
+  };
+
+  std::optional<TriangleBudget> Triangles;
+
   FlatMap<uint32_t, BuildingPositionKey, BuildingPositionHash> Welded;
   std::array<FlatMap<uint32_t, BuildingCornerKey, BuildingCornerHash>, 2> Corners;
 

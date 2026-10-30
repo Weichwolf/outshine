@@ -5,6 +5,11 @@ This diagnostic uses fixed source geometry, capture directions, lighting and que
 It does not admit a World LOD, source occluder, smaller error bound or frame budget.
 Unsupported original sources retain the original manifest's unresolved status.
 
+The original-capture mode accepts `capture_pixels` (default128) and optional
+`capture_half_extent_m`. The view count follows `catalogue`; source geometry and
+the Baker's extent validation stay unchanged. Keep centre, extent, rays and clips
+fixed when comparing capture densities (#1756).
+
 Every base draw writes `.linear`, `.depth`, `.normal` and `.rgba`. The `.normal`
 file is the unchanged shading-normal attachment: 1280×720 row-major Float32×4,
 native byte order (little-endian on both target devices). XYZ is the scene-space
@@ -85,6 +90,24 @@ Source-mesh mode consumes the indexed geometry exported by
 for each unchanged query. A part's optional `material` role defaults to its array
 index, preserving the original three-part input. It compares actual source-patch
 geometry with cards; no source mesher, silhouette fitting or World LOD admission.
+
+For #1752, `--source-mesh` also accepts input JSON `stored_samples: true`,
+`atlas_file`, `atlas_sha256`, and optional `atlas_provenance` (default
+`native-original-impostor-1`). It draws diagnostic `Test::StoredSampleQuads` through
+the same native geometry/PBR/depth path. This branch needs no original geometry
+directory; the independent reference still loads its complete original meshes.
+The diagnostic uses no production renderer switch or additional asset format.
+An optional query `capture` uses the existing explicit camera description, including
+orthographic rays and clipping, for a same-ray control against perspective changes.
+
+`export_building_depth_samples.py --original "$original" --samples "$samples"
+--native-commit "$product_commit" --output "$output"` exports matching source-mesh
+runs. It retains base colour/depth/normal and the actual microcamera average,
+rejects crops that remove content, and binds full readback/geometry/driver hashes.
+Both directories require the actual successful `qualified-command.json` run receipt
+with `exit`, `binary_sha256` and `driver_sha256`; exporter-time source state is not
+substituted for the program that produced the images.
+The small shared native counterexample is `test/outshine/data/render/building-depth-samples/`.
 
 The metadata index contains fixed capture directions and source extent. Selection
 uses eye direction and the projected bounding sphere before product IO. Stored keys
@@ -259,3 +282,54 @@ Compare SS16/1024/4096 before attributing a discrepancy to the new representatio
 none is a continuous-integral bound or permission to regenerate existing pins.
 Movement/history, angular error, changed-light scheduling, bounded World residency
 and whole-frame costs remain open under #1570/#1127/#1524.
+
+`--radiance-world` accepts query `support_plane: "fitted"`; default `"capture"`
+preserves the archived control. Native bounded Givens-QR fits all occupied depths
+once per retained source. Source changes invalidate it; pose/light changes reuse
+its three coefficients with the resident source. Geometry changes only physical
+support; capture UV, one coupled prefix and two triangles remain. The output binds
+active coefficients, source point count, normalized RMS and fit wall time. RMS is
+not a surface bound or depth authority. Changing support alone reuses radiance;
+the source/light key stays independent of support placement. Inputs, original
+opponents and existing shader filtering remain unchanged.
+
+`field_lighting` chooses `capture` (the existing default) or `viewer`. Viewer uses
+exactly the query camera used by the original geometry draw and projected support,
+including an explicit `capture` override. Source raster rays remain unchanged.
+The retained radiance key binds the perspective eye or orthographic direction;
+focal changes, perspective rotation at the same eye and orthographic translation
+reuse the PBR result. Source GPU data and the source-only support fit remain held
+across observer/light changes. `lighting_observer` records the actual producer
+binding, including on reuse. This is an explicit finite diagnostic, not World
+pose admission or a relight-every-frame policy.
+
+```sh
+python test/experiments/render/replay_radiance_observer.py \
+  --client "$build/test_experiments_render_NativeBuildingImpostors" \
+  --warm "$stored_field_run" --output "$new_system_temp_directory"
+```
+
+The replay checks source-free loading, changed and irrelevant PBR inputs, unchanged
+capture depth/rays, the default control and invalid observer rejection. It keeps
+losslessly verified compressed readbacks. Its timing is diagnostic; it establishes
+no World, pose, shadow, p99 or total memory budget.
+
+The radiance sequence retains one RuntimeScene. Camera, light, source and image
+changes prepare a replacement through the existing piece/material APIs; only a
+fully placed replacement releases the previous instances. No WorldCandidate or
+RuntimeScene reconstruction occurs at a query handoff. `scene_creations`,
+`piece_sources`, `piece_slots`, `geometry_held_bytes` and the current Metal
+allocation report describe this live scene, rather than resetting it per query.
+One deliberately malformed two-view replacement checks partial rollback: the
+first view prepares, the second fails, and the old representation still renders
+byte-identical linear colour with the same live piece count. `rejected_handoffs`
+records this explicit diagnostic control; it is outside the measured samples.
+
+Radiance cards explicitly use `GeometryPasses::Main`. Their planar geometry does
+not cast shadows or invalidate the shadow atlas on view changes. The separate
+native Piece/Shadow tests cover main/shadow participation and retained atlas data;
+this diagnostic does not establish shadow authority for the original source group.
+
+The diagnostic still waits for setup, timing and readback. This validates live
+publication/leases; it is not an asynchronous World-demand adapter, general
+representation admission or a 60fps budget result.

@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "owner_issue": 1759,
+  "native_mode": "source-mesh, stored_samples=true",
+  "native_terminal_exit": 0,
+  "native_binary_sha256": "bd295bc6351f558b2f0f0a51d89372bb48f74ea35c75516d45d3badef4020707",
+  "parent_atlas_sha256": "795a1cf4bbfe9be86e8b5dbf475f4023684d050c4edf7f53a36739c8646e92ef",
+  "source_fields_manifest_sha256": "c7dd0301615b76b0a7d041a5acdb27fd48d565b4769463ed3de6d19116787b88",
+  "original_control_manifest_sha256": "02d7eb7aa269000219e3a63b76593dbbffadd8a98c22a9e26197c6fa9ddc78df",
+  "query": {
+    "name": "px32-yaw0",
+    "eye": [
+      2369.974738269353,
+      12215.335746934641,
+      17393.953122333158
+    ],
+    "basis": [
+      [
+        1.0,
+        0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        0.7071067811865475,
+        -0.7071067811865475
+      ],
+      [
+        -0.0,
+        -0.7071067811865475,
+        -0.7071067811865475
+      ]
+    ],
+    "focal_px": 720,
+    "sun_elevation_deg": 45,
+    "filter_axis_samples": 64
+  },
+  "raster": [
+    1280,
+    720
+  ],
+  "crop": [
+    576,
+    312,
+    704,
+    408
+  ],
+  "dtype": "little-endian Float32",
+  "encoding": "scene-linear premultiplied RGBA; reverse-Z depth; base shading normals; SS64 colour average",
+  "native_report": {
+    "cases": [
+      {
+        "device": "Apple A18 Pro",
+        "field_filter_gpu_ms": null,
+        "filter_axis_samples": 64,
+        "gpu_ms": [
+          0.7649583276361227,
+          0.7024998776614666,
+          0.699999975040555,
+          0.70349988527596,
+          0.6994998548179865,
+          0.6931249517947435,
+          0.7032083813101053,
+          0.7009999826550484,
+          0.7040000054985285,
+          0.6965415086597204,
+          0.7049166597425938,
+          0.6949999369680882,
+          0.7088750135153532,
+          0.6943333428353071,
+          0.6924583576619625,
+          0.6955831777304411,
+          0.698750140145421,
+          0.705749960616231,
+          0.6982916966080666,
+          0.6960832979530096,
+          0.7022498175501823,
+          0.6980001926422119,
+          0.6984998472034931,
+          0.7035834714770317
+        ],
+        "image_storage_bytes": 8388608,
+        "images": 2,
+        "normal_sum": [
+          4.696373105049133,
+          79.41241884231567,
+          76.21645021438599
+        ],
+        "query": "px32-yaw0",
+        "selected_view": 0,
+        "setup_ms": 195.422583,
+        "triangles": 86098,
+        "vertices": 172196
+      }
+    ],
+    "mode": "source-mesh"
+  },
+  "native_buffers": {
+    "px32-yaw0-source-mesh.linear": {
+      "array": "linear",
+      "full_sha256": "6aee300955cdded30a41453965df79cbecda73c5d961865081a7a440347a741c",
+      "full_bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "crop_sha256": "e058d4632ac26e3626642e2b78a51ca7f3376cb6556943ed45788abf3881147d",
+      "shape": [
+        96,
+        128,
+        4
+      ]
+    },
+    "px32-yaw0-source-mesh.depth": {
+      "array": "depth",
+      "full_sha256": "0008d65c834d862beb86f8aa5e0f26aeaa4223d235cc5baf5a15617e7d749bf8",
+      "full_bytes": 3686400,
+      "clear": [
+        0.0
+      ],
+      "crop_sha256": "dc5f17abf9e1cf88949d525052013c9f68ac52bbbbe989caf9393dd594d6cba6",
+      "shape": [
+        96,
+        128,
+        1
+      ]
+    },
+    "px32-yaw0-source-mesh.normal": {
+      "array": "normal",
+      "full_sha256": "1ec83322e3f25b381079ca213c08bdb94e1289656cfe84ef2590d3e278423dca",
+      "full_bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "crop_sha256": "8a53156cebd42ffb3e66f248a589b58972fbae3418be6a04fb1a99688330bf36",
+      "shape": [
+        96,
+        128,
+        4
+      ]
+    },
+    "px32-yaw0-source-mesh.ss4096": {
+      "array": "ss4096",
+      "full_sha256": "cbe3a257f39d05d955a523064a9f444a713facddec2b34ee078ff29b72334ac6",
+      "full_bytes": 14745600,
+      "clear": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "crop_sha256": "096762eaf240743261f6085ab7a7cb18176eb2cbfec523ae78ea4caf5ceed9f3",
+      "shape": [
+        96,
+        128,
+        4
+      ]
+    }
+  },
+  "npz_sha256": "736d175b416752b8aba60e1311e7cc4d3109e3558ab35fc10f7ef9fa8b943cc5",
+  "npz_bytes": 9445,
+  "scope": "Exact archived 512 depth-preserving StoredSample query with perspective PBR; no new native run, no World/SSE/p99 admission. Source capture/Fieldd485 linkage is in source_fields_manifest."
+}

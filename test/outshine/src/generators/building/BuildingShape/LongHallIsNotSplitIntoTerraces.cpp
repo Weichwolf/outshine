@@ -4,17 +4,18 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <numbers>
 
 namespace {
 
-[[nodiscard]] std::array<double, 8> Rectangle(double lengthM, double widthM) {
+[[nodiscard]] std::array<double, 8> Rectangle(const std::array<double, 2> &sizeM) {
   constexpr double kMetresPerDegree = 111320.0;
   constexpr double kLatitudeDeg = 49.3274;
   constexpr double kLongitudeDeg = 8.5659;
   const double eastDeg =
-      lengthM / (kMetresPerDegree * std::cos(kLatitudeDeg * std::numbers::pi / 180.0));
-  const double northDeg = widthM / kMetresPerDegree;
+      sizeM[0] / (kMetresPerDegree * std::cos(kLatitudeDeg * std::numbers::pi / 180.0));
+  const double northDeg = sizeM[1] / kMetresPerDegree;
   return {kLatitudeDeg,
           kLongitudeDeg,
           kLatitudeDeg,
@@ -32,14 +33,14 @@ int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   BuildingScratch scratch;
-  const auto hall = Rectangle(352.0, 14.0);
+  const auto hall = Rectangle({352.0, 14.0});
   const auto whole = MassOf(hall, {.HeightM = 9.0, .PitchedShare = 0.0}, {}, scratch);
   CHECK(whole && whole->size() == 1 && whole->front().Form == BuildingForm::Hall &&
             whole->front().Roof == RoofKind::Flat &&
             std::fabs(whole->front().AreaM2 - 352.0 * 14.0) < 100.0,
         "a long hall remains one sourced building rather than invented row houses");
 
-  const auto row = Rectangle(32.0, 6.0);
+  const auto row = Rectangle({32.0, 6.0});
   const auto terrace = MassOf(row, {.HeightM = 9.0, .PitchedShare = 0.0}, {}, scratch);
   bool allTerraces = terrace && terrace->size() > 1;
   double totalAreaM2 = 0.0;

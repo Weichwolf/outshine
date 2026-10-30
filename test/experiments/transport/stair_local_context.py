@@ -63,6 +63,29 @@ def state_for(
     view, assets, piers, contacts, sources, recipe, *, max_faces=8192, method="index"
 ):
     axes = shapely.union_all([sources[k]["shape"] for k in recipe["source_ids"]])
+    return state_for_axes(
+        view,
+        assets,
+        piers,
+        contacts,
+        axes,
+        max_faces=max_faces,
+        method=method,
+        allow_empty=recipe.get("contact_mode") == "seed",
+    )
+
+
+def state_for_axes(
+    view,
+    assets,
+    piers,
+    contacts,
+    axes,
+    *,
+    max_faces=8192,
+    method="index",
+    allow_empty=False,
+):
     query, note = neighbourhood(
         view, axes, contacts, max_faces=max_faces, method=method
     )
@@ -73,7 +96,7 @@ def state_for(
         assets,
         region,
         xy_guard_m=radius(view),
-        allow_empty=recipe.get("contact_mode") == "seed",
+        allow_empty=allow_empty,
     )
     if not keys and query.face_data["ground"].any():
         raise ValueError("actual old ground requires its resident source body")

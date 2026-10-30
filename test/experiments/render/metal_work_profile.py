@@ -105,7 +105,11 @@ def measured_frames(text, available, benchmark):
     samples = gpu["samples"]
     count = len(samples)
     if (
-        benchmark["benchmark_version"] != 1
+        benchmark["benchmark_version"] not in (1, 2)
+        or (
+            benchmark["benchmark_version"] == 2
+            and benchmark.get("profile", {}).get("pacing") != "unpaced"
+        )
         or benchmark["mode"] != "scenario"
         or not benchmark["measurement_complete"]
         or not benchmark["world_complete"]
@@ -190,6 +194,8 @@ def frame_timings(text, passes, frames, benchmark, compute=None):
             )
     selected.sort(key=lambda row: row["pass"])
     return {
+        "benchmark_version": benchmark["benchmark_version"],
+        "pacing": "paced" if benchmark["benchmark_version"] == 1 else "unpaced",
         "capture_matches_command_timings": True,
         "frames": [
             {

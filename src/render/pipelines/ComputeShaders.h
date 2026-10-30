@@ -28,6 +28,9 @@ enum class ComputeShaderId : uint32_t {
   GeometryRootScan,
   GeometrySelectedCompact,
   RadianceFilter,
+  RadianceAreaFilter,
+  RadianceIntegralRows,
+  RadianceIntegralColumns,
   Count
 };
 
@@ -108,7 +111,17 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::RadianceFilter,
         .Path = "radianceFilter.comp.spv",
-        .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 8, .GroupY = 8}}};
+        .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 8, .GroupY = 8}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::RadianceAreaFilter,
+        .Path = "radianceAreaFilter.comp.spv",
+        .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 8, .GroupY = 8}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::RadianceIntegralRows,
+                            .Path = "radianceIntegralRows.comp.spv",
+                            .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 64}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::RadianceIntegralColumns,
+                            .Path = "radianceIntegralColumns.comp.spv",
+                            .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 64}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }

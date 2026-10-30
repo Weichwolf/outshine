@@ -1,5 +1,7 @@
 #include "MaterialFieldInputData.h"
 #include "MaterialResolution.h"
+#include "MaterialFieldRasterInput.h"
+#include "ImpostorAtlas.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -29,6 +31,18 @@ MaterialFieldInput::Prepare(Geometry source, Extent raster) {
   return std::shared_ptr<const MaterialFieldInput>(new MaterialFieldInput(std::move(data)));
 }
 
+std::expected<std::shared_ptr<const MaterialFieldInput>, std::string>
+MaterialFieldInput::Prepare(const ImpostorAtlas &source, size_t view, size_t sourceBytesMost) {
+  auto samples =
+      MaterialFieldRasterInput::Prepare(source, {.View = view, .BytesMost = sourceBytesMost});
+  if (!samples) { return std::unexpected(samples.error()); }
+  auto data = std::make_unique<Data>();
+  data->Raster = {.WidthPx = source.Pixels(), .HeightPx = source.Pixels()};
+  data->Capture = samples->Capture;
+  data->Stored = std::move(*samples);
+  return std::shared_ptr<const MaterialFieldInput>(new MaterialFieldInput(std::move(data)));
+}
+
 std::expected<void, std::string> MaterialFieldInput::Data::Prepare() {
   if (const auto prepared = PrepareRenderGeometryStorage(Source, Storage); !prepared) {
     return std::unexpected("material field geometry cannot be prepared");
@@ -53,11 +67,12 @@ std::expected<void, std::string> MaterialFieldInput::Data::Prepare() {
     if (part.Material < 0 || static_cast<size_t>(part.Material) >= Materials.size()) {
       return std::unexpected("material field part has no declared material");
     }
+    const bool lit = !Materials[static_cast<size_t>(part.Material)].Row.Unlit;
     VertexLayout layout;
     if (!LayoutOf({.Uv = part.HasUv,
                    .Uv1 = part.HasUv1,
-                   .Normal = part.HasNormal,
-                   .Tangent = part.HasTangent,
+                   .Normal = lit && part.HasNormal,
+                   .Tangent = lit && part.HasTangent,
                    .Colour = part.HasColour},
                   layout)) {
       return std::unexpected("material field has an unsupported vertex layout");

@@ -85,6 +85,9 @@ public:
     return hit.Face == 1 && Dot(hit.Normal, Axes_.Up) > kSteepestRoof;
   }
 
+  [[nodiscard]] std::expected<void, StructureMeshError> Mesh(BuildingScratch &scratch,
+                                                             Raised &into) const;
+
   [[nodiscard]] std::expected<void, StructureMeshError>
   MeshVisible(std::span<const Face> faces, BuildingScratch &scratch, Raised &into) const;
 

@@ -22,8 +22,10 @@ void *Presenter::Entry(void *self) {
 
 Result<void> Presenter::Start() {
   if (Started_) { return {}; }
+  if (auto ready = State_->Retirement.Start(); !ready) { return ready; }
   const auto result = pthread_create(&Worker_, nullptr, Entry, this);
   if (result != 0) {
+    State_->Retirement.Stop();
     return std::unexpected(
         Error{.Kind = ErrorKind::Driver,
               .Message = std::error_code(result, std::generic_category()).message()});
@@ -44,6 +46,7 @@ void Presenter::Stop() {
     pthread_join(Worker_, nullptr);
     Started_ = false;
   }
+  State_->Retirement.Stop();
 }
 
 Result<std::unique_ptr<PresentFrame>> Presenter::Acquire() {

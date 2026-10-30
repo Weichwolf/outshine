@@ -3,6 +3,7 @@
 #ifdef __linux__
 #include "VulkanImage.h"
 #include "Surface.h"
+#include "SwapchainRetirement.h"
 #include <array>
 #include <atomic>
 #include <condition_variable>
@@ -88,6 +89,7 @@ struct PresentState {
   std::shared_ptr<SwapchainState> Active;
   std::vector<std::shared_ptr<SwapchainState>> Inactive;
   std::shared_ptr<PresentLease> Attempt;
+  SwapchainRetirement Retirement{*this};
 };
 
 class VulkanPresentFrame final : public PresentFrame {
@@ -124,7 +126,8 @@ private:
 };
 
 [[nodiscard]] Result<std::shared_ptr<SwapchainState>>
-CreateSwapchain(std::shared_ptr<SurfaceState> surface,
+CreateSwapchain(PresentState &dispatcher,
+                std::shared_ptr<SurfaceState> surface,
                 VkExtent2D extent,
                 uint64_t generation,
                 const std::shared_ptr<SwapchainState> &before);
@@ -134,6 +137,9 @@ AcquireLease(const std::shared_ptr<PresentState> &state,
              const std::shared_ptr<SwapchainState> &target);
 void RunPresenter(const std::shared_ptr<PresentState> &state);
 void DrainPresenter(const std::shared_ptr<PresentState> &state);
+void RetireInactive(PresentState &state);
+[[nodiscard]] bool CanRetainTarget(const PresentState &state) noexcept;
+[[nodiscard]] bool CanReplaceTarget(const PresentState &state) noexcept;
 void FailPresentation(PresentState &state, Error error, uint64_t generation);
 void SwitchTarget(const std::shared_ptr<PresentState> &state);
 void InvalidatePresentation(PresentState &state, uint64_t generation);

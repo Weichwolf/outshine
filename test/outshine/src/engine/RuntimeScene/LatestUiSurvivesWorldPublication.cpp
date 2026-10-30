@@ -1,3 +1,4 @@
+#include "AhemFont.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "WorldCandidate.h"
@@ -25,11 +26,11 @@ struct AtlasFont final : Ui::Font {
 
   [[nodiscard]] Ui::FontMetrics At(Ui::FontFace face) const override {
     ++MetricsQueries;
-    return Ui::AhemFont{}.At(face);
+    return outshine::Test::AhemFont{}.At(face);
   }
 
   [[nodiscard]] Ui::Glyph Shape(char32_t code, Ui::FontFace face) const override {
-    return Ui::AhemFont{}.Shape(code, face);
+    return outshine::Test::AhemFont{}.Shape(code, face);
   }
 
   [[nodiscard]] const uint8_t *Sheet() const override { return Pixels.data(); }

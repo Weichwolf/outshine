@@ -4,10 +4,10 @@ import numpy as np
 
 
 def road_profile(source, profile, kind):
-    if kind == "service":
+    if kind in ("service", "shared_service"):
         from stair_service_profile import service_profile
 
-        return service_profile(source, profile)
+        return service_profile(source, profile, shared=kind == "shared_service")
     props = source["properties"]
     if kind != "unclassified" or props.get("class") != "minor" or props.get("subclass"):
         raise ValueError("explicit ordinary minor-road interpretation required")

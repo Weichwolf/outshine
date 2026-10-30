@@ -6,6 +6,35 @@ from field_scale_projection import project
 from urban_parent_areas import direct_areas
 
 
+def front_source(source, eye=None, *, toward_eye=None):
+    """Existing geometric face selection, with an explicit orthographic direction."""
+    if (eye is None) == (toward_eye is None):
+        raise ValueError(
+            "Exactly one perspective eye or orthographic direction required"
+        )
+    parameter = np.asarray(eye if eye is not None else toward_eye)
+    if (
+        parameter.shape != (3,)
+        or not np.isfinite(parameter).all()
+        or (eye is None and not np.any(parameter != 0))
+    ):
+        raise ValueError("Finite three-dimensional eye/direction required")
+    triangles = source["positions"].astype(float)[source["indices"]]
+    normals = np.cross(
+        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+    )
+    toward = (
+        eye - triangles[:, 0]
+        if eye is not None
+        else np.broadcast_to(toward_eye, normals.shape)
+    )
+    front = np.einsum("ij,ij->i", normals, toward) > 0
+    return {
+        "positions": source["positions"],
+        "indices": source["indices"][front],
+    }, triangles.nbytes
+
+
 def integrate(source, view, box):
     """Decline unsupported input; GEOS Double areas are not certified bounds."""
     positions, indices = np.asarray(source["positions"]), np.asarray(source["indices"])

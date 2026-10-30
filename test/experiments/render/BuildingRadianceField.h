@@ -3,6 +3,9 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
 #include "RadianceImage.h"
+#include "RadianceSupport.h"
+#include <optional>
+#include "Viewing.h"
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -27,10 +30,30 @@ struct BuildingRadianceField {
   double RelightEncodeMs = 0;
   double WaitMs = 0;
   double ReadbackMs = 0;
+  double SupportFitMs = 0;
+  Vec3 SupportDepth{};
+  std::optional<Render::RadiancePlaneFit> SupportFit;
   std::shared_ptr<const Render::ResidentMaterialField> Source;
   std::vector<float> SourceLinear;
+  std::vector<float> SourceDepth;
+  Render::Viewpoint SourceCamera;
+  Render::Viewpoint LightingCamera;
   std::shared_ptr<const Render::RadianceImage> Radiance;
 };
+
+[[nodiscard]] Render::Viewpoint BuildingCaptureCamera(const nlohmann::json &description);
+[[nodiscard]] Render::Viewpoint BuildingQueryCamera(const nlohmann::json &query);
+[[nodiscard]] std::expected<std::optional<Render::Viewpoint>, std::string>
+BuildingLightingObserver(const nlohmann::json &query);
+
+[[nodiscard]] std::expected<std::vector<float>, std::string>
+ReadMaterialFieldImage(Render::Native::Device &device, const Render::Native::Texture &image);
+
+[[nodiscard]] std::expected<void, std::string>
+UpdateBuildingRadianceSupport(BuildingRadianceField &field,
+                              const ImpostorAtlas &atlas,
+                              size_t view,
+                              const nlohmann::json &query);
 
 [[nodiscard]] std::expected<BuildingRadianceField, std::string>
 PrepareBuildingRadiance(Render::SceneRenderer &renderer,
@@ -38,6 +61,6 @@ PrepareBuildingRadiance(Render::SceneRenderer &renderer,
                         size_t view,
                         const nlohmann::json &query,
                         const Geometry *original = nullptr,
-                        const std::shared_ptr<const Render::ResidentMaterialField> &source = {});
+                        const BuildingRadianceField *resident = nullptr);
 } // namespace outshine::Test
 #endif

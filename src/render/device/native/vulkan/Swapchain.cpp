@@ -90,10 +90,15 @@ Result<VkSurfaceCapabilitiesKHR> ReadSurfaceCapabilities(const SurfaceState &sur
 }
 
 Result<std::shared_ptr<SwapchainState>>
-CreateSwapchain(std::shared_ptr<SurfaceState> surface,
+CreateSwapchain(PresentState &dispatcher,
+                std::shared_ptr<SurfaceState> surface,
                 VkExtent2D extent,
                 uint64_t generation,
                 const std::shared_ptr<SwapchainState> &before) {
+  if (!CanRetainTarget(dispatcher)) {
+    return std::unexpected(Error{.Kind = ErrorKind::Busy,
+                                 .Message = "previous presentation targets are still retiring"});
+  }
   const auto &context = surface->Owner;
   const auto supported = ReadSurfaceCapabilities(*surface);
   if (!supported) { return std::unexpected(supported.error()); }
@@ -149,11 +154,17 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
   auto result = vkCreateSwapchainKHR(state->Owner->Logical, &create, nullptr, &state->Handle);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateSwapchainKHR", result)); }
   result = vkGetSwapchainImagesKHR(state->Owner->Logical, state->Handle, &count, nullptr);
-  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkGetSwapchainImagesKHR", result)); }
+  if (result != VK_SUCCESS) {
+    dispatcher.Inactive.push_back(std::move(state));
+    return std::unexpected(Failure("vkGetSwapchainImagesKHR", result));
+  }
   state->Images.resize(count);
   result =
       vkGetSwapchainImagesKHR(state->Owner->Logical, state->Handle, &count, state->Images.data());
-  if (result != VK_SUCCESS) { return std::unexpected(Failure("vkGetSwapchainImagesKHR", result)); }
+  if (result != VK_SUCCESS) {
+    dispatcher.Inactive.push_back(std::move(state));
+    return std::unexpected(Failure("vkGetSwapchainImagesKHR", result));
+  }
   state->Layouts.resize(count, VK_IMAGE_LAYOUT_UNDEFINED);
   return state;
 }

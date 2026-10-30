@@ -19,7 +19,8 @@ int main() {
   shape.BreakFracV = 0.4;
   shape.BreakRiseM = 4;
   shape.PeriodM = 3;
-  for (const auto &point : std::array<Boxed, 4>{{{-30, -12}, {30, -12}, {30, 12}, {-30, 12}}}) {
+  for (const auto &point : std::array<Boxed, 4>{
+           {{.U = -30, .V = -12}, {.U = 30, .V = -12}, {.U = 30, .V = 12}, {.U = -30, .V = 12}}}) {
     shape.Ring.push_back(shape.FromBox(point));
   }
   BuildingScratch scratch;
@@ -79,7 +80,8 @@ int main() {
                "source-ray evaluation is not limited to seven roof periods");
   }
   shape.Holes.emplace_back();
-  for (const auto &point : std::array<Boxed, 4>{{{-2, -2}, {2, -2}, {2, 2}, {-2, 2}}}) {
+  for (const auto &point : std::array<Boxed, 4>{
+           {{.U = -2, .V = -2}, {.U = 2, .V = -2}, {.U = 2, .V = 2}, {.U = -2, .V = 2}}}) {
     shape.Holes.back().push_back(shape.FromBox(point));
   }
   shape.Roof = RoofKind::Gable;

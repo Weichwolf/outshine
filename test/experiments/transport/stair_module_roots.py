@@ -78,9 +78,19 @@ def root_profile(state, recipe, sources):
     return row, line
 
 
-def bind_root_pad(rows, node, line, *, include_interiors=False, cached_profiles=()):
+def bind_root_pad(
+    rows,
+    node,
+    line,
+    *,
+    include_interiors=False,
+    allow_through=False,
+    cached_profiles=(),
+):
     selected = node_profiles(rows, node, include_interiors=include_interiors)
-    if not any(vertex in (0, -1) for _i, vertex, _p in selected):
+    if not any(vertex in (0, -1) for _i, vertex, _p in selected) and not (
+        allow_through and include_interiors and selected
+    ):
         raise ValueError("new module has no original endpoint at its frozen port")
     pad = profile_junction_pad(
         [line[:, :2], *cached_profiles, *[p for _i, _v, p in selected]]

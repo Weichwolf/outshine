@@ -59,11 +59,15 @@ class ImageView:
             raise ValueError("An explicit positive integer image profile is required")
 
 
-def support(grid, view, axes, pixels_most):
+def support(grid, view, axes, pixels_most, plane=None):
     corners = np.array([[-1, 1], [1, 1], [1, -1], [-1, -1]])
     world = np.asarray(grid.centre) + grid.half_extent_m * (
         corners[:, :1] * axes[0] + corners[:, 1:] * axes[1]
     )
+    if plane is not None:
+        world = plane.points(grid, corners)
+    if not np.isfinite(world).all():
+        raise ValueError("Finite physical support corners required")
     camera = (world - view.eye) @ np.asarray(view.basis).T
     if camera[:, 2].min() <= 0:
         raise ValueError("Capture card crosses the eye plane")
@@ -81,7 +85,7 @@ def support(grid, view, axes, pixels_most):
     return low, high
 
 
-def source_corners(grid, view, axes, pixels, dimensions):
+def source_corners(grid, view, axes, pixels, dimensions, *, plane=None):
     offsets = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
     screen = pixels[:, None] + offsets - (view.width / 2, view.height / 2)
     directions = (
@@ -89,8 +93,12 @@ def source_corners(grid, view, axes, pixels, dimensions):
         + screen[:, :, :1] * np.asarray(view.basis)[0] / view.focal_px
         - screen[:, :, 1:] * np.asarray(view.basis)[1] / view.focal_px
     )
-    denominator = directions @ np.asarray(grid.toward_eye)
-    numerator = (np.asarray(grid.centre) - view.eye) @ np.asarray(grid.toward_eye)
+    normal = np.asarray(grid.toward_eye) if plane is None else plane.normal(grid)
+    centre = np.asarray(grid.centre) if plane is None else plane.centre(grid)
+    denominator = directions @ normal
+    numerator = (centre - view.eye) @ normal
+    if not np.isfinite(denominator).all() or not np.isfinite(numerator):
+        raise ValueError("Finite physical plane intersection required")
     if np.any(denominator * numerator <= 0):
         raise ValueError("Pixel footprint crosses or faces away from its capture plane")
     relative = (
@@ -102,20 +110,21 @@ def source_corners(grid, view, axes, pixels, dimensions):
     return (uv / (2 * grid.half_extent_m) + 0.5) * dimensions
 
 
-def reconstruct(field, grid, view, *, pixels_most=16384, approximate=False):
+def reconstruct(field, grid, view, *, pixels_most=16384, approximate=False, plane=None):
     if type(pixels_most) is not int or pixels_most < 1:
         raise ValueError("A positive projected-pixel capacity is required")
     axes = grid.axes()
     parallel = np.allclose(np.asarray(view.basis)[:2], axes, rtol=0, atol=1e-12)
+    parallel = parallel and (plane is None or plane.coefficients[:2] == (0, 0))
     if not parallel and not approximate:
         raise ValueError(
             "Nonparallel footprints require explicit approximation admission"
         )
-    low, high = support(grid, view, axes, pixels_most)
+    low, high = support(grid, view, axes, pixels_most, plane)
     y, x = np.mgrid[low[1] : high[1], low[0] : high[0]]
     pixels = np.column_stack((x.ravel(), y.ravel()))
     uv = source_corners(
-        grid, view, axes, pixels, (field.source_width, field.source_height)
+        grid, view, axes, pixels, (field.source_width, field.source_height), plane=plane
     )
     lower, upper = uv.min(1), uv.max(1)
     area = np.prod(upper - lower, axis=1)

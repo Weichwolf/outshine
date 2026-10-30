@@ -57,6 +57,17 @@ std::shared_ptr<std::recursive_mutex> DatabaseMutex(const std::string &path) {
   return mutex;
 }
 
+std::expected<int, AssetCacheError> SchemaVersion(sqlite3 *database) {
+  AssetSql::Statement version;
+  const auto prepared = AssetSql::Prepare(database, "PRAGMA user_version", version);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const int step = sqlite3_step(version.Value);
+  if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
+  const int current = sqlite3_column_int(version.Value, 0);
+  if (current < 0 || current > 4) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
+  return current;
+}
+
 std::expected<void, AssetCacheError> MigrateRequests(sqlite3 *database, int version) {
   if (version == 4) { return {}; }
   auto created = AssetSql::Exec(
@@ -75,6 +86,41 @@ std::expected<void, AssetCacheError> MigrateRequests(sqlite3 *database, int vers
   }
   return {};
 }
+
+std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
+  const auto migration = AssetSql::Exec(database, "BEGIN IMMEDIATE;");
+  if (!migration) { return std::unexpected(migration.error()); }
+  const auto current = SchemaVersion(database);
+  if (!current) { return std::unexpected(current.error()); }
+  if (*current != 4) {
+    const auto setup = AssetSql::Exec(
+        database,
+        "CREATE TABLE IF NOT EXISTS assets(id INTEGER PRIMARY KEY,key TEXT NOT NULL UNIQUE,"
+        "kind TEXT NOT NULL,minx REAL NOT NULL,miny REAL NOT NULL,minz REAL NOT NULL,"
+        "maxx REAL NOT NULL,maxy REAL NOT NULL,maxz REAL NOT NULL,package TEXT NOT NULL,"
+        "offset INTEGER NOT NULL,bytes INTEGER NOT NULL,level INTEGER NOT NULL,parent TEXT NOT "
+        "NULL);"
+        "CREATE VIRTUAL TABLE IF NOT EXISTS bounds USING rtree(id,minx,maxx,miny,maxy,minz,maxz);"
+        "CREATE TABLE IF NOT EXISTS packages(key TEXT PRIMARY KEY,bytes BLOB NOT NULL,crc "
+        "INTEGER "
+        "NOT NULL);");
+    if (!setup) { return std::unexpected(setup.error()); }
+    if (*current < 2) {
+      const auto migrated = AssetSql::Exec(
+          database,
+          "ALTER TABLE packages ADD COLUMN codec INTEGER NOT NULL DEFAULT 0;"
+          "ALTER TABLE packages ADD COLUMN native_bytes INTEGER NOT NULL DEFAULT 0;");
+      if (!migrated) { return std::unexpected(migrated.error()); }
+    }
+    const auto migrated = MigrateRequests(database, *current);
+    if (!migrated) { return std::unexpected(migrated.error()); }
+  }
+  const auto committed =
+      AssetSql::Exec(database, *current == 4 ? "COMMIT;" : "PRAGMA user_version=4;COMMIT;");
+  if (!committed) { return std::unexpected(committed.error()); }
+  return {};
+}
+
 }
 
 std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
@@ -97,39 +143,11 @@ AssetCache::Open(const std::string &path) {
                                     "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA "
                                     "cache_size=-4096; PRAGMA foreign_keys=ON;");
   if (!began) { return std::unexpected(began.error()); }
-  AssetSql::Statement version;
-  auto prepared = AssetSql::Prepare(state->Database, "PRAGMA user_version", version);
-  if (!prepared) { return std::unexpected(prepared.error()); }
-  const int step = sqlite3_step(version.Value);
-  if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
-  const int current = sqlite3_column_int(version.Value, 0);
-  if (current < 0 || current > 4) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
-  sqlite3_reset(version.Value);
-  if (current != 4) {
-    const auto migration = AssetSql::Exec(state->Database, "BEGIN IMMEDIATE;");
-    if (!migration) { return std::unexpected(migration.error()); }
-    const auto setup = AssetSql::Exec(
-        state->Database,
-        "CREATE TABLE IF NOT EXISTS assets(id INTEGER PRIMARY KEY,key TEXT NOT NULL UNIQUE,"
-        "kind TEXT NOT NULL,minx REAL NOT NULL,miny REAL NOT NULL,minz REAL NOT NULL,"
-        "maxx REAL NOT NULL,maxy REAL NOT NULL,maxz REAL NOT NULL,package TEXT NOT NULL,"
-        "offset INTEGER NOT NULL,bytes INTEGER NOT NULL,level INTEGER NOT NULL,parent TEXT NOT "
-        "NULL);"
-        "CREATE VIRTUAL TABLE IF NOT EXISTS bounds USING rtree(id,minx,maxx,miny,maxy,minz,maxz);"
-        "CREATE TABLE IF NOT EXISTS packages(key TEXT PRIMARY KEY,bytes BLOB NOT NULL,crc INTEGER "
-        "NOT NULL);");
-    if (!setup) { return std::unexpected(setup.error()); }
-    if (current < 2) {
-      const auto migrated = AssetSql::Exec(
-          state->Database,
-          "ALTER TABLE packages ADD COLUMN codec INTEGER NOT NULL DEFAULT 0;"
-          "ALTER TABLE packages ADD COLUMN native_bytes INTEGER NOT NULL DEFAULT 0;");
-      if (!migrated) { return std::unexpected(migrated.error()); }
-    }
-    const auto migrated = MigrateRequests(state->Database, current);
+  const auto current = SchemaVersion(state->Database);
+  if (!current) { return std::unexpected(current.error()); }
+  if (*current != 4) {
+    const auto migrated = MigrateSchema(state->Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
-    const auto committed = AssetSql::Exec(state->Database, "PRAGMA user_version=4;COMMIT;");
-    if (!committed) { return std::unexpected(committed.error()); }
   }
   auto usage = CacheUsageIndex::Open(path);
   if (usage) { state->Usage = std::move(*usage); }

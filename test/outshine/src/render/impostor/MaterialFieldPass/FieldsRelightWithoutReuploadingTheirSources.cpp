@@ -162,8 +162,16 @@ void Exercise() {
   CHECK(!refused && refused.error().Kind == ErrorKind::Busy,
         "backend admission remains a typed nonblocking Busy result");
   device.Busy = false;
-  view.Target = {.WidthPx = 7, .HeightPx = 7};
-  CHECK(!pass.Relight(*sourceA, view), "partial integer footprints publish no output");
+  view.Target = {.WidthPx = 7, .HeightPx = 11};
+  const auto fractional = Relight(device, pass, *sourceA, view);
+  CHECK(fractional.Filtered->Texture->Description().Width == 7 &&
+            fractional.Filtered->Texture->Description().Height == 11 &&
+            fractional.Depth->Description().Width == 32 &&
+            fractional.Depth->Description().Height == 32,
+        "fractional colour footprints leave raw depth in its original capture raster");
+  CHECK(device.Buffers == buffers, "fractional reduction reuses the resident source buffers");
+  view.Target = {.WidthPx = 33, .HeightPx = 7};
+  CHECK(!pass.Relight(*sourceA, view), "an enlarged field axis publishes no output");
   const auto empty = MaterialFieldInput::Prepare(Geometry{}, {.WidthPx = 32, .HeightPx = 32});
   CHECK(!empty, "empty source fields are refused rather than published as complete");
   if (const auto last = pass.LastSubmission()) {

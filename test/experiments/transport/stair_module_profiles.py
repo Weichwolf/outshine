@@ -86,7 +86,16 @@ def frozen_profile_checks(
 
 
 def new_interior_checks(
-    data, rows, nodes, masks, original, old_at, endpoint_nodes=(), constructed=()
+    data,
+    rows,
+    nodes,
+    masks,
+    original,
+    old_at,
+    endpoint_nodes=(),
+    constructed=(),
+    *,
+    through_nodes=(),
 ):
     result = []
     for index, node in enumerate(nodes):
@@ -121,21 +130,16 @@ def new_interior_checks(
                 for cap in old_at.get(index, [])
             )
             line = interior_profile_xy(row, int(found[0]))
-            groups = (
-                through_sides(own, line)
-                if index in endpoint_nodes and len(node["incident"]) == 1
-                else [own, other]
+            bilateral = index in through_nodes or (
+                index in endpoint_nodes and len(node["incident"]) == 1
             )
+            groups = through_sides(own, line) if bilateral else [own, other]
             checks = [compare(groups, line, cast) for cast in (False, True)]
             result.append(
                 {
                     "source_id": row["source_id"],
                     "vertex": int(found[0]),
-                    **(
-                        {"reference": "opposite_through_sides"}
-                        if index in endpoint_nodes and len(node["incident"]) == 1
-                        else {}
-                    ),
+                    **({"reference": "opposite_through_sides"} if bilateral else {}),
                     "checks": checks,
                 }
             )
@@ -153,6 +157,7 @@ def varying_profiles(
     *,
     contacts=(),
     root_interior=False,
+    root_new_through=False,
     constructed=(),
     shared_box=False,
 ):
@@ -207,7 +212,9 @@ def varying_profiles(
                         index,
                         old_at[index],
                         [l for i, _c, l, _interior in references if i == index],
-                        include_interiors=root_interior or bool(contacts),
+                        include_interiors=root_interior
+                        or root_new_through
+                        or bool(contacts),
                         constructed=constructed,
                     )
                 )
@@ -252,9 +259,11 @@ def varying_profiles(
                     old_at,
                     endpoint_nodes,
                     constructed,
+                    through_nodes=[root] if root_new_through else [],
                 )
             }
-            if root_interior or endpoint_nodes
+            if root_interior or root_new_through or endpoint_nodes
             else {}
         ),
+        **({"new_through_root": True} if root_new_through else {}),
     }

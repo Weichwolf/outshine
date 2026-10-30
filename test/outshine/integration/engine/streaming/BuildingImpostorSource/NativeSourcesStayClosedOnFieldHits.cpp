@@ -51,6 +51,16 @@ Generators::RawTile Inputs() {
   return raw;
 }
 
+BuildingImpostorSource::Recipe Recipe(const std::string &baseKey) {
+  return {.BaseKey = baseKey,
+          .Cells = {1},
+          .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
+                    .Origin = {{3, 4, 5}}},
+          .Directions = {{{0, 0, -1}}},
+          .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),
+          .Pixels = 32};
+}
+
 void Keys(const BuildingImpostorSource::Recipe &recipe) {
   CHECK(!recipe.Key().empty(), "native source/material/capture inputs have a content key");
   auto reordered = recipe;
@@ -120,19 +130,23 @@ std::optional<std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
   if (!consumer) { return std::nullopt; }
   std::atomic<size_t> calls{0};
   const auto key = metadata.FieldKey({0});
-  ImpostorViewJob job{.Cache = cache,
-                      .Provenance = source->Provenance(),
-                      .ProductKey = key,
-                      .BytesMost = kBytes,
-                      .Product = ImpostorViewJob::MaterialView{
-                          .Selected = {0},
-                          .Generate = [source, &calls](Content::ImpostorViewAssets::ViewIndex view,
-                                                       size_t budget,
-                                                       const std::stop_token &stop) {
-                            ++calls;
-                            return source->Generate(
-                                view, budget, {.Samples = 1024, .SourceTests = 100000}, stop);
-                          }}};
+  ImpostorViewJob job{
+      .Cache = cache,
+      .Provenance = source->Provenance(),
+      .ProductKey = key,
+      .BytesMost = kBytes,
+      .Product = ImpostorViewJob::MaterialView{
+          .Selected = {0},
+          .Generate = [source, &calls](Content::ImpostorViewAssets::ViewIndex view,
+                                       size_t budget,
+                                       const std::stop_token &stop) {
+            ++calls;
+            return source->Generate(
+                view,
+                budget,
+                {.Samples = 1024, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000},
+                stop);
+          }}};
   const auto parsed = AssetProductKey::Parse(key);
   if (!parsed) {
     CHECK(false, "native metadata has a valid field key");
@@ -231,7 +245,39 @@ Metadata(const std::shared_ptr<AssetCache> &cache,
   return std::unexpected("native metadata request deadline expired");
 }
 
-void Run(const std::filesystem::path &root) {
+int Offline(const std::filesystem::path &root,
+            const std::string &baseKey,
+            std::string_view expected) {
+  auto opened = AssetCache::Open((root / "views.sqlite").string());
+  CHECK(opened.has_value(), "fresh process opens only the saved field database");
+  if (!opened) { return Report(); }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  const auto source = std::make_shared<BuildingImpostorSource>(Recipe(baseKey), nullptr);
+  const auto metadata = Metadata(cache, source);
+  CHECK(metadata.has_value(), "fresh process restores metadata without source assets");
+  if (metadata) {
+    const auto restored = Resolve(cache, *metadata, source, 0);
+    CHECK(restored && *restored == expected,
+          "fresh process returns byte-identical original fields without producer calls");
+  }
+  return Report();
+}
+
+bool Restart(const std::string &executable,
+             const std::filesystem::path &root,
+             const std::string &baseKey,
+             const std::string &digest) {
+  const std::string directory = root.string();
+  const std::array<const char *, 6> arguments{
+      executable.c_str(), "--offline", directory.c_str(), baseKey.c_str(), digest.c_str(), nullptr};
+  const std::unique_ptr<SDL_Process, decltype(&SDL_DestroyProcess)> process(
+      SDL_CreateProcess(arguments.data(), false), SDL_DestroyProcess);
+  if (!process) { return false; }
+  int status = -1;
+  return SDL_WaitProcess(process.get(), true, &status) && status == 0;
+}
+
+void Run(const std::filesystem::path &root, const std::string &executable) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   auto opened = Generators::PreparedBuildingAssets::Open((root / "buildings").string(), sources);
@@ -265,14 +311,7 @@ void Run(const std::filesystem::path &root) {
             assets->Costs().SurfaceReadBytes == beforeDemand.SurfaceReadBytes &&
             assets->Costs().GeometryReadBytes == beforeDemand.GeometryReadBytes,
         "source demand bounds require only the existing basis and request metadata");
-  const BuildingImpostorSource::Recipe recipe{
-      .BaseKey = (**demand).BaseKey,
-      .Cells = {1},
-      .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
-                .Origin = {{3, 4, 5}}},
-      .Directions = {{{0, 0, -1}}},
-      .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),
-      .Pixels = 32};
+  const auto recipe = Recipe((**demand).BaseKey);
   Keys(recipe);
   auto database = AssetCache::Open((root / "views.sqlite").string());
   if (!database) {
@@ -282,7 +321,8 @@ void Run(const std::filesystem::path &root) {
   const std::shared_ptr<AssetCache> cache(std::move(*database));
   const auto source = std::make_shared<BuildingImpostorSource>(recipe, assets);
   const auto before = assets->Costs();
-  const auto refused = source->Generate({0}, kBytes, {.Samples = 1023, .SourceTests = 100000});
+  const auto refused = source->Generate(
+      {0}, kBytes, {.Samples = 1023, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000});
   CHECK(!refused && assets->Costs().ReadBytes == before.ReadBytes &&
             assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "sample admission precedes native descriptor and form IO");
@@ -312,6 +352,8 @@ void Run(const std::filesystem::path &root) {
     CHECK(coldField && warmField && *coldField == *warmField,
           "source-free cache hits retain exactly the captured procedural material field");
   }
+  CHECK(coldField && Restart(executable, root, recipe.BaseKey, *coldField),
+        "a genuinely fresh offline process needs only the stored native field");
   CHECK(assets->Costs().ReadBytes == after.ReadBytes &&
             assets->Costs().SurfaceReadBytes == after.SurfaceReadBytes,
         "stored fields repeat no native source decode or form generation");
@@ -390,6 +432,9 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
 }
 
 int main(int argc, char *const *argv) {
+  if (argc == 5 && std::string_view(argv[1]) == "--offline") {
+    return Offline(argv[2], argv[3], argv[4]);
+  }
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     CHECK(false, SDL_GetError());
     return Report();
@@ -400,7 +445,7 @@ int main(int argc, char *const *argv) {
   if (argc == 2) {
     Partial(root, argv[1]);
   } else {
-    Run(root);
+    Run(root, std::filesystem::absolute(argv[0]).string());
   }
   std::filesystem::remove_all(root);
   SDL_Quit();

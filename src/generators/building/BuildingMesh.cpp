@@ -263,6 +263,10 @@ public:
 
   void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
     if (!Status_) { return; }
+    if (Scratch_.Triangles && !Scratch_.Triangles->Take()) {
+      Reject();
+      return;
+    }
     const Vtx a = Snapped(given0);
     const Vtx b = Snapped(given1);
     const Vtx c = Snapped(given2);
@@ -546,11 +550,13 @@ void Walls(const BuildingShape &s,
            double topZ,
            Site &site,
            std::span<const EastNorth> boundary = {}) {
+  if (!site.Status()) { return; }
   const bool exterior = boundary.empty();
   const std::span<const EastNorth> ring = exterior ? std::span(s.Ring) : boundary;
   const size_t n = ring.size();
   std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
+    if (!site.Status()) { return; }
     const EastNorth &p = ring[i];
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
@@ -577,7 +583,7 @@ void Walls(const BuildingShape &s,
                site.Scratch(),
                breaks);
     double was = 0.0;
-    for (size_t step = 0; step <= breaks.size(); ++step) {
+    for (size_t step = 0; step <= breaks.size() && site.Status(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
       WallPanel(
           s, Along(p, q, was), Along(p, q, now), bays * was, bays * now, lowZ, topZ, stand, site);
@@ -587,10 +593,12 @@ void Walls(const BuildingShape &s,
 }
 
 void Floor(const BuildingShape &s, std::span<const EastNorth> ring, double atZ, Site &site) {
+  if (!site.Status()) { return; }
   std::vector<EastNorth> &tris = site.Scratch().Tris;
   tris.clear();
   (void)RoofSurface::Fill(ring, site.Scratch(), tris, s.Holes);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    if (!site.Status()) { return; }
     site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth),
              Face(s, tris[i + 1], atZ, Facade::Plinth),
              Face(s, tris[i], atZ, Facade::Plinth));
@@ -602,11 +610,13 @@ void Gables(const BuildingShape &s,
             std::span<const EastNorth> wide,
             Site &site,
             std::span<const EastNorth> boundary = {}) {
+  if (!site.Status()) { return; }
   const std::span<const EastNorth> ring = boundary.empty() ? std::span(s.Ring) : boundary;
   const size_t n = ring.size();
   const double eaves = EavesZ(s);
   std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
+    if (!site.Status()) { return; }
     const EastNorth &p = ring[i];
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
@@ -621,6 +631,7 @@ void Gables(const BuildingShape &s,
                breaks);
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
+      if (!site.Status()) { return; }
       const double now = step < breaks.size() ? breaks[step] : 1.0;
       const EastNorth a = Along(p, q, was);
       const EastNorth b = Along(p, q, now);
@@ -641,6 +652,7 @@ void Covering(const BuildingShape &s,
               std::span<const EastNorth> plan,
               double deckZ,
               Site &site) {
+  if (!site.Status()) { return; }
   std::vector<EastNorth> &tris = site.Scratch().Tris;
   tris.clear();
   if (!roof.Cover(plan, site.Scratch(), tris)) {
@@ -649,6 +661,7 @@ void Covering(const BuildingShape &s,
   }
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    if (!site.Status()) { return; }
     std::array<Vtx, 3> v{};
     for (int k = 0; k < 3; k++) {
       v[k] = Face(s,
@@ -957,10 +970,27 @@ bool WallFace(const BuildingShape &shape,
   const Fields stand =
       exterior && std::cmp_equal(edge, shape.FrontEdge) ? Fields::Entrance : Fields::Back;
   WallPanel(shape, p, q, 0.0, bays, bottom, deck, stand, site);
+  if (!site.Status()) { return false; }
   if (shape.Roof != RoofKind::Flat) { GableFace(shape, roof, p, q, deck, site); }
   return true;
 }
 
+}
+
+std::expected<void, StructureMeshError> BuildingSurface::Mesh(BuildingScratch &scratch,
+                                                              Raised &into) const {
+  const auto ready = RequireShapes();
+  if (!ready) { return std::unexpected(ready.error()); }
+  const size_t first = into.WallCorners.size();
+  Site site(Origin_, Axes_, MinimumHeightM_, scratch, into);
+  for (const auto &shape : Resident().Shapes_) {
+    RaisePart(shape, site);
+    if (const auto status = site.Status(); !status) { return status; }
+  }
+  StructurePlan paint;
+  paint.WallColour = WallColour_;
+  AppendWallColours(paint, first, into);
+  return {};
 }
 
 std::expected<void, StructureMeshError> BuildingSurface::MeshVisible(std::span<const Face> faces,

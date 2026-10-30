@@ -93,15 +93,21 @@ class Elevation:
             if not len(unresolved):
                 break
             coordinates = world[unresolved] * (1 << zoom)
-            cells, inverse = np.unique(
-                np.floor(coordinates).astype(int), axis=0, return_inverse=True
-            )
+            integer_cells = np.floor(coordinates).astype(int)
+            if np.all(integer_cells == integer_cells[:1]):
+                cells, inverse = integer_cells[:1], None
+            else:
+                cells, inverse = np.unique(integer_cells, axis=0, return_inverse=True)
             for index, cell in enumerate(cells):
                 tile = zoom, int(cell[0]), int(cell[1])
                 if tile not in self.receipts:
                     continue
                 height = self.raster(tile)
-                selected = np.flatnonzero(inverse == index)
+                selected = (
+                    np.arange(len(coordinates))
+                    if inverse is None
+                    else np.flatnonzero(inverse == index)
+                )
                 pixels = (coordinates[selected] - cell) * (
                     height.shape[1] - 1,
                     height.shape[0] - 1,

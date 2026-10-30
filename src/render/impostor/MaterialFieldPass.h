@@ -26,16 +26,28 @@ private:
   std::shared_ptr<Data> Data_;
 };
 
+// Camera kind, finite eye and orthonormal basis; capture lens validation is separate.
+[[nodiscard]] bool ValidMaterialFieldCameraBasis(const Viewpoint &camera) noexcept;
+
 struct MaterialFieldView {
   Viewpoint Camera;
   std::span<const SceneLight> Lights;
   EnvironmentLighting Environment;
   Extent Target;
+  // IntegralPairs keeps Target == raw raster and stores adjacent hi/lo zero-bordered sums.
+  RadianceEncoding Encoding = RadianceEncoding::Texels;
+  // Only basis/kind control lighting; Camera keeps the raster rays and clipping.
+  std::optional<Viewpoint> LightingCamera = std::nullopt;
 };
 
 struct MaterialFieldImages {
   std::shared_ptr<const RadianceImage> Unfiltered;
   std::shared_ptr<const RadianceImage> Filtered;
+  // Raw depth shares Unfiltered's raster/completion; it is not filtered depth or occlusion
+  // authority.
+  std::shared_ptr<Native::Texture> Depth;
+  Viewpoint Camera;
+  Viewpoint LightingCamera;
 };
 
 class MaterialFieldPass {

@@ -196,6 +196,7 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
     ++EncodedWork_.DrawRequests;
     if (culled) { EncodedWork_.IndirectRecords += static_cast<uint32_t>(end - first); }
     for (const auto &draw : std::span(Batches).subspan(first, end - first)) {
+      if (draw.Passes == GeometryPasses::Shadow) { continue; }
       const auto triangles = uint64_t{draw.IndexCount / 3u} * draw.Instances;
       (culled ? EncodedWork_.IndirectInputTriangles : EncodedWork_.DirectTriangles) += triangles;
       EncodedWork_.SurfaceSlotLimit =
@@ -224,6 +225,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
   DrawResources resources;
   for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
     const auto &batch = Batches[at];
+    if (batch.Passes == GeometryPasses::Shadow) { continue; }
     const auto &surface = Slots[batch.MaterialSlot];
     const bool glass =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
@@ -337,6 +339,7 @@ Native::Result<uint32_t> GeometryRenderer::EncodeShadow(const PassRecording &int
                                          .Message = "shadow draw names no resident batch"});
   }
   const auto &batch = Batches[batchIndex];
+  if (batch.Passes == GeometryPasses::Main) { return 0u; }
   if (into.Commands == nullptr || !Bound().Buffer(GeometryResidency::Stream::Index)) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,

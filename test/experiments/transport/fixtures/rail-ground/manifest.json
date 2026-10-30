@@ -1,0 +1,36 @@
+{
+  "schema": "outshine/constructive-rail-ground-inputs/1",
+  "original_source_manifest": {
+    "path": "../bridge-source-facts/manifest.json",
+    "sha256": "2c4a1bc4076aacf781f3f0ccbf4085a1b8e4ff2cfb5e1cb32e3b5e7927a57df5"
+  },
+  "existing_elevation": {
+    "kind": "elevation",
+    "tile": [
+      14,
+      8937,
+      5678
+    ],
+    "path": "../canonical-ports/dem.webp",
+    "sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+    "origin": "retained original fixture; acquisition time unknown"
+  },
+  "additional_elevation": {
+    "kind": "elevation",
+    "tile": [
+      14,
+      8937,
+      5679
+    ],
+    "url": "https://tiles.mapterhorn.com/14/8937/5679.webp",
+    "path": "dem-14-8937-5679.webp",
+    "bytes": 60344,
+    "sha256": "fdcdbcdc1a23efbf059e49c7b6877d360af14e7c4c18ea78c50d32ea45b7a800",
+    "origin": "network",
+    "acquired_at_utc": "2026-10-29T00:55:41.543330+00:00",
+    "source_datum": "Mapterhorn values as supplied; no measured geoid/ellipsoid equivalence",
+    "height_mapping": "source signed metres as model geodetic heights/1"
+  },
+  "sampling_model": "Same side-1 boundary-post bilinear model as the retained canonical terrain; source signed metres as model geodetic heights/1",
+  "scope": "Actual new neighbor required by buffered original source geometry. No replacement of original inputs, observed rail grade, provider revision attestation or Source/World qualification."
+}

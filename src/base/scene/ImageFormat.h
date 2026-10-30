@@ -6,12 +6,13 @@
 
 namespace outshine {
 
-enum class ImagePixelFormat : uint8_t { Rgba8Unorm, Rgba16Float };
+enum class ImagePixelFormat : uint8_t { Rgba8Unorm, Rgba16Float, Rgba32Float };
 
 [[nodiscard]] constexpr size_t ImagePixelBytes(ImagePixelFormat format) noexcept {
   switch (format) {
     case ImagePixelFormat::Rgba8Unorm: return 4;
     case ImagePixelFormat::Rgba16Float: return 8;
+    case ImagePixelFormat::Rgba32Float: return 16;
   }
   return 0;
 }

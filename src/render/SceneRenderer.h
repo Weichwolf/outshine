@@ -1,4 +1,3 @@
-#include "MaterialFieldPass.h"
 #include "SceneLighting.h"
 #include "MeshInput.h"
 #include "GeometryUploadTicket.h"
@@ -14,6 +13,7 @@
 #include <RenderConfiguration.h>
 #include "Heap.h"
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <span>
@@ -64,6 +64,11 @@ struct SDL_Window;
 
 namespace outshine::Render {
 class RadianceFilter;
+class MaterialFieldInput;
+class MaterialFieldPass;
+class ResidentMaterialField;
+struct MaterialFieldImages;
+struct MaterialFieldView;
 
 struct GroundClassUploadMetrics {
   TerrainMaterialBuffersUploadMetrics Storage;
@@ -342,6 +347,11 @@ public:
   SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error) {
     return ActiveContent().Scene().Resources().SetPieceInstances(
         ActiveContent().Geometry(), which, rows, error);
+  }
+
+  [[nodiscard]] bool SetPiecePasses(PieceHandle which, GeometryPasses passes, std::string &error) {
+    return ActiveContent().Scene().Resources().SetPiecePasses(
+        ActiveContent().Geometry(), which, passes, error);
   }
 
   [[nodiscard]] bool
@@ -1131,7 +1141,7 @@ private:
 
   bool Stands();
   [[nodiscard]] std::expected<void, std::string>
-  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, bool presents);
+  InitForTarget(Extent frame, std::shared_ptr<const ExecutionPlan> plan, SDL_Window *presents);
   [[nodiscard]] std::expected<void, std::string> ValidateExecutablePlan(const ExecutionPlan &plan);
   [[nodiscard]] std::expected<bool, std::string> ReuseFrameResources(Extent frame,
                                                                      const ExecutionPlan &plan);

@@ -7,7 +7,7 @@ import shapely
 from outshine_ref.contracts import LocalFrame, Mesh
 from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches
 from stair_local_assets import road_asset, road_window
-from stair_local_context import neighbourhood, selected_keys
+from stair_local_context import neighbourhood, selected_keys, state_for, state_for_axes
 
 
 def asset(index, *, x=None, sources=1):
@@ -51,6 +51,27 @@ def terrain():
 
 
 class LocalRoadAssets(unittest.TestCase):
+    def test_generic_geometric_request_preserves_the_existing_source_window(self):
+        view, roads = terrain(), (asset(0),)
+        axis = shapely.LineString([[0, 0], [2, 2]])
+        original = state_for(
+            view,
+            roads,
+            (),
+            (),
+            {"new": {"shape": axis}},
+            {"source_ids": ["new"], "contact_mode": "profile"},
+        )
+        generic = state_for_axes(view, roads, (), (), axis)
+        self.assertEqual(original[1].face_keys, generic[1].face_keys)
+        self.assertTrue(original[2].equals(generic[2]))
+        self.assertEqual(original[3], generic[3])
+        self.assertEqual(original[0]["report"], generic[0]["report"])
+        for group in ("road", "plan"):
+            for key, value in original[0][group].items():
+                np.testing.assert_array_equal(value, generic[0][group][key])
+        np.testing.assert_array_equal(original[0]["heights"], generic[0]["heights"])
+
     def test_asset_rounding_guard_keeps_actual_float32_boundary_contacts(self):
         old = asset(0, x=2000.00003)
         region = shapely.box(1999, 0, 2000, 2)

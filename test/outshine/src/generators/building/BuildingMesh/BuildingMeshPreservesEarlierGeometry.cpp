@@ -1,7 +1,9 @@
 #include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <new>
 #include <limits>
+#include <span>
 #include "src/generators/building/BuildingMesh.h"
 #include "Check.h"
 
@@ -12,30 +14,57 @@ thread_local size_t mapFailures = 0;
 struct ForeignScratch final : outshine::MeshScratch {};
 }
 
-void *operator new(size_t bytes, std::align_val_t alignment, const std::nothrow_t &) noexcept {
-  if (failMapAfter >= 0 && failMapAfter-- == 0) {
-    failMapAfter = -1;
-    ++mapFailures;
-    return nullptr;
+void *
+operator new(size_t sz, std::align_val_t alignment, const std::nothrow_t & /*unused*/) noexcept {
+  if (failMapAfter >= 0) {
+    const bool fail = failMapAfter == 0;
+    --failMapAfter;
+    if (fail) {
+      ++mapFailures;
+      return nullptr;
+    }
   }
-  const size_t requested = static_cast<size_t>(alignment);
+  const auto requested = static_cast<size_t>(alignment);
   const size_t supported = requested < sizeof(void *) ? sizeof(void *) : requested;
   void *block = nullptr;
-  return posix_memalign(&block, supported, bytes) == 0 ? block : nullptr;
+  return posix_memalign(&block, supported, sz) == 0 ? block : nullptr;
 }
 
-void operator delete(void *block, std::align_val_t) noexcept {
-  std::free(block);
+void operator delete(void *p, std::align_val_t /*unused*/) noexcept {
+  std::free(p);
 }
 
-void operator delete(void *block) noexcept {
-  std::free(block);
+namespace {
+void CheckAllocationFailure(const outshine::Generators::BuildingMesh &mesher,
+                            const outshine::StructurePlan &plan,
+                            const outshine::Raised &previous,
+                            const outshine::Raised &complete) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  for (const ptrdiff_t allocation : {ptrdiff_t{0}, ptrdiff_t{1}, ptrdiff_t{2}}) {
+    auto scratch = mesher.Scratch();
+    Raised output = previous;
+    const size_t failedBefore = mapFailures;
+    failMapAfter = allocation;
+    const auto rejected = mesher.Mesh(plan, *scratch, output);
+    failMapAfter = -1;
+    CHECK(mapFailures == failedBefore + 1, "fault injection reached a nonthrowing map allocation");
+    CHECK(!rejected && rejected.error() == StructureMeshError::BuildFailed,
+          "nonthrowing map failure reaches the building transaction");
+    CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
+              output.RoofRun.empty() && output.RoofCorners.empty(),
+          "map allocation failure rolls back appended geometry");
+    CHECK(mesher.Mesh(plan, *scratch, output).has_value() && output.WallRun == complete.WallRun &&
+              output.RoofRun == complete.RoofRun,
+          "building scratch recovers after map allocation failure");
+  }
+}
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::BuildingMesh mesher;
+  const Generators::BuildingMesh mesher;
   const std::array<double, 8> ring{47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   StructurePlan plan;
   plan.RingLatLon = ring;
@@ -52,25 +81,9 @@ int main() {
   CHECK(built && complete.WallRun.size() > previous.WallRun.size(),
         "valid building appends geometry");
   if (!built) { return Report(); }
-  for (const ptrdiff_t allocation : {ptrdiff_t{0}, ptrdiff_t{1}, ptrdiff_t{2}}) {
-    scratch = mesher.Scratch();
-    Raised output = previous;
-    const size_t failedBefore = mapFailures;
-    failMapAfter = allocation;
-    const auto rejected = mesher.Mesh(plan, *scratch, output);
-    failMapAfter = -1;
-    CHECK(mapFailures == failedBefore + 1, "fault injection reached a nonthrowing map allocation");
-    CHECK(!rejected && rejected.error() == StructureMeshError::BuildFailed,
-          "nonthrowing map failure reaches the building transaction");
-    CHECK(output.WallRun == previous.WallRun && output.WallCorners.size() == 3 &&
-              output.RoofRun.empty() && output.RoofCorners.empty(),
-          "map allocation failure rolls back appended geometry");
-    CHECK(mesher.Mesh(plan, *scratch, output).has_value() && output.WallRun == complete.WallRun &&
-              output.RoofRun == complete.RoofRun,
-          "building scratch recovers after map allocation failure");
-  }
+  CheckAllocationFailure(mesher, plan, previous, complete);
   for (size_t coordinate = 0; coordinate < ring.size(); ++coordinate) {
-    for (double sign : {-1.0, 1.0}) {
+    for (const double sign : {-1.0, 1.0}) {
       auto invalidRing = ring;
       invalidRing[coordinate] = sign * (coordinate % 2 == 0 ? 91.0 : 181.0);
       plan.RingLatLon = invalidRing;
@@ -85,7 +98,7 @@ int main() {
     }
   }
   plan.RingLatLon = ring;
-  for (double height : {1.0e20, std::numeric_limits<double>::max()}) {
+  for (const double height : {1.0e20, std::numeric_limits<double>::max()}) {
     plan.HeightM = height;
     scratch = mesher.Scratch();
     const auto oversized = mesher.Mesh(plan, *scratch, previous);
@@ -93,7 +106,7 @@ int main() {
           "unrepresentable storey counts are rejected before shape generation");
   }
   plan.HeightM = 6;
-  for (double seat : {-1.0e20, 1.0e20}) {
+  for (const double seat : {-1.0e20, 1.0e20}) {
     plan.SeatAslM = seat;
     plan.FootAslM = seat;
     Raised output = previous;

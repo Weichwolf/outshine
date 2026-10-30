@@ -32,6 +32,7 @@ void main() {
   const uvec2 selected = geometryCluster(group);
   if (visible[selected.x] == 0u) { return; }
   const GeometryRoot root = roots[selected.x];
+  if (slot[hierarchy.work.z + root.cluster.w] == 0u) { return; }
   const uint at = slot[root.cluster.z + selected.y];
   if (at == 0xffffffffu) { return; }
   const uvec4 item = templates[root.cluster.x + selected.y];

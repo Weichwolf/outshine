@@ -85,7 +85,9 @@ class DeclaredPlaceAssets(unittest.TestCase):
         self.assertTrue(report["measurement_complete"])
         self.assertTrue(report["world_complete"])
         self.assertEqual(report["unrefined_frames"], 0)
-        self.assertGreaterEqual(report["phases_ms"]["paced_window"], 999.0)
+        self.assertEqual(report["profile"]["pacing"], "unpaced")
+        self.assertGreater(report["phases_ms"]["unpaced_window"], 0.0)
+        self.assertAlmostEqual(report["motion"]["frames"] * report["motion"]["time_step_s"], 1.0)
         pictures = list((self.work / "shots").glob("Flat-*.png"))
         self.assertEqual(
             [path.name for path in pictures], [f"Flat-{row['sha256'][:8]}.png"]

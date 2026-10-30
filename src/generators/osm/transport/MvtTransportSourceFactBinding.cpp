@@ -1,6 +1,7 @@
 #include "MvtTransportSnapshotInternal.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
+#include "Sha256Stream.h"
 #include <array>
 #include <cstdint>
 #include <span>
@@ -8,12 +9,12 @@
 
 namespace outshine::Generators::Osm::MvtTransport {
 namespace {
-template <class T> void Append(Sha256Prefix &hash, T value) {
+template <class Hash, class T> void Append(Hash &hash, T value) {
   const auto word = LittleEndian(value);
   hash.Append(&word, sizeof(word));
 }
 
-void AppendWay(Sha256Prefix &hash, const MvtTransportWayFacts &way) {
+template <class Hash> void AppendWay(Hash &hash, const MvtTransportWayFacts &way) {
   Append(hash, way.StreetWay);
   Append(hash, way.Feature);
   Append(hash, way.Ring);
@@ -26,11 +27,10 @@ void AppendWay(Sha256Prefix &hash, const MvtTransportWayFacts &way) {
   }
   for (const bool owns : way.OwnsEnds) { Append(hash, static_cast<uint8_t>(owns)); }
 }
-}
 
-std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
-  constexpr std::string_view kVersion = "outshine/mvt-source-facts/3";
-  Sha256Prefix hash(kVersion.data(), kVersion.size());
+template <class Hash> void WriteFacts(Hash &hash, const MvtTransportSourceFacts &facts) {
+  constexpr std::string_view kVersion = "outshine/mvt-source-facts/4";
+  hash.Append(kVersion.data(), kVersion.size());
   const auto &revision = facts.Network->SourceIdentity().Revision;
   hash.Append(revision.data(), revision.size());
   hash.Append(facts.NodeGroups->Digest.data(), facts.NodeGroups->Digest.size());
@@ -72,8 +72,23 @@ std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
       Append(hash, point.LongitudeDeg);
       Append(hash, point.LatitudeDeg);
     }
+    Append(hash, static_cast<uint8_t>(missing.OriginalWayState));
+    Append(hash, static_cast<uint64_t>(missing.OriginalPoints.size()));
+    for (const auto &point : missing.OriginalPoints) {
+      Append(hash, static_cast<uint8_t>(point.State));
+      Append(hash, point.Group);
+    }
   }
-  return hash.Digest(nullptr, 0);
+}
+}
+
+std::array<uint8_t, 32> SourceFactDigest(const MvtTransportSourceFacts &facts) {
+  Sha256Stream hash;
+  WriteFacts(hash, facts);
+  if (const auto digest = hash.Finish()) { return *digest; }
+  Sha256Prefix fallback(nullptr, 0);
+  WriteFacts(fallback, facts);
+  return fallback.Digest(nullptr, 0);
 }
 
 void BindSourceFacts(MvtTransportSourceFacts &facts) {

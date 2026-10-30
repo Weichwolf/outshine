@@ -1,17 +1,21 @@
 #ifndef OUTSHINE_RENDER_IMPOSTOR_MATERIALFIELDINPUTDATA_H
 #define OUTSHINE_RENDER_IMPOSTOR_MATERIALFIELDINPUTDATA_H
 #include "MaterialFieldInput.h"
+#include "MaterialFieldRasterInput.h"
 #include "GeometryChannel.h"
 #include "MaterialBinding.h"
 #include "MeshInput.h"
 #include "RenderGeometryStorage.h"
+#include "Viewing.h"
 #include <array>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
 namespace outshine::Render {
 struct MaterialFieldInput::Data {
+  std::optional<MaterialFieldRasterInput> Stored;
   std::shared_ptr<const Geometry> Source;
   RenderGeometryStorage Storage;
   RenderGeometryView View;
@@ -22,6 +26,7 @@ struct MaterialFieldInput::Data {
   DrawList Draws;
   std::vector<uint32_t> Indices;
   Extent Raster;
+  std::optional<Viewpoint> Capture;
 
   [[nodiscard]] std::expected<void, std::string> Prepare();
   [[nodiscard]] std::expected<void, std::string> PrepareTextures();

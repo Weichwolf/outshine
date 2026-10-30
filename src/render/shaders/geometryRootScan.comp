@@ -10,6 +10,7 @@ layout(std430, set = 1, binding = 0) buffer Buffer_slot { uint slot[]; };
 layout(std430, set = 1, binding = 1) buffer Buffer_args { uint args[]; };
 shared uint block[32];
 shared uint carried;
+shared uint changed;
 
 void main() {
   const uint first = geometryGroup();
@@ -17,12 +18,22 @@ void main() {
   const uint batch = roots[first].cluster.w;
   if (first != 0u && roots[first - 1u].cluster.w == batch) { return; }
   const uint lane = gl_LocalInvocationID.x;
-  if (lane == 0u) { carried = 0u; }
+  const uint state = hierarchy.work.z + batch;
+  const bool valid = slot[state] != kGeometryIndexCold;
+  if (lane == 0u) { carried = 0u; changed = uint(!valid); }
   barrier();
   for (uint rootIndex = first; rootIndex < hierarchy.counts.x; ++rootIndex) {
     const GeometryRoot root = roots[rootIndex];
     if (root.cluster.w != batch) { break; }
-    if (visible[rootIndex] == 0u) { continue; }
+    if (visible[rootIndex] == 0u) {
+      for (uint at = lane; at < root.cluster.y; at += 32u) {
+        const uint logical = root.cluster.z + at;
+        if (valid && slot[logical] != 0xffffffffu) { atomicOr(changed, 1u); }
+        slot[logical] = 0xffffffffu;
+      }
+      barrier();
+      continue;
+    }
     for (uint from = 0u; from < root.cluster.y; from += 32u) {
       const uint live = min(root.cluster.y - from, 32u);
       const uint at = from + lane;
@@ -36,12 +47,18 @@ void main() {
         barrier();
       }
       if (at < root.cluster.y) {
-        slot[root.cluster.z + at] = mine == 0u ? 0xffffffffu : carried + block[lane] - mine;
+        const uint logical = root.cluster.z + at;
+        const uint next = mine == 0u ? 0xffffffffu : carried + block[lane] - mine;
+        if (valid && slot[logical] != next) { atomicOr(changed, 1u); }
+        slot[logical] = next;
       }
       barrier();
       if (lane == live - 1u) { carried += block[live - 1u]; }
       barrier();
     }
   }
-  if (lane == 0u) { args[5u * batch] = carried; }
+  if (lane == 0u) {
+    slot[state] = uint(changed != 0u || args[5u * batch] != carried);
+    args[5u * batch] = carried;
+  }
 }

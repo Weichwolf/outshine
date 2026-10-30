@@ -21,6 +21,8 @@ int main() {
     return Report();
   }
   CHECK(result->GpuValidation == validation, "validation is declared in the native report");
+  CHECK(result->Memory.CollectionNs && result->Memory.PeakResidentBytes,
+        "the completed native workloads capture their actual process high-water observation");
   CHECK(!result->Cpu.empty() && !result->Gpu.empty() && !result->Compiler.empty(),
         "host processor, GPU and compiler have independent identities");
   const auto &expected = outshine::Test::Calibration::kVersion2Workloads;

@@ -15,6 +15,25 @@
 #include <vector>
 
 namespace outshine::Render {
+static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
+
+namespace {
+void InitializeNormalWeights(std::span<std::byte> data, ImagePixelFormat format) {
+  constexpr uint16_t kHalfOne = 0x3c00;
+  const auto stride = ImagePixelBytes(format);
+  const auto fill = [data, stride](auto one) {
+    for (size_t at = 0; at < data.size(); at += stride) {
+      std::memcpy(data.data() + at + 3 * sizeof(one), &one, sizeof(one));
+    }
+  };
+  switch (format) {
+    case ImagePixelFormat::Rgba8Unorm: fill(std::numeric_limits<uint8_t>::max()); break;
+    case ImagePixelFormat::Rgba16Float: fill(kHalfOne); break;
+    case ImagePixelFormat::Rgba32Float: fill(1.0f); break;
+  }
+}
+}
+
 Native::Result<GeometryResidency::BoundImage> GeometryResidency::Bind(const RadianceImage &image,
                                                                       ImageUploadMode mode) {
   if (UploadCommands_ != nullptr) { mode = ImageUploadMode::Deferred; }
@@ -126,9 +145,13 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "texture mip chain exceeds transfer storage"});
   }
-  const bool half = texture.Format == ImagePixelFormat::Rgba16Float;
+  const bool floating = texture.Format != ImagePixelFormat::Rgba8Unorm;
   auto format = decode == Transfer::Srgb ? Native::Format::Rgba8Srgb : Native::Format::Rgba8Unorm;
-  if (half) { format = Native::Format::Rgba16Float; }
+  switch (texture.Format) {
+    case ImagePixelFormat::Rgba8Unorm: break;
+    case ImagePixelFormat::Rgba16Float: format = Native::Format::Rgba16Float; break;
+    case ImagePixelFormat::Rgba32Float: format = Native::Format::Rgba32Float; break;
+  }
   auto image = Device_->CreateTexture({.Width = width,
                                        .Height = height,
                                        .Mips = levels,
@@ -144,7 +167,7 @@ Native::Result<GeometryResidency::BoundImage> GeometryResidency::UploadImage(
       .Rgba = {texels, static_cast<size_t>(width) * height * ImagePixelBytes(texture.Format)},
       .LowerMips = texture.LowerMips};
   auto interpretation =
-      decode == Transfer::Srgb && !half ? ImageMipKind::Colour : ImageMipKind::Linear;
+      decode == Transfer::Srgb && !floating ? ImageMipKind::Colour : ImageMipKind::Linear;
   if (kind == TexelKind::Direction) { interpretation = ImageMipKind::Normal; }
   std::shared_ptr<Native::Texture> shared = std::move(*image);
   const auto uploaded = UploadMipChain(shared, pixels, levels, interpretation, mode);
@@ -203,14 +226,7 @@ GeometryResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
   if (!mapped) { return std::unexpected(mapped.error()); }
   std::memcpy(mapped->data(), pixels.Rgba.data(), baseBytes);
   if (kind == ImageMipKind::Normal) {
-    constexpr uint16_t kHalfOne = 0x3c00;
-    for (size_t at = 0; at < baseBytes; at += pixelBytes) {
-      if (pixels.Format == ImagePixelFormat::Rgba16Float) {
-        std::memcpy(mapped->data() + at + 3 * sizeof(uint16_t), &kHalfOne, sizeof(kHalfOne));
-      } else {
-        (*mapped)[at + 3] = std::byte{std::numeric_limits<uint8_t>::max()};
-      }
-    }
+    InitializeNormalWeights(mapped->first(baseBytes), pixels.Format);
   }
   if (levels > 1 && lower) {
     std::memcpy(mapped->data() + baseBytes, lower->data(), lower->size());

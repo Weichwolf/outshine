@@ -1,13 +1,13 @@
 """Source-owned presentation slots; geometry and original prefixes stay intact."""
 
 import numpy as np
+from stair_service_profile import SERVICE_ROLES
 
 
 def surface_slots(rows, owners):
     roads = np.array(
         [
-            r.get("source_recipe")
-            in ("minor_ground_carriageway", "oneway_service_carriageway")
+            r.get("source_recipe") in ("minor_ground_carriageway", *SERVICE_ROLES)
             for r in rows
         ]
     )

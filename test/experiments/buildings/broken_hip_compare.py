@@ -11,6 +11,7 @@ import shapely
 from broken_hip import surface
 from evidence import revision
 from outshine_ref.buildings.modelling import Part, Shape, heightfield_envelope
+from outshine_ref.buildings.modelling.scope import scalar
 from provider_contract import attributes
 from structural_shell_geometry import mesh_section
 from tile_roof_envelopes import choose, roof_surface
@@ -18,7 +19,12 @@ from verify_roof_envelopes import measures
 from verify_urban_roofs import control, sources
 
 
-def logical(top, eave_m, rise_m):
+def logical(
+    top, eave_m, rise_m, *, run_fraction=0.15, height_fraction=0.65, source_scope=None
+):
+    run, height = scalar(run_fraction), scalar(height_fraction)
+    if not 0 < run < height < 1 or scalar(rise_m) <= 0:
+        raise ValueError("Logical broken hip requires positive rise and0<run<height<1")
     faces = top["faces"]
     shape = Shape.from_mesh(
         {
@@ -26,9 +32,12 @@ def logical(top, eave_m, rise_m):
             "faces": np.arange(faces.size).reshape(-1, 3),
             "uv": top["uv"][faces].reshape(-1, 2),
             "materials": top["materials"],
-        }
+        },
+        scope=source_scope,
     )
-    pieces = shape.split("z", Part(rise_m * 0.15), Part(rise_m * 0.85), adjust=False)
+    pieces = shape.split(
+        "z", Part(rise_m * run), Part(rise_m * (1 - run)), adjust=False
+    )
     data, owners = [], []
     for piece in pieces:
         mesh = piece.emit()
@@ -43,10 +52,10 @@ def logical(top, eave_m, rise_m):
     vertices = data[:, :3].copy()
     r = (vertices[:, 2] - eave_m) / rise_m
     vertices[:, 2] = eave_m + rise_m * np.where(
-        r <= 0.15, r * 0.65 / 0.15, 0.65 + (r - 0.15) * 0.35 / 0.85
+        r <= run, r * height / run, height + (r - run) * (1 - height) / (1 - run)
     )
     tolerance = max(1e-10, 64 * np.finfo(float).eps * max(abs(eave_m), rise_m, 1.0))
-    for a, b in ((0, 0), (0.15, 0.65), (1, 1)):
+    for a, b in ((0, 0), (run, height), (1, 1)):
         vertices[abs(data[:, 2] - (eave_m + rise_m * a)) <= tolerance, 2] = (
             eave_m + rise_m * b
         )

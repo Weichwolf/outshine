@@ -27,6 +27,19 @@ namespace outshine::App {
 namespace {
 using ReportJson = nlohmann::json;
 
+ReportJson MemoryJson(const ProcessMemorySnapshot &sample) {
+  const auto bytes = [](std::optional<uint64_t> value) {
+    return value ? ReportJson(*value) : ReportJson(nullptr);
+  };
+  return {{"resident_bytes", bytes(sample.ResidentBytes)},
+          {"peak_resident_bytes", bytes(sample.PeakResidentBytes)},
+          {"footprint_bytes", bytes(sample.FootprintBytes)},
+          {"peak_footprint_bytes", bytes(sample.PeakFootprintBytes)},
+          {"collection_ns", bytes(sample.CollectionNs)},
+          {"peak_scope", "process_lifetime"},
+          {"sample_phase", "after_measurement"}};
+}
+
 ReportJson VectorJson(const Vec3 &value) {
   return ReportJson::array({value[0], value[1], value[2]});
 }
@@ -150,8 +163,14 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   const bool measurementComplete =
       !report.Frames.empty() && report.Frames.size() == report.Motion.Frames &&
       gpu["rendered_frames"].get<double>() == static_cast<double>(report.Motion.Frames);
+  const double completedMs = report.WindowMs + report.FlushMs;
+  const bool completedWindow = measurementComplete && std::isfinite(report.WindowMs) &&
+                               report.WindowMs > 0 && std::isfinite(report.FlushMs) &&
+                               report.FlushMs >= 0 && std::isfinite(completedMs);
   const auto unrefined =
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
+  const bool worldComplete =
+      measurementComplete && unrefined == 0 && report.FinalWorldBlockers.empty();
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
                        cpu["frame"]["p99_ms"].get<double>() <= budgetMs;
   ReportJson gpuPass = gpu["complete"].get<bool>()
@@ -167,9 +186,13 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   constexpr std::string_view backend = "Vulkan";
 #endif
   const ReportJson json{
-      {"benchmark_version", 1},
+      {"benchmark_version", 2},
       {"mode", "scenario"},
       {"measurement_complete", measurementComplete},
+      {"wall_throughput_fps",
+       completedWindow
+           ? ReportJson(static_cast<double>(report.Frames.size()) * 1000.0 / completedMs)
+           : ReportJson(nullptr)},
       {"scenario", report.Scenario},
       {"declaration_sha256", report.DeclarationSha256},
       {"view", report.View},
@@ -178,6 +201,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"backend", backend},
       {"logical_cpu_count", SDL_GetNumLogicalCPUCores()},
       {"ram_bytes", static_cast<uint64_t>(std::max(0, SDL_GetSystemRAM())) * 1024u * 1024u},
+      {"process_memory", MemoryJson(report.Memory)},
       {"build",
        {{"commit", kBuildCommit},
         {"flags", kBuildFlags},
@@ -188,6 +212,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
        {{"width_px", report.Frame.WidthPx},
         {"height_px", report.Frame.HeightPx},
         {"fps", report.Motion.RateHz},
+        {"pacing", "unpaced"},
         {"budget_ms", budgetMs}}},
       {"motion",
        {{"frames", report.Motion.Frames},
@@ -201,19 +226,17 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"phases_ms",
        {{"setup", report.SetupMs},
         {"preload", report.PreloadMs},
-        {"paced_window", report.WindowMs},
+        {"unpaced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},
-      {"world_complete", measurementComplete && unrefined == 0},
+      {"world_complete", worldComplete},
       {"unrefined_frames", unrefined},
       {"final_world_blockers", report.FinalWorldBlockers},
       {"budget",
        {{"cpu_p99_met", cpuPass},
         {"gpu_p99_met", gpuPass},
-        {"met",
-         measurementComplete && unrefined == 0 && cpuPass && gpuPass.is_boolean() &&
-             gpuPass.get<bool>()}}},
+        {"met", worldComplete && cpuPass && gpuPass.is_boolean() && gpuPass.get<bool>()}}},
       {"cpu_times", std::move(cpu)},
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};

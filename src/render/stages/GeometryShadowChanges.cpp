@@ -30,7 +30,10 @@ bool GeometryRenderer::ChangesShadowSurfaces(std::span<const uint32_t> before,
                                              PieceSurface::Source source) const noexcept {
   if (!PiecesVisible_) { return false; }
   return std::ranges::any_of(Pieces_, [&](const Piece &piece) {
-    if (!piece.Live || piece.Rows.empty() || piece.Surface.From != source) { return false; }
+    if (!piece.Live || piece.Rows.empty() || piece.Passes == GeometryPasses::Main ||
+        piece.Surface.From != source) {
+      return false;
+    }
     const size_t slot = piece.Surface.Index;
     return slot >= before.size() || slot >= after.size() || before[slot] != after[slot];
   });
@@ -41,7 +44,10 @@ bool GeometryRenderer::TruncatesShadowMaterials(size_t count) const noexcept {
     if (batch.Instances != 0 && batch.MaterialSlot >= count) { return true; }
   }
   for (const auto &piece : Pieces_) {
-    if (!PiecesVisible_ || !piece.Live || piece.Rows.empty()) { continue; }
+    if (!PiecesVisible_ || !piece.Live || piece.Rows.empty() ||
+        piece.Passes == GeometryPasses::Main) {
+      continue;
+    }
     const auto &slots =
         piece.Surface.From == PieceSurface::Source::Registered ? RegisteredSlotOf_ : SlotOf_;
     if (piece.Surface.Index >= slots.size() || slots[piece.Surface.Index] >= count) { return true; }

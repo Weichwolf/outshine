@@ -3,6 +3,7 @@
 import argparse
 import json
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 
 from city_scene import inputs
@@ -16,7 +17,9 @@ from tile_elevations import ElevationFacades
 from tile_podiums import PodiumDetails
 
 
-def models(output):
+def models(output, *, layout="edge", passes="both"):
+    if passes not in ("both", "before", "after"):
+        raise ValueError("Known city comparison pass required")
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze entire dormer scene before image evidence")
@@ -39,7 +42,11 @@ def models(output):
         )
 
     owner = PodiumDetails(rows, view, progress=progress)
-    for suffix, kind in (("Before", ElevationFacades), ("After", DormerFacades)):
+    before = ElevationFacades if layout == "edge" else DormerFacades
+    selected = partial(DormerFacades, dormer_layout=layout)
+    for suffix, kind in (("Before", before), ("After", selected)):
+        if passes != "both" and suffix.lower() != passes:
+            continue
         owner.facades = kind(owner.rows, view)
         owner.completed.clear()
         owner.rejected.clear()
@@ -82,11 +89,13 @@ def models(output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--layout", choices=("edge", "facade"), default="edge")
+    parser.add_argument("--passes", choices=("both", "before", "after"), default="both")
     args = parser.parse_args()
     output = args.output.resolve()
     if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
         parser.error("--output requires a subdirectory of /tmp")
-    models(output)
+    models(output, layout=args.layout, passes=args.passes)
 
 
 if __name__ == "__main__":

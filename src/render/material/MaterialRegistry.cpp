@@ -34,6 +34,17 @@ MaterialRegistry::Resolve(Geometry source, std::span<const MaterialRadiance> ima
           assigned[image.Material] != 0) {
         return std::unexpected("resident colour requires one existing material and an owned image");
       }
+      if (image.Image->Encoding == RadianceEncoding::IntegralPairs) {
+        const auto &description = image.Image->Texture->Description();
+        const auto &row = held.Slots[image.Material].Row;
+        if (!row.Unlit || row.Alpha != AlphaMode::Blended ||
+            description.Texels != Native::Format::Rgba32Float ||
+            description.Type != Native::TextureType::Image2D || description.Mips != 1 ||
+            description.Layers != 1 || description.Width < 4 || description.Width % 2 != 0 ||
+            description.Height < 2) {
+          return std::unexpected("integral radiance requires paired Float32 and unlit blending");
+        }
+      }
       assigned[image.Material] = 1;
       held.Slots[image.Material].Radiance = image.Image;
     }
