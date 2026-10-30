@@ -73,12 +73,41 @@ crossing or behind the eye plane, keeps every sample on the previous path. Insid
 rows still obey existing cell/reference/time limits and remain unknown on failure.
 This support bound does not certify native raster rounding or the floating-point
 ray-triangle algorithm. It adds neither dilation of rendered geometry nor runtime
-field admission. The explicit `whole_support=False` comparison control retains
+field admission. The explicit `whole_support=False, pair_batch_size=0` control retains
 the complete previous query; it is not a second product representation.
 
 There is no repeated scan of all vertices in the query, extra BVH or new cache.
 Source min/max is built once with the already owned geometry. Current callers
 and source-hash manifests include this helper; material/corner bindings stay intact.
+
+### Complete-ray intersection packets (#1858)
+
+`triangle_pair_batches` borrows the same geometry/rays for one synchronous query.
+Greedy packets contain complete candidate lists, with 4096 pair slots by default.
+Two fixed staging arrays occupy 49152 B; physical distance/owner/unknown scratch
+uses 17 B per selected ray. Candidate lists are copied into staging, not retained
+as an unbounded queue or expanded into the complete ray/triangle Cartesian product.
+
+One ray is never split between packets. Its `q @ direction` uses the same complete
+matrix/vector shape and operation as the scalar reference. Flat `einsum` and
+one-pair matrix products had changed silhouette coverage; the existing strict
+pose/silhouette tests reject both. No tolerance or source geometry was changed.
+Other vector operations and reductions span packets; equal finite distances choose
+the lowest original ordinal, as in the sorted scalar candidate list.
+
+A ray larger than the packet runs separately with its complete candidate list,
+bounded by the unchanged 131072-triangle field preflight. Thus 4096 is a packet
+limit, not a universal scratch ceiling: a separate ray can require larger temporary
+arrays. Counters record these calls, largest kernel, row-ID bytes and gathered
+payload. Field input limits bound every array; no all-query pair expansion occurs.
+Only the configured packet and one standalone ray can be live at once.
+
+Reference/time exhaustion flushes already submitted complete rays; the remaining
+samples stay unknown. As before, time is cooperative between rays; a final packet
+may complete after the check. Nonfinite candidate arithmetic marks the whole ray
+unknown and keeps the original fallback. Query scratch dies with the call; full
+output arrays retain their size/order. `pair_batch_size=0` retains scalar arithmetic
+as a comparison control. No IO, new worker, cache policy or native format is added.
 
 ## Native finite result
 
@@ -120,18 +149,23 @@ not a low-memory distant asset winner. The observed R-tree build has 6498096 B
 of distinct numeric arrays, excluding its native heap, Python objects and later
 query caches; it is not a full residency measure.
 
-The frozen #1858 same-run comparison reduced ray rows from 1600/4275 to 432/792
+The frozen #1859 same-run comparison reduced ray rows from 1600/4275 to 432/792
 and visited cells from 1595/18953 to 527/12780. Geometry outputs, raw attributes
 and the existing native coverage errors remain unchanged. Query CPU measured
 109/282 ms versus 205/492 ms for the unbounded control; allocation events and
 incremental peaks also decreased. R-tree256 remained about equal sideways, so
 there is still no universal method winner. No frame/IO/UMA claim follows.
 The exact qualified commit, counters, timing scopes, load and owner acceptance
-belong to the delivery PR. Paired-intersection batching has only a developmental
-kernel comparison so far; bounded full-query integration remains in #1858.
+belong to that delivery PR. The second #1858 comparison qualifies whole-ray
+packets against the supported scalar path, 512/4096/16384 slots, unbounded scalar
+and both R-tree sizes. It preserves complete depth/ordinal/raw-attribute arrays
+and all eight diagnostic PNGs. The 4096-slot choice reduces CPU and allocation
+events on both finite poses, at a larger incremental peak. The 16384-slot option
+is somewhat faster but needs substantially more peak memory; 512 slots regress
+side-query CPU. Exact tradeoffs/qualified commit live in the second delivery PR.
 
-There is no universal CPU winner: columns reduce preparation/scoped peak and
-slightly improve the near query, while the existing R-tree is faster sideways.
+The original #1845 comparison had no universal CPU winner: columns reduced
+preparation/scoped peak, while the existing R-tree was faster sideways.
 Reducing R-tree batches trades speed for lower temporary peak. Exact figures,
 commit/platform/load and the owner decision belong to #1845 and its PR. Peaks
 are incremental measured scopes, not process/UMA/device budgets. No native,
@@ -140,7 +174,7 @@ frame/p99, load-time or fine-IO/residency improvement follows from these numbers
 ```sh
 export PYTHONPATH=lib/src:test/experiments/render
 export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
-python -B -m unittest test_triangle_columns test_building_sample_originals test_native_world_inputs
+python -B -m unittest test_triangle_pair_batches test_triangle_query_support test_triangle_columns test_source_fragment_inputs test_attribute_words test_vertex_colour_palette
 python -B test/experiments/render/compare_triangle_columns.py --cost --output "$fresh_temp"
 ```
 
