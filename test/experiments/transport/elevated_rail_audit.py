@@ -48,7 +48,9 @@ def inspect(body, top_faces, rows, groups, thickness, along, cross):
         gradient = normal_gradients(vertices[:n, :2], top_faces, vertices[:n, 2])
         normalized = abs(gradient @ directions.T) / limits
         if normalized.max() > 1:
-            raise ValueError("Actual deck longitudinal/cross profile exceeded")
+            raise ValueError(
+                f"Actual deck longitudinal/cross profile exceeded: normalized={float(normalized.max()):.9g}, float32={cast}, face={int(np.argmax(normalized) // len(directions))}"
+            )
         underside = Mesh(vertices[n:], top_faces)
         clearances = []
         for name, lower, required in groups:

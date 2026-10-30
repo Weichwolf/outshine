@@ -43,7 +43,10 @@ def run(args):
     )
     palette = np.array(scene["colours"])
     rows = {}
-    for method in ("before", "flat", "tilted"):
+    for method in (
+        "before",
+        *(name for name in ("flat", "tilted") if report["methods"][name]["accepted"]),
+    ):
         if method == "before":
             mesh_path = path
         else:

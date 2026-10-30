@@ -34,31 +34,45 @@ def compare(recipe, rows, top, domain, points, groups):
     result, arrays = {}, {}
     for method in ("flat", "tilted"):
         cpu, wall = time.process_time(), time.perf_counter()
-        origin, coefficients, fit = fit_plane(
-            points,
-            domain,
-            axes,
-            along=recipe["along_grade"],
-            cross=recipe["cross_grade"],
-            method=method,
-        )
-        vertices = top.vertices.copy()
-        vertices[:, 2] = (vertices[:, :2] - origin) @ coefficients[:2] + coefficients[2]
-        body = close_surface(Mesh(vertices, top.triangles), recipe["deck_thickness_m"])
-        cpu, wall = time.process_time() - cpu, time.perf_counter() - wall
-        proof = inspect(
-            body,
-            top.triangles,
-            rows,
-            groups,
-            recipe["deck_thickness_m"],
-            recipe["along_grade"],
-            recipe["cross_grade"],
-        )
+        try:
+            origin, coefficients, fit = fit_plane(
+                points,
+                domain,
+                axes,
+                along=recipe["along_grade"],
+                cross=recipe["cross_grade"],
+                method=method,
+            )
+            vertices = top.vertices.copy()
+            vertices[:, 2] = (vertices[:, :2] - origin) @ coefficients[
+                :2
+            ] + coefficients[2]
+            body = close_surface(
+                Mesh(vertices, top.triangles), recipe["deck_thickness_m"]
+            )
+            cpu, wall = time.process_time() - cpu, time.perf_counter() - wall
+        except ValueError as failure:
+            result[method] = {"accepted": False, "reason": str(failure), "proof": []}
+            continue
+        try:
+            proof = inspect(
+                body,
+                top.triangles,
+                rows,
+                groups,
+                recipe["deck_thickness_m"],
+                recipe["along_grade"],
+                recipe["cross_grade"],
+            )
+            accepted, reason = True, ""
+        except ValueError as failure:
+            proof, accepted, reason = [], False, str(failure)
         result[method] = {
             "fit": fit,
             "build_cpu_s": cpu,
             "build_wall_s": wall,
+            "accepted": accepted,
+            "reason": reason,
             "proof": proof,
         }
         arrays[method + "_vertices"] = body.vertices
@@ -110,6 +124,9 @@ def run(args):
         "whole_layout": layout,
         "lower_work": lower_work,
         "methods": result,
+        "selected_method": next(
+            (name for name in ("flat", "tilted") if result[name]["accepted"]), None
+        ),
         "cost": {
             "decode_cpu_s": decoded[0],
             "decode_wall_s": decoded[1],

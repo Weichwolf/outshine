@@ -215,6 +215,25 @@ class RaisedRailTests(unittest.TestCase):
             all(p["clearances"][0]["minimum_clearance_m"] > 2.5 for p in proof)
         )
 
+    def test_refused_alternative_does_not_discard_the_valid_flat_candidate(self):
+        from elevated_rail_study import compare
+
+        body, faces, rows = self.body()
+        n = len(body.vertices) // 2
+        top = Mesh(body.vertices[:n], faces)
+        domain = shapely.union_all(shapely.polygons(top.vertices[top.triangles, :2]))
+        points = np.c_[top.vertices[:, :2], np.full(n, 3.12)]
+        recipe = {"deck_thickness_m": 0.6, "along_grade": 0.04, "cross_grade": 0.03}
+        with patch(
+            "elevated_rail_study.inspect",
+            side_effect=[[{"actual": True}], ValueError("Float32 alternate refused")],
+        ):
+            result, arrays = compare(recipe, rows, top, domain, points, [])
+        self.assertTrue(result["flat"]["accepted"])
+        self.assertFalse(result["tilted"]["accepted"])
+        self.assertIn("Float32", result["tilted"]["reason"])
+        self.assertIn("flat_vertices", arrays)
+
     def test_actual_bottom_and_too_little_whole_clearance_are_rejected(self):
         body, faces, rows = self.body()
         with self.assertRaisesRegex(ValueError, "clearance failed"):
