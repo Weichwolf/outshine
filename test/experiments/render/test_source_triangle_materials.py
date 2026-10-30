@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from native_source_triangle_materials import DATA, bound_selection
+from native_world_inputs import load
 from source_triangle_materials import triangle_parts, write_source
 
 
@@ -72,6 +74,36 @@ class SourceTriangles(unittest.TestCase):
                     (geometry / str(at) / "uv.bin").read_bytes(),
                     self.source["attributes"][at]["uv"].tobytes(),
                 )
+
+
+class NativeSelection(unittest.TestCase):
+    def test_bound_native_selection_retains_original_parts(self):
+        _, _, _, source = load(DATA, attributes=True)
+        selected, metadata = bound_selection(DATA, source)
+        parts = triangle_parts(source, selected)
+        self.assertEqual(len(selected), metadata["selected_triangles"])
+        self.assertEqual(sum(p[0]["triangles"] for p in parts), len(selected))
+        self.assertEqual(
+            [p[0]["material"] for p in parts], [p["material"] for p in source["parts"]]
+        )
+        with np.load(
+            DATA / "native-visible-triangles.npz", allow_pickle=False
+        ) as arrays:
+            for pose, case in metadata["cases"].items():
+                points = arrays[pose + "/pixel_xy"]
+                self.assertTrue((points >= 0).all())
+                self.assertTrue((points < metadata["raster"]).all())
+                self.assertEqual(len(points), case["native_covered_samples"])
+                self.assertTrue(
+                    np.isin(arrays[pose + "/triangle_ordinal"], selected).all()
+                )
+                self.assertTrue((arrays[pose + "/rgba"][:, 3] == 1).all())
+                self.assertTrue((arrays[pose + "/depth"] > 0).all())
+
+    def test_changed_source_inventory_is_rejected(self):
+        _, _, _, source = load(DATA, attributes=True)
+        with self.assertRaises(ValueError):
+            bound_selection(DATA, {**source, "indices": source["indices"][:-1]})
 
 
 if __name__ == "__main__":
