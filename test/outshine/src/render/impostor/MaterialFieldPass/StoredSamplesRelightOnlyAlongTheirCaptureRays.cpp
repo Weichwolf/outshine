@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -152,6 +153,90 @@ void SamePixels(Device &device, const MaterialFieldImages &a, const MaterialFiel
   }
 }
 
+bool SameColour(Device &device, const MaterialFieldImages &a, const MaterialFieldImages &b) {
+  const auto first = ReadImage(device, *a.Unfiltered->Texture, {.Width = 4, .Height = 4});
+  const auto second = ReadImage(device, *b.Unfiltered->Texture, {.Width = 4, .Height = 4});
+  for (size_t row = 0; row < 4; ++row) {
+    if (std::memcmp(first.Rows.data() + row * first.RowBytes,
+                    second.Rows.data() + row * second.RowBytes,
+                    size_t{4} * 8) != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool FiniteColour(Device &device, const MaterialFieldImages &field) {
+  const auto pixels = ReadImage(device, *field.Unfiltered->Texture, {.Width = 4, .Height = 4});
+  for (size_t row = 0; row < 4; ++row) {
+    for (size_t component = 0; component < 16; ++component) {
+      uint16_t value = 0;
+      std::memcpy(&value,
+                  pixels.Rows.data() + row * pixels.RowBytes + component * sizeof(value),
+                  sizeof(value));
+      if ((value & 0x7c00u) == 0x7c00u) { return false; }
+    }
+  }
+  return true;
+}
+
+void ObserverViews(Tracking &device,
+                   MaterialFieldPass &pass,
+                   const ResidentMaterialField &source,
+                   const ResidentMaterialField &original,
+                   MaterialFieldView view,
+                   ScatteringModel scattering) {
+  const auto relight = [&] {
+    auto field =
+        Require(RetryOffline([&] { return pass.Relight(source, view); }, std::chrono::seconds(5)));
+    const auto reference = Require(
+        RetryOffline([&] { return pass.Relight(original, view); }, std::chrono::seconds(5)));
+    SamePixels(device, field, reference);
+    CHECK(FiniteColour(device, field),
+          "a lighting observer cannot poison the material field with nonfinite colour");
+    CHECK(field.Camera.EyeM == view.Camera.EyeM &&
+              field.LightingCamera.EyeM == view.LightingCamera.value_or(view.Camera).EyeM,
+          "each output owns the independent raster and lighting camera bindings");
+    return field;
+  };
+  const auto captured = relight();
+  view.LightingCamera = view.Camera;
+  view.LightingCamera->EyeM = {{17, -7, 13}};
+  const auto parallel = relight();
+  CHECK(SameColour(device, captured, parallel),
+        "a parallel lighting observer depends on direction, not its eye position");
+  view.LightingCamera->Forward = {{-1, 0, 0}};
+  view.LightingCamera->Right = {{0, 0, -1}};
+  const auto turned = relight();
+  CHECK(
+      SameColour(device, captured, turned) == (scattering == ScatteringModel::DiffuseThinSheet),
+      "turning the lighting observer changes PBR reflection but not diffuse thin-sheet transport");
+  view.LightingCamera->Kind = CameraKind::Perspective;
+  view.LightingCamera->EyeM = {{2, 1, 8}};
+  const auto perspective = relight();
+  CHECK(SameColour(device, captured, perspective) ==
+            (scattering == ScatteringModel::DiffuseThinSheet),
+        "a perspective lighting observer uses sample-to-eye rays at fixed capture pixels");
+  view.Camera.EyeM[2] += 1;
+  view.Camera.ZNearM += 1;
+  view.Camera.ZFarM += 1;
+  const auto shifted = relight();
+  SamePixels(device, perspective, shifted);
+  view.LightingCamera->EyeM = {{-1.5, 1.5, -1}};
+  static_cast<void>(relight());
+  const auto submissions = device.Submits;
+  for (size_t change = 0; change < 4; ++change) {
+    auto invalid = view;
+    if (change == 0) { invalid.LightingCamera->EyeM[0] = std::numeric_limits<double>::infinity(); }
+    if (change == 1) { invalid.LightingCamera->EyeM[0] = std::numeric_limits<double>::max(); }
+    if (change == 2) { invalid.LightingCamera->Forward[0] = 2; }
+    if (change == 3) { invalid.LightingCamera->Kind = static_cast<CameraKind>(255); }
+    const auto rejected = pass.Relight(source, invalid);
+    CHECK(!rejected && rejected.error().Kind == ErrorKind::Invalid && device.Submits == submissions,
+          "invalid lighting observers refuse before native submission and preserve held outputs");
+  }
+}
+
 void Exercise(ScatteringModel scattering) {
   auto native = Require(CreateDevice({.Validation = true}));
   Tracking device(*native);
@@ -205,6 +290,7 @@ void Exercise(ScatteringModel scattering) {
           RetryOffline([&] { return pass.Relight(*original, view); }, std::chrono::seconds(5)));
       SamePixels(device, held, reference);
     }
+    ObserverViews(device, pass, *source, *original, view, scattering);
     const auto submissions = device.Submits;
     for (const size_t change : {size_t{0}, size_t{1}, size_t{2}, size_t{3}, size_t{4}}) {
       auto moved = view;

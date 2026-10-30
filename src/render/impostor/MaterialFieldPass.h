@@ -33,6 +33,8 @@ struct MaterialFieldView {
   Extent Target;
   // IntegralPairs keeps Target == raw raster and stores adjacent hi/lo zero-bordered sums.
   RadianceEncoding Encoding = RadianceEncoding::Texels;
+  // Only basis/kind control lighting; Camera keeps the raster rays and clipping.
+  std::optional<Viewpoint> LightingCamera = std::nullopt;
 };
 
 struct MaterialFieldImages {
@@ -42,6 +44,7 @@ struct MaterialFieldImages {
   // authority.
   std::shared_ptr<Native::Texture> Depth;
   Viewpoint Camera;
+  Viewpoint LightingCamera;
 };
 
 class MaterialFieldPass {
