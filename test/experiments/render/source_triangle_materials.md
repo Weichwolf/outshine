@@ -78,3 +78,22 @@ including clear pixels, for both poses and the repeated first pose. Diagnostic
 hooks stay outside product code; actual binaries, sources, shader sidecars and
 readbacks are archived privately. The existing `lens_operands` remain explicitly
 recomputed camera operands; the captured Float32 shift is a distinct input.
+
+## Shared World sample composition
+
+`compose_native_source_materials.py --native <native-comparison-directory>
+--output <fresh-host-temp>` consumes either comparison's existing `report.json`
+and `samples.npz`; it does not rerun the GPU. Whole-source HDR/depth and native
+capture, lighting and Lens operands must match the bound World input exactly.
+The selected original-material samples enter the existing World compositor with
+terrain and the opening opponent, at the common 2560x1440 sample positions.
+Depth ordering precedes the existing 2x2 reduction to 1280x720. Limits remain
+0.25 linear-HDR RGB and 0.125 visible-source coverage; no runtime admission follows.
+
+The native-reference selection reproduces both unions exactly at both poses and
+the repeated first pose. The geometric selection fails all six finite comparisons:
+one missing source sample contributes 1/4 coverage error after the 2x2 reduction,
+exceeding 0.125. Whole-source fallback restores exact union colour and depth.
+Filtering first and globally blending loses the opening's depth correlation even
+for the exact positive selection. Original group fallback remains mandatory for
+unqualified coverage and unknown World, pose or light revisions.
