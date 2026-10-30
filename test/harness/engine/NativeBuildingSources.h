@@ -64,13 +64,13 @@ struct Fixture {
     return true;
   }
 
-  std::optional<std::string> Generate() {
+  std::optional<std::string> Generate(uint64_t streetDigest = 0) {
     const auto &vectors = *Stack.Vectors();
     const auto &tile = vectors.Tiles().front();
     const Data::TileId address{
         .Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)};
     const auto &assets = Stack.BuildingAssets();
-    auto key = assets->Key(address, 0, Stack.Pool().Shaped(), kSpan, tile.InputDigest);
+    auto key = assets->Key(address, streetDigest, Stack.Pool().Shaped(), kSpan, tile.InputDigest);
     const auto request =
         assets->RequestKey(address, Stack.Pool().Shaped(), kSpan, tile.InputDigest);
     Generators::RawTile raw;
