@@ -108,7 +108,10 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const auto loaded = Cache_->Load(key, kGeometryBytesMost);
   if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
-  if (*loaded) {
+  const std::string_view kind = view.RequestedDetail ? "building-static-lod" : "building-lod";
+  if (*loaded && (**loaded).Record().Parent == baseKey && (**loaded).Record().Kind == kind &&
+      (**loaded).Record().Level ==
+          static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine))) {
     auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, 0);
     if (tile && ValidCeilings(*tile, coordinatePoints)) {
       ++GeometryHits_;
