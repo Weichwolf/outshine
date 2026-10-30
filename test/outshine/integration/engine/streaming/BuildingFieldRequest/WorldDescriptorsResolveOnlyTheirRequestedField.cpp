@@ -1,13 +1,18 @@
 #include "BuildingFieldRequest.h"
+#include "BuildingImpostorSource.h"
+#include "BuildingMaterials.h"
+#include "TileGeodesy.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "Check.h"
 #include "Sha256.h"
 #include "PreparedStructureCodec.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -160,6 +165,93 @@ void Unsupported(const Fixture &fixture, BuildingSourceDemand::Source source) {
         "unsupported source metadata requires no source form generation or loading");
 }
 
+void CheckMetadataBinding(const Fixture &fixture,
+                          const BuildingFieldRequest::Product &original,
+                          const std::string &provenance,
+                          const Content::ImpostorViewAssets::Description &description,
+                          size_t variant) {
+  auto opened = AssetCache::Open(
+      (fixture.Directory.Path / ("binding-" + std::to_string(variant) + ".sqlite")).string());
+  CHECK(opened, "each metadata binding has an independent persisted cache");
+  if (!opened) { return; }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  const auto metadata = Content::ImpostorViewAssets::Publish(
+      *cache, provenance, description, original.Metadata->Receipt().Bounds);
+  CHECK(metadata, "the counterexample is valid content metadata, not corrupt bytes");
+  if (!metadata) { return; }
+  if (description.Pixels == Demand().Pixels &&
+      description.Directions[0] == Demand().Directions[0]) {
+    CHECK(metadata->PublishField({0}, *original.Field, kMiB),
+          "a compatible selected field is persisted under the substituted metadata");
+  }
+  Tasks workers(1);
+  AssetPipeline pipeline(workers,
+                         {.JobsMost = 2,
+                          .ConsumersMost = 2,
+                          .TicketsMost = 4,
+                          .InputBytesMost = 8 * kMiB,
+                          .ReceiptBytesMost = 16384});
+  auto request = BuildingFieldRequest::Start(
+      pipeline, workers, cache, nullptr, original.Source, Demand(), Budget());
+  CHECK(request, "metadata binding is checked after asynchronous request admission");
+  if (!request) { return; }
+  const auto result = Await(*request);
+  if (variant == 0) {
+    CHECK(result && *result && Hash(*(**result).Field) == Hash(*original.Field),
+          "exactly bound metadata preserves the source-free cached field");
+    return;
+  }
+  CHECK(!result, "another capture binding cannot produce a replacement");
+  if (!result) {
+    const char *const expected = variant == 7 ? "inputs unavailable" : "metadata does not match";
+    CHECK(result.error().contains(expected),
+          "another capture binding is refused before requesting a field or opening sources");
+  }
+}
+
+void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Product &original) {
+  const auto &source = original.Source;
+  const auto &anchor = source.AnchorEcef;
+  const auto geo = Ground::EcefToGeoWgs84({.X = anchor[0], .Y = anchor[1], .Z = anchor[2]});
+  BuildingImpostorSource::Recipe recipe{
+      .BaseKey = source.BaseKey,
+      .Cells = {},
+      .Frame = {.Axes =
+                    EnuAxesEcef({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}),
+                .Origin = {}},
+      .Directions = Demand().Directions,
+      .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),
+      .Pixels = Demand().Pixels};
+  for (uint32_t cell = 1; cell <= 64; ++cell) {
+    if ((source.Cells & (uint64_t{1} << (cell - 1))) != 0) { recipe.Cells.push_back(cell); }
+  }
+  const auto provenance = recipe.Key();
+  CHECK(Content::ImpostorViewAssets::MetadataKey(provenance) == original.Metadata->Receipt().Key,
+        "the independent cache fixture addresses the actual requested recipe");
+  const auto &metadata = original.Metadata->Metadata();
+  CHECK(metadata.WorldFromField, "the original metadata has a complete frame");
+  if (!metadata.WorldFromField) { return; }
+  std::array<Content::ImpostorViewAssets::Description, 8> descriptions;
+  descriptions.fill(metadata);
+  auto rotated = *metadata.WorldFromField;
+  for (size_t row = 0; row < 3; ++row) {
+    rotated.At(row, 0) *= -1;
+    rotated.At(row, 2) *= -1;
+  }
+  descriptions[1].WorldFromField = rotated;
+  auto translated = *metadata.WorldFromField;
+  translated.At(0, 3) += 1;
+  descriptions[2].WorldFromField = translated;
+  descriptions[3].Pixels *= 2;
+  descriptions[4].Directions[1] = {{0, 0, 1}};
+  std::ranges::reverse(descriptions[5].Directions);
+  descriptions[6].Directions.pop_back();
+  descriptions[7].WorldFromField.reset();
+  for (size_t variant = 0; variant < descriptions.size(); ++variant) {
+    CheckMetadataBinding(fixture, original, provenance, descriptions[variant], variant);
+  }
+}
+
 void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source) {
   auto opened = AssetCache::Open((fixture.Directory.Path / "fields.sqlite").string());
   CHECK(opened, "the existing asset store opens for field products");
@@ -195,6 +287,7 @@ void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source
   CHECK(ready && *ready,
         ready ? "the requested native field becomes ready" : ready.error().c_str());
   if (!ready || !*ready) { return; }
+  MetadataBindings(fixture, **ready);
   CHECK((**ready).Source.BaseKey == source.BaseKey && (**ready).Field->Pixels() == 32 &&
             (**ready).Metadata->Metadata().WorldFromField &&
             (**ready).Metadata->Metadata().WorldFromField->Translation() == source.AnchorEcef,

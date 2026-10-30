@@ -19,25 +19,46 @@
 
 namespace outshine {
 namespace {
+Generators::BuildingCaptureFrame FrameOf(const Vec3 &anchor) {
+  const auto geo = Ground::EcefToGeoWgs84({.X = anchor[0], .Y = anchor[1], .Z = anchor[2]});
+  return {.Axes = EnuAxesEcef({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}),
+          .Origin = {}};
+}
+
 BuildingImpostorSource::Recipe RecipeOf(const BuildingSourceDemand::Source &source,
                                         const BuildingFieldRequest::Demand &demand) {
-  const auto &anchor = source.AnchorEcef;
-  const auto geo = Ground::EcefToGeoWgs84({.X = anchor[0], .Y = anchor[1], .Z = anchor[2]});
-  BuildingImpostorSource::Recipe recipe{
-      .BaseKey = source.BaseKey,
-      .Cells = {},
-      .Frame = {.Axes =
-                    EnuAxesEcef({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}),
-                .Origin = {}},
-      .Directions = demand.Directions,
-      .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),
-      .Pixels = demand.Pixels};
+  BuildingImpostorSource::Recipe recipe{.BaseKey = source.BaseKey,
+                                        .Cells = {},
+                                        .Frame = FrameOf(source.AnchorEcef),
+                                        .Directions = demand.Directions,
+                                        .WallRoofMetreMaterials =
+                                            Generators::BuildingSurfaceMaterials(),
+                                        .Pixels = demand.Pixels};
   uint64_t cells = source.Cells;
   while (cells != 0) {
     recipe.Cells.push_back(static_cast<uint32_t>(std::countr_zero(cells)) + 1u);
     cells &= cells - 1u;
   }
   return recipe;
+}
+
+bool Matches(const Content::ImpostorViewAssets::Description &metadata,
+             const BuildingSourceDemand::Source &source,
+             const BuildingFieldRequest::Demand &demand) {
+  if (metadata.Pixels != demand.Pixels || metadata.Directions != demand.Directions ||
+      !metadata.WorldFromField) {
+    return false;
+  }
+  const auto frame = FrameOf(source.AnchorEcef);
+  Mat4 expected;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    Vec3 unit;
+    unit[axis] = 1;
+    const auto direction = frame.SourceDirection(unit);
+    for (size_t row = 0; row < 3; ++row) { expected.At(row, axis) = direction[row]; }
+  }
+  expected.SetTranslation(source.AnchorEcef);
+  return *metadata.WorldFromField == expected;
 }
 }
 
@@ -51,7 +72,7 @@ struct BuildingFieldRequest::State {
   std::optional<AssetPipeline::RequestTicket> Ticket;
   std::optional<ImpostorFieldLoad> Load;
   Product Value;
-  Content::ImpostorViewAssets::ViewIndex View;
+  Demand Requested;
   Budget Limits;
   bool Cancelled = false;
   std::string Error;
@@ -62,7 +83,7 @@ struct BuildingFieldRequest::State {
         AssetPipeline::Consumer consumer,
         std::shared_ptr<BuildingImpostorSource> producer,
         BuildingSourceDemand::Source source,
-        Content::ImpostorViewAssets::ViewIndex view,
+        Demand demand,
         Budget budget)
       : Pipeline(&pipeline),
         Workers(&workers),
@@ -70,7 +91,7 @@ struct BuildingFieldRequest::State {
         Consumer(std::move(consumer)),
         Producer(std::move(producer)),
         Value{.Source = std::move(source), .Metadata = {}, .Field = {}},
-        View(view),
+        Requested(std::move(demand)),
         Limits(budget) {}
 
   std::expected<bool, std::string> PollMetadata() {
@@ -79,15 +100,15 @@ struct BuildingFieldRequest::State {
     if (!ready) { return std::unexpected(ready.error()); }
     if (!*ready) { return false; }
     Value.Metadata = *ready;
-    const auto &frame = Value.Metadata->Metadata().WorldFromField;
-    if (!frame || frame->Translation() != Value.Source.AnchorEcef) {
-      return std::unexpected("building field metadata has another World frame");
+    if (!Matches(Value.Metadata->Metadata(), Value.Source, Requested)) {
+      return std::unexpected(
+          "building field metadata does not match its requested capture binding");
     }
     return true;
   }
 
   std::expected<bool, std::string> RequestField() {
-    const auto key = Value.Metadata->FieldKey(View);
+    const auto key = Value.Metadata->FieldKey(Requested.View);
     const auto parsed = AssetProductKey::Parse(key);
     if (!parsed) { return std::unexpected("building field has no valid product address"); }
     ImpostorViewJob job{.Cache = Cache,
@@ -95,7 +116,7 @@ struct BuildingFieldRequest::State {
                         .ProductKey = key,
                         .BytesMost = Limits.FieldBytesMost,
                         .Product = ImpostorViewJob::MaterialView{
-                            .Selected = View,
+                            .Selected = Requested.View,
                             .Generate = [source = Producer, budget = Limits.Capture](
                                             Content::ImpostorViewAssets::ViewIndex view,
                                             size_t bytes,
@@ -126,8 +147,12 @@ struct BuildingFieldRequest::State {
       if (publication.Status != AssetPublicationStatus::Ready) {
         return std::unexpected(publication.Message);
       }
-      auto loaded = ImpostorFieldLoad::Start(
-          *Workers, Cache, Producer->Provenance(), View, Limits.FieldBytesMost, std::move(*Ticket));
+      auto loaded = ImpostorFieldLoad::Start(*Workers,
+                                             Cache,
+                                             Producer->Provenance(),
+                                             Requested.View,
+                                             Limits.FieldBytesMost,
+                                             std::move(*Ticket));
       if (!loaded) { return std::unexpected(loaded.error()); }
       Ticket.reset();
       Load.emplace(std::move(*loaded));
@@ -178,14 +203,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
   if (!consumer) { return std::unexpected(consumer.error()); }
   const auto producer =
       std::make_shared<BuildingImpostorSource>(std::move(recipe), std::move(sources));
-  auto state = std::make_shared<State>(pipeline,
-                                       workers,
-                                       cache,
-                                       std::move(*consumer),
-                                       producer,
-                                       std::move(source),
-                                       demand.View,
-                                       budget);
+  auto state = std::make_shared<State>(
+      pipeline, workers, cache, std::move(*consumer), producer, std::move(source), demand, budget);
   auto metadata = ImpostorMetadataRequest::Start(
       pipeline,
       state->Consumer,
