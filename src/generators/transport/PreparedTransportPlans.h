@@ -42,16 +42,17 @@ public:
               TransportPlanCodecLimits limits);
 
   [[nodiscard]] std::expected<AssetRecord, TransportPlanAssetError>
-  StoreComplete(const TransportPlan &plan,
-                const Box &bounds,
-                TransportPlanCodecLimits limits,
-                const std::stop_token &stop = {});
+  Store(const TransportPlan &plan,
+        const Box &bounds,
+        TransportPlanCodecLimits limits,
+        const std::stop_token &stop = {});
 
   [[nodiscard]] std::expected<void, TransportPlanAssetError>
   BindRequest(const TransportPlanAddress &address, const TransportPlanAsset &product);
 
 private:
   explicit PreparedTransportPlans(std::unique_ptr<AssetCache> cache);
+  [[nodiscard]] static bool Admits(const TransportPlan &plan) noexcept;
   [[nodiscard]] static std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
   Decode(std::expected<std::optional<CachedAsset>, AssetCacheError> cached,
          const TransportPlanDefinition &definition,

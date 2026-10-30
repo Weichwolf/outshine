@@ -18,7 +18,7 @@ struct TransportInputScopeId {
   [[nodiscard]] bool operator==(const TransportInputScopeId &) const noexcept = default;
 };
 
-enum class TransportRepresentation : uint8_t { Functional = 1 };
+enum class TransportRepresentation : uint8_t { Functional = 1, FunctionalSubset = 2 };
 
 struct TransportPlanDefinition {
   GeoCellId Core;
@@ -40,6 +40,8 @@ enum class TransportPlanRequestError : uint8_t {
   UnsupportedRepresentation,
   EncodingFailed
 };
+
+[[nodiscard]] bool ValidTransportRepresentation(const TransportPlanDefinition &definition) noexcept;
 
 [[nodiscard]] std::expected<std::string, TransportPlanRequestError>
 TransportPlanRequestKey(const TransportPlanAddress &address);

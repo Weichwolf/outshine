@@ -6,12 +6,19 @@
 #include <string>
 
 namespace outshine::Generators {
+bool ValidTransportRepresentation(const TransportPlanDefinition &definition) noexcept {
+  switch (definition.Representation) {
+    case TransportRepresentation::Functional: return definition.RepresentationVersion == 2;
+    case TransportRepresentation::FunctionalSubset: return definition.RepresentationVersion == 1;
+  }
+  return false;
+}
+
 std::expected<std::string, TransportPlanRequestError>
 TransportPlanRequestKey(const TransportPlanAddress &address) {
   const auto &definition = address.Definition;
   if (!definition.Core.Valid()) { return std::unexpected(TransportPlanRequestError::InvalidCore); }
-  if (definition.Representation != TransportRepresentation::Functional ||
-      definition.RepresentationVersion != 2) {
+  if (!ValidTransportRepresentation(definition)) {
     return std::unexpected(TransportPlanRequestError::UnsupportedRepresentation);
   }
   BinaryValueWriter out(256);

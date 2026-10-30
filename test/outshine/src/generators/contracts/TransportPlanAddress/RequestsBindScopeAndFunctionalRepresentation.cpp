@@ -1,4 +1,5 @@
 #include "TransportPlan.h"
+#include "TransportPlanCodec.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -25,6 +26,19 @@ int main() {
         "source-end products cannot reuse the previous recipe's persistent request alias");
   CHECK(TransportPlanRequestKey(address) == original,
         "identical known metadata resolves without source or plan state");
+  auto subset = address;
+  subset.Definition.Representation = TransportRepresentation::FunctionalSubset;
+  subset.Definition.RepresentationVersion = 1;
+  const auto subsetKey = TransportPlanRequestKey(subset);
+  CHECK(subsetKey &&
+            *subsetKey == "49a7a887ed2419ccf69eec039ddf7fb77e342e8be04fcc8c6aef14c43582ff64",
+        "the subset key matches independently encoded fields and its separate versioned identity");
+  CHECK(TransportPlanContentKey(subset.Definition, binding) !=
+            TransportPlanContentKey(address.Definition, binding),
+        "identical resolved inputs do not alias full and subset content contracts");
+  subset.Definition.RepresentationVersion = 2;
+  CHECK(!TransportPlanRequestKey(subset),
+        "unknown subset guarantees cannot fall back to a complete request");
   auto moved = address;
   ++moved.Definition.Core.X;
   CHECK(TransportPlanRequestKey(moved) != original,

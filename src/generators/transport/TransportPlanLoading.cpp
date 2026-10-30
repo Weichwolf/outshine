@@ -53,7 +53,7 @@ PreparedTransportPlans::Decode(std::expected<std::optional<CachedAsset>, AssetCa
   if (!plan && plan.error() == TransportPlanCodecError::CapacityExceeded) {
     return std::unexpected(TransportPlanAssetError::CapacityExceeded);
   }
-  if (!plan || plan->Coverage != TransportCoverage::Complete) { return std::nullopt; }
+  if (!plan || !Admits(*plan)) { return std::nullopt; }
   const auto key = TransportPlanContentKey(plan->Definition, plan->InputBinding);
   if (!key || *key != record.Key || std::cmp_not_equal(record.Level, plan->Definition.Core.Level)) {
     return std::nullopt;

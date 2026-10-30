@@ -107,7 +107,7 @@ void Prepare(const std::string &directory) {
   const auto before = (*cache)->LoadRequest(Address(0), kTransportFixtureLimits);
   CHECK(before && !*before, "the declared logical request misses before any product exists");
   const auto bounds = Box{.Min = {{-1, -1, -1}}, .Max = {{1, 1, 1}}};
-  const auto stored = (*cache)->StoreComplete(*plan, bounds, kTransportFixtureLimits);
+  const auto stored = (*cache)->Store(*plan, bounds, kTransportFixtureLimits);
   CHECK(stored && !stored->RequestKey, "product publication cannot bind a caller's generation");
   const auto unbound = (*cache)->LoadRequest(Address(0), kTransportFixtureLimits);
   CHECK(unbound && !*unbound, "an unbound completed cook is not a published request result");
