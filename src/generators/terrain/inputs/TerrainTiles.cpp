@@ -1,3 +1,4 @@
+#include "TerrainFieldPreparation.h"
 #include <cmath>
 #include <array>
 #include <bit>
@@ -435,8 +436,17 @@ void TerrainTiles::HoldsStitched(Data::TileId of,
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   if (Config_.PreparedFields) {
-    return Config_.PreparedFields(
-        {.Zoom = z, .X = x, .Y = y}, Shape_, [&] { return BuildStitchedGrid(z, x, y); });
+    auto request = FieldWork_ != nullptr ? FieldWork_->Request() : nullptr;
+    const auto stop = FieldWork_ != nullptr ? FieldWork_->Token() : std::stop_token{};
+    if (stop.stop_requested()) { return TerrainGrid::Deferred(); }
+    if (!request) {
+      request = Config_.PreparedFields({.Zoom = z, .X = x, .Y = y}, Shape_);
+      if (FieldWork_ != nullptr) { FieldWork_->SetRequest(request); }
+    }
+    if (!request) { return TerrainGrid::Refused(); }
+    auto step = request->Resume([&] { return BuildStitchedGrid(z, x, y); }, stop);
+    if (FieldWork_ != nullptr) { FieldWork_->DeferredByCache(step.CacheDeferred); }
+    return std::move(step.Grid);
   }
   return BuildStitchedGrid(z, x, y);
 }

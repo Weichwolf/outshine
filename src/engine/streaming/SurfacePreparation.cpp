@@ -163,11 +163,9 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
       Close();
       return std::unexpected(std::move(bound.error()));
     }
-    poolConfig.PreparedFields = [assets =
-                                     PreparedTerrain_](Data::TileId at,
-                                                       const TerrainTiles::Shaped &shape,
-                                                       const TerrainTiles::FieldFactory &factory) {
-      return assets->Resolve(at, shape, factory);
+    poolConfig.PreparedFields = [assets = PreparedTerrain_](Data::TileId at,
+                                                            const TerrainTiles::Shaped &shape) {
+      return assets->RequestField(at, shape);
     };
   }
   Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);

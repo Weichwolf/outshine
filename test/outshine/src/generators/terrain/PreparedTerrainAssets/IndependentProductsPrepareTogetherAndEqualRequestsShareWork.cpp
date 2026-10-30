@@ -1,3 +1,4 @@
+#include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
 #include "RawSourceCache.h"
@@ -13,6 +14,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 
 namespace {
@@ -40,15 +42,17 @@ void Exercise(const std::shared_ptr<Generators::PreparedTerrainAssets> &assets) 
   for (unsigned at = 0; at < kWorkers; ++at) {
     jobs[at] = workers.Post([&, at] {
       const Data::TileId tile{.Zoom = 4, .X = at, .Y = 0};
-      products[at] = assets->Resolve(tile, {}, [&] {
-        {
-          std::unique_lock lock(mutex);
-          ++entered;
-          changed.notify_all();
-          changed.wait(lock, [&] { return released; });
-        }
-        return Product(tile);
-      });
+      products[at] = assets->RequestField(tile, {})
+                         ->Resume([&] {
+                           {
+                             std::unique_lock lock(mutex);
+                             ++entered;
+                             changed.notify_all();
+                             changed.wait(lock, [&] { return released; });
+                           }
+                           return Product(tile);
+                         })
+                         .Grid;
     });
   }
   {
@@ -67,10 +71,18 @@ void Exercise(const std::shared_ptr<Generators::PreparedTerrainAssets> &assets) 
   for (unsigned at = 0; at < kWorkers; ++at) {
     jobs[at] = workers.Post([&, at] {
       const Data::TileId tile{.Zoom = 4, .X = 8, .Y = 0};
-      products[at] = assets->Resolve(tile, {}, [&] {
-        ++generations;
-        return Product(tile);
-      });
+      const auto request = assets->RequestField(tile, {});
+      const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      do {
+        products[at] = request
+                           ->Resume([&] {
+                             ++generations;
+                             return Product(tile);
+                           })
+                           .Grid;
+        if (products[at]->Where() != Ground::TerrainGrid::State::Deferred) { break; }
+        std::this_thread::yield();
+      } while (std::chrono::steady_clock::now() < until);
     });
   }
   for (const auto job : jobs) { workers.Wait(job); }
