@@ -66,3 +66,15 @@ CPU real-arithmetic rays, native Float32 vertex processing, clipping/fill rules
 and derivative footprints remain separate. The original group remains the
 fallback for unqualified runtime coverage, pose, lighting or World revisions.
 Source-hit raw attributes alone still do not establish native raster admission.
+
+The same supplemental archive now carries the actual upload-boundary words:
+`<pose>/view_words` is the 56-word uniform block, `placements/words` the 144-byte
+storage rows, both stored as little-endian UInt32 to retain every Float32 bit.
+`upload_capture` binds the three query frames, byte layouts, native program,
+producer sources and shader inventory. These are CPU bytes supplied to the native
+upload, not GPU buffer readback or a guarantee of the driver's arithmetic order.
+The instrumented Metal run retains the original HDR and depth at every sample,
+including clear pixels, for both poses and the repeated first pose. Diagnostic
+hooks stay outside product code; actual binaries, sources, shader sidecars and
+readbacks are archived privately. The existing `lens_operands` remain explicitly
+recomputed camera operands; the captured Float32 shift is a distinct input.

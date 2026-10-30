@@ -77,6 +77,43 @@ class SourceTriangles(unittest.TestCase):
 
 
 class NativeSelection(unittest.TestCase):
+    def test_uploaded_words_bind_the_native_query_frames(self):
+        _, _, cases, source = load(DATA, attributes=True)
+        _, metadata = bound_selection(DATA, source)
+        capture = metadata["upload_capture"]
+        self.assertIn("not GPU buffer readback", capture["scope"])
+        with np.load(
+            DATA / "native-visible-triangles.npz", allow_pickle=False
+        ) as arrays:
+            for query in capture["queries"]:
+                pose = query["name"]
+                self.assertEqual(query["capture"], cases["original", pose]["capture"])
+                words = arrays[pose + "/view_words"]
+                self.assertEqual(words.dtype, np.dtype("<u4"))
+                self.assertEqual(words.shape, (56,))
+                native = words.view("<f4")
+                self.assertTrue(np.isfinite(native).all())
+                operands = cases["original", pose]["lens_operands"]
+                np.testing.assert_array_equal(
+                    native[:16],
+                    np.asarray(operands["view_projection_f32_column_major"], "<f4"),
+                )
+                np.testing.assert_array_equal(
+                    native[48:51],
+                    np.asarray(operands["pre_view_translation_f64"], "<f4"),
+                )
+            np.testing.assert_array_equal(
+                arrays["near-direction/view_words"], arrays["repeat/view_words"]
+            )
+            placements = arrays["placements/words"]
+            self.assertEqual(placements.shape, (capture["placement_rows"], 36))
+            self.assertEqual(placements.nbytes, 144 * capture["placement_rows"])
+            for offset in (0, 16):
+                np.testing.assert_array_equal(
+                    placements[0, offset : offset + 16].view("<f4").reshape(4, 4),
+                    np.eye(4),
+                )
+
     def test_bound_native_selection_retains_original_parts(self):
         _, _, _, source = load(DATA, attributes=True)
         selected, metadata = bound_selection(DATA, source)
