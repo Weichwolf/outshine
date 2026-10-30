@@ -108,6 +108,15 @@ class RaisedRailTests(unittest.TestCase):
         self.assertAlmostEqual(fitted["area_mean_height_m"], 4)
         self.assertAlmostEqual(flat["area_mean_height_m"], 4.03)
 
+    def test_flat_candidate_uses_no_lp_or_design_matrix(self):
+        points = np.array([[0.0, 0, 3], [1, 0, 4]])
+        with patch("elevated_rail_plane.linprog", side_effect=AssertionError("solver")):
+            _, coefficients, report = fit_plane(
+                points, self.domain, self.axes, method="flat"
+            )
+        np.testing.assert_array_equal(coefficients, [0, 0, 4])
+        self.assertEqual(report["design_bytes"], 0)
+
     def test_anisotropic_profile_limits_are_actual_constraints(self):
         values = np.array([[-1, 0, 0], [1, 0, 1], [0, -1, 0], [0, 1, 0]], float)
         _, coefficients, _ = fit_plane(values, self.domain, self.axes)

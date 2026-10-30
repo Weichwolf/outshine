@@ -96,11 +96,14 @@ def fit_plane(points, domain, axes, *, along=0.04, cross=0.03, method="tilted"):
     relative = points[:, :2] - origin
     if abs(relative).max() > 8190:
         raise ValueError("Bounded local affine deck frame required")
-    design = np.column_stack((relative, np.ones(len(points))))
+    design_bytes = 0
     if method == "flat":
         coefficients = np.array([0.0, 0.0, points[:, 2].max()])
         status, iterations = "direct maximum, no solver", 0
+        minimum_residual = 0.0
     else:
+        design = np.column_stack((relative, np.ones(len(points))))
+        design_bytes = design.nbytes
         result = linprog(
             [0, 0, 1],
             A_ub=np.vstack(
@@ -109,15 +112,15 @@ def fit_plane(points, domain, axes, *, along=0.04, cross=0.03, method="tilted"):
             b_ub=np.r_[-points[:, 2], limits],
             bounds=[(None, None)] * 3,
             method="highs-ds",
-            options={"time_limit": 2.0, "maxiter": 10000},
+            options={"time_limit": 2.0, "maxiter": 100},
         )
         if not result.success or result.x is None:
             raise ValueError("Affine deck LP refused: " + result.message)
         coefficients, status, iterations = result.x, result.message, result.nit
-    residual = design @ coefficients - points[:, 2]
+        minimum_residual = float((design @ coefficients - points[:, 2]).min())
     if (
         not np.isfinite(coefficients).all()
-        or residual.min() < -1e-7
+        or minimum_residual < -1e-7
         or np.any(directions @ coefficients[:2] - limits > 1e-10)
     ):
         raise ValueError("Actual affine deck failed whole height/profile constraints")
@@ -129,12 +132,12 @@ def fit_plane(points, domain, axes, *, along=0.04, cross=0.03, method="tilted"):
             "origin_xy_m": origin.tolist(),
             "coefficients": coefficients.tolist(),
             "area_mean_height_m": float(coefficients[2]),
-            "minimum_constraint_residual_m": float(residual.min()),
+            "minimum_constraint_residual_m": minimum_residual,
             "lower_points": len(points),
             "profile_inequalities": len(limits),
             "lp_variables": 0 if method == "flat" else 3,
             "lp_rows": 0 if method == "flat" else len(points) + len(limits),
-            "design_bytes": design.nbytes,
+            "design_bytes": design_bytes,
             "iterations": int(iterations),
             "status": status,
             "scope": "This fixed affine-family height objective only, no globally optimal road, C1/curvature/structural/routing/World/device authority. Clearance checked independently on actual Float64/Float32 meshes.",
