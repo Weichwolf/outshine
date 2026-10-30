@@ -85,6 +85,7 @@ def reduce_samples(image, crop, axis):
 
 def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_limit):
     records = {}
+    source = arrays["original/" + pose + "/rgba"]
     source_z = arrays["original/" + pose + "/depth"]
     for outer in ("terrain", "external"):
         other, other_z = (
@@ -116,6 +117,40 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             "original_group_retained": not passes,
             "runtime_admission": False,
         }
+        # Re-evaluate the retained whole original group at the same samples.
+        # The union oracle is used only to check it, never to fill failed pixels.
+        chosen_points = nearest_colour(
+            model.rgba if passes else source,
+            model.reverse_z if passes else source_z,
+            other,
+            other_z,
+        )
+        chosen = reduce_samples(chosen_points, crop, axis)
+        if not passes and not np.array_equal(chosen, target):
+            raise ValueError("Retained original group does not reproduce native union")
+        records[outer]["chosen_path_error"] = errors(chosen, target)
+        records[outer]["fallback_scope"] = (
+            "affected whole source group; all other native point products unchanged"
+        )
+        np.savez_compressed(
+            output / (pose + "-" + outer + "-composition.npz"),
+            candidate=candidate,
+            chosen=chosen,
+            original_union=target,
+        )
+        image_panel(
+            output / (pose + "-" + outer + "-fallback.png"),
+            target,
+            chosen,
+            candidate,
+            labels=(
+                "native original union",
+                "chosen source-group path",
+                "unqualified candidate",
+                "chosen-path error",
+            ),
+            scale=12,
+        )
         # Independent filtering loses both subpixel correlation and depth ordering.
         front, back = (reduce_samples(v, crop, axis) for v in (model.rgba, other))
         after = front + (1 - front[:, :, 3:]) * back
@@ -214,7 +249,7 @@ def pose_result(args, manifest, arrays, cases, pose):
 
 def run(args):
     if (
-        args.sample_axis not in (1, 2, 4)
+        args.sample_axis not in (1, 2)
         or min(args.max_rgb_error, args.max_coverage_error) < 0
         or not np.isfinite([args.max_rgb_error, args.max_coverage_error]).all()
         or args.max_coverage_error > 1
@@ -253,8 +288,8 @@ def run(args):
         or np.any((ndc[:, 2] < 0) | (ndc[:, 2] > 1))
     ):
         raise ValueError("A whole original leaves the declared capture volume")
-    if any(n % args.sample_axis for n in manifest["raster"]):
-        raise ValueError("Integer reference samples per declared output pixel required")
+    if manifest["raster"] != [1280 * args.sample_axis, 720 * args.sample_axis]:
+        raise ValueError("Reference samples must resolve to exactly 1280x720")
     create_output(args.output)
     report = {
         "commit": subprocess.check_output(
