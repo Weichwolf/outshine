@@ -73,6 +73,8 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
                                        const nlohmann::json &query,
                                        BuildingRadianceField &result,
                                        const Geometry *original) {
+  const auto observer = BuildingLightingObserver(query);
+  if (!observer) { return std::unexpected(observer.error()); }
   auto began = Clock::now();
   const auto configured = renderer.ConfigureMaterialFields();
   if (!configured) { return std::unexpected(configured.error().Message); }
@@ -96,8 +98,6 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   }
   auto placed = ViewOf(atlas, view);
   if (!placed) { return std::unexpected(placed.error()); }
-  const auto observer = BuildingLightingObserver(query);
-  if (!observer) { return std::unexpected(observer.error()); }
   placed->LightingCamera = *observer;
   const auto toSun =
       EastUpSouthDirection(0, query.value("sun_elevation_deg", 0.0) * std::numbers::pi / 180.0);
@@ -172,9 +172,15 @@ Render::Viewpoint BuildingQueryCamera(const nlohmann::json &query) {
 std::expected<std::optional<Render::Viewpoint>, std::string>
 BuildingLightingObserver(const nlohmann::json &query) {
   const auto mode = query.value("field_lighting", "capture");
-  if (mode == "capture") { return std::nullopt; }
-  if (mode == "viewer") { return BuildingQueryCamera(query); }
-  return std::unexpected("unknown material field lighting observer");
+  if (mode != "capture" && mode != "viewer") {
+    return std::unexpected("unknown material field lighting observer");
+  }
+  const auto camera = BuildingQueryCamera(query);
+  if (!Render::ValidMaterialFieldCameraBasis(camera)) {
+    return std::unexpected("material field query camera has an invalid basis");
+  }
+  if (mode == "viewer") { return camera; }
+  return std::nullopt;
 }
 
 std::expected<std::vector<float>, std::string>

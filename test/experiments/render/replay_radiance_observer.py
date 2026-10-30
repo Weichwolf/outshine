@@ -59,12 +59,16 @@ def controls(request, capture):
 def verify(folder, cases, report):
     expected = [reuse for _, _, reuse in cases]
     if report["scene_creations"] != 1 or report["rejected_handoffs"] != 1:
-        raise ValueError("field handoffs replaced the scene or missed the rollback control")
+        raise ValueError(
+            "field handoffs replaced the scene or missed the rollback control"
+        )
     if any(
         c["scene_creations"] != 1 or c["piece_sources"] != 1 or c["piece_slots"] > 2
         for c in report["cases"]
     ):
-        raise ValueError("field publication grew live pieces or failed bounded slot reuse")
+        raise ValueError(
+            "field publication grew live pieces or failed bounded slot reuse"
+        )
     if [c["field_reused"] for c in report["cases"]] != expected:
         raise ValueError("relighting did not follow actual observer/light inputs")
     if (
@@ -128,6 +132,59 @@ def verify(folder, cases, report):
     }
 
 
+def reject_invalid_bases(args, request):
+    viewer = next(q for q in request["queries"] if q["name"] == "viewer")
+    rejected = []
+    for mode in ("viewer", "capture"):
+        good = {**viewer, "name": "valid", "field_lighting": mode}
+        right, up = good["basis"][:2]
+        variants = {
+            "scaled": [2 * x for x in right],
+            "mirrored": [-x for x in right],
+            "sheared-unit": [
+                (r + 0.5 * u) / math.sqrt(1.25) for r, u in zip(right, up)
+            ],
+        }
+        for kind, axis in variants.items():
+            bad = {**good, "name": "invalid-basis", "basis": [axis, *good["basis"][1:]]}
+            for warm in (False, True):
+                folder = (
+                    args.output / f"basis-{mode}-{kind}-{'warm' if warm else 'cold'}"
+                )
+                folder.mkdir()
+                backup(
+                    args.output / "world-view-assets.sqlite",
+                    folder / "world-view-assets.sqlite",
+                )
+                queries = [good, bad] if warm else [bad]
+                run(
+                    args.client.resolve(),
+                    folder,
+                    {**request, "queries": queries},
+                    False,
+                )
+                if (
+                    (folder / "terminal.exit").read_text().strip() != "1"
+                    or "material field query camera has an invalid basis"
+                    not in (folder / "terminal.log").read_text()
+                    or (folder / "invalid-basis-radiance-world.linear").exists()
+                ):
+                    raise ValueError(
+                        "invalid basis did not refuse consistently before publication"
+                    )
+                if warm:
+                    image(folder / "valid-radiance-world.linear", 1280 * 720)
+                rejected.append(
+                    {
+                        "mode": mode,
+                        "kind": kind,
+                        "warm": warm,
+                        "artifacts": compress(folder),
+                    }
+                )
+    return rejected
+
+
 def replay(args):
     if args.output.resolve().is_relative_to(ROOT):
         raise ValueError("put private outputs outside the checkout")
@@ -160,6 +217,7 @@ def replay(args):
             "invalid observer did not report its actual configuration error"
         )
     receipt["invalid_observer_rejected"] = True
+    receipt["invalid_basis_cases"] = reject_invalid_bases(args, request)
     receipt["scope"] = "Native observer binding/reuse, no World/pose/budget admission"
     receipt["artifacts"] = compress(args.output)
     (args.output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
