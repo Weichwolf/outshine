@@ -214,6 +214,11 @@ Result<void> InitLogical(Context &context) {
         Error{.Kind = ErrorKind::Unsupported,
               .Message = "Vulkan synchronization2/dynamicRendering is unavailable"});
   }
+  if (features.features.sampleRateShading == VK_FALSE) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported,
+              .Message = "Vulkan shader interpolation functions are unavailable"});
+  }
   context.PresentCapable = candidate && maintenance.swapchainMaintenance1 != VK_FALSE;
   if (context.Surface != VK_NULL_HANDLE && !context.PresentCapable) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
@@ -230,6 +235,7 @@ Result<void> InitLogical(Context &context) {
   core.independentBlend = features.features.independentBlend;
   core.multiDrawIndirect = features.features.multiDrawIndirect;
   core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
+  core.sampleRateShading = VK_TRUE;
   core.depthClamp = features.features.depthClamp;
   context.DepthClamp = core.depthClamp != VK_FALSE;
   context.IndependentBlend = core.independentBlend != VK_FALSE;
