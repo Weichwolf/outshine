@@ -56,17 +56,18 @@ PreparedBuildingAssets::InvalidateBasis(const std::string &key) {
 std::expected<PreparedBuildingAssets::Basis, StructureBakeError>
 PreparedBuildingAssets::LoadCachedBasis(const std::string &key, const std::string &requestKey) {
   const std::scoped_lock lock(Lock_);
-  auto loaded = Cache_->Load(BasisKey(key), kPackageBytesMost);
-  if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
-  if (!*loaded) { return Basis{}; }
-  const auto &record = (**loaded).Record();
-  auto basis = DecodePreparedBuildingBasis((**loaded).Bytes(), kResidentBytesMost);
-  if (record.Kind != "building-basis" || record.Parent != key || !basis) {
-    if (!Cache_->Remove(BasisKey(key))) {
-      return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
-    }
-    return Basis{};
+  std::optional<PreparedBuildingBasis> basis;
+  auto loaded = Cache_->LoadValidated(
+      BasisKey(key), "building-basis", kPackageBytesMost, [&](const CachedAsset &asset) {
+        basis = DecodePreparedBuildingBasis(asset.Bytes(), kResidentBytesMost);
+        return asset.Record().Parent == key && basis.has_value();
+      });
+  if (!loaded) {
+    if (loaded.error() == AssetCacheError::InvalidInput) { return Basis{}; }
+    return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
   }
+  if (!*loaded || !basis) { return Basis{}; }
+  const auto &record = (**loaded).Record();
   if (!requestKey.empty()) {
     const auto bound = Cache_->BindRequest(BasisKey(key), requestKey);
     if (!bound || !*bound) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
