@@ -64,7 +64,9 @@ On excessive error or incomplete model evaluation, the selected whole source
 group retains its original point product. Those actual original samples are
 reordered with unchanged terrain/opening and filtered at the same locations;
 the oracle union never fills failed pixels. Current chosen paths reproduce all
-four native unions exactly. Stale PBR-view reuse is refused before reprojection;
+four native unions and their raw sample depths exactly. Depth stays unfiltered
+at the actual sample locations; only coupled colour/coverage is averaged.
+Stale PBR-view reuse is refused before reprojection;
 identical-observer repeat names may reuse their semantically identical capture.
 Per-frame comparison against an oracle is not proposed as runtime admission.
 Native live selection needs a qualified pose/error/light contract separately.

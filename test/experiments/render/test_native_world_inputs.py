@@ -192,6 +192,9 @@ class NativeWorldTests(unittest.TestCase):
             arrays[kind + "/near-direction/rgba"] = other
             arrays[kind + "/near-direction/depth"] = outer_z
             arrays["union-" + kind + "/near-direction/rgba"] = truth
+            arrays["union-" + kind + "/near-direction/depth"] = np.maximum(
+                source_z, outer_z
+            )
         model = Reprojected(
             np.zeros_like(source), np.zeros((3, 3)), np.ones((3, 3), bool), {}
         )
@@ -203,6 +206,7 @@ class NativeWorldTests(unittest.TestCase):
             self.assertEqual(value["visible_source_coverage_error_max"], 1)
             self.assertTrue(value["original_group_retained"])
             self.assertEqual(value["chosen_path_error"]["rgb_max"], 0)
+            self.assertEqual(value["chosen_sample_depth_error_max"], 0)
             with np.load(
                 self.root / ("near-direction-" + kind + "-composition.npz")
             ) as saved:

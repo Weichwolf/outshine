@@ -97,6 +97,7 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             arrays[outer + "/" + pose + "/" + c] for c in ("rgba", "depth")
         )
         truth = arrays["union-" + outer + "/" + pose + "/rgba"]
+        truth_z = arrays["union-" + outer + "/" + pose + "/depth"]
         actual = nearest_colour(model.rgba, model.reverse_z, other, other_z)
         target, candidate = (reduce_samples(v, crop, axis) for v in (truth, actual))
         original_visible = ((source_z > 0) & (source_z > other_z)).astype(float)
@@ -131,9 +132,15 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             other_z,
         )
         chosen = reduce_samples(chosen_points, crop, axis)
+        chosen_depth = np.maximum(model.reverse_z if passes else source_z, other_z)
         if not passes and not np.array_equal(chosen, target):
             raise ValueError("Retained original group does not reproduce native union")
+        if not passes and not np.array_equal(chosen_depth, truth_z):
+            raise ValueError("Retained original group depth differs from native union")
         records[outer]["chosen_path_error"] = errors(chosen, target)
+        records[outer]["chosen_sample_depth_error_max"] = float(
+            abs(chosen_depth.astype(float) - truth_z).max()
+        )
         records[outer]["fallback_scope"] = (
             "affected whole source group; all other native point products unchanged"
         )
@@ -142,6 +149,8 @@ def composition(arrays, pose, model, crop, axis, output, rgb_limit, coverage_lim
             candidate=candidate,
             chosen=chosen,
             original_union=target,
+            chosen_sample_depth=chosen_depth,
+            original_union_sample_depth=truth_z,
         )
         image_panel(
             output / (pose + "-" + outer + "-fallback.png"),
