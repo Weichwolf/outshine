@@ -18,7 +18,7 @@ def sha(data):
     return hashlib.sha256(data).digest()
 
 
-def run(args):
+def run(args, *, retain_angle=None):
     raw = args.bounds.read_bytes()
     if sha(raw).hex() != args.bounds_sha256:
         raise ValueError("Prepared bounds identity unknown; retain originals")
@@ -44,7 +44,10 @@ def run(args):
         views, _ = read_controls(z["near-direction/view_words"])
         placements = z["placements/words"].copy()
     rows = []
+    retained = {}
     for angle, view in sorted(views.items()):
+        if getattr(args, "angle", None) is not None and args.angle != angle:
+            continue
         operands = frame(view, placements)
         selected = []
         for identity, bounds, normal in zip(
@@ -65,6 +68,8 @@ def run(args):
                 blob = stream.read(length)
                 if len(blob) != length or sha(blob) != hashes[offset, length]:
                     raise ValueError("Group incomplete or changed; retain originals")
+                if angle == retain_angle:
+                    retained[offset, length] = blob
                 received += len(blob)
                 found.update(map(int, decode_raw(blob)["source_ids"]))
         if not {i for i in selected if i in records}.issubset(found):
@@ -109,6 +114,7 @@ def run(args):
     }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
+    return retained
 
 
 if __name__ == "__main__":
@@ -117,5 +123,6 @@ if __name__ == "__main__":
     parser.add_argument("--bounds-sha256", required=True)
     parser.add_argument("--chunk", type=Path, required=True)
     parser.add_argument("--fallback", type=Path, required=True)
+    parser.add_argument("--angle", type=int)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())

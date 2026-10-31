@@ -22,7 +22,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def run(args):
+def run(args, *, retained_groups=None):
     view = json.loads(args.view.read_text())
     bounds = args.bounds.read_bytes()
     if digest(bounds) != view["bounds_sha256"]:
@@ -99,16 +99,20 @@ def run(args):
     if set(recipes) != selected or any(surface is None for surface in recipes.values()):
         raise ValueError("Every selected source requires its prepared recipe")
     chunks = {records[i] for i in selected}
-    result, roles, identities, group_bytes = [], [], [], 0
+    result, roles, identities, group_bytes, reused_bytes = [], [], [], 0, 0
     with (args.chunk / "groups.bin").open("rb") as stream:
         for offset, length in sorted(chunks):
-            stream.seek(offset)
-            raw = stream.read(length)
+            if retained_groups is None:
+                stream.seek(offset)
+                raw = stream.read(length)
+                group_bytes += len(raw)
+            else:
+                raw = retained_groups.get((offset, length), b"")
+                reused_bytes += len(raw)
             if len(raw) != length or hashlib.sha256(raw).digest() != hashes.get(
                 (offset, length)
             ):
                 raise ValueError("Incomplete or modified group requires original")
-            group_bytes += len(raw)
             group = decode_raw(raw)
             for identity in set(map(int, group["source_ids"])) & selected:
                 patches = restore_source(group, identity, recipes[identity])
@@ -156,6 +160,7 @@ def run(args):
         "recipe_metadata_and_payload_bytes": recipe_bytes,
         "recipe_read_mode": "span" if args.span_index else "whole_cell",
         "group_bytes_reread": group_bytes,
+        "group_bytes_reused": reused_bytes,
         "index_bytes_reread": len(raw_index),
         "output_bytes": args.output.stat().st_size,
         "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. This stage repeats earlier group/fallback reads in a separate process.",
