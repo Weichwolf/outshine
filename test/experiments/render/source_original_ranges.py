@@ -85,7 +85,7 @@ def encode_indexed(rows):
     )
 
 
-def decode_indexed(raw):
+def decode_indexed(raw, *, compact=False):
     if len(raw) < 8:
         raise ValueError("Incomplete indexed original source")
     triangles, vertices = struct.unpack_from("<II", raw)
@@ -101,6 +101,8 @@ def decode_indexed(raw):
     )
     if tri["local"].max() >= vertices or len(np.unique(vert["original"])) != vertices:
         raise ValueError("Invalid local original vertex indices")
+    if compact:
+        return tri, vert
     result = np.empty(triangles, dtype=ROW)
     result["ordinal"] = tri["ordinal"]
     result["binding"] = tri["binding"]
@@ -136,9 +138,13 @@ def write_ranges(directory, rows, *, indexed=False):
     return index
 
 
-def read_ranges(directory, index, requested, *, indexed=False, max_gap_bytes=0):
+def read_ranges(
+    directory, index, requested, *, indexed=False, max_gap_bytes=0, compact=False
+):
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
+    if compact and not indexed:
+        raise ValueError("Compact output requires indexed source ranges")
     if type(max_gap_bytes) is not int or not 0 <= max_gap_bytes <= 1024 * 1024:
         raise ValueError("Bounded nonnegative range gap required")
     ids = [int(x) for x in requested]
@@ -182,11 +188,16 @@ def read_ranges(directory, index, requested, *, indexed=False, max_gap_bytes=0):
                 if digest(raw) != row["digest"].tobytes():
                     raise ValueError("Original source range changed")
                 values = (
-                    decode_indexed(raw) if indexed else np.frombuffer(raw, dtype=ROW)
+                    decode_indexed(raw, compact=compact)
+                    if indexed
+                    else np.frombuffer(raw, dtype=ROW)
                 )
-                if np.any(values["binding"][:, 1] != row["source"]):
+                triangle_values = values[0] if compact else values
+                if np.any(triangle_values["binding"][:, 1] != row["source"]):
                     raise ValueError("Original source identity changed")
                 results.append(values)
+    if compact:
+        return tuple(results), {"read_calls": len(spans), "read_bytes": read_bytes}
     output = np.concatenate(results) if results else np.empty(0, dtype=ROW)
     output.sort(order="ordinal")
     if len(np.unique(output["ordinal"])) != len(output):
