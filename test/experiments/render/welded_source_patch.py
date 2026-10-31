@@ -44,9 +44,15 @@ def stored_positions(patch, parameters, render_basis):
     return result, local
 
 
-def patch_corners(patch, render_basis):
+class TriangleBudget(ValueError):
+    """Discard the incomplete candidate and use its whole original source."""
+
+
+def patch_corners(patch, render_basis, *, max_triangles=None):
     work = {}
     parameters = triangulate(patch.geometry.domain, work)
+    if max_triangles is not None and len(parameters) > max_triangles:
+        raise TriangleBudget("Source triangle budget exhausted; retain whole original")
     local = patch.local_origin + parameters @ patch.local_axes
     expected = patch.orientation * np.cross(*patch.local_axes)
     reverse = (
@@ -93,12 +99,25 @@ def patch_corners(patch, render_basis):
     }
 
 
-def source_corners(patches, render_basis):
+def source_corners(patches, render_basis, *, max_triangles=None):
     if not 1 <= len(patches) <= 65536:
         raise ValueError("Bounded whole source patches required")
+    if max_triangles is not None and (
+        type(max_triangles) is not int or not 0 <= max_triangles <= 131072
+    ):
+        raise ValueError("Triangle limit must be an integer in [0, 131072]")
     parts, work = [], {}
     for patch in patches:
-        part, counts = patch_corners(patch, render_basis)
+        remaining = (
+            None
+            if max_triangles is None
+            else max_triangles - work.get("domain_triangles", 0)
+        )
+        if remaining == 0:
+            raise TriangleBudget(
+                "Source triangle budget exhausted; retain whole original"
+            )
+        part, counts = patch_corners(patch, render_basis, max_triangles=remaining)
         parts.append(part)
         for key, count in counts.items():
             work[key] = (

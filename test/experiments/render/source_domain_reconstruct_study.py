@@ -13,12 +13,13 @@ import numpy as np
 from native_source_clip_controls import read as read_controls
 from native_source_triangle_materials import DATA
 from prepared_surface_recipes import decode
-from source_domain_buffer import restore_source
+from source_domain_buffer import DomainBudget, restore_source
 from source_domain_chunk_study import decode_raw
 from source_domain_prepared_view import select_sources
+from source_original_ranges import read_ranges
 from source_patch_product import FIELDS
 from source_recipe_ranges import load_ranges
-from welded_source_patch import source_corners
+from welded_source_patch import TriangleBudget, source_corners
 
 
 def digest(data):
@@ -36,7 +37,41 @@ def checked_selection(row, expected):
     return requested
 
 
+def original_fallback(directory, binding_sha, fallback_ids):
+    """Read verified whole originals and preserve their actual native material rule."""
+    range_index = (directory / "index.npy").read_bytes()
+    metadata = json.loads((directory / "report.json").read_text())
+    if (
+        metadata["source_binding_sha256"] != binding_sha
+        or digest(range_index) != metadata["index_sha256"]
+        or metadata["encoding"] != "source_indexed"
+    ):
+        raise ValueError("Same bound original source ranges required")
+    rows, work = read_ranges(
+        directory,
+        np.load(io.BytesIO(range_index), allow_pickle=False),
+        sorted(fallback_ids),
+        indexed=True,
+    )
+    labels = rows["binding"]
+    if set(map(int, labels[:, 1])) != fallback_ids:
+        raise ValueError("Whole original source range missing")
+    materials = labels[:, 4].copy()
+    metres = np.any(rows["corners"][:, :, 8:10] != 0, axis=(1, 2))
+    materials[(materials == 0) & metres] = 2
+    if np.any((materials < 0) | (materials > 2)):
+        raise ValueError("Unknown native material stream")
+    return rows, materials, work, len(range_index) + work["read_bytes"]
+
+
 def run(args, *, retained_groups=None, selected_sources=None):
+    max_controls = getattr(args, "max_controls", None)
+    max_triangles = getattr(args, "max_triangles", None)
+    original_ranges = getattr(args, "original_ranges", None)
+    if (
+        max_controls is not None or max_triangles is not None
+    ) and original_ranges is None:
+        raise ValueError("Bounded candidates require complete original ranges")
     view = json.loads(args.view.read_text())
     bounds = args.bounds.read_bytes()
     if digest(bounds) != view["bounds_sha256"]:
@@ -123,6 +158,7 @@ def run(args, *, retained_groups=None, selected_sources=None):
         raise ValueError("Every selected source requires its prepared recipe")
     chunks = {records[i] for i in selected}
     result, roles, identities, group_bytes, reused_bytes = [], [], [], 0, 0
+    budget_fallbacks = {}
     with (args.chunk / "groups.bin").open("rb") as stream:
         for offset, length in sorted(chunks):
             if retained_groups is None:
@@ -138,17 +174,35 @@ def run(args, *, retained_groups=None, selected_sources=None):
                 raise ValueError("Incomplete or modified group requires original")
             group = decode_raw(raw)
             for identity in set(map(int, group["source_ids"])) & selected:
-                patches = restore_source(group, identity, recipes[identity])
-                corners, _ = source_corners(patches, basis)
+                try:
+                    patches = restore_source(
+                        group, identity, recipes[identity], max_controls=max_controls
+                    )
+                    corners, _ = source_corners(
+                        patches, basis, max_triangles=max_triangles
+                    )
+                except (DomainBudget, TriangleBudget) as error:
+                    budget_fallbacks[identity] = str(error)
+                    continue
                 result.append(np.concatenate([corners[k] for k in FIELDS], axis=-1))
                 roles.append(corners["material"])
                 identities.extend([identity] * len(corners["material"]))
-    if set(identities) != selected:
+    if set(identities) != selected - budget_fallbacks.keys():
         raise ValueError("Every selected source needs its whole constructed candidate")
     constructed_triangles = len(identities)
     fallback_binding = np.empty((0, 6), dtype="<i4")
     fallback_bytes = 0
-    if fallback_ids:
+    fallback_ids.update(budget_fallbacks)
+    range_work = {"read_calls": 0, "read_bytes": 0}
+    if fallback_ids and original_ranges is not None:
+        rows, materials, range_work, fallback_bytes = original_fallback(
+            original_ranges, binding_sha, fallback_ids
+        )
+        fallback_binding = rows["binding"].copy()
+        result.append(rows["corners"])
+        roles.append(materials)
+        identities.extend(map(int, fallback_binding[:, 1]))
+    elif fallback_ids:
         fallback_raw = args.fallback.read_bytes()
         if digest(fallback_raw) != fallback_sha:
             raise ValueError("Original fallback identity changed")
@@ -173,6 +227,10 @@ def run(args, *, retained_groups=None, selected_sources=None):
     )
     report = {
         "angle": args.angle,
+        "max_controls": max_controls,
+        "max_triangles": max_triangles,
+        "budget_fallbacks": budget_fallbacks,
+        "original_range_work": range_work,
         "selected_sources": len(requested),
         "selection_check": "recomputed" if selected_sources is None else "in_process",
         "constructed_triangles": constructed_triangles,
@@ -203,6 +261,9 @@ if __name__ == "__main__":
     parser.add_argument("--recipes-index-sha256", required=True)
     parser.add_argument("--span-index", type=Path)
     parser.add_argument("--span-index-sha256")
+    parser.add_argument("--max-controls", type=int)
+    parser.add_argument("--max-triangles", type=int)
+    parser.add_argument("--original-ranges", type=Path)
     parser.add_argument("--angle", type=int, default=65)
     args = parser.parse_args()
     if (args.span_index is None) != (args.span_index_sha256 is None):
