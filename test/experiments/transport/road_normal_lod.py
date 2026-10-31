@@ -8,9 +8,11 @@ from road_surface_lod import envelope, qualified
 
 
 class NormalBudget(ValueError):
-    def __init__(self, message, queries, vertices):
+    def __init__(self, message, queries, vertices, requests=None):
         super().__init__(message)
         self.work = {"normal_queries": queries, "predicted_vertices": vertices}
+        if requests is not None:
+            self.work["normal_requests"] = requests
 
 
 def prepare(
@@ -32,19 +34,38 @@ def prepare(
     s = np.array(curve.stations)
     u = np.unique(curve.across)
     queries = 0
+    requests = 0
+    hits = 0
+    # The curve and angle are immutable for this call. Records never outlive it.
+    cells = {}
     rounds = 0
     positions_before = curve.evaluations
 
     def cone(index, a, b, c, d):
-        nonlocal queries
+        nonlocal queries, requests, hits
+        if requests >= 4 * max_queries:
+            raise NormalBudget(
+                "Whole road normal request budget exhausted; retain original",
+                queries,
+                (len(s) + len(curve.lengths) - 1) * len(u),
+                requests,
+            )
+        requests += 1
+        key = (index, a, b, c, d)
+        if key in cells:
+            hits += 1
+            return cells[key]
         if queries >= max_queries:
             raise NormalBudget(
                 "Whole road normal query budget exhausted; retain original",
                 queries,
                 (len(s) + len(curve.lengths) - 1) * len(u),
+                requests,
             )
         queries += 1
-        return model.cone(index, a, b, c, d, angle_rad)
+        value = model.cone(index, a, b, c, d, angle_rad)
+        cells[key] = value
+        return value
 
     while True:
         if (len(s) + len(curve.lengths) - 1) * len(u) > max_vertices:
@@ -52,6 +73,7 @@ def prepare(
                 "Whole road normal vertex budget exhausted; retain original",
                 queries,
                 (len(s) + len(curve.lengths) - 1) * len(u),
+                requests,
             )
         split_s = set()
         split_u = set()
@@ -104,6 +126,10 @@ def prepare(
             "maximum_stored_position_bound_m": maximum_position,
             "normal_limit_rad": angle_rad,
             "whole_normal_queries": queries,
+            "whole_normal_requests": requests,
+            "normal_cell_reuses": hits,
+            "normal_cell_records": len(cells),
+            "maximum_normal_requests": 4 * max_queries,
             "refinement_rounds": rounds,
             "source_pose_evaluations": curve.evaluations - positions_before,
             "normal_arithmetic_work": dict(model.work),

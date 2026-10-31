@@ -10,6 +10,32 @@ from test_road_surface_lod import recipe
 
 
 class TensorNormals(unittest.TestCase):
+    def test_reused_whole_cells_fit_distinct_query_budget(self):
+        row = recipe(height=0.01, knots=3, bank_rate=0.01)
+        reference = prepare(Curve(row), 0.25, 0.05, max_queries=512)
+        self.assertGreater(reference["normal_cell_reuses"], 0)
+        self.assertEqual(
+            reference["whole_normal_requests"],
+            reference["whole_normal_queries"] + reference["normal_cell_reuses"],
+        )
+        budget = reference["whole_normal_queries"]
+        self.assertGreater(reference["whole_normal_requests"], budget)
+        bounded = prepare(Curve(row), 0.25, 0.05, max_queries=budget)
+        for key in (
+            "positions_enh_m",
+            "normals_enh",
+            "indices",
+            "stations_m",
+            "lateral_m",
+        ):
+            np.testing.assert_array_equal(reference[key], bounded[key])
+        with self.assertRaises(NormalBudget) as rejected:
+            prepare(Curve(row), 0.25, 0.05, max_queries=budget - 1)
+        self.assertLessEqual(rejected.exception.work["normal_queries"], budget - 1)
+        self.assertLessEqual(
+            rejected.exception.work["normal_requests"], 4 * (budget - 1)
+        )
+
     def test_flat_source_is_whole_without_unnecessary_refinement(self):
         p = prepare(Curve(recipe()), 0.25, 0.1)
         self.assertEqual(p["positions_enh_m"].shape, (4, 3))
@@ -56,7 +82,7 @@ class TensorNormals(unittest.TestCase):
         with self.assertRaises(ValueError):
             prepare(c, 0.25, 0)
         with self.assertRaises(ValueError):
-            sample(prepare(Curve(recipe()), .25, .1), [-1], [0])
+            sample(prepare(Curve(recipe()), 0.25, 0.1), [-1], [0])
 
 
 if __name__ == "__main__":
