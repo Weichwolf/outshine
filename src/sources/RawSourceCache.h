@@ -111,7 +111,8 @@ private:
   mutable std::string Directory_;
   const bool NeedsDefaultDirectory_;
   mutable std::once_flag DirectoryInitialization_;
-  mutable std::once_flag StorageInitialization_;
+  mutable std::mutex StorageMutex_;
+  mutable std::atomic<bool> StorageReady_{false};
   mutable std::unique_ptr<CacheUsageIndex> Usage_;
   mutable std::atomic<bool> UsageWarning_{false};
   void InitializeStorage() const;

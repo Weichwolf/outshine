@@ -102,25 +102,28 @@ const std::string &RawSourceCache::Directory() const {
 }
 
 void RawSourceCache::InitializeStorage() const {
-  std::call_once(StorageInitialization_, [this] {
-    if (Using_ != Use::On) { return; }
-    std::error_code ec;
-    std::filesystem::create_directories(Directory(), ec);
-    if (!ec) {
-      auto usage =
-          CacheUsageIndex::Open((std::filesystem::path(Directory()) / ".usage.sqlite").string());
-      if (usage) { Usage_ = std::move(*usage); }
-    }
-    if (!Usage_) {
-      std::fputs("source cache: usage index could not be opened\n", stderr);
-      UsageWarning_.store(true, std::memory_order_relaxed);
-    }
-  });
+  if (Using_ != Use::On || StorageReady_.load(std::memory_order_acquire)) { return; }
+  const std::scoped_lock lock(StorageMutex_);
+  if (StorageReady_.load(std::memory_order_relaxed)) { return; }
+  std::error_code ec;
+  std::filesystem::create_directories(Directory(), ec);
+  if (!ec) {
+    auto usage =
+        CacheUsageIndex::Open((std::filesystem::path(Directory()) / ".usage.sqlite").string());
+    if (usage) { Usage_ = std::move(*usage); }
+  }
+  if (Usage_) {
+    StorageReady_.store(true, std::memory_order_release);
+  } else if (!UsageWarning_.exchange(true, std::memory_order_relaxed)) {
+    std::fputs("source cache: usage index could not be opened\n", stderr);
+  }
 }
 
 void RawSourceCache::ObserveUsage(std::string_view key, size_t bytes, bool published) const {
   InitializeStorage();
-  if (Usage_ && Usage_->Record(key, bytes, published)) { return; }
+  if (StorageReady_.load(std::memory_order_acquire) && Usage_->Record(key, bytes, published)) {
+    return;
+  }
   if (!UsageWarning_.exchange(true, std::memory_order_relaxed)) {
     std::fputs("source cache: usage metadata could not be fully recorded\n", stderr);
   }

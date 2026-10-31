@@ -103,15 +103,22 @@ void CheckUsage(const std::filesystem::path &root, size_t sources) {
   CHECK(sqlite3_close(database) == SQLITE_OK, "usage observer closes");
 }
 
-void Concurrent(const std::filesystem::path &root) {
+void Concurrent(const std::filesystem::path &root, bool recover) {
   constexpr size_t kWorkers = 8;
-  const auto path = root / "concurrent";
+  const auto path = root / (recover ? "concurrent-recovery" : "concurrent");
+  if (recover) { std::ofstream(path) << "keep"; }
   std::array<std::string, kWorkers> keys;
   for (size_t index = 0; index < kWorkers; ++index) {
     keys[index] = std::string(64, "abcdef01"[index]);
   }
   {
     RawSourceCache store({.Directory = path.string()});
+    if (recover) {
+      const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
+      CHECK(!store.Keep(keys[0], bytes.data(), bytes.size()),
+            "the first attempt observes the filesystem obstruction");
+      std::filesystem::remove(path);
+    }
     std::array<bool, kWorkers> kept{};
     std::array<bool, kWorkers> read{};
     std::barrier ready(static_cast<std::ptrdiff_t>(kWorkers));
@@ -141,11 +148,35 @@ void Concurrent(const std::filesystem::path &root) {
 void Unavailable(const std::filesystem::path &root) {
   const auto path = root / "foreign";
   { std::ofstream(path) << "keep"; }
-  RawSourceCache store({.Directory = path.string()});
-  const std::array<uint8_t, 1> bytes{1};
-  CHECK(!store.Keep(std::string(64, 'a'), bytes.data(), bytes.size()) &&
-            store.Counters().WriteFailures == 1 && std::filesystem::file_size(path) == 4,
-        "unavailable storage reports write failure while preserving the foreign file");
+  {
+    RawSourceCache store({.Directory = path.string()});
+    const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
+    CHECK(!store.Keep(std::string(64, 'a'), bytes.data(), bytes.size()) &&
+              store.Counters().WriteFailures == 1 && std::filesystem::file_size(path) == 4,
+          "unavailable storage reports write failure while preserving the foreign file");
+    std::filesystem::remove(path);
+    const std::string key(64, 'a');
+    CHECK(store.Keep(key, bytes.data(), bytes.size()) &&
+              store.Lookup(key).Bytes == std::vector<uint8_t>(bytes.begin(), bytes.end()),
+          "the same store recovers after the filesystem obstruction is removed");
+  }
+  CheckUsage(path, 1);
+}
+
+void IndexRecovery(const std::filesystem::path &root) {
+  const auto path = root / "blocked-index";
+  std::filesystem::create_directories(path / ".usage.sqlite");
+  const std::string key(64, 'b');
+  const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
+  {
+    RawSourceCache store({.Directory = path.string()});
+    CHECK(store.Keep(key, bytes.data(), bytes.size()),
+          "source bytes remain available when the usage index cannot open");
+    std::filesystem::remove(path / ".usage.sqlite");
+    CHECK(store.Lookup(key).Bytes == std::vector<uint8_t>(bytes.begin(), bytes.end()),
+          "a later cache hit reopens the repaired usage index");
+  }
+  CheckUsage(path, 1);
 }
 }
 
@@ -158,8 +189,10 @@ int main() {
   Metadata(root);
   Unused(root);
   Status(root);
-  Concurrent(root);
+  Concurrent(root, false);
+  Concurrent(root, true);
   Unavailable(root);
+  IndexRecovery(root);
   std::error_code error;
   std::filesystem::remove_all(root, error);
   CHECK(!error, "isolated cache inputs removed");
