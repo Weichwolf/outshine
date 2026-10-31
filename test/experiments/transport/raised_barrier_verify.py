@@ -94,7 +94,7 @@ def verify(directory, recipe=DEFAULT_RECIPE):
                 "source_ids": case["keys"],
             }
         )
-    guards = physical_guards(rows, cases, terrain)
+    guards = physical_guards(rows, cases, terrain, recipe)
     return rows, {
         "whole_side_bodies_verified": True,
         "report_sha256": digest(path),

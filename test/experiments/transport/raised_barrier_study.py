@@ -17,7 +17,7 @@ from ground_area_bounds import cap_bounds
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.rail_hardware._geometry import SLEEPER
 from outshine_ref.transport.rail_hardware._planar import projected_rail_footprints
-from raised_edge_barriers import BarrierRecipe, construct
+from raised_edge_barriers import DEFAULT_RECIPE, BarrierRecipe, construct
 from stair_module_inputs import reference_profiles
 from stair_terrain_experiment import frozen
 
@@ -89,8 +89,19 @@ def build(cases, bed, clearance, recipe):
     return result
 
 
-def physical_guards(rows, cases, terrain):
+def physical_guards(rows, cases, terrain, recipe=DEFAULT_RECIPE):
     notes = []
+    central = shapely.union_all(
+        [
+            shapely.LineString(case["axis"]).buffer(
+                recipe.clear_half_width_m,
+                cap_style="flat",
+                join_style="mitre",
+                mitre_limit=2,
+            )
+            for case in cases
+        ]
+    )
     for cast in (np.float64, np.float32):
         hardware = np.array(
             [p for case in cases for p in hardware_shapes(case["hardware"], cast)],
@@ -111,6 +122,10 @@ def physical_guards(rows, cases, terrain):
                 raise ValueError(
                     "Stored side body intersects original rail/sleeper hardware"
                 )
+            if footprint.intersection(central).area > 0:
+                raise ValueError(
+                    "Stored whole side body invades a declared clear strip"
+                )
             cap = Mesh(lower.vertices.astype(cast).astype(float), lower.triangles)
             contact = cap_bounds(cap, stored_terrain)
             if contact[0] != 0 or contact[1] != 0:
@@ -124,6 +139,7 @@ def physical_guards(rows, cases, terrain):
                     "storage": np.dtype(cast).name,
                     "hardware_shapes": len(hardware),
                     "overlapping_shapes": len(hits),
+                    "whole_central_strips_preserved": True,
                     "exact_contact": {
                         "minimum_gap_m": str(contact[0]),
                         "maximum_gap_m": str(contact[1]),
@@ -202,7 +218,7 @@ def run(args):
     )
     recipe = BarrierRecipe()
     result = build(cases, bed, clearance, recipe)
-    guard = physical_guards(result, cases, terrain)
+    guard = physical_guards(result, cases, terrain, recipe)
     products = []
     for i, row in enumerate(result):
         path = args.output / ("side-" + str(i) + ".npz")
