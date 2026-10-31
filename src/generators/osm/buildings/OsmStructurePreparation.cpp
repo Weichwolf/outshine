@@ -7,6 +7,10 @@
 #include "TangentFrame.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
@@ -253,39 +257,82 @@ PrepareProducts(const StructurePreparation::Inputs &sources,
 
 }
 
+struct StructurePreparation::Output {
+  struct Completion {
+    explicit Completion(std::shared_ptr<Output> output) : Value(std::move(output)) {}
+
+    ~Completion() {
+      {
+        const std::scoped_lock lock(Value->Mutex);
+        Value->Finished.store(true, std::memory_order_release);
+      }
+      Value->Changed.notify_all();
+    }
+
+    Completion(const Completion &) = delete;
+    Completion &operator=(const Completion &) = delete;
+    std::shared_ptr<Output> Value;
+  };
+
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  std::atomic_bool Finished{false};
+  std::expected<std::vector<Product>, std::string> Value =
+      std::unexpected("original structure preparation has not completed");
+  std::vector<Data::TileId> HeightTiles;
+};
+
 StructurePreparation::StructurePreparation(Tasks &pool,
                                            Inputs inputs,
                                            StructurePolicy policy,
                                            int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
-  Handle_ = pool.Post([sources = std::move(inputs),
-                       policy,
-                       heightZoom,
-                       output = Output_,
-                       stop = Stop_.get_token()] {
-    output->Value = PrepareProducts(sources, policy, heightZoom, stop);
-    if (!output->Value) { return; }
-    for (const auto &product : *output->Value) {
-      output->HeightTiles.insert(
-          output->HeightTiles.end(), product.HeightTiles.begin(), product.HeightTiles.end());
+  const auto completion = std::make_shared<Output::Completion>(Output_);
+  const bool accepted = pool.PostDetached([sources = std::move(inputs),
+                                           policy,
+                                           heightZoom,
+                                           completion,
+                                           stop = Stop_.get_token()] mutable {
+    auto &output = *completion->Value;
+    output.Value = PrepareProducts(sources, policy, heightZoom, stop);
+    sources = SourceInputs{};
+    if (!output.Value) { return; }
+    for (const auto &product : *output.Value) {
+      output.HeightTiles.insert(
+          output.HeightTiles.end(), product.HeightTiles.begin(), product.HeightTiles.end());
     }
-    std::ranges::sort(output->HeightTiles, [](const auto &a, const auto &b) {
+    std::ranges::sort(output.HeightTiles, [](const auto &a, const auto &b) {
       return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
     });
-    output->HeightTiles.erase(std::ranges::unique(output->HeightTiles).begin(),
-                              output->HeightTiles.end());
+    output.HeightTiles.erase(std::ranges::unique(output.HeightTiles).begin(),
+                             output.HeightTiles.end());
   });
+  if (!accepted) {
+    Error_ = "original structure compute queue is closed";
+    Phase_ = Phase::Failed;
+  }
 }
 
 StructurePreparation::~StructurePreparation() {
-  (void)Stop_.request_stop();
-  if (Handle_ != Tasks::kNoTask) { Pool_->Wait(Handle_); }
+  Cancel();
+
+  struct RetiredProducts {
+    std::shared_ptr<Output> Pending;
+    std::vector<Product> Products;
+  };
+
+  const auto retired = std::make_shared<RetiredProducts>();
+  retired->Pending = std::move(Output_);
+  retired->Products = std::move(Products_);
+  (void)Pool_->PostDetached([retired] { (void)retired; });
 }
 
 StructurePreparation::Phase StructurePreparation::Poll() {
-  if (Handle_ == Tasks::kNoTask || !Pool_->TakeCompletion(Handle_)) { return Phase_; }
-  Handle_ = Tasks::kNoTask;
-  if (Output_->Value) {
+  if (!Running() || !Output_->Finished.load(std::memory_order_acquire)) { return Phase_; }
+  if (Stop_.stop_requested()) {
+    Error_ = "original structure preparation canceled";
+    Phase_ = Phase::Failed;
+  } else if (Output_->Value) {
     Products_ = std::move(*Output_->Value);
     HeightTiles_ = std::move(Output_->HeightTiles);
     Phase_ = Phase::Ready;
@@ -293,12 +340,16 @@ StructurePreparation::Phase StructurePreparation::Poll() {
     Error_ = std::move(Output_->Value.error());
     Phase_ = Phase::Failed;
   }
-  Output_.reset();
+  (void)Pool_->PostDetached([output = std::move(Output_)] { (void)output; });
   return Phase_;
 }
 
 bool StructurePreparation::AwaitSlice(double seconds) const {
-  return Handle_ != Tasks::kNoTask && Pool_->AwaitCompletion(seconds);
+  if (!Running() || !(seconds > 0.0)) { return false; }
+  std::unique_lock lock(Output_->Mutex);
+  return Output_->Changed.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
+    return Output_->Finished.load(std::memory_order_acquire);
+  });
 }
 
 }
