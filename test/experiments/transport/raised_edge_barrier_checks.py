@@ -97,6 +97,13 @@ class SideBodies(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "reserved height"):
             construct(axis, 3.8, bed, 0.8)
 
+    def test_stored_central_strip_cannot_shrink_with_float32_rounding(self):
+        axis = [[0, 4096.0001], [20, 4096.0001]]
+        with self.assertRaisesRegex(ValueError, "Stored side body consumes"):
+            construct(
+                axis, 3.8, bed_for(axis), 4, BarrierRecipe(clear_half_width_m=1.72999)
+            )
+
     def test_no_unplanned_corner_or_loop_or_fold(self):
         for axis in (
             [[0, 0], [10, 0], [10, 10]],

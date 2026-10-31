@@ -118,6 +118,9 @@ def construct(axis, width_m, bed, clearance_m, recipe=DEFAULT_RECIPE):
     parts = strip_caps(axis, width_m, recipe)
     if not all(bed.covers(p) for p, _upper, _lower in parts):
         raise ValueError("Whole side strips lack finite deck support")
+    central = shapely.LineString(axis).buffer(
+        recipe.clear_half_width_m, cap_style="flat", join_style="mitre", mitre_limit=2
+    )
     result = []
     for polygon, upper, lower in parts:
         body = close_caps(upper, lower)
@@ -132,6 +135,10 @@ def construct(axis, width_m, bed, clearance_m, recipe=DEFAULT_RECIPE):
             volume = audit_closed(stored)
             if volume <= 0 or not bed.covers(shape):
                 raise ValueError("Stored whole side body loses support or orientation")
+            if shape.intersection(central).area > 0:
+                raise ValueError(
+                    "Stored side body consumes the declared central clear strip"
+                )
             if (
                 stored.vertices[:, 2].min() != 0
                 or stored.vertices[:, 2].max() > clearance_m
