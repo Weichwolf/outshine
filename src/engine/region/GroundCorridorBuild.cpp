@@ -16,20 +16,19 @@
 
 namespace outshine {
 namespace {
-std::shared_ptr<AssetPipeline> RoadPublications(WorldRegionState &world) {
-  const auto pages = world.Stack.RoadAssets();
-  if (!pages || !world.Pool) { return {}; }
-  if (!world.Publications) {
+std::shared_ptr<AssetPipeline> RoadPublications(EngineServices &services) {
+  if (!services.Compute) { return {}; }
+  if (!services.Publications) {
     constexpr size_t kMebibyte = size_t{1024} * 1024;
-    world.Publications = std::make_shared<AssetPipeline>(
-        *world.Pool,
+    services.Publications = std::make_shared<AssetPipeline>(
+        *services.Compute,
         AssetPipeline::Limits{.JobsMost = 4,
                               .ConsumersMost = 32,
                               .TicketsMost = 32,
                               .InputBytesMost = 128 * kMebibyte,
                               .ReceiptBytesMost = size_t{32} * 4096});
   }
-  return world.Publications;
+  return services.Publications;
 }
 
 constexpr size_t kCorridorLanesPerFrame = 128;
@@ -216,8 +215,12 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     for (const auto &one : Generators::Corridors::PlanMeasures(*state.CorridorJob())) {
       Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
     }
-    const auto accepted = AcceptRoadPlan(
-        state, site, World.Pool.get(), World.Stack.RoadAssets(), RoadPublications(World));
+    const auto accepted =
+        AcceptRoadPlan(state,
+                       site,
+                       Services.Compute.get(),
+                       World.Stack.RoadAssets(),
+                       World.Stack.RoadAssets() ? RoadPublications(Services) : nullptr);
     if (!accepted) {
       Error = accepted.error();
       return false;
@@ -248,11 +251,11 @@ Engine::State::GroundBuildProgress
 Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   if (state.RoadsRestored() || !state.RoadManifest()) { return GroundBuildProgress::Ready; }
   if (state.RoadRestoration() == nullptr) {
-    if (!World.Pool) {
+    if (!Services.Compute) {
       Error = "road restoration has no worker pool";
       return GroundBuildProgress::Failed;
     }
-    auto restore = RoadPageRestoration::Begin(*World.Pool,
+    auto restore = RoadPageRestoration::Begin(*Services.Compute,
                                               World.Stack.RoadAssets(),
                                               state.RoadManifest(),
                                               std::nullopt,

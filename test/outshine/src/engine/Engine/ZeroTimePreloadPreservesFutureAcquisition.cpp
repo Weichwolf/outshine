@@ -31,13 +31,16 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider) && engine.declare({}) && engine.assemble(),
           "source-free engine declares and assembles without IO");
-    auto &world = TestEngine::StateOf(engine).World;
-    world.Pool = std::make_unique<Tasks>(1);
-    world.Io = std::make_unique<Tasks>(1);
-    world.Wire = std::make_unique<Data::OfflineSourceTransport>();
+    auto &state = TestEngine::StateOf(engine);
+    auto &world = state.World;
+    auto &services = state.Services;
+    services.Compute = std::make_unique<Tasks>(1);
+    services.Io = std::make_unique<Tasks>(1);
+    services.Transport = std::make_unique<Data::OfflineSourceTransport>();
     world.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
-        Generators::Osm::SourceAcquisition::Workers{.Compute = *world.Pool, .Io = *world.Io},
-        world.Wire.get(),
+        Generators::Osm::SourceAcquisition::Workers{.Compute = *services.Compute,
+                                                    .Io = *services.Io},
+        services.Transport.get(),
         directory);
     CHECK(engine.preload(0.0), "zero-time readiness probe succeeds for the assembled empty world");
     Data::SourceProvider declaration;
@@ -49,7 +52,7 @@ int main() {
     declaration.Coverage =
         GeographicBounds{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
     const std::array declarations{declaration};
-    const auto requested = world.OsmSource->Request(declarations, {}, &world.Providers);
+    const auto requested = world.OsmSource->Request(declarations, {}, &services.Providers);
     CHECK(requested,
           requested ? "a subsequent local source request starts normally"
                     : requested.error().c_str());

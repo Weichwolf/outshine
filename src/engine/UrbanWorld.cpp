@@ -69,7 +69,7 @@ bool Engine::State::AdvanceUrbanAreas() {
   }
   if (!World.UrbanAreas) {
     World.UrbanAreas =
-        std::make_unique<UrbanAreaStreaming>(*World.Pool,
+        std::make_unique<UrbanAreaStreaming>(*Services.Compute,
                                              World.Stack.UrbanAssets(),
                                              World.Stack.Pool(),
                                              World.Stack.VectorSchema(),

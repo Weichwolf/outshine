@@ -110,6 +110,21 @@ struct ScenarioSession {
   std::atomic<unsigned> Told{0};
 };
 
+struct EngineServices {
+  EngineServices() = default;
+  EngineServices(const EngineServices &) = delete;
+  EngineServices &operator=(const EngineServices &) = delete;
+  EngineServices(EngineServices &&) = delete;
+  EngineServices &operator=(EngineServices &&) = delete;
+
+  // World consumers die first; providers and transport also outlive worker teardown.
+  std::unique_ptr<Data::SourceTransport> Transport;
+  Data::ProviderRegistry Providers;
+  std::unique_ptr<Tasks> Compute;
+  std::unique_ptr<Tasks> Io;
+  std::shared_ptr<AssetPipeline> Publications;
+};
+
 struct WorldRegionState {
   WorldRegionState();
   ~WorldRegionState();
@@ -125,11 +140,6 @@ struct WorldRegionState {
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
   }
 
-  std::unique_ptr<Data::SourceTransport> Wire;
-  Data::ProviderRegistry Providers;
-  std::unique_ptr<Tasks> Pool;
-  std::unique_ptr<Tasks> Io;
-  std::shared_ptr<AssetPipeline> Publications;
   std::shared_ptr<Data::SourceSession> Sources;
   std::vector<Data::SourceProvider> SourceDeclarations;
   Ground::SurfacePreparation Stack;
@@ -348,6 +358,7 @@ struct Engine::State {
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   std::optional<Holds<std::unique_ptr<ScenarioRuntime>>> PendingSimulation;
+  EngineServices Services;
   WorldRegionState World;
   World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;

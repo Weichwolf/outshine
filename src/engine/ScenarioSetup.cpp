@@ -564,7 +564,7 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (const auto valid = ValidateDeclarationInputs(scenario, S_->World.Providers); !valid) {
+  if (const auto valid = ValidateDeclarationInputs(scenario, S_->Services.Providers); !valid) {
     return valid;
   }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
