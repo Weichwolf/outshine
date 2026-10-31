@@ -1,6 +1,9 @@
 """Existing native wire binding, corruption and coupled-sample constraints."""
 
 import gzip
+import sqlite3
+import zlib
+from contextlib import closing
 import struct
 import tempfile
 import unittest
@@ -8,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 from compare_field_views import raw_image
-from field_view_inputs import MATERIAL, TEXEL, decode_view, fnv
+from field_view_inputs import MATERIAL, TEXEL, decode_view, fnv, read_view
 
 
 def native_blob(*, depth=0.625, normal=(0, 0, 1), surface=1):
@@ -27,6 +30,28 @@ def native_blob(*, depth=0.625, normal=(0, 0, 1), surface=1):
 
 
 class InputTests(unittest.TestCase):
+    def test_native_view_reads_inline_and_streamed_package_bodies(self):
+        raw = native_blob()
+        for streamed in (False, True):
+            with self.subTest(streamed=streamed), tempfile.TemporaryDirectory() as temp:
+                path = Path(temp) / "assets.sqlite"
+                with closing(sqlite3.connect(path)) as db, db:
+                    db.executescript(
+                        "CREATE TABLE packages(key TEXT PRIMARY KEY,bytes BLOB,crc,codec,native_bytes);"
+                        "CREATE TABLE assets(key,kind,package,offset,bytes);"
+                    )
+                    db.execute("INSERT INTO packages VALUES('package',?,?,0,?)",
+                               (b"" if streamed else raw, zlib.crc32(raw), len(raw)))
+                    if streamed:
+                        db.execute("CREATE TABLE package_bodies(key TEXT PRIMARY KEY,bytes BLOB)")
+                        db.execute("INSERT INTO package_bodies VALUES('package',?)", (raw,))
+                    db.execute("INSERT INTO assets VALUES('bound-view','impostor-material-view-1','package',0,?)",
+                               (len(raw),))
+                view = read_view(path, "bound-view")
+                self.assertEqual(view["raw_bytes"], len(raw))
+                self.assertEqual(view["pixels"], 3)
+                self.assertEqual(view["texels"]["depth"][1, 1], 0.625)
+
     def test_fnv_published_vectors_and_native_owned_payload(self):
         self.assertEqual(fnv(b""), 0xCBF29CE484222325)
         self.assertEqual(fnv(b"hello"), 0xA430D84680AABD0B)

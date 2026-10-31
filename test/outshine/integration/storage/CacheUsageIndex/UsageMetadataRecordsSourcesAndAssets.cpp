@@ -77,7 +77,7 @@ void Assets(const std::filesystem::path &path) {
   CHECK(Scalar(path, "SELECT count(*) FROM cache_usage_v1") == 1,
         "asset publication and read share the package usage record");
   CHECK(Scalar(path,
-               "SELECT count(*) FROM cache_usage_v1 u JOIN packages p ON p.key=u.key "
+               "SELECT count(*) FROM cache_usage_v1 u JOIN package_bodies p ON p.key=u.key "
                "WHERE u.stored_bytes=length(p.bytes) AND u.created_unix_s>0 "
                "AND u.last_used_unix_s>=u.created_unix_s") == 1,
         "asset metadata retains actual compressed bytes and both timestamps");

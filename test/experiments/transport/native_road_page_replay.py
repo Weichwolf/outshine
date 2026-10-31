@@ -7,9 +7,10 @@ import hashlib
 import json
 import platform
 import resource
-import sqlite3
+from native_package_storage import open_packages, prepare_packages
 import subprocess
 import sys
+import sqlite3
 import tempfile
 import time
 import zlib
@@ -49,7 +50,7 @@ def process_peak():
 
 def load_page(connection, key, specification):
     stored = connection.execute(
-        "SELECT bytes FROM packages WHERE key=?", (key,)
+        "SELECT bytes FROM native_packages WHERE key=?", (key,)
     ).fetchone()[0]
     crc, codec, native_bytes = specification
     if zlib.crc32(stored) != crc:
@@ -73,7 +74,7 @@ def replay(directory, trace, budget):
     """Serial CPU load/retire; no GPU fences, asynchronous latency or visibility proof."""
     start_reads = disk_read_bytes()
     with closing(
-        sqlite3.connect(
+        open_packages(
             (directory / "assets.sqlite").resolve().as_uri() + "?mode=ro", uri=True
         )
     ) as connection:
@@ -99,7 +100,7 @@ def resolve_metadata(connection, directory):
     specs = {
         key: (crc, codec, size)
         for key, crc, codec, size in connection.execute(
-            "SELECT key,crc,codec,native_bytes FROM packages"
+            "SELECT key,crc,codec,native_bytes FROM native_packages"
         )
     }
     hashes = json.loads((directory / "hashes.json").read_text())
@@ -110,6 +111,7 @@ def resolve_metadata(connection, directory):
 
 
 def replay_pages(connection, directory, trace, budget):
+    prepare_packages(connection)
     started = time.perf_counter()
     records, specs, hashes, members = resolve_metadata(connection, directory)
     metadata_ms = (time.perf_counter() - started) * 1000

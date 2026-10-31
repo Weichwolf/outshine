@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-import sqlite3
+from native_package_storage import open_packages
 import struct
 import time
 import zlib
@@ -200,7 +200,7 @@ def measure(args):
     lib.ZSTD_compress.argtypes = [ctypes.c_void_p, ctypes.c_size_t,
                                 ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int]
     lib.ZSTD_compress.restype = ctypes.c_size_t
-    db = sqlite3.connect(args.cache.resolve().as_uri() + '?mode=ro', uri=True)
+    db = open_packages(args.cache.resolve().as_uri() + '?mode=ro', uri=True)
     eye = ecef(*args.eye)
     records = db.execute("SELECT a.key,a.package,a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz "
                          "FROM assets a WHERE kind='buildings' ORDER BY a.id DESC").fetchall()
@@ -213,7 +213,7 @@ def measure(args):
         if distance_to_box(eye, box) > args.radius:
             continue
         stored, crc, codec, native_size = db.execute(
-            'SELECT bytes,crc,codec,native_bytes FROM packages WHERE key=?', (package,)).fetchone()
+            'SELECT bytes,crc,codec,native_bytes FROM native_packages WHERE key=?', (package,)).fetchone()
         if zlib.crc32(stored) != crc:
             raise ValueError(f"package CRC mismatch: {key}")
         data = unpack(lib, stored, codec, native_size)

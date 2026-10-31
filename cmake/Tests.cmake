@@ -153,6 +153,7 @@ foreach(source IN LISTS cases)
   endif()
   if(CMAKE_DL_LIBS AND (name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema"
       OR name STREQUAL "outshine/src/content/assets/AssetCache/ReadPlansIncludeCodecWorkspace"
+      OR name STREQUAL "outshine/src/content/assets/AssetCache/IncrementalPublicationBoundsSqlStorageAndRollsBack"
       OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
       OR name STREQUAL "outshine/integration/engine/streaming/RoadPageQueue/BusyReadsRetainSlotsAndSelectedCoverage"))
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})

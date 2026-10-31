@@ -9,16 +9,16 @@ import ctypes
 import ctypes.util
 import json
 from pathlib import Path
-import sqlite3
+from native_package_storage import open_packages
 import struct
 
 
 def measure(cache, zstd_library, side):
     if side < 2 or side > 512:
         raise ValueError('sampling side must lie within the native patch budget')
-    with sqlite3.connect(cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
+    with open_packages(cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
         row = db.execute(
-            "SELECT p.bytes,p.codec,p.native_bytes,a.key FROM assets a JOIN packages p "
+            "SELECT p.bytes,p.codec,p.native_bytes,a.key FROM assets a JOIN native_packages p "
             "ON a.package=p.key WHERE a.kind='terrain-field' AND a.offset=0 "
             "ORDER BY a.id DESC LIMIT 1").fetchone()
     if not row:

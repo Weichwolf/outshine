@@ -64,7 +64,7 @@ std::expected<int, AssetCacheError> SchemaVersion(sqlite3 *database) {
   const int step = sqlite3_step(version.Value);
   if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
   const int current = sqlite3_column_int(version.Value, 0);
-  if (current < 0 || current > 4) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
+  if (current < 0 || current > 5) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
   return current;
 }
 
@@ -92,7 +92,7 @@ std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
   if (!migration) { return std::unexpected(migration.error()); }
   const auto current = SchemaVersion(database);
   if (!current) { return std::unexpected(current.error()); }
-  if (*current != 4) {
+  if (*current < 4) {
     const auto setup = AssetSql::Exec(
         database,
         "CREATE TABLE IF NOT EXISTS assets(id INTEGER PRIMARY KEY,key TEXT NOT NULL UNIQUE,"
@@ -115,8 +115,15 @@ std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
     const auto migrated = MigrateRequests(database, *current);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
+  if (*current < 5) {
+    const auto bodies =
+        AssetSql::Exec(database,
+                       "CREATE TABLE IF NOT EXISTS package_bodies(key TEXT PRIMARY KEY NOT NULL "
+                       "REFERENCES packages(key) ON DELETE CASCADE,bytes BLOB NOT NULL);");
+    if (!bodies) { return bodies; }
+  }
   const auto committed =
-      AssetSql::Exec(database, *current == 4 ? "COMMIT;" : "PRAGMA user_version=4;COMMIT;");
+      AssetSql::Exec(database, *current == 5 ? "COMMIT;" : "PRAGMA user_version=5;COMMIT;");
   if (!committed) { return std::unexpected(committed.error()); }
   return {};
 }
@@ -145,7 +152,7 @@ AssetCache::Open(const std::string &path) {
   if (!began) { return std::unexpected(began.error()); }
   const auto current = SchemaVersion(state->Database);
   if (!current) { return std::unexpected(current.error()); }
-  if (*current != 4) {
+  if (*current != 5) {
     const auto migrated = MigrateSchema(state->Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }

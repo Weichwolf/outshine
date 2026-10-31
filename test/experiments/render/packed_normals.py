@@ -5,11 +5,15 @@ import ctypes
 import ctypes.util
 import hashlib
 import json
-import sqlite3
-import struct
+import sys
 from pathlib import Path
 
+import struct
+
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
+from native_package_storage import open_packages
 
 
 def fold(unit):
@@ -44,12 +48,12 @@ def unpack(words):
 
 
 def cached_words(path):
-    with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
+    with open_packages(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
         key, package, start, count = db.execute(
             "SELECT key,package,offset,bytes FROM assets WHERE kind='building-lod' ORDER BY bytes DESC LIMIT 1"
         ).fetchone()
         blob, codec, size = db.execute(
-            "SELECT bytes,codec,native_bytes FROM packages WHERE key=?", (package,)
+            "SELECT bytes,codec,native_bytes FROM native_packages WHERE key=?", (package,)
         ).fetchone()
     if codec:
         library = ctypes.CDLL(ctypes.util.find_library("zstd"))

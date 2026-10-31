@@ -2,7 +2,7 @@
 import argparse
 import json
 from pathlib import Path
-import sqlite3
+from native_package_storage import open_packages
 import statistics
 import time
 
@@ -70,9 +70,9 @@ def main():
     args = parser.parse_args()
     lib = library()
     tiles, features = [], []
-    with sqlite3.connect(args.cache.resolve().as_uri() + "?mode=ro", uri=True) as database:
+    with open_packages(args.cache.resolve().as_uri() + "?mode=ro", uri=True) as database:
         sql = """SELECT a.id,p.codec,p.native_bytes,p.bytes FROM assets a
-                 JOIN packages p ON p.key=a.package WHERE a.kind='building-basis'
+                 JOIN native_packages p ON p.key=a.package WHERE a.kind='building-basis'
                  ORDER BY a.id"""
         for tile, codec, size, wire in database.execute(sql):
             count = count_sources(unpack(lib, wire, codec, size))
