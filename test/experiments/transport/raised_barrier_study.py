@@ -13,6 +13,7 @@ from elevated_rail_hardware import bound_input, selected_bed
 from elevated_rail_hardware_verify import arrays, source_axis
 from elevated_rail_joints import joints
 from experiment_output import create_output
+from ground_area_bounds import cap_bounds
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.rail_hardware._geometry import SLEEPER
 from outshine_ref.transport.rail_hardware._planar import projected_rail_footprints
@@ -59,7 +60,11 @@ def bound_inputs(directory, receipt):
         )
     if {k for c in cases for k in c["keys"]} != set(original):
         raise ValueError("Every raised original must occur in a complete chain")
-    return report, bed, float(triangle[0, 2]), clearance, cases
+    terrain = Mesh(
+        np.c_[source.deck.vertices[:, :2], np.zeros(len(source.deck.vertices))],
+        source.top_faces,
+    )
+    return report, bed, float(triangle[0, 2]), clearance, cases, terrain
 
 
 def hardware_shapes(data, cast):
@@ -84,7 +89,7 @@ def build(cases, bed, clearance, recipe):
     return result
 
 
-def physical_guards(rows, cases):
+def physical_guards(rows, cases, terrain):
     notes = []
     for cast in (np.float64, np.float32):
         hardware = np.array(
@@ -92,6 +97,9 @@ def physical_guards(rows, cases):
             object,
         )
         tree = shapely.STRtree(hardware)
+        stored_terrain = Mesh(
+            terrain.vertices.astype(cast).astype(float), terrain.triangles
+        )
         for row in rows:
             lower = row["lower"]
             xy = lower.vertices.astype(cast).astype(float)[:, :2]
@@ -103,6 +111,12 @@ def physical_guards(rows, cases):
                 raise ValueError(
                     "Stored side body intersects original rail/sleeper hardware"
                 )
+            cap = Mesh(lower.vertices.astype(cast).astype(float), lower.triangles)
+            contact = cap_bounds(cap, stored_terrain)
+            if contact[0] != 0 or contact[1] != 0:
+                raise ValueError(
+                    "Stored whole side cap lacks exact zero-height deck contact"
+                )
             notes.append(
                 {
                     "component": row["component"],
@@ -110,6 +124,12 @@ def physical_guards(rows, cases):
                     "storage": np.dtype(cast).name,
                     "hardware_shapes": len(hardware),
                     "overlapping_shapes": len(hits),
+                    "exact_contact": {
+                        "minimum_gap_m": str(contact[0]),
+                        "maximum_gap_m": str(contact[1]),
+                        "arithmetic": "Fraction",
+                        "work": contact[3],
+                    },
                 }
             )
     return notes
@@ -177,10 +197,12 @@ def scene_products(scene_path, rows, datum, output):
 def run(args):
     commit = frozen()
     create_output(args.output)
-    report, bed, datum, clearance, cases = bound_inputs(args.hardware, args.receipt)
+    report, bed, datum, clearance, cases, terrain = bound_inputs(
+        args.hardware, args.receipt
+    )
     recipe = BarrierRecipe()
     result = build(cases, bed, clearance, recipe)
-    guard = physical_guards(result, cases)
+    guard = physical_guards(result, cases, terrain)
     products = []
     for i, row in enumerate(result):
         path = args.output / ("side-" + str(i) + ".npz")
