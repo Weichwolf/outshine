@@ -5,6 +5,7 @@ simulation, native raster, World residency, physical IO or device admission.
 """
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -86,6 +87,32 @@ def main(args):
         groups[identity] = bounds, points, normal
     if not set(records).issubset(groups):
         raise ValueError("Only bound candidate source identities may be indexed")
+    if args.bounds_output:
+        chunks = sorted(set(records.values()))
+        digests = []
+        with (args.chunk / "groups.bin").open("rb") as stream:
+            for offset, length in chunks:
+                stream.seek(offset)
+                blob = stream.read(length)
+                if len(blob) != length:
+                    raise ValueError("Complete original group data required")
+                digests.append(np.frombuffer(hashlib.sha256(blob).digest(), dtype="u1"))
+        np.savez(
+            args.bounds_output,
+            source_ids=np.array(list(groups), dtype="<i4"),
+            bounds=np.array([v[0] for v in groups.values()], dtype="<f4"),
+            normal=np.array([v[2] for v in groups.values()], dtype="u1"),
+            source_binding=np.frombuffer(
+                bytes.fromhex(provenance["source_binding_sha256"]), dtype="u1"
+            ),
+            index_digest=np.frombuffer(
+                hashlib.sha256((args.chunk / "index.npy").read_bytes()).digest(),
+                dtype="u1",
+            ),
+            group_offsets=np.array([row[0] for row in chunks], dtype="<u8"),
+            group_lengths=np.array([row[1] for row in chunks], dtype="<u4"),
+            group_digests=np.array(digests, dtype="u1"),
+        )
     cases = []
     for angle, view in sorted(controls.items()):
         operands = frame(view, placements)
@@ -144,4 +171,5 @@ if __name__ == "__main__":
     parser.add_argument("--producer", type=Path, required=True)
     parser.add_argument("--chunk", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--bounds-output", type=Path)
     main(parser.parse_args())
