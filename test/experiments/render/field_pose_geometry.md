@@ -200,3 +200,41 @@ CapturePlane and directed scalar operations. Source/capture preparation, fine
 opponent, plots and costs remain in separate experiment drivers. No new library,
 dependency, product cache, native implementation or frame scheduler. The old
 specialized kernel stays valid; generality is not a performance win by itself.
+
+## World placement before field requests (#1881)
+
+`world_field_pose.py` accepts a bound rigid WorldFromField, a World/ECEF eye,
+World camera right/up/positive-forward rows, the submitted projection and raster.
+Its matrix input is four rows; native column-major storage must be decoded
+explicitly. It encloses `P * [A*R, A*(T-eye); 0,1]`, forming Double relative
+translation before rotation. It preserves the encoded rotation: the native
+rigidity tolerance validates the schema, not exact orthogonality or identity.
+Neither a nominal rigid inverse nor renormalized camera axes supply a bound.
+The composed interval rows reuse the existing whole-source displacement kernel;
+no finer source geometry, atlas pixels or new persisted metadata are required.
+
+The caller must bind frame, source identity and current camera to one coherent
+snapshot before query/IO. Native `BuildingFieldRequest::Pose::Camera` and
+`ImpostorPoseBounds::Project` currently require capture-local operands. They
+cannot directly consume a World/ECEF camera or this interval clip matrix.
+Master owns the native adapter/overload and normal World integration (#1570).
+Geometry admission alone supplies no coverage, depth, material, lighting,
+shadow or World-revision qualification. Missing/invalid placement retains the
+original; the archived runtime-null placement remains null.
+
+Independent exact rational tests compare the actual encoded World projection,
+including geographic anchors, movement, origin shifts, tilted support, jitter,
+orthographic projection and invalid/eye/far cases. They also exhibit unsafe
+early Float32 ECEF rounding and direct World-to-local camera substitution.
+The study compares relative-first composition with correct full homogeneous
+interval composition on the same archived axes and whole-source bounds.
+This reconstructed placement is diagnostic, never authoritative runtime data.
+Its geometric matrix operands occupy352B plus96B plane/8B raster, with256B
+numeric interval clip output; Python containers/allocations are additional.
+
+Run with the repository `.venv` and `PYTHONPATH=lib/src:test/experiments/render`:
+`python test/experiments/render/world_field_pose_study.py --output /tmp/outshine-research-world-pose-<commit>`.
+Freeze the measured sources first. NPZ hash/metadata preparation reads the
+archive before query timing; this does not demonstrate avoided physical IO,
+native execution, device memory, frame cost or World admission. The existing
+Duff SIGGRAPH1992 interval source above, PDF page2, was visually rechecked.
