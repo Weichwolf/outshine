@@ -117,11 +117,10 @@ struct Bid {
   double WantsM = 0.0;
 };
 
-double RoadBedAt(const EarthworkStamp &stamp, EastNorth at) {
-  const double bedM = stamp.WantsAt(at);
+std::array<double, 2> RoadBedLimits(const EarthworkStamp &stamp) {
   if (stamp.Kind != EarthworkKind::Corridor || stamp.CorridorKey == 0 ||
       stamp.RingEastNorthM.size() < 6) {
-    return bedM;
+    return {-std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity()};
   }
   double lowM = kBeyondAnyCoordinate;
   double highM = -kBeyondAnyCoordinate;
@@ -131,7 +130,11 @@ double RoadBedAt(const EarthworkStamp &stamp, EastNorth at) {
     lowM = std::min(lowM, contactM);
     highM = std::max(highM, contactM);
   }
-  return std::clamp(bedM, lowM, highM);
+  return {lowM, highM};
+}
+
+double RoadBedAt(const EarthworkStamp &stamp, EastNorth at, const std::array<double, 2> &limits) {
+  return std::clamp(stamp.WantsAt(at), limits[0], limits[1]);
 }
 
 void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
@@ -247,15 +250,18 @@ struct PressWorkspace {
   std::vector<NearestProfile> Profiles;
   std::vector<double> WidthsM;
   std::vector<double> ReliefM;
+  std::vector<std::array<double, 2>> BedLimitsM;
   CorridorApronBlend Corridors;
 
   PressWorkspace(std::span<const EarthworkStamp> stamps, double mostEarthworkM)
       : Corridors(stamps) {
     WidthsM.reserve(stamps.size());
     ReliefM.reserve(stamps.size());
+    BedLimitsM.reserve(stamps.size());
     for (const auto &stamp : stamps) {
       WidthsM.push_back(ApronWidthM(stamp, mostEarthworkM));
       ReliefM.push_back(std::min(std::abs(stamp.YieldM), mostEarthworkM));
+      BedLimitsM.push_back(RoadBedLimits(stamp));
     }
   }
 
@@ -278,6 +284,7 @@ struct PressWorkspace {
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Profiles.capacity() * sizeof(NearestProfile) +
+           BedLimitsM.capacity() * sizeof(BedLimitsM[0]) +
            (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double) + Corridors.HeapBytes() +
            Query.HeapBytes();
   }
@@ -381,8 +388,9 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
         at.NorthM < held.LowN - reachM || at.NorthM > held.HighN + reachM || held.Profile) {
       continue;
     }
-    const Bid bid{
-        .Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = RoadBedAt(held, at)};
+    const Bid bid{.Which = which,
+                  .OutsideM = OutsideRingM(held, at),
+                  .WantsM = RoadBedAt(held, at, workspace.BedLimitsM[which])};
     if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
     } else {
@@ -443,13 +451,16 @@ void RejectAt(std::span<const EarthworkStamp> these,
               PressWorkspace &workspace) {
   for (const uint32_t which : buckets.At(at[one], workspace.Query)) {
     const EarthworkStamp &stamp = these[which];
-    double outsideM = OutsideRingM(stamp, at[one]);
-    double bedM = RoadBedAt(stamp, at[one]);
+    double outsideM = 0;
+    double bedM = 0;
     if (stamp.Profile) {
       const auto offered = ProfiledCorridor::OfferAt(*stamp.Profile, stamp.ApronM, at[one]);
       if (!offered) { continue; }
       outsideM = offered->OutsideM;
       bedM = offered->BedM;
+    } else {
+      outsideM = OutsideRingM(stamp, at[one]);
+      bedM = RoadBedAt(stamp, at[one], workspace.BedLimitsM[which]);
     }
     if ((stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Clearance) &&
         outsideM <= 0.0) {
