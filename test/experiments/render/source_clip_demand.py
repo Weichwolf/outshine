@@ -6,7 +6,15 @@ view-only research entry point, not World, shadow or simulation admission.
 
 import numpy as np
 import source_raster_candidates as fine
-from source_cluster_bounds import EPS64, clip_envelope, frame
+from source_cluster_bounds import (
+    EPS32,
+    EPS64,
+    TINY32,
+    clip_boxes,
+    clip_envelope,
+    frame,
+    upper,
+)
 from source_hierarchy import query as original_query
 
 PLANES = ("left", "right", "bottom", "top")
@@ -39,6 +47,75 @@ def outside_xy(bounds, operands):
     scale = np.max(abs(np.r_[low, high]))
     upper = np.nextafter(upper + 64 * EPS64 * scale, np.inf)
     return upper if np.isfinite(upper).all() else None
+
+
+def outside_xy_batched(bounds, normal, operands, *, batch_size=256):
+    """Conservative XY exclusions for independent whole-source boxes."""
+    if (
+        bounds.dtype != np.dtype("<f4")
+        or bounds.ndim != 3
+        or bounds.shape[1:] != (2, 3)
+        or np.shape(normal) != (len(bounds),)
+        or type(batch_size) is not int
+        or not 1 <= batch_size <= 65536
+    ):
+        raise ValueError("Bounded source box array and normal flags required")
+    excluded = np.zeros(len(bounds), dtype=bool)
+    if operands is None:
+        return excluded
+    placement, shift, matrix = operands
+    for begin in range(0, len(bounds), batch_size):
+        part = bounds[begin : begin + batch_size]
+        valid = (
+            np.asarray(normal[begin : begin + batch_size], dtype=bool)
+            & np.isfinite(part).all(axis=(1, 2))
+            & (part[:, 0] <= part[:, 1]).all(axis=1)
+        )
+        with np.errstate(over="ignore", invalid="ignore"):
+            absolute = np.column_stack(
+                (np.max(abs(part.astype(float)), axis=1), np.ones(len(part)))
+            )
+            gamma = 7 * EPS32 / (1 - 7 * EPS32)
+            stable = upper(absolute @ abs(placement).T)
+            stable_error = upper(gamma * stable + 7 * TINY32)
+            world = upper(stable + abs(shift))
+            world_error = upper(
+                stable_error + EPS32 * upper(world + stable_error) + TINY32
+            )
+            clip = upper(upper(world + world_error) @ abs(matrix).T)
+            error = 2 * upper(
+                upper(world_error @ abs(matrix).T) + gamma * clip + 7 * TINY32
+            )
+            lo, hi = clip_boxes(part, operands)
+            low = np.nextafter(lo - error, -np.inf)
+            high = np.nextafter(hi + error, np.inf)
+            plane_upper = np.column_stack(
+                (
+                    high[:, 0] + high[:, 3],
+                    high[:, 3] - low[:, 0],
+                    high[:, 1] + high[:, 3],
+                    high[:, 3] - low[:, 1],
+                )
+            )
+            scale = np.max(abs(np.column_stack((low, high))), axis=1)
+            plane_upper = np.nextafter(
+                plane_upper + (64 * EPS64 * scale)[:, None], np.inf
+            )
+        with np.errstate(over="ignore", invalid="ignore"):
+            maximum = np.finfo(np.float32).max
+            valid &= np.isfinite(np.column_stack((lo, hi, error, plane_upper))).all(
+                axis=1
+            )
+            valid &= (stable <= maximum).all(axis=1)
+            valid &= (upper(world + world_error) <= maximum).all(axis=1)
+            valid &= (clip <= maximum).all(axis=1)
+            ambiguous = valid & (abs(plane_upper) <= 1e-10 * scale[:, None]).any(axis=1)
+            result = valid & (plane_upper < 0).any(axis=1)
+        for index in np.flatnonzero(ambiguous):
+            scalar = outside_xy(part[index], operands)
+            result[index] = scalar is not None and (scalar < 0).any()
+        excluded[begin : begin + len(part)] = result
+    return excluded
 
 
 def query(

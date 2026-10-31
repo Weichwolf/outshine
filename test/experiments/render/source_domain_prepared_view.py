@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 from native_source_clip_controls import read as read_controls
 from native_source_triangle_materials import DATA
-from source_clip_demand import outside_xy
+from source_clip_demand import outside_xy_batched
 from source_cluster_bounds import frame
 from source_domain_chunk_study import decode_raw
 
@@ -23,16 +23,10 @@ def select_sources(prepared, view, placements):
     if len(np.unique(prepared["source_ids"])) != len(prepared["source_ids"]):
         raise ValueError("Unique prepared source identities required")
     operands = frame(view, placements)
-    selected = []
-    for identity, bounds, normal in zip(
-        prepared["source_ids"], prepared["bounds"], prepared["normal"], strict=True
-    ):
-        upper = (
-            outside_xy(bounds, operands) if normal and operands is not None else None
-        )
-        if upper is None or not np.any(upper < 0):
-            selected.append(int(identity))
-    return selected
+    if len(prepared["source_ids"]) != len(prepared["bounds"]):
+        raise ValueError("One bound per prepared source required")
+    excluded = outside_xy_batched(prepared["bounds"], prepared["normal"], operands)
+    return list(map(int, prepared["source_ids"][~excluded]))
 
 
 def run(args, *, retain_angle=None):
