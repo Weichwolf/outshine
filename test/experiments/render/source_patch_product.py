@@ -71,6 +71,12 @@ def write_product(chunks, source_order, selected_sources, original_parts, output
         "parts": parts,
         "native_array_bytes": arrays_bytes,
         "native_file_sha256": hashes,
+        "native_description_sha256": hashlib.sha256(
+            (geometry / "input.json").read_bytes()
+        ).hexdigest(),
+        "prepared_source_face_binding_sha256": hashlib.sha256(
+            (output / "face-sources.npz").read_bytes()
+        ).hexdigest(),
         "prepared_source_face_binding_bytes": sum(
             v.nbytes for v in face_sources.values()
         ),

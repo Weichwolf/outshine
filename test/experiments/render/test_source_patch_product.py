@@ -1,5 +1,6 @@
 """Whole native part roundtrip, empty material slots and unchanged signed words."""
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -52,6 +53,14 @@ class SourcePatchProduct(unittest.TestCase):
                 )
                 self.assertEqual(labels["part1_prepared_source_ordinals"].size, 0)
             self.assertEqual(len(report["native_file_sha256"]), 18)
+            self.assertEqual(
+                report["native_description_sha256"],
+                hashlib.sha256((geometry / "input.json").read_bytes()).hexdigest(),
+            )
+            self.assertEqual(
+                report["prepared_source_face_binding_sha256"],
+                hashlib.sha256((root / "face-sources.npz").read_bytes()).hexdigest(),
+            )
             self.assertEqual(report["prepared_source_face_binding_bytes"], 8)
 
     def test_missing_original_source_is_not_a_valid_partial_product(self):
