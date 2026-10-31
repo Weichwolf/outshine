@@ -108,7 +108,7 @@ def observe(root, page_id):
             water["face_source_offsets"][face] : water["face_source_offsets"][face + 1]
         ],
         "scope": __doc__
-        + " Plane values are not final apron blends. Source incidence stays opaque, not an inferred OSM ID. Selected stamps do not qualify global refusal/admission. Render/nav road edges and exterior DEM remain missing. No repaired mesh, World or device admission.",
+        + " Plane values are not final apron blends. Source incidence stays opaque in this observation, not an inferred OSM ID. Selected stamps do not qualify global refusal/admission. Rendered roads and primitive memberships are supplied separately; exterior source-way rows, navigation and exterior DEM remain incomplete. No repaired mesh, World or device admission.",
     }
     return result, (water_union, joined, polygon(basin), polygon(corridor), points)
 

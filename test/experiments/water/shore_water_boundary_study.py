@@ -100,7 +100,7 @@ def run(args):
             (args.output / "component.npz").read_bytes()
         ).hexdigest(),
         "scope": __doc__
-        + " Source polygons use the existing WGS84 ground-height projection reference. Finite GEOS comparisons are not an exact/native Float32 certificate. Costs cover component extraction from resident decoded inputs only; source projection, IO, decoding, GEOS unions, serialization, native/OS memory and allocation traffic are excluded. Source/capture cuts and road/nav/exterior closure remain open. No contact repair or World/device admission.",
+        + " Source polygons use the existing WGS84 ground-height projection reference. Finite GEOS comparisons are not an exact/native Float32 certificate. Costs cover component extraction from resident decoded inputs only; source projection, IO, decoding, GEOS unions, serialization, native/OS memory and allocation traffic are excluded. Source/capture cuts, road/nav authority and exterior closure remain open. No contact repair or World/device admission.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     plot(body, original, capture, json.loads(metadata_raw), args.output)
