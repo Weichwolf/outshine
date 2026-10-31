@@ -157,7 +157,7 @@ MaterialFieldPass::Prepare(const std::shared_ptr<const MaterialFieldInput> &inpu
   }
   if (const auto retired = Collect(); !retired) { return std::unexpected(retired.error()); }
   auto &device = state.Pipelines->Device;
-  auto commands = device.Begin();
+  auto commands = BeginUpload(device, state.Uploads);
   if (!commands) { return std::unexpected(commands.error()); }
   auto source = std::make_shared<ResidentMaterialField::Data>(state.Pipelines);
   source->Raster = input->Data_->Raster;
