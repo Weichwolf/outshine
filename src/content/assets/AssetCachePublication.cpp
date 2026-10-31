@@ -227,6 +227,10 @@ AssetCache::PreparePublication(std::vector<AssetRecord> records, std::vector<uin
   return prepared;
 }
 
+std::expected<size_t, AssetCacheError> AssetCache::PublicationBufferBytes(size_t nativeBytes) {
+  return AssetSql::CompressionBytes(nativeBytes);
+}
+
 std::expected<void, AssetCacheError> AssetCache::Publish(const PreparedAssetWrite &prepared) {
   if (prepared.Records_.empty() || prepared.Key_.empty()) {
     return std::unexpected(AssetCacheError::InvalidInput);

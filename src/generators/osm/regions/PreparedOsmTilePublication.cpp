@@ -37,12 +37,7 @@ PreparedOsmTiles::Produce(Production &work, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
   switch (work.Stage) {
     case Production::Phase::Prepare: return PrepareContent(work);
-    case Production::Phase::GenerationAdmission:
-      if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
-        return std::optional<AssetProduct>{};
-      }
-      work.Stage = Production::Phase::Generate;
-      return AssetPipeline::InputAdmission{.Bytes = kColdBytesMost};
+    case Production::Phase::GenerationAdmission: return PlanGeneration(work);
     case Production::Phase::Generate: {
       if (!work.Landing) { return std::unexpected("native OSM generation has no input"); }
       if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
@@ -104,9 +99,11 @@ PreparedOsmTiles::PlanRestore(Production &work) {
     return std::unexpected("native OSM content metadata failed");
   }
   if (!*bytes) {
-    work.Stage = work.Publication ? Production::Phase::Publish : Production::Phase::Generate;
-    return AssetPipeline::InputAdmission{.Bytes = work.Publication ? work.PublicationBytes
-                                                                   : kColdBytesMost};
+    work.Stage =
+        work.Publication ? Production::Phase::Publish : Production::Phase::GenerationAdmission;
+    const auto inputBytes = work.Landing ? work.Landing->Bytes.capacity() : 0;
+    return AssetPipeline::InputAdmission{.Bytes =
+                                             work.Publication ? work.PublicationBytes : inputBytes};
   }
   work.LoadMost = std::max(size_t{1}, **bytes);
   work.Stage = Production::Phase::Restore;
@@ -133,9 +130,11 @@ std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Restore
     return std::unexpected("published native OSM tile cache failed");
   }
   if (!*loaded) {
-    work.Stage = work.Publication ? Production::Phase::Publish : Production::Phase::Generate;
-    return AssetPipeline::InputAdmission{.Bytes = work.Publication ? work.PublicationBytes
-                                                                   : kColdBytesMost};
+    work.Stage =
+        work.Publication ? Production::Phase::Publish : Production::Phase::GenerationAdmission;
+    const auto inputBytes = work.Landing ? work.Landing->Bytes.capacity() : 0;
+    return AssetPipeline::InputAdmission{.Bytes =
+                                             work.Publication ? work.PublicationBytes : inputBytes};
   }
   PublicationReadBytes_ += (**loaded).Bytes().size();
   return std::optional<AssetProduct>(AssetProduct(std::move(**loaded)));

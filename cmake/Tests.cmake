@@ -195,6 +195,8 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/osm/OsmField/NativeTileAdmissionPrecedesAllocation"
+      OR name STREQUAL "outshine/src/generators/osm/OsmField/NativeBuildAndEncodingUsePlannedStorage"
+      OR name STREQUAL "outshine/src/content/assets/AssetPackageCodec/CompressionUsesOnlyPlannedBuffers"
       OR name STREQUAL "outshine/src/generators/osm/MvtLayer/AllocationPlanBoundsActualDecode"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
@@ -234,7 +236,7 @@ foreach(source IN LISTS cases)
       set(owner app)
     elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene|device)/")
       set(owner render)
-    elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
+    elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot|PreparedOsmTiles)/")
       set(owner generators/osm)
     elseif(name MATCHES "^outshine/integration/engine/streaming/building/")
       set(owner engine/streaming/building)
@@ -274,6 +276,9 @@ foreach(source IN LISTS cases)
   endif()
   if(name MATCHES "^outshine/integration/storage/")
     target_link_libraries(${target} PRIVATE outshine_sources)
+  endif()
+  if(name STREQUAL "outshine/integration/generators/osm/PreparedOsmTiles/BusyPublicationRetainsNativeInputs")
+    target_link_libraries(${target} PRIVATE outshine_generators_terrain_inputs)
   endif()
   if(name STREQUAL "outshine/integration/sources/HttpTransport/ByteRangesKeepObjectIdentity")
     target_link_libraries(${target} PRIVATE outshine_generators_terrain_inputs)

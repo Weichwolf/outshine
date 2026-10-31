@@ -113,6 +113,7 @@ private:
     bool SourceAdmitted = false;
     size_t LoadMost = 0;
     size_t SourceMost = 0;
+    size_t GenerationMost = 0;
     std::optional<Data::SourceSession::Read> Input;
     std::optional<Data::SourceDelivery::Answer> Landing;
     std::optional<PreparedAssetWrite> Publication;
@@ -136,6 +137,8 @@ private:
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
   Produce(Production &work, const std::stop_token &stop);
   [[nodiscard]] std::expected<void, std::string> Generate(Production &work);
+  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
+  PlanGeneration(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Lookup(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> LookupHit(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
@@ -173,7 +176,6 @@ private:
 
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;
-  static constexpr size_t kColdBytesMost = 4 * kPackageBytesMost + kHeapBytesMost;
   static constexpr size_t kReceiptBytesMost = 4096;
   static constexpr std::string_view kAbsent = "native OSM source absent";
   static constexpr std::string_view kRefused = "native OSM source refused";

@@ -176,6 +176,16 @@ public:
   [[nodiscard]] std::shared_ptr<const OsmField>
   SnapshotQueries(std::shared_ptr<const OsmField> previous = {}) const;
 
+  // Fresh single-tile Accept, excluding borrowed input, external source strings and allocator
+  // metadata.
+  struct NativeBuildPlan {
+    size_t WorkingBytesMost = 0;
+    size_t EncodedBytesMost = 0;
+  };
+
+  [[nodiscard]] static std::expected<NativeBuildPlan, std::string_view> NativeTileBuildBytes(
+      std::span<const uint8_t> bytes, std::span<const std::string> layers, MvtSchema schema);
+  [[nodiscard]] std::optional<size_t> NativeTileEncodedBytes(size_t bytesMost) const;
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
   // Fresh libc++/libstdc++ decoder storage, excluding input and allocator overhead.
   // This allocation-free structural scan does not validate geometry semantics.

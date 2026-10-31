@@ -101,6 +101,9 @@ public:
                                                              std::span<const uint8_t> payload);
   [[nodiscard]] std::expected<PreparedAssetWrite, AssetCacheError>
   PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload);
+  // Additional codec output/workspace for any payload up to this size; excludes input and records.
+  [[nodiscard]] static std::expected<size_t, AssetCacheError>
+  PublicationBufferBytes(size_t nativeBytes);
   // Busy leaves the owned package intact for a later background step.
   [[nodiscard]] std::expected<void, AssetCacheError> Publish(const PreparedAssetWrite &prepared);
 

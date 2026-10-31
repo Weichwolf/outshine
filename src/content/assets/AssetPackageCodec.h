@@ -11,6 +11,7 @@
 
 namespace outshine::AssetSql {
 
+[[nodiscard]] std::expected<size_t, AssetCacheError> CompressionBytes(size_t nativeBytes);
 [[nodiscard]] std::expected<std::vector<uint8_t>, AssetCacheError>
 Compress(std::span<const uint8_t> bytes);
 [[nodiscard]] std::optional<std::vector<uint8_t>>
