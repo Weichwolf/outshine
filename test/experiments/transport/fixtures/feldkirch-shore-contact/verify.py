@@ -1,5 +1,6 @@
 """Check the captured inputs without generating expected solver results."""
 
+import ast
 import gzip
 import hashlib
 import json
@@ -12,6 +13,55 @@ from pathlib import Path
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def verify_neighbors(root, manifest):
+    window = manifest["neighbor_pages"]
+    pages = window["pages"]
+    zoom = window["window_zoom"]
+    x0, x1 = window["window_x"]
+    y0, y1 = window["window_y"]
+    coverage = {(x, y): 0 for y in range(y0, y1) for x in range(x0, x1)}
+    require(len(pages) == 7 and len(coverage) == 9, "actual adaptive neighbor window")
+    with (
+        zipfile.ZipFile(root / "deformed-neighbors.npz") as neighbors,
+        zipfile.ZipFile(root / "deformed-pages.npz") as original,
+    ):
+        require(
+            set(neighbors.namelist()) == {p["array"] + ".npy" for p in pages},
+            "declared native neighbor pages",
+        )
+        for page in pages:
+            name = page["array"] + ".npy"
+            require(neighbors.getinfo(name).file_size <= 8192, "bounded native page")
+            data = neighbors.read(name)
+            require(data[:8] == b"\x93NUMPY\x01\x00", "captured NPY encoding")
+            start = 10 + struct.unpack_from("<H", data, 8)[0]
+            header = ast.literal_eval(data[10:start].decode("ascii"))
+            require(
+                header == {"descr": "<f4", "fortran_order": False, "shape": (35, 35)},
+                "native Float32 halo layout",
+            )
+            words = data[start:]
+            require(
+                len(words) == 35 * 35 * 4
+                and hashlib.sha256(words).hexdigest() == page["words_sha256"]
+                and all(math.isfinite(v[0]) for v in struct.iter_unpack("<f", words)),
+                "original native neighbor words",
+            )
+            if name in original.namelist():
+                require(
+                    data == original.read(name), "unchanged four original native pages"
+                )
+            require(page["zoom"] in (zoom - 1, zoom), "actual native neighbor zoom")
+            scale = 1 << (zoom - page["zoom"])
+            px, py = page["x"] * scale, page["y"] * scale
+            for x, y in coverage:
+                coverage[x, y] += px <= x < px + scale and py <= y < py + scale
+    require(
+        all(count == 1 for count in coverage.values()), "exact adaptive window coverage"
+    )
+    return len(pages)
 
 
 def verify_ranges(root, roads, bindings):
@@ -89,6 +139,7 @@ def verify(root):
         data = (root / name).read_bytes()
         require(len(data) == expected["bytes"], name + " size")
         require(hashlib.sha256(data).hexdigest() == expected["sha256"], name + " hash")
+    neighbors = verify_neighbors(root, manifest)
     with gzip.open(root / "contact.json.gz", "rb") as source:
         raw = source.read(32 * 1024**2 + 1)
     require(len(raw) <= 32 * 1024**2, "bounded contact")
@@ -198,6 +249,7 @@ def verify(root):
         "stamps": len(stamps),
         "water_faces": len(faces),
         "pages": len(manifest["pages"]),
+        "neighbor_pages": neighbors,
         "road_parts": len(parts),
         "primitive_ranges": verify_ranges(root, roads, bindings),
         "state": "captured_inputs_verified",
