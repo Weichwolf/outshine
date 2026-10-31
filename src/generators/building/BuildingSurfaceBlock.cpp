@@ -20,7 +20,11 @@ std::expected<void, StructureMeshError> BuildingSurfaceBlock::Require() {
   }
   const std::scoped_lock lock(Lock_);
   if (!Models_) {
-    Models_.emplace(Load_());
+    auto loaded = Load_();
+    if (!loaded && loaded.error() == StructureMeshError::PreparedSurfaceBusy) {
+      return std::unexpected(loaded.error());
+    }
+    Models_.emplace(std::move(loaded));
     Load_ = {};
     State_.store(*Models_ ? State::Ready : State::Failed, std::memory_order_release);
   }

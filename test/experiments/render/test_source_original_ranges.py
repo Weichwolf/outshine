@@ -75,6 +75,28 @@ class OriginalRangesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "identical"):
             encode_indexed(bad)
 
+    def test_coalescing_reads_gap_without_returning_its_source(self):
+        rows = np.concatenate((self.rows, self.rows[:1].copy()))
+        rows["ordinal"][-1] = 3
+        rows["binding"][-1, 1] = 10
+        for indexed in (False, True):
+            path = Path(self.temp.name) / f"gaps-{indexed}"
+            index = write_ranges(path, rows, indexed=indexed)
+            exact, exact_cost = read_ranges(path, index, [8, 10], indexed=indexed)
+            merged, merged_cost = read_ranges(
+                path, index, [8, 10], indexed=indexed, max_gap_bytes=4096
+            )
+            np.testing.assert_array_equal(exact.view("u1"), merged.view("u1"))
+            self.assertEqual(
+                (exact_cost["read_calls"], merged_cost["read_calls"]), (2, 1)
+            )
+            self.assertEqual(
+                merged_cost["read_bytes"] - exact_cost["read_bytes"],
+                int(index[1]["bytes"]),
+            )
+            with self.assertRaises(ValueError):
+                read_ranges(path, index, [8], indexed=indexed, max_gap_bytes=-1)
+
 
 if __name__ == "__main__":
     unittest.main()
