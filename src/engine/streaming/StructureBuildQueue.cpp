@@ -1251,6 +1251,8 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
 }
 
 void StructureBuildQueue::Clear() {
+  if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
+  for (QueuedBuild &bake : Queue_) { bake.Task.RequestStop(); }
   for (const auto &entry : NativeLookups_) {
     if (entry.second->Task != Tasks::kNoTask && Pool_ != nullptr) {
       Pool_->Wait(entry.second->Task);
@@ -1260,7 +1262,6 @@ void StructureBuildQueue::Clear() {
   NativeAssets_.reset();
   PendingVectorHeights_.reset();
   NativeFailure_.reset();
-  if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
   OriginalPreparation_.reset();
   LastHeightFailure_ = {};
   PreparingOriginals_.clear();
@@ -1269,7 +1270,6 @@ void StructureBuildQueue::Clear() {
   OriginalHeightZoom_ = -1;
   PreparingOriginalHeightZoom_ = -1;
   for (QueuedBuild &bake : Queue_) {
-    bake.Task.RequestStop();
     if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
   }
   Queue_.clear();
