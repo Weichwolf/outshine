@@ -19,6 +19,8 @@ from complete_source_patches import complete_shape_patches
 from experiment_output import create_output
 from parent_surface_inputs import open_parent
 from source_patch_inputs import read_bound_sources
+from source_patch_product import write_product
+from source_triangle_materials import write_source
 from welded_source_patch import source_corners
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -48,6 +50,8 @@ def run(args):
             "building_sample_originals.py",
             "native_building_cell_reference.py",
             "compare_building_originals.py",
+            "source_patch_product.py",
+            "source_triangle_materials.py",
         )
     ]
     if subprocess.check_output(
@@ -73,6 +77,10 @@ def run(args):
     for index, identity in enumerate(context["triangle_binding"][:, 1]):
         by_source[int(identity)].append(index)
     selected = set(map(int, context["source_ordinals"]))
+    material = np.concatenate(
+        [np.full(p["triangles"], p["material"], np.int8) for p in source["parts"]]
+    )
+    chunks, source_order = {}, {}
     seen, results, failures = set(), [], Counter()
     began = time.process_time()
     sampled = False
@@ -87,6 +95,9 @@ def run(args):
                 seen.add(identity)
                 face_ids = np.array(by_source[identity], np.int64)
                 old_faces = source["indices"][face_ids]
+                source_order[identity] = int(
+                    context["triangle_binding"][face_ids, 0].min()
+                )
                 row = {
                     "prepared_source_ordinal": identity,
                     "original_triangles": len(face_ids),
@@ -108,6 +119,10 @@ def run(args):
                     ]
                     candidate, work = source_corners(patches, context["render_basis"])
                 except (ValueError, shapely.errors.GEOSException) as error:
+                    chunks[identity] = (
+                        np.ascontiguousarray(original[old_faces], dtype="<f4"),
+                        material[face_ids],
+                    )
                     failures[str(error)] += 1
                     results.append(
                         row
@@ -120,6 +135,7 @@ def run(args):
                     continue
                 before = np.ascontiguousarray(original[old_faces], dtype="<f4")
                 after = rows(candidate)
+                chunks[identity] = after, candidate["material"]
                 old_vertices = np.unique(before.reshape(-1, 14).view("V56").ravel())
                 new_vertices = after.reshape(-1, 14).view("V56").ravel()
                 same = np.array_equal(
@@ -156,6 +172,25 @@ def run(args):
         form_reads, form_bytes = parent.form_reads, parent.form_bytes
     if seen != selected:
         raise ValueError("Every original cohort source requires a result")
+    product = write_product(
+        chunks, source_order, selected, source["parts"], args.output / "candidate"
+    )
+    write_source(source, np.arange(len(source["indices"])), args.output / "original")
+    original_manifest = json.loads(
+        (
+            ROOT
+            / "test/outshine/data/render/building-depth-samples/original-geometry/manifest.json"
+        ).read_text()
+    )
+    for material_slot in range(3):
+        for field in (*FIELDS, "indices"):
+            name = f"{material_slot}/{field}.bin"
+            path = args.output / "original/geometry/0" / name
+            if (
+                hashlib.sha256(path.read_bytes()).hexdigest()
+                != original_manifest["files"][name]["sha256"]
+            ):
+                raise ValueError("Exported original operand changed: " + name)
     constructed = [row for row in results if row["candidate_constructed"]]
     summary = {
         "whole_sources": len(results),
@@ -193,6 +228,7 @@ def run(args):
         },
         "input_provenance": provenance,
         "summary": summary,
+        "diagnostic_native_candidate": product,
         "sources": results,
         "scope": __doc__,
     }
