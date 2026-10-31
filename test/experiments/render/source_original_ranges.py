@@ -144,10 +144,16 @@ def read_ranges(directory, index, requested, *, indexed=False, max_gap_bytes=0):
     ids = [int(x) for x in requested]
     if len(ids) != len(set(ids)):
         raise ValueError("Distinct requested source IDs required")
-    lookup = {int(row["source"]): row for row in index}
-    if len(lookup) != len(index) or not set(ids).issubset(lookup):
+    keys = index["source"]
+    if len(keys) > 1 and np.any(keys[1:] <= keys[:-1]):
+        raise ValueError("Sorted unique original source range index required")
+    if any(identity < -(2**31) or identity >= 2**31 for identity in ids):
+        raise ValueError("Unknown source; retain full original")
+    wanted = np.asarray(ids, dtype="<i8")
+    positions = np.searchsorted(keys, wanted)
+    if np.any(positions >= len(index)) or np.any(keys[positions] != wanted):
         raise ValueError("Unknown or duplicate source; retain full original")
-    records = sorted((lookup[i] for i in ids), key=lambda r: int(r["offset"]))
+    records = sorted(index[positions], key=lambda r: int(r["offset"]))
     spans = []
     for row in records:
         start, length = int(row["offset"]), int(row["bytes"])
