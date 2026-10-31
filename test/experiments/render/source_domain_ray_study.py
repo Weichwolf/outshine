@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from native_capture_meshes import independent_depth
 from PIL import Image, ImageDraw
 from prepared_surface_recipes import decode
 from source_domain_buffer import restore_source
@@ -112,6 +113,18 @@ def run(args):
             )[0]
             for name, source in sources.items()
         }
+        for name, source in sources.items():
+            independent = independent_depth(
+                source["positions"][source["indices"]], origins, directions
+            )
+            expected = references[name]
+            common = np.isfinite(expected) & np.isfinite(independent)
+            if not np.array_equal(
+                np.isfinite(expected), np.isfinite(independent)
+            ) or not np.allclose(
+                expected[common], independent[common], rtol=1e-10, atol=1e-10
+            ):
+                raise ValueError("Independent whole-triangle ray reference disagrees")
         began = time.process_time()
         plane_depth, _, work = intersect(patches, origins, directions)
         cpu = time.process_time() - began
