@@ -155,7 +155,7 @@ def read_ranges(
     compact=False,
     share_contiguous=False,
 ):
-    """Read whole sources; optional sharing keeps a whole contiguous span alive."""
+    """Optionally share gapless spans; one retained chunk keeps its span alive."""
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
     if compact and not indexed:
@@ -201,11 +201,7 @@ def read_ranges(
             if len(blob) != end - start:
                 raise ValueError("Incomplete original source range")
             read_bytes += len(blob)
-            borrowed = (
-                share_contiguous
-                and len(group) > 1
-                and sum(int(row["bytes"]) for row in group) == len(blob)
-            )
+            borrowed = share_contiguous and max_gap_bytes == 0 and len(group) > 1
             for row in group:
                 lo = int(row["offset"]) - start
                 hi = lo + int(row["bytes"])
