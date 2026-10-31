@@ -114,12 +114,27 @@ def domain_at(arrays, index):
     return polygons[0] if len(polygons) == 1 else shapely.MultiPolygon(polygons)
 
 
-def restore_source(arrays, identity, surface):
+class DomainBudget(ValueError):
+    """Whole source must retain its original before domain construction starts."""
+
+    def __init__(self, identity, controls, limit):
+        self.identity, self.controls, self.limit = identity, controls, limit
+        super().__init__("Domain control budget exhausted; retain whole original")
+
+
+def restore_source(arrays, identity, surface, *, max_controls=None):
     """Decode only this source's cached domains; do not run source generators.
 
     The caller supplies its retained decoded recipe for raw material evaluation.
     No triangulation, normal/PBR evaluation or other source's domain is needed.
+    Optional control limits count ring occurrences, including holes and repeated
+    dictionary entries, before building any polygon. They do not bound GEOS time,
+    downstream triangulation, group decoding or held input bytes.
     """
+    if max_controls is not None and (
+        type(max_controls) is not int or not 0 <= max_controls <= 1048576
+    ):
+        raise ValueError("Domain control limit must be an integer in [0, 1048576]")
     matches = np.flatnonzero(arrays["source_ids"] == identity)
     if len(matches) != 1:
         raise ValueError("Source requires a complete packed group or whole fallback")
@@ -127,6 +142,12 @@ def restore_source(arrays, identity, surface):
     origin, *axes = arrays["source_frames"][source]
     frame = np.asarray(axes)
     low, high = arrays["source_patch_offsets"][source : source + 2]
+    if max_controls is not None:
+        first, last = arrays["patch_polygon_offsets"][[low, high]]
+        first, last = arrays["polygon_ring_offsets"][[first, last]]
+        start, stop = map(int, arrays["ring_vertex_offsets"][[first, last]])
+        if stop - start > max_controls:
+            raise DomainBudget(identity, stop - start, max_controls)
     result = []
     for index in range(int(low), int(high)):
         _, part, side, gable, orientation = map(int, arrays["patch_info"][index])

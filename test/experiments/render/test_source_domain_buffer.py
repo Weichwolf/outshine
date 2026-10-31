@@ -7,7 +7,7 @@ from unittest.mock import patch
 import numpy as np
 import shapely
 from complete_source_patches import complete_shape_patches
-from source_domain_buffer import pack, restore_source
+from source_domain_buffer import DomainBudget, pack, restore_source
 from test_source_material_mesh import prepared_shape, surface
 from welded_source_patch import source_corners
 
@@ -72,6 +72,48 @@ class SourceDomainBuffer(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             restore_source(arrays, 99, self.surface)
+
+    def test_budget_counts_all_rings_before_any_polygon_construction(self):
+        for dictionary in (False, True, "scalar"):
+            arrays = pack(
+                [(42, self.surface, self.patches)], np.eye(3), dictionary=dictionary
+            )
+            count = int(arrays["ring_vertex_offsets"][-1])
+            with (
+                patch("source_domain_buffer.domain_at", side_effect=AssertionError),
+                self.assertRaises(DomainBudget) as failure,
+            ):
+                restore_source(arrays, 42, self.surface, max_controls=count - 1)
+            self.assertEqual(failure.exception.controls, count)
+            self.assertEqual(failure.exception.identity, 42)
+            restored = restore_source(arrays, 42, self.surface, max_controls=count)
+            self.assertEqual(
+                [p.geometry.domain.wkb for p in restored],
+                [p.geometry.domain.wkb for p in self.patches],
+            )
+            for invalid in (-1, True, 3.5, 1048577):
+                with self.assertRaises(ValueError):
+                    restore_source(arrays, 42, self.surface, max_controls=invalid)
+
+    def test_budget_is_local_to_source_and_counts_dictionary_occurrences(self):
+        floor = next(p for p in self.patches if p.side == 0)
+        small = replace(floor, geometry=replace(floor.geometry, source=43))
+        for dictionary in (False, True, "scalar"):
+            arrays = pack(
+                [(42, self.surface, self.patches), (43, self.surface, [small])],
+                np.eye(3),
+                dictionary=dictionary,
+            )
+            count = sum(
+                len(r.coords) - 1
+                for polygon in shapely.get_parts(small.geometry.domain)
+                for r in (polygon.exterior, *polygon.interiors)
+            )
+            self.assertEqual(
+                len(restore_source(arrays, 43, self.surface, max_controls=count)), 1
+            )
+            with self.assertRaises(DomainBudget):
+                restore_source(arrays, 42, self.surface, max_controls=count)
 
     def test_disjoint_components_do_not_fill_gap(self):
         floor = next(p for p in self.patches if p.side == 0)
