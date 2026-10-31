@@ -169,6 +169,10 @@
     "road-bindings.json.gz": {
       "bytes": 69218,
       "sha256": "d3a646325d4ad6f8602faa57698d747c590983b5864e28fc597d5b3bc8c80603"
+    },
+    "road-primitive-ranges.json.gz": {
+      "bytes": 65817,
+      "sha256": "ffdc38cee2a973d4f97c631220b7713150d79e9f61e1d5356f1e30cf6fc59e01"
     }
   },
   "full_private_capture_sha256": "5902063f1f60994b8343060edb0ba53a973c3109a8940330860178cf116eddb1",
@@ -176,11 +180,11 @@
     "source_commit": "e8d9002a77c661e430c21d2d3289c90ac9ace370",
     "full_private_capture_sha256": "ee6edb291097a26216d9676609a88bd4a424398b939054c9bc0f90df4d2628e8",
     "selection": "whole original streets parts with placed bounds intersecting local rectangle; complete source ways chosen by original feature bounds",
-    "source_binding_scope": "original manifest page/part references and local source-way/provider-feature identities; no per-render-triangle to source-way mapping",
-    "binding_scope": "keyed native plan bindings and actual loaded-page bindings; complete related mixed pages retained; no per-triangle source-way assignment",
+    "binding_scope": "keyed native plan bindings, loaded-page to render-part binding and native append-word ranges; interval lane or junction node/all participating lanes; no universal exclusive provider-feature identity",
     "native_binding_trace_sha256": {
       "keyed_plan": "9426165f9d1d85cfaad46e0a8dbc45172e03cc499aa288ac8af44a3c241d4e7e",
       "page_loads": "3a4bf0a92f6d8bc409933329cb4524366a5f19f1a30288089505ae0f62385ca8"
-    }
+    },
+    "primitive_ranges": "native interval/junction append order; 125 original page position/index buffers reproduced word-for-word; source domain is lane or junction node, not universally provider feature ID"
   }
 }

@@ -9,6 +9,7 @@ All files work offline. `python3 verify.py` checks identity and topology referen
 | `water.native.gz` | Complete original WaterAsset, including source identities, inputs, rings, levels, prepared mesh and rejections; decode with the captured native codec |
 | `roads.json.gz` | 127 whole rendered streets parts (178,164 vertices / 171,506 triangles), original page/plan references and 2,145 local source-way observations |
 | `road-bindings.json.gz` | Actual plan-to-lane/contact-key and loaded-page-to-render-part bindings; group 106753 has 559 lanes / 125 whole mixed render pages |
+| `road-primitive-ranges.json.gz` | 3,302 native append ranges across all 125 related pages; every regenerated position/index word matches the previous render capture |
 | `road-overlap.json` | Double-precision membership check: neither diagnostic point is on a captured rendered road triangle; this is not a GPU/navigation oracle |
 | `deformed-pages.npz` | Four existing z20 pages around the observed edge; immutable float32 35×35 words including halo |
 | `dem-16-34514-22987.webp` | Original cached Mapterhorn Terrarium source; RGB: R×256+G+B/256−32768 metres |
@@ -41,8 +42,9 @@ Road positions use East/Up/South, column-major affine part placements and the
 declared anchor. The selected parts are complete: the initial local rectangle plus every
 whole page containing a plan part assigned contact key 106753. No faces are clipped.
 Manifest pages remain unfiltered; the explicit loaded-page map, not array ordinal,
-binds a render part. The 125 related pages can include foreign plan parts; no
-per-triangle group mask is implied. Plan maps are captured under the exact
+binds a render part. The 125 related pages can include foreign plan parts. Use the primitive ranges
+for interval membership. A junction range retains its node and all participating
+lanes/contact groups; do not invent one exclusive source way. Plan maps are captured under the exact
 manifest PlanKey. Repeated page loads agree in part ID and position/index counts.
 Source-way point pairs are latitude/longitude degrees. Source ways preserve
 their original indices/points and provider feature/tile/digest
@@ -50,7 +52,15 @@ references. They are selected by feature bounds. The full 559-lane contact-key m
 is captured separately; only 326 of these lanes have a local source-way row here. Neither diagnostic point is covered by a rendered road triangle in the
 double membership check. The corridor effect is an apron, not a road surface hit.
 
-Still missing: road navigation mesh and per-triangle source-way association,
+Primitive ranges use position/index WORD offsets and counts, not vertex/face
+offsets. Each page is covered contiguously, including zero-size append results.
+Interval source is a lane ordinal; junction source is its original node ID.
+The native replay changed only diagnostic recording: all 125 regenerated position
+and index buffers are byte-identical to the captured renderer inputs. This is
+not a proof of unchanged producer cost, normals, colour words or global semantics.
+
+Still missing: road navigation mesh, full provider identities/geometry for all
+233 exterior lanes,
 all original/deformed DEM outside the supplied pages/tile, and globally refused
 stamp state. Water/native provenance does not supply missing road provenance.
 Never treat missing exterior samples or the selection rectangle as a physical bank.

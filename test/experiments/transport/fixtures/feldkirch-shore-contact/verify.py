@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import math
+import struct
 import zipfile
 from pathlib import Path
 
@@ -11,6 +12,73 @@ from pathlib import Path
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def verify_ranges(root, roads, bindings):
+    with gzip.open(root / "road-primitive-ranges.json.gz", "rb") as source:
+        raw = source.read(4 * 1024**2 + 1)
+    require(len(raw) <= 4 * 1024**2, "bounded primitive ranges")
+    captured = json.loads(raw)
+    require(
+        captured["schema"] == 1 and captured["plan_key"] == roads["plan_key"],
+        "range plan",
+    )
+    require(
+        {p["page_key"] for p in captured["pages"]}
+        == set(bindings["component_page_keys"]),
+        "all component page ranges",
+    )
+    by_id = {p["part"]: p for p in roads["parts"]}
+    plan = {tuple(p["part"]): p["lane_contacts"] for p in bindings["plan_bindings"]}
+    loaded = {p["key"]: p for p in bindings["loaded_pages"]}
+    pages = {p["key"]: p for p in roads["pages"]}
+    total = 0
+    for page in captured["pages"]:
+        require(
+            page["render_part"] == loaded[page["page_key"]]["part"], "range render part"
+        )
+        require(
+            [r["part"] for r in page["ranges"]] == pages[page["page_key"]]["parts"],
+            "original page part order",
+        )
+        part = by_id[page["render_part"]]
+        for name, fmt in (("positions", "f"), ("indices", "I")):
+            words = part["positions" if name == "positions" else "triangles"]
+            packed = struct.pack("<" + fmt * len(words), *words)
+            require(
+                hashlib.sha256(packed).hexdigest() == page[name + "_sha256"],
+                "range words",
+            )
+        vertex_end = index_end = 0
+        for row in page["ranges"]:
+            first_v, count_v = row["position_word_range"]
+            first_i, count_i = row["index_word_range"]
+            require(
+                first_v == vertex_end
+                and first_i == index_end
+                and count_v >= 0
+                and count_i >= 0
+                and count_v % 3 == count_i % 3 == 0,
+                "contiguous primitive word ranges",
+            )
+            vertex_end, index_end = first_v + count_v, first_i + count_i
+            refs = plan[tuple(row["part"])]
+            interval = row["part"][0] == 0
+            require(
+                row["source_domain"] == ("lane" if interval else "junction_node"),
+                "primitive source domain",
+            )
+            require(
+                not interval or {lane for lane, _ in refs} == {row["source"]},
+                "range lane",
+            )
+            total += 1
+        require(
+            vertex_end == len(part["positions"])
+            and index_end == len(part["triangles"]),
+            "whole primitive coverage",
+        )
+    return total
 
 
 def verify(root):
@@ -131,6 +199,7 @@ def verify(root):
         "water_faces": len(faces),
         "pages": len(manifest["pages"]),
         "road_parts": len(parts),
+        "primitive_ranges": verify_ranges(root, roads, bindings),
         "state": "captured_inputs_verified",
     }
 
