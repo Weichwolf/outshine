@@ -100,7 +100,8 @@ struct BuildingFieldRequest::State {
     if (!ready) { return std::unexpected(ready.error()); }
     if (!*ready) { return false; }
     Value.Metadata = *ready;
-    if (!Matches(Value.Metadata->Metadata(), Value.Source, Requested)) {
+    const auto &worldFromField = Value.Metadata->Metadata().WorldFromField;
+    if (!worldFromField || !Matches(Value.Metadata->Metadata(), Value.Source, Requested)) {
       return std::unexpected(
           "building field metadata does not match its requested capture binding");
     }
@@ -110,7 +111,9 @@ struct BuildingFieldRequest::State {
           metadata.Centre, metadata.Directions[Requested.View.Value], metadata.HalfExtentM);
       if (!hull) { return std::unexpected(hull.error()); }
       const auto &pose = *Requested.GeometricView;
-      const auto error = hull->Project(pose.Camera, pose.Optics);
+      const auto error = pose.Space == CoordinateSpace::World
+                             ? hull->Project(pose.Camera, pose.Optics, *worldFromField)
+                             : hull->Project(pose.Camera, pose.Optics);
       if (!error) { return std::unexpected(error.error()); }
       if (!error->DepthInside || error->L1UpperPx > pose.GeometryErrorMostPx) {
         return std::unexpected("building field pose exceeds its geometric domain or error budget");
@@ -211,7 +214,9 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
   if (demand.GeometricView && (!std::isfinite(demand.GeometricView->GeometryErrorMostPx) ||
-                               demand.GeometricView->GeometryErrorMostPx < 0)) {
+                               demand.GeometricView->GeometryErrorMostPx < 0 ||
+                               (demand.GeometricView->Space != CoordinateSpace::CaptureLocal &&
+                                demand.GeometricView->Space != CoordinateSpace::World))) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
   auto recipe = RecipeOf(source, demand);
