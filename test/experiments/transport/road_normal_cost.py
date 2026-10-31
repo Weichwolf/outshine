@@ -92,6 +92,11 @@ def run(args):
             np.deg2rad(reference_report["normal_limit_degrees"]),
             reference_report["max_queries"],
             reference_report["max_vertices"],
+            **(
+                {"first_valid_split": True}
+                if reference_report.get("first_valid_split", False)
+                else {}
+            ),
         )[0]
 
     plan, costs = measured(call, args.output, args.method)

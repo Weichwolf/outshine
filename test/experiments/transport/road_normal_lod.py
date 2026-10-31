@@ -16,11 +16,20 @@ class NormalBudget(ValueError):
 
 
 def prepare(
-    curve, error_m, angle_rad, *, uniform=False, max_vertices=65536, max_queries=16384
+    curve,
+    error_m,
+    angle_rad,
+    *,
+    uniform=False,
+    max_vertices=65536,
+    max_queries=16384,
+    first_valid_split=False,
 ):
     qualified(curve, error_m, 262144)
     if (
-        not np.isfinite(angle_rad)
+        type(first_valid_split) is not bool
+        or (uniform and first_valid_split)
+        or not np.isfinite(angle_rad)
         or not 0 < angle_rad <= 1
         or type(max_vertices) is not int
         or not 4 <= max_vertices <= 262144
@@ -36,6 +45,7 @@ def prepare(
     queries = 0
     requests = 0
     hits = 0
+    skipped_lateral_requests = 0
     # The curve and angle are immutable for this call. Records never outlive it.
     cells = {}
     rounds = 0
@@ -99,10 +109,13 @@ def prepare(
                 if result[0]:
                     continue
                 across = (c + d) / 2
-                longitudinal = max(
-                    cone(index, a, middle, c, d)[1],
-                    cone(index, middle, b, c, d)[1],
-                )
+                left = cone(index, a, middle, c, d)
+                right = cone(index, middle, b, c, d)
+                if first_valid_split and left[0] and right[0]:
+                    split_s.add(middle)
+                    skipped_lateral_requests += 2
+                    continue
+                longitudinal = max(left[1], right[1])
                 lateral = max(
                     cone(index, a, b, c, across)[1],
                     cone(index, a, b, across, d)[1],
@@ -126,6 +139,8 @@ def prepare(
         {
             "maximum_stored_position_bound_m": maximum_position,
             "normal_limit_rad": angle_rad,
+            "first_valid_split": first_valid_split,
+            "skipped_lateral_requests": skipped_lateral_requests,
             "whole_normal_queries": queries,
             "whole_normal_requests": requests,
             "normal_cell_reuses": hits,

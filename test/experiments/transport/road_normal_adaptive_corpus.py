@@ -22,7 +22,7 @@ from road_normal_study import diagnostic, generate
 
 
 def evaluate(task):
-    row, baseline, max_queries, max_vertices = task
+    row, baseline, max_queries, max_vertices, first_valid_split = task
     result = {
         "ordinal": row["ordinal"],
         "form": row["form"],
@@ -34,7 +34,13 @@ def evaluate(task):
     started = time.process_time()
     try:
         plan, curve = generate(
-            row, "adaptive", 0.25, np.deg2rad(4), max_queries, max_vertices
+            row,
+            "adaptive",
+            0.25,
+            np.deg2rad(4),
+            max_queries,
+            max_vertices,
+            first_valid_split=first_valid_split,
         )
     except NormalBudget as exc:
         return result | {
@@ -69,6 +75,8 @@ def evaluate(task):
         "triangles": len(plan["indices"]),
         "vertices": len(plan["positions_enh_m"]),
         "normal_queries": plan["whole_normal_queries"],
+        "normal_requests": plan["whole_normal_requests"],
+        "skipped_lateral_requests": plan["skipped_lateral_requests"],
         "sampled_maximum_normal_degrees": normal_error,
         "sampled_maximum_lambert_error": observed[
             "observed_lambert_maximum_absolute_error"
@@ -132,7 +140,13 @@ def run(args):
         else np.arange(len(rows))
     )
     tasks = [
-        (rows[int(i)], old[rows[int(i)]["ordinal"]], args.max_queries, 65536)
+        (
+            rows[int(i)],
+            old[rows[int(i)]["ordinal"]],
+            args.max_queries,
+            65536,
+            args.first_valid_split,
+        )
         for i in selected
     ]
     create_output(args.output)
@@ -161,6 +175,7 @@ def run(args):
         "workers": args.workers,
         "position_limit_m": 0.25,
         "normal_limit_degrees": 4,
+        "first_valid_split": args.first_valid_split,
         "max_queries_per_source": args.max_queries,
         "max_vertices_per_source": 65536,
         "screened": len(results),
@@ -189,5 +204,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sample-count", type=int, default=0)
     parser.add_argument("--max-queries", type=int, default=512)
+    parser.add_argument("--first-valid-split", action="store_true")
     parser.add_argument("--workers", type=int, default=2)
     run(parser.parse_args())

@@ -57,7 +57,18 @@ def read_row(ordinal):
     }
 
 
-def generate(row, method, error_m, angle_rad, max_queries, max_vertices):
+def generate(
+    row,
+    method,
+    error_m,
+    angle_rad,
+    max_queries,
+    max_vertices,
+    *,
+    first_valid_split=False,
+):
+    if first_valid_split and method != "adaptive":
+        raise ValueError("First valid split applies only to adaptive refinement")
     curve = Curve(row)
     if method == "position-only":
         position = position_only(curve, error_m)
@@ -104,6 +115,7 @@ def generate(row, method, error_m, angle_rad, max_queries, max_vertices):
             uniform=method == "uniform",
             max_queries=max_queries,
             max_vertices=max_vertices,
+            first_valid_split=first_valid_split,
         )
     return plan, curve
 
@@ -181,6 +193,7 @@ def run(args):
         "method": args.method,
         "position_limit_m": args.error_m,
         "normal_limit_degrees": args.angle_deg,
+        "first_valid_split": args.first_valid_split,
         "max_queries": args.max_queries,
         "max_vertices": args.max_vertices,
         "scope": __doc__,
@@ -194,6 +207,7 @@ def run(args):
             np.deg2rad(args.angle_deg),
             args.max_queries,
             args.max_vertices,
+            first_valid_split=args.first_valid_split,
         )
     except ValueError as error:
         report.update(accepted=False, retained_original=True, reason=str(error))
@@ -241,6 +255,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--error-m", type=float, default=0.25)
     parser.add_argument("--angle-deg", type=float, default=4.0)
+    parser.add_argument("--first-valid-split", action="store_true")
     parser.add_argument("--max-queries", type=int, default=16384)
     parser.add_argument("--max-vertices", type=int, default=65536)
     parser.add_argument("--output", type=Path, required=True)

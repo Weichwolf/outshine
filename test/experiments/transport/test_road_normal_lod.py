@@ -10,6 +10,30 @@ from test_road_surface_lod import recipe
 
 
 class TensorNormals(unittest.TestCase):
+    def test_first_valid_split_avoids_probes_without_skipping_final_admission(self):
+        row = recipe(height=0.01, knots=3, bank_rate=0.01)
+        reference = prepare(Curve(row), 0.25, 0.05)
+        candidate = prepare(
+            Curve(row), 0.25, 0.05, first_valid_split=True, max_queries=90
+        )
+        self.assertGreater(reference["whole_normal_queries"], 90)
+        self.assertLessEqual(candidate["whole_normal_queries"], 90)
+        self.assertGreater(candidate["skipped_lateral_requests"], 0)
+        self.assertLessEqual(candidate["whole_normal_requests"], 4 * 90)
+        for key, values in reference.items():
+            if isinstance(values, np.ndarray):
+                np.testing.assert_array_equal(values, candidate[key])
+        with self.assertRaises(NormalBudget):
+            prepare(Curve(row), 0.25, 0.05, max_queries=90)
+        with self.assertRaises(NormalBudget):
+            prepare(Curve(row), 0.25, 0.05, first_valid_split=True, max_queries=1)
+        for options in (
+            {"uniform": True, "first_valid_split": True},
+            {"first_valid_split": 1},
+        ):
+            with self.assertRaises(ValueError):
+                prepare(Curve(row), 0.25, 0.05, **options)
+
     def test_reused_whole_cells_fit_distinct_query_budget(self):
         row = recipe(height=0.01, knots=3, bank_rate=0.01)
         reference = prepare(Curve(row), 0.25, 0.05, max_queries=512)

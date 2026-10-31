@@ -29,6 +29,11 @@ def run(args):
         np.deg2rad(report["normal_limit_degrees"]),
         report["max_queries"],
         report["max_vertices"],
+        **(
+            {"first_valid_split": True}
+            if report.get("first_valid_split", False)
+            else {}
+        ),
     )
     for key in (
         "stations_m",
