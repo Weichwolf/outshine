@@ -158,58 +158,12 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   const Scenario::Document &declared = S_->Session.Declared;
-  const auto capacity = RequiredEntityCapacity(declared);
-  if (!capacity) {
-    S_->Error = capacity.error();
+  auto prepared = ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
+  if (!prepared) {
+    S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  const size_t named = *capacity;
-  auto candidate = std::make_unique<ScenarioRuntime>();
-  if (named != 0 && (!candidate->Entities.Open(named) ||
-                     !candidate->Definitions.Open(candidate->Entities.Registry()) ||
-                     !candidate->Attributes.Open(candidate->Entities.Registry()))) {
-    S_->Error = "could not allocate native entity storage";
-    return std::unexpected(S_->Error);
-  }
-  if (!outshine::Assemble(declared,
-                          candidate->Entities.Registry(),
-                          candidate->Definitions,
-                          candidate->Attributes,
-                          candidate->Stood,
-                          S_->Error)) {
-    return std::unexpected(S_->Error);
-  }
-  if (!declared.Tables.empty()) {
-    auto book = TableBook::Stand(declared.Tables);
-    if (!book) {
-      S_->Error = std::move(book).error();
-      return std::unexpected(S_->Error);
-    }
-    candidate->Tables.emplace(*std::move(book));
-  }
-  if (!declared.Volumes.empty() || !declared.Events.empty()) {
-    auto triggers = TriggerField::Stand(declared.Volumes, declared.Events);
-    if (!triggers) {
-      S_->Error = triggers.error();
-      return std::unexpected(S_->Error);
-    }
-    candidate->Triggers.emplace(std::move(*triggers));
-  }
-  candidate->DeclarationRevision = S_->Session.DeclarationRevision;
-  const auto preparedBodies = candidate->PrepareBodies();
-  if (!preparedBodies) {
-    S_->Error = preparedBodies.error();
-    return std::unexpected(S_->Error);
-  }
-  std::vector<std::string_view> followed;
-  followed.reserve(declared.Views.size());
-  for (const auto &view : declared.Views) { followed.push_back(view.Follows); }
-  auto viewBodies = candidate->BindBodies(followed);
-  if (!viewBodies) {
-    S_->Error = viewBodies.error();
-    return std::unexpected(S_->Error);
-  }
-  candidate->ViewBodies = std::move(*viewBodies);
+  auto candidate = std::move(*prepared);
   auto previous = std::exchange(S_->ScenarioState, std::move(candidate));
   auto previousBodies = std::exchange(S_->BodyFrame, S_->ScenarioState->Entities.PublishBodies());
   std::vector<Data::SourceProvider> unusedTileProviders;

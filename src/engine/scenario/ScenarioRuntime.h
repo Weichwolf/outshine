@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_SCENARIO_SCENARIORUNTIME_H
 
 #include <optional>
+#include <memory>
 #include <expected>
 #include <span>
 #include <string>
@@ -27,6 +28,9 @@ struct ScenarioRuntime {
   ScenarioRuntime(ScenarioRuntime &&) = delete;
   ScenarioRuntime &operator=(ScenarioRuntime &&) = delete;
   ~ScenarioRuntime() = default;
+
+  [[nodiscard]] static std::expected<std::unique_ptr<ScenarioRuntime>, std::string>
+  Prepare(const Scenario::Document &declared, uint64_t revision);
 
   [[nodiscard]] std::expected<std::vector<std::optional<Entity>>, std::string>
   BindAudio(std::span<const Audio::SoundSource> sounds) const;
