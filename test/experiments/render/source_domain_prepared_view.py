@@ -69,6 +69,20 @@ def run(args):
                 found.update(map(int, decode_raw(blob)["source_ids"]))
         if not {i for i in selected if i in records}.issubset(found):
             raise ValueError("Incomplete selected group; retain originals")
+        fallback_ids = {i for i in selected if i not in records}
+        fallback_bytes = 0
+        if fallback_ids:
+            fallback_raw = args.fallback.read_bytes()
+            if sha(fallback_raw) != prepared["fallback_digest"].tobytes():
+                raise ValueError("Original fallback identity unknown; retain originals")
+            with np.load(io.BytesIO(fallback_raw), allow_pickle=False) as z:
+                available = set(map(int, z["actual_triangle_binding"][:, 1]))
+                if not fallback_ids.issubset(available):
+                    raise ValueError("Whole original fallback unavailable")
+                for key in ("corners", "material", "actual_triangle_binding"):
+                    if not len(z[key]):
+                        raise ValueError("Whole original fallback data required")
+            fallback_bytes = len(fallback_raw)
         rows.append(
             {
                 "angle_degrees": angle,
@@ -79,7 +93,11 @@ def run(args):
                 ),
                 "unique_groups": len(chunks),
                 "group_bytes": received,
-                "metadata_index_plus_group_bytes": len(raw) + len(index_raw) + received,
+                "fallback_bytes": fallback_bytes,
+                "metadata_index_plus_group_bytes": len(raw)
+                + len(index_raw)
+                + received
+                + fallback_bytes,
             }
         )
     result = {
@@ -87,7 +105,7 @@ def run(args):
         "bounds_file_bytes": len(raw),
         "index_file_bytes": len(index_raw),
         "cases": rows,
-        "scope": "Fresh Python process reads prepared metadata, index and demanded groups without original/candidate geometry. Bounds and per-group hashes were generated offline from the complete source/candidate arrays. View-only; live World/revisions, recipe/fallback bytes, shadows, simulation, native raster, physical IO and device time are not covered. Integrity failure raises for whole-original fallback; caller integration is not implemented.",
+        "scope": "Fresh Python process reads prepared metadata, index, demanded groups and the complete known original fallback if selected. Bounds, fallback identity and per-group hashes were verified offline from complete source/candidate arrays. View-only; live World/revisions, recipe bytes, shadows, simulation, native raster, physical IO and device time are not covered. Integrity failure raises for whole-original fallback; caller integration is not implemented.",
     }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
@@ -98,5 +116,6 @@ if __name__ == "__main__":
     parser.add_argument("--bounds", type=Path, required=True)
     parser.add_argument("--bounds-sha256", required=True)
     parser.add_argument("--chunk", type=Path, required=True)
+    parser.add_argument("--fallback", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())

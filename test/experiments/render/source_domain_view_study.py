@@ -16,7 +16,7 @@ from source_clip_demand import outside_xy
 from source_cluster_bounds import TINY32, frame
 from source_domain_chunk_study import decode_raw
 from source_patch_inputs import read_bound_sources
-from source_patch_product import read_product
+from source_patch_product import FIELDS, read_product
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -88,6 +88,44 @@ def main(args):
     if not set(records).issubset(groups):
         raise ValueError("Only bound candidate source identities may be indexed")
     if args.bounds_output:
+        if args.fallback is None:
+            raise ValueError("Whole original fallback input required")
+        fallback_data = args.fallback.read_bytes()
+        import io
+
+        with np.load(io.BytesIO(fallback_data), allow_pickle=False) as stored:
+            fallback = {key: stored[key] for key in stored.files}
+        missing = set(groups) - set(records)
+        faces = np.flatnonzero(np.isin(old_ids, list(missing)))
+        vertices = np.c_[
+            source["positions"],
+            np.concatenate(
+                [
+                    np.concatenate([part[key] for key in FIELDS[1:]], axis=1)
+                    for part in source["attributes"]
+                ]
+            ),
+        ]
+        materials = np.concatenate(
+            [
+                np.full(part["triangles"], part["material"], np.int32)
+                for part in source["parts"]
+            ]
+        )
+        if (
+            set(map(int, fallback["actual_triangle_binding"][:, 1])) != missing
+            or not np.array_equal(
+                fallback["actual_triangle_binding"], context["triangle_binding"][faces]
+            )
+            or not np.array_equal(
+                fallback["corners"].view("u4"),
+                vertices[source["indices"][faces]].view("u4"),
+            )
+            or not np.array_equal(fallback["material"], materials[faces])
+        ):
+            raise ValueError(
+                "Whole original fallback words and source bindings required"
+            )
         chunks = sorted(set(records.values()))
         digests = []
         with (args.chunk / "groups.bin").open("rb") as stream:
@@ -104,6 +142,9 @@ def main(args):
             normal=np.array([v[2] for v in groups.values()], dtype="u1"),
             source_binding=np.frombuffer(
                 bytes.fromhex(provenance["source_binding_sha256"]), dtype="u1"
+            ),
+            fallback_digest=np.frombuffer(
+                hashlib.sha256(fallback_data).digest(), dtype="u1"
             ),
             index_digest=np.frombuffer(
                 hashlib.sha256((args.chunk / "index.npy").read_bytes()).digest(),
@@ -173,4 +214,5 @@ if __name__ == "__main__":
     parser.add_argument("--chunk", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--bounds-output", type=Path)
+    parser.add_argument("--fallback", type=Path)
     main(parser.parse_args())
