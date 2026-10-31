@@ -347,6 +347,7 @@ struct Engine::State {
   FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
+  std::optional<Holds<std::unique_ptr<ScenarioRuntime>>> PendingSimulation;
   WorldRegionState World;
   World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;

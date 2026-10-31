@@ -326,8 +326,15 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
 
 void PublishConfiguration(ScenarioSession &session,
+                          const Scenario::Document &scenario,
                           std::optional<ViewBook> &views,
-                          InputMap &bindings) noexcept {
+                          InputMap &bindings) {
+  session.Declared = scenario;
+  ++session.DeclarationRevision;
+  session.AudioBodies.clear();
+  session.Sounding.reset();
+  session.Taken = true;
+  session.Carried = DescribeScenarioDeclarations(scenario);
   static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
   session.Views = std::move(views);
   static_assert(std::is_nothrow_move_assignable_v<InputMap>);
@@ -353,13 +360,8 @@ void PublishConfiguration(ScenarioSession &session,
     return Result{std::unexpected(error)};
   }
   picture.Shown = std::move(declared);
-  session.Declared = scenario;
-  ++session.DeclarationRevision;
-  session.AudioBodies.clear();
-  session.Sounding.reset();
-  session.Carried = DescribeScenarioDeclarations(scenario);
   error.clear();
-  PublishConfiguration(session, views, bindings);
+  PublishConfiguration(session, scenario, views, bindings);
   return Result{};
 }
 
@@ -606,9 +608,19 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
+  if (S_->PendingSimulation && S_->PendingSimulation->has_value()) {
+    S_->PendingSimulation.reset();
+  }
+  auto simulation = ScenarioRuntime::Prepare(scenario, S_->Session.DeclarationRevision + 1);
+  if (!simulation) {
+    S_->PendingSimulation.emplace(std::unexpected(std::move(simulation.error())));
+    S_->Error.clear();
+    return {};
+  }
   if (auto reused = ReuseDeclaration(
           scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
     if (*reused) {
+      S_->PendingSimulation = std::move(simulation);
       S_->RouteCamera.reset();
       S_->CameraPosePending = false;
     }
@@ -647,30 +659,20 @@ Result Engine::declare(const Scenario::Document &scenario) {
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
     S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
-    S_->Session.Declared = scenario;
-    ++S_->Session.DeclarationRevision;
-    S_->Session.AudioBodies.clear();
-    S_->Session.Sounding.reset();
-    S_->Session.Taken = true;
-    S_->Session.Carried = DescribeScenarioDeclarations(scenario);
     S_->Error.clear();
-    PublishConfiguration(S_->Session, *views, bindings);
+    PublishConfiguration(S_->Session, scenario, *views, bindings);
+    S_->PendingSimulation = std::move(simulation);
     S_->RouteCamera.reset();
     S_->CameraPosePending = false;
     return {};
   }
   Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
   S_->Picture.Standing = std::move(prepared->Targeted);
-  S_->Session.Declared = scenario;
-  ++S_->Session.DeclarationRevision;
-  S_->Session.AudioBodies.clear();
-  S_->Session.Sounding.reset();
-  S_->Session.Taken = true;
-  S_->Session.Carried = DescribeScenarioDeclarations(scenario);
   S_->Error.clear();
   S_->World.AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
-  PublishConfiguration(S_->Session, *views, bindings);
+  PublishConfiguration(S_->Session, scenario, *views, bindings);
+  S_->PendingSimulation = std::move(simulation);
   S_->RouteCamera.reset();
   S_->CameraPosePending = false;
   return {};
