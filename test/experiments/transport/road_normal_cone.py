@@ -35,7 +35,7 @@ def limit(value):
 
 
 class NormalModel:
-    """One generation borrows an unchanged Curve; two last-value slots are bounded."""
+    """One generation borrows an unchanged Curve; last-value slots are bounded."""
 
     def __init__(self, curve):
         if np.any(curve.width * curve.curvature_max >= 1):
@@ -43,12 +43,16 @@ class NormalModel:
         self.curve = curve
         self.height = tuple(tuple(map(exact, row)) for row in curve.height)
         self.bank = tuple(tuple(map(exact, row)) for row in curve.bank)
-        self._slice = self._angle = None
+        self._slice = self._angle = self._heading = self._point_phase = None
         self.work = {
             "range_requests": 0,
             "longitudinal_evaluations": 0,
             "angle_requests": 0,
             "angle_evaluations": 0,
+            "heading_requests": 0,
+            "heading_evaluations": 0,
+            "point_phase_requests": 0,
+            "point_phase_evaluations": 0,
         }
 
     def longitudinal(self, index, first, last):
@@ -122,7 +126,11 @@ class NormalModel:
         delta = phase[0] - anchor_phase, phase[1] - anchor_phase
         if delta[0] < -1 or delta[1] > 1:
             return {"accepted": False, "reason": "heading_range", "score": float("inf")}
-        sine, cosine = small_trig(delta)
+        self.work["heading_requests"] += 1
+        if self._heading is None or self._heading[0] != delta:
+            self.work["heading_evaluations"] += 1
+            self._heading = delta, small_trig(delta)
+        sine, cosine = self._heading[1]
         x = add(negative(multiply(q, cosine)), negative(multiply(b, sine)))
         y = add(negative(multiply(q, sine)), multiply(b, cosine))
         anchor = (-sum(q) / 2, sum(b) / 2, F(1))
@@ -150,7 +158,11 @@ class NormalModel:
     def stored_normal(self, index, station, lateral, limit_rad):
         _, sine_limit_squared = self.angular_bounds(limit_rad)
         q, b, phase = self.ranges(index, station, station, lateral, lateral)
-        sine, cosine = trig_point(phase[0])
+        self.work["point_phase_requests"] += 1
+        if self._point_phase is None or self._point_phase[0] != phase[0]:
+            self.work["point_phase_evaluations"] += 1
+            self._point_phase = phase[0], trig_point(phase[0])
+        sine, cosine = self._point_phase[1]
         raw = (
             add(negative(multiply(q, cosine)), negative(multiply(b, sine))),
             add(negative(multiply(q, sine)), multiply(b, cosine)),

@@ -106,6 +106,26 @@ class ExactRanges(unittest.TestCase):
 
 
 class NormalCones(unittest.TestCase):
+    def test_heading_reuse_keeps_cell_and_point_phases_distinct(self):
+        curve = Curve(recipe(curvature=0.02, height=0.01, bank_rate=0.01))
+        model = NormalModel(curve)
+        first = model.cone(0, 0, 1, -2, -1, 0.1)
+        model.cone(0, 0, 1, 1, 2, 0.1)
+        self.assertEqual(model.work["heading_requests"], 2)
+        self.assertEqual(model.work["heading_evaluations"], 1)
+        model.cone(0, 0, 2, -2, -1, 0.1)
+        self.assertEqual(model.work["heading_evaluations"], 2)
+        self.assertEqual(model.cone(0, 0, 1, -2, -1, 0.1), first)
+        self.assertEqual(model.work["heading_evaluations"], 3)
+        a = model.stored_normal(0, 1, -1, 0.1)
+        model.stored_normal(0, 1, 1, 0.1)
+        self.assertEqual(model.work["point_phase_requests"], 2)
+        self.assertEqual(model.work["point_phase_evaluations"], 1)
+        model.stored_normal(0, 2, -1, 0.1)
+        self.assertEqual(model.work["point_phase_evaluations"], 2)
+        np.testing.assert_array_equal(model.stored_normal(0, 1, -1, 0.1), a)
+        self.assertEqual(model.work["point_phase_evaluations"], 3)
+
     def test_wider_cone_preserves_positive_interpolation_budget(self):
         # A unit normal within r of the axis and stored normals within r+d
         # have mutual angular separation at most 2r+d, including after any
