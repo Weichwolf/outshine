@@ -158,8 +158,11 @@ def run(args):
     }
     np.savez(args.output / "fallback.npz", **fallback)
     reports = {}
-    for dictionary in (False, True):
-        mode = "dictionary" if dictionary else "direct"
+    for dictionary, mode in (
+        (False, "direct"),
+        (True, "dictionary"),
+        ("scalar", "scalar"),
+    ):
         reports[mode] = measure_pack(
             groups, context["render_basis"], dictionary, args.output / (mode + ".npz")
         )

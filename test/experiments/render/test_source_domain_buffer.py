@@ -22,7 +22,7 @@ class SourceDomainBuffer(unittest.TestCase):
         )
 
     def test_direct_and_dictionary_preserve_every_local_control_and_hole(self):
-        for dictionary in (False, True):
+        for dictionary in (False, True, "scalar"):
             arrays = pack(
                 [(42, self.surface, self.patches)], np.eye(3), dictionary=dictionary
             )
@@ -90,6 +90,31 @@ class SourceDomainBuffer(unittest.TestCase):
         restored = restore_source(arrays, 42, self.surface)[0]
         self.assertEqual(restored.geometry.domain.area, 2)
         self.assertFalse(restored.geometry.domain.covers(shapely.Point(1.5, 0.5)))
+
+    def test_scalar_dictionary_preserves_signed_zero_control_words(self):
+        floor = next(p for p in self.patches if p.side == 0)
+        origin = floor.local_origin.copy()
+        origin[0] = -0.0
+        modified = replace(floor, local_origin=origin)
+        arrays = pack([(42, self.surface, [modified])], np.eye(3), dictionary="scalar")
+        self.assertEqual(arrays["local_frames"].dtype, np.dtype("<u2"))
+        self.assertIn(0, arrays["float64_words"])
+        self.assertIn(1 << 63, arrays["float64_words"])
+        restored = restore_source(arrays, 42, self.surface)[0]
+        np.testing.assert_array_equal(
+            origin.view("u8"), restored.local_origin.view("u8")
+        )
+
+    def test_scalar_dictionary_does_not_wrap_more_than_65536_values(self):
+        x = np.arange(33000, dtype=np.float64)
+        domain = shapely.Polygon(np.c_[x, x * x + 0.125])
+        floor = next(p for p in self.patches if p.side == 0)
+        modified = replace(floor, geometry=replace(floor.geometry, domain=domain))
+        arrays = pack([(42, self.surface, [modified])], np.eye(3), dictionary="scalar")
+        self.assertGreater(len(arrays["float64_words"]), 65536)
+        self.assertEqual(arrays["coordinates"].dtype, np.dtype("<u4"))
+        restored = restore_source(arrays, 42, self.surface)[0]
+        self.assertEqual(domain.wkb, restored.geometry.domain.wkb)
 
 
 if __name__ == "__main__":

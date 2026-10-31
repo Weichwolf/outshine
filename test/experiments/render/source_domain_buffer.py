@@ -13,7 +13,7 @@ from source_surface_patches import SurfacePatch
 
 def pack(groups, basis, *, dictionary=False):
     """Groups contain (actual prepared-source ordinal, surface, complete patches)."""
-    if not 1 <= len(groups) <= 65536:
+    if dictionary not in (False, True, "scalar") or not 1 <= len(groups) <= 65536:
         raise ValueError("Bounded nonempty source groups required")
     source_ids, frames, info, local = [], [], [], []
     source_offsets, patch_offsets, polygon_offsets, ring_offsets = [0], [0], [0], [0]
@@ -63,13 +63,37 @@ def pack(groups, basis, *, dictionary=False):
         "ring_vertex_offsets": np.asarray(ring_offsets, dtype="<u4"),
         "coordinates": np.asarray(coordinates, dtype="<f8"),
     }
-    if dictionary:
+    if dictionary == "scalar":
+        keys = ("local_frames", "coordinates")
+        words, inverse = np.unique(
+            np.concatenate([arrays[key].view("<u8").ravel() for key in keys]),
+            return_inverse=True,
+        )
+        arrays["float64_words"] = words
+        index_type = "<u2" if len(words) <= 65536 else "<u4"
+        at = 0
+        for key in keys:
+            values = arrays[key]
+            arrays[key] = (
+                inverse[at : at + values.size].reshape(values.shape).astype(index_type)
+            )
+            at += values.size
+        if arrays["patch_info"].min() >= -32768 and arrays["patch_info"].max() <= 32767:
+            arrays["patch_info"] = arrays["patch_info"].astype("<i2")
+    elif dictionary:
         words, inverse = np.unique(
             arrays["coordinates"].view("<u8"), axis=0, return_inverse=True
         )
         arrays["coordinates"] = words.view("<f8")
         arrays["vertex_ids"] = inverse.astype("<u4")
     return arrays
+
+
+def control_at(arrays, key, selection):
+    values = arrays[key][selection]
+    if "float64_words" in arrays:
+        return arrays["float64_words"][values].view("<f8")
+    return values
 
 
 def domain_at(arrays, index):
@@ -85,7 +109,7 @@ def domain_at(arrays, index):
                 if "vertex_ids" in arrays
                 else slice(low, high)
             )
-            rings.append(arrays["coordinates"][vertices])
+            rings.append(control_at(arrays, "coordinates", vertices))
         polygons.append(shapely.Polygon(rings[0], rings[1:]))
     return polygons[0] if len(polygons) == 1 else shapely.MultiPolygon(polygons)
 
@@ -106,7 +130,7 @@ def restore_source(arrays, identity, surface):
     result = []
     for index in range(int(low), int(high)):
         _, part, side, gable, orientation = map(int, arrays["patch_info"][index])
-        local_origin, *local_axes = arrays["local_frames"][index]
+        local_origin, *local_axes = control_at(arrays, "local_frames", index)
         local_axes = np.asarray(local_axes)
         world_axes = local_axes @ frame
         normal = orientation * np.cross(*world_axes)
