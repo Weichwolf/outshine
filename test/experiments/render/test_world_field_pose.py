@@ -4,6 +4,7 @@ import json
 import math
 import unittest
 from fractions import Fraction as F
+from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -76,8 +77,7 @@ class WorldGeometry(unittest.TestCase):
                 self.assertTrue(result["depth_inside"])
                 self.assertFalse(result["world_admission"])
                 for p in [
-                    self.plane.lower,
-                    self.plane.upper,
+                    *product(*zip(self.plane.lower, self.plane.upper, strict=True)),
                     *rng.uniform(self.plane.lower, self.plane.upper, (15, 3)),
                 ]:
                     actual = exact_error(
