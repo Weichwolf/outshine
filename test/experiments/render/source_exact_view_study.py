@@ -60,6 +60,21 @@ def check_words(full, small):
                 raise ValueError("Original corner words changed: " + field)
 
 
+def projected_pixel_centres(source, ordinals, transform):
+    vertices = source["positions"][np.unique(source["indices"][ordinals])]
+    clip = np.column_stack((vertices, np.ones(len(vertices)))) @ transform.T
+    if not len(clip) or np.any(clip[:, 3] <= 0):
+        raise ValueError("Finite positive-w projected source region required")
+    pixels = (clip[:, :2] / clip[:, 3, None] * [1, -1] + 1) * [1280, 720]
+    lo = np.maximum(np.floor(pixels.min(axis=0)).astype(int) - 2, [0, 0])
+    hi = np.minimum(np.ceil(pixels.max(axis=0)).astype(int) + 2, [2560, 1440])
+    size = hi - lo
+    if np.any(size <= 0) or np.prod(size) > 65536:
+        raise ValueError("Projected source region must be nonempty and bounded")
+    x, y = np.meshgrid(np.arange(lo[0], hi[0]) + 0.5, np.arange(lo[1], hi[1]) + 0.5)
+    return np.column_stack((x.ravel(), y.ravel())), lo, hi
+
+
 def run(args):
     if args.output.exists():
         raise ValueError("Fresh output required")
@@ -96,8 +111,7 @@ def run(args):
     translate = np.eye(4)
     translate[:, 3] += shift
     transform = matrix @ translate @ placement
-    x, y = np.meshgrid(np.arange(128) * 20 + 10, np.arange(72) * 20 + 10)
-    points = np.column_stack((x.ravel(), y.ravel()))
+    points, lo, hi = projected_pixel_centres(source, ordinals, transform)
     origins, directions = world_rays(transform, points, [2560, 1440])
     whole = {"positions": source["positions"], "indices": source["indices"]}
     selected = {
@@ -113,7 +127,12 @@ def run(args):
     r, c = np.isfinite(reference), np.isfinite(candidate)
     common = r & c
     error = np.abs(reference[common] - candidate[common])
-    image = Image.new("RGB", (128 * 3, 72 + 18), "white")
+    if not r.any():
+        raise ValueError("Projected region must contain original ray hits")
+    width, height = hi - lo
+    scale = 12
+    panel_width = max(128, width * scale)
+    image = Image.new("RGB", (panel_width * 3, height * scale + 18), "white")
     draw = ImageDraw.Draw(image)
     diff = np.zeros((len(points), 3), np.uint8)
     diff[r & ~c] = [255, 0, 0]
@@ -129,8 +148,11 @@ def run(args):
             strict=True,
         )
     ):
-        draw.text((128 * i + 2, 2), label, fill="black")
-        image.paste(Image.fromarray(pixels.reshape(72, 128, 3)), (128 * i, 18))
+        draw.text((panel_width * i + 2, 2), label, fill="black")
+        panel = Image.fromarray(pixels.reshape(height, width, 3)).resize(
+            (width * scale, height * scale), Image.Resampling.NEAREST
+        )
+        image.paste(panel, (panel_width * i, 18))
     image.save(args.output / "coverage.png")
     result = {
         "source_binding_sha256": provenance["source_binding_sha256"],
@@ -146,6 +168,7 @@ def run(args):
         "direct_cost": direct_cost,
         "compact_cost": compact_cost,
         "rays": len(points),
+        "raster_region_xyxy": [*map(int, lo), *map(int, hi)],
         "whole_hits": int(r.sum()),
         "selected_hits": int(c.sum()),
         "missing_rays": int((r & ~c).sum()),
