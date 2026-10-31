@@ -3,6 +3,12 @@
 Keine gebündelten Bibliotheksquellen. Systempakete bleiben hinter nativen Verträgen;
 Installation ist noch keine Integration oder ein Performancebeweis.
 
+SDL3, SDL3_image und SDL3_ttf verwenden ihre installierten CMake-Config-Pakete und
+importierten Targets. CMake bestimmt transitive Libraries und Runtimepfade.
+Verfügbare Linkpolicies CMP0156/CMP0179 deduplizieren nach Linkerfähigkeiten und
+erhalten den ersten Archiveintrag. CMake 3.28 bleibt die Untergrenze; diese neueren
+Policies stehen dort noch nicht zur Verfügung.
+
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygonoperationen, Triangulation und Dachkonturen über C-API; mindestens 3.12 |
