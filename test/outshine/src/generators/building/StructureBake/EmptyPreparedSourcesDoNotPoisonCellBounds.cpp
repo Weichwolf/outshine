@@ -71,11 +71,14 @@ int main() {
                                        prepared->Holes,
                                        std::span(prepared->CornerAslM).subspan(4, 3),
                                        prepared->AnchorEcef);
-  CHECK(!mesher.KnownEmptySurface(omitted), "unprepared data is not classified as known empty");
+  const auto unprepared = mesher.KnownEmptySurface(omitted);
+  CHECK(unprepared && !*unprepared, "unprepared data is not classified as known empty");
   omitted.Prepared = &prepared->Surfaces[1];
-  CHECK(mesher.KnownEmptySurface(omitted), "the prepared native recipe explicitly has no surface");
+  const auto empty = mesher.KnownEmptySurface(omitted);
+  CHECK(empty && *empty, "the prepared native recipe explicitly has no surface");
   omitted.HeightM = std::numeric_limits<double>::quiet_NaN();
-  CHECK(!mesher.KnownEmptySurface(omitted), "empty metadata cannot hide invalid plan parameters");
+  const auto invalid = mesher.KnownEmptySurface(omitted);
+  CHECK(invalid && !*invalid, "empty metadata cannot hide invalid plan parameters");
   auto control = *prepared;
   control.Structures.resize(1);
   control.Surfaces.resize(1);
