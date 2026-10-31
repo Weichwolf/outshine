@@ -197,6 +197,13 @@ def read_ranges(
                     raise ValueError("Original source identity changed")
                 results.append(values)
     if compact:
+        ordinals = (
+            np.concatenate([tri["ordinal"] for tri, _ in results])
+            if results
+            else np.empty(0, "<u4")
+        )
+        if len(np.unique(ordinals)) != len(ordinals):
+            raise ValueError("Duplicate original triangles")
         return tuple(results), {"read_calls": len(spans), "read_bytes": read_bytes}
     output = np.concatenate(results) if results else np.empty(0, dtype=ROW)
     output.sort(order="ordinal")

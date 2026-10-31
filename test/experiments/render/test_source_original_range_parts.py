@@ -77,6 +77,12 @@ class OriginalPartInputsTest(unittest.TestCase):
                 self.assertEqual(arrays[name].tobytes(), old_arrays[name].tobytes())
         with self.assertRaisesRegex(ValueError, "unique"):
             compact_part_inputs((chunks[0], chunks[0]), self.source["parts"])
+        changed_vertices = chunks[0][1].copy()
+        changed_vertices["words"][changed_vertices["original"] == 0, 0] ^= 1
+        with self.assertRaisesRegex(ValueError, "disagree"):
+            compact_part_inputs(
+                ((chunks[0][0], changed_vertices), chunks[1]), self.source["parts"]
+            )
         self.assertEqual(len(compact_part_inputs((), self.source["parts"])), 2)
 
 
