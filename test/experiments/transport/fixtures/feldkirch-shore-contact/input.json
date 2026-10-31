@@ -1,0 +1,163 @@
+{
+  "schema": "outshine/feldkirch-shore-contact/1",
+  "capture_source_commit": "e8d9002a77c661e430c21d2d3289c90ac9ace370",
+  "ground_region_key": "6f3a90facbac0f11346051c2f499e2c35923cae24ad79e6e9a329796ac786bc0",
+  "ground_native_sha256": "78c7173efec39cac273c05afca29eb4234184d2883ddfcda8641834c4b660597",
+  "ground_stored_sha256": "8dbe967206f9996d2cec114e428bd87bfe65a9da0b4988cebae568c3a83a0ddb",
+  "pages": [
+    {
+      "page": "537",
+      "zoom": 20,
+      "x": 552238,
+      "y": 367802,
+      "side": 33,
+      "postings": 33,
+      "virtual": 1,
+      "source_zoom": 16,
+      "halo": 1,
+      "nodes": 1225,
+      "lon": 9.59604263305664,
+      "lat": 47.23577175768197,
+      "min": 453.5830078125,
+      "max": 455.9290771484375,
+      "array": "p20_552238_367802"
+    },
+    {
+      "page": "538",
+      "zoom": 20,
+      "x": 552239,
+      "y": 367802,
+      "side": 33,
+      "postings": 33,
+      "virtual": 1,
+      "source_zoom": 16,
+      "halo": 1,
+      "nodes": 1225,
+      "lon": 9.596385955810547,
+      "lat": 47.23577175768197,
+      "min": 451.4287109375,
+      "max": 457.6022644042969,
+      "array": "p20_552239_367802"
+    },
+    {
+      "page": "539",
+      "zoom": 20,
+      "x": 552238,
+      "y": 367803,
+      "side": 33,
+      "postings": 33,
+      "virtual": 1,
+      "source_zoom": 16,
+      "halo": 1,
+      "nodes": 1225,
+      "lon": 9.59604263305664,
+      "lat": 47.23553864682881,
+      "min": 445.5243835449219,
+      "max": 454.9093322753906,
+      "array": "p20_552238_367803"
+    },
+    {
+      "page": "540",
+      "zoom": 20,
+      "x": 552239,
+      "y": 367803,
+      "side": 33,
+      "postings": 33,
+      "virtual": 1,
+      "source_zoom": 16,
+      "halo": 1,
+      "nodes": 1225,
+      "lon": 9.596385955810547,
+      "lat": 47.23553864682881,
+      "min": 454.091796875,
+      "max": 455.1781005859375,
+      "array": "p20_552239_367803"
+    }
+  ],
+  "source_dem": {
+    "tile": [
+      16,
+      34514,
+      22987
+    ],
+    "bytes": 65162,
+    "sha256": "c8b8cc5b462dee88753fbd2ba569c61745a470356db63db60d094a51d7f2fb76",
+    "url": "https://tiles.mapterhorn.com/16/34514/22987.webp",
+    "epoch": "existing cache snapshot; acquisition time not captured",
+    "height_semantics": "source signed metres used as model geodetic heights; datum equivalence unverified"
+  },
+  "edge": {
+    "row": 20,
+    "col": 1,
+    "native_pair_m": [
+      445.5251159667969,
+      454.36474609375
+    ],
+    "source_pair_m": [
+      453.7745246898254,
+      454.07402134007845
+    ],
+    "step_m": 0.8109324547225536,
+    "lat_lon": [
+      [
+        47.235509507900055,
+        9.595881700515747
+      ],
+      [
+        47.235509507900055,
+        9.595892429351807
+      ]
+    ],
+    "native_edge_slope_deg": 84.7584550660121,
+    "source_edge_slope_deg": 20.27038776037163
+  },
+  "native_observation": {
+    "complete": true,
+    "unrefined": 0,
+    "remote": 0,
+    "provider": 0,
+    "source_bytes": 0,
+    "gpu_samples": 60,
+    "native_input_geo": [
+      453.7745361328125,
+      454.07403564453125
+    ],
+    "native_after_local": [
+      445.5139731407926,
+      454.35363483440204
+    ],
+    "winning_stamps": [
+      46764,
+      60942
+    ],
+    "points_enu_m": [
+      [
+        -188.50601464013968,
+        326.27135276265295
+      ],
+      [
+        -187.69356590070743,
+        326.2713422458944
+      ]
+    ]
+  },
+  "files": {
+    "contact.json.gz": {
+      "bytes": 4318361,
+      "sha256": "fd0f1deb3e91a7b968de143040cf3540c8ce6575a7407a202f3aed2fc213d170"
+    },
+    "deformed-pages.npz": {
+      "bytes": 11809,
+      "sha256": "095382e58b8e715c37e0416909f730346c2d8b7a53f5f61b3c5e7fcf2bf829f0"
+    },
+    "dem-16-34514-22987.webp": {
+      "bytes": 65162,
+      "sha256": "c8b8cc5b462dee88753fbd2ba569c61745a470356db63db60d094a51d7f2fb76"
+    },
+    "water.native.gz": {
+      "bytes": 633447,
+      "sha256": "c8d34305cda66d96a8c16b52fe5cf2a2e9fd269e50cb03d1db9f418836c466b0"
+    }
+  },
+  "full_private_capture_sha256": "5902063f1f60994b8343060edb0ba53a973c3109a8940330860178cf116eddb1"
+}
