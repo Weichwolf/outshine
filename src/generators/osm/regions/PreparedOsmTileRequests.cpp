@@ -39,23 +39,24 @@ std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Lookup(
     return std::optional<AssetProduct>{};
   }
   if (*record) {
-    const auto bytes = Cache_->PackageBytes((**record).Key, kPackageBytesMost);
+    const auto bytes = Cache_->PlanRead((**record).Key, kPackageBytesMost);
     if (!bytes) {
       if (bytes.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
       return std::unexpected("native OSM package metadata failed");
     }
     if (!*bytes) { return std::optional<AssetProduct>{}; }
-    work.LoadMost = std::max(size_t{1}, **bytes);
+    work.LoadPlan = **bytes;
+    work.LoadPlan.PackageBytesMost = std::max(size_t{1}, work.LoadPlan.PackageBytesMost);
   }
   work.Stage = *record ? Production::Phase::Hit : Production::Phase::Source;
   if (!*record) { ++Misses_; }
-  return AssetPipeline::InputAdmission{.Bytes = *record ? 3 * work.LoadMost : 0};
+  return AssetPipeline::InputAdmission{.Bytes = *record ? work.LoadPlan.BufferBytesMost : 0};
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::LookupHit(Production &work) {
   const auto began = std::chrono::steady_clock::now();
-  auto loaded = Load(work.Request, work.LoadMost);
+  auto loaded = Load(work.Request, work.LoadPlan);
   ReadMs_.fetch_add(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   if (!loaded) {

@@ -60,14 +60,15 @@ void CheckReceipt(const std::string &path) {
   const auto alias = (*opened)->FindRequest(Key("request"));
   CHECK(alias && *alias && (**alias).Key == Key("first") && (**alias).RequestKey == Key("request"),
         "the same atomic commit preserves durable request bindings");
-  const auto firstBytes = (*opened)->PackageBytes(Key("first"), package.Bytes.size());
-  const auto secondBytes = (*opened)->PackageBytes(Key("second"), package.Bytes.size());
-  CHECK(firstBytes && *firstBytes == package.Bytes.size() && secondBytes &&
-            *secondBytes == package.Bytes.size(),
+  const auto firstBytes = (*opened)->PlanRead(Key("first"), package.Bytes.size());
+  const auto secondBytes = (*opened)->PlanRead(Key("second"), package.Bytes.size());
+  CHECK(firstBytes && *firstBytes && (**firstBytes).PackageBytesMost == package.Bytes.size() &&
+            (**firstBytes).BufferBytesMost == package.Bytes.size() && secondBytes && *secondBytes &&
+            (**secondBytes).PackageBytesMost == package.Bytes.size(),
         "metadata admission measures the whole shared package rather than either slice");
   if (!firstBytes || !*firstBytes || !secondBytes || !*secondBytes) { return; }
-  const auto small = (*opened)->PackageBytes(Key("second"), 3);
-  const auto absent = (*opened)->PackageBytes(Key("absent"), package.Bytes.size());
+  const auto small = (*opened)->PlanRead(Key("second"), 3);
+  const auto absent = (*opened)->PlanRead(Key("absent"), package.Bytes.size());
   CHECK(!small && small.error() == AssetCacheError::CapacityExceeded && absent && !*absent,
         "metadata rejects a whole-package overflow and keeps absence distinct from empty data");
   opened->reset();
@@ -83,9 +84,10 @@ void CheckReceipt(const std::string &path) {
   CHECK((*fresh)->Publish(package.Records, replacement),
         "a later writer can replace the measured package before the byte read");
   const auto stale = (*fresh)->Load(Key("second"), **secondBytes);
-  const auto current = (*fresh)->PackageBytes(Key("second"), replacement.size());
-  CHECK(!stale && stale.error() == AssetCacheError::CapacityExceeded && current &&
-            *current == replacement.size() && (*fresh)->Find(Key("second"))->has_value(),
+  const auto current = (*fresh)->PlanRead(Key("second"), replacement.size());
+  CHECK(!stale && stale.error() == AssetCacheError::CapacityExceeded && current && *current &&
+            (**current).PackageBytesMost == replacement.size() &&
+            (*fresh)->Find(Key("second"))->has_value(),
         "stale admission refuses a larger read without erasing the newer valid product");
 }
 }

@@ -78,10 +78,10 @@ void ColdAndWarm(const std::filesystem::path &directory) {
       std::make_unique<OsmCache::VectorSource>("r1", std::vector<uint8_t>{}, forbidden));
   CHECK(offline, "an unavailable source opens for a fresh offline service");
   if (!offline) { return; }
-  constexpr size_t warmBudget = size_t{64} * 1024;
+  constexpr size_t warmBudget = size_t{128} * 1024;
   auto fresh = PreparedOsmTiles::Open(
       directory.string(), *offline, transport, compute, {.InputBytesMost = warmBudget});
-  CHECK(fresh, "the prepared native package reopens with only its warm budget");
+  CHECK(fresh, "the warm budget includes stored/native buffers and the explicit Zstd context");
   if (!fresh) { return; }
   const auto warm = Await(**fresh, layout, compute, warmBudget);
   CHECK(warm.Product && !warm.Failed && warm.WithinBudget && forbidden == 0 &&

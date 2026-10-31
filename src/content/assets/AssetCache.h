@@ -124,12 +124,19 @@ public:
   [[nodiscard]] std::expected<bool, AssetCacheError>
   UnbindRequestIfMatches(const AssetRecord &binding);
 
-  // Metadata only: maximum stored/native whole-package length, before bounded Load.
-  // Zero means that Load needs no body IO; concurrent changes remain checked by its bound.
-  [[nodiscard]] std::expected<std::optional<size_t>, AssetCacheError>
-  PackageBytes(std::string_view key, size_t packageBytesMost) const;
+  struct ReadPlan {
+    size_t PackageBytesMost = 0;
+    size_t BufferBytesMost = 0;
+  };
+
+  // Metadata only; whole stored/native buffers plus explicit codec workspace.
+  // Load rechecks both bounds before body IO if the package changed meanwhile.
+  [[nodiscard]] std::expected<std::optional<ReadPlan>, AssetCacheError>
+  PlanRead(std::string_view key, size_t packageBytesMost) const;
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
+  Load(std::string_view key, const ReadPlan &plan) const;
   using Validator = std::function<std::expected<bool, AssetCacheError>(const CachedAsset &)>;
   // Normal hits validate without a writer. Invalid entries are reread and validated
   // under one write transaction before removal. Validators may do bounded native
@@ -139,6 +146,8 @@ public:
                 std::string_view kind,
                 size_t packageBytesMost,
                 const Validator &validate);
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError> LoadValidated(
+      std::string_view key, std::string_view kind, const ReadPlan &plan, const Validator &validate);
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;

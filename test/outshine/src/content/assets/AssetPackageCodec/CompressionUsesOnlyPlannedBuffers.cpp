@@ -47,7 +47,18 @@ void CheckStorage(size_t size, bool compressible) {
     return;
   }
   CHECK(!compressed->empty(), "repeated bytes produce a compressed native package");
+  const auto stored = compressed->size();
+  BeginCppAllocationProbe();
+  const auto readPlan = AssetSql::DecompressionBytes(stored, 1, size);
+  const auto readPlanning = EndCppAllocationProbe();
+  CHECK(readPlan && readPlanning.Calls == 0,
+        "decompression plans stored bytes, native bytes and context without allocations");
+  if (!readPlan) { return; }
+  BeginCppAllocationProbe();
   const auto restored = AssetSql::Decompress(std::move(*compressed), 1, size);
+  const auto readAllocation = EndCppAllocationProbe();
+  CHECK(readAllocation.Calls == 2 && readAllocation.Bytes == *readPlan - stored,
+        "decompression allocates exactly its aligned static context and native output");
   CHECK(restored && std::ranges::equal(*restored, input),
         "static-workspace compression preserves the complete original bytes");
 }
@@ -64,5 +75,14 @@ int main() {
   const auto rejected = EndCppAllocationProbe();
   CHECK(!overflow && overflow.error() == AssetCacheError::CapacityExceeded && rejected.Calls == 0,
         "unrepresentable codec reservations fail before allocating workspace or output");
+  BeginCppAllocationProbe();
+  const auto readOverflow = AssetSql::DecompressionBytes(1, 1, std::numeric_limits<size_t>::max());
+  const auto invalid = AssetSql::DecompressionBytes(8, 0, 9);
+  const auto unknown = AssetSql::DecompressionBytes(8, 2, 16);
+  const auto malformed = EndCppAllocationProbe();
+  CHECK(!readOverflow && readOverflow.error() == AssetCacheError::CapacityExceeded && !invalid &&
+            invalid.error() == AssetCacheError::InvalidInput && !unknown &&
+            unknown.error() == AssetCacheError::InvalidInput && malformed.Calls == 0,
+        "overflow and inconsistent codec metadata fail before allocating read buffers");
   return Report();
 }

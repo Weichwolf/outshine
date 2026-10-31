@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <optional>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -51,8 +52,19 @@ bool PreparedOsmTiles::Bind(Work &work,
 bool PreparedOsmTiles::RestoreBinding(Work &work,
                                       const AssetPublication &publication,
                                       AssetPipeline::RequestTicket &ticket) {
-  const auto bytesMost = std::max(size_t{1}, publication.Native->Bytes().size());
-  if (!AdmitOwner(work, ticket, 3 * bytesMost + kReceiptBytesMost)) { return false; }
+  const auto bytesMost = publication.Native->Bytes().size();
+  size_t required = 0;
+  if (work.RepairPublication) {
+    required = work.RepairPublication->CapacityBytes();
+  } else {
+    const auto buffers = AssetCache::PublicationBufferBytes(bytesMost);
+    if (!buffers || *buffers > std::numeric_limits<size_t>::max() - bytesMost - kReceiptBytesMost) {
+      work.Result = std::unexpected("native OSM repair storage plan failed");
+      return false;
+    }
+    required = bytesMost + *buffers;
+  }
+  if (!AdmitOwner(work, ticket, required + kReceiptBytesMost)) { return false; }
   if (!work.RepairPublication) {
     auto record = *publication.Receipt;
     record.Package.clear();
@@ -86,7 +98,7 @@ bool PreparedOsmTiles::LoadWinner(Work &work,
                                   const AssetRecord &record,
                                   AssetPipeline::RequestTicket &ticket) {
   work.RepairPublication.reset();
-  const auto bytes = Cache_->PackageBytes(record.Key, kPackageBytesMost);
+  const auto bytes = Cache_->PlanRead(record.Key, kPackageBytesMost);
   if (!bytes) {
     if (bytes.error() != AssetCacheError::Busy) {
       work.Result = std::unexpected("winning native OSM metadata failed");
@@ -94,9 +106,10 @@ bool PreparedOsmTiles::LoadWinner(Work &work,
     return false;
   }
   if (!*bytes) { return false; }
-  const auto bytesMost = std::max(size_t{1}, **bytes);
-  if (!AdmitOwner(work, ticket, 3 * bytesMost + kReceiptBytesMost)) { return false; }
-  auto loaded = Load(work.Request, bytesMost);
+  auto plan = **bytes;
+  plan.PackageBytesMost = std::max(size_t{1}, plan.PackageBytesMost);
+  if (!AdmitOwner(work, ticket, plan.BufferBytesMost + kReceiptBytesMost)) { return false; }
+  auto loaded = Load(work.Request, plan);
   if (!loaded) {
     if (loaded.error() != AssetCacheError::Busy &&
         loaded.error() != AssetCacheError::CapacityExceeded) {
@@ -128,7 +141,7 @@ bool PreparedOsmTiles::Matches(const OsmField &field,
 bool PreparedOsmTiles::RepairContent(Work &work,
                                      const CachedAsset &native,
                                      AssetPipeline::RequestTicket &ticket) {
-  const auto bytes = Cache_->PackageBytes(native.Record().Key, kPackageBytesMost);
+  const auto bytes = Cache_->PlanRead(native.Record().Key, kPackageBytesMost);
   if (!bytes) {
     if (bytes.error() != AssetCacheError::Busy) {
       work.Result = std::unexpected("invalid native OSM metadata failed");
@@ -136,11 +149,14 @@ bool PreparedOsmTiles::RepairContent(Work &work,
     return false;
   }
   if (!*bytes) { return true; }
-  const auto bytesMost = std::max(size_t{1}, **bytes);
+  auto plan = **bytes;
+  plan.PackageBytesMost = std::max(size_t{1}, plan.PackageBytesMost);
   const auto backing = work.Override ? work.Override->BackingBytes() : 0;
-  if (!AdmitOwner(work, ticket, 3 * bytesMost + backing + kReceiptBytesMost)) { return false; }
-  const auto reread = Cache_->LoadValidated(
-      native.Record().Key, "osm-tile", bytesMost, [&](const CachedAsset &current) {
+  if (!AdmitOwner(work, ticket, plan.BufferBytesMost + backing + kReceiptBytesMost)) {
+    return false;
+  }
+  const auto reread =
+      Cache_->LoadValidated(native.Record().Key, "osm-tile", plan, [&](const CachedAsset &current) {
         return Sha256Hex(current.Bytes().data(), current.Bytes().size()) != work.BadDigest;
       });
   if (reread) { return true; }

@@ -53,11 +53,11 @@ Box Bounds(const OsmField &field) {
 }
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
-PreparedOsmTiles::Load(const std::string &request, size_t bytesMost) {
+PreparedOsmTiles::Load(const std::string &request, const AssetCache::ReadPlan &plan) {
   auto record = Cache_->FindRequest(request);
   if (!record) { return std::unexpected(record.error()); }
   if (!*record) { return std::nullopt; }
-  auto loaded = Cache_->Load((**record).Key, bytesMost);
+  auto loaded = Cache_->Load((**record).Key, plan);
   if (loaded && !*loaded) {
     const auto unbound = Cache_->UnbindRequestIfMatches(**record);
     if (!unbound) { return std::unexpected(unbound.error()); }

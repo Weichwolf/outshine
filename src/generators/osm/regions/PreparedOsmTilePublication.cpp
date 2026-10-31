@@ -93,7 +93,7 @@ std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Publish
 
 std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::PlanRestore(Production &work) {
-  const auto bytes = Cache_->PackageBytes(work.ProductKey, kPackageBytesMost);
+  const auto bytes = Cache_->PlanRead(work.ProductKey, kPackageBytesMost);
   if (!bytes) {
     if (bytes.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
     return std::unexpected("native OSM content metadata failed");
@@ -105,15 +105,16 @@ PreparedOsmTiles::PlanRestore(Production &work) {
     return AssetPipeline::InputAdmission{.Bytes =
                                              work.Publication ? work.PublicationBytes : inputBytes};
   }
-  work.LoadMost = std::max(size_t{1}, **bytes);
+  work.LoadPlan = **bytes;
+  work.LoadPlan.PackageBytesMost = std::max(size_t{1}, work.LoadPlan.PackageBytesMost);
   work.Stage = Production::Phase::Restore;
   const auto retained = work.PublicationBytes + (work.Landing ? work.Landing->Bytes.capacity() : 0);
-  return AssetPipeline::InputAdmission{.Bytes = retained + 3 * work.LoadMost};
+  return AssetPipeline::InputAdmission{.Bytes = retained + work.LoadPlan.BufferBytesMost};
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Restore(Production &work) {
   auto loaded = Cache_->LoadValidated(
-      work.ProductKey, "osm-tile", work.LoadMost, [](const CachedAsset &native) {
+      work.ProductKey, "osm-tile", work.LoadPlan, [](const CachedAsset &native) {
         return OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost).has_value();
       });
   if (!loaded) {

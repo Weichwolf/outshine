@@ -134,7 +134,7 @@ void Shared(const std::filesystem::path &directory) {
         "a finished product outlives its service without retaining the source session or a cycle");
 }
 
-void BoundedWarm(const std::filesystem::path &directory) {
+void BoundedWarm(const std::filesystem::path &directory, size_t budget, bool sufficient) {
   std::atomic_uint calls{0};
   Test::OsmCache::NoTransport transport;
   Tasks compute(1);
@@ -142,7 +142,6 @@ void BoundedWarm(const std::filesystem::path &directory) {
       std::make_unique<Test::OsmCache::VectorSource>("r1", std::vector<uint8_t>{}, calls));
   CHECK(session, "an unavailable provider opens for the bounded native replay");
   if (!session) { return; }
-  constexpr size_t budget = size_t{64} * 1024;
   auto opened = PreparedOsmTiles::Open(
       directory.string(), *session, transport, compute, {.InputBytesMost = budget});
   CHECK(opened, "a small native cache opens with its actual available RAM bound");
@@ -153,15 +152,23 @@ void BoundedWarm(const std::filesystem::path &directory) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!product && std::chrono::steady_clock::now() < until) {
     auto step = (*opened)->Acquire(kAt, layout);
-    CHECK(step, "a valid small native hit advances within the declared RAM budget");
-    if (!step) { return; }
-    if (step->Status == PreparedOsmTiles::State::Ready) { product = std::move(step->Product); }
+    if (!step) {
+      CHECK(!sufficient && calls == 0 && (*opened)->Costs().Hits == 0 &&
+                (*opened)->Costs().ReadBytes == 0 && (*opened)->Costs().Generations == 0 &&
+                (*opened)->AdmissionCounts().InputBytes <= budget,
+            "an insufficient codec budget refuses the native hit before body IO or source work");
+      return;
+    }
+    if (step->Status == PreparedOsmTiles::State::Ready) {
+      CHECK(sufficient, "only an admitted warm job can publish a decoded owner");
+      product = std::move(step->Product);
+    }
     CHECK((*opened)->AdmissionCounts().InputBytes <= budget,
           "lookup, package and decode steps never over-admit the bounded replay");
     (void)compute.AwaitCompletion(0.001);
   }
-  CHECK(product && !product->Points().empty() && calls == 0 && (*opened)->Costs().Hits == 1 &&
-            (*opened)->Costs().Generations == 0,
+  CHECK(sufficient && product && !product->Points().empty() && calls == 0 &&
+            (*opened)->Costs().Hits == 1 && (*opened)->Costs().Generations == 0,
         "the constrained replay uses only its small persisted native product");
 }
 
@@ -173,7 +180,8 @@ int main() {
       ("outshine-prepared-admission-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Shared(directory);
-  BoundedWarm(directory);
+  BoundedWarm(directory, size_t{64} * 1024, false);
+  BoundedWarm(directory, size_t{128} * 1024, true);
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "all isolated persisted products are removed after their consumers retire");

@@ -70,6 +70,28 @@ std::expected<std::vector<uint8_t>, AssetCacheError> Compress(std::span<const ui
   return encoded;
 }
 
+std::expected<size_t, AssetCacheError>
+DecompressionBytes(size_t storedBytes, int codec, size_t nativeBytes) {
+  if (codec == 0) {
+    if (storedBytes != nativeBytes) { return std::unexpected(AssetCacheError::InvalidInput); }
+    return storedBytes;
+  }
+  if (codec != 1 || storedBytes == 0 || nativeBytes <= storedBytes) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  const size_t workspace = ZSTD_estimateDCtxSize();
+  constexpr size_t word = sizeof(uint64_t);
+  if (ZSTD_isError(workspace) != 0 || workspace > std::numeric_limits<size_t>::max() - (word - 1)) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  const size_t aligned = (workspace + word - 1) / word * word;
+  if (nativeBytes > std::numeric_limits<size_t>::max() - aligned ||
+      storedBytes > std::numeric_limits<size_t>::max() - aligned - nativeBytes) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  return storedBytes + nativeBytes + aligned;
+}
+
 std::optional<std::vector<uint8_t>>
 Decompress(std::vector<uint8_t> bytes, int codec, size_t nativeBytes) {
   if (codec == 0) {
@@ -81,8 +103,15 @@ Decompress(std::vector<uint8_t> bytes, int codec, size_t nativeBytes) {
       ZSTD_findFrameCompressedSize(bytes.data(), bytes.size()) != bytes.size()) {
     return std::nullopt;
   }
+  const auto plan = DecompressionBytes(bytes.size(), codec, nativeBytes);
+  if (!plan) { return std::nullopt; }
+  const size_t workspaceBytes = *plan - bytes.size() - nativeBytes;
+  std::vector<uint64_t> workspace(workspaceBytes / sizeof(uint64_t));
+  auto *context = ZSTD_initStaticDCtx(workspace.data(), workspaceBytes);
+  if (context == nullptr) { return std::nullopt; }
   std::vector<uint8_t> decoded(nativeBytes);
-  const size_t count = ZSTD_decompress(decoded.data(), decoded.size(), bytes.data(), bytes.size());
+  const size_t count =
+      ZSTD_decompressDCtx(context, decoded.data(), decoded.size(), bytes.data(), bytes.size());
   if (ZSTD_isError(count) != 0 || count != nativeBytes) { return std::nullopt; }
   return decoded;
 }

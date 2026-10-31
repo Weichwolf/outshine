@@ -2,6 +2,7 @@
 #include "AssetPackageCodec.h"
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -53,8 +54,8 @@ std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
                                      static_cast<size_t>(Record_.ByteCount));
 }
 
-std::expected<std::optional<size_t>, AssetCacheError>
-AssetCache::PackageBytes(std::string_view key, size_t packageBytesMost) const {
+std::expected<std::optional<AssetCache::ReadPlan>, AssetCacheError>
+AssetCache::PlanRead(std::string_view key, size_t packageBytesMost) const {
   if (!AssetSql::ValidKey(key) || packageBytesMost == 0) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
@@ -73,20 +74,35 @@ AssetCache::PackageBytes(std::string_view key, size_t packageBytesMost) const {
   const int code = sqlite3_step(statement.Value);
   if (code == SQLITE_DONE) { return std::nullopt; }
   if (code != SQLITE_ROW) { return std::unexpected(AssetSql::Error(code)); }
-  if (sqlite3_column_type(statement.Value, 0) != SQLITE_INTEGER) { return size_t{0}; }
+  if (sqlite3_column_type(statement.Value, 0) != SQLITE_INTEGER) { return ReadPlan{}; }
   const auto stored = sqlite3_column_int64(statement.Value, 0);
   const auto codec = sqlite3_column_int64(statement.Value, 1);
   const auto declared = sqlite3_column_int64(statement.Value, 2);
-  if (stored < 0 || declared < 0 || (codec != 0 && codec != 1)) { return size_t{0}; }
+  if (stored < 0 || declared < 0 || codec < 0 || codec > 1) { return ReadPlan{}; }
   const auto native = codec == 0 && declared == 0 ? stored : declared;
   if (std::cmp_greater(stored, packageBytesMost) || std::cmp_greater(native, packageBytesMost)) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
-  return static_cast<size_t>(std::max(stored, native));
+  const auto peak = AssetSql::DecompressionBytes(
+      static_cast<size_t>(stored), static_cast<int>(codec), static_cast<size_t>(native));
+  if (!peak) {
+    if (peak.error() == AssetCacheError::InvalidInput) { return ReadPlan{}; }
+    return std::unexpected(peak.error());
+  }
+  return ReadPlan{.PackageBytesMost = static_cast<size_t>(std::max(stored, native)),
+                  .BufferBytesMost = *peak};
 }
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
 AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
+  return Load(key,
+              ReadPlan{.PackageBytesMost = packageBytesMost,
+                       .BufferBytesMost = std::numeric_limits<size_t>::max()});
+}
+
+std::expected<std::optional<CachedAsset>, AssetCacheError>
+AssetCache::Load(std::string_view key, const ReadPlan &plan) const {
+  const auto packageBytesMost = plan.PackageBytesMost;
   std::unique_lock lock(*State_->Mutex);
   auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }
@@ -109,13 +125,18 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
   const auto count = sqlite3_column_int64(statement.Value, 1);
   const auto codec = sqlite3_column_int64(statement.Value, 3);
   const auto declared = sqlite3_column_int64(statement.Value, 4);
-  if (count < 0 || declared < 0 || (codec != 0 && codec != 1)) {
-    return std::optional<CachedAsset>{};
-  }
+  if (count < 0 || declared < 0 || codec < 0 || codec > 1) { return std::optional<CachedAsset>{}; }
   const auto native = codec == 0 && declared == 0 ? count : declared;
   if (std::cmp_greater(count, packageBytesMost) || std::cmp_greater(native, packageBytesMost)) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
+  const auto memory = AssetSql::DecompressionBytes(
+      static_cast<size_t>(count), static_cast<int>(codec), static_cast<size_t>(native));
+  if (!memory) {
+    if (memory.error() == AssetCacheError::InvalidInput) { return std::optional<CachedAsset>{}; }
+    return std::unexpected(memory.error());
+  }
+  if (*memory > plan.BufferBytesMost) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   const auto bytes = static_cast<size_t>(count);
   if (std::cmp_greater(record.OffsetBytes, native) ||
       record.ByteCount > static_cast<uint64_t>(native) - record.OffsetBytes) {

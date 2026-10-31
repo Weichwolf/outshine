@@ -114,7 +114,7 @@ private:
     std::string Request;
     Phase Stage = Phase::Index;
     bool SourceAdmitted = false;
-    size_t LoadMost = 0;
+    AssetCache::ReadPlan LoadPlan;
     size_t SourceMost = 0;
     size_t GenerationMost = 0;
     std::optional<Data::SourceSession::Read> Input;
@@ -176,7 +176,7 @@ private:
                                        std::string_view source,
                                        std::string_view revision) const;
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
-  Load(const std::string &request, size_t bytesMost);
+  Load(const std::string &request, const AssetCache::ReadPlan &plan);
   [[nodiscard]] bool Matches(const OsmField &field, const Work &work, std::string_view key) const;
 
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
