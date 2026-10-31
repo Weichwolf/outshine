@@ -69,6 +69,18 @@ and derivative footprints remain separate. The original group remains the
 fallback for unqualified runtime coverage, pose, lighting or World revisions.
 Source-hit raw attributes alone still do not establish native raster admission.
 
+## Empty-pass controls
+
+The native `--material-fields` request accepts test-only `omit_source_draws: true`.
+It prepares the same complete source and runs the same render-pass clears,
+lighting setup, integral compute and readback, but a test device omits every draw
+command. The default forwards every draw. Each case records `forwarded_draws`
+and `omitted_draws`; an empty control with no intercepted draw fails. Compare
+colour, depth and integral words, with visible and partially clipped negative
+controls. This neither accepts empty input geometry nor admits runtime culling.
+Rebind the reported native Lens/pre-view operands: rotating captured Float32
+matrices is not necessarily bit-identical to rebuilding a native camera.
+
 The same supplemental archive now carries the actual upload-boundary words:
 `<pose>/view_words` is the 56-word uniform block, `placements/words` the 144-byte
 storage rows, both stored as little-endian UInt32 to retain every Float32 bit.
