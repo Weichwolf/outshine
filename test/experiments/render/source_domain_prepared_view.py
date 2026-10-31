@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 
@@ -21,12 +22,12 @@ def run(args):
     raw = args.bounds.read_bytes()
     if sha(raw).hex() != args.bounds_sha256:
         raise ValueError("Prepared bounds identity unknown; retain originals")
-    with np.load(args.bounds, allow_pickle=False) as z:
+    with np.load(io.BytesIO(raw), allow_pickle=False) as z:
         prepared = {key: z[key] for key in z.files}
     index_raw = (args.chunk / "index.npy").read_bytes()
     if sha(index_raw) != prepared["index_digest"].tobytes():
         raise ValueError("Index identity unknown; retain originals")
-    index = np.load(args.chunk / "index.npy", allow_pickle=False)
+    index = np.load(io.BytesIO(index_raw), allow_pickle=False)
     records = {int(r["source"]): (int(r["offset"]), int(r["bytes"])) for r in index}
     hashes = {
         (int(o), int(n)): h.tobytes()
