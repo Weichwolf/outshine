@@ -20,13 +20,13 @@ std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::str
           .Elements = std::move(*parsed), .Coverage = {}, .Chunks = {}});
 }
 
-bool WaitFor(outshine::Generators::Osm::TransportPreparation &loader, outshine::Tasks &tasks) {
+bool WaitFor(outshine::Generators::Osm::TransportPreparation &loader) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     loader.Poll();
     if (loader.CurrentPhase() != outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
       return true;
     }
-    (void)tasks.AwaitCompletion(0.05);
+    (void)loader.AwaitProgress(0.05);
   }
   return false;
 }
@@ -45,7 +45,7 @@ int main() {
   const auto *identity = source.get();
   CHECK(loader.RequestSource(source).has_value(), "already loaded source enters async graph build");
   source.reset();
-  CHECK(WaitFor(loader, tasks) &&
+  CHECK(WaitFor(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::TransportPreparation::Phase::Ready,
         "graph builds from source memory without a provider or file path");
   if (!loader.Current()) { return Report(); }
@@ -59,7 +59,7 @@ int main() {
         "unchanged source does not rebuild its graph");
   const auto incomplete = Source("<node id='1' lat='0' lon='0'/>");
   CHECK(loader.RequestSource(incomplete).has_value(), "replacement is admitted independently");
-  CHECK(WaitFor(loader, tasks) &&
+  CHECK(WaitFor(loader) &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             loader.Current() == published,

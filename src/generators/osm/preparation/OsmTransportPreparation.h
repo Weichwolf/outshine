@@ -2,8 +2,6 @@
 #define OUTSHINE_GENERATORS_OSM_PREPARATION_OSMTRANSPORTPREPARATION_H
 
 #include <cstddef>
-#include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -12,7 +10,6 @@
 #include <stop_token>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include "OsmSourceSnapshot.h"
@@ -35,6 +32,7 @@ public:
 
   explicit TransportPreparation(Tasks &tasks) : Tasks_(&tasks) {}
 
+  // The pool outlives unfinished jobs; destruction never waits for them.
   ~TransportPreparation();
   TransportPreparation(const TransportPreparation &) = delete;
   TransportPreparation &operator=(const TransportPreparation &) = delete;
@@ -47,6 +45,7 @@ public:
   RequestSource(std::shared_ptr<const SourceSnapshot> source,
                 std::span<const CircuitRequest> routes = {});
   void Poll();
+  [[nodiscard]] bool AwaitProgress(double seconds) const;
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
@@ -75,12 +74,9 @@ private:
 
   using LoadResult = std::expected<Publication, std::string>;
 
-  struct Result {
-    std::optional<LoadResult> Value;
-  };
+  struct Result;
 
   struct Pending {
-    Tasks::Handle Handle = Tasks::kNoTask;
     uint64_t Revision = 0;
     std::shared_ptr<Result> Output;
     std::stop_source Stop;

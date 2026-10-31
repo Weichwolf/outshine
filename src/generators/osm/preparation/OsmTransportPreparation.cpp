@@ -2,6 +2,10 @@
 #include "OsmTransportBuilder.h"
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <optional>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -35,11 +39,54 @@ constexpr size_t kMaxRouteEdges = 65536;
 
 }
 
+struct TransportPreparation::Result {
+  struct Completion {
+    explicit Completion(std::shared_ptr<Result> output) : Output(std::move(output)) {}
+
+    ~Completion() {
+      {
+        const std::scoped_lock lock(Output->Mutex);
+        Output->Finished.store(true, std::memory_order_release);
+      }
+      Output->Changed.notify_all();
+    }
+
+    Completion(const Completion &) = delete;
+    Completion &operator=(const Completion &) = delete;
+    std::shared_ptr<Result> Output;
+  };
+
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  std::atomic_bool Finished{false};
+  std::optional<LoadResult> Value;
+};
+
 TransportPreparation::~TransportPreparation() {
-  if (Pending_) {
-    (void)Pending_->Stop.request_stop();
-    Tasks_->Wait(Pending_->Handle);
-  }
+  if (Pending_) { (void)Pending_->Stop.request_stop(); }
+
+  struct RetiredInputs {
+    std::optional<Pending> Request;
+    std::shared_ptr<const SourceSnapshot> Requested;
+    std::shared_ptr<const SourceSnapshot> CurrentSource;
+    std::shared_ptr<const World::TransportNetworkSnapshot> Current;
+  };
+
+  const auto retired = std::make_shared<RetiredInputs>();
+  retired->Request = std::move(Pending_);
+  retired->Requested = std::move(RequestedSource_);
+  retired->CurrentSource = std::move(CurrentSource_);
+  retired->Current = std::move(Current_);
+  (void)Tasks_->PostDetached([retired] { (void)retired; });
+}
+
+bool TransportPreparation::AwaitProgress(double seconds) const {
+  if (!Pending_ || !(seconds > 0.0)) { return false; }
+  const auto &output = Pending_->Output;
+  std::unique_lock lock(output->Mutex);
+  return output->Changed.wait_for(lock, std::chrono::duration<double>(seconds), [&] {
+    return output->Finished.load(std::memory_order_acquire);
+  });
 }
 
 std::expected<void, std::string>
@@ -115,7 +162,7 @@ TransportPreparation::SetRequest(std::vector<Data::SourceProvider> requested,
 }
 
 void TransportPreparation::Poll() {
-  if (Pending_ && Tasks_->TakeCompletion(Pending_->Handle)) {
+  if (Pending_ && Pending_->Output->Finished.load(std::memory_order_acquire)) {
     const Pending finished = std::move(*Pending_);
     Pending_.reset();
     if (finished.Revision != Revision_) {
@@ -149,18 +196,28 @@ void TransportPreparation::StartRequested() {
   std::vector<Data::SourceProvider> input = Requested_;
   std::vector<CircuitRequest> routes = RequestedRoutes_;
   const std::string root = Root_;
-  const auto source = RequestedSource_;
   std::stop_source stop;
   const std::stop_token token = stop.get_token();
-  const Tasks::Handle handle = Tasks_->Post(
-      [input = std::move(input), routes = std::move(routes), root, source, result, token] {
-        result->Value =
-            source ? BuildSource(source, routes, token) : Load(input, root, routes, token);
-      });
-  Pending_.emplace(Pending{.Handle = handle,
-                           .Revision = Revision_,
-                           .Output = std::move(result),
-                           .Stop = std::move(stop)});
+  const auto completion = std::make_shared<Result::Completion>(result);
+  const bool accepted = Tasks_->PostDetached([input = std::move(input),
+                                              routes = std::move(routes),
+                                              root,
+                                              source = RequestedSource_,
+                                              completion,
+                                              token] mutable {
+    if (token.stop_requested()) {
+      completion->Output->Value =
+          std::unexpected(std::string("semantic OSM source build canceled"));
+    } else if (source) {
+      completion->Output->Value = BuildSource(source, routes, token);
+    } else {
+      completion->Output->Value = Load(input, root, routes, token);
+    }
+    source.reset();
+  });
+  if (!accepted) { result->Value.emplace(std::unexpected("semantic OSM compute queue is closed")); }
+  Pending_.emplace(
+      Pending{.Revision = Revision_, .Output = std::move(result), .Stop = std::move(stop)});
 }
 
 TransportPreparation::LoadResult
