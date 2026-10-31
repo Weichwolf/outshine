@@ -32,6 +32,7 @@ def run(args):
             "source_patch_support_study.py",
             "source_patch_support.py",
             "surface_patch_overlay.py",
+            "surface_patch_envelope.py",
             "source_patch_product.py",
             "source_patch_inputs.py",
             "source_patch_candidates.py",
@@ -98,7 +99,12 @@ def run(args):
     for identity in sorted(old_groups):
         before, after = old_groups[identity], new_groups[identity]
         result = compare_source(
-            old[before], new[after], old_material[before], new_material[after]
+            old[before],
+            new[after],
+            old_material[before],
+            new_material[after],
+            boundary_envelope=args.boundary_envelope,
+            max_envelope_work=args.max_envelope_work,
         )
         results.append({"prepared_source_ordinal": identity, **result})
     cpu = time.process_time() - began
@@ -120,6 +126,10 @@ def run(args):
         "complete_chart_comparisons": sum(
             row["mode"] == "complete_common_charts" for row in proven
         ),
+        "complete_boundary_envelopes": sum(
+            row["mode"] == "complete_boundary_envelopes" for row in proven
+        ),
+        "boundary_envelope_enabled": args.boundary_envelope,
         "unknown_retain_original": len(unknown),
         "unknown_reasons": dict(Counter(row["reason"] for row in unknown)),
         "proved_sources_with_zero_geometry_and_varying_error": sum(
@@ -132,8 +142,14 @@ def run(args):
         "proved_overlay_vertex_evaluations": sum(
             row["overlay_vertex_evaluations"] for row in proven
         ),
+        "envelope_polygon_clips": sum(
+            row.get("envelope_polygon_clips", 0) for row in proven
+        ),
+        "point_triangle_tests": sum(
+            row.get("point_triangle_tests", 0) for row in proven
+        ),
         "single_comparison_cpu_s": cpu,
-        "scope": "Continuous numeric geometry/linear-varying correspondence on complete common closed chart domains. Unknowns are not zero-error. No native signed-word/interpolation/derivative/raster/PBR/World/device admission and no tolerance policy or replacement selected. Time is one structural run; no repeated cost/peak claim.",
+        "scope": "Continuous numeric geometry/linear-varying correspondence through common cells and, when enabled, explicit convex remainder maps. Unknowns are not zero-error. Proved work counters exclude failed attempts, while CPU covers all sources. No native signed-word/interpolation/derivative/raster/PBR/World/device admission and no tolerance policy or replacement selected. Time is one structural run; no repeated cost/peak claim.",
     }
     if hashes != {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}:
         raise ValueError("Comparison source changed during the run")
@@ -171,4 +187,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--boundary-envelope", action="store_true")
+    parser.add_argument("--max-envelope-work", type=int, default=32768)
     run(parser.parse_args())

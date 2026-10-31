@@ -109,6 +109,16 @@ def chart(positions, fields, faces, axes):
     return triangles, values, areas, signs.pop()
 
 
+def validate_axes(axes):
+    if (
+        type(axes) is not tuple
+        or len(axes) != 2
+        or any(type(i) is not int or i not in (0, 1, 2) for i in axes)
+        or axes[0] == axes[1]
+    ):
+        raise ValueError("Two distinct source coordinate axes required")
+
+
 def compare(original, replacement, *, axes):
     """Inputs are (positions, linear fields, indices), with identical field order.
 
@@ -119,13 +129,7 @@ def compare(original, replacement, *, axes):
     bound in source coordinate units. It need not be the tight Hausdorff distance.
     Numeric zero does not certify signed-zero words or native interpolation.
     """
-    if (
-        type(axes) is not tuple
-        or len(axes) != 2
-        or any(type(i) is not int or i not in (0, 1, 2) for i in axes)
-        or axes[0] == axes[1]
-    ):
-        raise ValueError("Two distinct source coordinate axes required")
+    validate_axes(axes)
     old, old_values, old_area, old_sign = chart(*original, axes)
     new, new_values, new_area, new_sign = chart(*replacement, axes)
     if old_sign != new_sign or len(old_values[0][0]) != len(new_values[0][0]):

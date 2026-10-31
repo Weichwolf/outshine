@@ -16,6 +16,22 @@ def quad():
 
 
 class SourcePatchSupport(unittest.TestCase):
+    def test_changed_boundary_is_bounded_explicitly_instead_of_ignored(self):
+        rows, old, new = quad()
+        moved = rows.copy()
+        moved[[0, 3], 0] = 0.125
+        roles = np.zeros(2, np.int8)
+        self.assertFalse(
+            compare_source(rows[old], moved[new], roles, roles)["whole_source_proven"]
+        )
+        result = compare_source(
+            rows[old], moved[new], roles, roles, boundary_envelope=True
+        )
+        self.assertTrue(result["whole_source_proven"])
+        self.assertEqual(result["mode"], "complete_boundary_envelopes")
+        self.assertEqual(result["position_error_squared"], F(1, 64))
+        self.assertEqual(result["projected_remainder_area_sum"], (F(1, 8), 0))
+
     def test_complete_changed_diagonal_is_exact_in_geometry_and_affine_fields(self):
         rows, old, new = quad()
         p = compare_source(

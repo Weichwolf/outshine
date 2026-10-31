@@ -1,4 +1,4 @@
-"""Compare complete source surfaces through bounded exact common charts.
+"""Compare complete source surfaces through bounded exact chart correspondences.
 
 Material slots, constant original normal words, flat facade codes and winding
 separate components. Bounds are numeric geometry/linear-varying correspondence,
@@ -10,6 +10,7 @@ from fractions import Fraction as F
 
 import numpy as np
 from source_patch_candidates import integer_positions
+from surface_patch_envelope import compare_envelope
 from surface_patch_overlay import compare
 
 
@@ -99,7 +100,15 @@ def compact_chart(corners):
     return values[:, :3], values[:, 3:], inverse.reshape(-1, 3).astype(np.uint32)
 
 
-def compare_source(original, replacement, original_material, replacement_material):
+def compare_source(
+    original,
+    replacement,
+    original_material,
+    replacement_material,
+    *,
+    boundary_envelope=False,
+    max_envelope_work=32768,
+):
     result = {
         "whole_source_proven": False,
         "proved_groups": 0,
@@ -126,31 +135,49 @@ def compare_source(original, replacement, original_material, replacement_materia
         groups = components(all_corners, all_material)
         maximum, fields = F(0), [F(0)] * 11
         pairs = vertices = 0
+        clips = point_tests = 0
+        remainder_area = [F(0), F(0)]
         for indices, axes in groups:
             before = [i for i in indices if i < len(original)]
             after = [i - len(original) for i in indices if i >= len(original)]
             if not before or not after:
                 raise ValueError("Unmatched original/candidate surface component")
-            bound = compare(
+            old_chart, new_chart = (
                 compact_chart(original[before]),
                 compact_chart(replacement[after]),
-                axes=axes,
+            )
+            bound = (
+                compare_envelope(
+                    old_chart, new_chart, axes=axes, max_work=max_envelope_work
+                )
+                if boundary_envelope
+                else compare(old_chart, new_chart, axes=axes)
             )
             maximum = max(maximum, bound["position_error_squared"])
             fields = [
                 max(a, b)
                 for a, b in zip(fields, bound["field_error_absolute"], strict=True)
             ]
-            pairs += bound["triangle_pairs"]
-            vertices += bound["overlay_vertex_evaluations"]
+            pairs += len(before) * len(after)
+            vertices += bound.get("overlay_vertex_evaluations", 0)
+            if boundary_envelope:
+                clips += bound["polygon_clips"]
+                point_tests += bound["point_triangle_tests"]
+                remainder_area[0] += bound["original_outside_candidate"]["chart_area"]
+                remainder_area[1] += bound["candidate_outside_original"]["chart_area"]
             result["proved_groups"] += 1
         return result | {
             "whole_source_proven": True,
-            "mode": "complete_common_charts",
+            "mode": "complete_boundary_envelopes"
+            if boundary_envelope
+            else "complete_common_charts",
             "position_error_squared": maximum,
             "field_error_absolute": tuple(fields),
             "triangle_pairs": pairs,
             "overlay_vertex_evaluations": vertices,
+            "envelope_polygon_clips": clips,
+            "point_triangle_tests": point_tests,
+            "projected_remainder_area_sum": tuple(remainder_area),
         }
     except ValueError as error:
         return result | {"reason": str(error)}
