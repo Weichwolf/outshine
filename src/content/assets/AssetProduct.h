@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_ASSETS_ASSETPRODUCT_H
 #include "AssetCache.h"
 #include <cstddef>
+#include <string>
 #include <variant>
 
 namespace outshine {
@@ -14,6 +15,7 @@ public:
   // Object/string capacities and the whole retained package, excluding allocator overhead.
   [[nodiscard]] size_t CapacityBytes() const noexcept;
   [[nodiscard]] size_t BackingBytes() const noexcept;
+  void SetRequestBinding(std::string request);
   void ClearRequestBinding() noexcept;
 
 private:

@@ -107,6 +107,8 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
     const std::scoped_lock lock(Lock);
     const auto owner = Consumers.find(consumer);
     if (owner == Consumers.end()) { return; }
+    Held.InputBytes -= owner->second.Bytes;
+    owner->second.Bytes = 0;
     owner->second.Alive = false;
     for (auto &[id, demand] : Tickets) {
       if (demand.Consumer == consumer) {
@@ -122,6 +124,31 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
   }
   for (auto &stop : stops) { (void)stop.request_stop(); }
   if (!stops.empty()) { WakeStopped(); }
+}
+
+std::expected<void, AssetPublicationError>
+AssetPipeline::RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept {
+  if (consumer.State_ != State_ || ticket.State_ != State_) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  const std::scoped_lock lock(State_->Lock);
+  const auto demand = State_->Tickets.find(ticket.Id_);
+  const auto owner = State_->Consumers.find(consumer.Id_);
+  if (demand == State_->Tickets.end() || owner == State_->Consumers.end() ||
+      demand->second.Consumer != consumer.Id_) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  if (!owner->second.Alive || demand->second.Cancelled ||
+      owner->second.Generation != demand->second.Generation) {
+    return std::unexpected(AssetPublicationError::Cancelled);
+  }
+  if (!demand->second.Work->Finished ||
+      demand->second.Work->Result.Status != AssetPublicationStatus::Ready) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  owner->second.Bytes += demand->second.Bytes;
+  demand->second.Bytes = 0;
+  return {};
 }
 
 AssetPipeline::Consumer::Consumer(std::shared_ptr<State> state, AssetConsumerId id)
@@ -177,6 +204,32 @@ AssetPipeline::RequestTicket::~RequestTicket() {
 
 void AssetPipeline::RequestTicket::Cancel() noexcept {
   if (State_) { State_->CancelTicket(Id_); }
+}
+
+bool AssetPipeline::RequestTicket::Reject() noexcept {
+  if (!State_) { return false; }
+  AssetPublication retired;
+  std::shared_ptr<State::Reservation> reservation;
+  {
+    const std::scoped_lock lock(State_->Lock);
+    const auto found = State_->Tickets.find(Id_);
+    if (found == State_->Tickets.end() || found->second.Cancelled) { return false; }
+    const auto &job = found->second.Work;
+    if (!job->Finished) { return false; }
+    if (job->Result.Status != AssetPublicationStatus::Ready) {
+      return job->Result.Error == AssetPublicationError::Rejected;
+    }
+    retired = std::move(job->Result);
+    job->Result = {.Status = AssetPublicationStatus::Failed,
+                   .Receipt = {},
+                   .Error = AssetPublicationError::Rejected,
+                   .Message = "asset receipt rejected by consumer",
+                   .Finished = true,
+                   .Native = {}};
+    reservation = std::move(job->Output);
+    std::erase_if(State_->Jobs, [&](const auto &entry) { return entry.second == job; });
+  }
+  return true;
 }
 
 std::expected<void, AssetPublicationError>

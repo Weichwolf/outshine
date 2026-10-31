@@ -60,6 +60,16 @@ void CheckReceipt(const std::string &path) {
   const auto alias = (*opened)->FindRequest(Key("request"));
   CHECK(alias && *alias && (**alias).Key == Key("first") && (**alias).RequestKey == Key("request"),
         "the same atomic commit preserves durable request bindings");
+  const auto firstBytes = (*opened)->PackageBytes(Key("first"), package.Bytes.size());
+  const auto secondBytes = (*opened)->PackageBytes(Key("second"), package.Bytes.size());
+  CHECK(firstBytes && *firstBytes == package.Bytes.size() && secondBytes &&
+            *secondBytes == package.Bytes.size(),
+        "metadata admission measures the whole shared package rather than either slice");
+  if (!firstBytes || !*firstBytes || !secondBytes || !*secondBytes) { return; }
+  const auto small = (*opened)->PackageBytes(Key("second"), 3);
+  const auto absent = (*opened)->PackageBytes(Key("absent"), package.Bytes.size());
+  CHECK(!small && small.error() == AssetCacheError::CapacityExceeded && absent && !*absent,
+        "metadata rejects a whole-package overflow and keeps absence distinct from empty data");
   opened->reset();
   auto fresh = AssetCache::Open(path);
   CHECK(fresh.has_value(), "a fresh cache connection sees the committed package");
@@ -68,6 +78,15 @@ void CheckReceipt(const std::string &path) {
   CHECK(loaded && *loaded && (**loaded).Bytes().size() == 3 && (**loaded).Bytes().front() == 4 &&
             (**loaded).Bytes().back() == 6,
         "the real loader still verifies and exposes exactly the requested native slice");
+  auto replacement = package.Bytes;
+  replacement.resize(32);
+  CHECK((*fresh)->Publish(package.Records, replacement),
+        "a later writer can replace the measured package before the byte read");
+  const auto stale = (*fresh)->Load(Key("second"), **secondBytes);
+  const auto current = (*fresh)->PackageBytes(Key("second"), replacement.size());
+  CHECK(!stale && stale.error() == AssetCacheError::CapacityExceeded && current &&
+            *current == replacement.size() && (*fresh)->Find(Key("second"))->has_value(),
+        "stale admission refuses a larger read without erasing the newer valid product");
 }
 }
 

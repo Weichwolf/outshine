@@ -1,5 +1,6 @@
 #include "AssetCacheState.h"
 #include "AssetPackageCodec.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -50,6 +51,38 @@ CachedAsset::CachedAsset(AssetRecord record, std::vector<uint8_t> bytes)
 std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
   return std::span(Package_).subspan(static_cast<size_t>(Record_.OffsetBytes),
                                      static_cast<size_t>(Record_.ByteCount));
+}
+
+std::expected<std::optional<size_t>, AssetCacheError>
+AssetCache::PackageBytes(std::string_view key, size_t packageBytesMost) const {
+  if (!AssetSql::ValidKey(key) || packageBytesMost == 0) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  const std::scoped_lock lock(*State_->Mutex);
+  AssetSql::Statement statement;
+  auto prepared = AssetSql::Prepare(
+      State_->Database,
+      "SELECT CASE WHEN typeof(p.bytes)='blob' AND typeof(p.codec)='integer' "
+      "AND typeof(p.native_bytes)='integer' THEN length(p.bytes) END,p.codec,p.native_bytes "
+      "FROM assets a LEFT JOIN packages p ON p.key=a.package WHERE a.key=?",
+      statement);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  if (!AssetSql::Text(statement.Value, 1, key)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  const int code = sqlite3_step(statement.Value);
+  if (code == SQLITE_DONE) { return std::nullopt; }
+  if (code != SQLITE_ROW) { return std::unexpected(AssetSql::Error(code)); }
+  if (sqlite3_column_type(statement.Value, 0) != SQLITE_INTEGER) { return size_t{0}; }
+  const auto stored = sqlite3_column_int64(statement.Value, 0);
+  const auto codec = sqlite3_column_int64(statement.Value, 1);
+  const auto declared = sqlite3_column_int64(statement.Value, 2);
+  if (stored < 0 || declared < 0 || (codec != 0 && codec != 1)) { return size_t{0}; }
+  const auto native = codec == 0 && declared == 0 ? stored : declared;
+  if (std::cmp_greater(stored, packageBytesMost) || std::cmp_greater(native, packageBytesMost)) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  return static_cast<size_t>(std::max(stored, native));
 }
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>

@@ -43,7 +43,8 @@ enum class AssetPublicationError : uint8_t {
   InvalidReceipt,
   ProducerFailed,
   DispatcherStopped,
-  Cancelled
+  Cancelled,
+  Rejected
 };
 enum class AssetPublicationStatus : uint8_t { Pending, Ready, Failed, Cancelled };
 
@@ -55,6 +56,7 @@ struct AssetPublication {
   bool Finished = false;
   std::optional<AssetRequestKey> RequestKey = std::nullopt;
   std::shared_ptr<const CachedAsset> Native;
+  bool RequestHit = false;
 };
 }
 #endif

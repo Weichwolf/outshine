@@ -60,6 +60,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     AssetConsumerGeneration Generation;
     AssetStoreScope Scope;
     size_t Tickets = 0;
+    size_t Bytes = 0;
     bool Alive = true;
   };
 

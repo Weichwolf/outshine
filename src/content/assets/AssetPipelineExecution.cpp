@@ -63,7 +63,8 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
           .Receipt = std::move(record),
           .Error = AssetPublicationError::InvalidRequest,
           .Message = {},
-          .Native = std::move(native)};
+          .Native = std::move(native),
+          .RequestHit = job->Domain == KeyDomain::Request};
 }
 
 void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,

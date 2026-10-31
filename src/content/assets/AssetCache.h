@@ -121,6 +121,10 @@ public:
   [[nodiscard]] std::expected<bool, AssetCacheError>
   UnbindRequestIfMatches(const AssetRecord &binding);
 
+  // Metadata only: maximum stored/native whole-package length, before bounded Load.
+  // Zero means that Load needs no body IO; concurrent changes remain checked by its bound.
+  [[nodiscard]] std::expected<std::optional<size_t>, AssetCacheError>
+  PackageBytes(std::string_view key, size_t packageBytesMost) const;
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
   using Validator = std::function<std::expected<bool, AssetCacheError>(const CachedAsset &)>;

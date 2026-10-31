@@ -1,5 +1,6 @@
 #include "AssetProduct.h"
 #include <cstddef>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -28,6 +29,14 @@ size_t AssetProduct::CapacityBytes() const noexcept {
 size_t AssetProduct::BackingBytes() const noexcept {
   const auto *native = Native();
   return native != nullptr ? native->Package_.capacity() : 0;
+}
+
+void AssetProduct::SetRequestBinding(std::string request) {
+  if (auto *record = std::get_if<AssetRecord>(&Data_)) {
+    record->RequestKey = std::move(request);
+  } else {
+    std::get<CachedAsset>(Data_).Record_.RequestKey = std::move(request);
+  }
 }
 
 void AssetProduct::ClearRequestBinding() noexcept {

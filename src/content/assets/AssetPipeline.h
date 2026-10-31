@@ -65,6 +65,8 @@ public:
     RequestTicket(const RequestTicket &) = delete;
     RequestTicket &operator=(const RequestTicket &) = delete;
     void Cancel() noexcept;
+    // Reject a completed receipt for its joined demands; new requests resolve again.
+    [[nodiscard]] bool Reject() noexcept;
     [[nodiscard]] AssetPublication Poll() const noexcept;
     // Replace this ticket's consumer retention before allocating owner buffers.
     // Release old buffers before shrinking; cancellation retains bytes until ticket destruction.
@@ -104,19 +106,24 @@ public:
   using ResumableProducer =
       std::function<std::expected<std::optional<AssetProduct>, std::string>(std::stop_token)>;
 
-  struct ResolvedWork {
-    AssetProductKey Key;
-    ResumableProducer Produce;
-  };
-
   // The next call starts only after this total input bound replaces the current one.
   // The producer releases old stage buffers before requesting a smaller bound.
   struct InputAdmission {
     size_t Bytes = 0;
   };
 
-  using LogicalStep = std::variant<std::optional<AssetProduct>, ResolvedWork, InputAdmission>;
+  struct LogicalStep;
   using LogicalProducer = std::function<std::expected<LogicalStep, std::string>(std::stop_token)>;
+
+  struct ResolvedWork {
+    AssetProductKey Key;
+    LogicalProducer Produce;
+  };
+
+  struct LogicalStep : std::variant<std::optional<AssetProduct>, ResolvedWork, InputAdmission> {
+    using variant::variant;
+  };
+
   AssetPipeline(Tasks &pool, Limits limits);
   [[nodiscard]] std::expected<Consumer, AssetPublicationError>
   OpenConsumer(AssetStoreScope scope = {});
@@ -130,6 +137,11 @@ public:
   // Each ticket retains its address; all resolved consumers share an unannotated receipt.
   [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>
   RequestLogical(const Consumer &consumer, const LogicalRequest &request, LogicalProducer producer);
+  // Move a completed ticket's consumer bytes onto its existing consumer.
+  // Destroy retained buffers before that consumer; releasing the ticket may free its native
+  // package.
+  [[nodiscard]] std::expected<void, AssetPublicationError>
+  RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept;
   [[nodiscard]] Snapshot Counts() const noexcept;
 
 private:

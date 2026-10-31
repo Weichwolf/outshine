@@ -3,22 +3,32 @@
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
-#include "SourceSet.h"
 #include <algorithm>
 #include <array>
-#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <limits>
 #include <memory>
 #include <optional>
-#include <ratio>
+#include <stop_token>
 #include <string>
 #include <system_error>
 #include <utility>
 
 namespace outshine::Generators::Osm {
+PreparedOsmTiles::Work::Work(std::string request,
+                             Layout definition,
+                             const std::shared_ptr<const uint8_t> &owner,
+                             AssetPipeline::Consumer consumer,
+                             AssetPipeline::RequestTicket ticket)
+    : Request(std::move(request)),
+      Definition(std::move(definition)),
+      Owner(owner),
+      Consumer(std::move(consumer)),
+      Ticket(std::move(ticket)) {}
+
 PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
                                    std::shared_ptr<Data::SourceSession> sources,
                                    Data::SourceTransport &transport,
@@ -30,7 +40,15 @@ PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
       Transport_(transport),
       Compute_(compute),
       Recipe_(std::move(recipe)),
-      Budget_(budget) {}
+      Budget_(budget),
+      Pipeline_(compute,
+                {.JobsMost = budget.ProductsMost,
+                 .ConsumersMost = budget.ProductsMost,
+                 .TicketsMost = budget.ProductsMost,
+                 .InputBytesMost = budget.InputBytesMost,
+                 .ReceiptBytesMost = budget.ProductsMost * kReceiptBytesMost}) {
+  Pending_.reserve(budget.PendingMost);
+}
 
 std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
 PreparedOsmTiles::Open(const std::string &directory,
@@ -47,8 +65,10 @@ PreparedOsmTiles::Open(const std::string &directory,
                        Tasks &compute,
                        Budget budget) {
   if (!sources) { return std::unexpected("native OSM preparation requires configured sources"); }
-  if (budget.PendingMost == 0 || budget.PublicationBytesMost == 0) {
-    return std::unexpected("invalid native OSM publication budget");
+  if (budget.PendingMost == 0 || budget.PublicationBytesMost == 0 || budget.ProductsMost == 0 ||
+      budget.InputBytesMost == 0 ||
+      budget.ProductsMost > std::numeric_limits<size_t>::max() / kReceiptBytesMost) {
+    return std::unexpected("invalid native OSM admission budget");
   }
   std::error_code error;
   std::filesystem::create_directories(directory, error);
@@ -63,52 +83,32 @@ PreparedOsmTiles::Open(const std::string &directory,
 }
 
 PreparedOsmTiles::~PreparedOsmTiles() {
-  for (const auto &[key, work] : Pending_) { work->Cancelled.store(true); }
-  for (const auto &[key, work] : Pending_) {
+  for (const auto &work : Pending_) {
+    work->Cancelled.store(true);
+    if (work->Ticket) { work->Ticket->Cancel(); }
+  }
+  for (const auto &work : Pending_) {
     if (work->Task != Tasks::kNoTask) { Compute_.Wait(work->Task); }
+    if (!work->Ticket) { continue; }
+    auto &ticket = *work->Ticket;
+    constexpr double waitS = 0.001;
+    while (!ticket.Poll().Finished) { (void)Compute_.AwaitCompletion(waitS); }
   }
-}
-
-void PreparedOsmTiles::Observe(Work &work, const std::shared_ptr<const uint8_t> &owner) {
-  std::erase_if(work.Owners, [](const auto &held) { return held.expired(); });
-  if (std::ranges::none_of(work.Owners, [&](const auto &held) { return held.lock() == owner; })) {
-    work.Owners.push_back(owner);
-  }
-}
-
-void PreparedOsmTiles::Forget(Work &work) {
-  if (work.Generating) {
-    --Generating_;
-    work.Generating = false;
-  }
-  SetPublication(work, std::nullopt);
 }
 
 bool PreparedOsmTiles::CompleteTask(Work &work) {
   if (work.Task == Tasks::kNoTask) { return true; }
   if (!Compute_.TakeCompletion(work.Task)) { return false; }
   work.Task = Tasks::kNoTask;
-  if (work.Generating) {
-    --Generating_;
-    work.Generating = false;
-  }
-  if (work.Stage == Work::Phase::Generate && work.Publication) {
-    work.Stage = Work::Phase::Publish;
-  }
   return true;
 }
 
 void PreparedOsmTiles::RetireUnused() {
-  NextRetire_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(1);
-  std::erase_if(Pending_, [this](const auto &entry) {
-    auto &work = *entry.second;
-    if (std::ranges::any_of(work.Owners, [](const auto &held) { return !held.expired(); })) {
-      return false;
-    }
-    work.Cancelled.store(true);
-    if (!CompleteTask(work)) { return false; }
-    Forget(work);
-    return true;
+  std::erase_if(Pending_, [this](const auto &work) {
+    if (!work->Owner.expired()) { return false; }
+    work->Cancelled.store(true);
+    if (work->Ticket) { work->Ticket->Cancel(); }
+    return CompleteTask(*work) && (!work->Ticket || work->Ticket->Poll().Finished);
   });
 }
 
@@ -133,135 +133,83 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
       std::cmp_greater_equal(at.Y, uint32_t{1} << static_cast<unsigned>(layout.Zoom_))) {
     return std::unexpected("invalid native OSM tile address");
   }
+  RetireUnused();
   const Layout definition{.Zoom = layout.Zoom_, .Schema = layout.Schema_, .Layers = layout.Layers_};
   const auto request = RequestKey(at, definition);
   if (request.empty()) { return std::unexpected("invalid native OSM tile request"); }
-  if ((Pending_.size() >= Budget_.PendingMost ||
-       PublicationBytes_.load() >= Budget_.PublicationBytesMost ||
-       std::cmp_greater_equal(Generating_, Compute_.Threads())) &&
-      std::chrono::steady_clock::now() >= NextRetire_) {
-    RetireUnused();
-  }
-  const auto found = Pending_.find(request);
-  if (found == Pending_.end()) {
-    if (Pending_.size() >= Budget_.PendingMost) { return SourceDelivery{}; }
-    auto work = std::make_shared<Work>();
-    work->Definition = definition;
-    Observe(*work, layout.Demand_);
-    work->Task = Compute_.Post([this, work, request] { Lookup(request, *work); });
-    if (work->Task == Tasks::kNoTask) {
-      return std::unexpected("native OSM tile lookup was not accepted");
-    }
-    Pending_.emplace(request, std::move(work));
-    return SourceDelivery{};
-  }
-  const auto work = found->second;
-  if (work->Cancelled.load()) {
-    if (CompleteTask(*work)) {
-      Forget(*work);
+  const auto found = std::ranges::find_if(Pending_, [&](const auto &work) {
+    return work->Request == request && work->Owner.lock() == layout.Demand_;
+  });
+  if (found != Pending_.end()) {
+    auto result = Advance(*found);
+    if (result &&
+        (result->Status == State::Ready || result->Status == State::Absent || (*found)->Retry)) {
       Pending_.erase(found);
     }
-    return SourceDelivery{};
+    return result;
   }
-  Observe(*work, layout.Demand_);
-  auto result = Advance(at, request, work);
-  if (result && (result->Status == State::Ready || result->Status == State::Absent)) {
-    Forget(*work);
-    Pending_.erase(request);
+  if (Pending_.size() >= Budget_.PendingMost) { return SourceDelivery{}; }
+  auto consumer = Pipeline_.OpenConsumer();
+  if (!consumer) { return SourceDelivery{}; }
+  auto production = std::make_shared<Production>(*this, definition, at, request);
+  auto ticket = Pipeline_.RequestLogical(
+      *consumer,
+      {.Address = request,
+       .Generation = consumer->Generation(),
+       .ReceiptBytesMost = kReceiptBytesMost},
+      [this, production](const std::stop_token &stop) { return Resolve(production, stop); });
+  if (!ticket) {
+    if (ticket.error() == AssetPublicationError::ResourceDeferred) { return SourceDelivery{}; }
+    return std::unexpected("native OSM asset job was not accepted");
   }
-  return result;
-}
-
-std::expected<PreparedOsmTiles::SourceDelivery, std::string_view> PreparedOsmTiles::Advance(
-    TileAt at, const std::string &request, const std::shared_ptr<Work> &work) {
-  if (!CompleteTask(*work)) { return SourceDelivery{}; }
-  if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
-  if (*work->Result) {
-    return SourceDelivery{.Status = State::Ready, .Product = std::move(*work->Result)};
-  }
-  if (work->Stage == Work::Phase::Lookup || work->Stage == Work::Phase::Publish ||
-      work->Stage == Work::Phase::Restore) {
-    if (std::chrono::steady_clock::now() < work->RetryAt) { return SourceDelivery{}; }
-    work->Task = Compute_.Post([this, work, request] {
-      if (work->Stage == Work::Phase::Lookup) {
-        Lookup(request, *work);
-      } else {
-        const auto began = std::chrono::steady_clock::now();
-        Publish(request, *work);
-        PublicationMs_.fetch_add(
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count());
-      }
-    });
-    if (work->Task == Tasks::kNoTask) {
-      work->Result = std::unexpected("native OSM publication task was not accepted");
-      return std::unexpected(std::string_view(work->Result.error()));
-    }
-    return SourceDelivery{};
-  }
-  if (work->Stage != Work::Phase::Source) {
-    return std::unexpected("native OSM generation returned no complete asset");
-  }
-  if (std::cmp_greater_equal(Generating_, Compute_.Threads()) ||
-      PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
-    return SourceDelivery{};
-  }
-  if (work->InputState == Data::SourceDelivery::State::Vacant ||
-      work->InputState == Data::SourceDelivery::State::Undeclared) {
-    return SourceDelivery{.Status = State::Absent, .Product = {}};
-  }
-  if (work->InputState == Data::SourceDelivery::State::Refused) {
-    return SourceDelivery{.Status = State::Refused, .Product = {}};
-  }
-  work->Task = Compute_.Post([this, work, at, request] { PollSource(at, request, *work); });
-  if (work->Task == Tasks::kNoTask) {
-    work->Result = std::unexpected("native OSM tile generation was not accepted");
-    return std::unexpected(std::string_view(work->Result.error()));
-  }
-  work->Generating = true;
-  ++Generating_;
+  auto work = std::make_shared<Work>(
+      request, definition, layout.Demand_, std::move(*consumer), std::move(*ticket));
+  Pending_.push_back(std::move(work));
   return SourceDelivery{};
 }
 
-void PreparedOsmTiles::PollSource(TileAt at, const std::string &request, Work &work) {
-  if (work.Cancelled.load()) {
-    work.Input.reset();
-    return;
+std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
+PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
+  if (!CompleteTask(*work)) { return SourceDelivery{}; }
+  if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
+  if (*work->Result) {
+    work->Ticket.reset();
+    const Product product(work, work->Result->get());
+    return SourceDelivery{.Status = State::Ready, .Product = product};
   }
-  if (!work.Input) {
-    auto read = Data::SourceSession::Request(
-        Sources_,
-        Data::SourceRequest(Data::DataKind::VectorMap,
-                            Data::Address::At({.Zoom = work.Definition.Zoom,
-                                               .X = static_cast<uint32_t>(at.X),
-                                               .Y = static_cast<uint32_t>(at.Y)})),
-        Transport_);
-    if (!read) {
-      work.Result = std::unexpected(std::move(read.error()));
-      return;
-    }
-    work.Input.emplace(std::move(*read));
+  if (work->Retry) { return SourceDelivery{}; }
+  if (!work->Ticket) { return std::unexpected("native OSM demand has no ticket"); }
+  auto publication = work->Ticket->Poll();
+  switch (publication.Status) {
+    case AssetPublicationStatus::Pending: return SourceDelivery{};
+    case AssetPublicationStatus::Cancelled:
+      return std::unexpected("native OSM preparation cancelled");
+    case AssetPublicationStatus::Failed:
+      if (publication.Error == AssetPublicationError::Rejected) {
+        work->Retry = true;
+        if (work->Ticket) { work->Ticket->Cancel(); }
+        return SourceDelivery{};
+      }
+      if (publication.Message == kAbsent) {
+        return SourceDelivery{.Status = State::Absent, .Product = {}};
+      }
+      if (publication.Message == kRefused) {
+        return SourceDelivery{.Status = State::Refused, .Product = {}};
+      }
+      return std::unexpected("native OSM asset job failed");
+    case AssetPublicationStatus::Ready: break;
   }
-  auto delivery = work.Input->Poll();
-  work.InputState = delivery.Where();
-  if (work.InputState == Data::SourceDelivery::State::Pending) { return; }
-  work.Input.reset();
-  if (work.InputState != Data::SourceDelivery::State::Delivered) {
-    if (work.InputState == Data::SourceDelivery::State::Consumed) {
-      work.Result = std::unexpected("native OSM source reader returned no payload");
-    }
-    return;
+  work->Task = Compute_.Post([this, work, publication = std::move(publication)] {
+    if (!work->Cancelled.load()) { Decode(*work, publication); }
+  });
+  if (work->Task == Tasks::kNoTask) {
+    return std::unexpected("native OSM decode task was not accepted");
   }
-  auto landing = delivery.Take();
-  if (!landing) {
-    work.Result = std::unexpected("native OSM source reader returned no payload");
-    return;
-  }
-  work.Stage = Work::Phase::Generate;
-  const auto began = std::chrono::steady_clock::now();
-  work.Result = Generate(at, std::move(*landing), request, work);
-  GenerationMs_.fetch_add(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  return SourceDelivery{};
+}
+
+AssetPipeline::Snapshot PreparedOsmTiles::AdmissionCounts() const noexcept {
+  return Pipeline_.Counts();
 }
 
 PreparedOsmTiles::Counters PreparedOsmTiles::Costs() const noexcept {
