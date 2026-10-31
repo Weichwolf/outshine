@@ -86,28 +86,41 @@ def run(args):
         (membership[i][0], membership[i][1], membership[i][2], i, membership[i][3])
         for i in selected
     )
+    runs = []
+    for record in selected_rows:
+        cell, offset, length, _, _ = record
+        if runs and runs[-1][0] == cell and offset <= runs[-1][2] + args.gap_bytes:
+            runs[-1][2] = offset + length
+            runs[-1][3].append(record)
+        else:
+            runs.append([cell, offset, offset + length, [record]])
     reads = selected_bytes = selected_scalars = 0
     began = time.process_time()
     decoded = {}
-    for cell, offset, length, identity, expected in selected_rows:
+    for cell, start, end, records in runs:
         with paths[cell].open("rb") as stream:
-            stream.seek(offset)
-            raw = stream.read(length)
+            stream.seek(start)
+            blob = stream.read(end - start)
         reads += 1
-        selected_bytes += len(raw)
-        if len(raw) != length or hashlib.sha256(raw).digest() != expected:
-            raise ValueError("Selected source recipe incomplete or changed")
-        reader = Reader(raw)
-        result = read_surface(reader)
-        if reader.at != len(raw) or result != oracle[identity]:
-            raise ValueError("Selected recipe differs from complete cell decode")
-        selected_scalars += reader.numbers
-        decoded[identity] = result
+        selected_bytes += len(blob)
+        if len(blob) != end - start:
+            raise ValueError("Selected recipe range incomplete")
+        for _, offset, length, identity, expected in records:
+            raw = blob[offset - start : offset - start + length]
+            if hashlib.sha256(raw).digest() != expected:
+                raise ValueError("Selected source recipe incomplete or changed")
+            reader = Reader(raw)
+            result = read_surface(reader)
+            if reader.at != len(raw) or result != oracle[identity]:
+                raise ValueError("Selected recipe differs from complete cell decode")
+            selected_scalars += reader.numbers
+            decoded[identity] = result
     cpu = time.process_time() - began
     report = {
         "angle": args.angle,
         "sources_in_index": len(table),
         "selected_sources": len(decoded),
+        "coalesce_gap_bytes": args.gap_bytes,
         "prepared_span_index_bytes": args.output.stat().st_size,
         "selected_recipe_bytes_read": selected_bytes,
         "selected_read_calls": reads,
@@ -129,5 +142,6 @@ if __name__ == "__main__":
     parser.add_argument("--index-sha256", required=True)
     parser.add_argument("--view", type=Path, required=True)
     parser.add_argument("--angle", type=int, default=65)
+    parser.add_argument("--gap-bytes", type=int, choices=(0, 256, 4096), default=0)
     parser.add_argument("--output", type=Path, required=True)
     run(parser.parse_args())
