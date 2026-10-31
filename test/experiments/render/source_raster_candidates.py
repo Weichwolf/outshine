@@ -13,6 +13,14 @@ MAX_CHUNK = 65536
 VERTEX_BATCH = 8192
 
 
+def _row_product(values, matrix):
+    """Fixed four-term sums; BLAS changes accumulation with the row count."""
+    result = values[:, :1] * matrix[:, 0]
+    for column in range(1, 4):
+        result += values[:, column : column + 1] * matrix[:, column]
+    return result
+
+
 def _project_block(positions, view_words, placement_words, raster):
     """Static litVertex order; finite FP32 normal arithmetic is an assumption."""
     view = view_words.view("<f4")
@@ -30,23 +38,21 @@ def _project_block(positions, view_words, placement_words, raster):
         return None
     gamma = 7 * eps / (1 - 7 * eps)
     points = np.c_[positions.astype(float), np.ones(len(positions))]
-    stable = points @ placement.T
-    error = gamma * (abs(points) @ abs(placement).T) + 7 * tiny
+    stable = _row_product(points, placement)
+    placed_magnitude = _row_product(abs(points), abs(placement))
+    error = gamma * placed_magnitude + 7 * tiny
     world = stable + shift
     error += eps * (abs(world) + error) + tiny
-    clip = world @ matrix.T
+    clip = _row_product(world, matrix)
+    clip_magnitude = _row_product(abs(world) + error, abs(matrix))
     maximum = float(np.finfo(np.float32).max)
     if (
-        np.any(abs(points) @ abs(placement).T > maximum)
+        np.any(placed_magnitude > maximum)
         or np.any(abs(stable) + abs(shift) + error > maximum)
-        or np.any((abs(world) + error) @ abs(matrix).T > maximum)
+        or np.any(clip_magnitude > maximum)
     ):
         return None
-    error = (
-        error @ abs(matrix).T
-        + gamma * ((abs(world) + error) @ abs(matrix).T)
-        + 7 * tiny
-    )
+    error = _row_product(error, abs(matrix)) + gamma * clip_magnitude + 7 * tiny
     lower, upper = (
         np.nextafter(clip - error, -np.inf),
         np.nextafter(clip + error, np.inf),
