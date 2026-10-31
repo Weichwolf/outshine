@@ -111,6 +111,21 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/stages/SurfaceFrame/MirroredInstancesKeepTangentHandedness")
+    set(surface_frame_shader "${PROJECT_BINARY_DIR}/test-shaders/surface-frame.comp.spv")
+    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+    add_custom_command(OUTPUT "${surface_frame_shader}"
+      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+        "-I${PROJECT_SOURCE_DIR}/src" --depfile "${surface_frame_shader}.d"
+        "${PROJECT_SOURCE_DIR}/test/outshine/data/render/surface-frame.comp"
+        -o "${surface_frame_shader}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/surface-frame.comp"
+      DEPFILE "${surface_frame_shader}.d" VERBATIM)
+    add_custom_target(test_surface_frame_shader DEPENDS "${surface_frame_shader}")
+    add_dependencies(${target} test_surface_frame_shader)
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_SURFACE_FRAME_SHADER=\"${surface_frame_shader}\"")
+  endif()
   if(name STREQUAL "outshine/src/render/device/native/vulkan/GraphicsPrograms/LivingProgramsKeepIndependentWrappersAndFences")
     set(graphics_reuse_shaders "")
     foreach(stage IN ITEMS vert frag)
