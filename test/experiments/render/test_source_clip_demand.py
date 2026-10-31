@@ -1,5 +1,6 @@
 """Strict root exclusion, independent exact/F32 checks, unchanged unknown fallback."""
 
+import copy
 import hashlib
 import itertools
 import json
@@ -11,6 +12,8 @@ from unittest.mock import patch
 
 import numpy as np
 from compare_source_hierarchy import changed_frame, equivalent
+from native_source_clip_controls import bind
+from native_source_clip_controls import read as native_controls
 from native_source_triangle_materials import DATA
 from native_world_inputs import load
 from prepare_source_clip_controls import export_controls
@@ -186,6 +189,56 @@ class RootClip(unittest.TestCase):
 
 
 class WholeSource(unittest.TestCase):
+    def test_reported_native_lens_operands_rebind_the_seven_empty_controls(self):
+        m, _, _, source = load(DATA, attributes=True)
+        h = prepare(source)
+        with np.load(
+            DATA / "native-visible-triangles.npz", allow_pickle=False
+        ) as archive:
+            frames, record = native_controls(archive["near-direction/view_words"])
+            for row in record["controls"]:
+                ids, work = query(
+                    h,
+                    frames[row["angle"]],
+                    archive["placements/words"],
+                    m["raster"],
+                    raster_guard_px=0.0,
+                )
+                empty = row["angle"] in (90, 120, 150, 180, 210, 240, 270)
+                self.assertEqual(work["reason"] == "source_outside_xy_clip", empty)
+                for key in (
+                    "same_colour_words",
+                    "same_depth_words",
+                    "same_integral_words",
+                ):
+                    self.assertEqual(row[key], empty)
+                self.assertEqual(row["forwarded_draws"], 3)
+                self.assertEqual(row["omitted_draws"], 3)
+                if empty:
+                    self.assertFalse(len(ids))
+                    self.assertEqual(row["covered_pixels"], 0)
+                else:
+                    self.assertGreater(len(ids), 0)
+                    self.assertGreater(row["covered_pixels"], 0)
+                if row["angle"] == 65:
+                    self.assertFalse(work["complete_model"])
+            changed = copy.deepcopy(record)
+            changed["source_fixture_manifest_sha256"] = "0" * 64
+            with self.assertRaises(ValueError):
+                bind(
+                    changed,
+                    archive["near-direction/view_words"],
+                    (DATA / "manifest.json").read_bytes(),
+                )
+            changed = copy.deepcopy(record)
+            changed["controls"][0]["projection_words_u32"][0] = 2**32
+            with self.assertRaises(ValueError):
+                bind(
+                    changed,
+                    archive["near-direction/view_words"],
+                    (DATA / "manifest.json").read_bytes(),
+                )
+
     def test_capture_controls_keep_base_lens_eye_and_separate_synthetic_words(self):
         m, _, _, source = load(DATA, attributes=True)
         h = prepare(source)
