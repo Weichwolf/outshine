@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from source_patch_product import FIELDS, SLICES, write_product
+from source_patch_product import FIELDS, SLICES, read_product, write_product
 
 
 class SourcePatchProduct(unittest.TestCase):
@@ -62,6 +62,13 @@ class SourcePatchProduct(unittest.TestCase):
                 hashlib.sha256((root / "face-sources.npz").read_bytes()).hexdigest(),
             )
             self.assertEqual(report["prepared_source_face_binding_bytes"], 8)
+            replay = read_product(root, report, {12, 34})
+            self.assertEqual(len(replay), 3)
+            np.testing.assert_array_equal(replay[0][2], [12])
+            labels_path = root / "face-sources.npz"
+            labels_path.write_bytes(labels_path.read_bytes() + b"changed")
+            with self.assertRaisesRegex(ValueError, "hash changed"):
+                read_product(root, report, {12, 34})
 
     def test_missing_original_source_is_not_a_valid_partial_product(self):
         with (

@@ -6,11 +6,93 @@ ordinals are copied from the bound originals or the source being constructed.
 
 import hashlib
 import json
+import zipfile
 
 import numpy as np
 
 FIELDS = ("positions", "normals", "uv", "uv1", "colours")
 SLICES = (slice(0, 3), slice(3, 6), slice(6, 8), slice(8, 10), slice(10, 14))
+
+
+def read_product(output, record, source_ordinals):
+    required = ("native_description_sha256", "prepared_source_face_binding_sha256")
+    if any(key not in record for key in required):
+        raise ValueError("Bound candidate metadata and actual source labels required")
+    geometry = output / "geometry/0"
+    description, label_path = geometry / "input.json", output / "face-sources.npz"
+    if (
+        not 0 < description.stat().st_size <= 65536
+        or hashlib.sha256(description.read_bytes()).hexdigest() != record[required[0]]
+        or not 0 < label_path.stat().st_size <= 2 * 1024**2
+        or hashlib.sha256(label_path.read_bytes()).hexdigest() != record[required[1]]
+    ):
+        raise ValueError("Candidate description/source-label hash changed")
+    parts = json.loads(description.read_text())["parts"]
+    if parts != record["parts"] or len(parts) != 3:
+        raise ValueError("Complete original material slot description required")
+    expected_files, result = set(), []
+    for material, part in enumerate(parts):
+        if (
+            any(
+                type(part[key]) is not int
+                for key in ("material", "vertices", "triangles")
+            )
+            or part["material"] != material
+            or not 0 <= part["vertices"] <= 131072
+            or not 0 <= part["triangles"] <= 131072
+        ):
+            raise ValueError("Bounded original native material parts required")
+        values = {}
+        for name, width in (*zip(FIELDS, (3, 3, 2, 2, 4), strict=True), ("indices", 3)):
+            count = part["triangles" if name == "indices" else "vertices"]
+            filename = f"{material}/{name}.bin"
+            expected_files.add(filename)
+            path = geometry / filename
+            if path.stat().st_size != 4 * count * width or hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest() != record["native_file_sha256"].get(filename):
+                raise ValueError("Complete candidate native words changed: " + filename)
+            values[name] = np.fromfile(
+                path, "<u4" if name == "indices" else "<f4"
+            ).reshape(count, width)
+            if not np.isfinite(values[name]).all():
+                raise ValueError("Finite complete candidate fields required")
+        if values["indices"].size and values["indices"].max() >= part["vertices"]:
+            raise ValueError("Candidate face outside material-part vertices")
+        result.append((part, values))
+    if set(record["native_file_sha256"]) != expected_files:
+        raise ValueError("Exact native candidate operand inventory required")
+    names = {
+        f"part{i}_prepared_source_ordinals.npy": p["triangles"]
+        for i, p in enumerate(parts)
+    }
+    with zipfile.ZipFile(label_path) as archive:
+        entries = archive.infolist()
+        if (
+            len(entries) != 3
+            or {entry.filename for entry in entries} != set(names)
+            or any(
+                not 0 < entry.file_size <= 4 * names[entry.filename] + 1024
+                for entry in entries
+            )
+        ):
+            raise ValueError("Bounded complete source-label arrays required")
+    labels = []
+    with np.load(label_path, allow_pickle=False) as saved:
+        for i, part in enumerate(parts):
+            value = saved[f"part{i}_prepared_source_ordinals"]
+            if value.dtype != np.dtype("<i4") or value.shape != (part["triangles"],):
+                raise ValueError(
+                    "Exact per-triangle prepared-source label rows required"
+                )
+            labels.append(value)
+    if not np.array_equal(
+        np.unique(np.concatenate(labels)), np.sort(np.array(list(source_ordinals)))
+    ):
+        raise ValueError("Every bound original source must remain present")
+    return tuple(
+        (part, values, ids) for (part, values), ids in zip(result, labels, strict=True)
+    )
 
 
 def write_product(chunks, source_order, selected_sources, original_parts, output):
