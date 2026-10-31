@@ -161,9 +161,12 @@ def run(args, *, retained_groups=None):
         "recipe_read_mode": "span" if args.span_index else "whole_cell",
         "group_bytes_reread": group_bytes,
         "group_bytes_reused": reused_bytes,
+        "retained_group_blob_bytes": sum(map(len, retained_groups.values()))
+        if retained_groups is not None
+        else 0,
         "index_bytes_reread": len(raw_index),
         "output_bytes": args.output.stat().st_size,
-        "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. This stage repeats earlier group/fallback reads in a separate process.",
+        "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. Group bytes are either reread or passed in-process from selection; other metadata and any required fallback are still reread.",
     }
     args.output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
