@@ -118,9 +118,14 @@ def run(args, *, retained_groups=None, selected_sources=None):
     early_fallbacks = {}
     control_index_bytes = 0
     control_index = getattr(args, "control_index", None)
-    if control_index is not None:
-        if max_controls is None:
-            raise ValueError("Control index requires a control budget")
+    if control_index is not None and max_controls is None:
+        raise ValueError("Control index requires a control budget")
+    if (
+        control_index is not None
+        and selected
+        and max_controls != 0
+        and max_triangles != 0
+    ):
         counts, control_index_bytes = load_controls(
             control_index, args.control_index_sha256, raw_index, bounds
         )
