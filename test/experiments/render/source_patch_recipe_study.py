@@ -213,7 +213,7 @@ def run(args):
             for row in constructed
         ),
         "whole_input_binding_cpu_s": preparation_cpu,
-        "whole_form_decode_construction_and_word_comparison_cpu_s": time.process_time()
+        "whole_form_decode_construction_comparison_and_exports_cpu_s": time.process_time()
         - began,
         "form_reads": form_reads,
         "form_bytes": form_bytes,
