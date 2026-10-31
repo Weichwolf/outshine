@@ -8,7 +8,7 @@ from decimal import localcontext
 from fractions import Fraction as F
 
 import numpy as np
-from road_normal_cone import NormalModel
+from road_normal_cone import NormalModel, box_ratio
 from road_normal_math import polynomial_range, sqrt_interval, trig_point
 from road_surface_model import Curve
 from test_road_surface_lod import recipe
@@ -106,6 +106,20 @@ class ExactRanges(unittest.TestCase):
 
 
 class NormalCones(unittest.TestCase):
+    def test_paired_corner_cone_preserves_a_tighter_whole_box_bound(self):
+        anchor = (F(1), F(1), F(1))
+        bounds = (F(9, 10), F(11, 10))
+        ratio = box_ratio(anchor, bounds, bounds)
+        self.assertEqual(ratio, F(1, 150))
+        self.assertLess(ratio, F(7, 1000))
+        # The previous independent numerator/denominator extrema reject it.
+        self.assertGreater(F(3, 50) / F(14, 5) ** 2, F(7, 1000))
+        for i, j in itertools.product(range(21), repeat=2):
+            x, y = F(9, 10) + F(i, 100), F(9, 10) + F(j, 100)
+            interior = ((1 - y) ** 2 + (x - 1) ** 2 + (y - x) ** 2) / (x + y + 1) ** 2
+            self.assertLessEqual(interior, ratio)
+        self.assertIsNone(box_ratio((F(1), F(0), F(1)), (F(-2), F(0)), (F(0), F(0))))
+
     def test_heading_reuse_keeps_cell_and_point_phases_distinct(self):
         curve = Curve(recipe(curvature=0.02, height=0.01, bank_rate=0.01))
         model = NormalModel(curve)

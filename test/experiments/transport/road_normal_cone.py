@@ -34,6 +34,30 @@ def limit(value):
     return value
 
 
+def box_ratio(anchor, x, y):
+    """Enclose the box's squared tangent using paired corner cross/dot values.
+
+    Here anchor=(ax, ay, 1) and v=(x, y, 1).
+    With positive dot products the cone ||anchor cross v|| <= t*(anchor dot v)
+    is convex: both cross and dot are linear, and the norm obeys the triangle
+    inequality. If every vertex lies in the cone, every convex combination
+    does too. No sampled interior admission or interval-independent extrema
+    are needed. None rejects a box crossing the anchor hemisphere.
+    """
+    ratios = []
+    for v, w in product(x, y):
+        dot = anchor[0] * v + anchor[1] * w + 1
+        if dot <= 0:
+            return None
+        cross2 = (
+            (anchor[1] - w) ** 2
+            + (v - anchor[0]) ** 2
+            + (anchor[0] * w - anchor[1] * v) ** 2
+        )
+        ratios.append(cross2 / dot**2)
+    return max(ratios)
+
+
 class NormalModel:
     """One generation borrows an unchanged Curve; last-value slots are bounded."""
 
@@ -134,21 +158,14 @@ class NormalModel:
         x = add(negative(multiply(q, cosine)), negative(multiply(b, sine)))
         y = add(negative(multiply(q, sine)), multiply(b, cosine))
         anchor = (-sum(q) / 2, sum(b) / 2, F(1))
-        dot_low = min(anchor[0] * v + anchor[1] * w + 1 for v, w in product(x, y))
-        if dot_low <= 0:
+        ratio = box_ratio(anchor, x, y)
+        if ratio is None:
             return {
                 "accepted": False,
                 "reason": "normal_hemisphere",
                 "score": float("inf"),
             }
-        cross2 = max(
-            (anchor[1] - w) ** 2
-            + (v - anchor[0]) ** 2
-            + (anchor[0] * w - anchor[1] * v) ** 2
-            for v, w in product(x, y)
-        )
-        accepted = cross2 <= dot_low**2 * tan_limit_squared
-        ratio = cross2 / dot_low**2
+        accepted = ratio <= tan_limit_squared
         return {
             "accepted": accepted,
             "reason": "whole_parameter_cone",
