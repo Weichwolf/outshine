@@ -3,6 +3,7 @@
 import gzip
 import hashlib
 import json
+import math
 import zipfile
 from pathlib import Path
 
@@ -57,10 +58,33 @@ def verify(root):
             "declared native pages",
         )
         require(archive.testzip() is None, "page archive CRC")
+    with gzip.open(root / "roads.json.gz", "rb") as source:
+        raw = source.read(16 * 1024**2 + 1)
+    require(len(raw) <= 16 * 1024**2, "bounded rendered roads")
+    roads = json.loads(raw)
+    require(roads["schema"] == 1, "road schema")
+    parts = roads["parts"]
+    require(len({p["part"] for p in parts}) == len(parts), "original unique road parts")
+    for part in parts:
+        positions = part["positions"]
+        require(len(part["placement"]) == 16 and len(positions) % 3 == 0, "road layout")
+        require(
+            all(math.isfinite(v) for v in positions + part["placement"]), "finite roads"
+        )
+        require(
+            len(part["triangles"]) % 3 == 0
+            and all(0 <= i < len(positions) // 3 for i in part["triangles"]),
+            "road vertex references",
+        )
+    require(
+        all(len(w["source_points"]) % 2 == 0 for w in roads["source_ways"]),
+        "source latitude/longitude pairs",
+    )
     return {
         "stamps": len(stamps),
         "water_faces": len(faces),
         "pages": len(manifest["pages"]),
+        "road_parts": len(parts),
         "state": "captured_inputs_verified",
     }
 

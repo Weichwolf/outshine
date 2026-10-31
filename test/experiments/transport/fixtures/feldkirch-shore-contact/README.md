@@ -7,6 +7,8 @@ All files work offline. `python3 verify.py` checks identity and topology referen
 |---|---|
 | `contact.json.gz` | Original frame, 18,493 selected whole stamps, all 7,522 water vertices / 6,507 faces and face/source incidence |
 | `water.native.gz` | Complete original WaterAsset, including source identities, inputs, rings, levels, prepared mesh and rejections; decode with the captured native codec |
+| `roads.json.gz` | Eleven whole rendered streets parts (30,374 vertices / 24,438 triangles), original page/plan references and 2,145 local source-way observations |
+| `road-overlap.json` | Double-precision membership check: neither diagnostic point is on a captured rendered road triangle; this is not a GPU/navigation oracle |
 | `deformed-pages.npz` | Four existing z20 pages around the observed edge; immutable float32 35×35 words including halo |
 | `dem-16-34514-22987.webp` | Original cached Mapterhorn Terrarium source; RGB: R×256+G+B/256−32768 metres |
 | `input.json` | File hashes, capture/source identity, page metadata and native observations |
@@ -34,7 +36,17 @@ Native observations: stamp 46764 lowers the first point to the basin bed; stamp
 Numbers are observations, not desired replacement heights. Native and geodetic
 heights differ by frame curvature. The final original image is reproduced exactly.
 
-Still missing: original road render/navigation mesh and its source association,
+Road positions use East/Up/South, column-major affine part placements and the
+declared anchor. The selected parts are complete; their bounds intersect the
+local rectangle without clipping faces. Manifest pages remain unfiltered, so do
+not infer a one-to-one relation between page ordinal and selected part ordinal.
+Source-way point pairs are latitude/longitude degrees. Source ways preserve
+their original indices/points and provider feature/tile/digest
+references. They are selected by feature bounds, not by a proved contact-key
+closure. Neither diagnostic point is covered by a rendered road triangle in the
+double membership check. The corridor effect is an apron, not a road surface hit.
+
+Still missing: road navigation mesh and per-triangle source-way association,
 all original/deformed DEM outside the supplied pages/tile, and globally refused
 stamp state. Water/native provenance does not supply missing road provenance.
 Never treat missing exterior samples or the selection rectangle as a physical bank.

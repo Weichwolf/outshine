@@ -1,0 +1,17 @@
+{
+  "points_en_m": [
+    [
+      -188.50601464013968,
+      326.27135276265295
+    ],
+    [
+      -187.69356590070743,
+      326.2713422458944
+    ]
+  ],
+  "hits": [
+    [],
+    []
+  ],
+  "scope": "double barycentric membership of captured Float32 render triangles; no exact GPU sample or navigation proof"
+}
