@@ -80,6 +80,22 @@ PreparedOsmTiles::LookupHit(Production &work) {
 
 std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::OpenSource(const std::shared_ptr<Production> &work) {
+  if (!work->Input) {
+    auto read = Data::SourceSession::Request(
+        Sources_,
+        Data::SourceRequest(Data::DataKind::VectorMap,
+                            Data::Address::At({.Zoom = work->Definition.Zoom,
+                                               .X = static_cast<uint32_t>(work->At.X),
+                                               .Y = static_cast<uint32_t>(work->At.Y)})),
+        Transport_);
+    if (!read) { return std::unexpected(std::move(read.error())); }
+    const auto most = read->PayloadBytesMost();
+    if (!most || *most > kPackageBytesMost) {
+      return std::unexpected("native OSM source requires a finite supported payload bound");
+    }
+    work->SourceMost = *most;
+    work->Input.emplace(std::move(*read));
+  }
   if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
     if (!work->SourceAdmitted) { return std::optional<AssetProduct>{}; }
     work->SourceAdmitted = false;
@@ -87,17 +103,10 @@ PreparedOsmTiles::OpenSource(const std::shared_ptr<Production> &work) {
   }
   if (!work->SourceAdmitted) {
     work->SourceAdmitted = true;
-    return AssetPipeline::InputAdmission{.Bytes = kColdBytesMost};
+    const auto peak =
+        work->SourceMost == 0 ? 0 : 2 * work->SourceMost + 4 * Data::MaximumResponseHeaderBytes;
+    return AssetPipeline::InputAdmission{.Bytes = peak};
   }
-  auto read = Data::SourceSession::Request(
-      Sources_,
-      Data::SourceRequest(Data::DataKind::VectorMap,
-                          Data::Address::At({.Zoom = work->Definition.Zoom,
-                                             .X = static_cast<uint32_t>(work->At.X),
-                                             .Y = static_cast<uint32_t>(work->At.Y)})),
-      Transport_);
-  if (!read) { return std::unexpected(std::move(read.error())); }
-  work->Input.emplace(std::move(*read));
   work->Stage = Production::Phase::AwaitSource;
   return PollSource(work);
 }
@@ -120,7 +129,7 @@ PreparedOsmTiles::PollSource(const std::shared_ptr<Production> &work) {
     case Data::SourceDelivery::State::Delivered: break;
   }
   auto landing = delivery.Take();
-  if (!landing || landing->Bytes.capacity() > kPackageBytesMost) {
+  if (!landing || landing->Bytes.capacity() > work->SourceMost) {
     return std::unexpected("invalid or oversized native OSM source payload");
   }
   work->ProductKey = ProductKey(work->Request,
@@ -130,7 +139,7 @@ PreparedOsmTiles::PollSource(const std::shared_ptr<Production> &work) {
   const auto key = AssetProductKey::Parse(work->ProductKey);
   if (!key) { return std::unexpected("invalid native OSM content identity"); }
   work->Landing = std::move(landing);
-  work->Stage = Production::Phase::Generate;
+  work->Stage = Production::Phase::Prepare;
   return AssetPipeline::ResolvedWork{
       .Key = *key,
       .Produce = [this, work](const std::stop_token &next) { return Produce(*work, next); }};

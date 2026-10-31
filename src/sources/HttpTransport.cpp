@@ -203,7 +203,12 @@ HttpTransport::~HttpTransport() {
 }
 
 Data::FetchStart HttpTransport::Begin(const std::string &url) {
-  return Start(url, std::nullopt, {});
+  return Start(url, std::nullopt, {}, Config_.MaxBodyBytes);
+}
+
+Data::FetchStart HttpTransport::Begin(const std::string &url, size_t bodyBytesMost) {
+  if (bodyBytesMost == 0) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
+  return Start(url, std::nullopt, {}, std::min(bodyBytesMost, Config_.MaxBodyBytes));
 }
 
 Data::FetchStart
@@ -214,12 +219,13 @@ HttpTransport::Begin(const std::string &url, Data::ByteRange range, std::string_
   if (range.Length > Config_.MaxBodyBytes) {
     return std::unexpected(Data::SourceFailureReason::CapacityRefused);
   }
-  return Start(url, range, entityTag);
+  return Start(url, range, entityTag, static_cast<size_t>(range.Length));
 }
 
 Data::FetchStart HttpTransport::Start(const std::string &url,
                                       std::optional<Data::ByteRange> range,
-                                      std::string_view entityTag) {
+                                      std::string_view entityTag,
+                                      size_t bodyBytesMost) {
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
@@ -244,7 +250,7 @@ Data::FetchStart HttpTransport::Start(const std::string &url,
     transfer.Origin = origin;
     transfer.Range = range;
     transfer.IfMatch = entityTag;
-    transfer.MaxBodyBytes = range ? static_cast<size_t>(range->Length) : Config_.MaxBodyBytes;
+    transfer.MaxBodyBytes = bodyBytesMost;
     if (range) {
       transfer.RangeText =
           std::to_string(range->First) + "-" + std::to_string(range->First + range->Length - 1);
@@ -352,6 +358,13 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
     if (byteCount > active.MaxBodyBytes || active.Body.size() > active.MaxBodyBytes - byteCount) {
       active.Failure = Data::SourceFailureReason::CapacityRefused;
       return 0;
+    }
+    const auto required = active.Body.size() + byteCount;
+    if (required > active.Body.capacity()) {
+      const auto grown = active.Body.capacity() > active.MaxBodyBytes / 2
+                             ? active.MaxBodyBytes
+                             : 2 * active.Body.capacity();
+      active.Body.reserve(std::max(required, grown));
     }
     const auto *source = static_cast<const uint8_t *>(data);
     active.Body.insert(active.Body.end(), source, source + byteCount);

@@ -45,6 +45,9 @@ public:
 
     [[nodiscard]] bool Undeclared() const noexcept { return Candidates_.empty(); }
 
+    // Maximum eligible source payload; zero for no source, nullopt for an unknown bound.
+    [[nodiscard]] std::optional<size_t> PayloadBytesMost() const noexcept;
+
   private:
     friend class SourceSet;
 

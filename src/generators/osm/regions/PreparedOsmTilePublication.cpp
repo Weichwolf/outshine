@@ -36,7 +36,24 @@ std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::Produce(Production &work, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
   switch (work.Stage) {
-    case Production::Phase::Generate: return PrepareContent(work);
+    case Production::Phase::Prepare: return PrepareContent(work);
+    case Production::Phase::GenerationAdmission:
+      if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
+        return std::optional<AssetProduct>{};
+      }
+      work.Stage = Production::Phase::Generate;
+      return AssetPipeline::InputAdmission{.Bytes = kColdBytesMost};
+    case Production::Phase::Generate: {
+      if (!work.Landing) { return std::unexpected("native OSM generation has no input"); }
+      if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
+        work.Stage = Production::Phase::GenerationAdmission;
+        return AssetPipeline::InputAdmission{.Bytes = work.Landing->Bytes.capacity()};
+      }
+      auto generated = Generate(work);
+      if (!generated) { return std::unexpected(std::move(generated.error())); }
+      work.Stage = Production::Phase::Publish;
+      return AssetPipeline::InputAdmission{.Bytes = work.PublicationBytes};
+    }
     case Production::Phase::Publish: return Publish(work);
     case Production::Phase::RestorePlan: return PlanRestore(work);
     case Production::Phase::Restore: return Restore(work);
@@ -55,11 +72,9 @@ PreparedOsmTiles::PrepareContent(Production &work) {
     work.Stage = Production::Phase::RestorePlan;
     return PlanRestore(work);
   }
-  if (auto generated = Generate(work); !generated) {
-    return std::unexpected(std::move(generated.error()));
-  }
-  work.Stage = Production::Phase::Publish;
-  return AssetPipeline::InputAdmission{.Bytes = work.PublicationBytes};
+  if (!work.Landing) { return std::unexpected("native OSM preparation has no input owner"); }
+  work.Stage = Production::Phase::GenerationAdmission;
+  return AssetPipeline::InputAdmission{.Bytes = work.Landing->Bytes.capacity()};
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Publish(Production &work) {

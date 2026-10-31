@@ -6,6 +6,8 @@
 #include "SourceRequest.h"
 #include "SourceResponse.h"
 #include "SourceTransport.h"
+#include <algorithm>
+#include <cstddef>
 #include <atomic>
 #include <array>
 #include <expected>
@@ -36,6 +38,7 @@ public:
     Decl_.Kind = Data::DataKind::VectorMap;
     Decl_.Wire = Data::WireFormat::MapboxVectorTile;
     Decl_.Keeps = Data::Cacheability::Never;
+    Decl_.MaximumPayloadBytes = std::max(size_t{1}, Bytes_.size());
   }
 
   [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }

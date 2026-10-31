@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -17,6 +18,7 @@ using namespace outshine::Data;
 using namespace outshine::Generators::Osm;
 
 struct Calls {
+  size_t PayloadMost = 1024;
   std::thread::id Owner = std::this_thread::get_id();
   std::atomic_uint Begins{0}, Polls{0}, Cancellations{0}, Destructions{0};
   std::atomic_bool WorkerOnly{true};
@@ -34,6 +36,7 @@ public:
     Decl_.Kind = DataKind::VectorMap;
     Decl_.Wire = WireFormat::MapboxVectorTile;
     Decl_.Keeps = Cacheability::Never;
+    Decl_.MaximumPayloadBytes = Calls_.PayloadMost;
   }
 
   ~PendingSource() override { ++Calls_.Destructions; }
@@ -107,6 +110,34 @@ void Retire(const std::filesystem::path &directory) {
   CHECK(calls.Cancellations == 1 && calls.Destructions == 1 && retained.expired(),
         "service retirement drains its worker then cancels before releasing the last session");
 }
+
+void RefuseBeforeIO(const std::filesystem::path &directory, size_t payloadMost) {
+  Calls calls;
+  calls.PayloadMost = payloadMost;
+  Test::OsmCache::NoTransport transport;
+  Tasks compute(1);
+  auto session = Test::OsmCache::OpenSession(std::make_unique<PendingSource>(calls));
+  CHECK(session, "the pre-IO source fixture opens");
+  if (!session) { return; }
+  auto cache = PreparedOsmTiles::Open(directory.string(),
+                                      *session,
+                                      transport,
+                                      compute,
+                                      {.InputBytesMost = Data::MaximumResponseHeaderBytes});
+  CHECK(cache, "the native service opens with a deliberately insufficient input budget");
+  if (!cache) { return; }
+  const std::array<std::string, 1> layers{"buildings"};
+  const OsmField layout(2, layers, MvtSchema::OpenMapTiles);
+  bool refused = false;
+  const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (!refused && std::chrono::steady_clock::now() < until) {
+    refused = !(*cache)->Acquire({.X = 1, .Y = 1}, layout);
+    (void)compute.AwaitCompletion(0.001);
+  }
+  CHECK(refused && calls.Begins == 0 && calls.Polls == 0 && calls.Cancellations == 0,
+        "unknown or unadmittable source bytes refuse before any provider IO starts");
+}
+
 }
 
 int main() {
@@ -115,6 +146,8 @@ int main() {
       ("outshine-owned-osm-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Retire(directory);
+  RefuseBeforeIO(directory / "unknown", 0);
+  RefuseBeforeIO(directory / "insufficient", 1024);
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "the private native cache is removed after every source owner retires");

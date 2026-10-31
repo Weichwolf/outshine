@@ -98,6 +98,8 @@ private:
       Hit,
       Source,
       AwaitSource,
+      Prepare,
+      GenerationAdmission,
       Generate,
       Publish,
       RestorePlan,
@@ -110,6 +112,7 @@ private:
     Phase Stage = Phase::Index;
     bool SourceAdmitted = false;
     size_t LoadMost = 0;
+    size_t SourceMost = 0;
     std::optional<Data::SourceSession::Read> Input;
     std::optional<Data::SourceDelivery::Answer> Landing;
     std::optional<PreparedAssetWrite> Publication;

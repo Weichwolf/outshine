@@ -65,6 +65,7 @@ public:
     Decl_.Kind = DataKind::VectorMap;
     Decl_.Wire = WireFormat::MapboxVectorTile;
     Decl_.Keeps = Cacheability::Never;
+    Decl_.MaximumPayloadBytes = UrbanTile().size();
   }
 
   [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
