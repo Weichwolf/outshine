@@ -146,7 +146,7 @@ class Reads:
             "logical_pages_4096": len(pages),
             "reused_blocks": self.reused_blocks,
             "retained_block_bytes": sum(len(value) for value in self.kept.values()),
-            "known_retained_block_copy_bytes": self.copied_blocks,
+            "retained_block_slice_bytes_upper_bound": self.copied_blocks,
         }
 
 

@@ -92,6 +92,22 @@ class PayloadBoundaries(unittest.TestCase):
         self.assertEqual(reads.work()["reused_blocks"], 0)
         self.assertEqual(reads.work()["returned_bytes"], 36)
 
+    def test_motion_reads_only_new_block_then_releases_unneeded_block(self):
+        layout = self.layout()
+        first = Reads()
+        self.check(layout, first)
+        previous = first.retain(layout)
+        self.view.view("<f4")[12:14] = 0.06
+        moved = Reads(previous)
+        self.check(layout, moved)
+        self.assertEqual(moved.requests, [("corners.bin", 36, 72, 36)])
+        self.assertIs(moved.kept[0], previous.blocks[0])
+        self.view.view("<f4")[12:14] = 0
+        back = Reads(moved.retain(layout))
+        self.check(layout, back)
+        self.assertFalse(back.requests)
+        self.assertEqual(set(back.kept), {0})
+
     def test_missing_or_corrupt_selected_block_retains_whole_not_partial(self):
         layout = self.layout()
         for payload in (b"", b"x" * 72):
@@ -133,12 +149,14 @@ class PayloadBoundaries(unittest.TestCase):
         reads = Reads()
         self.check(layout, reads)
         self.assertEqual(reads.requests[0][0], "original.bin")
-        layout.original.write_bytes(b"")
-        ids, work = query(
-            layout, self.view, self.placement, [8, 8], raster_guard_px=0.0
-        )
-        np.testing.assert_array_equal(ids, [0])
-        self.assertEqual(work["reason"], "payload_unavailable")
+        valid = layout.original.read_bytes()
+        for payload in (b"", bytes([valid[0] ^ 1]) + valid[1:]):
+            layout.original.write_bytes(payload)
+            ids, work = query(
+                layout, self.view, self.placement, [8, 8], raster_guard_px=0.0
+            )
+            np.testing.assert_array_equal(ids, [0])
+            self.assertEqual(work["reason"], "payload_unavailable")
 
     def test_fine_budget_keeps_original_even_when_unread_groups_exist(self):
         layout = self.layout()
@@ -157,7 +175,15 @@ class PayloadBoundaries(unittest.TestCase):
         ):
             reads = Reads()
             with self.assertRaises(ValueError):
-                self.check(layout, reads, **options)
+                query(
+                    layout,
+                    self.view,
+                    self.placement,
+                    [8, 8],
+                    raster_guard_px=0.0,
+                    reads=reads,
+                    **options,
+                )
             self.assertFalse(reads.requests)
 
     def test_empty_demand_does_not_require_payload(self):
