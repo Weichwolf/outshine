@@ -1,10 +1,11 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include "MvtSchema.h"
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -31,18 +32,40 @@ PreparedOsmTiles::Work::Work(std::string request,
       Consumer(std::move(consumer)),
       Ticket(std::move(ticket)) {}
 
+PreparedOsmTiles::Worker::Worker(std::unique_ptr<AssetCache> cache,
+                                 std::shared_ptr<Data::SourceSession> sources,
+                                 Data::SourceTransport &transport,
+                                 Tasks &compute,
+                                 std::string recipe,
+                                 Budget budget)
+    : Cache_(std::move(cache)),
+      Sources_(std::move(sources)),
+      Transport_(transport),
+      Compute_(compute),
+      Recipe_(std::move(recipe)),
+      Budget_(budget) {}
+
+PreparedOsmTiles::DecodeJob::DecodeJob(std::shared_ptr<Worker> context,
+                                       std::shared_ptr<Work> input,
+                                       AssetPublication publication)
+    : Context(std::move(context)), Input(std::move(input)), Publication(std::move(publication)) {}
+
+PreparedOsmTiles::DecodeJob::~DecodeJob() {
+  Input->Decoding.store(false, std::memory_order_release);
+}
+
+void PreparedOsmTiles::DecodeJob::Run() const {
+  if (!Input->Cancelled.load()) { Context->Decode(*Input, Publication); }
+}
+
 PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
                                    std::shared_ptr<Data::SourceSession> sources,
                                    Data::SourceTransport &transport,
                                    Tasks &compute,
                                    std::string recipe,
                                    Budget budget)
-    : Cache_(std::move(cache)),
-      Sources_(std::move(sources)),
-      Transport_(transport),
-      Compute_(compute),
-      Recipe_(std::move(recipe)),
-      Budget_(budget),
+    : Worker_(std::make_shared<Worker>(
+          std::move(cache), std::move(sources), transport, compute, std::move(recipe), budget)),
       Pipeline_(compute,
                 {.JobsMost = budget.ProductsMost,
                  .ConsumersMost = budget.ProductsMost,
@@ -89,28 +112,20 @@ PreparedOsmTiles::~PreparedOsmTiles() {
     work->Cancelled.store(true);
     if (work->Ticket) { work->Ticket->Cancel(); }
   }
-  for (const auto &work : Pending_) {
-    if (work->Task != Tasks::kNoTask) { Compute_.Wait(work->Task); }
-    if (!work->Ticket) { continue; }
-    const auto &ticket = *work->Ticket;
-    constexpr double waitS = 0.001;
-    while (!ticket.Poll().Finished) { (void)Compute_.AwaitCompletion(waitS); }
-  }
+  auto &compute = Worker_->Compute_;
+  (void)compute.PostDetached([worker = std::move(Worker_), pending = std::move(Pending_)] {});
 }
 
-bool PreparedOsmTiles::CompleteTask(Work &work) {
-  if (work.Task == Tasks::kNoTask) { return true; }
-  if (!Compute_.TakeCompletion(work.Task)) { return false; }
-  work.Task = Tasks::kNoTask;
-  return true;
+bool PreparedOsmTiles::DecodeIdle(const Work &work) {
+  return !work.Decoding.load(std::memory_order_acquire);
 }
 
 void PreparedOsmTiles::RetireUnused() {
-  std::erase_if(Pending_, [this](const auto &work) {
+  std::erase_if(Pending_, [](const auto &work) {
     if (!work->Owner.expired()) { return false; }
     work->Cancelled.store(true);
     if (work->Ticket) { work->Ticket->Cancel(); }
-    return CompleteTask(*work) && (!work->Ticket || work->Ticket->Poll().Finished);
+    return DecodeIdle(*work) && (!work->Ticket || work->Ticket->Poll().Finished);
   });
 }
 
@@ -128,7 +143,7 @@ void PreparedOsmTiles::RetainPending(const OsmField &layout,
   RetireUnused();
 }
 
-std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const {
+std::string PreparedOsmTiles::Worker::RequestKey(TileAt at, const Layout &layout) const {
   BinaryValueWriter out(4096);
   if (!out.Text(Recipe_) || !out(layout.Zoom, at.X, at.Y, layout.Schema)) { return {}; }
   for (const auto &layer : layout.Layers) {
@@ -164,18 +179,19 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
     return result;
   }
   const Layout definition{.Zoom = layout.Zoom_, .Schema = layout.Schema_, .Layers = layout.Layers_};
-  const auto request = RequestKey(at, definition);
+  const auto request = Worker_->RequestKey(at, definition);
   if (request.empty()) { return std::unexpected("invalid native OSM tile request"); }
-  if (Pending_.size() >= Budget_.PendingMost) { return SourceDelivery{}; }
+  if (Pending_.size() >= Worker_->Budget_.PendingMost) { return SourceDelivery{}; }
   auto consumer = Pipeline_.OpenConsumer();
   if (!consumer) { return SourceDelivery{}; }
-  const auto production = std::make_shared<Production>(*this, definition, at, request);
-  auto ticket = Pipeline_.RequestLogical(
-      *consumer,
-      {.Address = request,
-       .Generation = consumer->Generation(),
-       .ReceiptBytesMost = kReceiptBytesMost},
-      [this, production](const std::stop_token &stop) { return Resolve(production, stop); });
+  const auto production = std::make_shared<Production>(Worker_, definition, at, request);
+  auto ticket = Pipeline_.RequestLogical(*consumer,
+                                         {.Address = request,
+                                          .Generation = consumer->Generation(),
+                                          .ReceiptBytesMost = kReceiptBytesMost},
+                                         [production](const std::stop_token &stop) {
+                                           return production->Owner->Resolve(production, stop);
+                                         });
   if (!ticket) {
     if (ticket.error() == AssetPublicationError::ResourceDeferred) { return SourceDelivery{}; }
     return std::unexpected("native OSM asset job was not accepted");
@@ -188,7 +204,7 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
 
 std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
 PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
-  if (!CompleteTask(*work)) { return SourceDelivery{}; }
+  if (!DecodeIdle(*work)) { return SourceDelivery{}; }
   if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
   if (*work->Result) {
     work->Ticket.reset();
@@ -217,10 +233,9 @@ PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
       return std::unexpected("native OSM asset job failed");
     case AssetPublicationStatus::Ready: break;
   }
-  work->Task = Compute_.Post([this, work, publication = std::move(publication)] {
-    if (!work->Cancelled.load()) { Decode(*work, publication); }
-  });
-  if (work->Task == Tasks::kNoTask) {
+  work->Decoding.store(true, std::memory_order_release);
+  const auto job = std::make_shared<DecodeJob>(Worker_, work, std::move(publication));
+  if (!Worker_->Compute_.PostDetached([job] { job->Run(); })) {
     return std::unexpected("native OSM decode task was not accepted");
   }
   return SourceDelivery{};
@@ -231,18 +246,18 @@ AssetPipeline::Snapshot PreparedOsmTiles::AdmissionCounts() const noexcept {
 }
 
 PreparedOsmTiles::Counters PreparedOsmTiles::Costs() const noexcept {
-  return {.Hits = Hits_.load(),
-          .Misses = Misses_.load(),
-          .Writes = Writes_.load(),
-          .ReadBytes = ReadBytes_.load(),
-          .ReadMs = ReadMs_.load(),
-          .GenerationMs = GenerationMs_.load(),
-          .Generations = Generations_.load(),
-          .PublicationAttempts = PublicationAttempts_.load(),
-          .PublicationDeferred = PublicationDeferred_.load(),
-          .PublicationBytes = PublicationBytes_.load(),
-          .PublicationPeakBytes = PublicationPeakBytes_.load(),
-          .PublicationReadBytes = PublicationReadBytes_.load(),
-          .PublicationMs = PublicationMs_.load()};
+  return {.Hits = Worker_->Hits_.load(),
+          .Misses = Worker_->Misses_.load(),
+          .Writes = Worker_->Writes_.load(),
+          .ReadBytes = Worker_->ReadBytes_.load(),
+          .ReadMs = Worker_->ReadMs_.load(),
+          .GenerationMs = Worker_->GenerationMs_.load(),
+          .Generations = Worker_->Generations_.load(),
+          .PublicationAttempts = Worker_->PublicationAttempts_.load(),
+          .PublicationDeferred = Worker_->PublicationDeferred_.load(),
+          .PublicationBytes = Worker_->PublicationBytes_.load(),
+          .PublicationPeakBytes = Worker_->PublicationPeakBytes_.load(),
+          .PublicationReadBytes = Worker_->PublicationReadBytes_.load(),
+          .PublicationMs = Worker_->PublicationMs_.load()};
 }
 }

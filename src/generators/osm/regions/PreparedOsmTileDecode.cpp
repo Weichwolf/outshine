@@ -1,4 +1,4 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <cstddef>
@@ -12,7 +12,9 @@
 #include <vector>
 
 namespace outshine::Generators::Osm {
-bool PreparedOsmTiles::AdmitOwner(Work &work, AssetPipeline::RequestTicket &ticket, size_t bytes) {
+bool PreparedOsmTiles::Worker::AdmitOwner(Work &work,
+                                          AssetPipeline::RequestTicket &ticket,
+                                          size_t bytes) {
   const auto admitted = ticket.SetConsumerBytes(bytes);
   if (admitted) { return true; }
   if (admitted.error() != AssetPublicationError::ResourceDeferred) {
@@ -21,9 +23,9 @@ bool PreparedOsmTiles::AdmitOwner(Work &work, AssetPipeline::RequestTicket &tick
   return false;
 }
 
-bool PreparedOsmTiles::Bind(Work &work,
-                            const AssetPublication &publication,
-                            AssetPipeline::RequestTicket &ticket) {
+bool PreparedOsmTiles::Worker::Bind(Work &work,
+                                    const AssetPublication &publication,
+                                    AssetPipeline::RequestTicket &ticket) {
   if (work.Bound || publication.RequestHit) {
     work.Bound = true;
     return true;
@@ -49,9 +51,9 @@ bool PreparedOsmTiles::Bind(Work &work,
   return true;
 }
 
-bool PreparedOsmTiles::RestoreBinding(Work &work,
-                                      const AssetPublication &publication,
-                                      AssetPipeline::RequestTicket &ticket) {
+bool PreparedOsmTiles::Worker::RestoreBinding(Work &work,
+                                              const AssetPublication &publication,
+                                              AssetPipeline::RequestTicket &ticket) {
   const auto bytesMost = publication.Native->Bytes().size();
   size_t required = 0;
   if (work.RepairPublication) {
@@ -94,9 +96,9 @@ bool PreparedOsmTiles::RestoreBinding(Work &work,
   return false;
 }
 
-bool PreparedOsmTiles::LoadWinner(Work &work,
-                                  const AssetRecord &record,
-                                  AssetPipeline::RequestTicket &ticket) {
+bool PreparedOsmTiles::Worker::LoadWinner(Work &work,
+                                          const AssetRecord &record,
+                                          AssetPipeline::RequestTicket &ticket) {
   work.RepairPublication.reset();
   const auto bytes = Cache_->PlanRead(record.Key, kPackageBytesMost);
   if (!bytes) {
@@ -124,9 +126,9 @@ bool PreparedOsmTiles::LoadWinner(Work &work,
   return true;
 }
 
-bool PreparedOsmTiles::Matches(const OsmField &field,
-                               const Work &work,
-                               std::string_view key) const {
+bool PreparedOsmTiles::Worker::Matches(const OsmField &field,
+                                       const Work &work,
+                                       std::string_view key) const {
   const auto &layout = work.Definition;
   if (field.Tiles_.empty() || field.Zoom_ != layout.Zoom || field.Schema_ != layout.Schema ||
       field.Layers_ != layout.Layers) {
@@ -138,9 +140,9 @@ bool PreparedOsmTiles::Matches(const OsmField &field,
              key;
 }
 
-bool PreparedOsmTiles::RepairContent(Work &work,
-                                     const CachedAsset &native,
-                                     AssetPipeline::RequestTicket &ticket) {
+bool PreparedOsmTiles::Worker::RepairContent(Work &work,
+                                             const CachedAsset &native,
+                                             AssetPipeline::RequestTicket &ticket) const {
   const auto bytes = Cache_->PlanRead(native.Record().Key, kPackageBytesMost);
   if (!bytes) {
     if (bytes.error() != AssetCacheError::Busy) {
@@ -167,9 +169,9 @@ bool PreparedOsmTiles::RepairContent(Work &work,
   return false;
 }
 
-void PreparedOsmTiles::Repair(Work &work,
-                              const CachedAsset &native,
-                              AssetPipeline::RequestTicket &ticket) {
+void PreparedOsmTiles::Worker::Repair(Work &work,
+                                      const CachedAsset &native,
+                                      AssetPipeline::RequestTicket &ticket) const {
   if (work.BadBinding) {
     auto binding = native.Record();
     binding.RequestKey = work.Request;
@@ -198,7 +200,7 @@ void PreparedOsmTiles::Repair(Work &work,
   ticket.Cancel();
 }
 
-void PreparedOsmTiles::Decode(Work &work, const AssetPublication &publication) {
+void PreparedOsmTiles::Worker::Decode(Work &work, const AssetPublication &publication) {
   if (!work.Ticket || !publication.Native || !publication.Receipt) {
     work.Result = std::unexpected("native OSM publication has no native backing or ticket");
     return;

@@ -107,8 +107,11 @@ void Retire(const std::filesystem::path &directory) {
           "worker polls resume one live provider read while its session stays pinned");
   }
   cache->reset();
+  const auto retirement = compute.Post([] {});
+  CHECK(retirement != Tasks::kNoTask, "retired source work has a terminal worker barrier");
+  if (retirement != Tasks::kNoTask) { compute.Wait(retirement); }
   CHECK(calls.Cancellations == 1 && calls.Destructions == 1 && retained.expired(),
-        "service retirement drains its worker then cancels before releasing the last session");
+        "retired work cancels before releasing the last session on worker completion");
 }
 
 void RefuseBeforeIO(const std::filesystem::path &directory, size_t payloadMost) {

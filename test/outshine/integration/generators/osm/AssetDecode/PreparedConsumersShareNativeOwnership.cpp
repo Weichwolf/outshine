@@ -132,8 +132,14 @@ void Shared(const std::filesystem::path &directory) {
   const std::weak_ptr<PreparedOsmTiles> service = cache;
   session->reset();
   cache.reset();
+  CHECK(service.expired() && replay && !replay->Points().empty(),
+        "a finished product outlives its retired frontend without a service cycle");
+  const auto cleanupUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (!source.expired() && std::chrono::steady_clock::now() < cleanupUntil) {
+    (void)compute.AwaitCompletion(0.001);
+  }
   CHECK(service.expired() && source.expired() && replay && !replay->Points().empty(),
-        "a finished product outlives its service without retaining the source session or a cycle");
+        "pool cleanup releases the source while the finished product remains valid");
 }
 
 void BoundedWarm(const std::filesystem::path &directory, size_t budget, bool sufficient) {

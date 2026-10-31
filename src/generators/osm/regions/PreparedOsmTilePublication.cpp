@@ -1,4 +1,4 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <chrono>
@@ -14,11 +14,11 @@
 
 namespace outshine::Generators::Osm {
 PreparedOsmTiles::Production::~Production() {
-  if (PublicationBytes != 0) { Owner.SetPublication(*this, std::nullopt); }
+  if (PublicationBytes != 0) { Owner->SetPublication(*this, std::nullopt); }
 }
 
-void PreparedOsmTiles::SetPublication(Production &work,
-                                      std::optional<PreparedAssetWrite> publication) {
+void PreparedOsmTiles::Worker::SetPublication(Production &work,
+                                              std::optional<PreparedAssetWrite> publication) {
   const auto bytes = publication ? publication->CapacityBytes() : 0;
   const auto previous = work.PublicationBytes;
   work.Publication = std::move(publication);
@@ -33,7 +33,7 @@ void PreparedOsmTiles::SetPublication(Production &work,
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::Produce(Production &work, const std::stop_token &stop) {
+PreparedOsmTiles::Worker::Produce(Production &work, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
   switch (work.Stage) {
     case Production::Phase::Prepare: return PrepareContent(work);
@@ -57,7 +57,7 @@ PreparedOsmTiles::Produce(Production &work, const std::stop_token &stop) {
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::PrepareContent(Production &work) {
+PreparedOsmTiles::Worker::PrepareContent(Production &work) const {
   const auto found = Cache_->Find(work.ProductKey);
   if (!found) {
     if (found.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
@@ -72,7 +72,8 @@ PreparedOsmTiles::PrepareContent(Production &work) {
   return AssetPipeline::InputAdmission{.Bytes = work.Landing->Bytes.capacity()};
 }
 
-std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Publish(Production &work) {
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Worker::Publish(Production &work) {
   if (!work.Publication) { return std::unexpected("native OSM publication has no owner"); }
   ++PublicationAttempts_;
   const auto began = std::chrono::steady_clock::now();
@@ -92,7 +93,7 @@ std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Publish
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::PlanRestore(Production &work) {
+PreparedOsmTiles::Worker::PlanRestore(Production &work) const {
   const auto bytes = Cache_->PlanRead(work.ProductKey, kPackageBytesMost);
   if (!bytes) {
     if (bytes.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
@@ -112,7 +113,8 @@ PreparedOsmTiles::PlanRestore(Production &work) {
   return AssetPipeline::InputAdmission{.Bytes = retained + work.LoadPlan.BufferBytesMost};
 }
 
-std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Restore(Production &work) {
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Worker::Restore(Production &work) {
   auto loaded = Cache_->LoadValidated(
       work.ProductKey, "osm-tile", work.LoadPlan, [](const CachedAsset &native) {
         return OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost).has_value();

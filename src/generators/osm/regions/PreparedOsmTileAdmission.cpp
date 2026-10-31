@@ -1,4 +1,4 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include <algorithm>
 #include <cstddef>
 #include <expected>
@@ -20,7 +20,7 @@ std::optional<size_t> Sum(std::initializer_list<size_t> parts) {
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::PlanGeneration(Production &work) {
+PreparedOsmTiles::Worker::PlanGeneration(Production &work) {
   if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
     return std::optional<AssetProduct>{};
   }

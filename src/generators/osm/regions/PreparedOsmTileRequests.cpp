@@ -1,4 +1,4 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <chrono>
@@ -14,7 +14,8 @@
 
 namespace outshine::Generators::Osm {
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::Resolve(const std::shared_ptr<Production> &work, const std::stop_token &stop) {
+PreparedOsmTiles::Worker::Resolve(const std::shared_ptr<Production> &work,
+                                  const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
   switch (work->Stage) {
     case Production::Phase::Index: return Lookup(*work);
@@ -25,7 +26,8 @@ PreparedOsmTiles::Resolve(const std::shared_ptr<Production> &work, const std::st
   }
 }
 
-std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Lookup(Production &work) {
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Worker::Lookup(Production &work) {
   auto record = Cache_->FindRequest(work.Request);
   if (!record) {
     if (record.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
@@ -54,7 +56,7 @@ std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Lookup(
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::LookupHit(Production &work) {
+PreparedOsmTiles::Worker::LookupHit(Production &work) {
   const auto began = std::chrono::steady_clock::now();
   auto loaded = Load(work.Request, work.LoadPlan);
   ReadMs_.fetch_add(
@@ -80,7 +82,7 @@ PreparedOsmTiles::LookupHit(Production &work) {
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::OpenSource(const std::shared_ptr<Production> &work) {
+PreparedOsmTiles::Worker::OpenSource(const std::shared_ptr<Production> &work) {
   if (!work->Input) {
     auto read = Data::SourceSession::Request(
         Sources_,
@@ -113,7 +115,7 @@ PreparedOsmTiles::OpenSource(const std::shared_ptr<Production> &work) {
 }
 
 std::expected<AssetPipeline::LogicalStep, std::string>
-PreparedOsmTiles::PollSource(const std::shared_ptr<Production> &work) {
+PreparedOsmTiles::Worker::PollSource(const std::shared_ptr<Production> &work) const {
   if (!work->Input) { return std::unexpected("native OSM source stage has no read"); }
   auto delivery = work->Input->Poll();
   if (delivery.Where() == Data::SourceDelivery::State::Pending) {
@@ -141,8 +143,8 @@ PreparedOsmTiles::PollSource(const std::shared_ptr<Production> &work) {
   if (!key) { return std::unexpected("invalid native OSM content identity"); }
   work->Landing = std::move(landing);
   work->Stage = Production::Phase::Prepare;
-  return AssetPipeline::ResolvedWork{
-      .Key = *key,
-      .Produce = [this, work](const std::stop_token &next) { return Produce(*work, next); }};
+  return AssetPipeline::ResolvedWork{.Key = *key, .Produce = [work](const std::stop_token &next) {
+                                       return work->Owner->Produce(*work, next);
+                                     }};
 }
 }

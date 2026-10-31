@@ -6,8 +6,6 @@
 #include "AssetCache.h"
 #include "AssetPipeline.h"
 #include "SourceSession.h"
-#include <atomic>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -15,7 +13,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <stop_token>
 #include <vector>
 
 namespace outshine::Generators::Osm {
@@ -55,7 +52,10 @@ public:
        Data::SourceTransport &transport,
        Tasks &compute,
        Budget budget);
+  // Cancels demand; the pool releases worker state after its last queued/running use.
   ~PreparedOsmTiles();
+  PreparedOsmTiles(const PreparedOsmTiles &) = delete;
+  PreparedOsmTiles &operator=(const PreparedOsmTiles &) = delete;
   [[nodiscard]] std::expected<SourceDelivery, std::string_view> Acquire(TileAt at,
                                                                         const OsmField &layout);
   [[nodiscard]] Counters Costs() const noexcept;
@@ -65,65 +65,11 @@ private:
   friend class OsmField;
   using Product = std::shared_ptr<const OsmField>;
 
-  struct Layout {
-    int Zoom = 0;
-    MvtSchema Schema = MvtSchema::Shortbread;
-    std::vector<std::string> Layers;
-  };
-
-  struct Work {
-    Work(std::string request,
-         Layout definition,
-         TileAt at,
-         const std::shared_ptr<const uint8_t> &owner,
-         AssetPipeline::Consumer consumer,
-         AssetPipeline::RequestTicket ticket);
-    std::string Request;
-    Layout Definition;
-    TileAt At;
-    std::weak_ptr<const uint8_t> Owner;
-    AssetPipeline::Consumer Consumer;
-    std::optional<AssetPipeline::RequestTicket> Ticket;
-    Tasks::Handle Task = Tasks::kNoTask;
-    std::atomic_bool Cancelled{false};
-    bool Bound = false;
-    bool Retry = false;
-    std::string BadDigest;
-    bool BadBinding = false;
-    std::optional<PreparedAssetWrite> RepairPublication;
-    std::optional<AssetProduct> Override;
-    std::expected<std::unique_ptr<OsmField>, std::string> Result;
-  };
-
-  struct Production {
-    enum class Phase : uint8_t {
-      Index,
-      Hit,
-      Source,
-      AwaitSource,
-      Prepare,
-      GenerationAdmission,
-      Generate,
-      Publish,
-      RestorePlan,
-      Restore
-    };
-    PreparedOsmTiles &Owner;
-    Layout Definition;
-    TileAt At;
-    std::string Request;
-    Phase Stage = Phase::Index;
-    bool SourceAdmitted = false;
-    AssetCache::ReadPlan LoadPlan;
-    size_t SourceMost = 0;
-    size_t GenerationMost = 0;
-    std::optional<Data::SourceSession::Read> Input;
-    std::optional<Data::SourceDelivery::Answer> Landing;
-    std::optional<PreparedAssetWrite> Publication;
-    std::string ProductKey;
-    size_t PublicationBytes = 0;
-    ~Production();
-  };
+  struct Layout;
+  struct Work;
+  struct Production;
+  struct Worker;
+  struct DecodeJob;
 
   PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
                    std::shared_ptr<Data::SourceSession> sources,
@@ -134,69 +80,17 @@ private:
   void RetireUnused();
   // A missing window withdraws this field's pending interests without touching other owners.
   void RetainPending(const OsmField &layout, const std::optional<OsmTileWindow> &window);
-  [[nodiscard]] bool CompleteTask(Work &work);
+  [[nodiscard]] static bool DecodeIdle(const Work &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string_view>
   Advance(const std::shared_ptr<Work> &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  Resolve(const std::shared_ptr<Production> &work, const std::stop_token &stop);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  Produce(Production &work, const std::stop_token &stop);
-  [[nodiscard]] std::expected<void, std::string> Generate(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  PlanGeneration(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Lookup(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> LookupHit(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  OpenSource(const std::shared_ptr<Production> &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  PollSource(const std::shared_ptr<Production> &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  PrepareContent(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Publish(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
-  PlanRestore(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Restore(Production &work);
-  void Decode(Work &work, const AssetPublication &publication);
-  [[nodiscard]] bool
-  Bind(Work &work, const AssetPublication &publication, AssetPipeline::RequestTicket &ticket);
-  [[nodiscard]] bool RestoreBinding(Work &work,
-                                    const AssetPublication &publication,
-                                    AssetPipeline::RequestTicket &ticket);
-  [[nodiscard]] bool
-  LoadWinner(Work &work, const AssetRecord &record, AssetPipeline::RequestTicket &ticket);
-  [[nodiscard]] static bool
-  AdmitOwner(Work &work, AssetPipeline::RequestTicket &ticket, size_t bytes);
-  void Repair(Work &work, const CachedAsset &native, AssetPipeline::RequestTicket &ticket);
-  [[nodiscard]] bool
-  RepairContent(Work &work, const CachedAsset &native, AssetPipeline::RequestTicket &ticket);
-  void SetPublication(Production &work, std::optional<PreparedAssetWrite> publication);
-  [[nodiscard]] std::string RequestKey(TileAt at, const Layout &layout) const;
-  [[nodiscard]] std::string ProductKey(std::string_view request,
-                                       std::string_view digest,
-                                       std::string_view source,
-                                       std::string_view revision) const;
-  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
-  Load(const std::string &request, const AssetCache::ReadPlan &plan);
-  [[nodiscard]] bool Matches(const OsmField &field, const Work &work, std::string_view key) const;
-
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kReceiptBytesMost = 4096;
   static constexpr std::string_view kAbsent = "native OSM source absent";
   static constexpr std::string_view kRefused = "native OSM source refused";
-  std::unique_ptr<AssetCache> Cache_;
-  std::shared_ptr<Data::SourceSession> Sources_;
-  Data::SourceTransport &Transport_;
-  Tasks &Compute_;
-  std::string Recipe_;
-  Budget Budget_;
+  std::shared_ptr<Worker> Worker_;
   AssetPipeline Pipeline_;
   std::vector<std::shared_ptr<Work>> Pending_;
-  std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
-  std::atomic<double> ReadMs_{0}, GenerationMs_{0};
-  std::atomic_uint64_t Generations_{0}, PublicationAttempts_{0}, PublicationDeferred_{0};
-  std::atomic_uint64_t PublicationBytes_{0}, PublicationPeakBytes_{0}, PublicationReadBytes_{0};
-  std::atomic<double> PublicationMs_{0};
 };
 }
 #endif

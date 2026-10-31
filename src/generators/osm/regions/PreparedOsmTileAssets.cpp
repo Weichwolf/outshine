@@ -1,4 +1,4 @@
-#include "PreparedOsmTiles.h"
+#include "PreparedOsmTileWorker.h"
 #include "Geodesy.h"
 #include "Sha256.h"
 #include "TileGeodesy.h"
@@ -53,7 +53,7 @@ Box Bounds(const OsmField &field) {
 }
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
-PreparedOsmTiles::Load(const std::string &request, const AssetCache::ReadPlan &plan) {
+PreparedOsmTiles::Worker::Load(const std::string &request, const AssetCache::ReadPlan &plan) const {
   auto record = Cache_->FindRequest(request);
   if (!record) { return std::unexpected(record.error()); }
   if (!*record) { return std::nullopt; }
@@ -65,10 +65,10 @@ PreparedOsmTiles::Load(const std::string &request, const AssetCache::ReadPlan &p
   return loaded;
 }
 
-std::string PreparedOsmTiles::ProductKey(std::string_view request,
-                                         std::string_view digest,
-                                         std::string_view source,
-                                         std::string_view revision) const {
+std::string PreparedOsmTiles::Worker::ProductKey(std::string_view request,
+                                                 std::string_view digest,
+                                                 std::string_view source,
+                                                 std::string_view revision) const {
   Sha256Prefix hash(Recipe_.data(), Recipe_.size());
   hash.Append(request.data(), request.size());
   hash.Append(digest.data(), digest.size());
@@ -76,7 +76,7 @@ std::string PreparedOsmTiles::ProductKey(std::string_view request,
   return hash.Hex(revision.data(), revision.size());
 }
 
-std::expected<void, std::string> PreparedOsmTiles::Generate(Production &work) {
+std::expected<void, std::string> PreparedOsmTiles::Worker::Generate(Production &work) {
   if (!work.Landing) { return std::unexpected("native OSM generation has no source input"); }
   ++Generations_;
   const auto began = std::chrono::steady_clock::now();
