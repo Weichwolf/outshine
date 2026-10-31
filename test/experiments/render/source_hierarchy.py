@@ -204,6 +204,8 @@ def query(
     work["headers_tested"], work["headers_kept"] = len(keep), int(keep.sum())
     if keep.all():
         return flat("all_headers")
+    if int(np.diff(groups.offsets)[keep].sum()) * 4 > len(t) * 3:
+        return flat("dense_triangle_subset")
     faces = groups.faces[np.repeat(keep, np.diff(groups.offsets))]
     if not len(faces):
         return no_fine(True, None)
