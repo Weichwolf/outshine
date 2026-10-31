@@ -123,7 +123,7 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
 Engine::Engine() : Engine(std::make_unique<State>()) {}
 
 Engine::Engine(Data::ProviderRegistry providers) : Engine() {
-  S_->World.Providers = std::move(providers);
+  S_->Services.Providers = std::move(providers);
 }
 
 Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
@@ -266,7 +266,7 @@ Result Engine::registerGenerator(const Generators::Generator &generator) {
 
 Result Engine::registerProvider(const Data::Provider &provider) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  const auto registered = S_->World.Providers.registerProvider(provider);
+  const auto registered = S_->Services.Providers.registerProvider(provider);
   if (registered) { return {}; }
   return std::unexpected(registered.error() == Data::ProviderRegistry::RegistrationError::EmptyKind
                              ? "provider kind must not be empty"
@@ -757,7 +757,7 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
   if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
     return World.UrbanAreas->AwaitProgress(seconds);
   }
-  return World.Pool->AwaitCompletion(seconds);
+  return Services.Compute->AwaitCompletion(seconds);
 }
 
 bool Engine::State::WorldPreparationPending() const {
@@ -822,7 +822,7 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
         signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  if (WorldPreparationPending() && World.Pool) {
+  if (WorldPreparationPending() && Services.Compute) {
     const auto began = std::chrono::steady_clock::now();
     const bool signalled = AwaitWorldWorkerProgress(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,
