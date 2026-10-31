@@ -11,7 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include "OsmStringIndex.h"
 #include <vector>
 
 #include "GroundQuery.h"
@@ -233,9 +233,7 @@ private:
     bool IsNum = false;
   };
 
-  static uint32_t Intern(std::vector<std::string> &pool,
-                         std::unordered_map<std::string, uint32_t> &index,
-                         std::string_view s);
+  static uint32_t Intern(std::vector<std::string> &pool, OsmStringIndex &index, std::string_view s);
 
   struct SourceResponse {
     bool Held = false;
@@ -293,7 +291,7 @@ private:
   std::vector<std::string> Keys_;
   std::vector<std::string> Strings_;
   std::vector<Value> Values_;
-  std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
+  OsmStringIndex KeyIndex_, StringIndex_;
   std::vector<uint64_t> Settled_;
   BuildMetrics BuildMetrics_;
   BuildMetrics TotalBuildMetrics_;

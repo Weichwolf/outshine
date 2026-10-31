@@ -24,7 +24,7 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <unordered_map>
+
 #include <string_view>
 #include <ratio>
 
@@ -126,16 +126,9 @@ OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
   return snapshot;
 }
 
-uint32_t OsmField::Intern(std::vector<std::string> &pool,
-                          std::unordered_map<std::string, uint32_t> &index,
-                          std::string_view s) {
-  const std::string key(s);
-  const auto it = index.find(key);
-  if (it != index.end()) { return it->second; }
-  const auto id = static_cast<uint32_t>(pool.size());
-  pool.push_back(key);
-  index.emplace(key, id);
-  return id;
+uint32_t
+OsmField::Intern(std::vector<std::string> &pool, OsmStringIndex &index, std::string_view s) {
+  return index.Intern(pool, s);
 }
 
 namespace Says {
@@ -702,15 +695,14 @@ size_t OsmField::HeapBytes() const {
     if (tile.Native) { parsed += tile.Native->HeapBytes(); }
   }
 
-  const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
-                       (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
+  const size_t indexBytes = KeyIndex_.CapacityBytes() + StringIndex_.CapacityBytes();
   const size_t assembly = Assembly_ ? sizeof(AssemblyState) + CapacityBytes(Assembly_->Order) +
                                           Assembly_->Rebuilt.HeapBytes()
                                     : 0;
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
          CapacityBytes(Settled_) + CapacityBytes(Keys_) + CapacityBytes(Strings_) +
-         CapacityBytes(Layers_) + strings + nodes + parsed + assembly;
+         CapacityBytes(Layers_) + strings + indexBytes + parsed + assembly;
 }
 
 int OsmField::Layer(const char *name) const {
@@ -853,8 +845,8 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string
   Values_.clear();
   Keys_.clear();
   Strings_.clear();
-  KeyIndex_.clear();
-  StringIndex_.clear();
+  KeyIndex_.Clear();
+  StringIndex_.Clear();
   Settled_.clear();
   CentreX_ = over.X;
   CentreY_ = over.Y;
