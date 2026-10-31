@@ -106,6 +106,53 @@ class ExactRanges(unittest.TestCase):
 
 
 class NormalCones(unittest.TestCase):
+    def test_wider_cone_preserves_positive_interpolation_budget(self):
+        # A unit normal within r of the axis and stored normals within r+d
+        # have mutual angular separation at most 2r+d, including after any
+        # positive interpolation inside the convex cone (r+d < pi/2).
+        for limit in (0.01, 0.2, 1.0):
+            r, d = limit / 3, limit / 4 * 0.999
+            source_vertex = np.array([math.sin(r), 0, math.cos(r)])
+            direct = np.array([-math.sin(r), 0, math.cos(r)])
+            stored = (
+                math.cos(d) * np.array([math.sin(r + d), 0, math.cos(r + d)])
+            ).astype(np.float32)
+            self.assertLess(np.linalg.norm(stored - source_vertex), math.sin(limit / 4))
+            interpolated = stored.astype(float) / np.linalg.norm(stored.astype(float))
+            angle = math.atan2(
+                np.linalg.norm(np.cross(interpolated, direct)), interpolated @ direct
+            )
+            self.assertLess(angle, limit)
+            self.assertLessEqual(angle, 11 * limit / 12 + 1e-6)
+
+    def test_wider_cone_accepts_previously_rejected_safe_cell(self):
+        curve = Curve(recipe(height=0.01))
+        model = NormalModel(curve)
+        result = model.cone(0, 0, 3, -2, 2, 0.1)
+        self.assertTrue(result["accepted"])
+        self.assertGreater(result["score"], math.tan(0.1 / 4) ** 2)
+        corners = np.array(
+            [
+                model.stored_normal(0, s, u, 0.1)
+                for s, u in ((0, -2), (3, -2), (0, 2), (3, 2))
+            ]
+        )
+        for a, b in np.random.default_rng(1906).uniform(0, 1, (20, 2)):
+            weights = (
+                np.array([1 - a - b, a, b, 0])
+                if a + b <= 1
+                else np.array([0, 1 - b, 1 - a, a + b - 1])
+            )
+            actual = weights @ corners
+            actual /= np.linalg.norm(actual)
+            expected = oracle_normal(curve, 0, 3 * a, -2 + 4 * b)
+            self.assertLessEqual(
+                math.atan2(
+                    np.linalg.norm(np.cross(actual, expected)), actual @ expected
+                ),
+                0.1,
+            )
+
     def test_longitudinal_reuse_keeps_lateral_bounds_and_limit_changes_distinct(self):
         model = NormalModel(Curve(recipe(curvature=0.02, height=0.01)))
         left = model.ranges(0, 0, 1, -2, -1)

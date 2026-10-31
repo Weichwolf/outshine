@@ -97,11 +97,20 @@ class NormalModel:
         return q, crossfall, phase
 
     def angular_bounds(self, limit_rad):
+        """Bound analytic cones and stored normals within one interpolation limit.
+
+        The analytic normal is within limit/3 of the cone axis. A stored
+        normal's Euclidean error <= sin(limit/4) puts its direction within
+        limit/4 of the analytic normal. The positive cone of stored vertex
+        normals has half-angle <= 7*limit/12, below pi/2 for limit <= 1.
+        Positive barycentric interpolation remains in that cone; the angle
+        to any analytic cell normal is therefore <= 11*limit/12 < limit.
+        """
         angle = limit(limit_rad)
         self.work["angle_requests"] += 1
         if self._angle is None or self._angle[0] != angle:
             self.work["angle_evaluations"] += 1
-            tan_low = tangent(singleton(angle / 4))[0]
+            tan_low = tangent(singleton(angle / 3))[0]
             sin_low = trig_point(angle / 4)[0][0]
             self._angle = angle, (tan_low**2, sin_low**2)
         return self._angle[1]
