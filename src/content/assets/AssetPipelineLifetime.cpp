@@ -1,5 +1,7 @@
 #include "AssetPipelineState.h"
 #include <cstdint>
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -11,6 +13,7 @@ namespace outshine {
 AssetPipeline::State::Reservation::~Reservation() {
   const std::scoped_lock lock(Owner->Lock);
   Owner->Held.ReceiptBytes -= Bytes;
+  Owner->Held.InputBytes -= InputBytes;
 }
 
 std::optional<std::stop_source> AssetPipeline::State::Cancel(Demand &demand) {
@@ -40,7 +43,7 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
   if (job->Finished && job->References == 0) {
-    Jobs.erase(ScopedKey{.Scope = job->Scope, .Product = job->Key});
+    std::erase_if(Jobs, [&](const auto &entry) { return entry.second == job; });
     --Held.Jobs;
   }
 }
@@ -64,6 +67,7 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
       Consumers.erase(owner);
       --Held.Consumers;
     }
+    PruneRequest(*released);
     --released->Work->References;
     Remove(released->Work);
   }
@@ -103,6 +107,8 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
     const std::scoped_lock lock(Lock);
     const auto owner = Consumers.find(consumer);
     if (owner == Consumers.end()) { return; }
+    Held.InputBytes -= owner->second.Bytes;
+    owner->second.Bytes = 0;
     owner->second.Alive = false;
     for (auto &[id, demand] : Tickets) {
       if (demand.Consumer == consumer) {
@@ -118,6 +124,32 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
   }
   for (auto &stop : stops) { (void)stop.request_stop(); }
   if (!stops.empty()) { WakeStopped(); }
+}
+
+std::expected<void, AssetPublicationError>
+AssetPipeline::RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept {
+  if (!consumer.State_ || consumer.State_ != ticket.State_) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  const auto &state = consumer.State_;
+  const std::scoped_lock lock(state->Lock);
+  const auto demand = state->Tickets.find(ticket.Id_);
+  const auto owner = state->Consumers.find(consumer.Id_);
+  if (demand == state->Tickets.end() || owner == state->Consumers.end() ||
+      demand->second.Consumer != consumer.Id_) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  if (!owner->second.Alive || demand->second.Cancelled ||
+      owner->second.Generation != demand->second.Generation) {
+    return std::unexpected(AssetPublicationError::Cancelled);
+  }
+  if (!demand->second.Work->Finished ||
+      demand->second.Work->Result.Status != AssetPublicationStatus::Ready) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  owner->second.Bytes += demand->second.Bytes;
+  demand->second.Bytes = 0;
+  return {};
 }
 
 AssetPipeline::Consumer::Consumer(std::shared_ptr<State> state, AssetConsumerId id)
@@ -175,11 +207,59 @@ void AssetPipeline::RequestTicket::Cancel() noexcept {
   if (State_) { State_->CancelTicket(Id_); }
 }
 
+bool AssetPipeline::RequestTicket::Reject() noexcept {
+  if (!State_) { return false; }
+  AssetPublication retired;
+  std::shared_ptr<State::Reservation> reservation;
+  {
+    const std::scoped_lock lock(State_->Lock);
+    const auto found = State_->Tickets.find(Id_);
+    if (found == State_->Tickets.end() || found->second.Cancelled) { return false; }
+    const auto &job = found->second.Work;
+    if (!job->Finished) { return false; }
+    if (job->Result.Status != AssetPublicationStatus::Ready) {
+      return job->Result.Error == AssetPublicationError::Rejected;
+    }
+    retired = std::move(job->Result);
+    job->Result = {.Status = AssetPublicationStatus::Failed,
+                   .Receipt = {},
+                   .Error = AssetPublicationError::Rejected,
+                   .Message = "asset receipt rejected by consumer",
+                   .Finished = true,
+                   .Native = {}};
+    reservation = std::move(job->Output);
+    std::erase_if(State_->Jobs, [&](const auto &entry) { return entry.second == job; });
+  }
+  return true;
+}
+
+std::expected<void, AssetPublicationError>
+AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
+  if (!State_) { return std::unexpected(AssetPublicationError::InvalidRequest); }
+  auto &state = *State_;
+  const std::scoped_lock lock(state.Lock);
+  const auto at = state.Tickets.find(Id_);
+  if (at == state.Tickets.end() || at->second.Cancelled) {
+    return std::unexpected(AssetPublicationError::Cancelled);
+  }
+  if (bytes > state.Budget.InputBytesMost) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
+  const size_t others = state.Held.InputBytes - at->second.Bytes;
+  if (bytes > state.Budget.InputBytesMost - others) {
+    return std::unexpected(AssetPublicationError::ResourceDeferred);
+  }
+  state.Held.InputBytes = others + bytes;
+  at->second.Bytes = bytes;
+  return {};
+}
+
 AssetPublication AssetPipeline::RequestTicket::Poll() const noexcept {
   return State_ ? State_->Poll(Id_)
                 : AssetPublication{.Status = AssetPublicationStatus::Cancelled,
                                    .Receipt = {},
                                    .Error = AssetPublicationError::InvalidRequest,
-                                   .Message = {}};
+                                   .Message = {},
+                                   .Native = {}};
 }
 }

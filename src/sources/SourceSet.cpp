@@ -142,6 +142,16 @@ void SourceSet::Seal() noexcept {
   Sealed_ = true;
 }
 
+std::optional<size_t> SourceSet::Query::PayloadBytesMost() const noexcept {
+  size_t bytes = 0;
+  for (const auto *source : Candidates_) {
+    const auto most = source->Declaration().MaximumPayloadBytes;
+    if (most == 0) { return std::nullopt; }
+    bytes = std::max(bytes, most);
+  }
+  return bytes;
+}
+
 SourceSet::Query SourceSet::Ask(const SourceRequest &request) const {
   const std::scoped_lock lock(RegistryMutex_);
   Query query(*this, request);

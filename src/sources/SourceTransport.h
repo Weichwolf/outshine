@@ -150,6 +150,13 @@ public:
 
   [[nodiscard]] virtual FetchStart Begin(const std::string &url) = 0;
 
+  // Enforce the body bound before retaining response bytes; unsupported transports refuse.
+  [[nodiscard]] virtual FetchStart Begin(const std::string &url, size_t bodyBytesMost) {
+    (void)url;
+    (void)bodyBytesMost;
+    return std::unexpected(SourceFailureReason::CapacityRefused);
+  }
+
   [[nodiscard]] virtual FetchStart
   Begin(const std::string &url, ByteRange range, std::string_view entityTag = {}) {
     (void)url;

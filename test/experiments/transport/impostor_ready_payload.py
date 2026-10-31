@@ -10,7 +10,7 @@ import ctypes.util
 import hashlib
 import json
 from pathlib import Path
-import sqlite3
+from native_package_storage import open_packages
 import struct
 import zlib
 
@@ -44,9 +44,9 @@ def measure(cache, library=None):
                                    ctypes.c_void_p, ctypes.c_size_t]
     lib.ZSTD_decompress.restype = ctypes.c_size_t
     lib.ZSTD_isError.argtypes = [ctypes.c_size_t]
-    with sqlite3.connect(cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
+    with open_packages(cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
         record = db.execute("SELECT a.key,a.package,p.bytes,p.crc,p.codec,p.native_bytes "
-                            "FROM assets a JOIN packages p ON a.package=p.key "
+                            "FROM assets a JOIN native_packages p ON a.package=p.key "
                             "WHERE a.kind='impostor-prototype' ORDER BY a.id DESC LIMIT 1").fetchone()
     if record is None:
         raise ValueError('no cached prototype')

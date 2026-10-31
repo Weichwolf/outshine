@@ -13,28 +13,33 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   struct Reservation {
     std::shared_ptr<State> Owner;
     size_t Bytes = 0;
+    size_t InputBytes = 0;
     ~Reservation();
   };
 
   struct ScopedKey {
     AssetStoreScope Scope;
-    AssetProductKey Product;
+    KeyDomain Domain;
+    AssetProductKey Key;
   };
 
   struct KeyLess {
     [[nodiscard]] bool operator()(const ScopedKey &a, const ScopedKey &b) const noexcept {
       if (a.Scope.Identity.owner_before(b.Scope.Identity)) { return true; }
       if (b.Scope.Identity.owner_before(a.Scope.Identity)) { return false; }
-      return a.Product < b.Product;
+      if (a.Domain != b.Domain) { return a.Domain < b.Domain; }
+      return a.Key < b.Key;
     }
   };
 
   struct Job {
     AssetProductKey Key;
+    KeyDomain Domain;
     AssetStoreScope Scope;
     size_t References = 0, Demands = 0, InputBytes = 0;
+    std::optional<size_t> NextInputBytes;
     bool StopRequested = false, Finished = false, Running = true;
-    ResumableProducer Resume;
+    LogicalProducer Resume;
     std::chrono::steady_clock::time_point RetryAt;
     std::chrono::milliseconds Delay{1};
     std::stop_source Stop;
@@ -48,20 +53,24 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     size_t Bytes = 0;
     bool Cancelled = false;
     std::shared_ptr<Job> Work;
+    std::optional<AssetRequestKey> Address;
   };
 
   struct Owner {
     AssetConsumerGeneration Generation;
     AssetStoreScope Scope;
     size_t Tickets = 0;
+    size_t Bytes = 0;
     bool Alive = true;
   };
 
   struct Execution {
     std::shared_ptr<State> Owner;
     std::shared_ptr<Job> Work;
-    ResumableProducer Produce;
+    LogicalProducer Produce;
     bool Ended = false;
+    bool Joined = false;
+    [[nodiscard]] std::expected<bool, AssetPublicationError> PrepareStep();
     void Run();
     ~Execution();
   };
@@ -76,10 +85,17 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   [[nodiscard]] AssetPublication Poll(uint64_t ticket) noexcept;
   void Dispatch(const std::shared_ptr<Job> &job);
   void WakeStopped();
-  [[nodiscard]] bool Defer(const std::shared_ptr<Job> &job, ResumableProducer producer);
+  [[nodiscard]] bool Defer(const std::shared_ptr<Job> &job, LogicalProducer producer);
+  [[nodiscard]] std::expected<bool, AssetPublicationError>
+  AdmitInput(const std::shared_ptr<Job> &job);
+  [[nodiscard]] std::expected<bool, AssetPublicationError> Resolve(const std::shared_ptr<Job> &job,
+                                                                   const ResolvedWork &resolved);
+  void Join(const std::shared_ptr<Job> &from, const std::shared_ptr<Job> &to);
+  void RetireJoined(const std::shared_ptr<Job> &job);
+  void PruneRequest(const Demand &demand);
   void Finish(const std::shared_ptr<Job> &job, AssetPublication result) noexcept;
   [[nodiscard]] static AssetPublication Receipt(const std::shared_ptr<Job> &job,
-                                                std::expected<AssetRecord, std::string> result);
+                                                std::expected<AssetProduct, std::string> result);
   void Remove(const std::shared_ptr<Job> &job);
   Tasks &Pool;
   Limits Budget;

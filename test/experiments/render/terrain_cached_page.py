@@ -6,35 +6,39 @@ import ctypes.util
 import hashlib
 import json
 import math
-import sqlite3
+import sys
+from pathlib import Path
+
 import struct
 import zlib
 from contextlib import closing
-from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
+from native_package_storage import open_packages
 
 BYTES_MOST = 64 * 1024**2
 
 
 def package(cache, key):
     with closing(
-        sqlite3.connect(cache.resolve().as_uri() + "?mode=ro", uri=True)
+        open_packages(cache.resolve().as_uri() + "?mode=ro", uri=True)
     ) as db:
         row = db.execute(
-            "SELECT p.rowid,length(p.bytes),p.native_bytes,p.codec,p.crc,a.offset,a.bytes "
-            "FROM assets a JOIN packages p ON a.package=p.key "
+            "SELECT p.rowid,p.stored_bytes,p.native_bytes,p.codec,p.crc,a.offset,a.bytes,p.body_table "
+            "FROM assets a JOIN native_packages p ON a.package=p.key "
             "WHERE a.key=? AND a.kind='ground-region'",
             (key,),
         ).fetchone()
         if row is None:
             raise ValueError("existing native ground-region key required")
-        rowid, stored_size, native_size, codec, crc, offset, size = row
+        rowid, stored_size, native_size, codec, crc, offset, size, body_table = row
         if not 0 < stored_size <= BYTES_MOST or not 0 < native_size <= BYTES_MOST:
             raise ValueError("bounded cached package required before blob read")
         if offset != 0 or size != native_size:
             raise ValueError("single complete ground-region package required")
-        with db.blobopen("packages", "bytes", rowid, readonly=True) as blob:
+        with db.blobopen(body_table, "bytes", rowid, readonly=True) as blob:
             stored = blob.read()
     if len(stored) != stored_size or zlib.crc32(stored) != crc:
         raise ValueError("cached package size/CRC mismatch")

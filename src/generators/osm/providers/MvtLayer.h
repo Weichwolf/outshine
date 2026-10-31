@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <optional>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -29,10 +30,24 @@ public:
     std::array<uint8_t, 32> ContentDigest{};
   };
 
-  enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion };
+  enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion, CapacityExceeded };
 
-  [[nodiscard]] std::expected<void, ParseError> Parse(std::span<const uint8_t> bytes,
-                                                      std::string_view layer);
+  struct AllocationPlan {
+    size_t Features = 0, Rings = 0, Points = 0, Tags = 0, Keys = 0, Values = 0;
+    size_t TextBytes = 0;
+    size_t ScratchTags = 0, ScratchGeometry = 0;
+    size_t HeapBytesMost = 0, PeakBytesMost = 0;
+  };
+
+  // Borrows input and counts selected-layer storage without heap allocation.
+  // Geometry validity is checked during Parse; command counts never size allocations.
+  [[nodiscard]] static std::expected<AllocationPlan, ParseError>
+  Plan(std::span<const uint8_t> bytes, std::string_view layer);
+
+  [[nodiscard]] std::expected<void, ParseError>
+  Parse(std::span<const uint8_t> bytes,
+        std::string_view layer,
+        size_t bytesMost = std::numeric_limits<size_t>::max());
 
   [[nodiscard]] int Extent() const { return Extent_; }
 
@@ -58,12 +73,13 @@ public:
   [[nodiscard]] Tag TagAt(const Feature &f, uint32_t i) const;
 
 private:
-  [[nodiscard]] std::expected<void, ParseError> Decode(std::span<const uint8_t> bytes,
-                                                       std::string_view layer);
+  [[nodiscard]] std::expected<void, ParseError>
+  Decode(std::span<const uint8_t> bytes, std::string_view layer, size_t bytesMost);
 
   [[nodiscard]] std::expected<std::span<const uint8_t>, ParseError>
   ReadLayerTables(std::span<const uint8_t> bytes);
-  [[nodiscard]] std::expected<void, ParseError> DecodeFeatures(std::span<const uint8_t> layerBytes);
+  [[nodiscard]] std::expected<void, ParseError> DecodeFeatures(std::span<const uint8_t> layerBytes,
+                                                               const AllocationPlan &plan);
 
   int Extent_ = 4096;
   std::vector<Feature> Features_;

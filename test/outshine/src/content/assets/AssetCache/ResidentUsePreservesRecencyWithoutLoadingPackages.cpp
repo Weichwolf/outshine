@@ -55,8 +55,9 @@ void Exercise(const std::filesystem::path &path) {
   sqlite3_stmt *statementRaw = nullptr;
   const int prepared = sqlite3_prepare_v2(
       database.get(),
-      "SELECT u.stored_bytes,length(p.bytes),u.created_unix_s,u.last_used_unix_s "
-      "FROM cache_usage_v1 u JOIN packages p ON p.key=u.key",
+      "SELECT u.stored_bytes,length(b.bytes),u.created_unix_s,u.last_used_unix_s "
+      "FROM cache_usage_v1 u JOIN packages p ON p.key=u.key "
+      "JOIN package_bodies b ON b.key=p.key",
       -1,
       &statementRaw,
       nullptr);

@@ -23,6 +23,7 @@ public:
     ~Read();
     Read(const Read &) = delete;
     Read &operator=(const Read &) = delete;
+    [[nodiscard]] std::optional<size_t> PayloadBytesMost() const noexcept;
     [[nodiscard]] SourceDelivery Poll();
     void Cancel();
 

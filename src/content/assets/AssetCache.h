@@ -47,15 +47,22 @@ enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, Ca
 
 class CachedAsset {
 public:
+  // Transfer the package; share published handles together with their admission ownership.
+  CachedAsset(CachedAsset &&) noexcept = default;
+  CachedAsset &operator=(CachedAsset &&) noexcept = default;
+  CachedAsset(const CachedAsset &) = delete;
+  CachedAsset &operator=(const CachedAsset &) = delete;
+
   [[nodiscard]] const AssetRecord &Record() const noexcept { return Record_; }
 
   [[nodiscard]] std::span<const uint8_t> Bytes() const noexcept;
 
 private:
   friend class AssetCache;
-  CachedAsset(AssetRecord record, std::shared_ptr<const std::vector<uint8_t>> bytes);
+  friend class AssetProduct;
+  CachedAsset(AssetRecord record, std::vector<uint8_t> bytes);
   AssetRecord Record_;
-  std::shared_ptr<const std::vector<uint8_t>> Package_;
+  std::vector<uint8_t> Package_;
 };
 
 class PreparedAssetWrite {
@@ -94,6 +101,9 @@ public:
                                                              std::span<const uint8_t> payload);
   [[nodiscard]] std::expected<PreparedAssetWrite, AssetCacheError>
   PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload);
+  // Additional codec output/workspace for any payload up to this size; excludes input and records.
+  [[nodiscard]] static std::expected<size_t, AssetCacheError>
+  PublicationBufferBytes(size_t nativeBytes);
   // Busy leaves the owned package intact for a later background step.
   [[nodiscard]] std::expected<void, AssetCacheError> Publish(const PreparedAssetWrite &prepared);
 
@@ -114,8 +124,19 @@ public:
   [[nodiscard]] std::expected<bool, AssetCacheError>
   UnbindRequestIfMatches(const AssetRecord &binding);
 
+  struct ReadPlan {
+    size_t PackageBytesMost = 0;
+    size_t BufferBytesMost = 0;
+  };
+
+  // Metadata only; whole stored/native buffers plus explicit codec workspace.
+  // Load rechecks both bounds before body IO if the package changed meanwhile.
+  [[nodiscard]] std::expected<std::optional<ReadPlan>, AssetCacheError>
+  PlanRead(std::string_view key, size_t packageBytesMost) const;
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
+  Load(std::string_view key, const ReadPlan &plan) const;
   using Validator = std::function<std::expected<bool, AssetCacheError>(const CachedAsset &)>;
   // Normal hits validate without a writer. Invalid entries are reread and validated
   // under one write transaction before removal. Validators may do bounded native
@@ -125,6 +146,8 @@ public:
                 std::string_view kind,
                 size_t packageBytesMost,
                 const Validator &validate);
+  [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError> LoadValidated(
+      std::string_view key, std::string_view kind, const ReadPlan &plan, const Validator &validate);
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;

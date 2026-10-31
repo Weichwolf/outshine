@@ -1,4 +1,5 @@
 #include "PreparedOsmTiles.h"
+#include "Sha256.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -6,11 +7,18 @@
 #include <expected>
 #include <optional>
 #include <ratio>
+#include <stop_token>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine::Generators::Osm {
-void PreparedOsmTiles::SetPublication(Work &work, std::optional<PreparedAssetWrite> publication) {
+PreparedOsmTiles::Production::~Production() {
+  if (PublicationBytes != 0) { Owner.SetPublication(*this, std::nullopt); }
+}
+
+void PreparedOsmTiles::SetPublication(Production &work,
+                                      std::optional<PreparedAssetWrite> publication) {
   const auto bytes = publication ? publication->CapacityBytes() : 0;
   const auto previous = work.PublicationBytes;
   work.Publication = std::move(publication);
@@ -24,121 +32,112 @@ void PreparedOsmTiles::SetPublication(Work &work, std::optional<PreparedAssetWri
   }
 }
 
-void PreparedOsmTiles::Defer(Work &work) {
-  const auto exponent = std::min(work.Retries, 4U);
-  work.Retries = std::min(work.Retries + 1U, 4U);
-  work.RetryAt =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(uint64_t{1} << exponent);
-  ++PublicationDeferred_;
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Produce(Production &work, const std::stop_token &stop) {
+  if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
+  switch (work.Stage) {
+    case Production::Phase::Prepare: return PrepareContent(work);
+    case Production::Phase::GenerationAdmission: return PlanGeneration(work);
+    case Production::Phase::Generate: {
+      if (!work.Landing) { return std::unexpected("native OSM generation has no input"); }
+      if (PublicationBytes_.load() >= Budget_.PublicationBytesMost) {
+        work.Stage = Production::Phase::GenerationAdmission;
+        return AssetPipeline::InputAdmission{.Bytes = work.Landing->Bytes.capacity()};
+      }
+      auto generated = Generate(work);
+      if (!generated) { return std::unexpected(std::move(generated.error())); }
+      work.Stage = Production::Phase::Publish;
+      return AssetPipeline::InputAdmission{.Bytes = work.PublicationBytes};
+    }
+    case Production::Phase::Publish: return Publish(work);
+    case Production::Phase::RestorePlan: return PlanRestore(work);
+    case Production::Phase::Restore: return Restore(work);
+    default: return std::unexpected("invalid native OSM content stage");
+  }
 }
 
-void PreparedOsmTiles::Lookup(const std::string &request, Work &work) {
-  if (work.Cancelled.load()) {
-    work.Result = std::unexpected("native OSM preparation cancelled");
-    return;
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::PrepareContent(Production &work) {
+  const auto found = Cache_->Find(work.ProductKey);
+  if (!found) {
+    if (found.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
+    return std::unexpected("native OSM content lookup failed");
   }
-  const auto began = std::chrono::steady_clock::now();
-  auto loaded = Load(request, work.Definition, ReadCause::Lookup);
-  ReadMs_.fetch_add(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  if (!loaded) {
-    if (loaded.error() == AssetCacheError::Busy) {
-      Defer(work);
-    } else {
-      work.Result = std::unexpected("native OSM tile cache failed");
-    }
-    return;
+  if (*found) {
+    work.Stage = Production::Phase::RestorePlan;
+    return PlanRestore(work);
   }
-  work.Result = std::move(*loaded);
-  work.Retries = 0;
-  work.Stage = *work.Result ? Work::Phase::Ready : Work::Phase::Source;
+  if (!work.Landing) { return std::unexpected("native OSM preparation has no input owner"); }
+  work.Stage = Production::Phase::GenerationAdmission;
+  return AssetPipeline::InputAdmission{.Bytes = work.Landing->Bytes.capacity()};
 }
 
-void PreparedOsmTiles::Publish(const std::string &request, Work &work) {
-  if (work.Cancelled.load()) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::unexpected("native OSM preparation cancelled");
-    return;
-  }
-  auto loaded = Load(request, work.Definition, ReadCause::Publication);
-  if (!loaded) {
-    if (loaded.error() == AssetCacheError::Busy) {
-      Defer(work);
-    } else {
-      SetPublication(work, std::nullopt);
-      work.Result = std::unexpected("native OSM tile cache failed");
-    }
-    return;
-  }
-  if (*loaded) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::move(*loaded);
-    work.Stage = Work::Phase::Ready;
-    return;
-  }
-  if (work.Stage == Work::Phase::Restore) {
-    Restore(request, work);
-    return;
-  }
-  if (!work.Publication) {
-    work.Result = std::unexpected("native OSM publication has no prepared owner");
-    return;
-  }
+std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Publish(Production &work) {
+  if (!work.Publication) { return std::unexpected("native OSM publication has no owner"); }
   ++PublicationAttempts_;
-  const auto published = Cache_->Publish(*work.Publication);
+  const auto began = std::chrono::steady_clock::now();
+  auto published = Cache_->Publish(*work.Publication);
+  PublicationMs_.fetch_add(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   if (!published) {
     if (published.error() == AssetCacheError::Busy) {
-      Defer(work);
-    } else {
-      SetPublication(work, std::nullopt);
-      work.Result = std::unexpected("native OSM publication failed");
+      ++PublicationDeferred_;
+      return std::optional<AssetProduct>{};
     }
-    return;
+    return std::unexpected("native OSM publication failed");
   }
   ++Writes_;
-  work.Stage = Work::Phase::Restore;
-  work.Retries = 0;
-  Restore(request, work);
+  work.Stage = Production::Phase::RestorePlan;
+  return PlanRestore(work);
 }
 
-void PreparedOsmTiles::Restore(const std::string &request, Work &work) {
-  if (work.Cancelled.load()) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::unexpected("native OSM preparation cancelled");
-    return;
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::PlanRestore(Production &work) {
+  const auto bytes = Cache_->PlanRead(work.ProductKey, kPackageBytesMost);
+  if (!bytes) {
+    if (bytes.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
+    return std::unexpected("native OSM content metadata failed");
   }
-  if (!work.Publication || work.ProductKey.empty()) {
-    SetPublication(work, std::nullopt);
-    work.Result = std::unexpected("native OSM binding has no prepared content owner");
-    return;
+  if (!*bytes) {
+    work.Stage =
+        work.Publication ? Production::Phase::Publish : Production::Phase::GenerationAdmission;
+    const auto inputBytes = work.Landing ? work.Landing->Bytes.capacity() : 0;
+    return AssetPipeline::InputAdmission{.Bytes =
+                                             work.Publication ? work.PublicationBytes : inputBytes};
   }
-  const auto bound = Cache_->BindRequestIfUnbound(work.ProductKey, request);
-  if (!bound) {
-    if (bound.error() == AssetCacheError::Busy) {
-      Defer(work);
-    } else {
-      SetPublication(work, std::nullopt);
-      work.Result = std::unexpected("native OSM request binding failed");
-    }
-    return;
-  }
-  auto loaded = Load(request, work.Definition, ReadCause::Publication);
+  work.LoadPlan = **bytes;
+  work.LoadPlan.PackageBytesMost = std::max(size_t{1}, work.LoadPlan.PackageBytesMost);
+  work.Stage = Production::Phase::Restore;
+  const auto retained = work.PublicationBytes + (work.Landing ? work.Landing->Bytes.capacity() : 0);
+  return AssetPipeline::InputAdmission{.Bytes = retained + work.LoadPlan.BufferBytesMost};
+}
+
+std::expected<AssetPipeline::LogicalStep, std::string> PreparedOsmTiles::Restore(Production &work) {
+  auto loaded = Cache_->LoadValidated(
+      work.ProductKey, "osm-tile", work.LoadPlan, [](const CachedAsset &native) {
+        return OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost).has_value();
+      });
   if (!loaded) {
-    if (loaded.error() == AssetCacheError::Busy) {
-      Defer(work);
-    } else {
-      SetPublication(work, std::nullopt);
-      work.Result = std::unexpected("published native OSM tile cache failed");
+    if (loaded.error() == AssetCacheError::CapacityExceeded) {
+      work.Stage = Production::Phase::RestorePlan;
+      const auto retained =
+          work.PublicationBytes + (work.Landing ? work.Landing->Bytes.capacity() : 0);
+      return AssetPipeline::InputAdmission{.Bytes = retained};
     }
-    return;
+    if (loaded.error() == AssetCacheError::Busy) {
+      ++PublicationDeferred_;
+      return std::optional<AssetProduct>{};
+    }
+    return std::unexpected("published native OSM tile cache failed");
   }
   if (!*loaded) {
-    work.Stage = Work::Phase::Publish;
-    Defer(work);
-    return;
+    work.Stage =
+        work.Publication ? Production::Phase::Publish : Production::Phase::GenerationAdmission;
+    const auto inputBytes = work.Landing ? work.Landing->Bytes.capacity() : 0;
+    return AssetPipeline::InputAdmission{.Bytes =
+                                             work.Publication ? work.PublicationBytes : inputBytes};
   }
-  work.Result = std::move(*loaded);
-  SetPublication(work, std::nullopt);
-  work.Stage = Work::Phase::Ready;
+  PublicationReadBytes_ += (**loaded).Bytes().size();
+  return std::optional<AssetProduct>(AssetProduct(std::move(**loaded)));
 }
 }

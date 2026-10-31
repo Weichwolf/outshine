@@ -1,12 +1,17 @@
 """Read one existing native material view, preserving its checksum and binding."""
 
 import hashlib
-import sqlite3
+import sys
+from pathlib import Path
+
 import struct
 
 import numpy as np
 from compare_vertex_field_words import Zstd
 from field_view_sampling import FieldGrid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
+from native_package_storage import open_packages
 
 TEXEL = np.dtype([("normal", "<f4", 3), ("depth", "<f4"), ("surface", "<u4")])
 MATERIAL = np.dtype([("colour", "<f4", 3), ("roughness", "<f4"), ("metal", "<f4")])
@@ -70,10 +75,10 @@ def decode_view(raw, key):
 
 
 def read_view(path, key):
-    with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
+    with open_packages(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
         row = db.execute(
-            "SELECT a.kind,a.offset,a.bytes,p.codec,p.native_bytes,length(p.bytes),p.key "
-            "FROM assets a JOIN packages p ON a.package=p.key WHERE a.key=?",
+            "SELECT a.kind,a.offset,a.bytes,p.codec,p.native_bytes,p.stored_bytes,p.key "
+            "FROM assets a JOIN native_packages p ON a.package=p.key WHERE a.key=?",
             (key,),
         ).fetchone()
         if row is None:
@@ -90,7 +95,7 @@ def read_view(path, key):
         ):
             raise ValueError("Unsupported or unbounded native material package")
         blob = db.execute(
-            "SELECT bytes FROM packages WHERE key=?", (package,)
+            "SELECT bytes FROM native_packages WHERE key=?", (package,)
         ).fetchone()[0]
     raw = Zstd().decompress((codec, blob), size)
     return decode_view(raw[start : start + count], key)

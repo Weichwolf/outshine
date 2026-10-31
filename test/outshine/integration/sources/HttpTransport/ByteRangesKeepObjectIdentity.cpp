@@ -56,6 +56,8 @@ std::string RangeReply(const std::string &request) {
   if (path == "/total") { headers = "Content-Range: bytes 4-7/7\r\nETag: \"v1\"\r\n"; }
   if (path == "/duplicate") { headers += "Content-Range: bytes 4-7/64\r\n"; }
   if (path == "/encoding") { headers += "Content-Encoding: gzip\r\n"; }
+  if (path == "/identity") { headers += "Content-Encoding: identity\r\n"; }
+  if (path == "/identity-mixed") { headers += "Content-Encoding: Identity\r\n"; }
   if (path == "/precondition") {
     status = 412;
     headers.clear();
@@ -239,7 +241,8 @@ int main(int argc, char **argv) {
   const std::string url = server.Url("127.0.0.1");
   HttpTransport transport({.ConcurrentTransfers = 1, .MaxRequests = 32, .MaxBodyBytes = 8});
   const ByteRange range{.First = 4, .Length = 4};
-  for (const std::string_view path : {"/valid", "/redirect", "/continue"}) {
+  for (const std::string_view path :
+       {"/valid", "/redirect", "/continue", "/identity", "/identity-mixed"}) {
     const auto started = transport.Begin(url + std::string(path), range, "\"v1\"");
     CHECK(started.has_value(), "pinned range enters the existing transport");
     if (!started) { continue; }
@@ -304,7 +307,7 @@ int main(int argc, char **argv) {
           "ordinary acquisition retains its existing response contract");
   }
   const auto requests = server.Requests();
-  CHECK(requests.size() == 18, "invalid starts issue no hidden network work");
+  CHECK(requests.size() == 20, "invalid starts issue no hidden network work");
   CHECK(!requests.empty() && requests.front().Text.contains("Range: bytes=4-7\r\n") &&
             requests.front().Text.contains("If-Match: \"v1\"\r\n") &&
             requests.front().Text.contains("Accept-Encoding: identity\r\n"),

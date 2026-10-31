@@ -55,7 +55,7 @@ Produce(const Views &views, const Product &product, size_t bytesMost, std::stop_
 }
 }
 
-std::expected<AssetRecord, std::string> ImpostorViewJob::operator()(std::stop_token stop) const {
+std::expected<AssetProduct, std::string> ImpostorViewJob::operator()(std::stop_token stop) const {
   if (stop.stop_requested()) { return std::unexpected("impostor view request cancelled"); }
   if (!Cache || Provenance.empty() || ProductKey.empty() || BytesMost == 0) {
     return std::unexpected("invalid impostor view job");
@@ -75,6 +75,6 @@ std::expected<AssetRecord, std::string> ImpostorViewJob::operator()(std::stop_to
   if (stop.stop_requested()) { return std::unexpected("impostor view request cancelled"); }
   auto record = Cache->Find(ProductKey);
   if (!record || !*record) { return std::unexpected("impostor view receipt unavailable"); }
-  return std::move(**record);
+  return AssetProduct(std::move(**record));
 }
 }

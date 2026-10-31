@@ -75,7 +75,7 @@ int main() {
     ++work->Calls;
     work->Started.release();
     work->Release.acquire();
-    return Record();
+    return AssetProduct(Record());
   });
   CHECK(first.has_value(), "the original store admits an actual queued job");
   if (!first) { return Report(); }
@@ -88,12 +88,12 @@ int main() {
   oldStore.reset();
   CHECK(oldLifetime.expired(), "a store identity does not pin its cache object or IO destructor");
   const auto second = pipeline.RequestResolved(
-      *current, Request(*current), [](const std::stop_token &) { return Record(); });
+      *current, Request(*current), [](const std::stop_token &) { return AssetProduct(Record()); });
   CHECK(!second && second.error() == AssetPublicationError::ResourceDeferred,
         "a new store neither shares the old store's receipt nor receives a new independent budget");
   first->Cancel();
   const auto draining = pipeline.RequestResolved(
-      *current, Request(*current), [](const std::stop_token &) { return Record(); });
+      *current, Request(*current), [](const std::stop_token &) { return AssetProduct(Record()); });
   CHECK(!draining && pipeline.Counts().Jobs == 1,
         "a store switch cannot bypass capacity still held by canceled running work");
   work->Release.release();
@@ -109,7 +109,7 @@ int main() {
   auto replacement =
       pipeline.RequestResolved(*current, Request(*current), [work](const std::stop_token &) {
         ++work->Calls;
-        return Record();
+        return AssetProduct(Record());
       });
   CHECK(replacement.has_value(), "the same shared budget becomes available after real completion");
   if (replacement) {

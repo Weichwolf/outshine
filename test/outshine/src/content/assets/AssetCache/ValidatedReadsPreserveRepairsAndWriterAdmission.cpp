@@ -81,8 +81,9 @@ struct Fixture {
   void Corrupt(bool crcValid) const {
     const std::array<uint8_t, 1> bad{0};
     const auto checksum = crc32_z(0, bad.data(), bad.size());
-    const auto sql = "UPDATE packages SET bytes=X'00'" +
-                     (crcValid ? ",crc=" + std::to_string(checksum) : std::string{});
+    const auto sql =
+        "UPDATE package_bodies SET bytes=X'00';" +
+        (crcValid ? "UPDATE packages SET crc=" + std::to_string(checksum) : std::string{});
     CHECK(sqlite3_exec(Writer.get(), sql.c_str(), nullptr, nullptr, nullptr) == SQLITE_OK,
           "physical corruption preserves the original package identity and asset metadata");
   }

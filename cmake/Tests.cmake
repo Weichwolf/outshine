@@ -153,6 +153,8 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS} Vulkan::Vulkan)
   endif()
   if(CMAKE_DL_LIBS AND (name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema"
+      OR name STREQUAL "outshine/src/content/assets/AssetCache/ReadPlansIncludeCodecWorkspace"
+      OR name STREQUAL "outshine/src/content/assets/AssetCache/IncrementalPublicationBoundsSqlStorageAndRollsBack"
       OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
       OR name STREQUAL "outshine/integration/engine/streaming/RoadPageQueue/BusyReadsRetainSlotsAndSelectedCoverage"))
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
@@ -211,6 +213,9 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/src/render/material/MaterialResolution/DenseMaterialBindingsKeepBoundedAllocation"
       OR name STREQUAL "outshine/src/generators/osm/MvtTransportSnapshot/NativeTopologyRetainsItsActualSources"
       OR name STREQUAL "outshine/src/generators/osm/OsmField/NativeTileAdmissionPrecedesAllocation"
+      OR name STREQUAL "outshine/src/generators/osm/OsmField/NativeBuildAndEncodingUsePlannedStorage"
+      OR name STREQUAL "outshine/src/content/assets/AssetPackageCodec/CompressionUsesOnlyPlannedBuffers"
+      OR name STREQUAL "outshine/src/generators/osm/MvtLayer/AllocationPlanBoundsActualDecode"
       OR name STREQUAL "outshine/src/generators/transport/BridgeInputRequirements/FarConditionsRemainSourceBound"
       OR name STREQUAL "outshine/src/generators/transport/TransportCoreSelection/AdmissionAvoidsTemporaryOutput"
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
@@ -249,7 +254,7 @@ foreach(source IN LISTS cases)
       set(owner app)
     elseif(name MATCHES "^outshine/integration/render/(TemporalSequence|atmosphere|scene/RenderScene|device)/")
       set(owner render)
-    elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot)/")
+    elseif(name MATCHES "^outshine/integration/generators/osm/(BuildingFootprints|PreparedGroundRegions|BuildingFoundationJob|MvtTransportSnapshot|PreparedOsmTiles)/")
       set(owner generators/osm)
     elseif(name MATCHES "^outshine/integration/engine/streaming/building/")
       set(owner engine/streaming/building)
@@ -289,6 +294,9 @@ foreach(source IN LISTS cases)
   endif()
   if(name MATCHES "^outshine/integration/storage/")
     target_link_libraries(${target} PRIVATE outshine_sources)
+  endif()
+  if(name STREQUAL "outshine/integration/generators/osm/PreparedOsmTiles/BusyPublicationRetainsNativeInputs")
+    target_link_libraries(${target} PRIVATE outshine_generators_terrain_inputs)
   endif()
   if(name STREQUAL "outshine/integration/sources/HttpTransport/ByteRangesKeepObjectIdentity")
     target_link_libraries(${target} PRIVATE outshine_generators_terrain_inputs)
@@ -431,6 +439,11 @@ if(APPLE)
   set_target_properties(test_harness_metal_work_profile PROPERTIES PREFIX "" SUFFIX ".dylib"
     OUTPUT_NAME "metal-work-profile" LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/probes")
 endif()
+
+add_executable(test_experiments_assets_NativePackageIo EXCLUDE_FROM_ALL
+  test/experiments/assets/native_package_io.cpp)
+target_compile_options(test_experiments_assets_NativePackageIo PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_assets_NativePackageIo PRIVATE outshine_content_assets)
 
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)

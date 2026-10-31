@@ -40,6 +40,7 @@ namespace {
   d.Latency = LatencyClass::Distant;
 
   d.TypicalPayloadBytes = kTypicalPayloadBytes;
+  d.MaximumPayloadBytes = size_t{64} * 1024 * 1024;
   d.RetryBudget = 4;
   return d;
 }

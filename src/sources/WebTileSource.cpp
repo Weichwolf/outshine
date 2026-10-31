@@ -52,7 +52,8 @@ std::string WebTileSource::Url(const Address &at) const {
 }
 
 FetchStart WebTileSource::Begin(const Address &at, SourceTransport &transport) const {
-  return transport.Begin(Url(at));
+  return Decl_.MaximumPayloadBytes != 0 ? transport.Begin(Url(at), Decl_.MaximumPayloadBytes)
+                                        : transport.Begin(Url(at));
 }
 
 SourceResponse

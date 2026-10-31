@@ -78,6 +78,45 @@ struct NativeReader : BinaryValueReader {
   size_t Remaining;
 };
 
+struct NativeSizeWriter {
+  static constexpr bool Reading = false;
+  size_t Most;
+  size_t Bytes = 0;
+
+  bool Add(size_t count, size_t width = 1) {
+    if (count > (Most - Bytes) / width) { return false; }
+    Bytes += count * width;
+    return true;
+  }
+
+  template <class T> bool Value(const T &value) {
+    if constexpr (std::is_enum_v<T>) { return Add(sizeof(uint32_t)); }
+    if constexpr (std::is_same_v<T, bool>) { return Add(sizeof(uint8_t)); }
+    return Add(sizeof(value));
+  }
+
+  template <class T, size_t N> bool Value(const std::array<T, N> &values) {
+    return std::ranges::all_of(values, [this](const auto &value) { return this->Value(value); });
+  }
+
+  template <class... T> bool operator()(const T &...values) { return (Value(values) && ...); }
+
+  bool String(std::string_view text) {
+    return text.size() <= std::numeric_limits<uint32_t>::max() && Add(sizeof(uint32_t)) &&
+           Add(text.size());
+  }
+
+  template <class T> bool Array(const std::vector<T> &items) {
+    return items.size() <= std::numeric_limits<uint32_t>::max() && Add(sizeof(uint32_t)) &&
+           Add(items.size(), sizeof(T));
+  }
+
+  template <class T, class Each> bool Sequence(const std::vector<T> &items, Each each) {
+    return items.size() <= std::numeric_limits<uint32_t>::max() && Add(sizeof(uint32_t)) &&
+           std::ranges::all_of(items, [&](const auto &item) { return each(*this, item); });
+  }
+};
+
 struct NativeSizeReader : BinaryValueReader {
   static constexpr bool Reading = true;
 
@@ -288,9 +327,21 @@ struct OsmField::NativeCodec {
   }
 };
 
-std::optional<std::vector<uint8_t>> OsmField::EncodeNativeTile(size_t bytesMost) const {
+std::optional<size_t> OsmField::NativeTileEncodedBytes(size_t bytesMost) const {
   if (!NativeCodec::Valid(*this)) { return std::nullopt; }
+  NativeSizeWriter out{.Most = bytesMost};
+  if (!out(kNativeTileVersion) || !NativeCodec::Metadata(out, *this) ||
+      !NativeCodec::Tile(out, *this) || !NativeCodec::Values(out, *this)) {
+    return std::nullopt;
+  }
+  return out.Bytes;
+}
+
+std::optional<std::vector<uint8_t>> OsmField::EncodeNativeTile(size_t bytesMost) const {
+  const auto bytes = NativeTileEncodedBytes(bytesMost);
+  if (!bytes) { return std::nullopt; }
   NativeWriter out(bytesMost);
+  out.Out.Reserve(*bytes);
   if (!out(kNativeTileVersion) || !NativeCodec::Metadata(out, *this) ||
       !NativeCodec::Tile(out, *this) || !NativeCodec::Values(out, *this)) {
     return std::nullopt;

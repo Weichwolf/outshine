@@ -7,13 +7,17 @@ import math
 import os
 import platform
 import random
-import sqlite3
+import sys
+from pathlib import Path
+
 import subprocess
 import tempfile
 import time
-from pathlib import Path
 
 from native_tree_detail_world import checked, compile_unit, libraries
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
+from native_package_storage import open_packages
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -24,9 +28,9 @@ def sha(path):
 
 
 def packages(database):
-    with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+    with open_packages(f"file:{database}?mode=ro", uri=True) as connection:
         return [(key, len(blob), hashlib.sha256(blob).hexdigest(), crc)
-                for key, blob, crc in connection.execute("SELECT key,bytes,crc FROM packages")]
+                for key, blob, crc in connection.execute("SELECT key,bytes,crc FROM native_packages")]
 
 
 def build(native, output):

@@ -11,6 +11,7 @@
 #include <memory>
 #include "Units.h"
 #include "OsmField.h"
+#include "PreparedOsmTiles.h"
 #include "Sha256.h"
 
 #include "Capacity.h"
@@ -24,7 +25,7 @@
 #include <span>
 #include <string>
 #include <vector>
-#include <unordered_map>
+
 #include <string_view>
 #include <ratio>
 
@@ -86,7 +87,9 @@ OsmField::OsmField(int zoom,
       Layers_(layers.begin(), layers.end()),
       Zoom_(zoom) {}
 
-OsmField::~OsmField() = default;
+OsmField::~OsmField() {
+  if (Prepared_) { Prepared_->RetainPending(*this, std::nullopt); }
+}
 
 std::shared_ptr<const OsmField>
 OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
@@ -126,16 +129,9 @@ OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
   return snapshot;
 }
 
-uint32_t OsmField::Intern(std::vector<std::string> &pool,
-                          std::unordered_map<std::string, uint32_t> &index,
-                          std::string_view s) {
-  const std::string key(s);
-  const auto it = index.find(key);
-  if (it != index.end()) { return it->second; }
-  const auto id = static_cast<uint32_t>(pool.size());
-  pool.push_back(key);
-  index.emplace(key, id);
-  return id;
+uint32_t
+OsmField::Intern(std::vector<std::string> &pool, OsmStringIndex &index, std::string_view s) {
+  return index.Intern(pool, s);
 }
 
 namespace Says {
@@ -222,8 +218,8 @@ std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources
   if (!centre) { return std::unexpected(centre.error()); }
   const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
   if (!window) { return std::unexpected(window.error()); }
+  if (Prepared_) { Prepared_->RetainPending(*this, *window); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
-    if (Prepared_) { Demand_ = std::make_shared<const uint8_t>(0); }
     Stage_ = SnapshotStage::Empty;
     Assembly_.reset();
   }
@@ -349,7 +345,7 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
 
 std::expected<OsmField::SourceResponse, std::string_view>
 OsmField::AddTile(Data::SourceReader &sources, TileAt at) {
-  if (Prepared_) { return AddNativeTile(sources, at); }
+  if (Prepared_) { return AddNativeTile(at); }
   const Data::SourceRequest request(
       Data::DataKind::VectorMap,
       Data::Address::At(Data::TileId{
@@ -702,15 +698,14 @@ size_t OsmField::HeapBytes() const {
     if (tile.Native) { parsed += tile.Native->HeapBytes(); }
   }
 
-  const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
-                       (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
+  const size_t indexBytes = KeyIndex_.CapacityBytes() + StringIndex_.CapacityBytes();
   const size_t assembly = Assembly_ ? sizeof(AssemblyState) + CapacityBytes(Assembly_->Order) +
                                           Assembly_->Rebuilt.HeapBytes()
                                     : 0;
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
          CapacityBytes(Settled_) + CapacityBytes(Keys_) + CapacityBytes(Strings_) +
-         CapacityBytes(Layers_) + strings + nodes + parsed + assembly;
+         CapacityBytes(Layers_) + strings + indexBytes + parsed + assembly;
 }
 
 int OsmField::Layer(const char *name) const {
@@ -838,6 +833,7 @@ bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) 
 }
 
 void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string_view inputDigest) {
+  if (Prepared_) { Prepared_->RetainPending(*this, std::nullopt); }
   if (MatchesDeclaration(these, over) && Tiles_.front().InputDigest == inputDigest) {
     Pending_ = 0;
     RequestedRing_ = 0;
@@ -853,8 +849,8 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string
   Values_.clear();
   Keys_.clear();
   Strings_.clear();
-  KeyIndex_.clear();
-  StringIndex_.clear();
+  KeyIndex_.Clear();
+  StringIndex_.Clear();
   Settled_.clear();
   CentreX_ = over.X;
   CentreY_ = over.Y;

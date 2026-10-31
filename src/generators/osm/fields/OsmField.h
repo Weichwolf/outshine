@@ -11,7 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include "OsmStringIndex.h"
 #include <vector>
 
 #include "GroundQuery.h"
@@ -176,6 +176,16 @@ public:
   [[nodiscard]] std::shared_ptr<const OsmField>
   SnapshotQueries(std::shared_ptr<const OsmField> previous = {}) const;
 
+  // Fresh single-tile Accept, excluding borrowed input, external source strings and allocator
+  // metadata.
+  struct NativeBuildPlan {
+    size_t WorkingBytesMost = 0;
+    size_t EncodedBytesMost = 0;
+  };
+
+  [[nodiscard]] static std::expected<NativeBuildPlan, std::string_view> NativeTileBuildBytes(
+      std::span<const uint8_t> bytes, std::span<const std::string> layers, MvtSchema schema);
+  [[nodiscard]] std::optional<size_t> NativeTileEncodedBytes(size_t bytesMost) const;
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
   // Fresh libc++/libstdc++ decoder storage, excluding input and allocator overhead.
   // This allocation-free structural scan does not validate geometry semantics.
@@ -233,9 +243,7 @@ private:
     bool IsNum = false;
   };
 
-  static uint32_t Intern(std::vector<std::string> &pool,
-                         std::unordered_map<std::string, uint32_t> &index,
-                         std::string_view s);
+  static uint32_t Intern(std::vector<std::string> &pool, OsmStringIndex &index, std::string_view s);
 
   struct SourceResponse {
     bool Held = false;
@@ -259,8 +267,7 @@ private:
 
   [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(Data::SourceReader &sources,
                                                                         TileAt at);
-  [[nodiscard]] std::expected<SourceResponse, std::string_view>
-  AddNativeTile(Data::SourceReader &sources, TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddNativeTile(TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
   AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);
@@ -294,7 +301,7 @@ private:
   std::vector<std::string> Keys_;
   std::vector<std::string> Strings_;
   std::vector<Value> Values_;
-  std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
+  OsmStringIndex KeyIndex_, StringIndex_;
   std::vector<uint64_t> Settled_;
   BuildMetrics BuildMetrics_;
   BuildMetrics TotalBuildMetrics_;

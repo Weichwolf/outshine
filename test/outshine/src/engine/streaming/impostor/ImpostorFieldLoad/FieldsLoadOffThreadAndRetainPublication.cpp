@@ -75,12 +75,12 @@ struct Fixture {
                                             .ConsumerBytes = 0,
                                             .ReceiptBytesMost = 4096},
                                            [cache = Cache, key = Key](const std::stop_token &)
-                                               -> std::expected<AssetRecord, std::string> {
+                                               -> std::expected<AssetProduct, std::string> {
                                              auto found = cache->Find(key);
                                              if (!found || !*found) {
                                                return std::unexpected("field receipt unavailable");
                                              }
-                                             return std::move(**found);
+                                             return AssetProduct(std::move(**found));
                                            });
     CHECK(ticket.has_value(), "the field receipt request admits");
     if (!ticket) { return std::nullopt; }
