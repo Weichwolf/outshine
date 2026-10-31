@@ -67,7 +67,7 @@ int main() {
       transport.Reason = reason;
       transport.FirstNotFound = fallback;
       auto query = sources.Ask(request);
-      auto response = sources.Collect(query, transport);
+      const auto response = sources.Collect(query, transport);
       CHECK(response.Where() == SourceDelivery::State::Refused && response.Failure(),
             "refused admission settles directly without collecting a nonexistent ticket");
       const auto &failure = response.Failure();

@@ -105,7 +105,7 @@ Prepare(const std::shared_ptr<Calls> &calls) {
 }
 
 void Transfer(const std::filesystem::path &cache) {
-  auto calls = std::make_shared<Calls>();
+  const auto calls = std::make_shared<Calls>();
   auto prepared = Prepare(calls);
   CHECK(prepared && calls->Made == 1 && calls->Destroyed == 0 && !std::filesystem::exists(cache),
         "preparation owns one source after factory and registry destruction without cache IO");
@@ -120,7 +120,7 @@ void Transfer(const std::filesystem::path &cache) {
   std::expected<std::shared_ptr<SourceSession>, std::string> session =
       std::unexpected("not opened");
   {
-    const std::jthread worker([&session, cache, configuration = std::move(transferred)]() mutable {
+    const std::jthread worker([&session, cache, configuration = std::move(transferred)] mutable {
       session = SourceSession::Open({.Directory = cache.string()}, std::move(configuration));
     });
   }
@@ -152,7 +152,7 @@ void Transfer(const std::filesystem::path &cache) {
 }
 
 void RejectedMetadata(const std::filesystem::path &cache) {
-  auto calls = std::make_shared<Calls>();
+  const auto calls = std::make_shared<Calls>();
   const SnapshotProvider factory(calls);
   ProviderRegistry registry;
   CHECK(registry.registerProvider(factory), "metadata fixture provider registered");
