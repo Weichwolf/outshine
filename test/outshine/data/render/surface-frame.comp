@@ -1,0 +1,28 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "render/shaders/surfaceNormal.glsl"
+#include "render/shaders/surfaceTangent.glsl"
+#include "render/shaders/normalFromMap.glsl"
+layout(local_size_x = 32) in;
+struct Input {
+  mat4 model;
+  vec4 normal;
+  vec4 tangent;
+  vec4 sampled;
+};
+struct Output {
+  vec4 mapped;
+  vec4 tangent;
+};
+layout(std430, set = 0, binding = 0) readonly buffer Inputs { Input inputs[]; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Output outputs[]; };
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at >= inputs.length()) { return; }
+  Input source = inputs[at];
+  vec3 normal = transformedSurfaceNormal(mat3(source.model), source.normal.xyz);
+  vec4 tangent = transformedSurfaceTangent(mat3(source.model), source.tangent);
+  outputs[at].tangent = tangent;
+  outputs[at].mapped = vec4(normalFromMap(normal, tangent, source.sampled.xyz, 1.0,
+                                         source.normal.w > 0.0), 1.0);
+}

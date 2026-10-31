@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "geometryView.glsl"
 #include "surfaceNormal.glsl"
+#include "surfaceTangent.glsl"
 #define VARYING out
 #define SURFACE_VERTEX_STAGE 1
 #if LIT_UVS == 0
@@ -71,8 +72,7 @@ void main() {
 #endif
 #if LIT_MAPPED
   vec4 vertexTangent = tangentFactors[placement.tangentOffset + uint(gl_VertexIndex)];
-  tangent = vec4(normalize(m[0].xyz * vertexTangent.x + m[1].xyz * vertexTangent.y +
-                          m[2].xyz * vertexTangent.z), vertexTangent.w);
+  tangent = transformedSurfaceTangent(mat3(m), vertexTangent);
 #endif
 #if SURFACE_WRITES_VELOCITY
   curClip = gl_Position;
