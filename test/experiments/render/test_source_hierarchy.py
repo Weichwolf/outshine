@@ -1,11 +1,12 @@
 """Same source candidates/fallbacks with immutable coarse metadata first."""
 
 import unittest
+from fractions import Fraction
 
 import numpy as np
 from native_source_triangle_materials import DATA, bound_selection
 from native_world_inputs import load
-from source_cluster_bounds import frame, support_margin
+from source_cluster_bounds import clip_boxes, frame, support_margin
 from source_hierarchy import prepare, query
 from source_raster_candidates import projection, select
 from source_triangle_clusters import build
@@ -165,6 +166,56 @@ class Fallbacks(unittest.TestCase):
 
 
 class ModelBounds(unittest.TestCase):
+    def test_affine_box_intervals_contain_independent_exact_rational_points(self):
+        rng = np.random.default_rng(73)
+        for _ in range(12):
+            bounds = np.sort(rng.uniform(-1000, 1000, (2, 3)).astype("<f4"), axis=0)
+            placement = rng.uniform(-8, 8, (4, 4)).astype("<f4").astype(float)
+            matrix = rng.uniform(-1, 1, (4, 4)).astype("<f4").astype(float)
+            shift = rng.uniform(-10000, 10000, 4).astype("<f4").astype(float)
+            low, high = clip_boxes(bounds[None], (placement, shift, matrix))
+            points = rng.uniform(bounds[0], bounds[1], (6, 3)).astype("<f4")
+            for point in points:
+                value = [Fraction(float(v)) for v in (*point, 1)]
+                for transform, add in ((placement, shift), (matrix, np.zeros(4))):
+                    value = [
+                        sum(
+                            Fraction(float(a)) * b
+                            for a, b in zip(row, value, strict=True)
+                        )
+                        + Fraction(float(t))
+                        for row, t in zip(transform, add, strict=True)
+                    ]
+                for axis, q in enumerate(value):
+                    self.assertLessEqual(Fraction(float(low[0, axis])), q)
+                    self.assertGreaterEqual(Fraction(float(high[0, axis])), q)
+
+    def test_small_random_surfaces_and_reflected_frames_match_flat_candidates(self):
+        rng = np.random.default_rng(1866)
+        for _ in range(6):
+            centers = rng.uniform(-0.65, 0.65, (32, 1, 3))
+            centers[:, :, 2] = 0.5
+            positions = (
+                (centers + rng.uniform(-0.008, 0.008, (32, 3, 3)))
+                .reshape(-1, 3)
+                .astype("<f4")
+            )
+            mesh = source(positions, np.arange(96).reshape(-1, 3))
+            words, placement = uploads()
+            words.view("<f4")[3] = 0.05
+            for sign in (-1, 1):
+                placement[0, :16].view("<f4")[0] = sign
+                for order in ("source", "morton"):
+                    h = prepare(mesh, leaf_triangles=1, order=order)
+                    expected, base = select(
+                        h.source, words, placement, [32, 32], raster_guard_px=0.0
+                    )
+                    ids, work = query(
+                        h, words, placement, [32, 32], raster_guard_px=0.0
+                    )
+                    np.testing.assert_array_equal(ids, expected)
+                    self.assertEqual(work["complete_model"], base["complete_model"])
+
     def test_uniform_coarse_margin_encloses_existing_fine_vertex_radii(self):
         rng = np.random.default_rng(1866)
         for _ in range(12):
