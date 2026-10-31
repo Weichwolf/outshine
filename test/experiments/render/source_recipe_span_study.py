@@ -77,6 +77,12 @@ def run(args):
     if len(set(map(int, table[:, 0]))) != len(table) or set(oracle) != selected:
         raise ValueError("Complete unique source identities required")
     np.savez(args.output, table=table, sha256=hashes)
+    with np.load(args.output, allow_pickle=False) as stored:
+        if not np.array_equal(stored["table"], table) or not np.array_equal(
+            stored["sha256"], hashes
+        ):
+            raise ValueError("Complete stored recipe span index required")
+        table, hashes = stored["table"], stored["sha256"]
     membership = {
         int(row[0]): (int(row[1]), int(row[2]), int(row[3]), hashes[k].tobytes())
         for k, row in enumerate(table)
