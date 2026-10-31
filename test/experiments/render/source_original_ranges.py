@@ -4,6 +4,7 @@ Source ordinals are the bound capture's ordinals, not live World identities.
 """
 
 import hashlib
+import struct
 
 import numpy as np
 
@@ -19,6 +20,10 @@ INDEX = np.dtype(
     [("source", "<i4"), ("offset", "<u8"), ("bytes", "<u4"), ("digest", "u1", (32,))]
 )
 FIELDS = ("normals", "uv", "uv1", "colours")
+TRIANGLE = np.dtype(
+    [("ordinal", "<u4"), ("binding", "<i4", (6,)), ("local", "<u2", (3,))]
+)
+VERTEX = np.dtype([("original", "<u4"), ("words", "<u4", (14,))])
 
 
 def digest(raw):
@@ -56,7 +61,55 @@ def original_rows(source, binding):
     return rows
 
 
-def write_ranges(directory, rows):
+def encode_indexed(rows):
+    indices = rows["indices"].reshape(-1)
+    identities, first, inverse = np.unique(
+        indices, return_index=True, return_inverse=True
+    )
+    if len(identities) > 65536:
+        raise ValueError("Source exceeds bounded 16-bit vertex range; retain original")
+    words = np.ascontiguousarray(rows["corners"]).reshape(-1, 14).view("<u4")
+    if not np.array_equal(words, words[first][inverse]):
+        raise ValueError("One original vertex must have identical corner words")
+    triangles = np.empty(len(rows), dtype=TRIANGLE)
+    triangles["ordinal"] = rows["ordinal"]
+    triangles["binding"] = rows["binding"]
+    triangles["local"] = inverse.reshape(-1, 3)
+    vertices = np.empty(len(identities), dtype=VERTEX)
+    vertices["original"] = identities
+    vertices["words"] = words[first]
+    return (
+        struct.pack("<II", len(triangles), len(vertices))
+        + triangles.tobytes()
+        + vertices.tobytes()
+    )
+
+
+def decode_indexed(raw):
+    if len(raw) < 8:
+        raise ValueError("Incomplete indexed original source")
+    triangles, vertices = struct.unpack_from("<II", raw)
+    if (
+        not triangles
+        or not 1 <= vertices <= 65536
+        or len(raw) != 8 + triangles * TRIANGLE.itemsize + vertices * VERTEX.itemsize
+    ):
+        raise ValueError("Invalid indexed original source sizes")
+    tri = np.frombuffer(raw, dtype=TRIANGLE, count=triangles, offset=8)
+    vert = np.frombuffer(
+        raw, dtype=VERTEX, count=vertices, offset=8 + triangles * TRIANGLE.itemsize
+    )
+    if tri["local"].max() >= vertices or len(np.unique(vert["original"])) != vertices:
+        raise ValueError("Invalid local original vertex indices")
+    result = np.empty(triangles, dtype=ROW)
+    result["ordinal"] = tri["ordinal"]
+    result["binding"] = tri["binding"]
+    result["indices"] = vert["original"][tri["local"]]
+    result["corners"] = vert["words"][tri["local"]].view("<f4")
+    return result
+
+
+def write_ranges(directory, rows, *, indexed=False):
     if rows.dtype != ROW or rows.ndim != 1 or not len(rows):
         raise ValueError("Bounded original rows required")
     order = np.argsort(rows["binding"][:, 1], kind="stable")
@@ -70,7 +123,8 @@ def write_ranges(directory, rows):
         for i, (identity, start, count) in enumerate(
             zip(ids, starts, counts, strict=True)
         ):
-            raw = ordered[start : start + count].tobytes()
+            part = ordered[start : start + count]
+            raw = encode_indexed(part) if indexed else part.tobytes()
             index[i] = (
                 identity,
                 stream.tell(),
@@ -82,7 +136,7 @@ def write_ranges(directory, rows):
     return index
 
 
-def read_ranges(directory, index, requested):
+def read_ranges(directory, index, requested, *, indexed=False):
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
     ids = [int(x) for x in requested]
@@ -95,7 +149,11 @@ def read_ranges(directory, index, requested):
     spans = []
     for row in records:
         start, length = int(row["offset"]), int(row["bytes"])
-        if length <= 0 or length % ROW.itemsize or (spans and start < spans[-1][1]):
+        if (
+            length <= 0
+            or (not indexed and length % ROW.itemsize)
+            or (spans and start < spans[-1][1])
+        ):
             raise ValueError("Invalid or overlapping original source range")
         if spans and start == spans[-1][1]:
             spans[-1][1] += length
@@ -115,7 +173,9 @@ def read_ranges(directory, index, requested):
                 raw = blob[lo : lo + int(row["bytes"])]
                 if digest(raw) != row["digest"].tobytes():
                     raise ValueError("Original source range changed")
-                values = np.frombuffer(raw, dtype=ROW)
+                values = (
+                    decode_indexed(raw) if indexed else np.frombuffer(raw, dtype=ROW)
+                )
                 if np.any(values["binding"][:, 1] != row["source"]):
                     raise ValueError("Original source identity changed")
                 results.append(values)

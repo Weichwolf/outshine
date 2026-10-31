@@ -3,7 +3,13 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from source_original_ranges import original_rows, read_ranges, write_ranges
+from source_original_ranges import (
+    decode_indexed,
+    encode_indexed,
+    original_rows,
+    read_ranges,
+    write_ranges,
+)
 
 
 class OriginalRangesTest(unittest.TestCase):
@@ -50,6 +56,24 @@ class OriginalRangesTest(unittest.TestCase):
             stream.write(bytes([value[0] ^ 1]))
         with self.assertRaisesRegex(ValueError, "changed"):
             read_ranges(self.path, self.index, [8])
+
+    def test_indexed_ranges_preserve_original_words(self):
+        path = Path(self.temp.name) / "indexed"
+        index = write_ranges(path, self.rows, indexed=True)
+        for ids, expected in (
+            ([8], self.rows[[0, 2]]),
+            ([9, 8], self.rows),
+            ([], self.rows[:0]),
+        ):
+            rows, _ = read_ranges(path, index, ids, indexed=True)
+            np.testing.assert_array_equal(rows.view("u1"), expected.view("u1"))
+        encoded = encode_indexed(self.rows[[0, 2]])
+        with self.assertRaises(ValueError):
+            decode_indexed(encoded[:-1])
+        bad = self.rows[[0, 2]].copy()
+        bad["corners"][1, 0, 0] += 1
+        with self.assertRaisesRegex(ValueError, "identical"):
+            encode_indexed(bad)
 
 
 if __name__ == "__main__":

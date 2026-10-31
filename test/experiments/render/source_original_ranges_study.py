@@ -46,7 +46,9 @@ def run(args):
     rows, row_cost = measured(
         lambda: original_rows(source, context["triangle_binding"])
     )
-    index, build_cost = measured(lambda: write_ranges(args.output, rows))
+    index, build_cost = measured(
+        lambda: write_ranges(args.output, rows, indexed=args.indexed)
+    )
     index_raw = (args.output / "index.npy").read_bytes()
     loaded_index = np.load(args.output / "index.npy", allow_pickle=False)
     if not np.array_equal(index, loaded_index):
@@ -58,7 +60,9 @@ def run(args):
         if set(selected) != set(row["selected_source_ids"]):
             raise ValueError("Recorded selected source set changed")
         (loaded, io), query_cost = measured(
-            lambda selected=selected: read_ranges(args.output, loaded_index, selected)
+            lambda selected=selected: read_ranges(
+                args.output, loaded_index, selected, indexed=args.indexed
+            )
         )
         reference = rows[np.isin(rows["binding"][:, 1], selected)]
         if not np.array_equal(loaded.view("u1"), reference.view("u1")):
@@ -83,6 +87,7 @@ def run(args):
     result = {
         "source_binding_sha256": provenance["source_binding_sha256"],
         "bounds_sha256": view["bounds_sha256"],
+        "encoding": "source_indexed" if args.indexed else "direct_corners",
         "index_sha256": hashlib.sha256(index_raw).hexdigest(),
         "sources": len(index),
         "triangles": len(rows),
@@ -103,4 +108,5 @@ if __name__ == "__main__":
     parser.add_argument("--bounds", type=Path, required=True)
     parser.add_argument("--view", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--indexed", action="store_true")
     run(parser.parse_args())
