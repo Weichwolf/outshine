@@ -184,8 +184,7 @@ void Replay(const std::filesystem::path &directory,
   providers[1].Kind = "vector";
   providers[1].Dataset = "fixture.native-replay";
   providers[1].Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
-  ReplaySourceTransport wire;
-  wire.TwoCells = initialCells;
+  ReplaySourceTransport wire(initialCells);
 
   Tasks compute(1);
   SurfacePreparation stack;

@@ -4,6 +4,8 @@
 #include "SurfacePreparation.h"
 #include "MvtWireFixture.h"
 #include <chrono>
+#include <cstddef>
+#include <expected>
 #include <cstdint>
 #include <string>
 
@@ -40,17 +42,28 @@ inline outshine::Test::Mvt::Bytes BuildingTile(bool twoCells) {
 
 class ReplaySourceTransport final : public outshine::Data::SourceTransport {
 public:
-  bool TwoCells = false;
+  explicit ReplaySourceTransport(bool twoCells = false) : Payload_(BuildingTile(twoCells)) {}
 
-  outshine::Data::FetchStart Begin(const std::string & /*uri*/) override {
+  outshine::Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
-  outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
-    return outshine::Data::Wire::Answered(200, BuildingTile(TwoCells));
+  outshine::Data::FetchStart Begin(const std::string &url, size_t bodyBytesMost) override {
+    if (Payload_.size() > bodyBytesMost) {
+      return std::unexpected(outshine::Data::SourceFailureReason::CapacityRefused);
+    }
+    return Begin(url);
   }
 
-  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
+  outshine::Data::Wire Collect([[maybe_unused]] outshine::Data::Ticket ticket) override {
+    return outshine::Data::Wire::Answered(200, Payload_);
+  }
+
+  void Cancel([[maybe_unused]] outshine::Data::Ticket ticket) override {}
+
+private:
+  // Fixed source inputs exist before requests; admission precedes copying a response.
+  const Mvt::Bytes Payload_;
 };
 
 using namespace outshine;
