@@ -125,44 +125,74 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
   if (!position) { return std::unexpected(std::string(position.error())); }
   const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
   if (!config) { return std::unexpected(std::string(config.error())); }
-  Close();
   auto digest = Generators::Osm::OsmField::DeclarationDigest({});
   if (!digest) { return std::unexpected(std::string(digest.error())); }
-  Declared_.clear();
-  DeclaredDigest_ = std::move(*digest);
-  Cls_.Declares({}, DeclaredDigest_);
-  Sources_ = std::move(session);
-  auto &sources = Sources_->Sources();
+
+  SurfacePreparation candidate;
+  candidate.Sources_ = std::move(session);
+  auto &sources = candidate.Sources_->Sources();
   for (size_t at = 0; at < sources.Count(); ++at) {
     const auto &decl = sources.At(at).Declaration();
     if (decl.Kind != Data::DataKind::VectorMap) { continue; }
     const auto schema = Generators::Osm::ParseMvtSchema(decl.Schema);
-    if (!schema || (HasVectorSource_ && *schema != VectorSchema_)) {
-      Close();
+    if (!schema || (candidate.HasVectorSource_ && *schema != candidate.VectorSchema_)) {
       return std::unexpected("vector sources require one supported semantic schema");
     }
-    HasVectorSource_ = true;
-    VectorSchema_ = *schema;
+    candidate.HasVectorSource_ = true;
+    candidate.VectorSchema_ = *schema;
   }
-  VectorZoom_ = HasVectorSource_ ? FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
+  candidate.VectorZoom_ =
+      candidate.HasVectorSource_ ? candidate.FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
+  if (!under.Assets.empty()) {
+    if (auto bound = candidate.BindAssetCaches(under.Assets, sources, compute); !bound) {
+      return std::unexpected(std::move(bound.error()));
+    }
+  }
+  const std::string &builtinData = under.BuiltinData;
+  candidate.RecipesReady_ =
+      candidate.Materials_.Load((builtinData + "/world/ground-materials.json").c_str()) &&
+      candidate.Recipes_.Load((builtinData + "/world/vegetation.json").c_str(),
+                              candidate.Materials_);
+  if (candidate.RecipesReady_) {
+    if (auto bound = candidate.BindRegionCache(under, sources); !bound) {
+      return std::unexpected(std::move(bound.error()));
+    }
+  } else if (diagnostics != nullptr) {
+    const LogThreadSinkScope logs(diagnostics);
+    Log::Warn(LogTag::World, "ground_tables_unavailable", {{"directory", builtinData}});
+  }
+
+  Close();
+  Sources_ = std::move(candidate.Sources_);
+  PreparedTerrain_ = std::move(candidate.PreparedTerrain_);
+  PreparedBuildings_ = std::move(candidate.PreparedBuildings_);
+  PreparedNetwork_ = std::move(candidate.PreparedNetwork_);
+  PreparedRegions_ = std::move(candidate.PreparedRegions_);
+  PreparedRoads_ = std::move(candidate.PreparedRoads_);
+  PreparedVectors_ = std::move(candidate.PreparedVectors_);
+  PreparedUrban_ = std::move(candidate.PreparedUrban_);
+  Materials_ = std::move(candidate.Materials_);
+  Recipes_ = std::move(candidate.Recipes_);
+  RecipesReady_ = candidate.RecipesReady_;
+  HasVectorSource_ = candidate.HasVectorSource_;
+  VectorSchema_ = candidate.VectorSchema_;
+  VectorZoom_ = candidate.VectorZoom_;
+  Declared_.clear();
+  DeclaredDigest_ = std::move(*digest);
+  Cls_.Declares({}, DeclaredDigest_);
   if (diagnostics != nullptr) {
     const LogThreadSinkScope logs(diagnostics);
     Log::Info(LogTag::World,
               "sources_registered",
               {{"sources", static_cast<long long>(sources.Count())}});
   }
-
   outshine::Ground::GroundSurface surface;
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = TerrainRenderZoom() - 1;
   auto poolConfig = *config;
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
-  if (!under.Assets.empty()) {
-    if (auto bound = BindAssetCaches(under.Assets, sources, compute); !bound) {
-      Close();
-      return std::unexpected(std::move(bound.error()));
-    }
+  if (PreparedTerrain_) {
     poolConfig.PreparedFields = [assets = PreparedTerrain_](Data::TileId at,
                                                             const TerrainTiles::Shaped &shape) {
       return assets->RequestField(at, shape);
@@ -174,21 +204,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
   Cls_.SetVectorSource(HasVectorSource_, VectorSchema_);
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg, compute);
   Cls_.SetPreparedTiles(PreparedVectors_);
-
-  const std::string &builtinData = under.BuiltinData;
-  RecipesReady_ = Materials_.Load((builtinData + "/world/ground-materials.json").c_str()) &&
-                  Recipes_.Load((builtinData + "/world/vegetation.json").c_str(), Materials_);
-  if (RecipesReady_) {
-    Cls_.SetRecipes(&Recipes_);
-    auto bound = BindRegionCache(under, sources);
-    if (!bound) {
-      Close();
-      return std::unexpected(std::move(bound.error()));
-    }
-  } else if (diagnostics != nullptr) {
-    const LogThreadSinkScope logs(diagnostics);
-    Log::Warn(LogTag::World, "ground_tables_unavailable", {{"directory", builtinData}});
-  }
+  if (RecipesReady_) { Cls_.SetRecipes(&Recipes_); }
   Opened_ = true;
   return {};
 }

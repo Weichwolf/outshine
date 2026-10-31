@@ -68,8 +68,9 @@ int main() {
   badCache.Assets = blocked.string();
   const auto unavailable =
       preparation.OpenSession(badCache, *session, focus, wire, compute, nullptr);
-  CHECK(!unavailable && !unavailable.error().empty() && !preparation.Opened(),
-        "late cache binding failures return their owned error and release partial preparation");
+  CHECK(!unavailable && !unavailable.error().empty() && preparation.Opened() &&
+            &preparation.Pool() == pool,
+        "late cache binding failure preserves the previously usable source and terrain pool");
   std::error_code cleanupError;
   std::filesystem::remove(blocked, cleanupError);
   CHECK(!cleanupError, "private failure input removed");
