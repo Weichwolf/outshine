@@ -212,7 +212,7 @@ class Curve:
             return bezier(rates, parameter) / np.cos(bank) ** 2
         raise ValueError("Crossfall value or first derivative required")
 
-    def at(self, stations):
+    def at(self, stations, *, lateral_m=None):
         stations = np.asarray(stations, dtype=float)
         if (
             stations.ndim != 1
@@ -222,6 +222,17 @@ class Curve:
         ):
             raise ValueError(
                 "Finite stations inside the analytic source domain required"
+            )
+        across = (
+            self.across if lateral_m is None else np.asarray(lateral_m, dtype=float)
+        )
+        if (
+            across.ndim != 1
+            or not np.isfinite(across).all()
+            or np.any(abs(across) > self.width)
+        ):
+            raise ValueError(
+                "Finite lateral coordinates inside the original full width required"
             )
         i = np.minimum(
             np.searchsorted(self.stations, stations, side="right") - 1,
@@ -249,4 +260,4 @@ class Curve:
                 -np.tan(self.poses[i[exact] + 1, 9]),
             ]
         self.evaluations += len(stations)
-        return center[:, None, :] + self.across[None, :, None] * direction[:, None, :]
+        return center[:, None, :] + across[None, :, None] * direction[:, None, :]
