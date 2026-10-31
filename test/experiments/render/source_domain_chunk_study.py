@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import json
+import struct
 from pathlib import Path
 
 import numpy as np
@@ -42,7 +43,47 @@ def subset(a, start, end):
     return chunk
 
 
-def run(source, output, group_size, identity):
+def encode_raw(chunk):
+    description = [
+        (name, value.dtype.str, value.shape) for name, value in chunk.items()
+    ]
+    header = json.dumps(description, separators=(",", ":")).encode("ascii")
+    return (
+        struct.pack("<I", len(header))
+        + header
+        + b"".join(v.tobytes() for v in chunk.values())
+    )
+
+
+def decode_raw(blob):
+    if len(blob) < 4:
+        raise ValueError("Incomplete group header")
+    size = struct.unpack_from("<I", blob)[0]
+    if size > 8192 or size > len(blob) - 4:
+        raise ValueError("Invalid group header length")
+    description = json.loads(blob[4 : 4 + size])
+    result, offset = {}, 4 + size
+    for name, dtype, shape in description:
+        dtype = np.dtype(dtype)
+        if (
+            dtype.str not in ("<i4", "<i2", "<u2", "<u4", "<u8", "<f8")
+            or name in result
+        ):
+            raise ValueError("Invalid group array")
+        count = int(np.prod(shape, dtype=np.int64))
+        length = count * dtype.itemsize
+        if count < 0 or length > len(blob) - offset:
+            raise ValueError("Incomplete group array")
+        result[name] = np.frombuffer(
+            blob, dtype=dtype, count=count, offset=offset
+        ).reshape(shape)
+        offset += length
+    if offset != len(blob):
+        raise ValueError("Unexpected trailing group data")
+    return result
+
+
+def run(source, output, group_size, identity, encoding):
     output.mkdir(parents=True, exist_ok=False)
     with np.load(source, allow_pickle=False) as z:
         a = {key: z[key] for key in z.files}
@@ -53,9 +94,21 @@ def run(source, output, group_size, identity):
         for start in range(0, n, group_size):
             end = min(n, start + group_size)
             chunk = subset(a, start, end)
-            memory = io.BytesIO()
-            np.savez(memory, **chunk)
-            blob = memory.getvalue()
+            if encoding == "npz":
+                memory = io.BytesIO()
+                np.savez(memory, **chunk)
+                blob = memory.getvalue()
+            else:
+                blob = encode_raw(chunk)
+                decoded = decode_raw(blob)
+                if any(
+                    key not in decoded
+                    or decoded[key].dtype != value.dtype
+                    or decoded[key].shape != value.shape
+                    or decoded[key].tobytes() != value.tobytes()
+                    for key, value in chunk.items()
+                ):
+                    raise ValueError("Stored group arrays must roundtrip bit for bit")
             index[start:end] = list(
                 zip(
                     chunk["source_ids"],
@@ -76,8 +129,11 @@ def run(source, output, group_size, identity):
         blob = stream.read(int(match[0]["bytes"]))
     if len(blob) != int(match[0]["bytes"]):
         raise ValueError("Incomplete group retains original")
-    with np.load(io.BytesIO(blob), allow_pickle=False) as z:
-        loaded = {key: z[key] for key in z.files}
+    if encoding == "npz":
+        with np.load(io.BytesIO(blob), allow_pickle=False) as z:
+            loaded = {key: z[key] for key in z.files}
+    else:
+        loaded = decode_raw(blob)
     old_source = int(np.flatnonzero(a["source_ids"] == identity)[0])
     new_source = int(np.flatnonzero(loaded["source_ids"] == identity)[0])
     old_lo, old_hi = map(int, a["source_patch_offsets"][old_source : old_source + 2])
@@ -106,6 +162,7 @@ def run(source, output, group_size, identity):
         "sources": n,
         "groups": groups,
         "group_size": group_size,
+        "encoding": encoding,
         "original_npz_bytes": source.stat().st_size,
         "indexed_file_bytes": sizes,
         "indexed_total_bytes": sum(sizes.values()),
@@ -113,7 +170,7 @@ def run(source, output, group_size, identity):
         "sample_patches_verified": new_hi - new_lo,
         "sample_index_plus_chunk_read_bytes": sizes["index.npy"] + len(blob),
         "sample_chunk_read_bytes": len(blob),
-        "scope": "Experimental uncompressed NPZ blobs and in-memory index; bytes returned by application reads, not physical IO or native cache. Source recipe, original fallback, visibility, OS cache, time and peak memory are excluded. All group control words roundtrip; selected actual source polygon topology/labels also checked.",
+        "scope": "Experimental blobs and in-memory index; bytes returned by application reads, not physical IO or native cache. Source recipe, original fallback, visibility, OS cache, time and peak memory are excluded. All group control words roundtrip; selected actual source polygon topology/labels also checked.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
@@ -125,5 +182,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--group-size", type=int, default=8, choices=(1, 8, 32))
     parser.add_argument("--source", type=int, default=1147)
+    parser.add_argument("--encoding", choices=("npz", "raw"), default="npz")
     args = parser.parse_args()
-    run(args.input, args.output, args.group_size, args.source)
+    run(args.input, args.output, args.group_size, args.source, args.encoding)
