@@ -140,7 +140,7 @@ botanische Referenzen bestimmen die Vegetationsabnahme (#1).
 |---|---|
 | Code / Tests / Experimente / gemeinsame Python-Referenzen | `src/`, `test/outshine/{src,integration}`, `test/experiments/`, `lib/` |
 | Builds / Places / Referenzbilder / Papers | `build/`, `build/shots/places/`, `build/shots/reference/`, `doc/references/` |
-| Quellen / Assets und Index | Getrennte `sources/` und `assets/` im Client-Pref-Verzeichnis |
+| Quellen / Assets und Index | Quellen im Client-Pref-Verzeichnis; generierte Assets unter `build/assets/` neben dem Programm; getrennte, konfigurierbare Pfade |
 | Private Arbeitsdaten, Logs, Umgebungen, Bilder, Worktrees | `${TMPDIR:-/tmp}/outshine-<Agent>-<Auftrag>-<Commit>`; Tests `outshine-tests.<Checkout>` |
 
 Nur gemeinsam benötigter Inhalt ins Repo; keine privaten `build/experiments/`-Ausgaben.
