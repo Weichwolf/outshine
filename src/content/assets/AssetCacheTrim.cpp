@@ -25,6 +25,7 @@ struct Store {
   std::unique_ptr<Sql::Database> Database;
   bool Usage = false;
   bool Requests = false;
+  bool Bodies = false;
 };
 
 struct Package {
@@ -46,10 +47,11 @@ std::expected<void, std::string> ReadSchema(Store &store) {
     return std::unexpected("could not read native asset cache schema");
   }
   const int schemaVersion = sqlite3_column_int(version.Handle, 0);
-  if (schemaVersion != 3 && schemaVersion != 4) {
+  if (schemaVersion < 3 || schemaVersion > 5) {
     return std::unexpected("unsupported native asset cache schema");
   }
-  store.Requests = schemaVersion == 4;
+  store.Requests = schemaVersion >= 4;
+  store.Bodies = schemaVersion == 5;
   Sql::Statement schema;
   if (auto prepared = Sql::Prepare(database,
                                    "SELECT a.id,a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,"
@@ -97,7 +99,14 @@ Read(Store &store, size_t index, std::vector<Package> &packages, CacheTrimResult
   store.Usage = *hasUsage;
   Sql::Statement query;
   if (auto prepared = Sql::Prepare(
-          database, "SELECT key,length(bytes),rowid,typeof(bytes) FROM packages", query);
+          database,
+          store.Bodies
+              ? "SELECT p.key,CASE WHEN b.rowid IS NULL THEN length(p.bytes) ELSE length(b.bytes) "
+                "END,"
+                "p.rowid,CASE WHEN b.rowid IS NULL THEN typeof(p.bytes) ELSE typeof(b.bytes) END "
+                "FROM packages p LEFT JOIN package_bodies b ON b.key=p.key"
+              : "SELECT key,length(bytes),rowid,typeof(bytes) FROM packages",
+          query);
       !prepared) {
     return prepared;
   }
@@ -152,6 +161,11 @@ Erase(Store &store, std::span<const Package> packages, size_t index) {
         !erased) {
       return erased;
     }
+  }
+  if (store.Bodies) {
+    const auto erased =
+        Sql::Exec(database, "DELETE FROM package_bodies WHERE key IN trim_packages");
+    if (!erased) { return erased; }
   }
   for (const auto *sql :
        {"DELETE FROM bounds WHERE id IN (SELECT id FROM assets WHERE package IN trim_packages)",

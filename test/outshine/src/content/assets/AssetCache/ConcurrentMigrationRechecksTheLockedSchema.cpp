@@ -68,9 +68,9 @@ int Migrate(const std::string &path, std::string_view version) {
     CHECK((*cache)->Publish(std::span(&record, 1), kPayload),
           "the independent migration publishes a real product and request alias");
   }
-  if (version == "5") {
+  if (version == "6") {
     const auto database = Connect(path);
-    CHECK(database && Execute(database.get(), "PRAGMA user_version=5"),
+    CHECK(database && Execute(database.get(), "PRAGMA user_version=6"),
           "the independent process can leave a newer schema version");
   }
   return Report();
@@ -105,7 +105,7 @@ bool Spawn(const std::string &executable, const std::string &path, int version) 
 
 struct VersionGate {
   std::string Executable, Path;
-  int NextVersion = 4;
+  int NextVersion = 5;
   bool Observed = false, Migrated = false;
 };
 
@@ -140,7 +140,7 @@ void ConcurrentMigration(const std::string &executable, const std::string &path,
   activeGate = nullptr;
   CHECK(gate.Observed && gate.Migrated,
         "a fresh independent process commits after the first version observation");
-  if (version == 4) {
+  if (version == 5) {
     CHECK(opened, "a completed concurrent migration does not replay stale schema changes");
     if (opened) {
       const auto found = (*opened)->LoadRequest(kRequest, 1024);
@@ -184,8 +184,8 @@ int main(int argc, char *const *argv) {
   std::filesystem::create_directories(directory, error);
   CHECK(!error, "concurrent schema fixtures use a private temporary directory");
   if (!error) {
-    ConcurrentMigration(argv[0], (directory / "current.sqlite").string(), 4);
-    ConcurrentMigration(argv[0], (directory / "future.sqlite").string(), 5);
+    ConcurrentMigration(argv[0], (directory / "current.sqlite").string(), 5);
+    ConcurrentMigration(argv[0], (directory / "future.sqlite").string(), 6);
   }
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "both processes release their private fixture databases");

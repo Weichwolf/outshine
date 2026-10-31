@@ -72,7 +72,8 @@ void ReadsCompressedSlices(const std::string &path) {
   const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, &sqlite3_close);
   sqlite3_stmt *statement = nullptr;
   CHECK(sqlite3_prepare_v2(database.get(),
-                           "SELECT codec,length(bytes),native_bytes FROM packages",
+                           "SELECT p.codec,length(b.bytes),p.native_bytes FROM packages p "
+                           "JOIN package_bodies b ON b.key=p.key",
                            -1,
                            &statement,
                            nullptr) == SQLITE_OK,
@@ -92,10 +93,13 @@ void KeepsLegacyBytes(const std::string &path) {
   if (!cache) { return; }
   CHECK((*cache)->Publish(std::span(&record, 1), bytes).has_value(), "small package remains raw");
   cache->reset();
-  CHECK(Execute(path,
-                "ALTER TABLE packages DROP COLUMN codec; ALTER TABLE packages DROP COLUMN "
-                "native_bytes; DROP TABLE asset_requests; PRAGMA user_version=1;"),
-        "fixture has the original schema and untouched legacy package bytes");
+  CHECK(
+      Execute(path,
+              "UPDATE packages SET bytes=(SELECT bytes FROM package_bodies WHERE key=packages.key);"
+              "DROP TABLE package_bodies;"
+              "ALTER TABLE packages DROP COLUMN codec; ALTER TABLE packages DROP COLUMN "
+              "native_bytes; DROP TABLE asset_requests; PRAGMA user_version=1;"),
+      "fixture has the original schema and untouched legacy package bytes");
   cache = AssetCache::Open(path);
   CHECK(cache.has_value(), "schema migration opens legacy packages without regeneration");
   if (!cache) { return; }
@@ -125,8 +129,10 @@ void RefusesDamagedPackages(const std::string &path) {
         "fixture injects inconsistent frame size");
   hit = (*cache)->Load(record.Key, bytes.size() + 1);
   CHECK(hit && !*hit, "frame size must agree with metadata before decompression");
-  CHECK(restore() && Execute(path, "UPDATE packages SET bytes=x'00',crc=3523407757"),
-        "fixture injects CRC-valid invalid frame");
+  CHECK(
+      restore() &&
+          Execute(path, "UPDATE package_bodies SET bytes=x'00';UPDATE packages SET crc=3523407757"),
+      "fixture injects CRC-valid invalid frame");
   hit = (*cache)->Load(record.Key, bytes.size());
   CHECK(hit && !*hit, "valid storage CRC cannot make an invalid compressed frame usable");
   CHECK(restore() && Execute(path, "UPDATE packages SET crc=0"),

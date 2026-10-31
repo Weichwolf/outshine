@@ -28,10 +28,12 @@ AssetCache::LoadRequest(std::string_view requestKey, size_t packageBytesMost) co
 void AssetCache::UsePackage(std::string_view packageKey) const {
   const std::scoped_lock lock(*State_->Mutex);
   AssetSql::Statement statement;
-  const auto prepared =
-      AssetSql::Prepare(State_->Database,
-                        "SELECT length(bytes) FROM packages WHERE key=? AND typeof(bytes)='blob'",
-                        statement);
+  const auto prepared = AssetSql::Prepare(
+      State_->Database,
+      "SELECT CASE WHEN b.rowid IS NULL THEN length(p.bytes) ELSE length(b.bytes) END "
+      "FROM packages p LEFT JOIN package_bodies b ON b.key=p.key WHERE p.key=? "
+      "AND CASE WHEN b.rowid IS NULL THEN typeof(p.bytes) ELSE typeof(b.bytes) END='blob'",
+      statement);
   if (!prepared || !AssetSql::Text(statement.Value, 1, packageKey) ||
       sqlite3_step(statement.Value) != SQLITE_ROW ||
       sqlite3_column_type(statement.Value, 0) != SQLITE_INTEGER ||
@@ -60,12 +62,15 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
   if (!*found) { return std::optional<CachedAsset>{}; }
   const auto &record = **found;
   AssetSql::Statement statement;
-  auto prepared =
-      AssetSql::Prepare(State_->Database,
-                        "SELECT rowid,length(bytes),crc,codec,native_bytes FROM packages "
-                        "WHERE key=? AND typeof(bytes)='blob' AND typeof(codec)='integer' "
-                        "AND typeof(native_bytes)='integer'",
-                        statement);
+  auto prepared = AssetSql::Prepare(
+      State_->Database,
+      "SELECT CASE WHEN b.rowid IS NULL THEN p.rowid ELSE b.rowid END,"
+      "CASE WHEN b.rowid IS NULL THEN length(p.bytes) ELSE length(b.bytes) END,"
+      "p.crc,p.codec,p.native_bytes,b.rowid IS NOT NULL FROM packages p "
+      "LEFT JOIN package_bodies b ON b.key=p.key WHERE p.key=? "
+      "AND typeof(p.codec)='integer' AND typeof(p.native_bytes)='integer' "
+      "AND CASE WHEN b.rowid IS NULL THEN typeof(p.bytes) ELSE typeof(b.bytes) END='blob'",
+      statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   if (!AssetSql::Text(statement.Value, 1, record.Package)) {
     return std::unexpected(AssetCacheError::Storage);
@@ -89,13 +94,14 @@ AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
     return std::optional<CachedAsset>{};
   }
   sqlite3_blob *raw = nullptr;
-  const int opened = sqlite3_blob_open(State_->Database,
-                                       "main",
-                                       "packages",
-                                       "bytes",
-                                       sqlite3_column_int64(statement.Value, 0),
-                                       0,
-                                       &raw);
+  const int opened =
+      sqlite3_blob_open(State_->Database,
+                        "main",
+                        sqlite3_column_int(statement.Value, 5) != 0 ? "package_bodies" : "packages",
+                        "bytes",
+                        sqlite3_column_int64(statement.Value, 0),
+                        0,
+                        &raw);
   std::unique_ptr<sqlite3_blob, decltype(&sqlite3_blob_close)> input(raw, &sqlite3_blob_close);
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
   if (std::cmp_not_equal(sqlite3_blob_bytes(input.get()), bytes)) {

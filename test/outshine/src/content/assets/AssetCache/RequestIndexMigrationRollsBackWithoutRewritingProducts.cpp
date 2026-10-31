@@ -59,21 +59,24 @@ void Seed(const std::string &path) {
 
 void Exercise(const std::string &path) {
   Seed(path);
-  CHECK(Execute(path,
-                "ALTER TABLE assets ADD COLUMN request_key TEXT NOT NULL DEFAULT '';"
-                "UPDATE assets SET request_key=COALESCE("
-                "(SELECT request_key FROM asset_requests WHERE asset_id=assets.id),'');"
-                "DROP TABLE asset_requests;"
-                "CREATE UNIQUE INDEX asset_requests ON assets(request_key) WHERE request_key<>'';"
-                "PRAGMA user_version=3;"
-                "CREATE INDEX retain_old_request ON assets(request_key);"
-                "CREATE TRIGGER no_package_insert BEFORE INSERT ON packages "
-                "BEGIN SELECT RAISE(ABORT,'package insert'); END;"
-                "CREATE TRIGGER no_package_update BEFORE UPDATE ON packages "
-                "BEGIN SELECT RAISE(ABORT,'package update'); END;"
-                "CREATE TRIGGER no_package_delete BEFORE DELETE ON packages "
-                "BEGIN SELECT RAISE(ABORT,'package delete'); END;"),
-        "version-three fixture retains its exact package and rejects all package writes");
+  CHECK(
+      Execute(path,
+              "UPDATE packages SET bytes=(SELECT bytes FROM package_bodies WHERE key=packages.key);"
+              "DROP TABLE package_bodies;"
+              "ALTER TABLE assets ADD COLUMN request_key TEXT NOT NULL DEFAULT '';"
+              "UPDATE assets SET request_key=COALESCE("
+              "(SELECT request_key FROM asset_requests WHERE asset_id=assets.id),'');"
+              "DROP TABLE asset_requests;"
+              "CREATE UNIQUE INDEX asset_requests ON assets(request_key) WHERE request_key<>'';"
+              "PRAGMA user_version=3;"
+              "CREATE INDEX retain_old_request ON assets(request_key);"
+              "CREATE TRIGGER no_package_insert BEFORE INSERT ON packages "
+              "BEGIN SELECT RAISE(ABORT,'package insert'); END;"
+              "CREATE TRIGGER no_package_update BEFORE UPDATE ON packages "
+              "BEGIN SELECT RAISE(ABORT,'package update'); END;"
+              "CREATE TRIGGER no_package_delete BEFORE DELETE ON packages "
+              "BEGIN SELECT RAISE(ABORT,'package delete'); END;"),
+      "version-three fixture retains its exact package and rejects all package writes");
   const auto refused = AssetCache::Open(path);
   CHECK(!refused && refused.error() == AssetCacheError::Storage,
         "schema dependency injects a migration failure after the request rows were copied");
@@ -99,7 +102,7 @@ void Exercise(const std::string &path) {
             *loaded && (**loaded).Record().RequestKey == kAlias && (**old).Bytes().size() == 4 &&
             (**loaded).Bytes().back() == 47,
         "migrated original and added alias resolve the untouched native package");
-  CHECK(Scalar(path, "PRAGMA user_version") == 4 &&
+  CHECK(Scalar(path, "PRAGMA user_version") == 5 &&
             Scalar(path,
                    "SELECT count(*) FROM pragma_table_info('assets') "
                    "WHERE name='request_key'") == 0 &&

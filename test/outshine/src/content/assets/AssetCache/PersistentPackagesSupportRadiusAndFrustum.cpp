@@ -212,7 +212,7 @@ int main() {
         "contention returns explicitly without blocking retry");
   CHECK((*restarted)->Find(Key("houses"))->has_value(),
         "busy publication preserves existing assets");
-  sqlite3_exec(locked, "ROLLBACK; PRAGMA user_version=5", nullptr, nullptr, nullptr);
+  sqlite3_exec(locked, "ROLLBACK; PRAGMA user_version=6", nullptr, nullptr, nullptr);
   sqlite3_close(locked);
   restarted->reset();
   const auto newer = AssetCache::Open(path);

@@ -99,12 +99,14 @@ void MigratesVersionTwo(const std::string &path) {
   sqlite3 *database = nullptr;
   CHECK(sqlite3_open(path.c_str(), &database) == SQLITE_OK, "migration fixture opens");
   if (database == nullptr) { return; }
-  CHECK(sqlite3_exec(database,
-                     "DROP TABLE asset_requests;"
-                     "PRAGMA user_version=2;",
-                     nullptr,
-                     nullptr,
-                     nullptr) == SQLITE_OK,
+  CHECK(sqlite3_exec(
+            database,
+            "UPDATE packages SET bytes=(SELECT bytes FROM package_bodies WHERE key=packages.key);"
+            "DROP TABLE package_bodies;DROP TABLE asset_requests;"
+            "PRAGMA user_version=2;",
+            nullptr,
+            nullptr,
+            nullptr) == SQLITE_OK,
         "fixture retains version-two products without demand metadata");
   sqlite3_close(database);
   cache = AssetCache::Open(path);
