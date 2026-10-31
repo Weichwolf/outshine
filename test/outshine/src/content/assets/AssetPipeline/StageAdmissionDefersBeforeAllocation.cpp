@@ -80,9 +80,9 @@ void GrowthAndShrink() {
        .InputBytes = kBlocked,
        .ReceiptBytesMost = 2048},
       [&release](
-          const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         if (!release.load()) { return std::nullopt; }
-        return Record('a');
+        return AssetProduct(Record('a'));
       });
   const auto progress = std::make_shared<Progress>();
   auto ticket = pipeline.RequestLogical(
@@ -189,9 +189,9 @@ void CancelWaitingStage(bool advance) {
        .InputBytes = kBlocked,
        .ReceiptBytesMost = 2048},
       [&release](
-          const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         if (!release.load()) { return std::nullopt; }
-        return Record('a');
+        return AssetProduct(Record('a'));
       });
   const auto progress = std::make_shared<Progress>();
   auto waiting = pipeline.RequestLogical(

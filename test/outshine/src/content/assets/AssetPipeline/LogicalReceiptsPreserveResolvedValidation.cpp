@@ -51,7 +51,7 @@ void Receipt(bool logical, AssetRecord record, bool valid) {
   if (!consumer) { return; }
   const auto key = record.Key;
   const auto produce = [record = std::make_shared<AssetRecord>(std::move(record))](
-                           const std::stop_token &) { return std::move(*record); };
+                           const std::stop_token &) { return AssetProduct(std::move(*record)); };
   auto ticket =
       logical
           ? pipeline.RequestLogical(*consumer,
@@ -59,7 +59,7 @@ void Receipt(bool logical, AssetRecord record, bool valid) {
                                      .Generation = consumer->Generation(),
                                      .ReceiptBytesMost = 1024},
                                     [produce](const std::stop_token &stop)
-                                        -> std::expected<std::optional<AssetRecord>, std::string> {
+                                        -> std::expected<std::optional<AssetProduct>, std::string> {
                                       return produce(stop);
                                     })
           : pipeline.RequestResolved(
@@ -133,9 +133,9 @@ void Admission() {
   }
   std::atomic<size_t> calls{0};
   const auto producer =
-      [&calls](const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+      [&calls](const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
     ++calls;
-    return Record();
+    return AssetProduct(Record());
   };
   const auto invalid = pipeline.RequestLogical(
       *consumer,

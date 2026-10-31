@@ -76,19 +76,19 @@ void Sharing() {
       *a,
       request(*a),
       [input = std::move(input), &calls, &ready](
-          const std::stop_token &stop) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &stop) -> std::expected<std::optional<AssetProduct>, std::string> {
         ++calls;
         if (!input || stop.stop_requested()) { return std::unexpected("lost shared input"); }
         if (!ready.load()) { return std::nullopt; }
-        return Record('a', true);
+        return AssetProduct(Record('a', true));
       });
   auto second = pipeline.RequestLogical(
       *b,
       request(*b),
       [&duplicates](
-          const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         ++duplicates;
-        return Record('c', true);
+        return AssetProduct(Record('c', true));
       });
   CHECK(first && second, "equal early addresses share one actual resumable job");
   if (!first || !second) { return; }
@@ -99,7 +99,7 @@ void Sharing() {
       .ConsumerBytes = 16,
       .ReceiptBytesMost = kReceipt};
   auto content = pipeline.RequestResolved(
-      *c, resolved, [](const std::stop_token &) { return Record('b', false); });
+      *c, resolved, [](const std::stop_token &) { return AssetProduct(Record('b', false)); });
   CHECK(content.has_value(), "the same digest in the content domain admits independent work");
   if (!content) { return; }
   auto direct = Wait(*content);
@@ -136,8 +136,8 @@ void Sharing() {
   auto replacement = pipeline.RequestLogical(
       *b,
       request(*b),
-      [](const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
-        return Record('c', true);
+      [](const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
+        return AssetProduct(Record('c', true));
       });
   CHECK(replacement.has_value(), "a retired logical address admits a fresh producer");
   if (replacement) {

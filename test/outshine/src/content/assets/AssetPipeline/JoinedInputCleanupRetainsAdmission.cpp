@@ -94,8 +94,8 @@ void CleanupAdmission() {
          .Generation = directOwner->Generation(),
          .ConsumerBytes = 8,
          .ReceiptBytesMost = 1024},
-        [](const std::stop_token &) -> std::expected<AssetRecord, std::string> {
-          return Record();
+        [](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
+          return AssetProduct(Record());
         });
     CHECK(direct.has_value(), "the direct content job is admitted first");
     if (!direct) { return; }
@@ -116,7 +116,7 @@ void CleanupAdmission() {
           return AssetPipeline::ResolvedWork{
               .Key = AssetProductKey::Parse(kContent).value_or(AssetProductKey{}),
               .Produce = [input](const std::stop_token &)
-                  -> std::expected<std::optional<AssetRecord>, std::string> {
+                  -> std::expected<std::optional<AssetProduct>, std::string> {
                 return std::unexpected("the joined unused producer must never run");
               }};
         });

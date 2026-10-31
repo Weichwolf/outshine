@@ -8,8 +8,8 @@
 namespace outshine {
 class AssetProduct {
 public:
-  AssetProduct(AssetRecord record);
-  AssetProduct(CachedAsset native);
+  explicit AssetProduct(AssetRecord record);
+  explicit AssetProduct(CachedAsset native);
   [[nodiscard]] const AssetRecord &Record() const noexcept;
   [[nodiscard]] const CachedAsset *Native() const noexcept;
   // Object/string capacities and the whole retained package, excluding allocator overhead.

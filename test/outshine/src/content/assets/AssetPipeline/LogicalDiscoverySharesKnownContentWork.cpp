@@ -53,14 +53,14 @@ struct Discovery {
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
   Step(const std::stop_token &stop) const {
     if (stop.stop_requested()) { return std::unexpected("discovery canceled"); }
-    if (!State->InputsReady.load()) { return std::optional<AssetRecord>{}; }
+    if (!State->InputsReady.load()) { return std::optional<AssetProduct>{}; }
     State->Joined.store(true);
     return AssetPipeline::ResolvedWork{
         .Key = AssetProductKey::Parse(kContent).value_or(AssetProductKey{}),
         .Produce = [state = State](const std::stop_token &)
-            -> std::expected<std::optional<AssetRecord>, std::string> {
+            -> std::expected<std::optional<AssetProduct>, std::string> {
           ++state->Duplicates;
-          return Record();
+          return AssetProduct(Record());
         }};
   }
 };
@@ -99,11 +99,12 @@ void SharedDiscovery() {
        .Generation = b->Generation(),
        .ConsumerBytes = 8,
        .ReceiptBytesMost = kReceipt},
-      [control](const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+      [control](
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         ++control->Duplicates;
         auto record = Record();
         record.RequestKey = kAddress;
-        return record;
+        return AssetProduct(std::move(record));
       });
   auto content = pipeline->RequestResumable(
       *known,
@@ -112,10 +113,11 @@ void SharedDiscovery() {
        .InputBytes = 64,
        .ConsumerBytes = 8,
        .ReceiptBytesMost = kReceipt},
-      [control](const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+      [control](
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         if (!control->ContentReady.load()) { return std::nullopt; }
         ++control->Builds;
-        return Record();
+        return AssetProduct(Record());
       });
   CHECK(first && second && content, "all three callers fit exactly two admitted jobs");
   if (!first || !second || !content) { return; }

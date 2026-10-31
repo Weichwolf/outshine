@@ -69,13 +69,13 @@ struct Fixture {
           return AssetPipeline::ResolvedWork{
               .Key = AssetProductKey::Parse(kContent).value_or(AssetProductKey{}),
               .Produce = [state, index, input](const std::stop_token &stop)
-                  -> std::expected<std::optional<AssetRecord>, std::string> {
+                  -> std::expected<std::optional<AssetProduct>, std::string> {
                 if (stop.stop_requested()) { return std::unexpected("resolved work canceled"); }
                 if (!state->Ready.load()) { return std::nullopt; }
                 CHECK(std::cmp_equal(*input, index),
                       "the actual producer retains its selected immutable input");
                 ++state->Builds[index];
-                return Record();
+                return AssetProduct(Record());
               }};
         });
   }

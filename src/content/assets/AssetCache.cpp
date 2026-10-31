@@ -146,9 +146,10 @@ AssetCache::Open(const std::string &path) {
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
                       nullptr);
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
-  const auto began = AssetSql::Exec(state->Database,
-                                    "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA "
-                                    "cache_size=-4096; PRAGMA foreign_keys=ON;");
+  const auto began =
+      AssetSql::Exec(state->Database,
+                     "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA "
+                     "cache_size=-4096; PRAGMA cache_spill=ON; PRAGMA foreign_keys=ON;");
   if (!began) { return std::unexpected(began.error()); }
   const auto current = SchemaVersion(state->Database);
   if (!current) { return std::unexpected(current.error()); }

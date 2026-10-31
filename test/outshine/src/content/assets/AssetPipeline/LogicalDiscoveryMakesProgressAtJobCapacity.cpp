@@ -46,15 +46,15 @@ struct Discovery {
   Step(const std::stop_token &stop) const {
     if (stop.stop_requested()) { return std::unexpected("discovery canceled"); }
     State->Seen.fetch_or(Bit);
-    if (!State->InputsReady.load()) { return std::optional<AssetRecord>{}; }
+    if (!State->InputsReady.load()) { return std::optional<AssetProduct>{}; }
     State->Joined.fetch_or(Bit);
     return AssetPipeline::ResolvedWork{
         .Key = AssetProductKey::Parse(kContent).value_or(AssetProductKey{}),
         .Produce = [state = State](const std::stop_token &)
-            -> std::expected<std::optional<AssetRecord>, std::string> {
+            -> std::expected<std::optional<AssetProduct>, std::string> {
           if (state->Joined.load() != 3) { return std::nullopt; }
           ++state->Builds;
-          return Record();
+          return AssetProduct(Record());
         }};
   }
 };

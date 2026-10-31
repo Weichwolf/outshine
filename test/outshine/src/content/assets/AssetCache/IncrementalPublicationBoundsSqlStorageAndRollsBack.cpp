@@ -131,6 +131,8 @@ extern "C" int sqlite3_blob_write(sqlite3_blob *blob, const void *z, int n, int 
 }
 
 int main() {
+  CHECK(sqlite3_config(SQLITE_CONFIG_MEMSTATUS, 1) == SQLITE_OK,
+        "SQLite allocation accounting is explicitly enabled before its first use");
   auto root = (std::filesystem::temp_directory_path() / "outshine-sql-publication-XXXXXX").string();
   CHECK(mkdtemp(root.data()) != nullptr, "SQL opponents own an isolated directory");
   if (!std::filesystem::is_directory(root)) { return Report(); }

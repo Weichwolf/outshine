@@ -72,8 +72,8 @@ void BoundedAliases() {
          .Generation = owner->Generation(),
          .ConsumerBytes = 8,
          .ReceiptBytesMost = 1024},
-        [](const std::stop_token &) -> std::expected<AssetRecord, std::string> {
-          return Record();
+        [](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
+          return AssetProduct(Record());
         });
     CHECK(content.has_value(), "the actual content has a long-lived direct demand");
     if (!content) { return; }
@@ -98,16 +98,16 @@ void BoundedAliases() {
             return AssetPipeline::ResolvedWork{
                 .Key = AssetProductKey::Parse(kContent).value_or(AssetProductKey{}),
                 .Produce = [&duplicates](const std::stop_token &)
-                    -> std::expected<std::optional<AssetRecord>, std::string> {
+                    -> std::expected<std::optional<AssetProduct>, std::string> {
                   ++duplicates;
-                  return Record();
+                  return AssetProduct(Record());
                 }};
           });
       auto second = pipeline.RequestLogical(
           *queries,
           request,
           [&duplicates](
-              const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+              const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
             ++duplicates;
             return std::unexpected("an existing logical address repeated its discovery");
           });

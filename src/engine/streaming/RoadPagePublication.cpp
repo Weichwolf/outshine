@@ -32,7 +32,7 @@ struct PagePublication {
   std::optional<Generators::PreparedRoadPages::PageWrite> Write;
   size_t PackageBytesMost = 0;
 
-  std::expected<std::optional<AssetRecord>, std::string> Step(const std::stop_token &stop) {
+  std::expected<std::optional<AssetProduct>, std::string> Step(const std::stop_token &stop) {
     using Cache = Generators::PreparedRoadPages;
     if (!Write) {
       if (!Request) { return std::unexpected("road publication lost its request"); }
@@ -51,7 +51,7 @@ struct PagePublication {
       if (cache != nullptr && *cache == AssetCacheError::Busy) { return std::nullopt; }
       return std::unexpected(Cache::DescribeFailure(record.error()));
     }
-    return std::move(*record);
+    return AssetProduct(std::move(*record));
   }
 };
 

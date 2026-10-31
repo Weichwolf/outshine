@@ -190,7 +190,7 @@ void SharedNativeResult() {
   if (!key) { return; }
   const AssetPipeline::ResolvedRequest other{
       .Key = *key, .Generation = a->Generation(), .ReceiptBytesMost = 2 * kReservation};
-  auto produce = [record = **fallback](const std::stop_token &) { return record; };
+  auto produce = [record = **fallback](const std::stop_token &) { return AssetProduct(record); };
   auto blocked = pipeline.RequestResolved(*a, other, produce);
   CHECK(!blocked && blocked.error() == AssetPublicationError::ResourceDeferred,
         "terminal native storage participates in later output admission");
