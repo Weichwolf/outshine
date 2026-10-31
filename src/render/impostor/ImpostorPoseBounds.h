@@ -25,6 +25,10 @@ public:
   [[nodiscard]] std::expected<Error, std::string> Project(const CameraBasis &camera,
                                                           const Lens &lens) const;
 
+  // Camera and frame share World/ECEF coordinates; translation stays double precision.
+  [[nodiscard]] std::expected<Error, std::string>
+  Project(const CameraBasis &camera, const Lens &lens, const Mat4 &worldFromField) const;
+
 private:
   ImpostorPoseBounds() = default;
   using Point = std::array<DistanceArithmetic::Interval, 3>;
