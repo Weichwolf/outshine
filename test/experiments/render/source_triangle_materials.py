@@ -11,9 +11,8 @@ def triangle_parts(source, ordinals, *, referenced_vertices=False):
     if (
         selected.ndim != 1
         or selected.dtype.kind not in "iu"
-        or not 1 <= len(selected) <= 131072
-        or selected.min() < 0
-        or selected.max() >= len(faces)
+        or len(selected) > 131072
+        or (len(selected) and (selected.min() < 0 or selected.max() >= len(faces)))
     ):
         raise ValueError("Bounded original triangle ordinals required")
     selected = np.unique(selected)

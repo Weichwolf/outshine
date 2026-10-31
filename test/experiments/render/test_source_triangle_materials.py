@@ -94,6 +94,29 @@ class SourceTriangles(unittest.TestCase):
         with self.assertRaises(ValueError):
             triangle_parts(self.source, [0], referenced_vertices=True)
 
+    def test_typed_empty_selection_keeps_all_part_slots_and_exports_no_geometry(self):
+        empty = np.empty(0, np.uint32)
+        parts = triangle_parts(self.source, empty, referenced_vertices=True)
+        self.assertEqual([p[0]["material"] for p in parts], [7, 3])
+        for part, values in parts:
+            self.assertEqual((part["vertices"], part["triangles"]), (0, 0))
+            self.assertEqual(values["indices"].shape, (0, 3))
+            self.assertTrue(all(value.nbytes == 0 for value in values.values()))
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.empty-materials."
+        ) as tmp:
+            folder = Path(tmp) / "empty"
+            self.assertEqual(
+                write_source(self.source, empty, folder, referenced_vertices=True), 0
+            )
+            geometry = folder / "geometry" / "0"
+            self.assertEqual(
+                len(json.loads((geometry / "input.json").read_text())["parts"]), 2
+            )
+            self.assertTrue(
+                all(path.stat().st_size == 0 for path in geometry.glob("*/*.bin"))
+            )
+
     def test_unknown_or_invalid_ids_are_not_silently_removed(self):
         for ids in ([], [-1], [4], [0.0], [True], [[0]], [2**64 - 1]):
             with self.subTest(ids=ids), self.assertRaises(ValueError):

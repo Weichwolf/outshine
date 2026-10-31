@@ -42,13 +42,8 @@ def upper(value):
     return np.nextafter(value * (1 + 32 * EPS64), np.inf)
 
 
-def support_margin(bounds, operands, raster):
-    """Uniform margin for every baseline per-triangle maximum vertex radius.
-
-    Positive absolute norms bound all source points. The factor two enlarges
-    only coarse work; final triangle support and acceptance limits are unchanged.
-    Unsupported root projection delegates the whole query to the old selector.
-    """
+def clip_envelope(bounds, operands):
+    """Unprojected root interval plus the shared conditional FP32 error bound."""
     placement, shift, matrix = operands
     absolute = np.r_[np.max(abs(bounds.astype(float)), axis=0), 1.0]
     gamma = 7 * EPS32 / (1 - 7 * EPS32)
@@ -64,7 +59,6 @@ def support_margin(bounds, operands, raster):
     )
     lo, hi = clip_boxes(bounds[None], operands)
     lo, hi = lo[0], hi[0]
-    w = lo[3] - error[3]
     if (
         not np.isfinite(error).all()
         or not np.isfinite(lo).all()
@@ -72,7 +66,25 @@ def support_margin(bounds, operands, raster):
         or np.any(stable_norm > np.finfo(np.float32).max)
         or np.any(upper(world_norm + world_error) > np.finfo(np.float32).max)
         or np.any(clip_norm > np.finfo(np.float32).max)
-        or w <= 0
+    ):
+        return None
+    return lo, hi, error
+
+
+def support_margin(bounds, operands, raster):
+    """Uniform margin for every baseline per-triangle maximum vertex radius.
+
+    Positive absolute norms bound all source points. The factor two enlarges
+    only coarse work; final triangle support and acceptance limits are unchanged.
+    Unsupported root projection delegates the whole query to the old selector.
+    """
+    envelope = clip_envelope(bounds, operands)
+    if envelope is None:
+        return None
+    lo, hi, error = envelope
+    w = lo[3] - error[3]
+    if (
+        w <= 0
         or lo[2] - error[2] <= 0
         or hi[2] + error[2] >= w
         or np.any(lo[:2] - error[:2] <= -w)
