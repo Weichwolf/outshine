@@ -67,6 +67,13 @@ are noisy; no isolated speedup claim. Allocations and bytes determine this decis
 All candidate IDs and Whole status/reasons match. Build original/Morton/size:
 383.415/368.094/351.185ms, scoped peaks7069622/7683125/7066443B. Original-order
 build allocates1222673 times and requests218927283B across its temporary work.
+At the noisy guard0 near timings, charging the full383.415ms build needs about
+16 repeated queries to amortize against whole-file selection. Guard1/256 side
+is slower, so it has no time amortization in this run. Both60-step sequences
+save more query time than the build, while turn does not. Against the already
+resident hierarchy the packed bound queries are slower; no build amortization
+can turn that into a query-time win. This is a conditional cost comparison, not
+a production cache-hit or device threshold.
 
 | Guard0 query | Whole file | Original groups | Morton groups | Size groups |
 | --- | ---: | ---: | ---: | ---: |
@@ -124,8 +131,9 @@ The file
 cache is warm because artifacts were just written; no cache eviction or cold-SSD
 experiment occurs. `known_retained_block_copy_bytes` in the frozen report is an
 upper bound for block slicing: a whole-buffer byte slice can reuse that object.
-The delivered counter is named `retained_block_slice_bytes_upper_bound`; only
-that telemetry key changed after measurement. It is not added to returned bytes
+The delivered counter is named `retained_block_slice_bytes_upper_bound`. The
+retained-byte snapshot is named `caller_readset_block_bytes`; a caller may drop
+its read set immediately. Only these telemetry keys changed after measurement. It is not added to returned bytes
 as an independent physical traffic measurement.
 Concatenation always produces a new fine-position array.
 

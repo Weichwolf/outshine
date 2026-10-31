@@ -278,9 +278,7 @@ def query(layout, view, placements, raster, *, raster_guard_px, reads=None, **op
             "known_concatenate_copy_bytes": copied,
             "selected_group_triangles": len(faces),
             "metadata_bytes_held": layout.metadata_bytes,
-            "fine_payload_bytes_held_between_queries": sum(
-                len(v) for v in reads.kept.values()
-            )
+            "caller_readset_block_bytes": sum(len(v) for v in reads.kept.values())
             if external_reads
             else 0,
         },
