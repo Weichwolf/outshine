@@ -58,22 +58,23 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
     return ConfigureWorldSources(tileProviders);
   }
-  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
+  if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
   if (!World.OsmSource) {
-    if (!World.Wire) {
+    if (!Services.Transport) {
       if (Session.Under.Offline) {
-        World.Wire = std::make_unique<Data::OfflineSourceTransport>();
+        Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
       } else {
-        World.Wire = std::make_unique<HttpTransport>(
+        Services.Transport = std::make_unique<HttpTransport>(
             HttpTransport::Config{.ConcurrentTransfers = 8,
                                   .ConnectionsPerHost = 8,
                                   .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
-        Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
-        World.Wire.get(),
+        Generators::Osm::SourceAcquisition::Workers{.Compute = *Services.Compute,
+                                                    .Io = *Services.Io},
+        Services.Transport.get(),
         Session.Under.SourceCacheDirectory,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
@@ -84,7 +85,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (World.OsmRoutes.empty()) {
     World.OsmTransport.reset();
   } else if (!World.OsmTransport) {
-    World.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*World.Pool);
+    World.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*Services.Compute);
   }
   if (World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
       World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
@@ -101,8 +102,8 @@ bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> prov
     }
     return RequestOriginalCells();
   }
-  if (auto requested =
-          World.OsmSource->Request(providers, Session.Under.BuiltinDataDirectory, &World.Providers);
+  if (auto requested = World.OsmSource->Request(
+          providers, Session.Under.BuiltinDataDirectory, &Services.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
@@ -132,7 +133,7 @@ bool Engine::State::RequestOriginalCells() {
                                                      *cells,
                                                      Generators::Osm::kDefaultCellLimits,
                                                      Session.Under.BuiltinDataDirectory,
-                                                     &World.Providers);
+                                                     &Services.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
@@ -199,24 +200,24 @@ bool Engine::State::PrepareRuntimeWorld() {
   if (!declared.Ground.Declared) { return true; }
   const double atLat = declared.Ground.Origin.LatitudeDeg;
   const double atLon = declared.Ground.Origin.LongitudeDeg;
-  if (!World.Wire) {
+  if (!Services.Transport) {
     if (Session.Under.Offline) {
-      World.Wire = std::make_unique<Data::OfflineSourceTransport>();
+      Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
     } else {
-      World.Wire = std::make_unique<HttpTransport>(HttpTransport::Config{});
+      Services.Transport = std::make_unique<HttpTransport>(HttpTransport::Config{});
     }
   }
 
   const ContentDirectories contentDirectories{.BuiltinData = Session.Under.BuiltinDataDirectory,
                                               .Sources = Session.Under.SourceCacheDirectory,
                                               .Assets = Session.Under.AssetCacheDirectory};
-  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened()) {
     const auto opened = World.Stack.OpenSession(contentDirectories,
                                                 World.Sources,
                                                 {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                                                *World.Wire,
-                                                *World.Pool,
+                                                *Services.Transport,
+                                                *Services.Compute,
                                                 Diagnostics,
                                                 Session.Declared.Ground.PatienceS);
     if (!opened) {

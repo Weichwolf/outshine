@@ -319,8 +319,10 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
 bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                           std::unique_ptr<RuntimeScene> &out,
                                           std::unique_ptr<RuntimeScene> &candidate,
-                                          std::string &error) {
-  if (out != nullptr) {
+                                          std::string &error,
+                                          Publication publication) {
+  const bool retain = out != nullptr && publication == Publication::PreserveViewAndUi;
+  if (retain) {
     candidate->Camera_ = out->Camera_;
     candidate->Camera_.Invalidate();
     if (candidate->Camera_.HasOverride() || candidate->GeometryView_.TriangleCount() > 0) {
@@ -328,14 +330,14 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
       candidate->Camera_.MarkBound();
     }
   }
-  const auto overlay = out ? Render::SceneRenderer::OverlaySource::Published
-                           : Render::SceneRenderer::OverlaySource::Candidate;
+  const auto overlay = retain ? Render::SceneRenderer::OverlaySource::Published
+                              : Render::SceneRenderer::OverlaySource::Candidate;
   if (!renderer.PublishesWorldCandidate(error, overlay)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  if (out != nullptr) { candidate->Ui_ = std::move(out->Ui_); }
+  if (retain) { candidate->Ui_ = std::move(out->Ui_); }
   candidate->StopEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);

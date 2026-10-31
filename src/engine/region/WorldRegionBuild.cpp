@@ -663,7 +663,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                            static_cast<double>(yielding.size() - builtPads - builtLakes),
                            "pieces");
     state.BeginTerrainDeformation(std::make_unique<Generators::TerrainDeformationTask>(
-        *World.Pool,
+        *Services.Compute,
         World.Stack.TerrainAssets(),
         std::move(yielding),
         patchwork,
@@ -1101,7 +1101,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     return GroundBuildProgress::Pending;
   }
   if (state.StreetGraphWorker() == nullptr) {
-    if (!World.Pool) {
+    if (!Services.Compute) {
       Error = "street graph preparation requires the shared compute worker";
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
@@ -1136,7 +1136,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       };
     }
     state.BeginStreetGraph(std::make_unique<StreetGraphPreparation>(
-        *World.Pool, std::move(begin), std::move(resolve)));
+        *Services.Compute, std::move(begin), std::move(resolve)));
     return GroundBuildProgress::Pending;
   }
   auto completed = state.StreetGraphWorker()->Collect();
@@ -1172,7 +1172,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
     state.AdvanceStage();
     return GroundBuildProgress::Pending;
   }
-  if (!World.Pool || state.TransportSnapshot() == nullptr) {
+  if (!Services.Compute || state.TransportSnapshot() == nullptr) {
     Error = "road alignment candidate has no task pool or OSM source";
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
@@ -1202,7 +1202,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
         .RenderFrame = standing,
         .TerrainZoom = state.Coverage().Zoom,
         .CandidateGeneration = state.Id()};
-    if (!World.RoadAlignmentBuilds.TryStart(*World.Pool, std::move(request))) {
+    if (!World.RoadAlignmentBuilds.TryStart(*Services.Compute, std::move(request))) {
       return GroundBuildProgress::Pending;
     }
     state.MarkRoadAlignmentRequested();
@@ -1376,7 +1376,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
     return GroundBuildProgress::Pending;
   }
   state.BeginRegion(
-      *World.Pool,
+      *Services.Compute,
       GroundRegionPreparation::Lookup(
           assets,
           std::move(request),
@@ -1451,7 +1451,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   const auto origin = Session.Declared.Ground.Origin;
   const auto frame =
       TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
-  auto result = state.AdvanceWater(*World.Pool, water, frame);
+  auto result = state.AdvanceWater(*Services.Compute, water, frame);
   if (!result) { return GroundBuildProgress::Pending; }
   if (!*result) {
     Error = std::move(result->error());
@@ -1608,7 +1608,7 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
   const auto roadAssets = World.Stack.RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
-  state.BeginRegion(*World.Pool,
+  state.BeginRegion(*Services.Compute,
                     GroundRegionPreparation::PrepareStore({.Assets = assets,
                                                            .Key = key,
                                                            .RequestKey = request,
@@ -1865,8 +1865,9 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
 bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kGroundBuildTag("world-ground");
   const Heap::Tagged groundBuildScope(kGroundBuildTag);
-  if (World.Pool) {
-    World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
+  if (Services.Compute) {
+    World.RoadAlignmentBuilds.Poll(*Services.Compute,
+                                   World.GroundBuild ? World.GroundBuild->Id() : 0);
   }
   if (!AdvancesGroundRetirement()) { return true; }
   if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {

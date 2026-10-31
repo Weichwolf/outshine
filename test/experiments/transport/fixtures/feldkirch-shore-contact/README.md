@@ -12,6 +12,7 @@ All files work offline. `python3 verify.py` checks identity and topology referen
 | `road-primitive-ranges.json.gz` | 3,302 native append ranges across all 125 related pages; every regenerated position/index word matches the previous render capture |
 | `road-overlap.json` | Double-precision membership check: neither diagnostic point is on a captured rendered road triangle; this is not a GPU/navigation oracle |
 | `deformed-pages.npz` | Four existing z20 pages around the observed edge; immutable float32 35×35 words including halo |
+| `deformed-neighbors.npz` | The same four z20 pages plus three whole original z19 neighbors; exact adaptive coverage of the requested z20 3×3 window |
 | `dem-16-34514-22987.webp` | Original cached Mapterhorn Terrarium source; RGB: R×256+G+B/256−32768 metres |
 | `input.json` | File hashes, capture/source identity, page metadata and native observations |
 
@@ -31,6 +32,15 @@ Profile, when present: its corridor key and
 stationLength,beginBed,endBed,beginPavementHalfWidth,endPavementHalfWidth,
 beginHalfWidth,endHalfWidth]`. Plane evaluation is not the final apron/profile mix.
 Both winning stamps have `profile=null`; corridor 60942 uses the plane/apron path.
+
+Neighbor window: z20 x552237..552239 / y367802..367804. The actual frozen region
+contains four z20 pages and three z19 neighbors: 276118/183901, 276118/183902 and
+276119/183902. These coarse pages extend beyond the requested window. They are
+original deformed Float32 pages, not upsampled z20 replacements. Their full halos,
+original page IDs and zoom/source-zoom remain in `input.json:neighbor_pages`.
+The four earlier arrays remain byte-identical in both archives. New neighbors
+come from the same native/stored region SHA; they do not imply matching boundary
+heights or resolve the solver's four changed boundary-profile obligations.
 
 Native observations: stamp 46764 lowers the first point to the basin bed; stamp
 60942 controls the neighbouring apron blend. Their final local heights differ

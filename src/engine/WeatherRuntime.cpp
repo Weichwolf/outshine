@@ -28,7 +28,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     auto sources = Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
                                              providers,
                                              Session.Under.BuiltinDataDirectory,
-                                             World.Providers);
+                                             Services.Providers);
     if (!sources) {
       Error = sources.error();
       return false;
@@ -54,15 +54,15 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     Error = "weather selection requires the resolved declaration UTC";
     return false;
   }
-  if (!World.Wire) {
-    World.Wire = Session.Under.Offline
-                     ? std::unique_ptr<Data::SourceTransport>(
-                           std::make_unique<Data::OfflineSourceTransport>())
-                     : std::unique_ptr<Data::SourceTransport>(
-                           std::make_unique<HttpTransport>(HttpTransport::Config{}));
+  if (!Services.Transport) {
+    Services.Transport = Session.Under.Offline
+                             ? std::unique_ptr<Data::SourceTransport>(
+                                   std::make_unique<Data::OfflineSourceTransport>())
+                             : std::unique_ptr<Data::SourceTransport>(
+                                   std::make_unique<HttpTransport>(HttpTransport::Config{}));
   }
-  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
+  if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
   const bool failed =
       World.Weather && (World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
                         World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
@@ -70,8 +70,8 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     World.Weather.reset();
     World.Weather = std::make_unique<WeatherSnapshotLoader>(
         World.Sources,
-        *World.Wire,
-        WeatherSnapshotLoader::Workers{.Io = *World.Io, .Compute = *World.Pool},
+        *Services.Transport,
+        WeatherSnapshotLoader::Workers{.Io = *Services.Io, .Compute = *Services.Compute},
         *Picture.Shown.UtcS);
     World.WeatherUtcS = Picture.Shown.UtcS;
   }

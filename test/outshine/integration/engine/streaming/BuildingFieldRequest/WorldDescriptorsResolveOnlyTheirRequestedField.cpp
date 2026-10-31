@@ -6,6 +6,11 @@
 #include "Check.h"
 #include "Sha256.h"
 #include "PreparedStructureCodec.h"
+#include "MaterialFieldInput.h"
+#include "MaterialFieldPass.h"
+#include "MaterialFieldRasterInput.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeImageReadback.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -21,6 +26,7 @@
 #include <utility>
 #include <span>
 #include <limits>
+#include <cstring>
 
 namespace {
 using namespace outshine;
@@ -36,6 +42,7 @@ BuildingFieldRequest::Budget Budget() {
   return {.ProducerBytes = kMiB,
           .ResidentBytes = kMiB,
           .FieldBytesMost = kMiB,
+          .RasterBytesMost = kMiB,
           .Capture = {.Samples = 1024, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000}};
 }
 
@@ -77,6 +84,14 @@ void Boundaries(const Fixture &fixture, const BuildingSourceDemand::Source &sour
   limited.Capture.Samples = 1023;
   CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), limited),
         "an insufficient capture budget is refused before work");
+  limited = Budget();
+  limited.RasterBytesMost = 32 * 32 * 32 - 1;
+  CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), limited),
+        "an undersized native raster budget is refused before metadata work");
+  limited = Budget();
+  limited.RasterBytesMost = std::numeric_limits<size_t>::max();
+  CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), limited),
+        "combined field and raster reservation cannot overflow");
   const auto before = fixture.Stack.BuildingAssets()->Costs();
   AssetPipeline full(workers,
                      {.JobsMost = 1,
@@ -366,6 +381,59 @@ void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Produc
   }
 }
 
+void NativeRaster(const BuildingFieldRequest::Product &product) {
+  using namespace outshine::Render;
+  using namespace outshine::Test::Gpu;
+  CHECK(product.RenderInput, "native rendering receives the worker-prepared input");
+  if (!product.RenderInput) { return; }
+  auto device = Require(Native::CreateDevice({.Validation = true}));
+  MaterialFieldPass pass(*device);
+  Require(pass.Configure());
+  const auto worker = Require(pass.Prepare(product.RenderInput));
+  const auto direct = MaterialFieldInput::Prepare(*product.Field, 0, kMiB);
+  const auto raster = MaterialFieldRasterInput::Prepare(*product.Field, {.BytesMost = kMiB});
+  CHECK(direct && raster, "the independent direct input and capture camera prepare");
+  if (!direct || !raster) { Failed(); }
+  const auto baseline = Require(pass.Prepare(*direct));
+  MaterialFieldView view;
+  view.Camera = raster->Capture;
+  view.Environment.RadianceLinear = {{.2, .3, .4}};
+  view.Target = {.WidthPx = product.Field->Pixels(), .HeightPx = product.Field->Pixels()};
+  const auto a = Require(pass.Relight(*worker, view));
+  const auto b = Require(pass.Relight(*baseline, view));
+  CHECK(Require(device->Wait(b.Filtered->Produced, std::chrono::seconds(5))) ==
+            Native::CompletionStatus::Ready,
+        "the explicit test driver drains the two actual native submissions");
+  Require(pass.Collect());
+  for (const auto &pair :
+       {std::array{a.Unfiltered->Texture, b.Unfiltered->Texture}, std::array{a.Depth, b.Depth}}) {
+    const auto x = ReadImage(*device, *pair[0], {.Width = 32, .Height = 32});
+    const auto y = ReadImage(*device, *pair[1], {.Width = 32, .Height = 32});
+    const size_t bytes = pair[0]->Description().Texels == Native::Format::Depth32Float ? 4 : 8;
+    for (size_t row = 0; row < 32; ++row) {
+      CHECK(std::memcmp(x.Rows.data() + row * x.RowBytes,
+                        y.Rows.data() + row * y.RowBytes,
+                        32 * bytes) == 0,
+            "worker-prepared and direct native inputs produce identical HDR and depth words");
+    }
+  }
+}
+
+void RasterBudget(AssetPipeline &pipeline,
+                  Tasks &workers,
+                  const std::shared_ptr<AssetCache> &cache,
+                  const BuildingSourceDemand::Source &source) {
+  auto tight = Budget();
+  tight.RasterBytesMost = size_t{32} * 32 * 32;
+  auto limited =
+      BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), tight);
+  CHECK(limited, "pixel-only admission reaches the cached material palette boundary");
+  if (!limited) { return; }
+  const auto refused = Await(*limited);
+  CHECK(!refused && refused.error().contains("source admission"),
+        "material palette words count against the native raster allocation limit");
+}
+
 void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source) {
   auto opened = AssetCache::Open((fixture.Directory.Path / "fields.sqlite").string());
   CHECK(opened, "the existing asset store opens for field products");
@@ -401,6 +469,7 @@ void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source
   CHECK(ready && *ready,
         ready ? "the requested native field becomes ready" : ready.error().c_str());
   if (!ready || !*ready) { return; }
+  NativeRaster(**ready);
   MetadataBindings(fixture, **ready);
   CHECK((**ready).Source.BaseKey == source.BaseKey && (**ready).Field->Pixels() == 32 &&
             (**ready).Metadata->Metadata().WorldFromField &&
@@ -412,6 +481,7 @@ void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source
   const auto absent = (**ready).Metadata->LoadField({1}, kMiB);
   CHECK(absent && !*absent, "an undemanded view is not generated or stored");
   const auto digest = Hash(*(**ready).Field);
+  CHECK((**ready).RenderInput, "the worker supplies a prepared native raster with the field");
   request.reset();
   CHECK(!digest.empty() && Hash(*(**ready).Field) == digest && pipeline.Counts().Tickets > 0,
         "a returned CPU lease retains its field and publication after the request is gone");
@@ -448,7 +518,15 @@ void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source
   const auto hit = Await(*warm);
   CHECK(hit && *hit && Hash(*(**hit).Field) == digest,
         "a source-free warm consumer obtains the exact captured field bytes");
+  CHECK(hit && *hit && (**hit).RenderInput,
+        "a fresh source-free hit also completes its native raster on the asset worker");
+  if (hit && *hit) { NativeRaster(**hit); }
+  RasterBudget(warmPipeline, warmWorkers, warmCache, source);
+  auto raster = (**ready).RenderInput;
   ready->reset();
+  CHECK(pipeline.Counts().Tickets > 0 && pipeline.Counts().InputBytes >= 2 * kMiB,
+        "a standalone native raster lease retains its source publication admission");
+  raster.reset();
   CHECK(pipeline.Counts().Tickets == 0 && pipeline.Counts().Consumers == 0,
         "the last CPU lease releases both publication tickets and its cache consumer");
 }

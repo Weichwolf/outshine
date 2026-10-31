@@ -73,10 +73,15 @@ void PrepareLocalStreetMask(Generators::Fields &stands,
       "placement: local street mask bytes", static_cast<double>(mask.HeapBytes()), "bytes");
 }
 
-std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string> PreparePlacementGround(
-    WorldRegionState &world, const Generators::Tile &region, Generators::Snapped *how) {
+std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string>
+PreparePlacementGround(WorldRegionState &world,
+                       Tasks *compute,
+                       const Generators::Tile &region,
+                       Generators::Snapped *how) {
   const auto assets = world.Stack.TerrainAssets();
-  if (!assets || !world.Pool) { return Generators::PatchOver(region, world.Stack.Ground(), how); }
+  if (!assets || compute == nullptr) {
+    return Generators::PatchOver(region, world.Stack.Ground(), how);
+  }
   const auto shape = world.Stack.Pool().Shaped();
   const Ground::TerrainTiles::Shaped parameters{.Kind = shape.Kind,
                                                 .AmplitudeM = shape.AmplitudeM,
@@ -96,20 +101,21 @@ std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string> Prepa
   if (key.empty()) { return std::unexpected("terrain sampling patch request is invalid"); }
   if (!world.PlacementGround || world.PlacementGround->Key() != key) {
     world.PlacementGround =
-        std::make_unique<GroundPatchPreparation>(*world.Pool, assets, key, region, side);
+        std::make_unique<GroundPatchPreparation>(*compute, assets, key, region, side);
   }
   return world.PlacementGround->Advance(world.Stack.Ground(), how);
 }
 
 Generators::Snapped
 PlacementSnapshot(WorldRegionState &world,
+                  Tasks *compute,
                   const Generators::Tile &region,
                   const std::shared_ptr<const TerrainClassificationMap> &classes,
                   const Generators::Fields &stands,
                   Generators::Ground::Snapshot *snapshot,
                   std::string &error) {
   Generators::Snapped how = Generators::Snapped::Waiting;
-  auto patch = PreparePlacementGround(world, region, &how);
+  auto patch = PreparePlacementGround(world, compute, region, &how);
   if (!patch) {
     error = std::move(patch.error());
     return Generators::Snapped::NoGround;
@@ -149,7 +155,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   if (World.EmptyPlacementInputs == inputs) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how =
-      PlacementSnapshot(World, region, classes, stands, &snapshot, Error);
+      PlacementSnapshot(World, Services.Compute.get(), region, classes, stands, &snapshot, Error);
   World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
                   (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.RecordMetric("generators: the snapshot",

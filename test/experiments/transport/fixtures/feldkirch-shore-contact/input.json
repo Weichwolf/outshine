@@ -173,6 +173,10 @@
     "road-primitive-ranges.json.gz": {
       "bytes": 65817,
       "sha256": "ffdc38cee2a973d4f97c631220b7713150d79e9f61e1d5356f1e30cf6fc59e01"
+    },
+    "deformed-neighbors.npz": {
+      "bytes": 20792,
+      "sha256": "59369b23f890f055d8caf02b688fecd1c3305cc4ebe7244752b44c7ec9d27f5f"
     }
   },
   "full_private_capture_sha256": "5902063f1f60994b8343060edb0ba53a973c3109a8940330860178cf116eddb1",
@@ -186,5 +190,116 @@
       "page_loads": "3a4bf0a92f6d8bc409933329cb4524366a5f19f1a30288089505ae0f62385ca8"
     },
     "primitive_ranges": "native interval/junction append order; 125 original page position/index buffers reproduced word-for-word; source domain is lane or junction node, not universally provider feature ID"
+  },
+  "neighbor_pages": {
+    "window_zoom": 20,
+    "window_x": [
+      552237,
+      552240
+    ],
+    "window_y": [
+      367802,
+      367805
+    ],
+    "pages": [
+      {
+        "page": "536",
+        "zoom": 19,
+        "x": 276118,
+        "y": 183901,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p19_276118_183901",
+        "words_sha256": "bd758fe1d914cf1c0e9d1a955f9c3be896a3163f7ba9c87bac3f1626b94bc89f"
+      },
+      {
+        "page": "537",
+        "zoom": 20,
+        "x": 552238,
+        "y": 367802,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p20_552238_367802",
+        "words_sha256": "a55ce348e600e71cdcb2d6a1845acde2af6358ffeaab3e1fac02af3ff39bfc8d"
+      },
+      {
+        "page": "538",
+        "zoom": 20,
+        "x": 552239,
+        "y": 367802,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p20_552239_367802",
+        "words_sha256": "c280a55f26f7f4bec7677a839f3480bfdb97bb1a5209d51e0fb15ffc9e6dc6e7"
+      },
+      {
+        "page": "539",
+        "zoom": 20,
+        "x": 552238,
+        "y": 367803,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p20_552238_367803",
+        "words_sha256": "06c6f29ec38f0f1313adbad7c8edaf095b1f3407f6836b03a1c74983b780e8b1"
+      },
+      {
+        "page": "540",
+        "zoom": 20,
+        "x": 552239,
+        "y": 367803,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p20_552239_367803",
+        "words_sha256": "b7a9490772444aca8f8b1600bcbdcca71c471ad21e7be2d560fe9972eccde155"
+      },
+      {
+        "page": "542",
+        "zoom": 19,
+        "x": 276118,
+        "y": 183902,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p19_276118_183902",
+        "words_sha256": "ac23197e53a4f9ca9705905a5253851991069d953c75889254ec4cbd60d51b51"
+      },
+      {
+        "page": "543",
+        "zoom": 19,
+        "x": 276119,
+        "y": 183902,
+        "side": 33,
+        "postings": 33,
+        "virtual": 1,
+        "source_zoom": 16,
+        "halo": 1,
+        "nodes": 1225,
+        "array": "p19_276119_183902",
+        "words_sha256": "d52e3eedff326f32e5eff838119bdf9ef38b4a048556868e7f2bf5a7a4c17d6d"
+      }
+    ]
   }
 }

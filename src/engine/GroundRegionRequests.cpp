@@ -45,7 +45,7 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
 
 bool Engine::State::CanPrimeGroundRegion(GroundQuality quality) const {
   if (quality != GroundQuality::Refined || World.GroundPublished.Current() ||
-      !World.Stack.RegionAssets() || !World.Pool || !Picture.Standing || !Session.Views ||
+      !World.Stack.RegionAssets() || !Services.Compute || !Picture.Standing || !Session.Views ||
       (World.OsmSource &&
        World.OsmSource->CurrentPhase() != Generators::Osm::SourceAcquisition::Phase::Inactive) ||
       !World.OsmRoutes.empty() || !World.Stack.HasVectorSource() ||
@@ -87,7 +87,7 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
     World.Stack.ForgetCachedRegionNetwork();
     World.GroundLookupRequest = std::move(*request);
     World.GroundLookup = std::make_unique<GroundRegionPreparation>(
-        *World.Pool,
+        *Services.Compute,
         GroundRegionPreparation::Lookup(assets, World.GroundLookupRequest),
         World.Stack.RoadAssets());
   }

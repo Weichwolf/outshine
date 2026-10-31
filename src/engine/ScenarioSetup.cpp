@@ -1,4 +1,5 @@
 #include "SurfaceSession.h"
+#include "WorldCandidate.h"
 #include <limits>
 #include <type_traits>
 #include <cmath>
@@ -249,27 +250,18 @@ PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
                            std::vector<std::vector<Ui::Layout::Scrolled>> &wasScrolled,
                            std::unique_ptr<Core::RuntimeScene> &candidate,
                            std::string &error) {
-  if (!renderer.BeginsWorldCandidate(error)) { return false; }
-  if (!Core::RuntimeScene::Prepare(renderer, declared, font, candidate, error)) {
-    renderer.AbandonsWorldCandidate();
+  Core::WorldCandidate prepared(renderer);
+  const auto ready = prepared.PrepareDeclaration(
+      declared, font, headless.Geometry ? &*headless.Geometry : nullptr, std::move(wasScrolled));
+  if (!ready) {
+    error = ready.error();
     return false;
   }
-  if (!wasScrolled.empty() && !candidate->Scrolled(std::move(wasScrolled), error)) {
-    candidate.reset();
-    renderer.AbandonsWorldCandidate();
+  const auto published = prepared.Publish(candidate);
+  if (!published) {
+    error = published.error();
     return false;
   }
-  if (headless.Geometry && !candidate->SetGeometry(headless.Geometry->clone(), 0, error)) {
-    candidate.reset();
-    renderer.AbandonsWorldCandidate();
-    return false;
-  }
-  if (!renderer.PublishesWorldCandidate(error)) {
-    candidate.reset();
-    renderer.AbandonsWorldCandidate();
-    return false;
-  }
-  candidate->StopEditingCandidate();
   return true;
 }
 
@@ -572,7 +564,7 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::declare(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (const auto valid = ValidateDeclarationInputs(scenario, S_->World.Providers); !valid) {
+  if (const auto valid = ValidateDeclarationInputs(scenario, S_->Services.Providers); !valid) {
     return valid;
   }
   if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {

@@ -14,6 +14,7 @@ struct ImpostorFieldLoad::State {
   Content::ImpostorViewAssets::ViewIndex View;
   size_t BytesMost = 0;
   AssetPipeline::RequestTicket Ticket;
+  Preparation Prepare;
   std::stop_source Stop;
   std::atomic<bool> Complete{false};
   std::expected<ImpostorAtlas, std::string> Result = std::unexpected("field is not ready");
@@ -23,13 +24,15 @@ struct ImpostorFieldLoad::State {
         std::string productKey,
         Content::ImpostorViewAssets::ViewIndex view,
         size_t bytesMost,
-        AssetPipeline::RequestTicket ticket)
+        AssetPipeline::RequestTicket ticket,
+        Preparation prepare)
       : Cache(std::move(cache)),
         Provenance(std::move(provenance)),
         ProductKey(std::move(productKey)),
         View(view),
         BytesMost(bytesMost),
-        Ticket(std::move(ticket)) {}
+        Ticket(std::move(ticket)),
+        Prepare(std::move(prepare)) {}
 
   std::expected<ImpostorAtlas, std::string> Load() const {
     if (Stop.stop_requested() || Ticket.Poll().Status == AssetPublicationStatus::Cancelled) {
@@ -43,6 +46,14 @@ struct ImpostorFieldLoad::State {
     }
     auto loaded = views.LoadField(View, BytesMost);
     if (!loaded || !*loaded) { return std::unexpected("published impostor field unavailable"); }
+    if (Stop.stop_requested() || Ticket.Poll().Status == AssetPublicationStatus::Cancelled) {
+      return std::unexpected("impostor field load cancelled");
+    }
+    if (Prepare) {
+      if (auto prepared = Prepare(**loaded); !prepared) {
+        return std::unexpected(prepared.error());
+      }
+    }
     if (Stop.stop_requested() || Ticket.Poll().Status == AssetPublicationStatus::Cancelled) {
       return std::unexpected("impostor field load cancelled");
     }
@@ -73,7 +84,8 @@ ImpostorFieldLoad::Start(Tasks &workers,
                          std::string provenance,
                          Content::ImpostorViewAssets::ViewIndex view,
                          size_t bytesMost,
-                         AssetPipeline::RequestTicket ticket) {
+                         AssetPipeline::RequestTicket ticket,
+                         Preparation prepare) {
   const auto publication = ticket.Poll();
   if (!cache || provenance.empty() || bytesMost == 0 || !publication.Finished ||
       publication.Status != AssetPublicationStatus::Ready || !publication.Receipt) {
@@ -87,9 +99,11 @@ ImpostorFieldLoad::Start(Tasks &workers,
                                        publication.Receipt->Key,
                                        view,
                                        bytesMost,
-                                       std::move(ticket));
+                                       std::move(ticket),
+                                       std::move(prepare));
   if (!workers.PostDetached([state] {
         state->Result = state->Load();
+        state->Prepare = {};
         state->Complete.store(true, std::memory_order_release);
       })) {
     return std::unexpected("impostor field loader unavailable");
