@@ -70,6 +70,10 @@ class OriginalRangesTest(unittest.TestCase):
         ):
             rows, _ = read_ranges(path, index, ids, indexed=True)
             np.testing.assert_array_equal(rows.view("u1"), expected.view("u1"))
+            chunks, _ = read_ranges(path, index, ids, indexed=True, compact=True)
+            self.assertEqual(sum(len(tri) for tri, _ in chunks), len(expected))
+        with self.assertRaises(ValueError):
+            read_ranges(self.path, self.index, [8], compact=True)
         encoded = encode_indexed(self.rows[[0, 2]])
         with self.assertRaises(ValueError):
             decode_indexed(encoded[:-1])
@@ -97,6 +101,15 @@ class OriginalRangesTest(unittest.TestCase):
                 merged_cost["read_bytes"] - exact_cost["read_bytes"],
                 int(index[1]["bytes"]),
             )
+            if indexed:
+                chunks, compact_cost = read_ranges(
+                    path, index, [8, 10], indexed=True, compact=True, max_gap_bytes=4096
+                )
+                self.assertEqual(compact_cost, merged_cost)
+                actual_ordinals = np.sort(
+                    np.concatenate([tri["ordinal"] for tri, _ in chunks])
+                )
+                np.testing.assert_array_equal(actual_ordinals, merged["ordinal"])
             with self.assertRaises(ValueError):
                 read_ranges(path, index, [8], indexed=indexed, max_gap_bytes=-1)
 
