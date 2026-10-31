@@ -81,14 +81,12 @@ bool Publish(SceneRenderer &renderer) {
 }
 
 void Exercise() {
-  const Native::Device *device = nullptr;
+  Native::Device *device = nullptr;
   SceneRenderer renderer({.Context = static_cast<void *>(&device),
                           .Create = [](void *context, Native::DeviceOptions options) {
                             options.Validation = true;
                             auto made = Native::CreateDevice(options);
-                            if (made) {
-                              *static_cast<const Native::Device **>(context) = made->get();
-                            }
+                            if (made) { *static_cast<Native::Device **>(context) = made->get(); }
                             return made;
                           }});
   const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
@@ -117,10 +115,15 @@ void Exercise() {
                                      std::chrono::seconds(5)));
   CHECK(images.Filtered->Device == device && images.Unfiltered->Device == device,
         "the isolated pass uses the real main render device");
+  const std::weak_ptr<const RadianceImage> abandoned = images.Unfiltered;
+  const auto completion = images.Filtered->Produced;
   source.reset();
   input.reset();
   images = {};
-  renderer.WaitForGpu();
+  CHECK(Require(device->Wait(completion, std::chrono::seconds(5))) ==
+                Native::CompletionStatus::Ready &&
+            !abandoned.expired(),
+        "finished GPU work remains leased until its owner performs retirement");
   std::vector<float> after;
   CHECK(renderer.ReadSceneLinear(after) == ReadState::Ready && after == before &&
             &renderer.Plan() == plan && !renderer.HasWorldCandidate() && renderer.Drew(),
@@ -131,6 +134,8 @@ void Exercise() {
         "field relighting neither publishes nor advances main camera history");
   CHECK(renderer.RenderFrame(),
         "the next real main frame remains renderable after field retirement");
+  CHECK(abandoned.expired(),
+        "a normal frame retires completed field images without more field work or GPU waiting");
   renderer.WaitForGpu();
   std::vector<float> next;
   CHECK(renderer.ReadSceneLinear(next) == ReadState::Ready && next == before,
