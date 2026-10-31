@@ -73,7 +73,6 @@ struct TerrainDeformationMetrics;
 namespace outshine {
 struct GroundBuildProducts;
 class WorldRegionBuildState;
-class BuildingSourceDemand;
 class GroundWorldCandidate;
 
 constexpr int kFrameUnsaidWidePx = 1280;
@@ -174,7 +173,6 @@ struct WorldRegionState {
   std::vector<Generators::Osm::CircuitRequest> OsmRoutes;
   std::unique_ptr<Generators::Osm::TransportPreparation> OsmTransport;
   StructureBuildQueue StructureBuilds;
-  std::unique_ptr<BuildingSourceDemand> BuildingSources;
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
   size_t Relaid = 0;
@@ -550,7 +548,6 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
-  void AdvanceBuildingSources();
   [[nodiscard]] bool AdvanceUrbanAreas();
   [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
   [[nodiscard]] bool WorldPreparationPending() const;
