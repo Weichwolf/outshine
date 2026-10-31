@@ -44,7 +44,7 @@ def box_ratio(anchor, x, y):
     does too. No sampled interior admission or interval-independent extrema
     are needed. None rejects a box crossing the anchor hemisphere.
     """
-    ratios = []
+    best_numerator, best_denominator = 0, 1
     for v, w in product(x, y):
         dot = anchor[0] * v + anchor[1] * w + 1
         if dot <= 0:
@@ -54,8 +54,11 @@ def box_ratio(anchor, x, y):
             + (v - anchor[0]) ** 2
             + (anchor[0] * w - anchor[1] * v) ** 2
         )
-        ratios.append(cross2 / dot**2)
-    return max(ratios)
+        numerator = cross2.numerator * dot.denominator**2
+        denominator = cross2.denominator * dot.numerator**2
+        if numerator * best_denominator > best_numerator * denominator:
+            best_numerator, best_denominator = numerator, denominator
+    return F(best_numerator, best_denominator)
 
 
 class NormalModel:

@@ -120,6 +120,26 @@ class NormalCones(unittest.TestCase):
             self.assertLessEqual(interior, ratio)
         self.assertIsNone(box_ratio((F(1), F(0), F(1)), (F(-2), F(0)), (F(0), F(0))))
 
+    def test_integer_comparison_matches_exact_quotients(self):
+        random = np.random.default_rng(1888)
+        for _ in range(100):
+            values = [F(int(v), 17) for v in random.integers(-50, 51, 6)]
+            anchor = (*values[:2], F(1))
+            x, y = sorted(values[2:4]), sorted(values[4:6])
+            quotients = []
+            for v, w in itertools.product(x, y):
+                dot = anchor[0] * v + anchor[1] * w + 1
+                if dot <= 0:
+                    break
+                cross2 = (
+                    (anchor[1] - w) ** 2
+                    + (v - anchor[0]) ** 2
+                    + (anchor[0] * w - anchor[1] * v) ** 2
+                )
+                quotients.append(cross2 / dot**2)
+            expected = max(quotients) if len(quotients) == 4 else None
+            self.assertEqual(box_ratio(anchor, x, y), expected)
+
     def test_heading_reuse_keeps_cell_and_point_phases_distinct(self):
         curve = Curve(recipe(curvature=0.02, height=0.01, bank_rate=0.01))
         model = NormalModel(curve)
