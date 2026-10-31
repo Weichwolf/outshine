@@ -16,8 +16,7 @@ from pathlib import Path
 
 import numpy as np
 from experiment_output import create_output
-from road_normal_cone import NormalModel
-from road_normal_lod import NormalBudget, assemble, prepare, sample
+from road_normal_lod import NormalBudget, prepare, sample
 from road_surface_frames import attributes
 from road_surface_lod import prepare as position_only
 from road_surface_model import Curve
@@ -62,15 +61,40 @@ def generate(row, method, error_m, angle_rad, max_queries, max_vertices):
     curve = Curve(row)
     if method == "position-only":
         position = position_only(curve, error_m)
-        plan = assemble(
-            NormalModel(curve), position["stations_m"], curve.across, angle_rad
-        )
+        stations = position["stations_m"]
+        lateral, selected = np.unique(curve.across, return_index=True)
+        fields = attributes(curve, stations, lateral_m=lateral)
+        count = len(lateral)
+        lower = np.arange(len(stations) - 1, dtype=np.uint32)[:, None] * count
+        lower = lower + np.arange(count - 1, dtype=np.uint32)
+        plan = {
+            "stations_m": stations,
+            "lateral_m": lateral,
+            "positions_enh_m": position["positions_enh_m"][:, selected].reshape(-1, 3),
+            "normals_enh": fields["normals_enh"].reshape(-1, 3),
+            "station_lateral_m": fields["station_lateral_m"].reshape(-1, 2),
+            "indices": np.stack(
+                (
+                    lower,
+                    lower + count,
+                    lower + 1,
+                    lower + 1,
+                    lower + count,
+                    lower + count + 1,
+                ),
+                axis=-1,
+            ).reshape(-1, 3),
+            "cell_vertex_rows": np.column_stack(
+                (np.arange(len(stations) - 1), np.arange(1, len(stations)))
+            ).astype(np.uint32)
+            * count,
+        }
         plan.update(
             maximum_stored_position_bound_m=position["maximum_stored_bound_m"],
             whole_normal_queries=0,
             refinement_rounds=0,
             normal_limit_rad=None,
-            scope="Position-only control with exact stored analytic vertex normals; no interpolated normal-angle admission.",
+            scope="Existing position-only geometry with its sampled Float32 analytic vertex normals. May straddle source seams; no continuous angle admission. Duplicate unreferenced zero-width shoulder rows canonicalized, referenced positions unchanged.",
         )
     else:
         plan = prepare(
