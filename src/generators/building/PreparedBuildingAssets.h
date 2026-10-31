@@ -60,6 +60,7 @@ public:
     uint64_t BasisResidentHits = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
+    uint64_t SurfacePreparations = 0;
     uint64_t GeometryPreparations = 0, GeometryPublicationAttempts = 0;
     uint64_t GeometryPublicationDeferred = 0, GeometryPublicationPeakBytes = 0;
     uint64_t BasePreparations = 0, BasePackagePreparations = 0;
@@ -132,6 +133,7 @@ private:
 
   struct SurfaceCosts {
     std::atomic_uint64_t Hits{0}, Misses{0}, Writes{0}, ReadBytes{0};
+    std::atomic_uint64_t Preparations{0};
   };
 
   struct ResidentBasis {
@@ -164,16 +166,15 @@ private:
   [[nodiscard]] static Box StructureBounds(const PreparedStructureTile &base, size_t index);
   [[nodiscard]] static std::string SurfaceKey(const std::string &baseKey, uint32_t cell);
   void BindSurfaces(const std::string &key, const std::shared_ptr<PreparedStructureTile> &base);
+  struct SurfaceRead;
   [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
   LoadSurfaces(const std::string &key,
                uint32_t cell,
                const PreparedStructureTile &base,
-               std::span<const uint32_t> indices);
-  [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreSurfaceCell(const std::string &key,
-                   uint32_t cell,
-                   const Box &bounds,
-                   std::span<const BuildingSurface *const> surfaces);
+               std::span<const uint32_t> indices,
+               std::shared_ptr<SurfaceRead> &read);
+  [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
+  PublishSurfaces(SurfaceRead &read);
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
