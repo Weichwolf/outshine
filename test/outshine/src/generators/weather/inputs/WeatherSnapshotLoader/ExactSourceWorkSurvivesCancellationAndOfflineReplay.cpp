@@ -189,6 +189,8 @@ void RealAndOffline(const WeatherCapture &capture, const std::string &directory)
     CHECK(calls.DecodeThread != wireCalls.IoThread,
           "IO and native normalization use the two independently supplied worker pools");
   }
+  compute.Wait(compute.Post([] {}));
+  io.Wait(io.Post([] {}));
   CHECK(weak.expired() && held && held->Source.PayloadSha256 == capture.Declaration.PayloadSha256,
         "the immutable publication owns its provenance after source/session destruction");
   const auto warm = Session(capture, provider, directory);

@@ -23,7 +23,7 @@ public:
     Tasks &Compute;
   };
 
-  // Pools and transport outlive the loader; destruction drains its outstanding work.
+  // Pools and transport outlive unfinished jobs; destruction never waits for them.
   WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession> sources,
                         Data::SourceTransport &transport,
                         Workers workers,
@@ -42,21 +42,18 @@ public:
 
   [[nodiscard]] std::string_view Error() const noexcept { return Error_; }
 
-  [[nodiscard]] bool Running() const noexcept { return Handle_ != Tasks::kNoTask; }
+  [[nodiscard]] bool Running() const noexcept;
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
 private:
   struct Work;
 
-  void Decode();
-  void Abandon();
+  void Schedule(Tasks &pool, void (Work::*execute)());
   void Publish();
   Tasks &Io_;
   Tasks &Compute_;
-  Tasks *ActivePool_ = nullptr;
-  Tasks::Handle Handle_ = Tasks::kNoTask;
-  std::unique_ptr<Work> Work_;
+  std::shared_ptr<Work> Work_;
   Phase Phase_ = Phase::Acquiring;
   std::shared_ptr<const WeatherSnapshot> Snapshot_;
   std::string Error_;

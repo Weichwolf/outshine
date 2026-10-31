@@ -4,6 +4,9 @@
 #include <SourceRequest.h>
 #include <utility>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -12,6 +15,31 @@
 
 namespace outshine::Generators::Weather {
 struct WeatherSnapshotLoader::Work {
+  struct Job {
+    explicit Job(std::shared_ptr<Work> owner) : Owner(std::move(owner)) {
+      const std::scoped_lock lock(Owner->Mutex);
+      Owner->Busy = true;
+    }
+
+    ~Job() {
+      {
+        const std::scoped_lock lock(Owner->Mutex);
+        Owner->Busy = false;
+      }
+      Owner->Completed.notify_all();
+    }
+
+    Job(const Job &) = delete;
+    Job &operator=(const Job &) = delete;
+    std::shared_ptr<Work> Owner;
+  };
+
+  void Decode();
+  void Poll();
+  void Abandon();
+  std::mutex Mutex;
+  std::condition_variable Completed;
+  bool Busy = false;
   Work(std::shared_ptr<Data::SourceSession> sources,
        Data::SourceTransport &transport,
        int64_t utcS);
@@ -48,7 +76,7 @@ WeatherSnapshotLoader::WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession
                                              int64_t utcS)
     : Io_(workers.Io),
       Compute_(workers.Compute),
-      Work_(std::make_unique<Work>(std::move(sources), transport, utcS)) {
+      Work_(std::make_shared<Work>(std::move(sources), transport, utcS)) {
   if (!Work_->Input) {
     Error_ = Work_->Error;
     Phase_ = Phase::Failed;
@@ -57,15 +85,28 @@ WeatherSnapshotLoader::WeatherSnapshotLoader(std::shared_ptr<Data::SourceSession
 
 WeatherSnapshotLoader::~WeatherSnapshotLoader() {
   Cancel();
-  if (Running()) { ActivePool_->Wait(Handle_); }
-  if (!Work_->Abandoned) {
-    Abandon();
-    Io_.Wait(Handle_);
-  }
+  (void)Io_.PostDetached([work = std::move(Work_)] { (void)work; });
+}
+
+bool WeatherSnapshotLoader::Running() const noexcept {
+  const std::scoped_lock lock(Work_->Mutex);
+  return Work_->Busy;
 }
 
 bool WeatherSnapshotLoader::AwaitProgress(double seconds) const {
-  return Running() && ActivePool_->AwaitCompletion(Handle_, seconds);
+  if (!(seconds > 0.0)) { return false; }
+  std::unique_lock lock(Work_->Mutex);
+  return Work_->Busy && Work_->Completed.wait_for(lock,
+                                                  std::chrono::duration<double>(seconds),
+                                                  [this] { return !Work_->Busy; });
+}
+
+void WeatherSnapshotLoader::Schedule(Tasks &pool, void (Work::*execute)()) {
+  const auto job = std::make_shared<Work::Job>(Work_);
+  if (!pool.PostDetached([job, execute] { ((*job->Owner).*execute)(); })) {
+    Phase_ = Phase_ == Phase::Cancelled ? Phase::Cancelled : Phase::Failed;
+    Error_ = "weather worker pool is stopping";
+  }
 }
 
 void WeatherSnapshotLoader::Cancel() noexcept {
@@ -74,51 +115,52 @@ void WeatherSnapshotLoader::Cancel() noexcept {
   Phase_ = Phase::Cancelled;
 }
 
-void WeatherSnapshotLoader::Abandon() {
-  Work *const work = Work_.get();
-  ActivePool_ = &Io_;
-  Handle_ = Io_.Post([work] {
-    if (work->Input) { work->Input->Cancel(); }
-    work->Input.reset();
-    work->Answer.reset();
-    work->Delivery = Data::SourceDelivery::Consumed();
-    work->Snapshot.reset();
-    work->Abandoned = true;
-  });
+void WeatherSnapshotLoader::Work::Abandon() {
+  if (Input) { Input->Cancel(); }
+  Input.reset();
+  Answer.reset();
+  Delivery = Data::SourceDelivery::Consumed();
+  Snapshot.reset();
+  Abandoned = true;
 }
 
-void WeatherSnapshotLoader::Decode() {
-  Work *const work = Work_.get();
-  ActivePool_ = &Compute_;
-  Handle_ = Compute_.Post([work] {
-    if (work->Stopping.load(std::memory_order_relaxed)) { return; }
-    for (size_t at = 0; at < work->Sources->Sources().Count(); ++at) {
-      const auto &source = work->Sources->Sources().At(at);
-      const auto &decl = source.Declaration();
-      const auto &answer = *work->Answer;
-      if (decl.Kind != Data::DataKind::Weather || decl.Id != answer.SourceId ||
-          decl.Revision != answer.SourceRevision || Data::SourceKey(decl) != answer.SourceKey) {
-        continue;
-      }
-      auto decoded = source.DecodeWeather(answer.Bytes, work->UtcS);
-      if (!decoded) {
-        work->Outcome = Phase::Failed;
-        work->Error = "weather source could not decode its delivered payload";
-      } else if (!*decoded) {
-        work->Outcome = Phase::Missing;
-      } else if ((**decoded).Values.ValidUtcS != work->UtcS) {
-        work->Outcome = Phase::Failed;
-        work->Error = "weather decoder returned a different UTC";
-      } else {
-        work->Snapshot = std::make_shared<const WeatherSnapshot>(std::move(**decoded));
-        work->Outcome = Phase::Ready;
-      }
-      work->Answer.reset();
-      return;
+void WeatherSnapshotLoader::Work::Poll() {
+  if (!Stopping.load(std::memory_order_relaxed) && Input) { Delivery = Input->Poll(); }
+}
+
+void WeatherSnapshotLoader::Work::Decode() {
+  if (Stopping.load(std::memory_order_relaxed)) { return; }
+  if (!Answer) {
+    Outcome = Phase::Failed;
+    Error = "weather decoder requires delivered source bytes";
+    return;
+  }
+  for (size_t at = 0; at < Sources->Sources().Count(); ++at) {
+    const auto &source = Sources->Sources().At(at);
+    const auto &decl = source.Declaration();
+    const auto &answer = *Answer;
+    if (decl.Kind != Data::DataKind::Weather || decl.Id != answer.SourceId ||
+        decl.Revision != answer.SourceRevision || Data::SourceKey(decl) != answer.SourceKey) {
+      continue;
     }
-    work->Outcome = Phase::Failed;
-    work->Error = "weather delivery does not match a configured source";
-  });
+    auto decoded = source.DecodeWeather(answer.Bytes, UtcS);
+    if (!decoded) {
+      Outcome = Phase::Failed;
+      Error = "weather source could not decode its delivered payload";
+    } else if (!*decoded) {
+      Outcome = Phase::Missing;
+    } else if ((**decoded).Values.ValidUtcS != UtcS) {
+      Outcome = Phase::Failed;
+      Error = "weather decoder returned a different UTC";
+    } else {
+      Snapshot = std::make_shared<const WeatherSnapshot>(std::move(**decoded));
+      Outcome = Phase::Ready;
+    }
+    Answer.reset();
+    return;
+  }
+  Outcome = Phase::Failed;
+  Error = "weather delivery does not match a configured source";
 }
 
 void WeatherSnapshotLoader::Publish() {
@@ -128,13 +170,9 @@ void WeatherSnapshotLoader::Publish() {
 }
 
 WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
-  if (Running()) {
-    if (!ActivePool_->TakeCompletion(Handle_)) { return Phase_; }
-    Handle_ = Tasks::kNoTask;
-    ActivePool_ = nullptr;
-  }
+  if (Running()) { return Phase_; }
   if (Work_->Stopping.load(std::memory_order_relaxed)) {
-    if (!Work_->Abandoned) { Abandon(); }
+    if (!Work_->Abandoned) { Schedule(Io_, &Work::Abandon); }
     return Phase_ = Phase::Cancelled;
   }
   if (Phase_ == Phase::Decoding) {
@@ -145,7 +183,7 @@ WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
   if (Work_->Delivery.Where() == Data::SourceDelivery::State::Delivered) {
     Work_->Answer = Work_->Delivery.Take();
     Phase_ = Phase::Decoding;
-    Decode();
+    Schedule(Compute_, &Work::Decode);
   } else if (Work_->Delivery.Where() == Data::SourceDelivery::State::Vacant ||
              Work_->Delivery.Where() == Data::SourceDelivery::State::Undeclared) {
     Phase_ = Phase::Missing;
@@ -153,13 +191,7 @@ WeatherSnapshotLoader::Phase WeatherSnapshotLoader::Advance() {
     Phase_ = Phase::Failed;
     Error_ = "weather source acquisition was refused";
   } else {
-    Work *const work = Work_.get();
-    ActivePool_ = &Io_;
-    Handle_ = Io_.Post([work] {
-      if (!work->Stopping.load(std::memory_order_relaxed)) {
-        if (work->Input) { work->Delivery = work->Input->Poll(); }
-      }
-    });
+    Schedule(Io_, &Work::Poll);
   }
   return Phase_;
 }
