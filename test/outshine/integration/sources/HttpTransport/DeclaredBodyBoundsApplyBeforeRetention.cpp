@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
+#include <format>
 #include <print>
 #include <string>
 #include <utility>
@@ -49,7 +50,9 @@ std::string Encode(std::string input, int windowBits) {
   return output;
 }
 
-void Coding(std::string coding, std::string body, bool accepted, size_t most = 30) {
+enum class CodingResult { Decoded, AdmissionRefused, UnsupportedTransfer };
+
+void Coding(std::string coding, std::string body, CodingResult expected, size_t most = 30) {
   using namespace outshine::Test;
   const auto label = coding;
   const LoopbackHttpServer server(
@@ -65,18 +68,20 @@ void Coding(std::string coding, std::string body, bool accepted, size_t most = 3
   CHECK(start, "the bounded encoded request reaches the native HTTP worker");
   if (!start) { return; }
   auto response = Await(wire, *start);
-  if (accepted) {
+  if (expected == CodingResult::Decoded) {
     const auto delivered = response.Take();
     CHECK(delivered && delivered->Status == 200 && delivered->Body.capacity() <= most &&
               std::string(delivered->Body.begin(), delivered->Body.end()) == std::string(30, 'a'),
           "a supported complete response keeps exactly the decoded bytes within admission");
   } else {
-    if (response.Where() != Wire::State::Unreachable ||
-        response.FailureReason() != SourceFailureReason::CapacityRefused) {
+    const bool refused = response.Where() == Wire::State::Unreachable &&
+                         (response.FailureReason() == SourceFailureReason::CapacityRefused ||
+                          (expected == CodingResult::UnsupportedTransfer &&
+                           response.FailureReason() == SourceFailureReason::Unavailable));
+    if (!refused) {
       std::println(stderr, "response coding={} failure={}", label, Name(response.FailureReason()));
     }
-    CHECK(response.Where() == Wire::State::Unreachable &&
-              response.FailureReason() == SourceFailureReason::CapacityRefused,
+    CHECK(refused,
           "an unplanned response codec or excess decoded byte is refused before retention");
   }
   const auto requests = server.Requests();
@@ -146,18 +151,31 @@ int main() {
   CHECK(server.Requests().size() == 2, "only admitted requests reach the local server");
   const std::string plain(30, 'a');
   const auto gzip = Encode(plain, MAX_WBITS + 16);
-  Coding("identity", plain, true);
-  Coding("gzip", gzip, true);
-  Coding("GZip", gzip, true);
-  Coding("deflate", Encode(plain, MAX_WBITS), true);
-  Coding("deflate", Encode(plain, -MAX_WBITS), true);
-  Coding("gzip", gzip, false, 29);
+  Coding("identity", plain, CodingResult::Decoded);
+  Coding("gzip", gzip, CodingResult::Decoded);
+  Coding("GZip", gzip, CodingResult::Decoded);
+  Coding("deflate", Encode(plain, MAX_WBITS), CodingResult::Decoded);
+  Coding("deflate", Encode(plain, -MAX_WBITS), CodingResult::Decoded);
+  Coding("gzip", gzip, CodingResult::AdmissionRefused, 29);
   const std::string wideWindow("\x28\xb5\x2f\xfd\x00\x88\x09\x00\x00\x61", 10);
-  Coding("zstd", wideWindow, false);
-  Coding("br", {}, false);
-  Coding("gzip, gzip", Encode(gzip, MAX_WBITS + 16), false);
-  Coding("gzip\r\nContent-Encoding: gzip", Encode(gzip, MAX_WBITS + 16), false);
-  Coding("GZip\r\ncOnTenT-EnCoDiNg: gzip", Encode(gzip, MAX_WBITS + 16), false);
+  Coding("zstd", wideWindow, CodingResult::AdmissionRefused);
+  Coding("br", {}, CodingResult::AdmissionRefused);
+  Coding("gzip, gzip", Encode(gzip, MAX_WBITS + 16), CodingResult::AdmissionRefused);
+  Coding("gzip\r\nContent-Encoding: gzip",
+         Encode(gzip, MAX_WBITS + 16),
+         CodingResult::AdmissionRefused);
+  Coding("GZip\r\ncOnTenT-EnCoDiNg: gzip",
+         Encode(gzip, MAX_WBITS + 16),
+         CodingResult::AdmissionRefused);
+  Coding("gzip\r\n , gzip", Encode(gzip, MAX_WBITS + 16), CodingResult::AdmissionRefused);
+  Coding("identity\r\n , zstd", wideWindow, CodingResult::AdmissionRefused);
+  const auto chunkedGzip = std::format("{:x}\r\n", gzip.size()) + gzip + "\r\n0\r\n\r\n";
+  Coding("identity\r\nTransfer-Encoding: gzip, chunked",
+         chunkedGzip,
+         CodingResult::UnsupportedTransfer);
+  Coding("identity\r\nTransfer-Encoding: zstd, chunked",
+         "a\r\n" + wideWindow + "\r\n0\r\n\r\n",
+         CodingResult::UnsupportedTransfer);
   RedirectedCoding();
   return Report();
 }
