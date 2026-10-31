@@ -1,0 +1,12 @@
+{
+  "scope": "Two reported native diagnostic samples, not an inferred shore/road boundary or a complete native contact input.",
+  "evidence": [
+    "https://github.com/Weichwolf/outshine/issues/826#issuecomment-6541697829",
+    "https://github.com/Weichwolf/outshine/issues/826#issuecomment-6541778949"
+  ],
+  "anchor_lon_lat": [9.598371, 47.232575],
+  "samples": [
+    {"latitude_deg": 47.2355095079, "longitude_deg": 9.5958817005, "original_geodetic_m": 453.774525, "stored_geodetic_m": 445.525116, "final_local_m": 445.513973, "winner": 46764, "kind": "Basin", "point": 661012},
+    {"latitude_deg": 47.2355095079, "longitude_deg": 9.5958924294, "original_geodetic_m": 454.074021, "stored_geodetic_m": 454.364746, "final_local_m": 454.353635, "winner": 60942, "kind": "Corridor", "point": 661013}
+  ]
+}
