@@ -53,3 +53,8 @@ Incremental work releases at most 256 free pages per step, with a checkpoint
 between steps. Reports include file/WAL/SHM bytes, allocated blocks and timings;
 temporary databases are removed. This measures the storage primitive, not the
 automatic cache limit, eviction selection, migration or concurrent admission.
+The same script demonstrates that `max_page_count` alone cannot cap file usage:
+eight fixed-size updates keep the main database page count unchanged while a
+pinned reader forces WAL retention beyond three times the initial file usage.
+This is a SQLite primitive counterexample, not the immutable asset protocol.
+New publication needs admission, WAL reserve and reader-aware backpressure.
