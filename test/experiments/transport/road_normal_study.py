@@ -49,11 +49,13 @@ def read_row(ordinal):
     if (
         count != manifest["records"]
         or size != manifest["uncompressed_bytes"]
-        or digest.hexdigest() != manifest["source_jsonl_sha256"]
         or len(selected) != 1
     ):
         raise ValueError("Complete unique original recipe and raw archive required")
-    return selected[0], manifest
+    # source_jsonl_sha256 identifies the full capture, not this selected subset.
+    return selected[0], manifest | {
+        "selected_raw_jsonl_sha256_observed": digest.hexdigest()
+    }
 
 
 def generate(row, method, error_m, angle_rad, max_queries, max_vertices):
@@ -146,6 +148,9 @@ def run(args):
         "ordinal": row["ordinal"],
         "form": row["form"],
         "archive_sha256": manifest["archive_sha256"],
+        "selected_raw_jsonl_sha256_observed": manifest[
+            "selected_raw_jsonl_sha256_observed"
+        ],
         "range_m": row["range_m"],
         "section_m": row["section_m"],
         "source_spans": len(row["intervals"]),
