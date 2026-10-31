@@ -123,7 +123,14 @@ def main():
                 "source_view_triangles_requested": sum(r["selected"] for r in rows),
                 "whole_fallbacks": sum(not r["work"]["complete_model"] for r in rows),
             }
-        export_controls(source, h, a, raster, args.output / "native-controls")
+        export_controls(
+            source,
+            h,
+            a,
+            raster,
+            args.output / "native-controls",
+            m["world_cameras"]["near-direction"],
+        )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(

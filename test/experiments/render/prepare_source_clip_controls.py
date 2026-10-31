@@ -1,6 +1,7 @@
 """Export exact synthetic view words, whole source and explicit empty control."""
 
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -16,7 +17,7 @@ from source_hierarchy import query as old_query
 from source_triangle_materials import write_source
 
 
-def export_controls(source, hierarchy, archive, raster, output):
+def export_controls(source, hierarchy, archive, raster, output, base_camera):
     create_output(output)
     original = output / "whole"
     empty = output / "empty"
@@ -25,18 +26,35 @@ def export_controls(source, hierarchy, archive, raster, output):
     placements = archive["placements/words"]
     placements.tofile(output / "placements.bin")
     base = archive["near-direction/view_words"]
-    rows = []
+    rows, requests = [], []
     for angle in (*range(0, 360, 30), 63.5):
         words = changed_frame(base, angle, np.zeros(3))
         before = old_query(hierarchy, words, placements, raster, raster_guard_px=0.0)
         ids, work = query(hierarchy, words, placements, raster, raster_guard_px=0.0)
         name = "angle-" + str(angle)
+        camera = copy.deepcopy(base_camera)
+        if angle != 0:
+            radians = np.deg2rad(angle)
+            c, sn = np.cos(radians), np.sin(radians)
+            rotation = np.array([[c, 0, sn], [0, 1, 0], [-sn, 0, c]])
+            for axis in ("right", "up", "forward"):
+                camera[axis] = (rotation.T @ np.asarray(base_camera[axis])).tolist()
+        requests.append(
+            {
+                "name": name,
+                "capture": camera,
+                "field_lighting": "viewer",
+                "lighting_camera": {"capture": copy.deepcopy(base_camera)},
+                "sun_elevation_deg": 45,
+            }
+        )
         file = output / (name + "-view-words.bin")
         words.tofile(file)
         rows.append(
             {
                 "name": name,
                 "synthetic_angle_deg": angle,
+                "capture": camera,
                 "view_words_file": file.name,
                 "view_words_sha256": hashlib.sha256(file.read_bytes()).hexdigest(),
                 "view_words_dtype": "<u4",
@@ -71,6 +89,20 @@ def export_controls(source, hierarchy, archive, raster, output):
         for p in sorted(output.glob("*/geometry/0/**/*"))
         if p.is_file()
     }
+    for name, omit in (("whole-input.json", False), ("clear-input.json", True)):
+        (output / name).write_text(
+            json.dumps(
+                {"directory": "whole", "queries": requests, "omit_source_draws": omit},
+                indent=2,
+            )
+            + "\n"
+        )
+    result["capture_binding"] = (
+        "Capture JSON uses original eye/lens/raster, axes rotated by transpose(Ry). "
+        "The synthetic base-VP@Ry word files are a separate model input: F32 matrix "
+        "recomposition can differ. Native owner must report actual capture/upload "
+        "operands; rebind the clip proof to them, no word tolerance."
+    )
     (output / "controls.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 
@@ -83,7 +115,14 @@ def main():
     _, binding = bound_selection(DATA, source)
     h = prepare(source)
     with np.load(DATA / "native-visible-triangles.npz", allow_pickle=False) as archive:
-        result = export_controls(source, h, archive, m["raster"], args.output)
+        result = export_controls(
+            source,
+            h,
+            archive,
+            m["raster"],
+            args.output,
+            m["world_cameras"]["near-direction"],
+        )
     result["source_native_packet_sha256"] = binding["samples_sha256"]
     (args.output / "controls.json").write_text(json.dumps(result, indent=2) + "\n")
     print(

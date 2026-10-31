@@ -1,14 +1,19 @@
 """Strict root exclusion, independent exact/F32 checks, unchanged unknown fallback."""
 
+import hashlib
 import itertools
+import json
+import tempfile
 import unittest
 from fractions import Fraction
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from compare_source_hierarchy import changed_frame, equivalent
 from native_source_triangle_materials import DATA
 from native_world_inputs import load
+from prepare_source_clip_controls import export_controls
 from source_clip_demand import outside_xy, query
 from source_cluster_bounds import frame
 from source_hierarchy import prepare
@@ -181,6 +186,57 @@ class RootClip(unittest.TestCase):
 
 
 class WholeSource(unittest.TestCase):
+    def test_capture_controls_keep_base_lens_eye_and_separate_synthetic_words(self):
+        m, _, _, source = load(DATA, attributes=True)
+        h = prepare(source)
+        with (
+            tempfile.TemporaryDirectory(prefix="outshine-tests.clip-controls.") as tmp,
+            np.load(
+                DATA / "native-visible-triangles.npz", allow_pickle=False
+            ) as archive,
+        ):
+            root = Path(tmp) / "controls"
+            export_controls(
+                source,
+                h,
+                archive,
+                m["raster"],
+                root,
+                m["world_cameras"]["near-direction"],
+            )
+            whole = json.loads((root / "whole-input.json").read_text())
+            clear = json.loads((root / "clear-input.json").read_text())
+            self.assertFalse(whole["omit_source_draws"])
+            self.assertTrue(clear["omit_source_draws"])
+            self.assertEqual(whole["queries"], clear["queries"])
+            self.assertEqual(whole["directory"], clear["directory"])
+            base = m["world_cameras"]["near-direction"]
+            self.assertEqual(whole["queries"][0]["capture"], base)
+            for request in whole["queries"]:
+                for key in (
+                    "eye_m",
+                    "yfov_rad",
+                    "width_px",
+                    "height_px",
+                    "near_m",
+                    "far_m",
+                ):
+                    self.assertEqual(request["capture"][key], base[key])
+                self.assertEqual(request["lighting_camera"]["capture"], base)
+            controls = json.loads((root / "controls.json").read_text())
+            self.assertEqual(len(controls["cases"]), 13)
+            self.assertEqual(
+                sum(c["reason"] == "source_outside_xy_clip" for c in controls["cases"]),
+                7,
+            )
+            self.assertFalse(controls["cases"][-1]["complete_model"])
+            for case in controls["cases"]:
+                payload = (root / case["view_words_file"]).read_bytes()
+                self.assertEqual(len(payload), 56 * 4)
+                self.assertEqual(
+                    hashlib.sha256(payload).hexdigest(), case["view_words_sha256"]
+                )
+
     def test_actual_bound_cases_unchanged_and_seven_turn_misses_are_strictly_empty(
         self,
     ):
