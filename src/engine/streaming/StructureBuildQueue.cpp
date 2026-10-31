@@ -3,6 +3,7 @@
 #include "StructureBuildQueue.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <bit>
 #include <chrono>
@@ -558,8 +559,8 @@ void StructureBuildQueue::AdvanceQueuedTasks(const ::outshine::Generators::Osm::
 void StructureBuildQueue::PollCompletedTasks() {
   for (const auto &entry : NativeLookups_) {
     auto &lookup = *entry.second;
-    if (lookup.Task != Tasks::kNoTask && Pool_->TakeCompletion(lookup.Task)) {
-      lookup.Task = Tasks::kNoTask;
+    if (lookup.Working && lookup.Finished.load(std::memory_order_acquire)) {
+      lookup.Working = false;
     }
   }
   const auto collect = [this](std::deque<QueuedBuild> &queue) {
@@ -1253,12 +1254,7 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
 void StructureBuildQueue::Clear() {
   if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
   for (QueuedBuild &bake : Queue_) { bake.Task.RequestStop(); }
-  for (const auto &entry : NativeLookups_) {
-    if (entry.second->Task != Tasks::kNoTask && Pool_ != nullptr) {
-      Pool_->Wait(entry.second->Task);
-    }
-  }
-  NativeLookups_.clear();
+  RetireNativeLookups();
   NativeAssets_.reset();
   PendingVectorHeights_.reset();
   NativeFailure_.reset();

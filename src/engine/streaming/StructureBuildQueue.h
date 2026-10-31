@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
 #include <ProjectedErrorBudget.h>
+#include <atomic>
 #include <chrono>
 #include <expected>
 #include <functional>
@@ -278,10 +279,15 @@ private:
     double ReadMs = 0.0;
   };
 
+  struct NativeProgress;
+
   struct NativeLookup {
+    struct Completion;
     enum class Phase : uint8_t { Request, Content, Bind };
     Phase Stage = Phase::Request;
-    Tasks::Handle Task = Tasks::kNoTask;
+    bool Working = false;
+    std::atomic_bool Finished{false};
+    std::atomic_bool Stopping{false};
     std::expected<std::optional<Generators::PreparedBuildingAssets::RequestedBasis>,
                   Generators::StructureBakeError>
         Result;
@@ -294,6 +300,8 @@ private:
     double ReadMs = 0.0;
   };
 
+  void RetireNativeLookups();
+  [[nodiscard]] bool AwaitNativeLookups(double seconds) const;
   [[nodiscard]] size_t PendingBasisLookups() const noexcept;
   [[nodiscard]] NativeLookup *
   AdvanceNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
@@ -301,10 +309,10 @@ private:
   [[nodiscard]] NativeLookup *
   RetryNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
                     const std::string &request,
-                    NativeLookup &lookup);
+                    const std::shared_ptr<NativeLookup> &lookup);
   void StartNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
                          const std::string &request,
-                         NativeLookup &lookup);
+                         const std::shared_ptr<NativeLookup> &lookup);
   static void ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
                                const std::string &request,
                                NativeLookup &lookup);
@@ -410,7 +418,8 @@ private:
   int PreparingOriginalHeightZoom_ = -1;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
-  std::unordered_map<std::string, std::unique_ptr<NativeLookup>> NativeLookups_;
+  std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups_;
+  std::shared_ptr<NativeProgress> NativeProgress_;
   std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets_;
   std::optional<Generators::StructureBakeError> NativeFailure_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
