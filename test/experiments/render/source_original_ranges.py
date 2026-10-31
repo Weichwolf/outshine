@@ -136,9 +136,11 @@ def write_ranges(directory, rows, *, indexed=False):
     return index
 
 
-def read_ranges(directory, index, requested, *, indexed=False):
+def read_ranges(directory, index, requested, *, indexed=False, max_gap_bytes=0):
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
+    if type(max_gap_bytes) is not int or not 0 <= max_gap_bytes <= 1024 * 1024:
+        raise ValueError("Bounded nonnegative range gap required")
     ids = [int(x) for x in requested]
     if len(ids) != len(set(ids)):
         raise ValueError("Distinct requested source IDs required")
@@ -155,8 +157,8 @@ def read_ranges(directory, index, requested, *, indexed=False):
             or (spans and start < spans[-1][1])
         ):
             raise ValueError("Invalid or overlapping original source range")
-        if spans and start == spans[-1][1]:
-            spans[-1][1] += length
+        if spans and start - spans[-1][1] <= max_gap_bytes:
+            spans[-1][1] = start + length
             spans[-1][2].append(row)
         else:
             spans.append([start, start + length, [row]])

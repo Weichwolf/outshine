@@ -69,7 +69,7 @@ def run(output):
         "none": np.empty(0, "<i4"),
     }
     rows, row_cost = measure(lambda: original_rows(source, binding))
-    cases = []
+    cases, gaps = [], []
     for name, indexed in (("direct", False), ("indexed", True)):
         directory = output / name
         index, build_cost = measure(
@@ -102,6 +102,28 @@ def run(output):
                         loaded["ordinal"],
                         output / "reference",
                         referenced_vertices=True,
+                    )
+                for gap in (4096, 16384):
+                    (coalesced, gap_io), gap_cost = measure(
+                        lambda gap=gap, identities=identities, indexed=indexed, directory=directory, index=index: (
+                            read_ranges(
+                                directory,
+                                index,
+                                identities,
+                                indexed=indexed,
+                                max_gap_bytes=gap,
+                            )
+                        )
+                    )
+                    if not np.array_equal(coalesced.view("u1"), loaded.view("u1")):
+                        raise ValueError("Coalescing must preserve requested originals")
+                    gaps.append(
+                        {
+                            "layout": name,
+                            "max_gap_bytes": gap,
+                            **gap_io,
+                            "read_cost": gap_cost,
+                        }
                     )
             cases.append(
                 {
@@ -136,6 +158,7 @@ def run(output):
         "original_raw_binding_bytes": binding.nbytes,
         "row_build": row_cost,
         "cases": cases,
+        "coalesced_native_triangle_sources": gaps,
         "scope": "Original-source word preservation for a bound finite fixture. Native triangle IDs seed whole-source demand, not general view, shadow or World admission. Native renderer input files are identical, but no native execution, live revision, device timing or physical IO is asserted. Traced incremental peaks exclude held inputs and native/OS allocations.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
