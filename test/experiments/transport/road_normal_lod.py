@@ -63,7 +63,8 @@ def prepare(
                 requests,
             )
         queries += 1
-        value = model.cone(index, a, b, c, d, angle_rad)
+        result = model.cone(index, a, b, c, d, angle_rad)
+        value = result["accepted"], result["score"]
         cells[key] = value
         return value
 
@@ -95,16 +96,16 @@ def prepare(
                 continue
             for c, d in pairwise(u):
                 result = cone(index, a, b, c, d)
-                if result["accepted"]:
+                if result[0]:
                     continue
                 across = (c + d) / 2
                 longitudinal = max(
-                    cone(index, a, middle, c, d)["score"],
-                    cone(index, middle, b, c, d)["score"],
+                    cone(index, a, middle, c, d)[1],
+                    cone(index, middle, b, c, d)[1],
                 )
                 lateral = max(
-                    cone(index, a, b, c, across)["score"],
-                    cone(index, a, b, across, d)["score"],
+                    cone(index, a, b, c, across)[1],
+                    cone(index, a, b, across, d)[1],
                 )
                 if longitudinal <= lateral:
                     split_s.add(middle)
