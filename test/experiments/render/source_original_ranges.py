@@ -146,12 +146,24 @@ def write_ranges(directory, rows, *, indexed=False):
 
 
 def read_ranges(
-    directory, index, requested, *, indexed=False, max_gap_bytes=0, compact=False
+    directory,
+    index,
+    requested,
+    *,
+    indexed=False,
+    max_gap_bytes=0,
+    compact=False,
+    share_contiguous=False,
 ):
+    """Optionally share gapless spans; one retained chunk keeps its span alive."""
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
     if compact and not indexed:
         raise ValueError("Compact output requires indexed source ranges")
+    if type(share_contiguous) is not bool or (
+        share_contiguous and not (indexed and compact)
+    ):
+        raise ValueError("Shared spans require compact indexed output")
     if type(max_gap_bytes) is not int or not 0 <= max_gap_bytes <= 1024 * 1024:
         raise ValueError("Bounded nonnegative range gap required")
     ids = [int(x) for x in requested]
@@ -189,11 +201,7 @@ def read_ranges(
             if len(blob) != end - start:
                 raise ValueError("Incomplete original source range")
             read_bytes += len(blob)
-            borrowed = (
-                compact
-                and len(group) > 1
-                and sum(int(row["bytes"]) for row in group) == len(blob)
-            )
+            borrowed = share_contiguous and max_gap_bytes == 0 and len(group) > 1
             for row in group:
                 lo = int(row["offset"]) - start
                 hi = lo + int(row["bytes"])
