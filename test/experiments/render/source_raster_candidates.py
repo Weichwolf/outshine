@@ -99,6 +99,42 @@ def projection(
     return center, radius
 
 
+def validate_query(
+    view_words,
+    placement_words,
+    raster,
+    raster_guard_px,
+    *,
+    pairs_most=MAX_PAIRS,
+    chunk_pairs=MAX_CHUNK,
+    vertex_batch_size=VERTEX_BATCH,
+):
+    if (
+        not isinstance(view_words, np.ndarray)
+        or not isinstance(placement_words, np.ndarray)
+        or view_words.dtype != np.dtype("<u4")
+        or view_words.shape != (56,)
+        or placement_words.dtype != np.dtype("<u4")
+        or placement_words.shape != (1, 36)
+        or raster.shape != (2,)
+        or raster.dtype.kind not in "iu"
+        or np.any(raster <= 0)
+        or np.any(raster > 65536)
+        or type(raster_guard_px) not in (int, float)
+        or not np.isfinite(raster_guard_px)
+        or raster_guard_px < 0
+        or type(pairs_most) is not int
+        or not 0 <= pairs_most <= MAX_PAIRS
+        or type(chunk_pairs) is not int
+        or not 1 <= chunk_pairs <= MAX_CHUNK
+        or type(vertex_batch_size) is not int
+        or not 1 <= vertex_batch_size <= MAX_VERTICES
+    ):
+        raise ValueError(
+            "Bounded original geometry, actual upload layout and explicit raster guard required"
+        )
+
+
 def select(
     source,
     view_words,
@@ -125,27 +161,17 @@ def select(
         or not 1 <= len(triangles) <= MAX_TRIANGLES
         or triangles.min() < 0
         or triangles.max() >= len(p)
-        or view_words.dtype != np.dtype("<u4")
-        or view_words.shape != (56,)
-        or placement_words.dtype != np.dtype("<u4")
-        or placement_words.shape != (1, 36)
-        or raster.shape != (2,)
-        or raster.dtype.kind not in "iu"
-        or np.any(raster <= 0)
-        or np.any(raster > 65536)
-        or type(raster_guard_px) not in (int, float)
-        or not np.isfinite(raster_guard_px)
-        or raster_guard_px < 0
-        or type(pairs_most) is not int
-        or not 0 <= pairs_most <= MAX_PAIRS
-        or type(chunk_pairs) is not int
-        or not 1 <= chunk_pairs <= MAX_CHUNK
-        or type(vertex_batch_size) is not int
-        or not 1 <= vertex_batch_size <= MAX_VERTICES
     ):
-        raise ValueError(
-            "Bounded original geometry, actual upload layout and explicit raster guard required"
-        )
+        raise ValueError("Bounded original geometry required")
+    validate_query(
+        view_words,
+        placement_words,
+        raster,
+        raster_guard_px,
+        pairs_most=pairs_most,
+        chunk_pairs=chunk_pairs,
+        vertex_batch_size=vertex_batch_size,
+    )
     work = {
         "original_triangles": len(triangles),
         "vertices": len(p),

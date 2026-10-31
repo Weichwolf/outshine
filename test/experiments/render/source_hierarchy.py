@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import source_raster_candidates as fine
-from source_cluster_bounds import clip_boxes, frame, possible_leaves, support_margin
+from source_cluster_bounds import group_demand
 from source_triangle_clusters import TriangleGroups, immutable
 from source_triangle_clusters import build as group_triangles
 
@@ -166,41 +166,22 @@ def query(
         for key, value in options.items()
     ):
         return flat("query_limits")
-    if raster_guard_px >= int(raster.max()):
-        work["bypass"] = "guard_whole"
-        return no_fine(False, "raster_guard_covers_viewport")
-    if not hierarchy.normal_positions:
-        work["bypass"] = "unsupported_source"
-        return no_fine(False, "clip_or_arithmetic_unknown")
-    operands = frame(view_words, placements)
-    if operands is None:
-        work["bypass"] = "upload_arithmetic"
-        return no_fine(False, "clip_or_arithmetic_unknown")
-    witnesses = np.repeat(hierarchy.witnesses[:, None, :], 2, axis=1)
-    lo, hi = clip_boxes(witnesses, operands)
-    work["witness_points_tested"] = len(witnesses)
-    outside = (
-        (hi[:, 3] <= 0)
-        | (hi[:, 2] <= 0)
-        | (lo[:, 2] >= hi[:, 3])
-        | (lo[:, :2] >= hi[:, 3, None]).any(1)
-        | (hi[:, :2] <= -hi[:, 3, None]).any(1)
-    )
-    if outside.any():
-        work["bypass"] = "actual_vertex_outside"
-        return no_fine(False, "clip_or_arithmetic_unknown")
-    margin = support_margin(hierarchy.bounds, operands, raster.astype(float))
-    if margin is None:
-        return flat("root_projection")
-    work["coarse_margin_px"] = margin.tolist()
-    keep = possible_leaves(
+    keep, whole_reason, diagnostics = group_demand(
+        hierarchy.bounds,
+        hierarchy.witnesses,
+        hierarchy.normal_positions,
         groups.bounds,
-        operands,
+        view_words,
+        placements,
         raster,
-        margin,
         raster_guard_px,
         batch_boxes=batch_boxes,
     )
+    work.update(diagnostics)
+    if whole_reason:
+        return no_fine(False, whole_reason)
+    if keep is None:
+        return flat(diagnostics["bypass"])
     work["headers_tested"], work["headers_kept"] = len(keep), int(keep.sum())
     if keep.all():
         return flat("all_headers")
