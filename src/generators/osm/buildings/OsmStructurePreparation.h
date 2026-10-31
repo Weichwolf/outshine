@@ -33,6 +33,7 @@ public:
   using Inputs = std::variant<SourceInputs, CellInputs>;
 
   StructurePreparation(Tasks &pool, Inputs inputs, StructurePolicy policy, int heightZoom);
+  // The pool outlives unfinished jobs; destruction never waits for them.
   ~StructurePreparation();
   StructurePreparation(const StructurePreparation &) = delete;
   StructurePreparation &operator=(const StructurePreparation &) = delete;
@@ -41,7 +42,7 @@ public:
 
   void Cancel() noexcept { (void)Stop_.request_stop(); }
 
-  [[nodiscard]] bool Running() const noexcept { return Handle_ != Tasks::kNoTask; }
+  [[nodiscard]] bool Running() const noexcept { return Phase_ == Phase::Working; }
 
   [[nodiscard]] bool AwaitSlice(double seconds) const;
 
@@ -52,14 +53,9 @@ public:
   [[nodiscard]] std::span<const Data::TileId> HeightTiles() const noexcept { return HeightTiles_; }
 
 private:
-  struct Output {
-    std::expected<std::vector<Product>, std::string> Value =
-        std::unexpected("original structure preparation has not completed");
-    std::vector<Data::TileId> HeightTiles;
-  };
+  struct Output;
 
   Tasks *Pool_;
-  Tasks::Handle Handle_ = Tasks::kNoTask;
   std::stop_source Stop_;
   std::shared_ptr<Output> Output_;
   std::vector<Product> Products_;
