@@ -143,6 +143,7 @@ def main(args):
             {
                 "angle_degrees": angle,
                 "selected_sources": len(selected),
+                "selected_source_ids": selected,
                 "excluded_sources": excluded,
                 "selected_original_fallback_sources": sum(
                     i not in records for i in selected
