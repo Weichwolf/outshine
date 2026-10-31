@@ -5,19 +5,13 @@
 #include "PreparedOsmTiles.h"
 #include "Tasks.h"
 #include "AssetCache.h"
-#include <array>
-#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <mutex>
-#include <stop_token>
 #include <string>
 #include <unordered_map>
-#include <utility>
-#include <vector>
 
 namespace outshine::Data {
 class SourceSet;
@@ -77,34 +71,18 @@ public:
        std::shared_ptr<PreparedOsmTiles> prepared,
        Budget budget);
   ~PreparedUrbanAreas();
+  PreparedUrbanAreas(const PreparedUrbanAreas &) = delete;
+  PreparedUrbanAreas &operator=(const PreparedUrbanAreas &) = delete;
   void Cancel() noexcept;
   [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(const Request &request);
   [[nodiscard]] Counters Costs() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
 
 private:
-  struct Loaded {
-    std::shared_ptr<const UrbanArea> Area;
-    std::string Key;
-  };
-
-  struct Definition {
-    Data::TileId Owner;
-    MvtSchema Schema;
-    UrbanAreaRecipe Recipe;
-  };
-
-  struct Work {
-    enum class Phase : uint8_t { Lookup, Source, Generate };
-    Definition Input;
-    std::vector<std::weak_ptr<const uint8_t>> Owners;
-    std::array<std::unique_ptr<OsmField>, 2> Layouts;
-    std::array<std::shared_ptr<const OsmField>, 2> Sources;
-    size_t SourceCount = 0;
-    Phase Stage = Phase::Lookup;
-    Tasks::Handle Task = Tasks::kNoTask;
-    std::expected<Loaded, std::string> Result;
-  };
+  struct Loaded;
+  struct Definition;
+  struct Work;
+  struct Worker;
 
   PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
                      std::string recipe,
@@ -114,26 +92,14 @@ private:
   void RetireUnused();
   static void Observe(Work &work, const std::shared_ptr<const uint8_t> &owner);
   [[nodiscard]] static Data::TileId Parent(Data::TileId owner) noexcept;
-  [[nodiscard]] std::string RequestKey(const Definition &input) const;
-  [[nodiscard]] std::expected<Loaded, std::string> Load(const std::string &request,
-                                                        const Definition &input);
-  [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request,
-                                                            const Work &work);
+  [[nodiscard]] bool Start(const std::string &key, const std::shared_ptr<Work> &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string> GatherSources(Work &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string>
   Advance(const std::string &key, const std::shared_ptr<Work> &work);
-  [[nodiscard]] bool Matches(const UrbanArea &area, const Definition &input) const;
-
-  std::unique_ptr<AssetCache> Cache_;
-  std::string Recipe_;
   Tasks &Compute_;
   std::shared_ptr<PreparedOsmTiles> Prepared_;
-  Budget Budget_;
-  std::stop_source Stop_;
-  std::mutex CacheMutex_;
+  std::shared_ptr<Worker> Worker_;
   std::unordered_map<std::string, std::shared_ptr<Work>> Pending_;
-  std::atomic_uint64_t Hits_{0}, Misses_{0}, Generations_{0}, Writes_{0}, ReadBytes_{0};
-  std::atomic_uint64_t SourcePolls_{0}, GeneratedCells_{0}, Deferred_{0};
 };
 }
 #endif

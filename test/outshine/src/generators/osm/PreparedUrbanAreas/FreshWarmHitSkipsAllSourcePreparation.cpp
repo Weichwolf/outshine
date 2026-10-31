@@ -18,7 +18,7 @@ namespace {
 int FreshProcess(const std::filesystem::path &directory) {
   using namespace UrbanAssetFixture;
   using namespace outshine::Test;
-  Fixture fixture(directory, Availability::Unavailable);
+  const Fixture fixture(directory, Availability::Unavailable);
   if (!fixture.Urban) { return Report(); }
   const PreparedUrbanAreas::Request request(kOwner, MvtSchema::OpenMapTiles);
   const auto result = Await(fixture, request);
@@ -83,7 +83,7 @@ int main(int argc, char *const *argv) {
   std::vector<uint8_t> original;
   std::string originalKey;
   {
-    Fixture fixture(directory, Availability::Ready);
+    const Fixture fixture(directory, Availability::Ready);
     if (!fixture.Urban) { return Report(); }
     CHECK(fixture.Urban->AwaitProgress(1),
           "without an admitted job the caller must keep advancing");
@@ -111,7 +111,7 @@ int main(int argc, char *const *argv) {
           "exactly the required owner and parent sources are prepared");
   }
   {
-    Fixture fixture(directory, Availability::Unavailable);
+    const Fixture fixture(directory, Availability::Unavailable);
     if (!fixture.Urban) { return Report(); }
     const auto result = Await(fixture, request);
     CHECK(result && result->Status == PreparedUrbanAreas::State::Ready && result->Product,

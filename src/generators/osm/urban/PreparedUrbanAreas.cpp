@@ -1,7 +1,9 @@
-#include "PreparedUrbanAreas.h"
+#include "PreparedUrbanWorker.h"
 #include "AssetSourceRecipe.h"
 #include "SourceSet.h"
 #include <algorithm>
+#include <atomic>
+#include <mutex>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -19,11 +21,28 @@ PreparedUrbanAreas::PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
                                        Tasks &compute,
                                        std::shared_ptr<PreparedOsmTiles> prepared,
                                        Budget budget)
-    : Cache_(std::move(cache)),
-      Recipe_(std::move(recipe)),
-      Compute_(compute),
+    : Compute_(compute),
       Prepared_(std::move(prepared)),
-      Budget_(budget) {}
+      Worker_(std::make_shared<Worker>(std::move(cache), std::move(recipe), budget)) {}
+
+PreparedUrbanAreas::Worker::Worker(std::unique_ptr<AssetCache> cache,
+                                   std::string recipe,
+                                   Budget budget)
+    : Cache(std::move(cache)), Recipe(std::move(recipe)), Limits(budget) {}
+
+PreparedUrbanAreas::Worker::Job::Job(std::shared_ptr<Worker> owner, std::shared_ptr<Work> work)
+    : Owner(std::move(owner)), Pending(std::move(work)) {
+  Pending->Running.store(true, std::memory_order_relaxed);
+}
+
+PreparedUrbanAreas::Worker::Job::~Job() {
+  {
+    const std::scoped_lock lock(Owner->CompletionMutex);
+    Pending->Running.store(false, std::memory_order_release);
+    ++Owner->CompletionGeneration;
+  }
+  Owner->Completed.notify_all();
+}
 
 std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>
 PreparedUrbanAreas::Open(const std::string &directory,
@@ -64,13 +83,17 @@ PreparedUrbanAreas::Open(const std::string &directory,
 
 PreparedUrbanAreas::~PreparedUrbanAreas() {
   Cancel();
-  for (const auto &[key, work] : Pending_) {
-    if (work->Task != Tasks::kNoTask) { Compute_.Wait(work->Task); }
-  }
+  (void)Compute_.PostDetached([worker = std::move(Worker_),
+                               prepared = std::move(Prepared_),
+                               pending = std::move(Pending_)] {
+    (void)worker;
+    (void)prepared;
+    (void)pending;
+  });
 }
 
 void PreparedUrbanAreas::Cancel() noexcept {
-  Stop_.request_stop();
+  Worker_->Stop.request_stop();
 }
 
 Data::TileId PreparedUrbanAreas::Parent(Data::TileId owner) noexcept {
@@ -88,23 +111,25 @@ void PreparedUrbanAreas::Observe(Work &work, const std::shared_ptr<const uint8_t
 }
 
 void PreparedUrbanAreas::RetireUnused() {
-  std::erase_if(Pending_, [this](const auto &entry) {
+  std::erase_if(Pending_, [](const auto &entry) {
     const auto &work = *entry.second;
     if (std::ranges::any_of(work.Owners, [](const auto &held) { return !held.expired(); })) {
       return false;
     }
-    return work.Task == Tasks::kNoTask || Compute_.TakeCompletion(work.Task);
+    return !work.Running.load(std::memory_order_acquire);
   });
 }
 
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::Acquire(const Request &request) {
-  if (Stop_.stop_requested()) { return std::unexpected("urban-area preparation cancelled"); }
+  if (Worker_->Stop.stop_requested()) {
+    return std::unexpected("urban-area preparation cancelled");
+  }
   const Definition input{
       .Owner = request.Owner_, .Schema = request.Schema_, .Recipe = request.Recipe_};
-  const auto key = RequestKey(input);
+  const auto key = Worker_->RequestKey(input);
   if (key.empty() || !request.Demand_) { return std::unexpected("invalid urban-area request"); }
-  if (Pending_.size() >= Budget_.PendingMost) { RetireUnused(); }
+  if (Pending_.size() >= Worker_->Limits.PendingMost) { RetireUnused(); }
   const auto found = Pending_.find(key);
   if (found != Pending_.end()) {
     const auto work = found->second;
@@ -115,30 +140,37 @@ PreparedUrbanAreas::Acquire(const Request &request) {
     }
     return result;
   }
-  if (Pending_.size() >= Budget_.PendingMost) {
-    ++Deferred_;
+  if (Pending_.size() >= Worker_->Limits.PendingMost) {
+    ++Worker_->Deferred;
     return SourceDelivery{};
   }
   auto work = std::make_shared<Work>();
   work->Input = input;
   Observe(*work, request.Demand_);
-  work->Task = Compute_.Post([this, work, key] {
-    work->Result = Stop_.stop_requested()
-                       ? std::unexpected(std::string("urban-area preparation cancelled"))
-                       : Load(key, work->Input);
-  });
-  if (work->Task == Tasks::kNoTask) {
-    return std::unexpected("urban-area lookup task was not accepted");
-  }
+  if (!Start(key, work)) { return std::unexpected("urban-area lookup task was not accepted"); }
   Pending_.emplace(key, std::move(work));
   return SourceDelivery{};
 }
 
+bool PreparedUrbanAreas::Start(const std::string &key, const std::shared_ptr<Work> &work) {
+  const auto job = std::make_shared<Worker::Job>(Worker_, work);
+  return Compute_.PostDetached([job, key] {
+    auto &owner = *job->Owner;
+    auto &pending = *job->Pending;
+    if (owner.Stop.stop_requested()) {
+      pending.Result = std::unexpected(std::string("urban-area preparation cancelled"));
+    } else if (pending.Stage == Work::Phase::Lookup) {
+      pending.Result = owner.Load(key, pending.Input);
+    } else {
+      pending.Result = owner.Generate(key, pending);
+    }
+  });
+}
+
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> &work) {
-  if (work->Task != Tasks::kNoTask) {
-    if (!Compute_.TakeCompletion(work->Task)) { return SourceDelivery{}; }
-    work->Task = Tasks::kNoTask;
+  if (work->Running.load(std::memory_order_acquire)) { return SourceDelivery{}; }
+  if (work->Stage != Work::Phase::Source) {
     if (!work->Result) { return std::unexpected(work->Result.error()); }
     if (work->Result->Area) {
       return SourceDelivery{.Status = State::Ready,
@@ -153,10 +185,7 @@ PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> 
   auto sources = GatherSources(*work);
   if (!sources || sources->Status != State::Ready) { return sources; }
   work->Stage = Work::Phase::Generate;
-  work->Task = Compute_.Post([this, work, key] { work->Result = Generate(key, *work); });
-  if (work->Task == Tasks::kNoTask) {
-    return std::unexpected("urban-area generation task was not accepted");
-  }
+  if (!Start(key, work)) { return std::unexpected("urban-area generation task was not accepted"); }
   return SourceDelivery{};
 }
 
@@ -178,7 +207,7 @@ PreparedUrbanAreas::GatherSources(Work &work) {
   for (size_t index = 0; index < work.SourceCount; ++index) {
     if (!work.Sources[index]) {
       const auto at = index == 0 ? work.Input.Owner : parent;
-      ++SourcePolls_;
+      ++Worker_->SourcePolls;
       auto source = Prepared_->Acquire({.X = static_cast<int>(at.X), .Y = static_cast<int>(at.Y)},
                                        *work.Layouts[index]);
       if (!source) { return std::unexpected(std::string(source.error())); }
@@ -200,19 +229,32 @@ PreparedUrbanAreas::GatherSources(Work &work) {
 }
 
 PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {
-  return {.Hits = Hits_.load(),
-          .Misses = Misses_.load(),
-          .Generations = Generations_.load(),
-          .Writes = Writes_.load(),
-          .ReadBytes = ReadBytes_.load(),
-          .SourcePolls = SourcePolls_.load(),
-          .GeneratedCells = GeneratedCells_.load(),
-          .Deferred = Deferred_.load()};
+  return {.Hits = Worker_->Hits.load(),
+          .Misses = Worker_->Misses.load(),
+          .Generations = Worker_->Generations.load(),
+          .Writes = Worker_->Writes.load(),
+          .ReadBytes = Worker_->ReadBytes.load(),
+          .SourcePolls = Worker_->SourcePolls.load(),
+          .GeneratedCells = Worker_->GeneratedCells.load(),
+          .Deferred = Worker_->Deferred.load()};
 }
 
 bool PreparedUrbanAreas::AwaitProgress(double seconds) const {
-  const bool running = std::ranges::any_of(
-      Pending_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; });
-  return !running || Compute_.AwaitCompletion(seconds);
+  std::unique_lock lock(Worker_->CompletionMutex);
+  bool running = false;
+  for (const auto &[key, work] : Pending_) {
+    if (work->Running.load(std::memory_order_acquire)) {
+      running = true;
+    } else if (work->Stage != Work::Phase::Source) {
+      return true;
+    }
+  }
+  if (!running) { return true; }
+  if (!(seconds > 0.0)) { return false; }
+  const auto generation = Worker_->CompletionGeneration;
+  return Worker_->Completed.wait_for(
+      lock, std::chrono::duration<double>(seconds), [this, generation] {
+        return Worker_->CompletionGeneration != generation;
+      });
 }
 }
