@@ -55,7 +55,18 @@ def flat_code(uv):
     return np.where(value < 0, value, np.floor(value / np.float32(256)))
 
 
-def compare(reference, fields, direct):
+def reference_codes(source, faces):
+    hit = faces >= 0
+    codes = np.zeros(len(faces), np.float32)
+    unambiguous = np.zeros(len(faces), bool)
+    vertices = source["uv"][source["indices"][faces[hit]]].reshape(-1, 2)
+    values = flat_code(vertices).reshape(-1, 3)
+    codes[hit] = values[:, 0]
+    unambiguous[hit] = np.all(values == values[:, :1], axis=1)
+    return codes, unambiguous
+
+
+def compare(reference, fields, direct, codes, unambiguous):
     common = (reference >= 0) & direct["qualified"]
     errors = {}
     for key in ("uv", "metres"):
@@ -65,8 +76,11 @@ def compare(reference, fields, direct):
             np.quantile(delta, 0.95, axis=0).tolist() if len(delta) else None
         )
     errors["common_qualified_rays"] = int(common.sum())
+    eligible = common & unambiguous
+    errors["flat_program_eligible_rays"] = int(eligible.sum())
+    errors["flat_program_ambiguous_rays"] = int((common & ~unambiguous).sum())
     errors["flat_program_mismatches"] = int(
-        (flat_code(fields["uv"][common]) != flat_code(direct["uv"][common])).sum()
+        (codes[eligible] != flat_code(direct["uv"][eligible])).sum()
     )
     return errors
 
@@ -138,14 +152,18 @@ def run(args):
                 source, origins, directions, prepared=prepared[name]
             )
             fields = fields_at(source, origins, directions, native_depth, faces)
-            comparisons[name] = compare(faces, fields, direct)
-            sampled[name] = faces, fields, native_depth
+            codes, unambiguous = reference_codes(source, faces)
+            comparisons[name] = compare(faces, fields, direct, codes, unambiguous)
+            sampled[name] = faces, fields, native_depth, codes, unambiguous
         unknown = (owner >= 0) & ~direct["qualified"]
-        original_faces, original_fields, original_depth = sampled["original"]
+        original_faces, original_fields, original_depth, codes, unambiguous = sampled[
+            "original"
+        ]
         mismatch = (
             (original_faces >= 0)
             & direct["qualified"]
-            & (flat_code(original_fields["uv"]) != flat_code(direct["uv"]))
+            & unambiguous
+            & (codes != flat_code(direct["uv"]))
         )
         witnesses = [
             {
@@ -171,10 +189,10 @@ def run(args):
                 "against": comparisons,
             }
         )
-        faces, original, _ = sampled["original"]
+        faces, original, _, codes, unambiguous = sampled["original"]
         common = (faces >= 0) & direct["qualified"]
         difference = np.zeros((len(depth), 3), np.uint8)
-        difference[common & (flat_code(original["uv"]) != flat_code(direct["uv"]))] = [
+        difference[common & unambiguous & (codes != flat_code(direct["uv"]))] = [
             255,
             0,
             0,
