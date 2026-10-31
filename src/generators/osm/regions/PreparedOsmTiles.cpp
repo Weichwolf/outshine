@@ -20,11 +20,13 @@
 namespace outshine::Generators::Osm {
 PreparedOsmTiles::Work::Work(std::string request,
                              Layout definition,
+                             TileAt at,
                              const std::shared_ptr<const uint8_t> &owner,
                              AssetPipeline::Consumer consumer,
                              AssetPipeline::RequestTicket ticket)
     : Request(std::move(request)),
       Definition(std::move(definition)),
+      At(at),
       Owner(owner),
       Consumer(std::move(consumer)),
       Ticket(std::move(ticket)) {}
@@ -112,6 +114,20 @@ void PreparedOsmTiles::RetireUnused() {
   });
 }
 
+void PreparedOsmTiles::RetainPending(const OsmField &layout,
+                                     const std::optional<OsmTileWindow> &window) {
+  for (const auto &work : Pending_) {
+    if (work->Owner.lock() != layout.Demand_) { continue; }
+    const auto &definition = work->Definition;
+    if (!window || definition.Zoom != layout.Zoom_ || definition.Schema != layout.Schema_ ||
+        definition.Layers != layout.Layers_ || work->At.X < window->MinX ||
+        work->At.X > window->MaxX || work->At.Y < window->MinY || work->At.Y > window->MaxY) {
+      work->Owner.reset();
+    }
+  }
+  RetireUnused();
+}
+
 std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const {
   BinaryValueWriter out(4096);
   if (!out.Text(Recipe_) || !out(layout.Zoom, at.X, at.Y, layout.Schema)) { return {}; }
@@ -134,11 +150,10 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
     return std::unexpected("invalid native OSM tile address");
   }
   RetireUnused();
-  const Layout definition{.Zoom = layout.Zoom_, .Schema = layout.Schema_, .Layers = layout.Layers_};
-  const auto request = RequestKey(at, definition);
-  if (request.empty()) { return std::unexpected("invalid native OSM tile request"); }
   const auto found = std::ranges::find_if(Pending_, [&](const auto &work) {
-    return work->Request == request && work->Owner.lock() == layout.Demand_;
+    return work->At.X == at.X && work->At.Y == at.Y && work->Owner.lock() == layout.Demand_ &&
+           work->Definition.Zoom == layout.Zoom_ && work->Definition.Schema == layout.Schema_ &&
+           work->Definition.Layers == layout.Layers_;
   });
   if (found != Pending_.end()) {
     auto result = Advance(*found);
@@ -148,6 +163,9 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
     }
     return result;
   }
+  const Layout definition{.Zoom = layout.Zoom_, .Schema = layout.Schema_, .Layers = layout.Layers_};
+  const auto request = RequestKey(at, definition);
+  if (request.empty()) { return std::unexpected("invalid native OSM tile request"); }
   if (Pending_.size() >= Budget_.PendingMost) { return SourceDelivery{}; }
   auto consumer = Pipeline_.OpenConsumer();
   if (!consumer) { return SourceDelivery{}; }
@@ -163,7 +181,7 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
     return std::unexpected("native OSM asset job was not accepted");
   }
   auto work = std::make_shared<Work>(
-      request, definition, layout.Demand_, std::move(*consumer), std::move(*ticket));
+      request, definition, at, layout.Demand_, std::move(*consumer), std::move(*ticket));
   Pending_.push_back(std::move(work));
   return SourceDelivery{};
 }

@@ -11,6 +11,7 @@
 #include <memory>
 #include "Units.h"
 #include "OsmField.h"
+#include "PreparedOsmTiles.h"
 #include "Sha256.h"
 
 #include "Capacity.h"
@@ -86,7 +87,9 @@ OsmField::OsmField(int zoom,
       Layers_(layers.begin(), layers.end()),
       Zoom_(zoom) {}
 
-OsmField::~OsmField() = default;
+OsmField::~OsmField() {
+  if (Prepared_) { Prepared_->RetainPending(*this, std::nullopt); }
+}
 
 std::shared_ptr<const OsmField>
 OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
@@ -215,8 +218,8 @@ std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources
   if (!centre) { return std::unexpected(centre.error()); }
   const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
   if (!window) { return std::unexpected(window.error()); }
+  if (Prepared_) { Prepared_->RetainPending(*this, *window); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
-    if (Prepared_) { Demand_ = std::make_shared<const uint8_t>(0); }
     Stage_ = SnapshotStage::Empty;
     Assembly_.reset();
   }
@@ -830,6 +833,7 @@ bool OsmField::MatchesDeclaration(std::span<const Declared> input, TileAt over) 
 }
 
 void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string_view inputDigest) {
+  if (Prepared_) { Prepared_->RetainPending(*this, std::nullopt); }
   if (MatchesDeclaration(these, over) && Tiles_.front().InputDigest == inputDigest) {
     Pending_ = 0;
     RequestedRing_ = 0;

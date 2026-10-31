@@ -62,6 +62,7 @@ public:
   [[nodiscard]] AssetPipeline::Snapshot AdmissionCounts() const noexcept;
 
 private:
+  friend class OsmField;
   using Product = std::shared_ptr<const OsmField>;
 
   struct Layout {
@@ -73,11 +74,13 @@ private:
   struct Work {
     Work(std::string request,
          Layout definition,
+         TileAt at,
          const std::shared_ptr<const uint8_t> &owner,
          AssetPipeline::Consumer consumer,
          AssetPipeline::RequestTicket ticket);
     std::string Request;
     Layout Definition;
+    TileAt At;
     std::weak_ptr<const uint8_t> Owner;
     AssetPipeline::Consumer Consumer;
     std::optional<AssetPipeline::RequestTicket> Ticket;
@@ -129,6 +132,8 @@ private:
                    std::string recipe,
                    Budget budget);
   void RetireUnused();
+  // A missing window withdraws this field's pending interests without touching other owners.
+  void RetainPending(const OsmField &layout, const std::optional<OsmTileWindow> &window);
   [[nodiscard]] bool CompleteTask(Work &work);
   [[nodiscard]] std::expected<SourceDelivery, std::string_view>
   Advance(const std::shared_ptr<Work> &work);
