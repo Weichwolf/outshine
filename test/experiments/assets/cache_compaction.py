@@ -125,6 +125,51 @@ def exercise(directory, mode):
         db.close()
 
 
+def page_limit_counterexample(directory):
+    path = directory / 'page-limit.sqlite'
+    db = sqlite3.connect(path, timeout=0)
+    reader = None
+    try:
+        db.execute('PRAGMA auto_vacuum=INCREMENTAL')
+        db.execute('PRAGMA journal_mode=WAL')
+        db.execute('PRAGMA wal_autocheckpoint=0')
+        db.execute('PRAGMA cache_size=-64')
+        db.execute('CREATE TABLE packages(id INTEGER PRIMARY KEY,bytes BLOB NOT NULL)')
+        initial = hashlib.shake_256(b'initial').digest(PACKAGE_BYTES)
+        db.executemany('INSERT INTO packages VALUES(?,?)', [(0, initial), (1, initial)])
+        db.commit()
+        assert not db.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]
+        pages = scalar(db, 'PRAGMA page_count')
+        assert scalar(db, f'PRAGMA max_page_count={pages}') == pages
+        before = snapshot(db, path)
+        file_budget = 3 * before['file_bytes']
+        reader = sqlite3.connect(path, timeout=0)
+        reader.execute('BEGIN')
+        held = digest(reader)
+        for i in range(8):
+            data = hashlib.shake_256(str(i).encode()).digest(PACKAGE_BYTES)
+            db.execute('UPDATE packages SET bytes=? WHERE id=0', (data,))
+            db.commit()
+            assert scalar(db, 'PRAGMA page_count') == pages
+        blocked = snapshot(db, path)
+        assert blocked['file_bytes'] > file_budget
+        assert digest(reader) == held
+        assert db.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]
+        reader.rollback()
+        reader.close()
+        reader = None
+        assert not db.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]
+        after = snapshot(db, path)
+        assert after['file_bytes'] < file_budget
+        assert scalar(db, 'PRAGMA integrity_check') == 'ok'
+        return {'max_pages': pages, 'file_budget_bytes': file_budget,
+                'before': before, 'pinned_reader': blocked, 'after': after}
+    finally:
+        if reader is not None:
+            reader.close()
+        db.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -132,14 +177,19 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='outshine-master-cache-compaction-') as temporary:
         results = [exercise(Path(temporary), mode) for mode in ('NONE', 'FULL', 'INCREMENTAL')]
+        page_limit = page_limit_counterexample(Path(temporary))
     assert len({case['retained_sha256'] for case in results}) == 1
     report = {'sqlite': sqlite3.sqlite_version, 'package_bytes': PACKAGE_BYTES,
-              'packages': PACKAGE_COUNT, 'batch_pages': BATCH_PAGES, 'cases': results}
+              'packages': PACKAGE_COUNT, 'batch_pages': BATCH_PAGES, 'cases': results,
+              'page_limit_counterexample': page_limit}
     args.output.write_text(json.dumps(report, indent=2) + '\n')
     for case in results:
         print(f"{case['mode']}: {case['before']['file_bytes']} -> "
               f"{case['after']['file_bytes']} bytes; "
               f"{len(case['reclaim'].get('steps', []))} bounded steps; pinned reader deferred")
+    print(f"max_page_count: {page_limit['max_pages']} unchanged pages, "
+          f"{page_limit['pinned_reader']['file_bytes']} file bytes exceed "
+          f"{page_limit['file_budget_bytes']} byte budget while reader is pinned")
 
 
 if __name__ == '__main__':

@@ -82,7 +82,9 @@ std::expected<void, std::string> Compact(sqlite3 *database) {
   const auto mode = Scalar(database, "PRAGMA auto_vacuum");
   if (!mode) { return std::unexpected(mode.error()); }
   if (*mode != 2) {
-    if (auto vacuumed = Exec(database, "VACUUM"); !vacuumed) { return vacuumed; }
+    if (auto vacuumed = Exec(database, "PRAGMA auto_vacuum=INCREMENTAL;VACUUM"); !vacuumed) {
+      return vacuumed;
+    }
     return Checkpoint(database);
   }
   auto free = Scalar(database, "PRAGMA freelist_count");
