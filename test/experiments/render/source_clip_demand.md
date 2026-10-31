@@ -110,8 +110,8 @@ Native controls MUST capture their actual operands; rebind the proof to those
 words without tolerances. JSON requests are not new native upload captures.
 Only control JSON/export tests changed after the frozen query cost measurement.
 
-Current checks:62 focused cases after integrating #1874, including the
-Capture/flag/SHA/whole-source export case, plus the native-word rebind test. Independent rational box-corner planes
+Current checks:63 focused cases, terminal0 in48.320s after #1874/#1876,
+including exact Capture/flag/SHA/whole-source export and native-word rebinding. Independent rational box-corner planes
 and explicit FP32 multiply/add in both term orders bound against the envelope;
 all78374 original vertices independently satisfy Bottom in the seven examples.
 Strict four-side exclusion, equal/near-boundary, partial, subnormal, NaN, overflow,
