@@ -11,7 +11,8 @@ Source IDs/properties and existing physical joint identity remain unchanged.
 Explicit procedural dimensions: height0.9m, thickness0.12m, lateral edge
 margin0.05m, outer chain-end setback0.05m and central clear half-width1.5m.
 These are model assumptions, not observed construction or safety/vehicle
-certification. The actual3.8m bed leaves its declared central strip open.
+certification. The actual3.8m bed leaves its declared central strip open. Whole stored strips
+are checked across every chain; a Float32 inward-rounding opponent is rejected.
 The setback affects only the two outer ends; internal source joins stay whole.
 The original axis and existing bed/hardware/consumer geometry are retained.
 
@@ -65,16 +66,18 @@ are byte-identical to the frozen rendered products. Images remain host-temp only
 
 ## Costs and reproduction
 
-Measured source31e5bb6c7, Linux/i5-1135G7/Python3.13.5/NumPy2.5.4;
-load5.24/5.41/5.40. Seven CPU samples plus separate Memray traces per method.
-Same complete qualified output: generation247.031ms, owned held-product
-copy0.191ms. Allocations1,201,697/252; requested108,917,537/18,468B;
-scoped peak2,066,320/2,768B. Generation includes rational whole contact and
+Measured source557a054a7, Linux/i5-1135G7/Python3.13.5/NumPy2.5.4;
+load3.77/3.96/4.67. Seven CPU samples plus separate Memray traces per method.
+Same complete qualified output: generation170.840ms, owned held-product
+copy0.148ms. Allocations1,204,581/252; requested109,324,973/18,468B;
+scoped peak2,069,163/2,768B. Generation includes rational whole contact and
 hardware acceptance; this expensive diagnostic proof belongs outside runtime.
 Known Mesh-constructor copies: generation at least13,632B, held output3,648B;
 other temporaries remain in traced counts. Numeric held query inputs193,480B.
-Separate diagnostic input binding/read preparation4.335s is excluded and reported.
-No native cache/IO/frame/p99/physical UMA/RSS or device-budget claim.
+Separate diagnostic input binding/read preparation2.913s is excluded and reported.
+Trace peak counts only scope allocations captured by the tracker; held buffers
+are separate, and this is no total live-memory peak. No native cache/IO/frame/
+p99/physical UMA/RSS or device-budget claim.
 
 Use the repository `.venv`, BLAS/OMP1 and
 `PYTHONPATH=lib/src:test/experiments/{render,buildings,transport,assets,vegetation}`
