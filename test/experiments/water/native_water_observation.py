@@ -11,7 +11,7 @@ NO_INPUT = (1 << 32) - 1
 def boolean(reader):
     value = reader.number("B")
     if value > 1:
-        raise ValueError("WATER3 noncanonical boolean")
+        raise ValueError(f"{reader.label} noncanonical boolean")
     return bool(value)
 
 
@@ -22,7 +22,7 @@ def optional(reader, decode):
 def text(reader):
     count = reader.number("I")
     if count > len(reader.data) - reader.offset:
-        raise ValueError("WATER3 text exceeds its byte range")
+        raise ValueError(f"{reader.label} text exceeds its byte range")
     raw = reader.data[reader.offset : reader.offset + count]
     reader.offset += count
     # Native std::string stores arbitrary bytes; this conversion remains reversible.
@@ -45,7 +45,7 @@ def source_record(reader):
         or cell is not None
         and not (-90 <= cell[0] < 90 and -180 <= cell[1] < 180)
     ):
-        raise ValueError("WATER3 invalid source identity")
+        raise ValueError(f"{reader.label} invalid source identity")
     return {
         "origin": origin,
         "kind": kind,
@@ -80,7 +80,7 @@ def input_record(reader):
 def records(reader, minimum, decode):
     count = reader.number("Q")
     if count > (len(reader.data) - reader.offset) // minimum:
-        raise ValueError("WATER3 metadata count exceeds its byte range")
+        raise ValueError(f"{reader.label} metadata count exceeds its byte range")
     return tuple(decode(reader) for _ in range(count))
 
 

@@ -126,7 +126,7 @@ def local_conform(model, xy, faces, height_at, **options):
     )
 
 
-def contact_error(model, vertices, faces):
+def contact_error(model, vertices, faces, *, include_witness=False):
     """Compare affine heights on all common-refinement polygon vertices."""
     polygons = shapely.polygons(vertices[faces, :2])
     caps = model.sampler._polygons
@@ -146,7 +146,7 @@ def contact_error(model, vertices, faces):
         model.sampler._gradient[cap] * (points - source[:, :2]), axis=1
     )
     error = actual - expected
-    return {
+    result = {
         "intersecting_pairs": pairs.shape[1],
         "common_refinement_vertices": len(points),
         "maximum_above_underside_m": float(error.max(initial=0.0)),
@@ -156,3 +156,17 @@ def contact_error(model, vertices, faces):
         "cap_area_m2": float(shapely.area(caps).sum()),
         "scope": "All vertices of positive-area GEOS common-refinement polygons; affine extrema occur there. Binary64/GEOS result, not exact-rational or native Float32 proof.",
     }
+    if include_witness and len(error):
+        for name, index in (
+            ("signed_max_witness", int(error.argmax())),
+            ("signed_min_witness", int(error.argmin())),
+        ):
+            result[name] = {
+                "xy_m": points[index].tolist(),
+                "terrain_up_m": float(actual[index]),
+                "expected_up_m": float(expected[index]),
+                "signed_error_m": float(error[index]),
+                "cap_face": int(cap[index]),
+                "terrain_face": int(terrain[index]),
+            }
+    return result
