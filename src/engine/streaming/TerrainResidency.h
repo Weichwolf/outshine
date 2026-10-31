@@ -45,7 +45,7 @@ public:
 
   void Clear();
 
-  [[nodiscard]] size_t Standing() const noexcept { return Held_.size(); }
+  [[nodiscard]] size_t TileCount() const noexcept { return Held_.size(); }
 
   [[nodiscard]] bool HasPublishedSurface() const noexcept {
     return !Publishing_ && (!Instances_.empty() || !Virtual_.empty());

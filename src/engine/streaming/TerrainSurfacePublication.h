@@ -45,7 +45,7 @@ public:
 
   void Clear();
 
-  [[nodiscard]] size_t PageCount() const { return Residency_.Standing(); }
+  [[nodiscard]] size_t PageCount() const { return Residency_.TileCount(); }
 
   [[nodiscard]] size_t Instances() const { return Residency_.Instances(); }
 

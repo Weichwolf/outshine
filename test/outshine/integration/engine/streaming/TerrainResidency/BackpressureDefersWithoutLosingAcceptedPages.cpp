@@ -49,18 +49,18 @@ int main() {
               "deferred frame work never waits or exposes an incomplete terrain set");
       };
       defer(UploadFailurePoint::Acquire, 0);
-      CHECK(residency.Standing() == 0 && renderer.HeightPageSourceBytes() == 0,
+      CHECK(residency.TileCount() == 0 && renderer.HeightPageSourceBytes() == 0,
             "refused command admission creates no resident page or retained CPU payload");
       defer(UploadFailurePoint::Submit, 0);
-      CHECK(residency.Standing() == 0 && renderer.HeightPageSourceBytes() == 0,
+      CHECK(residency.TileCount() == 0 && renderer.HeightPageSourceBytes() == 0,
             "refused submission preserves the page cursor and permits an exact retry");
       defer(UploadFailurePoint::Acquire, 1);
       const auto bytes = renderer.HeightPageSourceBytes();
-      CHECK(residency.Standing() == 1 &&
+      CHECK(residency.TileCount() == 1 &&
                 bytes == Render::TerrainLattice::kPageNodes * sizeof(float),
             "accepted page survives a later grid-upload refusal");
       defer(UploadFailurePoint::Acquire, 2);
-      CHECK(residency.Standing() == 1 && renderer.HeightPageSourceBytes() == bytes &&
+      CHECK(residency.TileCount() == 1 && renderer.HeightPageSourceBytes() == bytes &&
                 renderer.HeightPageSlots() == 1,
             "accepted grid and page survive instance-upload refusal without page duplication");
       const auto vertices = failure.VertexBufferAllocations;

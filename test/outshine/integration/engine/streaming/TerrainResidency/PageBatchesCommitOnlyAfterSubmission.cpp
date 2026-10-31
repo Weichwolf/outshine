@@ -95,7 +95,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   const auto refused = residency.AdvancePublish(replacement, frame, kTarget);
   CHECK(refused && !*refused && !failure.Armed && failure.Waits == waits,
         "a mid-group refusal defers without waiting inside the publication step");
-  CHECK(failure.AcceptedSubmissions == accepted && residency.Standing() == 2 &&
+  CHECK(failure.AcceptedSubmissions == accepted && residency.TileCount() == 2 &&
             renderer.HeightPageSourceBytes() == bytes &&
             renderer.TerrainRendererTriangles() == triangles,
         "unsubmitted group work exposes no cursor progress, payload or partial topology");
@@ -107,7 +107,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
   CHECK(first && !*first && failure.UploadBufferRequests == uploads + 1 &&
             failure.AcceptedSubmissions == accepted + 1,
         "a larger requested step still accepts at most one packed 48-page group");
-  CHECK(residency.Standing() == Render::kHeightPageBatchMost + 1 &&
+  CHECK(residency.TileCount() == Render::kHeightPageBatchMost + 1 &&
             renderer.HeightPageSourceBytes() == (Render::kHeightPageBatchMost + 2) * kPageBytes &&
             renderer.TerrainRendererTriangles() == triangles,
         "accepted pages are retained while final topology and removed-page retirement wait");
@@ -119,7 +119,7 @@ void Case(Render::SceneRenderer &renderer, UploadFailure &failure) {
         "accepted partial replacement retains every texel of the still-published changed page");
   CHECK(renderer.Settle(error) && Finish(renderer, residency, replacement, frame),
         "retry consumes the remaining page and publishes the full unchanged demand");
-  CHECK(residency.Standing() == kTarget && residency.Instances() == kTarget &&
+  CHECK(residency.TileCount() == kTarget && residency.Instances() == kTarget &&
             renderer.HeightPageSourceBytes() == kTarget * kPageBytes &&
             renderer.TerrainRendererTriangles() ==
                 kTarget * (Render::TerrainLattice::kIndices / 3u),

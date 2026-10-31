@@ -49,7 +49,7 @@ int main() {
         TerrainResidency pending(terrain);
         CHECK(pending.BeginPublish(patch, error), "a copied terrain begins a new publication");
         const TerrainResidency pendingSnapshot(pending);
-        CHECK(pendingSnapshot.Standing() == pending.Standing() &&
+        CHECK(pendingSnapshot.TileCount() == pending.TileCount() &&
                   pendingSnapshot.HeightMAt(point) == height &&
                   !pendingSnapshot.HasPublishedSurface(),
               "copying a pending publication preserves old queries and pending visibility");
@@ -62,7 +62,7 @@ int main() {
             "replacement cannot mutate the older immutable snapshot");
       terrain.Clear();
       const TerrainResidency emptySnapshot(terrain);
-      CHECK(emptySnapshot.Standing() == 0 && !emptySnapshot.HeightMAt(point) &&
+      CHECK(emptySnapshot.TileCount() == 0 && !emptySnapshot.HeightMAt(point) &&
                 emptySnapshot.HeapBytes() == 0,
             "copying cleared terrain does not retain obsolete index capacity");
       CHECK(snapshot.SurfaceIdentity(tile, 1) == initial && snapshot.HeightMAt(point) == height,
@@ -74,7 +74,7 @@ int main() {
                     nextSnapshot.HeapBytes(TerrainHeapScope::Additional) + payload,
             "a retained snapshot can supply another snapshot without copying sample data");
       nextSnapshot = TerrainResidency{};
-      CHECK(nextSnapshot.Standing() == 0 && snapshot.SurfaceIdentity(tile, 1) == initial &&
+      CHECK(nextSnapshot.TileCount() == 0 && snapshot.SurfaceIdentity(tile, 1) == initial &&
                 snapshot.HeightMAt(point) == height,
             "resetting the copied snapshot cannot change its retained source");
     }
