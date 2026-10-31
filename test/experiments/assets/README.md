@@ -42,3 +42,14 @@ part of the comparison. The common production decision remains open in #483.
 The Buildings consumer also has an explicit [glazed hall v2](../buildings/recipe_rooflights.md)
 with separately requested logical fields, closed panels and a versioned cut shell.
 It leaves the shared kernel and v1 definition unchanged (#500).
+
+## Cache reclamation (#1920)
+
+`cache_compaction.py --output /tmp/outshine-master-cache-compaction.json` compares
+NONE/FULL/INCREMENTAL auto-vacuum on the same 24 synthetic 512-KiB packages.
+It removes two thirds, checks identical retained bytes and SQLite integrity, and
+checks that a pinned WAL reader defers reclamation without changing its snapshot.
+Incremental work releases at most 256 free pages per step, with a checkpoint
+between steps. Reports include file/WAL/SHM bytes, allocated blocks and timings;
+temporary databases are removed. This measures the storage primitive, not the
+automatic cache limit, eviction selection, migration or concurrent admission.

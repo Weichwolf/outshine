@@ -62,6 +62,7 @@ void Migration(const std::string &path) {
       Execute(database.get(),
               "UPDATE packages SET bytes=(SELECT bytes FROM package_bodies WHERE key=packages.key);"
               "DROP TABLE package_bodies;PRAGMA user_version=4;"
+              "PRAGMA auto_vacuum=NONE;VACUUM;"
               "CREATE TRIGGER forbid_insert BEFORE INSERT ON packages BEGIN SELECT "
               "RAISE(ABORT,'insert'); END;"
               "CREATE TRIGGER forbid_update BEFORE UPDATE ON packages BEGIN SELECT "
@@ -76,6 +77,7 @@ void Migration(const std::string &path) {
         "cache accounting also reads the original inline schema without changing it");
   store = AssetCache::Open(path);
   CHECK(store && Scalar(database.get(), "PRAGMA user_version") == 5 &&
+            Scalar(database.get(), "PRAGMA auto_vacuum") == 0 &&
             Scalar(database.get(), "SELECT count(*) FROM package_bodies") == 0 &&
             Scalar(database.get(), "SELECT sum(length(bytes)) FROM packages") == 8,
         "opening adds only streamed storage metadata while preserving every old payload byte");
