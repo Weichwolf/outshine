@@ -151,10 +151,14 @@ public:
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
       GeometryRetention geometry = GeometryRetention::All,
       ResourceRestoreMode restore = ResourceRestoreMode::Immediate);
-  [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
-                                                   std::unique_ptr<RuntimeScene> &out,
-                                                   std::unique_ptr<RuntimeScene> &candidate,
-                                                   std::string &error);
+  enum class Publication { PreserveViewAndUi, ReplaceDeclaration };
+
+  [[nodiscard]] static bool
+  PublishesPreparedWorld(Render::SceneRenderer &renderer,
+                         std::unique_ptr<RuntimeScene> &out,
+                         std::unique_ptr<RuntimeScene> &candidate,
+                         std::string &error,
+                         Publication publication = Publication::PreserveViewAndUi);
 
   [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error);
