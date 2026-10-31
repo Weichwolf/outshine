@@ -153,12 +153,19 @@ Capture &Capture::operator=(Capture &&other) noexcept {
 Result Engine::assemble() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
+  if (S_->PendingSimulation && !*S_->PendingSimulation) {
+    S_->Error = S_->PendingSimulation->error();
+    return std::unexpected(S_->Error);
+  }
   if (!S_->Session.Taken) {
     S_->Error = "declare content before assembling simulation";
     return std::unexpected(S_->Error);
   }
   const Scenario::Document &declared = S_->Session.Declared;
-  auto prepared = ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
+  auto prepared = S_->PendingSimulation
+                      ? std::move(*S_->PendingSimulation)
+                      : ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
+  S_->PendingSimulation.reset();
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
@@ -235,7 +242,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
 
 Result Engine::setRoots(Roots roots) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Session.Taken) {
+  if (S_->Session.Taken || S_->PendingSimulation) {
     S_->Error = Says::kRootsAfterDeclaration;
     return std::unexpected(S_->Error);
   }
