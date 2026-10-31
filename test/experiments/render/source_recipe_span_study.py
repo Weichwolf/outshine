@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 from prepared_surface_recipes import Reader, decode, read_surface
+from source_recipe_ranges import load_ranges
 
 
 def digest(data):
@@ -83,44 +84,16 @@ def run(args):
         ):
             raise ValueError("Complete stored recipe span index required")
         table, hashes = stored["table"], stored["sha256"]
-    membership = {
-        int(row[0]): (int(row[1]), int(row[2]), int(row[3]), hashes[k].tobytes())
-        for k, row in enumerate(table)
-    }
-    paths = {c["cell"]: args.recipes / c["file"] for c in metadata}
-    selected_rows = sorted(
-        (membership[i][0], membership[i][1], membership[i][2], i, membership[i][3])
-        for i in selected
-    )
-    runs = []
-    for record in selected_rows:
-        cell, offset, length, _, _ = record
-        if runs and runs[-1][0] == cell and offset <= runs[-1][2] + args.gap_bytes:
-            runs[-1][2] = offset + length
-            runs[-1][3].append(record)
-        else:
-            runs.append([cell, offset, offset + length, [record]])
-    reads = selected_bytes = selected_scalars = 0
     began = time.process_time()
-    decoded = {}
-    for cell, start, end, records in runs:
-        with paths[cell].open("rb") as stream:
-            stream.seek(start)
-            blob = stream.read(end - start)
-        reads += 1
-        selected_bytes += len(blob)
-        if len(blob) != end - start:
-            raise ValueError("Selected recipe range incomplete")
-        for _, offset, length, identity, expected in records:
-            raw = blob[offset - start : offset - start + length]
-            if hashlib.sha256(raw).digest() != expected:
-                raise ValueError("Selected source recipe incomplete or changed")
-            reader = Reader(raw)
-            result = read_surface(reader)
-            if reader.at != len(raw) or result != oracle[identity]:
-                raise ValueError("Selected recipe differs from complete cell decode")
-            selected_scalars += reader.numbers
-            decoded[identity] = result
+    decoded, work = load_ranges(
+        table,
+        hashes,
+        [(cell["cell"], args.recipes / cell["file"]) for cell in metadata],
+        selected,
+        args.gap_bytes,
+    )
+    if decoded != oracle:
+        raise ValueError("Selected recipes differ from complete cell decode")
     cpu = time.process_time() - began
     report = {
         "angle": args.angle,
@@ -128,9 +101,9 @@ def run(args):
         "selected_sources": len(decoded),
         "coalesce_gap_bytes": args.gap_bytes,
         "prepared_span_index_bytes": args.output.stat().st_size,
-        "selected_recipe_bytes_read": selected_bytes,
-        "selected_read_calls": reads,
-        "selected_scalar_reads": selected_scalars,
+        "selected_recipe_bytes_read": work["recipe_range_bytes"],
+        "selected_read_calls": work["recipe_range_reads"],
+        "selected_scalar_reads": work["recipe_scalar_reads"],
         "single_selected_cpu_s": cpu,
         "whole_cell_bytes_read": full_bytes,
         "whole_cell_sources_decoded": full_sources,
