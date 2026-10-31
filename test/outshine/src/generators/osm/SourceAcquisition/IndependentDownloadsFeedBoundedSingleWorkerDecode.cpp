@@ -75,6 +75,7 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated pipeline cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
+    DelayedCellTransport wire;
     Tasks compute(1);
     Tasks io(1);
     std::atomic<bool> releaseCompute{false};
@@ -88,7 +89,6 @@ int main() {
       }
       guardExpired = !releaseCompute;
     });
-    DelayedCellTransport wire;
     outshine::Generators::Osm::SourceAcquisition loader(
         {.Compute = compute, .Io = io}, &wire, directory);
     const SourceProvider provider{.Kind = "osm",

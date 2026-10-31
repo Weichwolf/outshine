@@ -1,6 +1,7 @@
 #include "OsmSourceAcquisitionState.h"
 #include "OsmCellAcquisition.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -25,27 +26,37 @@ constexpr size_t kWaitingChunks = 2;
 void SourceAcquisition::CancelCellPipeline() {
   if (!CellPipeline_) { return; }
   (void)CellPipeline_->Stop.request_stop();
-  CellPipeline_->Shared->Changed.notify_all();
+  CellPipeline_->Shared->Progress->Changed.notify_all();
 }
 
 void SourceAcquisition::StartCellPipeline() {
-  CellPipeline_ = std::make_unique<CellPipeline>();
+  CellPipeline_ = std::make_shared<CellPipeline>();
+  CellPipeline_->Context = Access_;
+  CellPipeline_->Shared->Progress = Access_->Progress;
   auto &pipeline = *CellPipeline_;
   pipeline.Revision = Revision_;
   const auto token = pipeline.Stop.get_token();
-  pipeline.Handle = Io_.PostSteps(
-      [work = &pipeline,
-       access = Access_,
-       provider = Requested_.front(),
-       registry = Access_->Registry,
-       root = Root_,
-       revision = Revision_,
-       token] { return work->Acquire(access, provider, registry, root, revision, token); });
+  const auto complete =
+      std::make_shared<AcquisitionCompletion<CellPipeline::Exchange>>(pipeline.Shared);
+  const bool accepted = Io_.PostDetachedSteps([work = CellPipeline_,
+                                               complete,
+                                               provider = Requested_.front(),
+                                               registry = Access_->Registry,
+                                               root = Root_,
+                                               revision = Revision_,
+                                               token] {
+    (void)complete;
+    return work->Acquire(provider, registry, root, revision, token);
+  });
+  if (!accepted) {
+    const std::scoped_lock lock(pipeline.Shared->Progress->Mutex);
+    pipeline.Shared->Error = "original OSM IO queue is closed";
+  }
 }
 
 Tasks::StepResult SourceAcquisition::CellPipeline::Fail(std::string error) {
   Reader.reset();
-  const std::scoped_lock lock(Shared->Mutex);
+  const std::scoped_lock lock(Shared->Progress->Mutex);
   Shared->Error = std::move(error);
   return Tasks::StepResult::Complete;
 }
@@ -57,11 +68,12 @@ bool SourceAcquisition::CellPipeline::DeadlineExceeded(Access &access, uint64_t 
 }
 
 std::expected<void, std::string>
-SourceAcquisition::CellPipeline::StartQueued(CellAcquisition &reader) const {
-  while (reader.PendingCount() < CellAcquisition::MaximumPendingCells) {
+SourceAcquisition::CellPipeline::StartQueued(CellAcquisition &reader,
+                                             const std::stop_token &stop) const {
+  while (!stop.stop_requested() && reader.PendingCount() < CellAcquisition::MaximumPendingCells) {
     std::optional<GeoCellId> cell;
     {
-      const std::scoped_lock lock(Shared->Mutex);
+      const std::scoped_lock lock(Shared->Progress->Mutex);
       if (!Shared->Requests.empty()) {
         cell = Shared->Requests.front();
         Shared->Requests.pop_front();
@@ -76,16 +88,19 @@ SourceAcquisition::CellPipeline::StartQueued(CellAcquisition &reader) const {
 }
 
 void SourceAcquisition::CellPipeline::Deliver(SourceRead ready) const {
-  const std::scoped_lock lock(Shared->Mutex);
-  Shared->Ready.push_back(std::move(ready));
+  {
+    const std::scoped_lock lock(Shared->Progress->Mutex);
+    Shared->Ready.push_back(std::move(ready));
+  }
+  Shared->Progress->Changed.notify_all();
 }
 
-Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr<Access> &access,
-                                                           const Data::SourceProvider &provider,
+Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const Data::SourceProvider &provider,
                                                            const Data::ProviderRegistry *registry,
                                                            std::string_view root,
                                                            uint64_t revision,
                                                            const std::stop_token &stop) {
+  const auto &access = Context;
   if (stop.stop_requested()) {
     Reader.reset();
     return Tasks::StepResult::Complete;
@@ -103,18 +118,25 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
         provider, *access->Store, *access->Wire, registry, std::string(root));
   }
   {
-    std::unique_lock lock(Shared->Mutex);
+    std::unique_lock lock(Shared->Progress->Mutex);
     if (Shared->Ready.size() >= kWaitingChunks) {
-      Shared->Changed.wait_for(lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
-        return Shared->Ready.size() < kWaitingChunks || stop.stop_requested();
-      });
+      Shared->Progress->Changed.wait_for(
+          lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
+            return Shared->Ready.size() < kWaitingChunks || stop.stop_requested();
+          });
       return Tasks::StepResult::Yield;
     }
   }
-  if (auto started = StartQueued(*Reader); !started) { return Fail(std::move(started.error())); }
+  if (auto started = StartQueued(*Reader, stop); !started) {
+    return Fail(std::move(started.error()));
+  }
   for (size_t index = 0; index < kWaitingChunks; ++index) {
+    if (stop.stop_requested()) {
+      Reader.reset();
+      return Tasks::StepResult::Complete;
+    }
     {
-      const std::scoped_lock lock(Shared->Mutex);
+      const std::scoped_lock lock(Shared->Progress->Mutex);
       if (Shared->Ready.size() >= kWaitingChunks) { return Tasks::StepResult::Yield; }
     }
     auto ready = Reader->TakeReady();
@@ -126,10 +148,11 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
     const auto remaining = access->CurrentDeadline(revision) - access->Wire->NowMs();
     (void)access->Wire->Await(std::min(MaximumIoAwaitSeconds * kMsPerS, std::max(0.0, remaining)));
   } else {
-    std::unique_lock lock(Shared->Mutex);
-    Shared->Changed.wait_for(lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
-      return !Shared->Requests.empty() || stop.stop_requested();
-    });
+    std::unique_lock lock(Shared->Progress->Mutex);
+    Shared->Progress->Changed.wait_for(
+        lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
+          return !Shared->Requests.empty() || stop.stop_requested();
+        });
   }
   return Tasks::StepResult::Yield;
 }
@@ -137,9 +160,9 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
 void SourceAcquisition::PumpCellPipeline() {
   const auto &pipeline = *CellPipeline_;
   if (pipeline.Revision != Revision_ || Phase_ != Phase::Loading) { CancelCellPipeline(); }
-  if (Io_.TakeCompletion(pipeline.Handle)) {
+  if (pipeline.Shared->Finished.load(std::memory_order_acquire)) {
     if (pipeline.Revision == Revision_ && Phase_ == Phase::Loading) {
-      const std::scoped_lock lock(pipeline.Shared->Mutex);
+      const std::scoped_lock lock(pipeline.Shared->Progress->Mutex);
       Error_ = pipeline.Shared->Error.empty()
                    ? "original OSM acquisition stopped before coverage was complete"
                    : pipeline.Shared->Error;
@@ -159,13 +182,13 @@ void SourceAcquisition::ConsumeAcquiredCell() {
   auto &pipeline = *CellPipeline_;
   std::optional<SourceRead> ready;
   {
-    const std::scoped_lock lock(pipeline.Shared->Mutex);
+    const std::scoped_lock lock(pipeline.Shared->Progress->Mutex);
     if (!pipeline.Shared->Ready.empty()) {
       ready = std::move(pipeline.Shared->Ready.front());
       pipeline.Shared->Ready.pop_front();
     }
   }
-  pipeline.Shared->Changed.notify_all();
+  pipeline.Shared->Progress->Changed.notify_all();
   if (!ready) { return; }
   if (auto refined = Cells_->Refine(ready->Refine); !refined) {
     Error_ = std::move(refined.error());
@@ -194,11 +217,11 @@ void SourceAcquisition::QueueMissingCells() {
         std::min(cells.size(), CellAcquisition::MaximumPendingCells - pipeline.Assigned.size());
     cells.resize(count);
     {
-      const std::scoped_lock lock(pipeline.Shared->Mutex);
+      const std::scoped_lock lock(pipeline.Shared->Progress->Mutex);
       pipeline.Shared->Requests.insert(pipeline.Shared->Requests.end(), cells.begin(), cells.end());
     }
     pipeline.Assigned.insert(pipeline.Assigned.end(), cells.begin(), cells.end());
-    pipeline.Shared->Changed.notify_all();
+    pipeline.Shared->Progress->Changed.notify_all();
   }
 }
 }

@@ -79,9 +79,9 @@ int main() {
   const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
   const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
       .CellsMost = 1, .SnapshotBytesMost = size_t{1024} * 1024};
+  DelayedWire wire;
   Tasks compute(1);
   Tasks io(1);
-  DelayedWire wire;
   wire.ReadyAtMs = 21000;
   outshine::Generators::Osm::SourceAcquisition loader(
       {.Compute = compute, .Io = io}, &wire, directory);
