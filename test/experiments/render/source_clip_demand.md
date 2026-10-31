@@ -110,8 +110,8 @@ Native controls MUST capture their actual operands; rebind the proof to those
 words without tolerances. JSON requests are not new native upload captures.
 Only control JSON/export tests changed after the frozen query cost measurement.
 
-Current checks:49 focused cases after integrating #1874 plus the added exact
-Capture/flag/SHA/whole-source export case. Independent rational box-corner planes
+Current checks:62 focused cases after integrating #1874, including the
+Capture/flag/SHA/whole-source export case, plus the native-word rebind test. Independent rational box-corner planes
 and explicit FP32 multiply/add in both term orders bound against the envelope;
 all78374 original vertices independently satisfy Bottom in the seven examples.
 Strict four-side exclusion, equal/near-boundary, partial, subnormal, NaN, overflow,
@@ -120,9 +120,49 @@ exports are checked. No existing error limits or oracles changed.
 
 Own #1320 acceptance: isolated Python view-demand reference, immutable prepared
 source lifetime, metadata proof before old consumer/fine work, explicit Whole
-fallback and conditional arithmetic assumptions. Old entry point still owns its
-consumers. No runtime cache/queue/publication mechanism. Native HDR/depth/filter/
-composition and actual GPU operands remain PENDING in #1875; #1873 remains active.
+fallback and conditional arithmetic assumptions. Callers keep borrowed view/placement
+words stable throughout the synchronous query. Old entry point still owns its
+consumers. No runtime cache/queue/publication mechanism. The finite native evidence below completes the bound control cases; general
+hardware raster/World admission and actual avoided IO remain unproven.
+
+
+## Finite native qualification
+
+Master #1875/#1876, Native source33cb5aac7, integrated291189671: A18/Metal validation,
+13Whole/Clear pairs. Seven outside captures are bit-exact in HDR/depth/integral;
+five visible and65° partial controls differ. Each pair forwards/omits three actual
+draws. Partial65° has46samples,10at the left edge and278nominal crossing triangles.
+0° matches the existing original HDR/depth hashes; empty Geometry stays rejected.
+Actual native helper/current CDB and shader provenance are Master's acceptance:
+https://github.com/Weichwolf/outshine/issues/1875#issuecomment-6537474639.
+
+`native-clip-controls.json` is the fixed native owner's reported Lens/pre-view
+record from #1873/6537452288, not a GPU-buffer readback. `native_source_clip_controls`
+checks the source manifest and exact UInt32 words before querying; image/counter
+fields only score results afterwards. Native matrices differ0–6words from synthetic
+requests. Rebinding all13actual native word sets gives the same seven strict Empty
+results; five visible cases and65° retain nonempty/Whole. Source mismatch or malformed
+word payload is rejected. No tolerance, pixel mask or ID oracle enters demand.
+
+Supplemental existing-binary Iris/TGL GT2 composition at frozen7780350a4, terminal0:
+`native_source_clip_composition.py` renders a visible two-triangle terrain opponent
+alone and with the unchanged whole source, using0°,65°,90° cameras. Raw2560×1440;
+background fills3686400samples in each case.0° changes204pixels,65° changes46;
+90° changes zero and HDR/depth/integral words are all exact. Actual reported Lens
+operands are equal across each pair and feed the CPU proof, not synthetic words.
+Native copied program SHA b32442c8c71d6820e9731126f29c68588663975f29e259d1f38a2cfb9b0c95d2,
+observed source SHA ad19f31d8576b74260521688743f98b38199059ca30f01f75f0c44c558e003f7.
+These are existing-binary observations, NOT fresh CDB/native-owner Iris acceptance.
+Both actual validation-layer executions have zero errors/warnings; all552SPIR-V
+files and the binary stay byte-identical before/after. Diagnostic pictures/crops
+opened locally (fixed1/32 exposure, nearest enlargement of native source pixels).
+The new entry point preserves visible/partial detail and excludes only the empty
+outside view; no World publication, shadow/simulation or frame/p99 claim.
+
+Reproduce supplemental composition with the existing prepared native program and
+matching loader/validation libraries: `python test/experiments/render/native_source_clip_composition.py --binary <existing-program> --shader-directory <its-shaders> --observed-native-driver-source <observed.cpp> --output <fresh-system-temp>`.
+No native files/builds are changed by this driver. Actual full native commands,
+ICD/layer/environment, input hashes and readback comparisons stay in report.json.
 
 Primary starting points: SIGGRAPH2015 GPU-Driven Rendering Pipelines coarse CPU
 selection (page14 previously inspected) and SIGGRAPH2000 Conservative Visibility

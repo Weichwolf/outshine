@@ -55,7 +55,7 @@ def picture(colour, path):
         .reshape(h // 2, 2, w // 2, 2, 3)
         .mean((1, 3))
     )
-    display = (1 - np.exp(-np.maximum(rgb, 0))) ** (1 / 2.2)
+    display = (1 - np.exp(-np.maximum(rgb, 0) / 32.0)) ** (1 / 2.2)
     Image.fromarray(np.clip(display * 255, 0, 255).astype(np.uint8)).save(path)
 
 
@@ -113,6 +113,7 @@ def main():
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "binary_sha256": program_sha,
+        "diagnostic_exposure": 1 / 32,
         "observed_driver_cpp_sha256": sha(args.observed_native_driver_source),
         "shader_before": before,
         "cases": [],
