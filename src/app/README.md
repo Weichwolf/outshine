@@ -110,7 +110,8 @@ build/outshine cache trim --assets-mib 8192 --sources-mib 2048 --apply --compact
 
 Standard ist eine Vorschau. `--apply` entfernt die ausgewählten Inhalte. Null leert den
 gewählten Cache. `--root <Verzeichnis>` wählt einen Cache-Elternordner mit `assets/` und
-`sources/`; Standard ist das Anwendungsverzeichnis von SDL. Netzwerk und GPU starten nicht.
+`sources/`. Standard sind `assets/` neben dem Outshine-Programm und `sources/` im
+Anwendungsverzeichnis von SDL. Netzwerk und GPU starten nicht.
 
 Das Assetbudget gilt gemeinsam für komprimierte Pakete in `assets.sqlite` und
 `prototypes.sqlite`. Verwaiste Pakete werden zuerst entfernt, anschließend die am längsten

@@ -28,7 +28,9 @@ namespace outshine::App {
     }
     roots.SourceCacheDirectory = std::string(path.get()) + "sources";
     if (roots.AssetCacheDirectory.empty()) {
-      roots.AssetCacheDirectory = std::string(path.get()) + "assets";
+      const char *const base = SDL_GetBasePath();
+      if (base == nullptr) { return std::unexpected("could not locate the asset cache"); }
+      roots.AssetCacheDirectory = std::string(base) + "assets";
     }
   }
   if (roots.AssetCacheDirectory.empty()) {

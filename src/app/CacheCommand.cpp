@@ -43,7 +43,7 @@ void Usage() {
                "  --assets-mib N   total compressed package budget across asset databases\n"
                "  --sources-mib N  source-file budget, including cached absence records\n"
                "  --root PATH      cache parent containing assets/ and sources/\n"
-               "                   default: application preferences directory\n"
+               "                   default: executable assets/ and preference sources/\n"
                "  --apply          execute; default is a preview\n"
                "  --compact        compact selected SQLite files after applying\n\n"
                "Specify at least one budget in whole MiB. Zero clears that cache.\n"
@@ -141,7 +141,8 @@ int RunCacheCommand(std::span<const char *const> arguments) {
     std::println(stderr, "outshine: {}", options.error());
     return 2;
   }
-  if (!options->Root) {
+  const bool defaultRoot = !options->Root;
+  if (defaultRoot) {
     const std::unique_ptr<char, decltype(&SDL_free)> root(SDL_GetPrefPath("outshine", "outshine"),
                                                           SDL_free);
     if (!root) {
@@ -156,7 +157,14 @@ int RunCacheCommand(std::span<const char *const> arguments) {
     if (!budget) { continue; }
     const CacheTrimOptions trim{
         .BudgetBytes = *budget, .Apply = options->Apply, .Compact = options->Compact};
-    const std::array paths{root / "assets/assets.sqlite", root / "assets/prototypes.sqlite"};
+    const char *const base = defaultRoot ? SDL_GetBasePath() : nullptr;
+    if (defaultRoot && base == nullptr) {
+      std::println(stderr, "outshine: could not locate the asset cache");
+      return 1;
+    }
+    const std::filesystem::path assetsRoot = defaultRoot ? std::filesystem::path(base) : root;
+    const std::array paths{assetsRoot / "assets/assets.sqlite",
+                           assetsRoot / "assets/prototypes.sqlite"};
     const auto began = std::chrono::steady_clock::now();
     auto result = assets ? TrimAssetCaches(paths, trim) : TrimSourceCache(root / "sources", trim);
     if (!result) {
