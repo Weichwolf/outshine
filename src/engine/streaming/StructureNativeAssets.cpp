@@ -1,7 +1,10 @@
 #include "StructureBuildQueue.h"
 #include "PreparedBuildingAssets.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -13,6 +16,71 @@
 #include <variant>
 
 namespace outshine {
+struct StructureBuildQueue::NativeProgress {
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  uint64_t Generation = 0;
+};
+
+struct StructureBuildQueue::NativeLookup::Completion {
+  Completion(std::shared_ptr<NativeLookup> value, std::shared_ptr<NativeProgress> progress)
+      : Value(std::move(value)), Progress(std::move(progress)) {}
+
+  ~Completion() {
+    if (!Started) {
+      Value->Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+    }
+    {
+      const std::scoped_lock lock(Progress->Mutex);
+      Value->Finished.store(true, std::memory_order_release);
+      ++Progress->Generation;
+    }
+    Progress->Changed.notify_all();
+  }
+
+  Completion(const Completion &) = delete;
+  Completion &operator=(const Completion &) = delete;
+  std::shared_ptr<NativeLookup> Value;
+  std::shared_ptr<NativeProgress> Progress;
+  bool Started = false;
+};
+
+bool StructureBuildQueue::AwaitNativeLookups(double seconds) const {
+  if (!NativeProgress_ || !(seconds > 0.0)) { return false; }
+  std::unique_lock lock(NativeProgress_->Mutex);
+  if (std::ranges::any_of(NativeLookups_, [](const auto &entry) {
+        return entry.second->Working && entry.second->Finished.load(std::memory_order_acquire);
+      })) {
+    return true;
+  }
+  const auto generation = NativeProgress_->Generation;
+  return NativeProgress_->Changed.wait_for(lock, std::chrono::duration<double>(seconds), [&] {
+    return NativeProgress_->Generation != generation;
+  });
+}
+
+void StructureBuildQueue::RetireNativeLookups() {
+  for (const auto &entry : NativeLookups_) {
+    entry.second->Stopping.store(true, std::memory_order_relaxed);
+  }
+  if (NativeLookups_.empty() && !NativeAssets_) {
+    NativeProgress_.reset();
+    return;
+  }
+
+  struct Retired {
+    decltype(NativeLookups_) Lookups;
+    decltype(NativeAssets_) Cache;
+    std::shared_ptr<NativeProgress> Progress;
+  };
+
+  const auto retired = std::make_shared<Retired>(
+      std::exchange(NativeLookups_, {}), std::move(NativeAssets_), std::move(NativeProgress_));
+  if (Pool_ != nullptr) {
+    (void)Pool_->PostDetached([retired] { (void)retired; });
+  }
+}
+
 bool StructureBuildQueue::AwaitSlice(double seconds) const {
   if (Pool_ == nullptr) { return false; }
   double wait = seconds;
@@ -27,12 +95,12 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
     const auto now = std::chrono::steady_clock::now();
     for (const auto &entry : NativeLookups_) {
       const auto &lookup = *entry.second;
-      if (lookup.Task == Tasks::kNoTask && lookup.Retries != 0) {
+      if (!lookup.Working && lookup.Retries != 0) {
         const auto remaining = std::chrono::duration<double>(lookup.RetryAt - now).count();
         wait = std::min(wait, std::max(0.0, remaining));
       }
     }
-    return Pool_->AwaitCompletion(wait);
+    return AwaitNativeLookups(wait);
   }
   if (OriginalPreparation_ && OriginalPreparation_->Running()) {
     return OriginalPreparation_->AwaitSlice(wait);
@@ -45,7 +113,7 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
 
 size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
   return static_cast<size_t>(std::ranges::count_if(NativeLookups_, [](const auto &entry) {
-    return entry.second->Task != Tasks::kNoTask || entry.second->Retries != 0;
+    return entry.second->Working || entry.second->Retries != 0;
   }));
 }
 
@@ -86,41 +154,52 @@ void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &c
 void StructureBuildQueue::StartNativeLookup(
     const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
     const std::string &request,
-    NativeLookup &lookup) {
-  lookup.Task = Pool_->Post([output = &lookup, cache, request] {
+    const std::shared_ptr<NativeLookup> &lookup) {
+  if (!NativeProgress_) { NativeProgress_ = std::make_shared<NativeProgress>(); }
+  lookup->Finished.store(false, std::memory_order_relaxed);
+  lookup->Working = true;
+  const auto completion = std::make_shared<NativeLookup::Completion>(lookup, NativeProgress_);
+  const bool accepted = Pool_->PostDetached([completion, cache, request] {
+    completion->Started = true;
+    auto &output = *completion->Value;
+    if (output.Stopping.load(std::memory_order_relaxed)) {
+      output.Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      return;
+    }
     const auto began = std::chrono::steady_clock::now();
-    ReadNativeLookup(*cache, request, *output);
+    ReadNativeLookup(*cache, request, output);
     const auto *kind =
-        output->Result ? nullptr
-                       : std::get_if<Generators::StructureBakeErrorKind>(&output->Result.error());
+        output.Result ? nullptr
+                      : std::get_if<Generators::StructureBakeErrorKind>(&output.Result.error());
     if (kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy) {
-      const auto exponent = std::min(output->Retries, 4U);
-      output->Retries = std::min(output->Retries + 1U, 4U);
-      output->RetryAt =
+      const auto exponent = std::min(output.Retries, 4U);
+      output.Retries = std::min(output.Retries + 1U, 4U);
+      output.RetryAt =
           std::chrono::steady_clock::now() + std::chrono::milliseconds(uint64_t{1} << exponent);
     } else {
-      output->Retries = 0;
+      output.Retries = 0;
     }
-    output->ReadMs +=
+    output.ReadMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   });
-  if (lookup.Task == Tasks::kNoTask) {
-    lookup.HeldBasis.reset();
-    lookup.Retries = 0;
-    lookup.Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  if (!accepted) {
+    lookup->Working = false;
+    lookup->HeldBasis.reset();
+    lookup->Retries = 0;
+    lookup->Result = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
   }
 }
 
 StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
     const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
     const std::string &request,
-    NativeLookup &lookup) {
-  if (std::chrono::steady_clock::now() < lookup.RetryAt) { return nullptr; }
+    const std::shared_ptr<NativeLookup> &lookup) {
+  if (std::chrono::steady_clock::now() < lookup->RetryAt) { return nullptr; }
   const auto running = static_cast<size_t>(std::ranges::count_if(
-      NativeLookups_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; }));
+      NativeLookups_, [](const auto &entry) { return entry.second->Working; }));
   if (running >= kCandidateWindow) { return nullptr; }
   StartNativeLookup(cache, request, lookup);
-  return lookup.Task == Tasks::kNoTask ? &lookup : nullptr;
+  return lookup->Working ? nullptr : lookup.get();
 }
 
 StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
@@ -128,7 +207,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   auto found = NativeLookups_.find(request);
   if (found != NativeLookups_.end()) {
     const auto &previous = *found->second;
-    if (previous.Task == Tasks::kNoTask && previous.Retries == 0 &&
+    if (!previous.Working && previous.Retries == 0 &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
       NativeLookups_.erase(found);
       found = NativeLookups_.end();
@@ -139,22 +218,22 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     constexpr size_t kLookupsMost = 256;
     if (NativeLookups_.size() >= kLookupsMost) {
       const auto idle = std::ranges::find_if(NativeLookups_, [](const auto &entry) {
-        return entry.second->Task == Tasks::kNoTask && entry.second->Retries == 0;
+        return !entry.second->Working && entry.second->Retries == 0;
       });
       if (idle == NativeLookups_.end()) { return nullptr; }
       NativeLookups_.erase(idle);
     }
-    auto lookup = std::make_unique<NativeLookup>();
+    auto lookup = std::make_shared<NativeLookup>();
     lookup->BasisWrites = cache->Costs().BasisWrites;
     auto *const output = lookup.get();
-    StartNativeLookup(cache, request, *output);
+    StartNativeLookup(cache, request, lookup);
     NativeLookups_.emplace(request, std::move(lookup));
-    return output->Task == Tasks::kNoTask ? output : nullptr;
+    return output->Working ? nullptr : output;
   }
   auto &lookup = *found->second;
-  if (lookup.Task != Tasks::kNoTask) {
-    if (!Pool_->TakeCompletion(lookup.Task)) { return nullptr; }
-    lookup.Task = Tasks::kNoTask;
+  if (lookup.Working) {
+    if (!lookup.Finished.load(std::memory_order_acquire)) { return nullptr; }
+    lookup.Working = false;
   }
   if (lookup.Retries == 0 && lookup.BasisWrites != cache->Costs().BasisWrites) {
     NativeLookups_.erase(found);
@@ -163,7 +242,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   if (!lookup.Result) {
     const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&lookup.Result.error());
     if (kind != nullptr && *kind == Generators::StructureBakeErrorKind::ArtifactBusy) {
-      return RetryNativeLookup(cache, request, lookup);
+      return RetryNativeLookup(cache, request, found->second);
     }
   }
   return &lookup;
@@ -211,8 +290,8 @@ void StructureBuildQueue::ReleaseNativeBasis(const std::string &request) {
   const auto found = NativeLookups_.find(request);
   if (found == NativeLookups_.end()) { return; }
   const auto &lookup = *found->second;
-  if (lookup.Task == Tasks::kNoTask && lookup.Stage == NativeLookup::Phase::Request &&
-      lookup.Result && *lookup.Result) {
+  if (!lookup.Working && lookup.Stage == NativeLookup::Phase::Request && lookup.Result &&
+      *lookup.Result) {
     NativeLookups_.erase(found);
   }
 }
@@ -266,7 +345,7 @@ bool StructureBuildQueue::SelectNativeBasis(
   lookup.Stage = NativeLookup::Phase::Content;
   lookup.ContentKey = key;
   lookup.StreetDigest = *digest;
-  StartNativeLookup(cache, selected.RequestKey, lookup);
+  StartNativeLookup(cache, selected.RequestKey, NativeLookups_.at(selected.RequestKey));
   return false;
 }
 }
