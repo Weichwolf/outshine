@@ -86,7 +86,12 @@ def run(args):
     tracemalloc.start()
     start = time.process_time_ns()
     chunks, initial_io = read_ranges(
-        args.ranges, index, index["source"], indexed=True, compact=True
+        args.ranges,
+        index,
+        index["source"],
+        indexed=True,
+        compact=True,
+        share_contiguous=True,
     )
     cache = by_source(chunks)
     initial_cpu_ms = (time.process_time_ns() - start) / 1e6
