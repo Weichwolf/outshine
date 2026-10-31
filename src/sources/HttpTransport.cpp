@@ -195,7 +195,7 @@ void HttpTransport::Transfer::ReadHeader(std::string_view line) {
     } else {
       EntityTag = header.Value;
     }
-  } else if (HeaderName(header.Name, "content-encoding") && header.Value != "identity") {
+  } else if (HeaderName(header.Name, "content-encoding") && !HeaderName(header.Value, "identity")) {
     InvalidRangeHeaders = true;
   }
 }
