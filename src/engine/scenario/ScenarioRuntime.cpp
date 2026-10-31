@@ -1,4 +1,7 @@
 #include "ScenarioRuntime.h"
+#include "Assembly.h"
+#include <memory>
+#include <cstdint>
 #include <cassert>
 #include <utility>
 #include <algorithm>
@@ -20,6 +23,64 @@ namespace outshine {
 namespace Says {
 constexpr auto AmbiguousBody = "ambiguous body name: ";
 constexpr auto PlacedBodyRequired = "binding requires a placed body: ";
+}
+
+std::expected<std::unique_ptr<ScenarioRuntime>, std::string>
+ScenarioRuntime::Prepare(const Scenario::Document &declared, uint64_t revision) {
+  std::string error;
+  const auto capacity = RequiredEntityCapacity(declared);
+  if (!capacity) {
+    error = capacity.error();
+    return std::unexpected(error);
+  }
+  const size_t named = *capacity;
+  auto candidate = std::make_unique<ScenarioRuntime>();
+  if (named != 0 && (!candidate->Entities.Open(named) ||
+                     !candidate->Definitions.Open(candidate->Entities.Registry()) ||
+                     !candidate->Attributes.Open(candidate->Entities.Registry()))) {
+    error = "could not allocate native entity storage";
+    return std::unexpected(error);
+  }
+  if (!outshine::Assemble(declared,
+                          candidate->Entities.Registry(),
+                          candidate->Definitions,
+                          candidate->Attributes,
+                          candidate->Stood,
+                          error)) {
+    return std::unexpected(error);
+  }
+  if (!declared.Tables.empty()) {
+    auto book = TableBook::Stand(declared.Tables);
+    if (!book) {
+      error = std::move(book).error();
+      return std::unexpected(error);
+    }
+    candidate->Tables.emplace(*std::move(book));
+  }
+  if (!declared.Volumes.empty() || !declared.Events.empty()) {
+    auto triggers = TriggerField::Stand(declared.Volumes, declared.Events);
+    if (!triggers) {
+      error = triggers.error();
+      return std::unexpected(error);
+    }
+    candidate->Triggers.emplace(std::move(*triggers));
+  }
+  candidate->DeclarationRevision = revision;
+  const auto preparedBodies = candidate->PrepareBodies();
+  if (!preparedBodies) {
+    error = preparedBodies.error();
+    return std::unexpected(error);
+  }
+  std::vector<std::string_view> followed;
+  followed.reserve(declared.Views.size());
+  for (const auto &view : declared.Views) { followed.push_back(view.Follows); }
+  auto viewBodies = candidate->BindBodies(followed);
+  if (!viewBodies) {
+    error = viewBodies.error();
+    return std::unexpected(error);
+  }
+  candidate->ViewBodies = std::move(*viewBodies);
+  return candidate;
 }
 
 std::expected<std::vector<std::optional<Entity>>, std::string>
