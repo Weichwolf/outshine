@@ -74,7 +74,32 @@ class OriginalRangesTest(unittest.TestCase):
             self.assertEqual(sum(len(tri) for tri, _ in chunks), len(expected))
         with self.assertRaises(ValueError):
             read_ranges(self.path, self.index, [8], compact=True)
+        copied, _ = read_ranges(path, index, [8, 9], indexed=True, compact=True)
+        self.assertIsNot(copied[0][0].base, copied[1][0].base)
+        chunks, _ = read_ranges(
+            path, index, [8, 9], indexed=True, compact=True, share_contiguous=True
+        )
+        first_base, second_base = (tri.base for tri, _ in chunks)
+        self.assertIs(first_base, second_base)
+        self.assertFalse(chunks[0][0].flags.writeable)
+        survivor = chunks[0][0]
+        del chunks, first_base, second_base
+        self.assertEqual(
+            len(survivor.base), int(index[0]["bytes"]) + int(index[1]["bytes"])
+        )
+        with self.assertRaises(ValueError):
+            read_ranges(path, index, [8], indexed=True, share_contiguous=True)
         encoded = encode_indexed(self.rows[[0, 2]])
+        embedded = b"prefix" + encoded + b"tail"
+        restored = decode_indexed(embedded, offset=6, length=len(encoded))
+        np.testing.assert_array_equal(restored.view("u1"), self.rows[[0, 2]].view("u1"))
+        for offset, length in (
+            (-1, len(encoded)),
+            (6, len(encoded) - 1),
+            (6, len(encoded) + 5),
+        ):
+            with self.assertRaises(ValueError):
+                decode_indexed(embedded, offset=offset, length=length)
         with self.assertRaises(ValueError):
             decode_indexed(encoded[:-1])
         bad = self.rows[[0, 2]].copy()
@@ -103,13 +128,23 @@ class OriginalRangesTest(unittest.TestCase):
             )
             if indexed:
                 chunks, compact_cost = read_ranges(
-                    path, index, [8, 10], indexed=True, compact=True, max_gap_bytes=4096
+                    path,
+                    index,
+                    [8, 10],
+                    indexed=True,
+                    compact=True,
+                    max_gap_bytes=4096,
+                    share_contiguous=True,
                 )
                 self.assertEqual(compact_cost, merged_cost)
                 actual_ordinals = np.sort(
                     np.concatenate([tri["ordinal"] for tri, _ in chunks])
                 )
                 np.testing.assert_array_equal(actual_ordinals, merged["ordinal"])
+                first_base, second_base = (tri.base for tri, _ in chunks)
+                self.assertIsNot(first_base, second_base)
+                self.assertEqual(len(first_base), int(index[0]["bytes"]))
+                self.assertEqual(len(second_base), int(index[2]["bytes"]))
             with self.assertRaises(ValueError):
                 read_ranges(path, index, [8], indexed=indexed, max_gap_bytes=-1)
 

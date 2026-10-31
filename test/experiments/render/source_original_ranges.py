@@ -85,19 +85,26 @@ def encode_indexed(rows):
     )
 
 
-def decode_indexed(raw, *, compact=False):
-    if len(raw) < 8:
+def decode_indexed(raw, *, compact=False, offset=0, length=None):
+    if type(offset) is not int or offset < 0 or offset > len(raw):
+        raise ValueError("Invalid indexed original source offset")
+    if length is None:
+        length = len(raw) - offset
+    if type(length) is not int or length < 8 or length > len(raw) - offset:
         raise ValueError("Incomplete indexed original source")
-    triangles, vertices = struct.unpack_from("<II", raw)
+    triangles, vertices = struct.unpack_from("<II", raw, offset)
     if (
         not triangles
         or not 1 <= vertices <= 65536
-        or len(raw) != 8 + triangles * TRIANGLE.itemsize + vertices * VERTEX.itemsize
+        or length != 8 + triangles * TRIANGLE.itemsize + vertices * VERTEX.itemsize
     ):
         raise ValueError("Invalid indexed original source sizes")
-    tri = np.frombuffer(raw, dtype=TRIANGLE, count=triangles, offset=8)
+    tri = np.frombuffer(raw, dtype=TRIANGLE, count=triangles, offset=offset + 8)
     vert = np.frombuffer(
-        raw, dtype=VERTEX, count=vertices, offset=8 + triangles * TRIANGLE.itemsize
+        raw,
+        dtype=VERTEX,
+        count=vertices,
+        offset=offset + 8 + triangles * TRIANGLE.itemsize,
     )
     if tri["local"].max() >= vertices or len(np.unique(vert["original"])) != vertices:
         raise ValueError("Invalid local original vertex indices")
@@ -139,12 +146,24 @@ def write_ranges(directory, rows, *, indexed=False):
 
 
 def read_ranges(
-    directory, index, requested, *, indexed=False, max_gap_bytes=0, compact=False
+    directory,
+    index,
+    requested,
+    *,
+    indexed=False,
+    max_gap_bytes=0,
+    compact=False,
+    share_contiguous=False,
 ):
+    """Optionally share gapless spans; one retained chunk keeps its span alive."""
     if index.dtype != INDEX or index.ndim != 1:
         raise ValueError("Exact original source range index required")
     if compact and not indexed:
         raise ValueError("Compact output requires indexed source ranges")
+    if type(share_contiguous) is not bool or (
+        share_contiguous and not (indexed and compact)
+    ):
+        raise ValueError("Shared spans require compact indexed output")
     if type(max_gap_bytes) is not int or not 0 <= max_gap_bytes <= 1024 * 1024:
         raise ValueError("Bounded nonnegative range gap required")
     ids = [int(x) for x in requested]
@@ -182,13 +201,17 @@ def read_ranges(
             if len(blob) != end - start:
                 raise ValueError("Incomplete original source range")
             read_bytes += len(blob)
+            borrowed = share_contiguous and max_gap_bytes == 0 and len(group) > 1
             for row in group:
                 lo = int(row["offset"]) - start
-                raw = blob[lo : lo + int(row["bytes"])]
+                hi = lo + int(row["bytes"])
+                raw = memoryview(blob)[lo:hi] if borrowed else blob[lo:hi]
                 if digest(raw) != row["digest"].tobytes():
                     raise ValueError("Original source range changed")
                 values = (
-                    decode_indexed(raw, compact=compact)
+                    decode_indexed(blob, compact=True, offset=lo, length=hi - lo)
+                    if borrowed
+                    else decode_indexed(raw, compact=compact)
                     if indexed
                     else np.frombuffer(raw, dtype=ROW)
                 )
