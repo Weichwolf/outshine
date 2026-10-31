@@ -10,9 +10,12 @@ import json
 from pathlib import Path
 
 import numpy as np
+from native_source_clip_controls import read as read_controls
+from native_source_triangle_materials import DATA
 from prepared_surface_recipes import decode
 from source_domain_buffer import restore_source
 from source_domain_chunk_study import decode_raw
+from source_domain_prepared_view import select_sources
 from source_patch_product import FIELDS
 from source_recipe_ranges import load_ranges
 from welded_source_patch import source_corners
@@ -22,12 +25,24 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def run(args, *, retained_groups=None):
+def checked_selection(row, expected):
+    requested = set(row["selected_source_ids"])
+    if (
+        len(requested) != len(row["selected_source_ids"])
+        or row["selected_sources"] != len(requested)
+        or requested != set(expected)
+    ):
+        raise ValueError("Incomplete or changed source selection; retain originals")
+    return requested
+
+
+def run(args, *, retained_groups=None, selected_sources=None):
     view = json.loads(args.view.read_text())
     bounds = args.bounds.read_bytes()
     if digest(bounds) != view["bounds_sha256"]:
         raise ValueError("Recorded selection must bind the same source bounds")
     with np.load(io.BytesIO(bounds), allow_pickle=False) as z:
+        prepared = {key: z[key] for key in ("source_ids", "bounds", "normal")}
         binding_sha = z["source_binding"].tobytes().hex()
         index_sha = z["index_digest"].tobytes().hex()
         fallback_sha = z["fallback_digest"].tobytes().hex()
@@ -43,7 +58,15 @@ def run(args, *, retained_groups=None):
     capture = json.loads(binding_raw)["capture_frame"]
     basis = np.array([capture["east"], capture["up"], -np.array(capture["north"])])
     row = next(row for row in view["cases"] if row["angle_degrees"] == args.angle)
-    requested = set(row["selected_source_ids"])
+    if selected_sources is None:
+        with np.load(DATA / "native-visible-triangles.npz", allow_pickle=False) as z:
+            views, _ = read_controls(z["near-direction/view_words"])
+            expected = select_sources(
+                prepared, views[args.angle], z["placements/words"]
+            )
+    else:
+        expected = selected_sources
+    requested = checked_selection(row, expected)
     raw_index = (args.chunk / "index.npy").read_bytes()
     if digest(raw_index) != index_sha:
         raise ValueError("Prepared source index changed")
@@ -151,6 +174,7 @@ def run(args, *, retained_groups=None):
     report = {
         "angle": args.angle,
         "selected_sources": len(requested),
+        "selection_check": "recomputed" if selected_sources is None else "in_process",
         "constructed_triangles": constructed_triangles,
         "fallback_sources": len(fallback_ids),
         "fallback_triangles": len(fallback_binding),

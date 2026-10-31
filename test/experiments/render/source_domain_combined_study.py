@@ -20,7 +20,7 @@ def run(args):
         output=args.view_output,
         angle=args.angle,
     )
-    retained = selection.run(selection_args, retain_angle=args.angle)
+    retained, selected_sources = selection.run(selection_args, retain_angle=args.angle)
     reconstruction_args = SimpleNamespace(
         view=args.view_output,
         bounds=args.bounds,
@@ -34,7 +34,9 @@ def run(args):
         angle=args.angle,
         output=args.output,
     )
-    reconstruction.run(reconstruction_args, retained_groups=retained)
+    reconstruction.run(
+        reconstruction_args, retained_groups=retained, selected_sources=selected_sources
+    )
 
 
 if __name__ == "__main__":

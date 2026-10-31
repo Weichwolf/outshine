@@ -18,6 +18,23 @@ def sha(data):
     return hashlib.sha256(data).digest()
 
 
+def select_sources(prepared, view, placements):
+    """Keep complete sources unless the bound proves they are outside."""
+    if len(np.unique(prepared["source_ids"])) != len(prepared["source_ids"]):
+        raise ValueError("Unique prepared source identities required")
+    operands = frame(view, placements)
+    selected = []
+    for identity, bounds, normal in zip(
+        prepared["source_ids"], prepared["bounds"], prepared["normal"], strict=True
+    ):
+        upper = (
+            outside_xy(bounds, operands) if normal and operands is not None else None
+        )
+        if upper is None or not np.any(upper < 0):
+            selected.append(int(identity))
+    return selected
+
+
 def run(args, *, retain_angle=None):
     raw = args.bounds.read_bytes()
     if sha(raw).hex() != args.bounds_sha256:
@@ -45,21 +62,13 @@ def run(args, *, retain_angle=None):
         placements = z["placements/words"].copy()
     rows = []
     retained = {}
+    retained_sources = None
     for angle, view in sorted(views.items()):
         if getattr(args, "angle", None) is not None and args.angle != angle:
             continue
-        operands = frame(view, placements)
-        selected = []
-        for identity, bounds, normal in zip(
-            prepared["source_ids"], prepared["bounds"], prepared["normal"], strict=True
-        ):
-            upper = (
-                outside_xy(bounds, operands)
-                if normal and operands is not None
-                else None
-            )
-            if upper is None or not np.any(upper < 0):
-                selected.append(int(identity))
+        selected = select_sources(prepared, view, placements)
+        if angle == retain_angle:
+            retained_sources = tuple(selected)
         chunks = {records[i] for i in selected if i in records}
         received, found = 0, set()
         with (args.chunk / "groups.bin").open("rb") as stream:
@@ -114,7 +123,7 @@ def run(args, *, retain_angle=None):
     }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
-    return retained
+    return retained, retained_sources
 
 
 if __name__ == "__main__":
