@@ -39,3 +39,22 @@ not capacity, roof scratch, allocator or process/GPU peaks. Reports and generate
 geometry stay in system temp; normal tests do not generate or replace oracles.
 This does not qualify cache restart, GPU capture, pose reuse, World admission,
 screen-space error or the shared frame/memory budget.
+
+## Existing material-reference cohort
+
+`test/outshine/data/render/building-depth-samples/source-binding.json` binds the
+1558-source/38476-triangle material reference to its existing prepared archive,
+native cells, recorded producer frame and original three material parts (#1894).
+This frame has zero relative origin and the recorded producer's tangent axes;
+`building-full-view/source-plane-request.json` uses a different frame.
+
+Read the selected cells through `native_building_cell_reference.load_cells`
+with the supplied east/north/up basis and zero anchor. Replace `vertex_normal`
+with `compare_building_originals.native_normals(source["normal"], basis)` before
+`native_building_cell_reference.native_parts`. All 18 resulting attribute/index
+files must match the existing original manifest, without tolerance. The existing
+`input.json` fixes part/material order; per-part triangle-binding hashes fix the
+actual prepared-source ordering. Unknown source-part entries remain unknown.
+The current `BuildingSourceView::Originals` groups metre materials differently;
+equal total counts do not identify these historical material-reference parts.
+This diagnostic binding supplies no live World revision or normal World admission.
