@@ -50,6 +50,8 @@ public:
     size_t CapBytes = 0;
   };
 
+  // Construction/counters do no IO. Storage and legacy default-path resolution
+  // belong to source workers; supplied directory getters remain metadata-only.
   explicit RawSourceCache(const Config &config);
   ~RawSourceCache();
 
@@ -71,7 +73,8 @@ public:
                                            GeoCellId cell,
                                            size_t probesMost = MaximumCoverageProbes) const;
 
-  [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
+  // An omitted directory is resolved on first use; call this on the source worker.
+  [[nodiscard]] const std::string &Directory() const;
 
   [[nodiscard]] bool Enabled() const noexcept { return Using_ == Use::On; }
 
@@ -105,9 +108,13 @@ private:
   [[nodiscard]] bool RemoveStatus(std::string_view key) const;
   void ForgetStatus(std::string_view key);
 
-  std::string Directory_;
-  std::unique_ptr<CacheUsageIndex> Usage_;
+  mutable std::string Directory_;
+  const bool NeedsDefaultDirectory_;
+  mutable std::once_flag DirectoryInitialization_;
+  mutable std::once_flag StorageInitialization_;
+  mutable std::unique_ptr<CacheUsageIndex> Usage_;
   mutable std::atomic<bool> UsageWarning_{false};
+  void InitializeStorage() const;
   void ObserveUsage(std::string_view key, size_t bytes, bool published = false) const;
   Use Using_;
   size_t CapBytes_;

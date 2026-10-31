@@ -46,7 +46,7 @@ bool ValidAbsenceRecord(std::string_view record) {
 }
 
 bool RawSourceCache::StatusDirectory(bool create) const {
-  const std::filesystem::path path = Directory_ + "/" + std::string(kLegacyMarkerDirectory);
+  const std::filesystem::path path = Directory() + "/" + std::string(kLegacyMarkerDirectory);
   std::error_code error;
   auto status = std::filesystem::symlink_status(path, error);
   if (!std::filesystem::exists(status) && create) {
@@ -60,7 +60,7 @@ bool RawSourceCache::StatusDirectory(bool create) const {
 
 bool RawSourceCache::RemoveStatus(std::string_view key) const {
   if (!StatusDirectory(false)) { return false; }
-  const auto path = MarkerPath(Directory_, key);
+  const auto path = MarkerPath(Directory(), key);
   std::error_code error;
   const auto status = std::filesystem::symlink_status(path, error);
   if (!std::filesystem::exists(status)) { return true; }
@@ -71,12 +71,12 @@ bool RawSourceCache::RemoveStatus(std::string_view key) const {
 RawSourceCache::Presence RawSourceCache::ReadStatus(std::string_view key) const {
   const std::scoped_lock lock(StatusMutex_);
   std::error_code error;
-  const auto data = std::filesystem::symlink_status(Directory_ + "/" + std::string(key), error);
+  const auto data = std::filesystem::symlink_status(Directory() + "/" + std::string(key), error);
   if ((error && error != std::errc::no_such_file_or_directory) || std::filesystem::exists(data) ||
       !StatusDirectory(false)) {
     return Presence::Unknown;
   }
-  const auto bytes = ReadEntry(MarkerPath(Directory_, key), kRecordBytes);
+  const auto bytes = ReadEntry(MarkerPath(Directory(), key), kRecordBytes);
   if (!bytes) { return Presence::Unknown; }
   const std::string_view record(reinterpret_cast<const char *>(bytes->data()), bytes->size());
   Presence status = Presence::Unknown;
@@ -104,9 +104,10 @@ bool RawSourceCache::KeepEmpty(std::string_view key) {
 
 bool RawSourceCache::KeepStatus(std::string_view key, std::string_view signature) {
   if (Using_ != Use::On || !ValidKey(key)) { return false; }
+  InitializeStorage();
   const std::scoped_lock lock(StatusMutex_);
   if (!StatusDirectory(true)) { return false; }
-  const auto path = MarkerPath(Directory_, key);
+  const auto path = MarkerPath(Directory(), key);
   std::error_code error;
   const auto status = std::filesystem::symlink_status(path, error);
   if (std::filesystem::exists(status) && (!std::filesystem::is_regular_file(status) || error)) {

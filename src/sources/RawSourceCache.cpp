@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdio>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <filesystem>
 #include <optional>
@@ -86,26 +87,39 @@ std::optional<std::vector<uint8_t>> RawSourceCache::ReadEntry(const std::string 
 }
 
 RawSourceCache::RawSourceCache(const Config &config)
-    : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
+    : Directory_(config.Directory),
+      NeedsDefaultDirectory_(config.Directory.empty()),
       Using_(config.Using),
-      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {
-  if (Using_ != Use::On) { return; }
-  std::error_code ec;
-  std::filesystem::create_directories(Directory_, ec);
-  if (!ec) {
-    auto usage =
-        CacheUsageIndex::Open((std::filesystem::path(Directory_) / ".usage.sqlite").string());
-    if (usage) { Usage_ = std::move(*usage); }
-  }
-  if (!Usage_) {
-    std::fputs("source cache: usage index could not be opened\n", stderr);
-    UsageWarning_.store(true, std::memory_order_relaxed);
-  }
-}
+      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {}
 
 RawSourceCache::~RawSourceCache() = default;
 
+const std::string &RawSourceCache::Directory() const {
+  if (NeedsDefaultDirectory_) {
+    std::call_once(DirectoryInitialization_, [this] { Directory_ = DefaultDirectory(); });
+  }
+  return Directory_;
+}
+
+void RawSourceCache::InitializeStorage() const {
+  std::call_once(StorageInitialization_, [this] {
+    if (Using_ != Use::On) { return; }
+    std::error_code ec;
+    std::filesystem::create_directories(Directory(), ec);
+    if (!ec) {
+      auto usage =
+          CacheUsageIndex::Open((std::filesystem::path(Directory()) / ".usage.sqlite").string());
+      if (usage) { Usage_ = std::move(*usage); }
+    }
+    if (!Usage_) {
+      std::fputs("source cache: usage index could not be opened\n", stderr);
+      UsageWarning_.store(true, std::memory_order_relaxed);
+    }
+  });
+}
+
 void RawSourceCache::ObserveUsage(std::string_view key, size_t bytes, bool published) const {
+  InitializeStorage();
   if (Usage_ && Usage_->Record(key, bytes, published)) { return; }
   if (!UsageWarning_.exchange(true, std::memory_order_relaxed)) {
     std::fputs("source cache: usage metadata could not be fully recorded\n", stderr);
@@ -116,7 +130,7 @@ std::optional<std::vector<uint8_t>> RawSourceCache::ReadBytes(std::string_view k
                                                               size_t mostBytes) const {
   const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
   if (!ValidKey(key)) { return std::nullopt; }
-  auto bytes = ReadEntry(Directory_ + "/" + std::string(key), limit);
+  auto bytes = ReadEntry(Directory() + "/" + std::string(key), limit);
   if (bytes) { ObserveUsage(key, bytes->size()); }
   return bytes;
 }
@@ -144,8 +158,9 @@ bool RawSourceCache::Keep(std::string_view key, const uint8_t *data, size_t byte
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
+  InitializeStorage();
   const auto written =
-      WriteEntry(Directory_ + "/" + std::string(key), std::as_bytes(std::span(data, bytes)));
+      WriteEntry(Directory() + "/" + std::string(key), std::as_bytes(std::span(data, bytes)));
   if (!written) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
