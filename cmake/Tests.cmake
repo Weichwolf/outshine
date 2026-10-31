@@ -64,6 +64,7 @@ set(metal_validation_cases
   outshine/src/render/shadow/SunShadowPass/LocalChangesMatchFullAtlas
   outshine/src/render/stages/AerialPerspectiveStage/OrthographicOriginsPreserveOpticalTransfer
   outshine/src/render/stages/GeometryCullStage/HierarchyQueuesPreserveStableGeometry
+  outshine/src/render/stages/SurfaceFrame/MirroredInstancesKeepTangentHandedness
   outshine/src/render/stages/GeometryCullStage/IndexLayoutsReuseOnlyUnchangedSourceRanges
   outshine/src/render/stages/GeometryCullStage/ResidentQueuesPreserveOriginalIndices
   outshine/src/render/stages/GeometryCullStage/RootBoundsKeepVisibleDescendants

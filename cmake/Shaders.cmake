@@ -5,7 +5,7 @@ file(MAKE_DIRECTORY "${shader_directory}")
 set_property(SOURCE "${PROJECT_SOURCE_DIR}/src/render/device/SpirvFile.cpp" APPEND PROPERTY
   COMPILE_DEFINITIONS "OUTSHINE_SHADER_DIRECTORY=\"${shader_directory}\"")
 add_executable(shader-tables EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/test/scripts/shader-tables.cpp")
-target_link_libraries(shader-tables PRIVATE outshine_compiler PkgConfig::sdl3)
+target_link_libraries(shader-tables PRIVATE outshine_compiler SDL3::SDL3)
 target_include_directories(shader-tables PRIVATE "${PROJECT_SOURCE_DIR}/src/base/scene"
   "${PROJECT_SOURCE_DIR}/src/base/math" "${PROJECT_SOURCE_DIR}/src/base/geo"
   "${PROJECT_SOURCE_DIR}/src/base" "${PROJECT_SOURCE_DIR}/src/render/stages")

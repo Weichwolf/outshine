@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <thread>
 #include <utility>
@@ -24,12 +25,14 @@ Tasks::Tasks(int threads) {
 }
 
 Tasks::~Tasks() {
+  std::deque<Posted> discarded;
   {
     const std::scoped_lock lock(Mutex_);
     Stopping_ = true;
-    Queue_.clear();
+    discarded.swap(Queue_);
   }
   Wake_.notify_all();
+  discarded.clear();
   for (std::thread &one : Threads_) { one.join(); }
 }
 
