@@ -28,9 +28,11 @@ def key(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def assets(path, products):
+def assets(path, products, incremental=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as db:
+        if incremental:
+            db.execute('PRAGMA auto_vacuum=INCREMENTAL')
         db.executescript(SCHEMA)
         for name, size, members, used in products:
             payload = bytes([len(name)]) * size
@@ -244,6 +246,32 @@ class CacheCommand(unittest.TestCase):
             db.close()
         self.assertEqual(scalar(self.world, 'SELECT count(*) FROM packages'), 0)
         self.run_cache('--assets-mib', '0', '--apply', '--compact')
+
+    def test_incremental_compaction_releases_pages_and_preserves_retained_payload(self):
+        assets(self.world, [('old', 2 * MIB, 1, 1), ('new', MIB, 1, 2)], incremental=True)
+        before = self.world.stat().st_size
+        result, _ = self.run_cache('--assets-mib', '1', '--apply', '--compact')
+        self.assertEqual(scalar(self.world, 'PRAGMA auto_vacuum'), 2)
+        self.assertEqual(scalar(self.world, 'PRAGMA freelist_count'), 0)
+        self.assertLess(self.world.stat().st_size, before // 2)
+        with sqlite3.connect(self.world) as db:
+            remaining = db.execute('SELECT key,bytes FROM packages').fetchall()
+        self.assertEqual(remaining, [(key('new'), bytes([3]) * MIB)])
+        self.assertEqual(result.returncode, 0)
+
+    def test_incremental_compaction_defers_while_a_reader_needs_deleted_pages(self):
+        assets(self.world, [('old', MIB, 1, 1)], incremental=True)
+        with sqlite3.connect(self.world) as reader:
+            reader.execute('PRAGMA journal_mode=WAL')
+            reader.execute('BEGIN')
+            original = reader.execute('SELECT bytes FROM packages').fetchone()[0]
+            result, _ = self.run_cache('--assets-mib', '0', '--apply', '--compact', status=1)
+            self.assertIn('cache trimmed', result.stderr)
+            self.assertGreater(scalar(self.world, 'PRAGMA freelist_count'), 0)
+            self.assertEqual(reader.execute('SELECT bytes FROM packages').fetchone()[0], original)
+            reader.rollback()
+        self.run_cache('--assets-mib', '0', '--apply', '--compact')
+        self.assertEqual(scalar(self.world, 'PRAGMA freelist_count'), 0)
 
     def test_invalid_usage_metadata_never_deletes_payloads(self):
         self.fixture()

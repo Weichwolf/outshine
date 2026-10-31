@@ -58,21 +58,55 @@ std::expected<void, std::string> Prepare(sqlite3 *database, const char *sql, Sta
   return {};
 }
 
+namespace {
+std::expected<int64_t, std::string> Scalar(sqlite3 *database, const char *sql) {
+  Statement statement;
+  if (auto prepared = Prepare(database, sql, statement); !prepared) {
+    return std::unexpected(prepared.error());
+  }
+  if (sqlite3_step(statement.Handle) != SQLITE_ROW) {
+    return std::unexpected(sqlite3_errmsg(database));
+  }
+  return sqlite3_column_int64(statement.Handle, 0);
+}
+
+std::expected<void, std::string> Checkpoint(sqlite3 *database) {
+  const auto busy = Scalar(database, "PRAGMA wal_checkpoint(TRUNCATE)");
+  if (!busy) { return std::unexpected("compaction checkpoint failed: " + busy.error()); }
+  if (*busy != 0) { return std::unexpected("compaction checkpoint is busy or failed"); }
+  return {};
+}
+
+std::expected<void, std::string> Compact(sqlite3 *database) {
+  if (auto checkpointed = Checkpoint(database); !checkpointed) { return checkpointed; }
+  const auto mode = Scalar(database, "PRAGMA auto_vacuum");
+  if (!mode) { return std::unexpected(mode.error()); }
+  if (*mode != 2) {
+    if (auto vacuumed = Exec(database, "VACUUM"); !vacuumed) { return vacuumed; }
+    return Checkpoint(database);
+  }
+  auto free = Scalar(database, "PRAGMA freelist_count");
+  if (!free) { return std::unexpected(free.error()); }
+  while (*free > 0) {
+    if (auto vacuumed = Exec(database, "PRAGMA incremental_vacuum(256)"); !vacuumed) {
+      return vacuumed;
+    }
+    if (auto checkpointed = Checkpoint(database); !checkpointed) { return checkpointed; }
+    const auto next = Scalar(database, "PRAGMA freelist_count");
+    if (!next) { return std::unexpected(next.error()); }
+    if (*next >= *free) { return std::unexpected("incremental compaction made no progress"); }
+    free = next;
+  }
+  return {};
+}
+}
+
 std::expected<void, std::string> Commit(Database &database, bool compact) {
   if (auto committed = Exec(database.Handle, "COMMIT"); !committed) { return committed; }
   database.Transaction = false;
   if (!compact) { return {}; }
-  if (auto vacuumed = Exec(database.Handle, "VACUUM"); !vacuumed) {
-    return std::unexpected("cache trimmed; compaction failed: " + vacuumed.error());
-  }
-  Statement checkpoint;
-  if (auto prepared = Prepare(database.Handle, "PRAGMA wal_checkpoint(TRUNCATE)", checkpoint);
-      !prepared) {
-    return std::unexpected("cache trimmed; checkpoint failed: " + prepared.error());
-  }
-  if (sqlite3_step(checkpoint.Handle) != SQLITE_ROW ||
-      sqlite3_column_int(checkpoint.Handle, 0) != 0) {
-    return std::unexpected("cache trimmed; compaction checkpoint is busy or failed");
+  if (auto compacted = Compact(database.Handle); !compacted) {
+    return std::unexpected("cache trimmed; compaction failed: " + compacted.error());
   }
   return {};
 }

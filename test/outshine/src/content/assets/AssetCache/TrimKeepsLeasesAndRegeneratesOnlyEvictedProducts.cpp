@@ -54,6 +54,12 @@ void Exercise(const std::filesystem::path &path) {
   sqlite3 *database = nullptr;
   CHECK(sqlite3_open(path.string().c_str(), &database) == SQLITE_OK,
         "independent deterministic recency fixture opens");
+  sqlite3_stmt *storage = nullptr;
+  CHECK(sqlite3_prepare_v2(database, "PRAGMA auto_vacuum", -1, &storage, nullptr) == SQLITE_OK,
+        "the real native store exposes its reclamation mode");
+  CHECK(storage && sqlite3_step(storage) == SQLITE_ROW && sqlite3_column_int(storage, 0) == 2,
+        "new native stores support incremental reclamation without a full rewrite");
+  sqlite3_finalize(storage);
   CHECK(sqlite3_exec(database,
                      "UPDATE cache_usage_v1 SET created_unix_s=0,last_used_unix_s="
                      "(SELECT min(id) FROM assets WHERE assets.package=cache_usage_v1.key)",

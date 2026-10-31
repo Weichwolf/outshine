@@ -127,8 +127,10 @@ die Schreibzeit einzelner Quelldateien. Daraus werden keine Nutzungszeiten gespe
 
 Budgets zählen Nutzdaten. Die kompakten `CACHE`-Zeilen melden zusätzlich Dateigrößen inklusive
 SQLite-/WAL-/SHM-Kosten. Ohne `--compact` werden SQLite-Seiten intern wiederverwendbar;
-mit dem Flag gibt VACUUM sie an das Dateisystem zurück. Das benötigt zusätzliche IO und
-freien Arbeitsraum. Eine blockierte Kompaktion meldet ausdrücklich den bereits erfolgten
+mit dem Flag gibt Kompaktierung sie an das Dateisystem zurück. Neue Assetbanken erlauben
+inkrementelle Freigabe in Schritten von höchstens 256 freien Seiten mit WAL-Checkpoint
+zwischen den Schritten. Altbestände ohne diesen Speichermodus verwenden VACUUM und
+benötigen zusätzlichen freien Arbeitsraum. Eine blockierte Kompaktion meldet den bereits erfolgten
 Trim und den Fehler. Vorschauen melden ausgewählte, noch nicht entfernte Einträge.
 
 Quellen und Assetpakete speichern künftig Bytezahl, letzte erfolgreiche Nutzung und eine

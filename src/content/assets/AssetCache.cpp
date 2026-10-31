@@ -146,6 +146,19 @@ AssetCache::Open(const std::string &path) {
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
                       nullptr);
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
+  bool empty = false;
+  {
+    AssetSql::Statement pages;
+    const auto prepared = AssetSql::Prepare(state->Database, "PRAGMA page_count", pages);
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    const int step = sqlite3_step(pages.Value);
+    if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
+    empty = sqlite3_column_int64(pages.Value, 0) == 0;
+  }
+  if (empty) {
+    const auto configured = AssetSql::Exec(state->Database, "PRAGMA auto_vacuum=INCREMENTAL");
+    if (!configured) { return std::unexpected(configured.error()); }
+  }
   const auto began =
       AssetSql::Exec(state->Database,
                      "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA "
