@@ -251,7 +251,9 @@ def run(args, *, retained_groups=None, selected_sources=None):
         "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. Group bytes are either reread or passed in-process from selection; other metadata and any required fallback are still reread.",
     }
     args.output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps(report))
+    summary = {key: value for key, value in report.items() if key != "budget_fallbacks"}
+    summary["budget_fallback_sources"] = len(budget_fallbacks)
+    print(json.dumps(summary))
 
 
 if __name__ == "__main__":
