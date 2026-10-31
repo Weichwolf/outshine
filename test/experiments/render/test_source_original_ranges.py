@@ -46,9 +46,12 @@ class OriginalRangesTest(unittest.TestCase):
         self.assertEqual((len(empty), cost["read_calls"]), (0, 0))
 
     def test_missing_duplicate_and_corrupt_source_rejected(self):
-        for ids in ([99], [8, 8]):
+        for ids in ([99], [8, 8], [2**70]):
             with self.subTest(ids=ids), self.assertRaises(ValueError):
                 read_ranges(self.path, self.index, ids)
+        for bad_index in (self.index[::-1], self.index[[0, 0]]):
+            with self.assertRaisesRegex(ValueError, "Sorted unique"):
+                read_ranges(self.path, bad_index, [8])
         with (self.path / "rows.bin").open("r+b") as stream:
             stream.seek(int(self.index[0]["offset"]) + 1)
             value = stream.read(1)
