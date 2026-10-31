@@ -139,8 +139,27 @@ def run(args):
             )
             fields = fields_at(source, origins, directions, native_depth, faces)
             comparisons[name] = compare(faces, fields, direct)
-            sampled[name] = faces, fields
+            sampled[name] = faces, fields, native_depth
         unknown = (owner >= 0) & ~direct["qualified"]
+        original_faces, original_fields, original_depth = sampled["original"]
+        mismatch = (
+            (original_faces >= 0)
+            & direct["qualified"]
+            & (flat_code(original_fields["uv"]) != flat_code(direct["uv"]))
+        )
+        witnesses = [
+            {
+                "ray": int(i),
+                "triangle": int(original_faces[i]),
+                "domain": int(owner[i]),
+                "domain_side": int(patches[owner[i]].side),
+                "triangle_uv": original_fields["uv"][i].tolist(),
+                "domain_uv": direct["uv"][i].tolist(),
+                "triangle_parameter": float(original_depth[i]),
+                "domain_parameter": float(depth[i]),
+            }
+            for i in np.flatnonzero(mismatch)[:8]
+        ]
         views.append(
             {
                 "yaw_degrees": yaw,
@@ -148,10 +167,11 @@ def run(args):
                 "direct_hits": int((owner >= 0).sum()),
                 "unqualified_domain_hits": int(unknown.sum()),
                 "domain_work": work,
+                "material_code_witnesses": witnesses,
                 "against": comparisons,
             }
         )
-        faces, original = sampled["original"]
+        faces, original, _ = sampled["original"]
         common = (faces >= 0) & direct["qualified"]
         difference = np.zeros((len(depth), 3), np.uint8)
         difference[common & (flat_code(original["uv"]) != flat_code(direct["uv"]))] = [
