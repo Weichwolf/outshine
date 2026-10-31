@@ -106,6 +106,7 @@ def prepare(
             "whole_normal_queries": queries,
             "refinement_rounds": rounds,
             "source_pose_evaluations": curve.evaluations - positions_before,
+            "normal_arithmetic_work": dict(model.work),
             "normal_model": "exact encoded span coefficients and positive normalized barycentric interpolation",
             "scope": "No physical-profile/GPU/BRDF/World/device admission; source seams stay one-sided.",
         }

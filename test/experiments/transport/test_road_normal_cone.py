@@ -106,6 +106,23 @@ class ExactRanges(unittest.TestCase):
 
 
 class NormalCones(unittest.TestCase):
+    def test_longitudinal_reuse_keeps_lateral_bounds_and_limit_changes_distinct(self):
+        model = NormalModel(Curve(recipe(curvature=0.02, height=0.01)))
+        left = model.ranges(0, 0, 1, -2, -1)
+        right = model.ranges(0, 0, 1, 1, 2)
+        self.assertNotEqual(left[0], right[0])
+        self.assertEqual(left[1:], right[1:])
+        self.assertEqual(model.work["range_requests"], 2)
+        self.assertEqual(model.work["longitudinal_evaluations"], 1)
+        loose = model.cone(0, 0, 1, -1, 1, 0.2)
+        strict = model.cone(0, 0, 1, -1, 1, 0.01)
+        self.assertTrue(loose["accepted"])
+        self.assertFalse(strict["accepted"])
+        self.assertEqual(model.cone(0, 0, 1, -1, 1, 0.2), loose)
+        self.assertEqual(model.work["angle_evaluations"], 3)
+        with self.assertRaisesRegex(ValueError, "source-span"):
+            model.ranges(0, -1, 1, -2, -1)
+
     def test_constant_slope_bank_whole_domain_needs_no_normal_refinement(self):
         source = recipe()
         for row in (*source["seams"], source["intervals"][0]["middle"]):

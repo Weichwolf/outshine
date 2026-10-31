@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -80,11 +81,13 @@ def plot_case(root, ordinal, output):
                 panel.text(
                     0.5,
                     0.5,
-                    "Retain original\n" + report["reason"],
+                    "Retain original\n" + textwrap.fill(report["reason"], width=24),
                     transform=panel.transAxes,
                     ha="center",
                     va="center",
                     wrap=True,
+                    fontsize=9,
+                    clip_on=True,
                 )
             axes[0, column].set_title(method)
             continue
