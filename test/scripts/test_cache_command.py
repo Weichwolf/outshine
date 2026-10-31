@@ -127,6 +127,7 @@ class CacheCommand(unittest.TestCase):
         for path in (self.world, self.prototypes):
             self.assertEqual(scalar(path, 'SELECT count(*) FROM assets'), 0)
             self.assertEqual(scalar(path, 'SELECT count(*) FROM bounds'), 0)
+            self.assertEqual(scalar(path, 'PRAGMA auto_vacuum'), 2)
             self.assertEqual(scalar(path, 'PRAGMA integrity_check'), 'ok')
 
     def test_sources_use_usage_metadata_and_keep_foreign_files(self):
@@ -258,6 +259,18 @@ class CacheCommand(unittest.TestCase):
             remaining = db.execute('SELECT key,bytes FROM packages').fetchall()
         self.assertEqual(remaining, [(key('new'), bytes([3]) * MIB)])
         self.assertEqual(result.returncode, 0)
+
+    def test_explicit_legacy_compaction_upgrades_reclamation_without_changing_retained_bytes(self):
+        assets(self.world, [('old', 2 * MIB, 1, 1), ('new', MIB, 1, 2)])
+        self.assertEqual(scalar(self.world, 'PRAGMA auto_vacuum'), 0)
+        before = self.world.stat().st_size
+        self.run_cache('--assets-mib', '1', '--apply', '--compact')
+        self.assertEqual(scalar(self.world, 'PRAGMA auto_vacuum'), 2)
+        self.assertEqual(scalar(self.world, 'PRAGMA freelist_count'), 0)
+        self.assertLess(self.world.stat().st_size, before // 2)
+        with sqlite3.connect(self.world) as db:
+            remaining = db.execute('SELECT key,bytes FROM packages').fetchall()
+        self.assertEqual(remaining, [(key('new'), bytes([3]) * MIB)])
 
     def test_incremental_compaction_defers_while_a_reader_needs_deleted_pages(self):
         assets(self.world, [('old', MIB, 1, 1)], incremental=True)
