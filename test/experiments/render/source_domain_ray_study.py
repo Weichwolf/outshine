@@ -66,6 +66,13 @@ def run(args):
     if args.output.exists():
         raise ValueError("Fresh output required")
     args.output.mkdir(parents=True)
+    files = [
+        args.producer / "sample.json",
+        args.producer / "sample.npz",
+        args.storage / "scalar.npz",
+    ]
+    files.extend(sorted((args.storage / "recipes").iterdir()))
+    input_hashes = {str(path): sha(path) for path in files}
     sample_info = json.loads((args.producer / "sample.json").read_text())
     identity = sample_info["prepared_source_ordinal"]
     with np.load(args.storage / "scalar.npz", allow_pickle=False) as z:
@@ -131,7 +138,7 @@ def run(args):
         diff[~masks[0] & masks[2]] = [0, 180, 0]
         for col, (title, data) in enumerate(
             zip(
-                ("Original", "Candidate", "Domains", "Miss/red extra/green"),
+                ("Original", "Candidate", "Domains", "Difference"),
                 [
                     *(
                         np.repeat((m * 255).astype(np.uint8)[:, None], 3, axis=1)
@@ -152,10 +159,13 @@ def run(args):
                 (col * width, row * (height + 20) + 20),
             )
     panel.save(args.output / "coverage.png")
+    if input_hashes != {str(path): sha(path) for path in files}:
+        raise ValueError("Diagnostic inputs changed during the run")
     report = {
         "source_ordinal": identity,
         "sample_sha256": sha(args.producer / "sample.npz"),
         "domain_buffer_sha256": sha(args.storage / "scalar.npz"),
+        "input_sha256": input_hashes,
         "views": results,
         "scope": "Finite CPU ray-parameter and coverage diagnostic for one source; planar domains remain unsnapped. No material/normal/PBR, native raster, World, cross-source occlusion, actual GPU time or general error bound. Single domain timing has no same-quality cost comparison and is not a performance claim.",
     }
