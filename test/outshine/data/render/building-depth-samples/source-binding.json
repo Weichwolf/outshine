@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "scope": "Exact replay binding of the existing diagnostic original operands, not a live World source/frame admission.",
+  "source_archive": {
+    "path": "../building-full-view/original-inputs.tar.gz",
+    "sha256": "5b9737a91f79f6ff6b786843638675118bfcefc0725cf60a459aa6751d1728ac",
+    "parent": "6d3f9945a1035effd6769a8d93a00499aad7662296e276c8ec15dc2a10b52cae"
+  },
+  "native_cells": {
+    "path": "../building-full-view/native-cells/manifest.json",
+    "sha256": "28bd35921d96fcbc1ae7d36b53d060037927f232e521f66d134a56358b511dd4"
+  },
+  "original_geometry": {
+    "path": "original-geometry/manifest.json",
+    "sha256": "db9230262a79725a5da37184ebbb806c2c3ea801d714630a452b72f4599ccb6e"
+  },
+  "producer_source": {
+    "anchor": [
+      -3956840.0002376535,
+      3355584.986060604,
+      3697560.8312791376
+    ],
+    "base_key": "16c741361a360ce1ee64e54e620c8eb450c93d3c35abff60b5a0c98d9ee8ff36",
+    "cells": 12901679104,
+    "height_qualified": true,
+    "least": [
+      -3961016.948824442,
+      3355413.1858770386,
+      3693110.7628187193
+    ],
+    "most": [
+      -3960371.208099271,
+      3356078.803047736,
+      3693587.666943433
+    ]
+  },
+  "producer_world_from_field_row_major": [
+    -0.6467831239491048,
+    -0.6196694044010596,
+    -0.44461378726246575,
+    -3956840.0002376535,
+    -0.7626739739722583,
+    0.5255085749245416,
+    0.37705324173933374,
+    3355584.986060604,
+    0.0,
+    0.5829670376016243,
+    -0.8124958049553157,
+    3697560.8312791376,
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "capture_frame": {
+    "east": [
+      -0.6467831239491048,
+      -0.7626739739722583,
+      0.0
+    ],
+    "north": [
+      0.44461378726246575,
+      -0.37705324173933374,
+      0.8124958049553157
+    ],
+    "up": [
+      -0.6196694044010596,
+      0.5255085749245416,
+      0.5829670376016243
+    ],
+    "origin": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "cells": [
+    25,
+    33,
+    34
+  ],
+  "reference": {
+    "reader": "native_building_cell_reference.load_cells",
+    "normals": "compare_building_originals.native_normals",
+    "parts": "native_building_cell_reference.native_parts",
+    "triangle_binding_columns": [
+      "mesh_call_slot",
+      "prepared_source_ordinal",
+      "source_part_or_unknown",
+      "unknown",
+      "wall_roof_stream",
+      "stream_triangle_ordinal"
+    ],
+    "unknown": -1,
+    "source_identity": "Ordinal in the original prepared parent; not an OSM identifier.",
+    "ordering": "load_cells sorts cells, retains each native mesh-call order; native_parts retains selected triangle order and gathers vertices in ascending original index order."
+  },
+  "parts": [
+    {
+      "vertices": 51483,
+      "triangles": 27696,
+      "material": 0,
+      "triangle_binding": {
+        "dtype": "<i4",
+        "shape": [
+          27696,
+          6
+        ],
+        "sha256": "83df673d9a5ec311e0a02a020bc86152b4349bbce6a9156d0651fe2a1696f0e1"
+      }
+    },
+    {
+      "vertices": 20433,
+      "triangles": 7474,
+      "material": 1,
+      "triangle_binding": {
+        "dtype": "<i4",
+        "shape": [
+          7474,
+          6
+        ],
+        "sha256": "a41dad6a1eea6d0682c9833e909e8badc18d0a4ca59c4ba40170edb742ccde02"
+      }
+    },
+    {
+      "vertices": 6458,
+      "triangles": 3306,
+      "material": 2,
+      "triangle_binding": {
+        "dtype": "<i4",
+        "shape": [
+          3306,
+          6
+        ],
+        "sha256": "9655a7a9825ec5eb2876dc970b1cd41324b9ee76f5b9475c7ce9dad04fe976c0"
+      }
+    }
+  ],
+  "material_consumer": "test/experiments/render/native_building_impostors.cpp: Source; original material slots and raw attributes remain unchanged.",
+  "runtime_world_revision": null
+}
