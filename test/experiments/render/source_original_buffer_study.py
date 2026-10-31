@@ -72,7 +72,12 @@ def run(args):
 
     def new():
         chunks, work = read_ranges(
-            directory, index, index["source"], indexed=True, compact=True
+            directory,
+            index,
+            index["source"],
+            indexed=True,
+            compact=True,
+            share_contiguous=True,
         )
         if work != {
             "read_calls": 1,
@@ -128,6 +133,18 @@ def run(args):
             "chunks": len(held),
         }
         del held
+        gc.collect()
+        tracemalloc.start()
+        held = call()
+        survivor = held[0]
+        del held
+        gc.collect()
+        costs[name]["one_source_remaining_traced_bytes"] = (
+            tracemalloc.get_traced_memory()[0]
+        )
+        costs[name]["one_source_backing_buffer_bytes"] = len(survivor[0].base)
+        tracemalloc.stop()
+        del survivor
     report = {
         "source_binding_sha256": provenance["source_binding_sha256"],
         "sources": len(index),
