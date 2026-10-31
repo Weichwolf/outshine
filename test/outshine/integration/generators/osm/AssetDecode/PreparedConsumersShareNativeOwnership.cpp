@@ -1,6 +1,7 @@
 #include "AssetCache.h"
 #include "AssetProduct.h"
 #include "Check.h"
+#include "HeapProbe.h"
 #include "MvtWireFixture.h"
 #include "OsmCacheFixture.h"
 #include "PreparedOsmTiles.h"
@@ -13,6 +14,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <print>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -172,6 +174,94 @@ void BoundedWarm(const std::filesystem::path &directory, size_t budget, bool suf
         "the constrained replay uses only its small persisted native product");
 }
 
+bool AwaitProduct(PreparedOsmTiles &cache,
+                  const OsmField &layout,
+                  Tasks &compute,
+                  Product &product) {
+  const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (!product && std::chrono::steady_clock::now() < until) {
+    if (!Poll(cache, layout, product)) { return false; }
+    (void)compute.AwaitCompletion(0.001);
+  }
+  CHECK(product, "an available native owner slot reaches a complete offline product");
+  return product != nullptr;
+}
+
+void PinnedOwners(const std::filesystem::path &directory) {
+  std::atomic_uint calls{0};
+  Test::OsmCache::NoTransport transport;
+  Tasks compute(2);
+  auto session = Test::OsmCache::OpenSession(
+      std::make_unique<Test::OsmCache::VectorSource>("r1", std::vector<uint8_t>{}, calls));
+  CHECK(session, "the owner-pressure replay has no available source input");
+  if (!session) { return; }
+  constexpr size_t inputMost = size_t{128} * 1024;
+  auto opened = PreparedOsmTiles::Open(directory.string(),
+                                       *session,
+                                       transport,
+                                       compute,
+                                       {.ProductsMost = 2, .InputBytesMost = inputMost});
+  CHECK(opened, "two held owners share a finite native-input budget");
+  if (!opened) { return; }
+  auto &cache = **opened;
+  const auto decoded = DecoderBytes(directory);
+  if (!decoded) { return; }
+  const std::array<std::string, 1> layers{"buildings"};
+  const OsmField layout(2, layers, MvtSchema::OpenMapTiles);
+  Product pinned;
+  Product replaceable;
+  if (!AwaitProduct(cache, layout, compute, pinned) ||
+      !AwaitProduct(cache, layout, compute, replaceable)) {
+    return;
+  }
+  const size_t warmHeap = HeapProbe::LiveBytes();
+  size_t halfwayHeap = 0;
+  constexpr size_t rounds = 96;
+  for (size_t turn = 0; turn < rounds; ++turn) {
+    const OsmField next(2, layers, MvtSchema::OpenMapTiles);
+    Product alias = replaceable;
+    replaceable.reset();
+    const auto held = cache.AdmissionCounts();
+    CHECK(held.Consumers == 2 && held.Jobs == 0 && held.Tickets == 0 &&
+              held.InputBytes == 2 * *decoded && held.ReceiptBytes == 0,
+          "the last alias keeps its real decoded storage and owner slot charged");
+    const auto blocked = cache.Acquire(kAt, next);
+    CHECK(blocked && blocked->Status == PreparedOsmTiles::State::Pending && !blocked->Product &&
+              cache.AdmissionCounts().Consumers == 2 && cache.AdmissionCounts().Jobs == 0 &&
+              cache.Costs().Hits == turn + 2,
+          "a third owner defers before package IO while both owner slots remain pinned");
+    alias.reset();
+    CHECK(cache.AdmissionCounts().Consumers == 1 && cache.AdmissionCounts().InputBytes == *decoded,
+          "the actual last alias release returns exactly one owner slot and its bytes");
+    if (!AwaitProduct(cache, next, compute, replaceable)) { return; }
+    const auto ready = cache.AdmissionCounts();
+    CHECK(
+        ready.Consumers == 2 && ready.Jobs == 0 && ready.Tickets == 0 && ready.Running == 0 &&
+            ready.InputBytes == 2 * *decoded && ready.InputBytes <= inputMost &&
+            ready.ReceiptBytes == 0 && cache.Costs().Hits == turn + 3 && calls == 0 &&
+            cache.Costs().Generations == 0 && !pinned->Points().empty(),
+        "owner replacement preserves its peer and retires all transient work without source work");
+    if (turn == rounds / 2 - 1) { halfwayHeap = HeapProbe::LiveBytes(); }
+  }
+  const auto finalHeap = HeapProbe::LiveBytes();
+  pinned.reset();
+  replaceable.reset();
+  const auto empty = cache.AdmissionCounts();
+  CHECK(empty.Consumers == 0 && empty.Jobs == 0 && empty.Tickets == 0 && empty.Running == 0 &&
+            empty.InputBytes == 0 && empty.ReceiptBytes == 0,
+        "the final persistent owner releases all shared admission after repeated demand changes");
+  std::println("OWNER_LIFETIME rounds={} input_most={} decoded_bytes={} warm_heap={} "
+               "halfway_heap={} final_heap={} released_heap={} allocator_bytes={}",
+               rounds,
+               inputMost,
+               *decoded,
+               warmHeap,
+               halfwayHeap,
+               finalHeap,
+               HeapProbe::LiveBytes(),
+               HeapProbe::BreakBytes());
+}
+
 }
 
 int main() {
@@ -182,6 +272,7 @@ int main() {
   Shared(directory);
   BoundedWarm(directory, size_t{64} * 1024, false);
   BoundedWarm(directory, size_t{128} * 1024, true);
+  PinnedOwners(directory);
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "all isolated persisted products are removed after their consumers retire");

@@ -92,7 +92,7 @@ PreparedOsmTiles::~PreparedOsmTiles() {
   for (const auto &work : Pending_) {
     if (work->Task != Tasks::kNoTask) { Compute_.Wait(work->Task); }
     if (!work->Ticket) { continue; }
-    auto &ticket = *work->Ticket;
+    const auto &ticket = *work->Ticket;
     constexpr double waitS = 0.001;
     while (!ticket.Poll().Finished) { (void)Compute_.AwaitCompletion(waitS); }
   }
@@ -169,7 +169,7 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
   if (Pending_.size() >= Budget_.PendingMost) { return SourceDelivery{}; }
   auto consumer = Pipeline_.OpenConsumer();
   if (!consumer) { return SourceDelivery{}; }
-  auto production = std::make_shared<Production>(*this, definition, at, request);
+  const auto production = std::make_shared<Production>(*this, definition, at, request);
   auto ticket = Pipeline_.RequestLogical(
       *consumer,
       {.Address = request,
