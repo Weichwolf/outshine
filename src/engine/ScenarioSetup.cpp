@@ -269,6 +269,7 @@ PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  candidate->StopEditingCandidate();
   return true;
 }
 
