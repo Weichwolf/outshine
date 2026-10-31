@@ -159,12 +159,16 @@
       "sha256": "c8d34305cda66d96a8c16b52fe5cf2a2e9fd269e50cb03d1db9f418836c466b0"
     },
     "roads.json.gz": {
-      "bytes": 643013,
-      "sha256": "dace1a11e950f68b21bf6708a3d585f71ed05f8bfccdf7bf712a914f96e6ff4f"
+      "bytes": 2965906,
+      "sha256": "f0d88835781a994fa688c13075600a8f385651897ec0b51cb55786949f2f49c5"
     },
     "road-overlap.json": {
       "bytes": 308,
       "sha256": "8ad7a0e86f8e0273846d909de6d7588e5c63d47ef7fe0c93ab0dd461de16017f"
+    },
+    "road-bindings.json.gz": {
+      "bytes": 69218,
+      "sha256": "d3a646325d4ad6f8602faa57698d747c590983b5864e28fc597d5b3bc8c80603"
     }
   },
   "full_private_capture_sha256": "5902063f1f60994b8343060edb0ba53a973c3109a8940330860178cf116eddb1",
@@ -172,6 +176,11 @@
     "source_commit": "e8d9002a77c661e430c21d2d3289c90ac9ace370",
     "full_private_capture_sha256": "ee6edb291097a26216d9676609a88bd4a424398b939054c9bc0f90df4d2628e8",
     "selection": "whole original streets parts with placed bounds intersecting local rectangle; complete source ways chosen by original feature bounds",
-    "source_binding_scope": "original manifest page/part references and local source-way/provider-feature identities; no per-render-triangle to source-way mapping"
+    "source_binding_scope": "original manifest page/part references and local source-way/provider-feature identities; no per-render-triangle to source-way mapping",
+    "binding_scope": "keyed native plan bindings and actual loaded-page bindings; complete related mixed pages retained; no per-triangle source-way assignment",
+    "native_binding_trace_sha256": {
+      "keyed_plan": "9426165f9d1d85cfaad46e0a8dbc45172e03cc499aa288ac8af44a3c241d4e7e",
+      "page_loads": "3a4bf0a92f6d8bc409933329cb4524366a5f19f1a30288089505ae0f62385ca8"
+    }
   }
 }
