@@ -11,6 +11,7 @@ from camera_height_inputs import digest
 from cycle_bridge_display import append
 from elevated_rail_hardware import bound_input, selected_bed
 from elevated_rail_hardware_verify import arrays, source_axis
+from elevated_rail_joints import joints
 from experiment_output import create_output
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.rail_hardware._geometry import SLEEPER
@@ -33,6 +34,10 @@ def bound_inputs(directory, receipt):
     source = bound_input(Path(report["buildings"]), Path(report["building_receipt"]))
     bed, triangle = selected_bed(source)
     original = {r["source_id"]: r for r in source.rows}
+    allowed = {
+        frozenset(source.rows[i]["source_id"] for i in joint["indices"])
+        for joint in joints(source.rows)
+    }
     if report["ground_source_ids"] != source.state[4]["source_ids"]:
         raise ValueError("Whole old ground source snapshot changed")
     clearance = min(
@@ -41,7 +46,7 @@ def bound_inputs(directory, receipt):
     )
     cases = []
     for row in report["components"]:
-        axis, keys = source_axis(row, original, set(original))
+        axis, keys = source_axis(row, original, allowed)
         widths = {original[k]["width_m"] for k in keys}
         if len(widths) != 1:
             raise ValueError("One actual existing width across whole chain required")
