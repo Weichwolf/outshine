@@ -26,6 +26,7 @@ def adjacency(source, candidate):
     edge_owner = {}
     keys = []
     counts = Counter()
+    distance_bins = {str(F(1, 10**power)): 0 for power in range(1, 7)}
     maximum_squared = F(0)
     for index, face in enumerate(source["indices"]):
         vertices = list(map(int, face))
@@ -78,9 +79,13 @@ def adjacency(source, candidate):
                 maximum_squared = max(maximum_squared, squared)
                 if squared:
                     counts["nonzero_plane_residual_vertices"] += 1
+                    for threshold in distance_bins:
+                        if squared <= F(threshold) ** 2:
+                            distance_bins[threshold] += 1
     return {
         "pairs": dict(counts),
         "maximum_corresponding_plane_distance_m": math.sqrt(float(maximum_squared)),
+        "nonzero_distance_at_most_m": distance_bins,
         "scope": "Exact encoded-plane equality and exact squared distances; displayed square root is approximate, no tolerance-based admission.",
     }
 

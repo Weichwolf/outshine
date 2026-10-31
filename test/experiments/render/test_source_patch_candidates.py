@@ -50,6 +50,12 @@ class SourcePatchCandidates(unittest.TestCase):
         self.assertEqual(len(p["patches"]), 2)
         self.assertEqual(sum(len(x["triangles"]) for x in p["patches"]), 2)
 
+    def test_reversed_original_winding_cannot_merge_through_a_shading_normal(self):
+        s = source()
+        s["indices"][1] = s["indices"][1, ::-1]
+        p = prepare(s)
+        self.assertEqual(len(p["patches"]), 2)
+
     def test_changed_affine_attribute_is_an_original_remainder(self):
         s = source()
         s["attributes"][0]["uv1"][3, 0] = 0.125
