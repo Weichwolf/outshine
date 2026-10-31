@@ -83,7 +83,7 @@ def run(args):
             chain, shapely.boundary(shapely.polygons(triangles[:, :, :2]))
         )
     )
-    exact_road, _ = sample_roads(triangles, breaks)
+    exact_road, break_bindings = sample_roads(triangles, breaks)
     stations = np.r_[0, np.cumsum(np.linalg.norm(np.diff(road_xy, axis=0), axis=1))]
     target = np.interp(
         shapely.line_locate_point(chain, shapely.points(breaks)), stations, road[:, 2]
@@ -94,10 +94,13 @@ def run(args):
     args.output.mkdir(parents=True)
     np.savez(args.output / "bank.npz", **body, water=water, road=road, dry_rim_up=rim)
     np.savez(args.output / "water-component.npz", **whole)
-    bindings = [[face_ids[i].tolist() for i in values] for values in bindings]
-    (args.output / "road-bindings.json").write_text(
-        json.dumps(interfaces(args.inputs, bindings, plan_key), indent=2) + "\n"
-    )
+    bindings = [
+        [face_ids[i].tolist() for i in values] for values in bindings + break_bindings
+    ]
+    bound = interfaces(args.inputs, bindings, plan_key)
+    bound["road_breakpoint_faces"] = bound["node_faces"][len(road) :]
+    bound["node_faces"] = bound["node_faces"][: len(road)]
+    (args.output / "road-bindings.json").write_text(json.dumps(bound, indent=2) + "\n")
     report = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
