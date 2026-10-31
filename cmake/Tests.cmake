@@ -439,6 +439,11 @@ if(APPLE)
     OUTPUT_NAME "metal-work-profile" LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/probes")
 endif()
 
+add_executable(test_experiments_assets_NativePackageIo EXCLUDE_FROM_ALL
+  test/experiments/assets/native_package_io.cpp)
+target_compile_options(test_experiments_assets_NativePackageIo PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_assets_NativePackageIo PRIVATE outshine_content_assets)
+
 add_executable(test_experiments_render_NativeBuildingParents EXCLUDE_FROM_ALL
   test/experiments/render/native_building_parents.cpp)
 add_library(test_harness_stored_sample_quads STATIC EXCLUDE_FROM_ALL
