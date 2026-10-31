@@ -70,6 +70,10 @@ class OriginalRangesTest(unittest.TestCase):
         ):
             rows, _ = read_ranges(path, index, ids, indexed=True)
             np.testing.assert_array_equal(rows.view("u1"), expected.view("u1"))
+            chunks, _ = read_ranges(path, index, ids, indexed=True, compact=True)
+            self.assertEqual(sum(len(tri) for tri, _ in chunks), len(expected))
+        with self.assertRaises(ValueError):
+            read_ranges(self.path, self.index, [8], compact=True)
         encoded = encode_indexed(self.rows[[0, 2]])
         with self.assertRaises(ValueError):
             decode_indexed(encoded[:-1])

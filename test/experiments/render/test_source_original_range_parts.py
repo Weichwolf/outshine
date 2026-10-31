@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-from source_original_range_parts import part_inputs
-from source_original_ranges import original_rows
+from source_original_range_parts import compact_part_inputs, part_inputs
+from source_original_ranges import decode_indexed, encode_indexed, original_rows
 from source_triangle_materials import triangle_parts
 
 
@@ -57,6 +57,33 @@ class OriginalPartInputsTest(unittest.TestCase):
         corrupt["indices"][0, 0] = 5
         with self.assertRaisesRegex(ValueError, "crosses"):
             part_inputs(corrupt, self.source["parts"])
+
+    def test_compact_chunks_restore_original_parts_without_corner_expansion(self):
+        chunks = tuple(
+            decode_indexed(
+                encode_indexed(self.rows[self.rows["binding"][:, 1] == source]),
+                compact=True,
+            )
+            for source in (2, 1)
+        )
+        expected = part_inputs(self.rows, self.source["parts"])
+        actual = compact_part_inputs(chunks, self.source["parts"])
+        for (part, arrays, binding), (old_part, old_arrays, old_binding) in zip(
+            actual, expected, strict=True
+        ):
+            self.assertEqual(part, old_part)
+            self.assertEqual(binding.tobytes(), old_binding.tobytes())
+            for name in arrays:
+                self.assertEqual(arrays[name].tobytes(), old_arrays[name].tobytes())
+        with self.assertRaisesRegex(ValueError, "unique"):
+            compact_part_inputs((chunks[0], chunks[0]), self.source["parts"])
+        changed_vertices = chunks[0][1].copy()
+        changed_vertices["words"][changed_vertices["original"] == 0, 0] ^= 1
+        with self.assertRaisesRegex(ValueError, "disagree"):
+            compact_part_inputs(
+                ((chunks[0][0], changed_vertices), chunks[1]), self.source["parts"]
+            )
+        self.assertEqual(len(compact_part_inputs((), self.source["parts"])), 2)
 
 
 if __name__ == "__main__":
