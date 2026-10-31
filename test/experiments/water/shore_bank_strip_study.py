@@ -19,7 +19,14 @@ import shapely
 from native_water_prepared import bind_export, decode
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
-from shore_bank_inputs import height, road_chain, roads, sample_roads, source_dem
+from shore_bank_inputs import (
+    height,
+    road_chain,
+    road_rim,
+    roads,
+    sample_roads,
+    source_dem,
+)
 from shore_bank_strip import build
 from shore_road_sources import interfaces
 from water_shore_component import component
@@ -39,7 +46,10 @@ def run(args):
     bind_export(data, capture["water"])
     whole = component(data["prepared"], args.face)
     domain = shapely.box(*args.bounds)
-    witness = shapely.Point(manifest["native_observation"]["points_enu_m"][1])
+    selector = getattr(args, "shore_point", None)
+    if selector is None:
+        selector = manifest["native_observation"]["points_enu_m"][1]
+    witness = shapely.Point(selector)
     loops = [
         shapely.LineString(whole["vertices"][np.r_[ids, ids[0]], :2])
         for a, b in pairwise(whole["loop_offsets"])
@@ -60,8 +70,14 @@ def run(args):
     shore_xy = shapely.get_coordinates(shore)
     sampler = SurfaceSampler(Mesh(whole["vertices"], whole["faces"]))
     water = np.c_[shore_xy, height(sampler, shore_xy)]
-    prior = source_dem(args.inputs, whole["anchor"], manifest, expanded)
-    rim = height(prior, shore_xy)
+    rim_source = getattr(args, "rim_source", "source_dem")
+    if rim_source == "source_dem":
+        prior = source_dem(args.inputs, whole["anchor"], manifest, expanded)
+        rim = height(prior, shore_xy)
+    elif rim_source == "road_level":
+        rim = road_rim(road, shore_xy)
+    else:
+        raise ValueError("explicit source_dem or road_level bank rim required")
     tracemalloc.start()
     started = time.process_time()
     body = build(water, rim, road, bed_depth_m=args.depth)
@@ -110,9 +126,11 @@ def run(args):
         ).hexdigest(),
         "input_receipt": receipt,
         "bounds_enu_m": args.bounds,
+        "selector_point_enu_m": list(selector),
         "shore_interface_nodes": len(water),
         "shore_length_m": shore.length,
         "road_interface_nodes": len(road),
+        "dry_rim_source": rim_source,
         "road_source_breakpoints_checked": len(breaks),
         "road_interface_max_height_error_m": error,
         "wet_and_road_intrusion_area_m2": intrusion,
@@ -128,7 +146,7 @@ def run(args):
         "single_instrumented_body_cpu_s": elapsed,
         "body_traced_peak_bytes": peak,
         "scope": __doc__
-        + " Source DEM uses declared piecewise affine WGS84 reference triangles, not native bilinear/shader equivalence. A retaining strip is procedurally inferred; source observations do not prove a real wall. Lower exterior closure continues nearest shore bed levels procedurally. Both end caps are continuation ports. Primitive/source membership uses captured ranges; absent exterior source-way rows stay null, junction membership stays shared. Exterior terrain reconciliation, navigation/collision integration, global refusal, source-cut admission and native/device checks remain open. GEOS/Float64 checks are finite, not exact certificates. Costs exclude input preparation, decoding, projections, validation, IO, GEOS native heap and allocation traffic.",
+        + " The explicit rim choice uses original DEM reference triangles or procedurally continues the supplied road-edge level. It neither reconstructs an observed bank nor invents missing exterior DEM samples. DEM reference triangles are not native bilinear/shader equivalence. Lower exterior closure continues nearest shore bed levels procedurally. Both end caps are continuation ports. Primitive/source membership uses captured ranges; absent exterior source-way rows stay null, junction membership stays shared. Exterior terrain reconciliation, navigation/collision integration, global refusal, source-cut admission and native/device checks remain open. GEOS/Float64 checks are finite, not exact certificates. Costs exclude input preparation, decoding, projections, validation, IO, GEOS native heap and allocation traffic.",
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     display(body, water, road, triangles, args.output)
@@ -181,4 +199,8 @@ if __name__ == "__main__":
     parser.add_argument("--bounds", type=float, nargs=4, required=True)
     parser.add_argument("--depth", type=float, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--rim-source", choices=("source_dem", "road_level"), default="source_dem"
+    )
+    parser.add_argument("--shore-point", type=float, nargs=2)
     run(parser.parse_args())

@@ -128,3 +128,13 @@ def height(sampler, points):
     if np.any(result.face_indices < 0):
         raise ValueError("original surface does not qualify every interface sample")
     return result.points_enu_m[:, 2]
+
+
+def road_rim(road, points):
+    """Procedural bank crest from the unchanged, supplied 3D road-edge profile."""
+    line = shapely.LineString(road[:, :2])
+    stations = np.r_[0, np.cumsum(np.linalg.norm(np.diff(road[:, :2], axis=0), axis=1))]
+    if not line.is_simple or np.any(np.diff(stations) <= 0):
+        raise ValueError("unambiguous ordered road-edge profile required")
+    feet = shapely.line_locate_point(line, shapely.points(points))
+    return np.interp(feet, stations, road[:, 2])

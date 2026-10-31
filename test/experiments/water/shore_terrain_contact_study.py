@@ -19,6 +19,8 @@ from conforming_body_contact import contact_error
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from pool_terrain_contact import ContactSurface
+from shore_adaptive_terrain import load as load_adaptive
+from shore_bank_strip import combine
 from shore_bank_strip_study import run as bank_study
 from shore_contact_audit import audit, boundary_edges
 from shore_contact_edges import attach
@@ -46,7 +48,7 @@ def reconcile(body, vertices, faces, footprint, *, method="local"):
         parents,
         contacts,
     )
-    return {
+    products = {
         "terrain_vertices": terrain,
         "terrain_faces": terrain_faces,
         "terrain_source_faces": sources,
@@ -54,7 +56,14 @@ def reconcile(body, vertices, faces, footprint, *, method="local"):
         "body_faces": refined_faces,
         "body_parent_faces": parents,
         "contacts": contacts,
-    }, {"cut": cut_note, "edge_subdivision": edge_note, "interfaces": interface}
+    }
+    if "source_components" in body:
+        products["body_source_components"] = body["source_components"][parents]
+    return products, {
+        "cut": cut_note,
+        "edge_subdivision": edge_note,
+        "interfaces": interface,
+    }
 
 
 def canonical_faces(products):
@@ -70,9 +79,12 @@ def water_bed_comparison(water, original, original_faces, products, depth_m):
         SurfaceSampler(Mesh(water["vertices"] - [0, 0, depth_m], water["faces"]))
     )
     return {
-        "original": contact_error(bed, original, original_faces),
+        "original": contact_error(bed, original, original_faces, include_witness=True),
         "after": contact_error(
-            bed, products["terrain_vertices"], products["terrain_faces"]
+            bed,
+            products["terrain_vertices"],
+            products["terrain_faces"],
+            include_witness=True,
         ),
         "declared_bed_depth_m": depth_m,
         "scope": "Independent affine common-refinement comparison over the whole water/terrain overlap in the supplied window; target is the captured native water minus the caller's declared bed offset. This validation is outside the timed/profiled construction. The whole river and unknown exterior are not tested.",
@@ -122,8 +134,36 @@ def run(args):
         body = dict(saved)
     with np.load(args.output / "bank/water-component.npz", allow_pickle=False) as saved:
         water = dict(saved)
+    bodies, extra_receipts = [body], []
+    for index, selector in enumerate(getattr(args, "additional_bank", []), 1):
+        extra = args.output / ("bank-" + str(index))
+        bank_study(
+            SimpleNamespace(**(vars(args) | {"output": extra, "shore_point": selector}))
+        )
+        with np.load(extra / "bank.npz", allow_pickle=False) as saved:
+            bodies.append(dict(saved))
+        extra_receipts.append(json.loads((extra / "report.json").read_bytes()))
+    if len(bodies) > 1:
+        body = combine(bodies)
+        np.savez(args.output / "bank-original.npz", **body)
     manifest = json.loads((args.inputs / "input.json").read_bytes())
-    original, faces, heights = load(args.inputs, water["anchor"], manifest)
+    native_note = {"mode": "uniform_original_pages"}
+    adaptive = None
+    input_started = time.process_time()
+    if getattr(args, "adaptive", False):
+        adaptive, native_note = load_adaptive(args.inputs, water["anchor"], manifest)
+        original, faces = adaptive["vertices"], adaptive["faces"]
+        heights = adaptive["height_words"].view("<f4")
+    else:
+        original, faces, heights = load(args.inputs, water["anchor"], manifest)
+    native_note["input_mesh_process_cpu_s"] = time.process_time() - input_started
+    if adaptive is not None:
+        np.savez(args.output / "adaptive-native.npz", **adaptive)
+        if args.allocations:
+            _, native_note["allocations"] = allocations(
+                args.output / "native-mesh.memray",
+                lambda: load_adaptive(args.inputs, water["anchor"], manifest),
+            )
     footprint = shapely.coverage_union_all(
         shapely.polygons(body["vertices"][body["roof_faces"], :2])
     )
@@ -147,6 +187,9 @@ def run(args):
         "load_average_before": load_before,
         "load_average_after": os.getloadavg(),
         "bank_receipt": json.loads((args.output / "bank/report.json").read_bytes()),
+        "additional_bank_receipts": extra_receipts,
+        "bank_components": len(bodies),
+        "native_input": native_note,
         "geometry": note,
         "water_bed_comparison": water_bed_comparison(
             water, original, faces, products, args.depth
@@ -156,9 +199,63 @@ def run(args):
         "scope": __doc__
         + " Existing Float32 postings use the declared WGS84 Double projection and NW-SE diagonals, not native vertex/shader equivalence. Terrain and the closed body are separate meshes, not a Boolean union of solids. All GEOS and contact associations are finite Float64 checks, not exact-rational or Float32 guarantees. First and subsequent normal CPU calls are listed; no isolation/device claim. Optional Memray records one full construction after imports/resident input preparation, including validation and retained output; decode, bank generation, plotting/serialization, full OS/driver memory and copy traffic are excluded. Requested bytes include realloc requests, not unique/live bytes. Native neighbor propagation, navigation/collision, World, motion/p99 and device memory acceptance remain open.",
     }
+    if getattr(args, "compare_prior", None) is not None:
+        if adaptive is None:
+            raise ValueError(
+                "prior neighbor obligations require actual adaptive inputs"
+            )
+        report["prior_obligations"] = prior_obligations(
+            args.compare_prior, products, adaptive
+        )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     display(original, faces, products, water, args.output)
     print(json.dumps(report))
+
+
+def prior_obligations(path, products, adaptive):
+    prior = json.loads((path / "report.json").read_bytes())
+    vertices, faces = products["terrain_vertices"], products["terrain_faces"]
+    lookup = {p.tobytes(): i for i, p in enumerate(vertices)}
+    body_nodes = {int(row["terrain"]): int(row["body"]) for row in products["contacts"]}
+    original = adaptive["vertices"]
+    outer = shapely.union_all(
+        shapely.linestrings(original[boundary_edges(adaptive["faces"]), :2])
+    )
+    rows = []
+    for obligation in prior["geometry"]["interfaces"]["outer_obligations"]:
+        required = np.array(obligation["required_xyz"], dtype="<f8")
+        node = lookup.get(required.tobytes())
+        if node is None:
+            raise ValueError("prior required neighbor XYZ is not word-identical")
+        if (
+            node not in body_nodes
+            or products["body_vertices"][body_nodes[node]].tobytes()
+            != required.tobytes()
+        ):
+            raise ValueError("prior required XYZ has no shared bank-body alias")
+        incident = np.flatnonzero(np.any(faces == node, axis=1))
+        pages = np.unique(
+            adaptive["source_pages"][products["terrain_source_faces"][incident]]
+        )
+        distance = outer.distance(shapely.Point(required[:2]))
+        if len(pages) < 2 or distance <= 1e-8:
+            raise ValueError(
+                "prior obligation has no actual interior neighbor coupling"
+            )
+        rows.append(
+            {
+                "required_xyz": required.tolist(),
+                "terrain_node": node,
+                "body_node": body_nodes[node],
+                "source_page_ids": pages.tolist(),
+                "distance_from_new_outer_boundary_m": distance,
+            }
+        )
+    return {
+        "prior_commit": prior["commit"],
+        "word_equal_and_coupled": len(rows),
+        "nodes": rows,
+    }
 
 
 def clipped(triangles, bounds):
@@ -202,38 +299,28 @@ def display(original, original_faces, products, water, output):
     figure = plt.figure(figsize=(12, 6), layout="constrained")
     for index, (vertices, faces, title) in enumerate(
         (
-            (original, original_faces, "Original captured posting surface"),
+            (original, original_faces, "Original posting mesh reference"),
             (
                 products["terrain_vertices"],
                 products["terrain_faces"],
-                "Conformed terrain and fixed bank body",
+                "Conformed terrain and bank geometry",
             ),
         ),
         1,
     ):
         axis = figure.add_subplot(1, 2, index, projection="3d")
-        axis.add_collection3d(
-            Poly3DCollection(
-                clipped(vertices[faces], bounds),
-                facecolors="sandybrown",
-                edgecolors="peru",
-                linewidth=0.1,
-            )
-        )
+        triangles = clipped(vertices[faces], bounds)
+        colours = ["sandybrown"] * len(triangles)
         if index == 2:
-            axis.add_collection3d(
-                Poly3DCollection(
-                    clipped(products["body_vertices"][products["body_faces"]], bounds),
-                    facecolors="tan",
-                    edgecolors="saddlebrown",
-                    linewidth=0.15,
-                )
-            )
+            bank = clipped(products["body_vertices"][products["body_faces"]], bounds)
+            triangles.extend(bank)
+            colours.extend(["tan"] * len(bank))
+        surface = clipped(water["vertices"][water["faces"]], bounds)
+        triangles.extend(surface)
+        colours.extend(["steelblue"] * len(surface))
         axis.add_collection3d(
             Poly3DCollection(
-                clipped(water["vertices"][water["faces"]], bounds),
-                facecolors="steelblue",
-                alpha=0.7,
+                triangles, facecolors=colours, edgecolors="gray", linewidth=0.1
             )
         )
         z0, z1 = original[:, 2].min() - 1, original[:, 2].max() + 1
@@ -255,4 +342,13 @@ if __name__ == "__main__":
     parser.add_argument("--depth", type=float, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--allocations", action="store_true")
+    parser.add_argument("--adaptive", action="store_true")
+    parser.add_argument("--compare-prior", type=Path)
+    parser.add_argument(
+        "--rim-source", choices=("source_dem", "road_level"), default="source_dem"
+    )
+    parser.add_argument("--shore-point", type=float, nargs=2)
+    parser.add_argument(
+        "--additional-bank", type=float, nargs=2, action="append", default=[]
+    )
     run(parser.parse_args())

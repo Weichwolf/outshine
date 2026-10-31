@@ -247,7 +247,7 @@ def display(root, catalog, requests, products):
     for axis, requested, title in zip(
         axes,
         requests,
-        ("First request", "Next request: one shared / one added"),
+        ("First request", "Next request"),
         strict=True,
     ):
         axis.add_collection(
@@ -258,7 +258,8 @@ def display(root, catalog, requests, products):
                 linewidth=0.1,
             )
         )
-        for key, colour in zip(requested, ("lightblue", "lightgreen"), strict=True):
+        for index, key in enumerate(requested):
+            colour = ("lightblue", "lightgreen")[index % 2]
             part, _ = read(root / rows[key]["file"])
             axis.add_collection(
                 PolyCollection(

@@ -8,12 +8,12 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from shore_bank_strip import contact_edges
 
 
 def attach(body, terrain, terrain_faces, outer_boundary, *, tolerance_m=1e-8):
     vertices, faces = body["vertices"], body["faces"]
-    chains = [body["shore_lower"], body["road_upper"]]
-    edges = np.vstack([np.column_stack((c[:-1], c[1:])) for c in chains])
+    edges = contact_edges(body)
     a, b = vertices[edges[:, 0]], vertices[edges[:, 1]]
     delta = b[:, :2] - a[:, :2]
     length_squared = np.einsum("ij,ij->i", delta, delta)

@@ -9,6 +9,45 @@ import shapely
 from pool_body import positive_faces
 
 
+def contact_edges(body):
+    if "contact_edges" in body:
+        return body["contact_edges"]
+    return np.vstack(
+        [
+            np.column_stack((chain[:-1], chain[1:]))
+            for chain in (body["shore_lower"], body["road_upper"])
+        ]
+    )
+
+
+def combine(bodies):
+    """One owner for separate closed bank components; no connecting gap edges."""
+    if not 1 <= len(bodies) <= 8:
+        raise ValueError("bounded supplied bank components required")
+    vertices, faces, roofs, contacts, sources = [], [], [], [], []
+    offset = 0
+    for index, body in enumerate(bodies):
+        vertices.append(body["vertices"])
+        faces.append(body["faces"] + offset)
+        roofs.append(body["roof_faces"] + offset)
+        contacts.append(contact_edges(body) + offset)
+        sources.append(np.full(len(body["faces"]), index, dtype="<u4"))
+        offset += len(body["vertices"])
+    result = {
+        "vertices": np.vstack(vertices),
+        "faces": np.vstack(faces),
+        "roof_faces": np.vstack(roofs),
+        "contact_edges": np.vstack(contacts),
+        "source_components": np.concatenate(sources),
+    }
+    polygons = shapely.polygons(result["vertices"][result["roof_faces"], :2])
+    if not shapely.coverage_is_valid(polygons):
+        raise ValueError(
+            "bank components overlap or have nonconforming plan boundaries"
+        )
+    return result
+
+
 def build(shore_water, dry_rim_up, road_interface, *, bed_depth_m):
     shore = np.asarray(shore_water, float)
     road = np.asarray(road_interface, float)

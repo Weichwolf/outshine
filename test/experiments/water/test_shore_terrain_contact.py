@@ -1,15 +1,16 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
 import shapely
 from conforming_body_contact import grid
-from shore_bank_strip import build
+from shore_bank_strip import build, combine
 from shore_contact_audit import audit, boundary_edges
 from shore_contact_edges import attach
 from shore_native_terrain import load
-from shore_terrain_contact_study import canonical_faces, reconcile
+from shore_terrain_contact_study import canonical_faces, prior_obligations, reconcile
 from shore_terrain_cut import cut
 
 FIXTURE = Path(__file__).parents[1] / "transport/fixtures/feldkirch-shore-contact"
@@ -114,6 +115,72 @@ class WholeBankTerrainContact(unittest.TestCase):
                     heights[row : row + 33, column : column + 33].tobytes(),
                     source[page["array"]][1:34, 1:34].tobytes(),
                 )
+
+    def test_separate_banks_share_an_owner_without_connecting_their_gap(self):
+        xy, faces = grid(np.arange(9) / 2, np.arange(-4, 7) / 2)
+        vertices = np.c_[xy, np.full(len(xy), 12.0)]
+        north = build(
+            [[-1, 1, 10], [5, 1, 10.5]],
+            [15, 15.5],
+            [[-1, 2, 16], [5, 2, 16.5]],
+            bed_depth_m=2,
+        )
+        south = build(
+            [[-1, 0, 10], [5, 0, 10.5]],
+            [15, 15.5],
+            [[-1, -1, 16], [5, -1, 16.5]],
+            bed_depth_m=2,
+        )
+        body = combine([north, south])
+        edges = body["contact_edges"]
+        self.assertTrue(
+            np.all(
+                (edges[:, 0] < len(north["vertices"]))
+                == (edges[:, 1] < len(north["vertices"]))
+            )
+        )
+        footprint = shapely.coverage_union_all(
+            shapely.polygons(body["vertices"][body["roof_faces"], :2])
+        )
+        output, _ = reconcile(body, vertices, faces, footprint)
+        self.assertEqual(set(output["body_source_components"]), {0, 1})
+        self.assertEqual(len(boundary_edges(output["body_faces"])), 0)
+        with self.assertRaises(ValueError):
+            combine([north, north])
+
+    def test_prior_edge_requires_identical_words_and_both_actual_neighbors(self):
+        vertices, faces, body, footprint = self.inputs()
+        products, _ = reconcile(body, vertices, faces, footprint)
+        ids = np.flatnonzero(
+            np.all(products["terrain_vertices"][:, :2] == [1, 0], axis=1)
+        )
+        self.assertEqual(len(ids), 1)
+        point = products["terrain_vertices"][ids[0]].copy()
+        prior = {
+            "commit": "prior",
+            "geometry": {
+                "interfaces": {"outer_obligations": [{"required_xyz": point.tolist()}]}
+            },
+        }
+        adaptive = {
+            "vertices": vertices,
+            "faces": faces,
+            "source_pages": np.where(vertices[faces, 0].min(axis=1) < 1, 1, 2),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.outshine_research."
+        ) as tmp:
+            root = Path(tmp)
+            (root / "report.json").write_text(json.dumps(prior))
+            result = prior_obligations(root, products, adaptive)
+            self.assertEqual(result["word_equal_and_coupled"], 1)
+            self.assertEqual(result["nodes"][0]["source_page_ids"], [1, 2])
+            prior["geometry"]["interfaces"]["outer_obligations"][0]["required_xyz"][
+                2
+            ] += 0.01
+            (root / "report.json").write_text(json.dumps(prior))
+            with self.assertRaisesRegex(ValueError, "word-identical"):
+                prior_obligations(root, products, adaptive)
 
 
 if __name__ == "__main__":

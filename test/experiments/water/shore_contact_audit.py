@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from shore_bank_strip import contact_edges
 
 
 def boundary_edges(faces):
@@ -49,9 +50,8 @@ def audit(
     outer_lines = shapely.linestrings(original[outer_edges, :2])
     outer = shapely.union_all(outer_lines)
     outer_tree = shapely.STRtree(outer_lines)
-    chains = [body["shore_lower"], body["road_upper"]]
     interface = shapely.union_all(
-        [shapely.LineString(body["vertices"][c, :2]) for c in chains]
+        shapely.linestrings(body["vertices"][contact_edges(body), :2])
     )
     edges = np.unique(
         np.sort(refined_faces[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2), axis=1),
