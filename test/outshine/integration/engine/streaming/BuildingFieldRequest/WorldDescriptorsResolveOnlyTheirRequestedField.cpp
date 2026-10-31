@@ -249,6 +249,14 @@ void GeometricRequests(const Fixture &fixture,
               pipeline.Counts().Jobs == 0 && pipeline.Counts().Consumers == 0,
           "an invalid geometric budget admits no metadata work or consumer");
   }
+  {
+    auto invalid = demand;
+    invalid.GeometricView->Space = static_cast<BuildingFieldRequest::CoordinateSpace>(255);
+    CHECK(!BuildingFieldRequest::Start(
+              pipeline, workers, cache, nullptr, original.Source, invalid, Budget()) &&
+              pipeline.Counts().Jobs == 0 && pipeline.Counts().Consumers == 0,
+          "unknown coordinate spaces cannot silently fall through to the capture-local path");
+  }
   for (const bool crossing : {false, true}) {
     auto rejected = demand;
     if (crossing) {
@@ -269,9 +277,40 @@ void GeometricRequests(const Fixture &fixture,
     CHECK(!result && !repeated && result.error() == repeated.error(),
           "a rejected pose stays rejected without falling through on a later Poll");
   }
+  const auto worldDemand = [&](BuildingFieldRequest::Demand value) {
+    const auto &frame = *description.WorldFromField;
+    const auto transform = [&](const Vec3 &local) {
+      Vec3 world;
+      for (size_t row = 0; row < 3; ++row) {
+        for (size_t column = 0; column < 3; ++column) {
+          world[row] += frame.At(row, column) * local[column];
+        }
+      }
+      return world;
+    };
+    auto &pose = *value.GeometricView;
+    pose.Camera.EyeM = frame.Translation() + transform(pose.Camera.EyeM);
+    pose.Camera.Right = transform(pose.Camera.Right);
+    pose.Camera.Up = transform(pose.Camera.Up);
+    pose.Camera.Forward = transform(pose.Camera.Forward);
+    pose.Space = BuildingFieldRequest::CoordinateSpace::World;
+    return value;
+  };
+  {
+    const auto rejected = worldDemand(demand);
+    auto request = BuildingFieldRequest::Start(
+        pipeline, workers, cache, nullptr, original.Source, rejected, Budget());
+    CHECK(request, "a World/ECEF pose enters only the existing metadata path");
+    if (request) {
+      const auto result = Await(*request);
+      CHECK(!result && result.error().contains("geometric") && pipeline.Counts().Tickets == 1,
+            "an over-budget World pose is rejected before field IO/generation/decode");
+    }
+  }
   CHECK(metadata->PublishField({0}, *original.Field, kMiB),
         "a valid fine product is persisted after the rejection controls");
   demand.GeometricView->GeometryErrorMostPx = 1;
+  demand = worldDemand(demand);
   auto request = BuildingFieldRequest::Start(
       pipeline, workers, cache, nullptr, original.Source, demand, Budget());
   CHECK(request, "a far pose uses the same source-free request and persisted field");
@@ -280,7 +319,7 @@ void GeometricRequests(const Fixture &fixture,
   CHECK(result && *result && (**result).GeometricError && (**result).GeometricError->DepthInside &&
             (**result).GeometricError->L1UpperPx <= 1 &&
             Hash(*(**result).Field) == Hash(*original.Field),
-        "a valid geometric candidate reports its bound and retains exact native cached bytes");
+        "a World/ECEF candidate uses its actual bound frame and retains exact cached field bytes");
 }
 
 void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Product &original) {

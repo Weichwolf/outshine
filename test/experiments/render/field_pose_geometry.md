@@ -214,10 +214,15 @@ The composed interval rows reuse the existing whole-source displacement kernel;
 no finer source geometry, atlas pixels or new persisted metadata are required.
 
 The caller must bind frame, source identity and current camera to one coherent
-snapshot before query/IO. Native `BuildingFieldRequest::Pose::Camera` and
-`ImpostorPoseBounds::Project` currently require capture-local operands. They
-cannot directly consume a World/ECEF camera or this interval clip matrix.
-Master owns the native adapter/overload and normal World integration (#1570).
+snapshot before query/IO. Native #1886 adds an explicit `CoordinateSpace::World`
+pose and a `Project(camera, lens, worldFromField)` overload. Capture-local remains
+the default. BuildingFieldRequest checks the actual source/frame binding before
+using that overload and rejects the pose before fine payload work. The shared
+whole-domain kernel also preserves the existing back-facing check, using an
+interval cofactor inverse of the encoded frame rather than its nominal transpose.
+The frame schema follows the producer's 1e-10 rigidity tolerance; this tolerance
+never authorizes replacing the stored rotation with an ideal one.
+The ordinary World renderer connection remains open in #1570/#1853.
 Geometry admission alone supplies no coverage, depth, material, lighting,
 shadow or World-revision qualification. Missing/invalid placement retains the
 original; the archived runtime-null placement remains null.
@@ -238,3 +243,19 @@ Freeze the measured sources first. NPZ hash/metadata preparation reads the
 archive before query timing; this does not demonstrate avoided physical IO,
 native execution, device memory, frame cost or World admission. The existing
 Duff SIGGRAPH1992 interval source above, PDF page2, was visually rechecked.
+
+Native check and independent exact rational oracle (Python >=3.10):
+
+```sh
+sh test/run.sh outshine/src/render/impostor/ImpostorPoseBounds \
+  outshine/integration/engine/streaming/BuildingFieldRequest
+python test/experiments/render/native_world_field_pose_oracle.py \
+  build/test_outshine_src_render_impostor_ImpostorPoseBounds_WorldFramesPreserveRelativeProjection
+```
+
+The test emits the actual encoded native camera, frame and Float32 lens operands
+only on explicit oracle request. Fractions reconstruct all eight domain extrema
+and nineteen additional source/support pairs per case with an independent exact
+World-to-camera projection. No GPU rounding or image admission follows from it.
+Native evaluation uses fixed-size arrays, constant work per eight-corner domain
+and no successful-path heap allocation; frame/runtime performance is unmeasured.

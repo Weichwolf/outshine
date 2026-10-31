@@ -19,18 +19,21 @@ class BuildingFieldRequest {
   struct State;
 
 public:
+  enum class CoordinateSpace : uint8_t { CaptureLocal, World };
+
   struct Pose {
     // Snapshot only; movement requires a fresh geometric evaluation before replacement.
     Render::CameraBasis Camera;
     Render::Lens Optics;
     double GeometryErrorMostPx = 0;
+    CoordinateSpace Space = CoordinateSpace::CaptureLocal;
   };
 
   struct Demand {
     std::vector<Vec3> Directions;
     uint32_t Pixels = 128;
     Content::ImpostorViewAssets::ViewIndex View;
-    // Capture-local geometric selection only; an absent pose is a raw diagnostic request.
+    // Geometric selection only; an absent pose is a raw diagnostic request.
     std::optional<Pose> GeometricView = std::nullopt;
   };
 
