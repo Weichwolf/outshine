@@ -3,6 +3,7 @@
 #include "Lens.h"
 #include "test/harness/render/StoredSampleQuads.h"
 #include "test/harness/render/NativeOffline.h"
+#include "test/harness/render/NativeDrawControl.h"
 #include "ImpostorBaker.h"
 #include "ImpostorOptics.h"
 #include "ImpostorSurface.h"
@@ -70,13 +71,13 @@ Vec3 Vector(const Json &value) {
 }
 
 template <class T> std::vector<T> Read(const Fs::path &path, size_t count) {
-  if (count == 0 || count > (size_t{64} * 1024 * 1024) / sizeof(T)) {
-    Fail("invalid input extent");
-  }
+  if (count > (size_t{64} * 1024 * 1024) / sizeof(T)) { Fail("invalid input extent"); }
   std::vector<T> data(count);
   std::ifstream file(path, std::ios::binary);
-  file.read(reinterpret_cast<char *>(data.data()),
-            static_cast<std::streamsize>(data.size() * sizeof(T)));
+  if (count != 0) {
+    file.read(reinterpret_cast<char *>(data.data()),
+              static_cast<std::streamsize>(data.size() * sizeof(T)));
+  }
   if (!file || file.peek() != std::char_traits<char>::eof()) {
     Fail("invalid input: " + path.string());
   }
@@ -292,6 +293,22 @@ Render::GpuSubmission TimedSubmission(size_t &creations) {
     ++*static_cast<size_t *>(context);
     options.GpuTiming = Render::Native::GpuTimingMode::Submission;
     return Render::Native::CreateDevice(options);
+  };
+  return submission;
+}
+
+Render::GpuSubmission ControlledMaterialFields(Test::Gpu::NativeDrawControl &control) {
+  Render::GpuSubmission submission;
+  submission.Context = &control;
+  submission.Create = [](void *context, Render::Native::DeviceOptions options)
+      -> Render::Native::Result<std::unique_ptr<Render::Native::Device>> {
+    auto &state = *static_cast<Test::Gpu::NativeDrawControl *>(context);
+    ++state.DeviceCreations;
+    options.GpuTiming = Render::Native::GpuTimingMode::Submission;
+    auto device = Render::Native::CreateDevice(options);
+    if (!device) { return std::unexpected(device.error()); }
+    return std::unique_ptr<Render::Native::Device>(
+        new Test::Gpu::NativeControlledDevice(std::move(*device), state));
   };
   return submission;
 }
@@ -1163,8 +1180,10 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
                       .HeightPx = first.at("height_px").get<int>()};
   Json statistics;
   const auto prepared = MaterialFieldSource(root, input, raster, statistics);
-  size_t deviceCreations = 0;
-  Render::SceneRenderer renderer{TimedSubmission(deviceCreations)};
+  Test::Gpu::NativeDrawControl control{.Mode = input.value("omit_source_draws", false)
+                                                   ? Test::Gpu::NativeDrawMode::Omit
+                                                   : Test::Gpu::NativeDrawMode::Execute};
+  Render::SceneRenderer renderer{ControlledMaterialFields(control)};
   const auto configured = renderer.ConfigureMaterialFields();
   if (!configured) { Fail(configured.error().Message); }
   constexpr auto budget = std::chrono::seconds(5);
@@ -1183,6 +1202,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     extraStatistics.push_back(std::move(stats));
   }
   Json results{{"mode", "material-fields"},
+               {"omit_source_draws", control.Mode == Test::Gpu::NativeDrawMode::Omit},
                {"geometry", statistics},
                {"additional_sources", extraStatistics},
                {"cases", Json::array()}};
@@ -1207,9 +1227,14 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
                                          .Target = raster,
                                          .Encoding = Render::RadianceEncoding::IntegralPairs,
                                          .LightingCamera = *observer};
+    const auto forwarded = control.Forwarded;
+    const auto omitted = control.Omitted;
     const auto images = Test::Gpu::RetryOffline(
         [&] { return renderer.RelightMaterialField(**resident, additional, view); }, budget);
     if (!images) { Fail(images.error().Message); }
+    if (control.Mode == Test::Gpu::NativeDrawMode::Omit && control.Omitted == omitted) {
+      Fail("empty field control intercepted no source draws");
+    }
     renderer.WaitForGpu();
     auto &device = *images->Unfiltered->Device;
     const auto colour = Test::ReadMaterialFieldImage(device, *images->Unfiltered->Texture);
@@ -1224,6 +1249,8 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
     const auto &shape = images->Filtered->Texture->Description();
     results["cases"].push_back(
         {{"query", name},
+         {"forwarded_draws", control.Forwarded - forwarded},
+         {"omitted_draws", control.Omitted - omitted},
          {"capture", SourceDepthDescription(images->Camera, raster, depth->size() * sizeof(float))},
          {"lens_operands", CameraLensOperands(images->Camera, raster)},
          {"lighting_camera",
@@ -1236,7 +1263,7 @@ void MaterialFieldViews(const Fs::path &root, const Json &input) {
          {"relight_filter_gpu_ms", FilterGpuMilliseconds(filtered)},
          {"relight_and_readback_wall_ms", Milliseconds(began)}});
   }
-  results["render_device_creations"] = deviceCreations;
+  results["render_device_creations"] = control.DeviceCreations;
   results["render_device_name"] = renderer.GpuName();
   std::ofstream report(root / "material-fields-result.json");
   report << results.dump(2) << '\n';

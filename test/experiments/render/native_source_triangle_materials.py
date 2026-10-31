@@ -14,6 +14,7 @@ from experiment_output import create_output
 from export_native_field_opponents import execute, read_samples
 from export_native_world_field import queries
 from native_world_inputs import POSES, ROOT, clip_from_original, load
+from source_raster_candidates import select as raster_candidates
 from source_triangle_materials import write_source
 
 DATA = ROOT / "test/outshine/data/render/building-world-opponents/ss2"
@@ -75,6 +76,33 @@ def geometric_selection(source, manifest, cases):
     return np.unique(selected), work
 
 
+def raster_selection(source, manifest, directory, guard):
+    """CPU-upload operands only reach the selector; GPU IDs are not demand."""
+    selected, work = [], []
+    with np.load(
+        directory / "native-visible-triangles.npz", allow_pickle=False
+    ) as arrays:
+        placements = arrays["placements/words"]
+        for pose in POSES:
+            if pose == "repeat":
+                continue
+            ids, costs = raster_candidates(
+                source,
+                arrays[pose + "/view_words"],
+                placements,
+                manifest["raster"],
+                raster_guard_px=guard,
+            )
+            selected.extend(ids.tolist())
+            work.append({"pose": pose, "work": costs})
+    return np.unique(selected), {
+        "poses": work,
+        "raster_guard_px": guard,
+        "qualified_gpu_raster": False,
+        "scope": "Original geometric candidates under explicit arithmetic/raster assumptions; native comparison remains necessary",
+    }
+
+
 def compare(directory, request):
     results, saved = [], {}
     for item in request:
@@ -110,17 +138,40 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--input", type=Path, default=DATA)
     parser.add_argument(
-        "--selection", choices=("native-reference", "geometric"), required=True
+        "--selection",
+        choices=("native-reference", "geometric", "raster-envelope"),
+        required=True,
+    )
+    parser.add_argument("--raster-guard-px", type=float)
+    parser.add_argument(
+        "--vertices", choices=("original", "referenced"), default="referenced"
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if (args.selection == "raster-envelope") != (args.raster_guard_px is not None):
+        parser.error(
+            "Raster envelope requires an explicit --raster-guard-px, other modes omit it"
+        )
     manifest, _, cases, source = load(args.input, attributes=True)
     selected, binding = bound_selection(args.input, source)
     if args.selection == "geometric":
         selected, binding = geometric_selection(source, manifest, cases)
+    elif args.selection == "raster-envelope":
+        selected, binding = raster_selection(
+            source, manifest, args.input, args.raster_guard_px
+        )
+    if not len(selected):
+        raise ValueError(
+            "This nonempty native fixture consumer cannot submit an empty group"
+        )
     create_output(args.output)
     write_source(source, np.arange(len(source["indices"])), args.output / "whole")
-    write_source(source, selected, args.output / "selected")
+    write_source(
+        source,
+        selected,
+        args.output / "selected",
+        referenced_vertices=args.vertices == "referenced",
+    )
     request = queries(
         {pose: cases["original", pose]["capture"] for pose in POSES if pose != "repeat"}
     )
@@ -152,11 +203,23 @@ def main():
             for path in (
                 Path(__file__),
                 Path(__file__).with_name("source_triangle_materials.py"),
+                Path(__file__).with_name("source_raster_candidates.py"),
             )
         },
         "selection_binding": binding,
         "original_triangles": len(source["indices"]),
         "selected_triangles": len(selected),
+        "vertex_input": args.vertices,
+        "vertex_counts": {
+            mode: native_reports[mode]["geometry"]["vertices"]
+            for mode in ("whole", "selected")
+        },
+        "source_array_bytes": {
+            mode: sum(
+                path.stat().st_size for path in (args.output / mode).rglob("*.bin")
+            )
+            for mode in ("whole", "selected")
+        },
         "native_reports": native_reports,
         "cases": result,
         "finite_native_material_comparison_equal": qualified,

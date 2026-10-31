@@ -1,7 +1,6 @@
 #include "SceneLighting.h"
 #include "TerrainLattice.h"
 #include "WorldRegionBuildState.h"
-#include "BuildingSourceDemand.h"
 #include "TerrainFieldPinning.h"
 #include "building/BuildingMaterials.h"
 #include "Digest.h"

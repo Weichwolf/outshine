@@ -94,12 +94,25 @@ def projection_bound(
     hull; this preserves capture-frame correlation instead of expanding its AABB.
     """
     eye, basis, projection, raster = operands(eye, basis, projection, raster)
+    return _projection_bound(
+        plane,
+        eye,
+        raster,
+        lambda position, direction=False: clip_point(
+            position, basis, projection, direction=direction
+        ),
+        normal=normal,
+        source_hull=source_hull,
+    )
+
+
+def _projection_bound(plane, eye, raster, clip, *, normal=None, source_hull=None):
     direction = tuple(map(point, plane.toward_eye))
     normal = tuple(map(point, vector(plane.toward_eye if normal is None else normal)))
     denominator = dot(direction, normal)
     if denominator[0] <= 0 <= denominator[1]:
         raise ValueError("Capture rays must intersect the support plane")
-    projected_direction = clip_point(direction, basis, projection, direction=True)
+    projected_direction = clip(direction, direction=True)
     terms = []
     for corner in hull_vertices(plane, source_hull):
         local = tuple(
@@ -109,7 +122,7 @@ def projection_bound(
         relative = tuple(
             subtract(p, point(e)) for p, e in zip(corner, eye, strict=True)
         )
-        original = clip_point(relative, basis, projection)
+        original = clip(relative)
         support = tuple(
             subtract(v, multiply(height, d))
             for v, d in zip(original, projected_direction, strict=True)
@@ -157,3 +170,40 @@ def geometric_candidate(result, limit_px):
         raise ValueError("Finite nonnegative geometric error budget required")
     error = result["screen_l1_upper_px"]
     return result["depth_inside"] and error is not None and error <= limit_px
+
+
+def projection_matrix_bound(
+    plane, clip_from_field, raster, *, normal=None, source_hull=None
+):
+    """Same geometric bound using an already enclosed field-to-clip matrix.
+
+    No conversion to a nominal local camera or scalar matrix loses the input
+    intervals. This is geometric data, not packed GPU matrix authority.
+    """
+    matrix = tuple(
+        tuple(tuple(float(v) for v in entry) for entry in row)
+        for row in clip_from_field
+    )
+    raster = tuple(raster)
+    if (
+        len(matrix) != 4
+        or any(len(row) != 4 for row in matrix)
+        or any(
+            len(v) != 2 or not all(map(math.isfinite, v)) or v[0] > v[1]
+            for row in matrix
+            for v in row
+        )
+        or len(raster) != 2
+        or any(type(v) is not int or not 1 <= v <= 2**24 for v in raster)
+    ):
+        raise ValueError(
+            "Finite ordered 4x4 clip intervals and bounded raster required"
+        )
+
+    def clip(position, direction=False):
+        p = (*position, point(0.0 if direction else 1.0))
+        return tuple(dot(row, p) for row in matrix)
+
+    return _projection_bound(
+        plane, (0.0, 0.0, 0.0), raster, clip, normal=normal, source_hull=source_hull
+    )

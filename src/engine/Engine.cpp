@@ -727,7 +727,6 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
-  AdvanceBuildingSources();
   if (!AdvanceUrbanAreas()) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
   (void)GenerateInitialInstances(atLat, atLon);

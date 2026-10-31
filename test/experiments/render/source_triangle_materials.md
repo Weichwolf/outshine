@@ -5,10 +5,11 @@ Owner: #1853 / #1797. Native consumer: existing
 vertex processing and shared `surfaceMaterial.glsl`. No new GPU bindings or BRDF.
 
 `source_triangle_materials.py` selects original triangle indices within their
-original parts. Vertex order, positions, normals, UV/UV1, colours and material
-ordinals remain unchanged. Native vertex packing, normal transformation and
-flat/smooth facade processing consequently stay with the existing renderer.
-This retains the full original vertex payload; it is not a compact far asset.
+original parts. The selected input gathers referenced rows without welding;
+triangle-corner order and attribute bytes, part slots and material ordinals stay
+unchanged. Native vertex packing, normal transformation and flat/smooth facade
+processing remain with the existing renderer. This is not a compact far asset
+or runtime visibility admission.
 
 ```sh
 cmake --build "$private_build" --parallel \
@@ -52,7 +53,8 @@ On this finite native input, 401 selected original triangles reproduce the whole
 near/revealing/repeat HDR and depth exactly. `401/38476 ≈ 1.04%` describes only
 the selected material render's triangle references: obtaining GPU visibility
 itself processed the full source and required readback. It is not a free oracle,
-end-to-end speedup, lower vertex residency or runtime default.
+end-to-end speedup or runtime default. The original index-only consumer retained
+all 78374 vertex rows; the current selected input compacts referenced rows below.
 
 The existing geometric nearest-hit union also contains 401 triangles but differs
 by nine ordinals in each direction. Its native renders lose four/five covered
@@ -67,6 +69,18 @@ and derivative footprints remain separate. The original group remains the
 fallback for unqualified runtime coverage, pose, lighting or World revisions.
 Source-hit raw attributes alone still do not establish native raster admission.
 
+## Empty-pass controls
+
+The native `--material-fields` request accepts test-only `omit_source_draws: true`.
+It prepares the same complete source and runs the same render-pass clears,
+lighting setup, integral compute and readback, but a test device omits every draw
+command. The default forwards every draw. Each case records `forwarded_draws`
+and `omitted_draws`; an empty control with no intercepted draw fails. Compare
+colour, depth and integral words, with visible and partially clipped negative
+controls. This neither accepts empty input geometry nor admits runtime culling.
+Rebind the reported native Lens/pre-view operands: rotating captured Float32
+matrices is not necessarily bit-identical to rebuilding a native camera.
+
 The same supplemental archive now carries the actual upload-boundary words:
 `<pose>/view_words` is the 56-word uniform block, `placements/words` the 144-byte
 storage rows, both stored as little-endian UInt32 to retain every Float32 bit.
@@ -78,6 +92,25 @@ including clear pixels, for both poses and the repeated first pose. Diagnostic
 hooks stay outside product code; actual binaries, sources, shader sidecars and
 readbacks are archived privately. The existing `lens_operands` remain explicitly
 recomputed camera operands; the captured Float32 shift is a distinct input.
+
+## Referenced vertices before upload
+
+The comparison defaults to `--vertices referenced` for the selected source.
+The whole-original control keeps its original vertex inventory; `--vertices
+original` also preserves it for the selected source as an explicit control.
+Compaction gathers only referenced vertex rows in their original per-part order
+and remaps indices. It preserves all triangle-corner attribute bytes, material
+slots and empty parts; it does not weld equal positions or quantize attributes.
+Colours and tangents follow the same remap as positions, normals and both UV sets.
+
+On the bound 401-triangle input, 1199 vertices replace 78374. Original selected
+arrays occupy `78374*56 + 401*3*4 = 4393756` bytes; referenced arrays occupy
+`1199*56 + 401*3*4 = 71956` bytes. These are input-array bytes and native input
+vertex counts, not measured physical GPU/UMA peaks or a frame-time saving.
+The source CAD geometry and original face selection remain unchanged.
+Near/revealing/repeat native HDR/depth remain exact for the reference selection;
+the geometric selection still loses the same four/five samples. Vertex packing
+does not establish missing raster coverage or runtime World admission.
 
 ## Shared World sample composition
 
