@@ -15,6 +15,7 @@ from native_source_triangle_materials import DATA
 from prepared_surface_recipes import decode
 from source_domain_buffer import DomainBudget, restore_source
 from source_domain_chunk_study import decode_raw
+from source_domain_control_index import load as load_controls
 from source_domain_prepared_view import select_sources
 from source_original_ranges import read_ranges
 from source_patch_product import FIELDS
@@ -67,6 +68,9 @@ def original_fallback(directory, binding_sha, fallback_ids):
 def run(args, *, retained_groups=None, selected_sources=None):
     max_controls = getattr(args, "max_controls", None)
     max_triangles = getattr(args, "max_triangles", None)
+    for value, maximum in ((max_controls, 1048576), (max_triangles, 131072)):
+        if value is not None and (type(value) is not int or not 0 <= value <= maximum):
+            raise ValueError("Bounded nonnegative integer candidate limits required")
     original_ranges = getattr(args, "original_ranges", None)
     if (
         max_controls is not None or max_triangles is not None
@@ -111,10 +115,30 @@ def run(args, *, retained_groups=None, selected_sources=None):
     fallback_ids = requested - selected
     if len(fallback_ids) != row["selected_original_fallback_sources"]:
         raise ValueError("Complete recorded original fallback demand required")
-    recipe_index = (args.recipes / "index.json").read_bytes()
-    if digest(recipe_index) != args.recipes_index_sha256:
+    early_fallbacks = {}
+    control_index_bytes = 0
+    control_index = getattr(args, "control_index", None)
+    if control_index is not None:
+        if max_controls is None:
+            raise ValueError("Control index requires a control budget")
+        counts, control_index_bytes = load_controls(
+            control_index, args.control_index_sha256, raw_index, bounds
+        )
+        early_fallbacks = {
+            i: "Domain control budget exhausted; retain whole original"
+            for i in selected
+            if counts[i] > max_controls
+        }
+    if max_controls == 0 or max_triangles == 0:
+        early_fallbacks = {
+            i: "Zero candidate budget; retain whole original" for i in selected
+        }
+    selected -= early_fallbacks.keys()
+    fallback_ids.update(early_fallbacks)
+    recipe_index = (args.recipes / "index.json").read_bytes() if selected else b""
+    if selected and digest(recipe_index) != args.recipes_index_sha256:
         raise ValueError("Exact prepared recipe index required")
-    metadata = json.loads(recipe_index)
+    metadata = json.loads(recipe_index) if selected else []
     recipes, recipe_reads, recipe_bytes, decoded_cells = {}, 0, len(recipe_index), 0
     if args.span_index and selected:
         span_raw = args.span_index.read_bytes()
@@ -158,7 +182,7 @@ def run(args, *, retained_groups=None, selected_sources=None):
         raise ValueError("Every selected source requires its prepared recipe")
     chunks = {records[i] for i in selected}
     result, roles, identities, group_bytes, reused_bytes = [], [], [], 0, 0
-    budget_fallbacks = {}
+    budget_fallbacks = dict(early_fallbacks)
     with (args.chunk / "groups.bin").open("rb") as stream:
         for offset, length in sorted(chunks):
             if retained_groups is None:
@@ -227,6 +251,8 @@ def run(args, *, retained_groups=None, selected_sources=None):
     )
     report = {
         "angle": args.angle,
+        "control_index_bytes": control_index_bytes,
+        "early_fallback_sources": len(early_fallbacks),
         "max_controls": max_controls,
         "max_triangles": max_triangles,
         "budget_fallbacks": budget_fallbacks,
@@ -263,6 +289,8 @@ if __name__ == "__main__":
     parser.add_argument("--recipes-index-sha256", required=True)
     parser.add_argument("--span-index", type=Path)
     parser.add_argument("--span-index-sha256")
+    parser.add_argument("--control-index", type=Path)
+    parser.add_argument("--control-index-sha256")
     parser.add_argument("--max-controls", type=int)
     parser.add_argument("--max-triangles", type=int)
     parser.add_argument("--original-ranges", type=Path)

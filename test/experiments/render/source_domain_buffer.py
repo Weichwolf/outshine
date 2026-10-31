@@ -114,6 +114,14 @@ def domain_at(arrays, index):
     return polygons[0] if len(polygons) == 1 else shapely.MultiPolygon(polygons)
 
 
+def control_count(arrays, source):
+    low, high = arrays["source_patch_offsets"][source : source + 2]
+    first, last = arrays["patch_polygon_offsets"][[low, high]]
+    first, last = arrays["polygon_ring_offsets"][[first, last]]
+    start, stop = map(int, arrays["ring_vertex_offsets"][[first, last]])
+    return stop - start
+
+
 class DomainBudget(ValueError):
     """Whole source must retain its original before domain construction starts."""
 
@@ -143,11 +151,9 @@ def restore_source(arrays, identity, surface, *, max_controls=None):
     frame = np.asarray(axes)
     low, high = arrays["source_patch_offsets"][source : source + 2]
     if max_controls is not None:
-        first, last = arrays["patch_polygon_offsets"][[low, high]]
-        first, last = arrays["polygon_ring_offsets"][[first, last]]
-        start, stop = map(int, arrays["ring_vertex_offsets"][[first, last]])
-        if stop - start > max_controls:
-            raise DomainBudget(identity, stop - start, max_controls)
+        count = control_count(arrays, source)
+        if count > max_controls:
+            raise DomainBudget(identity, count, max_controls)
     result = []
     for index in range(int(low), int(high)):
         _, part, side, gable, orientation = map(int, arrays["patch_info"][index])
