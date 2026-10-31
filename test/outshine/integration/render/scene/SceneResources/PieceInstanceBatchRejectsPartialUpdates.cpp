@@ -37,6 +37,7 @@ int main() {
       Render::PieceMesh mesh{};
       mesh.Verts = vertices;
       mesh.Indices = indices;
+      mesh.MaxInstances = 1;
       const auto first = renderer.PlacePiece(mesh);
       const auto second = renderer.PlacePiece(mesh);
       CHECK(first && second, "two pieces become resident");
@@ -53,6 +54,28 @@ int main() {
       const std::array<Render::SceneResources::PieceRows, 2> repeated{
           {{.Piece = *first, .Rows = row}, {.Piece = *first, .Rows = row}}};
       CHECK(!renderer.SetPieceInstances(repeated, error), "a batch cannot assign one piece twice");
+      CHECK(renderer.SetPieceInstances(initial, error),
+            "repeated-handle rejection leaves no state that poisons a later valid batch");
+      CHECK(!renderer.SetPieceInstances(invalid, error) &&
+                renderer.SetPieceInstances(initial, error),
+            "an invalid trailing handle leaves the validated prefix reusable");
+      const std::array<Mat4, 2> overflow{};
+      const std::array<Render::SceneResources::PieceRows, 2> tooMany{
+          {{.Piece = *first, .Rows = {}}, {.Piece = *second, .Rows = overflow}}};
+      CHECK(!renderer.SetPieceInstances(tooMany, error) &&
+                renderer.SetPieceInstances(initial, error),
+            "capacity rejection leaves the validated prefix reusable");
+      renderer.ReleasePiece(*first);
+      const auto recycled = renderer.PlacePiece(mesh);
+      CHECK(recycled && recycled->Slot == first->Slot && recycled->Generation != first->Generation,
+            "a released slot has a new resource generation");
+      if (!recycled) { return Report(); }
+      const std::array<Render::SceneResources::PieceRows, 2> stale{
+          {{.Piece = *second, .Rows = {}}, {.Piece = *first, .Rows = row}}};
+      const std::array<Render::SceneResources::PieceRows, 2> current{
+          {{.Piece = *recycled, .Rows = row}, {.Piece = *second, .Rows = row}}};
+      CHECK(!renderer.SetPieceInstances(stale, error) && renderer.SetPieceInstances(current, error),
+            "a stale generation cannot poison updates to a reused slot");
     }
   }
   SDL_Quit();

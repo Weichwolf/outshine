@@ -164,6 +164,7 @@ private:
     PieceId Resident = kNoPiece;
     PieceOwner Owner = PieceOwner::Independent;
     bool Textured = false;
+    bool InstanceRowsVisited = false;
     std::array<uint64_t, 3> ProductOrder{};
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
 
