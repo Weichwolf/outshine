@@ -9,7 +9,6 @@ import hashlib
 import json
 import math
 import platform
-import resource
 import subprocess
 import time
 from collections import Counter
@@ -22,6 +21,17 @@ from source_patch_fans import discover, retriangulate
 from surface_patch_overlay import compare
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def linux_process_high_water_bytes():
+    status = Path("/proc/self/status")
+    if not status.is_file():
+        return None
+    for row in status.read_text().splitlines():
+        if row.startswith("VmHWM:"):
+            _, size, unit = row.split()
+            return int(size) * 1024 if unit == "kB" else None
+    return None
 
 
 def run(args):
@@ -107,10 +117,8 @@ def run(args):
         ),
         "single_discovery_cpu_s": discovery_cpu,
         "single_compare_cpu_s": comparison_cpu,
-        "process_peak_rss_platform_units": resource.getrusage(
-            resource.RUSAGE_SELF
-        ).ru_maxrss,
-        "rss_scope": "Whole Python process incl input load; Linux KiB, macOS bytes. No incremental/UMA/device-memory claim.",
+        "linux_process_vm_hwm_bytes": linux_process_high_water_bytes(),
+        "rss_scope": "Linux /proc/self/status VmHWM for this process incl input load; null elsewhere. No incremental/UMA/device-memory claim. Inherited getrusage high-water values are not used.",
     }
     report = {
         "commit": subprocess.check_output(
