@@ -20,8 +20,8 @@ class CapturedRoadInterfaces(unittest.TestCase):
                 {
                     "part": 92,
                     "placement": matrix.ravel(order="F").tolist(),
-                    "positions": [0, 7, 0, 2, 7, 0, 0, 7, 3],
-                    "triangles": [0, 1, 2],
+                    "positions": [0, 7, 0, 2, 7, 0, 0, 7, 3, 0, 0, 0, 0, 1, 0, 1, 0, 0],
+                    "triangles": [0, 1, 2, 3, 4, 5],
                 }
             ],
         }
@@ -36,6 +36,16 @@ class CapturedRoadInterfaces(unittest.TestCase):
             )
             self.assertEqual(ids.tolist(), [[92, 0]])
             self.assertEqual(key, "original-plan")
+            full, all_ids, _ = roads(
+                root, [10, 40], [99, -301, 104, -297], include_vertical=True
+            )
+            self.assertEqual(all_ids.tolist(), [[92, 0], [92, 1]])
+            self.assertNotEqual(
+                np.linalg.norm(
+                    np.cross(full[1, 1] - full[1, 0], full[1, 2] - full[1, 0])
+                ),
+                0,
+            )
             with self.assertRaises(ValueError):
                 roads(root, [11, 40], [99, -301, 104, -297])
 

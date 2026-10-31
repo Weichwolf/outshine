@@ -25,7 +25,7 @@ def selected_faces(triangles, bounds):
     )
 
 
-def roads(root, anchor, bounds):
+def roads(root, anchor, bounds, *, include_vertical=False):
     data = json.loads(gzip.decompress((root / "roads.json.gz").read_bytes()))
     if not np.array_equal(anchor, data["anchor"]):
         raise ValueError("road/water frames require explicit conversion")
@@ -45,7 +45,7 @@ def roads(root, anchor, bounds):
     area = np.cross(
         triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
     )[:, 2]
-    keep = area != 0
+    keep = np.ones(len(area), bool) if include_vertical else area != 0
     return triangles[keep], np.array(identities)[keep], data["plan_key"]
 
 
