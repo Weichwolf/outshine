@@ -265,7 +265,7 @@ MaterialFieldPass::Relight(const ResidentMaterialField &source,
   }
   if (const auto retired = Collect(); !retired) { return std::unexpected(retired.error()); }
   auto &device = state.Pipelines->Device;
-  auto commands = device.Begin();
+  auto commands = BeginUpload(device, state.Uploads);
   if (!commands) { return std::unexpected(commands.error()); }
   auto targets = Targets(device, data->Raster, view);
   if (!targets) { return std::unexpected(targets.error()); }
