@@ -7,7 +7,9 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -29,6 +31,10 @@ public:
 
   [[nodiscard]] Registration Add(std::unique_ptr<Source> source);
   [[nodiscard]] Registration AddAll(std::vector<std::unique_ptr<Source>> sources);
+
+  [[nodiscard]] static Registration
+  ValidateSources(std::span<const std::unique_ptr<Source>> sources);
+  [[nodiscard]] static std::string_view RegistrationError(Registration result) noexcept;
 
   void Seal() noexcept;
 
@@ -104,6 +110,8 @@ public:
   [[nodiscard]] std::array<Ledger::ProviderCost, Ledger::KindCount> ProviderCosts() const;
 
 private:
+  [[nodiscard]] static Registration
+  ValidateAddition(std::span<const std::unique_ptr<Source>> sources, const SourceSet *existing);
   [[nodiscard]] std::optional<SourceDelivery> ReadStored(Query &query, SourceTransport &transport);
   [[nodiscard]] SourceDelivery Deliver(Query &query, SourceResponse::Settled response);
   [[nodiscard]] std::optional<SourceDelivery> ProcessAbsence(

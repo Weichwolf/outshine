@@ -235,6 +235,8 @@ void CheckEncoding(Encoding encoding) {
   const auto scene = SourceScene();
   const auto declared = engine.declare(scene);
   CHECK(declared, "library terrain needs no unrelated OSM provider");
+  CHECK(declared && provider.observed().Configured == 1,
+        "declaration prepares the source exactly once before world assembly");
   const auto assembled = declared ? engine.assemble() : declared;
   CHECK(assembled, assembled ? "world assembled" : assembled.error().c_str());
   if (assembled) {
@@ -243,8 +245,8 @@ void CheckEncoding(Encoding encoding) {
     const auto height = engine.sampleHeight({.LongitudeDeg = 8, .LatitudeDeg = 47});
     CHECK(height && std::abs(*height - 42.0) < 0.001,
           "public source bytes become the exact independent 42m terrain plane");
-    CHECK(provider.observed().Configured > 0 && provider.observed().Acquired > 0,
-          "runtime invokes both the registered factory and its configured source");
+    CHECK(provider.observed().Configured == 1 && provider.observed().Acquired > 0,
+          "runtime consumes the prepared source without repeating its factory");
     CHECK((provider.observed().Decoded > 0) == (encoding == Encoding::OpaqueFixture),
           "provider-owned native decoding handles opaque bytes without a private engine route");
     CheckFrame(engine);

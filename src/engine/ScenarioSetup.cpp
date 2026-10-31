@@ -600,19 +600,27 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
-  if (S_->PendingSimulation && S_->PendingSimulation->has_value()) {
-    S_->PendingSimulation.reset();
+  if (S_->PendingDeclaration && S_->PendingDeclaration->has_value()) {
+    S_->PendingDeclaration.reset();
   }
   auto simulation = ScenarioRuntime::Prepare(scenario, S_->Session.DeclarationRevision + 1);
   if (!simulation) {
-    S_->PendingSimulation.emplace(std::unexpected(std::move(simulation.error())));
+    S_->PendingDeclaration.emplace(std::unexpected(std::move(simulation.error())));
     S_->Error.clear();
     return {};
   }
+  auto sources = S_->PrepareWorldSources(scenario);
+  if (!sources) {
+    S_->PendingDeclaration.emplace(std::unexpected(std::move(sources.error())));
+    S_->Error.clear();
+    return {};
+  }
+  ScenarioPreparation candidate{.Simulation = std::move(*simulation),
+                                .Sources = std::move(*sources)};
   if (auto reused = ReuseDeclaration(
           scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
     if (*reused) {
-      S_->PendingSimulation = std::move(simulation);
+      S_->PendingDeclaration.emplace(std::move(candidate));
       S_->RouteCamera.reset();
       S_->CameraPosePending = false;
     }
@@ -653,7 +661,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
     S_->Error.clear();
     PublishConfiguration(S_->Session, scenario, *views, bindings);
-    S_->PendingSimulation = std::move(simulation);
+    S_->PendingDeclaration.emplace(std::move(candidate));
     S_->RouteCamera.reset();
     S_->CameraPosePending = false;
     return {};
@@ -664,7 +672,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, scenario, *views, bindings);
-  S_->PendingSimulation = std::move(simulation);
+  S_->PendingDeclaration.emplace(std::move(candidate));
   S_->RouteCamera.reset();
   S_->CameraPosePending = false;
   return {};

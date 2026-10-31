@@ -12,10 +12,39 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <utility>
 
 namespace outshine::Data {
 class SourceSession {
 public:
+  class Configuration {
+  public:
+    Configuration(Configuration &&other) noexcept;
+    Configuration &operator=(Configuration &&other) noexcept;
+    ~Configuration() = default;
+    Configuration(const Configuration &) = delete;
+    Configuration &operator=(const Configuration &) = delete;
+
+  private:
+    friend class SourceSession;
+
+    explicit Configuration(std::vector<std::unique_ptr<Source>> sources)
+        : Sources_(std::move(sources)) {}
+
+    std::vector<std::unique_ptr<Source>> Sources_;
+    bool Available_ = true;
+  };
+
+  // Factories and metadata validation perform no IO; Open consumes these exact sources.
+  [[nodiscard]] static std::expected<Configuration, std::string>
+  Prepare(std::span<const SourceProvider> providers,
+          std::string_view builtinDataDirectory,
+          const ProviderRegistry &registry);
+
+  [[nodiscard]] static std::expected<std::shared_ptr<SourceSession>, std::string>
+  Open(const RawSourceCache::Config &config, Configuration sources);
+
   class Read {
   public:
     Read(Read &&other) noexcept;

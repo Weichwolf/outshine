@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -13,6 +14,23 @@
 
 namespace outshine {
 using Generators::Weather::WeatherSnapshotLoader;
+
+Holds<std::optional<Data::SourceSession::Configuration>>
+Engine::State::PrepareWorldSources(const Scenario::Document &scenario) const {
+  std::vector<Data::SourceProvider> providers;
+  providers.reserve(scenario.Providers.size());
+  for (const auto &provider : scenario.Providers) {
+    if (provider.Kind != "osm") { providers.push_back(provider); }
+  }
+  if ((providers.empty() && !scenario.Ground.Declared) ||
+      (World.Sources && World.SourceDeclarations == providers)) {
+    return std::optional<Data::SourceSession::Configuration>{};
+  }
+  auto prepared = Data::SourceSession::Prepare(
+      providers, Session.Under.BuiltinDataDirectory, Services.Providers);
+  if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+  return std::optional<Data::SourceSession::Configuration>{std::move(*prepared)};
+}
 
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
   if (providers.empty() && !Session.Declared.Ground.Declared) {
@@ -25,10 +43,14 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     return true;
   }
   if (!World.Sources || World.SourceDeclarations != providers) {
-    auto sources = Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
-                                             providers,
-                                             Session.Under.BuiltinDataDirectory,
-                                             Services.Providers);
+    auto sources =
+        PendingDeclaration && PendingDeclaration->has_value() && PendingDeclaration->value().Sources
+            ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                        std::move(*PendingDeclaration->value().Sources))
+            : Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                        providers,
+                                        Session.Under.BuiltinDataDirectory,
+                                        Services.Providers);
     if (!sources) {
       Error = sources.error();
       return false;

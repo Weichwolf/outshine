@@ -153,8 +153,8 @@ Capture &Capture::operator=(Capture &&other) noexcept {
 Result Engine::assemble() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->PendingSimulation && !*S_->PendingSimulation) {
-    S_->Error = S_->PendingSimulation->error();
+  if (S_->PendingDeclaration && !*S_->PendingDeclaration) {
+    S_->Error = S_->PendingDeclaration->error();
     return std::unexpected(S_->Error);
   }
   if (!S_->Session.Taken) {
@@ -162,11 +162,12 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   const Scenario::Document &declared = S_->Session.Declared;
-  auto prepared = S_->PendingSimulation
-                      ? std::move(*S_->PendingSimulation)
+  auto prepared = S_->PendingDeclaration
+                      ? Holds<std::unique_ptr<ScenarioRuntime>>{std::move(
+                            S_->PendingDeclaration->value().Simulation)}
                       : ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
-  S_->PendingSimulation.reset();
   if (!prepared) {
+    S_->PendingDeclaration.reset();
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
@@ -176,6 +177,7 @@ Result Engine::assemble() {
   std::vector<Data::SourceProvider> unusedTileProviders;
   const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
                                                : S_->ConfigureSourceProviders(unusedTileProviders);
+  S_->PendingDeclaration.reset();
   if (!worldReady) {
     S_->ScenarioState = std::move(previous);
     S_->BodyFrame = std::move(previousBodies);
@@ -242,7 +244,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
 
 Result Engine::setRoots(Roots roots) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Session.Taken || S_->PendingSimulation) {
+  if (S_->Session.Taken || S_->PendingDeclaration) {
     S_->Error = Says::kRootsAfterDeclaration;
     return std::unexpected(S_->Error);
   }

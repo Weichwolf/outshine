@@ -56,6 +56,9 @@ int main() {
     const auto marker = previous->addEntity();
     CHECK(marker.has_value(), "spare entity capacity remains usable");
     if (!marker) { return Report(); }
+    const auto saved = engine.writeScenario();
+    CHECK(saved.has_value(), "active scenario can be persisted before the failed replacement");
+    if (!saved) { return Report(); }
     for (const bool populated : {true, false}) {
       Scenario::Document world = populated ? initial : Scenario::Document{};
       world.Ground.Declared = true;
@@ -73,6 +76,9 @@ int main() {
       CHECK(&engine.entities() == previous, "failed world setup preserves simulation ownership");
       if (&engine.entities() != previous) { return Report(); }
       CHECK(previous->alive(*marker), "previous simulation remains usable");
+      const auto retained = engine.writeScenario();
+      CHECK(retained && *retained == *saved && !engine.declaration().Ground.Declared,
+            "factory rejection preserves the complete active declaration and persisted state");
     }
   }
   SDL_Quit();
