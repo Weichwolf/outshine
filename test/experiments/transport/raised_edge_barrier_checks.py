@@ -1,6 +1,7 @@
 """Physical side bodies, central passage, finite support and rejected local cases."""
 
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -14,6 +15,27 @@ def bed_for(axis, width=3.8):
 
 
 class SideBodies(unittest.TestCase):
+    def test_actual_versioned_three_source_chains_without_private_outputs(self):
+        from elevated_rail_hardware import chains
+        from elevated_rail_inputs import read_sources
+        from shared_bridge_geometry import corridor
+
+        fixture = (
+            Path(__file__).with_name("fixtures") / "stair-elevated-rail-vienna.json"
+        )
+        _recipe, _context, _originals, rows = read_sources(fixture, ())
+        specs, omitted = chains(rows)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(specs), 2)
+        self.assertEqual(omitted, [])
+        bed = shapely.union_all([corridor(row) for row in rows])
+        products = [
+            item for spec in specs for item in construct(spec["xy"], 3.8, bed, 4)
+        ]
+        self.assertEqual(len(products), 4)
+        self.assertEqual(sum(len(p["body"].vertices) for p in products), 80)
+        self.assertEqual(sum(len(p["body"].triangles) for p in products), 144)
+
     def test_straight_closed_bodies_have_full_dimensions_and_open_track_ends(self):
         axis = [[0, 0], [20, 0]]
         rows = construct(axis, 3.8, bed_for(axis), 4)
