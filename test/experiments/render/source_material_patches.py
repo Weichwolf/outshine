@@ -105,8 +105,9 @@ def corner_fields(patch, parameters, *, catalog=None):
     s = patch.shape
     uv = np.zeros((len(q), 2), np.float32)
     metres = np.zeros_like(uv)
-    if patch.side == 1:
-        code = -(1 + (2 if s["roof_kind"] == 0 else 1) + 16 * s["ident"])
+    if patch.side in (0, 1):
+        kind = 8 if patch.side == 0 else (2 if s["roof_kind"] == 0 else 1)
+        code = -(1 + kind + 16 * s["ident"])
         uv[:, 0], uv[:, 1] = code, p[:, 2].astype(np.float32)
         return uv, metres, code
     c = facade_catalog() if catalog is None else catalog
