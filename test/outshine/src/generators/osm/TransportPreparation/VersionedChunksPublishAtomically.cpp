@@ -17,7 +17,7 @@ namespace Circuit = outshine::Test::HockenheimFixture;
 
 namespace {
 
-bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::Generators::Osm::TransportPreparation &source) {
   constexpr int mostPolls = 200;
   constexpr double waitSliceS = 0.05;
   for (int attempt = 0; attempt < mostPolls; ++attempt) {
@@ -25,7 +25,7 @@ bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::
     if (source.CurrentPhase() != outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
       return true;
     }
-    (void)tasks.AwaitCompletion(waitSliceS);
+    (void)source.AwaitProgress(waitSliceS);
   }
   return false;
 }
@@ -57,7 +57,7 @@ int main() {
                                                             .RelationId = Circuit::RelationId};
   CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&mainRoute, 1)),
         "versioned regional source and named route are queued");
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() == outshine::Generators::Osm::TransportPreparation::Phase::Ready,
         "background import publishes a complete native graph");
   const auto original = source.Current();
@@ -76,7 +76,7 @@ int main() {
                                                                .RelationId = missingRelationId};
   CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&missingRoute, 1)),
         "a replacement route request queues against the same source");
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().contains("999999") && source.Current() == original &&
@@ -86,7 +86,7 @@ int main() {
   auto wrongPin = hockenheim;
   wrongPin.Revision = "sha256:" + std::string(64, '0');
   CHECK(source.Request(std::span(&wrongPin, 1), "."), "well-formed digest pin is queued");
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().contains("sha256") && source.Current() == original,
@@ -106,7 +106,7 @@ int main() {
             "<tag k='highway' v='residential'/></way></osm>";
   }
   CHECK(source.Request(std::span(&changed, 1), "."), "replacement source is queued");
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().contains('9') && source.Error().contains('2'),
@@ -121,7 +121,7 @@ int main() {
             "<tag k='highway' v='residential'/></way></osm>";
   }
   CHECK(source.Request(std::span(&changed, 1), "."), "same revision retries after failure");
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             source.Current() && source.Current()->Topology().FindNode(2) != nullptr,
@@ -141,7 +141,7 @@ int main() {
         "third revision replaces the desired state without queuing another build");
   release.set_value();
   tasks.Wait(blocker);
-  CHECK(WaitFor(source, tasks) &&
+  CHECK(WaitFor(source) &&
             source.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             source.Current() && source.Current()->SourceIdentity().Revision == "r5" &&

@@ -16,13 +16,13 @@
 
 namespace {
 
-bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::Generators::Osm::TransportPreparation &source) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     source.Poll();
     if (source.CurrentPhase() != outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
       return true;
     }
-    (void)tasks.AwaitCompletion(0.05);
+    (void)source.AwaitProgress(0.05);
   }
   return false;
 }
@@ -89,7 +89,7 @@ int main() {
   const outshine::Generators::Osm::CircuitRequest routeRequest{.Id = "three-edge", .RelationId = 9};
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
         "shuffled adjacent source declarations and route are queued");
-  CHECK(WaitFor(loader, tasks) &&
+  CHECK(WaitFor(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::TransportPreparation::Phase::Ready,
         "cross-chunk nodes and relation publish only after both chunks close");
   const auto first = loader.Current();
@@ -120,7 +120,7 @@ int main() {
   }
   for (auto &provider : providers) { provider.Revision = "r2"; }
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)), "changed revision is queued");
-  CHECK(WaitFor(loader, tasks) &&
+  CHECK(WaitFor(loader) &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             loader.Error().contains('2') && loader.Current() == first &&
@@ -133,7 +133,7 @@ int main() {
   }
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
         "same revision retries after corrected source bytes");
-  CHECK(WaitFor(loader, tasks) &&
+  CHECK(WaitFor(loader) &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             loader.Current() && loader.Current()->SourceIdentity().Revision == "r2" &&

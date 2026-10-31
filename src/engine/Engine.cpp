@@ -755,6 +755,9 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
   if (World.OsmSource && World.OsmSource->PendingCount() > 0) {
     return World.OsmSource->AwaitSlice(seconds);
   }
+  if (World.OsmTransport && World.OsmTransport->PendingCount() > 0) {
+    return World.OsmTransport->AwaitProgress(seconds);
+  }
   if (GroundDeformationPending()) { return AwaitGroundDeformation(seconds); }
   if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
     return World.UrbanAreas->AwaitProgress(seconds);
