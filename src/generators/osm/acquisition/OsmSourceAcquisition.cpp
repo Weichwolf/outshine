@@ -8,7 +8,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <mutex>
 #include <cmath>
+#include <chrono>
 #include <Units.h>
 #include <cstddef>
 #include <cstdint>
@@ -44,11 +46,25 @@ SourceAcquisition::SourceAcquisition(Workers workers,
 
 SourceAcquisition::~SourceAcquisition() {
   CancelCellPipeline();
-  if (Pending_) {
-    (void)Pending_->Stop.request_stop();
-    Pending_->Owner->Wait(Pending_->Handle);
-  }
-  if (CellPipeline_) { Io_.Wait(CellPipeline_->Handle); }
+  if (Pending_) { (void)Pending_->Stop.request_stop(); }
+
+  struct RetiredInputs {
+    std::shared_ptr<Access> Acquisition;
+    std::unique_ptr<Cells> Coverage;
+    std::shared_ptr<CellPipeline> Pipeline;
+    std::optional<Pending> Request;
+    std::shared_ptr<const SourceSnapshot> Current;
+    std::shared_ptr<const CellCompiler> Compiler;
+  };
+
+  const auto retired = std::make_shared<RetiredInputs>();
+  retired->Acquisition = std::move(Access_);
+  retired->Coverage = std::move(Cells_);
+  retired->Pipeline = std::move(CellPipeline_);
+  retired->Request = std::move(Pending_);
+  retired->Current = std::move(Current_);
+  retired->Compiler = Compiler_;
+  (void)Io_.PostDetached([retired] { (void)retired; });
 }
 
 std::expected<void, std::string> SourceAcquisition::SetAcquisitionBudget(double seconds) {
@@ -109,7 +125,7 @@ SourceAcquisition::Request(std::span<const Data::SourceProvider> providers,
 }
 
 void SourceAcquisition::Poll() {
-  if (Pending_ && Pending_->Owner->TakeCompletion(Pending_->Handle)) {
+  if (Pending_ && Pending_->Output->Finished.load(std::memory_order_acquire)) {
     Pending finished = std::move(*Pending_);
     Pending_.reset();
     CompletePending(std::move(finished));
@@ -126,8 +142,16 @@ void SourceAcquisition::Poll() {
 }
 
 bool SourceAcquisition::AwaitSlice(double seconds) {
-  if (CellPipeline_) { return Io_.AwaitCompletion(std::min(seconds, MaximumIoAwaitSeconds)); }
-  return Pending_ && Pending_->Owner->AwaitCompletion(seconds);
+  if ((!Pending_ && !CellPipeline_) || !(seconds > 0.0)) { return false; }
+  auto &progress = *Access_->Progress;
+  std::unique_lock lock(progress.Mutex);
+  return progress.Changed.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
+    if (Pending_ && Pending_->Output->Finished.load(std::memory_order_acquire)) { return true; }
+    if (!CellPipeline_) { return false; }
+    const auto &exchange = *CellPipeline_->Shared;
+    return exchange.Finished.load(std::memory_order_acquire) || !exchange.Error.empty() ||
+           (!Pending_ && !exchange.Ready.empty());
+  });
 }
 
 void SourceAcquisition::CompletePending(Pending finished) {
@@ -163,20 +187,27 @@ void SourceAcquisition::CompletePending(Pending finished) {
 
 void SourceAcquisition::StartRegionAcquisition() {
   auto result = std::make_shared<Result>();
+  result->Progress = Access_->Progress;
   std::stop_source stop;
   const auto token = stop.get_token();
-  const auto handle = Io_.Post([input = Requested_,
-                                revision = Revision_,
-                                root = Root_,
-                                access = Access_,
-                                registry = Access_->Registry,
-                                result,
-                                token] {
+  const auto complete = std::make_shared<AcquisitionCompletion<Result>>(result);
+  const bool accepted = Io_.PostDetached([input = Requested_,
+                                          revision = Revision_,
+                                          root = Root_,
+                                          access = Access_,
+                                          registry = Access_->Registry,
+                                          complete,
+                                          token] {
+    auto &output = *complete->Owner;
+    if (token.stop_requested()) {
+      output.Value = ReadResult(std::unexpected("original OSM acquisition canceled"));
+      return;
+    }
     const bool remote = registry != nullptr || std::ranges::any_of(input, [](const auto &provider) {
                           return !provider.Endpoint.empty();
                         });
     if (remote && !access->Wire) {
-      result->Value = ReadResult(std::unexpected("official original OSM needs a source transport"));
+      output.Value = ReadResult(std::unexpected("official original OSM needs a source transport"));
       return;
     }
     if (remote) {
@@ -188,57 +219,58 @@ void SourceAcquisition::StartRegionAcquisition() {
       auto read = ReadRegions(
           input, *access->Store, *access->Wire, deadline(), token, registry, root, deadline);
       if (read) {
-        result->ReadMs = read->ElapsedMs;
-        result->Value = ReadResult(std::move(read->Chunks));
+        output.ReadMs = read->ElapsedMs;
+        output.Value = ReadResult(std::move(read->Chunks));
       } else {
-        result->Value = ReadResult(std::unexpected(std::move(read.error())));
+        output.Value = ReadResult(std::unexpected(std::move(read.error())));
       }
     } else {
-      result->Value = ChunkSetLoader::ReadRegion(input, root, token);
+      output.Value = ChunkSetLoader::ReadRegion(input, root, token);
     }
   });
-  Pending_.emplace(Pending{.Handle = handle,
-                           .Owner = &Io_,
-                           .Revision = Revision_,
-                           .Output = std::move(result),
-                           .Stop = std::move(stop)});
+  if (!accepted) { result->Value = ReadResult(std::unexpected("original OSM IO queue is closed")); }
+  Pending_.emplace(
+      Pending{.Revision = Revision_, .Output = std::move(result), .Stop = std::move(stop)});
 }
 
 void SourceAcquisition::StartDecode(std::vector<SourceChunk> input,
                                     std::stop_source stop,
                                     std::optional<double> readMs) {
   auto result = std::make_shared<Result>();
+  result->Progress = Access_->Progress;
   const auto token = stop.get_token();
   const bool cells = Scope_ == Scope::Cells;
-  const auto handle =
-      Tasks_->Post([input = std::move(input), result, token, readMs, cells, compiler = Compiler_] {
+  const auto complete = std::make_shared<AcquisitionCompletion<Result>>(result);
+  const bool accepted = Tasks_->PostDetached(
+      [input = std::move(input), complete, token, readMs, cells, compiler = Compiler_] {
+        auto &output = *complete->Owner;
         if (cells) {
           std::vector<CellSource> ready;
           ready.reserve(input.size());
           for (const auto &chunk : input) {
             auto cell = DecodeCell(chunk, token, compiler);
             if (!cell) {
-              result->Value = CellLoadResult(std::unexpected(std::move(cell.error())));
+              output.Value = CellLoadResult(std::unexpected(std::move(cell.error())));
               return;
             }
             ready.push_back(std::move(*cell));
           }
-          result->Value = CellLoadResult(std::move(ready));
+          output.Value = CellLoadResult(std::move(ready));
           return;
         }
         auto loaded = ChunkSetLoader::ParseRegion(input, token);
         if (!loaded) {
-          result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
+          output.Value = LoadResult(std::unexpected(std::move(loaded.error())));
         } else {
           if (readMs) { loaded->ReadMs = *readMs; }
-          result->Value = LoadResult(std::make_shared<const SourceSnapshot>(std::move(*loaded)));
+          output.Value = LoadResult(std::make_shared<const SourceSnapshot>(std::move(*loaded)));
         }
       });
-  Pending_.emplace(Pending{.Handle = handle,
-                           .Owner = Tasks_,
-                           .Revision = Revision_,
-                           .Output = std::move(result),
-                           .Stop = std::move(stop)});
+  if (!accepted) {
+    result->Value = LoadResult(std::unexpected("original OSM compute queue is closed"));
+  }
+  Pending_.emplace(
+      Pending{.Revision = Revision_, .Output = std::move(result), .Stop = std::move(stop)});
 }
 
 }

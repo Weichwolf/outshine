@@ -19,7 +19,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <variant>
 
 namespace outshine::Generators::Osm {
 
@@ -56,6 +55,7 @@ public:
                              std::string cacheDirectory = {},
                              std::shared_ptr<const CellCompiler> compiler = {});
 
+  // Pools, transport and provider registry outlive unfinished jobs.
   ~SourceAcquisition();
   SourceAcquisition(const SourceAcquisition &) = delete;
   SourceAcquisition &operator=(const SourceAcquisition &) = delete;
@@ -96,14 +96,9 @@ private:
   using ReadResult = std::expected<std::vector<SourceChunk>, std::string>;
   using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
 
-  struct Result {
-    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
-    std::optional<double> ReadMs;
-  };
+  struct Result;
 
   struct Pending {
-    Tasks::Handle Handle = Tasks::kNoTask;
-    Tasks *Owner = nullptr;
     uint64_t Revision = 0;
     std::shared_ptr<Result> Output;
     std::stop_source Stop;
@@ -137,7 +132,7 @@ private:
   std::vector<Data::SourceProvider> Requested_;
   std::string Root_;
   std::optional<Pending> Pending_;
-  std::unique_ptr<CellPipeline> CellPipeline_;
+  std::shared_ptr<CellPipeline> CellPipeline_;
   std::shared_ptr<const SourceSnapshot> Current_;
   std::string Error_;
   uint64_t Revision_ = 0;

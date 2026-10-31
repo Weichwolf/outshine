@@ -8,12 +8,43 @@
 #include <deque>
 #include <mutex>
 #include <atomic>
+#include <variant>
+#include <utility>
 #include <Units.h>
 
 namespace outshine::Generators::Osm {
 class CellAcquisition;
 
+struct AcquisitionProgress {
+  std::mutex Mutex;
+  std::condition_variable Changed;
+};
+
+template <typename State> struct AcquisitionCompletion {
+  explicit AcquisitionCompletion(std::shared_ptr<State> state) : Owner(std::move(state)) {}
+
+  ~AcquisitionCompletion() {
+    {
+      const std::scoped_lock lock(Owner->Progress->Mutex);
+      Owner->Finished.store(true, std::memory_order_release);
+    }
+    Owner->Progress->Changed.notify_all();
+  }
+
+  AcquisitionCompletion(const AcquisitionCompletion &) = delete;
+  AcquisitionCompletion &operator=(const AcquisitionCompletion &) = delete;
+  std::shared_ptr<State> Owner;
+};
+
+struct SourceAcquisition::Result {
+  std::shared_ptr<AcquisitionProgress> Progress;
+  std::atomic_bool Finished{false};
+  std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
+  std::optional<double> ReadMs;
+};
+
 struct SourceAcquisition::Access {
+  std::shared_ptr<AcquisitionProgress> Progress = std::make_shared<AcquisitionProgress>();
   Data::SourceTransport *Wire = nullptr;
   std::string Directory;
   std::unique_ptr<Data::RawSourceCache> Store;
@@ -66,26 +97,26 @@ struct SourceAcquisition::Cells {
 
 struct SourceAcquisition::CellPipeline {
   struct Exchange {
-    std::mutex Mutex;
-    std::condition_variable Changed;
+    std::shared_ptr<AcquisitionProgress> Progress;
+    std::atomic_bool Finished{false};
     std::deque<GeoCellId> Requests;
     std::deque<SourceRead> Ready;
     std::string Error;
   };
 
+  std::shared_ptr<Access> Context;
   std::shared_ptr<Exchange> Shared = std::make_shared<Exchange>();
   std::shared_ptr<CellAcquisition> Reader;
   std::vector<GeoCellId> Assigned;
-  Tasks::Handle Handle = Tasks::kNoTask;
   std::stop_source Stop;
   uint64_t Revision = 0;
-  [[nodiscard]] Tasks::StepResult Acquire(const std::shared_ptr<Access> &access,
-                                          const Data::SourceProvider &provider,
+  [[nodiscard]] Tasks::StepResult Acquire(const Data::SourceProvider &provider,
                                           const Data::ProviderRegistry *registry,
                                           std::string_view root,
                                           uint64_t revision,
                                           const std::stop_token &stop);
-  [[nodiscard]] std::expected<void, std::string> StartQueued(CellAcquisition &reader) const;
+  [[nodiscard]] std::expected<void, std::string> StartQueued(CellAcquisition &reader,
+                                                             const std::stop_token &stop) const;
   void Deliver(SourceRead ready) const;
   [[nodiscard]] static bool DeadlineExceeded(Access &access, uint64_t revision);
   [[nodiscard]] Tasks::StepResult Fail(std::string error);
