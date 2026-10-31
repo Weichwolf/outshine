@@ -71,6 +71,28 @@ def screen(row):
 def run(args):
     if args.sample_count < 0:
         raise ValueError("Nonnegative sample count required; zero selects whole corpus")
+    files = [
+        Path(__file__).with_name(name)
+        for name in (
+            "road_normal_corpus.py",
+            "road_normal_study.py",
+            "road_normal_lod.py",
+            "road_normal_cone.py",
+            "road_normal_math.py",
+            "road_normal_hulls.py",
+            "road_surface_model.py",
+            "road_surface_lod.py",
+            "road_surface_frames.py",
+        )
+    ]
+    if subprocess.check_output(
+        ["git", "status", "--porcelain", "--", *map(str, files)], text=True
+    ):
+        raise ValueError("Freeze measured producer sources first")
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    hashes = {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files
+    }
     create_output(args.output)
     rows, manifest, raw_sha = read_corpus()
     if args.sample_count:
@@ -87,10 +109,13 @@ def run(args):
             print(f"screened {len(results)}/{len(positions)}", flush=True)
     accepted = [r for r in results if r["accepted"]]
     rejected = [r for r in results if not r["accepted"]]
+    if hashes != {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files
+    }:
+        raise ValueError("Producer sources changed during corpus evaluation")
     report = {
-        "commit": subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True
-        ).strip(),
+        "commit": commit,
+        "source_sha256": hashes,
         "archive_sha256": manifest["archive_sha256"],
         "selected_raw_jsonl_sha256_observed": raw_sha,
         "selection": "even archive positions"
