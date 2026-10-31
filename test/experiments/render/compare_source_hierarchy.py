@@ -164,8 +164,16 @@ def main():
         for mode, delta in (
             ("turn", np.zeros(3)),
             ("turn-and-translate", np.array([100, 25, -200])),
+            ("translation", np.array([100, 25, -200])),
         ):
-            views = [changed_frame(base, angle, delta) for angle in range(0, 360, 30)]
+            views = [
+                changed_frame(
+                    base,
+                    0 if mode == "translation" else angle,
+                    index * delta if mode == "translation" else delta,
+                )
+                for index, angle in enumerate(range(0, 360, 30))
+            ]
 
             def run_flat(views=views):
                 return [
