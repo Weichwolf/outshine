@@ -23,6 +23,8 @@ struct Calls {
   unsigned Destroyed = 0;
 };
 
+constexpr auto kInvalidSourceKind = static_cast<DataKind>(255);
+
 class SnapshotSource final : public Source {
 public:
   SnapshotSource(std::shared_ptr<Calls> calls, SourceDecl declaration)
@@ -71,7 +73,7 @@ public:
     source.Revision = declaration.Revision;
     source.MaxZoom = 10;
     source.Keeps = Cacheability::Never;
-    if (declaration.Dataset == "invalid") { source.Kind = static_cast<DataKind>(255); }
+    if (declaration.Dataset == "invalid") { source.Kind = kInvalidSourceKind; }
     return std::make_unique<SnapshotSource>(Calls_, std::move(source));
   }
 
@@ -124,8 +126,8 @@ void Transfer(const std::filesystem::path &cache) {
       session = SourceSession::Open({.Directory = cache.string()}, std::move(configuration));
     });
   }
-  CHECK(session && calls->Made == 1 && calls->Destroyed == 0 && std::filesystem::exists(cache),
-        "worker cache opening consumes the original source without calling its destroyed factory");
+  CHECK(session && calls->Made == 1 && calls->Destroyed == 0 && !std::filesystem::exists(cache),
+        "session binding consumes the original source without factory calls or cache IO");
   if (!session) { return; }
   CHECK((*session)->Sources().Count() == 1 &&
             (*session)->Sources().At(0).Declaration().Revision == "frozen",
@@ -146,6 +148,7 @@ void Transfer(const std::filesystem::path &cache) {
   CHECK(payload && payload->SourceRevision == "frozen" &&
             payload->Bytes == std::vector<uint8_t>({2, 3, 5}),
         "native delivery preserves the prepared identity and bytes");
+  CHECK(!std::filesystem::exists(cache), "uncacheable sources never open the raw cache");
   read->Cancel();
   session->reset();
   CHECK(calls->Destroyed == 1, "source ownership ends exactly once after the final consumer");
