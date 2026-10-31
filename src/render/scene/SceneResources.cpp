@@ -145,26 +145,38 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
 bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
                                        std::span<const PieceRows> pieces,
                                        std::string &error) {
-  for (size_t at = 0; at < pieces.size(); ++at) {
-    const PieceRows &change = pieces[at];
+  size_t marked = 0;
+  const auto clearVisited = [&] {
+    for (const auto &change : pieces.first(marked)) {
+      Pieces_[change.Piece.Slot].InstanceRowsVisited = false;
+    }
+  };
+  for (const PieceRows &change : pieces) {
     if (!HasPiece(change.Piece)) {
       error = std::string(Says::MissingPiece) + " (slot=" + std::to_string(change.Piece.Slot) +
               ", generation=" + std::to_string(change.Piece.Generation) +
               ", slots=" + std::to_string(Pieces_.size()) + ")";
+      clearVisited();
       return false;
     }
     if (Pieces_[change.Piece.Slot].MaxInstances > 0 &&
         change.Rows.size() > Pieces_[change.Piece.Slot].MaxInstances) {
       error = Says::PieceCapacity;
+      clearVisited();
       return false;
     }
-    for (size_t earlier = 0; earlier < at; ++earlier) {
-      if (pieces[earlier].Piece == change.Piece) {
+    if (pieces.size() > 1) {
+      auto &visited = Pieces_[change.Piece.Slot].InstanceRowsVisited;
+      if (visited) {
         error = Says::RepeatedPiece;
+        clearVisited();
         return false;
       }
+      visited = true;
+      ++marked;
     }
   }
+  clearVisited();
   size_t changed = 0;
   for (; changed < pieces.size(); ++changed) {
     const PieceRows &change = pieces[changed];

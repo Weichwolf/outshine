@@ -455,6 +455,12 @@ add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
   test/experiments/render/BuildingSourceCapture.cpp
   test/experiments/render/BuildingRadianceField.cpp)
+add_executable(test_experiments_render_NativeInstanceUpdates EXCLUDE_FROM_ALL
+  test/experiments/render/native_instance_updates.cpp)
+add_dependencies(test_experiments_render_NativeInstanceUpdates outshine_shaders)
+target_compile_options(test_experiments_render_NativeInstanceUpdates PRIVATE -fno-exceptions)
+target_link_libraries(test_experiments_render_NativeInstanceUpdates PRIVATE
+  outshine_core PkgConfig::nlohmann_json)
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
   test/experiments/render/native_building_source_planes.cpp
   test/experiments/render/BuildingSourceCapture.cpp)
