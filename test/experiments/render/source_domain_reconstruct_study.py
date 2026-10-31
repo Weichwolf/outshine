@@ -1,6 +1,6 @@
 """Construct one recorded view's requested source corners from cached domains and recipes.
 
-Research reference only; no native World, device, visibility or fallback admission.
+Research reference only; no native World, device, visibility or raster admission.
 """
 
 import argparse
@@ -29,6 +29,7 @@ def run(args):
     with np.load(io.BytesIO(bounds), allow_pickle=False) as z:
         binding_sha = z["source_binding"].tobytes().hex()
         index_sha = z["index_digest"].tobytes().hex()
+        fallback_sha = z["fallback_digest"].tobytes().hex()
         hashes = {
             (int(o), int(n)): h.tobytes()
             for o, n, h in zip(
@@ -41,11 +42,16 @@ def run(args):
     capture = json.loads(binding_raw)["capture_frame"]
     basis = np.array([capture["east"], capture["up"], -np.array(capture["north"])])
     row = next(row for row in view["cases"] if row["angle_degrees"] == args.angle)
-    if row["selected_original_fallback_sources"]:
-        raise ValueError(
-            "Original fallback requires native consumer; no replacement fabricated"
-        )
-    selected = set(row["selected_source_ids"])
+    requested = set(row["selected_source_ids"])
+    raw_index = (args.chunk / "index.npy").read_bytes()
+    if digest(raw_index) != index_sha:
+        raise ValueError("Prepared source index changed")
+    index = np.load(io.BytesIO(raw_index), allow_pickle=False)
+    records = {int(r["source"]): (int(r["offset"]), int(r["bytes"])) for r in index}
+    selected = requested & records.keys()
+    fallback_ids = requested - selected
+    if len(fallback_ids) != row["selected_original_fallback_sources"]:
+        raise ValueError("Complete recorded original fallback demand required")
     recipe_index = (args.recipes / "index.json").read_bytes()
     if digest(recipe_index) != args.recipes_index_sha256:
         raise ValueError("Exact prepared recipe index required")
@@ -75,13 +81,6 @@ def run(args):
         )
     if set(recipes) != selected or any(surface is None for surface in recipes.values()):
         raise ValueError("Every selected source requires its prepared recipe")
-    raw_index = (args.chunk / "index.npy").read_bytes()
-    if digest(raw_index) != index_sha:
-        raise ValueError("Prepared source index changed")
-    index = np.load(io.BytesIO(raw_index), allow_pickle=False)
-    records = {int(r["source"]): (int(r["offset"]), int(r["bytes"])) for r in index}
-    if not selected.issubset(records):
-        raise ValueError("Unindexed source requires whole original")
     chunks = {records[i] for i in selected}
     result, roles, identities, group_bytes = [], [], [], 0
     with (args.chunk / "groups.bin").open("rb") as stream:
@@ -102,23 +101,46 @@ def run(args):
                 identities.extend([identity] * len(corners["material"]))
     if set(identities) != selected:
         raise ValueError("Every selected source needs its whole constructed candidate")
+    constructed_triangles = len(identities)
+    fallback_binding = np.empty((0, 6), dtype="<i4")
+    fallback_bytes = 0
+    if fallback_ids:
+        fallback_raw = args.fallback.read_bytes()
+        if digest(fallback_raw) != fallback_sha:
+            raise ValueError("Original fallback identity changed")
+        with np.load(io.BytesIO(fallback_raw), allow_pickle=False) as z:
+            labels = z["actual_triangle_binding"]
+            include = np.isin(labels[:, 1], list(fallback_ids))
+            fallback_binding = labels[include].copy()
+            if set(map(int, fallback_binding[:, 1])) != fallback_ids:
+                raise ValueError("Every requested original fallback must remain whole")
+            result.append(z["corners"][include].copy())
+            roles.append(z["material"][include].copy())
+            identities.extend(map(int, fallback_binding[:, 1]))
+        fallback_bytes = len(fallback_raw)
+    if set(identities) != requested:
+        raise ValueError("Every selected source must have complete output")
     np.savez(
         args.output,
-        corners=np.concatenate(result),
-        material=np.concatenate(roles),
+        corners=np.concatenate(result) if result else np.empty((0, 3, 14), "<f4"),
+        material=np.concatenate(roles) if roles else np.empty(0, "<i4"),
         source=np.asarray(identities, dtype="<i4"),
+        fallback_binding=fallback_binding,
     )
     report = {
         "angle": args.angle,
-        "selected_sources": len(selected),
-        "constructed_triangles": len(identities),
+        "selected_sources": len(requested),
+        "constructed_triangles": constructed_triangles,
+        "fallback_sources": len(fallback_ids),
+        "fallback_triangles": len(fallback_binding),
+        "fallback_bytes_reread": fallback_bytes,
         "selected_recipe_cells": recipe_reads,
         "decoded_recipe_cell_sources": decoded_cells,
         "recipe_index_memberships_and_cells_read_bytes": recipe_bytes,
         "group_bytes_reread": group_bytes,
         "index_bytes_reread": len(raw_index),
         "output_bytes": args.output.stat().st_size,
-        "scope": "Recorded finite selected candidates only, constructed from already generated domains and prepared material recipes. Recipes are decoded by whole source cell; extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU, device time or original fallback admission. This stage repeats the earlier group reads in a separate process.",
+        "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Recipes are decoded by whole source cell; extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. This stage repeats earlier group/fallback reads in a separate process.",
     }
     args.output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
@@ -126,7 +148,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("view", "bounds", "binding", "recipes", "chunk", "output"):
+    for name in ("view", "bounds", "binding", "recipes", "chunk", "fallback", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--recipes-index-sha256", required=True)
     parser.add_argument("--angle", type=int, default=65)
