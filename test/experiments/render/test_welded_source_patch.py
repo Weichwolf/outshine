@@ -4,6 +4,7 @@ import math
 import struct
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -11,7 +12,12 @@ from complete_source_patches import complete_shape_patches
 from prepared_material_fields import at_local
 from source_material_patches import corner_fields
 from test_source_material_mesh import prepared_shape, surface
-from welded_source_patch import patch_corners, stored_positions
+from welded_source_patch import (
+    TriangleBudget,
+    patch_corners,
+    source_corners,
+    stored_positions,
+)
 
 
 def float32(x):
@@ -86,6 +92,29 @@ class WeldedSourcePatch(unittest.TestCase):
             + origin[2] * basis[1, 2]
         )
         self.assertNotEqual(actual[0, 1], bypassed)
+
+    def test_triangle_budget_rejects_before_attributes_and_counts_whole_source(self):
+        shape = prepared_shape() | {"form": 0, "round_footprint": False}
+        parent = surface() | {"wall_colour": None}
+        patches = complete_shape_patches(parent, shape, 42, 0, np.eye(3), np.zeros(3))
+        baseline, work = source_corners(patches, np.eye(3))
+        bounded, _ = source_corners(
+            patches, np.eye(3), max_triangles=work["domain_triangles"]
+        )
+        for key in baseline:
+            self.assertEqual(baseline[key].tobytes(), bounded[key].tobytes())
+        with self.assertRaises(TriangleBudget):
+            source_corners(
+                patches, np.eye(3), max_triangles=work["domain_triangles"] - 1
+            )
+        with (
+            patch("welded_source_patch.corner_fields", side_effect=AssertionError),
+            self.assertRaises(TriangleBudget),
+        ):
+            patch_corners(patches[0], np.eye(3), max_triangles=0)
+        for limit in (-1, True, 0.5, 131073):
+            with self.assertRaises(ValueError):
+                source_corners(patches, np.eye(3), max_triangles=limit)
 
     def test_only_exactly_collapsed_local_weld_faces_are_pruned(self):
         shape = prepared_shape() | {"form": 0, "round_footprint": False}
