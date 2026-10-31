@@ -14,6 +14,7 @@ from prepared_surface_recipes import decode
 from source_domain_buffer import restore_source
 from source_domain_chunk_study import decode_raw
 from source_patch_product import FIELDS
+from source_recipe_ranges import load_ranges
 from welded_source_patch import source_corners
 
 
@@ -57,28 +58,44 @@ def run(args):
         raise ValueError("Exact prepared recipe index required")
     metadata = json.loads(recipe_index)
     recipes, recipe_reads, recipe_bytes, decoded_cells = {}, 0, len(recipe_index), 0
-    for cell in metadata:
-        ordinal_raw = (args.recipes / cell["source_file"]).read_bytes()
-        recipe_bytes += len(ordinal_raw)
-        if digest(ordinal_raw) != cell["source_sha256"]:
-            raise ValueError("Prepared source membership changed")
-        ordinals = np.load(io.BytesIO(ordinal_raw), allow_pickle=False)
-        if not selected.intersection(map(int, ordinals)):
-            continue
-        raw = (args.recipes / cell["file"]).read_bytes()
-        recipe_reads += 1
-        recipe_bytes += len(raw)
-        if digest(raw) != cell["sha256"] or len(raw) != cell["bytes"]:
-            raise ValueError("Prepared recipe cell changed")
-        surfaces, _ = decode(raw)
-        decoded_cells += len(surfaces)
-        if len(ordinals) != len(surfaces):
-            raise ValueError("Complete source/recipe association required")
-        recipes.update(
-            (int(i), surface)
-            for i, surface in zip(ordinals, surfaces, strict=True)
-            if int(i) in selected
-        )
+    if args.span_index and selected:
+        span_raw = args.span_index.read_bytes()
+        recipe_bytes += len(span_raw)
+        if digest(span_raw) != args.span_index_sha256:
+            raise ValueError("Exact prepared span index required")
+        with np.load(io.BytesIO(span_raw), allow_pickle=False) as spans:
+            recipes, work = load_ranges(
+                spans["table"],
+                spans["sha256"],
+                [(cell["cell"], args.recipes / cell["file"]) for cell in metadata],
+                selected,
+            )
+        recipe_reads = work["recipe_range_reads"]
+        recipe_bytes += work["recipe_range_bytes"]
+        decoded_cells = work["recipe_sources_decoded"]
+    elif selected:
+        for cell in metadata:
+            ordinal_raw = (args.recipes / cell["source_file"]).read_bytes()
+            recipe_bytes += len(ordinal_raw)
+            if digest(ordinal_raw) != cell["source_sha256"]:
+                raise ValueError("Prepared source membership changed")
+            ordinals = np.load(io.BytesIO(ordinal_raw), allow_pickle=False)
+            if not selected.intersection(map(int, ordinals)):
+                continue
+            raw = (args.recipes / cell["file"]).read_bytes()
+            recipe_reads += 1
+            recipe_bytes += len(raw)
+            if digest(raw) != cell["sha256"] or len(raw) != cell["bytes"]:
+                raise ValueError("Prepared recipe cell changed")
+            surfaces, _ = decode(raw)
+            decoded_cells += len(surfaces)
+            if len(ordinals) != len(surfaces):
+                raise ValueError("Complete source/recipe association required")
+            recipes.update(
+                (int(i), surface)
+                for i, surface in zip(ordinals, surfaces, strict=True)
+                if int(i) in selected
+            )
     if set(recipes) != selected or any(surface is None for surface in recipes.values()):
         raise ValueError("Every selected source requires its prepared recipe")
     chunks = {records[i] for i in selected}
@@ -137,10 +154,11 @@ def run(args):
         "selected_recipe_cells": recipe_reads,
         "decoded_recipe_cell_sources": decoded_cells,
         "recipe_index_memberships_and_cells_read_bytes": recipe_bytes,
+        "recipe_read_mode": "span" if args.span_index else "whole_cell",
         "group_bytes_reread": group_bytes,
         "index_bytes_reread": len(raw_index),
         "output_bytes": args.output.stat().st_size,
-        "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Recipes are decoded by whole source cell; extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. This stage repeats earlier group/fallback reads in a separate process.",
+        "scope": "Recorded finite selected candidates from already generated domains and prepared material recipes, plus unchanged whole original fallbacks. Extra selected-view metadata and source-frame reads are excluded from this partial byte count. No native raster, World, GPU or device admission. This stage repeats earlier group/fallback reads in a separate process.",
     }
     args.output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
@@ -151,5 +169,10 @@ if __name__ == "__main__":
     for name in ("view", "bounds", "binding", "recipes", "chunk", "fallback", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--recipes-index-sha256", required=True)
+    parser.add_argument("--span-index", type=Path)
+    parser.add_argument("--span-index-sha256")
     parser.add_argument("--angle", type=int, default=65)
-    run(parser.parse_args())
+    args = parser.parse_args()
+    if (args.span_index is None) != (args.span_index_sha256 is None):
+        parser.error("--span-index and --span-index-sha256 must be supplied together")
+    run(args)
