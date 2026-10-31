@@ -80,6 +80,52 @@ def verify(root):
         all(len(w["source_points"]) % 2 == 0 for w in roads["source_ways"]),
         "source latitude/longitude pairs",
     )
+    with gzip.open(root / "road-bindings.json.gz", "rb") as source:
+        raw = source.read(4 * 1024**2 + 1)
+    require(len(raw) <= 4 * 1024**2, "bounded road bindings")
+    bindings = json.loads(raw)
+    require(
+        bindings["schema"] == 1 and bindings["plan_key"] == roads["plan_key"],
+        "bound original plan",
+    )
+    plan = {tuple(p["part"]): p["lane_contacts"] for p in bindings["plan_bindings"]}
+    loaded = {p["key"]: p for p in bindings["loaded_pages"]}
+    require(
+        set(loaded) == {p["key"] for p in roads["pages"]}, "all original loaded pages"
+    )
+    key = bindings["contact_key"]
+    related = {
+        p["key"]
+        for p in roads["pages"]
+        if any(
+            contact == key for part in p["parts"] for _, contact in plan[tuple(part)]
+        )
+    }
+    require(related == set(bindings["component_page_keys"]), "whole related pages")
+    require(
+        {loaded[k]["part"] for k in related} == set(bindings["component_render_parts"]),
+        "actual rendered component pages",
+    )
+    require(
+        {lane for values in plan.values() for lane, contact in values if contact == key}
+        == set(bindings["component_lane_ordinals"]),
+        "actual component lanes",
+    )
+    by_id = {p["part"]: p for p in parts}
+    require(
+        set(by_id)
+        == set(bindings["previous_local_parts"])
+        | set(bindings["component_render_parts"]),
+        "complete selected parts",
+    )
+    for page in loaded.values():
+        if page["part"] in by_id:
+            part = by_id[page["part"]]
+            require(
+                len(part["positions"]) == page["position_words"]
+                and len(part["triangles"]) == page["index_words"],
+                "native page word counts",
+            )
     return {
         "stamps": len(stamps),
         "water_faces": len(faces),

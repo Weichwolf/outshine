@@ -7,7 +7,8 @@ All files work offline. `python3 verify.py` checks identity and topology referen
 |---|---|
 | `contact.json.gz` | Original frame, 18,493 selected whole stamps, all 7,522 water vertices / 6,507 faces and face/source incidence |
 | `water.native.gz` | Complete original WaterAsset, including source identities, inputs, rings, levels, prepared mesh and rejections; decode with the captured native codec |
-| `roads.json.gz` | Eleven whole rendered streets parts (30,374 vertices / 24,438 triangles), original page/plan references and 2,145 local source-way observations |
+| `roads.json.gz` | 127 whole rendered streets parts (178,164 vertices / 171,506 triangles), original page/plan references and 2,145 local source-way observations |
+| `road-bindings.json.gz` | Actual plan-to-lane/contact-key and loaded-page-to-render-part bindings; group 106753 has 559 lanes / 125 whole mixed render pages |
 | `road-overlap.json` | Double-precision membership check: neither diagnostic point is on a captured rendered road triangle; this is not a GPU/navigation oracle |
 | `deformed-pages.npz` | Four existing z20 pages around the observed edge; immutable float32 35×35 words including halo |
 | `dem-16-34514-22987.webp` | Original cached Mapterhorn Terrarium source; RGB: R×256+G+B/256−32768 metres |
@@ -37,13 +38,16 @@ Numbers are observations, not desired replacement heights. Native and geodetic
 heights differ by frame curvature. The final original image is reproduced exactly.
 
 Road positions use East/Up/South, column-major affine part placements and the
-declared anchor. The selected parts are complete; their bounds intersect the
-local rectangle without clipping faces. Manifest pages remain unfiltered, so do
-not infer a one-to-one relation between page ordinal and selected part ordinal.
+declared anchor. The selected parts are complete: the initial local rectangle plus every
+whole page containing a plan part assigned contact key 106753. No faces are clipped.
+Manifest pages remain unfiltered; the explicit loaded-page map, not array ordinal,
+binds a render part. The 125 related pages can include foreign plan parts; no
+per-triangle group mask is implied. Plan maps are captured under the exact
+manifest PlanKey. Repeated page loads agree in part ID and position/index counts.
 Source-way point pairs are latitude/longitude degrees. Source ways preserve
 their original indices/points and provider feature/tile/digest
-references. They are selected by feature bounds, not by a proved contact-key
-closure. Neither diagnostic point is covered by a rendered road triangle in the
+references. They are selected by feature bounds. The full 559-lane contact-key membership
+is captured separately; only 326 of these lanes have a local source-way row here. Neither diagnostic point is covered by a rendered road triangle in the
 double membership check. The corridor effect is an apron, not a road surface hit.
 
 Still missing: road navigation mesh and per-triangle source-way association,
