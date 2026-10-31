@@ -3,7 +3,10 @@
 import argparse
 import hashlib
 import json
+import os
+import platform
 import statistics
+import subprocess
 import time
 import tracemalloc
 from pathlib import Path
@@ -40,6 +43,11 @@ def run(args):
     if args.output.exists():
         raise ValueError("Fresh explicit output required")
     paths = [Path(__file__), Path(__file__).with_name("source_binding_columns.py")]
+    if subprocess.check_output(
+        ["git", "status", "--porcelain", "--", *map(str, paths)], text=True
+    ):
+        raise ValueError("Freeze measured source first")
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     hashes = {
         path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths
     }
@@ -94,6 +102,10 @@ def run(args):
     }:
         raise ValueError("Measured source changed")
     report = {
+        "commit": commit,
+        "host": platform.platform(),
+        "loadavg": os.getloadavg(),
+        "nice": os.getpriority(os.PRIO_PROCESS, 0),
         "source_binding_sha256": provenance["source_binding_sha256"],
         "native_selection_sha256": native["samples_sha256"],
         "source_sha256": hashes,
