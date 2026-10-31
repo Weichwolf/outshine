@@ -189,7 +189,11 @@ def read_ranges(
             if len(blob) != end - start:
                 raise ValueError("Incomplete original source range")
             read_bytes += len(blob)
-            borrowed = compact and sum(int(row["bytes"]) for row in group) == len(blob)
+            borrowed = (
+                compact
+                and len(group) > 1
+                and sum(int(row["bytes"]) for row in group) == len(blob)
+            )
             for row in group:
                 lo = int(row["offset"]) - start
                 hi = lo + int(row["bytes"])
