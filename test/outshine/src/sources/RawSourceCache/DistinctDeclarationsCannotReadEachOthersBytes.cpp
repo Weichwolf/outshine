@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -95,7 +96,7 @@ void CheckEndpointPayloadAndRanges() {
   CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty() &&
             Data::ContentKey(invalid, at).empty(),
         "unknown data kinds cannot collapse into one usable empty-name identity");
-  invalid = first;
+  invalid = std::move(first);
   invalid.Wire = static_cast<Data::WireFormat>(kUnknownMetadataValue);
   CHECK(!Data::SourceIdentityEncodable(invalid) && Data::SourceKey(invalid).empty(),
         "unknown source formats fail before publishing a persistent identity");
