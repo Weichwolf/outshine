@@ -103,3 +103,52 @@ def possible_leaves(bounds, operands, raster, margin, guard, *, batch_boxes=512)
         last = np.minimum(raster - 1, np.floor(np.nextafter(high - 0.5, np.inf)))
         keep[begin + rows] = (first <= last).all(1)
     return keep
+
+
+def group_demand(
+    root, witnesses, normal, bounds, view, placements, raster, guard, *, batch_boxes=512
+):
+    """Metadata only: mask, immediate Whole reason, and projection diagnostics.
+
+    A None mask without a Whole reason requires the original fine query. Callers
+    validate layouts/limits first. This does not authorize native raster culling.
+    """
+    work = {"witness_points_tested": 0, "coarse_margin_px": None}
+    if guard >= int(raster.max()):
+        return None, "raster_guard_covers_viewport", {**work, "bypass": "guard_whole"}
+    if not normal:
+        return (
+            None,
+            "clip_or_arithmetic_unknown",
+            {**work, "bypass": "unsupported_source"},
+        )
+    operands = frame(view, placements)
+    if operands is None:
+        return (
+            None,
+            "clip_or_arithmetic_unknown",
+            {**work, "bypass": "upload_arithmetic"},
+        )
+    points = np.repeat(witnesses[:, None, :], 2, axis=1)
+    lo, hi = clip_boxes(points, operands)
+    work["witness_points_tested"] = len(points)
+    outside = (
+        (hi[:, 3] <= 0)
+        | (hi[:, 2] <= 0)
+        | (lo[:, 2] >= hi[:, 3])
+        | (lo[:, :2] >= hi[:, 3, None]).any(1)
+        | (hi[:, :2] <= -hi[:, 3, None]).any(1)
+    )
+    if outside.any():
+        return (
+            None,
+            "clip_or_arithmetic_unknown",
+            {**work, "bypass": "actual_vertex_outside"},
+        )
+    margin = support_margin(root, operands, raster.astype(float))
+    if margin is None:
+        return None, None, {**work, "bypass": "root_projection"}
+    keep = possible_leaves(
+        bounds, operands, raster, margin, guard, batch_boxes=batch_boxes
+    )
+    return keep, None, {**work, "coarse_margin_px": margin.tolist(), "bypass": None}
