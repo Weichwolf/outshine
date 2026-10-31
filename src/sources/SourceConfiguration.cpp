@@ -26,45 +26,50 @@ ConfigureSource(const SourceProvider &provider,
   return source;
 }
 
-bool RegisterSources(SourceSet &set,
-                     std::span<const SourceProvider> providers,
-                     std::string_view builtinDataDirectory,
-                     std::string &error,
-                     const ProviderRegistry &registry) {
+std::expected<std::vector<std::unique_ptr<Source>>, std::string>
+PrepareSources(std::span<const SourceProvider> providers,
+               std::string_view builtinDataDirectory,
+               const ProviderRegistry &registry) {
   if (const auto valid = ValidateSourceProviders(providers, registry); !valid) {
-    error = valid.error();
-    return false;
+    return std::unexpected(valid.error());
   }
   std::vector<std::unique_ptr<Source>> candidates;
   candidates.reserve(providers.size());
   for (const SourceProvider &provider : providers) {
     auto made = registry.named(provider.Kind)->make(provider, builtinDataDirectory);
-    if (!made) {
-      error = std::move(made.error());
-      return false;
-    }
-    if (!*made) {
-      error = "provider factory returned a null source";
-      return false;
-    }
+    if (!made) { return std::unexpected(std::move(made.error())); }
+    if (!*made) { return std::unexpected("provider factory returned a null source"); }
     candidates.push_back(std::move(*made));
   }
-  switch (set.AddAll(std::move(candidates))) {
-    case SourceSet::Registration::Accepted: break;
-    case SourceSet::Registration::DuplicateRank:
-      error = "the providers declare one source kind and priority twice";
-      return false;
-    case SourceSet::Registration::Unnamed:
-      error = "a provider resolves to a source without an id";
-      return false;
-    case SourceSet::Registration::Sealed:
-      error = "providers cannot be registered after the tile pool starts";
-      return false;
-    case SourceSet::Registration::InvalidDefinition:
-      error = "a provider resolves to source metadata without a valid persistent identity";
-      return false;
+  const auto valid = SourceSet::ValidateSources(candidates);
+  if (valid != SourceSet::Registration::Accepted) {
+    return std::unexpected(std::string(SourceSet::RegistrationError(valid)));
+  }
+  return candidates;
+}
+
+bool RegisterSources(SourceSet &set,
+                     std::vector<std::unique_ptr<Source>> sources,
+                     std::string &error) {
+  const auto registered = set.AddAll(std::move(sources));
+  if (registered != SourceSet::Registration::Accepted) {
+    error = SourceSet::RegistrationError(registered);
+    return false;
   }
   return true;
+}
+
+bool RegisterSources(SourceSet &set,
+                     std::span<const SourceProvider> providers,
+                     std::string_view builtinDataDirectory,
+                     std::string &error,
+                     const ProviderRegistry &registry) {
+  auto prepared = PrepareSources(providers, builtinDataDirectory, registry);
+  if (!prepared) {
+    error = std::move(prepared.error());
+    return false;
+  }
+  return RegisterSources(set, std::move(*prepared), error);
 }
 
 }

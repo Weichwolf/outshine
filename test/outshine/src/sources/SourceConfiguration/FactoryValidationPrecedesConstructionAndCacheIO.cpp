@@ -110,6 +110,11 @@ int main() {
   CHECK(!permitted && permitted.error() == "provider factory returned a null source" &&
             custom.Constructed == 1,
         "generic configuration leaves custom metadata to its factory and rejects null results");
+  const auto rejected = SourceSession::Open(
+      {.Directory = cache.string()}, std::span(&customDeclaration, 1), {}, registry);
+  CHECK(!rejected && rejected.error() == "provider factory returned a null source" &&
+            !std::filesystem::exists(cache),
+        "a rejected factory result opens no source cache");
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   return Report();

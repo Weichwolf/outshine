@@ -125,6 +125,11 @@ struct EngineServices {
   std::shared_ptr<AssetPipeline> Publications;
 };
 
+struct ScenarioPreparation {
+  std::unique_ptr<ScenarioRuntime> Simulation;
+  std::optional<Data::SourceSession::Configuration> Sources;
+};
+
 struct WorldRegionState {
   WorldRegionState();
   ~WorldRegionState();
@@ -357,7 +362,7 @@ struct Engine::State {
   FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
-  std::optional<Holds<std::unique_ptr<ScenarioRuntime>>> PendingSimulation;
+  std::optional<Holds<ScenarioPreparation>> PendingDeclaration;
   EngineServices Services;
   WorldRegionState World;
   World::BodySnapshot BodyFrame;
@@ -527,6 +532,8 @@ struct Engine::State {
   UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
+  [[nodiscard]] Holds<std::optional<Data::SourceSession::Configuration>>
+  PrepareWorldSources(const Scenario::Document &scenario) const;
   [[nodiscard]] bool PollWeather();
 
   [[nodiscard]] bool WeatherRunning() const noexcept {

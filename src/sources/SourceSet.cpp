@@ -87,23 +87,8 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
 SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> sources) {
   const std::scoped_lock lock(RegistryMutex_);
   if (Sealed_) { return Registration::Sealed; }
-  for (size_t at = 0; at < sources.size(); ++at) {
-    if (!sources[at] || sources[at]->Declaration().Id.empty()) { return Registration::Unnamed; }
-    const SourceDecl &decl = sources[at]->Declaration();
-    if (!SourceIdentityEncodable(decl)) { return Registration::InvalidDefinition; }
-    for (const std::unique_ptr<Source> &held : Sources_) {
-      const SourceDecl &other = held->Declaration();
-      if (other.Kind == decl.Kind && other.Order == decl.Order) {
-        return Registration::DuplicateRank;
-      }
-    }
-    for (size_t previous = 0; previous < at; ++previous) {
-      const SourceDecl &other = sources[previous]->Declaration();
-      if (other.Kind == decl.Kind && other.Order == decl.Order) {
-        return Registration::DuplicateRank;
-      }
-    }
-  }
+  const auto valid = ValidateAddition(sources, this);
+  if (valid != Registration::Accepted) { return valid; }
   std::vector<Ledger::UsedSource> added;
   added.reserve(sources.size());
   for (const auto &source : sources) {
@@ -119,7 +104,6 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
                   std::make_move_iterator(sources.end()));
 
   std::ranges::sort(Sources_,
-
                     [](const std::unique_ptr<Source> &a, const std::unique_ptr<Source> &b) {
                       const SourceDecl &da = a->Declaration();
                       const SourceDecl &db = b->Declaration();
@@ -135,6 +119,49 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
     return a.Order < b.Order;
   });
   return Registration::Accepted;
+}
+
+SourceSet::Registration
+SourceSet::ValidateSources(std::span<const std::unique_ptr<Source>> sources) {
+  return ValidateAddition(sources, nullptr);
+}
+
+SourceSet::Registration
+SourceSet::ValidateAddition(std::span<const std::unique_ptr<Source>> sources,
+                            const SourceSet *existing) {
+  for (size_t at = 0; at < sources.size(); ++at) {
+    if (!sources[at] || sources[at]->Declaration().Id.empty()) { return Registration::Unnamed; }
+    const SourceDecl &decl = sources[at]->Declaration();
+    if (!SourceIdentityEncodable(decl)) { return Registration::InvalidDefinition; }
+    if (existing != nullptr) {
+      for (const std::unique_ptr<Source> &held : existing->Sources_) {
+        const SourceDecl &other = held->Declaration();
+        if (other.Kind == decl.Kind && other.Order == decl.Order) {
+          return Registration::DuplicateRank;
+        }
+      }
+    }
+    for (size_t previous = 0; previous < at; ++previous) {
+      const SourceDecl &other = sources[previous]->Declaration();
+      if (other.Kind == decl.Kind && other.Order == decl.Order) {
+        return Registration::DuplicateRank;
+      }
+    }
+  }
+  return Registration::Accepted;
+}
+
+std::string_view SourceSet::RegistrationError(Registration result) noexcept {
+  switch (result) {
+    case Registration::Accepted: return {};
+    case Registration::DuplicateRank:
+      return "the providers declare one source kind and priority twice";
+    case Registration::Unnamed: return "a provider resolves to a source without an id";
+    case Registration::Sealed: return "providers cannot be registered after the tile pool starts";
+    case Registration::InvalidDefinition:
+      return "a provider resolves to source metadata without a valid persistent identity";
+  }
+  return "invalid source registration result";
 }
 
 void SourceSet::Seal() noexcept {
