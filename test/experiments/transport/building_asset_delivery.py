@@ -6,7 +6,7 @@ import ctypes
 import hashlib
 import json
 from pathlib import Path
-import sqlite3
+from native_package_storage import open_packages
 import struct
 import subprocess
 
@@ -138,9 +138,9 @@ def main():
     if args.largest < 1:
         parser.error('--largest must be positive')
     lib, rows = library(), []
-    with sqlite3.connect(args.cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
+    with open_packages(args.cache.resolve().as_uri() + '?mode=ro', uri=True) as db:
         query = """SELECT a.key,p.codec,p.native_bytes,p.bytes FROM assets a
-                   JOIN packages p ON p.key=a.package WHERE a.kind='buildings' AND a.parent=''
+                   JOIN native_packages p ON p.key=a.package WHERE a.kind='buildings' AND a.parent=''
                    ORDER BY a.bytes DESC LIMIT ?"""
         for key, codec, size, wire in db.execute(query, (args.largest,)):
             data = unpack(lib, wire, codec, size)

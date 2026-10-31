@@ -125,7 +125,7 @@ class NativeRoadPageReplay(unittest.TestCase):
                     1024**2,
                 )
             reads = [
-                s for s in statements if s.startswith("SELECT bytes FROM packages")
+                s for s in statements if s.startswith("SELECT bytes FROM native_packages")
             ]
             self.assertEqual(len(reads), 2)
             self.assertTrue(all(excluded not in statement for statement in reads))

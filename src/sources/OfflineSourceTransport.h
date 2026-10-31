@@ -3,6 +3,7 @@
 
 #include <SourceTransport.h>
 #include <expected>
+#include <cstddef>
 
 namespace outshine::Data {
 
@@ -10,6 +11,11 @@ class OfflineSourceTransport final : public SourceTransport {
 public:
   [[nodiscard]] FetchStart Begin(const std::string &url) override {
     (void)url;
+    return std::unexpected(SourceFailureReason::OfflineMiss);
+  }
+
+  [[nodiscard]] FetchStart Begin([[maybe_unused]] const std::string &url,
+                                 [[maybe_unused]] size_t bodyBytesMost) override {
     return std::unexpected(SourceFailureReason::OfflineMiss);
   }
 

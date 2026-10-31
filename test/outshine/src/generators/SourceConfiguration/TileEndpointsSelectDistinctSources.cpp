@@ -8,6 +8,8 @@
 #include <SourceTransport.h>
 
 #include <array>
+#include <cstddef>
+#include <expected>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -24,6 +26,14 @@ public:
   outshine::Data::FetchStart Begin(const std::string &url) override {
     Urls.push_back(url);
     return static_cast<outshine::Data::Ticket>(Urls.size());
+  }
+
+  outshine::Data::FetchStart Begin(const std::string &url, size_t bodyBytesMost) override {
+    constexpr size_t payloadBytes = 2;
+    if (bodyBytesMost < payloadBytes) {
+      return std::unexpected(outshine::Data::SourceFailureReason::CapacityRefused);
+    }
+    return Begin(url);
   }
 
   outshine::Data::Wire Collect(outshine::Data::Ticket ticket) override {
@@ -143,6 +153,10 @@ int main() {
   CHECK(SourceKey(sources.At(0).Declaration()) != SourceKey(changedEndpoint),
         "source diagnostics distinguish a changed endpoint under the same pin");
   TileTransport transport;
+  const auto tooSmall = transport.Begin("fixture", size_t{1});
+  CHECK(!tooSmall && tooSmall.error() == SourceFailureReason::CapacityRefused &&
+            transport.Urls.empty(),
+        "fixture enforces the declared response bound before issuing a request");
   auto query = sources.Ask(request);
   SourceDelivery delivered = sources.Collect(query, transport);
   auto answer = delivered.Take();

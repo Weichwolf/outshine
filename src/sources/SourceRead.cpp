@@ -1,5 +1,7 @@
 #include "SourceSession.h"
+#include <cstddef>
 #include <expected>
+#include <optional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -33,6 +35,10 @@ SourceSession::Read &SourceSession::Read::operator=(Read &&other) {
 
 SourceSession::Read::~Read() {
   Cancel();
+}
+
+std::optional<size_t> SourceSession::Read::PayloadBytesMost() const noexcept {
+  return Query_ ? Query_->PayloadBytesMost() : std::optional<size_t>{0};
 }
 
 SourceDelivery SourceSession::Read::Poll() {

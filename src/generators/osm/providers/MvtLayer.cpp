@@ -2,6 +2,8 @@
 #include "Sha256.h"
 #include "Capacity.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstddef>
 #include <bit>
@@ -278,7 +280,7 @@ private:
 };
 
 struct DecodedValue {
-  std::string Text;
+  std::string_view Text;
   double Number = 0.0;
   bool IsNumber = false;
 };
@@ -303,8 +305,8 @@ std::expected<DecodedValue, std::string_view> ReadValue(Reader reader) {
       case ValueTag::String: {
         const auto text = reader.Bytes();
         if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtValue); }
-        value.Text.assign(reinterpret_cast<const char *>(text.P),
-                          static_cast<size_t>(text.End - text.P));
+        value.Text = {reinterpret_cast<const char *>(text.P),
+                      static_cast<size_t>(text.End - text.P)};
         break;
       }
       case ValueTag::Float: value.Number = std::bit_cast<float>(reader.Fixed<uint32_t>()); break;
@@ -334,11 +336,28 @@ std::expected<DecodedValue, std::string_view> ReadValue(Reader reader) {
   return value;
 }
 
-struct EncodedFeature {
-  std::vector<uint32_t> Tags;
-  std::vector<uint32_t> Geometry;
+template <class Words> struct FeatureWords {
+  Words Tags;
+  Words Geometry;
   int Type = 0;
   std::optional<uint64_t> ProviderFeatureId;
+};
+
+using EncodedFeature = FeatureWords<std::vector<uint32_t>>;
+
+struct WordCount {
+  size_t Count = 0;
+  std::array<uint32_t, 2> Maximum{};
+
+  void clear() {
+    Count = 0;
+    Maximum = {};
+  }
+
+  void push_back(uint32_t word) {
+    Maximum[Count % 2] = std::max(Maximum[Count % 2], word);
+    ++Count;
+  }
 };
 
 enum class FeatureTag : uint32_t {
@@ -350,21 +369,21 @@ enum class FeatureTag : uint32_t {
   PackedGeometry = 0x22
 };
 
-bool AppendWord(Reader &reader, std::vector<uint32_t> &words) {
+template <class Words> bool AppendWord(Reader &reader, Words &words) {
   const auto word = reader.Varint();
   if (!reader.Ok || word > std::numeric_limits<uint32_t>::max()) { return false; }
   words.push_back(static_cast<uint32_t>(word));
   return true;
 }
 
-bool AppendPackedWords(Reader reader, std::vector<uint32_t> &words) {
+template <class Words> bool AppendPackedWords(Reader reader, Words &words) {
   while (reader.P < reader.End) {
     if (!AppendWord(reader, words)) { return false; }
   }
   return reader.Ok;
 }
 
-bool ReadProviderFeatureId(Reader &reader, EncodedFeature &feature) {
+template <class Words> bool ReadProviderFeatureId(Reader &reader, FeatureWords<Words> &feature) {
   if (feature.ProviderFeatureId) { return false; }
   const uint64_t id = reader.Varint();
   if (!reader.Ok) { return false; }
@@ -372,7 +391,7 @@ bool ReadProviderFeatureId(Reader &reader, EncodedFeature &feature) {
   return true;
 }
 
-bool ReadFeatureType(Reader &reader, EncodedFeature &feature) {
+template <class Words> bool ReadFeatureType(Reader &reader, FeatureWords<Words> &feature) {
   const uint64_t type = reader.Varint();
   if (!reader.Ok || type > 3) { return false; }
   feature.Type = static_cast<int>(type);
@@ -384,9 +403,10 @@ struct FeaturePresence {
   bool HasGeometry = false;
 };
 
+template <class Words>
 bool ReadFeatureField(Reader &reader,
                       FieldHeader field,
-                      EncodedFeature &feature,
+                      FeatureWords<Words> &feature,
                       FeaturePresence &presence) {
   switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
     case FeatureTag::Id: return ReadProviderFeatureId(reader, feature);
@@ -404,7 +424,8 @@ bool ReadFeatureField(Reader &reader,
   }
 }
 
-std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature &feature) {
+template <class Words>
+std::expected<void, std::string_view> ReadFeature(Reader reader, FeatureWords<Words> &feature) {
   feature.Tags.clear();
   feature.Geometry.clear();
   feature.Type = 0;
@@ -422,52 +443,166 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
   return {};
 }
 
+struct SelectedLayer {
+  std::span<const uint8_t> Bytes;
+  int Extent = 0;
+};
+
+std::expected<SelectedLayer, MvtLayer::ParseError> SelectLayer(std::span<const uint8_t> bytes,
+                                                               std::string_view name) {
+  using Error = MvtLayer::ParseError;
+  if (bytes.empty()) { return std::unexpected(Error::MissingLayer); }
+  std::optional<SelectedLayer> selected;
+  Reader top{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
+  FieldHeader field;
+  while (top.ReadField(field)) {
+    if (field.Number != 3 || field.Wire != 2) {
+      if (!top.Skip(field.Wire)) { return std::unexpected(Error::InvalidTile); }
+      continue;
+    }
+    const Reader body = top.Bytes();
+    if (!top.Ok) { return std::unexpected(Error::InvalidTile); }
+    const auto header = ReadLayerHeader(body);
+    if (!header.Complete) { return std::unexpected(Error::InvalidTile); }
+    if (header.Name != name) { continue; }
+    if (selected || !header.Version || header.Extent == 0 ||
+        std::cmp_greater(header.Extent, std::numeric_limits<int>::max())) {
+      return std::unexpected(Error::InvalidTile);
+    }
+    if (*header.Version != 2) { return std::unexpected(Error::UnsupportedVersion); }
+    selected = SelectedLayer{.Bytes = std::span(body.P, body.End),
+                             .Extent = static_cast<int>(header.Extent)};
+  }
+  if (!top.Ok) { return std::unexpected(Error::InvalidTile); }
+  if (!selected) { return std::unexpected(Error::MissingLayer); }
+  return *selected;
 }
 
-std::expected<void, MvtLayer::ParseError> MvtLayer::Parse(std::span<const uint8_t> bytes,
-                                                          std::string_view layer) {
-  if (bytes.empty()) { return std::unexpected(ParseError::MissingLayer); }
+bool SizePlan(MvtLayer::AllocationPlan &plan) {
+  constexpr size_t indices = std::numeric_limits<uint32_t>::max();
+  if (plan.Features > std::numeric_limits<int>::max() || plan.Rings > indices ||
+      plan.Points / 2 > indices || plan.Tags > indices || plan.Keys > indices ||
+      plan.Values > indices) {
+    return false;
+  }
+  size_t bytes = 0;
+  const auto add = [&bytes](size_t count, size_t width) {
+    if (count > (std::numeric_limits<size_t>::max() - bytes) / width) { return false; }
+    bytes += count * width;
+    return true;
+  };
+  if (!add(plan.Features, sizeof(MvtLayer::Feature)) || !add(plan.Rings, sizeof(MvtLayer::Ring)) ||
+      !add(plan.Points, sizeof(int32_t)) || !add(plan.Tags, sizeof(uint32_t)) ||
+      !add(plan.Keys, sizeof(std::string)) ||
+      !add(plan.Values, sizeof(double) + sizeof(std::string)) ||
+      !add(plan.Values / 64 + (plan.Values % 64 != 0 ? 1 : 0), sizeof(uint64_t)) ||
+      !add(plan.TextBytes, 2) || !add(plan.Keys, sizeof(std::string) + 2) ||
+      !add(plan.Values, sizeof(std::string) + 2)) {
+    return false;
+  }
+  plan.HeapBytesMost = bytes;
+  if (!add(plan.ScratchTags, sizeof(uint32_t)) || !add(plan.ScratchGeometry, sizeof(uint32_t))) {
+    return false;
+  }
+  plan.PeakBytesMost = bytes;
+  return true;
+}
+
+bool PlanFeature(Reader body,
+                 MvtLayer::AllocationPlan &plan,
+                 std::array<uint32_t, 2> &maximumTag,
+                 bool &hasTags) {
+  FeatureWords<WordCount> feature;
+  if (!body.Ok || !ReadFeature(body, feature) || feature.Tags.Count % 2 != 0) { return false; }
+  if (feature.Tags.Count != 0) {
+    hasTags = true;
+    for (size_t at = 0; at < maximumTag.size(); ++at) {
+      maximumTag[at] = std::max(maximumTag[at], feature.Tags.Maximum[at]);
+    }
+  }
+  plan.ScratchTags = std::max(plan.ScratchTags, feature.Tags.Count);
+  plan.ScratchGeometry = std::max(plan.ScratchGeometry, feature.Geometry.Count);
+  if (feature.Type == 0) { return true; }
+  ++plan.Features;
+  plan.Tags += feature.Tags.Count;
+  plan.Points += (feature.Geometry.Count / 2) * 2;
+  plan.Rings += feature.Geometry.Count / 3;
+  return true;
+}
+
+std::expected<MvtLayer::AllocationPlan, MvtLayer::ParseError>
+PlanLayer(std::span<const uint8_t> bytes) {
+  using Error = MvtLayer::ParseError;
+  MvtLayer::AllocationPlan plan;
+  Reader reader{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
+  FieldHeader field;
+  std::array<uint32_t, 2> maximumTag{};
+  bool hasTags = false;
+  while (reader.ReadField(field)) {
+    if (field.Number == 3 && field.Wire == 2) {
+      const auto text = reader.Bytes();
+      if (!reader.Ok) { return std::unexpected(Error::InvalidTile); }
+      ++plan.Keys;
+      plan.TextBytes += static_cast<size_t>(text.End - text.P);
+    } else if (field.Number == 4 && field.Wire == 2) {
+      const auto body = reader.Bytes();
+      const auto value = ReadValue(body);
+      if (!reader.Ok || !value) { return std::unexpected(Error::InvalidTile); }
+      ++plan.Values;
+      plan.TextBytes += value->Text.size();
+    } else if (field.Number == 2 && field.Wire == 2) {
+      const auto body = reader.Bytes();
+      if (!reader.Ok || !PlanFeature(body, plan, maximumTag, hasTags)) {
+        return std::unexpected(Error::InvalidTile);
+      }
+    } else if (!reader.Skip(field.Wire)) {
+      return std::unexpected(Error::InvalidTile);
+    }
+  }
+  if (!reader.Ok || (hasTags && (maximumTag[0] >= plan.Keys || maximumTag[1] >= plan.Values))) {
+    return std::unexpected(Error::InvalidTile);
+  }
+  if (!SizePlan(plan)) { return std::unexpected(Error::CapacityExceeded); }
+  return plan;
+}
+
+}
+
+std::expected<MvtLayer::AllocationPlan, MvtLayer::ParseError>
+MvtLayer::Plan(std::span<const uint8_t> bytes, std::string_view layer) {
+  const auto selected = SelectLayer(bytes, layer);
+  if (!selected) { return std::unexpected(selected.error()); }
+  return PlanLayer(selected->Bytes);
+}
+
+std::expected<void, MvtLayer::ParseError>
+MvtLayer::Parse(std::span<const uint8_t> bytes, std::string_view layer, size_t bytesMost) {
   MvtLayer candidate;
-  const auto result = candidate.Decode(bytes, layer);
+  const auto result = candidate.Decode(bytes, layer, bytesMost);
   if (!result) { return result; }
   *this = std::move(candidate);
   return {};
 }
 
-std::expected<void, MvtLayer::ParseError> MvtLayer::Decode(std::span<const uint8_t> bytes,
-                                                           std::string_view layer) {
-  bool found = false;
-  Reader top{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
-  FieldHeader field;
-  while (top.ReadField(field)) {
-    if (field.Number != 3 || field.Wire != 2) {
-      if (!top.Skip(field.Wire)) { return std::unexpected(ParseError::InvalidTile); }
-      continue;
-    }
-    const Reader L = top.Bytes();
-    if (!top.Ok) { return std::unexpected(ParseError::InvalidTile); }
-
-    const auto header = ReadLayerHeader(L);
-    if (header.Name != layer) {
-      if (!header.Complete) { return std::unexpected(ParseError::InvalidTile); }
-      continue;
-    }
-    if (!header.Complete || found || !header.Version || header.Extent == 0 ||
-        std::cmp_greater(header.Extent, std::numeric_limits<int>::max())) {
-      return std::unexpected(ParseError::InvalidTile);
-    }
-    if (*header.Version != 2) { return std::unexpected(ParseError::UnsupportedVersion); }
-    Extent_ = static_cast<int>(header.Extent);
-
-    const auto features = ReadLayerTables(std::span(L.P, L.End));
-    if (!features) { return std::unexpected(features.error()); }
-    const auto decoded = DecodeFeatures(*features);
-    if (!decoded) { return decoded; }
-    found = true;
-  }
-  if (!top.Ok) { return std::unexpected(ParseError::InvalidTile); }
-  if (!found) { return std::unexpected(ParseError::MissingLayer); }
-  return {};
+std::expected<void, MvtLayer::ParseError>
+MvtLayer::Decode(std::span<const uint8_t> bytes, std::string_view layer, size_t bytesMost) {
+  const auto selected = SelectLayer(bytes, layer);
+  if (!selected) { return std::unexpected(selected.error()); }
+  const auto plan = PlanLayer(selected->Bytes);
+  if (!plan) { return std::unexpected(plan.error()); }
+  if (plan->PeakBytesMost > bytesMost) { return std::unexpected(ParseError::CapacityExceeded); }
+  Features_.reserve(plan->Features);
+  Rings_.reserve(plan->Rings);
+  Points_.reserve(plan->Points);
+  Tags_.reserve(plan->Tags);
+  Keys_.reserve(plan->Keys);
+  Values_.reserve(plan->Values);
+  ValueStrs_.reserve(plan->Values);
+  ValueIsNum_.reserve(plan->Values);
+  Extent_ = selected->Extent;
+  const auto features = ReadLayerTables(selected->Bytes);
+  if (!features) { return std::unexpected(features.error()); }
+  return DecodeFeatures(*features, *plan);
 }
 
 std::expected<std::span<const uint8_t>, MvtLayer::ParseError>
@@ -487,7 +622,7 @@ MvtLayer::ReadLayerTables(std::span<const uint8_t> bytes) {
       auto value = ReadValue(body);
       if (!value) { return std::unexpected(ParseError::InvalidTile); }
       Values_.push_back(value->Number);
-      ValueStrs_.push_back(std::move(value->Text));
+      ValueStrs_.emplace_back(value->Text);
       ValueIsNum_.push_back(value->IsNumber);
     } else if (field.Number == 2 && field.Wire == 2) {
       (void)L.Bytes();
@@ -503,10 +638,12 @@ MvtLayer::ReadLayerTables(std::span<const uint8_t> bytes) {
 }
 
 std::expected<void, MvtLayer::ParseError>
-MvtLayer::DecodeFeatures(std::span<const uint8_t> layerBytes) {
+MvtLayer::DecodeFeatures(std::span<const uint8_t> layerBytes, const AllocationPlan &plan) {
   Reader layer{.P = layerBytes.data(), .End = layerBytes.data() + layerBytes.size(), .Ok = true};
   FieldHeader field;
   EncodedFeature encoded;
+  encoded.Tags.reserve(plan.ScratchTags);
+  encoded.Geometry.reserve(plan.ScratchGeometry);
   while (layer.ReadField(field)) {
     if (field.Number != 2 || field.Wire != 2) {
       if (!layer.Skip(field.Wire)) { return std::unexpected(ParseError::InvalidTile); }

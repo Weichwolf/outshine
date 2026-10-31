@@ -74,15 +74,15 @@ void CheckSharing() {
       *a,
       Request(*a),
       [input = std::move(input), &calls, &ready](
-          const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         ++calls;
         if (!input) { return std::unexpected("lost retained input"); }
         if (!ready.load()) { return std::nullopt; }
-        return Record();
+        return AssetProduct(Record());
       });
   auto second = pipeline.RequestResolved(*b, Request(*b), [&duplicate](const std::stop_token &) {
     ++duplicate;
-    return Record();
+    return AssetProduct(Record());
   });
   CHECK(first && second, "a second consumer shares the existing deferred product");
   if (!first || !second) { return; }
@@ -135,7 +135,7 @@ void CheckCancel(bool active, Ending ending) {
       *owner,
       Request(*owner),
       [input = std::move(input), &started, &release, active](
-          const std::stop_token &) -> std::expected<std::optional<AssetRecord>, std::string> {
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
         if (!input) { return std::unexpected("lost canceled input"); }
         if (active) {
           started.release();

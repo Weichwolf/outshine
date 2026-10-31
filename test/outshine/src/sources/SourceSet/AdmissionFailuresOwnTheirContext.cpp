@@ -3,6 +3,7 @@
 #include "SourceSet.h"
 #include "WebTileFixture.h"
 #include <expected>
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -105,5 +106,8 @@ int main() {
   const auto start = offline.Begin("https://example.test/tile");
   CHECK(!start && start.error() == SourceFailureReason::OfflineMiss,
         "offline transport identifies refusal at admission");
+  const auto bounded = offline.Begin("https://example.test/tile", size_t{64});
+  CHECK(!bounded && bounded.error() == SourceFailureReason::OfflineMiss,
+        "offline bounded requests report offline rather than a capacity refusal");
   return Report();
 }

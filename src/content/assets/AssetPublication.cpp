@@ -5,6 +5,11 @@
 #include <string_view>
 
 namespace outshine {
+std::optional<AssetRequestKey> AssetRequestKey::Parse(std::string_view hex) noexcept {
+  const auto key = AssetProductKey::Parse(hex);
+  return key ? std::optional(AssetRequestKey{key->Digest}) : std::nullopt;
+}
+
 std::optional<AssetProductKey> AssetProductKey::Parse(std::string_view hex) noexcept {
   constexpr size_t kHexDigits = 64;
   constexpr uint8_t kRadix = 16;

@@ -152,7 +152,7 @@ template <bool Field> void SharedRequests(const std::filesystem::path &path) {
   auto b = pipeline.RequestResolved(
       *second,
       Request(*second, key),
-      [](const std::stop_token &) -> std::expected<AssetRecord, std::string> {
+      [](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
         return std::unexpected("a coalesced source must not run twice");
       });
   CHECK(a && b, "the same immutable product coalesces before a second factory is needed");

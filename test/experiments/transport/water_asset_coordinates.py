@@ -6,7 +6,7 @@ ownership; it does not measure native loading, allocator overhead or GPU perform
 import argparse
 import bisect
 import json
-import sqlite3
+from native_package_storage import open_packages
 import struct
 import subprocess
 import zlib
@@ -100,10 +100,10 @@ def main():
     args = parser.parse_args()
     remap([(20, 4), (2, 3), (21, 2), (5, 2), (40, 2)])
     remap([])
-    with sqlite3.connect(args.cache.resolve().as_uri() + "?mode=ro", uri=True) as database:
+    with open_packages(args.cache.resolve().as_uri() + "?mode=ro", uri=True) as database:
         rows = database.execute(
             "SELECT a.key,p.bytes,p.crc,p.codec,p.native_bytes,a.offset,a.bytes "
-            "FROM assets a JOIN packages p ON a.package=p.key "
+            "FROM assets a JOIN native_packages p ON a.package=p.key "
             "WHERE a.kind='ground-region' ORDER BY a.key LIMIT ?", (args.packages,))
         for row in rows:
             print(json.dumps(inspect(row)), flush=True)

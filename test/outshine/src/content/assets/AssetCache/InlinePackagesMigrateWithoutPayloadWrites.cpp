@@ -84,8 +84,10 @@ void Migration(const std::string &path) {
   CHECK(mixedTrim && mixedTrim->StoredBytes == bytes.size(),
         "the current schema still counts preserved inline bodies exactly once");
   const auto old = (*store)->LoadRequest(request, bytes.size());
-  CHECK(old && *old && std::ranges::equal((**old).Bytes(), bytes),
-        "ordinary bounded loading consumes the untouched inline package offline");
+  const auto plan = (*store)->PlanRead(key, bytes.size());
+  CHECK(old && *old && std::ranges::equal((**old).Bytes(), bytes) && plan && *plan &&
+            (**plan).PackageBytesMost == bytes.size() && (**plan).BufferBytesMost == bytes.size(),
+        "ordinary bounded loading and planning consume the untouched inline package offline");
   CHECK(Execute(database.get(), "BEGIN IMMEDIATE"), "an independent writer holds the new schema");
   const auto reader = AssetCache::Open(path);
   CHECK(reader, "a current-schema reader opens without acquiring another migration writer lock");

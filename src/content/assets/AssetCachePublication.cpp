@@ -256,6 +256,10 @@ AssetCache::PreparePublication(std::vector<AssetRecord> records, std::vector<uin
   return prepared;
 }
 
+std::expected<size_t, AssetCacheError> AssetCache::PublicationBufferBytes(size_t nativeBytes) {
+  return AssetSql::CompressionBytes(nativeBytes);
+}
+
 std::expected<void, AssetCacheError> AssetCache::Publish(const PreparedAssetWrite &prepared) {
   if (prepared.Records_.empty() || prepared.Key_.empty()) {
     return std::unexpected(AssetCacheError::InvalidInput);
@@ -339,14 +343,25 @@ AssetCache::LoadValidated(std::string_view key,
                           std::string_view kind,
                           size_t packageBytesMost,
                           const Validator &validate) {
+  return LoadValidated(key,
+                       kind,
+                       ReadPlan{.PackageBytesMost = packageBytesMost,
+                                .BufferBytesMost = std::numeric_limits<size_t>::max()},
+                       validate);
+}
+
+std::expected<std::optional<CachedAsset>, AssetCacheError> AssetCache::LoadValidated(
+    std::string_view key, std::string_view kind, const ReadPlan &plan, const Validator &validate) {
+  const auto packageBytesMost = plan.PackageBytesMost;
   if (!AssetSql::ValidKey(key) || kind.empty() || packageBytesMost == 0 || !validate) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
-  auto loaded = Load(key, packageBytesMost);
+  auto loaded = Load(key, plan);
   if (!loaded) { return std::unexpected(loaded.error()); }
   auto valid = Validate(*loaded, kind, validate);
   if (!valid) { return std::unexpected(valid.error()); }
   if (*valid) { return std::move(*loaded); }
+  loaded->reset();
   const std::scoped_lock lock(*State_->Mutex);
   const auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }
@@ -355,7 +370,7 @@ AssetCache::LoadValidated(std::string_view key,
   const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
-  loaded = Load(key, packageBytesMost);
+  loaded = Load(key, plan);
   if (!loaded) { return std::unexpected(loaded.error()); }
   valid = Validate(*loaded, kind, validate);
   if (!valid) { return std::unexpected(valid.error()); }

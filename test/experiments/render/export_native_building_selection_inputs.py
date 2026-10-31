@@ -3,18 +3,18 @@
 import argparse
 import hashlib
 import json
-import sqlite3
 import sys
 import tempfile
 import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
+from native_package_storage import open_packages
 from building_asset_delivery import library
 from prepared_building_residency import unpack
 
 QUERY = """SELECT a.kind,a.parent,a.offset,a.bytes,p.codec,p.native_bytes,p.bytes,p.crc
-           FROM assets a JOIN packages p ON a.package=p.key WHERE a.key=?"""
+           FROM assets a JOIN native_packages p ON a.package=p.key WHERE a.key=?"""
 LIMIT = 64 * 1024**2
 
 
@@ -59,7 +59,7 @@ def export(args):
         raise ValueError("fresh explicit system-temp output outside checkout required")
     output.mkdir(parents=True)
     zstd = library()
-    database = sqlite3.connect(args.cache.resolve().as_uri() + "?mode=ro", uri=True)
+    database = open_packages(args.cache.resolve().as_uri() + "?mode=ro", uri=True)
     database.execute("BEGIN")
     for key in args.view_key:
         row = database.execute(QUERY, (key,)).fetchone()

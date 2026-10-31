@@ -1,11 +1,19 @@
 #ifndef OUTSHINE_TEST_OSMCACHEFIXTURE_H
 #define OUTSHINE_TEST_OSMCACHEFIXTURE_H
 #include "Source.h"
+#include "SourceSession.h"
 #include "SourceDecl.h"
 #include "SourceRequest.h"
 #include "SourceResponse.h"
 #include "SourceTransport.h"
+#include <algorithm>
+#include <cstddef>
 #include <atomic>
+#include <array>
+#include <expected>
+#include <memory>
+#include <optional>
+#include <string_view>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -30,6 +38,7 @@ public:
     Decl_.Kind = Data::DataKind::VectorMap;
     Decl_.Wire = Data::WireFormat::MapboxVectorTile;
     Decl_.Keeps = Data::Cacheability::Never;
+    Decl_.MaximumPayloadBytes = std::max(size_t{1}, Bytes_.size());
   }
 
   [[nodiscard]] const Data::SourceDecl &Declaration() const noexcept override { return Decl_; }
@@ -60,5 +69,43 @@ private:
   std::vector<uint8_t> Bytes_;
   std::atomic_uint &Calls_;
 };
+
+class SourceFactory final : public Data::Provider {
+public:
+  explicit SourceFactory(std::unique_ptr<Data::Source> source) : Source_(std::move(source)) {}
+
+  [[nodiscard]] std::string_view kind() const override { return "osm-cache-fixture"; }
+
+  [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
+  make(const Data::SourceProvider & /*declaration*/,
+       std::string_view /*builtinDataDirectory*/) const override {
+    if (!Source_) { return std::unexpected("fixture source already constructed"); }
+    return std::move(Source_);
+  }
+
+private:
+  mutable std::unique_ptr<Data::Source> Source_;
+};
+
+inline std::expected<std::shared_ptr<Data::SourceSession>, std::string>
+OpenSession(std::unique_ptr<Data::Source> source) {
+  if (!source) { return std::unexpected("fixture source is missing"); }
+  const auto revision = source->Declaration().Revision;
+  const SourceFactory factory(std::move(source));
+  Data::ProviderRegistry registry;
+  if (!registry.registerProvider(factory)) {
+    return std::unexpected("fixture factory registration failed");
+  }
+  const std::array providers{Data::SourceProvider{.Kind = "osm-cache-fixture",
+                                                  .Revision = revision,
+                                                  .Dataset = {},
+                                                  .Location = {},
+                                                  .Endpoint = {},
+                                                  .Coverage = std::nullopt,
+                                                  .PayloadSha256 = {},
+                                                  .Schema = {}}};
+  return Data::SourceSession::Open(
+      {.Directory = {}, .Using = Data::RawSourceCache::Use::Off}, providers, {}, registry);
+}
 }
 #endif

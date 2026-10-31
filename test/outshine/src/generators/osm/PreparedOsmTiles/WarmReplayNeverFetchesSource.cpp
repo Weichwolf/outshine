@@ -33,17 +33,17 @@ struct Snapshot {
 Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string revision = "r1") {
   using namespace outshine::Test;
   std::atomic_uint calls{0};
-  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
-  SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
-  CHECK(sources.Add(std::make_unique<VectorSource>(std::move(revision),
-                                                   warm ? std::vector<uint8_t>{}
-                                                        : outshine::Test::Mvt::BuildingTile(),
-                                                   calls)) == SourceSet::Registration::Accepted,
-        "isolated provider registration succeeds");
+  auto session = outshine::Test::OsmCache::OpenSession(std::make_unique<VectorSource>(
+      std::move(revision),
+      warm ? std::vector<uint8_t>{} : outshine::Test::Mvt::BuildingTile(),
+      calls));
+  CHECK(session, "isolated provider session opens");
+  if (!session) { return {}; }
+  auto &sources = (*session)->Sources();
   Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
-  auto opened = PreparedOsmTiles::Open(directory.string(), sources, compute);
+  auto opened = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
   CHECK(opened, "native service opens the persistent spatial cache");
   if (!opened) { return {}; }
   const std::array<std::string, 2> layers{"buildings", "water_polygons"};
@@ -82,15 +82,13 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
 
 void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   std::atomic_uint calls{0};
-  RawSourceCache store({.Directory = {}, .Using = RawSourceCache::Use::Off});
-  SourceSet sources(store);
   NoTransport transport;
   Tasks compute(1);
-  CHECK(sources.Add(std::make_unique<VectorSource>(
-            "r1", outshine::Test::Mvt::BuildingTile(), calls)) == SourceSet::Registration::Accepted,
-        "abandoned-demand provider registers");
-  Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
-  auto opened = PreparedOsmTiles::Open(directory.string(), sources, compute);
+  auto session = outshine::Test::OsmCache::OpenSession(
+      std::make_unique<VectorSource>("r1", outshine::Test::Mvt::BuildingTile(), calls));
+  CHECK(session, "abandoned-demand provider session opens");
+  if (!session) { return; }
+  auto opened = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
   CHECK(opened, "isolated demand service opens");
   if (!opened) { return; }
   const std::array<std::string, 1> layers{"buildings"};
@@ -98,7 +96,7 @@ void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   constexpr auto pollWait = std::chrono::milliseconds(100);
   for (int x = 0; x < abandonedCount; ++x) {
     const OsmField abandoned(9, layers, MvtSchema::OpenMapTiles, *opened);
-    CHECK((*opened)->Acquire(pool, {.X = x, .Y = 1}, abandoned),
+    CHECK((*opened)->Acquire({.X = x, .Y = 1}, abandoned),
           "each short-lived owner admits a bounded request");
     (void)compute.AwaitCompletion(std::chrono::duration<double>(pollWait).count());
   }
@@ -106,7 +104,7 @@ void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   bool ready = false;
   do {
-    const auto product = (*opened)->Acquire(pool, {.X = 200, .Y = 1}, current);
+    const auto product = (*opened)->Acquire({.X = 200, .Y = 1}, current);
     CHECK(product, "current demand continues after more than the pending-job limit");
     if (!product) { break; }
     ready = product->Status == PreparedOsmTiles::State::Ready;

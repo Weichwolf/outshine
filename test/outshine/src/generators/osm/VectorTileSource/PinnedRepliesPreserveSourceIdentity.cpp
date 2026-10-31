@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -31,13 +32,20 @@ public:
   std::vector<uint8_t> Body{1, 2};
   int Status = 200;
   size_t Starts = 0;
+  size_t BodyMost = std::numeric_limits<size_t>::max();
 
   FetchStart Begin([[maybe_unused]] const std::string &url) override {
     ++Starts;
     return static_cast<Ticket>(Starts);
   }
 
+  FetchStart Begin(const std::string &url, size_t bodyBytesMost) override {
+    BodyMost = bodyBytesMost;
+    return Begin(url);
+  }
+
   Wire Collect([[maybe_unused]] Ticket ticket) override {
+    if (Body.size() > BodyMost) { return Wire::Unreachable(SourceFailureReason::CapacityRefused); }
     return Wire::Answered(Status, Body, 0.0, Headers);
   }
 
@@ -76,7 +84,7 @@ void CheckMissAndHit(const std::filesystem::path &root) {
     for (const auto *const headers : badHeaders) {
       wire.Headers = headers;
       auto query = sources.Ask(request);
-      auto reply = sources.Collect(query, wire);
+      const auto reply = sources.Collect(query, wire);
       CHECK(reply.Where() == SourceDelivery::State::Refused,
             "an HTTP200 response without unique matching identity is refused");
       CHECK(cache.Lookup(key).Where == RawSourceCache::Presence::Unknown,

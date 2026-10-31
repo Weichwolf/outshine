@@ -43,6 +43,7 @@ public:
   HttpTransport &operator=(const HttpTransport &) = delete;
 
   [[nodiscard]] Data::FetchStart Begin(const std::string &url) override;
+  [[nodiscard]] Data::FetchStart Begin(const std::string &url, size_t bodyBytesMost) override;
   [[nodiscard]] Data::FetchStart
   Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag = {}) override;
   [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;
@@ -80,8 +81,10 @@ private:
   [[nodiscard]] size_t AddQueuedTransfers(void *multi, size_t active);
   [[nodiscard]] bool CanStart(const Transfer &transfer, double nowMs) const;
   void DeferOrigin(const Transfer &transfer, const std::string &responseOrigin, double retryAfterS);
-  [[nodiscard]] Data::FetchStart
-  Start(const std::string &url, std::optional<Data::ByteRange> range, std::string_view entityTag);
+  [[nodiscard]] Data::FetchStart Start(const std::string &url,
+                                       std::optional<Data::ByteRange> range,
+                                       std::string_view entityTag,
+                                       size_t bodyBytesMost);
   void CollectCompletions(void *multi, size_t &active);
   [[nodiscard]] bool ConfigureTransfer(void *handle, Transfer &transfer) const;
   void FinishTransfers(void *multi, bool failed);

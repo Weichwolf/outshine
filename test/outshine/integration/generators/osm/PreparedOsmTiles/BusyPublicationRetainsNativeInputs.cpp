@@ -31,8 +31,7 @@ constexpr LongitudeLatitude kEye{.LongitudeDeg = -45, .LatitudeDeg = 40};
 
 struct Fixture {
   std::atomic_uint Calls{0};
-  RawSourceCache Store{RawSourceCache::Config{.Directory = {}, .Using = RawSourceCache::Use::Off}};
-  SourceSet Sources{Store};
+  std::shared_ptr<SourceSession> Session;
   NoTransport Transport;
   Tasks Compute{2};
   std::unique_ptr<Ground::TilePool> Pool;
@@ -40,14 +39,16 @@ struct Fixture {
   std::unique_ptr<OsmField> Field;
 
   bool Open(const std::filesystem::path &root, PreparedOsmTiles::Budget budget, bool warm = false) {
-    const auto registered = Sources.Add(std::make_unique<VectorSource>(
+    auto session = OsmCache::OpenSession(std::make_unique<VectorSource>(
         "r1", warm ? std::vector<uint8_t>{} : Mvt::BuildingTile(), Calls));
-    CHECK(registered == SourceSet::Registration::Accepted,
-          "the actual vector fixture is registered without an HTTP transport");
-    if (registered != SourceSet::Registration::Accepted) { return false; }
+    CHECK(session, "the actual vector fixture opens a source session without HTTP");
+    if (!session) { return false; }
+    Session = std::move(*session);
     Pool = std::make_unique<Ground::TilePool>(
-        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}}, Sources, Transport);
-    auto opened = PreparedOsmTiles::Open(root.string(), Sources, Compute, budget);
+        Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
+        Session->Sources(),
+        Transport);
+    auto opened = PreparedOsmTiles::Open(root.string(), Session, Transport, Compute, budget);
     CHECK(opened, "the native OSM cache opens with declared publication admission");
     if (!opened) { return false; }
     Cache = std::move(*opened);

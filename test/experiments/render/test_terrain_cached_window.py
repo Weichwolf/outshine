@@ -12,7 +12,7 @@ from contextlib import closing
 from pathlib import Path
 
 import numpy as np
-from terrain_cached_page import page_fractions, select_page, select_window
+from terrain_cached_page import package, page_fractions, select_page, select_window
 from terrain_cached_window import export
 
 FIXTURE = Path(__file__).resolve().parents[2] / "outshine/data/terrain/native-cell-page"
@@ -58,6 +58,18 @@ def cache(path, data):
 
 
 class TerrainCachedWindow(unittest.TestCase):
+    def test_streamed_body_uses_its_physical_blob_table_and_row(self):
+        data = region([record(), record(x=572089)])
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "assets.sqlite"
+            cache(path, data)
+            with closing(sqlite3.connect(path)) as db, db:
+                db.execute("CREATE TABLE package_bodies(key TEXT PRIMARY KEY,bytes BLOB)")
+                db.execute("INSERT INTO package_bodies VALUES('other',X'00')")
+                db.execute("INSERT INTO package_bodies SELECT key,bytes FROM packages")
+                db.execute("UPDATE packages SET bytes=X''")
+            self.assertEqual(package(path, "asset")[0], data)
+
     def test_source_words_order_and_original_indices_survive_selection(self):
         data = region([record(x=572089), record(), record(x=572090)])
         selected, context = select_window(data, *WINDOW)

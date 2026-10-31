@@ -73,8 +73,7 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
   const auto database = (directory / "assets.sqlite").string();
   {
     Fixture fixture(directory, Availability::Ready);
-    UrbanAreaStreaming stream(
-        fixture.Compute, fixture.Urban, *fixture.Pool, MvtSchema::OpenMapTiles, database);
+    UrbanAreaStreaming stream(fixture.Compute, fixture.Urban, MvtSchema::OpenMapTiles, database);
     stream.Into(renderer);
     CHECK(Pump(stream, view, terrain), "cold source demand reaches resident native scene assets");
     const auto cold = stream.Costs();
@@ -116,8 +115,7 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
   }
   {
     Fixture fixture(directory, Availability::Unavailable);
-    UrbanAreaStreaming stream(
-        fixture.Compute, fixture.Urban, *fixture.Pool, MvtSchema::OpenMapTiles, database);
+    UrbanAreaStreaming stream(fixture.Compute, fixture.Urban, MvtSchema::OpenMapTiles, database);
     stream.Into(renderer);
     CHECK(Pump(stream, view, terrain), "a fresh consumer restores scene products from SSD");
     CHECK(stream.Costs().Resident == stream.Costs().Groups && stream.Costs().Captures == 0 &&

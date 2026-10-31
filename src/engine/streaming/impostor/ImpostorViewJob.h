@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_IMPOSTORVIEWJOB_H
 #define OUTSHINE_ENGINE_STREAMING_IMPOSTORVIEWJOB_H
 
-#include "AssetCache.h"
+#include "AssetProduct.h"
 #include "ImpostorViewAssets.h"
 #include "Geometry.h"
 #include <cstddef>
@@ -40,7 +40,7 @@ struct ImpostorViewJob {
   std::variant<SurfaceView, MaterialView> Product;
 
   // Submit with Cache as the consumer's AssetStoreScope identity.
-  [[nodiscard]] std::expected<AssetRecord, std::string> operator()(std::stop_token stop) const;
+  [[nodiscard]] std::expected<AssetProduct, std::string> operator()(std::stop_token stop) const;
 };
 }
 #endif

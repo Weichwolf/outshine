@@ -46,7 +46,8 @@ using Data::StrongEntityTag;
 
 [[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
   return std::ranges::equal(name, wanted, [](char left, char right) {
-    return (left >= 'A' && left <= 'Z' ? left + ('a' - 'A') : left) == right;
+    const auto lowerRight = right >= 'A' && right <= 'Z' ? right + ('a' - 'A') : right;
+    return (left >= 'A' && left <= 'Z' ? left + ('a' - 'A') : left) == lowerRight;
   });
 }
 
@@ -55,6 +56,37 @@ using Data::StrongEntityTag;
   if (first == std::string_view::npos) { return {}; }
   const auto last = text.find_last_not_of(" \t\r\n");
   return text.substr(first, last - first + 1);
+}
+
+struct ResponseHeader {
+  std::string_view Name;
+  std::string_view Value;
+};
+
+[[nodiscard]] bool HasHeader(const ResponseHeader &header, std::string_view headers) {
+  while (!headers.empty()) {
+    const auto end = headers.find('\n');
+    const auto line = headers.substr(0, end);
+    const auto colon = line.find(':');
+    if (colon != std::string_view::npos && HeaderName(line.substr(0, colon), header.Name)) {
+      return true;
+    }
+    if (end == std::string_view::npos) { break; }
+    headers.remove_prefix(end + 1);
+  }
+  return false;
+}
+
+[[nodiscard]] bool
+AdmittedEncoding(const ResponseHeader &header, std::string_view previous, bool range) {
+  if (HeaderName(header.Name, "transfer-encoding")) {
+    return (HeaderName(header.Value, "chunked") || HeaderName(header.Value, "identity")) &&
+           !HasHeader(header, previous);
+  }
+  if (range || !HeaderName(header.Name, "content-encoding")) { return true; }
+  return (HeaderName(header.Value, "identity") || HeaderName(header.Value, "gzip") ||
+          HeaderName(header.Value, "deflate")) &&
+         !HasHeader(header, previous);
 }
 
 [[nodiscard]] std::optional<Data::RangeResponse> ParseRange(std::string_view text) {
@@ -137,23 +169,33 @@ void HttpTransport::Transfer::ReadHeader(std::string_view line) {
     Failure = Data::SourceFailureReason::CapacityRefused;
     return;
   }
+  const auto previousBytes = ResponseHeaders.size();
   ResponseHeaders.append(line);
-  if (!Range) { return; }
+  if (!line.empty() && (line.front() == ' ' || line.front() == '\t')) {
+    Failure = Data::SourceFailureReason::CapacityRefused;
+    return;
+  }
   const auto colon = line.find(':');
   if (colon == std::string_view::npos) { return; }
-  const auto name = line.substr(0, colon);
-  const auto value = TrimHeader(line.substr(colon + 1));
-  if (HeaderName(name, "content-range")) {
+  const ResponseHeader header{.Name = line.substr(0, colon),
+                              .Value = TrimHeader(line.substr(colon + 1))};
+  const auto previous = std::string_view(ResponseHeaders).substr(0, previousBytes);
+  if (!AdmittedEncoding(header, previous, Range.has_value())) {
+    Failure = Data::SourceFailureReason::CapacityRefused;
+    return;
+  }
+  if (!Range) { return; }
+  if (HeaderName(header.Name, "content-range")) {
     if (Partial) { InvalidRangeHeaders = true; }
-    Partial = ParseRange(value);
+    Partial = ParseRange(header.Value);
     if (!Partial) { InvalidRangeHeaders = true; }
-  } else if (HeaderName(name, "etag")) {
-    if (!EntityTag.empty() || !StrongEntityTag(value)) {
+  } else if (HeaderName(header.Name, "etag")) {
+    if (!EntityTag.empty() || !StrongEntityTag(header.Value)) {
       InvalidRangeHeaders = true;
     } else {
-      EntityTag = value;
+      EntityTag = header.Value;
     }
-  } else if (HeaderName(name, "content-encoding") && value != "identity") {
+  } else if (HeaderName(header.Name, "content-encoding") && !HeaderName(header.Value, "identity")) {
     InvalidRangeHeaders = true;
   }
 }
@@ -203,7 +245,12 @@ HttpTransport::~HttpTransport() {
 }
 
 Data::FetchStart HttpTransport::Begin(const std::string &url) {
-  return Start(url, std::nullopt, {});
+  return Start(url, std::nullopt, {}, Config_.MaxBodyBytes);
+}
+
+Data::FetchStart HttpTransport::Begin(const std::string &url, size_t bodyBytesMost) {
+  if (bodyBytesMost == 0) { return std::unexpected(Data::SourceFailureReason::InvalidRequest); }
+  return Start(url, std::nullopt, {}, std::min(bodyBytesMost, Config_.MaxBodyBytes));
 }
 
 Data::FetchStart
@@ -214,12 +261,13 @@ HttpTransport::Begin(const std::string &url, Data::ByteRange range, std::string_
   if (range.Length > Config_.MaxBodyBytes) {
     return std::unexpected(Data::SourceFailureReason::CapacityRefused);
   }
-  return Start(url, range, entityTag);
+  return Start(url, range, entityTag, static_cast<size_t>(range.Length));
 }
 
 Data::FetchStart HttpTransport::Start(const std::string &url,
                                       std::optional<Data::ByteRange> range,
-                                      std::string_view entityTag) {
+                                      std::string_view entityTag,
+                                      size_t bodyBytesMost) {
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::SourceFailureReason::InvalidRequest);
   }
@@ -244,7 +292,7 @@ Data::FetchStart HttpTransport::Start(const std::string &url,
     transfer.Origin = origin;
     transfer.Range = range;
     transfer.IfMatch = entityTag;
-    transfer.MaxBodyBytes = range ? static_cast<size_t>(range->Length) : Config_.MaxBodyBytes;
+    transfer.MaxBodyBytes = bodyBytesMost;
     if (range) {
       transfer.RangeText =
           std::to_string(range->First) + "-" + std::to_string(range->First + range->Length - 1);
@@ -353,6 +401,13 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
       active.Failure = Data::SourceFailureReason::CapacityRefused;
       return 0;
     }
+    const auto required = active.Body.size() + byteCount;
+    if (required > active.Body.capacity()) {
+      const auto grown = active.Body.capacity() > active.MaxBodyBytes / 2
+                             ? active.MaxBodyBytes
+                             : 2 * active.Body.capacity();
+      active.Body.reserve(std::max(required, grown));
+    }
     const auto *source = static_cast<const uint8_t *>(data);
     active.Body.insert(active.Body.end(), source, source + byteCount);
     return byteCount;
@@ -374,8 +429,9 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
          curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_TIMEOUT, Config_.TimeoutS) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L) == CURLE_OK &&
-         curl_easy_setopt(easy, CURLOPT_ACCEPT_ENCODING, transfer.Range ? "identity" : "") ==
-             CURLE_OK &&
+         curl_easy_setopt(easy,
+                          CURLOPT_ACCEPT_ENCODING,
+                          transfer.Range ? "identity" : "gzip, deflate") == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_HTTP_CONTENT_DECODING, transfer.Range ? 0L : 1L) ==
              CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_USERAGENT, Config_.UserAgent.c_str()) == CURLE_OK &&

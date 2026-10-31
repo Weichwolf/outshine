@@ -5,6 +5,8 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <expected>
 #include <filesystem>
 #include <string>
 #include <system_error>
@@ -30,6 +32,13 @@ outshine::Test::Mvt::Bytes WaterTile() {
 class VectorTransport final : public outshine::Data::SourceTransport {
 public:
   outshine::Data::FetchStart Begin(const std::string & /*url*/) override {
+    return static_cast<outshine::Data::Ticket>(1);
+  }
+
+  outshine::Data::FetchStart Begin(const std::string & /*url*/, size_t bodyBytesMost) override {
+    if (WaterTile().size() > bodyBytesMost) {
+      return std::unexpected(outshine::Data::SourceFailureReason::CapacityRefused);
+    }
     return static_cast<outshine::Data::Ticket>(1);
   }
 
@@ -61,6 +70,9 @@ int main() {
   const TemporaryCache cache;
 
   VectorTransport wire;
+  const auto refused = wire.Begin("fixture", size_t{1});
+  CHECK(!refused && refused.error() == Data::SourceFailureReason::CapacityRefused,
+        "the fixture refuses payloads larger than the requested bound");
   Data::SourceProvider source;
   source.Kind = "vector";
   source.Dataset = "fixture.openmaptiles";

@@ -85,7 +85,7 @@ ImpostorMetadataRequest::Start(AssetPipeline &pipeline,
   const auto product = AssetProductKey::Parse(key);
   if (!product) { return std::unexpected(AssetPublicationError::InvalidRequest); }
   auto produce = [resolve = std::move(resolve),
-                  key](const std::stop_token &stop) -> std::expected<AssetRecord, std::string> {
+                  key](const std::stop_token &stop) -> std::expected<AssetProduct, std::string> {
     if (stop.stop_requested()) { return std::unexpected("impostor metadata request cancelled"); }
     auto result = resolve(stop);
     if (!result) { return std::unexpected(result.error()); }
@@ -94,7 +94,7 @@ ImpostorMetadataRequest::Start(AssetPipeline &pipeline,
     if (receipt.Key != key || receipt.ByteCount > Metadata::MetadataBytesMost) {
       return std::unexpected("impostor metadata producer returned another address or invalid size");
     }
-    return receipt;
+    return AssetProduct(receipt);
   };
   auto ticket =
       pipeline.RequestResolved(consumer,

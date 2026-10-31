@@ -305,7 +305,7 @@ public:
 
 private:
   [[nodiscard]] std::expected<void, std::string>
-  BindAssetCaches(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
+  BindAssetCaches(const std::string &directory, Data::SourceTransport &transport, Tasks &compute);
   [[nodiscard]] std::expected<void, std::string> BindRegionCache(const ContentDirectories &under,
                                                                  const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;

@@ -76,7 +76,7 @@ void CheckConsumer() {
     ++work->Calls;
     work->Started.release();
     work->Release.acquire();
-    return std::expected<AssetRecord, std::string>(Record());
+    return std::expected<AssetProduct, std::string>(AssetProduct(Record()));
   });
   CHECK(first.has_value(), "the first publication is admitted");
   if (!first) { return; }
@@ -86,8 +86,8 @@ void CheckConsumer() {
     work->Release.release();
     return;
   }
-  auto second =
-      pipeline->RequestResolved(*b, Request(*b), [](const std::stop_token &) { return Record(); });
+  auto second = pipeline->RequestResolved(
+      *b, Request(*b), [](const std::stop_token &) { return AssetProduct(Record()); });
   a = std::unexpected(AssetPublicationError::InvalidRequest);
   CHECK(second && work->Stops.load() == 0 && pipeline->Counts().Consumers == 2,
         "destruction returns before worker release and retains the retired consumer's held ticket");
@@ -129,9 +129,9 @@ void CheckDispatcher() {
   auto ticket = pipeline->RequestResolved(*consumer,
                                           Request(*consumer),
                                           [input = std::move(input)](const std::stop_token &)
-                                              -> std::expected<AssetRecord, std::string> {
+                                              -> std::expected<AssetProduct, std::string> {
                                             if (!input) { return std::unexpected("missing input"); }
-                                            return Record();
+                                            return AssetProduct(Record());
                                           });
   CHECK(ticket && !retained.expired(), "queued dispatch owns admitted inputs before execution");
   if (!ticket) {

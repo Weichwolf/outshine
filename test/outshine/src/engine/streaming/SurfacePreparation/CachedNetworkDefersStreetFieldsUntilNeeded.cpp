@@ -5,6 +5,8 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <expected>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
@@ -21,7 +23,21 @@ public:
     return static_cast<outshine::Data::Ticket>(1);
   }
 
+  outshine::Data::FetchStart Begin(const std::string & /*url*/, size_t bodyBytesMost) override {
+    if (Payload().size() > bodyBytesMost) {
+      return std::unexpected(outshine::Data::SourceFailureReason::CapacityRefused);
+    }
+    return static_cast<outshine::Data::Ticket>(1);
+  }
+
   outshine::Data::Wire Collect(outshine::Data::Ticket /*ticket*/) override {
+    return outshine::Data::Wire::Answered(200, Payload());
+  }
+
+  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
+
+private:
+  static outshine::Test::Mvt::Bytes Payload() {
     using outshine::Test::Mvt::Append;
     using outshine::Test::Mvt::Bytes;
     constexpr uint8_t kLayerKeys = 0x1a;
@@ -30,7 +46,6 @@ public:
     constexpr uint8_t kFeatureTags = 0x12;
     constexpr uint8_t kFeatureGeometry = 0x22;
     constexpr uint8_t kTileLayers = 0x1a;
-    constexpr int kHttpOk = 200;
     constexpr std::array<uint8_t, 13> kLayerHeader{
         0x0a, 7, 's', 't', 'r', 'e', 'e', 't', 's', 0x78, 2, 0x28, 64};
     constexpr std::array<uint8_t, 6> kPathValue{0x0a, 4, 'p', 'a', 't', 'h'};
@@ -48,10 +63,8 @@ public:
     Append(layer, kLayerFeatures, feature);
     Bytes tile;
     Append(tile, kTileLayers, layer);
-    return outshine::Data::Wire::Answered(kHttpOk, std::move(tile));
+    return tile;
   }
-
-  void Cancel(outshine::Data::Ticket /*ticket*/) override {}
 };
 
 struct TemporaryCache {
@@ -75,6 +88,9 @@ int main() {
   TemporaryCache cache;
 
   StreetTransport wire;
+  const auto refused = wire.Begin("fixture", size_t{1});
+  CHECK(!refused && refused.error() == Data::SourceFailureReason::CapacityRefused,
+        "street fixture enforces its bounded-response contract");
   Data::SourceProvider source;
   source.Kind = "vector";
   source.Dataset = "fixture.shortbread";

@@ -70,6 +70,12 @@ void LargePackage(const std::string &path) {
       elapsed);
   CHECK(published && peak >= baseline && std::cmp_less(peak - baseline, size),
         "publication never allocates an additional native-sized SQL record buffer");
+  CHECK(sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &baseline, &peak, 1) == SQLITE_OK,
+        "metadata planning starts from a fresh SQLite allocation baseline");
+  const auto plan = (*store)->PlanRead(std::string(64, 'a'), size);
+  CHECK(sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &current, &peak, 0) == SQLITE_OK && plan &&
+            *plan && (**plan).PackageBytesMost == size && std::cmp_less(peak - baseline, size),
+        "metadata planning never materializes either inline or streamed package bodies");
   const auto loaded = (*store)->Load(std::string(64, 'a'), size);
   CHECK(loaded && *loaded && std::ranges::equal((**loaded).Bytes(), input),
         "the complete large package keeps its bytes and checksum after incremental publication");
