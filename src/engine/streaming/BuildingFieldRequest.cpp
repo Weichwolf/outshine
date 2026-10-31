@@ -6,12 +6,15 @@
 #include "ImpostorViewJob.h"
 #include "TileGeodesy.h"
 #include "Geodesy.h"
+#include "MaterialFieldInput.h"
+#include "MaterialFieldRasterInput.h"
 #include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <stop_token>
 #include <string>
@@ -63,6 +66,11 @@ bool Matches(const Content::ImpostorViewAssets::Description &metadata,
 }
 
 struct BuildingFieldRequest::State {
+  struct PreparedRaster {
+    std::shared_ptr<const ImpostorAtlas> Field;
+    std::shared_ptr<const Render::MaterialFieldInput> Input;
+  };
+
   AssetPipeline *Pipeline;
   Tasks *Workers;
   std::shared_ptr<AssetCache> Cache;
@@ -71,6 +79,7 @@ struct BuildingFieldRequest::State {
   std::optional<ImpostorMetadataRequest> Metadata;
   std::optional<AssetPipeline::RequestTicket> Ticket;
   std::optional<ImpostorFieldLoad> Load;
+  std::shared_ptr<PreparedRaster> Raster = std::make_shared<PreparedRaster>();
   Product Value;
   Demand Requested;
   Budget Limits;
@@ -90,7 +99,7 @@ struct BuildingFieldRequest::State {
         Cache(std::move(cache)),
         Consumer(std::move(consumer)),
         Producer(std::move(producer)),
-        Value{.Source = std::move(source), .Metadata = {}, .Field = {}},
+        Value{.Source = std::move(source), .Metadata = {}, .Field = {}, .RenderInput = {}},
         Requested(std::move(demand)),
         Limits(budget) {}
 
@@ -144,7 +153,7 @@ struct BuildingFieldRequest::State {
         {.Key = *parsed,
          .Generation = Consumer.Generation(),
          .InputBytes = Limits.ProducerBytes,
-         .ConsumerBytes = Limits.ResidentBytes,
+         .ConsumerBytes = Limits.ResidentBytes + Limits.RasterBytesMost,
          .ReceiptBytesMost = Content::ImpostorViewAssets::MetadataBytesMost},
         std::move(job));
     if (!requested) {
@@ -163,12 +172,20 @@ struct BuildingFieldRequest::State {
       if (publication.Status != AssetPublicationStatus::Ready) {
         return std::unexpected(publication.Message);
       }
-      auto loaded = ImpostorFieldLoad::Start(*Workers,
-                                             Cache,
-                                             Producer->Provenance(),
-                                             Requested.View,
-                                             Limits.FieldBytesMost,
-                                             std::move(*Ticket));
+      auto loaded = ImpostorFieldLoad::Start(
+          *Workers,
+          Cache,
+          Producer->Provenance(),
+          Requested.View,
+          Limits.FieldBytesMost,
+          std::move(*Ticket),
+          [raster = Raster, bytes = Limits.RasterBytesMost](
+              const ImpostorAtlas &field) -> std::expected<void, std::string> {
+            auto input = Render::MaterialFieldInput::Prepare(field, 0, bytes);
+            if (!input) { return std::unexpected(input.error()); }
+            raster->Input = std::move(*input);
+            return {};
+          });
       if (!loaded) { return std::unexpected(loaded.error()); }
       Ticket.reset();
       Load.emplace(std::move(*loaded));
@@ -206,6 +223,9 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(demand.Pixels), .Views = 1});
   if (!cache || source.Bounds.Empty() || source.Cells == 0 || !bytes ||
       *bytes > budget.FieldBytesMost || budget.ProducerBytes == 0 || budget.ResidentBytes == 0 ||
+      budget.RasterBytesMost > std::numeric_limits<size_t>::max() - budget.ResidentBytes ||
+      budget.RasterBytesMost / (2 * sizeof(Render::MaterialFieldRasterInput::Word)) <
+          static_cast<uint64_t>(demand.Pixels) * demand.Pixels ||
       demand.View.Value >= demand.Directions.size() ||
       budget.Capture.Samples < static_cast<uint64_t>(demand.Pixels) * demand.Pixels ||
       budget.Capture.Sources == 0 || budget.Capture.Faces == 0 ||
@@ -262,7 +282,10 @@ BuildingFieldRequest::Poll() {
   auto field = state.PollField();
   if (!field) { return std::unexpected(state.Error = field.error()); }
   if (!*field) { return nullptr; }
-  state.Value.Field = std::move(*field);
+  state.Raster->Field = std::move(*field);
+  state.Value.Field = state.Raster->Field;
+  state.Value.RenderInput =
+      std::shared_ptr<const Render::MaterialFieldInput>(state.Raster, state.Raster->Input.get());
   state.Producer.reset();
   return std::shared_ptr<const Product>(State_, &state.Value);
 }

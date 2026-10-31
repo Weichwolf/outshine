@@ -36,6 +36,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/engine/streaming/BuildingFieldRequest/WorldDescriptorsResolveOnlyTheirRequestedField
   outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission
   outshine/integration/engine/GpuSubmission/NativePieceNormalsFollowAffinePlanes
   outshine/integration/engine/frame/FrameCoordinator/ClaimFailureKeepsResidentGeometry

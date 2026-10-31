@@ -62,6 +62,7 @@ def compare(args):
         "producer_bytes": 64 * 1024 * 1024,
         "resident_bytes": 1024 * 1024,
         "field_bytes": 1024 * 1024,
+        "raster_bytes": 1024 * 1024,
         "samples": request["pixels"] ** 2,
         "sources": len(selected),
         "faces": sum(summaries[i]["faces"] for i in selected),

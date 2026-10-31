@@ -2,6 +2,7 @@
 #include "Check.h"
 #include "Material.h"
 #include <chrono>
+#include <atomic>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -159,8 +160,18 @@ void BudgetAndAbandonment(const std::filesystem::path &path) {
   }),
         "the lifetime control holds the worker");
   CHECK(started.try_acquire_for(kDeadline), "the held worker cannot start field IO");
+  std::atomic_size_t preparations{0};
   auto pending = ImpostorFieldLoad::Start(
-      fixture.Workers, fixture.Cache, "field-load-1", {0}, kBytes, std::move(*next));
+      fixture.Workers,
+      fixture.Cache,
+      "field-load-1",
+      {0},
+      kBytes,
+      std::move(*next),
+      [&preparations](const ImpostorAtlas &) -> std::expected<void, std::string> {
+        ++preparations;
+        return {};
+      });
   CHECK(pending.has_value(), "the queued field owns its source store");
   const std::weak_ptr<AssetCache> retained = fixture.Cache;
   fixture.Cache.reset();
@@ -170,7 +181,7 @@ void BudgetAndAbandonment(const std::filesystem::path &path) {
   CHECK(fixture.Workers.PostDetached([&] { drained.release(); }),
         "the queue drains without waiting in the loader");
   CHECK(drained.try_acquire_for(kDeadline), "the cancelled detached field job retires");
-  CHECK(retained.expired() && fixture.Pipeline.Counts().Tickets == 0,
+  CHECK(retained.expired() && fixture.Pipeline.Counts().Tickets == 0 && preparations == 0,
         "abandoned work releases the store and ticket after its worker exits");
 }
 
@@ -200,6 +211,66 @@ void StaleAndCancelled(const std::filesystem::path &path) {
   cancelled->Cancel();
   CHECK(!cancelled->Poll(), "explicit cancellation is terminal");
 }
+
+void Preparation(const std::filesystem::path &path) {
+  Fixture fixture(path);
+  auto ticket = fixture.ReadyTicket();
+  if (!ticket) { return; }
+  std::binary_semaphore entered{0};
+  std::binary_semaphore release{0};
+  const auto caller = std::this_thread::get_id();
+  std::thread::id worker;
+  size_t samples = 0;
+  auto load =
+      ImpostorFieldLoad::Start(fixture.Workers,
+                               fixture.Cache,
+                               "field-load-1",
+                               {0},
+                               kBytes,
+                               std::move(*ticket),
+                               [&](const ImpostorAtlas &field) -> std::expected<void, std::string> {
+                                 worker = std::this_thread::get_id();
+                                 samples = field.Views()[0].Texels.size();
+                                 entered.release();
+                                 if (!release.try_acquire_for(kDeadline)) {
+                                   return std::unexpected("preparation hold deadline");
+                                 }
+                                 return {};
+                               });
+  const bool held = load && entered.try_acquire_for(kDeadline);
+  CHECK(held, "decoded preparation reaches its worker hold");
+  if (!load) { return; }
+  if (!held) {
+    release.release();
+    const auto retired = Await(*load);
+    CHECK(retired, "the delayed preparation drains after releasing its hold");
+    return;
+  }
+  const auto pending = load->Poll();
+  CHECK(pending && !*pending && worker != caller && samples == 64,
+        "decoded fields remain pending until off-thread preparation finishes");
+  release.release();
+  auto ready = Await(*load);
+  CHECK(ready && *ready, "one completed CPU lease publishes after preparation");
+  load = std::unexpected("retired");
+  if (ready) { ready->reset(); }
+  auto next = fixture.ReadyTicket();
+  if (!next) { return; }
+  auto failed =
+      ImpostorFieldLoad::Start(fixture.Workers,
+                               fixture.Cache,
+                               "field-load-1",
+                               {0},
+                               kBytes,
+                               std::move(*next),
+                               [](const ImpostorAtlas &) -> std::expected<void, std::string> {
+                                 return std::unexpected("owned preparation rejection");
+                               });
+  if (!failed) { return; }
+  const auto rejected = Await(*failed);
+  CHECK(!rejected && rejected.error() == "owned preparation rejection",
+        "a preparation error cannot publish a partially ready field");
+}
 }
 
 int main() {
@@ -210,6 +281,7 @@ int main() {
   Retention(root / "retention.sqlite");
   StaleAndCancelled(root / "stale.sqlite");
   BudgetAndAbandonment(root / "abandoned.sqlite");
+  Preparation(root / "prepared.sqlite");
   std::filesystem::remove_all(root);
   return Report();
 }

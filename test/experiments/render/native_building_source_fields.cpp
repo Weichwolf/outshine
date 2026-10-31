@@ -77,6 +77,7 @@ BuildingFieldRequest::Budget Budget(const Json &limits) {
   return {.ProducerBytes = limits.at("producer_bytes").get<size_t>(),
           .ResidentBytes = limits.at("resident_bytes").get<size_t>(),
           .FieldBytesMost = limits.at("field_bytes").get<size_t>(),
+          .RasterBytesMost = limits.at("raster_bytes").get<size_t>(),
           .Capture = {.Samples = limits.at("samples").get<uint64_t>(),
                       .Sources = limits.at("sources").get<uint64_t>(),
                       .Faces = limits.at("faces").get<uint64_t>(),

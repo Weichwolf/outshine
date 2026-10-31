@@ -15,6 +15,10 @@
 #include <vector>
 
 namespace outshine {
+namespace Render {
+class MaterialFieldInput;
+}
+
 class BuildingFieldRequest {
   struct State;
 
@@ -41,6 +45,8 @@ public:
     size_t ProducerBytes = 0;
     size_t ResidentBytes = 0;
     size_t FieldBytesMost = 0;
+    // Additional CPU raster reservation, retained with the field publication.
+    size_t RasterBytesMost = 0;
     Generators::BuildingSourceBudget Capture;
   };
 
@@ -48,6 +54,7 @@ public:
     BuildingSourceDemand::Source Source;
     std::shared_ptr<const Content::ImpostorViewAssets> Metadata;
     std::shared_ptr<const ImpostorAtlas> Field;
+    std::shared_ptr<const Render::MaterialFieldInput> RenderInput;
     std::optional<Render::ImpostorPoseBounds::Error> GeometricError = std::nullopt;
   };
 
