@@ -188,34 +188,38 @@ def run(args, *, retained_groups=None, selected_sources=None):
     chunks = {records[i] for i in selected}
     result, roles, identities, group_bytes, reused_bytes = [], [], [], 0, 0
     budget_fallbacks = dict(early_fallbacks)
-    with (args.chunk / "groups.bin").open("rb") as stream:
-        for offset, length in sorted(chunks):
-            if retained_groups is None:
-                stream.seek(offset)
-                raw = stream.read(length)
-                group_bytes += len(raw)
-            else:
-                raw = retained_groups.get((offset, length), b"")
-                reused_bytes += len(raw)
-            if len(raw) != length or hashlib.sha256(raw).digest() != hashes.get(
-                (offset, length)
-            ):
-                raise ValueError("Incomplete or modified group requires original")
-            group = decode_raw(raw)
-            for identity in set(map(int, group["source_ids"])) & selected:
-                try:
-                    patches = restore_source(
-                        group, identity, recipes[identity], max_controls=max_controls
-                    )
-                    corners, _ = source_corners(
-                        patches, basis, max_triangles=max_triangles
-                    )
-                except (DomainBudget, TriangleBudget) as error:
-                    budget_fallbacks[identity] = str(error)
-                    continue
-                result.append(np.concatenate([corners[k] for k in FIELDS], axis=-1))
-                roles.append(corners["material"])
-                identities.extend([identity] * len(corners["material"]))
+    if chunks:
+        with (args.chunk / "groups.bin").open("rb") as stream:
+            for offset, length in sorted(chunks):
+                if retained_groups is None:
+                    stream.seek(offset)
+                    raw = stream.read(length)
+                    group_bytes += len(raw)
+                else:
+                    raw = retained_groups.get((offset, length), b"")
+                    reused_bytes += len(raw)
+                if len(raw) != length or hashlib.sha256(raw).digest() != hashes.get(
+                    (offset, length)
+                ):
+                    raise ValueError("Incomplete or modified group requires original")
+                group = decode_raw(raw)
+                for identity in set(map(int, group["source_ids"])) & selected:
+                    try:
+                        patches = restore_source(
+                            group,
+                            identity,
+                            recipes[identity],
+                            max_controls=max_controls,
+                        )
+                        corners, _ = source_corners(
+                            patches, basis, max_triangles=max_triangles
+                        )
+                    except (DomainBudget, TriangleBudget) as error:
+                        budget_fallbacks[identity] = str(error)
+                        continue
+                    result.append(np.concatenate([corners[k] for k in FIELDS], axis=-1))
+                    roles.append(corners["material"])
+                    identities.extend([identity] * len(corners["material"]))
     if set(identities) != selected - budget_fallbacks.keys():
         raise ValueError("Every selected source needs its whole constructed candidate")
     constructed_triangles = len(identities)

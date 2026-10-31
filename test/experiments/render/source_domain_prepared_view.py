@@ -29,7 +29,7 @@ def select_sources(prepared, view, placements):
     return list(map(int, prepared["source_ids"][~excluded]))
 
 
-def run(args, *, retain_angle=None):
+def run(args, *, retain_angle=None, metadata_only=False):
     raw = args.bounds.read_bytes()
     if sha(raw).hex() != args.bounds_sha256:
         raise ValueError("Prepared bounds identity unknown; retain originals")
@@ -65,21 +65,26 @@ def run(args, *, retain_angle=None):
             retained_sources = tuple(selected)
         chunks = {records[i] for i in selected if i in records}
         received, found = 0, set()
-        with (args.chunk / "groups.bin").open("rb") as stream:
-            for offset, length in sorted(chunks):
-                stream.seek(offset)
-                blob = stream.read(length)
-                if len(blob) != length or sha(blob) != hashes[offset, length]:
-                    raise ValueError("Group incomplete or changed; retain originals")
-                if angle == retain_angle:
-                    retained[offset, length] = blob
-                received += len(blob)
-                found.update(map(int, decode_raw(blob)["source_ids"]))
-        if not {i for i in selected if i in records}.issubset(found):
+        if not metadata_only:
+            with (args.chunk / "groups.bin").open("rb") as stream:
+                for offset, length in () if metadata_only else sorted(chunks):
+                    stream.seek(offset)
+                    blob = stream.read(length)
+                    if len(blob) != length or sha(blob) != hashes[offset, length]:
+                        raise ValueError(
+                            "Group incomplete or changed; retain originals"
+                        )
+                    if angle == retain_angle:
+                        retained[offset, length] = blob
+                    received += len(blob)
+                    found.update(map(int, decode_raw(blob)["source_ids"]))
+        if not metadata_only and not {i for i in selected if i in records}.issubset(
+            found
+        ):
             raise ValueError("Incomplete selected group; retain originals")
         fallback_ids = {i for i in selected if i not in records}
         fallback_bytes = 0
-        if fallback_ids:
+        if fallback_ids and not metadata_only:
             fallback_raw = args.fallback.read_bytes()
             if sha(fallback_raw) != prepared["fallback_digest"].tobytes():
                 raise ValueError("Original fallback identity unknown; retain originals")
@@ -109,14 +114,30 @@ def run(args, *, retain_angle=None):
             }
         )
     result = {
+        "metadata_only": metadata_only,
         "bounds_sha256": sha(raw).hex(),
         "bounds_file_bytes": len(raw),
         "index_file_bytes": len(index_raw),
         "cases": rows,
-        "scope": "Fresh Python process reads prepared metadata, index, demanded groups and the complete known original fallback if selected. Bounds, fallback identity and per-group hashes were verified offline from complete source/candidate arrays. View-only; live World/revisions, recipe bytes, shadows, simulation, native raster, physical IO and device time are not covered. Integrity failure raises for whole-original fallback; caller integration is not implemented.",
+        "payload_validation_deferred": metadata_only,
+        "scope": "When metadata_only is true, group/fallback IO and payload validation are deferred to reconstruction. Fresh Python process reads prepared metadata, index, demanded groups and the complete known original fallback if selected. Bounds, fallback identity and per-group hashes were verified offline from complete source/candidate arrays. View-only; live World/revisions, recipe bytes, shadows, simulation, native raster, physical IO and device time are not covered. Integrity failure raises for whole-original fallback; caller integration is not implemented.",
     }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps(result))
+    print(
+        json.dumps(
+            {
+                "metadata_only": metadata_only,
+                "cases": [
+                    {
+                        key: value
+                        for key, value in row.items()
+                        if key != "selected_source_ids"
+                    }
+                    for row in rows
+                ],
+            }
+        )
+    )
     return retained, retained_sources
 
 

@@ -1,4 +1,4 @@
-"""One-view selection and reconstruction sharing the selected group bytes.
+"""Select whole-source demand, then filter budgets before reading domain payload.
 
 Finite Python experiment only; no World cache, device or native raster admission.
 """
@@ -20,7 +20,9 @@ def run(args):
         output=args.view_output,
         angle=args.angle,
     )
-    retained, selected_sources = selection.run(selection_args, retain_angle=args.angle)
+    _, selected_sources = selection.run(
+        selection_args, retain_angle=args.angle, metadata_only=True
+    )
     reconstruction_args = SimpleNamespace(
         view=args.view_output,
         bounds=args.bounds,
@@ -33,10 +35,18 @@ def run(args):
         fallback=args.fallback,
         angle=args.angle,
         output=args.output,
+        **{
+            name: getattr(args, name, None)
+            for name in (
+                "max_controls",
+                "max_triangles",
+                "original_ranges",
+                "control_index",
+                "control_index_sha256",
+            )
+        },
     )
-    reconstruction.run(
-        reconstruction_args, retained_groups=retained, selected_sources=selected_sources
-    )
+    reconstruction.run(reconstruction_args, selected_sources=selected_sources)
 
 
 if __name__ == "__main__":
@@ -55,5 +65,10 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--span-index", type=Path, required=True)
     parser.add_argument("--span-index-sha256", required=True)
+    parser.add_argument("--max-controls", type=int)
+    parser.add_argument("--max-triangles", type=int)
+    parser.add_argument("--original-ranges", type=Path)
+    parser.add_argument("--control-index", type=Path)
+    parser.add_argument("--control-index-sha256")
     parser.add_argument("--angle", type=int, required=True)
     run(parser.parse_args())
