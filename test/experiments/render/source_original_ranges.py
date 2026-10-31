@@ -182,9 +182,11 @@ def read_ranges(
             if len(blob) != end - start:
                 raise ValueError("Incomplete original source range")
             read_bytes += len(blob)
+            borrowed = compact and sum(int(row["bytes"]) for row in group) == len(blob)
             for row in group:
                 lo = int(row["offset"]) - start
-                raw = blob[lo : lo + int(row["bytes"])]
+                hi = lo + int(row["bytes"])
+                raw = memoryview(blob)[lo:hi] if borrowed else blob[lo:hi]
                 if digest(raw) != row["digest"].tobytes():
                     raise ValueError("Original source range changed")
                 values = (
