@@ -132,6 +132,42 @@ void DecodeOwners(AssetPipeline &pipeline,
   CHECK(!stale && stale.error() == AssetPublicationError::Cancelled,
         "an invalidated owner cannot grow or reuse the next generation's budget");
 }
+
+void RetainAfterPipelineFacade(Fixture &fixture) {
+  Tasks tasks(1);
+  auto pipeline =
+      std::make_unique<AssetPipeline>(tasks,
+                                      AssetPipeline::Limits{.JobsMost = 1,
+                                                            .ConsumersMost = 1,
+                                                            .TicketsMost = 1,
+                                                            .InputBytesMost = 2 * kInput,
+                                                            .ReceiptBytesMost = 2048});
+  auto consumer = pipeline->OpenConsumer({.Identity = fixture.Cache});
+  CHECK(consumer, "a consumer owns its admitted state independently of the facade");
+  if (!consumer) { return; }
+  auto ticket = pipeline->RequestLogical(
+      *consumer,
+      {.Address = kAddress,
+       .Generation = consumer->Generation(),
+       .InputBytes = kInput,
+       .ReceiptBytesMost = 2048},
+      [cache = fixture.Cache](
+          const std::stop_token &) -> std::expected<std::optional<AssetProduct>, std::string> {
+        auto loaded = cache->LoadRequest(kAddress, kInput);
+        if (!loaded || !*loaded) { return std::unexpected("native fixture lookup failed"); }
+        return AssetProduct(std::move(**loaded));
+      });
+  CHECK(ticket, "the independent facade submits an actual native hit");
+  if (!ticket) { return; }
+  const auto publication = Wait(*ticket);
+  CHECK(publication.Native && ticket->SetConsumerBytes(128),
+        "the completed native ticket holds its planned decoder bytes");
+  if (!publication.Native) { return; }
+  pipeline.reset();
+  const auto retained = AssetPipeline::RetainConsumerBytes(*consumer, *ticket);
+  CHECK(retained && !publication.Native->Bytes().empty(),
+        "a matching consumer retains actual native work after its pipeline facade is destroyed");
+}
 }
 
 int main() {
@@ -165,9 +201,22 @@ int main() {
   auto second = pipeline.RequestLogical(*consumer, request, produce);
   CHECK(first && second, "two early addresses share one admitted cache lookup");
   if (!first || !second) { return Report(); }
+  AssetPipeline other(tasks,
+                      {.JobsMost = 1,
+                       .ConsumersMost = 1,
+                       .TicketsMost = 1,
+                       .InputBytesMost = kInput,
+                       .ReceiptBytesMost = 2048});
+  auto unrelated = other.OpenConsumer({.Identity = fixture.Cache});
+  CHECK(unrelated, "another pipeline can hold the same store scope");
+  if (!unrelated) { return Report(); }
+  const auto crossed = AssetPipeline::RetainConsumerBytes(*unrelated, *first);
+  CHECK(!crossed && crossed.error() == AssetPublicationError::InvalidRequest,
+        "owner retention rejects a consumer from another pipeline even with the same scope");
   DecodeOwners(pipeline, *consumer, {.First = std::move(*first), .Second = std::move(*second)});
   CHECK(reads.load() == 1, "owner admission never regenerates or reloads shared native bytes");
   CHECK(pipeline.Counts().InputBytes == 0 && pipeline.Counts().Jobs == 0,
         "all owner reservations and native aliases retire after their last use");
+  RetainAfterPipelineFacade(fixture);
   return Report();
 }

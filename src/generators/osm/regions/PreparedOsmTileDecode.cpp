@@ -235,7 +235,7 @@ void PreparedOsmTiles::Decode(Work &work, const AssetPublication &publication) {
     work.Result = std::unexpected("native OSM decoder admission cancelled");
     return;
   }
-  const auto retainedOwner = Pipeline_.RetainConsumerBytes(work.Consumer, ticket);
+  const auto retainedOwner = AssetPipeline::RetainConsumerBytes(work.Consumer, ticket);
   if (!retainedOwner) {
     work.Result = std::unexpected("native OSM owner retention cancelled");
     return;

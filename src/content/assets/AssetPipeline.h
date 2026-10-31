@@ -140,7 +140,7 @@ public:
   // Move a completed ticket's consumer bytes onto its existing consumer.
   // Destroy retained buffers before that consumer; releasing the ticket may free its native
   // package.
-  [[nodiscard]] std::expected<void, AssetPublicationError>
+  [[nodiscard]] static std::expected<void, AssetPublicationError>
   RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept;
   [[nodiscard]] Snapshot Counts() const noexcept;
 

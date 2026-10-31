@@ -128,13 +128,14 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
 
 std::expected<void, AssetPublicationError>
 AssetPipeline::RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept {
-  if (consumer.State_ != State_ || ticket.State_ != State_) {
+  if (!consumer.State_ || consumer.State_ != ticket.State_) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
-  const std::scoped_lock lock(State_->Lock);
-  const auto demand = State_->Tickets.find(ticket.Id_);
-  const auto owner = State_->Consumers.find(consumer.Id_);
-  if (demand == State_->Tickets.end() || owner == State_->Consumers.end() ||
+  const auto &state = consumer.State_;
+  const std::scoped_lock lock(state->Lock);
+  const auto demand = state->Tickets.find(ticket.Id_);
+  const auto owner = state->Consumers.find(consumer.Id_);
+  if (demand == state->Tickets.end() || owner == state->Consumers.end() ||
       demand->second.Consumer != consumer.Id_) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
