@@ -57,6 +57,20 @@ using Data::StrongEntityTag;
   return text.substr(first, last - first + 1);
 }
 
+[[nodiscard]] bool HasContentEncoding(std::string_view headers) {
+  while (!headers.empty()) {
+    const auto end = headers.find('\n');
+    const auto line = headers.substr(0, end);
+    const auto colon = line.find(':');
+    if (colon != std::string_view::npos && HeaderName(line.substr(0, colon), "content-encoding")) {
+      return true;
+    }
+    if (end == std::string_view::npos) { break; }
+    headers.remove_prefix(end + 1);
+  }
+  return false;
+}
+
 [[nodiscard]] std::optional<Data::RangeResponse> ParseRange(std::string_view text) {
   if (!text.starts_with("bytes ")) { return std::nullopt; }
   text.remove_prefix(6);
@@ -137,12 +151,21 @@ void HttpTransport::Transfer::ReadHeader(std::string_view line) {
     Failure = Data::SourceFailureReason::CapacityRefused;
     return;
   }
+  const auto previousBytes = ResponseHeaders.size();
   ResponseHeaders.append(line);
-  if (!Range) { return; }
   const auto colon = line.find(':');
   if (colon == std::string_view::npos) { return; }
   const auto name = line.substr(0, colon);
   const auto value = TrimHeader(line.substr(colon + 1));
+  if (!Range) {
+    if (HeaderName(name, "content-encoding") &&
+        ((!HeaderName(value, "identity") && !HeaderName(value, "gzip") &&
+          !HeaderName(value, "deflate")) ||
+         HasContentEncoding(std::string_view(ResponseHeaders).substr(0, previousBytes)))) {
+      Failure = Data::SourceFailureReason::CapacityRefused;
+    }
+    return;
+  }
   if (HeaderName(name, "content-range")) {
     if (Partial) { InvalidRangeHeaders = true; }
     Partial = ParseRange(value);
@@ -387,8 +410,9 @@ bool HttpTransport::ConfigureTransfer(void *handle, Transfer &transfer) const {
          curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_TIMEOUT, Config_.TimeoutS) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L) == CURLE_OK &&
-         curl_easy_setopt(easy, CURLOPT_ACCEPT_ENCODING, transfer.Range ? "identity" : "") ==
-             CURLE_OK &&
+         curl_easy_setopt(easy,
+                          CURLOPT_ACCEPT_ENCODING,
+                          transfer.Range ? "identity" : "gzip, deflate") == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_HTTP_CONTENT_DECODING, transfer.Range ? 0L : 1L) ==
              CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_USERAGENT, Config_.UserAgent.c_str()) == CURLE_OK &&
