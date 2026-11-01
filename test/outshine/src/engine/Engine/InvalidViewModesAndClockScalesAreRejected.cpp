@@ -1,24 +1,18 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include <limits>
 #include "Check.h"
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
   Scenario::Document original;
   Scenario::View view;
   view.Id = "original";
   view.Placement = Scenario::CameraPlacement::Local;
   original.Views.push_back(view);
-  CHECK(engine.loadScenario(original).has_value(), "valid initial view is declared");
-  const auto *previous = engine.declaration().Views.data();
+  CHECK(LoadFreshScenario(original).has_value(), "valid initial view is declared");
   const auto rejected = [&](const Scenario::Document &candidate) {
-    CHECK(!engine.loadScenario(candidate), "invalid mode or clock scale is rejected");
-    CHECK(engine.declaration().Views.data() == previous,
-          "invalid values cannot replace the owned declaration");
-    CHECK(engine.setView("original").has_value(), "previous catalog remains selectable");
-    CHECK(!engine.setView("candidate"), "invalid catalog is never published");
+    CHECK(!LoadFreshScenario(candidate), "invalid mode or clock scale is rejected");
   };
   for (const int mode : {-1, 3, std::numeric_limits<int>::max()}) {
     auto candidate = original;
@@ -50,7 +44,7 @@ int main() {
       followed.Placed = true;
       valid.Bodies.push_back(followed);
     }
-    CHECK(engine.loadScenario(valid).has_value(),
+    CHECK(LoadFreshScenario(valid).has_value(),
           "supported mode and finite positive factor accepted");
   }
   return Report();

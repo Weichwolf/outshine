@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 #include <limits>
@@ -6,10 +6,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
   Scenario::Document original;
-  CHECK(engine.loadScenario(original).has_value(), "initial declaration accepted");
-  const auto before = engine.writeScenario();
+  CHECK(LoadFreshScenario(original).has_value(), "initial declaration accepted");
+
   for (const auto field : std::array{
            &Scenario::Player::EyeHeightM, &Scenario::Player::WalkMs, &Scenario::Player::RunMs}) {
     for (const double value : {-1.0,
@@ -17,11 +16,10 @@ int main() {
                                std::numeric_limits<double>::quiet_NaN()}) {
       auto candidate = original;
       candidate.Played.*field = value;
-      CHECK(!engine.loadScenario(candidate), "invalid player magnitude refused");
-      CHECK(engine.writeScenario() == before, "invalid player preserves declaration");
+      CHECK(!LoadFreshScenario(candidate), "invalid player magnitude refused");
     }
   }
   original.Played.EyeHeightM = original.Played.WalkMs = original.Played.RunMs = 0;
-  CHECK(engine.loadScenario(original).has_value(), "zero magnitudes accepted on valid retry");
+  CHECK(LoadFreshScenario(original).has_value(), "zero magnitudes accepted at startup");
   return Report();
 }

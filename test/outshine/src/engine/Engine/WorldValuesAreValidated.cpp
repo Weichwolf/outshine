@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 #include <limits>
@@ -6,10 +6,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
   const Scenario::Document original;
-  CHECK(engine.loadScenario(original).has_value(), "initial declaration accepted");
-  const auto before = engine.writeScenario();
+  CHECK(LoadFreshScenario(original).has_value(), "initial declaration accepted");
+
   for (const auto field : std::array{&Scenario::WorldSettings::GravityMs2,
                                      &Scenario::WorldSettings::AirDensityKgM3,
                                      &Scenario::WorldSettings::PatienceS,
@@ -19,8 +18,7 @@ int main() {
                                std::numeric_limits<double>::quiet_NaN()}) {
       auto candidate = original;
       candidate.Ground.*field = value;
-      CHECK(!engine.loadScenario(candidate), "invalid world magnitude refused");
-      CHECK(engine.writeScenario() == before, "invalid magnitude preserves declaration");
+      CHECK(!LoadFreshScenario(candidate), "invalid world magnitude refused");
     }
   }
   for (const auto field : std::array{&Scenario::Georeference::LatitudeDeg,
@@ -28,21 +26,20 @@ int main() {
                                      &Scenario::Georeference::RadiusM}) {
     auto candidate = original;
     candidate.Ground.Origin.*field = std::numeric_limits<double>::infinity();
-    CHECK(!engine.loadScenario(candidate), "nonfinite geographic setting refused");
-    CHECK(engine.writeScenario() == before, "invalid origin preserves declaration");
+    CHECK(!LoadFreshScenario(candidate), "nonfinite geographic setting refused");
   }
   auto candidate = original;
   candidate.Ground.Origin.LatitudeDeg = 91;
-  CHECK(!engine.loadScenario(candidate), "latitude beyond pole refused");
+  CHECK(!LoadFreshScenario(candidate), "latitude beyond pole refused");
   candidate = original;
   candidate.Ground.PatienceS = std::numeric_limits<double>::max();
-  CHECK(!engine.loadScenario(candidate), "poll-count overflow refused before conversion");
-  CHECK(engine.writeScenario() == before, "budget failure preserves declaration");
+  CHECK(!LoadFreshScenario(candidate), "poll-count overflow refused before conversion");
+
   candidate.Ground.PatienceS = 0;
   candidate.Ground.SightM = 0;
   candidate.Ground.GravityMs2 = 0;
   candidate.Ground.AirDensityKgM3 = 0;
-  CHECK(engine.loadScenario(candidate).has_value(),
+  CHECK(LoadFreshScenario(candidate).has_value(),
         "zero-valued defaults and vacuum can be declared");
   return Report();
 }

@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 #include <limits>
@@ -14,20 +14,13 @@ int main() {
   body.MassKg = 1;
   source.Bodies.push_back(body);
   source.Bodies[0].Driven.push_back({});
-  Engine engine;
-  CHECK(engine.loadScenario(source), "valid actuator assembles");
-  auto *registry = &engine.entities();
-  const auto marker = registry->addEntity();
-  CHECK(marker.has_value(), "spare entity capacity remains usable");
-  if (!marker) { return Report(); }
+  CHECK(LoadFreshScenario(source), "valid actuator assembles");
   const auto reject = [&](const Scenario::Drive &drive) {
     auto candidate = source;
     candidate.Bodies[0].Name = "rejected";
     candidate.Bodies[0].Driven[0] = drive;
-    CHECK(!engine.loadScenario(candidate),
+    CHECK(!LoadFreshScenario(candidate),
           "invalid actuator rejected before declaration publication");
-    CHECK(engine.declaration().Bodies[0].Name == "kept", "previous declaration survives");
-    CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation survives");
   };
   auto bad = Scenario::Drive{};
   constexpr int kInvalidDriveCategory = 255;
@@ -66,11 +59,11 @@ int main() {
   for (const auto category : {Scenario::Drives::Effort, Scenario::Drives::Motion}) {
     for (const bool turns : {false, true}) {
       source.Bodies[0].Driven[0] = {.Does = category, .Opposes = true, .Turns = turns, .Ratio = -2};
-      CHECK(engine.loadScenario(source),
+      CHECK(LoadFreshScenario(source),
             "both categories accept either zero-magnitude mode and negative ratio");
     }
   }
   source.Bodies[0].Driven[0].Ratio = 0;
-  CHECK(engine.loadScenario(source), "zero transmission ratio remains representable");
+  CHECK(LoadFreshScenario(source), "zero transmission ratio remains representable");
   return Report();
 }

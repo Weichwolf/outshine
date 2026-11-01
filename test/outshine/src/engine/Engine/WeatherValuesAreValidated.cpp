@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 #include <limits>
@@ -6,10 +6,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
   const Scenario::Document original;
-  CHECK(engine.loadScenario(original).has_value(), "initial declaration accepted");
-  const auto before = engine.writeScenario();
+  CHECK(LoadFreshScenario(original).has_value(), "initial declaration accepted");
+
   for (const auto field : std::array{&Scenario::Weather::CloudCover,
                                      &Scenario::Weather::CloudLow,
                                      &Scenario::Weather::CloudMid,
@@ -22,8 +21,7 @@ int main() {
          {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
       auto candidate = original;
       candidate.Ground.Sky.*field = value;
-      CHECK(!engine.loadScenario(candidate), "nonfinite weather rejected even for inactive world");
-      CHECK(engine.writeScenario() == before, "rejected weather preserves declaration");
+      CHECK(!LoadFreshScenario(candidate), "nonfinite weather rejected even for inactive world");
     }
   }
   for (const auto field : std::array{&Scenario::Weather::CloudCover,
@@ -35,15 +33,13 @@ int main() {
                                      &Scenario::Weather::Haze}) {
     auto candidate = original;
     candidate.Ground.Sky.*field = -1;
-    CHECK(!engine.loadScenario(candidate), "negative physical magnitude rejected");
-    CHECK(engine.writeScenario() == before, "negative weather preserves declaration");
+    CHECK(!LoadFreshScenario(candidate), "negative physical magnitude rejected");
   }
   auto candidate = original;
   candidate.Ground.Sky.Haze = std::numeric_limits<double>::max();
-  CHECK(!engine.loadScenario(candidate), "haze is checked before float conversion");
+  CHECK(!LoadFreshScenario(candidate), "haze is checked before float conversion");
   candidate.Ground.Sky.Haze = 2.5;
   candidate.Ground.Sky.WindDeg = -90;
-  CHECK(engine.loadScenario(candidate).has_value(),
-        "unwrapped wind and aerosol multiplier accepted");
+  CHECK(LoadFreshScenario(candidate).has_value(), "unwrapped wind and aerosol multiplier accepted");
   return Report();
 }

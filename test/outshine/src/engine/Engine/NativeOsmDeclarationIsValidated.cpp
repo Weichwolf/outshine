@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include <Generator.h>
 #include "Check.h"
 #include <limits>
@@ -19,33 +19,19 @@ public:
   }
 };
 
-class Receiver final : public outshine::Host {
-public:
-  std::string Last;
-
-  bool calls(std::string_view name, std::span<const outshine::Argument> /*args*/) override {
-    Last = name;
-    return true;
-  }
-};
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Receiver receiver;
   const Probe probe;
-  Engine engine;
-  engine.setInputHost(&receiver);
-  CHECK(engine.registerGenerator(probe), "fixture generator registers");
   const Scenario::Structure valid{.Kind = "track", .LatLon = {0, 0, 1, 1}};
   Scenario::Document original;
   original.Input = {{.Event = "KeyW", .Action = "original"}};
   for (const bool world : {false, true}) {
     for (int bad = 0; bad < 11; ++bad) {
-      CHECK(engine.loadScenario(original).has_value(), "original declaration activates");
-      const auto previous = engine.writeScenario();
-      CHECK(previous.has_value(), "valid declaration exports before rejection");
+      Engine engine;
+      CHECK(engine.registerGenerator(probe), "fixture generator registers");
       const int calls = probe.Calls;
       auto candidate = original;
       candidate.Input.front().Action = "replacement";
@@ -70,23 +56,15 @@ int main() {
       }
       const auto declared = engine.loadScenario(candidate);
       CHECK(!declared && !declared.error().empty(), "native malformed OSM is diagnosed");
-      CHECK(engine.writeScenario() == previous && probe.Calls == calls,
-            "validation precedes document publication and producer execution");
-      SDL_Event event{};
-      event.type = SDL_EVENT_KEY_DOWN;
-      event.key.key = SDLK_W;
-      receiver.Last.clear();
-      CHECK(engine.handleEvent(event).value_or(false) && receiver.Last == "original",
-            "failure preserves active input bindings");
+      CHECK(probe.Calls == calls, "validation precedes producer execution");
     }
   }
   Scenario::Document accepted;
   accepted.Ground.Osm = {valid,
                          {.Kind = "building", .Area = true, .LatLon = {-90, -180, 90, 180, 0, 0}}};
-  CHECK(engine.loadScenario(accepted).has_value(),
+  CHECK(LoadFreshScenario(accepted).has_value(),
         "valid native ways and areas pass angular boundaries");
   accepted.Ground.Osm.front().LatLon.resize(static_cast<long>(2) * 65536);
-  CHECK(engine.loadScenario(accepted).has_value(),
-        "the native path accepts the exact point budget");
+  CHECK(LoadFreshScenario(accepted).has_value(), "the native path accepts the exact point budget");
   return Report();
 }

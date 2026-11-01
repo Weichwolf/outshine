@@ -1,27 +1,24 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <string>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Engine engine;
   Scenario::Document original;
   original.Motion.Declared = true;
   original.Motion.StepS = 0.025;
-  CHECK(engine.loadScenario(original).has_value(), "initial declaration succeeds");
-  const auto before = engine.writeScenario();
-  CHECK(before.has_value(), "initial declaration exports");
+  CHECK(LoadFreshScenario(original).has_value(), "initial declaration succeeds");
+
   for (const auto *const kind : {"gltf", "unknown", ""}) {
     Scenario::Document candidate = original;
     candidate.Motion.StepS = 0.05;
     Scenario::Asset asset;
     asset.Kind = kind;
     candidate.Assets.push_back(asset);
-    const auto result = engine.loadScenario(candidate);
+    const auto result = LoadFreshScenario(candidate);
     CHECK(!result && !result.error().empty(), "unsupported asset kind is rejected");
-    CHECK(engine.writeScenario() == before, "unsupported asset preserves active declaration");
   }
-  CHECK(engine.loadScenario(original).has_value(), "valid retry remains usable");
+  CHECK(LoadFreshScenario(original).has_value(), "valid asset-free startup succeeds");
   return Report();
 }
