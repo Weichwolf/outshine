@@ -267,13 +267,27 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
 
 void StructureBuildQueue::Opens(Tasks *pool,
                                 const std::shared_ptr<const StructureMesher> &mesher,
-                                const std::shared_ptr<JobAdmission> &admission) {
-  const bool changed =
-      Pool_ != pool || Admission_ != admission || (Context_.Mesher && Context_.Mesher != mesher);
+                                const std::shared_ptr<JobAdmission> &admission,
+                                const std::shared_ptr<JobAdmission> &contexts) {
+  const bool changed = Pool_ != pool || Admission_ != admission || ContextAdmission_ != contexts ||
+                       (Context_.Mesher && Context_.Mesher != mesher);
   if (Pool_ != nullptr && changed) { Clear(); }
   Pool_ = pool;
   if (Context_.Mesher != mesher) { Context_.Mesher = mesher; }
   if (Admission_ != admission) { Admission_ = admission; }
+  if (ContextAdmission_ != contexts) { ContextAdmission_ = contexts; }
+}
+
+bool StructureBuildQueue::AdmitContext() {
+  if (Context_.Admission) { return true; }
+  if (Pool_ == nullptr || !ContextAdmission_) { return false; }
+  auto lease = ContextAdmission_->TryAcquire();
+  if (!lease) {
+    ++ContextAdmissionDeferred_;
+    return false;
+  }
+  Context_.Admission = std::make_shared<JobAdmission::Lease>(std::move(*lease));
+  return true;
 }
 
 StructureBuildQueue::~StructureBuildQueue() {
@@ -317,6 +331,12 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Generators::Osm::SourceSnapshot>> sources,
     Generators::Osm::StructurePolicy policy,
     int heightZoom) {
+  if (!sources.empty()) {
+    if (Pool_ == nullptr || !ContextAdmission_) {
+      return std::unexpected("original structures require an open worker pool");
+    }
+    if (!AdmitContext()) { return false; }
+  }
   return PrepareOriginalInputs(
       Generators::Osm::StructurePreparation::SourceInputs(sources.begin(), sources.end()),
       policy,
@@ -325,6 +345,12 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
 
 std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells, int heightZoom) {
+  if (!cells.empty()) {
+    if (Pool_ == nullptr || !ContextAdmission_) {
+      return std::unexpected("original structures require an open worker pool");
+    }
+    if (!AdmitContext()) { return false; }
+  }
   return PrepareOriginalInputs(
       Generators::Osm::StructurePreparation::CellInputs(cells.begin(), cells.end()),
       {},
@@ -381,7 +407,7 @@ StructureBuildQueue::PrepareOriginalInputs(Generators::Osm::StructurePreparation
   Context_.PreparingOriginals.assign(sources.begin(), sources.end());
   Context_.PreparingOriginalHeightZoom = heightZoom;
   Context_.OriginalPreparation = std::make_unique<Generators::Osm::StructurePreparation>(
-      *Pool_, std::move(inputs), policy, heightZoom);
+      *Pool_, std::move(inputs), policy, heightZoom, Context_.Admission);
   return false;
 }
 
@@ -498,7 +524,7 @@ std::optional<JobAdmission::Lease> StructureBuildQueue::TryAdmitBuild() {
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   if (build.Tasks != 0 && !build.Task.CanResume()) { return; }
   if (build.Tasks == 0) {
-    build.Task.Start(*Pool_, Context_.Mesher);
+    build.Task.Start(*Pool_, Context_.Mesher, Context_.Admission);
   } else {
     build.Task.Resume(*Pool_);
   }
@@ -717,6 +743,7 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
   if (candidatesMost == 0 || Pool_ == nullptr || Context_.Mesher == nullptr) { return 0; }
+  if (!AdmitContext()) { return 0; }
   AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
   if (HasOriginal()) {
     for (size_t tile = 0; tile < Context_.Originals.size(); ++tile) {
@@ -1286,24 +1313,29 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
 }
 
 void StructureBuildQueue::Clear() {
+  if (!Context_.Admission) { return; }
   if (Context_.OriginalPreparation) { Context_.OriginalPreparation->Cancel(); }
-  for (QueuedBuild &bake : Context_.Queue) { bake.Task.RequestStop(); }
-  RetireNativeLookups();
-  Context_.NativeAssets.reset();
-  Context_.PendingHeights.reset();
-  Context_.NativeFailure.reset();
-  Context_.OriginalPreparation.reset();
-  Context_.LastHeightFailure = {};
-  Context_.PreparingOriginals.clear();
-  Context_.Originals.clear();
-  Context_.OriginalHeightTiles.clear();
-  Context_.OriginalHeightZoom = -1;
-  Context_.PreparingOriginalHeightZoom = -1;
-  for (QueuedBuild &bake : Context_.Queue) { bake.Task.Join(); }
-  Context_.Queue.clear();
-  Context_.IdleRaw.clear();
-  Context_.IdleOut.clear();
-  Context_.IdleScratch.clear();
+  for (const auto &entry : Context_.NativeLookups) {
+    entry.second->Stopping.store(true, std::memory_order_relaxed);
+  }
+  for (QueuedBuild &bake : Context_.Queue) {
+    if (!bake.Task.Retire(*Pool_)) { std::terminate(); }
+  }
+
+  struct Handoff {
+    std::unique_ptr<BuildContext> Value;
+  };
+
+  const auto retired =
+      std::make_shared<Handoff>(std::make_unique<BuildContext>(std::move(Context_)));
+  Context_ = {};
+  Context_.Mesher = retired->Value->Mesher;
+  if (!Pool_->PostDetached([retired] {
+        auto context = std::move(retired->Value);
+        context.reset();
+      })) {
+    std::terminate();
+  }
 }
 
 }

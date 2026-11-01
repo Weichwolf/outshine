@@ -200,7 +200,10 @@ void ReboundLookup(bool present, bool collected) {
   if (!fixture.Stack.Opened()) { return; }
   if (present) { CHECK(fixture.Generate(31), "the first source exists before its metadata read"); }
   StructureBuildQueue queue;
-  queue.Opens(&fixture.Worker, nullptr, outshine::Test::JobAdmissions());
+  queue.Opens(&fixture.Worker,
+              nullptr,
+              outshine::Test::JobAdmissions(),
+              outshine::Test::ContextAdmissions());
   const auto pending = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
   using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
   CHECK(pending && pending->Where == Phase::Pending, "the real request lookup runs off thread");

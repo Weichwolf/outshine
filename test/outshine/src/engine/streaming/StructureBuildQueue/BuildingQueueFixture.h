@@ -113,7 +113,8 @@ struct BuildingQueueFixture {
     prints.AnchorAt(TangentFrame::At(Eye).OriginEcef());
     prints.TilesSpan(1000);
     prints.SeenWith({.FocalPx = 720});
-    Queue.Opens(&Pool, MesherOwner, outshine::Test::JobAdmissions());
+    Queue.Opens(
+        &Pool, MesherOwner, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
     return PrepareTerrain();
   }
 

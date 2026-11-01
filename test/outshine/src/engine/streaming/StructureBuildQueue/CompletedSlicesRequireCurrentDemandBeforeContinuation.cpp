@@ -45,7 +45,10 @@ bool Start(BuildingQueueFixture &fixture, const std::shared_ptr<CountingMesher> 
     }
   }
   if (!fixture.Open(buildings)) { return false; }
-  fixture.Queue.Opens(&fixture.Pool, mesherOwner, outshine::Test::JobAdmissions());
+  fixture.Queue.Opens(&fixture.Pool,
+                      mesherOwner,
+                      outshine::Test::JobAdmissions(),
+                      outshine::Test::ContextAdmissions());
   auto &prints = fixture.Stack.Footprints();
   CHECK(fixture.Queue.Posts(fixture.Stack,
                             prints,

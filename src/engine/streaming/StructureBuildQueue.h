@@ -58,7 +58,8 @@ public:
 
   void Opens(Tasks *pool,
              const std::shared_ptr<const StructureMesher> &mesher,
-             const std::shared_ptr<JobAdmission> &admission);
+             const std::shared_ptr<JobAdmission> &admission,
+             const std::shared_ptr<JobAdmission> &contexts);
 
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::shared_ptr<const Generators::Osm::SourceSnapshot> source,
@@ -204,6 +205,8 @@ public:
 
   [[nodiscard]] size_t AdmissionDeferred() const { return AdmissionDeferred_; }
 
+  [[nodiscard]] size_t ContextAdmissionDeferred() const { return ContextAdmissionDeferred_; }
+
   [[nodiscard]] HeightFailure LastHeightFailure() const noexcept {
     return Context_.LastHeightFailure;
   }
@@ -304,7 +307,6 @@ private:
     double ReadMs = 0.0;
   };
 
-  void RetireNativeLookups();
   [[nodiscard]] bool AwaitNativeLookups(double seconds) const;
   [[nodiscard]] size_t PendingBasisLookups() const noexcept;
   [[nodiscard]] NativeLookup *
@@ -363,6 +365,7 @@ private:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
   [[nodiscard]] std::optional<JobAdmission::Lease> TryAdmitBuild();
+  [[nodiscard]] bool AdmitContext();
   void RecycleTask(StructureBuildTask &task);
   void PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                              LongitudeLatitude eye,
@@ -411,6 +414,7 @@ private:
                                           double &durationMs);
 
   struct BuildContext {
+    std::shared_ptr<JobAdmission::Lease> Admission;
     std::shared_ptr<const StructureMesher> Mesher;
     std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation;
     std::vector<std::shared_ptr<const void>> PreparingOriginals;
@@ -432,6 +436,7 @@ private:
 
   BuildContext Context_;
   std::shared_ptr<JobAdmission> Admission_;
+  std::shared_ptr<JobAdmission> ContextAdmission_;
   Tasks *Pool_ = nullptr;
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginalInputs(Generators::Osm::StructurePreparation::Inputs inputs,
@@ -442,6 +447,7 @@ private:
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
   size_t AdmissionDeferred_ = 0;
+  size_t ContextAdmissionDeferred_ = 0;
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;

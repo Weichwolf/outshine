@@ -223,7 +223,8 @@ void Replay(const std::filesystem::path &directory,
   const auto mesherOwner = std::make_shared<Generators::BuildingMesh>();
 
   StructureBuildQueue queue;
-  queue.Opens(&compute, mesherOwner, outshine::Test::JobAdmissions());
+  queue.Opens(
+      &compute, mesherOwner, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
   if (obsoleteLookups) {
     std::atomic_bool released{false};
     const auto blocker = compute.Post([&released] { released.wait(false); });

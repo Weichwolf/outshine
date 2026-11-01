@@ -12,6 +12,11 @@ inline const std::shared_ptr<JobAdmission> &JobAdmissions() {
   return admission;
 }
 
+inline const std::shared_ptr<JobAdmission> &ContextAdmissions() {
+  static const auto admission = std::make_shared<JobAdmission>(16);
+  return admission;
+}
+
 inline JobAdmission::Lease JobLease() {
   auto lease = JobAdmissions()->TryAcquire();
   CHECK(lease.has_value(), "the fixture admits its bounded job");

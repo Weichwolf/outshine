@@ -24,6 +24,15 @@ void Engine::State::PublishResourcePayloadMeasurements() {
   Published.RecordMetric("cost.building_bakes.admission_deferred",
                          static_cast<double>(World.StructureBuilds.AdmissionDeferred()),
                          "asks");
+  Published.RecordMetric("cost.building_contexts.admitted",
+                         Services.StructureContexts ? Services.StructureContexts->Active() : 0,
+                         "contexts");
+  Published.RecordMetric("cost.building_contexts.capacity",
+                         Services.StructureContexts ? Services.StructureContexts->Maximum() : 0,
+                         "contexts");
+  Published.RecordMetric("cost.building_contexts.admission_deferred",
+                         static_cast<double>(World.StructureBuilds.ContextAdmissionDeferred()),
+                         "asks");
   Published.RecordMetric("streamed piece CPU payload capacity",
                          static_cast<double>(Picture.Device.PieceSourceBytes()),
                          "bytes");

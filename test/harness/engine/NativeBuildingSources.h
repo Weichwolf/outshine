@@ -61,7 +61,8 @@ struct Fixture {
     }
     Stack.Footprints().AnchorAt(TangentFrame::At(Eye).OriginEcef());
     Stack.Footprints().TilesSpan(kSpan);
-    Queue.Opens(&Worker, nullptr, outshine::Test::JobAdmissions());
+    Queue.Opens(
+        &Worker, nullptr, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
     return true;
   }
 

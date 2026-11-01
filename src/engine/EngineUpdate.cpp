@@ -300,8 +300,13 @@ void Engine::State::HandsPiecesOver() {
     Services.StructureBakes = std::make_shared<JobAdmission>(std::min(
         Services.Compute->Threads(), static_cast<int>(StructureBuildQueue::kCandidateWindow)));
   }
-  World.StructureBuilds.Opens(
-      Services.Compute.get(), World.Builtins.BuildingMesher(), Services.StructureBakes);
+  if (!Services.StructureContexts) {
+    Services.StructureContexts = std::make_shared<JobAdmission>(2);
+  }
+  World.StructureBuilds.Opens(Services.Compute.get(),
+                              World.Builtins.BuildingMesher(),
+                              Services.StructureBakes,
+                              Services.StructureContexts);
   if (World.PiecesFramed) { return; }
   World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,

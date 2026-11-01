@@ -57,13 +57,13 @@ int main() {
   if (!fixture.Open()) { return Report(); }
   const auto first = std::make_shared<Mesher>(1);
   const auto second = std::make_shared<Mesher>(2);
-  fixture.Queue.Opens(&fixture.Pool, first, JobAdmissions());
+  fixture.Queue.Opens(&fixture.Pool, first, JobAdmissions(), ContextAdmissions());
   CHECK(fixture.Post() == 1, "the first mesher builds the declared source");
   auto initial = fixture.Finish();
   CHECK(!initial.empty(), "the first completed product can recycle its actual scratch");
   if (initial.empty()) { return Report(); }
   fixture.Queue.CommitsLandings(fixture.Stack.Footprints(), initial);
-  fixture.Queue.Opens(&fixture.Pool, second, JobAdmissions());
+  fixture.Queue.Opens(&fixture.Pool, second, JobAdmissions(), ContextAdmissions());
   auto changed = fixture.Buildings;
   changed.front().HeightM = 20;
   CHECK(fixture.Stack.Declares(changed), "a changed source requires the replacement mesher");

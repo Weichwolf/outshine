@@ -36,7 +36,10 @@ struct Case {
     const auto &native = Env.Stack.BuildingAssets();
     const auto *vectors = Env.Stack.Vectors();
     if (!native || vectors == nullptr) { return false; }
-    Env.Queue.Opens(&Env.Worker, MesherOwner, outshine::Test::JobAdmissions());
+    Env.Queue.Opens(&Env.Worker,
+                    MesherOwner,
+                    outshine::Test::JobAdmissions(),
+                    outshine::Test::ContextAdmissions());
     Env.Stack.Footprints().SeenWith({.FocalPx = 720});
     const auto digest = Env.Stack.Ways().SourceDigest(*vectors, 0);
     CHECK(digest, "native content uses the actual runtime street digest");

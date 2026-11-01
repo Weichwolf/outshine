@@ -95,7 +95,8 @@ int main() {
   if (!source) { return Report(); }
   Tasks tasks(1);
   StructureBuildQueue queue;
-  queue.Opens(&tasks, nullptr, outshine::Test::JobAdmissions());
+  queue.Opens(
+      &tasks, nullptr, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
   const auto prepared = Prepare(queue, source, zoom);
   CHECK(prepared && *prepared, "actual native preparation admits sparse geometry at full zoom");
   const auto tiles = queue.OriginalHeightTiles(zoom);

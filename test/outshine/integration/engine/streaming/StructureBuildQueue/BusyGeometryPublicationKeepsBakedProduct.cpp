@@ -190,7 +190,10 @@ void Cancel() {
 void QueueResume() {
   Case test;
   if (!test.Open()) { return; }
-  test.Env.Queue.Opens(&test.Env.Worker, test.MesherOwner, outshine::Test::JobAdmissions());
+  test.Env.Queue.Opens(&test.Env.Worker,
+                       test.MesherOwner,
+                       outshine::Test::JobAdmissions(),
+                       outshine::Test::ContextAdmissions());
   auto &prints = test.Env.Stack.Footprints();
   prints.SeenWith({.FocalPx = 720});
   const StructureBuildQueue::HeightSource source{

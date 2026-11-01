@@ -1,6 +1,7 @@
 #include "test/outshine/src/engine/streaming/StructureBuildQueue/BuildingQueueFixture.h"
 #include "Check.h"
 #include "JobAdmission.h"
+#include "JobAdmissionFixture.h"
 #include <chrono>
 #include <cstddef>
 #include <memory>
@@ -13,8 +14,9 @@ int main() {
   BuildingQueueFixture first;
   BuildingQueueFixture second;
   if (!first.Open() || !second.Open()) { return Report(); }
-  first.Queue.Opens(&first.Pool, first.MesherOwner, admission);
-  second.Queue.Opens(&second.Pool, second.MesherOwner, admission);
+  first.Queue.Opens(&first.Pool, first.MesherOwner, admission, outshine::Test::ContextAdmissions());
+  second.Queue.Opens(
+      &second.Pool, second.MesherOwner, admission, outshine::Test::ContextAdmissions());
   CHECK(first.Post() == 1 && admission->Active() == 1,
         "the first queue owns its shared admission across completed slices");
   const auto copies = second.Copies;
