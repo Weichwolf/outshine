@@ -149,28 +149,6 @@ Result Engine::setSurfaces(std::span<const Scenario::Surface> surfaces) {
 
 namespace {
 
-[[nodiscard]] bool SameUiSurface(const Ui::SurfaceDeclaration &a, const Ui::SurfaceDeclaration &b) {
-  return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
-         a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
-         a.HeightFrac == b.HeightFrac;
-}
-
-[[nodiscard]] bool SameSurfaces(const std::vector<Ui::SurfaceDeclaration> &a,
-                                const std::vector<Ui::SurfaceDeclaration> &b) {
-  if (a.size() != b.size()) { return false; }
-  for (size_t at = 0; at < a.size(); ++at) {
-    if (!SameUiSurface(a[at], b[at])) { return false; }
-  }
-  return true;
-}
-
-[[nodiscard]] bool HasGeneratedContent(const Scenario::Document &scenario) {
-  return !scenario.Generators.empty() ||
-         std::ranges::any_of(scenario.Assets, [](const Scenario::Asset &asset) {
-           return asset.Kind == "generated";
-         });
-}
-
 [[nodiscard]] std::expected<std::optional<Geometry>, std::string>
 BuildGeneratedGeometry(const Scenario::Document &scenario,
                        const Generators::Registry &registry,
@@ -315,8 +293,6 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
   return prepared;
 }
 
-[[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
-
 void PublishConfiguration(ScenarioSession &session,
                           const Scenario::Document &scenario,
                           std::optional<ViewBook> &views,
@@ -331,49 +307,6 @@ void PublishConfiguration(ScenarioSession &session,
   session.Views = std::move(views);
   static_assert(std::is_nothrow_move_assignable_v<InputMap>);
   session.Bound = std::move(bindings);
-}
-
-[[nodiscard]] std::optional<Result> ReuseDeclaration(const Scenario::Document &scenario,
-                                                     Core::Declaration &declared,
-                                                     EngineRenderState &picture,
-                                                     ScenarioSession &session,
-                                                     std::optional<ViewBook> &views,
-                                                     InputMap &bindings,
-                                                     std::string &error) {
-  if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
-      !SamePicture(picture.Shown, declared) ||
-      session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled ||
-      session.Declared.Providers != scenario.Providers ||
-      session.Declared.Routes != scenario.Routes) {
-    return std::nullopt;
-  }
-  if (!SameSurfaces(picture.Shown.Surfaces, declared.Surfaces) &&
-      !picture.Standing->Redeclare(declared.Surfaces, error)) {
-    return Result{std::unexpected(error)};
-  }
-  picture.Shown = std::move(declared);
-  error.clear();
-  PublishConfiguration(session, scenario, views, bindings);
-  return Result{};
-}
-
-[[nodiscard]] bool SameRenderPlan(const Core::Declaration &a, const Core::Declaration &b) {
-  return a.Stages == b.Stages && a.Outputs == b.Outputs && a.Transfer == b.Transfer &&
-         a.Precision == b.Precision && a.Antialiasing == b.Antialiasing &&
-         a.Exposure == b.Exposure && a.Content == b.Content;
-}
-
-[[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
-  return SameRenderPlan(a, b) && a.Haze == b.Haze && a.SurfaceWidthPx == b.SurfaceWidthPx &&
-         a.SurfaceHeightPx == b.SurfaceHeightPx && a.InitialGeometry == b.InitialGeometry &&
-         a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps && a.Fill == b.Fill &&
-         a.OrbitDegPerFrame == b.OrbitDegPerFrame && a.PictureLeftFrac == b.PictureLeftFrac &&
-         a.PictureTopFrac == b.PictureTopFrac && a.PictureWidthFrac == b.PictureWidthFrac &&
-         a.PictureHeightFrac == b.PictureHeightFrac && a.IndirectLight[0] == b.IndirectLight[0] &&
-         a.IndirectLight[1] == b.IndirectLight[1] && a.IndirectLight[2] == b.IndirectLight[2] &&
-         a.KeyLux == b.KeyLux && a.KeyFromClock == b.KeyFromClock && a.DrawsSky == b.DrawsSky &&
-         a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
-         a.KeyBearingDeg == b.KeyBearingDeg;
 }
 
 }
@@ -617,15 +550,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
   ScenarioPreparation candidate{.Simulation = std::move(*simulation),
                                 .Sources = std::move(*sources)};
-  if (auto reused = ReuseDeclaration(
-          scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
-    if (*reused) {
-      S_->PendingDeclaration.emplace(std::move(candidate));
-      S_->RouteCamera.reset();
-      S_->CameraPosePending = false;
-    }
-    return std::move(*reused);
-  }
 
   auto prepared = PrepareRuntimeDeclaration(
       scenario,
