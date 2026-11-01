@@ -67,7 +67,9 @@ struct BuildingQueueFixture {
           },
       .Revision = {.Value = 11}};
   Tasks Pool{1};
-  Generators::BuildingMesh Mesher;
+  std::shared_ptr<Generators::BuildingMesh> MesherOwner =
+      std::make_shared<Generators::BuildingMesh>();
+  Generators::BuildingMesh &Mesher = *MesherOwner;
   StructureBuildQueue Queue;
 
   [[nodiscard]] bool Open() { return Open(Buildings); }
@@ -110,7 +112,7 @@ struct BuildingQueueFixture {
     prints.AnchorAt(TangentFrame::At(Eye).OriginEcef());
     prints.TilesSpan(1000);
     prints.SeenWith({.FocalPx = 720});
-    Queue.Opens(&Pool, &Mesher);
+    Queue.Opens(&Pool, MesherOwner);
     return PrepareTerrain();
   }
 

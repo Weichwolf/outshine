@@ -56,7 +56,8 @@ struct Fixture {
   Data::RawSourceCache Raw{{.Directory = {}, .Using = Data::RawSourceCache::Use::Off}};
   const Data::SourceSet Sources{Raw};
   Tasks Pool{1};
-  BuildingMesh Mesher;
+  std::shared_ptr<BuildingMesh> MesherOwner = std::make_shared<BuildingMesh>();
+  BuildingMesh &Mesher = *MesherOwner;
   std::shared_ptr<PreparedBuildingAssets> Cache;
   std::shared_ptr<const PreparedBuildingBasis> Basis;
   std::unique_ptr<AssetCache> Records;
@@ -106,13 +107,13 @@ struct Fixture {
                                                std::make_unique<StructureBuildTask::Output>(),
                                                Mesher.Scratch());
     Job->UseNativeAssets(Cache, Key(*Cache), Request(*Cache));
-    Job->Start(Pool, Mesher);
+    Job->Start(Pool, MesherOwner);
     Job->Join(Pool);
   }
 
   void Resume() {
     if (Job->CanResume()) {
-      Job->Resume(Pool, Mesher);
+      Job->Resume(Pool);
       Job->Join(Pool);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));

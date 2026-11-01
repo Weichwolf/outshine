@@ -185,9 +185,10 @@ int main() {
   prints.TilesSpan(kTileSpanM);
   prints.SeenWith({.FocalPx = kFocalPx});
   Tasks pool(1);
-  Generators::BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<Generators::BuildingMesh>();
+
   StructureBuildQueue queue;
-  queue.Opens(&pool, &mesher);
+  queue.Opens(&pool, mesherOwner);
   const outshine::Generators::Osm::StructurePolicy policy{
       .Heights = {.StoreyHeightM = 3, .BodyHeightM = 9}, .PointWidthM = 2, .PointsMost = 64};
   bool prepared = false;

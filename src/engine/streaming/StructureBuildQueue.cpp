@@ -475,9 +475,9 @@ void StructureBuildQueue::RecycleOutput(StructureBuildTask &task) {
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   if (build.Tasks != 0 && !build.Task.CanResume()) { return; }
   if (build.Tasks == 0) {
-    build.Task.Start(*Pool_, *Mesher_);
+    build.Task.Start(*Pool_, Mesher_);
   } else {
-    build.Task.Resume(*Pool_, *Mesher_);
+    build.Task.Resume(*Pool_);
   }
   build.Finished = false;
 }

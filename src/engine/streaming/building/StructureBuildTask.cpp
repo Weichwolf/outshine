@@ -578,6 +578,7 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Progress_ = std::move(other.Progress_);
   Stopping_ = std::move(other.Stopping_);
   Comparison_ = std::move(other.Comparison_);
+  Mesher_ = std::move(other.Mesher_);
   ActivePool_ = std::exchange(other.ActivePool_, nullptr);
   Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
   State_ = std::exchange(other.State_, State::Empty);
@@ -631,7 +632,7 @@ void StructureBuildTask::SelectNextCell(uint32_t cell) {
   State_ = State::Ready;
 }
 
-void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Posts(Tasks &pool) {
   assert(State_ != State::Running);
   Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
@@ -651,7 +652,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
                                base,
                                basis,
                                native,
-                               &mesher,
+                               mesher = Mesher_,
                                scratch,
                                progress,
                                output,
@@ -681,11 +682,11 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       return;
     }
     if (*base) {
-      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping, base->get());
+      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping, base->get());
     } else if (comparison) {
-      comparison->Bake(*raw, *heights, mesher, *scratch, *progress, *output, stopping);
+      comparison->Bake(*raw, *heights, *mesher, *scratch, *progress, *output, stopping);
     } else {
-      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
+      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping);
     }
     if (native != nullptr) { native->AfterBake(*raw, **base, *output, *stopping); }
     if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
@@ -696,14 +697,16 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   });
 }
 
-void StructureBuildTask::Start(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher) {
   assert(State_ == State::Ready);
-  Posts(pool, mesher);
+  assert(mesher != nullptr);
+  Mesher_ = std::move(mesher);
+  Posts(pool);
 }
 
-void StructureBuildTask::Resume(Tasks &pool, const StructureMesher &mesher) {
+void StructureBuildTask::Resume(Tasks &pool) {
   assert(State_ == State::Completed && Output_->Status && !Output_->Tile);
-  Posts(pool, mesher);
+  Posts(pool);
 }
 
 bool StructureBuildTask::CanResume() const noexcept {

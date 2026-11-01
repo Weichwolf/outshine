@@ -79,8 +79,8 @@ public:
   void UseInitialCells();
   [[nodiscard]] uint64_t InitialCells() const noexcept;
   void SelectNextCell(uint32_t cell);
-  void Start(Tasks &pool, const StructureMesher &mesher);
-  void Resume(Tasks &pool, const StructureMesher &mesher);
+  void Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher);
+  void Resume(Tasks &pool);
   [[nodiscard]] bool CanResume() const noexcept;
   [[nodiscard]] double ResumeDelaySeconds() const noexcept;
   void RequestStop() noexcept;
@@ -132,9 +132,10 @@ private:
 
   enum class State : uint8_t { Empty, Ready, Running, Completed };
 
-  void Posts(Tasks &pool, const StructureMesher &mesher);
+  void Posts(Tasks &pool);
 
   uint32_t Tile_ = 0;
+  std::shared_ptr<const StructureMesher> Mesher_;
   std::unique_ptr<Generators::RawTile> Raw_;
   std::shared_ptr<const Ground::HeightField> Heights_;
   using PreparedBaseOwner = std::shared_ptr<const Generators::PreparedStructureTile>;

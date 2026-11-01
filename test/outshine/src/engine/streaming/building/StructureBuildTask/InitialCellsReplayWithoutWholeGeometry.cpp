@@ -82,12 +82,14 @@ RawTile Inputs() {
   return raw;
 }
 
-void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesher) {
-  task.Start(pool, mesher);
+void Complete(StructureBuildTask &task,
+              Tasks &pool,
+              std::shared_ptr<const StructureMesher> mesherOwner) {
+  task.Start(pool, std::move(mesherOwner));
   for (size_t step = 0; step < 128; ++step) {
     task.Join(pool);
     if (!task.Result().Status || task.Result().Tile) { return; }
-    task.Resume(pool, mesher);
+    task.Resume(pool);
   }
   task.RequestStop();
   task.Join(pool);
@@ -104,7 +106,7 @@ void CheckCosts(const PreparedBuildingAssets &cache, const CountingMesh &mesher,
 
 bool CollectChildren(StructureBuildTask &task,
                      Tasks &pool,
-                     const CountingMesh &mesher,
+                     const std::shared_ptr<CountingMesh> &mesherOwner,
                      const std::weak_ptr<const PreparedBuildingBasis> &warmBasis,
                      bool warm,
                      size_t sourceCount,
@@ -140,7 +142,7 @@ bool CollectChildren(StructureBuildTask &task,
     CHECK(assembly.Metadata().Prints.size() == 1 && assembly.Metadata().Built.UsedBytes() == 0,
           "incomplete source metadata neither duplicates retries nor retains uploaded geometry");
     task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(assembly.Remaining())) + 1u);
-    Complete(task, pool, mesher);
+    Complete(task, pool, mesherOwner);
     CHECK(task.Result().Status && task.Result().Tile, "the next child completes independently");
     if (!task.Result().Status || !task.Result().Tile) { return false; }
   }
@@ -164,7 +166,8 @@ void Replay(const std::filesystem::path &root,
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
-  CountingMesh mesher;
+  const auto mesherOwner = std::make_shared<CountingMesh>();
+  const auto &mesher = *mesherOwner;
   Tasks pool(1);
   std::weak_ptr<const PreparedBuildingBasis> warmBasis;
   auto task = [&] {
@@ -186,17 +189,17 @@ void Replay(const std::filesystem::path &root,
   }();
   task.UseNativeAssets(cache, std::string(kKey));
   task.UseInitialCells();
-  Complete(task, pool, mesher);
+  Complete(task, pool, mesherOwner);
   CHECK(task.Result().Status && task.Result().Tile && std::popcount(task.InitialCells()) == 2,
         "initial production chooses children before emitting any whole geometry");
   if (!task.Result().Status || !task.Result().Tile) { return; }
-  if (!CollectChildren(task, pool, mesher, warmBasis, warm, raw.Structures.size(), keys)) {
+  if (!CollectChildren(task, pool, mesherOwner, warmBasis, warm, raw.Structures.size(), keys)) {
     return;
   }
   CheckCosts(*cache, mesher, warm);
   task.SelectNextCell(static_cast<uint32_t>(std::countr_zero(task.InitialCells())) + 1u);
   task.RequestStop();
-  Complete(task, pool, mesher);
+  Complete(task, pool, mesherOwner);
   CHECK(!task.Result().Status && !task.Result().Tile,
         "cancelling a restarted child returns no product for source publication");
 }
@@ -328,7 +331,8 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
   auto base = (*cache)->Generate(std::string(kKey), raw, *heights, stopping);
   CHECK(base && *base, "the complete enriched source is available");
   if (!base || !*base) { return; }
-  CountingMesh mesher;
+  const auto mesherOwner = std::make_shared<CountingMesh>();
+  const auto &mesher = *mesherOwner;
   auto scratch = mesher.Scratch();
   const auto whole = BakePreparedStructures(**base, raw, mesher, *scratch);
   CHECK(whole, "a valid whole product can be prepared");
@@ -349,7 +353,7 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
                           mesher.Scratch());
   task.UseNativeAssets(*cache, std::string(kKey));
   task.UseInitialCells();
-  Complete(task, pool, mesher);
+  Complete(task, pool, mesherOwner);
   const auto &tile = task.Result().Tile;
   CHECK(task.Result().Status && tile && task.Result().CacheHit && task.InitialCells() == 0 &&
             !tile->RequestedCell && tile->Prints.size() == raw.Structures.size() &&

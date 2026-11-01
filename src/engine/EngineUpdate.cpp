@@ -296,7 +296,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 void Engine::State::HandsPiecesOver() {
   World.BindSceneResources(Picture.Device);
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  World.StructureBuilds.Opens(Services.Compute.get(), &World.Builtins.Shaping());
+  World.StructureBuilds.Opens(Services.Compute.get(), World.Builtins.BuildingMesher());
   if (World.PiecesFramed) { return; }
   World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,

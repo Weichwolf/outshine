@@ -100,10 +100,11 @@ using namespace outshine::Test;
 
 void CancelDuringMesh() {
   Tasks pool(1);
-  const BlockingMesher mesher;
+  const auto mesherOwner = std::make_shared<BlockingMesher>();
+  const auto &mesher = *mesherOwner;
   StructureBuildTask task(
       3, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
-  task.Start(pool, mesher);
+  task.Start(pool, mesherOwner);
   CHECK(mesher.WaitsInMesh(), "the real bake worker holds its scratch during meshing");
   StructureBuildTask stopped(std::move(task));
   // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
@@ -134,7 +135,8 @@ void CancelDuringMesh() {
 
 void TransferRunningPayload() {
   Tasks pool(1);
-  const BlockingMesher movingMesher;
+  const auto movingMesherOwner = std::make_shared<BlockingMesher>();
+  const auto &movingMesher = *movingMesherOwner;
   auto movedHeights = Heights();
   const std::weak_ptr<const Ground::HeightField> releasedHeights = movedHeights;
   StructureBuildTask moving(7,
@@ -146,7 +148,7 @@ void TransferRunningPayload() {
   const auto *heights = &moving.Heights();
   const auto *output = &moving.Result();
   const auto *progress = &moving.Progress();
-  moving.Start(pool, movingMesher);
+  moving.Start(pool, movingMesherOwner);
   CHECK(movingMesher.WaitsInMesh(), "move fixture holds a real worker in its mesher");
   StructureBuildTask constructed(std::move(moving));
   // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
@@ -199,13 +201,14 @@ void TransferRunningPayload() {
 
 void TransferPartialCompletion() {
   Tasks pool(1);
-  const UnsupportedMesher unsupported;
+  const auto unsupportedOwner = std::make_shared<UnsupportedMesher>();
+  const auto &unsupported = *unsupportedOwner;
   StructureBuildTask ranged(4,
                             Raw(257),
                             Heights(),
                             std::make_unique<StructureBuildTask::Output>(),
                             unsupported.Scratch());
-  ranged.Start(pool, unsupported);
+  ranged.Start(pool, unsupportedOwner);
   while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "first task completes"); }
   CHECK(ranged.Result().Status && !ranged.Result().Tile &&
             ranged.Result().LastRanges == StructureBuildTask::RangesPerTask &&
@@ -224,7 +227,7 @@ void TransferPartialCompletion() {
   }
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (!resumed.Result().Tile && std::chrono::steady_clock::now() < deadline) {
-    resumed.Resume(pool, unsupported);
+    resumed.Resume(pool);
     while (!resumed.TakeCompletion(pool) && std::chrono::steady_clock::now() < deadline) {
       (void)pool.AwaitCompletion(0.05);
     }

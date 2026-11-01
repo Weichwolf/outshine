@@ -56,9 +56,9 @@ public:
 
   ~StructureBuildQueue();
 
-  void Opens(Tasks *pool, const StructureMesher *mesher) {
+  void Opens(Tasks *pool, const std::shared_ptr<const StructureMesher> &mesher) {
     Pool_ = pool;
-    Mesher_ = mesher;
+    if (Mesher_ != mesher) { Mesher_ = mesher; }
   }
 
   [[nodiscard]] std::expected<bool, std::string>
@@ -416,7 +416,7 @@ private:
   std::vector<Data::TileId> OriginalHeightTiles_;
   int OriginalHeightZoom_ = -1;
   int PreparingOriginalHeightZoom_ = -1;
-  const StructureMesher *Mesher_ = nullptr;
+  std::shared_ptr<const StructureMesher> Mesher_;
   std::deque<QueuedBuild> Queue_;
   std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups_;
   std::shared_ptr<NativeProgress> NativeProgress_;
