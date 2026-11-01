@@ -8,6 +8,8 @@
 #include <string>
 
 namespace outshine::Render {
+struct RadiancePlane;
+
 class ImpostorPoseBounds {
 public:
   struct Error {
@@ -19,8 +21,10 @@ public:
   // Bounds the complete capture domain, not first-hit texels or GPU rounding.
   [[nodiscard]] static std::expected<ImpostorPoseBounds, std::string>
   From(Vec3 centre, Vec3 towardEye, double halfExtentM);
+  [[nodiscard]] static std::expected<ImpostorPoseBounds, std::string>
+  From(const RadiancePlane &source);
 
-  // Camera is in capture-local coordinates. Support is the flat capture plane.
+  // Camera is in capture-local coordinates; support is bound at construction.
   // This grants no coverage, colour, depth, shadow or World replacement authority.
   [[nodiscard]] std::expected<Error, std::string> Project(const CameraBasis &camera,
                                                           const Lens &lens) const;
@@ -34,6 +38,8 @@ private:
   using Point = std::array<DistanceArithmetic::Interval, 3>;
   Vec3 Centre_;
   Vec3 Direction_;
+  Vec3 SupportCentre_;
+  Vec3 SupportNormal_;
   std::array<Point, 8> Corners_{};
 };
 }

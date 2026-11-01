@@ -66,24 +66,39 @@ struct Projection {
 };
 }
 
-std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const RadiancePlane &source,
-                                                                   const CameraBasis &camera,
-                                                                   const Lens &lens) {
-  auto normal = source.TowardEye;
+std::expected<RadiancePlane::Support, std::string> RadiancePlane::SupportFrame() const {
+  auto normal = TowardEye;
   const auto frame = ImpostorViewFrame::From(normal);
-  const bool validLens = lens.OrthoM > 0 || (lens.FovDeg > 0 && lens.FovDeg < kDegPerHalfTurn);
-  if (!frame || !Normalise(normal) || !(source.HalfExtentM > 0) ||
-      !std::isfinite(source.HalfExtentM) || !(lens.WidePx > 0) || !(lens.HighPx > 0) ||
-      !std::isfinite(lens.WidePx) || !std::isfinite(lens.HighPx) || !validLens ||
-      !std::ranges::all_of(source.DepthCoefficients, [](double x) { return std::isfinite(x); })) {
-    return std::unexpected("radiance plane or viewer is invalid");
+  const auto finite = [](double x) { return std::isfinite(x); };
+  if (!frame || !Normalise(normal) || !(HalfExtentM > 0) || !std::isfinite(HalfExtentM) ||
+      !std::ranges::all_of(Centre, finite) || !std::ranges::all_of(DepthCoefficients, finite)) {
+    return std::unexpected("radiance plane is invalid");
   }
-  const auto &depth = source.DepthCoefficients;
+  const auto &depth = DepthCoefficients;
   const double scale = std::hypot(1.0, depth[0], depth[1]);
   Vec3 physicalNormal =
       normal * (1.0 / scale) - frame->Right * (depth[0] / scale) - frame->Up * (depth[1] / scale);
-  const Vec3 centre = source.Centre + normal * (depth[2] * source.HalfExtentM);
-  if (!Normalise(physicalNormal) || !(Dot(physicalNormal, camera.EyeM - centre) > 0)) {
+  const Vec3 centre = Centre + normal * (depth[2] * HalfExtentM);
+  if (!Normalise(physicalNormal) || !std::ranges::all_of(centre, finite)) {
+    return std::unexpected("radiance physical support is invalid");
+  }
+  return Support{
+      .Centre = centre, .Normal = physicalNormal, .Direction = normal, .Capture = *frame};
+}
+
+std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const RadiancePlane &source,
+                                                                   const CameraBasis &camera,
+                                                                   const Lens &lens) {
+  const auto support = source.SupportFrame();
+  const bool validLens = lens.OrthoM > 0 || (lens.FovDeg > 0 && lens.FovDeg < kDegPerHalfTurn);
+  if (!support || !(lens.WidePx > 0) || !(lens.HighPx > 0) || !std::isfinite(lens.WidePx) ||
+      !std::isfinite(lens.HighPx) || !validLens) {
+    return std::unexpected("radiance plane or viewer is invalid");
+  }
+  const auto &physicalNormal = support->Normal;
+  const auto &centre = support->Centre;
+  const auto &frame = support->Capture;
+  if (!(Dot(physicalNormal, camera.EyeM - centre) > 0)) {
     return std::unexpected("radiance physical support faces away from its viewer");
   }
   const Projection projection{.Source = source,
@@ -92,8 +107,8 @@ std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const Radianc
                               .Matrix = lens.Projection(),
                               .Normal = physicalNormal,
                               .Centre = centre,
-                              .CaptureDirection = normal,
-                              .Capture = *frame};
+                              .CaptureDirection = support->Direction,
+                              .Capture = frame};
   if (!(projection.Matrix[0] > 0) || !(projection.Matrix[5] > 0)) {
     return std::unexpected("radiance projection is invalid");
   }
@@ -133,8 +148,8 @@ std::expected<Geometry, std::string> BuildProjectedRadianceSupport(const Radianc
       positions.push_back(static_cast<float>((*point)[axis]));
       normals.push_back(static_cast<float>(physicalNormal[axis]));
     }
-    uv.push_back(static_cast<float>(.5 + Dot(offset, frame->Right) / (2 * source.HalfExtentM)));
-    uv.push_back(static_cast<float>(.5 - Dot(offset, frame->Up) / (2 * source.HalfExtentM)));
+    uv.push_back(static_cast<float>(.5 + Dot(offset, frame.Right) / (2 * source.HalfExtentM)));
+    uv.push_back(static_cast<float>(.5 - Dot(offset, frame.Up) / (2 * source.HalfExtentM)));
   }
   Geometry geometry;
   Material material;

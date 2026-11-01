@@ -3,6 +3,7 @@
 #include "Geometry.h"
 #include "Lens.h"
 #include "Viewing.h"
+#include "ImpostorViewFrame.h"
 #include <expected>
 #include <cstddef>
 #include <string>
@@ -18,6 +19,15 @@ struct RadiancePlane {
   double HalfExtentM = 0;
   // Normalized displacement along TowardEye: a*u + b*v + c, in the capture frame.
   Vec3 DepthCoefficients{};
+
+  struct Support {
+    Vec3 Centre;
+    Vec3 Normal;
+    Vec3 Direction;
+    ImpostorViewFrame Capture;
+  };
+
+  [[nodiscard]] std::expected<Support, std::string> SupportFrame() const;
 };
 
 struct RadiancePlaneFit {

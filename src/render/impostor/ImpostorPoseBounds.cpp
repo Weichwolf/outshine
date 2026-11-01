@@ -1,5 +1,5 @@
 #include "ImpostorPoseBounds.h"
-#include "ImpostorViewFrame.h"
+#include "RadianceSupport.h"
 #include "Units.h"
 #include <algorithm>
 #include <array>
@@ -137,22 +137,24 @@ struct ProjectionExtrema {
   }
 };
 
-struct CapturePlane {
+struct SupportPlane {
   Vec3 Centre;
   Vec3 Direction;
+  Vec3 Normal;
 };
 
 template <class Projector>
 std::expected<ImpostorPoseBounds::Error, std::string> Bound(const std::array<Point, 8> &corners,
-                                                            const CapturePlane &plane,
+                                                            const SupportPlane &plane,
                                                             const Lens &lens,
                                                             const Projector &project) {
   const auto direction = Exact(plane.Direction);
-  const auto denominator = Dot(direction, direction);
+  const auto normal = Exact(plane.Normal);
+  const auto denominator = Dot(direction, normal);
   const auto projectedDirection = project(direction, true);
   ProjectionExtrema extrema;
   for (const auto &corner : corners) {
-    const auto height = Divide(Dot(Relative(corner, plane.Centre), direction), denominator);
+    const auto height = Divide(Dot(Relative(corner, plane.Centre), normal), denominator);
     if (!Finite(height) || !extrema.Include(height, project(corner, false), projectedDirection)) {
       return std::unexpected("geometric projection overflow");
     }
@@ -249,12 +251,18 @@ MapWorld(const CameraBasis &camera, const Mat4f &projection, const Mat4 &frame) 
 
 std::expected<ImpostorPoseBounds, std::string>
 ImpostorPoseBounds::From(Vec3 centre, Vec3 towardEye, double halfExtentM) {
-  const auto frame = ImpostorViewFrame::From(towardEye);
-  if (!frame || !std::isfinite(halfExtentM) || !(halfExtentM > 0) ||
-      !std::ranges::all_of(centre, [](double value) { return std::isfinite(value); })) {
-    return std::unexpected("invalid complete capture domain");
-  }
-  const std::array rows{Exact(frame->Right), Exact(frame->Up), Exact(towardEye)};
+  return From({.Centre = centre, .TowardEye = towardEye, .HalfExtentM = halfExtentM});
+}
+
+std::expected<ImpostorPoseBounds, std::string>
+ImpostorPoseBounds::From(const RadiancePlane &source) {
+  const auto &centre = source.Centre;
+  const auto &towardEye = source.TowardEye;
+  const double halfExtentM = source.HalfExtentM;
+  const auto support = source.SupportFrame();
+  if (!support) { return std::unexpected("invalid complete capture domain"); }
+  const auto &frame = support->Capture;
+  const std::array rows{Exact(frame.Right), Exact(frame.Up), Exact(towardEye)};
   const std::array columns{
       Cross(rows[1], rows[2]), Cross(rows[2], rows[0]), Cross(rows[0], rows[1])};
   const auto determinant = Dot(rows[0], columns[0]);
@@ -272,6 +280,8 @@ ImpostorPoseBounds::From(Vec3 centre, Vec3 towardEye, double halfExtentM) {
   ImpostorPoseBounds result;
   result.Centre_ = centre;
   result.Direction_ = towardEye;
+  result.SupportCentre_ = support->Centre;
+  result.SupportNormal_ = support->Normal;
   for (size_t corner = 0; corner < result.Corners_.size(); ++corner) {
     for (size_t axis = 0; axis < 3; ++axis) {
       auto value = Exact(centre[axis]);
@@ -296,11 +306,13 @@ ImpostorPoseBounds::Project(const CameraBasis &camera, const Lens &lens) const {
   const auto direction = Exact(Direction_);
   const auto denominator = Dot(direction, direction);
   const auto facing = Dot(Relative(Exact(camera.EyeM), Centre_), direction);
-  if (!(denominator.Lower > 0) || !(facing.Lower > 0)) {
+  const auto supportFacing =
+      Dot(Relative(Exact(camera.EyeM), SupportCentre_), Exact(SupportNormal_));
+  if (!(denominator.Lower > 0) || !(facing.Lower > 0) || !(supportFacing.Lower > 0)) {
     return std::unexpected("geometric support faces away from the viewer");
   }
   return Bound(Corners_,
-               {.Centre = Centre_, .Direction = Direction_},
+               {.Centre = SupportCentre_, .Direction = Direction_, .Normal = SupportNormal_},
                lens,
                [&](const Point &point, bool isDirection) {
                  return ProjectPoint(isDirection ? point : Relative(point, camera.EyeM),
@@ -319,11 +331,12 @@ std::expected<ImpostorPoseBounds::Error, std::string> ImpostorPoseBounds::Projec
   }
   const auto mapped = MapWorld(camera, matrix, worldFromField);
   if (!mapped) { return std::unexpected(mapped.error()); }
-  if (!(Dot(Relative(mapped->Eye, Centre_), Exact(Direction_)).Lower > 0)) {
+  if (!(Dot(Relative(mapped->Eye, Centre_), Exact(Direction_)).Lower > 0) ||
+      !(Dot(Relative(mapped->Eye, SupportCentre_), Exact(SupportNormal_)).Lower > 0)) {
     return std::unexpected("geometric support faces away from the viewer");
   }
   return Bound(Corners_,
-               {.Centre = Centre_, .Direction = Direction_},
+               {.Centre = SupportCentre_, .Direction = Direction_, .Normal = SupportNormal_},
                lens,
                [&](const Point &point, bool direction) {
                  Clip result;

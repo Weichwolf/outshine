@@ -332,7 +332,14 @@ foreach(source IN LISTS cases)
   if(name MATCHES "^outshine/integration/places")
     add_dependencies(${target} outshine)
   endif()
-  add_test(NAME "${name}" COMMAND ${target})
+  if(name STREQUAL "outshine/src/render/impostor/ImpostorPoseBounds/FittedSupportBoundsItsActualPlane")
+    target_link_libraries(${target} PRIVATE PkgConfig::nlohmann_json)
+    add_test(NAME "${name}" COMMAND "${Python3_EXECUTABLE}" -B
+      "${PROJECT_SOURCE_DIR}/test/experiments/render/check_fitted_support_bounds.py"
+      --native $<TARGET_FILE:${target}>)
+  else()
+    add_test(NAME "${name}" COMMAND ${target})
+  endif()
   set_tests_properties("${name}" PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "${owner}"
     ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
