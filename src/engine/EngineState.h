@@ -133,10 +133,6 @@ struct EngineServices {
   std::unique_ptr<AssetCacheReclaimer> CacheReclaimer;
 };
 
-struct ScenarioPreparation {
-  std::unique_ptr<ScenarioRuntime> Simulation;
-};
-
 struct WorldRegionState {
   WorldRegionState();
   ~WorldRegionState();
@@ -373,7 +369,7 @@ struct Engine::State {
   FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
-  std::optional<Holds<ScenarioPreparation>> PendingDeclaration;
+  std::optional<Holds<std::unique_ptr<ScenarioRuntime>>> PendingDeclaration;
   EngineServices Services;
   std::unique_ptr<WorldRegionState> WorldOwner = std::make_unique<WorldRegionState>();
 

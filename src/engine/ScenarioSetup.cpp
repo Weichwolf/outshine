@@ -364,47 +364,66 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
 
 void PublishConfiguration(ScenarioSession &session,
-                          const Scenario::Document &scenario,
+                          Scenario::Document scenario,
+                          std::vector<std::string> carried,
                           std::optional<ViewBook> &views,
                           InputMap &bindings) {
-  session.Declared = scenario;
+  session.Declared = std::move(scenario);
   ++session.DeclarationRevision;
   session.AudioBodies.clear();
   session.Sounding.reset();
   session.Taken = true;
-  session.Carried = DescribeScenarioDeclarations(scenario);
+  session.Carried = std::move(carried);
   static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
   session.Views = std::move(views);
   static_assert(std::is_nothrow_move_assignable_v<InputMap>);
   session.Bound = std::move(bindings);
 }
 
-[[nodiscard]] std::optional<Result> ReuseDeclaration(const Scenario::Document &scenario,
-                                                     Core::Declaration &declared,
-                                                     EngineRenderState &picture,
-                                                     ScenarioSession &session,
-                                                     std::optional<ViewBook> &views,
-                                                     InputMap &bindings,
-                                                     const std::optional<Render::Viewpoint> &view,
-                                                     std::string &error) {
-  if (!picture.Standing || scenario.Ground.Declared || session.Declared.Ground.Declared ||
-      HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
-      !SamePicture(picture.Shown, declared) ||
-      session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled ||
-      session.Declared.Providers != scenario.Providers ||
-      session.Declared.Routes != scenario.Routes) {
-    return std::nullopt;
+struct ScenarioPreparation {
+  Scenario::Document Declared;
+  std::vector<std::string> Carried;
+  Core::Declaration Rendering;
+  std::optional<ViewBook> Views;
+  InputMap Bindings;
+  std::unique_ptr<ScenarioRuntime> Simulation;
+  std::optional<Data::SourceSession::Configuration> Sources;
+  std::optional<Render::Viewpoint> View;
+  std::unique_ptr<WorldRegionState> World;
+  PreparedRuntimeDeclaration Runtime;
+
+  [[nodiscard]] std::optional<Result>
+  TryReuse(EngineRenderState &picture, ScenarioSession &session, std::string &error) {
+    if (!picture.Standing || Declared.Ground.Declared || session.Declared.Ground.Declared ||
+        HasGeneratedContent(Declared) || HasGeneratedContent(session.Declared) ||
+        !SamePicture(picture.Shown, Rendering) ||
+        session.Declared.Ground.VegetationEnabled != Declared.Ground.VegetationEnabled ||
+        session.Declared.Providers != Declared.Providers ||
+        session.Declared.Routes != Declared.Routes) {
+      return std::nullopt;
+    }
+    if (!SameSurfaces(picture.Shown.Surfaces, Rendering.Surfaces) &&
+        !picture.Standing->Redeclare(Rendering.Surfaces, error)) {
+      return Result{std::unexpected(error)};
+    }
+    if (View) { picture.Standing->Eye(*View); }
+    picture.Shown = std::move(Rendering);
+    error.clear();
+    PublishConfiguration(session, std::move(Declared), std::move(Carried), Views, Bindings);
+    return Result{};
   }
-  if (!SameSurfaces(picture.Shown.Surfaces, declared.Surfaces) &&
-      !picture.Standing->Redeclare(declared.Surfaces, error)) {
-    return Result{std::unexpected(error)};
+
+  [[nodiscard]] Result Publish(EngineRenderState &picture,
+                               ScenarioSession &session,
+                               std::unique_ptr<WorldRegionState> &activeWorld) {
+    if (auto published = Runtime.Publish(picture, *World, std::move(Rendering)); !published) {
+      return published;
+    }
+    activeWorld = std::move(World);
+    PublishConfiguration(session, std::move(Declared), std::move(Carried), Views, Bindings);
+    return {};
   }
-  if (view) { picture.Standing->Eye(*view); }
-  picture.Shown = std::move(declared);
-  error.clear();
-  PublishConfiguration(session, scenario, views, bindings);
-  return Result{};
-}
+};
 
 [[nodiscard]] bool SameRenderPlan(const Core::Declaration &a, const Core::Declaration &b) {
   return a.Stages == b.Stages && a.Outputs == b.Outputs && a.Transfer == b.Transfer &&
@@ -671,45 +690,58 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error.clear();
     return {};
   }
-  ScenarioPreparation candidate{.Simulation = std::move(*simulation)};
-  if (auto reused = ReuseDeclaration(
-          scenario, declared, S_->Picture, S_->Session, *views, bindings, *view, S_->Error)) {
+  ScenarioPreparation candidate{.Declared = scenario,
+                                .Carried = DescribeScenarioDeclarations(scenario),
+                                .Rendering = std::move(declared),
+                                .Views = std::move(*views),
+                                .Bindings = std::move(bindings),
+                                .Simulation = std::move(*simulation),
+                                .Sources = std::move(*sources),
+                                .View = *view,
+                                .World = {},
+                                .Runtime = {}};
+  if (auto reused = candidate.TryReuse(S_->Picture, S_->Session, S_->Error)) {
     if (*reused) {
-      S_->PendingDeclaration.emplace(std::move(candidate));
+      S_->PendingDeclaration.emplace(std::move(candidate.Simulation));
       S_->RouteCamera.reset();
       S_->CameraPosePending = false;
     }
     return std::move(*reused);
   }
 
-  auto resources = S_->PrepareWorldResources(scenario, declared, *sources);
+  auto resources =
+      S_->PrepareWorldResources(candidate.Declared, candidate.Rendering, candidate.Sources);
   if (!resources) {
     S_->PendingDeclaration.emplace(std::unexpected(std::move(resources.error())));
     S_->Error.clear();
     return {};
   }
-  auto world = std::move(*resources);
-  auto prepared = PrepareRuntimeDeclaration(
-      scenario, S_->Services.Generators, *world, S_->Picture, declared, *view);
+  candidate.World = std::move(*resources);
+  auto prepared = PrepareRuntimeDeclaration(candidate.Declared,
+                                            S_->Services.Generators,
+                                            *candidate.World,
+                                            S_->Picture,
+                                            candidate.Rendering,
+                                            candidate.View);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  if (const auto projection = prepared->ValidateGroundView(scenario, S_->Picture.Frame.HeightPx);
+  candidate.Runtime = std::move(*prepared);
+  if (const auto projection =
+          candidate.Runtime.ValidateGroundView(candidate.Declared, S_->Picture.Frame.HeightPx);
       !projection) {
     S_->PendingDeclaration.emplace(std::unexpected(projection.error()));
     S_->Error.clear();
     return {};
   }
-  if (const auto published = prepared->Publish(S_->Picture, *world, std::move(declared));
+  if (const auto published = candidate.Publish(S_->Picture, S_->Session, S_->WorldOwner);
       !published) {
     S_->Error = published.error();
     return std::unexpected(S_->Error);
   }
-  S_->WorldOwner = std::move(world);
   S_->Error.clear();
-  PublishConfiguration(S_->Session, scenario, *views, bindings);
-  S_->PendingDeclaration.emplace(std::move(candidate));
+  S_->PendingDeclaration.emplace(std::move(candidate.Simulation));
   S_->RouteCamera.reset();
   S_->CameraPosePending = false;
   return {};
