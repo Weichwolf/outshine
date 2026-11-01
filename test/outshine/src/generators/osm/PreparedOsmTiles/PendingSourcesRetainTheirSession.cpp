@@ -21,7 +21,7 @@ struct Calls {
   size_t PayloadMost = 1024;
   std::thread::id Owner = std::this_thread::get_id();
   std::atomic_uint Begins{0}, Polls{0}, Cancellations{0}, Destructions{0};
-  std::atomic_bool WorkerOnly{true};
+  std::atomic_bool WorkerOnly{true}, ValidCancellation{true};
 
   void Observe() {
     if (std::this_thread::get_id() == Owner) { WorkerOnly = false; }
@@ -66,7 +66,7 @@ public:
   }
 
   void Cancel(Ticket ticket, SourceTransport & /*transport*/) const override {
-    CHECK(ticket == Ticket{17}, "retirement cancels the original provider ticket");
+    if (ticket != Ticket{17}) { Calls_.ValidCancellation = false; }
     ++Calls_.Cancellations;
   }
 
@@ -110,7 +110,8 @@ void Retire(const std::filesystem::path &directory) {
   const auto retirement = compute.Post([] {});
   CHECK(retirement != Tasks::kNoTask, "retired source work has a terminal worker barrier");
   if (retirement != Tasks::kNoTask) { compute.Wait(retirement); }
-  CHECK(calls.Cancellations == 1 && calls.Destructions == 1 && retained.expired(),
+  CHECK(calls.ValidCancellation && calls.Cancellations == 1 && calls.Destructions == 1 &&
+            retained.expired(),
         "retired work cancels before releasing the last session on worker completion");
 }
 
