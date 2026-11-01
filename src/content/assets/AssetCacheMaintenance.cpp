@@ -16,6 +16,18 @@ namespace outshine {
 namespace {
 using DatabaseHandle = std::unique_ptr<sqlite3, decltype(&sqlite3_close)>;
 
+constexpr uint64_t kMaximumSqlitePageBytes = uint64_t{64} * 1024;
+constexpr uint64_t kMetadataGrowthAllowance = 3 * kMaximumSqlitePageBytes;
+
+bool Fits(const SqliteFileBudget::Usage &usage, const SqliteFileBudget &budget, uint64_t bytes) {
+  uint64_t available = budget.Limit();
+  for (const auto used : {usage.ChargedBytes, usage.WalBytes, budget.Reserve(), bytes}) {
+    if (used > available) { return false; }
+    available -= used;
+  }
+  return true;
+}
+
 struct Candidate {
   sqlite3 *Database = nullptr;
   std::string Key;
@@ -133,21 +145,10 @@ OpenBanks(const SqliteFileBudget &budget) {
   return databases;
 }
 
-}
-
-std::expected<void, AssetCacheError> AssetCache::State::Reclaim() const {
-  const SqliteFileBudget::Maintenance maintenance(*Budget);
-  if (Usage) {
-    const auto flushed = Usage->Flush();
-    if (!flushed) { return std::unexpected(AssetCacheError::Busy); }
-  }
-  auto databases = OpenBanks(*Budget);
-  if (!databases) { return std::unexpected(databases.error()); }
+std::expected<void, AssetCacheError> ReclaimOne(const std::vector<DatabaseHandle> &databases) {
   std::optional<Candidate> oldest;
-  for (const auto &database : *databases) {
+  for (const auto &database : databases) {
     sqlite3 *raw = database.get();
-    const auto checkpoint = Checkpoint(raw);
-    if (!checkpoint) { return checkpoint; }
     const auto free = Scalar(raw, "PRAGMA freelist_count");
     if (!free) { return std::unexpected(free.error()); }
     if (*free > 0) { return CompactSlice(raw); }
@@ -163,4 +164,42 @@ std::expected<void, AssetCacheError> AssetCache::State::Reclaim() const {
   if (!erased) { return erased; }
   return CompactSlice(oldest->Database);
 }
+
+}
+
+std::expected<void, AssetCacheError> AssetCache::State::Reclaim(uint64_t required) const {
+  const SqliteFileBudget::Maintenance maintenance(*Budget);
+  if (Usage) {
+    const auto flushed = Usage->Flush();
+    if (!flushed) { return std::unexpected(AssetCacheError::Busy); }
+  }
+  auto databases = OpenBanks(*Budget);
+  if (!databases) { return std::unexpected(databases.error()); }
+  for (const auto &database : *databases) {
+    const auto checkpoint = Checkpoint(database.get());
+    if (!checkpoint) { return checkpoint; }
+  }
+  if (required != 0) {
+    const auto usage = Budget->Inspect();
+    if (!usage) { return std::unexpected(AssetCacheError::Storage); }
+    if (Fits(*usage, *Budget, required)) { return {}; }
+  }
+  return ReclaimOne(*databases);
+}
+
+std::expected<void, AssetCacheError> AssetCache::State::BeginWrite() const {
+  auto usage = Budget->Inspect();
+  if (!usage) { return std::unexpected(AssetCacheError::Storage); }
+  if (!Fits(*usage, *Budget, kMetadataGrowthAllowance)) {
+    const auto reclaimed = Reclaim(kMetadataGrowthAllowance);
+    if (!reclaimed) { return reclaimed; }
+    usage = Budget->Inspect();
+    if (!usage) { return std::unexpected(AssetCacheError::Storage); }
+    if (!Fits(*usage, *Budget, kMetadataGrowthAllowance)) {
+      return std::unexpected(AssetCacheError::Busy);
+    }
+  }
+  return AssetSql::Exec(Database, "BEGIN IMMEDIATE");
+}
+
 }

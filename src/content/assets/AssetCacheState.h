@@ -19,7 +19,8 @@ struct AssetCache::State {
   bool UsageWarning = false;
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
   void WarnUsage();
-  [[nodiscard]] std::expected<void, AssetCacheError> Reclaim() const;
+  [[nodiscard]] std::expected<void, AssetCacheError> Reclaim(uint64_t required = 0) const;
+  [[nodiscard]] std::expected<void, AssetCacheError> BeginWrite() const;
   [[nodiscard]] std::expected<void, AssetCacheError>
   StorePublication(const AssetCache::Publication &publication);
   ~State();
