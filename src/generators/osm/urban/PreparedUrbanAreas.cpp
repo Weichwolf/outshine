@@ -172,6 +172,13 @@ bool PreparedUrbanAreas::Start(const std::string &key, const std::shared_ptr<Wor
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> &work) {
   if (work->Running.load(std::memory_order_acquire)) { return SourceDelivery{}; }
+  if (work->Stage == Work::Phase::LookupRetry) {
+    if (std::chrono::steady_clock::now() >= work->RetryAt) {
+      work->Stage = Work::Phase::Lookup;
+      if (!Start(key, work)) { return std::unexpected("urban-area lookup retry was not accepted"); }
+    }
+    return SourceDelivery{};
+  }
   if (work->Stage != Work::Phase::Source) {
     if (!work->Result) { return std::unexpected(work->Result.error()); }
     if (work->Result->Area) {
@@ -181,6 +188,13 @@ PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> 
     }
     if (work->Stage == Work::Phase::Generate) {
       return std::unexpected("urban-area generation returned no complete asset");
+    }
+    if (work->Result->Stage == Loaded::Phase::Deferred) {
+      ++Worker_->Deferred;
+      work->Stage = Work::Phase::LookupRetry;
+      work->RetryAt = std::chrono::steady_clock::now() + work->RetryDelay;
+      work->RetryDelay = std::min(work->RetryDelay * 2, std::chrono::milliseconds(16));
+      return SourceDelivery{};
     }
     work->Stage = Work::Phase::Source;
   }

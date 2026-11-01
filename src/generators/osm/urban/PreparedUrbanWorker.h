@@ -11,6 +11,8 @@
 
 namespace outshine::Generators::Osm {
 struct PreparedUrbanAreas::Loaded {
+  enum class Phase : uint8_t { Complete, Deferred };
+  Phase Stage = Phase::Complete;
   std::shared_ptr<const UrbanArea> Area;
   std::string Key;
 };
@@ -22,15 +24,17 @@ struct PreparedUrbanAreas::Definition {
 };
 
 struct PreparedUrbanAreas::Work {
-  enum class Phase : uint8_t { Lookup, Source, Generate };
+  enum class Phase : uint8_t { Lookup, LookupRetry, Source, Generate };
   Definition Input;
   std::vector<std::weak_ptr<const uint8_t>> Owners;
   std::array<std::unique_ptr<OsmField>, 2> Layouts;
   std::array<std::shared_ptr<const OsmField>, 2> Sources;
   size_t SourceCount = 0;
   Phase Stage = Phase::Lookup;
+  std::chrono::steady_clock::time_point RetryAt;
+  std::chrono::milliseconds RetryDelay{1};
   std::atomic_bool Running{false};
-  std::expected<Loaded, std::string> Result;
+  std::expected<Loaded, std::string> Result{Loaded{}};
 };
 
 struct PreparedUrbanAreas::Worker {
