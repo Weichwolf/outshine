@@ -113,7 +113,9 @@ public:
   };
 
   struct LogicalStep;
-  using LogicalProducer = std::function<std::expected<LogicalStep, std::string>(std::stop_token)>;
+  using LogicalFailure = std::variant<std::string, AssetFailure>;
+  using LogicalProducer =
+      std::function<std::expected<LogicalStep, LogicalFailure>(std::stop_token)>;
 
   struct ResolvedWork {
     AssetProductKey Key;

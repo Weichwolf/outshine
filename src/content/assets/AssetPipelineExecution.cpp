@@ -1,5 +1,6 @@
 #include "AssetPipelineState.h"
 #include <algorithm>
+#include <any>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,11 @@ AssetPublication Failed(AssetPublicationError code, std::string message) {
           .Message = std::move(bounded),
           .Native = {}};
 }
+
+struct StoredFailure {
+  std::shared_ptr<void> Reservation;
+  std::any Detail;
+};
 
 struct StoredReceipt {
   std::shared_ptr<void> Reservation;
@@ -67,6 +73,27 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
           .RequestHit = job->Domain == KeyDomain::Request};
 }
 
+AssetPublication AssetPipeline::State::Failure(const std::shared_ptr<Job> &job,
+                                               LogicalFailure error) {
+  if (auto *text = std::get_if<std::string>(&error)) {
+    return Failed(AssetPublicationError::ProducerFailed, std::move(*text));
+  }
+  auto failure = std::get<AssetFailure>(std::move(error));
+  if (failure.Bytes > job->Output->Bytes ||
+      (failure.Detail.has_value() && sizeof(StoredFailure) > job->Output->Bytes - failure.Bytes) ||
+      (!failure.Detail.has_value() && failure.Bytes != 0)) {
+    return Failed(AssetPublicationError::InvalidReceipt,
+                  "asset failure metadata exceeds its admitted receipt budget");
+  }
+  auto result = Failed(AssetPublicationError::ProducerFailed, std::move(failure.Message));
+  if (failure.Detail.has_value()) {
+    const auto stored = std::make_shared<StoredFailure>(
+        StoredFailure{.Reservation = job->Output, .Detail = std::move(failure.Detail)});
+    result.Failure = {stored, &stored->Detail};
+  }
+  return result;
+}
+
 void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
                                   AssetPublication result) noexcept {
   const std::scoped_lock lock(Lock);
@@ -100,7 +127,7 @@ void AssetPipeline::State::Execution::Run() {
     if (!*admitted) { return; }
     auto step = Produce(Work->Stop.get_token());
     if (!step) {
-      result = Failed(AssetPublicationError::ProducerFailed, std::move(step.error()));
+      result = State::Failure(Work, std::move(step.error()));
       break;
     }
     if (const auto *input = std::get_if<InputAdmission>(&*step)) {
@@ -231,6 +258,7 @@ AssetPublication AssetPipeline::State::Poll(uint64_t ticket) noexcept {
     result.Status = AssetPublicationStatus::Cancelled;
     result.Receipt.reset();
     result.Native.reset();
+    result.Failure.reset();
     result.Error = AssetPublicationError::StaleGeneration;
     result.Message.clear();
     result.Finished = demand.Work->Finished;
@@ -238,6 +266,7 @@ AssetPublication AssetPipeline::State::Poll(uint64_t ticket) noexcept {
     result.Status = AssetPublicationStatus::Cancelled;
     result.Receipt.reset();
     result.Native.reset();
+    result.Failure.reset();
     result.Error = AssetPublicationError::Cancelled;
     result.Message.clear();
     result.Finished = demand.Work->Finished;

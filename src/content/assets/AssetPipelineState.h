@@ -93,6 +93,8 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   void Join(const std::shared_ptr<Job> &from, const std::shared_ptr<Job> &to);
   void RetireJoined(const std::shared_ptr<Job> &job);
   void PruneRequest(const Demand &demand);
+  [[nodiscard]] static AssetPublication Failure(const std::shared_ptr<Job> &job,
+                                                LogicalFailure error);
   void Finish(const std::shared_ptr<Job> &job, AssetPublication result) noexcept;
   [[nodiscard]] static AssetPublication Receipt(const std::shared_ptr<Job> &job,
                                                 std::expected<AssetProduct, std::string> result);

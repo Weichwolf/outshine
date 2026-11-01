@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETPUBLICATION_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETPUBLICATION_H
 #include "AssetCache.h"
+#include <any>
 #include <array>
 #include <compare>
 #include <cstddef>
@@ -48,6 +49,13 @@ enum class AssetPublicationError : uint8_t {
 };
 enum class AssetPublicationStatus : uint8_t { Pending, Ready, Failed, Cancelled };
 
+struct AssetFailure {
+  std::string Message;
+  std::any Detail;
+  // Detail object and retained heap bytes; checked against receipt admission.
+  size_t Bytes = 0;
+};
+
 struct AssetPublication {
   AssetPublicationStatus Status = AssetPublicationStatus::Pending;
   std::shared_ptr<const AssetRecord> Receipt;
@@ -57,6 +65,7 @@ struct AssetPublication {
   std::optional<AssetRequestKey> RequestKey = std::nullopt;
   std::shared_ptr<const CachedAsset> Native;
   bool RequestHit = false;
+  std::shared_ptr<const std::any> Failure = nullptr;
 };
 }
 #endif
