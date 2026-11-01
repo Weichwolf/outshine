@@ -1,6 +1,5 @@
 #include "SurfaceSession.h"
 #include "WorldCandidate.h"
-#include <limits>
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "WeatherValidation.h"
@@ -297,7 +296,6 @@ void PublishConfiguration(ScenarioSession &session,
                           std::optional<ViewBook> &views,
                           InputMap &bindings) {
   session.Declared = scenario;
-  ++session.DeclarationRevision;
   session.AudioBodies.clear();
   session.Sounding.reset();
   session.Taken = true;
@@ -344,7 +342,6 @@ PrepareViews(const Scenario::Document &scenario) {
 namespace Says {
 constexpr auto InvalidSimulationTiming =
     "simulation requires a finite positive step and positive catch-up count with finite duration";
-constexpr auto RevisionExhausted = "declaration revision exhausted";
 }
 
 namespace {
@@ -497,10 +494,6 @@ Result Engine::loadScenario(const Scenario::Document &scenario) {
   if (const auto valid = ValidateDeclarationInputs(scenario, S_->Services.Providers); !valid) {
     return valid;
   }
-  if (S_->Session.DeclarationRevision == std::numeric_limits<uint64_t>::max()) {
-    S_->Error = Says::RevisionExhausted;
-    return std::unexpected(S_->Error);
-  }
   auto views = PrepareViews(scenario);
   if (!views) {
     S_->Error = std::move(views.error());
@@ -530,7 +523,7 @@ Result Engine::loadScenario(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
-  auto simulation = ScenarioRuntime::Prepare(scenario, S_->Session.DeclarationRevision + 1);
+  auto simulation = ScenarioRuntime::Prepare(scenario);
   if (!simulation) {
     S_->Error = std::move(simulation.error());
     return std::unexpected(S_->Error);

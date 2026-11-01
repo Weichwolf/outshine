@@ -98,7 +98,6 @@ struct EngineRenderState {
 
 struct ScenarioSession {
   Scenario::Document Declared;
-  uint64_t DeclarationRevision = 0;
   bool Taken = false;
   std::vector<std::string> Carried;
   Roots Under;

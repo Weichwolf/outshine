@@ -40,7 +40,7 @@ constexpr auto kInvalidTriggerProbe =
     "trigger probe rejected an invalid body position or simulation time";
 constexpr auto kInvalidElapsedTime = "advance requires finite nonnegative elapsed seconds";
 constexpr auto kElapsedTimeOverflow = "elapsed time exceeds the simulation accumulator range";
-constexpr auto kCameraAssemblyRequired = "assemble the current declaration before following a body";
+constexpr auto kCameraBindingRequired = "the selected view has no runtime body binding";
 constexpr auto kCameraBodyRequired = "the followed body is missing or no longer alive";
 constexpr auto kInvalidViewProjection =
     "the selected view declares an invalid or unrepresentable projection";
@@ -247,9 +247,8 @@ bool Engine::State::UpdateSceneBodyTransform(size_t which,
 
 bool Engine::State::FollowCamera(const ViewBook &views) {
   const size_t active = views.ActiveIndex();
-  if (ScenarioState->DeclarationRevision != Session.DeclarationRevision ||
-      active >= ScenarioState->ViewBodies.size()) {
-    Error = Says::kCameraAssemblyRequired;
+  if (active >= ScenarioState->ViewBodies.size()) {
+    Error = Says::kCameraBindingRequired;
     return false;
   }
   const auto binding = ScenarioState->ViewBodies[active];
@@ -464,10 +463,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
 }
 
 bool Engine::State::UpdateTriggers() {
-  if (!ScenarioState->Triggers ||
-      ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
-    return true;
-  }
+  if (!ScenarioState->Triggers) { return true; }
   for (size_t row = 0; row < BodyFrame.Count(); ++row) {
     const auto &body = BodyFrame.At(row);
     if (!ScenarioState->Triggers->Probe(body.Owner, body.Motion.PositionM, Ticking.ElapsedS)) {

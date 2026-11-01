@@ -26,7 +26,7 @@ constexpr auto PlacedBodyRequired = "binding requires a placed body: ";
 }
 
 std::expected<std::unique_ptr<ScenarioRuntime>, std::string>
-ScenarioRuntime::Prepare(const Scenario::Document &declared, uint64_t revision) {
+ScenarioRuntime::Prepare(const Scenario::Document &declared) {
   std::string error;
   const auto capacity = RequiredEntityCapacity(declared);
   if (!capacity) {
@@ -65,7 +65,6 @@ ScenarioRuntime::Prepare(const Scenario::Document &declared, uint64_t revision) 
     }
     candidate->Triggers.emplace(std::move(*triggers));
   }
-  candidate->DeclarationRevision = revision;
   const auto preparedBodies = candidate->PrepareBodies();
   if (!preparedBodies) {
     error = preparedBodies.error();

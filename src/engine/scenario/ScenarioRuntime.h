@@ -7,7 +7,6 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <cstdint>
 #include <vector>
 #include "EntityState.h"
 #include <Scenario.h>
@@ -30,7 +29,7 @@ struct ScenarioRuntime {
   ~ScenarioRuntime() = default;
 
   [[nodiscard]] static std::expected<std::unique_ptr<ScenarioRuntime>, std::string>
-  Prepare(const Scenario::Document &declared, uint64_t revision);
+  Prepare(const Scenario::Document &declared);
 
   [[nodiscard]] std::expected<std::vector<std::optional<Entity>>, std::string>
   BindAudio(std::span<const Audio::SoundSource> sounds) const;
@@ -38,7 +37,6 @@ struct ScenarioRuntime {
   BindBodies(std::span<const std::string_view> names) const;
   [[nodiscard]] std::expected<void, std::string> PrepareBodies();
 
-  uint64_t DeclarationRevision = 0;
   World::EntityState Entities;
   Column<Scenario::Body> Definitions;
   Column<Traits> Attributes;
