@@ -138,16 +138,17 @@ void MalformedStoredFrame(const std::string &path) {
 }
 
 int main() {
-  const auto path =
+  const auto directory =
       std::filesystem::temp_directory_path() /
       ("outshine-field-frame-" +
-       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sqlite");
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "assets.sqlite";
   const auto key = Publish(path.string());
   if (!key.empty()) { Reopen(path, key); }
   InvalidFrames(path.string());
   const auto malformed = path.string() + ".malformed";
   MalformedStoredFrame(malformed);
-  std::filesystem::remove(malformed);
-  std::filesystem::remove(path);
+  std::filesystem::remove_all(directory);
   return Report();
 }
