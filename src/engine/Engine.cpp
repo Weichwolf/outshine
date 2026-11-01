@@ -98,7 +98,7 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
       Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
   if (!window) { return std::unexpected(std::string(window.error())); }
   for (const auto &failure : vectors->SourceFailures()) {
-    if (!failure || failure->Reason != Data::SourceFailureReason::OfflineMiss) { continue; }
+    if (!failure) { continue; }
     const auto tile = failure->Requested.Tile();
     if (tile && tile->Zoom == vectors->Zoom() && std::cmp_greater_equal(tile->X, window->MinX) &&
         std::cmp_less_equal(tile->X, window->MaxX) &&
