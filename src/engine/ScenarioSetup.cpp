@@ -281,41 +281,36 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
   return prepared;
 }
 
+[[nodiscard]] Holds<std::optional<Render::Viewpoint>>
+PrepareIndependentView(const Scenario::Document &scenario,
+                       const std::optional<ViewBook> &views,
+                       const EngineRenderState &picture) {
+  if (!picture.Targeted || !views) { return std::optional<Render::Viewpoint>{}; }
+  const auto &seen = views->Active();
+  if (seen.Placement == Scenario::CameraPlacement::FollowEntity ||
+      seen.Placement == Scenario::CameraPlacement::Route || seen.Geographic.SamplesHeight) {
+    return std::optional<Render::Viewpoint>{};
+  }
+  const auto &origin = scenario.Ground.Origin;
+  const CameraPreparationContext context{
+      .Origin = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
+      .WidthPx = static_cast<double>(picture.Frame.WidthPx),
+      .HeightPx = static_cast<double>(picture.Frame.HeightPx),
+      .Ground = nullptr,
+      .HeightSample = {}};
+  const auto prepared = PrepareCamera(seen, context);
+  if (!prepared) { return std::unexpected(std::string(prepared.error())); }
+  return *prepared;
+}
+
 struct PreparedRuntimeDeclaration {
   HeadlessDeclaration Headless;
   std::unique_ptr<Core::WorldCandidate> Targeted;
 
-  [[nodiscard]] decltype(auto) Candidate(this auto &self) noexcept {
-    return std::forward_like<decltype(self)>(*self.Targeted);
-  }
-
-  [[nodiscard]] Result PrepareView(const Scenario::Document &scenario,
-                                   const std::optional<ViewBook> &views,
-                                   const WorldRegionState &world,
-                                   Extent frame) {
-    if (!Targeted) { return {}; }
-    if (!views) {
-      if (!scenario.Ground.Declared || ValidGroundView(Targeted->View(), frame.HeightPx)) {
-        return {};
-      }
-      return std::unexpected(std::string(kInvalidGroundView));
-    }
-    const auto &seen = views->Active();
-    if (seen.Placement == Scenario::CameraPlacement::FollowEntity ||
-        seen.Placement == Scenario::CameraPlacement::Route || seen.Geographic.SamplesHeight) {
-      return {};
-    }
-    const auto &origin = scenario.Ground.Origin;
-    const CameraPreparationContext context{
-        .Origin = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
-        .WidthPx = static_cast<double>(frame.WidthPx),
-        .HeightPx = static_cast<double>(frame.HeightPx),
-        .Ground = world.Surface().Opened() ? &world.Surface().Ground() : nullptr,
-        .HeightSample = {}};
-    const auto prepared = PrepareCamera(seen, context);
-    if (!prepared) { return std::unexpected(std::string(prepared.error())); }
-    if (*prepared) { Candidate().SetView(**prepared); }
-    return {};
+  [[nodiscard]] Result ValidateGroundView(const Scenario::Document &scenario, int heightPx) const {
+    if (!scenario.Ground.Declared || !scenario.Views.empty() || !Targeted) { return {}; }
+    if (ValidGroundView(Targeted->View(), heightPx)) { return {}; }
+    return std::unexpected(std::string(kInvalidGroundView));
   }
 
   [[nodiscard]] Result
@@ -337,13 +332,16 @@ struct PreparedRuntimeDeclaration {
 [[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
 PrepareRuntimeDeclaration(const Scenario::Document &scenario,
                           const Generators::Registry &registry,
-                          const GroundQuery *ground,
-                          std::span<const float> groundPositionsM,
-                          std::span<const uint32_t> groundIndex,
+                          const WorldRegionState &world,
                           EngineRenderState &picture,
-                          const Core::Declaration &declared) {
+                          const Core::Declaration &declared,
+                          const std::optional<Render::Viewpoint> &view) {
   auto headless =
-      PrepareHeadlessDeclaration(scenario, registry, ground, groundPositionsM, groundIndex);
+      PrepareHeadlessDeclaration(scenario,
+                                 registry,
+                                 scenario.Ground.Declared ? world.Surface().TryGround() : nullptr,
+                                 world.GroundPositionsM,
+                                 world.GroundIndex);
   if (!headless) { return std::unexpected(std::move(headless.error())); }
   PreparedRuntimeDeclaration prepared{.Headless = std::move(*headless), .Targeted = {}};
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
@@ -359,6 +357,7 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
                                   error)) {
     return std::unexpected(std::move(error));
   }
+  if (view) { prepared.Targeted->SetView(*view); }
   return prepared;
 }
 
@@ -386,6 +385,7 @@ void PublishConfiguration(ScenarioSession &session,
                                                      ScenarioSession &session,
                                                      std::optional<ViewBook> &views,
                                                      InputMap &bindings,
+                                                     const std::optional<Render::Viewpoint> &view,
                                                      std::string &error) {
   if (!picture.Standing || scenario.Ground.Declared || session.Declared.Ground.Declared ||
       HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
@@ -399,6 +399,7 @@ void PublishConfiguration(ScenarioSession &session,
       !picture.Standing->Redeclare(declared.Surfaces, error)) {
     return Result{std::unexpected(error)};
   }
+  if (view) { picture.Standing->Eye(*view); }
   picture.Shown = std::move(declared);
   error.clear();
   PublishConfiguration(session, scenario, views, bindings);
@@ -664,9 +665,15 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error.clear();
     return {};
   }
+  auto view = PrepareIndependentView(scenario, *views, S_->Picture);
+  if (!view) {
+    S_->PendingDeclaration.emplace(std::unexpected(std::move(view.error())));
+    S_->Error.clear();
+    return {};
+  }
   ScenarioPreparation candidate{.Simulation = std::move(*simulation)};
   if (auto reused = ReuseDeclaration(
-          scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
+          scenario, declared, S_->Picture, S_->Session, *views, bindings, *view, S_->Error)) {
     if (*reused) {
       S_->PendingDeclaration.emplace(std::move(candidate));
       S_->RouteCamera.reset();
@@ -682,19 +689,13 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return {};
   }
   auto world = std::move(*resources);
-  auto prepared =
-      PrepareRuntimeDeclaration(scenario,
-                                S_->Services.Generators,
-                                scenario.Ground.Declared ? world->Surface().TryGround() : nullptr,
-                                world->GroundPositionsM,
-                                world->GroundIndex,
-                                S_->Picture,
-                                declared);
+  auto prepared = PrepareRuntimeDeclaration(
+      scenario, S_->Services.Generators, *world, S_->Picture, declared, *view);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  if (const auto projection = prepared->PrepareView(scenario, *views, *world, S_->Picture.Frame);
+  if (const auto projection = prepared->ValidateGroundView(scenario, S_->Picture.Frame.HeightPx);
       !projection) {
     S_->PendingDeclaration.emplace(std::unexpected(projection.error()));
     S_->Error.clear();
