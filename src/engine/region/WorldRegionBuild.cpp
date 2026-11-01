@@ -233,7 +233,8 @@ bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality q
 
 }
 
-WorldRegionState::WorldRegionState() = default;
+WorldRegionState::WorldRegionState()
+    : SurfaceOwner(std::make_unique<Ground::SurfacePreparation>()) {}
 
 WorldRegionState::~WorldRegionState() = default;
 
@@ -257,9 +258,9 @@ int Engine::State::VectorPreparationRing() const noexcept {
 Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePositionsM,
                                                GroundWorldCandidate &candidate) {
   Classed out;
-  const auto publication = World.Stack.Classes().ReadPublication();
+  const auto publication = World.Surface().Classes().ReadPublication();
   const auto &classes = publication.Classes;
-  const Generators::RegionSurfaceRecipes &wearing = World.Stack.SurfaceRecipes();
+  const Generators::RegionSurfaceRecipes &wearing = World.Surface().SurfaceRecipes();
   const Medium fallback = kEarthAir;
   if (classes && wearing.Ready()) {
     out.Structure = classes;
@@ -308,10 +309,10 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
   Published.RecordMetric(
       "class field: rows the table carries", static_cast<double>(wearing.TemplateCount()), "rows");
   Published.RecordMetric("class field: features the fine tier holds",
-                         static_cast<double>(World.Stack.Classes().FeaturesHeld()),
+                         static_cast<double>(World.Surface().Classes().FeaturesHeld()),
                          "features");
   Published.RecordMetric("class field: of those it has taken",
-                         static_cast<double>(World.Stack.Classes().FeaturesTaken()),
+                         static_cast<double>(World.Surface().Classes().FeaturesTaken()),
                          "features");
   Published.RecordMetric("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
   Published.RecordMetric("class field: the version the colours used",
@@ -328,10 +329,10 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
                            "digest");
   }
   Published.RecordMetric("class field: it calls itself complete",
-                         World.Stack.Classes().Complete() ? 1.0 : 0.0,
+                         World.Surface().Classes().Complete() ? 1.0 : 0.0,
                          "yes/no");
   Published.RecordMetric("class field: tiles it waits for",
-                         static_cast<double>(World.Stack.Classes().PendingTiles()),
+                         static_cast<double>(World.Surface().Classes().PendingTiles()),
                          "tiles");
   Published.RecordMetric("class field: the fraction it has no data for",
                          classes ? classes->NoDataFraction() : -1.0,
@@ -346,8 +347,8 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                             Phasing &clocks) {
   build.Pieces.SetFrame(standing);
   Core::ReportBuildingFootprints(Published,
-                                 World.Stack.Footprints(),
-                                 World.Stack.Vectors(),
+                                 World.Surface().Footprints(),
+                                 World.Surface().Vectors(),
                                  standing,
                                  Session.Declared.Render.Audits);
   if (!build.Surfaces) {
@@ -385,7 +386,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
   Published.RecordMetric(
       "buildings: pieces the arena refused", static_cast<double>(World.Pieces.Refused()), "pieces");
   Published.RecordMetric("buildings: triangles the tiles handed over",
-                         static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                         static_cast<double>(World.Surface().Footprints().TrianglesHanded()),
                          "triangles");
   if (Picture.Standing) {
     Published.RecordMetric("buildings: pieces standing in the arena",
@@ -420,12 +421,12 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
                         static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
                         (static_cast<uint64_t>(over.Levels) << 56u);
-  World.Stack.Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
+  World.Surface().Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   ++World.Asked;
   Around asking = over;
   asking.Access = TerrainTileAccess::Inspect;
   asking.PlayableOnly = quality == GroundQuality::Playable;
-  auto sees = World.Builtins.Covering().Lay(World.Stack.Pool(), asking);
+  auto sees = World.Builtins.Covering().Lay(World.Surface().Pool(), asking);
   if (!sees) {
     Error = sees.error();
     return Laid::Refused;
@@ -433,11 +434,11 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   World.AskedPending = sees->Pending;
   World.AskedWanted = sees->Tiles;
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
-  const std::shared_ptr<const TerrainClassificationMap> naming = World.Stack.Classes().Read();
+  const std::shared_ptr<const TerrainClassificationMap> naming = World.Surface().Classes().Read();
   const uint64_t classes = naming ? naming->Version() : 0;
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
-  const uint64_t footprints = World.Stack.Footprints().Revision();
+  const uint64_t footprints = World.Surface().Footprints().Revision();
   const Generators::Osm::TransportPreparation *const transportLoader = World.OsmTransport.get();
   const uint64_t transportGeneration =
       World.CurrentTransportReady() ? transportLoader->CompletedCount() : 0;
@@ -451,14 +452,14 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
       .Classes = classes,
       .Footprints = footprints,
       .VectorGeneration =
-          World.Stack.Vectors() != nullptr ? World.Stack.Vectors()->Generation() : 0,
+          World.Surface().Vectors() != nullptr ? World.Surface().Vectors()->Generation() : 0,
       .TransportSourceGeneration = transportGeneration,
       .OriginalSourceGeneration = World.OsmSource ? World.OsmSource->PublishedRevision() : 0,
-      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
-      .StreetTiles = World.Stack.Ways().IngestedTiles(),
-      .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
+      .TerrainScope = World.Surface().Pool().TerrainScopeRevision(),
+      .StreetTiles = World.Surface().Ways().IngestedTiles(),
+      .WaterTiles = World.Surface().WaterBodies().IngestedTiles(),
       .Projection = projection,
-      .Coverage = {.ContactRadiusM = 0.5 * World.Stack.Footprints().TileSpanM(),
+      .Coverage = {.ContactRadiusM = 0.5 * World.Surface().Footprints().TileSpanM(),
                    .VisualRadiusM = visualRadiusM,
                    .MinimumSourceZoom = std::max(over.Zoom - 1, 0),
                    .TargetSourceZoom = over.Zoom},
@@ -505,7 +506,8 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
   const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
   Published.RecordMetric("the sight a scenario declares", TerrainSightM(), "m");
   Published.RecordMetric("and what one tile spans at the finest zoom", tileSpanM, "m");
-  Published.RecordMetric("the elevation's own posting", World.Stack.Ground().PostM(anchorLat), "m");
+  Published.RecordMetric(
+      "the elevation's own posting", World.Surface().Ground().PostM(anchorLat), "m");
   Published.RecordMetric("and the drawn mesh's vertex spacing",
                          over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
                          "m");
@@ -587,7 +589,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           WorldRegionBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.TerrainDeformation() == nullptr) {
-    const ::outshine::Generators::Osm::OsmField *const live = World.Stack.Vectors();
+    const ::outshine::Generators::Osm::OsmField *const live = World.Surface().Vectors();
     const ::outshine::Generators::Osm::OsmField *const shapes =
         state.Candidate().Sources().Vectors.get();
     if (!SameVectorRevision(shapes, live, state.Revision().VectorGeneration)) {
@@ -664,7 +666,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                            "pieces");
     state.BeginTerrainDeformation(std::make_unique<Generators::TerrainDeformationTask>(
         *Services.Compute,
-        World.Stack.TerrainAssets(),
+        World.Surface().TerrainAssets(),
         std::move(yielding),
         patchwork,
         standing,
@@ -739,7 +741,7 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
     const auto createAt = std::chrono::steady_clock::now();
     World.GroundBuild = std::make_unique<WorldRegionBuildState>(Picture.Device,
                                                                 World,
-                                                                World.Stack.Footprints(),
+                                                                World.Surface().Footprints(),
                                                                 request.Coverage,
                                                                 request.Revision,
                                                                 World.GroundCandidates);
@@ -929,7 +931,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       if (!*original) { return GroundBuildProgress::Pending; }
       const auto prepared = state.TerrainInputs().PrepareFields(
           patchwork,
-          World.Stack.Ground(),
+          World.Surface().Ground(),
           {.FinestZoom = coverage.Zoom,
            .RequestsMost = kTerrainSheetsPerFrame,
            .Vectors = state.Candidate().Sources().Vectors.get(),
@@ -1118,12 +1120,12 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
               });
         };
     StreetGraphPreparation::Resolver resolve;
-    if (auto assets = World.Stack.NetworkAssets()) {
+    if (auto assets = World.Surface().NetworkAssets()) {
       resolve = [assets = std::move(assets),
                  vectors = sources.Vectors,
                  ways,
                  fields,
-                 shape = World.Stack.Pool().Shaped(),
+                 shape = World.Surface().Pool().Shaped(),
                  sourceZoom](const Generators::Osm::PreparedStreetGraph::Factory &factory)
           -> std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string> {
         const auto binding = fields->BindingAt(sourceZoom);
@@ -1247,9 +1249,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
   }
-  const bool ready = state.Revision().Quality == GroundQuality::Refined
-                         ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
-                         : StructuresReady(state.Footprints(), state.Revision());
+  const bool ready =
+      state.Revision().Quality == GroundQuality::Refined
+          ? World.StructureBuilds.SourcesComplete(World.Surface(), state.Footprints())
+          : StructuresReady(state.Footprints(), state.Revision());
   if (!ready) { return GroundBuildProgress::Pending; }
   state.TerrainInputs().Reset();
   state.AdvanceStage();
@@ -1277,26 +1280,27 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   Published.RecordMetric("ground candidate: structure tiles to certify",
                          static_cast<double>(state.Footprints().RefinementRemaining()),
                          "tiles");
-  Published.RecordMetric(
-      "ground candidate: structure field ingested",
-      World.Stack.Vectors() != nullptr && state.Footprints().Ingested(*World.Stack.Vectors()) ? 1.0
-                                                                                              : 0.0,
-      "bool");
+  Published.RecordMetric("ground candidate: structure field ingested",
+                         World.Surface().Vectors() != nullptr &&
+                                 state.Footprints().Ingested(*World.Surface().Vectors())
+                             ? 1.0
+                             : 0.0,
+                         "bool");
   const auto heights = state.Revision().Quality == GroundQuality::Refined
                            ? StructureBuildQueue::HeightRequirement::FineOnly
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
-  const int finestZoom = World.Stack.TerrainRenderZoom();
+  const int finestZoom = World.Surface().TerrainRenderZoom();
   const StructureBuildQueue::HeightSource heightAt{
       .Sample = [&state, finestZoom](
                     LongitudeLatitude at) { return state.TerrainInputs().AslMAt(finestZoom, at); },
       .PinField =
           [this, &state](Data::TileId tile, Ground::HeightField::Block &into) {
-            return PinTerrainField(&state.TerrainInputs(), World.Stack.Ground(), tile, into);
+            return PinTerrainField(&state.TerrainInputs(), World.Surface().Ground(), tile, into);
           },
-      .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
+      .Revision = {.Value = World.Surface().Pool().TerrainScopeRevision()}};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =
-      World.StructureBuilds.NextLandings(World.Stack,
+      World.StructureBuilds.NextLandings(World.Surface(),
                                          state.Footprints(),
                                          CurrentGeographicFocus(),
                                          heightAt,
@@ -1330,7 +1334,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
           .count());
   const auto postingAt = std::chrono::steady_clock::now();
-  (void)World.StructureBuilds.Posts(World.Stack,
+  (void)World.StructureBuilds.Posts(World.Surface(),
                                     state.Footprints(),
                                     CurrentGeographicFocus(),
                                     heightAt,
@@ -1347,13 +1351,13 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
 Engine::State::GroundBuildProgress
 Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
   using Phase = WorldRegionBuildState::RegionPhase;
-  const auto assets = World.Stack.RegionAssets();
+  const auto assets = World.Surface().RegionAssets();
   const auto vectors = state.Candidate().Sources().Vectors;
   if (!assets || !vectors || state.TransportSnapshot() != nullptr) {
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
-  const auto shape = World.Stack.Pool().Shaped();
+  const auto shape = World.Surface().Pool().Shaped();
   const Around coverage = state.Coverage();
   auto parameters = GroundRegionParameters(coverage, state.Revision().Quality);
   if (!parameters) {
@@ -1389,7 +1393,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
           },
           checked),
       Phase::Loading,
-      World.Stack.RoadAssets());
+      World.Surface().RoadAssets());
   return GroundBuildProgress::Pending;
 }
 
@@ -1422,9 +1426,9 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     return GroundBuildProgress::Failed;
   }
   if (hit && result.Loaded) {
-    World.Stack.RestoreWater(std::move(result.Loaded->Water));
-    state.PublishesWaterInputs(World.Stack.WaterBodies());
-    RecordWaterSurfaceState(Published, World.Stack.WaterBodies());
+    World.Surface().RestoreWater(std::move(result.Loaded->Water));
+    state.PublishesWaterInputs(World.Surface().WaterBodies());
+    RecordWaterSurfaceState(Published, World.Surface().WaterBodies());
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
@@ -1436,13 +1440,13 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
   WorldRegionBuildState &state = *World.GroundBuild;
   if (state.HasReadyRegion()) { return GroundBuildProgress::Ready; }
-  World.Stack.RequestWater();
+  World.Surface().RequestWater();
   const bool ready = state.Revision().Quality == GroundQuality::Refined
-                         ? World.Stack.Ingested()
-                         : World.Stack.IngestedWithin(0);
+                         ? World.Surface().Ingested()
+                         : World.Surface().IngestedWithin(0);
   if (!ready) { return GroundBuildProgress::Pending; }
   if (state.HasWaterInputs()) { return GroundBuildProgress::Ready; }
-  const auto &water = World.Stack.WaterBodies();
+  const auto &water = World.Surface().WaterBodies();
   if (water.SurfacesReady()) {
     state.PublishesWaterInputs(water);
     RecordWaterSurfaceState(Published, water);
@@ -1472,7 +1476,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const A
   if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
   static const Heap::Tag kPatchingTag("ground-patchwork");
   const Heap::Tagged patching(kPatchingTag);
-  auto made = World.Builtins.Covering().Lay(World.Stack.Pool(), coverage);
+  auto made = World.Builtins.Covering().Lay(World.Surface().Pool(), coverage);
   if (!made) {
     Error = made.error();
     World.GroundBuild.reset();
@@ -1584,7 +1588,7 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
-  const auto assets = World.Stack.RegionAssets();
+  const auto assets = World.Surface().RegionAssets();
   const auto origin = Session.Declared.Ground.Origin;
   const auto region = std::make_shared<GroundRegionAsset>(GroundRegionAsset{
       .Anchor = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
@@ -1605,7 +1609,7 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
   const auto key = state.RegionKey();
   const auto request = state.RegionRequest();
   const auto roadManifest = state.RoadManifest();
-  const auto roadAssets = World.Stack.RoadAssets();
+  const auto roadAssets = World.Surface().RoadAssets();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(*Services.Compute,
@@ -1746,8 +1750,8 @@ bool Engine::State::GroundInputsReady(GroundQuality quality) const {
     return false;
   }
   if (!World.OsmRoutes.empty() && !World.CurrentTransportReady()) { return false; }
-  return Session.Declared.Ground.Declared && Picture.Standing != nullptr && World.Stack.Opened() &&
-         GroundSourcesReady(World.Stack, quality);
+  return Session.Declared.Ground.Declared && Picture.Standing != nullptr &&
+         World.Surface().Opened() && GroundSourcesReady(World.Surface(), quality);
 }
 
 bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
@@ -1871,8 +1875,8 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   }
   if (!AdvancesGroundRetirement()) { return true; }
   if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {
-    World.Stack.ForgetCachedRegionNetwork();
-    World.Stack.RequestStreets();
+    World.Surface().ForgetCachedRegionNetwork();
+    World.Surface().RequestStreets();
     World.GroundLookup.reset();
     World.GroundLookupRequest.clear();
     World.GroundRetirement = std::move(World.GroundBuild);
@@ -1945,8 +1949,8 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   }
   const auto phaseAt = std::chrono::steady_clock::now();
   state.PublishesFootprints();
-  if (auto published =
-          candidate.Publish(World, World.Stack.Footprints(), Picture.Standing, state.Revision());
+  if (auto published = candidate.Publish(
+          World, World.Surface().Footprints(), Picture.Standing, state.Revision());
       !published) {
     Error = std::move(published.error());
     World.GroundBuild.reset();

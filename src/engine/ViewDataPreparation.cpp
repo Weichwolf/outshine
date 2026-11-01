@@ -32,7 +32,7 @@ Holds<LongitudeLatitude> Engine::State::PreparationFocus(const Scenario::View &v
       return std::unexpected(
           "view data preparation timed out resolving the geodetic camera height");
     }
-    static_cast<void>(World.Stack.Pool().AwaitLanding(std::min(remaining, kMostAwaitS)));
+    static_cast<void>(World.Surface().Pool().AwaitLanding(std::min(remaining, kMostAwaitS)));
   }
 }
 
@@ -81,7 +81,7 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
   }
   const auto began = Clock::now();
   if (!S_->Session.Declared.Ground.Declared) { return {}; }
-  if (!S_->World.Stack.Opened() || !S_->Picture.Standing || !S_->Session.Views) {
+  if (!S_->World.Surface().Opened() || !S_->Picture.Standing || !S_->Session.Views) {
     return std::unexpected("view data preparation requires assembled ground and an active view");
   }
   const double mostBudget = std::chrono::duration<double>(Clock::time_point::max() - began).count();
@@ -103,16 +103,17 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
     if (!coverage) { return std::unexpected(coverage.error()); }
     roadTiles = coverage->Tiles;
   }
-  const auto classification = S_->World.Stack.Classes().RequestWindows();
+  const auto classification = S_->World.Surface().Classes().RequestWindows();
   const auto classWindows =
-      S_->World.Stack.Classes().HasSourceRequests()
+      S_->World.Surface().Classes().HasSourceRequests()
           ? std::span<const Ground::ClassificationPreparation::SourceWindow>(classification)
           : std::span<const Ground::ClassificationPreparation::SourceWindow>();
-  const bool vectors = S_->World.Stack.HasVectorSource() && !S_->World.Stack.HasDeclaredVectors() &&
-                       S_->World.Stack.RecipesReady();
+  const bool vectors = S_->World.Surface().HasVectorSource() &&
+                       !S_->World.Surface().HasDeclaredVectors() &&
+                       S_->World.Surface().RecipesReady();
   auto plan = PlanTerrainPath(*path,
-                              S_->World.Stack.Ground(),
-                              {.VectorZoom = vectors ? S_->World.Stack.VectorZoom() : -1,
+                              S_->World.Surface().Ground(),
+                              {.VectorZoom = vectors ? S_->World.Surface().VectorZoom() : -1,
                                .Classification = classWindows,
                                .RoadTiles = roadTiles});
   if (!plan) { return std::unexpected(plan.error()); }
@@ -123,6 +124,6 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
   S_->Published.RecordMetric(
       "view data: planned vectors", static_cast<double>(plan->Vectors.size()), "tiles");
 
-  return PrepareTerrainPath(std::move(*plan), S_->World.Stack, deadline);
+  return PrepareTerrainPath(std::move(*plan), S_->World.Surface(), deadline);
 }
 }

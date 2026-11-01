@@ -37,7 +37,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     World.Weather.reset();
     World.WeatherUtcS.reset();
     World.UrbanAreas.reset();
-    World.Stack.Close();
+    World.Surface().Close();
     World.Sources.reset();
     World.SourceDeclarations.clear();
     return true;
@@ -58,7 +58,7 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     World.Weather.reset();
     World.WeatherUtcS.reset();
     World.UrbanAreas.reset();
-    World.Stack.Close();
+    World.Surface().Close();
     World.Sources = std::move(*sources);
     World.SourceDeclarations = providers;
   }

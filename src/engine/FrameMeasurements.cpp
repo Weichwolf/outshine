@@ -165,7 +165,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
     Published.RecordMetric("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
     Published.RecordMetric("tile restand time, most", Cost.AdvanceAt.MostMs(), "ms");
-    const Ground::SurfacePreparationMetrics &restand = World.Stack.WorstAdvance();
+    const Ground::SurfacePreparationMetrics &restand = World.Surface().WorstAdvance();
     Published.RecordMetric("worst tile restand: total", restand.TotalMs, "ms");
     Published.RecordMetric("worst tile restand: classification", restand.ClassificationMs, "ms");
     Published.RecordMetric("worst tile restand: vectors", restand.VectorsMs, "ms");
@@ -183,7 +183,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("worst tile restand: streets", restand.StreetsMs, "ms");
     Published.RecordMetric("worst tile restand: water", restand.WaterMs, "ms");
     const ::outshine::Generators::Osm::WaterField::IngestMetrics &water =
-        World.Stack.WorstWaterIngest();
+        World.Surface().WorstWaterIngest();
     Published.RecordMetric("worst water ingest: total", water.TotalMs, "ms");
     Published.RecordMetric("worst water ingest: tile admission", water.AdmissionMs, "ms");
     Published.RecordMetric("worst water ingest: height validation", water.ValidationMs, "ms");
@@ -244,20 +244,22 @@ void Engine::State::PublishGroundMemoryMeasurements() {
         "asset cache: file limit", static_cast<double>(cache.LimitBytes), "bytes");
   }
   Published.RecordMetric(kSnapshotAnchor,
-                         static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                         static_cast<double>(World.Surface().Footprints().TrianglesHanded()),
                          "triangles");
-  Published.RecordMetric(
-      "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
+  Published.RecordMetric("world: the bytes its fields hold",
+                         static_cast<double>(World.Surface().HeapBytes()),
+                         "bytes");
   Published.RecordMetric("world: published semantic region",
                          World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
                          "bytes");
   Published.RecordMetric("world: of that, the land classes",
-                         static_cast<double>(World.Stack.Classes().HeapBytes()),
+                         static_cast<double>(World.Surface().Classes().HeapBytes()),
                          "bytes");
-  Published.RecordMetric(
-      "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
+  Published.RecordMetric("world: the buildings",
+                         static_cast<double>(World.Surface().Footprints().HeapBytes()),
+                         "bytes");
   Published.RecordMetric("world: of those, the footprints it keeps",
-                         static_cast<double>(World.Stack.Footprints().PrintBytes()),
+                         static_cast<double>(World.Surface().Footprints().PrintBytes()),
                          "bytes");
   Published.RecordMetric("world: tiles baking on the workers right now",
                          static_cast<double>(World.StructureBuilds.Queued()),
@@ -310,18 +312,19 @@ void Engine::State::PublishGroundMemoryMeasurements() {
         "world: geometry free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
   }
   Published.RecordMetric(
-      "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
-  Published.RecordMetric(
-      "world: street source field", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
+      "world: the water", static_cast<double>(World.Surface().WaterBodies().HeapBytes()), "bytes");
+  Published.RecordMetric("world: street source field",
+                         static_cast<double>(World.Surface().Ways().HeapBytes()),
+                         "bytes");
   Published.RecordMetric("world: the ceiling its fields stand under",
                          static_cast<double>(Ground::SurfacePreparation::kHoldsBytes),
                          "bytes");
   Published.RecordMetric("world: times a round stopped at that ceiling",
-                         static_cast<double>(World.Stack.OverCeiling()),
+                         static_cast<double>(World.Surface().OverCeiling()),
                          "rounds");
   Published.RecordMetric("world: and the OSM features",
-                         World.Stack.Vectors() != nullptr
-                             ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
+                         World.Surface().Vectors() != nullptr
+                             ? static_cast<double>(World.Surface().Vectors()->HeapBytes())
                              : 0.0,
                          "bytes");
 }

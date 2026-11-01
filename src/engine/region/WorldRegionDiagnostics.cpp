@@ -21,16 +21,16 @@ std::string Engine::State::GroundBuildDiagnostic() const {
                 "/" + std::to_string(failure.Tile.Y);
   if (World.Region) {
     const auto *pinned = World.Region->Vectors();
-    const auto *live = World.Stack.Vectors();
+    const auto *live = World.Surface().Vectors();
     diagnostic +=
         ", region current=" +
-        std::to_string(
-            static_cast<int>(World.Region->MatchesLiveSources(live, World.Stack.Footprints()))) +
+        std::to_string(static_cast<int>(
+            World.Region->MatchesLiveSources(live, World.Surface().Footprints()))) +
         ", region vector generations=" +
         std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
         std::to_string(live != nullptr ? live->Generation() : 0) +
         ", region footprint revisions=" + std::to_string(World.Region->Footprints().Revision()) +
-        "/" + std::to_string(World.Stack.Footprints().Revision());
+        "/" + std::to_string(World.Surface().Footprints().Revision());
   } else {
     diagnostic += ", region absent";
   }
@@ -40,7 +40,7 @@ std::string Engine::State::GroundBuildDiagnostic() const {
                   std::to_string(published->CandidateDifferenceMask(World.GroundBuild->Revision()));
   }
   const auto &footprints = World.GroundBuild->Footprints();
-  const auto *vectors = World.Stack.Vectors();
+  const auto *vectors = World.Surface().Vectors();
   diagnostic += World.GroundBuild->Revision().Quality == GroundQuality::Refined
                     ? ", candidate quality=refined"
                     : ", candidate quality=playable";

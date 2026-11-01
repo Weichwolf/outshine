@@ -289,8 +289,8 @@ std::span<const DiagnosticSample> Engine::measures() const {
 }
 
 bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const {
-  const ::outshine::Generators::Osm::OsmField *vectors = World.Stack.Vectors();
-  const auto &footprints = World.Stack.Footprints();
+  const ::outshine::Generators::Osm::OsmField *vectors = World.Surface().Vectors();
+  const auto &footprints = World.Surface().Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
   if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
@@ -306,14 +306,15 @@ bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingF
                                     const GroundRevision &revision) const {
   if (revision.Quality == GroundQuality::Refined) {
     const LongitudeLatitude eye = CurrentGeographicFocus();
-    return World.StructureBuilds.Complete(World.Stack, footprints, eye, [this, eye](uint32_t tile) {
-      return StructureProductsReady(tile, eye);
-    });
+    return World.StructureBuilds.Complete(
+        World.Surface(), footprints, eye, [this, eye](uint32_t tile) {
+          return StructureProductsReady(tile, eye);
+        });
   }
   if (World.StructureBuilds.HasOriginal()) {
-    return World.StructureBuilds.SourcesComplete(World.Stack, footprints);
+    return World.StructureBuilds.SourcesComplete(World.Surface(), footprints);
   }
-  const ::outshine::Generators::Osm::OsmField *const vectors = World.Stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *const vectors = World.Surface().Vectors();
   if (vectors == nullptr) { return true; }
   const double tileSpanM = footprints.TileSpanM();
   const int rings =
@@ -322,21 +323,21 @@ bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingF
 }
 
 bool Engine::State::RefinedGroundIngested(const GroundRevision &revision) const {
-  return World.Stack.Ingested() &&
-         StructureBuildQueue::QualifiedSources(World.Stack, World.Stack.Footprints()) &&
-         revision.Footprints == World.Stack.Footprints().Revision();
+  return World.Surface().Ingested() &&
+         StructureBuildQueue::QualifiedSources(World.Surface(), World.Surface().Footprints()) &&
+         revision.Footprints == World.Surface().Footprints().Revision();
 }
 
 bool Engine::State::RefinedGroundClassified(const GroundRevision &revision) const {
-  const auto classes = World.Stack.Classes().Read();
+  const auto classes = World.Surface().Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
-  return World.Stack.Classes().Complete() && revision.Classes == version;
+  return World.Surface().Classes().Complete() && revision.Classes == version;
 }
 
 WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const std::string_view osmBlocker = OsmWorldBlocker(Session.Declared.Providers, World);
   if (!Session.Declared.Ground.Declared) { return {{osmBlocker, WeatherBlocker()}}; }
-  const auto *vectors = World.Stack.Vectors();
+  const auto *vectors = World.Surface().Vectors();
   const auto &ground = World.GroundPublished.Current();
   const bool refined = quality == GroundQuality::Refined;
   const bool published = ground && ground->Quality >= quality;
@@ -360,7 +361,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
        !refined || currentRevision ? "" : Says::kPendingGroundRevision,
        published && (!refined || RefinedGroundIngested(*ground)) ? "" : Says::kPendingIngestion,
        StructureDetailBlocker(
-           published, refined, published && StructuresReady(World.Stack.Footprints(), *ground)),
+           published, refined, published && StructuresReady(World.Surface().Footprints(), *ground)),
        published && (!refined || RefinedGroundClassified(*ground)) ? ""
                                                                    : Says::kPendingClassification,
        vectorBlocker,
@@ -384,7 +385,7 @@ std::string Engine::unsettledReasons(WorldQuality required) const {
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
   std::string reasons = S_->Readiness(quality).Describe();
   if (!reasons.empty() && required == WorldQuality::Refined) {
-    reasons += "; " + S_->World.Stack.IngestionStatus();
+    reasons += "; " + S_->World.Surface().IngestionStatus();
     reasons += "; " + S_->GroundBuildDiagnostic();
     reasons += "; structure queue=" + std::to_string(S_->World.StructureBuilds.Queued()) +
                ", landed=" + std::to_string(S_->World.StructureBuilds.Landed()) + "/" +
@@ -516,14 +517,15 @@ Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
     return std::unexpected(Says::kHeightOutsideCoverage);
   }
   const std::string there = std::to_string(at.LatitudeDeg) + ", " + std::to_string(at.LongitudeDeg);
-  if (!S_->Session.Declared.Ground.Declared || !S_->World.Stack.Opened()) {
+  if (!S_->Session.Declared.Ground.Declared || !S_->World.Surface().Opened()) {
     S_->Error = "a height was asked for at " + there +
                 " and no world stands -- a scenario declares one before anything can be placed on "
                 "it";
     return std::unexpected(S_->Error);
   }
   const std::optional<double> aslM =
-      S_->World.Stack.Ground()
+      S_->World.Surface()
+          .Ground()
           .At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg})
           .AslM();
   if (!aslM) {
@@ -581,14 +583,14 @@ Loading Engine::loading() const {
   said.GroundWanted = native ? S_->World.Wanted : S_->World.AskedWanted;
   const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
   said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
-  if (!S_->World.Stack.Opened()) { return said; }
-  if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Stack.Vectors();
-      vectors != nullptr && S_->World.Stack.HasVectorSource()) {
+  if (!S_->World.Surface().Opened()) { return said; }
+  if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Surface().Vectors();
+      vectors != nullptr && S_->World.Surface().HasVectorSource()) {
     said.VectorArrived = vectors->Tiles().size();
     const int pending = vectors->PendingTiles();
     said.VectorWanted = said.VectorArrived + (pending > 0 ? static_cast<size_t>(pending) : 0);
   }
-  const Ground::TilePool::Ledger counted = S_->World.Stack.Pool().Counters();
+  const Ground::TilePool::Ledger counted = S_->World.Surface().Pool().Counters();
   said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
   said.FetchedMB = counted.FetchedMB;
   said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
@@ -596,18 +598,18 @@ Loading Engine::loading() const {
 }
 
 bool Engine::State::CanBeginGroundCandidate() const {
-  return World.AskedWanted > 0 && World.Stack.InputsReadyWithin(0);
+  return World.AskedWanted > 0 && World.Surface().InputsReadyWithin(0);
 }
 
 bool Engine::State::CanAdvanceGroundCandidate() const {
-  return World.GroundBuild != nullptr && World.Stack.InputsReadyWithin(0);
+  return World.GroundBuild != nullptr && World.Surface().InputsReadyWithin(0);
 }
 
 Result Engine::State::FinishesPreload(GroundQuality quality) {
   const auto &published = World.GroundPublished.Current();
   const bool continuingCandidate = World.GroundBuild != nullptr;
-  const bool structuresReady =
-      !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
+  const bool structuresReady = !continuingCandidate && published &&
+                               StructuresReady(World.Surface().Footprints(), *published);
   if (!AdvanceWorldRegionBuild(true, quality)) { return std::unexpected(Error); }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
@@ -659,7 +661,7 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
 }
 
 Result Engine::State::PumpPreload(GroundQuality quality) {
-  if (World.Stack.Overflowing()) { return PreloadOverflow(); }
+  if (World.Surface().Overflowing()) { return PreloadOverflow(); }
   Published.BeginFrame();
   if (!RequestOriginalCells()) { return std::unexpected(Error); }
   PollOsmSources();
@@ -680,20 +682,20 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
   const int vectorRing = VectorPreparationRing();
-  const auto streamed = World.Stack.AdvanceAt(
+  const auto streamed = World.Surface().AdvanceAt(
       stands, {.IngestTilesMost = Ground::kVectorTiles, .VectorRing = vectorRing});
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);
   }
   if (quality == GroundQuality::Refined) {
-    const auto inputs = CheckPreloadVectorInputs(World.Stack, stands, vectorRing);
+    const auto inputs = CheckPreloadVectorInputs(World.Surface(), stands, vectorRing);
     if (!inputs) {
       Error = inputs.error();
       return std::unexpected(Error);
     }
   }
-  if (World.Stack.Overflowing()) { return PreloadOverflow(); }
+  if (World.Surface().Overflowing()) { return PreloadOverflow(); }
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
   if (!AdvanceUrbanAreas()) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
@@ -707,7 +709,7 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
 }
 
 Result Engine::State::PreloadOverflow() {
-  const auto bytes = World.Stack.Staging();
+  const auto bytes = World.Surface().Staging();
   Error =
       "the world at this place holds " + std::to_string(bytes.Total()) +
       " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
@@ -718,8 +720,8 @@ Result Engine::State::PreloadOverflow() {
       " waterBuild=" + std::to_string(bytes.WaterBuild) +
       " streets=" + std::to_string(bytes.Streets) + " vectors=" + std::to_string(bytes.Vectors) +
       " pool=" + std::to_string(bytes.Pool) + " ground=" + std::to_string(bytes.Ground) +
-      "; building bytes: prints=" + std::to_string(World.Stack.Footprints().PrintBytes()) +
-      " measurements=" + std::to_string(World.Stack.Footprints().MeasurementBytes());
+      "; building bytes: prints=" + std::to_string(World.Surface().Footprints().PrintBytes()) +
+      " measurements=" + std::to_string(World.Surface().Footprints().MeasurementBytes());
   return std::unexpected(Error);
 }
 
@@ -728,7 +730,7 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
   const std::string pendingGround = Error;
   Error = "the world did not become resident within " + std::to_string(bound) +
           " s: " + readiness.Describe();
-  if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
+  if (!World.Surface().Ingested()) { Error += " (" + World.Surface().IngestionStatus() + ")"; }
   if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
   Error += "; " + GroundBuildDiagnostic();
   if (World.StructureBuilds.Posted() > 0) {
@@ -748,9 +750,9 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
              ", maxFinalizationMs=" + std::to_string(World.StructureBuilds.SlowestFinalizationMs());
   }
   if (const auto &ground = World.GroundPublished.Current();
-      ground && ground->Footprints != World.Stack.Footprints().Revision()) {
+      ground && ground->Footprints != World.Surface().Footprints().Revision()) {
     Error += "; footprint revision=" + std::to_string(ground->Footprints) + "/" +
-             std::to_string(World.Stack.Footprints().Revision());
+             std::to_string(World.Surface().Footprints().Revision());
   }
   return std::unexpected(Error);
 }
@@ -778,7 +780,7 @@ bool Engine::State::WorldPreparationPending() const {
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
-  if (World.Stack.LastAdvance().IngestionUnits > 0) { return; }
+  if (World.Surface().LastAdvance().IngestionUnits > 0) { return; }
   auto &waited = PreloadWaited;
 
   struct WaitAccumulator {
@@ -812,9 +814,9 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
            signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  if (World.Stack.Classes().Building()) {
+  if (World.Surface().Classes().Building()) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = World.Stack.AwaitProgress(remaining());
+    const bool signalled = World.Surface().AwaitProgress(remaining());
     record({.Milliseconds = waited.ClassMs,
             .Calls = waited.ClassCalls,
             .Signals = waited.ClassSignals},
@@ -822,10 +824,10 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
            signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  if (World.Stack.Opened() && !World.Stack.Classes().Building() &&
-      World.Stack.Pool().Counters().Outstanding > 0) {
+  if (World.Surface().Opened() && !World.Surface().Classes().Building() &&
+      World.Surface().Pool().Counters().Outstanding > 0) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = World.Stack.AwaitProgress(remaining());
+    const bool signalled = World.Surface().AwaitProgress(remaining());
     record(
         {.Milliseconds = waited.TileMs, .Calls = waited.TileCalls, .Signals = waited.TileSignals},
         began,
@@ -864,7 +866,7 @@ void Engine::State::BackoffPreload(double seconds) {
                "preload_idle",
                {{"calls", static_cast<long long>(PreloadWaited.IdleCalls + 1)},
                 {"blockers", Readiness(GroundQuality::Refined).Describe()},
-                {"ingestion", World.Stack.IngestionStatus()},
+                {"ingestion", World.Surface().IngestionStatus()},
                 {"ground", GroundBuildDiagnostic()}});
   }
   const auto began = std::chrono::steady_clock::now();

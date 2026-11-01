@@ -32,7 +32,7 @@ PlacementInputs(const WorldRegionState &world,
                 const std::shared_ptr<const TerrainClassificationMap> &classes) {
   return {.Cell = {region.Zoom(), region.X(), region.Y()},
           .Detail = coarseness,
-          .Terrain = world.Stack.Pool().TerrainScopeRevision(),
+          .Terrain = world.Surface().Pool().TerrainScopeRevision(),
           .Features = stands.Vectors->Generation(),
           .Footprints = stands.Footprints != nullptr ? stands.Footprints->Revision() : 0,
           .StreetTiles = stands.Ways != nullptr ? stands.Ways->IngestedTiles() : 0,
@@ -51,10 +51,10 @@ PlacementInputs(const WorldRegionState &world,
             .WaterBodies = &world.Region->WaterBodies(),
             .Ways = &world.Region->Ways()};
   }
-  return {.Vectors = world.Stack.Vectors(),
-          .Footprints = &world.Stack.Footprints(),
-          .WaterBodies = &world.Stack.WaterBodies(),
-          .Ways = &world.Stack.Ways()};
+  return {.Vectors = world.Surface().Vectors(),
+          .Footprints = &world.Surface().Footprints(),
+          .WaterBodies = &world.Surface().WaterBodies(),
+          .Ways = &world.Surface().Ways()};
 }
 
 void PrepareLocalStreetMask(Generators::Fields &stands,
@@ -64,7 +64,7 @@ void PrepareLocalStreetMask(Generators::Fields &stands,
                             Core::DiagnosticLedger &metrics) {
   if (stands.Ways == nullptr || stands.Ways->Ingested(*stands.Vectors)) { return; }
   (void)mask.Ingest(*stands.Vectors,
-                    world.Stack.SurfaceRecipes(),
+                    world.Surface().SurfaceRecipes(),
                     {.CentreX = region.X(), .CentreY = region.Y(), .Rings = 0});
   stands.Ways = &mask;
   metrics.RecordMetric(
@@ -78,11 +78,11 @@ PreparePlacementGround(WorldRegionState &world,
                        Tasks *compute,
                        const Generators::Tile &region,
                        Generators::Snapped *how) {
-  const auto assets = world.Stack.TerrainAssets();
+  const auto assets = world.Surface().TerrainAssets();
   if (!assets || compute == nullptr) {
-    return Generators::PatchOver(region, world.Stack.Ground(), how);
+    return Generators::PatchOver(region, world.Surface().Ground(), how);
   }
-  const auto shape = world.Stack.Pool().Shaped();
+  const auto shape = world.Surface().Pool().Shaped();
   const Ground::TerrainTiles::Shaped parameters{.Kind = shape.Kind,
                                                 .AmplitudeM = shape.AmplitudeM,
                                                 .WavelengthM = shape.WavelengthM,
@@ -91,19 +91,19 @@ PreparePlacementGround(WorldRegionState &world,
                                                 .FocusLatDeg = shape.FocusLatDeg,
                                                 .FocusLonDeg = shape.FocusLonDeg,
                                                 .Seed = shape.Seed};
-  const int side = Generators::PatchSide(region, world.Stack.Ground());
+  const int side = Generators::PatchSide(region, world.Surface().Ground());
   const auto key = assets->PatchKey({.Zoom = region.Zoom(),
                                      .X = static_cast<uint32_t>(region.X()),
                                      .Y = static_cast<uint32_t>(region.Y())},
                                     parameters,
                                     side,
-                                    world.Stack.Ground().BlockZoom());
+                                    world.Surface().Ground().BlockZoom());
   if (key.empty()) { return std::unexpected("terrain sampling patch request is invalid"); }
   if (!world.PlacementGround || world.PlacementGround->Key() != key) {
     world.PlacementGround =
         std::make_unique<GroundPatchPreparation>(*compute, assets, key, region, side);
   }
-  return world.PlacementGround->Advance(world.Stack.Ground(), how);
+  return world.PlacementGround->Advance(world.Surface().Ground(), how);
 }
 
 Generators::Snapped
@@ -122,7 +122,7 @@ PlacementSnapshot(WorldRegionState &world,
   }
   if (!*patch) { return how; }
   return Generators::SnapshotOver(
-      region, world.Stack.Ground(), classes, stands, world.Table, snapshot, std::move(*patch));
+      region, world.Surface().Ground(), classes, stands, world.Table, snapshot, std::move(*patch));
 }
 }
 
@@ -150,7 +150,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   if (vectors == nullptr) { return false; }
   Generators::Osm::StreetField localWays;
   PrepareLocalStreetMask(stands, region, World, localWays, Published);
-  const auto classes = World.Stack.Classes().Read();
+  const auto classes = World.Surface().Classes().Read();
   const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);
   if (World.EmptyPlacementInputs == inputs) { return false; }
   Generators::Ground::Snapshot snapshot;

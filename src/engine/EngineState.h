@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <utility>
 #include <string_view>
 #include <cstdint>
 #include <Engine.h>
@@ -152,7 +153,12 @@ struct WorldRegionState {
 
   std::shared_ptr<Data::SourceSession> Sources;
   std::vector<Data::SourceProvider> SourceDeclarations;
-  Ground::SurfacePreparation Stack;
+  std::unique_ptr<Ground::SurfacePreparation> SurfaceOwner;
+
+  [[nodiscard]] decltype(auto) Surface(this auto &self) noexcept {
+    return std::forward_like<decltype(self)>(*self.SurfaceOwner);
+  }
+
   std::unique_ptr<Generators::Weather::WeatherSnapshotLoader> Weather;
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;

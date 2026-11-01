@@ -209,8 +209,8 @@ void Engine::State::PublishGpuFrameMeasurements(bool completedCapture) {
 
 void Engine::State::PublishCostMeasurements() {
   const auto began = std::chrono::steady_clock::now();
-  const auto store = World.Stack.StoreCosts();
-  PublishAssetCosts(Published, World.Stack, World.Vegetation.get());
+  const auto store = World.Surface().StoreCosts();
+  PublishAssetCosts(Published, World.Surface(), World.Vegetation.get());
   Published.RecordMetric("cost.cache.hits", static_cast<double>(store.Hits), "reads");
   Published.RecordMetric("cost.cache.misses", static_cast<double>(store.Misses), "reads");
   Published.RecordMetric("cost.cache.read_ms", store.ReadMs, "ms");
@@ -218,7 +218,7 @@ void Engine::State::PublishCostMeasurements() {
   Published.RecordMetric("cost.cache.read_bytes", static_cast<double>(store.ReadBytes), "bytes");
   Published.RecordMetric("cost.cache.write_bytes", static_cast<double>(store.WriteBytes), "bytes");
   Published.RecordMetric("cost.cache.read_calls", static_cast<double>(store.ReadCalls), "calls");
-  const auto providers = World.Stack.ProviderCosts();
+  const auto providers = World.Surface().ProviderCosts();
   static const auto providerNames = MetricNames<Data::SourceSet::Ledger::KindCount>(
       "cost.provider.", std::array{".call_ms", ".calls"}, [](size_t at) {
         return Data::Name(static_cast<Data::DataKind>(at));
@@ -228,7 +228,7 @@ void Engine::State::PublishCostMeasurements() {
     Published.RecordMetric(providerNames[at][1], static_cast<double>(providers[at].Calls), "calls");
   }
   const auto jobs =
-      World.Stack.Opened() ? World.Stack.Pool().Counters() : Ground::TilePool::Ledger{};
+      World.Surface().Opened() ? World.Surface().Pool().Counters() : Ground::TilePool::Ledger{};
   Published.RecordMetric(
       "cost.cache.decoded_hits", static_cast<double>(jobs.Decoded.Hits), "reads");
   Published.RecordMetric(
@@ -242,7 +242,7 @@ void Engine::State::PublishCostMeasurements() {
   Published.RecordMetric("cost.mesh.attempts", static_cast<double>(jobs.MeshAttempts), "attempts");
   Published.RecordMetric("cost.fetch.service_ms", jobs.FetchMs, "ms");
   Published.RecordMetric("cost.fetch.blocked_ms", jobs.FetchBlockedMs, "ms");
-  if (const auto *vectors = World.Stack.Vectors()) {
+  if (const auto *vectors = World.Surface().Vectors()) {
     const auto cost = vectors->TotalBuildMetrics();
     Published.RecordMetric("cost.osm.fetch_ms", cost.FetchMs, "ms");
     Published.RecordMetric("cost.osm.parse_ms", cost.ParseMs, "ms");

@@ -316,18 +316,19 @@ void Engine::State::HandsPiecesOver() {
 
 StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
   return StructureBuildQueue::HeightSource{
-      .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
+      .Sample =
+          [this](LongitudeLatitude at) { return World.Surface().Ground().Resident(at).AslM(); },
       .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return PinTerrainField(nullptr, World.Stack.Ground(), tile, into);
+            return PinTerrainField(nullptr, World.Surface().Ground(), tile, into);
           },
-      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()}};
+      .Revision = {.Value = World.Surface().Ground().TerrainScopeRevision()}};
 }
 
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
-  if (!World.Stack.Opened()) { return true; }
+  if (!World.Surface().Opened()) { return true; }
   const LongitudeLatitude eye = CurrentGeographicFocus();
-  World.Stack.Footprints().ViewedFrom(CurrentGeographicEyeEcef());
+  World.Surface().Footprints().ViewedFrom(CurrentGeographicEyeEcef());
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
     const auto collectionAt = std::chrono::steady_clock::now();
@@ -343,10 +344,10 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     Cost.BakeCollection.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
-    if (World.Stack.Ingested()) {
+    if (World.Surface().Ingested()) {
       const auto postingAt = std::chrono::steady_clock::now();
       (void)World.StructureBuilds.Posts(
-          World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
+          World.Surface(), World.Surface().Footprints(), eye, heightAt, StructureCandidatesMost());
       Cost.BakePosting.Took(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
               .count());
@@ -354,13 +355,13 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     return true;
   }
   if (!World.Region ||
-      !World.Region->MatchesLiveSources(World.Stack.Vectors(), World.Stack.Footprints())) {
+      !World.Region->MatchesLiveSources(World.Surface().Vectors(), World.Surface().Footprints())) {
     World.StructureBuilds.PollCompletedTasks();
     return true;
   }
   const auto landingAt = std::chrono::steady_clock::now();
-  auto ready = World.StructureBuilds.NextLandings(World.Stack,
-                                                  World.Stack.Footprints(),
+  auto ready = World.StructureBuilds.NextLandings(World.Surface(),
+                                                  World.Surface().Footprints(),
                                                   eye,
                                                   heightAt,
                                                   std::min(landsMost, size_t{1}),
@@ -375,7 +376,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!ready->empty()) {
     const auto transferAt = std::chrono::steady_clock::now();
     const auto &landing = ready->front();
-    if (StructureBuildQueue::QualifiedSourceKey(World.Stack.Footprints(), landing.Tile) !=
+    if (StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), landing.Tile) !=
             landing.SourceKey ||
         !StructureProductsReady(landing.Tile, eye)) {
       if (auto published = PublishStructureTile(World, Picture.Device, landing); !published) {
@@ -389,15 +390,15 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     Cost.BakeTransfer.Took(transferMs);
     Cost.BakeLiveTransfer.Took(transferMs);
     const auto commitAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.CommitsLandings(World.Stack.Footprints(), *ready);
+    World.StructureBuilds.CommitsLandings(World.Surface().Footprints(), *ready);
     Cost.BakeCommit.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
             .count());
   }
   const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(
-      World.Stack,
-      World.Stack.Footprints(),
+      World.Surface(),
+      World.Surface().Footprints(),
       eye,
       heightAt,
       StructureCandidatesMost(),
@@ -492,7 +493,7 @@ bool Engine::State::Updates(bool simulate) {
   PollOsmSources();
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = CurrentGeographicFocus();
-    if (World.Stack.Opened()) {
+    if (World.Surface().Opened()) {
       const auto streamingFrom = std::chrono::steady_clock::now();
       {
         static const Heap::Tag kAdvanceAtingTag("world-restand");
@@ -504,7 +505,7 @@ bool Engine::State::Updates(bool simulate) {
                 .count());
         const int vectorRing = VectorPreparationRing();
         const auto restandAt = std::chrono::steady_clock::now();
-        const auto streamed = World.Stack.AdvanceAt(
+        const auto streamed = World.Surface().AdvanceAt(
             stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});
         Cost.AdvanceAt.Took(
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - restandAt)
@@ -649,13 +650,14 @@ void Engine::State::Drew() {
       "instances its draw sources made", static_cast<double>(World.Instanced), "instances");
   Published.RecordMetric(
       "how far the placement chain reached", static_cast<double>(World.Reached), "steps");
-  Published.RecordMetric(
-      "source street field: ways", static_cast<double>(World.Stack.Ways().Ways().size()), "ways");
+  Published.RecordMetric("source street field: ways",
+                         static_cast<double>(World.Surface().Ways().Ways().size()),
+                         "ways");
   Published.RecordMetric("water surfaces it holds",
-                         static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
+                         static_cast<double>(World.Surface().WaterBodies().Surfaces().size()),
                          "surfaces");
   Published.RecordMetric("building footprints it holds",
-                         static_cast<double>(World.Stack.Footprints().FootprintCount()),
+                         static_cast<double>(World.Surface().Footprints().FootprintCount()),
                          "footprints");
   Published.RecordMetric("batches the picture draws",
                          static_cast<double>(Picture.Device.GeometryBatchCount()),
