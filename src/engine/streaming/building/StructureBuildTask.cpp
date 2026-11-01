@@ -472,22 +472,34 @@ struct StructureBuildTask::NativeProducts {
   std::chrono::steady_clock::time_point RetryAt;
 };
 
+struct StructureBuildTask::Payload {
+  std::shared_ptr<const StructureMesher> Mesher;
+  std::unique_ptr<Generators::RawTile> Raw;
+  std::shared_ptr<const Ground::HeightField> Heights;
+  std::shared_ptr<const Generators::PreparedStructureTile> Base;
+  std::shared_ptr<const Generators::PreparedBuildingBasis> Basis;
+  std::unique_ptr<NativeProducts> Native;
+  std::unique_ptr<Output> Result;
+  std::unique_ptr<MeshScratch> Scratch;
+  std::unique_ptr<Generators::StructureBakeProgress> Progress =
+      std::make_unique<Generators::StructureBakeProgress>();
+  std::shared_ptr<std::atomic_bool> Stopping = std::make_shared<std::atomic_bool>(false);
+  std::unique_ptr<Comparison> SurfaceComparison;
+};
+
 StructureBuildTask::StructureBuildTask(uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
                                        std::unique_ptr<Output> output,
                                        std::unique_ptr<MeshScratch> scratch,
                                        std::optional<ProofRequest> proof)
-    : Tile_(tile),
-      Raw_(std::move(raw)),
-      Heights_(std::move(heights)),
-      Base_(std::make_unique<PreparedBaseOwner>()),
-      Output_(std::move(output)),
-      Scratch_(std::move(scratch)),
-      Progress_(std::make_unique<Generators::StructureBakeProgress>()),
-      Stopping_(std::make_shared<std::atomic_bool>(false)),
-      Comparison_(proof ? std::make_unique<Comparison>(*proof) : nullptr) {
-  assert(Raw_ != nullptr && Heights_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
+    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+  Payload_->Raw = std::move(raw);
+  Payload_->Heights = std::move(heights);
+  Payload_->Result = std::move(output);
+  Payload_->Scratch = std::move(scratch);
+  if (proof) { Payload_->SurfaceComparison = std::make_unique<Comparison>(*proof); }
+  assert(Payload_->Raw && Payload_->Heights && Payload_->Result && Payload_->Scratch);
 }
 
 StructureBuildTask::StructureBuildTask(
@@ -496,18 +508,16 @@ StructureBuildTask::StructureBuildTask(
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile),
-      Raw_(std::move(view)),
-      Base_(std::make_unique<PreparedBaseOwner>(std::move(base))),
-      Output_(std::move(output)),
-      Scratch_(std::move(scratch)),
-      Progress_(std::make_unique<Generators::StructureBakeProgress>()),
-      Stopping_(std::make_shared<std::atomic_bool>(false)) {
-  assert(Base_ && *Base_ && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
-  Raw_->AnchorEcef = (*Base_)->AnchorEcef;
-  Raw_->TileSpanM = (*Base_)->TileSpanM;
-  Raw_->Extent = (*Base_)->Extent;
-  Raw_->SourceInputs.Origin = (*Base_)->Origin;
+    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+  Payload_->Raw = std::move(view);
+  Payload_->Base = std::move(base);
+  Payload_->Result = std::move(output);
+  Payload_->Scratch = std::move(scratch);
+  assert(Payload_->Base && Payload_->Raw && Payload_->Result && Payload_->Scratch);
+  Payload_->Raw->AnchorEcef = Payload_->Base->AnchorEcef;
+  Payload_->Raw->TileSpanM = Payload_->Base->TileSpanM;
+  Payload_->Raw->Extent = Payload_->Base->Extent;
+  Payload_->Raw->SourceInputs.Origin = Payload_->Base->Origin;
 }
 
 StructureBuildTask::StructureBuildTask(
@@ -516,44 +526,74 @@ StructureBuildTask::StructureBuildTask(
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile),
-      Raw_(std::move(view)),
-      Base_(std::make_unique<PreparedBaseOwner>()),
-      Basis_(std::move(basis)),
-      Output_(std::move(output)),
-      Scratch_(std::move(scratch)),
-      Progress_(std::make_unique<Generators::StructureBakeProgress>()),
-      Stopping_(std::make_shared<std::atomic_bool>(false)) {
-  assert(Basis_ != nullptr && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
-  Raw_->AnchorEcef = Basis_->AnchorEcef;
-  Raw_->TileSpanM = Basis_->TileSpanM;
-  Raw_->Extent = Basis_->Extent;
-  Raw_->SourceInputs.Origin = Basis_->Origin;
+    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+  Payload_->Raw = std::move(view);
+  Payload_->Basis = std::move(basis);
+  Payload_->Result = std::move(output);
+  Payload_->Scratch = std::move(scratch);
+  assert(Payload_->Basis && Payload_->Raw && Payload_->Result && Payload_->Scratch);
+  Payload_->Raw->AnchorEcef = Payload_->Basis->AnchorEcef;
+  Payload_->Raw->TileSpanM = Payload_->Basis->TileSpanM;
+  Payload_->Raw->Extent = Payload_->Basis->Extent;
+  Payload_->Raw->SourceInputs.Origin = Payload_->Basis->Origin;
+}
+
+const Generators::RawTile &StructureBuildTask::Raw() const noexcept {
+  return *Payload_->Raw;
+}
+
+Generators::RawTile &StructureBuildTask::Raw() noexcept {
+  return *Payload_->Raw;
+}
+
+const Ground::HeightField &StructureBuildTask::Heights() const noexcept {
+  assert(Payload_->Heights != nullptr);
+  return *Payload_->Heights;
+}
+
+const Generators::PreparedStructureTile *StructureBuildTask::PreparedBase() const noexcept {
+  return Payload_ ? Payload_->Base.get() : nullptr;
+}
+
+bool StructureBuildTask::FromPreparedInputs() const noexcept {
+  return Payload_ && (Payload_->Base || Payload_->Basis);
+}
+
+StructureBuildTask::Output &StructureBuildTask::Result() noexcept {
+  return *Payload_->Result;
+}
+
+const StructureBuildTask::Output &StructureBuildTask::Result() const noexcept {
+  return *Payload_->Result;
+}
+
+Generators::StructureBakeProgress &StructureBuildTask::Progress() noexcept {
+  return *Payload_->Progress;
 }
 
 size_t StructureBuildTask::PreparedStructureCount() const noexcept {
-  if (Basis_) { return Basis_->Sources.size(); }
-  return (Base_ && *Base_) ? (*Base_)->Structures.size() : Raw_->Structures.size();
+  if (Payload_->Basis) { return Payload_->Basis->Sources.size(); }
+  return Payload_->Base ? Payload_->Base->Structures.size() : Payload_->Raw->Structures.size();
 }
 
 std::span<const Data::TileSourceIdentity> StructureBuildTask::HeightSources() const noexcept {
-  if (Basis_) { return Basis_->HeightSources; }
-  return (Base_ && *Base_) ? std::span((*Base_)->HeightSources) : Heights().Sources();
+  if (Payload_->Basis) { return Payload_->Basis->HeightSources; }
+  return Payload_->Base ? std::span(Payload_->Base->HeightSources) : Heights().Sources();
 }
 
 uint64_t StructureBuildTask::HeightRasterDigest() const noexcept {
-  if (Basis_) { return Basis_->HeightRasterDigest; }
-  return (Base_ && *Base_) ? (*Base_)->HeightRasterDigest : Heights().RasterDigest();
+  if (Payload_->Basis) { return Payload_->Basis->HeightRasterDigest; }
+  return Payload_->Base ? Payload_->Base->HeightRasterDigest : Heights().RasterDigest();
 }
 
 bool StructureBuildTask::HeightQualified() const noexcept {
-  if (Basis_) { return Basis_->HeightQualified; }
-  return (Base_ && *Base_) ? (*Base_)->HeightQualified : Heights().Qualified();
+  if (Payload_->Basis) { return Payload_->Basis->HeightQualified; }
+  return Payload_->Base ? Payload_->Base->HeightQualified : Heights().Qualified();
 }
 
 Ground::HeightField::Request StructureBuildTask::HeightRequest() const {
-  if (Basis_) { return Basis_->HeightRequest; }
-  return (Base_ && *Base_) ? (*Base_)->HeightRequest : Heights().CaptureRequest();
+  if (Payload_->Basis) { return Payload_->Basis->HeightRequest; }
+  return Payload_->Base ? Payload_->Base->HeightRequest : Heights().CaptureRequest();
 }
 
 StructureBuildTask::~StructureBuildTask() {
@@ -568,17 +608,7 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   if (this == &other) { return *this; }
   assert(State_ != State::Running);
   Tile_ = std::exchange(other.Tile_, 0);
-  Raw_ = std::move(other.Raw_);
-  Heights_ = std::move(other.Heights_);
-  Base_ = std::move(other.Base_);
-  Basis_ = std::move(other.Basis_);
-  Native_ = std::move(other.Native_);
-  Output_ = std::move(other.Output_);
-  Scratch_ = std::move(other.Scratch_);
-  Progress_ = std::move(other.Progress_);
-  Stopping_ = std::move(other.Stopping_);
-  Comparison_ = std::move(other.Comparison_);
-  Mesher_ = std::move(other.Mesher_);
+  Payload_ = std::move(other.Payload_);
   ActivePool_ = std::exchange(other.ActivePool_, nullptr);
   Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
   State_ = std::exchange(other.State_, State::Empty);
@@ -587,8 +617,8 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
 
 bool StructureBuildTask::AwaitCompletion(double seconds) const {
   if (Running()) { return ActivePool_->AwaitCompletion(seconds); }
-  if (ActivePool_ == nullptr || State_ != State::Completed || !Native_ || !Output_->Status ||
-      Output_->Tile) {
+  if (ActivePool_ == nullptr || State_ != State::Completed || !Payload_->Native ||
+      !Payload_->Result->Status || Payload_->Result->Tile) {
     return false;
   }
   return ActivePool_->AwaitCompletion(std::min(seconds, ResumeDelaySeconds()));
@@ -601,64 +631,57 @@ bool StructureBuildTask::Running() const noexcept {
 void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
                                          std::string key,
                                          std::string requestKey) {
-  assert(State_ == State::Ready && ((Base_ && *Base_) || Basis_ || Heights_));
-  Native_ =
+  assert(State_ == State::Ready && (Payload_->Base || Payload_->Basis || Payload_->Heights));
+  Payload_->Native =
       std::make_unique<NativeProducts>(std::move(cache), std::move(key), std::move(requestKey));
 }
 
 std::optional<std::string_view> StructureBuildTask::PreparedAssetKey() const noexcept {
-  return Native_ ? std::optional(std::string_view(Native_->Key)) : std::nullopt;
+  return Payload_ && Payload_->Native ? std::optional(std::string_view(Payload_->Native->Key))
+                                      : std::nullopt;
 }
 
 void StructureBuildTask::UseInitialCells() {
-  assert(State_ == State::Ready && Native_ && !Raw_->RequestedCell && !Raw_->RequestedDetail);
-  Native_->Cells = 0;
+  assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
+         !Payload_->Raw->RequestedDetail);
+  Payload_->Native->Cells = 0;
 }
 
 uint64_t StructureBuildTask::InitialCells() const noexcept {
   assert(State_ != State::Running);
-  return Native_ ? Native_->Cells.value_or(0) : 0;
+  return Payload_ && Payload_->Native ? Payload_->Native->Cells.value_or(0) : 0;
 }
 
 void StructureBuildTask::SelectNextCell(uint32_t cell) {
-  assert(State_ == State::Completed && Native_ && Native_->Cells && !Comparison_ &&
-         Output_->Status && Output_->Tile && !Stopping_->load(std::memory_order_relaxed));
+  assert(State_ == State::Completed && Payload_->Native && Payload_->Native->Cells &&
+         !Payload_->SurfaceComparison && Payload_->Result->Status && Payload_->Result->Tile &&
+         !Payload_->Stopping->load(std::memory_order_relaxed));
   assert(cell > 0 && cell <= Generators::kStructureCellsPerTile &&
          (InitialCells() & (uint64_t{1} << (cell - 1u))) != 0);
-  Raw_->RequestedCell = cell;
-  *Output_ = {};
-  Progress_ = std::make_unique<Generators::StructureBakeProgress>();
-  Native_->Current = NativeProducts::Phase::Lookup;
+  Payload_->Raw->RequestedCell = cell;
+  *Payload_->Result = {};
+  Payload_->Progress = std::make_unique<Generators::StructureBakeProgress>();
+  Payload_->Native->Current = NativeProducts::Phase::Lookup;
   State_ = State::Ready;
 }
 
 void StructureBuildTask::Posts(Tasks &pool) {
   assert(State_ != State::Running);
-  Generators::RawTile *const raw = Raw_.get();
-  const Ground::HeightField *const heights = Heights_.get();
-  auto *const base = Base_.get();
-  const auto basis = Basis_;
-  NativeProducts *const native = Native_.get();
-  MeshScratch *const scratch = Scratch_.get();
-  Generators::StructureBakeProgress *const progress = Progress_.get();
-  Output *const output = Output_.get();
-  Comparison *const comparison = Comparison_.get();
-  const std::shared_ptr<std::atomic_bool> stopping = Stopping_;
   const auto posted = std::chrono::steady_clock::now();
   State_ = State::Running;
   ActivePool_ = &pool;
-  Handle_ = ActivePool_->Post([raw,
-                               heights,
-                               base,
-                               basis,
-                               native,
-                               mesher = Mesher_,
-                               scratch,
-                               progress,
-                               output,
-                               comparison,
-                               stopping,
-                               posted] {
+  Handle_ = ActivePool_->Post([payload = Payload_, posted] {
+    Generators::RawTile *const raw = payload->Raw.get();
+    const Ground::HeightField *const heights = payload->Heights.get();
+    auto *const base = &payload->Base;
+    const auto &basis = payload->Basis;
+    NativeProducts *const native = payload->Native.get();
+    const auto &mesher = payload->Mesher;
+    MeshScratch *const scratch = payload->Scratch.get();
+    Generators::StructureBakeProgress *const progress = payload->Progress.get();
+    Output *const output = payload->Result.get();
+    Comparison *const comparison = payload->SurfaceComparison.get();
+    const auto &stopping = payload->Stopping;
     const auto began = std::chrono::steady_clock::now();
     output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
     static const Heap::Tag kBakingTag("structure-bake");
@@ -700,33 +723,35 @@ void StructureBuildTask::Posts(Tasks &pool) {
 void StructureBuildTask::Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher) {
   assert(State_ == State::Ready);
   assert(mesher != nullptr);
-  Mesher_ = std::move(mesher);
+  Payload_->Mesher = std::move(mesher);
   Posts(pool);
 }
 
 void StructureBuildTask::Resume(Tasks &pool) {
-  assert(State_ == State::Completed && Output_->Status && !Output_->Tile);
+  assert(State_ == State::Completed && Payload_->Result->Status && !Payload_->Result->Tile);
   Posts(pool);
 }
 
 bool StructureBuildTask::CanResume() const noexcept {
-  return State_ == State::Completed && Output_->Status && !Output_->Tile &&
-         (Stopping_->load(std::memory_order_relaxed) || !Native_ || Native_->ReadyToResume());
+  return State_ == State::Completed && Payload_->Result->Status && !Payload_->Result->Tile &&
+         (Payload_->Stopping->load(std::memory_order_relaxed) || !Payload_->Native ||
+          Payload_->Native->ReadyToResume());
 }
 
 double StructureBuildTask::ResumeDelaySeconds() const noexcept {
   assert(State_ != State::Running);
-  if (!Native_ || State_ != State::Completed || !Output_->Status || Output_->Tile ||
-      Stopping_->load(std::memory_order_relaxed)) {
+  if (State_ != State::Completed || !Payload_->Native || !Payload_->Result->Status ||
+      Payload_->Result->Tile || Payload_->Stopping->load(std::memory_order_relaxed)) {
     return 0;
   }
   return std::max(
       0.0,
-      std::chrono::duration<double>(Native_->RetryAt - std::chrono::steady_clock::now()).count());
+      std::chrono::duration<double>(Payload_->Native->RetryAt - std::chrono::steady_clock::now())
+          .count());
 }
 
 void StructureBuildTask::RequestStop() noexcept {
-  if (Stopping_) { Stopping_->store(true, std::memory_order_relaxed); }
+  if (Payload_) { Payload_->Stopping->store(true, std::memory_order_relaxed); }
 }
 
 bool StructureBuildTask::TakeCompletion(Tasks &pool) {
@@ -747,17 +772,17 @@ void StructureBuildTask::Join(Tasks &pool) {
 
 std::unique_ptr<Generators::RawTile> StructureBuildTask::TakeRaw() noexcept {
   assert(State_ != State::Running);
-  return std::move(Raw_);
+  return Payload_ ? std::move(Payload_->Raw) : nullptr;
 }
 
 std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutput() noexcept {
   assert(State_ != State::Running);
-  return std::move(Output_);
+  return Payload_ ? std::move(Payload_->Result) : nullptr;
 }
 
 std::unique_ptr<MeshScratch> StructureBuildTask::TakeScratch() noexcept {
   assert(State_ != State::Running);
-  return std::move(Scratch_);
+  return Payload_ ? std::move(Payload_->Scratch) : nullptr;
 }
 
 }
