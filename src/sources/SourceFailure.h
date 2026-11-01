@@ -22,6 +22,8 @@ struct SourceFailure {
   std::optional<int> HttpStatus = std::nullopt;
   int Retries = 0;
 
+  [[nodiscard]] std::string Describe() const;
+
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return SourceId.capacity() + SourceRevision.capacity() + SourceKey.capacity();
   }

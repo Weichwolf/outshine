@@ -88,6 +88,12 @@ public:
 
   [[nodiscard]] const std::optional<SourceFailure> &Failure() const noexcept { return Failure_; }
 
+  [[nodiscard]] std::optional<SourceFailure> TakeFailure() {
+    if (Where_ != State::Refused) { return std::nullopt; }
+    Where_ = State::Consumed;
+    return std::exchange(Failure_, std::nullopt);
+  }
+
   [[nodiscard]] double AfterMs() const noexcept { return AfterMs_; }
 
   [[nodiscard]] const std::string &SourceId() const noexcept { return SourceId_; }
