@@ -79,7 +79,7 @@ public:
 
   [[nodiscard]] bool Restore(std::shared_ptr<const TerrainClassificationMap> classes);
 
-  [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
+  [[nodiscard]] std::expected<void, std::string> Update(TilePool &tiles, LongitudeLatitude at);
 
   struct Publication {
     std::shared_ptr<const TerrainClassificationMap> Classes;

@@ -1,6 +1,7 @@
 #include "PreparedOsmTileWorker.h"
 #include "Sha256.h"
 #include <algorithm>
+#include <any>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -13,7 +14,7 @@
 #include <utility>
 
 namespace outshine::Generators::Osm {
-std::expected<AssetPipeline::LogicalStep, std::string>
+std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
 PreparedOsmTiles::Worker::Resolve(const std::shared_ptr<Production> &work,
                                   const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
@@ -81,7 +82,7 @@ PreparedOsmTiles::Worker::LookupHit(Production &work) {
   return AssetPipeline::InputAdmission{.Bytes = 0};
 }
 
-std::expected<AssetPipeline::LogicalStep, std::string>
+std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
 PreparedOsmTiles::Worker::OpenSource(const std::shared_ptr<Production> &work) {
   if (!work->Input) {
     auto read = Data::SourceSession::Request(
@@ -114,7 +115,7 @@ PreparedOsmTiles::Worker::OpenSource(const std::shared_ptr<Production> &work) {
   return PollSource(work);
 }
 
-std::expected<AssetPipeline::LogicalStep, std::string>
+std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
 PreparedOsmTiles::Worker::PollSource(const std::shared_ptr<Production> &work) const {
   if (!work->Input) { return std::unexpected("native OSM source stage has no read"); }
   auto delivery = work->Input->Poll();
@@ -124,8 +125,20 @@ PreparedOsmTiles::Worker::PollSource(const std::shared_ptr<Production> &work) co
   work->Input.reset();
   switch (delivery.Where()) {
     case Data::SourceDelivery::State::Vacant:
-    case Data::SourceDelivery::State::Undeclared: return std::unexpected(std::string(kAbsent));
-    case Data::SourceDelivery::State::Refused: return std::unexpected(std::string(kRefused));
+    case Data::SourceDelivery::State::Undeclared:
+    case Data::SourceDelivery::State::Refused: {
+      SourceOutcome outcome{.Status = delivery.Where(),
+                            .RetryAfterMs = delivery.AfterMs(),
+                            .Failure = delivery.TakeFailure()};
+      const auto bytes = sizeof(outcome) + (outcome.Failure ? outcome.Failure->HeapBytes() : 0);
+      if (bytes > kReceiptBytesMost) {
+        return std::unexpected("native OSM source failure exceeds metadata admission");
+      }
+      return std::unexpected(
+          AssetFailure{.Message = "native OSM source did not deliver input",
+                       .Detail = std::make_any<SourceOutcome>(std::move(outcome)),
+                       .Bytes = bytes});
+    }
     case Data::SourceDelivery::State::Consumed:
     case Data::SourceDelivery::State::Pending:
       return std::unexpected("native OSM source reader returned no payload");

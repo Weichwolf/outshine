@@ -6,6 +6,12 @@
 #include <stop_token>
 
 namespace outshine::Generators::Osm {
+struct PreparedOsmTiles::SourceOutcome {
+  Data::SourceDelivery::State Status;
+  double RetryAfterMs = 0;
+  std::optional<Data::SourceFailure> Failure;
+};
+
 struct PreparedOsmTiles::Layout {
   int Zoom = 0;
   MvtSchema Schema = MvtSchema::Shortbread;
@@ -74,7 +80,7 @@ struct PreparedOsmTiles::Worker {
          std::string recipe,
          Budget budget);
   [[nodiscard]] std::string RequestKey(TileAt at, const Layout &layout) const;
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
+  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
   Resolve(const std::shared_ptr<Production> &work, const std::stop_token &stop);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
   Produce(Production &work, const std::stop_token &stop);
@@ -83,9 +89,9 @@ struct PreparedOsmTiles::Worker {
   PlanGeneration(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Lookup(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> LookupHit(Production &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
+  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
   OpenSource(const std::shared_ptr<Production> &work);
-  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
+  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>
   PollSource(const std::shared_ptr<Production> &work) const;
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
   PrepareContent(Production &work) const;

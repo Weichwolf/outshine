@@ -187,10 +187,10 @@ public:
     return PreparedRegions_;
   }
 
-  [[nodiscard]] std::expected<void, std::string_view>
+  [[nodiscard]] std::expected<void, std::string>
   Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     auto digest = Generators::Osm::OsmField::DeclarationDigest(these);
-    if (!digest) { return std::unexpected(digest.error()); }
+    if (!digest) { return std::unexpected(std::string(digest.error())); }
     RequestStreets();
     Declared_.assign(these.begin(), these.end());
     DeclaredDigest_ = std::move(*digest);
@@ -261,8 +261,8 @@ public:
 
   [[nodiscard]] bool RecipesReady() const { return RecipesReady_; }
 
-  [[nodiscard]] std::expected<void, std::string_view> AdvanceAt(LongitudeLatitude at,
-                                                                SurfacePreparationBudget budget);
+  [[nodiscard]] std::expected<void, std::string> AdvanceAt(LongitudeLatitude at,
+                                                           SurfacePreparationBudget budget);
 
   [[nodiscard]] const SurfacePreparationMetrics &LastAdvance() const noexcept {
     return LastAdvance_;

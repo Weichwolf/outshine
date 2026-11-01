@@ -6,6 +6,7 @@
 #include "AssetCache.h"
 #include "AssetPipeline.h"
 #include "SourceSession.h"
+#include "SourceFailure.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -23,6 +24,8 @@ public:
   struct SourceDelivery {
     State Status = State::Pending;
     std::shared_ptr<const OsmField> Product;
+    std::shared_ptr<const Data::SourceFailure> Failure = nullptr;
+    double RetryAfterMs = 0;
   };
 
   struct Counters {
@@ -57,8 +60,8 @@ public:
   ~PreparedOsmTiles();
   PreparedOsmTiles(const PreparedOsmTiles &) = delete;
   PreparedOsmTiles &operator=(const PreparedOsmTiles &) = delete;
-  [[nodiscard]] std::expected<SourceDelivery, std::string_view> Acquire(TileAt at,
-                                                                        const OsmField &layout);
+  [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(TileAt at,
+                                                                   const OsmField &layout);
   [[nodiscard]] Counters Costs() const noexcept;
   [[nodiscard]] AssetPipeline::Snapshot AdmissionCounts() const noexcept;
 
@@ -66,6 +69,7 @@ private:
   friend class OsmField;
   using Product = std::shared_ptr<const OsmField>;
 
+  struct SourceOutcome;
   struct Layout;
   struct Work;
   struct Production;
@@ -82,13 +86,13 @@ private:
   // A missing window withdraws this field's pending interests without touching other owners.
   void RetainPending(const OsmField &layout, const std::optional<OsmTileWindow> &window);
   [[nodiscard]] static bool DecodeIdle(const Work &work);
-  [[nodiscard]] std::expected<SourceDelivery, std::string_view>
+  [[nodiscard]] static std::expected<SourceDelivery, std::string>
+  ReadFailure(AssetPublication publication);
+  [[nodiscard]] std::expected<SourceDelivery, std::string>
   Advance(const std::shared_ptr<Work> &work);
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kReceiptBytesMost = 4096;
-  static constexpr std::string_view kAbsent = "native OSM source absent";
-  static constexpr std::string_view kRefused = "native OSM source refused";
   std::shared_ptr<Worker> Worker_;
   AssetPipeline Pipeline_;
   std::vector<std::shared_ptr<Work>> Pending_;

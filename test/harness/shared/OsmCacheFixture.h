@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_TEST_OSMCACHEFIXTURE_H
 #define OUTSHINE_TEST_OSMCACHEFIXTURE_H
 #include "Source.h"
+#include "SourceReader.h"
 #include "SourceSession.h"
 #include "SourceDecl.h"
 #include "SourceRequest.h"
@@ -27,6 +28,16 @@ public:
   Data::Wire Collect(Data::Ticket /*ticket*/) override { return Data::Wire::Never(); }
 
   void Cancel(Data::Ticket /*ticket*/) override {}
+};
+
+class UnusedReader final : public Data::SourceReader {
+public:
+  Data::SourceDelivery Poll(const Data::SourceRequest & /*request*/) override {
+    ++Calls;
+    return Data::SourceDelivery::NoSource();
+  }
+
+  unsigned Calls = 0;
 };
 
 class VectorSource final : public Data::Source {

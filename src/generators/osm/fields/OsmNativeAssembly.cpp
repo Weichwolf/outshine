@@ -7,13 +7,14 @@
 #include <limits>
 #include <optional>
 #include <string_view>
+#include <string>
 #include <expected>
 #include <memory>
 #include <utility>
 #include <vector>
 
 namespace outshine::Generators::Osm {
-std::expected<bool, std::string_view> OsmField::PollTile(Data::SourceReader &sources, TileAt at) {
+std::expected<bool, std::string> OsmField::PollTile(Data::SourceReader &sources, TileAt at) {
   if (Zoom_ < 0 || Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 || at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint64_t{1} << static_cast<unsigned>(Zoom_)) ||
       std::cmp_greater_equal(at.Y, uint64_t{1} << static_cast<unsigned>(Zoom_))) {
@@ -22,7 +23,10 @@ std::expected<bool, std::string_view> OsmField::PollTile(Data::SourceReader &sou
   if (Settled(at.X, at.Y)) { return true; }
   auto fetched = AddTile(sources, at);
   if (!fetched) { return std::unexpected(fetched.error()); }
-  if (fetched->Refused) { return std::unexpected("OSM tile source refused demand"); }
+  if (fetched->Refused) {
+    return std::unexpected(fetched->Failure ? fetched->Failure->Describe()
+                                            : std::string("OSM tile source refused demand"));
+  }
   if (!fetched->Held) { return false; }
   if (auto published = PublishParsed(nullptr, std::nullopt); !published) {
     return std::unexpected(published.error());
@@ -33,13 +37,15 @@ std::expected<bool, std::string_view> OsmField::PollTile(Data::SourceReader &sou
   return true;
 }
 
-std::expected<OsmField::SourceResponse, std::string_view> OsmField::AddNativeTile(TileAt at) {
+std::expected<OsmField::SourceResponse, std::string> OsmField::AddNativeTile(TileAt at) {
   auto delivery = Prepared_->Acquire(at, *this);
   if (!delivery) { return std::unexpected(delivery.error()); }
   using State = PreparedOsmTiles::State;
   switch (delivery->Status) {
     case State::Pending: return SourceResponse{};
-    case State::Refused: return SourceResponse{.Held = false, .Refused = true};
+    case State::Refused:
+      return SourceResponse{
+          .Held = false, .Refused = true, .Failure = std::move(delivery->Failure)};
     case State::Absent: return SourceResponse{.Held = true};
     case State::Ready: break;
   }

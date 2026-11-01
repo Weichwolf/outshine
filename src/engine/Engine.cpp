@@ -1,4 +1,5 @@
 #include "EngineState.h"
+#include "SourceFailure.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
 #include "Units.h"
@@ -96,6 +97,17 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
   const auto window =
       Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
   if (!window) { return std::unexpected(std::string(window.error())); }
+  for (const auto &failure : vectors->SourceFailures()) {
+    if (!failure || failure->Reason != Data::SourceFailureReason::OfflineMiss) { continue; }
+    const auto tile = failure->Requested.Tile();
+    if (tile && tile->Zoom == vectors->Zoom() && std::cmp_greater_equal(tile->X, window->MinX) &&
+        std::cmp_less_equal(tile->X, window->MaxX) &&
+        std::cmp_greater_equal(tile->Y, window->MinY) &&
+        std::cmp_less_equal(tile->Y, window->MaxY) &&
+        !vectors->Settled(static_cast<int>(tile->X), static_cast<int>(tile->Y))) {
+      return std::unexpected("required vector input unavailable: " + failure->Describe());
+    }
+  }
   for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
     for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
       if (vectors->Settled(static_cast<int>(x), static_cast<int>(y))) { continue; }
@@ -105,14 +117,7 @@ CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatit
                                                            .Y = static_cast<uint32_t>(y)}));
       const auto failure = stack.Pool().Refusal(request);
       if (!failure || failure->Reason != Data::SourceFailureReason::OfflineMiss) { continue; }
-      return std::unexpected(std::format(
-          "required vector input unavailable: {} at {}; served={}; source={}; revision={}; key={}",
-          Data::Name(failure->Reason),
-          request.Key(),
-          failure->Served ? failure->Served->Text() : "unknown",
-          failure->SourceId,
-          failure->SourceRevision,
-          failure->SourceKey));
+      return std::unexpected("required vector input unavailable: " + failure->Describe());
     }
   }
   return {};

@@ -319,12 +319,12 @@ bool ClassificationPreparation::HasSourceRequests() const noexcept {
          Declared_.empty();
 }
 
-std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool &tiles,
-                                                                        LongitudeLatitude at) {
+std::expected<void, std::string> ClassificationPreparation::Update(TilePool &tiles,
+                                                                   LongitudeLatitude at) {
   const auto fine = ::outshine::Generators::Osm::OsmField::Locate(at, Fine_.Zoom);
-  if (!fine) { return std::unexpected(fine.error()); }
+  if (!fine) { return std::unexpected(std::string(fine.error())); }
   const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, Coarse_.Zoom);
-  if (!coarse) { return std::unexpected(coarse.error()); }
+  if (!coarse) { return std::unexpected(std::string(coarse.error())); }
   if (!Opened_ || (Recipes_ == nullptr) || !Recipes_->Ready()) { return {}; }
 
   if (Restored_) {

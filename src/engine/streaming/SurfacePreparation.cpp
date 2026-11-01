@@ -275,17 +275,17 @@ SurfacePreparation::ValidatePosition(LongitudeLatitude at) const {
   return ::outshine::Generators::Osm::OsmField::Locate(at, VectorZoom_);
 }
 
-std::expected<void, std::string_view>
-SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget budget) {
+std::expected<void, std::string> SurfacePreparation::AdvanceAt(LongitudeLatitude at,
+                                                               SurfacePreparationBudget budget) {
   const auto restandAt = std::chrono::steady_clock::now();
   SurfacePreparationMetrics metrics;
-  const auto complete = [&] -> std::expected<void, std::string_view> {
+  const auto complete = [&] -> std::expected<void, std::string> {
     metrics.TotalMs = ElapsedMs(restandAt);
     RecordAdvance(metrics);
     return {};
   };
   const auto vectorTile = ValidatePosition(at);
-  if (!vectorTile) { return std::unexpected(vectorTile.error()); }
+  if (!vectorTile) { return std::unexpected(std::string(vectorTile.error())); }
   if (!Pool_) { return complete(); }
   if (UsesCachedRegionNetwork() &&
       (vectorTile->X != CachedNetworkTile_.X || vectorTile->Y != CachedNetworkTile_.Y)) {

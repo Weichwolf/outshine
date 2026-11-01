@@ -19,6 +19,7 @@
 #include "MvtLayer.h"
 #include "MvtSchema.h"
 #include "SourceReader.h"
+#include "SourceFailure.h"
 #include "TileSourceIdentity.h"
 #include "GeographicRing.h"
 
@@ -81,14 +82,14 @@ public:
     size_t TilesMost = std::numeric_limits<size_t>::max();
   };
 
-  [[nodiscard]] std::expected<int, std::string_view>
+  [[nodiscard]] std::expected<int, std::string>
   Build(Data::SourceReader &sources, LongitudeLatitude at, int ringTiles, size_t tileBudget);
 
-  [[nodiscard]] std::expected<int, std::string_view> Build(Data::SourceReader &sources,
-                                                           LongitudeLatitude at,
-                                                           int ringTiles,
-                                                           size_t tileBudget,
-                                                           ParseBudget parsing);
+  [[nodiscard]] std::expected<int, std::string> Build(Data::SourceReader &sources,
+                                                      LongitudeLatitude at,
+                                                      int ringTiles,
+                                                      size_t tileBudget,
+                                                      ParseBudget parsing);
 
   [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
   SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
@@ -110,10 +111,9 @@ public:
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
 
-  [[nodiscard]] std::expected<bool, std::string_view> PollTile(Data::SourceReader &sources,
-                                                               TileAt at);
+  [[nodiscard]] std::expected<bool, std::string> PollTile(Data::SourceReader &sources, TileAt at);
 
-  [[nodiscard]] std::expected<int, std::string_view>
+  [[nodiscard]] std::expected<int, std::string>
   Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
   struct Declared {
@@ -134,7 +134,7 @@ public:
 
   void Declare(std::span<const Declared> these, TileAt over, std::string_view inputDigest = {});
 
-  [[nodiscard]] std::expected<void, std::string_view>
+  [[nodiscard]] std::expected<void, std::string>
   Declare(std::span<const Declared> these, LongitudeLatitude at, std::string_view inputDigest = {});
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
@@ -148,6 +148,10 @@ public:
   }
 
   [[nodiscard]] int RefusedTiles() const { return Refused_; }
+
+  [[nodiscard]] std::span<const std::shared_ptr<const Data::SourceFailure>> SourceFailures() const {
+    return SourceFailures_;
+  }
 
   [[nodiscard]] bool Settled(int x, int y) const;
 
@@ -250,6 +254,7 @@ private:
     int Added = 0;
     bool Refused = false;
     bool Parsed = false;
+    std::shared_ptr<const Data::SourceFailure> Failure = nullptr;
   };
 
   struct ParsedTile {
@@ -265,16 +270,17 @@ private:
 
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
-  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddTile(Data::SourceReader &sources,
-                                                                        TileAt at);
-  [[nodiscard]] std::expected<SourceResponse, std::string_view> AddNativeTile(TileAt at);
+  void RecordUnsettledSource(const SourceResponse &response);
+  [[nodiscard]] std::expected<SourceResponse, std::string> AddTile(Data::SourceReader &sources,
+                                                                   TileAt at);
+  [[nodiscard]] std::expected<SourceResponse, std::string> AddNativeTile(TileAt at);
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
-  [[nodiscard]] std::expected<int, std::string_view>
+  [[nodiscard]] std::expected<int, std::string>
   AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);
-  [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
-                                                                    std::optional<TileAt> contact);
-  [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
-  [[nodiscard]] std::expected<bool, std::string_view> AdvanceAssembly();
+  [[nodiscard]] std::expected<void, std::string> PublishParsed(const ParsedTile *replacement,
+                                                               std::optional<TileAt> contact);
+  [[nodiscard]] std::expected<void, std::string> PublishReady(TileAt centre);
+  [[nodiscard]] std::expected<bool, std::string> AdvanceAssembly();
   [[nodiscard]] bool AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage);
   void CommitParsed(OsmField &rebuilt);
   void AppendLayer(const MvtLayer &layer, uint16_t layerIndex);
@@ -310,6 +316,7 @@ private:
   int Pending_ = -1;
   bool WindowPending_ = false;
   int Refused_ = 0;
+  std::vector<std::shared_ptr<const Data::SourceFailure>> SourceFailures_;
   long Missing_ = 0, Bad_ = 0;
 };
 

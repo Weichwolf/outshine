@@ -100,7 +100,8 @@ OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
       previous->PublishedSettledTiles_ == PublishedSettledTiles_ &&
       previous->Settled_ == Settled_ && previous->RequestedRing_ == RequestedRing_ &&
       previous->Pending_ == PendingTiles() && previous->Refused_ == Refused_ &&
-      previous->Missing_ == Missing_ && previous->Bad_ == Bad_) {
+      previous->SourceFailures_ == SourceFailures_ && previous->Missing_ == Missing_ &&
+      previous->Bad_ == Bad_) {
     return previous;
   }
   auto snapshot = std::make_shared<OsmField>(Zoom_, Layers_, Schema_);
@@ -124,6 +125,7 @@ OsmField::SnapshotQueries(std::shared_ptr<const OsmField> previous) const {
   snapshot->RequestedRing_ = RequestedRing_;
   snapshot->Pending_ = PendingTiles();
   snapshot->Refused_ = Refused_;
+  snapshot->SourceFailures_ = SourceFailures_;
   snapshot->Missing_ = Missing_;
   snapshot->Bad_ = Bad_;
   return snapshot;
@@ -200,24 +202,24 @@ OsmField::SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t til
       {.Centre = *centre, .Zoom = zoom, .Radius = ringTiles, .Budget = tileBudget});
 }
 
-std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources,
-                                                     LongitudeLatitude at,
-                                                     int ringTiles,
-                                                     size_t tileBudget) {
+std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
+                                                LongitudeLatitude at,
+                                                int ringTiles,
+                                                size_t tileBudget) {
   return Build(sources, at, ringTiles, tileBudget, ParseBudget{});
 }
 
-std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources,
-                                                     LongitudeLatitude at,
-                                                     int ringTiles,
-                                                     size_t tileBudget,
-                                                     ParseBudget parsing) {
+std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
+                                                LongitudeLatitude at,
+                                                int ringTiles,
+                                                size_t tileBudget,
+                                                ParseBudget parsing) {
   BuildMetrics_ = {};
-  if (parsing.TilesMost == 0) { return std::unexpected(Says::kOsmTileBudgetExceeded); }
+  if (parsing.TilesMost == 0) { return std::unexpected(std::string(Says::kOsmTileBudgetExceeded)); }
   const auto centre = Locate(at, Zoom_);
-  if (!centre) { return std::unexpected(centre.error()); }
+  if (!centre) { return std::unexpected(std::string(centre.error())); }
   const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
-  if (!window) { return std::unexpected(window.error()); }
+  if (!window) { return std::unexpected(std::string(window.error())); }
   if (Prepared_) { Prepared_->RetainPending(*this, *window); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
     Stage_ = SnapshotStage::Empty;
@@ -236,6 +238,7 @@ std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources
   Pending_ = 0;
   WindowPending_ = false;
   Refused_ = 0;
+  SourceFailures_.clear();
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
   RequestedRing_ = std::max(RequestedRing_, ringTiles);
@@ -251,7 +254,16 @@ std::expected<int, std::string_view> OsmField::Build(Data::SourceReader &sources
   return *added;
 }
 
-std::expected<int, std::string_view>
+void OsmField::RecordUnsettledSource(const SourceResponse &response) {
+  if (response.Refused) {
+    ++Refused_;
+    if (response.Failure) { SourceFailures_.push_back(response.Failure); }
+  } else {
+    ++Pending_;
+  }
+}
+
+std::expected<int, std::string>
 OsmField::AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing) {
   int added = 0;
   size_t parsed = 0;
@@ -264,11 +276,7 @@ OsmField::AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, Pars
       const auto got = AddTile(sources, {.X = static_cast<int>(tx), .Y = static_cast<int>(ty)});
       if (!got) { return std::unexpected(got.error()); }
       if (!got->Held) {
-        if (got->Refused) {
-          Refused_++;
-        } else {
-          Pending_++;
-        }
+        RecordUnsettledSource(*got);
         continue;
       }
       added += got->Added;
@@ -283,7 +291,7 @@ OsmField::AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, Pars
   return added;
 }
 
-std::expected<void, std::string_view> OsmField::PublishReady(TileAt centre) {
+std::expected<void, std::string> OsmField::PublishReady(TileAt centre) {
   if (Stage_ == SnapshotStage::Empty && Settled(centre.X, centre.Y)) {
     const auto published = PublishParsed(nullptr, centre);
     if (!published) { return std::unexpected(published.error()); }
@@ -343,8 +351,8 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
-std::expected<OsmField::SourceResponse, std::string_view>
-OsmField::AddTile(Data::SourceReader &sources, TileAt at) {
+std::expected<OsmField::SourceResponse, std::string> OsmField::AddTile(Data::SourceReader &sources,
+                                                                       TileAt at) {
   if (Prepared_) { return AddNativeTile(at); }
   const Data::SourceRequest request(
       Data::DataKind::VectorMap,
@@ -374,14 +382,18 @@ OsmField::AddTile(Data::SourceReader &sources, TileAt at) {
   TotalBuildMetrics_.ParseMs += parseMs;
   if (!layers) {
     ++Bad_;
-    return std::unexpected(layers.error());
+    return std::unexpected(std::string(layers.error()));
   }
   const auto capacityAt = Clock::now();
   OsmStorageUsage usage;
   for (const ParsedTile &tile : ParsedTiles_) {
-    if (!FitsNativeStorage(usage, tile.Layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
+    if (!FitsNativeStorage(usage, tile.Layers)) {
+      return std::unexpected(std::string(Says::kOsmIndexCapacity));
+    }
   }
-  if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
+  if (!FitsNativeStorage(usage, *layers)) {
+    return std::unexpected(std::string(Says::kOsmIndexCapacity));
+  }
   const double capacityMs = ElapsedMs(capacityAt);
   BuildMetrics_.CapacityMs += capacityMs;
   TotalBuildMetrics_.CapacityMs += capacityMs;
@@ -469,15 +481,15 @@ ReadVectorLayers(std::span<const uint8_t> bytes,
 
 }
 
-std::expected<int, std::string_view>
+std::expected<int, std::string>
 OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   if (!ValidTileAddress({.X = tx, .Y = ty}, Zoom_)) {
-    return std::unexpected(Says::kInvalidOsmTile);
+    return std::unexpected(std::string(Says::kInvalidOsmTile));
   }
   auto layers = ReadVectorLayers(vectorTile, Layers_, Schema_);
   if (!layers) {
     ++Bad_;
-    return std::unexpected(layers.error());
+    return std::unexpected(std::string(layers.error()));
   }
   ParsedTile parsed{.At = {.X = tx, .Y = ty},
                     .LayerBytes = LayerHeapBytes(*layers),
@@ -507,8 +519,8 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   return static_cast<int>(OfTile(TileIndex(tx, ty)).size());
 }
 
-std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *replacement,
-                                                              std::optional<TileAt> contact) {
+std::expected<void, std::string> OsmField::PublishParsed(const ParsedTile *replacement,
+                                                         std::optional<TileAt> contact) {
   std::vector<const ParsedTile *> ordered;
   ordered.reserve(ParsedTiles_.size() + 1u);
   for (const ParsedTile &tile : ParsedTiles_) {
@@ -530,14 +542,14 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
   OsmStorageUsage usage;
   for (const ParsedTile *tile : ordered) {
     if (!rebuilt.AppendParsedTile(*tile, usage)) {
-      return std::unexpected(Says::kOsmIndexCapacity);
+      return std::unexpected(std::string(Says::kOsmIndexCapacity));
     }
   }
   CommitParsed(rebuilt);
   return {};
 }
 
-std::expected<bool, std::string_view> OsmField::AdvanceAssembly() {
+std::expected<bool, std::string> OsmField::AdvanceAssembly() {
   if (!Assembly_) {
     auto assembly = std::make_unique<AssemblyState>(Zoom_, Layers_, Schema_);
     assembly->Order.reserve(ParsedTiles_.size());
@@ -557,7 +569,7 @@ std::expected<bool, std::string_view> OsmField::AdvanceAssembly() {
     const ParsedTile &tile = ParsedTiles_[assembly.Order[assembly.Next]];
     if (!assembly.Rebuilt.AppendParsedTile(tile, assembly.Usage)) {
       Assembly_.reset();
-      return std::unexpected(Says::kOsmIndexCapacity);
+      return std::unexpected(std::string(Says::kOsmIndexCapacity));
     }
   }
   if (assembly.Next < assembly.Order.size()) { return false; }
@@ -705,7 +717,8 @@ size_t OsmField::HeapBytes() const {
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
          CapacityBytes(Settled_) + CapacityBytes(Keys_) + CapacityBytes(Strings_) +
-         CapacityBytes(Layers_) + strings + indexBytes + parsed + assembly;
+         CapacityBytes(Layers_) + CapacityBytes(SourceFailures_) + strings + indexBytes + parsed +
+         assembly;
 }
 
 int OsmField::Layer(const char *name) const {
@@ -715,11 +728,11 @@ int OsmField::Layer(const char *name) const {
   return -1;
 }
 
-std::expected<void, std::string_view> OsmField::Declare(std::span<const Declared> these,
-                                                        LongitudeLatitude at,
-                                                        std::string_view inputDigest) {
+std::expected<void, std::string> OsmField::Declare(std::span<const Declared> these,
+                                                   LongitudeLatitude at,
+                                                   std::string_view inputDigest) {
   const auto tile = Locate(at, Zoom_);
-  if (!tile) { return std::unexpected(tile.error()); }
+  if (!tile) { return std::unexpected(std::string(tile.error())); }
   Declare(these, *tile, inputDigest);
   return {};
 }

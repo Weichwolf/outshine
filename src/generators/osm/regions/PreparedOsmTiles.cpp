@@ -4,6 +4,7 @@
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
 #include <algorithm>
+#include <any>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -158,7 +159,7 @@ std::string PreparedOsmTiles::Worker::RequestKey(TileAt at, const Layout &layout
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
-std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
+std::expected<PreparedOsmTiles::SourceDelivery, std::string>
 PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
   if (layout.Zoom_ < 0 || layout.Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 ||
       at.Y < 0 ||
@@ -204,10 +205,33 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
   return SourceDelivery{};
 }
 
-std::expected<PreparedOsmTiles::SourceDelivery, std::string_view>
+std::expected<PreparedOsmTiles::SourceDelivery, std::string>
+PreparedOsmTiles::ReadFailure(AssetPublication publication) {
+  const auto *outcome =
+      publication.Failure ? std::any_cast<SourceOutcome>(publication.Failure.get()) : nullptr;
+  if (outcome != nullptr) {
+    if (outcome->Status == Data::SourceDelivery::State::Vacant ||
+        outcome->Status == Data::SourceDelivery::State::Undeclared) {
+      return SourceDelivery{.Status = State::Absent, .Product = {}};
+    }
+    if (outcome->Status == Data::SourceDelivery::State::Refused) {
+      std::shared_ptr<const Data::SourceFailure> failure;
+      if (outcome->Failure) { failure = {publication.Failure, &*outcome->Failure}; }
+      return SourceDelivery{.Status = State::Refused,
+                            .Product = {},
+                            .Failure = std::move(failure),
+                            .RetryAfterMs = outcome->RetryAfterMs};
+    }
+    return std::unexpected("invalid native OSM source failure state");
+  }
+  return std::unexpected(publication.Message.empty() ? "native OSM asset job failed"
+                                                     : std::move(publication.Message));
+}
+
+std::expected<PreparedOsmTiles::SourceDelivery, std::string>
 PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
   if (!DecodeIdle(*work)) { return SourceDelivery{}; }
-  if (!work->Result) { return std::unexpected(std::string_view(work->Result.error())); }
+  if (!work->Result) { return std::unexpected(work->Result.error()); }
   if (*work->Result) {
     work->Ticket.reset();
     const Product product(work, work->Result->get());
@@ -226,13 +250,7 @@ PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
         if (work->Ticket) { work->Ticket->Cancel(); }
         return SourceDelivery{};
       }
-      if (publication.Message == kAbsent) {
-        return SourceDelivery{.Status = State::Absent, .Product = {}};
-      }
-      if (publication.Message == kRefused) {
-        return SourceDelivery{.Status = State::Refused, .Product = {}};
-      }
-      return std::unexpected("native OSM asset job failed");
+      return ReadFailure(std::move(publication));
     case AssetPublicationStatus::Ready: break;
   }
   work->Decoding.store(true, std::memory_order_release);
