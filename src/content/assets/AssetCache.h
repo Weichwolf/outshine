@@ -15,6 +15,8 @@
 #include <vector>
 
 namespace outshine {
+class JobAdmission;
+class Tasks;
 
 struct AssetRecord {
   std::string Key;
@@ -84,8 +86,16 @@ private:
 
 class AssetCache {
 public:
+  struct Runtime {
+    Tasks *Workers = nullptr;
+    std::shared_ptr<JobAdmission> Connections;
+  };
+
   [[nodiscard]] static std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
   Open(const std::string &path);
+  // Runtime handles open on first IO; Workers outlive them and their requests.
+  [[nodiscard]] static std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
+  Open(const std::string &path, Runtime runtime);
   ~AssetCache();
   AssetCache(const AssetCache &) = delete;
   AssetCache &operator=(const AssetCache &) = delete;

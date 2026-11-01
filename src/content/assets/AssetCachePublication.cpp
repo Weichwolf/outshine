@@ -212,6 +212,7 @@ std::expected<std::vector<AssetRecord>, AssetCacheError> PrepareRecords(
 std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRecord> records,
                                                          std::span<const uint8_t> payload) {
   if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   std::unique_lock lock(*State_->Mutex);
   if (std::cmp_greater(payload.size(), sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
@@ -236,6 +237,9 @@ std::expected<PreparedAssetWrite, AssetCacheError>
 AssetCache::PreparePublication(std::vector<AssetRecord> records, std::vector<uint8_t> payload) {
   if (records.empty()) { return std::unexpected(AssetCacheError::InvalidInput); }
   {
+    if (const auto opened = State_->EnsureOpen(); !opened) {
+      return std::unexpected(opened.error());
+    }
     const std::scoped_lock lock(*State_->Mutex);
     if (std::cmp_greater(payload.size(),
                          sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
@@ -342,6 +346,7 @@ AssetCache::State::StorePublication(const AssetCache::Publication &publication) 
 }
 
 std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publication &publication) {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   if (std::cmp_greater(publication.NativeBytes,
                        sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
@@ -363,6 +368,7 @@ std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publicati
 }
 
 std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   auto began = State_->BeginWrite();
@@ -386,6 +392,7 @@ AssetCache::LoadValidated(std::string_view key,
   auto valid = Validate(*loaded, kind, validate);
   if (!valid) { return std::unexpected(valid.error()); }
   if (*valid) { return std::move(*loaded); }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   const auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }
@@ -415,11 +422,13 @@ AssetCache::LoadValidated(std::string_view key,
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,
                                                              std::string_view requestKey) {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   return BindRequest(key, requestKey, true);
 }
 
 std::expected<bool, AssetCacheError> AssetCache::BindRequestIfUnbound(std::string_view key,
                                                                       std::string_view requestKey) {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   return BindRequest(key, requestKey, false);
 }
 
@@ -429,6 +438,7 @@ std::expected<bool, AssetCacheError> AssetCache::BindRequestIfMatches(std::strin
       !AssetSql::Valid(binding)) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   return BindRequest(key, *binding.RequestKey, true, &binding);
 }
 
@@ -439,6 +449,7 @@ AssetCache::UnbindRequestIfMatches(const AssetRecord &binding) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
   const auto matches = [&](const auto &found) { return found && *found == binding; };
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const auto guard = std::scoped_lock(*State_->Mutex);
   const auto previous = FindRequest(*request);
   if (!previous) { return std::unexpected(previous.error()); }

@@ -26,6 +26,7 @@ AssetCache::LoadRequest(std::string_view requestKey, size_t packageBytesMost) co
 }
 
 void AssetCache::UsePackage(std::string_view packageKey) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return; }
   const std::scoped_lock lock(*State_->Mutex);
   AssetSql::Statement statement;
   const auto prepared = AssetSql::Prepare(
@@ -56,6 +57,7 @@ std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
 
 std::expected<std::optional<CachedAsset>, AssetCacheError>
 AssetCache::Load(std::string_view key, size_t packageBytesMost) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   std::unique_lock lock(*State_->Mutex);
   auto found = Find(key);
   if (!found) { return std::unexpected(found.error()); }

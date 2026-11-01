@@ -1,5 +1,7 @@
 #include "AssetCacheState.h"
+#include "Tasks.h"
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +11,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -18,9 +21,36 @@
 namespace outshine {
 
 AssetCache::State::~State() {
-  const std::scoped_lock lock(*Mutex);
-  Usage.reset();
-  if (Database != nullptr) { sqlite3_close(Database); }
+  ReleaseConnection();
+}
+
+void AssetCache::State::ReleaseConnection() {
+  if (!Mutex && !Connection) { return; }
+
+  struct Retired {
+    std::optional<JobAdmission::Lease> Connection;
+    std::shared_ptr<std::recursive_mutex> Mutex;
+    std::shared_ptr<SqliteFileBudget> Budget;
+    sqlite3 *Database;
+    std::unique_ptr<CacheUsageIndex> Usage;
+
+    ~Retired() {
+      if (!Mutex) { return; }
+      const std::scoped_lock lock(*Mutex);
+      Usage.reset();
+      if (Database != nullptr) { sqlite3_close(Database); }
+    }
+  };
+
+  auto retired = std::make_shared<Retired>(std::exchange(Connection, std::nullopt),
+                                           std::move(Mutex),
+                                           std::move(Budget),
+                                           std::exchange(Database, nullptr),
+                                           std::move(Usage));
+  if (Execution.Workers != nullptr) {
+    (void)Execution.Workers->PostDetached(
+        [retired = std::move(retired)] mutable { retired.reset(); });
+  }
 }
 
 void AssetCache::State::Observe(std::string_view key, uint64_t storedBytes, bool published) {
@@ -153,60 +183,103 @@ std::expected<void, AssetCacheError> PrepareUsageIndex(sqlite3 *db) {
 
 }
 
-std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
-AssetCache::Open(const std::string &path) {
-  if (path.empty() || path.contains('\0')) {
-    return std::unexpected(AssetCacheError::InvalidInput);
-  }
+std::expected<void, AssetCacheError> AssetCache::State::Initialize() {
+  const std::string &path = Path;
   auto mutex = DatabaseMutex(path);
   if (!mutex) { return std::unexpected(AssetCacheError::Storage); }
-  auto state = std::make_unique<State>();
-  state->Mutex = std::move(mutex);
-  const std::scoped_lock lock(*state->Mutex);
+  Mutex = std::move(mutex);
+  const std::scoped_lock lock(*Mutex);
   const std::filesystem::path file(path);
   const auto budget = SqliteFileBudget::Open(file.has_parent_path() ? file.parent_path() : ".");
   if (!budget) { return std::unexpected(AssetCacheError::Storage); }
-  state->Budget = *budget;
-  const SqliteFileBudget::Maintenance maintenance(*state->Budget);
+  Budget = *budget;
+  const SqliteFileBudget::Maintenance maintenance(*Budget);
   const int opened =
       sqlite3_open_v2(path.c_str(),
-                      &state->Database,
+                      &Database,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
-                      state->Budget->VfsName());
+                      Budget->VfsName());
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
   bool empty = false;
   {
     AssetSql::Statement pages;
-    const auto prepared = AssetSql::Prepare(state->Database, "PRAGMA page_count", pages);
+    const auto prepared = AssetSql::Prepare(Database, "PRAGMA page_count", pages);
     if (!prepared) { return std::unexpected(prepared.error()); }
     const int step = sqlite3_step(pages.Value);
     if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
     empty = sqlite3_column_int64(pages.Value, 0) == 0;
   }
   if (empty) {
-    const auto configured = AssetSql::Exec(state->Database, "PRAGMA auto_vacuum=INCREMENTAL");
+    const auto configured = AssetSql::Exec(Database, "PRAGMA auto_vacuum=INCREMENTAL");
     if (!configured) { return std::unexpected(configured.error()); }
   }
   const auto began =
-      AssetSql::Exec(state->Database,
+      AssetSql::Exec(Database,
                      "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA "
                      "cache_size=-4096; PRAGMA cache_spill=ON; PRAGMA foreign_keys=ON;");
   if (!began) { return std::unexpected(began.error()); }
-  const auto current = SchemaVersion(state->Database);
+  const auto current = SchemaVersion(Database);
   if (!current) { return std::unexpected(current.error()); }
   if (*current != 5) {
-    const auto migrated = MigrateSchema(state->Database);
+    const auto migrated = MigrateSchema(Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
-  auto usage = CacheUsageIndex::Open(path, state->Budget);
-  if (usage) { state->Usage = std::move(*usage); }
-  if (!state->Usage) {
+  auto usage = CacheUsageIndex::Open(path, Budget);
+  if (usage) { Usage = std::move(*usage); }
+  if (!Usage) {
     std::fputs("asset cache: usage index could not be opened\n", stderr);
-    state->UsageWarning = true;
+    UsageWarning = true;
   }
-  if (state->Usage) {
-    const auto indexed = PrepareUsageIndex(state->Database);
+  if (Usage) {
+    const auto indexed = PrepareUsageIndex(Database);
     if (!indexed) { return std::unexpected(indexed.error()); }
+  }
+  return {};
+}
+
+std::expected<void, AssetCacheError> AssetCache::State::EnsureOpen() {
+  if (Opened.load(std::memory_order_acquire)) { return {}; }
+  const std::scoped_lock lock(Opening);
+  if (Opened.load(std::memory_order_relaxed)) { return {}; }
+  if (Execution.Workers != nullptr) {
+    auto lease = Execution.Connections->TryAcquire();
+    if (!lease) { return std::unexpected(AssetCacheError::Busy); }
+    Connection = std::move(*lease);
+    const std::filesystem::path file(Path);
+    std::error_code error;
+    if (file.has_parent_path()) { std::filesystem::create_directories(file.parent_path(), error); }
+    if (error) {
+      ReleaseConnection();
+      return std::unexpected(AssetCacheError::Storage);
+    }
+  }
+  const auto opened = Initialize();
+  if (!opened) {
+    ReleaseConnection();
+    return std::unexpected(opened.error());
+  }
+  Opened.store(true, std::memory_order_release);
+  return {};
+}
+
+std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
+AssetCache::Open(const std::string &path) {
+  return Open(path, Runtime{});
+}
+
+std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
+AssetCache::Open(const std::string &path, Runtime runtime) {
+  if (path.empty() || path.contains('\0') ||
+      ((runtime.Workers == nullptr) != (runtime.Connections == nullptr))) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  auto state = std::make_unique<State>();
+  state->Path = path;
+  state->Execution = std::move(runtime);
+  if (state->Execution.Workers == nullptr) {
+    if (const auto opened = state->EnsureOpen(); !opened) {
+      return std::unexpected(opened.error());
+    }
   }
   return std::unique_ptr<AssetCache>(new AssetCache(std::move(state)));
 }
