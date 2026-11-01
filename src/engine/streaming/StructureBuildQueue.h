@@ -364,7 +364,7 @@ private:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
   [[nodiscard]] std::optional<JobAdmission::Lease> TryAdmitBuild();
-  void RecycleOutput(StructureBuildTask &task);
+  void RecycleTask(StructureBuildTask &task);
   void PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                              LongitudeLatitude eye,
                              HeightRequirement requirement,

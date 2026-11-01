@@ -89,6 +89,8 @@ public:
   void RequestStop() noexcept;
   [[nodiscard]] bool TakeCompletion();
   void Join();
+  // Rejection retains the stopped payload; the executor must outlive this call.
+  [[nodiscard]] bool Retire(Tasks &pool);
 
   [[nodiscard]] bool Running() const noexcept;
 
@@ -116,7 +118,7 @@ public:
   [[nodiscard]] Generators::StructureBakeProgress &Progress() noexcept;
 
   [[nodiscard]] std::unique_ptr<Generators::RawTile> TakeRaw() noexcept;
-  [[nodiscard]] std::unique_ptr<Output> TakeOutput() noexcept;
+  [[nodiscard]] std::unique_ptr<Output> TakeOutputForReuse() noexcept;
   [[nodiscard]] std::unique_ptr<MeshScratch> TakeScratch() noexcept;
 
 private:

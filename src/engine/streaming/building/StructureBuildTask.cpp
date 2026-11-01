@@ -513,6 +513,7 @@ struct StructureBuildTask::Payload {
   std::shared_ptr<const Generators::PreparedBuildingBasis> Basis;
   std::unique_ptr<NativeProducts> Native;
   std::unique_ptr<Output> Result;
+  std::optional<Generators::BakedTile> DiscardedTile;
   std::unique_ptr<MeshScratch> Scratch;
   std::unique_ptr<Generators::StructureBakeProgress> Progress =
       std::make_unique<Generators::StructureBakeProgress>();
@@ -816,14 +817,38 @@ void StructureBuildTask::Join() {
   State_ = State::Completed;
 }
 
+bool StructureBuildTask::Retire(Tasks &pool) {
+  if (!Payload_) { return true; }
+  RequestStop();
+
+  struct Handoff {
+    std::shared_ptr<Payload> Value;
+  };
+
+  const auto handoff = std::make_shared<Handoff>(std::move(Payload_));
+  if (!pool.PostDetached([handoff] {
+        auto retired = std::move(handoff->Value);
+        retired.reset();
+      })) {
+    Payload_ = std::move(handoff->Value);
+    return false;
+  }
+  Tile_ = 0;
+  State_ = State::Empty;
+  return true;
+}
+
 std::unique_ptr<Generators::RawTile> StructureBuildTask::TakeRaw() noexcept {
   assert(State_ != State::Running);
   return Payload_ ? std::move(Payload_->Raw) : nullptr;
 }
 
-std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutput() noexcept {
+std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutputForReuse() noexcept {
   assert(State_ != State::Running);
-  return Payload_ ? std::move(Payload_->Result) : nullptr;
+  if (!Payload_ || !Payload_->Result) { return nullptr; }
+  Payload_->DiscardedTile = std::move(Payload_->Result->Tile);
+  Payload_->Result->Tile.reset();
+  return std::move(Payload_->Result);
 }
 
 std::unique_ptr<MeshScratch> StructureBuildTask::TakeScratch() noexcept {

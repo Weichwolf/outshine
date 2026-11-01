@@ -465,10 +465,12 @@ std::unique_ptr<MeshScratch> StructureBuildQueue::LentScratch() {
   return one;
 }
 
-void StructureBuildQueue::RecycleOutput(StructureBuildTask &task) {
-  auto output = task.TakeOutput();
-  output->Tile.reset();
+void StructureBuildQueue::RecycleTask(StructureBuildTask &task) {
+  IdleRaw_.push_back(task.TakeRaw());
+  auto output = task.TakeOutputForReuse();
   IdleOut_.push_back(std::move(output));
+  IdleScratch_.push_back(task.TakeScratch());
+  if (!task.Retire(*Pool_)) { std::terminate(); }
 }
 
 std::optional<JobAdmission::Lease> StructureBuildQueue::TryAdmitBuild() {
@@ -508,9 +510,7 @@ void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingFiel
       prints.Release(stale.Task.Tile());
     }
   }
-  IdleRaw_.push_back(stale.Task.TakeRaw());
-  RecycleOutput(stale.Task);
-  IdleScratch_.push_back(stale.Task.TakeScratch());
+  RecycleTask(stale.Task);
   Queue_.pop_front();
   ++Discarded_;
 }
@@ -1259,9 +1259,7 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
                {"cacheReadMs", bake.Task.Result().CacheReadMs},
                {"cacheWriteMs", bake.Task.Result().CacheWriteMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
-    IdleRaw_.push_back(bake.Task.TakeRaw());
-    RecycleOutput(bake.Task);
-    IdleScratch_.push_back(bake.Task.TakeScratch());
+    RecycleTask(bake.Task);
     Queue_.pop_front();
     ++Landed_;
   }
