@@ -46,36 +46,38 @@ struct StructureBuildQueue::NativeLookup::Completion {
 };
 
 bool StructureBuildQueue::AwaitNativeLookups(double seconds) const {
-  if (!NativeProgress_ || !(seconds > 0.0)) { return false; }
-  std::unique_lock lock(NativeProgress_->Mutex);
-  if (std::ranges::any_of(NativeLookups_, [](const auto &entry) {
+  if (!Context_.LookupProgress || !(seconds > 0.0)) { return false; }
+  std::unique_lock lock(Context_.LookupProgress->Mutex);
+  if (std::ranges::any_of(Context_.NativeLookups, [](const auto &entry) {
         return entry.second->Working && entry.second->Finished.load(std::memory_order_acquire);
       })) {
     return true;
   }
-  const auto generation = NativeProgress_->Generation;
-  return NativeProgress_->Changed.wait_for(lock, std::chrono::duration<double>(seconds), [&] {
-    return NativeProgress_->Generation != generation;
-  });
+  const auto generation = Context_.LookupProgress->Generation;
+  return Context_.LookupProgress->Changed.wait_for(
+      lock, std::chrono::duration<double>(seconds), [&] {
+        return Context_.LookupProgress->Generation != generation;
+      });
 }
 
 void StructureBuildQueue::RetireNativeLookups() {
-  for (const auto &entry : NativeLookups_) {
+  for (const auto &entry : Context_.NativeLookups) {
     entry.second->Stopping.store(true, std::memory_order_relaxed);
   }
-  if (NativeLookups_.empty() && !NativeAssets_) {
-    NativeProgress_.reset();
+  if (Context_.NativeLookups.empty() && !Context_.NativeAssets) {
+    Context_.LookupProgress.reset();
     return;
   }
 
   struct Retired {
-    decltype(NativeLookups_) Lookups;
-    decltype(NativeAssets_) Cache;
+    decltype(Context_.NativeLookups) Lookups;
+    decltype(Context_.NativeAssets) Cache;
     std::shared_ptr<NativeProgress> Progress;
   };
 
-  const auto retired = std::make_shared<Retired>(
-      std::exchange(NativeLookups_, {}), std::move(NativeAssets_), std::move(NativeProgress_));
+  const auto retired = std::make_shared<Retired>(std::exchange(Context_.NativeLookups, {}),
+                                                 std::move(Context_.NativeAssets),
+                                                 std::move(Context_.LookupProgress));
   if (Pool_ != nullptr) {
     (void)Pool_->PostDetached([retired] { (void)retired; });
   }
@@ -85,7 +87,7 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
   if (Pool_ == nullptr) { return false; }
   double wait = seconds;
   bool pendingGeometry = false;
-  for (const QueuedBuild &build : Queue_) {
+  for (const QueuedBuild &build : Context_.Queue) {
     if (build.Finished && build.Task.Result().Status && !build.Task.Result().Tile) {
       pendingGeometry = true;
       wait = std::min(wait, build.Task.ResumeDelaySeconds());
@@ -93,7 +95,7 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
   }
   if (PendingBasisLookups() != 0) {
     const auto now = std::chrono::steady_clock::now();
-    for (const auto &entry : NativeLookups_) {
+    for (const auto &entry : Context_.NativeLookups) {
       const auto &lookup = *entry.second;
       if (!lookup.Working && lookup.Retries != 0) {
         const auto remaining = std::chrono::duration<double>(lookup.RetryAt - now).count();
@@ -102,17 +104,17 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
     }
     return AwaitNativeLookups(wait);
   }
-  if (OriginalPreparation_ && OriginalPreparation_->Running()) {
-    return OriginalPreparation_->AwaitSlice(wait);
+  if (Context_.OriginalPreparation && Context_.OriginalPreparation->Running()) {
+    return Context_.OriginalPreparation->AwaitSlice(wait);
   }
-  for (const QueuedBuild &build : Queue_) {
+  for (const QueuedBuild &build : Context_.Queue) {
     if (build.Task.Running()) { return build.Task.AwaitCompletion(wait); }
   }
   return pendingGeometry && Pool_->AwaitCompletion(wait);
 }
 
 size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
-  return static_cast<size_t>(std::ranges::count_if(NativeLookups_, [](const auto &entry) {
+  return static_cast<size_t>(std::ranges::count_if(Context_.NativeLookups, [](const auto &entry) {
     return entry.second->Working || entry.second->Retries != 0;
   }));
 }
@@ -155,10 +157,11 @@ void StructureBuildQueue::StartNativeLookup(
     const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
     const std::string &request,
     const std::shared_ptr<NativeLookup> &lookup) {
-  if (!NativeProgress_) { NativeProgress_ = std::make_shared<NativeProgress>(); }
+  if (!Context_.LookupProgress) { Context_.LookupProgress = std::make_shared<NativeProgress>(); }
   lookup->Finished.store(false, std::memory_order_relaxed);
   lookup->Working = true;
-  const auto completion = std::make_shared<NativeLookup::Completion>(lookup, NativeProgress_);
+  const auto completion =
+      std::make_shared<NativeLookup::Completion>(lookup, Context_.LookupProgress);
   const bool accepted = Pool_->PostDetached([completion, cache, request] {
     completion->Started = true;
     auto &output = *completion->Value;
@@ -196,7 +199,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
     const std::shared_ptr<NativeLookup> &lookup) {
   if (std::chrono::steady_clock::now() < lookup->RetryAt) { return nullptr; }
   const auto running = static_cast<size_t>(std::ranges::count_if(
-      NativeLookups_, [](const auto &entry) { return entry.second->Working; }));
+      Context_.NativeLookups, [](const auto &entry) { return entry.second->Working; }));
   if (running >= kCandidateWindow) { return nullptr; }
   StartNativeLookup(cache, request, lookup);
   return lookup->Working ? nullptr : lookup.get();
@@ -204,30 +207,30 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
 
 StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     const std::shared_ptr<Generators::PreparedBuildingAssets> &cache, const std::string &request) {
-  auto found = NativeLookups_.find(request);
-  if (found != NativeLookups_.end()) {
+  auto found = Context_.NativeLookups.find(request);
+  if (found != Context_.NativeLookups.end()) {
     const auto &previous = *found->second;
     if (!previous.Working && previous.Retries == 0 &&
         previous.BasisWrites != cache->Costs().BasisWrites) {
-      NativeLookups_.erase(found);
-      found = NativeLookups_.end();
+      Context_.NativeLookups.erase(found);
+      found = Context_.NativeLookups.end();
     }
   }
-  if (found == NativeLookups_.end()) {
+  if (found == Context_.NativeLookups.end()) {
     if (PendingBasisLookups() >= kCandidateWindow) { return nullptr; }
     constexpr size_t kLookupsMost = 256;
-    if (NativeLookups_.size() >= kLookupsMost) {
-      const auto idle = std::ranges::find_if(NativeLookups_, [](const auto &entry) {
+    if (Context_.NativeLookups.size() >= kLookupsMost) {
+      const auto idle = std::ranges::find_if(Context_.NativeLookups, [](const auto &entry) {
         return !entry.second->Working && entry.second->Retries == 0;
       });
-      if (idle == NativeLookups_.end()) { return nullptr; }
-      NativeLookups_.erase(idle);
+      if (idle == Context_.NativeLookups.end()) { return nullptr; }
+      Context_.NativeLookups.erase(idle);
     }
     auto lookup = std::make_shared<NativeLookup>();
     lookup->BasisWrites = cache->Costs().BasisWrites;
     auto *const output = lookup.get();
     StartNativeLookup(cache, request, lookup);
-    NativeLookups_.emplace(request, std::move(lookup));
+    Context_.NativeLookups.emplace(request, std::move(lookup));
     return output->Working ? nullptr : output;
   }
   auto &lookup = *found->second;
@@ -236,7 +239,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     lookup.Working = false;
   }
   if (lookup.Retries == 0 && lookup.BasisWrites != cache->Costs().BasisWrites) {
-    NativeLookups_.erase(found);
+    Context_.NativeLookups.erase(found);
     return nullptr;
   }
   if (!lookup.Result) {
@@ -260,10 +263,10 @@ StructureBuildQueue::PollNativeBasis(Ground::SurfacePreparation &stack,
   }
   const auto &region = vectors->Tiles()[tile];
   if (region.InputDigest.empty()) { return query; }
-  if (NativeAssets_ && NativeAssets_ != cache) {
+  if (Context_.NativeAssets && Context_.NativeAssets != cache) {
     return std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
   }
-  NativeAssets_ = cache;
+  Context_.NativeAssets = cache;
   const Data::TileId address{
       .Zoom = region.Z, .X = static_cast<uint32_t>(region.X), .Y = static_cast<uint32_t>(region.Y)};
   query.RequestKey =
@@ -287,12 +290,12 @@ StructureBuildQueue::PollNativeBasis(Ground::SurfacePreparation &stack,
 }
 
 void StructureBuildQueue::ReleaseNativeBasis(const std::string &request) {
-  const auto found = NativeLookups_.find(request);
-  if (found == NativeLookups_.end()) { return; }
+  const auto found = Context_.NativeLookups.find(request);
+  if (found == Context_.NativeLookups.end()) { return; }
   const auto &lookup = *found->second;
   if (!lookup.Working && lookup.Stage == NativeLookup::Phase::Request && lookup.Result &&
       *lookup.Result) {
-    NativeLookups_.erase(found);
+    Context_.NativeLookups.erase(found);
   }
 }
 
@@ -303,20 +306,20 @@ bool StructureBuildQueue::SelectNativeBasis(
     VectorSelection &selected) {
   const auto query = PollNativeBasis(stack, prints, tile);
   if (!query) {
-    NativeFailure_ = query.error();
+    Context_.NativeFailure = query.error();
     return false;
   }
   if (query->Where == NativeBasisQuery::Phase::Unavailable) { return true; }
   selected.RequestKey = query->RequestKey;
   if (query->Where == NativeBasisQuery::Phase::Pending) { return false; }
-  auto &lookup = *NativeLookups_.at(selected.RequestKey);
+  auto &lookup = *Context_.NativeLookups.at(selected.RequestKey);
   const auto &cache = stack.BuildingAssets();
   const auto &vectors = *stack.Vectors();
   const auto &region = vectors.Tiles()[tile];
   const Data::TileId address{
       .Zoom = region.Z, .X = static_cast<uint32_t>(region.X), .Y = static_cast<uint32_t>(region.Y)};
   if (!lookup.Result) {
-    NativeFailure_ = lookup.Result.error();
+    Context_.NativeFailure = lookup.Result.error();
     return false;
   }
   selected.ReadMs = lookup.ReadMs;
@@ -338,14 +341,14 @@ bool StructureBuildQueue::SelectNativeBasis(
   const auto key =
       cache->Key(address, *digest, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
   if (key.empty()) {
-    NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
+    Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;
   }
   if (PendingBasisLookups() >= kCandidateWindow) { return false; }
   lookup.Stage = NativeLookup::Phase::Content;
   lookup.ContentKey = key;
   lookup.StreetDigest = *digest;
-  StartNativeLookup(cache, selected.RequestKey, NativeLookups_.at(selected.RequestKey));
+  StartNativeLookup(cache, selected.RequestKey, Context_.NativeLookups.at(selected.RequestKey));
   return false;
 }
 }
