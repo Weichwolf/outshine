@@ -130,10 +130,16 @@ LRU-Paket oder gibt höchstens 256 freie Seiten zurück. Aktive SQLite-Leser beh
 ihr Snapshot, geladene Produkte ihre Bytes. Dateilinks innerhalb der Root sind unzulässig.
 
 `over_budget=1` weist bestehende Übergröße aus; sie ist keine erfüllte Grenze.
-Übergröße wird bei neuen Publikationsversuchen schrittweise bereinigt. Reine
-Cachetreffer starten noch keine eigene Idle-Bereinigung. Altbanken ohne inkrementelle
-Freigabe benötigen weiterhin explizites `trim --compact` samt Arbeitsraum; Öffnen
-ersetzt keine laufenden Datenbankdateien. Diese Restarbeiten bleiben #1920.
+Übergröße wird bei Publikationen und durch einen koaleszierten Wartungsjob des
+dauerhaften Engine-Dienstes schrittweise bereinigt, auch bei reinen Cachetreffern.
+Der vorhandene Workerpool führt höchstens ein Paket beziehungsweise 256 freie Seiten
+pro Schritt aus; Frame-Aufrufe erledigen nur Dispatch und Status. Festgehaltene Leser
+führen zu Aufschub mit späterem Retry. Die Übergangsreserve eines übergroßen Bestands
+endet erst, wenn wieder regulärer Checkpoint-/Wartungsraum frei ist; neue Publikationen
+müssen immer das konfigurierte Limit einhalten. Feste Diagnosewerte melden Phase,
+Fehler, Schritte, Dateibedarf und Limit. Altbanken ohne inkrementelle Freigabe benötigen
+weiterhin explizites `trim --compact` samt Arbeitsraum; Öffnen ersetzt keine laufenden
+Datenbankdateien. Automatische Altbankumstellung und Dauerabnahme bleiben #1920.
 
 Das Assetbudget gilt gemeinsam für komprimierte Pakete in `assets.sqlite` und
 `prototypes.sqlite`. Verwaiste Pakete werden zuerst entfernt, anschließend die am längsten

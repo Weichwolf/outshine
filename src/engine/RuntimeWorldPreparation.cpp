@@ -226,6 +226,11 @@ bool Engine::State::PrepareRuntimeWorld() {
     }
   }
   World.Stack.DeferWaterToRegionLookup();
+  if (!Services.CacheReclaimer) {
+    Services.CacheReclaimer =
+        std::make_unique<AssetCacheReclaimer>(*Services.Compute, contentDirectories.Assets);
+  }
+  Services.CacheReclaimer->Advance();
 
   if (!Session.Declared.Ground.Shape.Kind.empty()) {
     Ground::ShapedGround how;
