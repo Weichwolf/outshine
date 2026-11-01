@@ -13,9 +13,10 @@
 #include "HeightField.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
-#include "Tasks.h"
 
 namespace outshine {
+class Tasks;
+
 namespace Generators {
 struct PreparedStructureTile;
 struct PreparedBuildingBasis;
@@ -82,8 +83,8 @@ public:
   [[nodiscard]] bool CanResume() const noexcept;
   [[nodiscard]] double ResumeDelaySeconds() const noexcept;
   void RequestStop() noexcept;
-  [[nodiscard]] bool TakeCompletion(Tasks &pool);
-  void Join(Tasks &pool);
+  [[nodiscard]] bool TakeCompletion();
+  void Join();
 
   [[nodiscard]] bool Running() const noexcept;
 
@@ -125,8 +126,6 @@ private:
 
   uint32_t Tile_ = 0;
   std::shared_ptr<Payload> Payload_;
-  Tasks *ActivePool_ = nullptr;
-  Tasks::Handle Handle_ = Tasks::kNoTask;
   State State_ = State::Ready;
 };
 

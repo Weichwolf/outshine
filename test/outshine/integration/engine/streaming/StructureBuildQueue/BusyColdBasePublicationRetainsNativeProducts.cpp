@@ -55,7 +55,7 @@ struct Case {
   ~Case() {
     if (Work) {
       Work->RequestStop();
-      Work->Join(Env.Worker);
+      Work->Join();
     }
   }
 
@@ -113,13 +113,13 @@ struct Case {
     Work->UseNativeAssets(Env.Stack.BuildingAssets(), Key, Request);
     Work->UseInitialCells();
     Work->Start(Env.Worker, MesherOwner);
-    Work->Join(Env.Worker);
+    Work->Join();
   }
 
   void Pump() {
     if (Work->CanResume()) {
       Work->Resume(Env.Worker);
-      Work->Join(Env.Worker);
+      Work->Join();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -245,7 +245,7 @@ void TaskContinuation(bool cancel) {
   if (cancel) {
     test.Work->RequestStop();
     test.Work->Resume(test.Env.Worker);
-    test.Work->Join(test.Env.Worker);
+    test.Work->Join();
   }
   test.Release();
   if (!cancel) {

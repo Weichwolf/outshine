@@ -1,3 +1,4 @@
+#include "Tasks.h"
 #include "Check.h"
 #include "StructureBuildTask.h"
 #include "BuildingMesh.h"
@@ -78,7 +79,7 @@ StructureBuildTask Task(const StructureMesher &mesher,
 void Complete(StructureBuildTask &task, Tasks &pool) {
   for (size_t post = 0; post < 4096 && task.Result().Status && !task.Result().Tile; ++post) {
     task.Resume(pool);
-    task.Join(pool);
+    task.Join();
     CHECK(task.Result().LastProofWork <= 8192 && task.Result().LastRanges <= 4,
           "each post respects its work allowance across phase transitions");
   }
@@ -93,19 +94,19 @@ int main() {
   for (const auto detail : {LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     auto task = Task(mesher, detail);
     task.Start(pool, mesherOwner);
-    task.Join(pool);
+    task.Join();
     CHECK(task.Result().Status && !task.Result().Tile && task.Raw().RequestedDetail == detail,
           "finished variant stays private and its immutable request does not become Fine");
     task.Resume(pool);
     StructureBuildTask moved(std::move(task));
-    moved.Join(pool);
+    moved.Join();
     // The guaranteed empty source is part of the move contract being tested.
     // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
     CHECK(!moved.Result().Tile && moved.Result().Status && !task.Running(),
           "running reference ownership moves without publishing a variant or cancelling work");
     moved.Resume(pool);
     StructureBuildTask proving(std::move(moved));
-    proving.Join(pool);
+    proving.Join();
     Complete(proving, pool);
     const auto &tile = proving.Result().Tile;
     CHECK(proving.Result().Status && tile && tile->SurfaceError && !tile->SurfaceFailure,
@@ -122,14 +123,14 @@ int main() {
   for (size_t phase = 0; phase < 2; ++phase) {
     auto task = Task(mesher);
     task.Start(pool, mesherOwner);
-    task.Join(pool);
+    task.Join();
     if (phase == 1) {
       task.Resume(pool);
-      task.Join(pool);
+      task.Join();
     }
     task.RequestStop();
     task.Resume(pool);
-    task.Join(pool);
+    task.Join();
     CHECK(!task.Result().Status && !task.Result().Tile,
           "cancellation before reference or proof cannot expose a private variant");
   }
@@ -139,7 +140,7 @@ int main() {
     const StructureMesher &chosen = *chosenOwner;
     auto task = Task(chosen, LevelOfDetail::Shell, 71, invalidRing);
     task.Start(pool, chosenOwner);
-    task.Join(pool);
+    task.Join();
     const auto &result = task.Result();
     CHECK(result.Tile && !result.Tile->SurfaceError &&
               result.Tile->SurfaceFailure ==
@@ -148,7 +149,7 @@ int main() {
   }
   auto unknown = Task(mesher, LevelOfDetail::Shell, 0);
   unknown.Start(pool, mesherOwner);
-  unknown.Join(pool);
+  unknown.Join();
   const auto &unknownResult = unknown.Result();
   CHECK(unknownResult.Tile && !unknownResult.Tile->SurfaceError &&
             unknownResult.Tile->SurfaceFailure ==
@@ -158,7 +159,7 @@ int main() {
   const auto &native = *nativeOwner;
   auto task = Task(native);
   task.Start(pool, nativeOwner);
-  task.Join(pool);
+  task.Join();
   Complete(task, pool);
   const auto &result = task.Result();
   CHECK(result.Status && result.Tile && result.Tile->SurfaceError &&

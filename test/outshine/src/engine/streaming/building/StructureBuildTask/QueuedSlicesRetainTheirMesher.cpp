@@ -51,6 +51,8 @@ int main() {
   std::atomic<unsigned> calls{0};
   std::atomic<bool> scratchOwnerAlive{false};
   Tasks pool(1);
+  const auto unrelated = pool.Post([] {});
+  CHECK(pool.AwaitCompletion(unrelated, 2), "an unrelated completion remains in the pool");
   std::mutex mutex;
   std::condition_variable wake;
   bool entered = false;
@@ -96,13 +98,15 @@ int main() {
     task.Start(pool, mesher);
     mesher.reset();
     CHECK(!weak.expired(), "the task owns the mesher while its worker is still queued");
+    CHECK(!task.AwaitCompletion(0.01),
+          "another job's completion cannot complete a queued building slice");
     {
       const std::scoped_lock lock(mutex);
       released = true;
     }
     wake.notify_all();
     pool.Wait(blocker);
-    task.Join(pool);
+    task.Join();
     CHECK(calls.load(std::memory_order_relaxed) > 0 && !weak.expired(),
           "real meshing runs after creator teardown and retains its mesher for continuation");
     const auto workerReleased = pool.Post([] {});
@@ -113,5 +117,6 @@ int main() {
   CHECK(weak.expired(), "completed task and worker release their last mesher owner");
   CHECK(scratchOwnerAlive.load(std::memory_order_relaxed),
         "the mesher also outlives destruction of the scratch that its factory created");
+  CHECK(pool.TakeCompletion(unrelated), "the unrelated completion remains available to its owner");
   return Report();
 }

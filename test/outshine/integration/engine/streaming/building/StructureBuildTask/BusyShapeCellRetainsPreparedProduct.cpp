@@ -67,7 +67,7 @@ struct Fixture {
   ~Fixture() {
     if (Job) {
       Job->RequestStop();
-      Job->Join(Pool);
+      Job->Join();
     }
     Job.reset();
     Writer.reset();
@@ -108,13 +108,13 @@ struct Fixture {
                                                Mesher.Scratch());
     Job->UseNativeAssets(Cache, Key(*Cache), Request(*Cache));
     Job->Start(Pool, MesherOwner);
-    Job->Join(Pool);
+    Job->Join();
   }
 
   void Resume() {
     if (Job->CanResume()) {
       Job->Resume(Pool);
-      Job->Join(Pool);
+      Job->Join();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }

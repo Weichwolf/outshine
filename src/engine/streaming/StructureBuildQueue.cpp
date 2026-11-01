@@ -525,7 +525,7 @@ void StructureBuildQueue::DiscardStale(const ::outshine::Generators::Osm::OsmFie
                                            purpose,
                                            InputObjectsFor(Queue_.front().Task.Tile())))) {
     QueuedBuild &stale = Queue_.front();
-    if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
+    if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(); }
     if (!stale.Finished) { return; }
     DiscardFront(prints);
   }
@@ -566,7 +566,7 @@ void StructureBuildQueue::PollCompletedTasks() {
   const auto collect = [this](std::deque<QueuedBuild> &queue) {
     for (QueuedBuild &bake : queue) {
       if (!bake.Finished) {
-        bake.Finished = bake.Task.TakeCompletion(*Pool_);
+        bake.Finished = bake.Task.TakeCompletion();
         if (bake.Finished) {
           bake.BakedStructures = bake.Task.Progress().BakedStructures();
           ++bake.Tasks;
@@ -1265,9 +1265,7 @@ void StructureBuildQueue::Clear() {
   OriginalHeightTiles_.clear();
   OriginalHeightZoom_ = -1;
   PreparingOriginalHeightZoom_ = -1;
-  for (QueuedBuild &bake : Queue_) {
-    if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
-  }
+  for (QueuedBuild &bake : Queue_) { bake.Task.Join(); }
   Queue_.clear();
   IdleRaw_.clear();
   IdleOut_.clear();

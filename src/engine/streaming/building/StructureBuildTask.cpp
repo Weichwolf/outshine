@@ -1,16 +1,19 @@
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
+#include "Tasks.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <bit>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <ratio>
 #include <utility>
@@ -473,6 +476,31 @@ struct StructureBuildTask::NativeProducts {
 };
 
 struct StructureBuildTask::Payload {
+  struct Completion {
+    explicit Completion(std::shared_ptr<Payload> value) : Value(std::move(value)) {}
+
+    ~Completion() {
+      if (!Started) {
+        if (Value->Native) {
+          Value->Native->Cancel(*Value->Result);
+        } else {
+          Value->Result->Tile.reset();
+          Value->Result->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+        }
+      }
+      {
+        const std::scoped_lock lock(Value->Mutex);
+        Value->Finished.store(true, std::memory_order_release);
+      }
+      Value->Changed.notify_all();
+    }
+
+    Completion(const Completion &) = delete;
+    Completion &operator=(const Completion &) = delete;
+    std::shared_ptr<Payload> Value;
+    bool Started = false;
+  };
+
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
   std::shared_ptr<const Ground::HeightField> Heights;
@@ -485,6 +513,9 @@ struct StructureBuildTask::Payload {
       std::make_unique<Generators::StructureBakeProgress>();
   std::shared_ptr<std::atomic_bool> Stopping = std::make_shared<std::atomic_bool>(false);
   std::unique_ptr<Comparison> SurfaceComparison;
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  std::atomic_bool Finished{false};
 };
 
 StructureBuildTask::StructureBuildTask(uint32_t tile,
@@ -609,19 +640,23 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   assert(State_ != State::Running);
   Tile_ = std::exchange(other.Tile_, 0);
   Payload_ = std::move(other.Payload_);
-  ActivePool_ = std::exchange(other.ActivePool_, nullptr);
-  Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
   State_ = std::exchange(other.State_, State::Empty);
   return *this;
 }
 
 bool StructureBuildTask::AwaitCompletion(double seconds) const {
-  if (Running()) { return ActivePool_->AwaitCompletion(seconds); }
-  if (ActivePool_ == nullptr || State_ != State::Completed || !Payload_->Native ||
-      !Payload_->Result->Status || Payload_->Result->Tile) {
-    return false;
+  if (!(seconds > 0.0) || !Payload_) { return false; }
+  if (Running()) {
+    std::unique_lock lock(Payload_->Mutex);
+    return Payload_->Changed.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
+      return Payload_->Finished.load(std::memory_order_acquire);
+    });
   }
-  return ActivePool_->AwaitCompletion(std::min(seconds, ResumeDelaySeconds()));
+  const double delay = std::min(seconds, ResumeDelaySeconds());
+  if (!(delay > 0.0)) { return false; }
+  std::unique_lock lock(Payload_->Mutex);
+  return Payload_->Changed.wait_for(
+      lock, std::chrono::duration<double>(delay), [] { return false; });
 }
 
 bool StructureBuildTask::Running() const noexcept {
@@ -668,9 +703,12 @@ void StructureBuildTask::SelectNextCell(uint32_t cell) {
 void StructureBuildTask::Posts(Tasks &pool) {
   assert(State_ != State::Running);
   const auto posted = std::chrono::steady_clock::now();
+  Payload_->Finished.store(false, std::memory_order_relaxed);
   State_ = State::Running;
-  ActivePool_ = &pool;
-  Handle_ = ActivePool_->Post([payload = Payload_, posted] {
+  const auto completion = std::make_shared<Payload::Completion>(Payload_);
+  (void)pool.PostDetached([completion, posted] {
+    completion->Started = true;
+    const auto &payload = completion->Value;
     Generators::RawTile *const raw = payload->Raw.get();
     const Ground::HeightField *const heights = payload->Heights.get();
     auto *const base = &payload->Base;
@@ -754,19 +792,19 @@ void StructureBuildTask::RequestStop() noexcept {
   if (Payload_) { Payload_->Stopping->store(true, std::memory_order_relaxed); }
 }
 
-bool StructureBuildTask::TakeCompletion(Tasks &pool) {
-  (void)pool;
-  if (State_ != State::Running || !ActivePool_->TakeCompletion(Handle_)) { return false; }
-  Handle_ = Tasks::kNoTask;
+bool StructureBuildTask::TakeCompletion() {
+  if (State_ != State::Running || !Payload_->Finished.load(std::memory_order_acquire)) {
+    return false;
+  }
   State_ = State::Completed;
   return true;
 }
 
-void StructureBuildTask::Join(Tasks &pool) {
+void StructureBuildTask::Join() {
   if (State_ != State::Running) { return; }
-  (void)pool;
-  ActivePool_->Wait(Handle_);
-  Handle_ = Tasks::kNoTask;
+  std::unique_lock lock(Payload_->Mutex);
+  Payload_->Changed.wait(lock,
+                         [this] { return Payload_->Finished.load(std::memory_order_acquire); });
   State_ = State::Completed;
 }
 
