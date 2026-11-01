@@ -6,8 +6,6 @@
 #include <string_view>
 #include <vector>
 
-#include <Generator.h>
-
 #include "DrawSet.h"
 #include "GeneratorSet.h"
 
@@ -52,8 +50,6 @@ public:
 
   [[nodiscard]] const Corridors &Corridors() const { return *Corridors_; }
 
-  [[nodiscard]] const Generator &Offered() const { return *Offered_; }
-
   [[nodiscard]] const GroundMesher &Covering() const { return *Coverer_; }
 
 private:
@@ -65,7 +61,6 @@ private:
   bool VegetationEnabled_ = true;
   std::string SpeciesDirectory_, MixturesPath_;
   std::vector<TreeSpecies> Species_;
-  std::unique_ptr<Generator> Offered_;
   std::unique_ptr<GroundMesher> Coverer_;
   std::shared_ptr<const StructureMesher> BuildingMesher_;
   std::unique_ptr<RoadMesher> Paver_;

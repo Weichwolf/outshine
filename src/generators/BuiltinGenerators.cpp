@@ -12,7 +12,6 @@
 #include "Forest.h"
 #include "ForestMixtures.h"
 #include "GroundPatchwork.h"
-#include "Structures.h"
 #include "ProfiledRoadMesher.h"
 
 #include "ForestDraw.h"
@@ -29,8 +28,7 @@
 namespace outshine::Generators {
 
 BuiltinGenerators::BuiltinGenerators()
-    : Offered_(std::make_unique<Structures>()),
-      Coverer_(std::make_unique<Patchworker>()),
+    : Coverer_(std::make_unique<Patchworker>()),
       BuildingMesher_(std::make_shared<BuildingMesh>()),
       Paver_(std::make_unique<ProfiledRoadMesher>()),
       Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}

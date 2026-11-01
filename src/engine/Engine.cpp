@@ -264,7 +264,7 @@ void Engine::setInputHost(Host *host) {
 
 Result Engine::registerGenerator(const Generators::Generator &generator) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  const auto registered = S_->World.Offering.registerGenerator(generator);
+  const auto registered = S_->Services.Generators.registerGenerator(generator);
   if (registered) { return {}; }
   return std::unexpected(registered.error() == Generators::Registry::RegistrationError::EmptyKind
                              ? Says::kEmptyGeneratorKind

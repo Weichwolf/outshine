@@ -122,6 +122,8 @@ struct EngineServices {
   // World consumers die first; providers and transport also outlive worker teardown.
   std::unique_ptr<Data::SourceTransport> Transport;
   Data::ProviderRegistry Providers;
+  std::unique_ptr<Generators::Generator> DefaultGenerator;
+  Generators::Registry Generators;
   std::unique_ptr<Tasks> Compute;
   std::unique_ptr<Tasks> Io;
   std::shared_ptr<JobAdmission> StructureBakes;
@@ -162,7 +164,6 @@ struct WorldRegionState {
   std::unique_ptr<Generators::Weather::WeatherSnapshotLoader> Weather;
   std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
-  Generators::Registry Offering;
   Generators::BuiltinGenerators Builtins;
 
   using Standing = WorldInstance;

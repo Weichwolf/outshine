@@ -13,6 +13,7 @@
 #include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineState.h"
+#include "Structures.h"
 #include "ScenarioDiagnostics.h"
 #include <cstdio>
 #include "UiAction.h"
@@ -379,8 +380,9 @@ void PublishConfiguration(ScenarioSession &session,
 }
 
 void Engine::ships() {
-  if (S_->World.Offering.count() > 0) { return; }
-  const auto shipped = registerGenerator(S_->World.Builtins.Offered());
+  if (S_->Services.Generators.count() > 0) { return; }
+  S_->Services.DefaultGenerator = std::make_unique<Generators::Structures>();
+  const auto shipped = registerGenerator(*S_->Services.DefaultGenerator);
   if (!shipped) { std::terminate(); }
 }
 
@@ -577,7 +579,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
   ships();
-  if (const auto valid = ValidateOfferedGenerators(scenario, S_->World.Offering, S_->Error);
+  if (const auto valid = ValidateOfferedGenerators(scenario, S_->Services.Generators, S_->Error);
       !valid) {
     return valid;
   }
@@ -629,7 +631,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
 
   auto prepared = PrepareRuntimeDeclaration(
       scenario,
-      S_->World.Offering,
+      S_->Services.Generators,
       scenario.Ground.Declared ? S_->World.Surface().TryGround() : nullptr,
       S_->World.GroundPositionsM,
       S_->World.GroundIndex,
