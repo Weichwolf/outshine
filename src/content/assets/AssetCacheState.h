@@ -3,6 +3,7 @@
 
 #include "AssetCache.h"
 #include "CacheUsageIndex.h"
+#include "SqliteFileBudget.h"
 #include <memory>
 #include <mutex>
 #include <sqlite3.h>
@@ -12,11 +13,15 @@ namespace outshine {
 struct AssetCache::State {
   // Handles of one database share the lock; transaction helpers can call lookups.
   std::shared_ptr<std::recursive_mutex> Mutex;
+  std::shared_ptr<SqliteFileBudget> Budget;
   sqlite3 *Database = nullptr;
   std::unique_ptr<CacheUsageIndex> Usage;
   bool UsageWarning = false;
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
   void WarnUsage();
+  [[nodiscard]] std::expected<void, AssetCacheError> Reclaim() const;
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  StorePublication(const AssetCache::Publication &publication);
   ~State();
 };
 

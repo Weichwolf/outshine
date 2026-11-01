@@ -1,4 +1,5 @@
 #include "CacheTrimSql.h"
+#include <utility>
 #include <algorithm>
 #include <cstdint>
 #include <expected>
@@ -113,12 +114,19 @@ std::expected<void, std::string> Commit(Database &database, bool compact) {
   return {};
 }
 
-std::expected<std::unique_ptr<Database>, std::string> Open(const std::filesystem::path &path,
-                                                           bool apply) {
+std::expected<std::unique_ptr<Database>, std::string>
+Open(const std::filesystem::path &path, bool apply, std::shared_ptr<SqliteFileBudget> budget) {
   auto database = std::make_unique<Database>();
+  database->Budget = std::move(budget);
+  if (database->Budget && apply) {
+    database->Maintenance = std::make_unique<SqliteFileBudget::Maintenance>(*database->Budget);
+  }
   const int flags = apply ? (SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX)
                           : (SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX);
-  if (sqlite3_open_v2(path.string().c_str(), &database->Handle, flags, nullptr) != SQLITE_OK) {
+  if (sqlite3_open_v2(path.string().c_str(),
+                      &database->Handle,
+                      flags,
+                      database->Budget ? database->Budget->VfsName() : nullptr) != SQLITE_OK) {
     return std::unexpected(path.string() + ": " + sqlite3_errmsg(database->Handle));
   }
   if (auto begun = Exec(database->Handle, apply ? "BEGIN IMMEDIATE" : "BEGIN"); !begun) {

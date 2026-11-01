@@ -1,6 +1,7 @@
 #include "CacheCommand.h"
 #include "AssetCacheTrim.h"
 #include "SourceCacheTrim.h"
+#include "SqliteFileBudget.h"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -40,6 +41,7 @@ struct OptionValue {
 
 void Usage() {
   std::println("Usage: outshine cache trim [options]\n"
+               "       outshine cache limit [--assets-mib N] [--root PATH]\n"
                "  --assets-mib N   total compressed package budget across asset databases\n"
                "  --sources-mib N  source-file budget, including cached absence records\n"
                "  --root PATH      cache parent containing assets/ and sources/\n"
@@ -112,6 +114,73 @@ std::expected<Options, std::string> Parse(std::span<const char *const> arguments
   return options;
 }
 
+int Limit(std::span<const char *const> arguments) {
+  Options options;
+  while (!arguments.empty()) {
+    const std::string_view flag = arguments.front();
+    arguments = arguments.subspan(1);
+    if (flag != "--root" && flag != "--assets-mib") {
+      std::println(stderr, "outshine: unknown cache limit option: {}", flag);
+      return 2;
+    }
+    if (arguments.empty() || std::string_view(arguments.front()).empty() ||
+        std::string_view(arguments.front()).starts_with("--")) {
+      std::println(stderr, "outshine: {} requires a value", flag);
+      return 2;
+    }
+    const auto set = AssignOption(options, {.Name = flag, .Value = arguments.front()});
+    if (!set) {
+      std::println(stderr, "outshine: {}", set.error());
+      return 2;
+    }
+    arguments = arguments.subspan(1);
+  }
+  const char *base = options.Root ? nullptr : SDL_GetBasePath();
+  if (!options.Root && base == nullptr) {
+    std::println(stderr, "outshine: could not locate asset cache");
+    return 1;
+  }
+  const auto directory =
+      (options.Root ? std::filesystem::path(*options.Root) : std::filesystem::path(base)) /
+      "assets";
+  std::error_code error;
+  if (options.Assets) {
+    std::filesystem::create_directories(directory, error);
+    if (error) {
+      std::println(stderr, "outshine: {}", error.message());
+      return 1;
+    }
+    const auto configured = SqliteFileBudget::Configure(directory, *options.Assets);
+    if (!configured) {
+      std::println(stderr, "outshine: {}", configured.error());
+      return 1;
+    }
+  }
+  if (!std::filesystem::exists(directory, error) && !error) {
+    std::println("CACHE\tlimit\tlimit_bytes={}\tcharged_bytes=0", SqliteFileBudget::DefaultBytes);
+    return 0;
+  }
+  const auto budget = SqliteFileBudget::Open(directory);
+  if (!budget) {
+    std::println(stderr, "outshine: {}", budget.error());
+    return 1;
+  }
+  const auto usage = (*budget)->Inspect();
+  if (!usage) {
+    std::println(stderr, "outshine: {}", usage.error());
+    return 1;
+  }
+  std::println("CACHE\tlimit\tlimit_bytes={}\treserve_bytes={}\tfile_bytes={}\tallocated_bytes={}"
+               "\tcharged_bytes={}\tover_budget={}",
+               (*budget)->Limit(),
+               (*budget)->Reserve(),
+               usage->FileBytes,
+               usage->AllocatedBytes,
+               usage->ChargedBytes,
+               usage->ChargedBytes > (*budget)->Limit() ? 1 : 0);
+  return 0;
+}
+
 void Report(std::string_view name, const CacheTrimResult &result, bool apply, double elapsedMs) {
   std::println("CACHE\t{}\tmode={}\tstored_bytes={}\tretained_bytes={}\tentries_selected={}\t"
                "packages_selected={}\tunknown_use={}\tfile_bytes_before={}\tfile_bytes_after={}\t"
@@ -129,7 +198,8 @@ void Report(std::string_view name, const CacheTrimResult &result, bool apply, do
 }
 }
 
-int RunCacheCommand(std::span<const char *const> arguments) {
+namespace {
+int TrimCommand(std::span<const char *const> arguments) {
   if (arguments.empty() || std::ranges::any_of(arguments, [](const char *arg) {
         return std::string_view(arg) == "--help";
       })) {
@@ -176,6 +246,15 @@ int RunCacheCommand(std::span<const char *const> arguments) {
     Report(assets ? "assets" : "sources", *result, options->Apply, elapsedMs);
   }
   return 0;
+}
+
+}
+
+int RunCacheCommand(std::span<const char *const> arguments) {
+  if (!arguments.empty() && std::string_view(arguments.front()) == "limit") {
+    return Limit(arguments.subspan(1));
+  }
+  return TrimCommand(arguments);
 }
 
 }

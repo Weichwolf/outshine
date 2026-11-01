@@ -1,4 +1,6 @@
 #include "CacheUsageIndex.h"
+#include <cstdint>
+#include <cstddef>
 #include "Check.h"
 #include <chrono>
 #include <filesystem>

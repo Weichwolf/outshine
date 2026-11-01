@@ -1,4 +1,5 @@
 #include "CacheUsageIndex.h"
+#include "SqliteFileBudget.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -82,6 +83,7 @@ Write(sqlite3 *database, const std::unordered_map<std::string, Observation> &pen
 }
 
 struct CacheUsageIndex::State {
+  std::shared_ptr<SqliteFileBudget> Budget;
   sqlite3 *Database = nullptr;
   std::mutex Mutex;
   std::unordered_map<std::string, Observation> Pending;
@@ -96,15 +98,16 @@ CacheUsageIndex::~CacheUsageIndex() {
 }
 
 std::expected<std::unique_ptr<CacheUsageIndex>, std::string>
-CacheUsageIndex::Open(const std::string &path) {
+CacheUsageIndex::Open(const std::string &path, std::shared_ptr<SqliteFileBudget> budget) {
   if (path.empty() || path.contains('\0')) {
     return std::unexpected("cache usage index requires a valid path");
   }
   auto state = std::make_unique<State>();
+  state->Budget = std::move(budget);
   if (sqlite3_open_v2(path.c_str(),
                       &state->Database,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
-                      nullptr) != SQLITE_OK) {
+                      state->Budget ? state->Budget->VfsName() : nullptr) != SQLITE_OK) {
     return std::unexpected(Error(state->Database));
   }
   if (sqlite3_exec(state->Database,

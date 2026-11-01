@@ -76,6 +76,33 @@ class CacheCommand(unittest.TestCase):
                 rows[fields[1]] = dict(item.split('=', 1) for item in fields[2:])
         return result, rows
 
+    def run_limit(self, *arguments, status=0):
+        result = subprocess.run([str(CLIENT), 'cache', 'limit', '--root', str(self.root), *arguments],
+                                env=self.env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+        self.assertNotIn('SDL did not start', result.stdout + result.stderr)
+        return result
+
+    def test_limit_defaults_and_persists_without_touching_sources(self):
+        self.assertIn('limit_bytes=34359738368', self.run_limit().stdout)
+        self.assertFalse((self.root / 'assets').exists())
+        sources = self.root / 'sources'
+        sources.mkdir()
+        sentinel = sources / 'source.keep'
+        sentinel.write_bytes(b'original source')
+        self.assertIn('limit_bytes=12582912', self.run_limit('--assets-mib', '12').stdout)
+        self.assertIn('limit_bytes=12582912', self.run_limit().stdout)
+        self.assertEqual(sentinel.read_bytes(), b'original source')
+        self.assertTrue((self.root / 'assets/budget.json').is_file())
+
+    def test_limit_rejects_invalid_settings_and_malformed_json(self):
+        for args in [('--assets-mib',), ('--assets-mib', '-1'), ('--sources-mib', '12'),
+                     ('--assets-mib', '12', '--assets-mib', '16')]:
+            self.run_limit(*args, status=2)
+        self.run_limit('--assets-mib', '0', status=1)
+        (self.root / 'assets/budget.json').write_text('{"version":[],"limit_bytes":12582912}')
+        self.run_limit(status=1)
+
     def fixture(self):
         assets(self.world, [('old', MIB // 2, 2, 10), ('new', MIB // 2, 1, 20),
                             ('orphan', MIB // 4, 0, None)])
