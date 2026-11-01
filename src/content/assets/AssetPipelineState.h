@@ -14,6 +14,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     std::shared_ptr<State> Owner;
     size_t Bytes = 0;
     size_t InputBytes = 0;
+    size_t ConsumerBytes = 0;
     ~Reservation();
   };
 
@@ -103,6 +104,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   [[nodiscard]] static AssetPublication Receipt(const std::shared_ptr<Job> &job,
                                                 std::expected<AssetProduct, std::string> result);
   void Remove(const std::shared_ptr<Job> &job);
+  void ReleaseConsumerWorkspace(Job &job);
   Tasks &Pool;
   Limits Budget;
   mutable std::mutex Lock;

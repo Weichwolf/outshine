@@ -69,6 +69,8 @@ public:
     [[nodiscard]] bool Reject() noexcept;
     [[nodiscard]] AssetPublication Poll() const noexcept;
     // Replace this ticket's consumer retention before allocating owner buffers.
+    // Consume carried product workspace first; shared tickets draw it only once.
+    // The last ticket or rejection releases any unused carried workspace.
     // Release old buffers before shrinking; cancellation retains bytes until ticket destruction.
     [[nodiscard]] std::expected<void, AssetPublicationError>
     SetConsumerBytes(size_t bytes) noexcept;

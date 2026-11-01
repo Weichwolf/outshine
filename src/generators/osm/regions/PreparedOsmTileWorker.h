@@ -53,7 +53,8 @@ struct PreparedOsmTiles::Production {
     Generate,
     Publish,
     RestorePlan,
-    Restore
+    Restore,
+    Deliver
   };
   std::shared_ptr<Worker> Owner;
   Layout Definition;
@@ -69,6 +70,7 @@ struct PreparedOsmTiles::Production {
   std::optional<PreparedAssetWrite> Publication;
   std::string ProductKey;
   size_t PublicationBytes = 0;
+  std::optional<AssetProduct> Delivery;
   ~Production();
 };
 
@@ -87,6 +89,10 @@ struct PreparedOsmTiles::Worker {
   [[nodiscard]] std::expected<void, std::string> Generate(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
   PlanGeneration(Production &work);
+  [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string>
+  PrepareDelivery(Production &work, CachedAsset native);
+  [[nodiscard]] static std::expected<AssetPipeline::LogicalStep, std::string>
+  Deliver(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> Lookup(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, std::string> LookupHit(Production &work);
   [[nodiscard]] std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure>

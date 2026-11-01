@@ -42,6 +42,7 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
   if (!result) { return Failed(AssetPublicationError::ProducerFailed, std::move(result.error())); }
   const auto &content = result->Record();
   const size_t backingBytes = result->BackingBytes();
+  const size_t consumerBytes = result->ConsumerBytesMost();
   const auto key = AssetProductKey::Parse(content.Key);
   const auto request =
       content.RequestKey ? AssetProductKey::Parse(*content.RequestKey) : std::nullopt;
@@ -50,7 +51,7 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
                            : !content.RequestKey && key && *key == job->Key;
   if (!key || !binding || !AssetProductKey::Parse(content.Package) || content.ByteCount == 0 ||
       content.Kind.empty() || result->CapacityBytes() - backingBytes > job->Output->Bytes ||
-      backingBytes > job->InputBytes) {
+      backingBytes > job->InputBytes || consumerBytes > job->InputBytes - backingBytes) {
     return Failed(AssetPublicationError::InvalidReceipt,
                   "producer returned an invalid publication receipt");
   }
@@ -59,9 +60,11 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
       StoredReceipt{.Reservation = job->Output, .Product = std::move(*result)});
   {
     const std::scoped_lock lock(job->Output->Owner->Lock);
-    job->InputBytes -= backingBytes;
-    job->Output->Owner->JobInputBytes -= backingBytes;
-    job->Output->InputBytes = backingBytes;
+    const size_t retained = backingBytes + consumerBytes;
+    job->InputBytes -= retained;
+    job->Output->Owner->JobInputBytes -= retained;
+    job->Output->InputBytes = retained;
+    job->Output->ConsumerBytes = consumerBytes;
   }
   std::shared_ptr<const AssetRecord> record(stored, &stored->Product.Record());
   std::shared_ptr<const CachedAsset> native;
@@ -71,7 +74,8 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
           .Error = AssetPublicationError::InvalidRequest,
           .Message = {},
           .Native = std::move(native),
-          .RequestHit = job->Domain == KeyDomain::Request};
+          .RequestHit = job->Domain == KeyDomain::Request,
+          .ConsumerBytesMost = consumerBytes};
 }
 
 AssetPublication AssetPipeline::State::Failure(const std::shared_ptr<Job> &job,

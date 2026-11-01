@@ -17,7 +17,10 @@ bool PreparedOsmTiles::Worker::AdmitOwner(Work &work,
                                           size_t bytes) {
   const auto admitted = ticket.SetConsumerBytes(bytes);
   if (admitted) { return true; }
-  if (admitted.error() != AssetPublicationError::ResourceDeferred) {
+  if (admitted.error() == AssetPublicationError::ResourceDeferred) {
+    work.Retry = true;
+    ticket.Cancel();
+  } else {
     work.Result = std::unexpected("native OSM owner admission failed");
   }
   return false;
@@ -212,7 +215,12 @@ void PreparedOsmTiles::Worker::Decode(Work &work, const AssetPublication &public
     Repair(work, *native, ticket);
     return;
   }
-  const auto bytes = OsmField::NativeTileDecodeBytes(native->Bytes(), kHeapBytesMost);
+  std::optional<size_t> bytes;
+  if (work.Override) {
+    bytes = OsmField::NativeTileDecodeBytes(native->Bytes(), kHeapBytesMost);
+  } else if (publication.ConsumerBytesMost > kReceiptBytesMost) {
+    bytes = std::min(kHeapBytesMost, publication.ConsumerBytesMost - kReceiptBytesMost);
+  }
   if (!bytes) {
     work.BadBinding = publication.RequestHit || work.Override.has_value();
     if (!work.BadBinding) {

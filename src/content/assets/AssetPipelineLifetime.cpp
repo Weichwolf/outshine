@@ -1,4 +1,5 @@
 #include "AssetPipelineState.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <expected>
@@ -43,9 +44,17 @@ void AssetPipeline::State::CancelTicket(uint64_t ticket) noexcept {
 
 void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
   if (job->Finished && job->References == 0) {
+    ReleaseConsumerWorkspace(*job);
     std::erase_if(Jobs, [&](const auto &entry) { return entry.second == job; });
     --Held.Jobs;
   }
+}
+
+void AssetPipeline::State::ReleaseConsumerWorkspace(Job &job) {
+  if (!job.Output) { return; }
+  const size_t unused = std::exchange(job.Output->ConsumerBytes, 0);
+  job.Output->InputBytes -= unused;
+  Held.InputBytes -= unused;
 }
 
 void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
@@ -221,6 +230,7 @@ bool AssetPipeline::RequestTicket::Reject() noexcept {
       return job->Result.Error == AssetPublicationError::Rejected;
     }
     retired = std::move(job->Result);
+    State_->ReleaseConsumerWorkspace(*job);
     job->Result = {.Status = AssetPublicationStatus::Failed,
                    .Receipt = {},
                    .Error = AssetPublicationError::Rejected,
@@ -245,11 +255,22 @@ AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
   if (bytes > state.Budget.InputBytesMost) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
-  const size_t others = state.Held.InputBytes - at->second.Bytes;
-  if (bytes > at->second.Bytes && bytes - at->second.Bytes > state.InputRoom(Id_)) {
+  const size_t previous = at->second.Bytes;
+  const size_t growth = bytes > previous ? bytes - previous : 0;
+  auto *output = at->second.Work->Output.get();
+  const size_t carried = output != nullptr ? std::min(growth, output->ConsumerBytes) : 0;
+  if (growth > carried && growth - carried > state.InputRoom(Id_)) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
-  state.Held.InputBytes = others + bytes;
+  if (output != nullptr) {
+    output->ConsumerBytes -= carried;
+    output->InputBytes -= carried;
+  }
+  if (bytes >= previous) {
+    state.Held.InputBytes += growth - carried;
+  } else {
+    state.Held.InputBytes -= previous - bytes;
+  }
   at->second.Bytes = bytes;
   return {};
 }

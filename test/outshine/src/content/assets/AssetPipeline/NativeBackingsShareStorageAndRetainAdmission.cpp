@@ -9,6 +9,7 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <span>
 #include <stop_token>
@@ -24,8 +25,6 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 constexpr size_t kPackageBytes = 8192, kReservation = 16384;
-static_assert(!std::is_copy_constructible_v<CachedAsset>);
-static_assert(!std::is_copy_assignable_v<CachedAsset>);
 const std::string kContent(64, 'a'), kAddress(64, 'b'), kOtherAddress(64, 'c');
 
 AssetRecord Record(char key, uint64_t offset, uint64_t count) {
@@ -265,10 +264,184 @@ void WholePackageBudget() {
             pipeline.Counts().ReceiptBytes == 0,
         "rejected native output releases its backing and reservation without partial results");
 }
+
+AssetPipeline::Producer PrepareNativeProduct(CachedAsset native, size_t consumerBytes) {
+  return [input = std::make_shared<std::optional<CachedAsset>>(std::move(native)),
+          consumerBytes](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
+    if (!*input) { return std::unexpected("prepared native input was already consumed"); }
+    AssetProduct product(std::move(**input), consumerBytes);
+    (*input).reset();
+    return product;
+  };
+}
+
+void ConsumerWorkspaceHandoff() {
+  constexpr size_t workspace = 4096;
+  constexpr size_t bound = kPackageBytes + workspace;
+  StoreFixture fixture;
+  CHECK(fixture.Open(), "workspace transfer uses an actual cached native package");
+  if (!fixture.Cache) { return; }
+  const auto key = AssetProductKey::Parse(kContent);
+  CHECK(key, "the workspace fixture uses a valid immutable content key");
+  if (!key) { return; }
+  auto native = fixture.Cache->Load(kContent, kPackageBytes);
+  CHECK(native && *native, "the fixture prepares its immutable native input before submission");
+  if (!native || !*native) { return; }
+  Tasks pool(1);
+  AssetPipeline pipeline(pool,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 2,
+                          .TicketsMost = 2,
+                          .InputBytesMost = bound,
+                          .ReceiptBytesMost = kReservation});
+  auto a = pipeline.OpenConsumer();
+  auto b = pipeline.OpenConsumer();
+  CHECK(a && b, "independent consumers share one publication and one carried workspace");
+  if (!a || !b) { return; }
+  const AssetPipeline::ResolvedRequest request{.Key = *key,
+                                               .Generation = a->Generation(),
+                                               .InputBytes = bound,
+                                               .ReceiptBytesMost = kReservation};
+  auto first =
+      pipeline.RequestResolved(*a, request, PrepareNativeProduct(std::move(**native), workspace));
+  auto second = pipeline.RequestResolved(
+      *b, request, [](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
+        return std::unexpected("a coalesced producer must not run");
+      });
+  CHECK(first && second, "both demands use the same native product rather than another package");
+  if (!first || !second) { return; }
+  auto left = Wait(*first);
+  auto right = Wait(*second);
+  CHECK(left.Native && right.Native == left.Native && left.ConsumerBytesMost == workspace &&
+            right.ConsumerBytesMost == workspace && pipeline.Counts().InputBytes == bound,
+        "publication retains package plus future workspace under the original input bound");
+  CHECK(first->SetConsumerBytes(workspace / 2) && pipeline.Counts().InputBytes == bound,
+        "the first consumer draws from carried workspace without additional free RAM");
+  const auto tooMuch = second->SetConsumerBytes(workspace);
+  CHECK(!tooMuch && tooMuch.error() == AssetPublicationError::ResourceDeferred &&
+            pipeline.Counts().InputBytes == bound,
+        "another consumer cannot spend the same carried bytes or consume a partial failed grant");
+  CHECK(second->SetConsumerBytes(workspace / 2) && pipeline.Counts().InputBytes == bound,
+        "the remaining carried workspace is still available after the refused larger grant");
+  CHECK(first->SetConsumerBytes(0) && second->SetConsumerBytes(workspace) &&
+            second->SetConsumerBytes(workspace) && pipeline.Counts().InputBytes == bound,
+        "released consumer bytes can be reused and repeated retention never charges twice");
+  first = std::unexpected(AssetPublicationError::InvalidRequest);
+  second = std::unexpected(AssetPublicationError::InvalidRequest);
+  CHECK(
+      pipeline.Counts().InputBytes == kPackageBytes,
+      "ticket destruction releases consumer retention while native aliases still own the package");
+  left = {};
+  right = {};
+  CHECK(pipeline.Counts().InputBytes == 0 && pipeline.Counts().ReceiptBytes == 0,
+        "the final native aliases release their package and publication metadata");
+}
+
+void UnusedConsumerWorkspace(bool reject) {
+  constexpr size_t workspace = 4096;
+  constexpr size_t bound = kPackageBytes + workspace;
+  StoreFixture fixture;
+  CHECK(fixture.Open(), "unused workspace fixture opens");
+  if (!fixture.Cache) { return; }
+  const auto key = AssetProductKey::Parse(kContent);
+  CHECK(key, "the unused workspace fixture uses a valid immutable content key");
+  if (!key) { return; }
+  auto native = fixture.Cache->Load(kContent, kPackageBytes);
+  CHECK(native && *native,
+        "unused workspace input is prepared outside the tested publication stage");
+  if (!native || !*native) { return; }
+  Tasks pool(1);
+  AssetPipeline pipeline(pool,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 2,
+                          .InputBytesMost = bound,
+                          .ReceiptBytesMost = kReservation});
+  auto owner = pipeline.OpenConsumer();
+  CHECK(owner, "the workspace owner opens");
+  if (!owner) { return; }
+  const AssetPipeline::ResolvedRequest request{.Key = *key,
+                                               .Generation = owner->Generation(),
+                                               .InputBytes = bound,
+                                               .ReceiptBytesMost = kReservation};
+  auto first = pipeline.RequestResolved(
+      *owner, request, PrepareNativeProduct(std::move(**native), workspace));
+  auto second = pipeline.RequestResolved(
+      *owner, request, [](const std::stop_token &) -> std::expected<AssetProduct, std::string> {
+        return std::unexpected("a coalesced producer must not run");
+      });
+  CHECK(first && second, "two tickets share the carried workspace");
+  if (!first || !second) { return; }
+  auto publication = Wait(*first);
+  CHECK(publication.Native && pipeline.Counts().InputBytes == bound,
+        "unused workspace remains charged while interested tickets exist");
+  if (reject) {
+    CHECK(first->Reject() && pipeline.Counts().InputBytes == kPackageBytes &&
+              second->Poll().Error == AssetPublicationError::Rejected,
+          "rejection releases unusable workspace without freeing externally retained native bytes");
+  } else {
+    first->Cancel();
+    const auto cancelled = first->SetConsumerBytes(1);
+    CHECK(!cancelled && cancelled.error() == AssetPublicationError::Cancelled &&
+              pipeline.Counts().InputBytes == bound,
+          "a cancelled ticket cannot draw another consumer's carried workspace");
+    first = std::unexpected(AssetPublicationError::InvalidRequest);
+    CHECK(pipeline.Counts().InputBytes == bound,
+          "a surviving interested ticket retains its unused workspace");
+  }
+  first = std::unexpected(AssetPublicationError::InvalidRequest);
+  second = std::unexpected(AssetPublicationError::InvalidRequest);
+  CHECK(pipeline.Counts().InputBytes == kPackageBytes,
+        "the last ticket releases unconsumable workspace even while a native alias remains");
+  publication = {};
+  CHECK(pipeline.Counts().InputBytes == 0 && pipeline.Counts().ReceiptBytes == 0,
+        "final release leaves neither backing bytes nor workspace charged");
+}
+
+void ConsumerWorkspaceMustFit(size_t workspace) {
+  StoreFixture fixture;
+  CHECK(fixture.Open(), "invalid carried workspace fixture opens");
+  if (!fixture.Cache) { return; }
+  const auto key = AssetProductKey::Parse(kContent);
+  CHECK(key, "the invalid workspace fixture still uses a valid immutable content key");
+  if (!key) { return; }
+  auto native = fixture.Cache->Load(kContent, kPackageBytes);
+  CHECK(native && *native, "invalid bound test uses an actual native package");
+  if (!native || !*native) { return; }
+  Tasks pool(1);
+  AssetPipeline pipeline(pool,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = kPackageBytes,
+                          .ReceiptBytesMost = kReservation});
+  auto owner = pipeline.OpenConsumer();
+  if (!owner) { return; }
+  auto ticket = pipeline.RequestResolved(*owner,
+                                         {.Key = *key,
+                                          .Generation = owner->Generation(),
+                                          .InputBytes = kPackageBytes,
+                                          .ReceiptBytesMost = kReservation},
+                                         PrepareNativeProduct(std::move(**native), workspace));
+  CHECK(ticket, "only the backing bytes were admitted before the invalid output");
+  if (!ticket) { return; }
+  const auto failed = Wait(*ticket);
+  CHECK(failed.Status == AssetPublicationStatus::Failed &&
+            failed.Error == AssetPublicationError::InvalidReceipt && !failed.Native &&
+            pipeline.Counts().InputBytes == 0,
+        "backing plus workspace must fit the job, including overflow-sized claims");
+}
 }
 
 int main() {
+  CHECK(!std::is_copy_constructible_v<CachedAsset> && !std::is_copy_assignable_v<CachedAsset>,
+        "native backing ownership remains move-only");
   SharedNativeResult();
   WholePackageBudget();
+  ConsumerWorkspaceHandoff();
+  UnusedConsumerWorkspace(false);
+  UnusedConsumerWorkspace(true);
+  ConsumerWorkspaceMustFit(1);
+  ConsumerWorkspaceMustFit(std::numeric_limits<size_t>::max());
   return Report();
 }

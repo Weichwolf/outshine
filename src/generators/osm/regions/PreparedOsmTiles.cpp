@@ -175,8 +175,8 @@ PreparedOsmTiles::Acquire(TileAt at, const OsmField &layout) {
   });
   if (found != Pending_.end()) {
     auto result = Advance(*found);
-    if (result &&
-        (result->Status == State::Ready || result->Status == State::Absent || (*found)->Retry)) {
+    if (result && (result->Status == State::Ready || result->Status == State::Absent ||
+                   (DecodeIdle(**found) && (*found)->Retry))) {
       Pending_.erase(found);
     }
     return result;

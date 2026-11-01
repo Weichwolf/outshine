@@ -37,6 +37,7 @@ PreparedOsmTiles::Worker::Produce(Production &work, const std::stop_token &stop)
   if (stop.stop_requested()) { return std::unexpected("native OSM preparation cancelled"); }
   switch (work.Stage) {
     case Production::Phase::Prepare: return PrepareContent(work);
+    case Production::Phase::Deliver: return Deliver(work);
     case Production::Phase::GenerationAdmission: return PlanGeneration(work);
     case Production::Phase::Generate: {
       if (!work.Landing) { return std::unexpected("native OSM generation has no input"); }
@@ -140,6 +141,6 @@ PreparedOsmTiles::Worker::Restore(Production &work) {
                                              work.Publication ? work.PublicationBytes : inputBytes};
   }
   PublicationReadBytes_ += (**loaded).Bytes().size();
-  return std::optional<AssetProduct>(AssetProduct(std::move(**loaded)));
+  return PrepareDelivery(work, std::move(**loaded));
 }
 }

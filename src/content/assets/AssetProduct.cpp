@@ -5,9 +5,11 @@
 #include <variant>
 
 namespace outshine {
-AssetProduct::AssetProduct(AssetRecord record) : Data_(std::move(record)) {}
+AssetProduct::AssetProduct(AssetRecord record, size_t consumerBytesMost)
+    : Data_(std::move(record)), ConsumerBytesMost_(consumerBytesMost) {}
 
-AssetProduct::AssetProduct(CachedAsset native) : Data_(std::move(native)) {}
+AssetProduct::AssetProduct(CachedAsset native, size_t consumerBytesMost)
+    : Data_(std::move(native)), ConsumerBytesMost_(consumerBytesMost) {}
 
 const AssetRecord &AssetProduct::Record() const noexcept {
   if (const auto *record = std::get_if<AssetRecord>(&Data_)) { return *record; }

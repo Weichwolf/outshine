@@ -66,6 +66,7 @@ struct AssetPublication {
   std::shared_ptr<const CachedAsset> Native;
   bool RequestHit = false;
   std::shared_ptr<const std::any> Failure = nullptr;
+  size_t ConsumerBytesMost = 0;
 };
 }
 #endif

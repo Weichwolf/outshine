@@ -23,6 +23,7 @@ PreparedOsmTiles::Worker::Resolve(const std::shared_ptr<Production> &work,
     case Production::Phase::Hit: return LookupHit(*work);
     case Production::Phase::Source: return OpenSource(work);
     case Production::Phase::AwaitSource: return PollSource(work);
+    case Production::Phase::Deliver: return Deliver(*work);
     default: return std::unexpected("invalid native OSM request stage");
   }
 }
@@ -73,9 +74,7 @@ PreparedOsmTiles::Worker::LookupHit(Production &work) {
   if (*loaded) {
     ++Hits_;
     ReadBytes_ += (**loaded).Bytes().size();
-    AssetProduct product(std::move(**loaded));
-    product.SetRequestBinding(work.Request);
-    return std::optional<AssetProduct>(std::move(product));
+    return PrepareDelivery(work, std::move(**loaded));
   }
   ++Misses_;
   work.Stage = Production::Phase::Source;

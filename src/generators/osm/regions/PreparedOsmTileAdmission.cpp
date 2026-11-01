@@ -6,6 +6,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace outshine::Generators::Osm {
 namespace {
@@ -51,6 +52,30 @@ PreparedOsmTiles::Worker::PlanGeneration(Production &work) {
   }
   work.Stage = Production::Phase::Generate;
   return AssetPipeline::InputAdmission{.Bytes = work.GenerationMost};
+}
+
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Worker::PrepareDelivery(Production &work, CachedAsset native) {
+  const auto decoded = OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost);
+  const auto consumer = Sum({decoded.value_or(work.LoadPlan.BufferBytesMost), kReceiptBytesMost});
+  if (!consumer) { return std::unexpected("native OSM consumer storage plan overflows"); }
+  AssetProduct product(std::move(native), *consumer);
+  if (work.Stage == Production::Phase::Hit) { product.SetRequestBinding(work.Request); }
+  const auto total = Sum({product.BackingBytes(), *consumer});
+  if (!total) { return std::unexpected("native OSM delivery storage plan overflows"); }
+  SetPublication(work, std::nullopt);
+  work.Landing.reset();
+  work.Delivery.emplace(std::move(product));
+  work.Stage = Production::Phase::Deliver;
+  return AssetPipeline::InputAdmission{.Bytes = *total};
+}
+
+std::expected<AssetPipeline::LogicalStep, std::string>
+PreparedOsmTiles::Worker::Deliver(Production &work) {
+  if (!work.Delivery) { return std::unexpected("native OSM delivery has no prepared product"); }
+  auto product = std::move(*work.Delivery);
+  work.Delivery.reset();
+  return std::optional<AssetProduct>(std::move(product));
 }
 
 }
