@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "AssetCache.h"
 #include "BuildingMesh.h"
@@ -66,7 +67,8 @@ struct Case {
     auto view = std::make_unique<RawTile>();
     view->Eye = Env.Eye;
     view->Projection = {.FocalPx = 720};
-    Work = std::make_unique<StructureBuildTask>(0,
+    Work = std::make_unique<StructureBuildTask>(outshine::Test::JobLease(),
+                                                0,
                                                 *base,
                                                 std::move(view),
                                                 std::make_unique<StructureBuildTask::Output>(),
@@ -188,7 +190,10 @@ void Cancel() {
 void QueueResume() {
   Case test;
   if (!test.Open()) { return; }
-  test.Env.Queue.Opens(&test.Env.Worker, test.MesherOwner);
+  test.Env.Queue.Opens(&test.Env.Worker,
+                       test.MesherOwner,
+                       outshine::Test::JobAdmissions(),
+                       outshine::Test::ContextAdmissions());
   auto &prints = test.Env.Stack.Footprints();
   prints.SeenWith({.FocalPx = 720});
   const StructureBuildQueue::HeightSource source{

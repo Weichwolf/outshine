@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Tasks.h"
 #include "test/harness/shared/BuildingAssetFixture.h"
 #include "StructureBuildTask.h"
@@ -176,13 +177,15 @@ void Replay(const std::filesystem::path &root,
       const auto basis = cache->LoadBasis(std::string(kKey));
       CHECK(basis && *basis, "warm input loads only the owned source basis");
       if (basis) { warmBasis = *basis; }
-      return StructureBuildTask(0,
+      return StructureBuildTask(outshine::Test::JobLease(),
+                                0,
                                 basis ? *basis : nullptr,
                                 std::make_unique<RawTile>(raw),
                                 std::make_unique<StructureBuildTask::Output>(),
                                 mesher.Scratch());
     }
-    return StructureBuildTask(0,
+    return StructureBuildTask(outshine::Test::JobLease(),
+                              0,
                               std::make_unique<RawTile>(raw),
                               Ground::HeightField::Of(0, {block}),
                               std::make_unique<StructureBuildTask::Output>(),
@@ -347,7 +350,8 @@ void ReuseWholeProduct(const std::filesystem::path &root) {
   if (!basis || !*basis) { return; }
   mesher.Calls = 0;
   Tasks pool(1);
-  StructureBuildTask task(0,
+  StructureBuildTask task(outshine::Test::JobLease(),
+                          0,
                           *basis,
                           std::make_unique<RawTile>(raw),
                           std::make_unique<StructureBuildTask::Output>(),

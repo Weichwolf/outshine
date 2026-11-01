@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "BuildingAssetFixture.h"
 #include "AssetCache.h"
 #include "PreparedBuildingAssets.h"
@@ -101,7 +102,8 @@ struct Fixture {
     view->Eye = {.LongitudeDeg = 9.001, .LatitudeDeg = 47.001};
     view->Projection = {.FocalPx = 720};
     view->RequestedDetail = detail;
-    Job = std::make_unique<StructureBuildTask>(0,
+    Job = std::make_unique<StructureBuildTask>(outshine::Test::JobLease(),
+                                               0,
                                                Basis,
                                                std::move(view),
                                                std::make_unique<StructureBuildTask::Output>(),

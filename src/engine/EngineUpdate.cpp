@@ -296,7 +296,17 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
 void Engine::State::HandsPiecesOver() {
   World.BindSceneResources(Picture.Device);
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  World.StructureBuilds.Opens(Services.Compute.get(), World.Builtins.BuildingMesher());
+  if (!Services.StructureBakes) {
+    Services.StructureBakes = std::make_shared<JobAdmission>(std::min(
+        Services.Compute->Threads(), static_cast<int>(StructureBuildQueue::kCandidateWindow)));
+  }
+  if (!Services.StructureContexts) {
+    Services.StructureContexts = std::make_shared<JobAdmission>(2);
+  }
+  World.StructureBuilds.Opens(Services.Compute.get(),
+                              World.Builtins.BuildingMesher(),
+                              Services.StructureBakes,
+                              Services.StructureContexts);
   if (World.PiecesFramed) { return; }
   World.Pieces.SetFrame(
       TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,

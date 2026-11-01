@@ -274,6 +274,8 @@ struct StructurePreparation::Output {
     std::shared_ptr<Output> Value;
   };
 
+  std::shared_ptr<const void> Lifetime;
+  Inputs Sources;
   std::mutex Mutex;
   std::condition_variable Changed;
   std::atomic_bool Finished{false};
@@ -285,28 +287,28 @@ struct StructurePreparation::Output {
 StructurePreparation::StructurePreparation(Tasks &pool,
                                            Inputs inputs,
                                            StructurePolicy policy,
-                                           int heightZoom)
-    : Pool_(&pool), Output_(std::make_shared<Output>()) {
+                                           int heightZoom,
+                                           std::shared_ptr<const void> lifetime)
+    : Lifetime_(std::move(lifetime)), Pool_(&pool), Output_(std::make_shared<Output>()) {
+  Output_->Lifetime = Lifetime_;
+  Output_->Sources = std::move(inputs);
   const auto completion = std::make_shared<Output::Completion>(Output_);
-  const bool accepted = pool.PostDetached([sources = std::move(inputs),
-                                           policy,
-                                           heightZoom,
-                                           completion,
-                                           stop = Stop_.get_token()] mutable {
-    auto &output = *completion->Value;
-    output.Value = PrepareProducts(sources, policy, heightZoom, stop);
-    sources = SourceInputs{};
-    if (!output.Value) { return; }
-    for (const auto &product : *output.Value) {
-      output.HeightTiles.insert(
-          output.HeightTiles.end(), product.HeightTiles.begin(), product.HeightTiles.end());
-    }
-    std::ranges::sort(output.HeightTiles, [](const auto &a, const auto &b) {
-      return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
-    });
-    output.HeightTiles.erase(std::ranges::unique(output.HeightTiles).begin(),
-                             output.HeightTiles.end());
-  });
+  const bool accepted =
+      pool.PostDetached([policy, heightZoom, completion, stop = Stop_.get_token()] mutable {
+        auto &output = *completion->Value;
+        output.Value = PrepareProducts(output.Sources, policy, heightZoom, stop);
+        output.Sources = SourceInputs{};
+        if (!output.Value) { return; }
+        for (const auto &product : *output.Value) {
+          output.HeightTiles.insert(
+              output.HeightTiles.end(), product.HeightTiles.begin(), product.HeightTiles.end());
+        }
+        std::ranges::sort(output.HeightTiles, [](const auto &a, const auto &b) {
+          return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
+        });
+        output.HeightTiles.erase(std::ranges::unique(output.HeightTiles).begin(),
+                                 output.HeightTiles.end());
+      });
   if (!accepted) {
     Error_ = "original structure compute queue is closed";
     Phase_ = Phase::Failed;
@@ -317,14 +319,16 @@ StructurePreparation::~StructurePreparation() {
   Cancel();
 
   struct RetiredProducts {
+    std::shared_ptr<const void> Lifetime;
     std::shared_ptr<Output> Pending;
     std::vector<Product> Products;
   };
 
-  const auto retired = std::make_shared<RetiredProducts>();
+  auto retired = std::make_shared<RetiredProducts>();
+  retired->Lifetime = std::move(Lifetime_);
   retired->Pending = std::move(Output_);
   retired->Products = std::move(Products_);
-  (void)Pool_->PostDetached([retired] { (void)retired; });
+  (void)Pool_->PostDetached([retired = std::move(retired)] mutable { retired.reset(); });
 }
 
 StructurePreparation::Phase StructurePreparation::Poll() {

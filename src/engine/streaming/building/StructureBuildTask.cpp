@@ -476,6 +476,10 @@ struct StructureBuildTask::NativeProducts {
 };
 
 struct StructureBuildTask::Payload {
+  explicit Payload(JobAdmission::Lease admission) : Admission(std::move(admission)) {
+    assert(Admission);
+  }
+
   struct Completion {
     explicit Completion(std::shared_ptr<Payload> value) : Value(std::move(value)) {}
 
@@ -501,6 +505,8 @@ struct StructureBuildTask::Payload {
     bool Started = false;
   };
 
+  std::shared_ptr<const void> Lifetime;
+  JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
   std::shared_ptr<const Ground::HeightField> Heights;
@@ -508,6 +514,7 @@ struct StructureBuildTask::Payload {
   std::shared_ptr<const Generators::PreparedBuildingBasis> Basis;
   std::unique_ptr<NativeProducts> Native;
   std::unique_ptr<Output> Result;
+  std::optional<Generators::BakedTile> DiscardedTile;
   std::unique_ptr<MeshScratch> Scratch;
   std::unique_ptr<Generators::StructureBakeProgress> Progress =
       std::make_unique<Generators::StructureBakeProgress>();
@@ -518,13 +525,14 @@ struct StructureBuildTask::Payload {
   std::atomic_bool Finished{false};
 };
 
-StructureBuildTask::StructureBuildTask(uint32_t tile,
+StructureBuildTask::StructureBuildTask(JobAdmission::Lease admission,
+                                       uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
                                        std::unique_ptr<Output> output,
                                        std::unique_ptr<MeshScratch> scratch,
                                        std::optional<ProofRequest> proof)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(raw);
   Payload_->Heights = std::move(heights);
   Payload_->Result = std::move(output);
@@ -534,12 +542,13 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
 }
 
 StructureBuildTask::StructureBuildTask(
+    JobAdmission::Lease admission,
     uint32_t tile,
     std::shared_ptr<const Generators::PreparedStructureTile> base,
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(view);
   Payload_->Base = std::move(base);
   Payload_->Result = std::move(output);
@@ -552,12 +561,13 @@ StructureBuildTask::StructureBuildTask(
 }
 
 StructureBuildTask::StructureBuildTask(
+    JobAdmission::Lease admission,
     uint32_t tile,
     std::shared_ptr<const Generators::PreparedBuildingBasis> basis,
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(view);
   Payload_->Basis = std::move(basis);
   Payload_->Result = std::move(output);
@@ -758,9 +768,12 @@ void StructureBuildTask::Posts(Tasks &pool) {
   });
 }
 
-void StructureBuildTask::Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher) {
+void StructureBuildTask::Start(Tasks &pool,
+                               std::shared_ptr<const StructureMesher> mesher,
+                               std::shared_ptr<const void> lifetime) {
   assert(State_ == State::Ready);
   assert(mesher != nullptr);
+  Payload_->Lifetime = std::move(lifetime);
   Payload_->Mesher = std::move(mesher);
   Posts(pool);
 }
@@ -808,14 +821,38 @@ void StructureBuildTask::Join() {
   State_ = State::Completed;
 }
 
+bool StructureBuildTask::Retire(Tasks &pool) {
+  if (!Payload_) { return true; }
+  RequestStop();
+
+  struct Handoff {
+    std::shared_ptr<Payload> Value;
+  };
+
+  const auto handoff = std::make_shared<Handoff>(std::move(Payload_));
+  if (!pool.PostDetached([handoff] {
+        auto retired = std::move(handoff->Value);
+        retired.reset();
+      })) {
+    Payload_ = std::move(handoff->Value);
+    return false;
+  }
+  Tile_ = 0;
+  State_ = State::Empty;
+  return true;
+}
+
 std::unique_ptr<Generators::RawTile> StructureBuildTask::TakeRaw() noexcept {
   assert(State_ != State::Running);
   return Payload_ ? std::move(Payload_->Raw) : nullptr;
 }
 
-std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutput() noexcept {
+std::unique_ptr<StructureBuildTask::Output> StructureBuildTask::TakeOutputForReuse() noexcept {
   assert(State_ != State::Running);
-  return Payload_ ? std::move(Payload_->Result) : nullptr;
+  if (!Payload_ || !Payload_->Result) { return nullptr; }
+  Payload_->DiscardedTile = std::move(Payload_->Result->Tile);
+  Payload_->Result->Tile.reset();
+  return std::move(Payload_->Result);
 }
 
 std::unique_ptr<MeshScratch> StructureBuildTask::TakeScratch() noexcept {

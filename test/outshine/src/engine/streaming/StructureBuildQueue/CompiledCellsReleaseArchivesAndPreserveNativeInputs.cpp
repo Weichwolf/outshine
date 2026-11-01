@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "OsmProviderValidation.h"
 #include "Check.h"
 #include "OsmSourceAcquisition.h"
@@ -152,7 +153,8 @@ int main() {
             !capture.Snapshot().Elements.FindNode(kUnconsumedNodeFirst),
         "consumed closure preserves original tags without pinning unrelated source objects");
   StructureBuildQueue queue;
-  queue.Opens(&compute, nullptr);
+  queue.Opens(
+      &compute, nullptr, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
   bool ready = false;
   for (int attempt = 0; attempt < kMaximumAttempts && !ready; ++attempt) {
     const auto prepared = queue.PrepareOriginal(native, 14);

@@ -1,5 +1,6 @@
 #include "EngineState.h"
 #include "Heap.h"
+#include "JobAdmission.h"
 
 #include <array>
 #include <chrono>
@@ -14,6 +15,24 @@ namespace outshine {
 
 void Engine::State::PublishResourcePayloadMeasurements() {
   if (!Picture.Standing) { return; }
+  Published.RecordMetric("cost.building_bakes.admitted",
+                         Services.StructureBakes ? Services.StructureBakes->Active() : 0,
+                         "jobs");
+  Published.RecordMetric("cost.building_bakes.capacity",
+                         Services.StructureBakes ? Services.StructureBakes->Maximum() : 0,
+                         "jobs");
+  Published.RecordMetric("cost.building_bakes.admission_deferred",
+                         static_cast<double>(World.StructureBuilds.AdmissionDeferred()),
+                         "asks");
+  Published.RecordMetric("cost.building_contexts.admitted",
+                         Services.StructureContexts ? Services.StructureContexts->Active() : 0,
+                         "contexts");
+  Published.RecordMetric("cost.building_contexts.capacity",
+                         Services.StructureContexts ? Services.StructureContexts->Maximum() : 0,
+                         "contexts");
+  Published.RecordMetric("cost.building_contexts.admission_deferred",
+                         static_cast<double>(World.StructureBuilds.ContextAdmissionDeferred()),
+                         "asks");
   Published.RecordMetric("streamed piece CPU payload capacity",
                          static_cast<double>(Picture.Device.PieceSourceBytes()),
                          "bytes");

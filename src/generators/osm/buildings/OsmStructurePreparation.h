@@ -32,7 +32,11 @@ public:
   using CellInputs = std::vector<std::shared_ptr<const StructureCell>>;
   using Inputs = std::variant<SourceInputs, CellInputs>;
 
-  StructurePreparation(Tasks &pool, Inputs inputs, StructurePolicy policy, int heightZoom);
+  StructurePreparation(Tasks &pool,
+                       Inputs inputs,
+                       StructurePolicy policy,
+                       int heightZoom,
+                       std::shared_ptr<const void> lifetime = {});
   // The pool outlives unfinished jobs; destruction never waits for them.
   ~StructurePreparation();
   StructurePreparation(const StructurePreparation &) = delete;
@@ -55,6 +59,7 @@ public:
 private:
   struct Output;
 
+  std::shared_ptr<const void> Lifetime_;
   Tasks *Pool_;
   std::stop_source Stop_;
   std::shared_ptr<Output> Output_;

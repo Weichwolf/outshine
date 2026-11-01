@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "BuildingMesh.h"
 #include "Check.h"
@@ -37,7 +38,10 @@ struct Case {
   bool Open() {
     CHECK(Env.Open(), "the actual vector/street/cache fixture opens");
     if (!Env.Stack.BuildingAssets() || Env.Stack.Vectors() == nullptr) { return false; }
-    Env.Queue.Opens(&Env.Worker, MesherOwner);
+    Env.Queue.Opens(&Env.Worker,
+                    MesherOwner,
+                    outshine::Test::JobAdmissions(),
+                    outshine::Test::ContextAdmissions());
     Env.Stack.Footprints().SeenWith({.FocalPx = 720});
     const auto &vectors = *Env.Stack.Vectors();
     const auto digest = Env.Stack.Ways().SourceDigest(vectors, 0);

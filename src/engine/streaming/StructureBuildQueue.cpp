@@ -37,7 +37,6 @@ namespace outshine {
 namespace {
 
 constexpr uint8_t kPolygonFeature = 3;
-constexpr size_t kBuildsPerThread = 1;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 [[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
@@ -266,6 +265,31 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
 
 }
 
+void StructureBuildQueue::Opens(Tasks *pool,
+                                const std::shared_ptr<const StructureMesher> &mesher,
+                                const std::shared_ptr<JobAdmission> &admission,
+                                const std::shared_ptr<JobAdmission> &contexts) {
+  const bool changed = Pool_ != pool || Admission_ != admission || ContextAdmission_ != contexts ||
+                       (Context_.Mesher && Context_.Mesher != mesher);
+  if (Pool_ != nullptr && changed) { Clear(); }
+  Pool_ = pool;
+  if (Context_.Mesher != mesher) { Context_.Mesher = mesher; }
+  if (Admission_ != admission) { Admission_ = admission; }
+  if (ContextAdmission_ != contexts) { ContextAdmission_ = contexts; }
+}
+
+bool StructureBuildQueue::AdmitContext() {
+  if (Context_.Admission) { return true; }
+  if (Pool_ == nullptr || !ContextAdmission_) { return false; }
+  auto lease = ContextAdmission_->TryAcquire();
+  if (!lease) {
+    ++ContextAdmissionDeferred_;
+    return false;
+  }
+  Context_.Admission = std::make_shared<JobAdmission::Lease>(std::move(*lease));
+  return true;
+}
+
 StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
@@ -307,6 +331,12 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Generators::Osm::SourceSnapshot>> sources,
     Generators::Osm::StructurePolicy policy,
     int heightZoom) {
+  if (!sources.empty()) {
+    if (Pool_ == nullptr || !ContextAdmission_) {
+      return std::unexpected("original structures require an open worker pool");
+    }
+    if (!AdmitContext()) { return false; }
+  }
   return PrepareOriginalInputs(
       Generators::Osm::StructurePreparation::SourceInputs(sources.begin(), sources.end()),
       policy,
@@ -315,6 +345,12 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
 
 std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells, int heightZoom) {
+  if (!cells.empty()) {
+    if (Pool_ == nullptr || !ContextAdmission_) {
+      return std::unexpected("original structures require an open worker pool");
+    }
+    if (!AdmitContext()) { return false; }
+  }
   return PrepareOriginalInputs(
       Generators::Osm::StructurePreparation::CellInputs(cells.begin(), cells.end()),
       {},
@@ -333,34 +369,34 @@ StructureBuildQueue::PrepareOriginalInputs(Generators::Osm::StructurePreparation
   if (sources.size() > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected("original building cells exceed product address admission");
   }
-  if (OriginalPreparation_) {
-    const bool same = std::ranges::equal(PreparingOriginals_, sources) &&
-                      PreparingOriginalHeightZoom_ == heightZoom;
-    if (!same) { OriginalPreparation_->Cancel(); }
-    const auto phase = OriginalPreparation_->Poll();
+  if (Context_.OriginalPreparation) {
+    const bool same = std::ranges::equal(Context_.PreparingOriginals, sources) &&
+                      Context_.PreparingOriginalHeightZoom == heightZoom;
+    if (!same) { Context_.OriginalPreparation->Cancel(); }
+    const auto phase = Context_.OriginalPreparation->Poll();
     if (phase == Generators::Osm::StructurePreparation::Phase::Working) { return false; }
     if (same) {
       if (phase == Generators::Osm::StructurePreparation::Phase::Failed) {
-        return std::unexpected(std::string(OriginalPreparation_->Error()));
+        return std::unexpected(std::string(Context_.OriginalPreparation->Error()));
       }
-      const auto products = OriginalPreparation_->Products();
-      Originals_.assign(products.begin(), products.end());
-      const auto tiles = OriginalPreparation_->HeightTiles();
-      OriginalHeightTiles_.assign(tiles.begin(), tiles.end());
-      OriginalHeightZoom_ = heightZoom;
+      const auto products = Context_.OriginalPreparation->Products();
+      Context_.Originals.assign(products.begin(), products.end());
+      const auto tiles = Context_.OriginalPreparation->HeightTiles();
+      Context_.OriginalHeightTiles.assign(tiles.begin(), tiles.end());
+      Context_.OriginalHeightZoom = heightZoom;
     }
-    OriginalPreparation_.reset();
-    PreparingOriginals_.clear();
-    PreparingOriginalHeightZoom_ = -1;
+    Context_.OriginalPreparation.reset();
+    Context_.PreparingOriginals.clear();
+    Context_.PreparingOriginalHeightZoom = -1;
   }
   if (sources.empty()) {
-    Originals_.clear();
-    OriginalHeightTiles_.clear();
-    OriginalHeightZoom_ = -1;
+    Context_.Originals.clear();
+    Context_.OriginalHeightTiles.clear();
+    Context_.OriginalHeightZoom = -1;
     return true;
   }
-  if (Originals_.size() == sources.size() && OriginalHeightZoom_ == heightZoom &&
-      std::ranges::equal(Originals_, sources, {}, [](const auto &product) {
+  if (Context_.Originals.size() == sources.size() && Context_.OriginalHeightZoom == heightZoom &&
+      std::ranges::equal(Context_.Originals, sources, {}, [](const auto &product) {
         return product.Input->SourceInputs.Archive.lock();
       })) {
     return true;
@@ -368,24 +404,26 @@ StructureBuildQueue::PrepareOriginalInputs(Generators::Osm::StructurePreparation
   if (Pool_ == nullptr) {
     return std::unexpected("original structures require an open worker pool");
   }
-  PreparingOriginals_.assign(sources.begin(), sources.end());
-  PreparingOriginalHeightZoom_ = heightZoom;
-  OriginalPreparation_ = std::make_unique<Generators::Osm::StructurePreparation>(
-      *Pool_, std::move(inputs), policy, heightZoom);
+  Context_.PreparingOriginals.assign(sources.begin(), sources.end());
+  Context_.PreparingOriginalHeightZoom = heightZoom;
+  Context_.OriginalPreparation = std::make_unique<Generators::Osm::StructurePreparation>(
+      *Pool_, std::move(inputs), policy, heightZoom, Context_.Admission);
   return false;
 }
 
 const Data::SourceObjects *StructureBuildQueue::InputObjectsFor(uint32_t tile) const noexcept {
-  return tile < Originals_.size() ? Originals_[tile].Input->SourceInputs.Objects.get() : nullptr;
+  return tile < Context_.Originals.size()
+             ? Context_.Originals[tile].Input->SourceInputs.Objects.get()
+             : nullptr;
 }
 
 std::expected<std::span<const Data::TileId>, std::string>
 StructureBuildQueue::OriginalHeightTiles(int zoom) const {
   if (!HasOriginal()) { return std::span<const Data::TileId>(); }
-  if (zoom != OriginalHeightZoom_) {
+  if (zoom != Context_.OriginalHeightZoom) {
     return std::unexpected("original building terrain demand requires preparation at this zoom");
   }
-  return std::span<const Data::TileId>(OriginalHeightTiles_);
+  return std::span<const Data::TileId>(Context_.OriginalHeightTiles);
 }
 
 bool StructureBuildQueue::Complete(const Ground::SurfacePreparation &stack,
@@ -393,12 +431,12 @@ bool StructureBuildQueue::Complete(const Ground::SurfacePreparation &stack,
                                    LongitudeLatitude eye,
                                    const std::function<bool(uint32_t)> &cellReady) const {
   if (HasOriginal()) {
-    return Queue_.empty() && SourcesComplete(stack, footprints) &&
+    return Context_.Queue.empty() && SourcesComplete(stack, footprints) &&
            AcceptedViewCurrent(footprints, eye, cellReady);
   }
   const ::outshine::Generators::Osm::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
-         (Queue_.empty() && footprints.RefinementComplete() &&
+         (Context_.Queue.empty() && footprints.RefinementComplete() &&
           AcceptedViewCurrent(footprints, eye, cellReady) && footprints.Ingested(*vectors));
 }
 
@@ -407,16 +445,16 @@ bool StructureBuildQueue::SourcesComplete(
     const ::outshine::Generators::Osm::BuildingField &footprints) const {
   if (HasOriginal()) {
     if (HasPendingSourceChanges(footprints) ||
-        footprints.AcceptedTiles().size() != Originals_.size()) {
+        footprints.AcceptedTiles().size() != Context_.Originals.size()) {
       return false;
     }
-    for (size_t tile = 0; tile < Originals_.size(); ++tile) {
+    for (size_t tile = 0; tile < Context_.Originals.size(); ++tile) {
       const auto *input = footprints.InputOfTile(static_cast<uint32_t>(tile));
       if (input == nullptr || !input->Qualified || !input->Coordinates ||
           input->Coordinates->Origin.Provenance !=
-              Originals_[tile].Input->SourceInputs.Origin.Provenance ||
+              Context_.Originals[tile].Input->SourceInputs.Origin.Provenance ||
           input->Coordinates->Origin.Selection !=
-              Originals_[tile].Input->SourceInputs.Origin.Selection) {
+              Context_.Originals[tile].Input->SourceInputs.Origin.Selection) {
         return false;
       }
     }
@@ -427,7 +465,7 @@ bool StructureBuildQueue::SourcesComplete(
 
 bool StructureBuildQueue::HasPendingSourceChanges(
     const ::outshine::Generators::Osm::BuildingField &footprints) const {
-  return std::ranges::any_of(Queue_, [&](const QueuedBuild &build) {
+  return std::ranges::any_of(Context_.Queue, [&](const QueuedBuild &build) {
     if (build.Revision.Purpose != BuildPurpose::ViewDetail ||
         build.ReservationOwner != footprints.ReservationOwner()) {
       return true;
@@ -455,27 +493,38 @@ size_t StructureBuildQueue::QueuedStructures() const {
       count += all > bake.BakedStructures ? all - bake.BakedStructures : 0;
     }
   };
-  countRemaining(Queue_);
+  countRemaining(Context_.Queue);
   return count;
 }
 
 std::unique_ptr<MeshScratch> StructureBuildQueue::LentScratch() {
-  if (IdleScratch_.empty()) { return Mesher_->Scratch(); }
-  std::unique_ptr<MeshScratch> one = std::move(IdleScratch_.back());
-  IdleScratch_.pop_back();
+  if (Context_.IdleScratch.empty()) { return Context_.Mesher->Scratch(); }
+  std::unique_ptr<MeshScratch> one = std::move(Context_.IdleScratch.back());
+  Context_.IdleScratch.pop_back();
   return one;
 }
 
-void StructureBuildQueue::RecycleOutput(StructureBuildTask &task) {
-  auto output = task.TakeOutput();
-  output->Tile.reset();
-  IdleOut_.push_back(std::move(output));
+void StructureBuildQueue::RecycleTask(StructureBuildTask &task) {
+  Context_.IdleRaw.push_back(task.TakeRaw());
+  auto output = task.TakeOutputForReuse();
+  Context_.IdleOut.push_back(std::move(output));
+  Context_.IdleScratch.push_back(task.TakeScratch());
+  if (!task.Retire(*Pool_)) { std::terminate(); }
+}
+
+std::optional<JobAdmission::Lease> StructureBuildQueue::TryAdmitBuild() {
+  assert(Pool_ != nullptr && Admission_);
+  const int maximum = std::min(Pool_->Threads(), Admission_->Maximum());
+  if (Context_.Queue.size() >= static_cast<size_t>(maximum)) { return std::nullopt; }
+  auto admission = Admission_->TryAcquire();
+  if (!admission) { ++AdmissionDeferred_; }
+  return admission;
 }
 
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   if (build.Tasks != 0 && !build.Task.CanResume()) { return; }
   if (build.Tasks == 0) {
-    build.Task.Start(*Pool_, Mesher_);
+    build.Task.Start(*Pool_, Context_.Mesher, Context_.Admission);
   } else {
     build.Task.Resume(*Pool_);
   }
@@ -483,10 +532,10 @@ void StructureBuildQueue::PostSlice(QueuedBuild &build) {
 }
 
 void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingField &prints) {
-  QueuedBuild &stale = Queue_.front();
-  IdleRaw_.reserve(IdleRaw_.size() + 1u);
-  IdleOut_.reserve(IdleOut_.size() + 1u);
-  IdleScratch_.reserve(IdleScratch_.size() + 1u);
+  QueuedBuild &stale = Context_.Queue.front();
+  Context_.IdleRaw.reserve(Context_.IdleRaw.size() + 1u);
+  Context_.IdleOut.reserve(Context_.IdleOut.size() + 1u);
+  Context_.IdleScratch.reserve(Context_.IdleScratch.size() + 1u);
   if (stale.ReservationOwner == prints.ReservationOwner()) {
     if (stale.Replacement) {
       if (!stale.Task.Raw().SourceInputs.Objects) {
@@ -500,10 +549,8 @@ void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingFiel
       prints.Release(stale.Task.Tile());
     }
   }
-  IdleRaw_.push_back(stale.Task.TakeRaw());
-  RecycleOutput(stale.Task);
-  IdleScratch_.push_back(stale.Task.TakeScratch());
-  Queue_.pop_front();
+  RecycleTask(stale.Task);
+  Context_.Queue.pop_front();
   ++Discarded_;
 }
 
@@ -514,17 +561,18 @@ void StructureBuildQueue::DiscardStale(const ::outshine::Generators::Osm::OsmFie
                                        HeightRequirement heights,
                                        std::optional<LevelOfDetail> detail,
                                        BuildPurpose purpose) {
-  while (!Queue_.empty() &&
-         (Queue_.front().ReservationOwner != prints.ReservationOwner() ||
-          !Queue_.front().Revision.Matches(vectors,
-                                           prints,
-                                           eye,
-                                           heightSource,
-                                           heights,
-                                           detail,
-                                           purpose,
-                                           InputObjectsFor(Queue_.front().Task.Tile())))) {
-    QueuedBuild &stale = Queue_.front();
+  while (!Context_.Queue.empty() &&
+         (Context_.Queue.front().ReservationOwner != prints.ReservationOwner() ||
+          !Context_.Queue.front().Revision.Matches(
+              vectors,
+              prints,
+              eye,
+              heightSource,
+              heights,
+              detail,
+              purpose,
+              InputObjectsFor(Context_.Queue.front().Task.Tile())))) {
+    QueuedBuild &stale = Context_.Queue.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(); }
     if (!stale.Finished) { return; }
     DiscardFront(prints);
@@ -540,7 +588,7 @@ void StructureBuildQueue::AdvanceQueuedTasks(const ::outshine::Generators::Osm::
                                              BuildPurpose purpose) {
   PollCompletedTasks();
   DiscardStale(vectors, prints, eye, heightSource, heights, detail, purpose);
-  for (QueuedBuild &bake : Queue_) {
+  for (QueuedBuild &bake : Context_.Queue) {
     if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile &&
         bake.ReservationOwner == prints.ReservationOwner() &&
         bake.Revision.Matches(vectors,
@@ -557,7 +605,7 @@ void StructureBuildQueue::AdvanceQueuedTasks(const ::outshine::Generators::Osm::
 }
 
 void StructureBuildQueue::PollCompletedTasks() {
-  for (const auto &entry : NativeLookups_) {
+  for (const auto &entry : Context_.NativeLookups) {
     auto &lookup = *entry.second;
     if (lookup.Working && lookup.Finished.load(std::memory_order_acquire)) {
       lookup.Working = false;
@@ -580,7 +628,7 @@ void StructureBuildQueue::PollCompletedTasks() {
       }
     }
   };
-  collect(Queue_);
+  collect(Context_.Queue);
 }
 
 size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
@@ -591,8 +639,11 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                           HeightRequirement requirement,
                                           std::optional<LevelOfDetail> detail,
                                           BuildPurpose purpose) {
-  if (Pool_ == nullptr || Mesher_ == nullptr || !prints.Anchored() || !Queue_.empty()) { return 0; }
-  const auto &original = Originals_[tile].Input;
+  if (Pool_ == nullptr || Context_.Mesher == nullptr || !prints.Anchored() ||
+      !Context_.Queue.empty()) {
+    return 0;
+  }
+  const auto &original = Context_.Originals[tile].Input;
   const auto *accepted = prints.InputOfTile(tile);
   if (accepted != nullptr && accepted->Coordinates &&
       accepted->Coordinates->Origin.Provenance == original->SourceInputs.Origin.Provenance &&
@@ -606,11 +657,13 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
     return 0;
   }
   const int zoom = stack.TerrainRenderZoom();
-  if (zoom != OriginalHeightZoom_) {
+  if (zoom != Context_.OriginalHeightZoom) {
     ++Deferred_;
     return 0;
   }
-  const auto &tiles = Originals_[tile].HeightTiles;
+  const auto &tiles = Context_.Originals[tile].HeightTiles;
+  auto admission = TryAdmitBuild();
+  if (!admission) { return 0; }
   const auto gather = [&](bool fine) -> std::optional<std::vector<Ground::HeightField::Block>> {
     std::vector<Ground::HeightField::Block> blocks;
     blocks.reserve(tiles.size());
@@ -639,7 +692,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
     ++Deferred_;
     return 0;
   }
-  auto raw = Borrowed(IdleRaw_);
+  auto raw = Borrowed(Context_.IdleRaw);
   *raw = *original;
   raw->AnchorEcef = prints.Anchor();
   raw->Eye = eye;
@@ -663,15 +716,19 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                               .FallbackHeights = heights->Fallback(),
                               .InputObjects = raw->SourceInputs.Objects.get()};
   if (accepted == nullptr) { prints.Take(tile); }
-  auto output = Borrowed(IdleOut_);
+  auto output = Borrowed(Context_.IdleOut);
   *output = {};
-  Queue_.push_back({.Revision = revision,
-                    .Task = StructureBuildTask(
-                        tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
-                    .SourceKey = sourceKey,
-                    .Replacement = accepted != nullptr,
-                    .ReservationOwner = prints.ReservationOwner()});
-  PostSlice(Queue_.back());
+  Context_.Queue.push_back({.Revision = revision,
+                            .Task = StructureBuildTask(std::move(*admission),
+                                                       tile,
+                                                       std::move(raw),
+                                                       std::move(heights),
+                                                       std::move(output),
+                                                       LentScratch()),
+                            .SourceKey = sourceKey,
+                            .Replacement = accepted != nullptr,
+                            .ReservationOwner = prints.ReservationOwner()});
+  PostSlice(Context_.Queue.back());
   ++Posted_;
   return 1;
 }
@@ -685,10 +742,11 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
-  if (candidatesMost == 0 || Pool_ == nullptr || Mesher_ == nullptr) { return 0; }
+  if (candidatesMost == 0 || Pool_ == nullptr || Context_.Mesher == nullptr) { return 0; }
+  if (!AdmitContext()) { return 0; }
   AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
   if (HasOriginal()) {
-    for (size_t tile = 0; tile < Originals_.size(); ++tile) {
+    for (size_t tile = 0; tile < Context_.Originals.size(); ++tile) {
       if (const auto posted = PostsOriginal(static_cast<uint32_t>(tile),
                                             stack,
                                             prints,
@@ -707,13 +765,14 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
 }
 
 StructureBuildQueue::QueuedBuild
-StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
+StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
+                                 Ground::SurfacePreparation &stack,
                                  const ::outshine::Generators::Osm::BuildingField &prints,
                                  ::outshine::Generators::Osm::TileAdmission::Next next,
                                  BakeRevision revision,
                                  VectorSelection selected,
                                  bool replacement) {
-  auto raw = Borrowed(IdleRaw_);
+  auto raw = Borrowed(Context_.IdleRaw);
   const auto extractionAt = std::chrono::steady_clock::now();
   if (selected.Basis) {
     *raw = {};
@@ -737,16 +796,18 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
       SlowestRawExtractionMs_,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
           .count());
-  auto output = Borrowed(IdleOut_);
+  auto output = Borrowed(Context_.IdleOut);
   *output = {};
   output->CacheHit = selected.Basis != nullptr;
   output->CacheReadMs = selected.ReadMs;
-  auto task = selected.Basis ? StructureBuildTask(next.Tile,
+  auto task = selected.Basis ? StructureBuildTask(std::move(admission),
+                                                  next.Tile,
                                                   std::move(selected.Basis),
                                                   std::move(raw),
                                                   std::move(output),
                                                   LentScratch())
-                             : StructureBuildTask(next.Tile,
+                             : StructureBuildTask(std::move(admission),
+                                                  next.Tile,
                                                   std::move(raw),
                                                   std::move(selected.Heights),
                                                   std::move(output),
@@ -767,7 +828,7 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
                           .FallbackHeights = revision.FallbackHeights,
                           .Origin = &task.Raw().SourceInputs.Origin,
                           .PreparedAssetKey = task.PreparedAssetKey()});
-  if (!selected.RequestKey.empty()) { NativeLookups_.erase(selected.RequestKey); }
+  if (!selected.RequestKey.empty()) { Context_.NativeLookups.erase(selected.RequestKey); }
   return {.Revision = revision,
           .Task = std::move(task),
           .StreetDigest = selected.StreetDigest,
@@ -784,24 +845,24 @@ bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &
                                                VectorSelection &selected,
                                                double &durationMs) {
   const uint32_t tile = vectors.Features()[over.From].Tile;
-  if (PendingVectorHeights_ && (PendingVectorHeights_->Generation != vectors.Generation() ||
-                                PendingVectorHeights_->Revision != source.Revision)) {
-    PendingVectorHeights_.reset();
+  if (Context_.PendingHeights && (Context_.PendingHeights->Generation != vectors.Generation() ||
+                                  Context_.PendingHeights->Revision != source.Revision)) {
+    Context_.PendingHeights.reset();
   }
-  if (!PendingVectorHeights_) {
-    PendingVectorHeights_.emplace(PendingVectorHeights{.Tile = tile,
-                                                       .Generation = vectors.Generation(),
-                                                       .Revision = source.Revision,
-                                                       .Bytes = 0,
-                                                       .Fields = {}});
+  if (!Context_.PendingHeights) {
+    Context_.PendingHeights.emplace(PendingVectorHeights{.Tile = tile,
+                                                         .Generation = vectors.Generation(),
+                                                         .Revision = source.Revision,
+                                                         .Bytes = 0,
+                                                         .Fields = {}});
   }
-  if (PendingVectorHeights_->Tile != tile) {
+  if (Context_.PendingHeights->Tile != tile) {
     ++Deferred_;
     return false;
   }
   HeightSource retained = source;
   retained.PinField = [this, &source](Data::TileId at, Ground::HeightField::Block &into) {
-    auto &pending = *PendingVectorHeights_;
+    auto &pending = *Context_.PendingHeights;
     const auto found =
         std::ranges::find(pending.Fields, at, [](const auto &entry) { return entry.first; });
     if (found != pending.Fields.end()) {
@@ -817,7 +878,7 @@ bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &
         sizeof(Ground::HeightField::Block) +
         (into.Terrain ? into.Terrain->HeapBytes() : into.Nodes.capacity() * sizeof(float));
     if (bytes > bytesMost - pending.Bytes) {
-      NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactCapacityExceeded;
+      Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactCapacityExceeded;
       return false;
     }
     pending.Fields.emplace_back(at, into);
@@ -831,8 +892,8 @@ bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &
       retained,
       requirement,
       selected.Heights,
-      {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
-  if (ready) { PendingVectorHeights_.reset(); }
+      {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &Context_.LastHeightFailure});
+  if (ready) { Context_.PendingHeights.reset(); }
   return ready;
 }
 
@@ -871,19 +932,20 @@ bool StructureBuildQueue::SelectVectorInputs(
         heightAt,
         requirement,
         selected.Heights,
-        {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
+        {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &Context_.LastHeightFailure});
   }
   return ResolveVectorHeights(
       vectors, over, stack.TerrainRenderZoom(), heightAt, requirement, selected, durationMs);
 }
 
-void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
-                                                LongitudeLatitude eye,
-                                                HeightRequirement requirement,
-                                                BuildPurpose purpose,
-                                                const std::function<bool(uint32_t)> &cellReady) {
+void StructureBuildQueue::PrepareViewRefinement(
+    ::outshine::Generators::Osm::BuildingField &prints,
+    LongitudeLatitude eye,
+    HeightRequirement requirement,
+    BuildPurpose purpose,
+    const std::function<bool(uint32_t)> &cellReady) const {
   if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
-      prints.RefinementComplete() && Queue_.empty() &&
+      prints.RefinementComplete() && Context_.Queue.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
     prints.BeginRefinement(Generators::Osm::BuildingField::RefinementPurpose::View);
   }
@@ -898,16 +960,15 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                          std::optional<LevelOfDetail> detail,
                                          BuildPurpose purpose,
                                          const std::function<bool(uint32_t)> &cellReady) {
-  if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
+  if (Pool_ == nullptr || Context_.Mesher == nullptr || stack.Vectors() == nullptr ||
+      !prints.Anchored()) {
     return 0;
   }
   const ::outshine::Generators::Osm::OsmField &vectors = *stack.Vectors();
   PrepareViewRefinement(prints, eye, requirement, purpose, cellReady);
   size_t posted = 0;
-  const size_t inFlightMost =
-      std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   size_t remaining = candidatesMost;
-  while (Queue_.size() < inFlightMost) {
+  while (auto admission = TryAdmitBuild()) {
     VectorSelection selected;
     double heightResolutionMs = 0.0;
     const auto groundStands = [&](::outshine::Generators::Osm::FeatureRun over) {
@@ -959,9 +1020,10 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                                   : selected.Heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     selected.StreetDigest = *streetDigest;
-    Queue_.push_back(VectorBuild(stack, prints, *next, revision, std::move(selected), replacement));
+    Context_.Queue.push_back(VectorBuild(
+        std::move(*admission), stack, prints, *next, revision, std::move(selected), replacement));
     const auto postingAt = std::chrono::steady_clock::now();
-    PostSlice(Queue_.back());
+    PostSlice(Context_.Queue.back());
     if (replacement) { prints.AdvanceRefinement(); }
     SlowestTaskPostingMs_ = std::max(
         SlowestTaskPostingMs_,
@@ -1005,7 +1067,7 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
   if (bake.Task.Raw().SourceInputs.Objects) {
     return bake.Task.Raw().SourceInputs.Objects.get() == InputObjectsFor(bake.Task.Tile()) &&
            bake.Task.Raw().SourceInputs.Origin.Selection ==
-               Originals_[bake.Task.Tile()].Input->SourceInputs.Origin.Selection;
+               Context_.Originals[bake.Task.Tile()].Input->SourceInputs.Origin.Selection;
   }
   return bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile());
 }
@@ -1032,15 +1094,15 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose) {
-  if (NativeFailure_) { return std::unexpected(*NativeFailure_); }
+  if (Context_.NativeFailure) { return std::unexpected(*Context_.NativeFailure); }
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr && !HasOriginal()) { return landings; }
   AdvanceQueuedTasks(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
   size_t count = 0;
-  while (count < std::min(most, Queue_.size())) {
-    QueuedBuild &bake = Queue_[count];
+  while (count < std::min(most, Context_.Queue.size())) {
+    QueuedBuild &bake = Context_.Queue[count];
     if (!bake.Finished || bake.ReservationOwner != prints.ReservationOwner() ||
         !bake.Revision.Matches(vectors,
                                prints,
@@ -1110,13 +1172,13 @@ StructureBuildQueue::PrepareLandings(::outshine::Generators::Osm::BuildingField 
                                      size_t count) {
   std::vector<Landing> landings;
   if (count == 0) { return landings; }
-  IdleRaw_.reserve(IdleRaw_.size() + count);
-  IdleOut_.reserve(IdleOut_.size() + count);
-  IdleScratch_.reserve(IdleScratch_.size() + count);
+  Context_.IdleRaw.reserve(Context_.IdleRaw.size() + count);
+  Context_.IdleOut.reserve(Context_.IdleOut.size() + count);
+  Context_.IdleScratch.reserve(Context_.IdleScratch.size() + count);
   prints.PreparesAcceptances(count);
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    landings.push_back(PrepareLanding(Queue_[at], prints, vectors));
+    landings.push_back(PrepareLanding(Context_.Queue[at], prints, vectors));
   }
   return landings;
 }
@@ -1205,7 +1267,7 @@ void StructureBuildQueue::CommitFootprints(
 void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
-    QueuedBuild &bake = Queue_.front();
+    QueuedBuild &bake = Context_.Queue.front();
     const auto &completed = bake.Task.Result().Tile;
     if (!completed) { std::terminate(); }
     const Generators::BakedTile &child = *completed;
@@ -1223,8 +1285,9 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
     }
     const Generators::BakedTile &baked = bake.InitialCells ? bake.InitialCells->Metadata() : child;
     CommitFootprints(bake, landing, footprints);
-    assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
-           IdleScratch_.size() < IdleScratch_.capacity());
+    assert(Context_.IdleRaw.size() < Context_.IdleRaw.capacity() &&
+           Context_.IdleOut.size() < Context_.IdleOut.capacity() &&
+           Context_.IdleScratch.size() < Context_.IdleScratch.capacity());
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},
@@ -1242,34 +1305,37 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
                {"cacheHit", bake.Task.Result().CacheHit ? 1 : 0},
                {"cacheReadMs", bake.Task.Result().CacheReadMs},
                {"cacheWriteMs", bake.Task.Result().CacheWriteMs},
-               {"queued", static_cast<int>(Queue_.size() - 1)}});
-    IdleRaw_.push_back(bake.Task.TakeRaw());
-    RecycleOutput(bake.Task);
-    IdleScratch_.push_back(bake.Task.TakeScratch());
-    Queue_.pop_front();
+               {"queued", static_cast<int>(Context_.Queue.size() - 1)}});
+    RecycleTask(bake.Task);
+    Context_.Queue.pop_front();
     ++Landed_;
   }
 }
 
 void StructureBuildQueue::Clear() {
-  if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
-  for (QueuedBuild &bake : Queue_) { bake.Task.RequestStop(); }
-  RetireNativeLookups();
-  NativeAssets_.reset();
-  PendingVectorHeights_.reset();
-  NativeFailure_.reset();
-  OriginalPreparation_.reset();
-  LastHeightFailure_ = {};
-  PreparingOriginals_.clear();
-  Originals_.clear();
-  OriginalHeightTiles_.clear();
-  OriginalHeightZoom_ = -1;
-  PreparingOriginalHeightZoom_ = -1;
-  for (QueuedBuild &bake : Queue_) { bake.Task.Join(); }
-  Queue_.clear();
-  IdleRaw_.clear();
-  IdleOut_.clear();
-  IdleScratch_.clear();
+  if (!Context_.Admission) { return; }
+  if (Context_.OriginalPreparation) { Context_.OriginalPreparation->Cancel(); }
+  for (const auto &entry : Context_.NativeLookups) {
+    entry.second->Stopping.store(true, std::memory_order_relaxed);
+  }
+  for (QueuedBuild &bake : Context_.Queue) {
+    if (!bake.Task.Retire(*Pool_)) { std::terminate(); }
+  }
+
+  struct Handoff {
+    std::unique_ptr<BuildContext> Value;
+  };
+
+  const auto retired =
+      std::make_shared<Handoff>(std::make_unique<BuildContext>(std::move(Context_)));
+  Context_ = {};
+  Context_.Mesher = retired->Value->Mesher;
+  if (!Pool_->PostDetached([retired] {
+        auto context = std::move(retired->Value);
+        context.reset();
+      })) {
+    std::terminate();
+  }
 }
 
 }

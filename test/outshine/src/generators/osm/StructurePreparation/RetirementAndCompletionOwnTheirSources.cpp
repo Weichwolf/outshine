@@ -1,22 +1,32 @@
 #include "PreparationFixture.h"
 #include "Check.h"
+#include "JobAdmission.h"
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <semaphore>
 #include <thread>
+#include <utility>
 
 namespace {
 using namespace PreparationFixture;
 
 void Retire(bool ready) {
   Tasks pool(1);
+  const JobAdmission contexts(1);
+  auto lease = contexts.TryAcquire();
+  CHECK(lease.has_value(), "the preparation has a real context credit");
+  if (!lease) { return; }
   auto source = Source();
   std::weak_ptr<const void> lifetime = source;
   WorkerBlock held;
   if (!ready) { CHECK(held.Start(pool), "the worker is held before preparation"); }
   auto preparation = std::make_unique<StructurePreparation>(
-      pool, StructurePreparation::SourceInputs{source}, kDefaultStructurePolicy, kHeightZoom);
+      pool,
+      StructurePreparation::SourceInputs{source},
+      kDefaultStructurePolicy,
+      kHeightZoom,
+      std::make_shared<JobAdmission::Lease>(std::move(*lease)));
   source.reset();
   if (ready) {
     Barrier(pool);
@@ -36,21 +46,31 @@ void Retire(bool ready) {
         "queued and ready preparation can retire before the worker is released");
   CHECK(!lifetime.expired(),
         "work retains its source and ready cleanup retains its native product");
+  CHECK(contexts.Active() == 1, "the retired preparation retains its context with its products");
   held.Release();
   release.join();
   Barrier(pool);
   CHECK(lifetime.expired(),
         "worker cleanup releases the last owned input/product after retirement");
+  CHECK(contexts.Active() == 0, "the preparation returns its credit only after worker cleanup");
 }
 
 void Discard() {
   auto pool = std::make_unique<Tasks>(1);
+  const JobAdmission contexts(1);
+  auto lease = contexts.TryAcquire();
+  CHECK(lease.has_value(), "the discarded preparation has a context credit");
+  if (!lease) { return; }
   WorkerBlock held;
   CHECK(held.Start(*pool), "the worker is held before queue discard");
   auto source = Source();
   const std::weak_ptr<const SourceSnapshot> lifetime = source;
   auto preparation = std::make_unique<StructurePreparation>(
-      *pool, StructurePreparation::SourceInputs{source}, kDefaultStructurePolicy, kHeightZoom);
+      *pool,
+      StructurePreparation::SourceInputs{source},
+      kDefaultStructurePolicy,
+      kHeightZoom,
+      std::make_shared<JobAdmission::Lease>(std::move(*lease)));
   source.reset();
   std::binary_semaphore retired(0);
   std::thread release([&] {
@@ -73,6 +93,7 @@ void Discard() {
   }
   CHECK(lifetime.expired() && !stopped,
         "discarded jobs release source ownership before joining the held worker");
+  CHECK(contexts.Active() == 0, "queued discard releases the preparation credit with its source");
   held.Release();
   stop.join();
   CHECK(stopped, "shutdown finishes after its running blocker is released");

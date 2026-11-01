@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Check.h"
 #include "StructureBuildTask.h"
 #include "Tasks.h"
@@ -53,7 +54,8 @@ StructureBuildTask Task(const StructureMesher &mesher) {
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0);
-  return {1,
+  return {outshine::Test::JobLease(),
+          1,
           std::move(raw),
           Ground::HeightField::Of(0, {std::move(block)}),
           std::make_unique<StructureBuildTask::Output>(),

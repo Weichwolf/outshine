@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "AssetCache.h"
 #include "BuildingInputs.h"
@@ -105,7 +106,8 @@ struct Case {
   }
 
   void Start() {
-    Work = std::make_unique<StructureBuildTask>(0,
+    Work = std::make_unique<StructureBuildTask>(outshine::Test::JobLease(),
+                                                0,
                                                 std::move(Raw),
                                                 Heights,
                                                 std::make_unique<StructureBuildTask::Output>(),

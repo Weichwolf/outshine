@@ -56,10 +56,10 @@ public:
 
   ~StructureBuildQueue();
 
-  void Opens(Tasks *pool, const std::shared_ptr<const StructureMesher> &mesher) {
-    Pool_ = pool;
-    if (Mesher_ != mesher) { Mesher_ = mesher; }
-  }
+  void Opens(Tasks *pool,
+             const std::shared_ptr<const StructureMesher> &mesher,
+             const std::shared_ptr<JobAdmission> &admission,
+             const std::shared_ptr<JobAdmission> &contexts);
 
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::shared_ptr<const Generators::Osm::SourceSnapshot> source,
@@ -75,7 +75,7 @@ public:
   [[nodiscard]] std::expected<std::span<const Data::TileId>, std::string>
   OriginalHeightTiles(int zoom) const;
 
-  [[nodiscard]] bool HasOriginal() const noexcept { return !Originals_.empty(); }
+  [[nodiscard]] bool HasOriginal() const noexcept { return !Context_.Originals.empty(); }
 
   struct BakeRevision {
     uint64_t Vectors = 0;
@@ -181,8 +181,9 @@ public:
   void Clear();
 
   [[nodiscard]] size_t Queued() const {
-    return Queue_.size() + PendingBasisLookups() +
-           static_cast<size_t>(OriginalPreparation_ && OriginalPreparation_->Running());
+    return Context_.Queue.size() + PendingBasisLookups() +
+           static_cast<size_t>(Context_.OriginalPreparation &&
+                               Context_.OriginalPreparation->Running());
   }
 
   [[nodiscard]] bool Complete(const Ground::SurfacePreparation &stack,
@@ -202,7 +203,13 @@ public:
 
   [[nodiscard]] size_t Deferred() const { return Deferred_; }
 
-  [[nodiscard]] HeightFailure LastHeightFailure() const noexcept { return LastHeightFailure_; }
+  [[nodiscard]] size_t AdmissionDeferred() const { return AdmissionDeferred_; }
+
+  [[nodiscard]] size_t ContextAdmissionDeferred() const { return ContextAdmissionDeferred_; }
+
+  [[nodiscard]] HeightFailure LastHeightFailure() const noexcept {
+    return Context_.LastHeightFailure;
+  }
 
   [[nodiscard]] size_t Discarded() const { return Discarded_; }
 
@@ -300,7 +307,6 @@ private:
     double ReadMs = 0.0;
   };
 
-  void RetireNativeLookups();
   [[nodiscard]] bool AwaitNativeLookups(double seconds) const;
   [[nodiscard]] size_t PendingBasisLookups() const noexcept;
   [[nodiscard]] NativeLookup *
@@ -327,7 +333,8 @@ private:
                                         HeightRequirement requirement,
                                         VectorSelection &selected,
                                         double &durationMs);
-  [[nodiscard]] QueuedBuild VectorBuild(Ground::SurfacePreparation &stack,
+  [[nodiscard]] QueuedBuild VectorBuild(JobAdmission::Lease admission,
+                                        Ground::SurfacePreparation &stack,
                                         const ::outshine::Generators::Osm::BuildingField &prints,
                                         ::outshine::Generators::Osm::TileAdmission::Next next,
                                         BakeRevision revision,
@@ -357,12 +364,14 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
-  void RecycleOutput(StructureBuildTask &task);
+  [[nodiscard]] std::optional<JobAdmission::Lease> TryAdmitBuild();
+  [[nodiscard]] bool AdmitContext();
+  void RecycleTask(StructureBuildTask &task);
   void PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                              LongitudeLatitude eye,
                              HeightRequirement requirement,
                              BuildPurpose purpose,
-                             const std::function<bool(uint32_t)> &cellReady);
+                             const std::function<bool(uint32_t)> &cellReady) const;
   void PostSlice(QueuedBuild &build);
   [[nodiscard]] bool WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
                                             const HeightSource &heightAt,
@@ -404,32 +413,41 @@ private:
                                           VectorSelection &selected,
                                           double &durationMs);
 
+  struct BuildContext {
+    std::shared_ptr<JobAdmission::Lease> Admission;
+    std::shared_ptr<const StructureMesher> Mesher;
+    std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation;
+    std::vector<std::shared_ptr<const void>> PreparingOriginals;
+    std::vector<Generators::Osm::StructurePreparation::Product> Originals;
+    std::vector<Data::TileId> OriginalHeightTiles;
+    int OriginalHeightZoom = -1;
+    int PreparingOriginalHeightZoom = -1;
+    std::deque<QueuedBuild> Queue;
+    std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups;
+    std::shared_ptr<NativeProgress> LookupProgress;
+    std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets;
+    std::optional<Generators::StructureBakeError> NativeFailure;
+    std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw;
+    std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut;
+    std::vector<std::unique_ptr<MeshScratch>> IdleScratch;
+    std::optional<PendingVectorHeights> PendingHeights;
+    HeightFailure LastHeightFailure;
+  };
+
+  BuildContext Context_;
+  std::shared_ptr<JobAdmission> Admission_;
+  std::shared_ptr<JobAdmission> ContextAdmission_;
   Tasks *Pool_ = nullptr;
-  std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation_;
-  std::vector<std::shared_ptr<const void>> PreparingOriginals_;
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginalInputs(Generators::Osm::StructurePreparation::Inputs inputs,
                         Generators::Osm::StructurePolicy policy,
                         int heightZoom);
-  std::vector<Generators::Osm::StructurePreparation::Product> Originals_;
   [[nodiscard]] const Data::SourceObjects *InputObjectsFor(uint32_t tile) const noexcept;
-  std::vector<Data::TileId> OriginalHeightTiles_;
-  int OriginalHeightZoom_ = -1;
-  int PreparingOriginalHeightZoom_ = -1;
-  std::shared_ptr<const StructureMesher> Mesher_;
-  std::deque<QueuedBuild> Queue_;
-  std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups_;
-  std::shared_ptr<NativeProgress> NativeProgress_;
-  std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets_;
-  std::optional<Generators::StructureBakeError> NativeFailure_;
-  std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
-  std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
-  std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
-  std::optional<PendingVectorHeights> PendingVectorHeights_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
-  HeightFailure LastHeightFailure_;
+  size_t AdmissionDeferred_ = 0;
+  size_t ContextAdmissionDeferred_ = 0;
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;

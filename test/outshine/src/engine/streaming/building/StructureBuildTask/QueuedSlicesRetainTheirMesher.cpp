@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Check.h"
 #include "HeightField.h"
 #include "StructureBake.h"
@@ -18,9 +19,15 @@ using namespace outshine;
 struct Scratch final : MeshScratch {
   std::weak_ptr<const StructureMesher> Owner;
   std::atomic<bool> *OwnerAlive = nullptr;
+  std::weak_ptr<JobAdmission> Admission;
+  std::atomic<bool> *AdmissionHeld = nullptr;
 
   ~Scratch() override {
     if (OwnerAlive != nullptr) { OwnerAlive->store(!Owner.expired(), std::memory_order_relaxed); }
+    if (AdmissionHeld != nullptr) {
+      const auto admission = Admission.lock();
+      AdmissionHeld->store(admission && admission->Active() > 0, std::memory_order_relaxed);
+    }
   }
 };
 
@@ -50,6 +57,7 @@ int main() {
   using namespace outshine::Test;
   std::atomic<unsigned> calls{0};
   std::atomic<bool> scratchOwnerAlive{false};
+  std::atomic<bool> scratchAdmissionHeld{false};
   Tasks pool(1);
   const auto unrelated = pool.Post([] {});
   CHECK(pool.AwaitCompletion(unrelated, 2), "an unrelated completion remains in the pool");
@@ -90,7 +98,10 @@ int main() {
     auto &tracked = static_cast<::Scratch &>(*scratch);
     tracked.Owner = mesher;
     tracked.OwnerAlive = &scratchOwnerAlive;
-    StructureBuildTask task(1,
+    tracked.Admission = JobAdmissions();
+    tracked.AdmissionHeld = &scratchAdmissionHeld;
+    StructureBuildTask task(outshine::Test::JobLease(),
+                            1,
                             std::move(raw),
                             Ground::HeightField::Of(0, {std::move(block)}),
                             std::make_unique<StructureBuildTask::Output>(),
@@ -117,6 +128,8 @@ int main() {
   CHECK(weak.expired(), "completed task and worker release their last mesher owner");
   CHECK(scratchOwnerAlive.load(std::memory_order_relaxed),
         "the mesher also outlives destruction of the scratch that its factory created");
+  CHECK(scratchAdmissionHeld.load(std::memory_order_relaxed),
+        "scratch destruction completes before its job credit becomes reusable");
   CHECK(pool.TakeCompletion(unrelated), "the unrelated completion remains available to its owner");
   return Report();
 }

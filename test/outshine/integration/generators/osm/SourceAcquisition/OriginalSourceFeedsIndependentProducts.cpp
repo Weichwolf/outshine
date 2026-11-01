@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "OsmSourceAcquisition.h"
 #include "OsmBuildingFootprints.h"
 #include "OsmTransportPreparation.h"
@@ -69,7 +70,8 @@ int main() {
   CHECK(footprints && &footprints->Source() == source.get() && footprints->Buildings().size() == 1,
         "building product pins the same original snapshot");
   StructureBuildQueue structures;
-  structures.Opens(&tasks, nullptr);
+  structures.Opens(
+      &tasks, nullptr, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
   std::expected<bool, std::string> prepared = false;
   for (int attempt = 0; attempt < 200 && prepared && !*prepared; ++attempt) {
     prepared = structures.PrepareOriginal(
