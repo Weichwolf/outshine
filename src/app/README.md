@@ -113,6 +113,28 @@ gewählten Cache. `--root <Verzeichnis>` wählt einen Cache-Elternordner mit `as
 `sources/`. Standard sind `assets/` neben dem Outshine-Programm und `sources/` im
 Anwendungsverzeichnis von SDL. Netzwerk und GPU starten nicht.
 
+Das persistente Dateilimit ist getrennt vom einmaligen Trim-Nutzdatenbudget:
+
+```sh
+outshine cache limit
+outshine cache limit --assets-mib 32768
+```
+
+Standard: 32 GiB = 32 × 1024³ Byte gemeinsam für die generierten Assetbanken.
+`--root` hat dieselbe Bedeutung wie bei `trim`; für eine Änderung müssen die
+Cachebenutzer geschlossen sein. Dateilängen, zugewiesene Blöcke, WAL/SHM und
+Budgetmetadaten zählen gemeinsam. Quellen und Spielstände gehören nicht zur Assetroot.
+Das Backend hält zusätzlich Platz für Checkpoint/Wartung frei. Bei Quoten-Rückstau
+bleibt die vorbereitete Publikation erhalten; ein Versuch entfernt höchstens ein
+LRU-Paket oder gibt höchstens 256 freie Seiten zurück. Aktive SQLite-Leser behalten
+ihr Snapshot, geladene Produkte ihre Bytes. Dateilinks innerhalb der Root sind unzulässig.
+
+`over_budget=1` weist bestehende Übergröße aus; sie ist keine erfüllte Grenze.
+Übergröße wird bei neuen Publikationsversuchen schrittweise bereinigt. Reine
+Cachetreffer starten noch keine eigene Idle-Bereinigung. Altbanken ohne inkrementelle
+Freigabe benötigen weiterhin explizites `trim --compact` samt Arbeitsraum; Öffnen
+ersetzt keine laufenden Datenbankdateien. Diese Restarbeiten bleiben #1920.
+
 Das Assetbudget gilt gemeinsam für komprimierte Pakete in `assets.sqlite` und
 `prototypes.sqlite`. Verwaiste Pakete werden zuerst entfernt, anschließend die am längsten
 nicht verwendeten. Ein Paket wird mit sämtlichen Mitgliedern, Request-Bindungen und

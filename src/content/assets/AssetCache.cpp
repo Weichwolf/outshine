@@ -128,6 +128,29 @@ std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
   return {};
 }
 
+std::expected<void, AssetCacheError> PrepareUsageIndex(sqlite3 *db) {
+  AssetSql::Statement index;
+  const auto checked = AssetSql::Prepare(
+      db, "SELECT 1 FROM sqlite_schema WHERE type='index' AND name='cache_usage_oldest'", index);
+  if (!checked) { return std::unexpected(checked.error()); }
+  const int status = sqlite3_step(index.Value);
+  sqlite3_finalize(std::exchange(index.Value, nullptr));
+  if (status == SQLITE_DONE) {
+    const auto prepared = AssetSql::Exec(
+        db,
+        "BEGIN IMMEDIATE;"
+        "INSERT OR IGNORE INTO cache_usage_v1(key,stored_bytes,created_unix_s,last_used_unix_s) "
+        "SELECT p.key,CASE WHEN b.rowid IS NULL THEN length(p.bytes) ELSE length(b.bytes) END,"
+        "NULL,0 FROM packages p LEFT JOIN package_bodies b ON b.key=p.key;"
+        "CREATE INDEX IF NOT EXISTS cache_usage_oldest ON cache_usage_v1(last_used_unix_s,key);"
+        "CREATE INDEX IF NOT EXISTS assets_package ON assets(package);COMMIT;");
+    if (!prepared) { return std::unexpected(prepared.error()); }
+  } else if (status != SQLITE_ROW) {
+    return std::unexpected(AssetSql::Error(status));
+  }
+  return {};
+}
+
 }
 
 std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
@@ -140,11 +163,16 @@ AssetCache::Open(const std::string &path) {
   auto state = std::make_unique<State>();
   state->Mutex = std::move(mutex);
   const std::scoped_lock lock(*state->Mutex);
+  const std::filesystem::path file(path);
+  const auto budget = SqliteFileBudget::Open(file.has_parent_path() ? file.parent_path() : ".");
+  if (!budget) { return std::unexpected(AssetCacheError::Storage); }
+  state->Budget = *budget;
+  const SqliteFileBudget::Maintenance maintenance(*state->Budget);
   const int opened =
       sqlite3_open_v2(path.c_str(),
                       &state->Database,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
-                      nullptr);
+                      state->Budget->VfsName());
   if (opened != SQLITE_OK) { return std::unexpected(AssetSql::Error(opened)); }
   bool empty = false;
   {
@@ -170,22 +198,31 @@ AssetCache::Open(const std::string &path) {
     const auto migrated = MigrateSchema(state->Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
-  auto usage = CacheUsageIndex::Open(path);
+  auto usage = CacheUsageIndex::Open(path, state->Budget);
   if (usage) { state->Usage = std::move(*usage); }
   if (!state->Usage) {
     std::fputs("asset cache: usage index could not be opened\n", stderr);
     state->UsageWarning = true;
   }
+  if (state->Usage) {
+    const auto indexed = PrepareUsageIndex(state->Database);
+    if (!indexed) { return std::unexpected(indexed.error()); }
+  }
   return std::unique_ptr<AssetCache>(new AssetCache(std::move(state)));
 }
 
 namespace AssetSql {
+constexpr unsigned kPrimaryResultMask = 0xffU;
 
 Statement::~Statement() {
   if (Value != nullptr) { sqlite3_finalize(Value); }
 }
 
 AssetCacheError Error(int code) {
+  if ((static_cast<unsigned>(code) & kPrimaryResultMask) == SQLITE_FULL &&
+      SqliteFileBudget::WasDenied()) {
+    return AssetCacheError::Busy;
+  }
   return code == SQLITE_BUSY || code == SQLITE_LOCKED ? AssetCacheError::Busy
                                                       : AssetCacheError::Storage;
 }

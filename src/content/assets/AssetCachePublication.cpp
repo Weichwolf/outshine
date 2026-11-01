@@ -267,16 +267,32 @@ std::expected<void, AssetCacheError> AssetCache::Publish(const PreparedAssetWrit
                           .Compressed = prepared.Compressed_});
 }
 
-std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publication &publication) {
-  const std::scoped_lock lock(*State_->Mutex);
-  if (std::cmp_greater(publication.NativeBytes,
-                       sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
-    return std::unexpected(AssetCacheError::CapacityExceeded);
+namespace {
+std::expected<void, AssetCacheError>
+StoreUsage(sqlite3 *database, std::string_view key, size_t bytes) {
+  AssetSql::Statement usage;
+  const auto usePrepared = AssetSql::Prepare(
+      database,
+      "INSERT OR IGNORE INTO cache_usage_v1(key,stored_bytes,created_unix_s,last_used_unix_s) "
+      "VALUES(?,?,unixepoch(),unixepoch())",
+      usage);
+  if (!usePrepared) { return usePrepared; }
+  if (!AssetSql::Text(usage.Value, 1, key) ||
+      sqlite3_bind_int64(usage.Value, 2, static_cast<sqlite3_int64>(bytes)) != SQLITE_OK) {
+    return std::unexpected(AssetCacheError::Storage);
   }
-  auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  const int used = sqlite3_step(usage.Value);
+  if (used != SQLITE_DONE) { return std::unexpected(AssetSql::Error(used)); }
+  return {};
+}
+}
+
+std::expected<void, AssetCacheError>
+AssetCache::State::StorePublication(const AssetCache::Publication &publication) {
+  auto began = AssetSql::Exec(Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
-  Transaction transaction(State_->Database);
-  const auto stored = StorePackage(State_->Database,
+  Transaction transaction(Database);
+  const auto stored = StorePackage(Database,
                                    publication.Key,
                                    publication.Bytes,
                                    publication.Compressed ? 1 : 0,
@@ -286,7 +302,7 @@ std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publicati
   AssetSql::Statement bounds;
   AssetSql::Statement request;
   auto prepared = AssetSql::Prepare(
-      State_->Database,
+      Database,
       "INSERT INTO "
       "assets(key,kind,minx,miny,minz,maxx,maxy,maxz,package,offset,bytes,level,parent)"
       " "
@@ -298,12 +314,12 @@ std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publicati
       asset);
   if (!prepared) { return prepared; }
   prepared =
-      AssetSql::Prepare(State_->Database,
+      AssetSql::Prepare(Database,
                         "INSERT OR REPLACE INTO bounds SELECT id,minx,maxx,miny,maxy,minz,maxz "
                         "FROM assets WHERE key=?",
                         bounds);
   if (!prepared) { return prepared; }
-  prepared = AssetSql::Prepare(State_->Database, kBindRequest, request);
+  prepared = AssetSql::Prepare(Database, kBindRequest, request);
   if (!prepared) { return prepared; }
   for (const auto &record : publication.Records) {
     sqlite3_reset(asset.Value);
@@ -318,9 +334,32 @@ std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publicati
     const auto rebound = RebindRequest(request.Value, record);
     if (!rebound) { return rebound; }
   }
+  const auto observed = StoreUsage(Database, publication.Key, publication.Bytes.size());
+  if (!observed) { return observed; }
   auto committed = transaction.Commit();
-  if (committed) { State_->Observe(publication.Key, publication.Bytes.size(), true); }
+  if (committed) { Observe(publication.Key, publication.Bytes.size(), true); }
   return committed;
+}
+
+std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publication &publication) {
+  const std::scoped_lock lock(*State_->Mutex);
+  if (std::cmp_greater(publication.NativeBytes,
+                       sqlite3_limit(State_->Database, SQLITE_LIMIT_LENGTH, -1))) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  if (publication.Bytes.size() > (State_->Budget->Limit() - State_->Budget->Reserve()) / 2) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  SqliteFileBudget::ClearDenial();
+
+  const auto result = State_->StorePublication(publication);
+  const bool quota = SqliteFileBudget::TakeDenial();
+  if (!result && quota) {
+    const auto reclaimed = State_->Reclaim();
+    if (!reclaimed && reclaimed.error() != AssetCacheError::Busy) { return reclaimed; }
+    return std::unexpected(AssetCacheError::Busy);
+  }
+  return result;
 }
 
 std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
