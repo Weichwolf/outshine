@@ -18,12 +18,10 @@ namespace {
 std::expected<size_t, std::string>
 RoundTripScenario(const outshine::Scenario::Document &declaration, std::string_view scratchPath) {
   outshine::Engine engine;
-  if (auto declared = engine.declare(declaration); !declared) {
+  if (auto declared = engine.loadScenario(declaration); !declared) {
     return std::unexpected(std::move(declared.error()));
   }
-  if (auto assembled = engine.assemble(); !assembled) {
-    return std::unexpected(std::move(assembled.error()));
-  }
+
   auto first = engine.writeScenario();
   if (!first) { return std::unexpected(std::move(first.error())); }
   if (auto written = outshine::WriteFileAtomically(scratchPath, std::as_bytes(std::span(*first)));
@@ -31,12 +29,10 @@ RoundTripScenario(const outshine::Scenario::Document &declaration, std::string_v
     return std::unexpected(std::move(written.error()));
   }
   outshine::Engine restored;
-  if (auto read = outshine::Test::LoadAndDeclareScenario(restored, scratchPath); !read) {
+  if (auto read = outshine::Test::LoadScenario(restored, scratchPath); !read) {
     return std::unexpected(std::move(read.error()));
   }
-  if (auto assembled = restored.assemble(); !assembled) {
-    return std::unexpected(std::move(assembled.error()));
-  }
+
   auto second = restored.writeScenario();
   if (!second) { return std::unexpected(std::move(second.error())); }
   if (*first != *second) {

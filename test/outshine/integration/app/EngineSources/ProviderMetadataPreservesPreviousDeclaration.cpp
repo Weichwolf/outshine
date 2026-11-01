@@ -20,7 +20,7 @@ std::expected<void, std::string> DeclareXml(outshine::Engine &engine, std::strin
   if (!outshine::ReadScenario(text.data(), text.size(), candidate, error)) {
     return std::unexpected(error);
   }
-  return engine.declare(candidate);
+  return engine.loadScenario(candidate);
 }
 
 std::string Changed(std::string text, std::string_view from, std::string_view to) {
@@ -80,7 +80,8 @@ int main() {
                                 .Coverage = {},
                                 .PayloadSha256 = {},
                                 .Schema = "openmaptiles"});
-  CHECK(engine.declare(document), "previous source declaration is valid without acquiring data");
+  CHECK(engine.loadScenario(document),
+        "previous source declaration is valid without acquiring data");
   std::string error;
   for (const std::string &text : invalid) {
     const auto result = DeclareXml(engine, text);

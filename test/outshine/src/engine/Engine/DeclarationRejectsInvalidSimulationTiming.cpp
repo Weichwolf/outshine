@@ -9,9 +9,9 @@ int main() {
   Scenario::Document valid;
   valid.Motion.StepS = 0.02;
   valid.Motion.MostStepsInArrears = 4;
-  CHECK(engine.declare(valid).has_value(), "valid simulation timing is accepted");
+  CHECK(engine.loadScenario(valid).has_value(), "valid simulation timing is accepted");
   const auto rejected = [&](const Scenario::Document &candidate) {
-    const auto result = engine.declare(candidate);
+    const auto result = engine.loadScenario(candidate);
     CHECK(!result && result.error().contains("finite positive step"),
           "invalid timing is rejected explicitly");
     CHECK(engine.stepSeconds() == valid.Motion.StepS &&
@@ -33,6 +33,6 @@ int main() {
     candidate.Motion.MostStepsInArrears = count;
     rejected(candidate);
   }
-  CHECK(engine.declare(valid).has_value(), "valid declaration still works after rejections");
+  CHECK(engine.loadScenario(valid).has_value(), "valid declaration still works after rejections");
   return Report();
 }

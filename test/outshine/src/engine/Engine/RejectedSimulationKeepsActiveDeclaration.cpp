@@ -17,7 +17,7 @@ int main() {
   instance.Id = "kept";
   scene.Instances.push_back(instance);
   Engine engine;
-  CHECK(engine.declare(scene) && engine.assemble(), "the original simulation is active");
+  CHECK(engine.loadScenario(scene), "the original simulation is active");
   auto *const registry = &engine.entities();
   const auto marker = registry->addEntity();
   CHECK(marker, "an independently allocated entity marks the active registry");
@@ -32,10 +32,9 @@ int main() {
     } else {
       invalid.Instances[0].Of = "missing";
     }
-    CHECK(engine.declare(invalid), "a simulation candidate awaits assembly validation");
+    CHECK(!engine.loadScenario(invalid), "startup rejects invalid entity references or capacity");
     CHECK(engine.stepSeconds() == scene.Motion.StepS,
           "a rejected simulation candidate cannot change the active time step");
-    CHECK(!engine.assemble(), "invalid entity references or capacity reject assembly");
     CHECK(&engine.entities() == registry && registry->alive(*marker),
           "the active registry and independent entity survive failed assembly");
     const auto retained = engine.writeScenario();
@@ -43,7 +42,7 @@ int main() {
           "persistence and simulation still use the same active declaration");
   }
   scene.Motion.StepS = 0.03;
-  CHECK(engine.declare(scene) && engine.assemble() && engine.stepSeconds() == scene.Motion.StepS,
+  CHECK(engine.loadScenario(scene) && engine.stepSeconds() == scene.Motion.StepS,
         "a valid subsequent declaration can replace the rejected candidate");
   return Report();
 }

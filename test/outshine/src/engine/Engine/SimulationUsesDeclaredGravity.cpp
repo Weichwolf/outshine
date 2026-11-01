@@ -28,7 +28,7 @@ int main() {
       scene.Volumes.push_back(volume);
     }
     Engine engine;
-    CHECK(engine.declare(scene) && engine.assemble(), "headless gravity scenario assembled");
+    CHECK(engine.loadScenario(scene), "headless gravity scenario assembled");
     for (const int step : {1, 2, 3}) {
       CHECK(engine.advance().has_value(), "fixed gravity step succeeds");
       const auto fired = std::ranges::count_if(engine.unacted(), [](const std::string &line) {

@@ -41,7 +41,7 @@ int main() {
          .Programme = "const ready = () => [1,2,3].reduce((sum,x) => sum+x,0) === 6;",
          .Where = {}});
     scene.Input = {{.Event = "KeyW", .Action = "key"}};
-    const auto declared = engine.declare(scene);
+    const auto declared = engine.loadScenario(scene);
     CHECK(declared.has_value(), declared ? "UI declaration accepted" : declared.error().c_str());
     if (target && declared) {
       SDL_Event event{};
@@ -53,7 +53,7 @@ int main() {
             "unbound mouse reaches UI even while another input is bound");
       receiver.Names.clear();
       scene.Input.push_back({.Event = "MouseLeft", .Action = "bound"});
-      CHECK(engine.declare(scene).has_value(), "mouse binding replaces routing policy");
+      CHECK(engine.loadScenario(scene).has_value(), "mouse binding replaces routing policy");
       handled = engine.handleEvent(event);
       CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"bound"},
             "explicit mouse binding prevents a second UI action");
@@ -64,7 +64,7 @@ int main() {
             "refused binding cannot fall through to UI");
       receiver.Accept = true;
       scene.Input.clear();
-      CHECK(engine.declare(scene).has_value(), "bindings can be removed with the UI retained");
+      CHECK(engine.loadScenario(scene).has_value(), "bindings can be removed with the UI retained");
       receiver.Names.clear();
       handled = engine.handleEvent(event);
       CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"clicked"},

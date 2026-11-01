@@ -8,7 +8,7 @@ int main() {
   using namespace outshine::Test;
   Engine engine;
   const Scenario::Document original;
-  CHECK(engine.declare(original).has_value(), "initial declaration accepted");
+  CHECK(engine.loadScenario(original).has_value(), "initial declaration accepted");
   const auto before = engine.writeScenario();
   for (const auto field : std::array{&Scenario::WorldSettings::GravityMs2,
                                      &Scenario::WorldSettings::AirDensityKgM3,
@@ -19,7 +19,7 @@ int main() {
                                std::numeric_limits<double>::quiet_NaN()}) {
       auto candidate = original;
       candidate.Ground.*field = value;
-      CHECK(!engine.declare(candidate), "invalid world magnitude refused");
+      CHECK(!engine.loadScenario(candidate), "invalid world magnitude refused");
       CHECK(engine.writeScenario() == before, "invalid magnitude preserves declaration");
     }
   }
@@ -28,20 +28,21 @@ int main() {
                                      &Scenario::Georeference::RadiusM}) {
     auto candidate = original;
     candidate.Ground.Origin.*field = std::numeric_limits<double>::infinity();
-    CHECK(!engine.declare(candidate), "nonfinite geographic setting refused");
+    CHECK(!engine.loadScenario(candidate), "nonfinite geographic setting refused");
     CHECK(engine.writeScenario() == before, "invalid origin preserves declaration");
   }
   auto candidate = original;
   candidate.Ground.Origin.LatitudeDeg = 91;
-  CHECK(!engine.declare(candidate), "latitude beyond pole refused");
+  CHECK(!engine.loadScenario(candidate), "latitude beyond pole refused");
   candidate = original;
   candidate.Ground.PatienceS = std::numeric_limits<double>::max();
-  CHECK(!engine.declare(candidate), "poll-count overflow refused before conversion");
+  CHECK(!engine.loadScenario(candidate), "poll-count overflow refused before conversion");
   CHECK(engine.writeScenario() == before, "budget failure preserves declaration");
   candidate.Ground.PatienceS = 0;
   candidate.Ground.SightM = 0;
   candidate.Ground.GravityMs2 = 0;
   candidate.Ground.AirDensityKgM3 = 0;
-  CHECK(engine.declare(candidate).has_value(), "zero-valued defaults and vacuum can be declared");
+  CHECK(engine.loadScenario(candidate).has_value(),
+        "zero-valued defaults and vacuum can be declared");
   return Report();
 }

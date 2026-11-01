@@ -29,8 +29,7 @@ int main() {
   scene.Sounds.push_back(tone);
   Engine engine;
   std::array<float, 128> audio{};
-  CHECK(engine.declare(scene).has_value(), "bound source declaration accepted");
-  CHECK(!engine.prepareAudio(48000), "bound source requires current assembly");
+  CHECK(engine.loadScenario(scene).has_value(), "bound source declaration accepted");
   const auto render = [&](bool right) {
     const auto prepared = engine.prepareAudio(48000);
     CHECK(prepared.has_value(), prepared ? "audio prepared" : prepared.error().c_str());
@@ -44,29 +43,29 @@ int main() {
     }
     CHECK(silent == 0 && audible > 1, "named body determines the stereo side");
   };
-  CHECK(engine.assemble().has_value(), "placed bodies assembled");
+
   render(true);
   std::swap(scene.Bodies[1], scene.Bodies[2]);
-  CHECK(engine.declare(scene).has_value(), "body order changed");
-  CHECK(!engine.prepareAudio(48000), "old assembly cannot bind new declaration");
-  CHECK(engine.assemble().has_value(), "reordered bodies assembled");
+  CHECK(engine.loadScenario(scene).has_value(), "body order changed");
+
   render(true);
   CHECK(engine.entities().open(1), "client replaces the public scene storage");
   CHECK(!engine.prepareAudio(48000),
         "removed body storage rejects binding without invalid indexing");
-  CHECK(engine.assemble().has_value(), "assembly restores the native entity storage");
+
+  CHECK(engine.loadScenario(scene), "fresh simulation restores native entity storage");
   render(true);
   scene.Sounds[0].Body = "left";
-  CHECK(engine.declare(scene) && engine.assemble(), "source target changed");
+  CHECK(engine.loadScenario(scene), "source target changed");
   render(false);
   for (const char *target : {"missing", "template"}) {
     scene.Sounds[0].Body = target;
-    CHECK(engine.declare(scene) && engine.assemble(), "invalid audio target awaits setup");
+    CHECK(engine.loadScenario(scene), "invalid audio target awaits setup");
     CHECK(!engine.prepareAudio(48000), "missing or unplaced target rejected");
   }
   scene.Sounds[0].Body = "right";
   scene.Bodies.push_back(scene.Bodies[1]);
-  CHECK(engine.declare(scene) && engine.assemble(), "ambiguous names await binding validation");
-  CHECK(!engine.prepareAudio(48000), "ambiguous target is never selected by order");
+  CHECK(engine.loadScenario(scene), "body definitions can share a name before audio binding");
+  CHECK(!engine.prepareAudio(48000), "ambiguous audio target is never selected by order");
   return Report();
 }

@@ -33,7 +33,7 @@ int main() {
                             .Person = {},
                             .OffsetM = {}});
   for (int failure = 0; failure < 5; ++failure) {
-    CHECK(engine.declare(original).has_value(), "original view catalog activates");
+    CHECK(engine.loadScenario(original).has_value(), "original view catalog activates");
     const auto *previous = engine.declaration().Views.data();
     auto candidate = original;
     candidate.Views[0].Id = "replacement";
@@ -46,7 +46,8 @@ int main() {
         candidate.Generators.push_back({.Kind = std::string(generator.kind()), .Parameters = {}});
         break;
     }
-    CHECK(!engine.declare(candidate), "invalid view or late generator failure rejects candidate");
+    CHECK(!engine.loadScenario(candidate),
+          "invalid view or late generator failure rejects candidate");
     if (failure < 4) {
       CHECK(engine.declaration().Views.data() == previous,
             "view validation rejects before replacing the owned declaration");
@@ -56,10 +57,10 @@ int main() {
   }
   auto replacement = original;
   replacement.Views[0].Id = "replacement";
-  CHECK(engine.declare(replacement).has_value(), "valid retry succeeds");
+  CHECK(engine.loadScenario(replacement).has_value(), "valid retry succeeds");
   CHECK(engine.setView("replacement").has_value() && !engine.setView("original"),
         "successful replacement publishes only its own catalog");
-  CHECK(engine.declare({}).has_value(), "empty declaration succeeds");
+  CHECK(engine.loadScenario({}).has_value(), "empty declaration succeeds");
   CHECK(!engine.setView("replacement"), "successful empty declaration removes the old catalog");
   return Report();
 }

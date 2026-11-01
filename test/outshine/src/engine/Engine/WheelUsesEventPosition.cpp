@@ -21,7 +21,7 @@ int main() {
                   "#content { width: 32px; height: 128px; }",
          .Programme = {},
          .Where = {.LeftFrac = 0.5, .TopFrac = 0.5, .WidthFrac = 0.5, .HeightFrac = 0.5}});
-    const auto declared = engine.declare(scene);
+    const auto declared = engine.loadScenario(scene);
     CHECK(declared.has_value(), declared ? "scroll surface declared" : declared.error().c_str());
     if (declared) {
       SDL_Event event{};
@@ -39,7 +39,7 @@ int main() {
                                 -std::numeric_limits<double>::infinity()}) {
         auto invalid = scene;
         invalid.WheelStepPx = step;
-        CHECK(!engine.declare(invalid), "invalid wheel step rejected before replacing scene");
+        CHECK(!engine.loadScenario(invalid), "invalid wheel step rejected before replacing scene");
       }
       for (float *field : {&event.wheel.mouse_x, &event.wheel.mouse_y, &event.wheel.y}) {
         const float saved = *field;
@@ -68,15 +68,16 @@ int main() {
       scroll(1, false);
       auto excessive = scene;
       excessive.WheelStepPx = std::numeric_limits<double>::max();
-      CHECK(engine.declare(excessive).has_value(), "finite large wheel step remains representable");
+      CHECK(engine.loadScenario(excessive).has_value(),
+            "finite large wheel step remains representable");
       event.wheel.y = -2;
       CHECK(!engine.handleEvent(event), "overflow in pixel displacement rejected");
-      CHECK(engine.declare(scene).has_value(), "normal configuration restored");
+      CHECK(engine.loadScenario(scene).has_value(), "normal configuration restored");
       scroll(1, false);
       scroll(-1, true);
       auto disabled = scene;
       disabled.WheelStepPx = 0;
-      CHECK(engine.declare(disabled).has_value(), "zero step explicitly disables scrolling");
+      CHECK(engine.loadScenario(disabled).has_value(), "zero step explicitly disables scrolling");
       scroll(-1, false);
     }
   }

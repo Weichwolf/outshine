@@ -9,7 +9,7 @@ int main() {
   valid.Tables = {
       {.Id = "state", .Columns = {"key", "value"}, .Types = {false, true}, .Rows = {{"one", "2"}}}};
   Engine engine;
-  CHECK(engine.declare(valid) && engine.assemble(), "valid simulation assembled");
+  CHECK(engine.loadScenario(valid), "valid simulation assembled");
   const auto *simulation = &engine.entities();
   const auto published = engine.writeScenario();
   CHECK(published, "the active declaration can be exported");
@@ -18,21 +18,19 @@ int main() {
   invalid[1].Tables[0].Rows[0][1] = "infinity";
   invalid[2].Tables[0].Rows.push_back(invalid[2].Tables[0].Rows[0]);
   for (const auto &document : invalid) {
-    CHECK(engine.declare(document).has_value(), "table validation occurs after declaration");
+    CHECK(!engine.loadScenario(document), "startup rejects invalid tables");
     const auto exported = engine.writeScenario();
     CHECK(exported && exported == published,
           "an invalid pending table cannot replace the published scenario export");
     CHECK(&engine.entities() == simulation, "export preserves active simulation identity");
     const auto repeated = engine.writeScenario();
     CHECK(repeated == exported, "repeated export leaves the active declaration unchanged");
-    CHECK(!engine.assemble(), "invalid tables reject candidate assembly");
     CHECK(engine.writeScenario() == published && &engine.entities() == simulation,
           "failed assembly preserves the same exported declaration and simulation");
     CHECK(engine.advance(), "the previously published simulation remains usable");
   }
-  CHECK(engine.declare(valid).has_value(), "valid declaration replaces invalid candidate");
+  CHECK(engine.loadScenario(valid).has_value(), "valid declaration replaces invalid candidate");
   const auto exported = engine.writeScenario();
   CHECK(exported && exported->contains("<tables>"), "valid retry returns serialized table data");
-  CHECK(&engine.entities() == simulation, "successful export does not reassemble simulation");
   return Report();
 }

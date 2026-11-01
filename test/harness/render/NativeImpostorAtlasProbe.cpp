@@ -104,8 +104,8 @@ struct Frame {
 std::optional<Frame> CaptureFrame(const Geometry &card, const Scenario::Document &scene) {
   Engine engine;
   Frame frame;
-  const bool captured = engine.setRenderTarget(scene.Render.Frame) && engine.declare(scene) &&
-                        engine.setGeometry(card) && engine.assemble() && engine.advance() &&
+  const bool captured = engine.setRenderTarget(scene.Render.Frame) && engine.loadScenario(scene) &&
+                        engine.setGeometry(card) && engine.advance() &&
                         engine.renderer().render({}) &&
                         engine.renderer().readPixels(Buffer::Linear, frame.Linear) &&
                         engine.renderer().readPixels(Buffer::Depth, frame.Depth) &&

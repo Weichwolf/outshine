@@ -43,7 +43,7 @@ int main() {
     instance.Of = "actor";
     instance.Id = "kept";
     initial.Instances.push_back(std::move(instance));
-    const auto ready = engine.declare(initial) && engine.assemble();
+    const auto ready = engine.loadScenario(initial);
     CHECK(ready, "initial simulation assembled");
     if (!ready) { return Report(); }
     World::EntityRegistry *const previous = &engine.entities();
@@ -68,8 +68,7 @@ int main() {
       Data::SourceProvider declaration;
       declaration.Kind = "unavailable";
       world.Providers.push_back(std::move(declaration));
-      CHECK(engine.declare(world).has_value(), "ground declaration accepted before assembly");
-      const auto built = engine.assemble();
+      const auto built = engine.loadScenario(world);
       CHECK(!built, "invalid world source fails independently of entity capacity");
       CHECK(!built && built.error().contains("unavailable"),
             "world source failure reaches the caller");

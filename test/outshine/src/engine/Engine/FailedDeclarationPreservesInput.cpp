@@ -41,7 +41,7 @@ int main() {
   event.type = SDL_EVENT_KEY_DOWN;
   event.key.key = SDLK_W;
   for (int failure = 0; failure < 4; ++failure) {
-    CHECK(engine.declare(original).has_value(), "original input activates");
+    CHECK(engine.loadScenario(original).has_value(), "original input activates");
     auto candidate = original;
     candidate.Input[0].Action = "replacement";
     switch (failure) {
@@ -61,7 +61,7 @@ int main() {
         break;
       default: candidate.Generators.push_back({.Kind = "refusing", .Parameters = {}}); break;
     }
-    CHECK(!engine.declare(candidate), "invalid candidate is refused");
+    CHECK(!engine.loadScenario(candidate), "invalid candidate is refused");
     CHECK(engine.declaration().Input.size() == 1 &&
               engine.declaration().Input.front().Event == "KeyW" &&
               engine.declaration().Input.front().Action == "original" &&
@@ -74,10 +74,10 @@ int main() {
   }
   auto replacement = original;
   replacement.Input[0].Action = "replacement";
-  CHECK(engine.declare(replacement).has_value(), "valid replacement recovers");
+  CHECK(engine.loadScenario(replacement).has_value(), "valid replacement recovers");
   CHECK(engine.handleEvent(event).value_or(false) && receiver.Last == "replacement",
         "successful declaration activates its own bindings");
-  CHECK(engine.declare({}).has_value(), "empty declaration succeeds");
+  CHECK(engine.loadScenario({}).has_value(), "empty declaration succeeds");
   const auto removed = engine.handleEvent(event);
   CHECK(removed && !*removed, "successful empty declaration removes bindings");
   return Report();

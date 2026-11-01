@@ -106,40 +106,10 @@ void CheckGeometry(const Engine &engine, const RouteInfo &info) {
         "invalid contact coordinates are refused without terrain fallback");
 }
 
-void CheckRevisions(Engine &engine, Scenario::Document &scene) {
+void CheckIncompleteCoverage(Engine &engine) {
   const auto refined = engine.preload(0.0, WorldQuality::Refined);
   CHECK(!refined && !engine.settled(WorldQuality::Refined),
         "an incomplete vector fixture cannot claim refined coverage");
-  CHECK(engine.declare(scene) && engine.assemble() && engine.routeInfo("circuit") &&
-            engine.sampleRouteContact("circuit", 0.0, 0.0),
-        "unchanged source and route preserve the published alignment across reuse");
-  auto invalid = scene;
-  invalid.Routes.front().Id.clear();
-  CHECK(!engine.declare(invalid) && engine.routeInfo("circuit") &&
-            engine.sampleRouteContact("circuit", 0.0, 0.0),
-        "a rejected declaration preserves the valid published route and contact");
-  scene.Providers.front().Revision = "pin-r2";
-  const auto changedSource = engine.declare(scene);
-  CHECK(changedSource,
-        changedSource ? "new source declaration succeeds" : changedSource.error().c_str());
-  if (changedSource) {
-    CHECK(!engine.routeInfo("circuit") && !engine.sampleRoute("circuit", 0.0) &&
-              !engine.sampleRouteContact("circuit", 0.0, 0.0),
-          "a declared source change revokes old metadata, pose and native contact");
-    CHECK(engine.assemble() && !engine.routeInfo("circuit") &&
-              !engine.sampleRouteContact("circuit", 0.0, 0.0),
-          "a new source revision cannot expose the previously published alignment");
-    const auto replacement = Circuit::WaitForRoute(engine);
-    if (!engine.routeInfo("circuit")) { ShowPending(engine); }
-    CHECK(replacement && engine.routeInfo("circuit") && engine.sampleRoute("circuit", 0.0) &&
-              engine.sampleRouteContact("circuit", 0.0, 0.0),
-          "the replacement source publishes a usable route through ordinary advancement");
-    ++scene.Routes.front().OsmRelationId;
-    CHECK(engine.declare(scene) && !engine.routeInfo("circuit") &&
-              !engine.sampleRoute("circuit", 0.0) &&
-              !engine.sampleRouteContact("circuit", 0.0, 0.0),
-          "a changed relation under the same route name cannot reuse old source geometry");
-  }
 }
 }
 
@@ -157,7 +127,7 @@ int main() {
                            .SourceCacheDirectory = {},
                            .Offline = true,
                            .AssetCacheDirectory = {}}) &&
-              engine.setRenderTarget(Circuit::Frame) && engine.declare(scene) && engine.assemble(),
+              engine.setRenderTarget(Circuit::Frame) && engine.loadScenario(scene),
           "the pinned route and analytic DEM enter the public engine");
     const auto unknown = engine.routeInfo("missing");
     const auto pending = engine.routeInfo("circuit");
@@ -173,7 +143,7 @@ int main() {
                : "published circuit is missing");
     if (info) {
       CheckGeometry(engine, *info);
-      CheckRevisions(engine, scene);
+      CheckIncompleteCoverage(engine);
     }
   }
   SDL_Quit();

@@ -1,7 +1,6 @@
 #include "SurfaceSession.h"
 #include "WorldCandidate.h"
 #include <limits>
-#include <type_traits>
 #include <cmath>
 #include "ScenarioWrite.h"
 #include "WeatherValidation.h"
@@ -303,9 +302,7 @@ void PublishConfiguration(ScenarioSession &session,
   session.Sounding.reset();
   session.Taken = true;
   session.Carried = DescribeScenarioDeclarations(scenario);
-  static_assert(std::is_nothrow_move_assignable_v<std::optional<ViewBook>>);
   session.Views = std::move(views);
-  static_assert(std::is_nothrow_move_assignable_v<InputMap>);
   session.Bound = std::move(bindings);
 }
 
@@ -494,7 +491,7 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 }
 }
 
-Result Engine::declare(const Scenario::Document &scenario) {
+Result Engine::loadScenario(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (const auto valid = ValidateDeclarationInputs(scenario, S_->Services.Providers); !valid) {
@@ -533,23 +530,16 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
     return std::unexpected(S_->Error);
   }
-  if (S_->PendingDeclaration && S_->PendingDeclaration->has_value()) {
-    S_->PendingDeclaration.reset();
-  }
   auto simulation = ScenarioRuntime::Prepare(scenario, S_->Session.DeclarationRevision + 1);
   if (!simulation) {
-    S_->PendingDeclaration.emplace(std::unexpected(std::move(simulation.error())));
-    S_->Error.clear();
-    return {};
+    S_->Error = std::move(simulation.error());
+    return std::unexpected(S_->Error);
   }
   auto sources = S_->PrepareWorldSources(scenario);
   if (!sources) {
-    S_->PendingDeclaration.emplace(std::unexpected(std::move(sources.error())));
-    S_->Error.clear();
-    return {};
+    S_->Error = std::move(sources.error());
+    return std::unexpected(S_->Error);
   }
-  ScenarioPreparation candidate{.Simulation = std::move(*simulation),
-                                .Sources = std::move(*sources)};
 
   auto prepared = PrepareRuntimeDeclaration(
       scenario,
@@ -580,26 +570,19 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Grown = false;
   S_->World.EmptyPlacementInputs.reset();
   S_->Picture.Shown = std::move(declared);
-  if (!S_->Picture.Targeted) {
+  if (S_->Picture.Targeted) {
+    Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
+    S_->Picture.Standing = std::move(prepared->Targeted);
+    S_->World.AudioOcclusion =
+        prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
+  } else {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
     S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
-    S_->Error.clear();
-    PublishConfiguration(S_->Session, scenario, *views, bindings);
-    S_->PendingDeclaration.emplace(std::move(candidate));
-    S_->RouteCamera.reset();
-    S_->CameraPosePending = false;
-    return {};
   }
-  Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
-  S_->Picture.Standing = std::move(prepared->Targeted);
-  S_->Error.clear();
-  S_->World.AudioOcclusion =
-      prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, scenario, *views, bindings);
-  S_->PendingDeclaration.emplace(std::move(candidate));
   S_->RouteCamera.reset();
   S_->CameraPosePending = false;
-  return {};
+  return S_->StartScenario(std::move(*simulation), std::move(*sources));
 }
 
 Result Engine::setGeometry(const Geometry &geometry) {

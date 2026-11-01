@@ -46,7 +46,7 @@ int main() {
           "internal default dimensions are not advertised as a configured target");
     CHECK(engine.setRenderTarget(Extent{.WidthPx = 32, .HeightPx = 32}).has_value(),
           "configure an offscreen target");
-    CHECK(engine.declare(Declaration(false)).has_value(),
+    CHECK(engine.loadScenario(Declaration(false)).has_value(),
           "an empty scene can be declared before a camera is prepared");
     auto renderer = engine.renderer();
     for (int attempt = 0; attempt < 2; ++attempt) {
@@ -57,7 +57,7 @@ int main() {
     }
     std::vector<uint8_t> pixels;
     CHECK(!renderer.readPixels(pixels), "readback cannot bypass missing-camera preparation");
-    const bool ready = engine.declare(Declaration(true)) && engine.assemble() && engine.advance();
+    const bool ready = engine.loadScenario(Declaration(true)) && engine.advance();
     CHECK(ready, "an explicit view can be prepared after failed draw attempts");
     if (ready) {
       CHECK(!renderer.readPixels(pixels), "readback requires an explicitly rendered frame");
@@ -83,7 +83,7 @@ int main() {
     {
       Engine engine;
       CHECK(engine.setRenderTarget(window).has_value(), "the Engine borrows the window");
-      CHECK(engine.declare(Declaration(false)).has_value(),
+      CHECK(engine.loadScenario(Declaration(false)).has_value(),
             "a presentation scene starts without a bound camera");
       auto renderer = engine.renderer();
       for (int attempt = 0; attempt < 2; ++attempt) {
@@ -95,7 +95,7 @@ int main() {
         }
       }
       CHECK(!renderer.endFrame(), "the failed presentation did not leave a frame open");
-      const bool ready = engine.declare(Declaration(true)) && engine.assemble() && engine.advance();
+      const bool ready = engine.loadScenario(Declaration(true)) && engine.advance();
       CHECK(ready, "camera preparation recovers the existing window target");
       if (ready) {
         const auto begun = renderer.beginFrame();

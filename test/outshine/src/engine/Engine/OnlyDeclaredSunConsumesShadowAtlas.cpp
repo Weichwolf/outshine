@@ -100,9 +100,9 @@ std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   std::vector<float> pixels;
   if (!Accepted(engine.setRenderTarget({.WidthPx = kSide, .HeightPx = kSide}),
                 "public offscreen target opens") ||
-      !Accepted(engine.declare(scenario), "public scenario declares its actual key and shadows") ||
+      !Accepted(engine.loadScenario(scenario),
+                "public scenario declares its actual key and shadows") ||
       !Accepted(engine.setGeometry(geometry), "public geometry carries the authored fill lights") ||
-      !Accepted(engine.assemble(), "public assembly binds the complete native light list") ||
       !Accepted(engine.advance(), "the public frame advances") ||
       !Accepted(engine.renderer().render({}), "the public frame renders") ||
       !Accepted(engine.renderer().readPixels(Buffer::Linear, pixels),

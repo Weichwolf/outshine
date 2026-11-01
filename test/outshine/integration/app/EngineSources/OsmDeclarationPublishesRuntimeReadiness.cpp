@@ -36,7 +36,7 @@ int main() {
                            .SourceCacheDirectory = {},
                            .Offline = true,
                            .AssetCacheDirectory = {}}) &&
-              engine.setRenderTarget({64, 64}) && engine.declare(document) && engine.assemble(),
+              engine.setRenderTarget({64, 64}) && engine.loadScenario(document),
           "groundless public declaration queues the pinned semantic source");
     CHECK(engine.unsettledReasons(WorldQuality::Playable)
               .contains("semantic OSM transport source pending"),
@@ -70,7 +70,7 @@ int main() {
                              .SourceCacheDirectory = {},
                              .Offline = true,
                              .AssetCacheDirectory = {}}) &&
-              headless.declare(simulationOnly) && headless.assemble(),
+              headless.loadScenario(simulationOnly),
           "renderer-free simulation queues the same semantic source");
     double headlessBytes = -1.0;
     for (int attempt = 0; attempt < kPublicationPolls && headlessBytes < 0.0; ++attempt) {

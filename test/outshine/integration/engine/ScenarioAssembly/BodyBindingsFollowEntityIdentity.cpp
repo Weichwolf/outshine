@@ -51,7 +51,7 @@ void CheckCamera() {
   Engine engine;
   const bool ready = engine.registerGenerator(triangle) &&
                      engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}) &&
-                     engine.declare(scene) && engine.assemble() && engine.advance();
+                     engine.loadScenario(scene) && engine.advance();
   CHECK(ready, "the named camera follows a native body before row replacement");
   if (!ready) { return; }
   auto &world = TestEngine::StateOf(engine).ScenarioState->Entities;
@@ -84,7 +84,7 @@ int main() {
   sound.Graph.back().Parameters = {{.Name = "frequency", .Value = "1000"}};
   scene.Sounds.push_back(sound);
   Engine engine;
-  const bool ready = engine.declare(scene) && engine.assemble() && engine.prepareAudio(48000);
+  const bool ready = engine.loadScenario(scene) && engine.prepareAudio(48000);
   CHECK(ready, "named audio binds once to the native world");
   if (!ready) { return Report(); }
   CheckRight(engine);

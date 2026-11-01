@@ -58,8 +58,8 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
   if (!surface) { return false; }
   const int part = geometry.addPart("triangle", *surface).value();
   return geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
-         geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}) && engine.declare(scene) &&
-         engine.setGeometry(geometry) && engine.assemble() && engine.advance();
+         geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}) &&
+         engine.loadScenario(scene) && engine.setGeometry(geometry) && engine.advance();
 }
 
 void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixels) {

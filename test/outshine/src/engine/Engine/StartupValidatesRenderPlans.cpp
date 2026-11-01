@@ -27,7 +27,7 @@ void InvalidPlanIsRejected(Setting setting) {
     case Setting::Transfer: scene.Render.Transfer = "invalid-transfer"; break;
     case Setting::Precision: scene.Render.Precision = "invalid-precision"; break;
   }
-  const auto declared = engine.declare(scene);
+  const auto declared = engine.loadScenario(scene);
   CHECK(!declared && declared.error().contains("invalid-"),
         "startup rejects the independently invalid plan parameter");
 }
@@ -49,7 +49,7 @@ void DeclaredOutputIsApplied(bool retainVelocity) {
   view.Sees.PositionM = {{0, 0, 2}};
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scene.Views.push_back(view);
-  CHECK(engine.declare(scene) && engine.assemble() && engine.advance(), "startup scene is ready");
+  CHECK(engine.loadScenario(scene) && engine.advance(), "startup scene is ready");
   CHECK(engine.renderer().render({}).has_value(), "render the declared plan");
   std::vector<float> velocity{17};
   const auto pixels = engine.renderer().readPixels(Buffer::Velocity, velocity);

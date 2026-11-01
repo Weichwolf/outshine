@@ -25,7 +25,7 @@ int main() {
   oscillator.Parameters = {{.Name = "frequency", .Value = "1000"}};
   tone.Graph.push_back(oscillator);
   scene.Sounds.push_back(tone);
-  const bool declared = engine.declare(scene) && control.declare(scene);
+  const bool declared = engine.loadScenario(scene) && control.loadScenario(scene);
   CHECK(declared, "audio-only declaration needs no render target");
   if (!declared) { return Report(); }
   CHECK(!engine.mix(actual), "declaring does not implicitly prepare audio");
@@ -63,15 +63,15 @@ int main() {
   compare();
   checkRate(96);
   scene.Sounds[0].Graph[0].Parameters[0].Value = "2000";
-  CHECK(engine.declare(scene).has_value(), "new sound declaration published");
+  CHECK(engine.loadScenario(scene).has_value(), "new sound declaration published");
   CHECK(!engine.mix(actual), "new declaration invalidates old audio preparation");
   CHECK(engine.prepareAudio(48000) && engine.mix(actual), "new audio graph prepared and mixed");
   checkRate(24);
-  CHECK(engine.declare({}).has_value(), "empty declaration replaces sound scene");
+  CHECK(engine.loadScenario({}).has_value(), "empty declaration replaces sound scene");
   CHECK(!engine.mix(actual), "removing all sounds invalidates audio preparation too");
   CHECK(!engine.prepareAudio(48000), "missing master bus is an explicit preparation error");
   scene.Sounds.clear();
-  CHECK(engine.declare(scene).has_value(), "silent scene retains explicit master routing");
+  CHECK(engine.loadScenario(scene).has_value(), "silent scene retains explicit master routing");
   CHECK(engine.prepareAudio(48000) && engine.mix(actual), "empty audio scene prepares as silence");
   const std::array<float, 128> silence{};
   CHECK(actual == silence, "old sound does not survive empty redeclaration");

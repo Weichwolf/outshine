@@ -43,7 +43,7 @@ int main() {
   original.Input = {{.Event = "KeyW", .Action = "original"}};
   for (const bool world : {false, true}) {
     for (int bad = 0; bad < 11; ++bad) {
-      CHECK(engine.declare(original).has_value(), "original declaration activates");
+      CHECK(engine.loadScenario(original).has_value(), "original declaration activates");
       const auto previous = engine.writeScenario();
       CHECK(previous.has_value(), "valid declaration exports before rejection");
       const int calls = probe.Calls;
@@ -68,7 +68,7 @@ int main() {
         case 9: feature.LatLon[3] = std::numeric_limits<double>::infinity(); break;
         default: feature.LatLon.resize(static_cast<long>(2) * 65537); break;
       }
-      const auto declared = engine.declare(candidate);
+      const auto declared = engine.loadScenario(candidate);
       CHECK(!declared && !declared.error().empty(), "native malformed OSM is diagnosed");
       CHECK(engine.writeScenario() == previous && probe.Calls == calls,
             "validation precedes document publication and producer execution");
@@ -83,9 +83,10 @@ int main() {
   Scenario::Document accepted;
   accepted.Ground.Osm = {valid,
                          {.Kind = "building", .Area = true, .LatLon = {-90, -180, 90, 180, 0, 0}}};
-  CHECK(engine.declare(accepted).has_value(),
+  CHECK(engine.loadScenario(accepted).has_value(),
         "valid native ways and areas pass angular boundaries");
   accepted.Ground.Osm.front().LatLon.resize(static_cast<long>(2) * 65536);
-  CHECK(engine.declare(accepted).has_value(), "the native path accepts the exact point budget");
+  CHECK(engine.loadScenario(accepted).has_value(),
+        "the native path accepts the exact point budget");
   return Report();
 }

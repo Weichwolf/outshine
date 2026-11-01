@@ -9,7 +9,7 @@ int main() {
   Scenario::Document original;
   original.Motion.Declared = true;
   original.Motion.StepS = 0.025;
-  CHECK(engine.declare(original).has_value(), "initial declaration succeeds");
+  CHECK(engine.loadScenario(original).has_value(), "initial declaration succeeds");
   const auto before = engine.writeScenario();
   CHECK(before.has_value(), "initial declaration exports");
   for (const auto *const kind : {"gltf", "unknown", ""}) {
@@ -18,10 +18,10 @@ int main() {
     Scenario::Asset asset;
     asset.Kind = kind;
     candidate.Assets.push_back(asset);
-    const auto result = engine.declare(candidate);
+    const auto result = engine.loadScenario(candidate);
     CHECK(!result && !result.error().empty(), "unsupported asset kind is rejected");
     CHECK(engine.writeScenario() == before, "unsupported asset preserves active declaration");
   }
-  CHECK(engine.declare(original).has_value(), "valid retry remains usable");
+  CHECK(engine.loadScenario(original).has_value(), "valid retry remains usable");
   return Report();
 }

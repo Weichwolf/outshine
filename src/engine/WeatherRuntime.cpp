@@ -32,7 +32,9 @@ Engine::State::PrepareWorldSources(const Scenario::Document &scenario) const {
   return std::optional<Data::SourceSession::Configuration>{std::move(*prepared)};
 }
 
-bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
+bool Engine::State::ConfigureWorldSources(
+    std::vector<Data::SourceProvider> &providers,
+    std::optional<Data::SourceSession::Configuration> sources) {
   if (providers.empty() && !Session.Declared.Ground.Declared) {
     World.Weather.reset();
     World.WeatherUtcS.reset();
@@ -43,23 +45,22 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     return true;
   }
   if (!World.Sources || World.SourceDeclarations != providers) {
-    auto sources =
-        PendingDeclaration && PendingDeclaration->has_value() && PendingDeclaration->value().Sources
-            ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
-                                        std::move(*PendingDeclaration->value().Sources))
-            : Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
-                                        providers,
-                                        Session.Under.BuiltinDataDirectory,
-                                        Services.Providers);
-    if (!sources) {
-      Error = sources.error();
+    auto opened = sources
+                      ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                                  std::move(*sources))
+                      : Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                                  providers,
+                                                  Session.Under.BuiltinDataDirectory,
+                                                  Services.Providers);
+    if (!opened) {
+      Error = opened.error();
       return false;
     }
     World.Weather.reset();
     World.WeatherUtcS.reset();
     World.UrbanAreas.reset();
     World.Surface().Close();
-    World.Sources = std::move(*sources);
+    World.Sources = std::move(*opened);
     World.SourceDeclarations = providers;
   }
   bool weather = false;

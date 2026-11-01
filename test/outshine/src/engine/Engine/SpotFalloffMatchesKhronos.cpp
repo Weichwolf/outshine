@@ -56,9 +56,8 @@ int main() {
     declaration.Views.push_back(view);
     std::vector<float> frame;
     if (!accepted(engine.setRenderTarget({.WidthPx = 65, .HeightPx = 65})) ||
-        !accepted(engine.declare(declaration)) || !accepted(engine.setGeometry(geometry)) ||
-        !accepted(engine.assemble()) || !accepted(engine.advance()) ||
-        !accepted(engine.renderer().render({})) ||
+        !accepted(engine.loadScenario(declaration)) || !accepted(engine.setGeometry(geometry)) ||
+        !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
         !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
       return Report();
     }

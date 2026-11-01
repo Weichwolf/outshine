@@ -39,7 +39,7 @@ Scenario::Document TargetScenario(Extent extent) {
 }
 
 bool Prepare(Engine &engine, const Scenario::Document &scene) {
-  const bool ready = engine.declare(scene) && engine.assemble() && engine.advance();
+  const bool ready = engine.loadScenario(scene) && engine.advance();
   CHECK(ready, "a real render plan and camera are ready");
   return ready;
 }
@@ -144,7 +144,7 @@ void RejectPlans(Engine &engine, TargetFault &fault) {
     const unsigned rejected = fault.Rejected;
     const unsigned live = fault.CreatedTextures - fault.ReleasedTextures;
     fault.Arm(point);
-    const auto result = engine.declare(plan);
+    const auto result = engine.loadScenario(plan);
     fault.Arm(TargetFailure::None);
     CHECK(!result && fault.Rejected == rejected + 1 && result.error().contains("injected"),
           "frame-resource and pipeline failures reject changed render plans");

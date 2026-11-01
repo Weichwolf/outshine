@@ -65,8 +65,8 @@ int main() {
   const VideoSession video;
   Engine engine;
   const Geometry triangle = Triangle();
-  CHECK(engine.setRenderTarget(kFirst) && engine.declare(Scene(kFirst)) &&
-            engine.setGeometry(triangle) && engine.assemble(),
+  CHECK(engine.setRenderTarget(kFirst) && engine.loadScenario(Scene(kFirst)) &&
+            engine.setGeometry(triangle),
         "a static native world prepares on the first target");
   std::vector<float> first;
   CHECK(Draw(engine, first) && first.size() == size_t{64} * 64 * 4,

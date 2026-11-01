@@ -23,7 +23,7 @@ int main() {
     std::ofstream output(path, std::ios::binary);
     output << "<scenario name=\"oversized\"/>" << std::string(kMostScenarioBytes, ' ');
   }
-  const auto oversized = outshine::Test::LoadAndDeclareScenario(engine, path);
+  const auto oversized = outshine::Test::LoadScenario(engine, path);
   CHECK(!oversized && oversized.error().ends_with("file exceeds byte budget") &&
             engine.declaration().Named.Name != "oversized",
         "scenario loading enforces its budget before publishing a declaration");
@@ -36,7 +36,7 @@ int main() {
     root << R"(<scenario name="layered"><layer path=")" << layerPath << "\"/><layer path=\""
          << layerPath << "\"/></scenario>";
   }
-  const auto cumulative = outshine::Test::LoadAndDeclareScenario(engine, path);
+  const auto cumulative = outshine::Test::LoadScenario(engine, path);
   CHECK(!cumulative && cumulative.error().ends_with("file exceeds byte budget") &&
             engine.declaration().Named.Name != "layered",
         "selected layers share the root input budget instead of receiving individual budgets");

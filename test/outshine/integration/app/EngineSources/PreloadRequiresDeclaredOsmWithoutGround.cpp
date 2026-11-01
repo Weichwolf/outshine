@@ -40,7 +40,7 @@ int main() {
                           .SourceCacheDirectory = directory,
                           .Offline = true,
                           .AssetCacheDirectory = {}}) &&
-              local.setRenderTarget({64, 64}) && local.declare(scene) && local.assemble(),
+              local.setRenderTarget({64, 64}) && local.loadScenario(scene),
           "groundless scene queues original source and graph");
     CHECK(!local.settled() && !local.settled(WorldQuality::Refined),
           "queued source prevents either readiness level");
@@ -69,7 +69,7 @@ int main() {
                             .SourceCacheDirectory = directory,
                             .Offline = true,
                             .AssetCacheDirectory = {}}) &&
-              missing.setRenderTarget({64, 64}) && missing.declare(scene) && missing.assemble(),
+              missing.setRenderTarget({64, 64}) && missing.loadScenario(scene),
           "offline remote declaration assembles without fetching or a fallback");
     const auto absent = missing.preload(kMissingPreloadS);
     CHECK(!absent && !missing.settled() && !missing.beginCapture(),
@@ -84,7 +84,7 @@ int main() {
                             .SourceCacheDirectory = {},
                             .Offline = true,
                             .AssetCacheDirectory = {}}) &&
-              invalid.setRenderTarget({64, 64}) && invalid.declare(scene) && invalid.assemble(),
+              invalid.setRenderTarget({64, 64}) && invalid.loadScenario(scene),
           "missing local source remains an asynchronous request");
     CHECK(!invalid.preload(kMissingPreloadS) && !invalid.settled() && !invalid.beginCapture(),
           "source read failure cannot become a complete groundless world");

@@ -57,8 +57,8 @@ Capture(outshine::Engine &engine, const outshine::Geometry &geometry, double ele
   view.Sees.FovDeg = 55.0;
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!engine.declare(scenario) || !engine.setGeometry(geometry) || !engine.assemble() ||
-      !engine.advance() || !engine.renderer().render({}) ||
+  if (!engine.loadScenario(scenario) || !engine.setGeometry(geometry) || !engine.advance() ||
+      !engine.renderer().render({}) ||
       !engine.renderer().readPixels(outshine::Buffer::Linear, pixels)) {
     outshine::Test::Unprepared("analytic receiver could not be rendered");
   }

@@ -38,8 +38,8 @@ void Exercise() {
   view.Sees.PositionM = {{0, 0, 4}};
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = kNearM, .FarM = kFarM});
   scenario.Views.push_back(view);
-  CHECK(engine.setRenderTarget({.WidthPx = kSide, .HeightPx = kSide}) && engine.declare(scenario) &&
-            engine.assemble(),
+  CHECK(engine.setRenderTarget({.WidthPx = kSide, .HeightPx = kSide}) &&
+            engine.loadScenario(scenario),
         "an offscreen engine assembles its declared published view");
   Geometry geometry;
   const auto surface = geometry.addSurface("fixture", Material{});

@@ -156,11 +156,8 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   if (const auto target = engine.setRenderTarget(report.Frame); !target) {
     return std::unexpected(target.error());
   }
-  if (const auto declared = engine.declare(document); !declared) {
+  if (const auto declared = engine.loadScenario(document); !declared) {
     return std::unexpected(declared.error());
-  }
-  if (const auto assembled = engine.assemble(); !assembled) {
-    return std::unexpected(assembled.error());
   }
   if (const auto view = engine.setView(report.View); !view) {
     return std::unexpected(view.error());

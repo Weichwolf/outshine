@@ -21,7 +21,7 @@ int main() {
   instance.Attributes = {{.Name = "health", .Value = "73.5"}};
   scene.Instances.push_back(instance);
   Engine engine;
-  CHECK(engine.declare(scene) && engine.assemble(), "inherited native traits assemble");
+  CHECK(engine.loadScenario(scene), "inherited native traits assemble");
   const auto checkTraits = [&] {
     const auto &runtime = *TestEngine::StateOf(engine).ScenarioState;
     const auto holder = runtime.Stood.InstanceNamed("player");
@@ -55,15 +55,14 @@ int main() {
       auto &attribute =
           prefab ? candidate.Kinds[0].Attributes[0] : candidate.Instances[0].Attributes[0];
       attribute.Value = invalid;
-      CHECK(engine.declare(candidate).has_value(), "numeric validation belongs to assembly");
-      const auto assembled = engine.assemble();
+      const auto assembled = engine.loadScenario(candidate);
       CHECK(!assembled && !assembled.error().empty(), "invalid numeric trait is rejected");
       CHECK(&engine.entities() == previous, "rejected numeric trait preserves the published owner");
       if (&engine.entities() != previous) { return Report(); }
       checkTraits();
     }
   }
-  CHECK(engine.declare(scene) && engine.assemble(), "valid assembly recovers after rejection");
+  CHECK(engine.loadScenario(scene), "valid assembly recovers after rejection");
   checkTraits();
   return Report();
 }

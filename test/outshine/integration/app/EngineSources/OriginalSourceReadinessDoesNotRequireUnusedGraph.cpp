@@ -45,7 +45,7 @@ int main() {
                                .SourceCacheDirectory = {},
                                .Offline = true,
                                .AssetCacheDirectory = {}}) &&
-              sourceOnly.declare(document) && sourceOnly.assemble(),
+              sourceOnly.loadScenario(document),
           "renderer-free source declaration queues original data");
     CHECK(!sourceOnly.settled() && sourceOnly.unsettledReasons(WorldQuality::Playable)
                                        .contains("original OSM source pending"),
@@ -69,7 +69,7 @@ int main() {
                            .SourceCacheDirectory = {},
                            .Offline = true,
                            .AssetCacheDirectory = {}}) &&
-              routed.declare(document) && routed.assemble(),
+              routed.loadScenario(document),
           "the same original data admits an explicit route request");
     const auto loaded = routed.preload(2.0);
     CHECK(!loaded && !loaded.error().empty() && !routed.settled(),

@@ -58,13 +58,13 @@ int main() {
     scenario.Lit.Declared = true;
     constexpr double kManualSunElevationDeg = 23.0;
     scenario.Lit.Key.ElevationDeg = kManualSunElevationDeg;
-    CHECK(engine.declare(scenario).has_value(), "manual light and headless weather retain UTC");
+    CHECK(engine.loadScenario(scenario).has_value(),
+          "manual light and headless weather retain UTC");
     auto invalid = scenario;
     invalid.Time.Start = "not-an-ISO-UTC";
-    CHECK(!engine.declare(invalid) && engine.declaration().Time.Start == scenario.Time.Start,
+    CHECK(!engine.loadScenario(invalid) && engine.declaration().Time.Start == scenario.Time.Start,
           "headless manual light cannot bypass invalid UTC or replace the valid declaration");
-    CHECK(!engine.weather(), "an unassembled declaration cannot expose the previous weather");
-    CHECK(engine.assemble().has_value(), "no renderer or terrain is required to prepare weather");
+
     CHECK(!engine.weather() && !engine.settled(), "unfinished weather is explicit and not ready");
     CHECK(engine.preload(kPreloadTimeoutS).has_value(),
           "normal public preload pumps IO and compute weather work");
@@ -84,17 +84,16 @@ int main() {
               first.VectorWanted == 0 && first.Sources.size() == 1 &&
               first.Sources.front().Kind == "weather",
           "headless loading reports the shared weather source without fetching terrain");
-    CHECK(engine.assemble() && engine.preload(0.0) && engine.weather() &&
-              *engine.weather() == retained && engine.loading().SourceDeliveries == 1,
+    CHECK(engine.preload(0.0) && engine.weather() && *engine.weather() == retained &&
+              engine.loading().SourceDeliveries == 1,
           "an unchanged request reuses its exact publication without fetching or normalizing");
     scenario.Time.Start = "2026-10-15T00:00:01Z";
-    CHECK(engine.declare(scenario) && !engine.weather() && engine.assemble() &&
-              engine.preload(kPreloadTimeoutS),
+    CHECK(engine.loadScenario(scenario) && !engine.weather() && engine.preload(kPreloadTimeoutS),
           "another declared UTC invalidates the former publication before selection");
     CHECK(engine.weather() && !*engine.weather() && engine.settled(),
           "an absent exact time is terminal missing, never nearest-hour or declared fallback");
     scenario.Providers.clear();
-    CHECK(engine.declare(scenario) && engine.assemble() && engine.preload(0.0),
+    CHECK(engine.loadScenario(scenario) && engine.preload(0.0),
           "removing the provider releases the source scope without stale weather");
     CHECK(engine.weather() && !*engine.weather(),
           "no requested weather remains an empty selection");

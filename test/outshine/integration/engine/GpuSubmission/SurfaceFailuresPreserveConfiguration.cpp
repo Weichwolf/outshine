@@ -83,7 +83,7 @@ int main() {
                                  .Style = "div {width:64px;height:64px;background:red;}",
                                  .Programme = {},
                                  .Where = {}});
-    const bool ready = engine.declare(document) && engine.assemble() && engine.advance();
+    const bool ready = engine.loadScenario(document) && engine.advance();
     CHECK(ready, "surface and explicit camera ready");
     if (ready) {
       const auto read = [&] {
@@ -127,7 +127,7 @@ int main() {
       CHECK(read() != initial && engine.writeScenario() != saved,
             "successful replacement publishes different pixels and declaration");
       click("newAction");
-      CHECK(engine.declare(document).has_value(),
+      CHECK(engine.loadScenario(document).has_value(),
             "redeclaration restores original surface despite render reuse");
       CHECK(read() == initial, "render declaration cache tracks setSurfaces changes");
       click("old");
@@ -136,7 +136,7 @@ int main() {
       scrollScene.Surfaces[0].Document = R"(<div id="scroll"><div id="content"></div></div>)";
       scrollScene.Surfaces[0].Style = "#scroll {width:64px;height:64px;overflow:scroll;} #content "
                                       "{width:32px;height:128px;background:red;}";
-      CHECK(engine.declare(scrollScene).has_value(), "scrolling surface ready");
+      CHECK(engine.loadScenario(scrollScene).has_value(), "scrolling surface ready");
       const auto unscrolled = read();
       SDL_Event wheel{};
       wheel.type = SDL_EVENT_MOUSE_WHEEL;

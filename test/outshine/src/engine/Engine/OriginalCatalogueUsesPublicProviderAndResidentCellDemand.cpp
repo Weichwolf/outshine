@@ -83,7 +83,7 @@ int main() {
   roots.Offline = true;
   Engine engine;
   CHECK(engine.registerProvider(provider) && engine.setRoots(std::move(roots)) &&
-            engine.declare(document) && engine.assemble(),
+            engine.loadScenario(document),
         "public original provider admits a position-based catalogue demand without renderer IO");
   CHECK(engine.preload(2.0) && engine.settled(WorldQuality::Refined) && provider.Acquired == 1,
         "one geographic source cell publishes through the native original loader");

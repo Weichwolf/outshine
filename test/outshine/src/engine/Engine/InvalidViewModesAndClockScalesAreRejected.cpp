@@ -11,10 +11,10 @@ int main() {
   view.Id = "original";
   view.Placement = Scenario::CameraPlacement::Local;
   original.Views.push_back(view);
-  CHECK(engine.declare(original).has_value(), "valid initial view is declared");
+  CHECK(engine.loadScenario(original).has_value(), "valid initial view is declared");
   const auto *previous = engine.declaration().Views.data();
   const auto rejected = [&](const Scenario::Document &candidate) {
-    CHECK(!engine.declare(candidate), "invalid mode or clock scale is rejected");
+    CHECK(!engine.loadScenario(candidate), "invalid mode or clock scale is rejected");
     CHECK(engine.declaration().Views.data() == previous,
           "invalid values cannot replace the owned declaration");
     CHECK(engine.setView("original").has_value(), "previous catalog remains selectable");
@@ -45,8 +45,13 @@ int main() {
     if (mode == Scenario::CameraPlacement::FollowEntity) {
       valid.Views[0].Follows = "body-resolved-by-assembly";
       valid.Views[0].Person = "first";
+      Scenario::Body followed;
+      followed.Name = valid.Views[0].Follows;
+      followed.Placed = true;
+      valid.Bodies.push_back(followed);
     }
-    CHECK(engine.declare(valid).has_value(), "supported mode and finite positive factor accepted");
+    CHECK(engine.loadScenario(valid).has_value(),
+          "supported mode and finite positive factor accepted");
   }
   return Report();
 }

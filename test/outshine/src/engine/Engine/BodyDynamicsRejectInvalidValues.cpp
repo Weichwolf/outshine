@@ -15,8 +15,7 @@ int main() {
   body.MassKg = 1;
   source.Bodies.push_back(body);
   Engine engine;
-  CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),
-        "valid dynamic body assembled");
+  CHECK(engine.loadScenario(source).has_value(), "valid dynamic body assembled");
   auto *registry = &engine.entities();
   const auto marker = registry->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable");
@@ -25,7 +24,7 @@ int main() {
     auto candidate = source;
     invalid.Name = "invalid";
     candidate.Bodies[0] = invalid;
-    CHECK(!engine.declare(candidate), "invalid dynamics rejected before publication");
+    CHECK(!engine.loadScenario(candidate), "invalid dynamics rejected before publication");
     CHECK(engine.declaration().Bodies[0].Name == "kept", "body declaration preserved");
     CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation preserved");
   };
@@ -74,7 +73,7 @@ int main() {
   }
   source.Bodies[0].MassKg = 0;
   source.Bodies[0].Stands.Facing.W = -1;
-  CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),
+  CHECK(engine.loadScenario(source).has_value(),
         "zero mass and equivalent negative unit quaternion accepted");
   return Report();
 }

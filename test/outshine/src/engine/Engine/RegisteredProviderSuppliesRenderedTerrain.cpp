@@ -233,13 +233,11 @@ void CheckEncoding(Encoding encoding) {
   CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
   CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");
   const auto scene = SourceScene();
-  const auto declared = engine.declare(scene);
+  const auto declared = engine.loadScenario(scene);
   CHECK(declared, "library terrain needs no unrelated OSM provider");
   CHECK(declared && provider.observed().Configured == 1,
-        "declaration prepares the source exactly once before world assembly");
-  const auto assembled = declared ? engine.assemble() : declared;
-  CHECK(assembled, assembled ? "world assembled" : assembled.error().c_str());
-  if (assembled) {
+        "startup prepares the source exactly once");
+  if (declared) {
     const auto loaded = engine.preload(10.0);
     CHECK(loaded, loaded ? "world prepared" : loaded.error().c_str());
     const auto height = engine.sampleHeight({.LongitudeDeg = 8, .LatitudeDeg = 47});

@@ -150,42 +150,16 @@ Capture &Capture::operator=(Capture &&other) noexcept {
   return *this;
 }
 
-Result Engine::assemble() {
-  [[maybe_unused]] const auto logs = S_->Logs();
-  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->PendingDeclaration && !*S_->PendingDeclaration) {
-    S_->Error = S_->PendingDeclaration->error();
-    return std::unexpected(S_->Error);
-  }
-  if (!S_->Session.Taken) {
-    S_->Error = "declare content before assembling simulation";
-    return std::unexpected(S_->Error);
-  }
-  const Scenario::Document &declared = S_->Session.Declared;
-  auto prepared = S_->PendingDeclaration
-                      ? Holds<std::unique_ptr<ScenarioRuntime>>{std::move(
-                            S_->PendingDeclaration->value().Simulation)}
-                      : ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
-  if (!prepared) {
-    S_->PendingDeclaration.reset();
-    S_->Error = std::move(prepared.error());
-    return std::unexpected(S_->Error);
-  }
-  auto candidate = std::move(*prepared);
-  auto previous = std::exchange(S_->ScenarioState, std::move(candidate));
-  auto previousBodies = std::exchange(S_->BodyFrame, S_->ScenarioState->Entities.PublishBodies());
+Result Engine::State::StartScenario(std::unique_ptr<ScenarioRuntime> simulation,
+                                    std::optional<Data::SourceSession::Configuration> sources) {
+  ScenarioState = std::move(simulation);
+  BodyFrame = ScenarioState->Entities.PublishBodies();
   std::vector<Data::SourceProvider> unusedTileProviders;
-  const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
-                                               : S_->ConfigureSourceProviders(unusedTileProviders);
-  S_->PendingDeclaration.reset();
-  if (!worldReady) {
-    S_->ScenarioState = std::move(previous);
-    S_->BodyFrame = std::move(previousBodies);
-    return std::unexpected(S_->Error);
-  }
-  S_->Session.Sounding.reset();
-  S_->Session.AudioBodies.clear();
-  S_->Error.clear();
+  const bool worldReady = Picture.Targeted
+                              ? PrepareRuntimeWorld(std::move(sources))
+                              : ConfigureSourceProviders(unusedTileProviders, std::move(sources));
+  if (!worldReady) { return std::unexpected(Error); }
+  Error.clear();
   return {};
 }
 
@@ -244,7 +218,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
 
 Result Engine::setRoots(Roots roots) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Session.Taken || S_->PendingDeclaration) {
+  if (S_->Session.Taken) {
     S_->Error = Says::kRootsAfterDeclaration;
     return std::unexpected(S_->Error);
   }

@@ -190,8 +190,8 @@ int main() {
   scenario.Views.push_back(view);
   std::vector<float> pixels;
   if (!accepted(engine.setRenderTarget({.WidthPx = kExtentPx, .HeightPx = kExtentPx})) ||
-      !accepted(engine.declare(scenario)) || !accepted(engine.assemble()) ||
-      !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+      !accepted(engine.loadScenario(scenario)) || !accepted(engine.advance()) ||
+      !accepted(engine.renderer().render({})) ||
       !accepted(engine.renderer().readPixels(Buffer::Linear, pixels))) {
     return Report();
   }
@@ -207,7 +207,7 @@ int main() {
         "two products compose with their own remapped native materials");
   const auto previous = pixels;
   failure.Armed = true;
-  CHECK(!engine.declare(scenario),
+  CHECK(!engine.loadScenario(scenario),
         "generated candidate rejects its injected GPU submission failure");
   CHECK(failure.Rejected == 1 && !failure.Armed,
         "generated candidate reaches the injected submission failure once");
@@ -216,7 +216,7 @@ int main() {
   std::vector<float> retained;
   CHECK(engine.renderer().readPixels(Buffer::Linear, retained).has_value() && retained == previous,
         "rejected generated candidate preserves previous world pixels");
-  CHECK(engine.declare(scenario) && engine.assemble() && engine.advance(),
+  CHECK(engine.loadScenario(scenario) && engine.advance(),
         "generated candidate retries after the rejected submission");
   CHECK(engine.renderer().render({}).has_value() &&
             engine.renderer().readPixels(Buffer::Linear, retained).has_value(),

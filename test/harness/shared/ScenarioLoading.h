@@ -8,14 +8,14 @@
 
 namespace outshine::Test {
 
-[[nodiscard]] inline Result LoadAndDeclareScenario(Engine &engine,
-                                                   std::string_view source,
-                                                   std::string_view overrides = {},
-                                                   std::string_view resourceDirectory = {}) {
+[[nodiscard]] inline Result LoadScenario(Engine &engine,
+                                         std::string_view source,
+                                         std::string_view overrides = {},
+                                         std::string_view resourceDirectory = {}) {
   const auto loaded = App::LoadScenario(
       {.Source = source, .Overrides = overrides, .ResourceDirectory = resourceDirectory});
   if (!loaded) { return std::unexpected(loaded.error()); }
-  return engine.declare(loaded->Document);
+  return engine.loadScenario(loaded->Document);
 }
 
 }

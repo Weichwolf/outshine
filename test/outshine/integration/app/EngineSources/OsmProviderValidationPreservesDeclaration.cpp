@@ -12,7 +12,7 @@ int main() {
   auto engine = App::CreateEngine();
   Scenario::Document original;
   original.Named.Name = "kept";
-  CHECK(engine.declare(original).has_value(), "initial native declaration accepted");
+  CHECK(engine.loadScenario(original).has_value(), "initial native declaration accepted");
   const auto before = engine.writeScenario();
 
   auto candidate = original;
@@ -29,22 +29,24 @@ int main() {
                                  .Coverage = coverage,
                                  .PayloadSha256 = {},
                                  .Schema = {}});
-  CHECK(!engine.declare(candidate), "programmatic declaration rejects nonfinite source bounds");
+  CHECK(!engine.loadScenario(candidate),
+        "programmatic declaration rejects nonfinite source bounds");
   CHECK(engine.writeScenario() == before, "invalid source preserves the previous declaration");
 
   coverage.NorthDeg = 49.34;
   candidate.Providers.front().Coverage = coverage;
   candidate.Providers.front().Location = "https://example.invalid/region.osm";
-  CHECK(!engine.declare(candidate), "programmatic declaration rejects URL disguised as local file");
+  CHECK(!engine.loadScenario(candidate),
+        "programmatic declaration rejects URL disguised as local file");
   CHECK(engine.writeScenario() == before, "second invalid source also preserves declaration");
 
   candidate.Providers.front().Location = "osm/region.osm";
   candidate.Providers.front().Revision = "sha256:short";
-  CHECK(!engine.declare(candidate), "malformed content pin rejects the whole declaration");
+  CHECK(!engine.loadScenario(candidate), "malformed content pin rejects the whole declaration");
   CHECK(engine.writeScenario() == before, "malformed pin preserves the previous declaration");
 
   candidate.Providers.front().Revision = "pin-r1";
-  CHECK(engine.declare(candidate).has_value(), "valid source declaration can replace refusal");
+  CHECK(engine.loadScenario(candidate).has_value(), "valid source declaration can replace refusal");
   const auto written = engine.writeScenario();
   CHECK(written && written->contains("dataset=\"openstreetmap\""),
         "public scenario writer retains source identity");

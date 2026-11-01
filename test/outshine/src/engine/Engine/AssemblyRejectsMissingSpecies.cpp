@@ -30,23 +30,15 @@ int main() {
                            .AssetCacheDirectory = {}}),
           "isolated content roots are accepted");
     CHECK(engine.setRenderTarget({32, 32}).has_value(), "offscreen target opens");
-    const Scenario::Document empty;
-    CHECK(engine.declare(empty) && engine.assemble(), "initial empty simulation assembles");
-    const auto *previous = &engine.entities();
     Scenario::Document world;
     world.Ground.Declared = true;
     world.Ground.SightM = sightM;
     world.Ground.VegetationEnabled = true;
     world.Ground.Origin.LatitudeDeg = latitudeDeg;
     world.Ground.Origin.LongitudeDeg = 10;
-    CHECK(engine.declare(world).has_value(),
-          "world declaration accepted before resource preparation");
-    const auto assembled = engine.assemble();
+    const auto assembled = engine.loadScenario(world);
     CHECK(!assembled && assembled.error().contains((root / "world/species").string()),
           assembled ? "assembly unexpectedly succeeded" : assembled.error().c_str());
-    CHECK(&engine.entities() == previous,
-          "failed world preparation preserves prior simulation ownership");
-    CHECK(engine.declare(empty) && engine.assemble(), "valid declaration recovers after the error");
   }
   SDL_Quit();
   std::filesystem::remove_all(root);

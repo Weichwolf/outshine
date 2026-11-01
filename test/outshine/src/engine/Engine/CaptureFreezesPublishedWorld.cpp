@@ -21,8 +21,7 @@ int main() {
     view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     scene.Views.push_back(view);
-    CHECK(engine.setRenderTarget({.WidthPx = 64, .HeightPx = 64}) && engine.declare(scene) &&
-              engine.assemble(),
+    CHECK(engine.setRenderTarget({.WidthPx = 64, .HeightPx = 64}) && engine.loadScenario(scene),
           "assembled scene is ready for capture without streamed ground");
     CHECK(engine.renderer().resetMeasurements().has_value(),
           "an assembled scene starts an explicit frame measurement interval");
@@ -37,8 +36,7 @@ int main() {
       CHECK(!engine.preload(0.0), "capture refuses streaming advancement");
       CHECK(!engine.prepareViewData(1.0, 0.0),
             "capture refuses path data preparation even without ground");
-      CHECK(!engine.declare(scene), "capture refuses declaration replacement");
-      CHECK(!engine.assemble(), "capture refuses simulation replacement");
+      CHECK(!engine.loadScenario(scene), "capture refuses declaration replacement");
       CHECK(!engine.setSurfaces({}), "capture refuses overlay replacement");
       CHECK(!engine.handleEvent(SDL_Event{}), "capture refuses input state changes");
       CHECK(!engine.setGeometry(Geometry{}), "capture refuses geometry replacement");
@@ -49,7 +47,8 @@ int main() {
     CHECK(engine.advance().has_value(), "capture destruction resumes simulation");
     CHECK(engine.renderer().resetMeasurements().has_value(),
           "capture destruction permits the next measurement interval");
-    CHECK(engine.declare(scene).has_value(), "capture destruction resumes declaration replacement");
+    CHECK(engine.loadScenario(scene).has_value(),
+          "capture destruction resumes declaration replacement");
   }
   SDL_Quit();
   return Report();

@@ -15,7 +15,7 @@ int main() {
   instance.Id = "actor";
   scene.Instances.push_back(instance);
   Engine engine;
-  CHECK(engine.declare(scene) && engine.assemble(), "kind and instance have separate namespaces");
+  CHECK(engine.loadScenario(scene), "kind and instance have separate namespaces");
   World::EntityRegistry *const original = &engine.entities();
   const auto marker = original->addEntity();
   CHECK(marker && original->alive(*marker), "live marker created");
@@ -27,8 +27,7 @@ int main() {
   invalid[2].Kinds.push_back(scene.Kinds[0]);
   invalid[3].Instances.push_back(scene.Instances[0]);
   for (const auto &candidate : invalid) {
-    CHECK(engine.declare(candidate).has_value(), "identity validation occurs at assembly");
-    const auto assembled = engine.assemble();
+    const auto assembled = engine.loadScenario(candidate);
     CHECK(!assembled, "empty or duplicate identity rejected");
     CHECK(assembled || !assembled.error().empty(), "identity failure explains rejection");
     CHECK(&engine.entities() == original, "failed assembly preserves registry object");
@@ -45,13 +44,13 @@ int main() {
   child.Id = "child";
   child.In = "actor";
   linked.Instances.push_back(child);
-  CHECK(engine.declare(linked) && engine.assemble(), "valid inheritance and containment recover");
+  CHECK(engine.loadScenario(linked), "valid inheritance and containment recover");
   World::EntityRegistry *const linkedOwner = &engine.entities();
   const auto linkedMarker = linkedOwner->addEntity();
   CHECK(linkedMarker, "the published valid forest has spare identity capacity");
   if (!linkedMarker) { return Report(); }
   linked.Instances.front().In = "child";
-  CHECK(engine.declare(linked) && !engine.assemble(), "a cyclic candidate cannot publish");
+  CHECK(!engine.loadScenario(linked), "a cyclic candidate cannot publish");
   CHECK(&engine.entities() == linkedOwner && linkedOwner->alive(*linkedMarker),
         "cycle rejection preserves the existing registry and its live entities");
   return Report();

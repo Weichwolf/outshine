@@ -19,10 +19,9 @@ int main() {
                          .Offline = true,
                          .AssetCacheDirectory = {}}),
         "scenario sources resolve inside the shipped asset root");
-  CHECK(outshine::Test::LoadAndDeclareScenario(
+  CHECK(outshine::Test::LoadScenario(
             engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario"),
         "the authored Hockenheim scenario declares a pinned semantic OSM source");
-  CHECK(engine.assemble(), "the pinned source queues without a renderer or terrain fetch");
 
   double sourceBytes = -1.0;
   double namedRoutes = -1.0;

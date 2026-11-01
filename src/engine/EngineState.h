@@ -131,11 +131,6 @@ struct EngineServices {
   std::unique_ptr<AssetCacheReclaimer> CacheReclaimer;
 };
 
-struct ScenarioPreparation {
-  std::unique_ptr<ScenarioRuntime> Simulation;
-  std::optional<Data::SourceSession::Configuration> Sources;
-};
-
 struct WorldRegionState {
   WorldRegionState();
   ~WorldRegionState();
@@ -373,7 +368,6 @@ struct Engine::State {
   FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
-  std::optional<Holds<ScenarioPreparation>> PendingDeclaration;
   EngineServices Services;
   WorldRegionState World;
   World::BodySnapshot BodyFrame;
@@ -541,8 +535,10 @@ struct Engine::State {
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
-  [[nodiscard]] bool PrepareRuntimeWorld();
-  [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
+  [[nodiscard]] bool PrepareRuntimeWorld(std::optional<Data::SourceSession::Configuration> sources);
+  [[nodiscard]] bool
+  ConfigureWorldSources(std::vector<Data::SourceProvider> &providers,
+                        std::optional<Data::SourceSession::Configuration> sources);
   [[nodiscard]] Holds<std::optional<Data::SourceSession::Configuration>>
   PrepareWorldSources(const Scenario::Document &scenario) const;
   [[nodiscard]] bool PollWeather();
@@ -552,7 +548,11 @@ struct Engine::State {
   }
 
   [[nodiscard]] std::string_view WeatherBlocker() const noexcept;
-  [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
+  [[nodiscard]] bool
+  ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders,
+                           std::optional<Data::SourceSession::Configuration> sources);
+  [[nodiscard]] Result StartScenario(std::unique_ptr<ScenarioRuntime> simulation,
+                                     std::optional<Data::SourceSession::Configuration> sources);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
   bool DeclareGroundFeatures();

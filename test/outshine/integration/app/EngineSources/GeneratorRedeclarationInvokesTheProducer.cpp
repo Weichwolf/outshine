@@ -40,16 +40,16 @@ int main() {
     Scenario::Document scenario;
     scenario.Generators.push_back(
         {.Kind = "redeclare-probe", .Parameters = {{.Name = "value", .Value = "first"}}});
-    CHECK(engine.declare(scenario) && probe.Calls == 1 && probe.Value == "first" &&
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 1 && probe.Value == "first" &&
               !probe.GroundPresent,
           "groundless declaration invokes producer without inventing a terrain sampler");
-    CHECK(engine.declare(scenario) && probe.Calls == 2,
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 2,
           "unchanged declaration queries producer again; providers may have changed");
     scenario.Generators.front().Parameters.front().Value = "second";
-    CHECK(engine.declare(scenario) && probe.Calls == 3 && probe.Value == "second",
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 3 && probe.Value == "second",
           "render reuse cannot swallow changed generator settings");
     probe.Accepts = false;
-    CHECK(!engine.declare(scenario) && probe.Calls == 4,
+    CHECK(!engine.loadScenario(scenario) && probe.Calls == 4,
           "a newly refusing producer cannot be reported as successful reuse");
     probe.Accepts = true;
     scenario.Generators.clear();
@@ -58,12 +58,12 @@ int main() {
                                .Kind = "generated",
                                .Variant = {},
                                .Surfaces = {}});
-    CHECK(engine.declare(scenario) && probe.Calls == 5 && probe.Value.empty(),
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 5 && probe.Value.empty(),
           "generated asset invocation uses its own empty parameters");
-    CHECK(engine.declare(scenario) && probe.Calls == 6,
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 6,
           "generated assets also execute on repeated declarations");
     scenario.Assets.clear();
-    CHECK(engine.declare(scenario) && probe.Calls == 6,
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
     Scenario::Document earth;
     const auto sources = Generators::DefaultSourceProviders();
@@ -72,8 +72,7 @@ int main() {
     earth.Ground.VegetationEnabled = false;
     earth.Ground.Origin.LatitudeDeg = 49;
     earth.Ground.Origin.LongitudeDeg = 10;
-    CHECK(engine.declare(earth), "viewless Earth declares");
-    const auto unframed = engine.assemble();
+    const auto unframed = engine.loadScenario(earth);
     CHECK(!unframed && unframed.error().contains("ground detail needs"),
           "Earth without a view or geometry rejects invalid ground detail projection");
     Scenario::View earthView;
@@ -85,10 +84,10 @@ int main() {
     earthView.Geographic.Geodetic.HeightM = 1.7;
     earthView.Geographic.SamplesHeight = false;
     earth.Views.push_back(earthView);
-    const auto earthDeclared = engine.declare(earth);
+    const auto earthDeclared = engine.loadScenario(earth);
     CHECK(earthDeclared,
           earthDeclared ? "explicit Earth view declares" : earthDeclared.error().c_str());
-    const auto earthBuilt = earthDeclared ? engine.assemble() : earthDeclared;
+    const auto earthBuilt = earthDeclared;
     CHECK(earthBuilt,
           earthBuilt ? "Earth with an explicit view opens after invalid auto framing"
                      : earthBuilt.error().c_str());
@@ -99,10 +98,9 @@ int main() {
     spaceView.Placement = Scenario::CameraPlacement::Local;
     spaceView.Sees.PositionM = {{0, 0, 2}};
     scenario.Views.push_back(spaceView);
-    CHECK(engine.declare(scenario) && probe.Calls == 7 && !probe.GroundPresent,
+    CHECK(engine.loadScenario(scenario) && probe.Calls == 7 && !probe.GroundPresent,
           "a retained Earth stack does not supply ground to a groundless generator");
-    CHECK(engine.assemble() && engine.advance(),
-          "the replacement assembles and advances without terrain");
+    CHECK(engine.advance(), "the replacement assembles and advances without terrain");
     CHECK(!engine.sampleHeight({.LongitudeDeg = 10, .LatitudeDeg = 49}) &&
               engine.loadProgress() == 1.0 && engine.loading().GroundWanted == 0,
           "groundless height and loading APIs ignore retained terrain");

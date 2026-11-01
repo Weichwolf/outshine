@@ -241,7 +241,7 @@ public:
 
   [[nodiscard]] Result setGeometry(const Geometry &geometry);
 
-  [[nodiscard]] Result declare(const Scenario::Document &scenario);
+  [[nodiscard]] Result loadScenario(const Scenario::Document &scenario);
 
   [[nodiscard]] Result setSurfaces(std::span<const Scenario::Surface> surfaces);
 
@@ -260,8 +260,6 @@ public:
   void stepTimesMs(std::vector<double> &out) const;
 
   void frameTimesMs(std::vector<double> &out) const;
-
-  [[nodiscard]] Result assemble();
 
   [[nodiscard]] Result advance();
 

@@ -40,12 +40,9 @@ int main() {
   body.Stands.AtM[0] = 2;
   scene.Bodies.push_back(body);
   Engine engine;
-  const auto declared = engine.declare(scene);
+  const auto declared = engine.loadScenario(scene);
   CHECK(declared.has_value(), "simulation declaration accepted without a render target");
   if (!declared) { return Report(); }
-  const auto built = engine.assemble();
-  CHECK(built.has_value(), built ? "simulation built" : built.error().c_str());
-  if (!built) { return Report(); }
   World::EntityRegistry *const original = &engine.entities();
   const auto marker = original->addEntity();
   CHECK(marker.has_value(), "spare entity capacity remains usable after publication");
@@ -54,8 +51,7 @@ int main() {
   CheckPublishedTraits(engine);
   auto invalid = scene;
   invalid.Instances[0].Of = "missing";
-  CHECK(engine.declare(invalid).has_value(), "new declaration awaits assembly validation");
-  CHECK(!engine.assemble(), "missing prefab rejects the candidate assembly");
+  CHECK(!engine.loadScenario(invalid), "startup rejects a missing prefab");
   CHECK(&engine.entities() == original,
         "failed assembly preserves the borrowed World::EntityRegistry object");
   if (&engine.entities() != original) { return Report(); }
@@ -65,15 +61,14 @@ int main() {
   for (const size_t reserve : {size_t{65536}, std::numeric_limits<size_t>::max()}) {
     auto excessive = scene;
     excessive.Room = reserve;
-    CHECK(engine.declare(excessive).has_value(), "capacity request declared before allocation");
-    CHECK(!engine.assemble(), "capacity budget and arithmetic overflow rejected");
+    CHECK(!engine.loadScenario(excessive), "capacity budget and arithmetic overflow rejected");
     CHECK(&engine.entities() == original && original->alive(*marker),
           "budget rejection preserves live scene");
     CheckPublishedTraits(engine);
   }
-  CHECK(engine.declare(scene) && engine.assemble(), "valid reassembly recovers after rejection");
+  CHECK(engine.loadScenario(scene), "valid reassembly recovers after rejection");
   CheckPublishedTraits(engine);
-  CHECK(engine.declare({}) && engine.assemble(), "empty simulation assembles without a renderer");
+  CHECK(engine.loadScenario({}), "empty simulation assembles without a renderer");
   CHECK(engine.entities().capacity() == 0, "empty assembly removes previous entity storage");
   return Report();
 }

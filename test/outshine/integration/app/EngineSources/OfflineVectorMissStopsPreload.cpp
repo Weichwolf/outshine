@@ -109,7 +109,7 @@ int main() {
     auto engine = App::CreateEngine();
     CHECK(engine.registerProvider(terrainProvider), "local terrain provider registers");
     CHECK(engine.setRoots(roots) && engine.setRenderTarget(scene.Render.Frame) &&
-              engine.declare(scene) && engine.assemble(),
+              engine.loadScenario(scene),
           "offline scene queues its declared source requests");
     const auto playable = engine.preload(0.0, WorldQuality::Playable);
     CHECK(!playable && !playable.error().contains("required vector input unavailable"),

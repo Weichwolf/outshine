@@ -100,20 +100,21 @@ int main() {
   requested.Providers.push_back(std::move(declaration));
 
   Engine empty;
-  CHECK(empty.declare(original), "a host without providers accepts a source-free declaration");
+  CHECK(empty.loadScenario(original), "a host without providers accepts a source-free declaration");
   const auto before = empty.writeScenario();
-  const auto missing = empty.declare(requested);
+  const auto missing = empty.loadScenario(requested);
   CHECK(!missing && !missing.error().empty(), "unregistered source kind is rejected before IO");
   CHECK(empty.writeScenario() == before, "missing factory preserves the published declaration");
   CHECK(empty.registerProvider(provider), "declaration never silently installs builtin factories");
-  CHECK(empty.declare(requested), "explicit individual registration satisfies the same request");
+  CHECK(empty.loadScenario(requested),
+        "explicit individual registration satisfies the same request");
   CHECK(empty.declaration().Providers == requested.Providers,
         "a prepared source permits publication instead of hiding a construction failure");
 
   Data::ProviderRegistry registry;
   CHECK(registry.registerProvider(provider), "caller owns factory selection");
   Engine configured(std::move(registry));
-  CHECK(configured.declare(requested), "host consumes the caller's complete factory registry");
+  CHECK(configured.loadScenario(requested), "host consumes the caller's complete factory registry");
   CHECK(!configured.registerProvider(provider), "registry ownership preserves duplicate detection");
   CHECK(configured.declaration().Providers == requested.Providers,
         "the supplied registry prepares the published source declaration");
