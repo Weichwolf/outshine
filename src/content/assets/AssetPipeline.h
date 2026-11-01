@@ -108,6 +108,7 @@ public:
 
   // The next call starts only after this total input bound replaces the current one.
   // The producer releases old stage buffers before requesting a smaller bound.
+  // Conflicting growth yields younger work with ResourceDeferred; callers retry the request.
   struct InputAdmission {
     size_t Bytes = 0;
   };

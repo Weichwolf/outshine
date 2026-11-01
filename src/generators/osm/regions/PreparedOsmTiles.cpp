@@ -245,7 +245,8 @@ PreparedOsmTiles::Advance(const std::shared_ptr<Work> &work) {
     case AssetPublicationStatus::Cancelled:
       return std::unexpected("native OSM preparation cancelled");
     case AssetPublicationStatus::Failed:
-      if (publication.Error == AssetPublicationError::Rejected) {
+      if (publication.Error == AssetPublicationError::Rejected ||
+          publication.Error == AssetPublicationError::ResourceDeferred) {
         work->Retry = true;
         if (work->Ticket) { work->Ticket->Cancel(); }
         return SourceDelivery{};

@@ -60,6 +60,7 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
   {
     const std::scoped_lock lock(job->Output->Owner->Lock);
     job->InputBytes -= backingBytes;
+    job->Output->Owner->JobInputBytes -= backingBytes;
     job->Output->InputBytes = backingBytes;
   }
   std::shared_ptr<const AssetRecord> record(stored, &stored->Product.Record());
@@ -102,8 +103,13 @@ void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
   job->Finished = true;
   job->Running = false;
   --Held.Running;
+  JobInputBytes -= job->InputBytes;
   Held.InputBytes -= job->InputBytes;
   job->InputBytes = 0;
+  if (job->Result.Status == AssetPublicationStatus::Failed &&
+      job->Result.Error == AssetPublicationError::ResourceDeferred) {
+    std::erase_if(Jobs, [&](const auto &entry) { return entry.second == job; });
+  }
   Remove(job);
 }
 
@@ -131,6 +137,7 @@ void AssetPipeline::State::Execution::Run() {
       break;
     }
     if (const auto *input = std::get_if<InputAdmission>(&*step)) {
+      const std::scoped_lock lock(Owner->Lock);
       Work->NextInputBytes = input->Bytes;
       continue;
     }
@@ -166,6 +173,33 @@ void AssetPipeline::State::Execution::Run() {
   Ended = true;
 }
 
+size_t AssetPipeline::State::OldestInputGrowth(uint64_t sequence) const {
+  const Job *oldest = nullptr;
+  size_t growth = 0;
+  const size_t limit = ProducerInputLimit();
+  for (const auto &[key, work] : Jobs) {
+    if (work->Sequence >= sequence || work->Finished || work->StopRequested ||
+        !work->NextInputBytes || *work->NextInputBytes <= work->InputBytes ||
+        *work->NextInputBytes > limit) {
+      continue;
+    }
+    if (oldest == nullptr || work->Sequence < oldest->Sequence) {
+      oldest = work.get();
+      growth = *work->NextInputBytes - work->InputBytes;
+    }
+  }
+  return growth;
+}
+
+size_t AssetPipeline::State::InputRoom(uint64_t sequence) const {
+  const size_t room = Budget.InputBytesMost - Held.InputBytes;
+  return room - std::min(room, OldestInputGrowth(sequence));
+}
+
+size_t AssetPipeline::State::ProducerInputLimit() const {
+  return Budget.InputBytesMost - (Held.InputBytes - JobInputBytes);
+}
+
 std::expected<bool, AssetPublicationError>
 AssetPipeline::State::AdmitInput(const std::shared_ptr<Job> &job) {
   const std::scoped_lock lock(Lock);
@@ -174,8 +208,18 @@ AssetPipeline::State::AdmitInput(const std::shared_ptr<Job> &job) {
   if (wanted > Budget.InputBytesMost) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
+  if (wanted > ProducerInputLimit()) {
+    return std::unexpected(AssetPublicationError::ResourceDeferred);
+  }
   const size_t others = Held.InputBytes - job->InputBytes;
-  if (wanted > Budget.InputBytesMost - others) { return false; }
+  if (wanted > job->InputBytes && wanted - job->InputBytes > InputRoom(job->Sequence)) {
+    if (job->InputBytes != 0 &&
+        OldestInputGrowth(job->Sequence) > Budget.InputBytesMost - Held.InputBytes) {
+      return std::unexpected(AssetPublicationError::ResourceDeferred);
+    }
+    return false;
+  }
+  JobInputBytes = JobInputBytes - job->InputBytes + wanted;
   Held.InputBytes = others + wanted;
   job->InputBytes = wanted;
   job->NextInputBytes.reset();

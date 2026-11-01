@@ -33,6 +33,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   };
 
   struct Job {
+    uint64_t Sequence = 0;
     AssetProductKey Key;
     KeyDomain Domain;
     AssetStoreScope Scope;
@@ -88,6 +89,9 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   [[nodiscard]] bool Defer(const std::shared_ptr<Job> &job, LogicalProducer producer);
   [[nodiscard]] std::expected<bool, AssetPublicationError>
   AdmitInput(const std::shared_ptr<Job> &job);
+  [[nodiscard]] size_t OldestInputGrowth(uint64_t sequence) const;
+  [[nodiscard]] size_t InputRoom(uint64_t sequence) const;
+  [[nodiscard]] size_t ProducerInputLimit() const;
   [[nodiscard]] std::expected<bool, AssetPublicationError> Resolve(const std::shared_ptr<Job> &job,
                                                                    const ResolvedWork &resolved);
   void Join(const std::shared_ptr<Job> &from, const std::shared_ptr<Job> &to);
@@ -107,6 +111,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   std::map<AssetConsumerId, Owner> Consumers;
   uint64_t NextConsumer = 1, NextTicket = 1;
   Snapshot Held;
+  size_t JobInputBytes = 0;
 };
 }
 #endif

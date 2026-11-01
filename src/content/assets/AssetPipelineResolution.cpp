@@ -25,6 +25,7 @@ void AssetPipeline::State::RetireJoined(const std::shared_ptr<Job> &job) {
     job->Running = false;
     --Held.Running;
     --Held.Jobs;
+    JobInputBytes -= job->InputBytes;
     Held.InputBytes -= std::exchange(job->InputBytes, 0);
     released = std::move(job->Output);
   }

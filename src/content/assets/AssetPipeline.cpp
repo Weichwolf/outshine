@@ -1,4 +1,5 @@
 #include "AssetPipelineState.h"
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <limits>
@@ -83,8 +84,8 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
         owner->second.Generation != request.Generation) {
       return std::unexpected(AssetPublicationError::StaleGeneration);
     }
-    if (State_->Held.Tickets >= State_->Budget.TicketsMost ||
-        request.ConsumerBytes > State_->Budget.InputBytesMost - State_->Held.InputBytes) {
+    const size_t room = State_->InputRoom(State_->NextTicket);
+    if (State_->Held.Tickets >= State_->Budget.TicketsMost || request.ConsumerBytes > room) {
       return std::unexpected(AssetPublicationError::ResourceDeferred);
     }
     if (State_->NextTicket == std::numeric_limits<uint64_t>::max()) {
@@ -100,13 +101,13 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
     } else {
-      const auto inputRoom =
-          State_->Budget.InputBytesMost - State_->Held.InputBytes - request.ConsumerBytes;
+      const auto inputRoom = room - request.ConsumerBytes;
       if (State_->Held.Jobs >= State_->Budget.JobsMost || request.InputBytes > inputRoom ||
           request.ReceiptBytesMost > State_->Budget.ReceiptBytesMost - State_->Held.ReceiptBytes) {
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
       job = std::make_shared<State::Job>();
+      job->Sequence = State_->NextTicket;
       job->Key = request.Key;
       job->Domain = request.Domain;
       job->Scope = address.Scope;
@@ -118,6 +119,7 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
       ++State_->Held.Jobs;
       ++State_->Held.Running;
       State_->Held.InputBytes += request.InputBytes;
+      State_->JobInputBytes += request.InputBytes;
       State_->Held.ReceiptBytes += request.ReceiptBytesMost;
       execution = std::make_shared<State::Execution>();
       execution->Owner = State_;

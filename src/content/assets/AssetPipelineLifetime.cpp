@@ -246,7 +246,7 @@ AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
   const size_t others = state.Held.InputBytes - at->second.Bytes;
-  if (bytes > state.Budget.InputBytesMost - others) {
+  if (bytes > at->second.Bytes && bytes - at->second.Bytes > state.InputRoom(Id_)) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
   state.Held.InputBytes = others + bytes;
