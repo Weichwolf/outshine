@@ -302,9 +302,11 @@ void CheckPublicationCollision(Data::RawSourceCache &raw,
                                const std::string &provenance) {
   const auto key = Sha256Hex(provenance);
   const auto occupied = config.Directory + "/." + key + ".0";
+  std::filesystem::create_directories(config.Directory);
   {
     std::ofstream held(occupied);
     held << "occupied";
+    CHECK(held.good(), "the competing writer's temporary file actually exists");
   }
   CHECK(raw.Keep(key, bytes.data(), bytes.size()),
         "source bytes publish despite an occupied temporary name");
