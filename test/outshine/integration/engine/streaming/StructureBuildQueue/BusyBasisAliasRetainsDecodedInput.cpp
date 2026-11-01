@@ -21,7 +21,9 @@ constexpr auto kWait = std::chrono::milliseconds(1);
 using Writer = std::unique_ptr<sqlite3, decltype(&sqlite3_close)>;
 
 struct Case {
-  Generators::BuildingMesh Mesher;
+  std::shared_ptr<Generators::BuildingMesh> MesherOwner =
+      std::make_shared<Generators::BuildingMesh>();
+  Generators::BuildingMesh &Mesher = *MesherOwner;
   Fixture Env;
   StructureBuildQueue::HeightSource NoHeights{
       .Sample = {}, .PinField = {}, .Revision = {.Value = 11}};
@@ -35,7 +37,7 @@ struct Case {
   bool Open() {
     CHECK(Env.Open(), "the actual vector/street/cache fixture opens");
     if (!Env.Stack.BuildingAssets() || Env.Stack.Vectors() == nullptr) { return false; }
-    Env.Queue.Opens(&Env.Worker, &Mesher);
+    Env.Queue.Opens(&Env.Worker, MesherOwner);
     Env.Stack.Footprints().SeenWith({.FocalPx = 720});
     const auto &vectors = *Env.Stack.Vectors();
     const auto digest = Env.Stack.Ways().SourceDigest(vectors, 0);

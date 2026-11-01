@@ -44,7 +44,9 @@ public:
 
   [[nodiscard]] const DrawSet &Drawing() const { return Drawing_; }
 
-  [[nodiscard]] const StructureMesher &Shaping() const { return *Shaper_; }
+  [[nodiscard]] const std::shared_ptr<const StructureMesher> &BuildingMesher() const noexcept {
+    return BuildingMesher_;
+  }
 
   [[nodiscard]] const RoadMesher &Paving() const { return *Paver_; }
 
@@ -65,7 +67,7 @@ private:
   std::vector<TreeSpecies> Species_;
   std::unique_ptr<Generator> Offered_;
   std::unique_ptr<GroundMesher> Coverer_;
-  std::unique_ptr<StructureMesher> Shaper_;
+  std::shared_ptr<const StructureMesher> BuildingMesher_;
   std::unique_ptr<RoadMesher> Paver_;
   std::unique_ptr<Generators::Corridors> Corridors_;
   std::vector<std::unique_ptr<Making>> Made_;

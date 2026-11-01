@@ -43,7 +43,8 @@ public:
 };
 
 struct Case {
-  CountingMesh Mesher;
+  std::shared_ptr<CountingMesh> MesherOwner = std::make_shared<CountingMesh>();
+  CountingMesh &Mesher = *MesherOwner;
   Fixture Env;
   std::unique_ptr<RawTile> Raw;
   std::shared_ptr<const Ground::HeightField> Heights;
@@ -111,13 +112,13 @@ struct Case {
                                                 Mesher.Scratch());
     Work->UseNativeAssets(Env.Stack.BuildingAssets(), Key, Request);
     Work->UseInitialCells();
-    Work->Start(Env.Worker, Mesher);
+    Work->Start(Env.Worker, MesherOwner);
     Work->Join(Env.Worker);
   }
 
   void Pump() {
     if (Work->CanResume()) {
-      Work->Resume(Env.Worker, Mesher);
+      Work->Resume(Env.Worker);
       Work->Join(Env.Worker);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -243,7 +244,7 @@ void TaskContinuation(bool cancel) {
   CHECK(progressed, "cold publication does not monopolize its worker");
   if (cancel) {
     test.Work->RequestStop();
-    test.Work->Resume(test.Env.Worker, test.Mesher);
+    test.Work->Resume(test.Env.Worker);
     test.Work->Join(test.Env.Worker);
   }
   test.Release();

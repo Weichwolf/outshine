@@ -31,7 +31,7 @@ namespace outshine::Generators {
 BuiltinGenerators::BuiltinGenerators()
     : Offered_(std::make_unique<Structures>()),
       Coverer_(std::make_unique<Patchworker>()),
-      Shaper_(std::make_unique<BuildingMesh>()),
+      BuildingMesher_(std::make_shared<BuildingMesh>()),
       Paver_(std::make_unique<ProfiledRoadMesher>()),
       Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}
 

@@ -21,7 +21,9 @@ using namespace outshine::Test;
 using namespace outshine::Test::BuildingSources;
 
 struct Case {
-  Generators::BuildingMesh Mesher;
+  std::shared_ptr<Generators::BuildingMesh> MesherOwner =
+      std::make_shared<Generators::BuildingMesh>();
+  Generators::BuildingMesh &Mesher = *MesherOwner;
   Fixture Env;
   std::unique_ptr<AssetCache> Cache;
   std::string Key;
@@ -33,7 +35,7 @@ struct Case {
     const auto &native = Env.Stack.BuildingAssets();
     const auto *vectors = Env.Stack.Vectors();
     if (!native || vectors == nullptr) { return false; }
-    Env.Queue.Opens(&Env.Worker, &Mesher);
+    Env.Queue.Opens(&Env.Worker, MesherOwner);
     Env.Stack.Footprints().SeenWith({.FocalPx = 720});
     const auto digest = Env.Stack.Ways().SourceDigest(*vectors, 0);
     CHECK(digest, "native content uses the actual runtime street digest");

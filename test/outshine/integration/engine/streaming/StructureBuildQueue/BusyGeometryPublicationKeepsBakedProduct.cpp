@@ -39,7 +39,8 @@ public:
 };
 
 struct Case {
-  CountingMesh Mesher;
+  std::shared_ptr<CountingMesh> MesherOwner = std::make_shared<CountingMesh>();
+  CountingMesh &Mesher = *MesherOwner;
   Fixture Env;
   std::unique_ptr<StructureBuildTask> Work;
   Writer Database{nullptr, sqlite3_close};
@@ -84,13 +85,13 @@ struct Case {
   }
 
   void Pump() {
-    if (Work->CanResume()) { Work->Resume(Env.Worker, Mesher); }
+    if (Work->CanResume()) { Work->Resume(Env.Worker); }
     Work->Join(Env.Worker);
     std::this_thread::sleep_for(kWait);
   }
 
   bool WaitHeld() {
-    Work->Start(Env.Worker, Mesher);
+    Work->Start(Env.Worker, MesherOwner);
     Work->Join(Env.Worker);
     const auto until = std::chrono::steady_clock::now() + kDeadline;
     while (std::chrono::steady_clock::now() < until) {
@@ -174,7 +175,7 @@ void Cancel() {
   Case test;
   if (!test.Open() || !test.WaitHeld()) { return; }
   test.Work->RequestStop();
-  test.Work->Resume(test.Env.Worker, test.Mesher);
+  test.Work->Resume(test.Env.Worker);
   test.Work->Join(test.Env.Worker);
   CHECK(!test.Work->Result().Status && !test.Work->Result().Tile &&
             test.Work->Result().PublicationBytes == 0,
@@ -187,7 +188,7 @@ void Cancel() {
 void QueueResume() {
   Case test;
   if (!test.Open()) { return; }
-  test.Env.Queue.Opens(&test.Env.Worker, &test.Mesher);
+  test.Env.Queue.Opens(&test.Env.Worker, test.MesherOwner);
   auto &prints = test.Env.Stack.Footprints();
   prints.SeenWith({.FocalPx = 720});
   const StructureBuildQueue::HeightSource source{
@@ -271,7 +272,7 @@ void RejectPermanentFailure() {
                      nullptr,
                      nullptr) == SQLITE_OK,
         "a permanent constraint rejects only the native geometry commit");
-  test.Work->Start(test.Env.Worker, test.Mesher);
+  test.Work->Start(test.Env.Worker, test.MesherOwner);
   test.Work->Join(test.Env.Worker);
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (test.Work->Result().Status && !test.Work->Result().Tile &&

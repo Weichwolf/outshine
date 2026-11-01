@@ -75,9 +75,9 @@ StructureBuildTask Task(const StructureMesher &mesher,
           StructureBuildTask::ProofRequest{.SourceKey = key, .Limits = {}}};
 }
 
-void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesher) {
+void Complete(StructureBuildTask &task, Tasks &pool) {
   for (size_t post = 0; post < 4096 && task.Result().Status && !task.Result().Tile; ++post) {
-    task.Resume(pool, mesher);
+    task.Resume(pool);
     task.Join(pool);
     CHECK(task.Result().LastProofWork <= 8192 && task.Result().LastRanges <= 4,
           "each post respects its work allowance across phase transitions");
@@ -88,24 +88,25 @@ void Complete(StructureBuildTask &task, Tasks &pool, const StructureMesher &mesh
 int main() {
   using namespace outshine::Test;
   Tasks pool(1);
-  const Planes mesher;
+  const auto mesherOwner = std::make_shared<Planes>();
+  const auto &mesher = *mesherOwner;
   for (const auto detail : {LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     auto task = Task(mesher, detail);
-    task.Start(pool, mesher);
+    task.Start(pool, mesherOwner);
     task.Join(pool);
     CHECK(task.Result().Status && !task.Result().Tile && task.Raw().RequestedDetail == detail,
           "finished variant stays private and its immutable request does not become Fine");
-    task.Resume(pool, mesher);
+    task.Resume(pool);
     StructureBuildTask moved(std::move(task));
     moved.Join(pool);
     // The guaranteed empty source is part of the move contract being tested.
     // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
     CHECK(!moved.Result().Tile && moved.Result().Status && !task.Running(),
           "running reference ownership moves without publishing a variant or cancelling work");
-    moved.Resume(pool, mesher);
+    moved.Resume(pool);
     StructureBuildTask proving(std::move(moved));
     proving.Join(pool);
-    Complete(proving, pool, mesher);
+    Complete(proving, pool);
     const auto &tile = proving.Result().Tile;
     CHECK(proving.Result().Status && tile && tile->SurfaceError && !tile->SurfaceFailure,
           "paired complete planes publish a certified variant");
@@ -120,23 +121,24 @@ int main() {
   }
   for (size_t phase = 0; phase < 2; ++phase) {
     auto task = Task(mesher);
-    task.Start(pool, mesher);
+    task.Start(pool, mesherOwner);
     task.Join(pool);
     if (phase == 1) {
-      task.Resume(pool, mesher);
+      task.Resume(pool);
       task.Join(pool);
     }
     task.RequestStop();
-    task.Resume(pool, mesher);
+    task.Resume(pool);
     task.Join(pool);
     CHECK(!task.Result().Status && !task.Result().Tile,
           "cancellation before reference or proof cannot expose a private variant");
   }
-  const Planes unsupported(true);
+  const auto unsupportedOwner = std::make_shared<Planes>(true);
   for (const bool invalidRing : {false, true}) {
-    const StructureMesher &chosen = invalidRing ? mesher : unsupported;
+    const auto chosenOwner = invalidRing ? mesherOwner : unsupportedOwner;
+    const StructureMesher &chosen = *chosenOwner;
     auto task = Task(chosen, LevelOfDetail::Shell, 71, invalidRing);
-    task.Start(pool, chosen);
+    task.Start(pool, chosenOwner);
     task.Join(pool);
     const auto &result = task.Result();
     CHECK(result.Tile && !result.Tile->SurfaceError &&
@@ -145,18 +147,19 @@ int main() {
           "identical missing surfaces from refused meshes or skipped rings never certify zero");
   }
   auto unknown = Task(mesher, LevelOfDetail::Shell, 0);
-  unknown.Start(pool, mesher);
+  unknown.Start(pool, mesherOwner);
   unknown.Join(pool);
   const auto &unknownResult = unknown.Result();
   CHECK(unknownResult.Tile && !unknownResult.Tile->SurfaceError &&
             unknownResult.Tile->SurfaceFailure ==
                 Generators::StructureSurfaceErrorFailure::InvalidSource,
         "missing source identity retains a variant without claiming a certificate");
-  const Generators::BuildingMesh native;
+  const auto nativeOwner = std::make_shared<Generators::BuildingMesh>();
+  const auto &native = *nativeOwner;
   auto task = Task(native);
-  task.Start(pool, native);
+  task.Start(pool, nativeOwner);
   task.Join(pool);
-  Complete(task, pool, native);
+  Complete(task, pool);
   const auto &result = task.Result();
   CHECK(result.Status && result.Tile && result.Tile->SurfaceError &&
             result.Tile->SurfaceError->UpperDistanceM() >= 0,

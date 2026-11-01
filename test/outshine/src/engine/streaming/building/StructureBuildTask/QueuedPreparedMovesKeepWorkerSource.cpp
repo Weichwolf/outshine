@@ -49,14 +49,15 @@ void Run(const std::shared_ptr<const Generators::PreparedStructureTile> &base, T
   });
   CHECK(blocker != Tasks::kNoTask && entered.try_acquire_for(std::chrono::seconds(5)),
         "the worker is held before a prepared task starts");
-  const Generators::BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<Generators::BuildingMesh>();
+  const auto &mesher = *mesherOwner;
   std::optional<StructureBuildTask> moved;
   {
     auto view = std::make_unique<Generators::RawTile>();
     view->RequestedDetail = LevelOfDetail::Shell;
     StructureBuildTask original(
         1, base, std::move(view), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
-    original.Start(pool, mesher);
+    original.Start(pool, mesherOwner);
     if (transfer == Transfer::Construct) {
       moved.emplace(std::move(original));
     } else {

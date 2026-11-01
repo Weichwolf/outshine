@@ -219,9 +219,10 @@ void Replay(const std::filesystem::path &directory,
       .PinField = [&terrain](Data::TileId tile,
                              HeightField::Block &into) { return terrain.Pin(tile, into); },
       .Revision = {.Value = 11}};
-  Generators::BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<Generators::BuildingMesh>();
+
   StructureBuildQueue queue;
-  queue.Opens(&compute, &mesher);
+  queue.Opens(&compute, mesherOwner);
   if (obsoleteLookups) {
     std::atomic_bool released{false};
     const auto blocker = compute.Post([&released] { released.wait(false); });

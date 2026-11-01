@@ -93,7 +93,8 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   CHECK(database && (*database)->Remove(key), "fixture removes the complete plan product");
   if (!database) { return; }
   const auto before = cache->Costs();
-  const BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<BuildingMesh>();
+  const auto &mesher = *mesherOwner;
   Tasks pool(1);
   StructureBuildTask task(0,
                           *basis,
@@ -101,7 +102,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                           std::make_unique<StructureBuildTask::Output>(),
                           mesher.Scratch());
   task.UseNativeAssets(cache, key);
-  task.Start(pool, mesher);
+  task.Start(pool, mesherOwner);
   task.Join(pool);
   const auto &loaded = task.Result();
   CHECK(loaded.Status && loaded.Tile && loaded.CacheHit &&
@@ -117,7 +118,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                             std::make_unique<StructureBuildTask::Output>(),
                             mesher.Scratch());
   replay.UseNativeAssets(cache, key);
-  replay.Start(pool, mesher);
+  replay.Start(pool, mesherOwner);
   replay.Join(pool);
   const auto &reloaded = replay.Result();
   CHECK(reloaded.Status && reloaded.Tile && reloaded.CacheHit &&
@@ -131,7 +132,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                           std::make_unique<StructureBuildTask::Output>(),
                           mesher.Scratch());
   miss.UseNativeAssets(cache, key);
-  miss.Start(pool, mesher);
+  miss.Start(pool, mesherOwner);
   miss.Join(pool);
   const auto *kind = miss.Result().Status
                          ? nullptr
@@ -675,9 +676,10 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
 }
 
 void WorkerBake(const PreparedStructureTile &base,
-                const BuildingMesh &mesher,
+                const std::shared_ptr<BuildingMesh> &mesherOwner,
                 const RawTile &view,
                 uint64_t reference) {
+  const auto &mesher = *mesherOwner;
   Tasks worker(1);
   auto held = std::make_shared<const PreparedStructureTile>(base);
   StructureBuildTask task(0,
@@ -692,7 +694,7 @@ void WorkerBake(const PreparedStructureTile &base,
             task.HeightQualified() == base.HeightQualified &&
             task.HeightRequest().Tiles.size() == base.HeightRequest.Tiles.size(),
         "worker retains stored terrain lineage without holding a height field");
-  task.Start(worker, mesher);
+  task.Start(worker, mesherOwner);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   size_t tasks = 0;
   while (std::chrono::steady_clock::now() < deadline) {
@@ -705,7 +707,7 @@ void WorkerBake(const PreparedStructureTile &base,
               task.Result().LastRanges <= StructureBuildTask::RangesPerTask,
           "ready base selection and emission keep the worker task bounded");
     if (!task.Result().Status || task.Result().Tile) { break; }
-    task.Resume(worker, mesher);
+    task.Resume(worker);
   }
   if (task.Running()) {
     task.RequestStop();
@@ -777,7 +779,8 @@ void UnsupportedMass() {
   CHECK(restored && restored->Surfaces.front().Shapes().empty(),
         "restart retains the unsupported mass without replanning it");
   if (!restored) { return; }
-  const BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<BuildingMesh>();
+  const auto &mesher = *mesherOwner;
   auto scratch = mesher.Scratch();
   BakedTile reference;
   const auto original = BakeStructures(raw, *heights, mesher, *scratch, reference);
@@ -807,7 +810,8 @@ int main() {
         "unknown height and road frontage are fully enriched before runtime selection");
   CHECK(base->Structures[2].Standing.MinimumHeightM == 3.0f,
         "prepared raised parts retain their clearance");
-  const BuildingMesh mesher;
+  const auto mesherOwner = std::make_shared<BuildingMesh>();
+  const auto &mesher = *mesherOwner;
   std::vector<RawTile> views;
   std::vector<BakedTile> references;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
@@ -830,14 +834,14 @@ int main() {
   raw = {};
   heights.reset();
   ReadyForms(*decoded, mesher);
-  WorkerBake(*decoded, mesher, views.front(), references.front().Digest);
+  WorkerBake(*decoded, mesherOwner, views.front(), references.front().Digest);
   auto batch = *decoded;
   batch.Structures.resize(257, decoded->Structures.front());
   batch.Surfaces.resize(257, decoded->Surfaces.front());
   auto batchScratch = mesher.Scratch();
   const auto batchReference = BakePreparedStructures(batch, views.front(), mesher, *batchScratch);
   CHECK(batchReference.has_value(), "large native tile supplies the bounded worker fixture");
-  if (batchReference) { WorkerBake(batch, mesher, views.front(), batchReference->Digest); }
+  if (batchReference) { WorkerBake(batch, mesherOwner, views.front(), batchReference->Digest); }
   for (size_t index = 0; index < views.size(); ++index) {
     auto scratch = mesher.Scratch();
     const auto built = BakePreparedStructures(*decoded, views[index], mesher, *scratch);

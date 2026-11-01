@@ -34,7 +34,8 @@ private:
   Generators::BuildingMesh Backing_;
 };
 
-bool Start(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
+bool Start(BuildingQueueFixture &fixture, const std::shared_ptr<CountingMesher> &mesherOwner) {
+  const auto &mesher = *mesherOwner;
   std::vector<Generators::Osm::OsmField::Declared> buildings(kStructures,
                                                              fixture.Buildings.front());
   for (size_t at = 0; at < buildings.size(); ++at) {
@@ -43,7 +44,7 @@ bool Start(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
     }
   }
   if (!fixture.Open(buildings)) { return false; }
-  fixture.Queue.Opens(&fixture.Pool, &mesher);
+  fixture.Queue.Opens(&fixture.Pool, mesherOwner);
   auto &prints = fixture.Stack.Footprints();
   CHECK(fixture.Queue.Posts(fixture.Stack,
                             prints,
@@ -74,9 +75,10 @@ void CheckPollingDoesNotPost(BuildingQueueFixture &fixture, const CountingMesher
 enum class Change { Eye, Height, Source, Owner };
 
 void ChangedDemand(Change change) {
-  const CountingMesher mesher;
+  const auto mesherOwner = std::make_shared<CountingMesher>();
+  const auto &mesher = *mesherOwner;
   BuildingQueueFixture fixture;
-  if (!Start(fixture, mesher)) { return; }
+  if (!Start(fixture, mesherOwner)) { return; }
   const size_t firstSlice = mesher.MeshCalls();
   auto eye = fixture.Eye;
   auto height = fixture.Source;
@@ -104,9 +106,10 @@ void ChangedDemand(Change change) {
 }
 
 void CurrentDemandCompletes(bool continueFromPosts) {
-  const CountingMesher mesher;
+  const auto mesherOwner = std::make_shared<CountingMesher>();
+  const auto &mesher = *mesherOwner;
   BuildingQueueFixture fixture;
-  if (!Start(fixture, mesher)) { return; }
+  if (!Start(fixture, mesherOwner)) { return; }
   CheckPollingDoesNotPost(fixture, mesher);
   auto &prints = fixture.Stack.Footprints();
   if (continueFromPosts) {
