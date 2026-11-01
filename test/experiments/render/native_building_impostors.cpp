@@ -821,6 +821,11 @@ Json RadianceSupportReport(const Test::BuildingRadianceField &field, const Json 
               {"support_plane", query.value("support_plane", "capture")},
               {"support_depth_coefficients", field.SupportDepth.Axis},
               {"support_fit_ms", field.SupportFitMs}};
+  if (field.SupportError) {
+    result["support_geometry"] = {{"axis_upper_px", field.SupportError->AxisUpperPx.Axis},
+                                  {"l1_upper_px", field.SupportError->L1UpperPx},
+                                  {"depth_inside", field.SupportError->DepthInside}};
+  }
   if (field.SupportFit) {
     result["support_fit"] = {{"source_points", field.SupportFit->SourcePoints},
                              {"normalized_depth_rms", field.SupportFit->NormalizedDepthRms},

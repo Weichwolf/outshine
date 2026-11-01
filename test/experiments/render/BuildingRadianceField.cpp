@@ -233,6 +233,7 @@ std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceF
                                                                const nlohmann::json &query) {
   field.SupportFitMs = 0;
   field.SupportDepth = {};
+  field.SupportError.reset();
   const auto mode = query.value("support_plane", "capture");
   if (mode == "fitted") {
     if (!field.SupportFit) {
@@ -251,12 +252,16 @@ std::expected<void, std::string> UpdateBuildingRadianceSupport(BuildingRadianceF
   const auto camera = BuildingQueryCamera(query);
   const auto lens = Render::Lens::From(camera, 1280, 720);
   if (!lens) { return std::unexpected("radiance viewer has no valid lens"); }
-  auto surface = Render::BuildProjectedRadianceSupport({.Centre = atlas.CentreM(),
-                                                        .TowardEye = atlas.Views()[view].TowardEye,
-                                                        .HalfExtentM = atlas.HalfExtentM(),
-                                                        .DepthCoefficients = field.SupportDepth},
-                                                       camera,
-                                                       *lens);
+  const Render::RadiancePlane support{.Centre = atlas.CentreM(),
+                                      .TowardEye = atlas.Views()[view].TowardEye,
+                                      .HalfExtentM = atlas.HalfExtentM(),
+                                      .DepthCoefficients = field.SupportDepth};
+  const auto hull = Render::ImpostorPoseBounds::From(support);
+  if (!hull) { return std::unexpected(hull.error()); }
+  const auto error = hull->Project(camera, *lens);
+  if (!error) { return std::unexpected(error.error()); }
+  field.SupportError = *error;
+  auto surface = Render::BuildProjectedRadianceSupport(support, camera, *lens);
   if (!surface) { return std::unexpected(surface.error()); }
   field.Cards.Centre = atlas.CentreM();
   field.Cards.HalfExtentM = atlas.HalfExtentM();

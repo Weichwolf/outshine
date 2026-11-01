@@ -4,6 +4,7 @@
 #include "ImpostorCards.h"
 #include "RadianceImage.h"
 #include "RadianceSupport.h"
+#include "ImpostorPoseBounds.h"
 #include <optional>
 #include "Viewing.h"
 #include <cstddef>
@@ -32,6 +33,7 @@ struct BuildingRadianceField {
   double ReadbackMs = 0;
   double SupportFitMs = 0;
   Vec3 SupportDepth{};
+  std::optional<Render::ImpostorPoseBounds::Error> SupportError;
   std::optional<Render::RadiancePlaneFit> SupportFit;
   std::shared_ptr<const Render::ResidentMaterialField> Source;
   std::vector<float> SourceLinear;
