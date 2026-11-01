@@ -42,14 +42,21 @@ void AssetCache::State::ReleaseConnection() {
     }
   };
 
-  auto retired = std::make_shared<Retired>(std::exchange(Connection, std::nullopt),
-                                           std::move(Mutex),
-                                           std::move(Budget),
-                                           std::exchange(Database, nullptr),
-                                           std::move(Usage));
+  struct Handoff {
+    std::unique_ptr<Retired> Value;
+  };
+
+  const auto handoff =
+      std::make_shared<Handoff>(std::make_unique<Retired>(std::exchange(Connection, std::nullopt),
+                                                          std::move(Mutex),
+                                                          std::move(Budget),
+                                                          std::exchange(Database, nullptr),
+                                                          std::move(Usage)));
   if (Execution.Workers != nullptr) {
-    (void)Execution.Workers->PostDetached(
-        [retired = std::move(retired)] mutable { retired.reset(); });
+    (void)Execution.Workers->PostDetached([handoff] {
+      auto retired = std::move(handoff->Value);
+      retired.reset();
+    });
   }
 }
 
