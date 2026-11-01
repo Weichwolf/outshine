@@ -1,5 +1,6 @@
 #include "SurfaceSession.h"
 #include "WorldCandidate.h"
+#include "GroundView.h"
 #include <limits>
 #include <type_traits>
 #include <cmath>
@@ -282,6 +283,27 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
 struct PreparedRuntimeDeclaration {
   HeadlessDeclaration Headless;
   std::unique_ptr<Core::WorldCandidate> Targeted;
+
+  [[nodiscard]] Result ValidateGroundView(const Scenario::Document &scenario, int heightPx) const {
+    if (!scenario.Ground.Declared || !scenario.Views.empty() || !Targeted) { return {}; }
+    if (ValidGroundView(Targeted->View(), heightPx)) { return {}; }
+    return std::unexpected(std::string(kInvalidGroundView));
+  }
+
+  [[nodiscard]] Result
+  Publish(EngineRenderState &picture, WorldRegionState &world, Core::Declaration declared) {
+    if (Targeted) {
+      if (auto published = Targeted->Publish(picture.Standing); !published) { return published; }
+    }
+    picture.Shown = std::move(declared);
+    if (!picture.Targeted) {
+      picture.PendingGeometry = std::move(Headless.Geometry);
+      picture.PendingAudioOcclusion = std::move(Headless.Occlusion);
+    } else {
+      world.AudioOcclusion = Headless.Occlusion ? std::move(*Headless.Occlusion) : TriangleBvh{};
+    }
+    return {};
+  }
 };
 
 [[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
@@ -645,28 +667,19 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  if (prepared->Targeted) {
-    const auto published = prepared->Targeted->Publish(S_->Picture.Standing);
-    if (!published) {
-      S_->Error = published.error();
-      return std::unexpected(S_->Error);
-    }
-  }
-  S_->WorldOwner = std::move(world);
-  S_->Picture.Shown = std::move(declared);
-  if (!S_->Picture.Targeted) {
-    S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
-    S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
+  if (const auto projection = prepared->ValidateGroundView(scenario, S_->Picture.Frame.HeightPx);
+      !projection) {
+    S_->PendingDeclaration.emplace(std::unexpected(projection.error()));
     S_->Error.clear();
-    PublishConfiguration(S_->Session, scenario, *views, bindings);
-    S_->PendingDeclaration.emplace(std::move(candidate));
-    S_->RouteCamera.reset();
-    S_->CameraPosePending = false;
     return {};
   }
+  if (const auto published = prepared->Publish(S_->Picture, *world, std::move(declared));
+      !published) {
+    S_->Error = published.error();
+    return std::unexpected(S_->Error);
+  }
+  S_->WorldOwner = std::move(world);
   S_->Error.clear();
-  S_->World().AudioOcclusion =
-      prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, scenario, *views, bindings);
   S_->PendingDeclaration.emplace(std::move(candidate));
   S_->RouteCamera.reset();

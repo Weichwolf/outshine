@@ -48,6 +48,7 @@
 #include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
 #include "EngineState.h"
+#include "GroundView.h"
 #include "StructureSourcePublication.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
@@ -68,8 +69,6 @@ namespace outshine {
 namespace Says {
 constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
-constexpr auto GroundDetailCameraInvalid =
-    "ground detail needs a finite camera eye, positive lens and frame height";
 }
 
 static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
@@ -100,17 +99,6 @@ void RecordWaterSurfaceState(Core::DiagnosticLedger &published,
   published.RecordMetric("water: prepared surface payload",
                          static_cast<double>(water.PreparedSurfaceBytes()),
                          "bytes");
-}
-
-bool ValidGroundDetailCamera(const Render::Viewpoint &view, Extent frame) {
-  if (frame.HeightPx <= 0) { return false; }
-  for (int axis = 0; axis < 3; ++axis) {
-    if (!std::isfinite(view.EyeM[axis])) { return false; }
-  }
-  if (view.Kind == Render::CameraKind::Orthographic) {
-    return std::isfinite(view.YMagM) && view.YMagM > 0.0;
-  }
-  return std::isfinite(view.YfovRad) && view.YfovRad > 0.0 && view.YfovRad < std::numbers::pi;
 }
 
 class ScopedCounter {
@@ -409,8 +397,8 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                            GroundQuality quality) {
   const Render::Viewpoint &view =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  if (!ValidGroundDetailCamera(view, Picture.Frame)) {
-    Error = Says::GroundDetailCameraInvalid;
+  if (!ValidGroundView(view, Picture.Frame.HeightPx)) {
+    Error = kInvalidGroundView;
     return Laid::Refused;
   }
   const Around &over = request.Coverage;
@@ -810,8 +798,8 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
   const Render::Viewpoint &eye =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  if (!ValidGroundDetailCamera(eye, Picture.Frame)) {
-    Error = Says::GroundDetailCameraInvalid;
+  if (!ValidGroundView(eye, Picture.Frame.HeightPx)) {
+    Error = kInvalidGroundView;
     World().GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }

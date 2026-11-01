@@ -98,6 +98,11 @@ public:
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
+  [[nodiscard]] const Render::Viewpoint &View() const noexcept {
+    const auto &scene = Scene();
+    return scene.Watched() ? scene.Watching() : scene.Aimed();
+  }
+
   // Ready declarations release their edit scope between candidate operations.
   [[nodiscard]] std::expected<void, std::string>
   PrepareDeclaration(const Declaration &declared,

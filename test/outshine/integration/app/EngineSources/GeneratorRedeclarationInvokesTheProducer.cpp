@@ -65,6 +65,10 @@ int main() {
     scenario.Assets.clear();
     CHECK(engine.declare(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
+    CHECK(engine.assemble(), "the existing groundless world has an active simulation");
+    const auto *previousSimulation = &engine.entities();
+    const auto previousDeclaration = engine.writeScenario();
+    CHECK(previousDeclaration && engine.settled(), "the existing world is complete and persistent");
     Scenario::Document earth;
     const auto sources = Generators::DefaultSourceProviders();
     earth.Providers.assign(sources.begin(), sources.end());
@@ -76,6 +80,11 @@ int main() {
     const auto unframed = engine.assemble();
     CHECK(!unframed && unframed.error().contains("ground detail needs"),
           "Earth without a view or geometry rejects invalid ground detail projection");
+    const auto retainedDeclaration = engine.writeScenario();
+    CHECK(previousDeclaration && retainedDeclaration &&
+              *retainedDeclaration == *previousDeclaration &&
+              &engine.entities() == previousSimulation && engine.settled(),
+          "invalid ground projection preserves the active world and simulation together");
     Scenario::View earthView;
     earthView.Id = "earth";
     earthView.Person = "first";
