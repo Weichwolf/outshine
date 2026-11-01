@@ -101,7 +101,7 @@ public:
   InvalidateManifest(const std::string &key, const std::string &failedPage, size_t pageBytesMost);
 
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
-  Open(const std::string &directory);
+  Open(const std::string &directory, AssetCache::Runtime runtime = {});
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   Inspect(const RoadPageAddress &address, size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>

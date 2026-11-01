@@ -77,7 +77,8 @@ public:
        const Data::SourceSet &sources,
        Tasks &compute,
        std::shared_ptr<PreparedOsmTiles> prepared,
-       Budget budget);
+       Budget budget,
+       AssetCache::Runtime runtime = {});
   ~PreparedUrbanAreas();
   void Cancel() noexcept;
   [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(Data::SourceReader &reader,

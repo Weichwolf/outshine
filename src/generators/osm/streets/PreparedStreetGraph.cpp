@@ -78,9 +78,10 @@ std::optional<StreetGraphBuilder::Built> Decode(std::span<const uint8_t> bytes) 
 PreparedStreetGraph::PreparedStreetGraph(std::unique_ptr<AssetCache> cache, std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedStreetGraph>, std::string>
-PreparedStreetGraph::Open(const std::string &directory, const Data::SourceSet &sources) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+std::expected<std::shared_ptr<PreparedStreetGraph>, std::string> PreparedStreetGraph::Open(
+    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open the prepared street graph cache"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-street-graph-4",

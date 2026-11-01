@@ -125,6 +125,7 @@ struct EngineServices {
   std::unique_ptr<Tasks> Io;
   std::shared_ptr<JobAdmission> StructureBakes;
   std::shared_ptr<JobAdmission> StructureContexts;
+  std::shared_ptr<JobAdmission> SurfaceCacheConnections;
   std::shared_ptr<AssetPipeline> Publications;
   std::unique_ptr<AssetCacheReclaimer> CacheReclaimer;
 };

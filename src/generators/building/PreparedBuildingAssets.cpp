@@ -43,12 +43,13 @@ PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache
                                                std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
-PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet &sources) {
+std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string> PreparedBuildingAssets::Open(
+    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
   std::error_code error;
-  std::filesystem::create_directories(directory, error);
+  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
   if (error) { return std::unexpected("could not create the native building cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
   auto recipe = AssetSourceRecipe("prepared-building-base-12", sources, kinds);

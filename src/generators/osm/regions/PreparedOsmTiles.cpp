@@ -30,15 +30,20 @@ std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::
   return Open(directory, sources, compute, {});
 }
 
-std::expected<std::shared_ptr<PreparedOsmTiles>, std::string> PreparedOsmTiles::Open(
-    const std::string &directory, const Data::SourceSet &sources, Tasks &compute, Budget budget) {
+std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
+PreparedOsmTiles::Open(const std::string &directory,
+                       const Data::SourceSet &sources,
+                       Tasks &compute,
+                       Budget budget,
+                       AssetCache::Runtime runtime) {
   if (budget.PendingMost == 0 || budget.PublicationBytesMost == 0) {
     return std::unexpected("invalid native OSM publication budget");
   }
   std::error_code error;
-  std::filesystem::create_directories(directory, error);
+  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
   if (error) { return std::unexpected("could not create native OSM tile cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open native OSM tile cache"); }
   const auto recipe = Generators::AssetSourceRecipe(
       "prepared-osm-tile-3", sources, std::array{Data::DataKind::VectorMap});

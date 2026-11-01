@@ -33,6 +33,14 @@ void Engine::State::PublishResourcePayloadMeasurements() {
   Published.RecordMetric("cost.building_contexts.admission_deferred",
                          static_cast<double>(World.StructureBuilds.ContextAdmissionDeferred()),
                          "asks");
+  Published.RecordMetric(
+      "cost.surface_cache.connections",
+      Services.SurfaceCacheConnections ? Services.SurfaceCacheConnections->Active() : 0,
+      "connections");
+  Published.RecordMetric(
+      "cost.surface_cache.connection_limit",
+      Services.SurfaceCacheConnections ? Services.SurfaceCacheConnections->Maximum() : 0,
+      "connections");
   Published.RecordMetric("streamed piece CPU payload capacity",
                          static_cast<double>(Picture.Device.PieceSourceBytes()),
                          "bytes");

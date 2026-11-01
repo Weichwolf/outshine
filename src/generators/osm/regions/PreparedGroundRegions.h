@@ -73,7 +73,10 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources, std::string_view rules);
+  Open(const std::string &directory,
+       const Data::SourceSet &sources,
+       std::string_view rules,
+       AssetCache::Runtime runtime = {});
   [[nodiscard]] std::expected<std::string, std::string>
   PlanRequest(LongitudeLatitude focus,
               int zoom,

@@ -47,7 +47,11 @@ public:
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources, Tasks &compute, Budget budget);
+  Open(const std::string &directory,
+       const Data::SourceSet &sources,
+       Tasks &compute,
+       Budget budget,
+       AssetCache::Runtime runtime = {});
   ~PreparedOsmTiles();
   [[nodiscard]] std::expected<SourceDelivery, std::string_view>
   Acquire(Data::SourceReader &sources, TileAt at, const OsmField &layout);

@@ -30,7 +30,9 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedStreetGraph>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources);
+  Open(const std::string &directory,
+       const Data::SourceSet &sources,
+       AssetCache::Runtime runtime = {});
   [[nodiscard]] std::expected<std::string, std::string>
   Key(const OsmField &vectors,
       const StreetField &ways,

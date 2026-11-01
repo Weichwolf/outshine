@@ -89,9 +89,13 @@ PreparedGroundRegions::PreparedGroundRegions(std::unique_ptr<AssetCache> cache, 
   RequestPrefixBytes_ = bytes.size();
 }
 
-std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
-    const std::string &directory, const Data::SourceSet &sources, std::string_view rules) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
+PreparedGroundRegions::Open(const std::string &directory,
+                            const Data::SourceSet &sources,
+                            std::string_view rules,
+                            AssetCache::Runtime runtime) {
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-ground-region-100",

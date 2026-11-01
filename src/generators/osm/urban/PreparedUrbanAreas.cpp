@@ -38,7 +38,8 @@ PreparedUrbanAreas::Open(const std::string &directory,
                          const Data::SourceSet &sources,
                          Tasks &compute,
                          std::shared_ptr<PreparedOsmTiles> prepared,
-                         Budget budget) {
+                         Budget budget,
+                         AssetCache::Runtime runtime) {
   constexpr size_t maxPending = 16;
   constexpr size_t maxCells = 4194304;
   constexpr size_t maxSourceBytes = size_t{128} * 1024u * 1024u;
@@ -51,9 +52,10 @@ PreparedUrbanAreas::Open(const std::string &directory,
     return std::unexpected("invalid urban-area preparation budget or source service");
   }
   std::error_code error;
-  std::filesystem::create_directories(directory, error);
+  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
   if (error) { return std::unexpected("could not create native urban-area cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open native urban-area cache"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-urban-area-1-parent5", sources, std::array{Data::DataKind::VectorMap});

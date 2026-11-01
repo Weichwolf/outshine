@@ -84,8 +84,9 @@ PreparedRoadPages::PreparedRoadPages(std::unique_ptr<AssetCache> cache)
     : Cache_(std::move(cache)) {}
 
 std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
-PreparedRoadPages::Open(const std::string &directory) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+PreparedRoadPages::Open(const std::string &directory, AssetCache::Runtime runtime) {
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open the native road page cache"); }
   return std::unique_ptr<PreparedRoadPages>(new PreparedRoadPages(std::move(*cache)));
 }
