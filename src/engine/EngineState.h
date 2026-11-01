@@ -547,8 +547,21 @@ struct Engine::State {
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const World::RigidBodyState &body, const Vec3 &shiftM);
+  [[nodiscard]] bool ConfigureWorldGround(WorldRegionState &world,
+                                          const Scenario::Document &declared);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
+  [[nodiscard]] bool
+  ConfigureWorldSources(WorldRegionState &world,
+                        const Scenario::Document &declared,
+                        std::optional<int64_t> utc,
+                        std::vector<Data::SourceProvider> &providers,
+                        std::optional<Data::SourceSession::Configuration> &configuration);
+  [[nodiscard]] Holds<std::unique_ptr<WorldRegionState>>
+  PrepareWorldResources(const Scenario::Document &declared,
+                        const Core::Declaration &picture,
+                        std::optional<Data::SourceSession::Configuration> &configuration);
+
   [[nodiscard]] Holds<std::optional<Data::SourceSession::Configuration>>
   PrepareWorldSources(const Scenario::Document &scenario) const;
   [[nodiscard]] bool PollWeather();
@@ -561,7 +574,7 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
-  bool DeclareGroundFeatures();
+  bool DeclareGroundFeatures(WorldRegionState &world, const Scenario::Document &scenario);
   void PollOsmSources();
   [[nodiscard]] bool SubmitOsmTransportSource();
   bool GenerateInitialInstances(double atLat, double atLon);

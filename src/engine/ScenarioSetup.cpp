@@ -249,20 +249,16 @@ PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
                            const Ui::Font *font,
                            HeadlessDeclaration &headless,
                            std::vector<std::vector<Ui::Layout::Scrolled>> &wasScrolled,
-                           std::unique_ptr<Core::RuntimeScene> &candidate,
+                           std::unique_ptr<Core::WorldCandidate> &candidate,
                            std::string &error) {
-  Core::WorldCandidate prepared(renderer);
-  const auto ready = prepared.PrepareDeclaration(
+  auto prepared = std::make_unique<Core::WorldCandidate>(renderer);
+  const auto ready = prepared->PrepareDeclaration(
       declared, font, headless.Geometry ? &*headless.Geometry : nullptr, std::move(wasScrolled));
   if (!ready) {
     error = ready.error();
     return false;
   }
-  const auto published = prepared.Publish(candidate);
-  if (!published) {
-    error = published.error();
-    return false;
-  }
+  candidate = std::move(prepared);
   return true;
 }
 
@@ -285,7 +281,7 @@ PrepareHeadlessDeclaration(const Scenario::Document &scenario,
 
 struct PreparedRuntimeDeclaration {
   HeadlessDeclaration Headless;
-  std::unique_ptr<Core::RuntimeScene> Targeted;
+  std::unique_ptr<Core::WorldCandidate> Targeted;
 };
 
 [[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
@@ -341,7 +337,8 @@ void PublishConfiguration(ScenarioSession &session,
                                                      std::optional<ViewBook> &views,
                                                      InputMap &bindings,
                                                      std::string &error) {
-  if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
+  if (!picture.Standing || scenario.Ground.Declared || session.Declared.Ground.Declared ||
+      HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
       !SamePicture(picture.Shown, declared) ||
       session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled ||
       session.Declared.Providers != scenario.Providers ||
@@ -629,34 +626,33 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::move(*reused);
   }
 
-  auto prepared = PrepareRuntimeDeclaration(
-      scenario,
-      S_->Services.Generators,
-      scenario.Ground.Declared ? S_->World().Surface().TryGround() : nullptr,
-      S_->World().GroundPositionsM,
-      S_->World().GroundIndex,
-      S_->Picture,
-      declared);
+  auto resources = S_->PrepareWorldResources(scenario, declared, candidate.Sources);
+  if (!resources) {
+    S_->PendingDeclaration.emplace(std::unexpected(std::move(resources.error())));
+    S_->Error.clear();
+    return {};
+  }
+  auto world = std::move(*resources);
+  auto prepared =
+      PrepareRuntimeDeclaration(scenario,
+                                S_->Services.Generators,
+                                scenario.Ground.Declared ? world->Surface().TryGround() : nullptr,
+                                world->GroundPositionsM,
+                                world->GroundIndex,
+                                S_->Picture,
+                                declared);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  S_->World().StructureBuilds.Clear();
-  S_->World().Surface().Footprints().ResetDerived();
-  S_->World().Pieces.Clear();
-  S_->World().UrbanAreas.reset();
-  S_->World().UrbanChildrenRevision.reset();
-  S_->World().UrbanChildren.clear();
-  S_->World().TerrainSurface.Clear();
-  S_->World().PiecesFramed = false;
-  S_->World().GroundPublished.Reset();
-  S_->World().Region.reset();
-  S_->World().PlacementGround.reset();
-  S_->World().Vegetation.reset();
-  S_->World().Instances.clear();
-  S_->World().Placed = S_->World().Instanced = 0;
-  S_->World().Grown = false;
-  S_->World().EmptyPlacementInputs.reset();
+  if (prepared->Targeted) {
+    const auto published = prepared->Targeted->Publish(S_->Picture.Standing);
+    if (!published) {
+      S_->Error = published.error();
+      return std::unexpected(S_->Error);
+    }
+  }
+  S_->WorldOwner = std::move(world);
   S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
@@ -668,8 +664,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->CameraPosePending = false;
     return {};
   }
-  Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
-  S_->Picture.Standing = std::move(prepared->Targeted);
   S_->Error.clear();
   S_->World().AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};

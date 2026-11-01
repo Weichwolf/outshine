@@ -32,47 +32,84 @@ Engine::State::PrepareWorldSources(const Scenario::Document &scenario) const {
   return std::optional<Data::SourceSession::Configuration>{std::move(*prepared)};
 }
 
+Holds<std::unique_ptr<WorldRegionState>> Engine::State::PrepareWorldResources(
+    const Scenario::Document &declared,
+    const Core::Declaration &picture,
+    std::optional<Data::SourceSession::Configuration> &configuration) {
+  auto world = std::make_unique<WorldRegionState>();
+  std::vector<Data::SourceProvider> providers;
+  providers.reserve(declared.Providers.size());
+  for (const auto &provider : declared.Providers) {
+    if (provider.Kind != "osm") { providers.push_back(provider); }
+  }
+  if (!configuration && World().SourceDeclarations == providers) {
+    world->Sources = World().Sources;
+    world->SourceDeclarations = World().SourceDeclarations;
+  }
+  if (!ConfigureWorldSources(*world, declared, picture.UtcS, providers, configuration)) {
+    return std::unexpected(Error);
+  }
+  if (declared.Ground.Declared && !ConfigureWorldGround(*world, declared)) {
+    return std::unexpected(Error);
+  }
+  return world;
+}
+
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
-  if (providers.empty() && !Session.Declared.Ground.Declared) {
-    World().Weather.reset();
-    World().WeatherUtcS.reset();
-    World().UrbanAreas.reset();
-    World().Surface().Close();
-    World().Sources.reset();
-    World().SourceDeclarations.clear();
+  std::optional<Data::SourceSession::Configuration> empty;
+  auto &configuration = PendingDeclaration && PendingDeclaration->has_value()
+                            ? PendingDeclaration->value().Sources
+                            : empty;
+  return ConfigureWorldSources(
+      World(), Session.Declared, Picture.Shown.UtcS, providers, configuration);
+}
+
+bool Engine::State::ConfigureWorldSources(
+    WorldRegionState &world,
+    const Scenario::Document &declared,
+    std::optional<int64_t> utc,
+    std::vector<Data::SourceProvider> &providers,
+    std::optional<Data::SourceSession::Configuration> &configuration) {
+  if (providers.empty() && !declared.Ground.Declared) {
+    world.Weather.reset();
+    world.WeatherUtcS.reset();
+    world.UrbanAreas.reset();
+    world.Surface().Close();
+    world.Sources.reset();
+    world.SourceDeclarations.clear();
     return true;
   }
-  if (!World().Sources || World().SourceDeclarations != providers) {
+
+  if (!world.Sources || world.SourceDeclarations != providers) {
     auto sources =
-        PendingDeclaration && PendingDeclaration->has_value() && PendingDeclaration->value().Sources
-            ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
-                                        std::move(*PendingDeclaration->value().Sources))
-            : Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
-                                        providers,
-                                        Session.Under.BuiltinDataDirectory,
-                                        Services.Providers);
+        configuration ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                                  std::move(*configuration))
+                      : Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
+                                                  providers,
+                                                  Session.Under.BuiltinDataDirectory,
+                                                  Services.Providers);
     if (!sources) {
       Error = sources.error();
       return false;
     }
-    World().Weather.reset();
-    World().WeatherUtcS.reset();
-    World().UrbanAreas.reset();
-    World().Surface().Close();
-    World().Sources = std::move(*sources);
-    World().SourceDeclarations = providers;
+    world.Weather.reset();
+    world.WeatherUtcS.reset();
+    world.UrbanAreas.reset();
+    world.Surface().Close();
+    world.Sources = std::move(*sources);
+    world.SourceDeclarations = providers;
   }
   bool weather = false;
-  for (size_t at = 0; at < World().Sources->Sources().Count(); ++at) {
+  for (size_t at = 0; at < world.Sources->Sources().Count(); ++at) {
     weather =
-        weather || World().Sources->Sources().At(at).Declaration().Kind == Data::DataKind::Weather;
+        weather || world.Sources->Sources().At(at).Declaration().Kind == Data::DataKind::Weather;
   }
   if (!weather) {
-    World().Weather.reset();
-    World().WeatherUtcS.reset();
+    world.Weather.reset();
+    world.WeatherUtcS.reset();
     return true;
   }
-  if (!Picture.Shown.UtcS) {
+  if (!utc) {
     Error = "weather selection requires the resolved declaration UTC";
     return false;
   }
@@ -85,17 +122,17 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   }
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
-  const bool failed = World().Weather &&
-                      (World().Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
-                       World().Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
-  if (!World().Weather || World().WeatherUtcS != Picture.Shown.UtcS || failed) {
-    World().Weather.reset();
-    World().Weather = std::make_unique<WeatherSnapshotLoader>(
-        World().Sources,
+  const bool failed =
+      world.Weather && (world.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
+                        world.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
+  if (!world.Weather || world.WeatherUtcS != utc || failed) {
+    world.Weather.reset();
+    world.Weather = std::make_unique<WeatherSnapshotLoader>(
+        world.Sources,
         *Services.Transport,
         WeatherSnapshotLoader::Workers{.Io = *Services.Io, .Compute = *Services.Compute},
-        *Picture.Shown.UtcS);
-    World().WeatherUtcS = Picture.Shown.UtcS;
+        *utc);
+    world.WeatherUtcS = utc;
   }
   return true;
 }

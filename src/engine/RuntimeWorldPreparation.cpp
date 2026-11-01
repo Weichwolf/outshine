@@ -156,11 +156,12 @@ bool Engine::State::SubmitOsmTransportSource() {
   return true;
 }
 
-bool Engine::State::DeclareGroundFeatures() {
-  if (Session.Declared.Ground.Osm.empty()) { return true; }
+bool Engine::State::DeclareGroundFeatures(WorldRegionState &world,
+                                          const Scenario::Document &scenario) {
+  if (scenario.Ground.Osm.empty()) { return true; }
   std::vector<::outshine::Generators::Osm::OsmField::Declared> told;
-  told.reserve(Session.Declared.Ground.Osm.size());
-  for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
+  told.reserve(scenario.Ground.Osm.size());
+  for (const Scenario::Structure &one : scenario.Ground.Osm) {
     ::outshine::Generators::Osm::OsmField::Declared made;
     const bool wet = one.Kind == "water";
     const ::outshine::Generators::Osm::OsmLayer holds =
@@ -177,12 +178,114 @@ bool Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  if (const auto declared = World().Surface().Declares(told); !declared) {
+  if (const auto declared = world.Surface().Declares(told); !declared) {
     Error = declared.error();
     return false;
   }
   Published.RecordMetric(
       "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
+  return true;
+}
+
+bool Engine::State::ConfigureWorldGround(WorldRegionState &world,
+                                         const Scenario::Document &declared) {
+  const double atLat = declared.Ground.Origin.LatitudeDeg;
+  const double atLon = declared.Ground.Origin.LongitudeDeg;
+  if (!Services.Transport) {
+    if (Session.Under.Offline) {
+      Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
+    } else {
+      Services.Transport = std::make_unique<HttpTransport>(HttpTransport::Config{});
+    }
+  }
+
+  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.BuiltinDataDirectory,
+                                              .Sources = Session.Under.SourceCacheDirectory,
+                                              .Assets = Session.Under.AssetCacheDirectory};
+  if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  if (!world.Surface().Opened()) {
+    if (!Services.SurfaceCacheConnections) {
+      Services.SurfaceCacheConnections =
+          std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
+    }
+    const auto opened = world.Surface().OpenSession(
+        contentDirectories,
+        world.Sources,
+        {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+        *Services.Transport,
+        *Services.Compute,
+        Diagnostics,
+        declared.Ground.PatienceS,
+        {.Workers = Services.Compute.get(), .Connections = Services.SurfaceCacheConnections});
+    if (!opened) {
+      Error = opened.error();
+      return false;
+    }
+  }
+  world.Surface().DeferWaterToRegionLookup();
+  if (!Services.CacheReclaimer) {
+    Services.CacheReclaimer =
+        std::make_unique<AssetCacheReclaimer>(*Services.Compute, contentDirectories.Assets);
+  }
+  Services.CacheReclaimer->Advance();
+
+  if (!declared.Ground.Shape.Kind.empty()) {
+    Ground::ShapedGround how;
+    how.Kind = declared.Ground.Shape.Kind;
+    how.AmplitudeM = declared.Ground.Shape.AmplitudeM;
+    how.WavelengthM = declared.Ground.Shape.WavelengthM;
+    how.Gradient = declared.Ground.Shape.Gradient;
+    how.BearingDeg = declared.Ground.Shape.BearingDeg;
+    how.FocusLatDeg = atLat;
+    how.FocusLonDeg = atLon;
+    how.Seed = declared.Ground.Shape.Seed;
+    world.Surface().Pool().Shapes(how);
+    Published.RecordMetric("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
+    const double hereM = world.Surface()
+                             .Ground()
+                             .At({.LongitudeDeg = atLon, .LatitudeDeg = atLat})
+                             .AslM()
+                             .value_or(0.0);
+    const double eastM = world.Surface()
+                             .Ground()
+                             .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
+                             .AslM()
+                             .value_or(0.0);
+    Published.RecordMetric("ground: the relief says this at the origin", hereM, "m");
+    Published.RecordMetric("ground: and this a kilometre east", eastM, "m");
+  }
+
+  if (!DeclareGroundFeatures(world, declared)) { return false; }
+
+  {
+    const double fovDeg = declared.Views.empty() || declared.Views.front().Sees.FovDeg <= 0.0
+                              ? Scenario::kFovUnsaidDeg
+                              : declared.Views.front().Sees.FovDeg;
+    const double highPx = declared.Render.Frame.HeightPx > 0
+                              ? static_cast<double>(declared.Render.Frame.HeightPx)
+                              : static_cast<double>(kFrameUnsaidHighPx);
+    world.Surface().SeeFootprintsWith(
+        {.FocalPx = highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn))});
+    const int vectorZoom = world.Surface().VectorZoom();
+    const double vectorSpanM = Data::kMercatorGirthM *
+                               std::cos(declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
+                               std::ldexp(1.0, vectorZoom);
+    world.Surface().FootprintTilesSpan(vectorSpanM);
+  }
+  if (world.Surface().RecipesReady()) {
+    std::string why;
+    if (!world.Builtins.EnsureCatalogue(
+            world.Surface().SurfaceRecipes(),
+            std::string(Session.Under.BuiltinDataDirectory) + "/world/species",
+            why,
+            declared.Ground.VegetationEnabled,
+            std::string(Session.Under.BuiltinDataDirectory) + "/world/vegetation.json")) {
+      Error = std::move(why);
+      return false;
+    }
+    world.Table = Generators::TableOf(world.Surface().SurfaceRecipes());
+  }
+
   return true;
 }
 
@@ -200,105 +303,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   std::vector<Data::SourceProvider> tileProviders;
   if (!ConfigureSourceProviders(tileProviders)) { return false; }
   if (!declared.Ground.Declared) { return true; }
-  const double atLat = declared.Ground.Origin.LatitudeDeg;
-  const double atLon = declared.Ground.Origin.LongitudeDeg;
-  if (!Services.Transport) {
-    if (Session.Under.Offline) {
-      Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
-    } else {
-      Services.Transport = std::make_unique<HttpTransport>(HttpTransport::Config{});
-    }
-  }
-
-  const ContentDirectories contentDirectories{.BuiltinData = Session.Under.BuiltinDataDirectory,
-                                              .Sources = Session.Under.SourceCacheDirectory,
-                                              .Assets = Session.Under.AssetCacheDirectory};
-  if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World().Surface().Opened()) {
-    if (!Services.SurfaceCacheConnections) {
-      Services.SurfaceCacheConnections =
-          std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
-    }
-    const auto opened = World().Surface().OpenSession(
-        contentDirectories,
-        World().Sources,
-        {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-        *Services.Transport,
-        *Services.Compute,
-        Diagnostics,
-        Session.Declared.Ground.PatienceS,
-        {.Workers = Services.Compute.get(), .Connections = Services.SurfaceCacheConnections});
-    if (!opened) {
-      Error = opened.error();
-      return false;
-    }
-  }
-  World().Surface().DeferWaterToRegionLookup();
-  if (!Services.CacheReclaimer) {
-    Services.CacheReclaimer =
-        std::make_unique<AssetCacheReclaimer>(*Services.Compute, contentDirectories.Assets);
-  }
-  Services.CacheReclaimer->Advance();
-
-  if (!Session.Declared.Ground.Shape.Kind.empty()) {
-    Ground::ShapedGround how;
-    how.Kind = Session.Declared.Ground.Shape.Kind;
-    how.AmplitudeM = Session.Declared.Ground.Shape.AmplitudeM;
-    how.WavelengthM = Session.Declared.Ground.Shape.WavelengthM;
-    how.Gradient = Session.Declared.Ground.Shape.Gradient;
-    how.BearingDeg = Session.Declared.Ground.Shape.BearingDeg;
-    how.FocusLatDeg = atLat;
-    how.FocusLonDeg = atLon;
-    how.Seed = Session.Declared.Ground.Shape.Seed;
-    World().Surface().Pool().Shapes(how);
-    Published.RecordMetric("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
-    const double hereM = World()
-                             .Surface()
-                             .Ground()
-                             .At({.LongitudeDeg = atLon, .LatitudeDeg = atLat})
-                             .AslM()
-                             .value_or(0.0);
-    const double eastM = World()
-                             .Surface()
-                             .Ground()
-                             .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
-                             .AslM()
-                             .value_or(0.0);
-    Published.RecordMetric("ground: the relief says this at the origin", hereM, "m");
-    Published.RecordMetric("ground: and this a kilometre east", eastM, "m");
-  }
-
-  if (!DeclareGroundFeatures()) { return false; }
-
-  {
-    const double fovDeg =
-        Session.Declared.Views.empty() || Session.Declared.Views.front().Sees.FovDeg <= 0.0
-            ? Scenario::kFovUnsaidDeg
-            : Session.Declared.Views.front().Sees.FovDeg;
-    const double highPx = Session.Declared.Render.Frame.HeightPx > 0
-                              ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
-                              : static_cast<double>(kFrameUnsaidHighPx);
-    World().Surface().SeeFootprintsWith(
-        {.FocalPx = highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn))});
-    const int vectorZoom = World().Surface().VectorZoom();
-    const double vectorSpanM = Data::kMercatorGirthM *
-                               std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
-                               std::ldexp(1.0, vectorZoom);
-    World().Surface().FootprintTilesSpan(vectorSpanM);
-  }
-  if (World().Surface().RecipesReady()) {
-    std::string why;
-    if (!World().Builtins.EnsureCatalogue(
-            World().Surface().SurfaceRecipes(),
-            std::string(Session.Under.BuiltinDataDirectory) + "/world/species",
-            why,
-            declared.Ground.VegetationEnabled,
-            std::string(Session.Under.BuiltinDataDirectory) + "/world/vegetation.json")) {
-      Error = std::move(why);
-      return false;
-    }
-    World().Table = Generators::TableOf(World().Surface().SurfaceRecipes());
-  }
+  if (!ConfigureWorldGround(World(), declared)) { return false; }
 
   HandsPiecesOver();
   return AdvanceWorldRegionBuild(true, GroundQuality::Playable);
