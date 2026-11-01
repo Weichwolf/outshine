@@ -121,6 +121,9 @@ outshine cache limit --assets-mib 32768
 ```
 
 Standard: 32 GiB = 32 × 1024³ Byte gemeinsam für die generierten Assetbanken.
+Der Elternordner einer Bank ist eine eigene Assetroot. Das Limit zählt deren
+Banken und Begleitdateien gemeinsam; ein gemeinsames System-Tempverzeichnis ist
+keine Assetroot. Private Tests verwenden eigene, vollständig bereinigbare Ordner.
 `--root` hat dieselbe Bedeutung wie bei `trim`; für eine Änderung müssen die
 Cachebenutzer geschlossen sein. Dateilängen, zugewiesene Blöcke, WAL/SHM und
 Budgetmetadaten zählen gemeinsam. Quellen und Spielstände gehören nicht zur Assetroot.

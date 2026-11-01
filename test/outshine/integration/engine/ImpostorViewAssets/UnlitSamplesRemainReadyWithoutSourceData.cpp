@@ -177,12 +177,14 @@ void Warm(const std::string &path) {
 }
 
 int main() {
-  const auto path =
+  const auto directory =
       std::filesystem::temp_directory_path() /
       ("outshine-unlit-fields-" +
-       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sqlite");
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "assets.sqlite";
   Cold(path.string());
   Warm(path.string());
-  std::filesystem::remove(path);
+  std::filesystem::remove_all(directory);
   return outshine::Test::Report();
 }
