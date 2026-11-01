@@ -10,10 +10,12 @@
 
 namespace outshine {
 
+class SqliteFileBudget;
+
 class CacheUsageIndex {
 public:
   [[nodiscard]] static std::expected<std::unique_ptr<CacheUsageIndex>, std::string>
-  Open(const std::string &path);
+  Open(const std::string &path, std::shared_ptr<SqliteFileBudget> budget = {});
   ~CacheUsageIndex();
   CacheUsageIndex(const CacheUsageIndex &) = delete;
   CacheUsageIndex &operator=(const CacheUsageIndex &) = delete;

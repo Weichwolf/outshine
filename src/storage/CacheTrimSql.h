@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_STORAGE_CACHETRIMSQL_H
 #define OUTSHINE_STORAGE_CACHETRIMSQL_H
 
+#include "SqliteFileBudget.h"
 #include <cstdint>
 #include <expected>
 #include <filesystem>
@@ -13,6 +14,8 @@
 namespace outshine::CacheTrimSql {
 
 struct Database {
+  std::shared_ptr<SqliteFileBudget> Budget;
+  std::unique_ptr<SqliteFileBudget::Maintenance> Maintenance;
   sqlite3 *Handle = nullptr;
   bool Transaction = false;
   Database() = default;
@@ -32,7 +35,7 @@ struct Statement {
 [[nodiscard]] bool Key(std::string_view key);
 [[nodiscard]] std::expected<bool, std::string> Exists(const std::filesystem::path &path);
 [[nodiscard]] std::expected<std::unique_ptr<Database>, std::string>
-Open(const std::filesystem::path &path, bool apply);
+Open(const std::filesystem::path &path, bool apply, std::shared_ptr<SqliteFileBudget> budget = {});
 [[nodiscard]] std::expected<void, std::string> Exec(sqlite3 *database, const char *sql);
 [[nodiscard]] std::expected<void, std::string>
 Prepare(sqlite3 *database, const char *sql, Statement &statement);

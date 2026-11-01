@@ -219,7 +219,9 @@ TrimAssetCaches(std::span<const std::filesystem::path> paths, CacheTrimOptions o
     auto fileBytes = Sql::FileBytes(path);
     if (!fileBytes) { return std::unexpected(fileBytes.error()); }
     result.FileBytesBefore += *fileBytes;
-    auto database = Sql::Open(path, options.Apply);
+    const auto budget = SqliteFileBudget::Open(path.parent_path());
+    if (!budget) { return std::unexpected(budget.error()); }
+    auto database = Sql::Open(path, options.Apply, *budget);
     if (!database) { return std::unexpected(database.error()); }
     stores.push_back({.Path = path, .Database = std::move(*database)});
     if (auto read = Read(stores.back(), stores.size() - 1, packages, result); !read) {
