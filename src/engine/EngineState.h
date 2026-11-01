@@ -135,7 +135,6 @@ struct EngineServices {
 
 struct ScenarioPreparation {
   std::unique_ptr<ScenarioRuntime> Simulation;
-  std::optional<Data::SourceSession::Configuration> Sources;
 };
 
 struct WorldRegionState {
@@ -550,7 +549,6 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureWorldGround(WorldRegionState &world,
                                           const Scenario::Document &declared);
   [[nodiscard]] bool PrepareRuntimeWorld();
-  [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool
   ConfigureWorldSources(WorldRegionState &world,
                         const Scenario::Document &declared,
@@ -571,12 +569,17 @@ struct Engine::State {
   }
 
   [[nodiscard]] std::string_view WeatherBlocker() const noexcept;
-  [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
-  [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
+  [[nodiscard]] bool
+  ConfigureSourceProviders(WorldRegionState &world,
+                           const Scenario::Document &scenario,
+                           std::optional<int64_t> utc,
+                           std::optional<Data::SourceSession::Configuration> &configuration);
+  [[nodiscard]] bool RequestOsmSources(WorldRegionState &world,
+                                       std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
   bool DeclareGroundFeatures(WorldRegionState &world, const Scenario::Document &scenario);
   void PollOsmSources();
-  [[nodiscard]] bool SubmitOsmTransportSource();
+  [[nodiscard]] bool SubmitOsmTransportSource(WorldRegionState &world);
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);

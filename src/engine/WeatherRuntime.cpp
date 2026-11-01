@@ -46,22 +46,13 @@ Holds<std::unique_ptr<WorldRegionState>> Engine::State::PrepareWorldResources(
     world->Sources = World().Sources;
     world->SourceDeclarations = World().SourceDeclarations;
   }
-  if (!ConfigureWorldSources(*world, declared, picture.UtcS, providers, configuration)) {
+  if (!ConfigureSourceProviders(*world, declared, picture.UtcS, configuration)) {
     return std::unexpected(Error);
   }
   if (declared.Ground.Declared && !ConfigureWorldGround(*world, declared)) {
     return std::unexpected(Error);
   }
   return world;
-}
-
-bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
-  std::optional<Data::SourceSession::Configuration> empty;
-  auto &configuration = PendingDeclaration && PendingDeclaration->has_value()
-                            ? PendingDeclaration->value().Sources
-                            : empty;
-  return ConfigureWorldSources(
-      World(), Session.Declared, Picture.Shown.UtcS, providers, configuration);
 }
 
 bool Engine::State::ConfigureWorldSources(

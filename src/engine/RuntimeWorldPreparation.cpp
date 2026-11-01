@@ -8,6 +8,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -39,28 +41,33 @@ constexpr double kEastStepDeg = 0.0138;
 
 }
 
-bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
+bool Engine::State::ConfigureSourceProviders(
+    WorldRegionState &world,
+    const Scenario::Document &scenario,
+    std::optional<int64_t> utc,
+    std::optional<Data::SourceSession::Configuration> &configuration) {
+  std::vector<Data::SourceProvider> tileProviders;
   std::vector<Data::SourceProvider> osmProviders;
-  tileProviders.reserve(Session.Declared.Providers.size());
-  osmProviders.reserve(Session.Declared.Providers.size());
-  for (const Data::SourceProvider &provider : Session.Declared.Providers) {
+  tileProviders.reserve(scenario.Providers.size());
+  osmProviders.reserve(scenario.Providers.size());
+  for (const Data::SourceProvider &provider : scenario.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
   std::vector<Generators::Osm::CircuitRequest> routes;
-  routes.reserve(Session.Declared.Routes.size());
-  for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
+  routes.reserve(scenario.Routes.size());
+  for (const Scenario::RouteDeclaration &declared : scenario.Routes) {
     routes.push_back({.Id = declared.Id, .RelationId = declared.OsmRelationId});
   }
   if (!routes.empty() && osmProviders.empty()) {
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World().OsmSource && !World().OsmTransport) {
-    return ConfigureWorldSources(tileProviders);
+  if (osmProviders.empty() && !world.OsmSource && !world.OsmTransport) {
+    return ConfigureWorldSources(world, scenario, utc, tileProviders, configuration);
   }
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
-  if (!World().OsmSource) {
+  if (!world.OsmSource) {
     if (!Services.Transport) {
       if (Session.Under.Offline) {
         Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
@@ -71,39 +78,39 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
                                   .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
-    World().OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
+    world.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *Services.Compute,
                                                     .Io = *Services.Io},
         Services.Transport.get(),
         Session.Under.SourceCacheDirectory,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
-  if (!ConfigureWorldSources(tileProviders)) { return false; }
-  World().OsmRoutes = std::move(routes);
-  World().OriginalSourceDemand.reset();
-  if (!RequestOsmSources(osmProviders)) { return false; }
-  if (World().OsmRoutes.empty()) {
-    World().OsmTransport.reset();
-  } else if (!World().OsmTransport) {
-    World().OsmTransport =
-        std::make_unique<Generators::Osm::TransportPreparation>(*Services.Compute);
+  if (!ConfigureWorldSources(world, scenario, utc, tileProviders, configuration)) { return false; }
+  world.OsmRoutes = std::move(routes);
+  world.OriginalSourceDemand.reset();
+  if (!RequestOsmSources(world, osmProviders)) { return false; }
+  if (world.OsmRoutes.empty()) {
+    world.OsmTransport.reset();
+  } else if (!world.OsmTransport) {
+    world.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*Services.Compute);
   }
-  if (World().OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
-      World().OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
-    return SubmitOsmTransportSource();
+  if (world.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
+      world.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
+    return SubmitOsmTransportSource(world);
   }
   return true;
 }
 
-bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> providers) {
+bool Engine::State::RequestOsmSources(WorldRegionState &world,
+                                      std::span<const Data::SourceProvider> providers) {
   if (providers.size() == 1 && !providers.front().Coverage && providers.front().Location.empty()) {
-    if (!World().OsmRoutes.empty()) {
+    if (!world.OsmRoutes.empty()) {
       Error = "OSM catalogue routes require native cell transport integration";
       return false;
     }
-    return RequestOriginalCells();
+    return true;
   }
-  if (auto requested = World().OsmSource->Request(
+  if (auto requested = world.OsmSource->Request(
           providers, Session.Under.BuiltinDataDirectory, &Services.Providers);
       !requested) {
     Error = std::move(requested.error());
@@ -145,10 +152,9 @@ bool Engine::State::RequestOriginalCells() {
   return true;
 }
 
-bool Engine::State::SubmitOsmTransportSource() {
-  if (!World().OsmTransport) { return true; }
-  auto requested =
-      World().OsmTransport->RequestSource(World().OsmSource->Current(), World().OsmRoutes);
+bool Engine::State::SubmitOsmTransportSource(WorldRegionState &world) {
+  if (!world.OsmTransport) { return true; }
+  auto requested = world.OsmTransport->RequestSource(world.OsmSource->Current(), world.OsmRoutes);
   if (!requested) {
     Error = std::move(requested.error());
     return false;
@@ -300,10 +306,8 @@ bool Engine::State::PrepareRuntimeWorld() {
       !Session.Views->Active().Geographic.SamplesHeight && !UpdateActiveCamera()) {
     return false;
   }
-  std::vector<Data::SourceProvider> tileProviders;
-  if (!ConfigureSourceProviders(tileProviders)) { return false; }
+  if (!RequestOriginalCells()) { return false; }
   if (!declared.Ground.Declared) { return true; }
-  if (!ConfigureWorldGround(World(), declared)) { return false; }
 
   HandsPiecesOver();
   return AdvanceWorldRegionBuild(true, GroundQuality::Playable);
@@ -326,7 +330,7 @@ void Engine::State::PollOsmSources() {
         Published.RecordMetric("semantic OSM read time", source.ReadMs, "ms");
         Published.RecordMetric("semantic OSM parse time", source.ParseMs, "ms");
       }
-      if (!SubmitOsmTransportSource()) { return; }
+      if (!SubmitOsmTransportSource(World())) { return; }
     }
   }
   const auto previous = World().OsmTransport ? World().OsmTransport->Current() : nullptr;

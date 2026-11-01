@@ -636,8 +636,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error.clear();
     return {};
   }
-  ScenarioPreparation candidate{.Simulation = std::move(*simulation),
-                                .Sources = std::move(*sources)};
+  ScenarioPreparation candidate{.Simulation = std::move(*simulation)};
   if (auto reused = ReuseDeclaration(
           scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
     if (*reused) {
@@ -648,7 +647,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::move(*reused);
   }
 
-  auto resources = S_->PrepareWorldResources(scenario, declared, candidate.Sources);
+  auto resources = S_->PrepareWorldResources(scenario, declared, *sources);
   if (!resources) {
     S_->PendingDeclaration.emplace(std::unexpected(std::move(resources.error())));
     S_->Error.clear();

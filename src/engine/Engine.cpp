@@ -179,9 +179,8 @@ Result Engine::assemble() {
   auto candidate = std::move(*prepared);
   auto previous = std::exchange(S_->ScenarioState, std::move(candidate));
   auto previousBodies = std::exchange(S_->BodyFrame, S_->ScenarioState->Entities.PublishBodies());
-  std::vector<Data::SourceProvider> unusedTileProviders;
-  const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
-                                               : S_->ConfigureSourceProviders(unusedTileProviders);
+  const bool worldReady =
+      S_->Picture.Targeted ? S_->PrepareRuntimeWorld() : S_->RequestOriginalCells();
   S_->PendingDeclaration.reset();
   if (!worldReady) {
     S_->ScenarioState = std::move(previous);
