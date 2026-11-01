@@ -22,7 +22,7 @@ struct Gate {
   std::binary_semaphore Entered{0}, Release{0}, Gone{0};
   std::atomic_uint Begins{0}, Polls{0}, Cancelled{0}, Destroyed{0};
   std::thread::id Owner = std::this_thread::get_id();
-  std::atomic_bool ReleasedOffOwner{false};
+  std::atomic_bool ReleasedOffOwner{false}, WrongCancellationTicket{false};
 };
 
 class HeldProvider final : public Source {
@@ -67,7 +67,7 @@ public:
   }
 
   void Cancel(Ticket ticket, SourceTransport & /*transport*/) const override {
-    CHECK(ticket == Ticket{19}, "retirement cancels the held provider ticket");
+    if (ticket != Ticket{19}) { Gate_.WrongCancellationTicket = true; }
     ++Gate_.Cancelled;
   }
 
@@ -112,6 +112,7 @@ void Exercise(const std::filesystem::path &directory) {
   const auto barrier = compute.Post([] {});
   CHECK(barrier != Tasks::kNoTask, "the worker drain has an explicit terminal barrier");
   if (barrier != Tasks::kNoTask) { compute.Wait(barrier); }
+  CHECK(!gate.WrongCancellationTicket, "retirement cancels the held provider ticket");
   CHECK(gate.Begins == 1 && gate.Polls == 1 && gate.Cancelled == 1 && gate.Destroyed == 1 &&
             lifetime.expired(),
         "worker completion cancels exactly once and releases the last source owner");
