@@ -76,7 +76,7 @@ Der Treiber muss die benötigte Erweiterung und ihr Feature tatsächlich anbiete
 fehlende Runtimefähigkeit bleibt ein erklärter Unsupported-Fehler. Apple/Metal
 benötigt diesen Vulkan-Vertrag nicht. Entscheidung und Gegenproben: [#1346](https://github.com/Weichwolf/outshine/issues/1346).
 
-Scripting benötigt QuickJS-NG (geprüft mit 0.17.0) mit `qjsConfig.cmake` und dem
+Scripting benötigt QuickJS-NG (geprüft mit 0.18.0) mit `qjsConfig.cmake` und dem
 importierten CMake-Target `qjs`. Paketverfügbarkeit unter Linux distributionsabhängig;
 Systempräfix bei Bedarf mit `CMAKE_PREFIX_PATH` angeben. Bellards QuickJS ist kein
 stillschweigender ABI-Ersatz. Nur Scripting bindet die Bibliothek direkt ein.
