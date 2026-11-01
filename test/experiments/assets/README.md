@@ -58,3 +58,42 @@ eight fixed-size updates keep the main database page count unchanged while a
 pinned reader forces WAL retention beyond three times the initial file usage.
 This is a SQLite primitive counterexample, not the immutable asset protocol.
 New publication needs admission, WAL reserve and reader-aware backpressure.
+
+## Shared SQLite file budget (#1920)
+
+```sh
+python3 -B test/experiments/assets/cache_file_budget.py --output /tmp/outshine-cache-budget.json
+```
+
+`sqlite_budget_vfs.py` delegates to the SQLite library loaded by Python through
+its version-3 VFS ABI. No added dependency, native product change or shared DB
+mutation. The verifier uses private flat POSIX directories and removes them.
+
+Budget charge is `sum(max(file length, allocated blocks × 512))` across all cache
+files, including both banks, WAL/SHM and budget metadata. Projected extensions
+round to the filesystem block size. A process-shared file lock serializes growth
+checks and OS writes; reads delegate directly. Write/truncate/shared-memory growth
+is checked; advisory size/chunk preallocation is suppressed. Opaque
+`sqlite3_filename` pointers must reach the parent unchanged, including URI data.
+
+Regular WAL/SHM writes retain checkpoint headroom: `projected charge + WAL bytes
++ maintenance reserve <= limit`. Checkpoint/maintenance can consume that reserve,
+while the hard charged-file limit still applies. The verifier uses 12 MiB total
+and 1 MiB maintenance reserve; these are experiment inputs, not native defaults.
+The same hard limit without checkpoint reserve preserves data but cannot finish
+checkpointing after the pinned reader exits. A limit alone is insufficient.
+
+Cases cover pinned snapshots, rejected oversized/uncommitted writes, indexed LRU
+selection retaining a recently used product, bounded incremental reclamation,
+publication after reclamation, two banks/two processes and process death mid-write.
+Direct growth/preallocation calls test the VFS boundary; integrity/digests check
+committed products. Reports include all observed close/checkpoint growth, allocated
+blocks, file lengths, callback counts and lock wait; no native timing prediction.
+
+Limits: platform/filesystem observations, not a universal allocation theorem.
+Anonymous SQLite disk temporaries and paths outside the dedicated root are rejected;
+SQL temporaries use memory. No permission/IO-fault injection or power-loss proof.
+Native integration must route **all** asset opens/writers (usage/trim included)
+through the budget, bound/retain maintenance work and handle old oversized banks.
+Persistent Outshine settings, automatic eviction, cancellation and native/device
+costs remain open; this experiment does not enforce the 32-GiB product setting.
