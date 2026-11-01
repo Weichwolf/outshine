@@ -146,7 +146,6 @@ struct WorldRegionState {
   }
 
   std::shared_ptr<Data::SourceSession> Sources;
-  std::vector<Data::SourceProvider> SourceDeclarations;
   std::unique_ptr<Ground::SurfacePreparation> SurfaceOwner;
 
   [[nodiscard]] decltype(auto) Surface(this auto &self) noexcept {
@@ -154,7 +153,6 @@ struct WorldRegionState {
   }
 
   std::unique_ptr<Generators::Weather::WeatherSnapshotLoader> Weather;
-  std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::BuiltinGenerators Builtins;
