@@ -11,6 +11,8 @@ int main() {
   Engine engine;
   CHECK(engine.declare(valid) && engine.assemble(), "valid simulation assembled");
   const auto *simulation = &engine.entities();
+  const auto published = engine.writeScenario();
+  CHECK(published, "the active declaration can be exported");
   std::vector<Scenario::Document> invalid(3, valid);
   invalid[0].Tables[0].Types.push_back(true);
   invalid[1].Tables[0].Rows[0][1] = "infinity";
@@ -18,12 +20,15 @@ int main() {
   for (const auto &document : invalid) {
     CHECK(engine.declare(document).has_value(), "table validation occurs after declaration");
     const auto exported = engine.writeScenario();
-    CHECK(!exported, "invalid table is rejected instead of normalized during export");
-    if (!exported) { CHECK(!exported.error().empty(), "export returns an owned diagnostic"); }
-    CHECK(&engine.entities() == simulation, "export rejection preserves simulation identity");
+    CHECK(exported && exported == published,
+          "an invalid pending table cannot replace the published scenario export");
+    CHECK(&engine.entities() == simulation, "export preserves active simulation identity");
     const auto repeated = engine.writeScenario();
-    CHECK(repeated == exported, "export failure leaves the declaration unchanged");
-    CHECK(!engine.assemble(), "assembly agrees with export rejection");
+    CHECK(repeated == exported, "repeated export leaves the active declaration unchanged");
+    CHECK(!engine.assemble(), "invalid tables reject candidate assembly");
+    CHECK(engine.writeScenario() == published && &engine.entities() == simulation,
+          "failed assembly preserves the same exported declaration and simulation");
+    CHECK(engine.advance(), "the previously published simulation remains usable");
   }
   CHECK(engine.declare(valid).has_value(), "valid declaration replaces invalid candidate");
   const auto exported = engine.writeScenario();
