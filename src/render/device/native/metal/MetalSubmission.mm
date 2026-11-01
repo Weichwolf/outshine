@@ -1,6 +1,9 @@
 #include "MetalPresentation.h"
 #include <algorithm>
 #include <cmath>
+#if __has_feature(thread_sanitizer)
+#include <sanitizer/tsan_interface.h>
+#endif
 
 namespace outshine::Render::Native::Metal {
 
@@ -49,6 +52,9 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     const auto profile = metal->Profile;
     const uint64_t serial = submission->Serial;
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+#if __has_feature(thread_sanitizer)
+      __tsan_acquire((__bridge void *)finished);
+#endif
       if (profile && finished.status == MTLCommandBufferStatusCompleted) {
         @autoreleasepool {
           CollectEncoderProfile(profile, finished, serial);
@@ -81,6 +87,9 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     Pending_.push_back(submission);
     ++NextSerial_;
     if (frame != nullptr) { frame->Schedule(metal->Native); }
+#if __has_feature(thread_sanitizer)
+    __tsan_release((__bridge void *)metal->Native);
+#endif
     [metal->Native commit];
     metal->ReleaseImages();
     return Completion{.Device = Identity_, .Serial = submission->Serial};
