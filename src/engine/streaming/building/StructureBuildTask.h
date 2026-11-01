@@ -82,7 +82,9 @@ public:
   void UseInitialCells();
   [[nodiscard]] uint64_t InitialCells() const noexcept;
   void SelectNextCell(uint32_t cell);
-  void Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher);
+  void Start(Tasks &pool,
+             std::shared_ptr<const StructureMesher> mesher,
+             std::shared_ptr<const void> lifetime = {});
   void Resume(Tasks &pool);
   [[nodiscard]] bool CanResume() const noexcept;
   [[nodiscard]] double ResumeDelaySeconds() const noexcept;

@@ -505,6 +505,7 @@ struct StructureBuildTask::Payload {
     bool Started = false;
   };
 
+  std::shared_ptr<const void> Lifetime;
   JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
@@ -767,9 +768,12 @@ void StructureBuildTask::Posts(Tasks &pool) {
   });
 }
 
-void StructureBuildTask::Start(Tasks &pool, std::shared_ptr<const StructureMesher> mesher) {
+void StructureBuildTask::Start(Tasks &pool,
+                               std::shared_ptr<const StructureMesher> mesher,
+                               std::shared_ptr<const void> lifetime) {
   assert(State_ == State::Ready);
   assert(mesher != nullptr);
+  Payload_->Lifetime = std::move(lifetime);
   Payload_->Mesher = std::move(mesher);
   Posts(pool);
 }
