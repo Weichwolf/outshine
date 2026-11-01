@@ -98,6 +98,8 @@ public:
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
+  void SetView(const Render::Viewpoint &view) noexcept { Scene().Eye(view); }
+
   [[nodiscard]] const Render::Viewpoint &View() const noexcept {
     const auto &scene = Scene();
     return scene.Watched() ? scene.Watching() : scene.Aimed();

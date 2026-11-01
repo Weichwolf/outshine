@@ -1,5 +1,6 @@
 #include "RigidBodyDynamics.h"
 #include "GeodeticCamera.h"
+#include "CameraPreparation.h"
 #include "Earth.h"
 #include "AzimuthElevation.h"
 #include "Units.h"
@@ -42,8 +43,6 @@ constexpr auto kInvalidElapsedTime = "advance requires finite nonnegative elapse
 constexpr auto kElapsedTimeOverflow = "elapsed time exceeds the simulation accumulator range";
 constexpr auto kCameraAssemblyRequired = "assemble the current declaration before following a body";
 constexpr auto kCameraBodyRequired = "the followed body is missing or no longer alive";
-constexpr auto kInvalidViewProjection =
-    "the selected view declares an invalid or unrepresentable projection";
 constexpr auto kInvalidCarriedView = "the carried view has no valid camera basis";
 }
 
@@ -81,16 +80,9 @@ ApplyCamera(Core::RuntimeScene &scene,
             const Camera &camera,
             Render::Viewpoint view,
             const Scenario::WorldSettings &world) noexcept {
-  view.Kind =
-      camera.Orthographic ? Render::CameraKind::Orthographic : Render::CameraKind::Perspective;
-  view.YfovRad = (camera.FovDeg == 0 ? Scenario::kFovUnsaidDeg : camera.FovDeg) * kDeg2Rad;
-  view.ZNearM = !camera.Orthographic && camera.NearM == 0 ? Camera::kNearestM : camera.NearM;
-  view.ZFarM = camera.FarM;
-  view.XMagM = camera.XMagM;
-  view.YMagM = camera.YMagM;
-  const auto lens = Render::Lens::From(view, renderer.PictureW(), renderer.PictureH());
-  if (!lens) { return std::unexpected(lens.error()); }
-  scene.Eye(view);
+  auto projected = ProjectCamera(camera, view, renderer.PictureW(), renderer.PictureH());
+  if (!projected) { return std::unexpected(projected.error()); }
+  scene.Eye(*projected);
   if (world.Declared) {
     const auto at = GeographicPositionFor(
         view.EyeM,
@@ -114,58 +106,40 @@ bool Engine::State::UpdateActiveCamera() {
   if (seen.Placement == Scenario::CameraPlacement::Route) {
     return accepted(UpdateRouteCamera(seen));
   }
-  Vec3 station = seen.Sees.PositionM + seen.OffsetM;
-  if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
-    const auto position = GeodeticCameraPosition(seen);
-    if (!position) {
-      Error = position.error();
-      return false;
-    }
-    if (!*position) {
-      Error = "geodetic camera height is pending; preload terrain before advancing";
-      return false;
-    }
-    station = **position;
-    if (seen.Geographic.SamplesHeight) {
-      const LongitudeLatitude at{.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
-                                 .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg};
-      PublishCameraHeightMeasurements(at);
-    }
+  const auto &world = Session.Declared.Ground;
+  const auto *ground = World().Surface().Opened() ? &World().Surface().Ground() : nullptr;
+  CameraPreparationContext context{.Origin = {.LongitudeDeg = world.Origin.LongitudeDeg,
+                                              .LatitudeDeg = world.Origin.LatitudeDeg},
+                                   .WidthPx = Picture.Device.PictureW(),
+                                   .HeightPx = Picture.Device.PictureH(),
+                                   .Ground = ground,
+                                   .HeightSample = {}};
+  if (seen.Placement == Scenario::CameraPlacement::Geodetic && seen.Geographic.SamplesHeight &&
+      ground != nullptr) {
+    const LongitudeLatitude at{.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
+                               .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg};
+    context.HeightSample = ground->At(at, World().Surface().TerrainRenderZoom());
   }
-  Published.RecordMetric("the standing eye, east", station[0], "m");
-  Published.RecordMetric("the standing eye, up", station[1], "m");
-  Published.RecordMetric("the standing eye, south", station[2], "m");
-  Camera resolved = seen.Sees;
-  resolved.PositionM = station;
-  if (seen.Placement == Scenario::CameraPlacement::Geodetic && !seen.Sees.LooksAt) {
-    const auto axes =
-        ResolveGeodeticCameraAxes(seen.Geographic,
-                                  {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                                   .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    if (!axes) {
-      Error = axes.error();
-      return false;
-    }
-    resolved.LooksAt = true;
-    resolved.LookAtM = station + axes->Forward;
-    resolved.UpM = axes->Up;
-  }
-  Mat4 model;
-  if (!resolved.modelMatrix(model)) {
-    Error = "the declared camera has no valid local transform";
+  const auto prepared = PrepareCamera(seen, context);
+  if (!prepared) {
+    Error = prepared.error();
     return false;
   }
-  Render::Viewpoint standing;
-  standing.EyeM = station;
-  for (int axis = 0; axis < 3; ++axis) {
-    standing.Right[axis] = model[axis];
-    standing.Up[axis] = model[4 + axis];
-    standing.Forward[axis] = -model[8 + axis];
-  }
-  if (!ApplyCamera(
-          *Picture.Standing, Picture.Device, seen.Sees, standing, Session.Declared.Ground)) {
-    Error = Says::kInvalidViewProjection;
+  if (!*prepared) {
+    Error = "geodetic camera height is pending; preload terrain before advancing";
     return false;
+  }
+  if (seen.Placement == Scenario::CameraPlacement::Geodetic && seen.Geographic.SamplesHeight) {
+    PublishCameraHeightMeasurements({.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
+                                     .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg});
+  }
+  const auto &standing = **prepared;
+  Published.RecordMetric("the standing eye, east", standing.EyeM[0], "m");
+  Published.RecordMetric("the standing eye, up", standing.EyeM[1], "m");
+  Published.RecordMetric("the standing eye, south", standing.EyeM[2], "m");
+  Picture.Standing->Eye(standing);
+  if (world.Declared) {
+    Picture.Standing->SetSkyElevation(GeographicPositionFor(standing.EyeM, context.Origin).HeightM);
   }
   return accepted(true);
 }
@@ -218,7 +192,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
   Published.RecordMetric("the route camera's eye, up", sample->EyeM[1], "m");
   Published.RecordMetric("the route camera's eye, south", sample->EyeM[2], "m");
   if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood, Session.Declared.Ground)) {
-    Error = Says::kInvalidViewProjection;
+    Error = kInvalidCameraProjection;
     return false;
   }
   return true;
@@ -287,7 +261,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
     return false;
   }
   if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, *stood, Session.Declared.Ground)) {
-    Error = Says::kInvalidViewProjection;
+    Error = kInvalidCameraProjection;
     return false;
   }
   return true;

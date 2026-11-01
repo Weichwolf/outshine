@@ -1,6 +1,7 @@
 #include "SurfaceSession.h"
 #include "WorldCandidate.h"
 #include "GroundView.h"
+#include "CameraPreparation.h"
 #include <limits>
 #include <type_traits>
 #include <cmath>
@@ -284,10 +285,37 @@ struct PreparedRuntimeDeclaration {
   HeadlessDeclaration Headless;
   std::unique_ptr<Core::WorldCandidate> Targeted;
 
-  [[nodiscard]] Result ValidateGroundView(const Scenario::Document &scenario, int heightPx) const {
-    if (!scenario.Ground.Declared || !scenario.Views.empty() || !Targeted) { return {}; }
-    if (ValidGroundView(Targeted->View(), heightPx)) { return {}; }
-    return std::unexpected(std::string(kInvalidGroundView));
+  [[nodiscard]] decltype(auto) Candidate(this auto &self) noexcept {
+    return std::forward_like<decltype(self)>(*self.Targeted);
+  }
+
+  [[nodiscard]] Result PrepareView(const Scenario::Document &scenario,
+                                   const std::optional<ViewBook> &views,
+                                   const WorldRegionState &world,
+                                   Extent frame) {
+    if (!Targeted) { return {}; }
+    if (!views) {
+      if (!scenario.Ground.Declared || ValidGroundView(Targeted->View(), frame.HeightPx)) {
+        return {};
+      }
+      return std::unexpected(std::string(kInvalidGroundView));
+    }
+    const auto &seen = views->Active();
+    if (seen.Placement == Scenario::CameraPlacement::FollowEntity ||
+        seen.Placement == Scenario::CameraPlacement::Route || seen.Geographic.SamplesHeight) {
+      return {};
+    }
+    const auto &origin = scenario.Ground.Origin;
+    const CameraPreparationContext context{
+        .Origin = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
+        .WidthPx = static_cast<double>(frame.WidthPx),
+        .HeightPx = static_cast<double>(frame.HeightPx),
+        .Ground = world.Surface().Opened() ? &world.Surface().Ground() : nullptr,
+        .HeightSample = {}};
+    const auto prepared = PrepareCamera(seen, context);
+    if (!prepared) { return std::unexpected(std::string(prepared.error())); }
+    if (*prepared) { Candidate().SetView(**prepared); }
+    return {};
   }
 
   [[nodiscard]] Result
@@ -666,7 +694,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  if (const auto projection = prepared->ValidateGroundView(scenario, S_->Picture.Frame.HeightPx);
+  if (const auto projection = prepared->PrepareView(scenario, *views, *world, S_->Picture.Frame);
       !projection) {
     S_->PendingDeclaration.emplace(std::unexpected(projection.error()));
     S_->Error.clear();
