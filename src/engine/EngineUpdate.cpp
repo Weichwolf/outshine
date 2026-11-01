@@ -476,6 +476,7 @@ bool Engine::State::UpdateTriggers() {
 }
 
 bool Engine::State::Updates(bool simulate) {
+  if (Services.CacheReclaimer) { Services.CacheReclaimer->Advance(); }
   if (!PollWeather()) { return false; }
   if (!RequestOriginalCells()) { return false; }
   PollOsmSources();

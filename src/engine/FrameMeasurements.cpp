@@ -202,6 +202,20 @@ void Engine::State::PublishAdvanceMeasurements() {
 void Engine::State::PublishGroundMemoryMeasurements() {
   constexpr auto kSnapshotAnchor = "building triangles the world meshed";
   if (Published.RecordedThisFrame(kSnapshotAnchor)) { return; }
+  if (Services.CacheReclaimer) {
+    const auto cache = Services.CacheReclaimer->Inspect();
+    Published.RecordMetric(
+        "asset cache: maintenance phase", static_cast<double>(cache.Phase), "enum");
+    Published.RecordMetric("asset cache: maintenance error",
+                           cache.Error ? static_cast<double>(*cache.Error) : -1.0,
+                           "enum");
+    Published.RecordMetric(
+        "asset cache: maintenance steps", static_cast<double>(cache.Steps), "steps");
+    Published.RecordMetric(
+        "asset cache: charged files", static_cast<double>(cache.ChargedBytes), "bytes");
+    Published.RecordMetric(
+        "asset cache: file limit", static_cast<double>(cache.LimitBytes), "bytes");
+  }
   Published.RecordMetric(kSnapshotAnchor,
                          static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                          "triangles");

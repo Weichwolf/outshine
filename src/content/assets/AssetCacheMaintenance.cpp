@@ -1,4 +1,5 @@
 #include "AssetCacheState.h"
+#include "AssetCacheReclamation.h"
 #include <algorithm>
 #include <cstdint>
 #include <expected>
@@ -165,6 +166,32 @@ std::expected<void, AssetCacheError> ReclaimOne(const std::vector<DatabaseHandle
   return CompactSlice(oldest->Database);
 }
 
+std::expected<bool, AssetCacheError> ReclaimWithCheckpoint(const SqliteFileBudget &budget,
+                                                           uint64_t required) {
+  const SqliteFileBudget::Maintenance maintenance(budget);
+  auto databases = OpenBanks(budget);
+  if (!databases) { return std::unexpected(databases.error()); }
+  for (const auto &database : *databases) {
+    const auto checkpoint = Checkpoint(database.get());
+    if (!checkpoint) { return std::unexpected(checkpoint.error()); }
+  }
+  if (required != 0) {
+    const auto usage = budget.Inspect();
+    if (!usage) { return std::unexpected(AssetCacheError::Storage); }
+    if (Fits(*usage, budget, required)) { return true; }
+  }
+  const auto reclaimed = ReclaimOne(*databases);
+  if (!reclaimed) { return std::unexpected(reclaimed.error()); }
+  return false;
+}
+
+}
+
+std::expected<bool, AssetCacheError> AssetSql::ReclaimStep(const SqliteFileBudget &budget) {
+  const auto usage = budget.Inspect();
+  if (!usage) { return std::unexpected(AssetCacheError::Storage); }
+  if (Fits(*usage, budget, kMetadataGrowthAllowance)) { return true; }
+  return ReclaimWithCheckpoint(budget, kMetadataGrowthAllowance);
 }
 
 std::expected<void, AssetCacheError> AssetCache::State::Reclaim(uint64_t required) const {
@@ -173,18 +200,9 @@ std::expected<void, AssetCacheError> AssetCache::State::Reclaim(uint64_t require
     const auto flushed = Usage->Flush();
     if (!flushed) { return std::unexpected(AssetCacheError::Busy); }
   }
-  auto databases = OpenBanks(*Budget);
-  if (!databases) { return std::unexpected(databases.error()); }
-  for (const auto &database : *databases) {
-    const auto checkpoint = Checkpoint(database.get());
-    if (!checkpoint) { return checkpoint; }
-  }
-  if (required != 0) {
-    const auto usage = Budget->Inspect();
-    if (!usage) { return std::unexpected(AssetCacheError::Storage); }
-    if (Fits(*usage, *Budget, required)) { return {}; }
-  }
-  return ReclaimOne(*databases);
+  const auto reclaimed = ReclaimWithCheckpoint(*Budget, required);
+  if (!reclaimed) { return std::unexpected(reclaimed.error()); }
+  return {};
 }
 
 std::expected<void, AssetCacheError> AssetCache::State::BeginWrite() const {

@@ -212,7 +212,11 @@ int SqliteFileBudget::State::Mutation::Admit(const std::filesystem::path &path,
     Denied = true;
     return SQLITE_FULL;
   }
-  if (used->ChargedBytes <= Owner.Bytes) { Owner.RecoveryCeiling = 0; }
+  uint64_t recovered = used->ChargedBytes;
+  if (Add(recovered, used->WalBytes) && Add(recovered, Owner.MaintenanceBytes) &&
+      recovered <= Owner.Bytes) {
+    Owner.RecoveryCeiling = 0;
+  }
   const auto hard = std::max(Owner.Bytes, Owner.RecoveryCeiling);
   uint64_t reserved = charge;
   const bool regular =

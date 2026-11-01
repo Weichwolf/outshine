@@ -6,6 +6,7 @@
 #include <string_view>
 #include <cstdint>
 #include <Engine.h>
+#include "AssetCacheReclaimer.h"
 #include "FrameCoordinator.h"
 #include "Units.h"
 #include "Vec2.h"
@@ -123,6 +124,7 @@ struct EngineServices {
   std::unique_ptr<Tasks> Compute;
   std::unique_ptr<Tasks> Io;
   std::shared_ptr<AssetPipeline> Publications;
+  std::unique_ptr<AssetCacheReclaimer> CacheReclaimer;
 };
 
 struct ScenarioPreparation {
