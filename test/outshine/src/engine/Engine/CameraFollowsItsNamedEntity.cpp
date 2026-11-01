@@ -100,7 +100,9 @@ int main() {
     const World::EntityRegistry *previous = &engine.entities();
     CHECK(!engine.assemble() && &engine.entities() == previous,
           "missing target preserves old assembly");
-    CHECK(!engine.advance(), "new camera cannot silently follow old assembly");
+    CHECK(engine.declaration().Views.front().Follows == "right",
+          "the rejected camera cannot replace the published target");
+    checkEye(4);
     invalid.Views[0].Follows = "template";
     CHECK(engine.declare(invalid) && !engine.assemble(), "unplaced target rejected");
     invalid = scene;
