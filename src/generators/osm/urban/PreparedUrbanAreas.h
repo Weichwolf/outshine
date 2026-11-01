@@ -69,7 +69,8 @@ public:
        const Data::SourceSet &sources,
        Tasks &compute,
        std::shared_ptr<PreparedOsmTiles> prepared,
-       Budget budget);
+       Budget budget,
+       AssetCache::Runtime runtime = {});
   ~PreparedUrbanAreas();
   PreparedUrbanAreas(const PreparedUrbanAreas &) = delete;
   PreparedUrbanAreas &operator=(const PreparedUrbanAreas &) = delete;

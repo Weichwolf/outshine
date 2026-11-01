@@ -103,14 +103,15 @@ Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
 PreparedTerrainAssets::PreparedTerrainAssets(std::unique_ptr<AssetCache> cache, std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
-PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet &sources) {
+std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string> PreparedTerrainAssets::Open(
+    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
   std::error_code error;
-  std::filesystem::create_directories(directory, error);
+  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
   if (error) {
     return std::unexpected("could not create the native asset cache: " + error.message());
   }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
+  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
+                                std::move(runtime));
   if (!cache) { return std::unexpected("could not open the native asset cache"); }
   auto recipe =
       AssetSourceRecipe("prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation});

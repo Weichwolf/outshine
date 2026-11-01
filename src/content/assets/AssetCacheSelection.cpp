@@ -124,18 +124,21 @@ FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::Find(std::string_view key) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Product, key);
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::FindRequest(std::string_view requestKey) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Request, requestKey);
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError>
 AssetCache::Select(const AssetQuery &query) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;

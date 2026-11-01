@@ -51,7 +51,8 @@ SurfacePreparation::CreateVectorField() const {
 
 std::expected<void, std::string>
 SurfacePreparation::BindRegionCache(const ContentDirectories &under,
-                                    const Data::SourceSet &sources) {
+                                    const Data::SourceSet &sources,
+                                    const AssetCache::Runtime &storage) {
   if (under.Assets.empty()) { return {}; }
   const auto &builtinData = under.BuiltinData;
   constexpr size_t bytesMost = size_t{1024} * 1024u;
@@ -63,26 +64,32 @@ SurfacePreparation::BindRegionCache(const ContentDirectories &under,
   materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
-  auto regions = Generators::Osm::PreparedGroundRegions::Open(under.Assets, sources, *materials);
+  auto regions =
+      Generators::Osm::PreparedGroundRegions::Open(under.Assets, sources, *materials, storage);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
   return {};
 }
 
-std::expected<void, std::string> SurfacePreparation::BindAssetCaches(
-    const std::string &directory, Data::SourceTransport &transport, Tasks &compute) {
+std::expected<void, std::string>
+SurfacePreparation::BindAssetCaches(const std::string &directory,
+                                    Data::SourceTransport &transport,
+                                    Tasks &compute,
+                                    const AssetCache::Runtime &storage) {
   const auto &sources = Sources_->Sources();
-  auto terrain = Generators::PreparedTerrainAssets::Open(directory, sources);
+  auto terrain = Generators::PreparedTerrainAssets::Open(directory, sources, storage);
   if (!terrain) { return std::unexpected(std::move(terrain.error())); }
-  auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources);
+  auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources, storage);
   if (!buildings) { return std::unexpected(std::move(buildings.error())); }
-  auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources);
+  auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources, storage);
   if (!network) { return std::unexpected(std::move(network.error())); }
-  auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, Sources_, transport, compute);
+  auto vectors =
+      Generators::Osm::PreparedOsmTiles::Open(directory, Sources_, transport, compute, {}, storage);
   if (!vectors) { return std::unexpected(std::move(vectors.error())); }
-  auto urban = Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors);
+  auto urban =
+      Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors, {}, storage);
   if (!urban) { return std::unexpected(std::move(urban.error())); }
-  auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory);
+  auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory, storage);
   if (!roads) { return std::unexpected(std::move(roads.error())); }
   PreparedRoads_ = std::move(*roads);
   PreparedTerrain_ = std::move(*terrain);
@@ -101,7 +108,8 @@ SurfacePreparation::Open(const ContentDirectories &under,
                          Data::SourceTransport &wire,
                          Tasks &compute,
                          LogSink *diagnostics,
-                         double patienceS) {
+                         double patienceS,
+                         const AssetCache::Runtime &storage) {
   const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) { return std::unexpected(std::string(position.error())); }
   const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
@@ -109,7 +117,8 @@ SurfacePreparation::Open(const ContentDirectories &under,
   auto sources = Data::SourceSession::Open(
       {.Directory = under.Sources}, providers, under.BuiltinData, registry);
   if (!sources) { return std::unexpected(sources.error()); }
-  return OpenSession(under, std::move(*sources), focus, wire, compute, diagnostics, patienceS);
+  return OpenSession(
+      under, std::move(*sources), focus, wire, compute, diagnostics, patienceS, storage);
 }
 
 std::expected<void, std::string>
@@ -119,7 +128,8 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
                                 Data::SourceTransport &wire,
                                 Tasks &compute,
                                 LogSink *diagnostics,
-                                double patienceS) {
+                                double patienceS,
+                                const AssetCache::Runtime &storage) {
   if (!session) { return std::unexpected("surface preparation requires configured sources"); }
   const auto position = ::outshine::Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) { return std::unexpected(std::string(position.error())); }
@@ -144,7 +154,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
   candidate.VectorZoom_ =
       candidate.HasVectorSource_ ? candidate.FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
   if (!under.Assets.empty()) {
-    if (auto bound = candidate.BindAssetCaches(under.Assets, wire, compute); !bound) {
+    if (auto bound = candidate.BindAssetCaches(under.Assets, wire, compute, storage); !bound) {
       return std::unexpected(std::move(bound.error()));
     }
   }
@@ -154,7 +164,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
       candidate.Recipes_.Load((builtinData + "/world/vegetation.json").c_str(),
                               candidate.Materials_);
   if (candidate.RecipesReady_) {
-    if (auto bound = candidate.BindRegionCache(under, sources); !bound) {
+    if (auto bound = candidate.BindRegionCache(under, sources, storage); !bound) {
       return std::unexpected(std::move(bound.error()));
     }
   } else if (diagnostics != nullptr) {

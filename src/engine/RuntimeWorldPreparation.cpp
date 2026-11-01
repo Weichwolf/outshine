@@ -213,13 +213,19 @@ bool Engine::State::PrepareRuntimeWorld() {
                                               .Assets = Session.Under.AssetCacheDirectory};
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened()) {
-    const auto opened = World.Stack.OpenSession(contentDirectories,
-                                                World.Sources,
-                                                {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                                                *Services.Transport,
-                                                *Services.Compute,
-                                                Diagnostics,
-                                                Session.Declared.Ground.PatienceS);
+    if (!Services.SurfaceCacheConnections) {
+      Services.SurfaceCacheConnections =
+          std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
+    }
+    const auto opened = World.Stack.OpenSession(
+        contentDirectories,
+        World.Sources,
+        {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+        *Services.Transport,
+        *Services.Compute,
+        Diagnostics,
+        Session.Declared.Ground.PatienceS,
+        {.Workers = Services.Compute.get(), .Connections = Services.SurfaceCacheConnections});
     if (!opened) {
       Error = opened.error();
       return false;

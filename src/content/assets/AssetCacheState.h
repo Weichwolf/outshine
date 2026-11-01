@@ -4,6 +4,8 @@
 #include "AssetCache.h"
 #include "CacheUsageIndex.h"
 #include "SqliteFileBudget.h"
+#include "JobAdmission.h"
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <sqlite3.h>
@@ -11,12 +13,20 @@
 namespace outshine {
 
 struct AssetCache::State {
+  std::optional<JobAdmission::Lease> Connection;
+  Runtime Execution;
+  std::string Path;
+  std::mutex Opening;
+  std::atomic<bool> Opened{false};
   // Handles of one database share the lock; transaction helpers can call lookups.
   std::shared_ptr<std::recursive_mutex> Mutex;
   std::shared_ptr<SqliteFileBudget> Budget;
   sqlite3 *Database = nullptr;
   std::unique_ptr<CacheUsageIndex> Usage;
   bool UsageWarning = false;
+  [[nodiscard]] std::expected<void, AssetCacheError> EnsureOpen();
+  [[nodiscard]] std::expected<void, AssetCacheError> Initialize();
+  void ReleaseConnection();
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
   void WarnUsage();
   [[nodiscard]] std::expected<void, AssetCacheError> Reclaim(uint64_t required = 0) const;

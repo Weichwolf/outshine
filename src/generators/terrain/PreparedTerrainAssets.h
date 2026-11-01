@@ -93,7 +93,9 @@ public:
   [[nodiscard]] static std::string DescribeFailure(const Failure &failure);
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
-  Open(const std::string &directory, const Data::SourceSet &sources);
+  Open(const std::string &directory,
+       const Data::SourceSet &sources,
+       AssetCache::Runtime runtime = {});
 
   [[nodiscard]] std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
   RequestField(Data::TileId at, const ::outshine::Ground::TerrainTiles::Shaped &shape);

@@ -51,7 +51,8 @@ public:
        std::shared_ptr<Data::SourceSession> sources,
        Data::SourceTransport &transport,
        Tasks &compute,
-       Budget budget);
+       Budget budget,
+       AssetCache::Runtime runtime = {});
   // Cancels demand; the pool releases worker state after its last queued/running use.
   ~PreparedOsmTiles();
   PreparedOsmTiles(const PreparedOsmTiles &) = delete;

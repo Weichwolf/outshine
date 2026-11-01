@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "RawSourceCache.h"
+#include "AssetCache.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
 #include "SourceSession.h"
@@ -63,6 +64,7 @@ struct SurfacePreparationMetrics {
 
 class SurfacePreparation {
 public:
+  static constexpr int kAssetCacheConnections = 7;
   SurfacePreparation() = default;
 
   ~SurfacePreparation() { Close(); }
@@ -78,7 +80,8 @@ public:
        Data::SourceTransport &wire,
        Tasks &compute,
        LogSink *diagnostics,
-       double patienceS = 0.0);
+       double patienceS = 0.0,
+       const AssetCache::Runtime &storage = {});
   [[nodiscard]] std::expected<void, std::string>
   OpenSession(const ContentDirectories &under,
               std::shared_ptr<Data::SourceSession> session,
@@ -86,7 +89,8 @@ public:
               Data::SourceTransport &wire,
               Tasks &compute,
               LogSink *diagnostics,
-              double patienceS = 0.0);
+              double patienceS = 0.0,
+              const AssetCache::Runtime &storage = {});
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
@@ -305,9 +309,14 @@ public:
 
 private:
   [[nodiscard]] std::expected<void, std::string>
-  BindAssetCaches(const std::string &directory, Data::SourceTransport &transport, Tasks &compute);
-  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const ContentDirectories &under,
-                                                                 const Data::SourceSet &sources);
+  BindAssetCaches(const std::string &directory,
+                  Data::SourceTransport &transport,
+                  Tasks &compute,
+                  const AssetCache::Runtime &storage);
+  [[nodiscard]] std::expected<void, std::string>
+  BindRegionCache(const ContentDirectories &under,
+                  const Data::SourceSet &sources,
+                  const AssetCache::Runtime &storage);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
