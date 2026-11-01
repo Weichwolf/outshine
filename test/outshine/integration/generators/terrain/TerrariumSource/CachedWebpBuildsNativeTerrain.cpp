@@ -1,10 +1,13 @@
 #include "BuiltinSourceProviders.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
+#include "SourceFailureReason.h"
 #include "OfflineSourceTransport.h"
 #include "TilePool.h"
 #include "Check.h"
 #include <cstdint>
+#include <cstddef>
+#include <expected>
 #include <span>
 #include <utility>
 #include <webp/encode.h>
@@ -34,6 +37,13 @@ public:
       ++InvalidEndpoints_;
     }
     return static_cast<Ticket>(++Starts_);
+  }
+
+  FetchStart Begin(const std::string &url, size_t bodyBytesMost) override {
+    if (Bytes_.size() > bodyBytesMost) {
+      return std::unexpected(SourceFailureReason::CapacityRefused);
+    }
+    return Begin(url);
   }
 
   Wire Collect(Ticket /*ticket*/) override { return Wire::Answered(200, Bytes_); }
@@ -119,6 +129,11 @@ int main() {
     ProviderRegistry registry;
     Generators::RegisterBuiltinSourceProviders(registry);
     Tiles online({owned.get(), owned.get() + count});
+    const auto refused =
+        online.Begin("https://fixture.invalid/height/12/2048/2048.webp", count - 1);
+    CHECK(!refused && refused.error() == SourceFailureReason::CapacityRefused &&
+              online.Starts() == 0,
+          "the mock enforces the response bound before admitting a network request");
     Build(cache, online, registry, false);
     CHECK(online.InvalidEndpoints() == 0, "configured adapter expands its own endpoint");
     CHECK(online.Starts() == 9, "one request per actual required source tile");
