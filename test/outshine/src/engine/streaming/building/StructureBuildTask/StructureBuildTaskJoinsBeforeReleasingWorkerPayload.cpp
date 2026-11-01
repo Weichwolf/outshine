@@ -1,3 +1,4 @@
+#include "Tasks.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -119,7 +120,7 @@ void CancelDuringMesh() {
     stopped.RequestStop();
     stopRequested.store(true, std::memory_order_release);
     stopRequested.notify_one();
-    stopped.Join(pool);
+    stopped.Join();
     joined.store(true, std::memory_order_release);
   });
   stopRequested.wait(false, std::memory_order_acquire);
@@ -158,8 +159,8 @@ void TransferRunningPayload() {
         "running move construction transfers the sole handle owner and stable payload");
   if (!moving.Running()) {
     moving.RequestStop();
-    moving.Join(pool);
-    CHECK(!moving.TakeCompletion(pool), "empty source cannot consume a live completion");
+    moving.Join();
+    CHECK(!moving.TakeCompletion(), "empty source cannot consume a live completion");
   }
   moving = StructureBuildTask(
       8, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
@@ -179,8 +180,8 @@ void TransferRunningPayload() {
         "assignment releases a ready destination and transfers running payload exactly once");
   if (!constructed.Running()) {
     constructed.RequestStop();
-    constructed.Join(pool);
-    CHECK(!constructed.TakeCompletion(pool), "assigned-from source is safe to stop/join/poll");
+    constructed.Join();
+    CHECK(!constructed.TakeCompletion(), "assigned-from source is safe to stop/join/poll");
   }
   constructed = StructureBuildTask(
       10, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
@@ -189,10 +190,10 @@ void TransferRunningPayload() {
   CHECK(assigned.Running() && &assigned.Raw() == raw,
         "self move preserves the running owner and worker payload");
   movingMesher.ReleasesMesh();
-  assigned.Join(pool);
+  assigned.Join();
   CHECK(!assigned.Running() && assigned.Result().Status && assigned.Result().Tile,
         "stopping moved-from owners does not cancel the transferred worker");
-  CHECK(!assigned.TakeCompletion(pool) && !releasedHeights.expired(),
+  CHECK(!assigned.TakeCompletion() && !releasedHeights.expired(),
         "joined completion is consumed once while its owner retains height input");
   assigned = StructureBuildTask(
       11, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
@@ -209,7 +210,7 @@ void TransferPartialCompletion() {
                             std::make_unique<StructureBuildTask::Output>(),
                             unsupported.Scratch());
   ranged.Start(pool, unsupportedOwner);
-  while (!ranged.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "first task completes"); }
+  while (!ranged.TakeCompletion()) { CHECK(ranged.AwaitCompletion(1), "first task completes"); }
   CHECK(ranged.Result().Status && !ranged.Result().Tile &&
             ranged.Result().LastRanges == StructureBuildTask::RangesPerTask &&
             ranged.Progress().BakedStructures() ==
@@ -223,17 +224,17 @@ void TransferPartialCompletion() {
         "partial completion moves without resetting progress or publishing final output");
   if (ranged.Tile() == 0) {
     ranged.RequestStop();
-    ranged.Join(pool);
+    ranged.Join();
   }
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (!resumed.Result().Tile && std::chrono::steady_clock::now() < deadline) {
     resumed.Resume(pool);
-    while (!resumed.TakeCompletion(pool) && std::chrono::steady_clock::now() < deadline) {
-      (void)pool.AwaitCompletion(0.05);
+    while (!resumed.TakeCompletion() && std::chrono::steady_clock::now() < deadline) {
+      (void)resumed.AwaitCompletion(0.05);
     }
     if (resumed.Running()) {
       resumed.RequestStop();
-      resumed.Join(pool);
+      resumed.Join();
       break;
     }
     CHECK(resumed.Result().Status && resumed.Result().LastRanges > 0 &&
@@ -252,7 +253,7 @@ void TransferPartialCompletion() {
         "final completion transfers its output and progress without inventing a live handle");
   if (resumed.Tile() == 0) {
     resumed.RequestStop();
-    resumed.Join(pool);
+    resumed.Join();
   }
 }
 }

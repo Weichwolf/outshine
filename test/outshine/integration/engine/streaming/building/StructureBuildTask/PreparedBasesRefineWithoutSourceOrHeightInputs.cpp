@@ -103,7 +103,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                           mesher.Scratch());
   task.UseNativeAssets(cache, key);
   task.Start(pool, mesherOwner);
-  task.Join(pool);
+  task.Join();
   const auto &loaded = task.Result();
   CHECK(loaded.Status && loaded.Tile && loaded.CacheHit &&
             loaded.Tile->Digest == reference.Digest && loaded.Tile->Prints == reference.Prints &&
@@ -119,7 +119,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                             mesher.Scratch());
   replay.UseNativeAssets(cache, key);
   replay.Start(pool, mesherOwner);
-  replay.Join(pool);
+  replay.Join();
   const auto &reloaded = replay.Result();
   CHECK(reloaded.Status && reloaded.Tile && reloaded.CacheHit &&
             reloaded.Tile->Digest == reference.Digest && replay.PreparedBase() == nullptr &&
@@ -133,7 +133,7 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
                           mesher.Scratch());
   miss.UseNativeAssets(cache, key);
   miss.Start(pool, mesherOwner);
-  miss.Join(pool);
+  miss.Join();
   const auto *kind = miss.Result().Status
                          ? nullptr
                          : std::get_if<StructureBakeErrorKind>(&miss.Result().Status.error());
@@ -698,7 +698,7 @@ void WorkerBake(const PreparedStructureTile &base,
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   size_t tasks = 0;
   while (std::chrono::steady_clock::now() < deadline) {
-    if (!task.TakeCompletion(worker)) {
+    if (!task.TakeCompletion()) {
       (void)task.AwaitCompletion(0.05);
       continue;
     }
@@ -711,7 +711,7 @@ void WorkerBake(const PreparedStructureTile &base,
   }
   if (task.Running()) {
     task.RequestStop();
-    task.Join(worker);
+    task.Join();
   }
   const auto &completed = task.Result();
   CHECK(completed.Status && completed.Tile && completed.Tile->Digest == reference,

@@ -1,8 +1,6 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_BUILDING_STRUCTUREBUILDTASK_H
 #define OUTSHINE_ENGINE_STREAMING_BUILDING_STRUCTUREBUILDTASK_H
 
-#include <atomic>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -15,9 +13,10 @@
 #include "HeightField.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
-#include "Tasks.h"
 
 namespace outshine {
+class Tasks;
+
 namespace Generators {
 struct PreparedStructureTile;
 struct PreparedBuildingBasis;
@@ -84,8 +83,8 @@ public:
   [[nodiscard]] bool CanResume() const noexcept;
   [[nodiscard]] double ResumeDelaySeconds() const noexcept;
   void RequestStop() noexcept;
-  [[nodiscard]] bool TakeCompletion(Tasks &pool);
-  void Join(Tasks &pool);
+  [[nodiscard]] bool TakeCompletion();
+  void Join();
 
   [[nodiscard]] bool Running() const noexcept;
 
@@ -96,18 +95,10 @@ public:
 
   [[nodiscard]] uint32_t Tile() const noexcept { return Tile_; }
 
-  [[nodiscard]] const Generators::RawTile &Raw() const noexcept { return *Raw_; }
-
-  [[nodiscard]] const Ground::HeightField &Heights() const noexcept {
-    assert(Heights_ != nullptr);
-    return *Heights_;
-  }
-
-  [[nodiscard]] const Generators::PreparedStructureTile *PreparedBase() const noexcept {
-    return Base_ ? Base_->get() : nullptr;
-  }
-
-  [[nodiscard]] bool FromPreparedInputs() const noexcept { return (Base_ && *Base_) || Basis_; }
+  [[nodiscard]] const Generators::RawTile &Raw() const noexcept;
+  [[nodiscard]] const Ground::HeightField &Heights() const noexcept;
+  [[nodiscard]] const Generators::PreparedStructureTile *PreparedBase() const noexcept;
+  [[nodiscard]] bool FromPreparedInputs() const noexcept;
 
   [[nodiscard]] size_t PreparedStructureCount() const noexcept;
   [[nodiscard]] std::span<const Data::TileSourceIdentity> HeightSources() const noexcept;
@@ -115,13 +106,10 @@ public:
   [[nodiscard]] bool HeightQualified() const noexcept;
   [[nodiscard]] Ground::HeightField::Request HeightRequest() const;
 
-  [[nodiscard]] Generators::RawTile &Raw() noexcept { return *Raw_; }
-
-  [[nodiscard]] Output &Result() noexcept { return *Output_; }
-
-  [[nodiscard]] const Output &Result() const noexcept { return *Output_; }
-
-  [[nodiscard]] Generators::StructureBakeProgress &Progress() noexcept { return *Progress_; }
+  [[nodiscard]] Generators::RawTile &Raw() noexcept;
+  [[nodiscard]] Output &Result() noexcept;
+  [[nodiscard]] const Output &Result() const noexcept;
+  [[nodiscard]] Generators::StructureBakeProgress &Progress() noexcept;
 
   [[nodiscard]] std::unique_ptr<Generators::RawTile> TakeRaw() noexcept;
   [[nodiscard]] std::unique_ptr<Output> TakeOutput() noexcept;
@@ -129,27 +117,15 @@ public:
 
 private:
   struct Comparison;
+  struct NativeProducts;
+  struct Payload;
 
   enum class State : uint8_t { Empty, Ready, Running, Completed };
 
   void Posts(Tasks &pool);
 
   uint32_t Tile_ = 0;
-  std::shared_ptr<const StructureMesher> Mesher_;
-  std::unique_ptr<Generators::RawTile> Raw_;
-  std::shared_ptr<const Ground::HeightField> Heights_;
-  using PreparedBaseOwner = std::shared_ptr<const Generators::PreparedStructureTile>;
-  std::unique_ptr<PreparedBaseOwner> Base_;
-  std::shared_ptr<const Generators::PreparedBuildingBasis> Basis_;
-  struct NativeProducts;
-  std::unique_ptr<NativeProducts> Native_;
-  std::unique_ptr<Output> Output_;
-  std::unique_ptr<MeshScratch> Scratch_;
-  std::unique_ptr<Generators::StructureBakeProgress> Progress_;
-  std::shared_ptr<std::atomic_bool> Stopping_;
-  std::unique_ptr<Comparison> Comparison_;
-  Tasks *ActivePool_ = nullptr;
-  Tasks::Handle Handle_ = Tasks::kNoTask;
+  std::shared_ptr<Payload> Payload_;
   State State_ = State::Ready;
 };
 

@@ -1,3 +1,4 @@
+#include "Tasks.h"
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
 #include "BuildingMesh.h"
@@ -72,7 +73,7 @@ void Run(const std::shared_ptr<const Generators::PreparedStructureTile> &base, T
           "the active owner retains the same prepared source");
   }
   release.release();
-  if (moved) { moved->Join(pool); }
+  if (moved) { moved->Join(); }
   pool.Wait(blocker);
   CHECK(moved && moved->Result().Status && moved->Result().Tile,
         "a queued move cannot send prepared work into the absent raw-height path");

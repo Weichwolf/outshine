@@ -1,3 +1,4 @@
+#include "Tasks.h"
 #include "test/harness/shared/BuildingAssetFixture.h"
 #include "StructureBuildTask.h"
 #include "StructureCellAssembly.h"
@@ -87,12 +88,12 @@ void Complete(StructureBuildTask &task,
               std::shared_ptr<const StructureMesher> mesherOwner) {
   task.Start(pool, std::move(mesherOwner));
   for (size_t step = 0; step < 128; ++step) {
-    task.Join(pool);
+    task.Join();
     if (!task.Result().Status || task.Result().Tile) { return; }
     task.Resume(pool);
   }
   task.RequestStop();
-  task.Join(pool);
+  task.Join();
   CHECK(false, "the bounded producer must finish without exhausting its slice limit");
 }
 

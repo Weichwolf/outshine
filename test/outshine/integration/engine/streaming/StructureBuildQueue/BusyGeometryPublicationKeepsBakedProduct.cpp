@@ -49,7 +49,7 @@ struct Case {
   ~Case() {
     if (Work) {
       Work->RequestStop();
-      Work->Join(Env.Worker);
+      Work->Join();
     }
   }
 
@@ -86,13 +86,13 @@ struct Case {
 
   void Pump() {
     if (Work->CanResume()) { Work->Resume(Env.Worker); }
-    Work->Join(Env.Worker);
+    Work->Join();
     std::this_thread::sleep_for(kWait);
   }
 
   bool WaitHeld() {
     Work->Start(Env.Worker, MesherOwner);
-    Work->Join(Env.Worker);
+    Work->Join();
     const auto until = std::chrono::steady_clock::now() + kDeadline;
     while (std::chrono::steady_clock::now() < until) {
       CHECK(Work->Result().Status && !Work->Result().Tile,
@@ -176,7 +176,7 @@ void Cancel() {
   if (!test.Open() || !test.WaitHeld()) { return; }
   test.Work->RequestStop();
   test.Work->Resume(test.Env.Worker);
-  test.Work->Join(test.Env.Worker);
+  test.Work->Join();
   CHECK(!test.Work->Result().Status && !test.Work->Result().Tile &&
             test.Work->Result().PublicationBytes == 0,
         "cancellation drops both pending geometry owners without returning a visible product");
@@ -273,7 +273,7 @@ void RejectPermanentFailure() {
                      nullptr) == SQLITE_OK,
         "a permanent constraint rejects only the native geometry commit");
   test.Work->Start(test.Env.Worker, test.MesherOwner);
-  test.Work->Join(test.Env.Worker);
+  test.Work->Join();
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (test.Work->Result().Status && !test.Work->Result().Tile &&
          std::chrono::steady_clock::now() < until) {
