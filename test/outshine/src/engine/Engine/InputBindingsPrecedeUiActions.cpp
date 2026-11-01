@@ -25,7 +25,7 @@ int main() {
   constexpr float kInsidePx = 16;
   constexpr float kOutsidePx = 96;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes for an actual UI surface");
-  {
+  for (const int policy : {0, 1, 2}) {
     Receiver receiver;
     Engine engine;
     engine.setInputHost(&receiver);
@@ -41,6 +41,8 @@ int main() {
          .Programme = "const ready = () => [1,2,3].reduce((sum,x) => sum+x,0) === 6;",
          .Where = {}});
     scene.Input = {{.Event = "KeyW", .Action = "key"}};
+    if (policy == 1) { scene.Input.push_back({.Event = "MouseLeft", .Action = "bound"}); }
+    if (policy == 2) { scene.Input.clear(); }
     const auto declared = engine.loadScenario(scene);
     CHECK(declared.has_value(), declared ? "UI declaration accepted" : declared.error().c_str());
     if (target && declared) {
@@ -49,31 +51,24 @@ int main() {
       event.button.button = SDL_BUTTON_LEFT;
       event.button.x = event.button.y = kInsidePx;
       auto handled = engine.handleEvent(event);
-      CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"clicked"},
-            "unbound mouse reaches UI even while another input is bound");
-      receiver.Names.clear();
-      scene.Input.push_back({.Event = "MouseLeft", .Action = "bound"});
-      CHECK(engine.loadScenario(scene).has_value(), "mouse binding replaces routing policy");
-      handled = engine.handleEvent(event);
-      CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"bound"},
-            "explicit mouse binding prevents a second UI action");
-      receiver.Names.clear();
-      receiver.Accept = false;
-      handled = engine.handleEvent(event);
-      CHECK(handled && !*handled && receiver.Names == std::vector<std::string>{"bound"},
-            "refused binding cannot fall through to UI");
+      const std::string expected = policy == 1 ? "bound" : "clicked";
+      CHECK(handled && *handled && receiver.Names == std::vector<std::string>{expected},
+            "an explicit mouse binding precedes UI; otherwise the hit dispatches once");
+      if (policy == 1) {
+        receiver.Names.clear();
+        receiver.Accept = false;
+        handled = engine.handleEvent(event);
+        CHECK(handled && !*handled && receiver.Names == std::vector<std::string>{"bound"},
+              "a refused binding cannot fall through to UI");
+      }
       receiver.Accept = true;
-      scene.Input.clear();
-      CHECK(engine.loadScenario(scene).has_value(), "bindings can be removed with the UI retained");
-      receiver.Names.clear();
-      handled = engine.handleEvent(event);
-      CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"clicked"},
-            "removing binding restores UI dispatch");
       engine.setInputHost(static_cast<Host *>(nullptr));
-      CHECK(!engine.handleEvent(event), "UI action without host returns a processing error");
+      CHECK(!engine.handleEvent(event), "a dispatched action without a host is an error");
       event.button.x = event.button.y = kOutsidePx;
-      handled = engine.handleEvent(event);
-      CHECK(handled && !*handled, "outside hit is unhandled even after a processing error");
+      if (policy != 1) {
+        handled = engine.handleEvent(event);
+        CHECK(handled && !*handled, "outside UI hits are unhandled after a processing error");
+      }
     }
   }
   SDL_Quit();

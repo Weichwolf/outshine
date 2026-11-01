@@ -70,6 +70,7 @@ int main() {
           "data roots are accepted");
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
+    document.WheelStepPx = 16;
     document.Render.Declared = true;
     document.Render.Outputs = {"surface"};
     Scenario::View view;
@@ -127,16 +128,15 @@ int main() {
       CHECK(read() != initial && engine.writeScenario() != saved,
             "successful replacement publishes different pixels and declaration");
       click("newAction");
-      CHECK(engine.loadScenario(document).has_value(),
-            "redeclaration restores original surface despite render reuse");
-      CHECK(read() == initial, "render declaration cache tracks setSurfaces changes");
+      CHECK(engine.setSurfaces(document.Surfaces), "live surface update restores the original UI");
+      CHECK(read() == initial, "the restored surface has the original pixels");
       click("old");
       auto scrollScene = document;
       scrollScene.WheelStepPx = 16;
       scrollScene.Surfaces[0].Document = R"(<div id="scroll"><div id="content"></div></div>)";
       scrollScene.Surfaces[0].Style = "#scroll {width:64px;height:64px;overflow:scroll;} #content "
                                       "{width:32px;height:128px;background:red;}";
-      CHECK(engine.loadScenario(scrollScene).has_value(), "scrolling surface ready");
+      CHECK(engine.setSurfaces(scrollScene.Surfaces), "live scrolling surface is ready");
       const auto unscrolled = read();
       SDL_Event wheel{};
       wheel.type = SDL_EVENT_MOUSE_WHEEL;

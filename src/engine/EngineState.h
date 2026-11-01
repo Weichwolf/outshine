@@ -98,7 +98,7 @@ struct EngineRenderState {
 
 struct ScenarioSession {
   Scenario::Document Declared;
-  bool Taken = false;
+  bool Configured = false;
   std::vector<std::string> Carried;
   Roots Under;
   std::optional<ViewBook> Views;

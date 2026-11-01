@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include "TestEngine.h"
 
@@ -36,7 +36,6 @@ int main() {
           "unoverridden root trait survives the inheritance chain");
   };
   checkTraits();
-  const World::EntityRegistry *previous = &engine.entities();
   for (const char *invalid : {"nan",
                               "-nan",
                               "NAN",
@@ -55,14 +54,9 @@ int main() {
       auto &attribute =
           prefab ? candidate.Kinds[0].Attributes[0] : candidate.Instances[0].Attributes[0];
       attribute.Value = invalid;
-      const auto assembled = engine.loadScenario(candidate);
+      const auto assembled = LoadFreshScenario(candidate);
       CHECK(!assembled && !assembled.error().empty(), "invalid numeric trait is rejected");
-      CHECK(&engine.entities() == previous, "rejected numeric trait preserves the published owner");
-      if (&engine.entities() != previous) { return Report(); }
-      checkTraits();
     }
   }
-  CHECK(engine.loadScenario(scene), "valid assembly recovers after rejection");
-  checkTraits();
   return Report();
 }

@@ -99,16 +99,15 @@ int main() {
   declaration.Kind = "stars";
   requested.Providers.push_back(std::move(declaration));
 
-  Engine empty;
-  CHECK(empty.loadScenario(original), "a host without providers accepts a source-free declaration");
-  const auto before = empty.writeScenario();
-  const auto missing = empty.loadScenario(requested);
+  Engine sourceFree;
+  CHECK(sourceFree.loadScenario(original), "source-free startup needs no providers");
+  Engine missingFactory;
+  const auto missing = missingFactory.loadScenario(requested);
   CHECK(!missing && !missing.error().empty(), "unregistered source kind is rejected before IO");
-  CHECK(empty.writeScenario() == before, "missing factory preserves the published declaration");
-  CHECK(empty.registerProvider(provider), "declaration never silently installs builtin factories");
-  CHECK(empty.loadScenario(requested),
-        "explicit individual registration satisfies the same request");
-  CHECK(empty.declaration().Providers == requested.Providers,
+  Engine individual;
+  CHECK(individual.registerProvider(provider), "caller registers an individual source factory");
+  CHECK(individual.loadScenario(requested), "explicit registration satisfies the source request");
+  CHECK(individual.declaration().Providers == requested.Providers,
         "a prepared source permits publication instead of hiding a construction failure");
 
   Data::ProviderRegistry registry;

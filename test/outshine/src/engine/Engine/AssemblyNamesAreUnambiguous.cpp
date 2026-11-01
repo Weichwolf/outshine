@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 
@@ -27,12 +27,9 @@ int main() {
   invalid[2].Kinds.push_back(scene.Kinds[0]);
   invalid[3].Instances.push_back(scene.Instances[0]);
   for (const auto &candidate : invalid) {
-    const auto assembled = engine.loadScenario(candidate);
+    const auto assembled = LoadFreshScenario(candidate);
     CHECK(!assembled, "empty or duplicate identity rejected");
     CHECK(assembled || !assembled.error().empty(), "identity failure explains rejection");
-    CHECK(&engine.entities() == original, "failed assembly preserves registry object");
-    if (&engine.entities() != original) { return Report(); }
-    CHECK(original->alive(*marker), "failed assembly preserves live entities");
   }
   auto linked = scene;
   Scenario::Kind derived;
@@ -44,14 +41,13 @@ int main() {
   child.Id = "child";
   child.In = "actor";
   linked.Instances.push_back(child);
-  CHECK(engine.loadScenario(linked), "valid inheritance and containment recover");
-  World::EntityRegistry *const linkedOwner = &engine.entities();
+  Engine inherited;
+  CHECK(inherited.loadScenario(linked), "valid inheritance and containment start");
+  World::EntityRegistry *const linkedOwner = &inherited.entities();
   const auto linkedMarker = linkedOwner->addEntity();
   CHECK(linkedMarker, "the published valid forest has spare identity capacity");
   if (!linkedMarker) { return Report(); }
   linked.Instances.front().In = "child";
-  CHECK(!engine.loadScenario(linked), "a cyclic candidate cannot publish");
-  CHECK(&engine.entities() == linkedOwner && linkedOwner->alive(*linkedMarker),
-        "cycle rejection preserves the existing registry and its live entities");
+  CHECK(!LoadFreshScenario(linked), "startup rejects cyclic containment");
   return Report();
 }

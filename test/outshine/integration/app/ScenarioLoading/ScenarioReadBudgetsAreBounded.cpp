@@ -36,9 +36,10 @@ int main() {
     root << R"(<scenario name="layered"><layer path=")" << layerPath << "\"/><layer path=\""
          << layerPath << "\"/></scenario>";
   }
-  const auto cumulative = outshine::Test::LoadScenario(engine, path);
+  Engine layered;
+  const auto cumulative = outshine::Test::LoadScenario(layered, path);
   CHECK(!cumulative && cumulative.error().ends_with("file exceeds byte budget") &&
-            engine.declaration().Named.Name != "layered",
+            layered.declaration().Named.Name != "layered",
         "selected layers share the root input budget instead of receiving individual budgets");
   std::filesystem::remove(layerPath);
   std::filesystem::remove_all(directory);

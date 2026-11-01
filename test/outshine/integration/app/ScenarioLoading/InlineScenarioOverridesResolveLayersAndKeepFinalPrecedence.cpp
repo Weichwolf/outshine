@@ -47,32 +47,32 @@ int main() {
   CHECK(outshine::Test::LoadScenario(file, directory + "/root.scenario", overrides).has_value(),
         "a JSON file uses its own directory for selected layers");
   CHECK(file.writeScenario() == snapshot, "file and inline sources have identical declarations");
+  Engine layers;
   CHECK(
       outshine::Test::LoadScenario(
-          engine,
+          layers,
           source,
           R"({"name":null,"active":"day","world":{"vegetation":false},"render":{"widthPx":800},"layer":[{"path":"day.scenario","set":"day"}]})",
           directory)
           .has_value(),
       "overrides can replace the selected layer collection");
-  CHECK(engine.writeScenario() == snapshot && engine.declaration().Layers.empty(),
+  CHECK(layers.writeScenario() == snapshot && layers.declaration().Layers.empty(),
         "overridden layer references are consumed rather than reintroduced by final overrides");
+  const auto reject = [&](std::string_view input, std::string_view patch = {}) {
+    Engine fresh;
+    const auto loaded = outshine::Test::LoadScenario(fresh, input, patch, directory);
+    CHECK(!loaded && !loaded.error().empty(), "invalid scenario input is diagnosed independently");
+  };
   for (const std::string_view invalid :
        {R"({"world":{"vegetation":{}}})", R"({"world":{"nonexistent":1}})", R"([])", "{"}) {
-    CHECK(!outshine::Test::LoadScenario(engine, source, invalid, directory),
-          "invalid overrides are refused");
-    CHECK(engine.writeScenario() == snapshot, "override failure preserves the active declaration");
+    reject(source, invalid);
   }
-  CHECK(!outshine::Test::LoadScenario(engine, source, {}, directory),
-        "missing selected layer remains an error without overrides");
-  CHECK(engine.writeScenario() == snapshot, "layer failure preserves the active declaration");
+  reject(source);
   std::string nul = "{}";
   nul += '\0';
-  CHECK(!outshine::Test::LoadScenario(engine, nul), "embedded input NUL is rejected");
-  CHECK(!outshine::Test::LoadScenario(engine, "{}", std::string(kMostScenarioBytes + 1u, ' ')),
-        "combined scenario input has a bounded byte budget");
-  CHECK(!outshine::Test::LoadScenario(engine, "{" + std::string(kMostScenarioBytes, ' ')),
-        "oversized inline input is refused before copying or parsing");
+  reject(nul);
+  reject("{}", std::string(kMostScenarioBytes + 1u, ' '));
+  reject("{" + std::string(kMostScenarioBytes, ' '));
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "scratch files removed");

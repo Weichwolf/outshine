@@ -17,7 +17,7 @@ constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
 
 Result Engine::prepareAudio(int sampleRateHz) {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Session.Taken) {
+  if (!S_->Session.Configured) {
     S_->Error = Says::kAudioDeclarationRequired;
     return std::unexpected(S_->Error);
   }

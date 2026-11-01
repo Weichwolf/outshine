@@ -32,7 +32,9 @@ int main() {
   earth.Ground.Declared = true;
   earth.Ground.Origin.LatitudeDeg = 49.3;
   earth.Ground.Origin.LongitudeDeg = 8.6;
-  CHECK(engine.loadScenario(earth), "an unassembled earth scenario is valid");
-  CHECK(!engine.prepareViewData(1.0, 1.0), "data preparation cannot bypass ground assembly");
+  Engine terrestrial;
+  CHECK(terrestrial.loadScenario(earth), "a headless earth scenario starts independently");
+  CHECK(!terrestrial.prepareViewData(1.0, 1.0),
+        "data preparation requires a rendered ground world");
   return Report();
 }

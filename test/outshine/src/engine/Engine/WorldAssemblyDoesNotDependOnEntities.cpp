@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include <SDL3/SDL.h>
 #include "Check.h"
 #include <string>
@@ -57,7 +57,7 @@ int main() {
     CHECK(marker.has_value(), "spare entity capacity remains usable");
     if (!marker) { return Report(); }
     const auto saved = engine.writeScenario();
-    CHECK(saved.has_value(), "active scenario can be persisted before the failed replacement");
+    CHECK(saved.has_value(), "the started scenario can be persisted");
     if (!saved) { return Report(); }
     for (const bool populated : {true, false}) {
       Scenario::Document world = populated ? initial : Scenario::Document{};
@@ -68,16 +68,10 @@ int main() {
       Data::SourceProvider declaration;
       declaration.Kind = "unavailable";
       world.Providers.push_back(std::move(declaration));
-      const auto built = engine.loadScenario(world);
+      const auto built = LoadFreshScenario(world);
       CHECK(!built, "invalid world source fails independently of entity capacity");
       CHECK(!built && built.error().contains("unavailable"),
             "world source failure reaches the caller");
-      CHECK(&engine.entities() == previous, "failed world setup preserves simulation ownership");
-      if (&engine.entities() != previous) { return Report(); }
-      CHECK(previous->alive(*marker), "previous simulation remains usable");
-      const auto retained = engine.writeScenario();
-      CHECK(retained && *retained == *saved && !engine.declaration().Ground.Declared,
-            "factory rejection preserves the complete active declaration and persisted state");
     }
   }
   SDL_Quit();

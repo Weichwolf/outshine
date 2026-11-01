@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include "TestEngine.h"
 #include <cstddef>
@@ -51,24 +51,14 @@ int main() {
   CheckPublishedTraits(engine);
   auto invalid = scene;
   invalid.Instances[0].Of = "missing";
-  CHECK(!engine.loadScenario(invalid), "startup rejects a missing prefab");
-  CHECK(&engine.entities() == original,
-        "failed assembly preserves the borrowed World::EntityRegistry object");
-  if (&engine.entities() != original) { return Report(); }
-  CHECK(original->alive(*marker),
-        "failed assembly preserves existing entities and spare allocations");
-  CheckPublishedTraits(engine);
+  CHECK(!LoadFreshScenario(invalid), "startup rejects a missing prefab");
   for (const size_t reserve : {size_t{65536}, std::numeric_limits<size_t>::max()}) {
     auto excessive = scene;
     excessive.Room = reserve;
-    CHECK(!engine.loadScenario(excessive), "capacity budget and arithmetic overflow rejected");
-    CHECK(&engine.entities() == original && original->alive(*marker),
-          "budget rejection preserves live scene");
-    CheckPublishedTraits(engine);
+    CHECK(!LoadFreshScenario(excessive), "capacity budget and arithmetic overflow rejected");
   }
-  CHECK(engine.loadScenario(scene), "valid reassembly recovers after rejection");
-  CheckPublishedTraits(engine);
-  CHECK(engine.loadScenario({}), "empty simulation assembles without a renderer");
-  CHECK(engine.entities().capacity() == 0, "empty assembly removes previous entity storage");
+  Engine empty;
+  CHECK(empty.loadScenario({}), "empty simulation starts without a renderer");
+  CHECK(empty.entities().capacity() == 0, "empty startup needs no entity storage");
   return Report();
 }

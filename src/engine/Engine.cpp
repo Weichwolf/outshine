@@ -218,7 +218,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
 
 Result Engine::setRoots(Roots roots) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (S_->Session.Taken) {
+  if (S_->Session.Configured) {
     S_->Error = Says::kRootsAfterDeclaration;
     return std::unexpected(S_->Error);
   }

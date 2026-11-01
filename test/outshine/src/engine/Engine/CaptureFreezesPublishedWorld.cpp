@@ -36,7 +36,6 @@ int main() {
       CHECK(!engine.preload(0.0), "capture refuses streaming advancement");
       CHECK(!engine.prepareViewData(1.0, 0.0),
             "capture refuses path data preparation even without ground");
-      CHECK(!engine.loadScenario(scene), "capture refuses declaration replacement");
       CHECK(!engine.setSurfaces({}), "capture refuses overlay replacement");
       CHECK(!engine.handleEvent(SDL_Event{}), "capture refuses input state changes");
       CHECK(!engine.setGeometry(Geometry{}), "capture refuses geometry replacement");
@@ -47,8 +46,7 @@ int main() {
     CHECK(engine.advance().has_value(), "capture destruction resumes simulation");
     CHECK(engine.renderer().resetMeasurements().has_value(),
           "capture destruction permits the next measurement interval");
-    CHECK(engine.loadScenario(scene).has_value(),
-          "capture destruction resumes declaration replacement");
+    CHECK(engine.setSurfaces(scene.Surfaces), "capture destruction resumes overlay updates");
   }
   SDL_Quit();
   return Report();

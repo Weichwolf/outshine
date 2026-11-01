@@ -9,12 +9,11 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
-  auto engine = App::CreateEngine();
-  Scenario::Document original;
-  original.Named.Name = "kept";
-  CHECK(engine.loadScenario(original).has_value(), "initial native declaration accepted");
-  const auto before = engine.writeScenario();
-
+  const Scenario::Document original;
+  const auto load = [](const Scenario::Document &scenario) {
+    auto fresh = App::CreateEngine();
+    return fresh.loadScenario(scenario);
+  };
   auto candidate = original;
   GeographicBounds coverage{.WestDeg = 8.54,
                             .SouthDeg = 49.315,
@@ -29,24 +28,21 @@ int main() {
                                  .Coverage = coverage,
                                  .PayloadSha256 = {},
                                  .Schema = {}});
-  CHECK(!engine.loadScenario(candidate),
-        "programmatic declaration rejects nonfinite source bounds");
-  CHECK(engine.writeScenario() == before, "invalid source preserves the previous declaration");
+  CHECK(!load(candidate), "programmatic declaration rejects nonfinite source bounds");
 
   coverage.NorthDeg = 49.34;
   candidate.Providers.front().Coverage = coverage;
   candidate.Providers.front().Location = "https://example.invalid/region.osm";
-  CHECK(!engine.loadScenario(candidate),
-        "programmatic declaration rejects URL disguised as local file");
-  CHECK(engine.writeScenario() == before, "second invalid source also preserves declaration");
+  CHECK(!load(candidate), "programmatic declaration rejects URL disguised as local file");
 
   candidate.Providers.front().Location = "osm/region.osm";
   candidate.Providers.front().Revision = "sha256:short";
-  CHECK(!engine.loadScenario(candidate), "malformed content pin rejects the whole declaration");
-  CHECK(engine.writeScenario() == before, "malformed pin preserves the previous declaration");
+  CHECK(!load(candidate), "malformed content pin rejects the whole declaration");
 
   candidate.Providers.front().Revision = "pin-r1";
-  CHECK(engine.loadScenario(candidate).has_value(), "valid source declaration can replace refusal");
+  auto engine = App::CreateEngine();
+  CHECK(engine.loadScenario(candidate).has_value(),
+        "valid source declaration starts independently");
   const auto written = engine.writeScenario();
   CHECK(written && written->contains("dataset=\"openstreetmap\""),
         "public scenario writer retains source identity");

@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <limits>
 
@@ -6,7 +6,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts for UI composition");
-  {
+  for (const double step : {16.0, std::numeric_limits<double>::max(), 0.0}) {
     Engine engine;
     CHECK(engine.setRoots({.BuiltinDataDirectory = "data",
                            .SourceCacheDirectory = {},
@@ -14,7 +14,7 @@ int main() {
           "data roots are accepted");
     CHECK(engine.setRenderTarget(Extent{128, 128}).has_value(), "offscreen target is configured");
     Scenario::Document scene;
-    scene.WheelStepPx = 16;
+    scene.WheelStepPx = step;
     scene.Surfaces.push_back(
         {.Document = R"(<div id="scroll"><div id="content"></div></div>)",
          .Style = "#scroll { width: 64px; height: 64px; overflow: scroll; }"
@@ -33,13 +33,22 @@ int main() {
         CHECK(result && *result == expected,
               "scroll result matches movement at the event position");
       };
-      for (const double step : {-1.0,
-                                std::numeric_limits<double>::quiet_NaN(),
-                                std::numeric_limits<double>::infinity(),
-                                -std::numeric_limits<double>::infinity()}) {
+      if (step == 0.0) {
+        scroll(-1, false);
+        continue;
+      }
+      if (step == std::numeric_limits<double>::max()) {
+        event.wheel.y = -2;
+        CHECK(!engine.handleEvent(event), "overflow in pixel displacement rejected");
+        continue;
+      }
+      for (const double invalidStep : {-1.0,
+                                       std::numeric_limits<double>::quiet_NaN(),
+                                       std::numeric_limits<double>::infinity(),
+                                       -std::numeric_limits<double>::infinity()}) {
         auto invalid = scene;
-        invalid.WheelStepPx = step;
-        CHECK(!engine.loadScenario(invalid), "invalid wheel step rejected before replacing scene");
+        invalid.WheelStepPx = invalidStep;
+        CHECK(!LoadFreshScenario(invalid), "startup rejects an invalid wheel step");
       }
       for (float *field : {&event.wheel.mouse_x, &event.wheel.mouse_y, &event.wheel.y}) {
         const float saved = *field;
@@ -66,19 +75,6 @@ int main() {
       scroll(-1, false);
       scroll(16, true);
       scroll(1, false);
-      auto excessive = scene;
-      excessive.WheelStepPx = std::numeric_limits<double>::max();
-      CHECK(engine.loadScenario(excessive).has_value(),
-            "finite large wheel step remains representable");
-      event.wheel.y = -2;
-      CHECK(!engine.handleEvent(event), "overflow in pixel displacement rejected");
-      CHECK(engine.loadScenario(scene).has_value(), "normal configuration restored");
-      scroll(1, false);
-      scroll(-1, true);
-      auto disabled = scene;
-      disabled.WheelStepPx = 0;
-      CHECK(engine.loadScenario(disabled).has_value(), "zero step explicitly disables scrolling");
-      scroll(-1, false);
     }
   }
   SDL_Quit();

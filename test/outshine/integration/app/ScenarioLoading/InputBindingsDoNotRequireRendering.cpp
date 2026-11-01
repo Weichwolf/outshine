@@ -53,7 +53,9 @@ int main() {
   file << *serialized;
   file.close();
   CHECK(!file.fail(), "export fixture written");
-  CHECK(outshine::Test::LoadScenario(engine, path.string()).has_value(),
+  Engine restored;
+  restored.setInputHost(&receiver);
+  CHECK(outshine::Test::LoadScenario(restored, path.string()).has_value(),
         "exported declaration reimports through public API");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);
@@ -102,8 +104,9 @@ int main() {
   engine.setInputHost(static_cast<Host *>(nullptr));
   CHECK(!engine.handleEvent(event), "bound action without a host produces an error");
   engine.setInputHost(&receiver);
-  CHECK(engine.loadScenario({}).has_value(), "empty declaration removes bindings");
-  const auto unbound = engine.handleEvent(event);
-  CHECK(unbound && !*unbound, "removed binding is unhandled without reusing old error");
+  Engine empty;
+  CHECK(empty.loadScenario({}), "empty scenario starts independently");
+  const auto unbound = empty.handleEvent(event);
+  CHECK(unbound && !*unbound, "a scenario without bindings leaves input unhandled");
   return Report();
 }

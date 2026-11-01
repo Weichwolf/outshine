@@ -34,83 +34,71 @@ outshine::Scenario::Document Declaration(bool withView) {
 
 } // namespace
 
-int main() {
-  using namespace outshine;
-  using namespace outshine::Test;
-  const bool initialized = SDL_Init(SDL_INIT_VIDEO);
-  CHECK(initialized, "SDL video starts before creating targets");
-  if (!initialized) { return Report(); }
-  {
-    Engine engine;
-    CHECK(engine.frameExtent().WidthPx == 0 && engine.frameExtent().HeightPx == 0,
-          "internal default dimensions are not advertised as a configured target");
-    CHECK(engine.setRenderTarget(Extent{.WidthPx = 32, .HeightPx = 32}).has_value(),
-          "configure an offscreen target");
-    CHECK(engine.loadScenario(Declaration(false)).has_value(),
-          "an empty scene can be declared before a camera is prepared");
-    auto renderer = engine.renderer();
+namespace {
+using namespace outshine;
+using namespace outshine::Test;
+
+void CheckOffscreen(bool withView) {
+  Engine engine;
+  CHECK(engine.frameExtent().WidthPx == 0 && engine.frameExtent().HeightPx == 0,
+        "unconfigured target has no advertised dimensions");
+  CHECK(engine.setRenderTarget(Extent{32, 32}), "offscreen target opens");
+  CHECK(engine.loadScenario(Declaration(withView)), "the camera fixture starts once");
+  auto renderer = engine.renderer();
+  std::vector<uint8_t> pixels;
+  if (!withView) {
     for (int attempt = 0; attempt < 2; ++attempt) {
-      const auto result = renderer.render({});
-      CHECK(!result && !result.error().empty(),
-            "drawing without a camera or derivable bounds returns an error, not an assertion or "
-            "false success");
+      const auto rendered = renderer.render({});
+      CHECK(!rendered && !rendered.error().empty(), "missing camera produces a draw error");
     }
-    std::vector<uint8_t> pixels;
-    CHECK(!renderer.readPixels(pixels), "readback cannot bypass missing-camera preparation");
-    const bool ready = engine.loadScenario(Declaration(true)) && engine.advance();
-    CHECK(ready, "an explicit view can be prepared after failed draw attempts");
-    if (ready) {
-      CHECK(!renderer.readPixels(pixels), "readback requires an explicitly rendered frame");
-      CHECK(renderer.render({}).has_value(), "render prepared camera");
-      CHECK(renderer.readPixels(pixels).has_value() && pixels.size() == size_t{32} * 32u * 4u,
-            "the same renderer recovers and produces a complete RGBA frame");
-      constexpr std::array<Extent, 5> invalid = {{{.WidthPx = -1, .HeightPx = 32},
-                                                  {.WidthPx = 0, .HeightPx = 32},
-                                                  {.WidthPx = 32, .HeightPx = 0},
-                                                  {.WidthPx = 32, .HeightPx = -1},
-                                                  {.WidthPx = 48, .HeightPx = 32}}};
-      for (const Extent frame : invalid) {
-        CHECK(!renderer.render(frame),
-              "partial, negative and mismatched extents cannot masquerade as the default target");
-      }
-      CHECK(renderer.render({}).has_value(),
-            "invalid extent checks leave the prepared camera usable");
-    }
+    CHECK(!renderer.readPixels(pixels), "readback cannot bypass a missing camera");
+    return;
   }
+  CHECK(engine.advance(), "the declared camera prepares");
+  CHECK(!renderer.readPixels(pixels), "readback requires an explicitly rendered frame");
+  CHECK(renderer.render({}) && renderer.readPixels(pixels) &&
+            pixels.size() == size_t{32} * 32u * 4u,
+        "a prepared camera produces a complete RGBA frame");
+  constexpr std::array<Extent, 5> invalid = {{{.WidthPx = -1, .HeightPx = 32},
+                                              {.WidthPx = 0, .HeightPx = 32},
+                                              {.WidthPx = 32, .HeightPx = 0},
+                                              {.WidthPx = 32, .HeightPx = -1},
+                                              {.WidthPx = 48, .HeightPx = 32}}};
+  for (const Extent frame : invalid) {
+    CHECK(!renderer.render(frame), "partial, negative and mismatched extents are rejected");
+  }
+  CHECK(renderer.render({}), "invalid extents leave the prepared camera usable");
+}
+
+void CheckPresentation(SDL_Window *window, bool withView) {
+  Engine engine;
+  CHECK(engine.setRenderTarget(window), "a fresh engine borrows the presentation window");
+  CHECK(engine.loadScenario(Declaration(withView)), "the presentation fixture starts once");
+  auto renderer = engine.renderer();
+  if (withView) { CHECK(engine.advance(), "the declared camera prepares for presentation"); }
+  for (int attempt = 0; attempt < 2; ++attempt) {
+    const auto begun = renderer.beginFrame();
+    CHECK(begun, "frame acquisition is independent of camera selection");
+    if (!begun) { continue; }
+    const auto ended = renderer.endFrame();
+    CHECK(ended.has_value() == withView, "presentation requires a prepared camera");
+  }
+  CHECK(!renderer.endFrame(), "successful and failed presentation both close their frame");
+}
+}
+
+int main() {
+  using namespace outshine::Test;
+  CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for camera tests");
+  CheckOffscreen(false);
+  CheckOffscreen(true);
   SDL_Window *window = SDL_CreateWindow("Outshine camera contract", 32, 32, 0);
-  CHECK(window != nullptr, "a real presentation target is created");
+  CHECK(window != nullptr, "a presentation window opens");
   if (window != nullptr) {
-    {
-      Engine engine;
-      CHECK(engine.setRenderTarget(window).has_value(), "the Engine borrows the window");
-      CHECK(engine.loadScenario(Declaration(false)).has_value(),
-            "a presentation scene starts without a bound camera");
-      auto renderer = engine.renderer();
-      for (int attempt = 0; attempt < 2; ++attempt) {
-        const auto begun = renderer.beginFrame();
-        CHECK(begun.has_value(), "frame setup remains independent of camera selection");
-        if (begun) {
-          CHECK(!renderer.endFrame(),
-                "presentation propagates missing-camera failure before projection math");
-        }
-      }
-      CHECK(!renderer.endFrame(), "the failed presentation did not leave a frame open");
-      const bool ready = engine.loadScenario(Declaration(true)) && engine.advance();
-      CHECK(ready, "camera preparation recovers the existing window target");
-      if (ready) {
-        const auto begun = renderer.beginFrame();
-        CHECK(begun.has_value(), "a new frame opens after recovery");
-        if (begun) {
-          CHECK(renderer.endFrame().has_value(), "the prepared camera presents successfully");
-        }
-      }
-    }
+    CheckPresentation(window, false);
+    CheckPresentation(window, true);
     SDL_DestroyWindow(window);
   }
   SDL_Quit();
-  Covers("unconfigured target extent; missing-camera draw/readback/presentation failures and "
-         "repeatability; "
-         "explicit-view recovery; render extent validation; numerical camera conventions remain in "
-         "their own suite");
   return Report();
 }

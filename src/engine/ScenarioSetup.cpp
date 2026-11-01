@@ -291,14 +291,12 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
   return prepared;
 }
 
-void PublishConfiguration(ScenarioSession &session,
-                          const Scenario::Document &scenario,
-                          std::optional<ViewBook> &views,
-                          InputMap &bindings) {
+void InitializeSession(ScenarioSession &session,
+                       const Scenario::Document &scenario,
+                       std::optional<ViewBook> &views,
+                       InputMap &bindings) {
   session.Declared = scenario;
-  session.AudioBodies.clear();
-  session.Sounding.reset();
-  session.Taken = true;
+  session.Configured = true;
   session.Carried = DescribeScenarioDeclarations(scenario);
   session.Views = std::move(views);
   session.Bound = std::move(bindings);
@@ -491,6 +489,9 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
 Result Engine::loadScenario(const Scenario::Document &scenario) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
+  if (S_->Session.Configured) {
+    return std::unexpected("a configured engine cannot load another scenario");
+  }
   if (const auto valid = ValidateDeclarationInputs(scenario, S_->Services.Providers); !valid) {
     return valid;
   }
@@ -546,22 +547,6 @@ Result Engine::loadScenario(const Scenario::Document &scenario) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  S_->World.StructureBuilds.Clear();
-  S_->World.Surface().Footprints().ResetDerived();
-  S_->World.Pieces.Clear();
-  S_->World.UrbanAreas.reset();
-  S_->World.UrbanChildrenRevision.reset();
-  S_->World.UrbanChildren.clear();
-  S_->World.TerrainSurface.Clear();
-  S_->World.PiecesFramed = false;
-  S_->World.GroundPublished.Reset();
-  S_->World.Region.reset();
-  S_->World.PlacementGround.reset();
-  S_->World.Vegetation.reset();
-  S_->World.Instances.clear();
-  S_->World.Placed = S_->World.Instanced = 0;
-  S_->World.Grown = false;
-  S_->World.EmptyPlacementInputs.reset();
   S_->Picture.Shown = std::move(declared);
   if (S_->Picture.Targeted) {
     Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
@@ -572,9 +557,7 @@ Result Engine::loadScenario(const Scenario::Document &scenario) {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
     S_->Picture.PendingAudioOcclusion = std::move(prepared->Headless.Occlusion);
   }
-  PublishConfiguration(S_->Session, scenario, *views, bindings);
-  S_->RouteCamera.reset();
-  S_->CameraPosePending = false;
+  InitializeSession(S_->Session, scenario, *views, bindings);
   return S_->StartScenario(std::move(*simulation), std::move(*sources));
 }
 
