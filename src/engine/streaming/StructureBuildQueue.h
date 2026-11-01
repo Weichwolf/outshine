@@ -56,9 +56,12 @@ public:
 
   ~StructureBuildQueue();
 
-  void Opens(Tasks *pool, const std::shared_ptr<const StructureMesher> &mesher) {
+  void Opens(Tasks *pool,
+             const std::shared_ptr<const StructureMesher> &mesher,
+             const std::shared_ptr<JobAdmission> &admission) {
     Pool_ = pool;
     if (Mesher_ != mesher) { Mesher_ = mesher; }
+    if (Admission_ != admission) { Admission_ = admission; }
   }
 
   [[nodiscard]] std::expected<bool, std::string>
@@ -202,6 +205,8 @@ public:
 
   [[nodiscard]] size_t Deferred() const { return Deferred_; }
 
+  [[nodiscard]] size_t AdmissionDeferred() const { return AdmissionDeferred_; }
+
   [[nodiscard]] HeightFailure LastHeightFailure() const noexcept { return LastHeightFailure_; }
 
   [[nodiscard]] size_t Discarded() const { return Discarded_; }
@@ -327,7 +332,8 @@ private:
                                         HeightRequirement requirement,
                                         VectorSelection &selected,
                                         double &durationMs);
-  [[nodiscard]] QueuedBuild VectorBuild(Ground::SurfacePreparation &stack,
+  [[nodiscard]] QueuedBuild VectorBuild(JobAdmission::Lease admission,
+                                        Ground::SurfacePreparation &stack,
                                         const ::outshine::Generators::Osm::BuildingField &prints,
                                         ::outshine::Generators::Osm::TileAdmission::Next next,
                                         BakeRevision revision,
@@ -357,6 +363,7 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
+  [[nodiscard]] std::optional<JobAdmission::Lease> TryAdmitBuild();
   void RecycleOutput(StructureBuildTask &task);
   void PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                              LongitudeLatitude eye,
@@ -404,6 +411,7 @@ private:
                                           VectorSelection &selected,
                                           double &durationMs);
 
+  std::shared_ptr<JobAdmission> Admission_;
   Tasks *Pool_ = nullptr;
   std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation_;
   std::vector<std::shared_ptr<const void>> PreparingOriginals_;
@@ -429,6 +437,7 @@ private:
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
+  size_t AdmissionDeferred_ = 0;
   HeightFailure LastHeightFailure_;
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;

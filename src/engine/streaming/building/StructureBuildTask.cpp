@@ -476,6 +476,10 @@ struct StructureBuildTask::NativeProducts {
 };
 
 struct StructureBuildTask::Payload {
+  explicit Payload(JobAdmission::Lease admission) : Admission(std::move(admission)) {
+    assert(Admission);
+  }
+
   struct Completion {
     explicit Completion(std::shared_ptr<Payload> value) : Value(std::move(value)) {}
 
@@ -501,6 +505,7 @@ struct StructureBuildTask::Payload {
     bool Started = false;
   };
 
+  JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
   std::shared_ptr<const Ground::HeightField> Heights;
@@ -518,13 +523,14 @@ struct StructureBuildTask::Payload {
   std::atomic_bool Finished{false};
 };
 
-StructureBuildTask::StructureBuildTask(uint32_t tile,
+StructureBuildTask::StructureBuildTask(JobAdmission::Lease admission,
+                                       uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
                                        std::unique_ptr<Output> output,
                                        std::unique_ptr<MeshScratch> scratch,
                                        std::optional<ProofRequest> proof)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(raw);
   Payload_->Heights = std::move(heights);
   Payload_->Result = std::move(output);
@@ -534,12 +540,13 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
 }
 
 StructureBuildTask::StructureBuildTask(
+    JobAdmission::Lease admission,
     uint32_t tile,
     std::shared_ptr<const Generators::PreparedStructureTile> base,
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(view);
   Payload_->Base = std::move(base);
   Payload_->Result = std::move(output);
@@ -552,12 +559,13 @@ StructureBuildTask::StructureBuildTask(
 }
 
 StructureBuildTask::StructureBuildTask(
+    JobAdmission::Lease admission,
     uint32_t tile,
     std::shared_ptr<const Generators::PreparedBuildingBasis> basis,
     std::unique_ptr<Generators::RawTile> view,
     std::unique_ptr<Output> output,
     std::unique_ptr<MeshScratch> scratch)
-    : Tile_(tile), Payload_(std::make_shared<Payload>()) {
+    : Tile_(tile), Payload_(std::make_shared<Payload>(std::move(admission))) {
   Payload_->Raw = std::move(view);
   Payload_->Basis = std::move(basis);
   Payload_->Result = std::move(output);

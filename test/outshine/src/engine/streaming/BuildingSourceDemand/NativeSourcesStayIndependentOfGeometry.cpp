@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "BuildingSourceDemand.h"
 #include "BuiltinSourceProviders.h"
@@ -199,7 +200,7 @@ void ReboundLookup(bool present, bool collected) {
   if (!fixture.Stack.Opened()) { return; }
   if (present) { CHECK(fixture.Generate(31), "the first source exists before its metadata read"); }
   StructureBuildQueue queue;
-  queue.Opens(&fixture.Worker, nullptr);
+  queue.Opens(&fixture.Worker, nullptr, outshine::Test::JobAdmissions());
   const auto pending = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
   using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
   CHECK(pending && pending->Where == Phase::Pending, "the real request lookup runs off thread");

@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "NativeBasisLookupFixture.h"
 #include "Check.h"
 #include <atomic>
@@ -82,7 +83,7 @@ void Discard() {
   const std::weak_ptr<Generators::PreparedBuildingAssets> lifetime = env.Stack.BuildingAssets();
   auto pool = std::make_unique<Tasks>(1);
   auto queue = std::make_unique<StructureBuildQueue>();
-  queue->Opens(pool.get(), nullptr);
+  queue->Opens(pool.get(), nullptr, outshine::Test::JobAdmissions());
   WorkerBlock held;
   CHECK(held.Start(*pool), "the worker is held before discard");
   const auto pending = Query(*queue, env);
@@ -119,7 +120,7 @@ void ConcurrentClear() {
   if (!Open(env)) { return; }
   Tasks pool(2);
   StructureBuildQueue queue;
-  queue.Opens(&pool, nullptr);
+  queue.Opens(&pool, nullptr, outshine::Test::JobAdmissions());
   for (int iteration = 0; iteration < 96; ++iteration) {
     const auto query = Query(queue, env);
     CHECK(query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,

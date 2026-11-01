@@ -1,4 +1,5 @@
 #include "Tasks.h"
+#include "JobAdmissionFixture.h"
 #include "Check.h"
 #include "StructureBuildTask.h"
 #include "BuildingMesh.h"
@@ -68,7 +69,8 @@ StructureBuildTask Task(const StructureMesher &mesher,
                         bool invalidRing = false) {
   auto raw = Raw(detail);
   if (invalidRing) { raw->Structures[0].PointCount = 2; }
-  return {3,
+  return {outshine::Test::JobLease(),
+          3,
           std::move(raw),
           Heights(),
           std::make_unique<StructureBuildTask::Output>(),

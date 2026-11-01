@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "test/harness/shared/BuildingAssetFixture.h"
 #include <span>
 #include <string_view>
@@ -96,7 +97,8 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
   const auto mesherOwner = std::make_shared<BuildingMesh>();
   const auto &mesher = *mesherOwner;
   Tasks pool(1);
-  StructureBuildTask task(0,
+  StructureBuildTask task(outshine::Test::JobLease(),
+                          0,
                           *basis,
                           std::make_unique<RawTile>(view),
                           std::make_unique<StructureBuildTask::Output>(),
@@ -112,7 +114,8 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
         "a cached LOD and its owned contacts load with no full plan product or source inputs");
   RawTile moved = view;
   moved.Eye.LongitudeDeg += 0.01;
-  StructureBuildTask replay(0,
+  StructureBuildTask replay(outshine::Test::JobLease(),
+                            0,
                             *basis,
                             std::make_unique<RawTile>(moved),
                             std::make_unique<StructureBuildTask::Output>(),
@@ -126,7 +129,8 @@ void NativeLODWithoutPlans(const std::filesystem::path &root,
             cache->Costs().ReadBytes == before.ReadBytes,
         "moved camera loads an existing intrinsic LOD without reopening plans or source inputs");
   moved.ClusterTriangles = 64;
-  StructureBuildTask miss(0,
+  StructureBuildTask miss(outshine::Test::JobLease(),
+                          0,
                           *basis,
                           std::make_unique<RawTile>(moved),
                           std::make_unique<StructureBuildTask::Output>(),
@@ -682,7 +686,8 @@ void WorkerBake(const PreparedStructureTile &base,
   const auto &mesher = *mesherOwner;
   Tasks worker(1);
   auto held = std::make_shared<const PreparedStructureTile>(base);
-  StructureBuildTask task(0,
+  StructureBuildTask task(outshine::Test::JobLease(),
+                          0,
                           held,
                           std::make_unique<RawTile>(view),
                           std::make_unique<StructureBuildTask::Output>(),

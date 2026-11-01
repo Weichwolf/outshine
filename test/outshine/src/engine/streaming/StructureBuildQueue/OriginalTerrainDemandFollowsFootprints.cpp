@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "StructureBuildQueue.h"
@@ -94,7 +95,7 @@ int main() {
   if (!source) { return Report(); }
   Tasks tasks(1);
   StructureBuildQueue queue;
-  queue.Opens(&tasks, nullptr);
+  queue.Opens(&tasks, nullptr, outshine::Test::JobAdmissions());
   const auto prepared = Prepare(queue, source, zoom);
   CHECK(prepared && *prepared, "actual native preparation admits sparse geometry at full zoom");
   const auto tiles = queue.OriginalHeightTiles(zoom);

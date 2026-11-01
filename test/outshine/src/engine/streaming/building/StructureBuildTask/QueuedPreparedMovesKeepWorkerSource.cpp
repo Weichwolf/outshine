@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Tasks.h"
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
@@ -56,13 +57,18 @@ void Run(const std::shared_ptr<const Generators::PreparedStructureTile> &base, T
   {
     auto view = std::make_unique<Generators::RawTile>();
     view->RequestedDetail = LevelOfDetail::Shell;
-    StructureBuildTask original(
-        1, base, std::move(view), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
+    StructureBuildTask original(outshine::Test::JobLease(),
+                                1,
+                                base,
+                                std::move(view),
+                                std::make_unique<StructureBuildTask::Output>(),
+                                mesher.Scratch());
     original.Start(pool, mesherOwner);
     if (transfer == Transfer::Construct) {
       moved.emplace(std::move(original));
     } else {
-      moved.emplace(2,
+      moved.emplace(outshine::Test::JobLease(),
+                    2,
                     base,
                     std::make_unique<Generators::RawTile>(),
                     std::make_unique<StructureBuildTask::Output>(),

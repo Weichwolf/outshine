@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "BuildingQueueFixture.h"
 #include "Check.h"
 #include <atomic>
@@ -44,7 +45,7 @@ bool Start(BuildingQueueFixture &fixture, const std::shared_ptr<CountingMesher> 
     }
   }
   if (!fixture.Open(buildings)) { return false; }
-  fixture.Queue.Opens(&fixture.Pool, mesherOwner);
+  fixture.Queue.Opens(&fixture.Pool, mesherOwner, outshine::Test::JobAdmissions());
   auto &prints = fixture.Stack.Footprints();
   CHECK(fixture.Queue.Posts(fixture.Stack,
                             prints,

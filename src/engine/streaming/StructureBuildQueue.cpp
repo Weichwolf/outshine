@@ -37,7 +37,6 @@ namespace outshine {
 namespace {
 
 constexpr uint8_t kPolygonFeature = 3;
-constexpr size_t kBuildsPerThread = 1;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 [[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
@@ -472,6 +471,15 @@ void StructureBuildQueue::RecycleOutput(StructureBuildTask &task) {
   IdleOut_.push_back(std::move(output));
 }
 
+std::optional<JobAdmission::Lease> StructureBuildQueue::TryAdmitBuild() {
+  assert(Pool_ != nullptr && Admission_);
+  const int maximum = std::min(Pool_->Threads(), Admission_->Maximum());
+  if (Queue_.size() >= static_cast<size_t>(maximum)) { return std::nullopt; }
+  auto admission = Admission_->TryAcquire();
+  if (!admission) { ++AdmissionDeferred_; }
+  return admission;
+}
+
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   if (build.Tasks != 0 && !build.Task.CanResume()) { return; }
   if (build.Tasks == 0) {
@@ -611,6 +619,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
     return 0;
   }
   const auto &tiles = Originals_[tile].HeightTiles;
+  auto admission = TryAdmitBuild();
+  if (!admission) { return 0; }
   const auto gather = [&](bool fine) -> std::optional<std::vector<Ground::HeightField::Block>> {
     std::vector<Ground::HeightField::Block> blocks;
     blocks.reserve(tiles.size());
@@ -666,8 +676,12 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   auto output = Borrowed(IdleOut_);
   *output = {};
   Queue_.push_back({.Revision = revision,
-                    .Task = StructureBuildTask(
-                        tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+                    .Task = StructureBuildTask(std::move(*admission),
+                                               tile,
+                                               std::move(raw),
+                                               std::move(heights),
+                                               std::move(output),
+                                               LentScratch()),
                     .SourceKey = sourceKey,
                     .Replacement = accepted != nullptr,
                     .ReservationOwner = prints.ReservationOwner()});
@@ -707,7 +721,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
 }
 
 StructureBuildQueue::QueuedBuild
-StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
+StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
+                                 Ground::SurfacePreparation &stack,
                                  const ::outshine::Generators::Osm::BuildingField &prints,
                                  ::outshine::Generators::Osm::TileAdmission::Next next,
                                  BakeRevision revision,
@@ -741,12 +756,14 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
   *output = {};
   output->CacheHit = selected.Basis != nullptr;
   output->CacheReadMs = selected.ReadMs;
-  auto task = selected.Basis ? StructureBuildTask(next.Tile,
+  auto task = selected.Basis ? StructureBuildTask(std::move(admission),
+                                                  next.Tile,
                                                   std::move(selected.Basis),
                                                   std::move(raw),
                                                   std::move(output),
                                                   LentScratch())
-                             : StructureBuildTask(next.Tile,
+                             : StructureBuildTask(std::move(admission),
+                                                  next.Tile,
                                                   std::move(raw),
                                                   std::move(selected.Heights),
                                                   std::move(output),
@@ -904,10 +921,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
   const ::outshine::Generators::Osm::OsmField &vectors = *stack.Vectors();
   PrepareViewRefinement(prints, eye, requirement, purpose, cellReady);
   size_t posted = 0;
-  const size_t inFlightMost =
-      std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   size_t remaining = candidatesMost;
-  while (Queue_.size() < inFlightMost) {
+  while (auto admission = TryAdmitBuild()) {
     VectorSelection selected;
     double heightResolutionMs = 0.0;
     const auto groundStands = [&](::outshine::Generators::Osm::FeatureRun over) {
@@ -959,7 +974,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                                   : selected.Heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     selected.StreetDigest = *streetDigest;
-    Queue_.push_back(VectorBuild(stack, prints, *next, revision, std::move(selected), replacement));
+    Queue_.push_back(VectorBuild(
+        std::move(*admission), stack, prints, *next, revision, std::move(selected), replacement));
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     if (replacement) { prints.AdvanceRefinement(); }

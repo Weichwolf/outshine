@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "SourceBuildingFixture.h"
 #include <cstddef>
 #include <cstdint>
@@ -310,7 +311,7 @@ int main() {
   const auto mesherOwner = std::make_shared<Generators::BuildingMesh>();
 
   StructureBuildQueue queue;
-  queue.Opens(&pool, mesherOwner);
+  queue.Opens(&pool, mesherOwner, outshine::Test::JobAdmissions());
   const outshine::Generators::Osm::StructurePolicy policy{
       .Heights = {.StoreyHeightM = 3, .BodyHeightM = 9}, .PointWidthM = 2, .PointsMost = 64};
   bool prepared = false;

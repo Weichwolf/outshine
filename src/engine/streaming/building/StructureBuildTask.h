@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "HeightField.h"
+#include "JobAdmission.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
 
@@ -48,18 +49,21 @@ public:
     uint64_t PublicationAttempts = 0;
   };
 
-  StructureBuildTask(uint32_t tile,
+  StructureBuildTask(JobAdmission::Lease admission,
+                     uint32_t tile,
                      std::unique_ptr<Generators::RawTile> raw,
                      std::shared_ptr<const Ground::HeightField> heights,
                      std::unique_ptr<Output> output,
                      std::unique_ptr<MeshScratch> scratch,
                      std::optional<ProofRequest> proof = std::nullopt);
-  StructureBuildTask(uint32_t tile,
+  StructureBuildTask(JobAdmission::Lease admission,
+                     uint32_t tile,
                      std::shared_ptr<const Generators::PreparedStructureTile> base,
                      std::unique_ptr<Generators::RawTile> view,
                      std::unique_ptr<Output> output,
                      std::unique_ptr<MeshScratch> scratch);
-  StructureBuildTask(uint32_t tile,
+  StructureBuildTask(JobAdmission::Lease admission,
+                     uint32_t tile,
                      std::shared_ptr<const Generators::PreparedBuildingBasis> basis,
                      std::unique_ptr<Generators::RawTile> view,
                      std::unique_ptr<Output> output,

@@ -123,6 +123,7 @@ struct EngineServices {
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Compute;
   std::unique_ptr<Tasks> Io;
+  std::shared_ptr<JobAdmission> StructureBakes;
   std::shared_ptr<AssetPipeline> Publications;
   std::unique_ptr<AssetCacheReclaimer> CacheReclaimer;
 };

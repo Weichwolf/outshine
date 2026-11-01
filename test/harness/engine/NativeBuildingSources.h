@@ -7,6 +7,7 @@
 #include "BuildingInputs.h"
 #include "HeightField.h"
 #include "Check.h"
+#include "JobAdmissionFixture.h"
 #include "Tasks.h"
 #include <array>
 #include <atomic>
@@ -60,7 +61,7 @@ struct Fixture {
     }
     Stack.Footprints().AnchorAt(TangentFrame::At(Eye).OriginEcef());
     Stack.Footprints().TilesSpan(kSpan);
-    Queue.Opens(&Worker, nullptr);
+    Queue.Opens(&Worker, nullptr, outshine::Test::JobAdmissions());
     return true;
   }
 

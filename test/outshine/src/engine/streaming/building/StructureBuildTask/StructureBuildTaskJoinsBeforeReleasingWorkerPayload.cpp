@@ -1,3 +1,4 @@
+#include "JobAdmissionFixture.h"
 #include "Tasks.h"
 #include <atomic>
 #include <chrono>
@@ -103,8 +104,12 @@ void CancelDuringMesh() {
   Tasks pool(1);
   const auto mesherOwner = std::make_shared<BlockingMesher>();
   const auto &mesher = *mesherOwner;
-  StructureBuildTask task(
-      3, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
+  StructureBuildTask task(outshine::Test::JobLease(),
+                          3,
+                          Raw(),
+                          Heights(),
+                          std::make_unique<StructureBuildTask::Output>(),
+                          mesher.Scratch());
   task.Start(pool, mesherOwner);
   CHECK(mesher.WaitsInMesh(), "the real bake worker holds its scratch during meshing");
   StructureBuildTask stopped(std::move(task));
@@ -112,8 +117,12 @@ void CancelDuringMesh() {
   CHECK(stopped.Running() && !task.Running(),
         "cancellation fixture transfers a running owner before shutdown");
   if (!task.Running()) { task.RequestStop(); }
-  task = StructureBuildTask(
-      5, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), mesher.Scratch());
+  task = StructureBuildTask(outshine::Test::JobLease(),
+                            5,
+                            Raw(),
+                            Heights(),
+                            std::make_unique<StructureBuildTask::Output>(),
+                            mesher.Scratch());
   std::atomic_bool joined{false};
   std::atomic_bool stopRequested{false};
   std::thread clear([&] {
@@ -140,7 +149,8 @@ void TransferRunningPayload() {
   const auto &movingMesher = *movingMesherOwner;
   auto movedHeights = Heights();
   const std::weak_ptr<const Ground::HeightField> releasedHeights = movedHeights;
-  StructureBuildTask moving(7,
+  StructureBuildTask moving(outshine::Test::JobLease(),
+                            7,
                             Raw(),
                             std::move(movedHeights),
                             std::make_unique<StructureBuildTask::Output>(),
@@ -162,11 +172,16 @@ void TransferRunningPayload() {
     moving.Join();
     CHECK(!moving.TakeCompletion(), "empty source cannot consume a live completion");
   }
-  moving = StructureBuildTask(
-      8, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
+  moving = StructureBuildTask(outshine::Test::JobLease(),
+                              8,
+                              Raw(),
+                              Heights(),
+                              std::make_unique<StructureBuildTask::Output>(),
+                              movingMesher.Scratch());
   auto overwritten = Heights();
   const std::weak_ptr<const Ground::HeightField> releasedDestination = overwritten;
-  StructureBuildTask assigned(9,
+  StructureBuildTask assigned(outshine::Test::JobLease(),
+                              9,
                               Raw(),
                               std::move(overwritten),
                               std::make_unique<StructureBuildTask::Output>(),
@@ -183,8 +198,12 @@ void TransferRunningPayload() {
     constructed.Join();
     CHECK(!constructed.TakeCompletion(), "assigned-from source is safe to stop/join/poll");
   }
-  constructed = StructureBuildTask(
-      10, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
+  constructed = StructureBuildTask(outshine::Test::JobLease(),
+                                   10,
+                                   Raw(),
+                                   Heights(),
+                                   std::make_unique<StructureBuildTask::Output>(),
+                                   movingMesher.Scratch());
   auto &self = assigned;
   assigned = std::move(self);
   CHECK(assigned.Running() && &assigned.Raw() == raw,
@@ -195,8 +214,12 @@ void TransferRunningPayload() {
         "stopping moved-from owners does not cancel the transferred worker");
   CHECK(!assigned.TakeCompletion() && !releasedHeights.expired(),
         "joined completion is consumed once while its owner retains height input");
-  assigned = StructureBuildTask(
-      11, Raw(), Heights(), std::make_unique<StructureBuildTask::Output>(), movingMesher.Scratch());
+  assigned = StructureBuildTask(outshine::Test::JobLease(),
+                                11,
+                                Raw(),
+                                Heights(),
+                                std::make_unique<StructureBuildTask::Output>(),
+                                movingMesher.Scratch());
   CHECK(releasedHeights.expired(), "completed payload releases after its sole owner replaces it");
 }
 
@@ -204,7 +227,8 @@ void TransferPartialCompletion() {
   Tasks pool(1);
   const auto unsupportedOwner = std::make_shared<UnsupportedMesher>();
   const auto &unsupported = *unsupportedOwner;
-  StructureBuildTask ranged(4,
+  StructureBuildTask ranged(outshine::Test::JobLease(),
+                            4,
                             Raw(257),
                             Heights(),
                             std::make_unique<StructureBuildTask::Output>(),
