@@ -7,6 +7,7 @@
 #include <string_view>
 #include <cstdint>
 #include <Engine.h>
+#include "ScenarioPreparation.h"
 #include "AssetCacheReclaimer.h"
 #include "FrameCoordinator.h"
 #include "Units.h"
@@ -369,9 +370,9 @@ struct Engine::State {
   FrameCoordinator Frames;
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
-  std::optional<Holds<std::unique_ptr<ScenarioRuntime>>> PendingDeclaration;
   EngineServices Services;
   std::unique_ptr<WorldRegionState> WorldOwner = std::make_unique<WorldRegionState>();
+  std::optional<Holds<std::unique_ptr<ScenarioPreparation>>> PendingDeclaration;
 
   [[nodiscard]] decltype(auto) World(this auto &self) noexcept {
     return std::forward_like<decltype(self)>(*self.WorldOwner);

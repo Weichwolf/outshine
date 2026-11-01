@@ -553,18 +553,18 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Error.clear();
     return {};
   }
-  ScenarioPreparation candidate;
-  candidate.Declared = scenario;
-  candidate.Carried = DescribeScenarioDeclarations(scenario);
-  candidate.Rendering = std::move(declared);
-  candidate.Views = std::move(*views);
-  candidate.Bindings = std::move(bindings);
-  candidate.Simulation = std::move(*simulation);
-  candidate.Sources = std::move(*sources);
-  candidate.View = *view;
-  if (auto reused = candidate.TryReuse(S_->Picture, S_->Session, S_->Error)) {
+  auto candidate = std::make_unique<ScenarioPreparation>();
+  candidate->Declared = scenario;
+  candidate->Carried = DescribeScenarioDeclarations(scenario);
+  candidate->Rendering = std::move(declared);
+  candidate->Views = std::move(*views);
+  candidate->Bindings = std::move(bindings);
+  candidate->Simulation = std::move(*simulation);
+  candidate->Sources = std::move(*sources);
+  candidate->View = *view;
+  if (auto reused = candidate->TryReuse(S_->Picture, S_->Session, S_->Error)) {
     if (*reused) {
-      S_->PendingDeclaration.emplace(std::move(candidate.Simulation));
+      S_->PendingDeclaration.emplace(std::move(candidate));
       S_->RouteCamera.reset();
       S_->CameraPosePending = false;
     }
@@ -572,38 +572,38 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
 
   auto resources =
-      S_->PrepareWorldResources(candidate.Declared, candidate.Rendering, candidate.Sources);
+      S_->PrepareWorldResources(candidate->Declared, candidate->Rendering, candidate->Sources);
   if (!resources) {
     S_->PendingDeclaration.emplace(std::unexpected(std::move(resources.error())));
     S_->Error.clear();
     return {};
   }
-  candidate.World = std::move(*resources);
-  auto prepared = PrepareRuntimeDeclaration(candidate.Declared,
+  candidate->World = std::move(*resources);
+  auto prepared = PrepareRuntimeDeclaration(candidate->Declared,
                                             S_->Services.Generators,
-                                            *candidate.World,
+                                            *candidate->World,
                                             S_->Picture,
-                                            candidate.Rendering,
-                                            candidate.View);
+                                            candidate->Rendering,
+                                            candidate->View);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  candidate.Runtime = std::move(*prepared);
+  candidate->Runtime = std::move(*prepared);
   if (const auto projection =
-          candidate.Runtime.ValidateGroundView(candidate.Declared, S_->Picture.Frame.HeightPx);
+          candidate->Runtime.ValidateGroundView(candidate->Declared, S_->Picture.Frame.HeightPx);
       !projection) {
     S_->PendingDeclaration.emplace(std::unexpected(projection.error()));
     S_->Error.clear();
     return {};
   }
-  if (const auto published = candidate.Publish(S_->Picture, S_->Session, S_->WorldOwner);
+  if (const auto published = candidate->Publish(S_->Picture, S_->Session, S_->WorldOwner);
       !published) {
     S_->Error = published.error();
     return std::unexpected(S_->Error);
   }
   S_->Error.clear();
-  S_->PendingDeclaration.emplace(std::move(candidate.Simulation));
+  S_->PendingDeclaration.emplace(std::move(candidate));
   S_->RouteCamera.reset();
   S_->CameraPosePending = false;
   return {};

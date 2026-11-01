@@ -167,10 +167,10 @@ Result Engine::assemble() {
     return std::unexpected(S_->Error);
   }
   const Scenario::Document &declared = S_->Session.Declared;
-  auto prepared =
-      S_->PendingDeclaration
-          ? Holds<std::unique_ptr<ScenarioRuntime>>{std::move(S_->PendingDeclaration->value())}
-          : ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
+  auto prepared = S_->PendingDeclaration
+                      ? Holds<std::unique_ptr<ScenarioRuntime>>{std::move(
+                            S_->PendingDeclaration->value()->Simulation)}
+                      : ScenarioRuntime::Prepare(declared, S_->Session.DeclarationRevision);
   if (!prepared) {
     S_->PendingDeclaration.reset();
     S_->Error = std::move(prepared.error());
