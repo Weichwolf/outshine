@@ -55,13 +55,23 @@ std::expected<PreparedUrbanAreas::Loaded, std::string>
 PreparedUrbanAreas::Load(const std::string &request, const Definition &input) {
   const std::scoped_lock lock(CacheMutex_);
   auto record = Cache_->FindRequest(request);
-  if (!record) { return std::unexpected("could not find native urban-area asset"); }
+  if (!record) {
+    if (record.error() == AssetCacheError::Busy) {
+      return Loaded{.Stage = Loaded::Phase::Deferred, .Area = {}, .Key = {}};
+    }
+    return std::unexpected("could not find native urban-area asset");
+  }
   if (!*record) {
     ++Misses_;
     return Loaded{};
   }
   auto loaded = Cache_->Load((**record).Key, kUrbanAreaBytesMost);
-  if (!loaded) { return std::unexpected("could not load native urban-area asset"); }
+  if (!loaded) {
+    if (loaded.error() == AssetCacheError::Busy) {
+      return Loaded{.Stage = Loaded::Phase::Deferred, .Area = {}, .Key = {}};
+    }
+    return std::unexpected("could not load native urban-area asset");
+  }
   if (!*loaded) {
     ++Misses_;
     return Loaded{};

@@ -88,6 +88,8 @@ public:
 
 private:
   struct Loaded {
+    enum class Phase : uint8_t { Complete, Deferred };
+    Phase Stage = Phase::Complete;
     std::shared_ptr<const UrbanArea> Area;
     std::string Key;
   };
@@ -99,15 +101,17 @@ private:
   };
 
   struct Work {
-    enum class Phase : uint8_t { Lookup, Source, Generate };
+    enum class Phase : uint8_t { Lookup, LookupRetry, Source, Generate };
     Definition Input;
     std::vector<std::weak_ptr<const uint8_t>> Owners;
     std::array<std::unique_ptr<OsmField>, 2> Layouts;
     std::array<std::shared_ptr<const OsmField>, 2> Sources;
     size_t SourceCount = 0;
     Phase Stage = Phase::Lookup;
+    std::chrono::steady_clock::time_point RetryAt;
+    std::chrono::milliseconds RetryDelay{1};
     Tasks::Handle Task = Tasks::kNoTask;
-    std::expected<Loaded, std::string> Result;
+    std::expected<Loaded, std::string> Result{Loaded{}};
   };
 
   PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
@@ -116,6 +120,7 @@ private:
                      std::shared_ptr<PreparedOsmTiles> prepared,
                      Budget budget);
   void RetireUnused();
+  [[nodiscard]] bool Start(const std::string &key, const std::shared_ptr<Work> &work);
   static void Observe(Work &work, const std::shared_ptr<const uint8_t> &owner);
   [[nodiscard]] static Data::TileId Parent(Data::TileId owner) noexcept;
   [[nodiscard]] std::string RequestKey(const Definition &input) const;

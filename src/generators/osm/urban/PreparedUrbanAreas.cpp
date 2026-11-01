@@ -124,16 +124,18 @@ PreparedUrbanAreas::Acquire(Data::SourceReader &reader, const Request &request) 
   auto work = std::make_shared<Work>();
   work->Input = input;
   Observe(*work, request.Demand_);
+  if (!Start(key, work)) { return std::unexpected("urban-area lookup task was not accepted"); }
+  Pending_.emplace(key, std::move(work));
+  return SourceDelivery{};
+}
+
+bool PreparedUrbanAreas::Start(const std::string &key, const std::shared_ptr<Work> &work) {
   work->Task = Compute_.Post([this, work, key] {
     work->Result = Stop_.stop_requested()
                        ? std::unexpected(std::string("urban-area preparation cancelled"))
                        : Load(key, work->Input);
   });
-  if (work->Task == Tasks::kNoTask) {
-    return std::unexpected("urban-area lookup task was not accepted");
-  }
-  Pending_.emplace(key, std::move(work));
-  return SourceDelivery{};
+  return work->Task != Tasks::kNoTask;
 }
 
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanAreas::Advance(
@@ -150,7 +152,21 @@ std::expected<PreparedUrbanAreas::SourceDelivery, std::string> PreparedUrbanArea
     if (work->Stage == Work::Phase::Generate) {
       return std::unexpected("urban-area generation returned no complete asset");
     }
-    work->Stage = Work::Phase::Source;
+    if (work->Result->Stage == Loaded::Phase::Deferred) {
+      ++Deferred_;
+      work->Stage = Work::Phase::LookupRetry;
+      work->RetryAt = std::chrono::steady_clock::now() + work->RetryDelay;
+      work->RetryDelay = std::min(work->RetryDelay * 2, std::chrono::milliseconds(16));
+    } else {
+      work->Stage = Work::Phase::Source;
+    }
+  }
+  if (work->Stage == Work::Phase::LookupRetry) {
+    if (std::chrono::steady_clock::now() >= work->RetryAt) {
+      work->Stage = Work::Phase::Lookup;
+      if (!Start(key, work)) { return std::unexpected("urban-area lookup retry was not accepted"); }
+    }
+    return SourceDelivery{};
   }
   auto sources = GatherSources(reader, *work);
   if (!sources || sources->Status != State::Ready) { return sources; }
