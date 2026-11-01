@@ -12,12 +12,12 @@ namespace outshine {
 std::expected<std::optional<Vec3>, std::string_view>
 Engine::State::GeodeticCameraPosition(const Scenario::View &view) const {
   const auto origin = Session.Declared.Ground.Origin;
-  const auto *ground = World.Surface().Opened() ? &World.Surface().Ground() : nullptr;
+  const auto *ground = World().Surface().Opened() ? &World().Surface().Ground() : nullptr;
   std::optional<GroundSample> sample;
   if (view.Geographic.SamplesHeight && ground != nullptr) {
     sample = ground->At({.LongitudeDeg = view.Geographic.Geodetic.LongitudeDeg,
                          .LatitudeDeg = view.Geographic.Geodetic.LatitudeDeg},
-                        World.Surface().TerrainRenderZoom());
+                        World().Surface().TerrainRenderZoom());
   }
   return ResolveGeodeticCamera(
       view,

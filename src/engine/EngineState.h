@@ -376,7 +376,12 @@ struct Engine::State {
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   std::optional<Holds<ScenarioPreparation>> PendingDeclaration;
   EngineServices Services;
-  WorldRegionState World;
+  std::unique_ptr<WorldRegionState> WorldOwner = std::make_unique<WorldRegionState>();
+
+  [[nodiscard]] decltype(auto) World(this auto &self) noexcept {
+    return std::forward_like<decltype(self)>(*self.WorldOwner);
+  }
+
   World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;
   SimulationClock Ticking;
@@ -549,7 +554,7 @@ struct Engine::State {
   [[nodiscard]] bool PollWeather();
 
   [[nodiscard]] bool WeatherRunning() const noexcept {
-    return World.Weather && World.Weather->Running();
+    return World().Weather && World().Weather->Running();
   }
 
   [[nodiscard]] std::string_view WeatherBlocker() const noexcept;

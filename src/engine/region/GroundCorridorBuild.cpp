@@ -171,9 +171,9 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   const Generators::Corridors::Site site{
       .Vectors = sources.Vectors.get(),
       .Ways = sources.Ways,
-      .Materials = World.Surface().Materials(),
-      .Vegetation = World.Surface().SurfaceRecipes(),
-      .Ground = &World.Surface().Ground(),
+      .Materials = World().Surface().Materials(),
+      .Vegetation = World().Surface().SurfaceRecipes(),
+      .Ground = &World().Surface().Ground(),
       .Network = build.StreetGraph.get(),
       .Standing = standing,
       .Draped = drapedOver,
@@ -193,8 +193,8 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     return true;
   }
   const bool planning = !state.CorridorsPlanned();
-  const auto paved =
-      AdvanceRoadProducts(World.Builtins.Corridors(), state, site, build.Ground, corridors, notes);
+  const auto paved = AdvanceRoadProducts(
+      World().Builtins.Corridors(), state, site, build.Ground, corridors, notes);
   state.SamplesProductPeak();
   if (!paved) {
     Error = paved.error();
@@ -202,7 +202,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   if (fieldMisses > 0) {
     Error = TerrainMissMessage(
-        firstFieldMiss, fieldMisses, coverage, World.Surface().Ground().BlockZoom(), sources);
+        firstFieldMiss, fieldMisses, coverage, World().Surface().Ground().BlockZoom(), sources);
     return false;
   }
   if (!*paved) {
@@ -219,8 +219,8 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
         AcceptRoadPlan(state,
                        site,
                        Services.Compute.get(),
-                       World.Surface().RoadAssets(),
-                       World.Surface().RoadAssets() ? RoadPublications(Services) : nullptr);
+                       World().Surface().RoadAssets(),
+                       World().Surface().RoadAssets() ? RoadPublications(Services) : nullptr);
     if (!accepted) {
       Error = accepted.error();
       return false;
@@ -256,7 +256,7 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
       return GroundBuildProgress::Failed;
     }
     auto restore = RoadPageRestoration::Begin(*Services.Compute,
-                                              World.Surface().RoadAssets(),
+                                              World().Surface().RoadAssets(),
                                               state.RoadManifest(),
                                               std::nullopt,
                                               state.SurfaceManifestKey());

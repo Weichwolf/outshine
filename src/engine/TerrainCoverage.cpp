@@ -19,7 +19,7 @@ Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
   Around over;
   over.LatitudeDeg = focus.LatitudeDeg;
   over.LongitudeDeg = focus.LongitudeDeg;
-  over.Zoom = World.Surface().TerrainRenderZoom();
+  over.Zoom = World().Surface().TerrainRenderZoom();
   {
     const double tileSpanM =
         40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
@@ -34,21 +34,21 @@ Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
 bool Engine::State::InspectTerrainCoverage() {
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared) { return true; }
-  if (!Picture.Standing || !World.Surface().Opened()) { return true; }
+  if (!Picture.Standing || !World().Surface().Opened()) { return true; }
   Around over = TerrainCoverageAt(CurrentGeographicFocus());
   over.Access = TerrainTileAccess::Inspect;
-  over.PlayableOnly = !World.GroundPublished.Current();
-  World.Surface().Pool().Focus(
+  over.PlayableOnly = !World().GroundPublished.Current();
+  World().Surface().Pool().Focus(
       {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
-  auto asked = World.Builtins.Covering().Lay(World.Surface().Pool(), over);
+  auto asked = World().Builtins.Covering().Lay(World().Surface().Pool(), over);
   if (!asked) {
     Error = asked.error();
     return false;
   }
-  World.AskedPending = asked->Pending;
-  World.AskedWanted = asked->Tiles;
+  World().AskedPending = asked->Pending;
+  World().AskedWanted = asked->Tiles;
   {
-    const Ground::TilePool::Ledger kept = World.Surface().Pool().Counters();
+    const Ground::TilePool::Ledger kept = World().Surface().Pool().Counters();
     Published.RecordMetric(
         "decoded raster reads", static_cast<double>(kept.Decoded.Reads), "reads");
     Published.RecordMetric("decoded raster hits", static_cast<double>(kept.Decoded.Hits), "reads");

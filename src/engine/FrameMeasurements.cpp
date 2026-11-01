@@ -22,7 +22,7 @@ void Engine::State::PublishResourcePayloadMeasurements() {
                          Services.StructureBakes ? Services.StructureBakes->Maximum() : 0,
                          "jobs");
   Published.RecordMetric("cost.building_bakes.admission_deferred",
-                         static_cast<double>(World.StructureBuilds.AdmissionDeferred()),
+                         static_cast<double>(World().StructureBuilds.AdmissionDeferred()),
                          "asks");
   Published.RecordMetric("cost.building_contexts.admitted",
                          Services.StructureContexts ? Services.StructureContexts->Active() : 0,
@@ -31,7 +31,7 @@ void Engine::State::PublishResourcePayloadMeasurements() {
                          Services.StructureContexts ? Services.StructureContexts->Maximum() : 0,
                          "contexts");
   Published.RecordMetric("cost.building_contexts.admission_deferred",
-                         static_cast<double>(World.StructureBuilds.ContextAdmissionDeferred()),
+                         static_cast<double>(World().StructureBuilds.ContextAdmissionDeferred()),
                          "asks");
   Published.RecordMetric(
       "cost.surface_cache.connections",
@@ -165,7 +165,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
     Published.RecordMetric("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
     Published.RecordMetric("tile restand time, most", Cost.AdvanceAt.MostMs(), "ms");
-    const Ground::SurfacePreparationMetrics &restand = World.Surface().WorstAdvance();
+    const Ground::SurfacePreparationMetrics &restand = World().Surface().WorstAdvance();
     Published.RecordMetric("worst tile restand: total", restand.TotalMs, "ms");
     Published.RecordMetric("worst tile restand: classification", restand.ClassificationMs, "ms");
     Published.RecordMetric("worst tile restand: vectors", restand.VectorsMs, "ms");
@@ -183,7 +183,7 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("worst tile restand: streets", restand.StreetsMs, "ms");
     Published.RecordMetric("worst tile restand: water", restand.WaterMs, "ms");
     const ::outshine::Generators::Osm::WaterField::IngestMetrics &water =
-        World.Surface().WorstWaterIngest();
+        World().Surface().WorstWaterIngest();
     Published.RecordMetric("worst water ingest: total", water.TotalMs, "ms");
     Published.RecordMetric("worst water ingest: tile admission", water.AdmissionMs, "ms");
     Published.RecordMetric("worst water ingest: height validation", water.ValidationMs, "ms");
@@ -210,16 +210,16 @@ void Engine::State::PublishAdvanceMeasurements() {
     Published.RecordMetric("structure landing commit time, most", Cost.BakeCommit.MostMs(), "ms");
     Published.RecordMetric("structure posting time, most", Cost.BakePosting.MostMs(), "ms");
     Published.RecordMetric("structure candidate selection time, most",
-                           World.StructureBuilds.SlowestCandidateSelectionMs(),
+                           World().StructureBuilds.SlowestCandidateSelectionMs(),
                            "ms");
     Published.RecordMetric("structure height resolution time, most",
-                           World.StructureBuilds.SlowestHeightResolutionMs(),
+                           World().StructureBuilds.SlowestHeightResolutionMs(),
                            "ms");
     Published.RecordMetric("structure raw extraction time, most",
-                           World.StructureBuilds.SlowestRawExtractionMs(),
+                           World().StructureBuilds.SlowestRawExtractionMs(),
                            "ms");
     Published.RecordMetric(
-        "structure task posting time, most", World.StructureBuilds.SlowestTaskPostingMs(), "ms");
+        "structure task posting time, most", World().StructureBuilds.SlowestTaskPostingMs(), "ms");
     Published.RecordMetric("world growth time, most", Cost.Growth.MostMs(), "ms");
     Published.RecordMetric("simulation core time, most", Cost.Simulation.MostMs(), "ms");
     PublishGroundPreparationMeasurements();
@@ -244,25 +244,25 @@ void Engine::State::PublishGroundMemoryMeasurements() {
         "asset cache: file limit", static_cast<double>(cache.LimitBytes), "bytes");
   }
   Published.RecordMetric(kSnapshotAnchor,
-                         static_cast<double>(World.Surface().Footprints().TrianglesHanded()),
+                         static_cast<double>(World().Surface().Footprints().TrianglesHanded()),
                          "triangles");
   Published.RecordMetric("world: the bytes its fields hold",
-                         static_cast<double>(World.Surface().HeapBytes()),
+                         static_cast<double>(World().Surface().HeapBytes()),
                          "bytes");
   Published.RecordMetric("world: published semantic region",
-                         World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
+                         World().Region ? static_cast<double>(World().Region->HeapBytes()) : 0.0,
                          "bytes");
   Published.RecordMetric("world: of that, the land classes",
-                         static_cast<double>(World.Surface().Classes().HeapBytes()),
+                         static_cast<double>(World().Surface().Classes().HeapBytes()),
                          "bytes");
   Published.RecordMetric("world: the buildings",
-                         static_cast<double>(World.Surface().Footprints().HeapBytes()),
+                         static_cast<double>(World().Surface().Footprints().HeapBytes()),
                          "bytes");
   Published.RecordMetric("world: of those, the footprints it keeps",
-                         static_cast<double>(World.Surface().Footprints().PrintBytes()),
+                         static_cast<double>(World().Surface().Footprints().PrintBytes()),
                          "bytes");
   Published.RecordMetric("world: tiles baking on the workers right now",
-                         static_cast<double>(World.StructureBuilds.Queued()),
+                         static_cast<double>(World().StructureBuilds.Queued()),
                          "tiles");
   Published.RecordMetric("world: the building pieces the device holds",
                          Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld())
@@ -311,20 +311,21 @@ void Engine::State::PublishGroundMemoryMeasurements() {
     Published.RecordMetric(
         "world: geometry free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
   }
-  Published.RecordMetric(
-      "world: the water", static_cast<double>(World.Surface().WaterBodies().HeapBytes()), "bytes");
+  Published.RecordMetric("world: the water",
+                         static_cast<double>(World().Surface().WaterBodies().HeapBytes()),
+                         "bytes");
   Published.RecordMetric("world: street source field",
-                         static_cast<double>(World.Surface().Ways().HeapBytes()),
+                         static_cast<double>(World().Surface().Ways().HeapBytes()),
                          "bytes");
   Published.RecordMetric("world: the ceiling its fields stand under",
                          static_cast<double>(Ground::SurfacePreparation::kHoldsBytes),
                          "bytes");
   Published.RecordMetric("world: times a round stopped at that ceiling",
-                         static_cast<double>(World.Surface().OverCeiling()),
+                         static_cast<double>(World().Surface().OverCeiling()),
                          "rounds");
   Published.RecordMetric("world: and the OSM features",
-                         World.Surface().Vectors() != nullptr
-                             ? static_cast<double>(World.Surface().Vectors()->HeapBytes())
+                         World().Surface().Vectors() != nullptr
+                             ? static_cast<double>(World().Surface().Vectors()->HeapBytes())
                              : 0.0,
                          "bytes");
 }

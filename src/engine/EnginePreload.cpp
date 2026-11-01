@@ -56,7 +56,7 @@ Result Engine::preloadWithQuality(double patienceS,
   if (!std::isfinite(patienceS * kMsPerS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
-  const auto configured = SetPreloadAcquisitionBudget(S_->World.OsmSource.get(), patienceS);
+  const auto configured = SetPreloadAcquisitionBudget(S_->World().OsmSource.get(), patienceS);
   if (!configured) { return std::unexpected(configured.error()); }
   const auto began = std::chrono::steady_clock::now();
   S_->LastPreloadMs = 0.0;

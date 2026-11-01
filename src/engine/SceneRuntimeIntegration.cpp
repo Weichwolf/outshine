@@ -24,7 +24,7 @@ bool Engine::State::EnsureRuntimeScene() {
     }
     Picture.PendingGeometry.reset();
     if (Picture.PendingAudioOcclusion) {
-      World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
+      World().AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
       Picture.PendingAudioOcclusion.reset();
     }
   }
@@ -37,10 +37,10 @@ bool Engine::State::EnsureRuntimeScene() {
                                             Error)) {
     return false;
   }
-  World.BindSceneResources(Picture.Device);
+  World().BindSceneResources(Picture.Device);
   Picture.PendingGeometry.reset();
   if (Picture.PendingAudioOcclusion) {
-    World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
+    World().AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
     Picture.PendingAudioOcclusion.reset();
   }
   return true;

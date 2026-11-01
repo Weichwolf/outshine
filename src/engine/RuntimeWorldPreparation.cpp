@@ -55,12 +55,12 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
+  if (osmProviders.empty() && !World().OsmSource && !World().OsmTransport) {
     return ConfigureWorldSources(tileProviders);
   }
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
-  if (!World.OsmSource) {
+  if (!World().OsmSource) {
     if (!Services.Transport) {
       if (Session.Under.Offline) {
         Services.Transport = std::make_unique<Data::OfflineSourceTransport>();
@@ -71,7 +71,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
                                   .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
-    World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
+    World().OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *Services.Compute,
                                                     .Io = *Services.Io},
         Services.Transport.get(),
@@ -79,16 +79,17 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
   if (!ConfigureWorldSources(tileProviders)) { return false; }
-  World.OsmRoutes = std::move(routes);
-  World.OriginalSourceDemand.reset();
+  World().OsmRoutes = std::move(routes);
+  World().OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
-  if (World.OsmRoutes.empty()) {
-    World.OsmTransport.reset();
-  } else if (!World.OsmTransport) {
-    World.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*Services.Compute);
+  if (World().OsmRoutes.empty()) {
+    World().OsmTransport.reset();
+  } else if (!World().OsmTransport) {
+    World().OsmTransport =
+        std::make_unique<Generators::Osm::TransportPreparation>(*Services.Compute);
   }
-  if (World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
-      World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
+  if (World().OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
+      World().OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
     return SubmitOsmTransportSource();
   }
   return true;
@@ -96,13 +97,13 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
 
 bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> providers) {
   if (providers.size() == 1 && !providers.front().Coverage && providers.front().Location.empty()) {
-    if (!World.OsmRoutes.empty()) {
+    if (!World().OsmRoutes.empty()) {
       Error = "OSM catalogue routes require native cell transport integration";
       return false;
     }
     return RequestOriginalCells();
   }
-  if (auto requested = World.OsmSource->Request(
+  if (auto requested = World().OsmSource->Request(
           providers, Session.Under.BuiltinDataDirectory, &Services.Providers);
       !requested) {
     Error = std::move(requested.error());
@@ -112,14 +113,14 @@ bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> prov
 }
 
 bool Engine::State::RequestOriginalCells() {
-  if (!World.OsmSource) { return true; }
+  if (!World().OsmSource) { return true; }
   const auto found = std::ranges::find_if(Session.Declared.Providers, [](const auto &provider) {
     return provider.Kind == "osm" && !provider.Coverage && provider.Location.empty();
   });
   if (found == Session.Declared.Providers.end()) { return true; }
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
-  if (World.OriginalSourceDemand == demand) { return true; }
+  if (World().OriginalSourceDemand == demand) { return true; }
   auto cells = CellsAround(demand[0],
                            demand[1],
                            demand[2],
@@ -129,24 +130,25 @@ bool Engine::State::RequestOriginalCells() {
     Error = std::move(cells.error());
     return false;
   }
-  if (auto requested = World.OsmSource->RequestCells(*found,
-                                                     *cells,
-                                                     Generators::Osm::kDefaultCellLimits,
-                                                     Session.Under.BuiltinDataDirectory,
-                                                     &Services.Providers);
+  if (auto requested = World().OsmSource->RequestCells(*found,
+                                                       *cells,
+                                                       Generators::Osm::kDefaultCellLimits,
+                                                       Session.Under.BuiltinDataDirectory,
+                                                       &Services.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
   }
-  World.OriginalSourceDemand = demand;
+  World().OriginalSourceDemand = demand;
   Published.RecordMetric(
       "original OSM requested cells", static_cast<double>(cells->size()), "cells");
   return true;
 }
 
 bool Engine::State::SubmitOsmTransportSource() {
-  if (!World.OsmTransport) { return true; }
-  auto requested = World.OsmTransport->RequestSource(World.OsmSource->Current(), World.OsmRoutes);
+  if (!World().OsmTransport) { return true; }
+  auto requested =
+      World().OsmTransport->RequestSource(World().OsmSource->Current(), World().OsmRoutes);
   if (!requested) {
     Error = std::move(requested.error());
     return false;
@@ -175,7 +177,7 @@ bool Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  if (const auto declared = World.Surface().Declares(told); !declared) {
+  if (const auto declared = World().Surface().Declares(told); !declared) {
     Error = declared.error();
     return false;
   }
@@ -187,7 +189,7 @@ bool Engine::State::DeclareGroundFeatures() {
 bool Engine::State::PrepareRuntimeWorld() {
   static const Heap::Tag kComposingTag("world-compose");
   const Heap::Tagged composing(kComposingTag);
-  World.GroundTiles = 0;
+  World().GroundTiles = 0;
   if (!EnsureRuntimeScene()) { return false; }
   const Scenario::Document &declared = Session.Declared;
   if (Session.Views &&
@@ -212,14 +214,14 @@ bool Engine::State::PrepareRuntimeWorld() {
                                               .Sources = Session.Under.SourceCacheDirectory,
                                               .Assets = Session.Under.AssetCacheDirectory};
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Surface().Opened()) {
+  if (!World().Surface().Opened()) {
     if (!Services.SurfaceCacheConnections) {
       Services.SurfaceCacheConnections =
           std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
     }
-    const auto opened = World.Surface().OpenSession(
+    const auto opened = World().Surface().OpenSession(
         contentDirectories,
-        World.Sources,
+        World().Sources,
         {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
         *Services.Transport,
         *Services.Compute,
@@ -231,7 +233,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       return false;
     }
   }
-  World.Surface().DeferWaterToRegionLookup();
+  World().Surface().DeferWaterToRegionLookup();
   if (!Services.CacheReclaimer) {
     Services.CacheReclaimer =
         std::make_unique<AssetCacheReclaimer>(*Services.Compute, contentDirectories.Assets);
@@ -248,14 +250,16 @@ bool Engine::State::PrepareRuntimeWorld() {
     how.FocusLatDeg = atLat;
     how.FocusLonDeg = atLon;
     how.Seed = Session.Declared.Ground.Shape.Seed;
-    World.Surface().Pool().Shapes(how);
+    World().Surface().Pool().Shapes(how);
     Published.RecordMetric("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
-    const double hereM = World.Surface()
+    const double hereM = World()
+                             .Surface()
                              .Ground()
                              .At({.LongitudeDeg = atLon, .LatitudeDeg = atLat})
                              .AslM()
                              .value_or(0.0);
-    const double eastM = World.Surface()
+    const double eastM = World()
+                             .Surface()
                              .Ground()
                              .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
                              .AslM()
@@ -274,18 +278,18 @@ bool Engine::State::PrepareRuntimeWorld() {
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
                               : static_cast<double>(kFrameUnsaidHighPx);
-    World.Surface().SeeFootprintsWith(
+    World().Surface().SeeFootprintsWith(
         {.FocalPx = highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn))});
-    const int vectorZoom = World.Surface().VectorZoom();
+    const int vectorZoom = World().Surface().VectorZoom();
     const double vectorSpanM = Data::kMercatorGirthM *
                                std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
                                std::ldexp(1.0, vectorZoom);
-    World.Surface().FootprintTilesSpan(vectorSpanM);
+    World().Surface().FootprintTilesSpan(vectorSpanM);
   }
-  if (World.Surface().RecipesReady()) {
+  if (World().Surface().RecipesReady()) {
     std::string why;
-    if (!World.Builtins.EnsureCatalogue(
-            World.Surface().SurfaceRecipes(),
+    if (!World().Builtins.EnsureCatalogue(
+            World().Surface().SurfaceRecipes(),
             std::string(Session.Under.BuiltinDataDirectory) + "/world/species",
             why,
             declared.Ground.VegetationEnabled,
@@ -293,7 +297,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       Error = std::move(why);
       return false;
     }
-    World.Table = Generators::TableOf(World.Surface().SurfaceRecipes());
+    World().Table = Generators::TableOf(World().Surface().SurfaceRecipes());
   }
 
   HandsPiecesOver();
@@ -301,17 +305,17 @@ bool Engine::State::PrepareRuntimeWorld() {
 }
 
 void Engine::State::PollOsmSources() {
-  if (World.OsmSource) {
-    const auto previousRevision = World.OsmSource->PublishedRevision();
-    World.OsmSource->Poll();
-    if (World.OsmSource->PublishedRevision() != previousRevision && World.CurrentOriginalReady() &&
-        World.OsmSource->Current()) {
-      const auto &source = *World.OsmSource->Current();
+  if (World().OsmSource) {
+    const auto previousRevision = World().OsmSource->PublishedRevision();
+    World().OsmSource->Poll();
+    if (World().OsmSource->PublishedRevision() != previousRevision &&
+        World().CurrentOriginalReady() && World().OsmSource->Current()) {
+      const auto &source = *World().OsmSource->Current();
       Published.RecordMetric(
           "original OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
       Published.RecordMetric("original OSM read time", source.ReadMs, "ms");
       Published.RecordMetric("original OSM parse time", source.ParseMs, "ms");
-      if (!World.OsmTransport) {
+      if (!World().OsmTransport) {
         Published.RecordMetric(
             "semantic OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
         Published.RecordMetric("semantic OSM read time", source.ReadMs, "ms");
@@ -320,21 +324,21 @@ void Engine::State::PollOsmSources() {
       if (!SubmitOsmTransportSource()) { return; }
     }
   }
-  const auto previous = World.OsmTransport ? World.OsmTransport->Current() : nullptr;
-  if (World.OsmTransport) { World.OsmTransport->Poll(); }
+  const auto previous = World().OsmTransport ? World().OsmTransport->Current() : nullptr;
+  if (World().OsmTransport) { World().OsmTransport->Poll(); }
   Published.RecordMetric(
       "semantic OSM jobs pending",
-      static_cast<double>((World.OsmTransport ? World.OsmTransport->PendingCount() : 0) +
-                          (World.OsmSource ? World.OsmSource->PendingCount() : 0)),
+      static_cast<double>((World().OsmTransport ? World().OsmTransport->PendingCount() : 0) +
+                          (World().OsmSource ? World().OsmSource->PendingCount() : 0)),
       "jobs");
-  if (!World.OsmTransport) { return; }
+  if (!World().OsmTransport) { return; }
   Published.RecordMetric("semantic OSM jobs completed",
-                         static_cast<double>(World.OsmTransport->CompletedCount()),
+                         static_cast<double>(World().OsmTransport->CompletedCount()),
                          "jobs");
   Published.RecordMetric("semantic OSM jobs canceled",
-                         static_cast<double>(World.OsmTransport->CanceledCount()),
+                         static_cast<double>(World().OsmTransport->CanceledCount()),
                          "jobs");
-  const auto &current = World.OsmTransport->Current();
+  const auto &current = World().OsmTransport->Current();
   if (!current || current == previous) { return; }
   const World::TransportLoadMetrics &metrics = current->Metrics();
   Published.RecordMetric(

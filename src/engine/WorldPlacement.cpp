@@ -127,15 +127,15 @@ PlacementSnapshot(WorldRegionState &world,
 }
 
 bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
-  const ::outshine::Generators::Osm::OsmField *const vectors = GenerationFields(World).Vectors;
+  const ::outshine::Generators::Osm::OsmField *const vectors = GenerationFields(World()).Vectors;
   Published.RecordMetric(
-      "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
+      "generators: bodies already placed", static_cast<double>(World().Placed), "bodies");
   Published.RecordMetric(
-      "generators: a shipped catalogue stands", World.Builtins.Ready() ? 1.0 : 0.0, "yes/no");
-  Published.RecordMetric("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
+      "generators: a shipped catalogue stands", World().Builtins.Ready() ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: a ground table stands", World().Table ? 1.0 : 0.0, "yes/no");
   Published.RecordMetric(
       "generators: vector data stands", vectors != nullptr ? 1.0 : 0.0, "yes/no");
-  if (World.Placed > 0 || !World.Builtins.Ready() || !World.Table || vectors == nullptr) {
+  if (World().Placed > 0 || !World().Builtins.Ready() || !World().Table || vectors == nullptr) {
     return false;
   }
   return GenerateInstancesForRegion(
@@ -145,19 +145,19 @@ bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
 
 bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
                                                LevelOfDetail coarseness) {
-  Generators::Fields stands = GenerationFields(World);
+  Generators::Fields stands = GenerationFields(World());
   const ::outshine::Generators::Osm::OsmField *const vectors = stands.Vectors;
   if (vectors == nullptr) { return false; }
   Generators::Osm::StreetField localWays;
-  PrepareLocalStreetMask(stands, region, World, localWays, Published);
-  const auto classes = World.Surface().Classes().Read();
-  const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);
-  if (World.EmptyPlacementInputs == inputs) { return false; }
+  PrepareLocalStreetMask(stands, region, World(), localWays, Published);
+  const auto classes = World().Surface().Classes().Read();
+  const auto inputs = PlacementInputs(World(), region, coarseness, stands, classes);
+  if (World().EmptyPlacementInputs == inputs) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how =
-      PlacementSnapshot(World, Services.Compute.get(), region, classes, stands, &snapshot, Error);
-  World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
-                  (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
+      PlacementSnapshot(World(), Services.Compute.get(), region, classes, stands, &snapshot, Error);
+  World().Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
+                    (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.RecordMetric("generators: the snapshot",
                          static_cast<double>(static_cast<int>(how)),
                          "0=taken 1=waiting 2=no ground");
@@ -176,7 +176,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   Published.RecordMetric("generators: that region is settled",
                          vectors->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
                          "yes/no");
-  World.Grown = how == Generators::Snapped::Taken;
+  World().Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
   const std::optional<Generators::Ground> over =
       Generators::Ground::Of(region, snapshot, coarseness);
@@ -188,7 +188,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
   Published.RecordMetric("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
   if (!lease) { return false; }
-  const Generators::GeneratorSet &placing = World.Builtins.Placing();
+  const Generators::GeneratorSet &placing = World().Builtins.Placing();
   std::vector<Generators::Yield> yields;
   std::vector<std::vector<Generators::Yield::Note>> notes(placing.Count());
   yields.reserve(placing.Count());
@@ -236,25 +236,25 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   Published.RecordMetric(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
   if (placed == 0) {
-    World.EmptyPlacementInputs = inputs;
+    World().EmptyPlacementInputs = inputs;
     return false;
   }
-  World.EmptyPlacementInputs.reset();
+  World().EmptyPlacementInputs.reset();
   std::vector<WorldInstance> instances(placed);
   WorldInstanceSink sink(instances, region);
-  World.Builtins.Drawing().Draw(*over,
-                                placing,
-                                std::span<const Generators::Yield>(yields.data(), yields.size()),
-                                lease->Sink().Placed(),
-                                sink);
+  World().Builtins.Drawing().Draw(*over,
+                                  placing,
+                                  std::span<const Generators::Yield>(yields.data(), yields.size()),
+                                  lease->Sink().Placed(),
+                                  sink);
   if (sink.Error()) {
     Error = Says::InstanceBudget;
     return false;
   }
   instances.resize(sink.Written());
-  World.Instances = std::move(instances);
-  World.Placed = placed;
-  World.Instanced = World.Instances.size();
+  World().Instances = std::move(instances);
+  World().Placed = placed;
+  World().Instanced = World().Instances.size();
   return true;
 }
 

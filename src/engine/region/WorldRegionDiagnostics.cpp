@@ -9,39 +9,40 @@
 namespace outshine {
 
 std::string_view Engine::State::GroundBuildStatus() const noexcept {
-  return World.GroundBuild ? World.GroundBuild->Status() : "absent";
+  return World().GroundBuild ? World().GroundBuild->Status() : "absent";
 }
 
 std::string Engine::State::GroundBuildDiagnostic() const {
   std::string diagnostic = "ground build=" + std::string(GroundBuildStatus());
-  const auto failure = World.StructureBuilds.LastHeightFailure();
+  const auto failure = World().StructureBuilds.LastHeightFailure();
   const std::array<std::string_view, 3> causes{"none", "unavailable", "unqualified"};
   diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
                 " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
                 "/" + std::to_string(failure.Tile.Y);
-  if (World.Region) {
-    const auto *pinned = World.Region->Vectors();
-    const auto *live = World.Surface().Vectors();
+  if (World().Region) {
+    const auto *pinned = World().Region->Vectors();
+    const auto *live = World().Surface().Vectors();
     diagnostic +=
         ", region current=" +
         std::to_string(static_cast<int>(
-            World.Region->MatchesLiveSources(live, World.Surface().Footprints()))) +
+            World().Region->MatchesLiveSources(live, World().Surface().Footprints()))) +
         ", region vector generations=" +
         std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
         std::to_string(live != nullptr ? live->Generation() : 0) +
-        ", region footprint revisions=" + std::to_string(World.Region->Footprints().Revision()) +
-        "/" + std::to_string(World.Surface().Footprints().Revision());
+        ", region footprint revisions=" + std::to_string(World().Region->Footprints().Revision()) +
+        "/" + std::to_string(World().Surface().Footprints().Revision());
   } else {
     diagnostic += ", region absent";
   }
-  if (!World.GroundBuild) { return diagnostic; }
-  if (const auto &published = World.GroundPublished.Current()) {
-    diagnostic += ", candidate revision delta=" +
-                  std::to_string(published->CandidateDifferenceMask(World.GroundBuild->Revision()));
+  if (!World().GroundBuild) { return diagnostic; }
+  if (const auto &published = World().GroundPublished.Current()) {
+    diagnostic +=
+        ", candidate revision delta=" +
+        std::to_string(published->CandidateDifferenceMask(World().GroundBuild->Revision()));
   }
-  const auto &footprints = World.GroundBuild->Footprints();
-  const auto *vectors = World.Surface().Vectors();
-  diagnostic += World.GroundBuild->Revision().Quality == GroundQuality::Refined
+  const auto &footprints = World().GroundBuild->Footprints();
+  const auto *vectors = World().Surface().Vectors();
+  diagnostic += World().GroundBuild->Revision().Quality == GroundQuality::Refined
                     ? ", candidate quality=refined"
                     : ", candidate quality=playable";
   diagnostic += ", structure accepted/taken=" + std::to_string(footprints.AcceptedTiles().size()) +
@@ -55,15 +56,15 @@ std::string Engine::State::GroundBuildDiagnostic() const {
       std::to_string(std::ranges::count_if(footprints.AcceptedInputs(),
                                            [](const auto &input) { return !input.Qualified; }));
   diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
-  if (const auto *worker = World.GroundBuild->StreetGraphWorker(); worker != nullptr) {
+  if (const auto *worker = World().GroundBuild->StreetGraphWorker(); worker != nullptr) {
     diagnostic += ", network phase=" + std::string(worker->PhaseName()) +
                   ", network advances=" + std::to_string(worker->Advances());
   }
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
-  diagnostic += ", terrain fields=" + World.GroundBuild->TerrainInputs().FieldDiagnostic();
-  const auto *pinned = World.GroundBuild->Candidate().Sources().Vectors.get();
+  diagnostic += ", terrain fields=" + World().GroundBuild->TerrainInputs().FieldDiagnostic();
+  const auto *pinned = World().GroundBuild->Candidate().Sources().Vectors.get();
   diagnostic +=
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
       std::to_string(vectors != nullptr ? vectors->Generation() : 0);
@@ -84,7 +85,7 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   Published.RecordMetric("ground publication: quality",
                          state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
                          "0=playable 1=refined");
-  const uint64_t geometry = World.Pieces.Digest();
+  const uint64_t geometry = World().Pieces.Digest();
   Published.RecordMetric(
       "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
   Published.RecordMetric(

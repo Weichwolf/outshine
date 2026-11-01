@@ -8,8 +8,8 @@
 
 namespace outshine {
 void Engine::State::PublishUrbanMeasurements() {
-  if (!World.UrbanAreas) { return; }
-  const auto urban = World.UrbanAreas->Costs();
+  if (!World().UrbanAreas) { return; }
+  const auto urban = World().UrbanAreas->Costs();
   Published.RecordMetric("urban sources", static_cast<double>(urban.Sources), "areas");
   Published.RecordMetric("urban requested groups", static_cast<double>(urban.Groups), "groups");
   Published.RecordMetric("urban resident groups", static_cast<double>(urban.Resident), "groups");
@@ -48,49 +48,49 @@ PublishedBuildingTiles(const Render::GeometryPageResidency &pieces,
 }
 
 std::string_view Engine::State::UrbanWorldBlocker() const noexcept {
-  if (!World.Surface().UrbanAssets() || !World.Surface().HasVectorSource() ||
+  if (!World().Surface().UrbanAssets() || !World().Surface().HasVectorSource() ||
       !Session.Declared.Ground.Osm.empty()) {
     return {};
   }
-  return World.UrbanAreas && World.UrbanAreas->Ready() ? "" : "pending resolved urban assets";
+  return World().UrbanAreas && World().UrbanAreas->Ready() ? "" : "pending resolved urban assets";
 }
 
 bool Engine::State::AdvanceUrbanAreas() {
-  if (!World.Surface().UrbanAssets() || !World.Surface().HasVectorSource() ||
-      !Session.Declared.Ground.Osm.empty() || !Picture.Standing || World.GroundBuild ||
-      !World.GroundPublished.CanPublish()) {
+  if (!World().Surface().UrbanAssets() || !World().Surface().HasVectorSource() ||
+      !Session.Declared.Ground.Osm.empty() || !Picture.Standing || World().GroundBuild ||
+      !World().GroundPublished.CanPublish()) {
     return true;
   }
-  const auto &revision = World.GroundPublished.Current();
-  const auto *terrain = World.TerrainSurface.PublishedSurface();
+  const auto &revision = World().GroundPublished.Current();
+  const auto *terrain = World().TerrainSurface.PublishedSurface();
   const auto eye = CurrentGeographicEyeEcef();
   if (!revision || revision->Quality != GroundQuality::Refined || terrain == nullptr || !eye) {
     return true;
   }
-  if (!World.UrbanAreas) {
-    World.UrbanAreas =
+  if (!World().UrbanAreas) {
+    World().UrbanAreas =
         std::make_unique<UrbanAreaStreaming>(*Services.Compute,
-                                             World.Surface().UrbanAssets(),
-                                             World.Surface().VectorSchema(),
+                                             World().Surface().UrbanAssets(),
+                                             World().Surface().VectorSchema(),
                                              Session.Under.AssetCacheDirectory + "/assets.sqlite");
-    World.UrbanAreas->Into(Picture.Device);
+    World().UrbanAreas->Into(Picture.Device);
   }
   const auto origin = Session.Declared.Ground.Origin;
-  if (World.UrbanChildrenRevision != World.Pieces.Digest()) {
-    World.UrbanChildren = PublishedBuildingTiles(World.Pieces, World.Surface().Footprints());
-    World.UrbanChildrenRevision = World.Pieces.Digest();
+  if (World().UrbanChildrenRevision != World().Pieces.Digest()) {
+    World().UrbanChildren = PublishedBuildingTiles(World().Pieces, World().Surface().Footprints());
+    World().UrbanChildrenRevision = World().Pieces.Digest();
   }
   auto advanced =
-      World.UrbanAreas->Advance({.Focus = CurrentGeographicFocus(),
-                                 .EyeEcef = *eye,
-                                 .FocalPx = World.Surface().Footprints().Projection().FocalPx,
-                                 .RadiusM = TerrainSightM(),
-                                 .Frame = TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg,
-                                                            .LatitudeDeg = origin.LatitudeDeg})},
-                                *terrain,
-                                World.Rebuilds,
-                                World.UrbanChildren,
-                                World.Pieces.Digest());
+      World().UrbanAreas->Advance({.Focus = CurrentGeographicFocus(),
+                                   .EyeEcef = *eye,
+                                   .FocalPx = World().Surface().Footprints().Projection().FocalPx,
+                                   .RadiusM = TerrainSightM(),
+                                   .Frame = TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg,
+                                                              .LatitudeDeg = origin.LatitudeDeg})},
+                                  *terrain,
+                                  World().Rebuilds,
+                                  World().UrbanChildren,
+                                  World().Pieces.Digest());
   if (!advanced) {
     Error = std::move(advanced.error());
     return false;

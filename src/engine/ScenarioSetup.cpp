@@ -632,31 +632,31 @@ Result Engine::declare(const Scenario::Document &scenario) {
   auto prepared = PrepareRuntimeDeclaration(
       scenario,
       S_->Services.Generators,
-      scenario.Ground.Declared ? S_->World.Surface().TryGround() : nullptr,
-      S_->World.GroundPositionsM,
-      S_->World.GroundIndex,
+      scenario.Ground.Declared ? S_->World().Surface().TryGround() : nullptr,
+      S_->World().GroundPositionsM,
+      S_->World().GroundIndex,
       S_->Picture,
       declared);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
-  S_->World.StructureBuilds.Clear();
-  S_->World.Surface().Footprints().ResetDerived();
-  S_->World.Pieces.Clear();
-  S_->World.UrbanAreas.reset();
-  S_->World.UrbanChildrenRevision.reset();
-  S_->World.UrbanChildren.clear();
-  S_->World.TerrainSurface.Clear();
-  S_->World.PiecesFramed = false;
-  S_->World.GroundPublished.Reset();
-  S_->World.Region.reset();
-  S_->World.PlacementGround.reset();
-  S_->World.Vegetation.reset();
-  S_->World.Instances.clear();
-  S_->World.Placed = S_->World.Instanced = 0;
-  S_->World.Grown = false;
-  S_->World.EmptyPlacementInputs.reset();
+  S_->World().StructureBuilds.Clear();
+  S_->World().Surface().Footprints().ResetDerived();
+  S_->World().Pieces.Clear();
+  S_->World().UrbanAreas.reset();
+  S_->World().UrbanChildrenRevision.reset();
+  S_->World().UrbanChildren.clear();
+  S_->World().TerrainSurface.Clear();
+  S_->World().PiecesFramed = false;
+  S_->World().GroundPublished.Reset();
+  S_->World().Region.reset();
+  S_->World().PlacementGround.reset();
+  S_->World().Vegetation.reset();
+  S_->World().Instances.clear();
+  S_->World().Placed = S_->World().Instanced = 0;
+  S_->World().Grown = false;
+  S_->World().EmptyPlacementInputs.reset();
   S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);
@@ -671,7 +671,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
   S_->Picture.Standing = std::move(prepared->Targeted);
   S_->Error.clear();
-  S_->World.AudioOcclusion =
+  S_->World().AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, scenario, *views, bindings);
   S_->PendingDeclaration.emplace(std::move(candidate));
@@ -689,7 +689,7 @@ Result Engine::setGeometry(const Geometry &geometry) {
     return std::unexpected(S_->Error);
   }
   auto occlusion =
-      Core::BuildAudioOcclusion(geometry, S_->World.GroundPositionsM, S_->World.GroundIndex);
+      Core::BuildAudioOcclusion(geometry, S_->World().GroundPositionsM, S_->World().GroundIndex);
   if (!occlusion) {
     S_->Error = occlusion.error();
     return std::unexpected(S_->Error);
@@ -708,8 +708,8 @@ Result Engine::setGeometry(const Geometry &geometry) {
                                             S_->Error)) {
     return std::unexpected(S_->Error);
   }
-  S_->World.BindSceneResources(S_->Picture.Device);
-  S_->World.AudioOcclusion = std::move(*occlusion);
+  S_->World().BindSceneResources(S_->Picture.Device);
+  S_->World().AudioOcclusion = std::move(*occlusion);
   return {};
 }
 

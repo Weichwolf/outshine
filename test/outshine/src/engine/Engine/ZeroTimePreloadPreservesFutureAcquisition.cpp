@@ -32,7 +32,7 @@ int main() {
     CHECK(engine.registerProvider(provider) && engine.declare({}) && engine.assemble(),
           "source-free engine declares and assembles without IO");
     auto &state = TestEngine::StateOf(engine);
-    auto &world = state.World;
+    auto &world = state.World();
     auto &services = state.Services;
     services.Compute = std::make_unique<Tasks>(1);
     services.Io = std::make_unique<Tasks>(1);

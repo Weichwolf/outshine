@@ -55,7 +55,7 @@ Holds<RouteInfo> Engine::State::PublishedRouteInfo(std::string_view name) const 
   if (declared == Session.Declared.Routes.end()) {
     return std::unexpected("unknown route '" + std::string(name) + "'");
   }
-  const NamedRoadAlignment *published = PublishedRoute(World, name);
+  const NamedRoadAlignment *published = PublishedRoute(World(), name);
   if (published == nullptr) {
     return std::unexpected("route '" + std::string(name) + "' has no current published alignment");
   }
@@ -74,7 +74,7 @@ Holds<RoutePose> Engine::State::SamplePublishedRoute(std::string_view name, doub
   if (stationM > info->LengthM) {
     return std::unexpected("route station exceeds the published route length");
   }
-  const NamedRoadAlignment *published = PublishedRoute(World, name);
+  const NamedRoadAlignment *published = PublishedRoute(World(), name);
   if (published == nullptr) { return std::unexpected("route alignment changed during sampling"); }
   const Generators::RoadAlignment &alignment = *published->Alignment;
   const auto pose = alignment.AtStation(stationM);
@@ -117,7 +117,7 @@ Holds<RouteContact> Engine::State::SamplePublishedRouteContact(std::string_view 
   if (stationM > info->LengthM) {
     return std::unexpected("route contact station exceeds the published route length");
   }
-  const NamedRoadAlignment *published = PublishedRoute(World, name);
+  const NamedRoadAlignment *published = PublishedRoute(World(), name);
   if (published == nullptr || !published->Surface) {
     return std::unexpected("route '" + std::string(name) +
                            "' has no current published road surface");

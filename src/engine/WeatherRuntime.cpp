@@ -23,7 +23,7 @@ Engine::State::PrepareWorldSources(const Scenario::Document &scenario) const {
     if (provider.Kind != "osm") { providers.push_back(provider); }
   }
   if ((providers.empty() && !scenario.Ground.Declared) ||
-      (World.Sources && World.SourceDeclarations == providers)) {
+      (World().Sources && World().SourceDeclarations == providers)) {
     return std::optional<Data::SourceSession::Configuration>{};
   }
   auto prepared = Data::SourceSession::Prepare(
@@ -34,15 +34,15 @@ Engine::State::PrepareWorldSources(const Scenario::Document &scenario) const {
 
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
   if (providers.empty() && !Session.Declared.Ground.Declared) {
-    World.Weather.reset();
-    World.WeatherUtcS.reset();
-    World.UrbanAreas.reset();
-    World.Surface().Close();
-    World.Sources.reset();
-    World.SourceDeclarations.clear();
+    World().Weather.reset();
+    World().WeatherUtcS.reset();
+    World().UrbanAreas.reset();
+    World().Surface().Close();
+    World().Sources.reset();
+    World().SourceDeclarations.clear();
     return true;
   }
-  if (!World.Sources || World.SourceDeclarations != providers) {
+  if (!World().Sources || World().SourceDeclarations != providers) {
     auto sources =
         PendingDeclaration && PendingDeclaration->has_value() && PendingDeclaration->value().Sources
             ? Data::SourceSession::Open({.Directory = Session.Under.SourceCacheDirectory},
@@ -55,21 +55,21 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
       Error = sources.error();
       return false;
     }
-    World.Weather.reset();
-    World.WeatherUtcS.reset();
-    World.UrbanAreas.reset();
-    World.Surface().Close();
-    World.Sources = std::move(*sources);
-    World.SourceDeclarations = providers;
+    World().Weather.reset();
+    World().WeatherUtcS.reset();
+    World().UrbanAreas.reset();
+    World().Surface().Close();
+    World().Sources = std::move(*sources);
+    World().SourceDeclarations = providers;
   }
   bool weather = false;
-  for (size_t at = 0; at < World.Sources->Sources().Count(); ++at) {
+  for (size_t at = 0; at < World().Sources->Sources().Count(); ++at) {
     weather =
-        weather || World.Sources->Sources().At(at).Declaration().Kind == Data::DataKind::Weather;
+        weather || World().Sources->Sources().At(at).Declaration().Kind == Data::DataKind::Weather;
   }
   if (!weather) {
-    World.Weather.reset();
-    World.WeatherUtcS.reset();
+    World().Weather.reset();
+    World().WeatherUtcS.reset();
     return true;
   }
   if (!Picture.Shown.UtcS) {
@@ -85,41 +85,41 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   }
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
-  const bool failed =
-      World.Weather && (World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
-                        World.Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
-  if (!World.Weather || World.WeatherUtcS != Picture.Shown.UtcS || failed) {
-    World.Weather.reset();
-    World.Weather = std::make_unique<WeatherSnapshotLoader>(
-        World.Sources,
+  const bool failed = World().Weather &&
+                      (World().Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Failed ||
+                       World().Weather->CurrentPhase() == WeatherSnapshotLoader::Phase::Cancelled);
+  if (!World().Weather || World().WeatherUtcS != Picture.Shown.UtcS || failed) {
+    World().Weather.reset();
+    World().Weather = std::make_unique<WeatherSnapshotLoader>(
+        World().Sources,
         *Services.Transport,
         WeatherSnapshotLoader::Workers{.Io = *Services.Io, .Compute = *Services.Compute},
         *Picture.Shown.UtcS);
-    World.WeatherUtcS = Picture.Shown.UtcS;
+    World().WeatherUtcS = Picture.Shown.UtcS;
   }
   return true;
 }
 
 bool Engine::State::PollWeather() {
-  if (!World.Weather) { return true; }
+  if (!World().Weather) { return true; }
   if (!ScenarioState || ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     Error = "assemble the current declaration before acquiring its weather";
     return false;
   }
-  if (World.Weather->Advance() != WeatherSnapshotLoader::Phase::Failed) { return true; }
-  Error = World.Weather->Error();
+  if (World().Weather->Advance() != WeatherSnapshotLoader::Phase::Failed) { return true; }
+  Error = World().Weather->Error();
   return false;
 }
 
 std::string_view Engine::State::WeatherBlocker() const noexcept {
-  if (!World.Weather) { return {}; }
+  if (!World().Weather) { return {}; }
   if (!ScenarioState || ScenarioState->DeclarationRevision != Session.DeclarationRevision) {
     return "current weather declaration is not assembled";
   }
-  switch (World.Weather->CurrentPhase()) {
+  switch (World().Weather->CurrentPhase()) {
     case WeatherSnapshotLoader::Phase::Ready:
     case WeatherSnapshotLoader::Phase::Missing: return {};
-    case WeatherSnapshotLoader::Phase::Failed: return World.Weather->Error();
+    case WeatherSnapshotLoader::Phase::Failed: return World().Weather->Error();
     case WeatherSnapshotLoader::Phase::Cancelled: return "weather acquisition cancelled";
     default: return "native weather snapshot pending";
   }
@@ -133,6 +133,6 @@ Holds<std::shared_ptr<const WeatherSnapshot>> Engine::weather() const {
   if (const auto blocker = S_->WeatherBlocker(); !blocker.empty()) {
     return std::unexpected(std::string(blocker));
   }
-  return S_->World.Weather ? S_->World.Weather->Snapshot() : nullptr;
+  return S_->World().Weather ? S_->World().Weather->Snapshot() : nullptr;
 }
 }
