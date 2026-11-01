@@ -6,6 +6,7 @@
 #include "ImpostorAtlas.h"
 #include "ImpostorViewAssets.h"
 #include "ImpostorPoseBounds.h"
+#include "RadianceSupport.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -31,6 +32,7 @@ public:
     Render::Lens Optics;
     double GeometryErrorMostPx = 0;
     CoordinateSpace Space = CoordinateSpace::CaptureLocal;
+    Vec3 SupportDepthCoefficients{};
   };
 
   struct Demand {
@@ -50,12 +52,19 @@ public:
     Generators::BuildingSourceBudget Capture;
   };
 
+  // Plane stays capture-local; Metadata.WorldFromField maps it into World.
+  struct ProjectedSupport {
+    Render::RadiancePlane Plane;
+    Pose View;
+    Render::ImpostorPoseBounds::Error Bounds;
+  };
+
   struct Product {
     BuildingSourceDemand::Source Source;
     std::shared_ptr<const Content::ImpostorViewAssets> Metadata;
     std::shared_ptr<const ImpostorAtlas> Field;
     std::shared_ptr<const Render::MaterialFieldInput> RenderInput;
-    std::optional<Render::ImpostorPoseBounds::Error> GeometricError = std::nullopt;
+    std::optional<ProjectedSupport> GeometricSupport = std::nullopt;
   };
 
   // Pipeline and workers outlive the request and its returned CPU leases.

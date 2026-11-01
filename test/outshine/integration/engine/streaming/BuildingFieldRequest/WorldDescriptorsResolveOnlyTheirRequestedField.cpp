@@ -92,6 +92,18 @@ void Boundaries(const Fixture &fixture, const BuildingSourceDemand::Source &sour
   limited.RasterBytesMost = std::numeric_limits<size_t>::max();
   CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), limited),
         "combined field and raster reservation cannot overflow");
+  for (size_t axis = 0; axis < 3; ++axis) {
+    for (const double bad :
+         {std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+      auto nonfiniteSupport = Demand();
+      nonfiniteSupport.GeometricView.emplace();
+      nonfiniteSupport.GeometricView->SupportDepthCoefficients[axis] = bad;
+      CHECK(!BuildingFieldRequest::Start(
+                pipeline, workers, cache, nullptr, source, nonfiniteSupport, Budget()) &&
+                pipeline.Counts().Jobs == 0 && pipeline.Counts().Consumers == 0,
+            "nonfinite fitted support admits neither metadata work nor a consumer");
+    }
+  }
   const auto before = fixture.Stack.BuildingAssets()->Costs();
   AssetPipeline full(workers,
                      {.JobsMost = 1,
@@ -225,6 +237,85 @@ void CheckMetadataBinding(const Fixture &fixture,
   }
 }
 
+void FittedRequests(AssetPipeline &pipeline,
+                    Tasks &workers,
+                    const std::shared_ptr<AssetCache> &cache,
+                    const BuildingFieldRequest::Product &original,
+                    const BuildingFieldRequest::Demand &worldDemand) {
+  const auto &description = original.Metadata->Metadata();
+  CHECK(worldDemand.GeometricView && description.WorldFromField,
+        "fitted World requests retain their declared pose and intrinsic field frame");
+  if (!worldDemand.GeometricView || !description.WorldFromField) { return; }
+  const auto &view = *worldDemand.GeometricView;
+  const Render::RadiancePlane plane{.Centre = description.Centre,
+                                    .TowardEye = description.Directions[worldDemand.View.Value],
+                                    .HalfExtentM = description.HalfExtentM};
+  auto shifted = plane;
+  shifted.DepthCoefficients = {{0, 0, 1}};
+  const auto flatHull = Render::ImpostorPoseBounds::From(plane);
+  const auto fittedHull = Render::ImpostorPoseBounds::From(shifted);
+  CHECK(flatHull && fittedHull, "both physical supports bind to the same native source capture");
+  if (!flatHull || !fittedHull) { return; }
+  const auto flat = flatHull->Project(view.Camera, view.Optics, *description.WorldFromField);
+  const auto fitted = fittedHull->Project(view.Camera, view.Optics, *description.WorldFromField);
+  CHECK(flat && fitted && fitted->L1UpperPx > flat->L1UpperPx,
+        "the independent World pose distinguishes flat and displaced projection budgets");
+  if (!flat || !fitted) { return; }
+  {
+    auto rejected = worldDemand;
+    auto &candidate = rejected.GeometricView.emplace(view);
+    candidate.SupportDepthCoefficients = shifted.DepthCoefficients;
+    candidate.GeometryErrorMostPx = (flat->L1UpperPx + fitted->L1UpperPx) / 2;
+    const auto before = pipeline.Counts().Tickets;
+    auto request = BuildingFieldRequest::Start(
+        pipeline, workers, cache, nullptr, original.Source, rejected, Budget());
+    CHECK(request, "the fitted candidate enters the same metadata-only admission path");
+    if (request) {
+      const auto result = Await(*request);
+      CHECK(!result && result.error().contains("geometric") &&
+                pipeline.Counts().Tickets == before + 1,
+            "a flat-only budget rejects the actual fitted plane without a fine field ticket");
+    }
+  }
+  for (const Vec3 coefficients : {Vec3{{0, 0, 1}}, Vec3{{.25, -.5, .125}}}) {
+    auto demand = worldDemand;
+    auto &candidate = demand.GeometricView.emplace(view);
+    candidate.SupportDepthCoefficients = coefficients;
+    candidate.GeometryErrorMostPx = 1;
+    const auto requested = candidate;
+    std::shared_ptr<const BuildingFieldRequest::Product> retained;
+    {
+      auto request = BuildingFieldRequest::Start(
+          pipeline, workers, cache, nullptr, original.Source, demand, Budget());
+      CHECK(request, "source-free fitted support requests reuse the captured asset");
+      if (!request) { continue; }
+      candidate.SupportDepthCoefficients[2] += 3;
+      candidate.Camera.EyeM[0] += 100;
+      const auto result = Await(*request);
+      CHECK(result && *result, "the fitted request resolves its existing native field and raster");
+      if (!result || !*result) { continue; }
+      retained = *result;
+    }
+    CHECK(retained->GeometricSupport, "the result retains support, pose and bounds together");
+    if (!retained->GeometricSupport) { continue; }
+    const auto &support = *retained->GeometricSupport;
+    CHECK(
+        support.Plane.Centre == description.Centre && support.Plane.TowardEye == plane.TowardEye &&
+            support.Plane.HalfExtentM == description.HalfExtentM &&
+            support.Plane.DepthCoefficients == coefficients &&
+            support.View.SupportDepthCoefficients == coefficients &&
+            support.View.Camera.EyeM == requested.Camera.EyeM &&
+            support.View.Space == BuildingFieldRequest::CoordinateSpace::World &&
+            support.Bounds.DepthInside && support.Bounds.L1UpperPx <= requested.GeometryErrorMostPx,
+        "the immutable CPU lease preserves its actual World pose after caller mutation and "
+        "cancellation");
+    CHECK(retained->Metadata->FieldKey(worldDemand.View) ==
+                  original.Metadata->FieldKey(worldDemand.View) &&
+              Hash(*retained->Field) == Hash(*original.Field) && retained->RenderInput,
+          "physical support changes neither the asset address nor the captured field bytes");
+  }
+}
+
 void GeometricRequests(const Fixture &fixture,
                        const BuildingFieldRequest::Product &original,
                        const std::string &provenance) {
@@ -331,10 +422,12 @@ void GeometricRequests(const Fixture &fixture,
   CHECK(request, "a far pose uses the same source-free request and persisted field");
   if (!request) { return; }
   const auto result = Await(*request);
-  CHECK(result && *result && (**result).GeometricError && (**result).GeometricError->DepthInside &&
-            (**result).GeometricError->L1UpperPx <= 1 &&
+  CHECK(result && *result && (**result).GeometricSupport &&
+            (**result).GeometricSupport->Bounds.DepthInside &&
+            (**result).GeometricSupport->Bounds.L1UpperPx <= 1 &&
             Hash(*(**result).Field) == Hash(*original.Field),
         "a World/ECEF candidate uses its actual bound frame and retains exact cached field bytes");
+  FittedRequests(pipeline, workers, cache, original, demand);
 }
 
 void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Product &original) {
@@ -481,7 +574,8 @@ void Exercise(const Fixture &fixture, const BuildingSourceDemand::Source &source
   const auto absent = (**ready).Metadata->LoadField({1}, kMiB);
   CHECK(absent && !*absent, "an undemanded view is not generated or stored");
   const auto digest = Hash(*(**ready).Field);
-  CHECK((**ready).RenderInput, "the worker supplies a prepared native raster with the field");
+  CHECK((**ready).RenderInput && !(**ready).GeometricSupport,
+        "a raw diagnostic supplies its native raster without implicit geometric admission");
   request.reset();
   CHECK(!digest.empty() && Hash(*(**ready).Field) == digest && pipeline.Counts().Tickets > 0,
         "a returned CPU lease retains its field and publication after the request is gone");

@@ -8,6 +8,7 @@
 #include "Geodesy.h"
 #include "MaterialFieldInput.h"
 #include "MaterialFieldRasterInput.h"
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -116,10 +117,13 @@ struct BuildingFieldRequest::State {
     }
     if (Requested.GeometricView) {
       const auto &metadata = Value.Metadata->Metadata();
-      const auto hull = Render::ImpostorPoseBounds::From(
-          metadata.Centre, metadata.Directions[Requested.View.Value], metadata.HalfExtentM);
-      if (!hull) { return std::unexpected(hull.error()); }
       const auto &pose = *Requested.GeometricView;
+      const Render::RadiancePlane support{.Centre = metadata.Centre,
+                                          .TowardEye = metadata.Directions[Requested.View.Value],
+                                          .HalfExtentM = metadata.HalfExtentM,
+                                          .DepthCoefficients = pose.SupportDepthCoefficients};
+      const auto hull = Render::ImpostorPoseBounds::From(support);
+      if (!hull) { return std::unexpected(hull.error()); }
       const auto error = pose.Space == CoordinateSpace::World
                              ? hull->Project(pose.Camera, pose.Optics, *worldFromField)
                              : hull->Project(pose.Camera, pose.Optics);
@@ -127,7 +131,7 @@ struct BuildingFieldRequest::State {
       if (!error->DepthInside || error->L1UpperPx > pose.GeometryErrorMostPx) {
         return std::unexpected("building field pose exceeds its geometric domain or error budget");
       }
-      Value.GeometricError = *error;
+      Value.GeometricSupport = {.Plane = support, .View = pose, .Bounds = *error};
     }
     return true;
   }
@@ -235,6 +239,9 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
   }
   if (demand.GeometricView && (!std::isfinite(demand.GeometricView->GeometryErrorMostPx) ||
                                demand.GeometricView->GeometryErrorMostPx < 0 ||
+                               !std::ranges::all_of(
+                                   demand.GeometricView->SupportDepthCoefficients,
+                                   [](double value) { return std::isfinite(value); }) ||
                                (demand.GeometricView->Space != CoordinateSpace::CaptureLocal &&
                                 demand.GeometricView->Space != CoordinateSpace::World))) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
