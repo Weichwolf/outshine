@@ -175,7 +175,7 @@ bool Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  if (const auto declared = World.Stack.Declares(told); !declared) {
+  if (const auto declared = World.Surface().Declares(told); !declared) {
     Error = declared.error();
     return false;
   }
@@ -212,12 +212,12 @@ bool Engine::State::PrepareRuntimeWorld() {
                                               .Sources = Session.Under.SourceCacheDirectory,
                                               .Assets = Session.Under.AssetCacheDirectory};
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Stack.Opened()) {
+  if (!World.Surface().Opened()) {
     if (!Services.SurfaceCacheConnections) {
       Services.SurfaceCacheConnections =
           std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
     }
-    const auto opened = World.Stack.OpenSession(
+    const auto opened = World.Surface().OpenSession(
         contentDirectories,
         World.Sources,
         {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
@@ -231,7 +231,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       return false;
     }
   }
-  World.Stack.DeferWaterToRegionLookup();
+  World.Surface().DeferWaterToRegionLookup();
   if (!Services.CacheReclaimer) {
     Services.CacheReclaimer =
         std::make_unique<AssetCacheReclaimer>(*Services.Compute, contentDirectories.Assets);
@@ -248,11 +248,15 @@ bool Engine::State::PrepareRuntimeWorld() {
     how.FocusLatDeg = atLat;
     how.FocusLonDeg = atLon;
     how.Seed = Session.Declared.Ground.Shape.Seed;
-    World.Stack.Pool().Shapes(how);
+    World.Surface().Pool().Shapes(how);
     Published.RecordMetric("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
-    const double hereM =
-        World.Stack.Ground().At({.LongitudeDeg = atLon, .LatitudeDeg = atLat}).AslM().value_or(0.0);
-    const double eastM = World.Stack.Ground()
+    const double hereM = World.Surface()
+                             .Ground()
+                             .At({.LongitudeDeg = atLon, .LatitudeDeg = atLat})
+                             .AslM()
+                             .value_or(0.0);
+    const double eastM = World.Surface()
+                             .Ground()
                              .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
                              .AslM()
                              .value_or(0.0);
@@ -270,18 +274,18 @@ bool Engine::State::PrepareRuntimeWorld() {
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
                               : static_cast<double>(kFrameUnsaidHighPx);
-    World.Stack.SeeFootprintsWith(
+    World.Surface().SeeFootprintsWith(
         {.FocalPx = highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn))});
-    const int vectorZoom = World.Stack.VectorZoom();
+    const int vectorZoom = World.Surface().VectorZoom();
     const double vectorSpanM = Data::kMercatorGirthM *
                                std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /
                                std::ldexp(1.0, vectorZoom);
-    World.Stack.FootprintTilesSpan(vectorSpanM);
+    World.Surface().FootprintTilesSpan(vectorSpanM);
   }
-  if (World.Stack.RecipesReady()) {
+  if (World.Surface().RecipesReady()) {
     std::string why;
     if (!World.Builtins.EnsureCatalogue(
-            World.Stack.SurfaceRecipes(),
+            World.Surface().SurfaceRecipes(),
             std::string(Session.Under.BuiltinDataDirectory) + "/world/species",
             why,
             declared.Ground.VegetationEnabled,
@@ -289,7 +293,7 @@ bool Engine::State::PrepareRuntimeWorld() {
       Error = std::move(why);
       return false;
     }
-    World.Table = Generators::TableOf(World.Stack.SurfaceRecipes());
+    World.Table = Generators::TableOf(World.Surface().SurfaceRecipes());
   }
 
   HandsPiecesOver();

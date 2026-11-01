@@ -36,8 +36,8 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
                   Render::TerrainLattice::kMaximumPages)) {
     return std::unexpected("ground region parameters exceed their encoding limit");
   }
-  if ((!World.Stack.HasVectorSource() || World.Stack.HasDeclaredVectors()) &&
-      !parameters.Text(World.Stack.DeclaredDigest())) {
+  if ((!World.Surface().HasVectorSource() || World.Surface().HasDeclaredVectors()) &&
+      !parameters.Text(World.Surface().DeclaredDigest())) {
     return std::unexpected("declared ground input identity exceeds its encoding limit");
   }
   return std::move(parameters.Out).TakeBytes();
@@ -45,11 +45,11 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
 
 bool Engine::State::CanPrimeGroundRegion(GroundQuality quality) const {
   if (quality != GroundQuality::Refined || World.GroundPublished.Current() ||
-      !World.Stack.RegionAssets() || !Services.Compute || !Picture.Standing || !Session.Views ||
+      !World.Surface().RegionAssets() || !Services.Compute || !Picture.Standing || !Session.Views ||
       (World.OsmSource &&
        World.OsmSource->CurrentPhase() != Generators::Osm::SourceAcquisition::Phase::Inactive) ||
-      !World.OsmRoutes.empty() || !World.Stack.HasVectorSource() ||
-      World.Stack.HasDeclaredVectors()) {
+      !World.OsmRoutes.empty() || !World.Surface().HasVectorSource() ||
+      World.Surface().HasDeclaredVectors()) {
     return false;
   }
   const auto &view = Session.Views->Active();
@@ -71,25 +71,25 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (!Session.Views || !CanPrimeGroundRegion(quality)) { return true; }
   const auto positioned = PositionGroundRegionCamera(Session.Views->Active());
   if (!positioned || !*positioned) { return positioned; }
-  const auto assets = World.Stack.RegionAssets();
+  const auto assets = World.Surface().RegionAssets();
   const auto focus = CurrentGeographicFocus();
   const auto coverage = TerrainCoverageAt(focus);
   const auto parameters = GroundRegionParameters(coverage, quality);
   if (!parameters) { return std::unexpected(parameters.error()); }
   auto request = assets->PlanRequest(focus,
-                                     World.Stack.VectorZoom(),
-                                     World.Stack.VectorSchema(),
+                                     World.Surface().VectorZoom(),
+                                     World.Surface().VectorSchema(),
                                      Ground::kVectorRing,
-                                     World.Stack.Pool().Shaped(),
+                                     World.Surface().Pool().Shaped(),
                                      *parameters);
   if (!request) { return std::unexpected(request.error()); }
   if (*request != World.GroundLookupRequest) {
-    World.Stack.ForgetCachedRegionNetwork();
+    World.Surface().ForgetCachedRegionNetwork();
     World.GroundLookupRequest = std::move(*request);
     World.GroundLookup = std::make_unique<GroundRegionPreparation>(
         *Services.Compute,
         GroundRegionPreparation::Lookup(assets, World.GroundLookupRequest),
-        World.Stack.RoadAssets());
+        World.Surface().RoadAssets());
   }
   if (!World.GroundLookup) { return true; }
   World.GroundLookup->Advance();
@@ -97,9 +97,10 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (result == nullptr) { return false; }
   if (!*result) { return std::unexpected(result->error()); }
   if (result->value().Loaded) {
-    World.Stack.UseCachedRegionNetwork(focus);
+    World.Surface().UseCachedRegionNetwork(focus);
     const auto &classes = result->value().Loaded->Region.Classes;
-    if (classes && World.Stack.Classes().Read() != classes && World.Stack.RestoreClasses(classes)) {
+    if (classes && World.Surface().Classes().Read() != classes &&
+        World.Surface().RestoreClasses(classes)) {
       Published.RecordMetric("ground region: classes restored before fields", 1.0, "hit");
     }
   }

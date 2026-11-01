@@ -627,20 +627,20 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::move(*reused);
   }
 
-  auto prepared =
-      PrepareRuntimeDeclaration(scenario,
-                                S_->World.Offering,
-                                scenario.Ground.Declared ? S_->World.Stack.TryGround() : nullptr,
-                                S_->World.GroundPositionsM,
-                                S_->World.GroundIndex,
-                                S_->Picture,
-                                declared);
+  auto prepared = PrepareRuntimeDeclaration(
+      scenario,
+      S_->World.Offering,
+      scenario.Ground.Declared ? S_->World.Surface().TryGround() : nullptr,
+      S_->World.GroundPositionsM,
+      S_->World.GroundIndex,
+      S_->Picture,
+      declared);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
   }
   S_->World.StructureBuilds.Clear();
-  S_->World.Stack.Footprints().ResetDerived();
+  S_->World.Surface().Footprints().ResetDerived();
   S_->World.Pieces.Clear();
   S_->World.UrbanAreas.reset();
   S_->World.UrbanChildrenRevision.reset();

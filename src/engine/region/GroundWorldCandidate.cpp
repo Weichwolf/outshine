@@ -52,9 +52,9 @@ GroundWorldCandidate::GroundWorldCandidate(
                 .Surfaces = world.StructureSurfaces},
       World_(renderer),
       Sources_(::outshine::Generators::Osm::RegionSources::Snapshot(
-          world.Stack.Vectors(),
-          world.Stack.Ways(),
-          world.Stack.WaterBodies(),
+          world.Surface().Vectors(),
+          world.Surface().Ways(),
+          world.Surface().WaterBodies(),
           world.Region ? world.Region->VectorSnapshot() : nullptr)),
       SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
       PieceSources_(pieces) {}

@@ -48,7 +48,7 @@ PublishedBuildingTiles(const Render::GeometryPageResidency &pieces,
 }
 
 std::string_view Engine::State::UrbanWorldBlocker() const noexcept {
-  if (!World.Stack.UrbanAssets() || !World.Stack.HasVectorSource() ||
+  if (!World.Surface().UrbanAssets() || !World.Surface().HasVectorSource() ||
       !Session.Declared.Ground.Osm.empty()) {
     return {};
   }
@@ -56,7 +56,7 @@ std::string_view Engine::State::UrbanWorldBlocker() const noexcept {
 }
 
 bool Engine::State::AdvanceUrbanAreas() {
-  if (!World.Stack.UrbanAssets() || !World.Stack.HasVectorSource() ||
+  if (!World.Surface().UrbanAssets() || !World.Surface().HasVectorSource() ||
       !Session.Declared.Ground.Osm.empty() || !Picture.Standing || World.GroundBuild ||
       !World.GroundPublished.CanPublish()) {
     return true;
@@ -70,21 +70,21 @@ bool Engine::State::AdvanceUrbanAreas() {
   if (!World.UrbanAreas) {
     World.UrbanAreas =
         std::make_unique<UrbanAreaStreaming>(*Services.Compute,
-                                             World.Stack.UrbanAssets(),
-                                             World.Stack.Pool(),
-                                             World.Stack.VectorSchema(),
+                                             World.Surface().UrbanAssets(),
+                                             World.Surface().Pool(),
+                                             World.Surface().VectorSchema(),
                                              Session.Under.AssetCacheDirectory + "/assets.sqlite");
     World.UrbanAreas->Into(Picture.Device);
   }
   const auto origin = Session.Declared.Ground.Origin;
   if (World.UrbanChildrenRevision != World.Pieces.Digest()) {
-    World.UrbanChildren = PublishedBuildingTiles(World.Pieces, World.Stack.Footprints());
+    World.UrbanChildren = PublishedBuildingTiles(World.Pieces, World.Surface().Footprints());
     World.UrbanChildrenRevision = World.Pieces.Digest();
   }
   auto advanced =
       World.UrbanAreas->Advance({.Focus = CurrentGeographicFocus(),
                                  .EyeEcef = *eye,
-                                 .FocalPx = World.Stack.Footprints().Projection().FocalPx,
+                                 .FocalPx = World.Surface().Footprints().Projection().FocalPx,
                                  .RadiusM = TerrainSightM(),
                                  .Frame = TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg,
                                                             .LatitudeDeg = origin.LatitudeDeg})},
