@@ -41,4 +41,12 @@ LightingUniform PackLightingUniform(std::span<const SceneLight> placed,
   }
   return packed;
 }
+
+void PackEnvironmentMap(LightingUniform &into, double skyLux, const EnvironmentMapFrame &frame) {
+  into.Environment[3] = static_cast<float>(skyLux);
+  for (size_t at = 0; at < 3; ++at) {
+    into.SkyUp[at] = frame.Up[at];
+    into.SkyToSun[at] = frame.ToSun[at];
+  }
+}
 }

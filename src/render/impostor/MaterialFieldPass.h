@@ -30,6 +30,13 @@ private:
 [[nodiscard]] bool ValidMaterialFieldCameraBasis(const Viewpoint &camera) noexcept;
 
 struct MaterialFieldView {
+  // EnvironmentSpecularLayout atlas; directions use the field frame.
+  struct ReflectedEnvironment {
+    std::shared_ptr<const RadianceImage> Atlas;
+    Vec3f Up = {{0, 1, 0}};
+    Vec3f ToSun = {{0, 1, 0}};
+  };
+
   Viewpoint Camera;
   std::span<const SceneLight> Lights;
   EnvironmentLighting Environment;
@@ -38,6 +45,7 @@ struct MaterialFieldView {
   RadianceEncoding Encoding = RadianceEncoding::Texels;
   // Only basis/kind control lighting; Camera keeps the raster rays and clipping.
   std::optional<Viewpoint> LightingCamera = std::nullopt;
+  std::optional<ReflectedEnvironment> Reflections = std::nullopt;
 };
 
 struct MaterialFieldImages {

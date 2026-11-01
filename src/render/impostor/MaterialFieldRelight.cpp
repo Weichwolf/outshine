@@ -176,7 +176,16 @@ Native::Result<void> ResidentMaterialField::Data::Encode(const MaterialFieldView
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(error)});
   }
   Renderer.SetEnvironment(view.Environment);
-  return Renderer.Encode(frame, recording);
+  if (view.Reflections) {
+    const auto &reflections = *view.Reflections;
+    Renderer.ReflectionsFrom({.Atlas = reflections.Atlas->Texture.get(),
+                              .Sampler = reflections.Atlas->Sampling.get(),
+                              .Up = reflections.Up,
+                              .ToSun = reflections.ToSun});
+  }
+  auto result = Renderer.Encode(frame, recording);
+  Renderer.ReflectionsFrom({});
+  return result;
 }
 
 Native::Result<std::vector<std::shared_ptr<ResidentMaterialField::Data>>>
@@ -251,7 +260,7 @@ MaterialFieldPass::Relight(const ResidentMaterialField &source,
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "integral field needs its padded source raster"});
   }
-  if (!ValidMaterialFieldLighting(view)) {
+  if (!ValidMaterialFieldLighting(view, state.Pipelines->Device)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "material field lighting is invalid"});
   }
@@ -305,11 +314,13 @@ MaterialFieldPass::Relight(const ResidentMaterialField &source,
   submission.Commit();
   auto images = ImagesOf(*state.Pipelines, *targets, view, *produced);
   state.Last = *produced;
-  state.InFlight.push_back({.Completion = *produced,
-                            .Source = data,
-                            .Additional = std::move(*extra),
-                            .Images = images,
-                            .Scratch = std::move(scratch)});
+  state.InFlight.push_back(
+      {.Completion = *produced,
+       .Source = data,
+       .Additional = std::move(*extra),
+       .Images = images,
+       .Scratch = std::move(scratch),
+       .Environment = view.Reflections.value_or(MaterialFieldView::ReflectedEnvironment{}).Atlas});
   return images;
 }
 }

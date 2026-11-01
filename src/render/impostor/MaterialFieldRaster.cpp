@@ -82,12 +82,20 @@ Native::Result<void> MaterialFieldRaster::Encode(Native::Commands &commands,
                                           static_cast<float>(extent.WidthPx),
                                           static_cast<float>(extent.HeightPx),
                                           0}}};
-  const auto lighting = PackLightingUniform(view.Lights, view.Environment, frame);
+  auto lighting = PackLightingUniform(view.Lights, view.Environment, frame);
   const auto material = PackMaterial(MaterialBinding{}, 0);
   const auto uniform = [](const auto &value) {
     return Native::Uniform{.Bytes = std::as_bytes(std::span(&value, 1))};
   };
   const Native::SampledTexture empty{.Image = {.Image = Empty.get()}, .Sampling = &sampling};
+  auto environment = empty;
+  if (view.Reflections) {
+    const auto &reflections = *view.Reflections;
+    environment = {.Image = {.Image = reflections.Atlas->Texture.get()},
+                   .Sampling = reflections.Atlas->Sampling.get()};
+    PackEnvironmentMap(
+        lighting, view.Environment.SkyLux, {.Up = reflections.Up, .ToSun = reflections.ToSun});
+  }
   const std::array bindings{
       Native::Binding{.Set = 0,
                       .Slot = 0,
@@ -96,7 +104,7 @@ Native::Result<void> MaterialFieldRaster::Encode(Native::Commands &commands,
                                                 .Range = {.Bytes = Pixels->Description().Bytes}}},
       Native::Binding{.Set = 1, .Slot = 0, .Value = uniform(raster)},
       Native::Binding{.Set = 2, .Slot = 0, .Value = empty},
-      Native::Binding{.Set = 2, .Slot = 1, .Value = empty},
+      Native::Binding{.Set = 2, .Slot = 1, .Value = environment},
       Native::Binding{.Set = 3, .Slot = 0, .Value = uniform(material)},
       Native::Binding{.Set = 3, .Slot = 1, .Value = uniform(lighting)}};
   return commands.Draw({.State = {.Pipeline = &pipeline,

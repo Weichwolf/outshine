@@ -34,12 +34,9 @@ GeometryRenderer::PackedLights(const FrameContext &ctx) const {
   packed.Count[2] = shadowSource ? static_cast<float>(ShadowLightIndex_ + 1) : 0.0f;
   packed.Count[3] = static_cast<float>(ShadowRegionCount_);
   packed.ShadowRegions = ShadowRegions_;
-  packed.Environment[3] =
-      Reflections_.Atlas != nullptr ? static_cast<float>(IndirectLight.SkyLux) : 0.0f;
-  for (size_t at = 0; at < 3; ++at) {
-    packed.SkyUp[at] = static_cast<float>(Reflections_.Up[at]);
-    packed.SkyToSun[at] = static_cast<float>(Reflections_.ToSun[at]);
-  }
+  PackEnvironmentMap(packed,
+                     Reflections_.Atlas != nullptr ? IndirectLight.SkyLux : 0.0,
+                     {.Up = Reflections_.Up, .ToSun = Reflections_.ToSun});
   return std::bit_cast<std::array<float, kLightFloats>>(packed);
 }
 

@@ -1,8 +1,11 @@
 #include "MaterialFieldPassState.h"
 #include "LightingUniform.h"
+#include "EnvironmentSpecularLayout.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
+#include <limits>
 
 namespace outshine::Render {
 namespace {
@@ -38,8 +41,33 @@ bool SameMaterialFieldCapture(const Viewpoint &capture, const Viewpoint &view) n
          view.ZNearM + forward == capture.ZNearM && view.ZFarM + forward == capture.ZFarM;
 }
 
-bool ValidMaterialFieldLighting(const MaterialFieldView &view) noexcept {
+bool ValidMaterialFieldLighting(const MaterialFieldView &view,
+                                const Native::Device &device) noexcept {
   const auto &environment = view.Environment;
+  if (view.Reflections) {
+    const auto &map = *view.Reflections;
+    if (!map.Atlas || !Finite(map.Up) || !Finite(map.ToSun) ||
+        std::abs(Dot(map.Up, map.Up) - 1) > kMaterialFieldUnitTolerance ||
+        std::abs(Dot(map.ToSun, map.ToSun) - 1) > kMaterialFieldUnitTolerance ||
+        environment.SkyLux > std::numeric_limits<float>::max()) {
+      return false;
+    }
+    const auto &image = *map.Atlas;
+    if (image.Device != &device || !image.Texture || !image.Sampling ||
+        image.Encoding != RadianceEncoding::Texels || image.Produced.Device == 0 ||
+        image.Produced.Serial == 0) {
+      return false;
+    }
+    const auto &shape = image.Texture->Description();
+    if (shape.Type != Native::TextureType::Image2D || shape.Layers != 1 ||
+        shape.Width != kEnvironmentWidth || shape.Height != kEnvironmentHeight ||
+        (shape.Texels != Native::Format::Rgba16Float &&
+         shape.Texels != Native::Format::Rgba32Float) ||
+        (static_cast<uint32_t>(shape.Use) & static_cast<uint32_t>(Native::TextureUse::Sampled)) ==
+            0) {
+      return false;
+    }
+  }
   if (view.Lights.size() > kMaxUniformLights || !Nonnegative(environment.RadianceLinear) ||
       !Nonnegative(environment.GroundLinear) || !Nonnegative(environment.GroundAlbedo) ||
       !Finite(environment.UpUnit) ||

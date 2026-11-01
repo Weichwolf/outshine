@@ -1,6 +1,7 @@
 #include "MaterialFieldPass.h"
 #include "MaterialFieldRasterInput.h"
 #include "ImpostorAtlas.h"
+#include "EnvironmentSpecularLayout.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeImageReadback.h"
@@ -18,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -180,25 +182,31 @@ bool FiniteColour(Device &device, const MaterialFieldImages &field) {
   return true;
 }
 
+MaterialFieldImages RelightPair(Tracking &device,
+                                MaterialFieldPass &pass,
+                                const ResidentMaterialField &source,
+                                const ResidentMaterialField &original,
+                                const MaterialFieldView &view) {
+  auto field =
+      Require(RetryOffline([&] { return pass.Relight(source, view); }, std::chrono::seconds(5)));
+  const auto reference =
+      Require(RetryOffline([&] { return pass.Relight(original, view); }, std::chrono::seconds(5)));
+  SamePixels(device, field, reference);
+  CHECK(FiniteColour(device, field),
+        "a lighting observer cannot poison the material field with nonfinite colour");
+  CHECK(field.Camera.EyeM == view.Camera.EyeM &&
+            field.LightingCamera.EyeM == view.LightingCamera.value_or(view.Camera).EyeM,
+        "each output owns the independent raster and lighting camera bindings");
+  return field;
+}
+
 void ObserverViews(Tracking &device,
                    MaterialFieldPass &pass,
                    const ResidentMaterialField &source,
                    const ResidentMaterialField &original,
                    MaterialFieldView view,
                    ScatteringModel scattering) {
-  const auto relight = [&] {
-    auto field =
-        Require(RetryOffline([&] { return pass.Relight(source, view); }, std::chrono::seconds(5)));
-    const auto reference = Require(
-        RetryOffline([&] { return pass.Relight(original, view); }, std::chrono::seconds(5)));
-    SamePixels(device, field, reference);
-    CHECK(FiniteColour(device, field),
-          "a lighting observer cannot poison the material field with nonfinite colour");
-    CHECK(field.Camera.EyeM == view.Camera.EyeM &&
-              field.LightingCamera.EyeM == view.LightingCamera.value_or(view.Camera).EyeM,
-          "each output owns the independent raster and lighting camera bindings");
-    return field;
-  };
+  const auto relight = [&] { return RelightPair(device, pass, source, original, view); };
   const auto captured = relight();
   view.LightingCamera = view.Camera;
   view.LightingCamera->EyeM = {{17, -7, 13}};
@@ -235,6 +243,135 @@ void ObserverViews(Tracking &device,
     CHECK(!rejected && rejected.error().Kind == ErrorKind::Invalid && device.Submits == submissions,
           "invalid lighting observers refuse before native submission and preserve held outputs");
   }
+}
+
+std::shared_ptr<RadianceImage> EnvironmentAtlas(Device &device) {
+  auto image = std::make_shared<RadianceImage>();
+  image->Device = &device;
+  image->Texture =
+      Require(device.CreateTexture({.Width = kEnvironmentWidth,
+                                    .Height = kEnvironmentHeight,
+                                    .Texels = Format::Rgba32Float,
+                                    .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
+  image->Sampling = Require(device.CreateSampler({.Min = Native::Filter::Nearest,
+                                                  .Mag = Native::Filter::Nearest,
+                                                  .Mip = Native::Filter::Nearest}));
+  std::vector<float> pixels(size_t{kEnvironmentWidth} * kEnvironmentHeight * 4);
+  for (size_t y = 0; y < kEnvironmentHeight; ++y) {
+    for (size_t x = 0; x < kEnvironmentWidth; ++x) {
+      const size_t offset = (y * kEnvironmentWidth + x) * 4;
+      pixels[offset] = .1f + static_cast<float>(x) / static_cast<float>(kEnvironmentWidth);
+      pixels[offset + 1] = .1f + static_cast<float>(y) / static_cast<float>(kEnvironmentHeight);
+      pixels[offset + 2] = pixels[offset + 3] = 1;
+    }
+  }
+  auto staging = Require(device.CreateBuffer({.Bytes = pixels.size() * sizeof(float),
+                                              .Use = BufferUse::CopySource,
+                                              .Placement = Memory::Upload}));
+  const auto mapped = Require(device.MapWrite(*staging, {.Bytes = staging->Description().Bytes}));
+  std::memcpy(mapped.data(), pixels.data(), static_cast<size_t>(staging->Description().Bytes));
+  Require(device.Unmap(*staging));
+  auto commands = Require(device.Begin());
+  Require(commands->Copy(*staging,
+                         *image->Texture,
+                         {.RowBytes = size_t{kEnvironmentWidth} * 4 * sizeof(float),
+                          .Region = {.Width = kEnvironmentWidth, .Height = kEnvironmentHeight}}));
+  image->Produced = Require(device.Submit(std::move(commands)));
+  return image;
+}
+
+void InvalidEnvironments(Tracking &device,
+                         MaterialFieldPass &pass,
+                         const ResidentMaterialField &source,
+                         const ResidentMaterialField &original,
+                         MaterialFieldView view) {
+  const auto atlas = EnvironmentAtlas(device);
+  const auto reject = [&](const MaterialFieldView &candidate) {
+    const auto submitted = device.Submits;
+    for (const auto *input : {&source, &original}) {
+      const auto result = pass.Relight(*input, candidate);
+      CHECK(!result && result.error().Kind == ErrorKind::Invalid && device.Submits == submitted,
+            "invalid environment bindings refuse both inputs before native work");
+    }
+  };
+  for (int which = 0; which < 6; ++which) {
+    auto bad = std::make_shared<RadianceImage>(*atlas);
+    switch (which) {
+      case 0: bad->Device = nullptr; break;
+      case 1: bad->Texture.reset(); break;
+      case 2: bad->Sampling.reset(); break;
+      case 3: bad->Encoding = RadianceEncoding::IntegralPairs; break;
+      case 4: bad->Produced.Serial = 0; break;
+      case 5: bad->Produced.Device = 0; break;
+      default: CHECK(false, "unknown environment corruption case"); return;
+    }
+    view.Reflections.emplace().Atlas = std::move(bad);
+    reject(view);
+  }
+  for (const auto shape :
+       {TextureDescription{
+            .Width = 1, .Height = 1, .Texels = Format::Rgba32Float, .Use = TextureUse::Sampled},
+        TextureDescription{.Width = kEnvironmentWidth,
+                           .Height = kEnvironmentHeight,
+                           .Texels = Format::Rgba8Unorm,
+                           .Use = TextureUse::Sampled},
+        TextureDescription{.Width = kEnvironmentWidth,
+                           .Height = kEnvironmentHeight,
+                           .Texels = Format::Rgba32Float,
+                           .Use = TextureUse::CopyDestination}}) {
+    auto bad = std::make_shared<RadianceImage>(*atlas);
+    bad->Texture = Require(device.CreateTexture(shape));
+    view.Reflections.emplace().Atlas = std::move(bad);
+    reject(view);
+  }
+  view.Reflections.emplace().Atlas = atlas;
+  view.Reflections->Up = {{0, 0, 0}};
+  reject(view);
+  view.Reflections->Up = {{0, 1, 0}};
+  view.Reflections->ToSun[0] = std::numeric_limits<float>::quiet_NaN();
+  reject(view);
+  view.Reflections->ToSun = {{0, 1, 0}};
+  view.Environment.SkyLux = std::numeric_limits<double>::max();
+  reject(view);
+}
+
+void EnvironmentViews(Tracking &device,
+                      MaterialFieldPass &pass,
+                      const ResidentMaterialField &source,
+                      const ResidentMaterialField &original,
+                      MaterialFieldView view) {
+  view.Environment.SkyLux = 2;
+  const auto baseline = RelightPair(device, pass, source, original, view);
+  auto atlas = EnvironmentAtlas(device);
+  view.Reflections.emplace().Atlas = atlas;
+  view.Reflections->ToSun = {{0, 0, 1}};
+  const auto mapped = RelightPair(device, pass, source, original, view);
+  CHECK(!SameColour(device, baseline, mapped),
+        "the actual environment atlas contributes native radiance");
+  view.Reflections->ToSun = {{1, 0, 0}};
+  const auto rotated = RelightPair(device, pass, source, original, view);
+  CHECK(!SameColour(device, mapped, rotated),
+        "the shared sky and sun basis controls environment lookup");
+  view.Environment.SkyLux = 0;
+  const auto dark = RelightPair(device, pass, source, original, view);
+  CHECK(SameColour(device, baseline, dark),
+        "zero sky weight preserves the authored environment exactly");
+  view.Reflections.reset();
+  const auto cleared = RelightPair(device, pass, source, original, view);
+  CHECK(SameColour(device, baseline, cleared),
+        "a later view does not inherit the preceding environment binding");
+  view.Environment.SkyLux = 2;
+  view.Reflections.emplace().Atlas = atlas;
+  const std::weak_ptr<const RadianceImage> held = atlas;
+  const auto pending = Require(pass.Relight(source, view));
+  view.Reflections.reset();
+  atlas.reset();
+  CHECK(!held.expired(), "submitted field work holds the environment after caller release");
+  CHECK(!ReadImage(device, *pending.Unfiltered->Texture, {.Width = 4, .Height = 4}).Rows.empty(),
+        "the held environment produces a complete native result");
+  Require(pass.Collect());
+  CHECK(held.expired(),
+        "settled field work releases its environment lease without pinning source state");
 }
 
 void Exercise(ScatteringModel scattering) {
@@ -291,6 +428,8 @@ void Exercise(ScatteringModel scattering) {
       SamePixels(device, held, reference);
     }
     ObserverViews(device, pass, *source, *original, view, scattering);
+    EnvironmentViews(device, pass, *source, *original, view);
+    InvalidEnvironments(device, pass, *source, *original, view);
     const auto submissions = device.Submits;
     for (const size_t change : {size_t{0}, size_t{1}, size_t{2}, size_t{3}, size_t{4}}) {
       auto moved = view;

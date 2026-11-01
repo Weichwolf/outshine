@@ -11,7 +11,8 @@
 
 namespace outshine::Render {
 inline constexpr double kMaterialFieldUnitTolerance = 1e-6;
-[[nodiscard]] bool ValidMaterialFieldLighting(const MaterialFieldView &view) noexcept;
+[[nodiscard]] bool ValidMaterialFieldLighting(const MaterialFieldView &view,
+                                              const Native::Device &device) noexcept;
 [[nodiscard]] bool SameMaterialFieldCapture(const Viewpoint &capture,
                                             const Viewpoint &view) noexcept;
 
@@ -56,6 +57,7 @@ struct MaterialFieldPass::State {
     std::vector<std::shared_ptr<ResidentMaterialField::Data>> Additional;
     MaterialFieldImages Images;
     std::shared_ptr<Native::Texture> Scratch = nullptr;
+    std::shared_ptr<const RadianceImage> Environment = nullptr;
   };
 
   std::shared_ptr<MaterialFieldPipelines> Pipelines;
