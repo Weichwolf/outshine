@@ -118,8 +118,8 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
       .XMagM = 2, .YMagM = 2.0 * kHeight / kWidth, .NearM = kCameraNearM, .FarM = kCameraFarM});
   scenario.Views.push_back(view);
   Engine engine;
-  if (!Accepted(engine.setRenderTarget(kFrame)) || !Accepted(engine.declare(scenario)) ||
-      !Accepted(engine.setGeometry(mesh)) || !Accepted(engine.assemble())) {
+  if (!Accepted(engine.setRenderTarget(kFrame)) || !Accepted(engine.loadScenario(scenario)) ||
+      !Accepted(engine.setGeometry(mesh))) {
     return false;
   }
   for (int repeat = 0; repeat < 3; ++repeat) {

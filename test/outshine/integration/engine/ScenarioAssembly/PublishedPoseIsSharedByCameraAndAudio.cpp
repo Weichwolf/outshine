@@ -68,8 +68,7 @@ void CheckPublication() {
   auto engine = TestEngine::WithGpu({.Context = &submissions, .Submit = SubmittedWork::Submit});
   const bool ready = engine.registerGenerator(triangle) &&
                      engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}) &&
-                     engine.declare(scene) && engine.assemble() && engine.prepareAudio(48000) &&
-                     engine.advance();
+                     engine.loadScenario(scene) && engine.prepareAudio(48000) && engine.advance();
   CHECK(ready, "one native world publishes a followed camera and positional sound");
   if (!ready) { return; }
   Geometry geometry;

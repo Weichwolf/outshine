@@ -11,25 +11,19 @@
 namespace outshine {
 
 namespace Says {
-constexpr auto kAudioAssemblyRequired =
-    "assemble the current declaration before binding audio sources";
 constexpr auto kAudioDeclarationRequired = "declare content before preparing audio";
 constexpr auto kAudioPreparationRequired = "prepare audio before mixing";
 }
 
 Result Engine::prepareAudio(int sampleRateHz) {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Session.Taken) {
+  if (!S_->Session.Configured) {
     S_->Error = Says::kAudioDeclarationRequired;
     return std::unexpected(S_->Error);
   }
   const bool bound =
       std::ranges::any_of(S_->Session.Declared.Sounds,
                           [](const Audio::SoundSource &sound) { return !sound.Body.empty(); });
-  if (bound && S_->ScenarioState->DeclarationRevision != S_->Session.DeclarationRevision) {
-    S_->Error = Says::kAudioAssemblyRequired;
-    return std::unexpected(S_->Error);
-  }
   Audio::Mixer candidate;
   auto setup =
       candidate.Configure(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, sampleRateHz);

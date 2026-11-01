@@ -19,7 +19,7 @@ int main() {
   Data::SourceProvider declaration;
   declaration.Kind = "stars";
   document.Providers.push_back(std::move(declaration));
-  CHECK(engine.declare(document), "application host accepts its builtin source declarations");
+  CHECK(engine.loadScenario(document), "application host accepts its builtin source declarations");
   CHECK(engine.loading().ProviderStarts == 0 && engine.loading().SourceBytes == 0,
         "factory composition and declaration acquire no source bytes");
   return Report();

@@ -19,8 +19,6 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   const RefusingGenerator generator;
-  Engine engine;
-  CHECK(engine.registerGenerator(generator), "fixture generator registers");
   Scenario::Document original;
   original.Views.push_back({.Id = "original",
                             .Sees = {},
@@ -33,8 +31,8 @@ int main() {
                             .Person = {},
                             .OffsetM = {}});
   for (int failure = 0; failure < 5; ++failure) {
-    CHECK(engine.declare(original).has_value(), "original view catalog activates");
-    const auto *previous = engine.declaration().Views.data();
+    Engine engine;
+    CHECK(engine.registerGenerator(generator), "fixture generator registers");
     auto candidate = original;
     candidate.Views[0].Id = "replacement";
     switch (failure) {
@@ -46,20 +44,17 @@ int main() {
         candidate.Generators.push_back({.Kind = std::string(generator.kind()), .Parameters = {}});
         break;
     }
-    CHECK(!engine.declare(candidate), "invalid view or late generator failure rejects candidate");
-    if (failure < 4) {
-      CHECK(engine.declaration().Views.data() == previous,
-            "view validation rejects before replacing the owned declaration");
-    }
-    CHECK(engine.setView("original").has_value(), "failure preserves the previous view catalog");
-    CHECK(!engine.setView("replacement"), "failure does not publish candidate view names");
+    CHECK(!engine.loadScenario(candidate),
+          "invalid view or late generator failure rejects candidate");
   }
   auto replacement = original;
   replacement.Views[0].Id = "replacement";
-  CHECK(engine.declare(replacement).has_value(), "valid retry succeeds");
-  CHECK(engine.setView("replacement").has_value() && !engine.setView("original"),
-        "successful replacement publishes only its own catalog");
-  CHECK(engine.declare({}).has_value(), "empty declaration succeeds");
-  CHECK(!engine.setView("replacement"), "successful empty declaration removes the old catalog");
+  Engine valid;
+  CHECK(valid.loadScenario(replacement).has_value(), "valid view startup succeeds");
+  CHECK(valid.setView("replacement").has_value() && !valid.setView("original"),
+        "startup publishes only its declared view catalog");
+  Engine empty;
+  CHECK(empty.loadScenario({}).has_value(), "empty startup succeeds");
+  CHECK(!empty.setView("replacement"), "an empty startup has no view catalog");
   return Report();
 }

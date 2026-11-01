@@ -67,12 +67,11 @@ int main() {
   scenario.Views.push_back(view);
   std::vector<float> frame;
   if (!accepted(engine.setRenderTarget({.WidthPx = 1280, .HeightPx = 720})) ||
-      !accepted(engine.declare(scenario)) || !accepted(engine.setGeometry(geometry))) {
+      !accepted(engine.loadScenario(scenario)) || !accepted(engine.setGeometry(geometry))) {
     return Report();
   }
   geometry.clear();
-  if (!accepted(engine.assemble()) || !accepted(engine.advance()) ||
-      !accepted(engine.renderer().render({})) ||
+  if (!accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
       !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {
     return Report();
   }

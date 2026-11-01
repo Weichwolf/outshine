@@ -39,7 +39,7 @@ Scenario::Document TargetScenario(Extent extent) {
 }
 
 bool Prepare(Engine &engine, const Scenario::Document &scene) {
-  const bool ready = engine.declare(scene) && engine.assemble() && engine.advance();
+  const bool ready = engine.loadScenario(scene) && engine.advance();
   CHECK(ready, "a real render plan and camera are ready");
   return ready;
 }
@@ -134,30 +134,29 @@ void WindowClaims(SDL_Window *first, SDL_Window *candidate) {
         "successful replacement releases the former native window claim");
 }
 
-void RejectPlans(Engine &engine, TargetFault &fault) {
-  const auto before = Rendered(engine);
-  CHECK(before.size() == kOriginalRgbaBytes, "the original target produces complete RGBA pixels");
+void RejectStartupPlans() {
   auto plan = TargetScenario(kOriginal);
   plan.Render.Outputs = {"surface", "sceneVelocity"};
-  const auto declared = engine.writeScenario();
   for (const auto point : {TargetFailure::Texture, TargetFailure::Pipeline}) {
-    const unsigned rejected = fault.Rejected;
-    const unsigned live = fault.CreatedTextures - fault.ReleasedTextures;
-    fault.Arm(point);
-    const auto result = engine.declare(plan);
-    fault.Arm(TargetFailure::None);
-    CHECK(!result && fault.Rejected == rejected + 1 && result.error().contains("injected"),
-          "frame-resource and pipeline failures reject changed render plans");
-    CHECK(engine.writeScenario() == declared, "a rejected plan retains the active declaration");
-    Retains(engine, kOriginal, before);
-    CHECK(fault.CreatedTextures - fault.ReleasedTextures == live,
-          "a rejected plan releases all candidate textures and retains the active set");
+    TargetFault fault;
+    {
+      auto engine =
+          TestEngine::WithGpu({.Context = &fault, .Create = NativeTargetFaultDevice::Create});
+      CHECK(engine.setRenderTarget(kOriginal), "startup plan has a configured target");
+      fault.Arm(point);
+      const auto result = engine.loadScenario(plan);
+      fault.Arm(TargetFailure::None);
+      CHECK(!result && fault.Rejected == 1 && result.error().contains("injected"),
+            "startup reports frame-resource and pipeline failures");
+    }
+    CHECK(fault.CreatedTextures == fault.ReleasedTextures,
+          "failed startup releases every owned texture");
   }
-  CHECK(Prepare(engine, plan), "the changed plan publishes on retry");
 }
 
 void RejectTargets(Engine &engine, TargetFault &fault) {
   const auto before = Rendered(engine);
+  CHECK(before.size() == kOriginalRgbaBytes, "the original target produces complete RGBA pixels");
   for (const auto point : {TargetFailure::Texture, TargetFailure::Pipeline, TargetFailure::Wait}) {
     const unsigned textures = fault.CreatedTextures;
     const unsigned pipelines = fault.CreatedPipelines;
@@ -240,7 +239,7 @@ void OffscreenTargets() {
         TestEngine::WithGpu({.Context = &fault, .Create = NativeTargetFaultDevice::Create});
     CHECK(engine.setRenderTarget(kOriginal).has_value(), "offscreen target is configured");
     if (Prepare(engine, TargetScenario(kOriginal))) {
-      RejectPlans(engine, fault);
+      RejectStartupPlans();
       RejectTargets(engine, fault);
       const auto counts = RepeatedTargets(engine, fault);
       EveryCreation(engine, fault, counts);

@@ -20,7 +20,7 @@ int main() {
     scenario.Render.Declared = true;
     scenario.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
     scenario.Render.Outputs = {"surface"};
-    const auto declared = engine.declare(scenario);
+    const auto declared = engine.loadScenario(scenario);
     CHECK(declared, declared ? "the initial world is published" : declared.error().c_str());
     if (!declared) { return Report(); }
     auto &renderer = TestEngine::StateOf(engine).Picture.Device;

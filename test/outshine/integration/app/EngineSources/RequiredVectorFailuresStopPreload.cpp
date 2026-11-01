@@ -152,7 +152,7 @@ void CheckTerminalRefusal(Scenario::Document scene,
     CHECK(engine.registerProvider(terrainProvider) && engine.registerProvider(provider),
           "the engine owns independent local terrain and vector source definitions");
     const bool opened = engine.setRoots(roots) && engine.setRenderTarget(scene.Render.Frame) &&
-                        engine.declare(scene) && engine.assemble();
+                        engine.loadScenario(scene);
     CHECK(opened, "the terminal-response fixture queues its real native source requests");
     if (opened) {
       Result pending;
@@ -221,7 +221,7 @@ int main() {
     auto engine = App::CreateEngine();
     CHECK(engine.registerProvider(terrainProvider), "local terrain provider registers");
     CHECK(engine.setRoots(roots) && engine.setRenderTarget(scene.Render.Frame) &&
-              engine.declare(scene) && engine.assemble(),
+              engine.loadScenario(scene),
           "offline scene queues its declared source requests");
     const auto playable = engine.preload(0.0, WorldQuality::Playable);
     CHECK(!playable && !playable.error().contains("required vector input unavailable"),

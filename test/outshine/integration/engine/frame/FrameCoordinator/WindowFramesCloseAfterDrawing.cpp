@@ -58,8 +58,8 @@ bool Prepare(outshine::Engine &engine, bool colour = true) {
   if (!surface) { return false; }
   const int part = geometry.addPart("triangle", *surface).value();
   return geometry.setPositions(part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
-         geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}) && engine.declare(scene) &&
-         engine.setGeometry(geometry) && engine.assemble() && engine.advance();
+         geometry.setTriangles(part, std::array<uint32_t, 3>{0, 1, 2}) &&
+         engine.loadScenario(scene) && engine.setGeometry(geometry) && engine.advance();
 }
 
 void CheckFrameScopes(outshine::Engine &engine, std::vector<uint8_t> &windowPixels) {
@@ -212,16 +212,19 @@ void CheckOffscreenCapture(outshine::Engine &engine, const std::vector<uint8_t> 
               .has_value(),
           "offscreen screenshot is written through application image capture");
   }
-  CHECK(Prepare(offscreen, false), "the same target adds linear output and changes its material");
-  CHECK(offscreenRenderer.render({}).has_value(), "render replacement scene explicitly");
+  auto linear = TestEngine::WithGpu({.Create = FrameDevice::Create});
+  CHECK(linear.setRenderTarget({.WidthPx = kFrameSidePx, .HeightPx = kFrameSidePx}) &&
+            Prepare(linear, false),
+        "an independent startup selects linear output and the green material");
+  CHECK(linear.renderer().render({}), "render the linear-output scene explicitly");
   std::vector<uint8_t> changed;
-  CHECK(offscreen.renderer().readPixels(changed).has_value(),
+  CHECK(linear.renderer().readPixels(changed).has_value(),
         "additional linear output preserves the standard colour output");
-  CHECK(changed.size() == kImageByteCount, "the replacement colour image has the target extent");
+  CHECK(changed.size() == kImageByteCount, "the linear-output colour image has the target extent");
   if (changed.size() == kImageByteCount) {
     CHECK(changed[kCentreByte + 1] > changed[kCentreByte + 2] &&
               changed[kCentreByte + 2] > changed[kCentreByte],
-          "readback after plan replacement contains the new green material");
+          "linear-output readback contains the declared green material");
   }
 }
 

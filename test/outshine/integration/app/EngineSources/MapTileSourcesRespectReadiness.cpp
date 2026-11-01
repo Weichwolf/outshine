@@ -34,9 +34,9 @@ int main() {
     scene.Render.Frame = kFramePx;
     scene.Views.push_back(view);
     auto engine = App::CreateEngine();
-    CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.declare(scene),
+    CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.loadScenario(scene),
           "natural world enters the public engine without source acquisition");
-    CHECK(engine.assemble(), "assembly queues world acquisition without requiring original OSM");
+
     CHECK(!engine.settled(WorldQuality::Refined) &&
               !engine.unsettledReasons(WorldQuality::Refined).empty(),
           "queued assembly cannot claim a complete world without required sources");
@@ -53,9 +53,9 @@ int main() {
     provider.Endpoint = "https://fixture.invalid/{z}/{x}/{y}";
     scene.Providers.push_back(provider);
     auto engine = App::CreateEngine();
-    CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.declare(scene),
+    CHECK(engine.setRoots(roots) && engine.setRenderTarget(kFramePx) && engine.loadScenario(scene),
           "explicit vector-tile declaration reaches the runtime boundary");
-    CHECK(engine.assemble() && engine.settled(WorldQuality::Refined),
+    CHECK(engine.settled(WorldQuality::Refined),
           "an unused explicit vector provider is permitted without blocking an empty scene");
   }
   SDL_Quit();

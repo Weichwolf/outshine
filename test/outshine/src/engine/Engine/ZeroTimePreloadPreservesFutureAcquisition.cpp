@@ -29,7 +29,7 @@ int main() {
   {
     const Generators::Osm::Provider provider;
     Engine engine;
-    CHECK(engine.registerProvider(provider) && engine.declare({}) && engine.assemble(),
+    CHECK(engine.registerProvider(provider) && engine.loadScenario({}),
           "source-free engine declares and assembles without IO");
     auto &state = TestEngine::StateOf(engine);
     auto &world = state.World;

@@ -190,8 +190,8 @@ int main() {
   scenario.Views.push_back(view);
   std::vector<float> pixels;
   if (!accepted(engine.setRenderTarget({.WidthPx = kExtentPx, .HeightPx = kExtentPx})) ||
-      !accepted(engine.declare(scenario)) || !accepted(engine.assemble()) ||
-      !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
+      !accepted(engine.loadScenario(scenario)) || !accepted(engine.advance()) ||
+      !accepted(engine.renderer().render({})) ||
       !accepted(engine.renderer().readPixels(Buffer::Linear, pixels))) {
     return Report();
   }
@@ -206,21 +206,22 @@ int main() {
   CHECK(redMax > kMinimumChannel && greenMax > kMinimumChannel,
         "two products compose with their own remapped native materials");
   const auto previous = pixels;
-  failure.Armed = true;
-  CHECK(!engine.declare(scenario),
-        "generated candidate rejects its injected GPU submission failure");
-  CHECK(failure.Rejected == 1 && !failure.Armed,
-        "generated candidate reaches the injected submission failure once");
-  CHECK(engine.renderer().render({}).has_value(),
-        "retained world remains renderable after rejection");
+  {
+    Engine rejected = TestEngine::WithGpu(
+        {.Context = &failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create});
+    CHECK(rejected.registerGenerator(left) && rejected.registerGenerator(right),
+          "failed startup owns its generator registrations");
+    CHECK(rejected.setRenderTarget({kExtentPx, kExtentPx}), "failed startup target opens");
+    failure.Armed = true;
+    const auto loaded = rejected.loadScenario(scenario);
+    CHECK(!loaded && loaded.error().contains("injected"),
+          "generated startup reports its GPU submission failure");
+    CHECK(failure.Rejected == 1 && !failure.Armed, "the GPU failure was reached once");
+  }
+  CHECK(engine.renderer().render({}), "another engine remains renderable after failed startup");
   std::vector<float> retained;
-  CHECK(engine.renderer().readPixels(Buffer::Linear, retained).has_value() && retained == previous,
-        "rejected generated candidate preserves previous world pixels");
-  CHECK(engine.declare(scenario) && engine.assemble() && engine.advance(),
-        "generated candidate retries after the rejected submission");
-  CHECK(engine.renderer().render({}).has_value() &&
-            engine.renderer().readPixels(Buffer::Linear, retained).has_value(),
-        "retried generated world establishes the native-replacement control image");
+  CHECK(engine.renderer().readPixels(Buffer::Linear, retained) && retained == previous,
+        "failed startup cannot overwrite another engine's pixels");
   NativeReplacements(engine, right, wall, failure);
   return Report();
 }

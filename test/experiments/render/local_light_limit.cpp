@@ -61,10 +61,9 @@ bool Capture(size_t points) {
   Engine engine;
   std::vector<float> pixels;
   if (!Accepted(engine.setRenderTarget({.WidthPx = kWidth, .HeightPx = kHeight}), "target") ||
-      !Accepted(engine.declare(scenario), "declare") ||
+      !Accepted(engine.loadScenario(scenario), "declare") ||
       !Accepted(engine.setGeometry(geometry), "geometry") ||
-      !Accepted(engine.assemble(), "assemble") || !Accepted(engine.advance(), "advance") ||
-      !Accepted(engine.renderer().render({}), "render") ||
+      !Accepted(engine.advance(), "advance") || !Accepted(engine.renderer().render({}), "render") ||
       !Accepted(engine.renderer().readPixels(Buffer::Linear, pixels), "readback")) {
     std::println("point_lights={} total_emitters={} success=false", points, points + 1);
     return false;

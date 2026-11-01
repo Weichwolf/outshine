@@ -46,7 +46,7 @@ int main() {
   Scenario::Document copy;
   std::string error;
   CHECK(ReadScenario(xml->data(), xml->size(), copy, error), "written generator settings parse");
-  CHECK(engine.declare(copy).has_value(), "registered generator succeeds through public API");
+  CHECK(engine.loadScenario(copy).has_value(), "registered generator succeeds through public API");
   const std::vector<std::pair<std::string, std::string>> expected{
       {"label", "A & <B> \"quoted\"\nnext"}, {"scale", "1.2500"}};
   CHECK(probe.Calls == 1 && probe.Seen == expected,
@@ -56,10 +56,13 @@ int main() {
   invocation.Uri = "parameter-probe";
   invocation.Kind = "generated";
   asset.Assets.push_back(invocation);
-  CHECK(engine.declare(asset).has_value() && probe.Calls == 2 && probe.Seen.empty(),
+  Engine generatedAsset;
+  CHECK(generatedAsset.registerGenerator(probe), "asset startup registers its generator");
+  CHECK(generatedAsset.loadScenario(asset).has_value() && probe.Calls == 2 && probe.Seen.empty(),
         "asset invocation cannot inherit another declaration's parameter views");
   copy.Generators = {{.Kind = "unregistered", .Parameters = {}}};
-  CHECK(!engine.declare(copy), "unknown generator is not silently skipped");
+  Engine unregistered;
+  CHECK(!unregistered.loadScenario(copy), "unknown generator is not silently skipped");
   const Generators::Structures structures;
   const std::array<Generators::Parameter, 1> unsupported{{{.Name = "unknown", .Value = "1"}}};
   Generators::Request request;

@@ -23,9 +23,8 @@ int main() {
                          .SourceCacheDirectory = directory,
                          .Offline = true,
                          .AssetCacheDirectory = {}}) &&
-        outshine::Test::LoadAndDeclareScenario(
-            engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario") &&
-        engine.assemble();
+        outshine::Test::LoadScenario(
+            engine, "test/outshine/data/diagnostic-places/Hockenheimring.scenario");
     CHECK(assembled, "offline world assembles from pinned local OSM");
     if (!assembled) { return Report(); }
     const auto ready = engine.preload(0.1);

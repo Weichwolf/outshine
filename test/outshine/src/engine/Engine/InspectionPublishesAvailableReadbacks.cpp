@@ -43,7 +43,7 @@ int main() {
     view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     document.Views.push_back(view);
-    const bool ready = engine.declare(document) && engine.assemble() && engine.advance();
+    const bool ready = engine.loadScenario(document) && engine.advance();
     CHECK(ready, "explicit scene camera is ready");
     if (ready) {
       std::vector<uint8_t> pixels;

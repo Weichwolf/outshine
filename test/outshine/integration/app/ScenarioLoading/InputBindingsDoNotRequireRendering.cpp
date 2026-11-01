@@ -40,7 +40,7 @@ int main() {
                  {.Event = "GamepadSouth", .Action = "pad"},
                  {.Event = "AxisLeftX", .Action = "stick"},
                  {.Event = "TriggerRight", .Action = "trigger"}};
-  CHECK(engine.declare(scene).has_value(), "input declaration needs no SDL or render target");
+  CHECK(engine.loadScenario(scene).has_value(), "input declaration needs no SDL or render target");
   const auto serialized = engine.writeScenario();
   CHECK(serialized.has_value(), "input declaration exports");
   if (!serialized) { return Report(); }
@@ -53,7 +53,9 @@ int main() {
   file << *serialized;
   file.close();
   CHECK(!file.fail(), "export fixture written");
-  CHECK(outshine::Test::LoadAndDeclareScenario(engine, path.string()).has_value(),
+  Engine restored;
+  restored.setInputHost(&receiver);
+  CHECK(outshine::Test::LoadScenario(restored, path.string()).has_value(),
         "exported declaration reimports through public API");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);
@@ -102,8 +104,9 @@ int main() {
   engine.setInputHost(static_cast<Host *>(nullptr));
   CHECK(!engine.handleEvent(event), "bound action without a host produces an error");
   engine.setInputHost(&receiver);
-  CHECK(engine.declare({}).has_value(), "empty declaration removes bindings");
-  const auto unbound = engine.handleEvent(event);
-  CHECK(unbound && !*unbound, "removed binding is unhandled without reusing old error");
+  Engine empty;
+  CHECK(empty.loadScenario({}), "empty scenario starts independently");
+  const auto unbound = empty.handleEvent(event);
+  CHECK(unbound && !*unbound, "a scenario without bindings leaves input unhandled");
   return Report();
 }

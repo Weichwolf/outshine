@@ -42,7 +42,7 @@ int main() {
   scene.Views.push_back(view);
   Engine engine;
   const auto stood = engine.setRenderTarget({.WidthPx = 32, .HeightPx = 32}) &&
-                     engine.declare(scene) && engine.assemble() && engine.setView(view.Id);
+                     engine.loadScenario(scene) && engine.setView(view.Id);
   CHECK(stood, "a native scene is prepared without a measured frame");
   if (!stood) { return Report(); }
   const auto fired = [&engine] {

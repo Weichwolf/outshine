@@ -266,9 +266,8 @@ bool CaptureTree(const Geometry &geometry, size_t rank, bool close) {
       .XMagM = close ? 1.5 : 13, .YMagM = close ? 1.6875 : 14, .NearM = 0.1, .FarM = 100});
   scenario.Views.push_back(view);
   auto prepared = engine.setRenderTarget({.WidthPx = 640, .HeightPx = 720});
-  if (prepared) { prepared = engine.declare(scenario); }
+  if (prepared) { prepared = engine.loadScenario(scenario); }
   if (prepared) { prepared = engine.setGeometry(geometry); }
-  if (prepared) { prepared = engine.assemble(); }
   if (prepared) { prepared = engine.advance(); }
   if (prepared) { prepared = engine.renderer().render({}); }
   if (!prepared) {

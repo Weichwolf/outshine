@@ -112,9 +112,8 @@ std::vector<float> CaptureReceiver(Caster caster, outshine::AlphaMode alpha, con
   scenario.Views.push_back(view);
   std::vector<float> pixels;
   if (!Accepted(engine.setRenderTarget({.WidthPx = kSide, .HeightPx = kSide}), "target opens") ||
-      !Accepted(engine.declare(scenario), "the same light and camera are declared") ||
+      !Accepted(engine.loadScenario(scenario), "the same light and camera are declared") ||
       !Accepted(engine.setGeometry(geometry), "geometry is accepted") ||
-      !Accepted(engine.assemble(), "the public scene assembles") ||
       !Accepted(engine.advance(), "the public frame advances") ||
       !Accepted(engine.renderer().render({}), "the public receiver renders") ||
       !Accepted(engine.renderer().readPixels(Buffer::Linear, pixels), "linear image reads back")) {

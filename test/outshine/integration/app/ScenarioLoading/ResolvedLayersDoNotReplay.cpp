@@ -26,7 +26,7 @@ int main() {
       "root.scn",
       R"(<scenario active="day"><layer id="overlay" path="layer.scn" set="day"/><layer path="missing.scn" set="night"/><placements><place asset="base" x="1"/></placements></scenario>)");
   Engine engine;
-  CHECK(outshine::Test::LoadAndDeclareScenario(engine, directory + "/root.scn").has_value(),
+  CHECK(outshine::Test::LoadScenario(engine, directory + "/root.scn").has_value(),
         "selected layer resolves; inactive missing file is not read");
   CHECK(engine.declaration().Layers.empty(),
         "resolved declaration contains no executable layer references");
@@ -37,15 +37,14 @@ int main() {
     CHECK(!snapshot->contains("<layer "), "snapshot has no source dependencies");
     write("snapshot.scn", *snapshot);
     Engine withSources;
-    CHECK(outshine::Test::LoadAndDeclareScenario(withSources, directory + "/snapshot.scn")
-              .has_value(),
+    CHECK(outshine::Test::LoadScenario(withSources, directory + "/snapshot.scn").has_value(),
           "snapshot reloads while the original layer still exists");
     CHECK(withSources.declaration().Placements.size() == 2,
           "existing layer is not applied again on snapshot reload");
     CHECK(std::filesystem::remove(directory + "/layer.scn"),
           "source layer removed for independent reload");
     Engine replay;
-    CHECK(outshine::Test::LoadAndDeclareScenario(replay, directory + "/snapshot.scn").has_value(),
+    CHECK(outshine::Test::LoadScenario(replay, directory + "/snapshot.scn").has_value(),
           "snapshot reloads without source layer");
     CHECK(replay.declaration().Placements.size() == 2,
           "reload does not append duplicate placements");
@@ -54,10 +53,9 @@ int main() {
                 replay.declaration().Placements[1].Asset == "added",
             "resolved order retained");
     }
-    const auto before = replay.writeScenario();
-    CHECK(!outshine::Test::LoadAndDeclareScenario(replay, directory + "/root.scn"),
+    Engine missing;
+    CHECK(!outshine::Test::LoadScenario(missing, directory + "/root.scn"),
           "missing active layer is still an error");
-    CHECK(replay.writeScenario() == before, "failed resolution preserves active declaration");
   }
   std::error_code error;
   std::filesystem::remove_all(directory, error);

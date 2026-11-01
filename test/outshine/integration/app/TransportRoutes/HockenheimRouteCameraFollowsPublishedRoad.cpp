@@ -168,7 +168,7 @@ int main() {
                            .SourceCacheDirectory = {},
                            .Offline = true,
                            .AssetCacheDirectory = {}}) &&
-              engine.setRenderTarget(Circuit::Frame) && engine.declare(scene) && engine.assemble(),
+              engine.setRenderTarget(Circuit::Frame) && engine.loadScenario(scene),
           "the pinned circuit and route view enter the public engine");
     CHECK(!engine.setView("lap") && engine.advance(),
           "a route camera cannot be selected before its alignment is published");

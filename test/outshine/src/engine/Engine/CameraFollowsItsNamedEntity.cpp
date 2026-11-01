@@ -49,8 +49,8 @@ int main() {
   {
     Engine engine;
     CHECK(engine.registerGenerator(generator), "native camera fixture generator registers");
-    const auto ready = engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64}) &&
-                       engine.declare(scene) && engine.assemble();
+    const auto ready =
+        engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64}) && engine.loadScenario(scene);
     CHECK(ready, "camera targets resolve before rendering");
     if (!ready) { return Report(); }
     const auto checkEye = [&](double expected) {
@@ -68,46 +68,27 @@ int main() {
         outshine::App::SaveImage(engine, (directory / "outshine-follow-camera-right.png").string())
             .has_value(),
         "capture right target");
-    std::vector<float> beforeReplacement;
-    CHECK(engine.renderer().readPixels(Buffer::Linear, beforeReplacement).has_value(),
-          "the accepted generated asset has a readable frame");
-    auto missingAsset = scene;
-    missingAsset.Assets.front().Uri = "outshine-absent-generator";
-    const auto refusedAsset = engine.declare(missingAsset);
-    CHECK(!refusedAsset && refusedAsset.error().contains("outshine-absent-generator"),
-          "an unavailable generator is rejected by the declaration");
-    CHECK(engine.declaration().Assets.front().Uri == scene.Assets.front().Uri,
-          "the rejected asset keeps the published declaration");
-    std::vector<float> afterReplacement;
-    CHECK(engine.renderer().render({}).has_value() &&
-              engine.renderer().readPixels(Buffer::Linear, afterReplacement).has_value() &&
-              afterReplacement == beforeReplacement,
-          "a rejected generated-asset replacement preserves the rendered world");
-    CHECK(engine.declare(scene) && engine.assemble(),
-          "the accepted asset immediately retries after the rejected replacement");
     CHECK(engine.setView("left-view").has_value(), "switch active target");
     checkEye(-4);
     CHECK(engine.renderer().render({}).has_value(), "render left camera");
     CHECK(outshine::App::SaveImage(engine, (directory / "outshine-follow-camera-left.png").string())
               .has_value(),
           "capture left target");
-    std::swap(scene.Bodies[1], scene.Bodies[2]);
-    CHECK(engine.declare(scene) && engine.assemble(), "reordered bodies reassemble");
-    checkEye(4);
+    const auto rejected = [&](const Scenario::Document &invalid) {
+      Engine probe;
+      CHECK(probe.registerGenerator(generator), "camera validation generator registers");
+      CHECK(probe.setRenderTarget(Extent{64, 64}), "camera validation target opens");
+      const auto loaded = probe.loadScenario(invalid);
+      CHECK(!loaded && !loaded.error().empty(), "startup rejects an unresolved camera target");
+    };
     auto invalid = scene;
     invalid.Views[0].Follows = "missing";
-    CHECK(engine.declare(invalid).has_value(), "target validation waits for assembly");
-    const World::EntityRegistry *previous = &engine.entities();
-    CHECK(!engine.assemble() && &engine.entities() == previous,
-          "missing target preserves old assembly");
-    CHECK(engine.declaration().Views.front().Follows == "right",
-          "the rejected camera cannot replace the published target");
-    checkEye(4);
+    rejected(invalid);
     invalid.Views[0].Follows = "template";
-    CHECK(engine.declare(invalid) && !engine.assemble(), "unplaced target rejected");
+    rejected(invalid);
     invalid = scene;
     invalid.Bodies.push_back(scene.Bodies[1]);
-    CHECK(engine.declare(invalid) && !engine.assemble(), "ambiguous target rejected");
+    rejected(invalid);
   }
   std::filesystem::remove_all(directory);
   SDL_Quit();

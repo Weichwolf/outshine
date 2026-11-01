@@ -36,8 +36,12 @@ outshine::Geometry Receiver() {
   return geometry;
 }
 
-std::vector<float>
-Capture(outshine::Engine &engine, const outshine::Geometry &geometry, double elevationDeg) {
+std::vector<float> Capture(const outshine::Geometry &geometry, double elevationDeg) {
+  outshine::Engine engine;
+  if (!engine.setRenderTarget({.WidthPx = kWidth, .HeightPx = kHeight})) {
+    outshine::Test::Unprepared("analytic target could not be created");
+    return {};
+  }
   outshine::Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {.WidthPx = kWidth, .HeightPx = kHeight};
@@ -57,8 +61,8 @@ Capture(outshine::Engine &engine, const outshine::Geometry &geometry, double ele
   view.Sees.FovDeg = 55.0;
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!engine.declare(scenario) || !engine.setGeometry(geometry) || !engine.assemble() ||
-      !engine.advance() || !engine.renderer().render({}) ||
+  if (!engine.loadScenario(scenario) || !engine.setGeometry(geometry) || !engine.advance() ||
+      !engine.renderer().render({}) ||
       !engine.renderer().readPixels(outshine::Buffer::Linear, pixels)) {
     outshine::Test::Unprepared("analytic receiver could not be rendered");
   }
@@ -93,15 +97,10 @@ int main() {
     return Report();
   }
   const outshine::Geometry receiver = Receiver();
-  outshine::Engine engine;
-  if (!engine.setRenderTarget({.WidthPx = kWidth, .HeightPx = kHeight})) {
-    Unprepared("analytic target could not be created");
-    return Report();
-  }
-  const auto low = Capture(engine, receiver, 5.0);
-  const auto middle = Capture(engine, receiver, 30.0);
-  const auto high = Capture(engine, receiver, 75.0);
-  const auto lowAgain = Capture(engine, receiver, 5.0);
+  const auto low = Capture(receiver, 5.0);
+  const auto middle = Capture(receiver, 30.0);
+  const auto high = Capture(receiver, 75.0);
+  const auto lowAgain = Capture(receiver, 5.0);
   CHECK(!low.empty() && low.size() == middle.size() && middle.size() == high.size() &&
             high.size() == lowAgain.size(),
         "analytic receiver renders at every sun elevation");

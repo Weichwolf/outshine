@@ -159,8 +159,7 @@ std::vector<float> Exercise(bool carried, const std::string &path) {
   CHECK(engine.registerGenerator(generator), "native camera fixture generator registers");
   const auto declared = Declaration(carried, path);
   auto ready = engine.setRenderTarget(Extent{.WidthPx = 64, .HeightPx = 64});
-  if (ready) { ready = engine.declare(declared); }
-  if (ready) { ready = engine.assemble(); }
+  if (ready) { ready = engine.loadScenario(declared); }
   if (ready) { ready = engine.advance(); }
   CHECK(ready, "a fully declared camera binds through the public Engine API");
   if (!ready) {

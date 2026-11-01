@@ -29,9 +29,7 @@ void Engine::State::PublishAudioSnapshot() {
     const World::RigidBodyState *stood = nullptr;
     const auto binding =
         source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
-    if (binding && ScenarioState->DeclarationRevision == Session.DeclarationRevision) {
-      stood = BodyFrame.Body(*binding);
-    }
+    if (binding) { stood = BodyFrame.Body(*binding); }
     if (stood != nullptr) {
       where.Standing = true;
       for (int axis = 0; axis < 3; ++axis) {

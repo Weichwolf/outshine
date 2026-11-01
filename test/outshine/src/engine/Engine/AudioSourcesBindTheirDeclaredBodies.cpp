@@ -1,9 +1,40 @@
-#include <cstddef>
-#include <Engine.h>
+#include "Engine.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <string_view>
+
+namespace {
+void CheckSource(const outshine::Scenario::Document &scene,
+                 bool right,
+                 std::string_view expectedError = {}) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  Engine engine;
+  CHECK(engine.loadScenario(scene), "audio body fixture starts independently");
+  const auto prepared = engine.prepareAudio(48000);
+  if (!expectedError.empty()) {
+    CHECK(!prepared && prepared.error().contains(expectedError),
+          "invalid audio binding is diagnosed");
+    return;
+  }
+  CHECK(prepared, "named body binds to the audio source");
+  if (!prepared) { return; }
+  std::array<float, 128> audio{};
+  CHECK(engine.mix(audio), "the first source snapshot mixes without rendering");
+  double silent = 0;
+  double audible = 0;
+  for (size_t frame = 0; frame < audio.size() / 2; ++frame) {
+    silent += std::abs(audio[2 * frame + (right ? 0 : 1)]);
+    audible += std::abs(audio[2 * frame + (right ? 1 : 0)]);
+  }
+  CHECK(silent == 0 && audible > 1, "the named body determines the stereo side");
+  CHECK(engine.entities().open(1), "native body storage can be cleared");
+  CHECK(!engine.prepareAudio(48000), "removed body storage rejects stale bindings safely");
+}
+}
 
 int main() {
   using namespace outshine;
@@ -27,46 +58,19 @@ int main() {
   tone.Graph.emplace_back().Id = "osc";
   tone.Graph.back().Parameters = {{.Name = "frequency", .Value = "1000"}};
   scene.Sounds.push_back(tone);
-  Engine engine;
-  std::array<float, 128> audio{};
-  CHECK(engine.declare(scene).has_value(), "bound source declaration accepted");
-  CHECK(!engine.prepareAudio(48000), "bound source requires current assembly");
-  const auto render = [&](bool right) {
-    const auto prepared = engine.prepareAudio(48000);
-    CHECK(prepared.has_value(), prepared ? "audio prepared" : prepared.error().c_str());
-    if (!prepared) { return; }
-    CHECK(engine.mix(audio).has_value(), "initial source snapshot mixes without rendering");
-    double silent = 0;
-    double audible = 0;
-    for (size_t frame = 0; frame < audio.size() / 2; ++frame) {
-      silent += std::abs(audio[2 * frame + (right ? 0 : 1)]);
-      audible += std::abs(audio[2 * frame + (right ? 1 : 0)]);
+  for (const bool reordered : {false, true}) {
+    if (reordered) { std::swap(scene.Bodies[1], scene.Bodies[2]); }
+    for (const bool right : {false, true}) {
+      scene.Sounds[0].Body = right ? "right" : "left";
+      CheckSource(scene, right);
     }
-    CHECK(silent == 0 && audible > 1, "named body determines the stereo side");
-  };
-  CHECK(engine.assemble().has_value(), "placed bodies assembled");
-  render(true);
-  std::swap(scene.Bodies[1], scene.Bodies[2]);
-  CHECK(engine.declare(scene).has_value(), "body order changed");
-  CHECK(!engine.prepareAudio(48000), "old assembly cannot bind new declaration");
-  CHECK(engine.assemble().has_value(), "reordered bodies assembled");
-  render(true);
-  CHECK(engine.entities().open(1), "client replaces the public scene storage");
-  CHECK(!engine.prepareAudio(48000),
-        "removed body storage rejects binding without invalid indexing");
-  CHECK(engine.assemble().has_value(), "assembly restores the native entity storage");
-  render(true);
-  scene.Sounds[0].Body = "left";
-  CHECK(engine.declare(scene) && engine.assemble(), "source target changed");
-  render(false);
-  for (const char *target : {"missing", "template"}) {
-    scene.Sounds[0].Body = target;
-    CHECK(engine.declare(scene) && engine.assemble(), "invalid audio target awaits setup");
-    CHECK(!engine.prepareAudio(48000), "missing or unplaced target rejected");
   }
+  scene.Sounds[0].Body = "missing";
+  CheckSource(scene, false, "missing");
+  scene.Sounds[0].Body = "template";
+  CheckSource(scene, false, "placed body");
   scene.Sounds[0].Body = "right";
   scene.Bodies.push_back(scene.Bodies[1]);
-  CHECK(engine.declare(scene) && engine.assemble(), "ambiguous names await binding validation");
-  CHECK(!engine.prepareAudio(48000), "ambiguous target is never selected by order");
+  CheckSource(scene, true, "ambiguous");
   return Report();
 }

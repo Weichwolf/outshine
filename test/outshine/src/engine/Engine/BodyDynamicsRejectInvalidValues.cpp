@@ -1,4 +1,4 @@
-#include <Engine.h>
+#include "ScenarioStartup.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>
@@ -14,20 +14,12 @@ int main() {
   body.Placed = true;
   body.MassKg = 1;
   source.Bodies.push_back(body);
-  Engine engine;
-  CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),
-        "valid dynamic body assembled");
-  auto *registry = &engine.entities();
-  const auto marker = registry->addEntity();
-  CHECK(marker.has_value(), "spare entity capacity remains usable");
-  if (!marker) { return Report(); }
+  CHECK(LoadFreshScenario(source).has_value(), "valid dynamic body assembled");
   const auto reject = [&](Scenario::Body invalid) {
     auto candidate = source;
     invalid.Name = "invalid";
     candidate.Bodies[0] = invalid;
-    CHECK(!engine.declare(candidate), "invalid dynamics rejected before publication");
-    CHECK(engine.declaration().Bodies[0].Name == "kept", "body declaration preserved");
-    CHECK(&engine.entities() == registry && registry->alive(*marker), "live simulation preserved");
+    CHECK(!LoadFreshScenario(candidate), "invalid dynamics rejected before publication");
   };
   for (const double invalid :
        {-1.0, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
@@ -74,7 +66,7 @@ int main() {
   }
   source.Bodies[0].MassKg = 0;
   source.Bodies[0].Stands.Facing.W = -1;
-  CHECK(engine.declare(source).has_value() && engine.assemble().has_value(),
+  CHECK(LoadFreshScenario(source).has_value(),
         "zero mass and equivalent negative unit quaternion accepted");
   return Report();
 }

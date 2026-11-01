@@ -124,9 +124,8 @@ bool OpenForeground(Foreground &foreground) {
   camera.Sees.PositionM = {{0, 0, 3}};
   scene.Views.push_back(camera);
   const bool ready = foreground.Renderer.setRenderTarget(kForegroundExtent) &&
-                     foreground.Renderer.declare(scene) &&
-                     foreground.Renderer.setGeometry(control) && foreground.Renderer.assemble() &&
-                     foreground.Renderer.advance();
+                     foreground.Renderer.loadScenario(scene) &&
+                     foreground.Renderer.setGeometry(control) && foreground.Renderer.advance();
   CHECK(ready, "independent foreground renderer stands before the bake");
   if (!ready) { return false; }
   const bool read = foreground.Renderer.renderer().render({}) &&
@@ -623,8 +622,8 @@ void CheckFine(const Geometry &fine,
                size_t light) {
   Engine reference;
   std::vector<float> original;
-  const bool drawn = reference.setRenderTarget(kCardExtent) && reference.declare(scene) &&
-                     reference.setGeometry(fine) && reference.assemble() && reference.advance() &&
+  const bool drawn = reference.setRenderTarget(kCardExtent) && reference.loadScenario(scene) &&
+                     reference.setGeometry(fine) && reference.advance() &&
                      reference.renderer().render({}) &&
                      reference.renderer().readPixels(Buffer::Linear, original);
   CHECK(drawn, "fine tree renders under the identical camera and light");
@@ -656,8 +655,8 @@ void CheckLighting(const ImpostorAtlas &atlas,
     Engine engine;
     std::vector<float> depth;
     std::vector<float> normals;
-    const bool rendered = engine.setRenderTarget(kCardExtent) && engine.declare(scene) &&
-                          engine.setGeometry(card) && engine.assemble() && engine.advance() &&
+    const bool rendered = engine.setRenderTarget(kCardExtent) && engine.loadScenario(scene) &&
+                          engine.setGeometry(card) && engine.advance() &&
                           engine.renderer().render({}) &&
                           engine.renderer().readPixels(Buffer::Linear, frames[light]) &&
                           engine.renderer().readPixels(Buffer::Depth, depth) &&

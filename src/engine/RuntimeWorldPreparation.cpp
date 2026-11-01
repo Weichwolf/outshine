@@ -1,4 +1,5 @@
 #include "EngineState.h"
+#include <optional>
 #include "Heap.h"
 #include "OfflineSourceTransport.h"
 #include "Units.h"
@@ -39,7 +40,9 @@ constexpr double kEastStepDeg = 0.0138;
 
 }
 
-bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
+bool Engine::State::ConfigureSourceProviders(
+    std::vector<Data::SourceProvider> &tileProviders,
+    std::optional<Data::SourceSession::Configuration> sources) {
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
@@ -56,7 +59,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     return false;
   }
   if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
-    return ConfigureWorldSources(tileProviders);
+    return ConfigureWorldSources(tileProviders, std::move(sources));
   }
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!Services.Io) { Services.Io = std::make_unique<Tasks>(1); }
@@ -78,7 +81,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
         Session.Under.SourceCacheDirectory,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
-  if (!ConfigureWorldSources(tileProviders)) { return false; }
+  if (!ConfigureWorldSources(tileProviders, std::move(sources))) { return false; }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
@@ -184,7 +187,7 @@ bool Engine::State::DeclareGroundFeatures() {
   return true;
 }
 
-bool Engine::State::PrepareRuntimeWorld() {
+bool Engine::State::PrepareRuntimeWorld(std::optional<Data::SourceSession::Configuration> sources) {
   static const Heap::Tag kComposingTag("world-compose");
   const Heap::Tagged composing(kComposingTag);
   World.GroundTiles = 0;
@@ -196,7 +199,7 @@ bool Engine::State::PrepareRuntimeWorld() {
     return false;
   }
   std::vector<Data::SourceProvider> tileProviders;
-  if (!ConfigureSourceProviders(tileProviders)) { return false; }
+  if (!ConfigureSourceProviders(tileProviders, std::move(sources))) { return false; }
   if (!declared.Ground.Declared) { return true; }
   const double atLat = declared.Ground.Origin.LatitudeDeg;
   const double atLon = declared.Ground.Origin.LongitudeDeg;

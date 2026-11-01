@@ -6,8 +6,9 @@
 
 namespace outshine::Script {
 namespace {
-int Interrupt(JSRuntime *vm, void *opaque) {
-  return JS_GetRuntimeOpaque(vm) != opaque || static_cast<Runtime *>(opaque)->Exhausted() ? 1 : 0;
+int Interrupt(JSContext *context, void *opaque) {
+  return JS_GetContextOpaque(context) != opaque || static_cast<Runtime *>(opaque)->Exhausted() ? 1
+                                                                                               : 0;
 }
 
 void TrackRejection(

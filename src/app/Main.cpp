@@ -683,12 +683,8 @@ int CaptureView(outshine::Engine &engine,
     std::println("outshine: {}", targeted.error());
     return 1;
   }
-  if (const auto declared = engine.declare(declaration); !declared) {
+  if (const auto declared = engine.loadScenario(declaration); !declared) {
     std::println("outshine: {} -- {}", sourceName, declared.error());
-    return 1;
-  }
-  if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine: {} did not assemble -- {}", sourceName, assembled.error());
     return 1;
   }
   return 0;
@@ -796,12 +792,8 @@ constexpr auto kHeightCoordinates =
   constexpr double kTerrainRequestTimeoutS = 10.0;
   constexpr double kTerrainPreloadTimeoutS = 15.0;
   stands.Ground.PatienceS = kTerrainRequestTimeoutS;
-  if (const auto declared = engine.declare(stands); !declared) {
+  if (const auto declared = engine.loadScenario(stands); !declared) {
     std::println("outshine: the ground declaration failed -- {}", declared.error());
-    return 1;
-  }
-  if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine: the ground did not assemble -- {}", assembled.error());
     return 1;
   }
   if (const auto preloaded = engine.preload(kTerrainPreloadTimeoutS); !preloaded) {

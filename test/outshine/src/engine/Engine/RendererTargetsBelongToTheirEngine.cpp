@@ -28,8 +28,8 @@ int main() {
     scenario.Render.Declared = true;
     scenario.Render.Frame = {.WidthPx = 32, .HeightPx = 32};
     scenario.Render.Outputs = {"sceneLinear"};
-    CHECK(first.declare(scenario).has_value(), "first scenario");
-    CHECK(second.declare(scenario).has_value(), "second scenario");
+    CHECK(first.loadScenario(scenario).has_value(), "first scenario");
+    CHECK(second.loadScenario(scenario).has_value(), "second scenario");
     CHECK(render.flushAndWait().has_value(), "initialized owner can wait for GPU work");
     CHECK(!render.endFrame(), "the first Engine begins with a closed frame");
     CHECK(!other.endFrame(), "the second Engine begins with an independent closed frame");

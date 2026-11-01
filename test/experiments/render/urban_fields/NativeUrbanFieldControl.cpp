@@ -209,8 +209,8 @@ bool PrepareScene(Engine &engine, const HeightGrid &field, const ViewControl &co
   mesh.Normals = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
   mesh.Indices = {0, 2, 1, 0, 3, 2};
   if (!floor.adoptMesh(*part, mesh)) { return false; }
-  return Accepted(engine.setRenderTarget(kFrame)) && Accepted(engine.declare(scenario)) &&
-         Accepted(engine.setGeometry(floor)) && Accepted(engine.assemble());
+  return Accepted(engine.setRenderTarget(kFrame)) && Accepted(engine.loadScenario(scenario)) &&
+         Accepted(engine.setGeometry(floor));
 }
 
 std::expected<Render::PieceHandle, std::string>

@@ -29,7 +29,7 @@ int main() {
   if (!loaded) { return Report(); }
   Engine engine;
   CHECK(engine.registerGenerator(probe), "actual engine owns generator registration");
-  CHECK(engine.declare(*loaded), "actual engine declares the decoded scenario once");
+  CHECK(engine.loadScenario(*loaded), "actual engine declares the decoded scenario once");
   CHECK(probe.Calls == 1, "generator executes only during the explicit declaration");
   const auto previous = engine.writeScenario();
   CHECK(!App::ReadScenarioInput("{", {}, {}), "malformed replacement is refused");

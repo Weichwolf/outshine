@@ -58,13 +58,13 @@ int main() {
     scenario.Lit.Declared = true;
     constexpr double kManualSunElevationDeg = 23.0;
     scenario.Lit.Key.ElevationDeg = kManualSunElevationDeg;
-    CHECK(engine.declare(scenario).has_value(), "manual light and headless weather retain UTC");
+    CHECK(engine.loadScenario(scenario).has_value(),
+          "manual light and headless weather retain UTC");
     auto invalid = scenario;
     invalid.Time.Start = "not-an-ISO-UTC";
-    CHECK(!engine.declare(invalid) && engine.declaration().Time.Start == scenario.Time.Start,
-          "headless manual light cannot bypass invalid UTC or replace the valid declaration");
-    CHECK(!engine.weather(), "an unassembled declaration cannot expose the previous weather");
-    CHECK(engine.assemble().has_value(), "no renderer or terrain is required to prepare weather");
+    Engine invalidClock;
+    CHECK(!invalidClock.loadScenario(invalid), "headless manual light cannot bypass invalid UTC");
+
     CHECK(!engine.weather() && !engine.settled(), "unfinished weather is explicit and not ready");
     CHECK(engine.preload(kPreloadTimeoutS).has_value(),
           "normal public preload pumps IO and compute weather work");
@@ -84,24 +84,32 @@ int main() {
               first.VectorWanted == 0 && first.Sources.size() == 1 &&
               first.Sources.front().Kind == "weather",
           "headless loading reports the shared weather source without fetching terrain");
-    CHECK(engine.assemble() && engine.preload(0.0) && engine.weather() &&
-              *engine.weather() == retained && engine.loading().SourceDeliveries == 1,
+    CHECK(engine.preload(0.0) && engine.weather() && *engine.weather() == retained &&
+              engine.loading().SourceDeliveries == 1,
           "an unchanged request reuses its exact publication without fetching or normalizing");
     scenario.Time.Start = "2026-10-15T00:00:01Z";
-    CHECK(engine.declare(scenario) && !engine.weather() && engine.assemble() &&
-              engine.preload(kPreloadTimeoutS),
-          "another declared UTC invalidates the former publication before selection");
-    CHECK(engine.weather() && !*engine.weather() && engine.settled(),
-          "an absent exact time is terminal missing, never nearest-hour or declared fallback");
+    Engine missing;
+    CHECK(missing.registerProvider(provider), "missing-hour startup registers its provider");
+    CHECK(missing.setRoots({.BuiltinDataDirectory = {},
+                            .SourceCacheDirectory = directory,
+                            .Offline = true,
+                            .AssetCacheDirectory = {}}),
+          "missing-hour startup shares the offline source cache");
+    CHECK(missing.loadScenario(scenario) && !missing.weather() && missing.preload(kPreloadTimeoutS),
+          "a different startup time selects its own exact publication");
+    CHECK(missing.weather() && !*missing.weather() && missing.settled(),
+          "an absent exact time is terminal missing, never nearest-hour fallback");
     scenario.Providers.clear();
-    CHECK(engine.declare(scenario) && engine.assemble() && engine.preload(0.0),
-          "removing the provider releases the source scope without stale weather");
-    CHECK(engine.weather() && !*engine.weather(),
-          "no requested weather remains an empty selection");
+    Engine noWeather;
+    CHECK(noWeather.loadScenario(scenario) && noWeather.preload(0.0),
+          "source-free startup needs no weather acquisition");
+    CHECK(noWeather.weather() && !*noWeather.weather(),
+          "no requested weather is an empty selection");
   }
   CHECK(retained && retained->Source.PayloadSha256 == capture->Declaration.PayloadSha256 &&
             retained->Values.ValidUtcS == kCapturedWeatherUtcS,
-        "the returned immutable native snapshot survives redeclaration and engine destruction");
+        "the returned immutable native snapshot survives independent startups and engine "
+        "destruction");
   std::filesystem::remove_all(directory);
   return Report();
 }
