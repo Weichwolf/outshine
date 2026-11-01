@@ -289,7 +289,7 @@ StoreUsage(sqlite3 *database, std::string_view key, size_t bytes) {
 
 std::expected<void, AssetCacheError>
 AssetCache::State::StorePublication(const AssetCache::Publication &publication) {
-  auto began = AssetSql::Exec(Database, "BEGIN IMMEDIATE");
+  auto began = BeginWrite();
   if (!began) { return began; }
   Transaction transaction(Database);
   const auto stored = StorePackage(Database,
@@ -365,7 +365,7 @@ std::expected<void, AssetCacheError> AssetCache::PublishPrepared(const Publicati
 std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
   const std::scoped_lock lock(*State_->Mutex);
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
-  auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  auto began = State_->BeginWrite();
   if (!began) { return began; }
   Transaction transaction(State_->Database);
   const auto erased = Erase(State_->Database, key);
@@ -391,7 +391,7 @@ AssetCache::LoadValidated(std::string_view key,
   if (!found) { return std::unexpected(found.error()); }
   if (!*found) { return std::nullopt; }
   if ((**found).Kind != kind) { return std::unexpected(AssetCacheError::InvalidInput); }
-  const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  const auto began = State_->BeginWrite();
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
   loaded = Load(key, packageBytesMost);
@@ -443,7 +443,7 @@ AssetCache::UnbindRequestIfMatches(const AssetRecord &binding) {
   const auto previous = FindRequest(*request);
   if (!previous) { return std::unexpected(previous.error()); }
   if (!matches(*previous)) { return false; }
-  const auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  const auto began = State_->BeginWrite();
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
   const auto current = FindRequest(*request);
@@ -478,7 +478,7 @@ std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view ke
   if (!previous) { return std::unexpected(previous.error()); }
   if (*previous && (**previous).Key == key) { return true; }
   if (!allowed(*previous)) { return false; }
-  auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  auto began = State_->BeginWrite();
   if (!began) { return std::unexpected(began.error()); }
   Transaction transaction(State_->Database);
   if (!replace || binding != nullptr) {

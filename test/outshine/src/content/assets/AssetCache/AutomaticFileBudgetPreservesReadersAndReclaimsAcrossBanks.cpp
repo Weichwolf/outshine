@@ -171,10 +171,72 @@ void TwoBanks() {
   CHECK(usage && usage->ChargedBytes <= kLimit,
         "both databases and their sidecars share the file limit");
 }
+
+void BindingAfterPressure() {
+  const Directory directory;
+  CHECK(SqliteFileBudget::Configure(directory.Path, kLimit),
+        "binding shares the real storage limit");
+  const auto budget = SqliteFileBudget::Open(directory.Path);
+  auto cache = AssetCache::Open((directory.Path / "assets.sqlite").string());
+  CHECK(budget && cache, "binding fixture opens the actual cache");
+  if (!budget || !cache || !Publish(**cache, 0)) { return; }
+  sqlite3 *writerRaw = nullptr;
+  sqlite3 *readerRaw = nullptr;
+  const auto path = (directory.Path / "assets.sqlite").string();
+  CHECK(sqlite3_open_v2(path.c_str(), &writerRaw, SQLITE_OPEN_READWRITE, (*budget)->VfsName()) ==
+                SQLITE_OK &&
+            sqlite3_open_v2(path.c_str(), &readerRaw, SQLITE_OPEN_READONLY, (*budget)->VfsName()) ==
+                SQLITE_OK,
+        "independent native connections create a retained WAL history");
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> writer(writerRaw, sqlite3_close);
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> reader(readerRaw, sqlite3_close);
+  CHECK(sqlite3_exec(writerRaw,
+                     "PRAGMA wal_autocheckpoint=0;PRAGMA wal_checkpoint(TRUNCATE)",
+                     nullptr,
+                     nullptr,
+                     nullptr) == SQLITE_OK &&
+            sqlite3_exec(readerRaw, "BEGIN", nullptr, nullptr, nullptr) == SQLITE_OK &&
+            Scalar(readerRaw, "SELECT count(*) FROM packages") == 1,
+        "the old snapshot is actually pinned");
+  int code = SQLITE_OK;
+  for (int iteration = 0; iteration < 4096; ++iteration) {
+    code = sqlite3_exec(writerRaw,
+                        "UPDATE cache_usage_v1 SET last_used_unix_s=last_used_unix_s+1",
+                        nullptr,
+                        nullptr,
+                        nullptr);
+    if (code != SQLITE_OK) { break; }
+  }
+  CHECK(code == SQLITE_FULL,
+        "metadata updates reach shared quota pressure without publishing assets");
+  (void)sqlite3_exec(writerRaw, "ROLLBACK", nullptr, nullptr, nullptr);
+  const auto request = Key(987654);
+  const auto blocked = (*cache)->BindRequest(Key(0), request);
+  CHECK(!blocked && blocked.error() == AssetCacheError::Busy,
+        "request binding retains backpressure while the reader is pinned");
+  CHECK(sqlite3_exec(readerRaw, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+        "the old reader releases");
+  bool bound = false;
+  for (int retry = 0; retry < 32; ++retry) {
+    const auto binding = (*cache)->BindRequest(Key(0), request);
+    if (binding && *binding) {
+      bound = true;
+      break;
+    }
+    CHECK(!binding && binding.error() == AssetCacheError::Busy,
+          "binding either completes or retains recoverable pressure");
+  }
+  CHECK(bound, "metadata-only progress resumes without a new asset publication");
+  const auto loaded = (*cache)->LoadRequest(request, size_t{1024} * 1024);
+  CHECK(loaded && *loaded && std::ranges::equal((**loaded).Bytes(), Payload(0)),
+        "checkpoint space recovery does not evict the existing product being bound");
+}
+
 }
 
 int main() {
   Pinned();
   TwoBanks();
+  BindingAfterPressure();
   return outshine::Test::Report();
 }
