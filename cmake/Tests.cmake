@@ -113,6 +113,20 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/device/R8PageAtlas/StoredPagesReachNativeShaderLookup")
+    set(atlas_shader "${PROJECT_BINARY_DIR}/test-shaders/r8-page-atlas.frag.spv")
+    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+    add_custom_command(OUTPUT "${atlas_shader}"
+      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+        "-I${PROJECT_SOURCE_DIR}/src/render/shaders" --depfile "${atlas_shader}.d"
+        "${PROJECT_SOURCE_DIR}/test/outshine/src/render/device/R8PageAtlas/NativeLookup.frag"
+        -o "${atlas_shader}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/render/device/R8PageAtlas/NativeLookup.frag"
+      DEPFILE "${atlas_shader}.d" VERBATIM)
+    add_custom_target(test_r8_page_atlas_shader DEPENDS "${atlas_shader}")
+    add_dependencies(${target} test_r8_page_atlas_shader test_pipeline_shaders)
+    target_compile_definitions(${target} PRIVATE "OUTSHINE_R8_PAGE_ATLAS_SHADER=\"${atlas_shader}\"")
+  endif()
   if(name STREQUAL "outshine/src/render/stages/SurfaceFrame/MirroredInstancesKeepTangentHandedness")
     set(surface_frame_shader "${PROJECT_BINARY_DIR}/test-shaders/surface-frame.comp.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
