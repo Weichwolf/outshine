@@ -82,7 +82,7 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
   std::shared_ptr<AssetCache> shared = std::move(*store);
   auto terrain = Generators::PreparedTerrainAssets::Open(shared, sources);
   if (!terrain) { return std::unexpected(std::move(terrain.error())); }
-  auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources, storage);
+  auto buildings = Generators::PreparedBuildingAssets::Open(shared, sources);
   if (!buildings) { return std::unexpected(std::move(buildings.error())); }
   auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources, storage);
   if (!network) { return std::unexpected(std::move(network.error())); }

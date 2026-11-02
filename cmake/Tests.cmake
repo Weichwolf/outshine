@@ -544,6 +544,8 @@ target_link_libraries(test_experiments_render_NativeBuildingOriginals PRIVATE
   outshine_core PkgConfig::nlohmann_json)
 add_executable(test_experiments_render_NativeBuildingSourceFields EXCLUDE_FROM_ALL
   test/experiments/render/native_building_source_fields.cpp)
+target_include_directories(test_experiments_render_NativeBuildingSourceFields PRIVATE
+  "${PROJECT_SOURCE_DIR}/test/harness/shared")
 add_dependencies(test_experiments_render_NativeBuildingSourceFields outshine_shaders)
 target_compile_options(test_experiments_render_NativeBuildingSourceFields PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingSourceFields PRIVATE

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "ImpostorViewAssets.h"
 #include "BuildingImpostorSource.h"
 #include "BuildingMaterials.h"
@@ -282,7 +283,8 @@ bool Restart(const std::string &executable,
 void Run(const std::filesystem::path &root, const std::string &executable) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto opened = Generators::PreparedBuildingAssets::Open((root / "buildings").string(), sources);
+  auto opened = Generators::PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((root / "buildings").string()), sources);
   CHECK(opened.has_value(), "the real native building asset store opens");
   if (!opened) { return; }
   const auto &assets = *opened;
@@ -384,7 +386,8 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
   if (!bytes) { return; }
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto assets = Generators::PreparedBuildingAssets::Open((root / "buildings").string(), sources);
+  auto assets = Generators::PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((root / "buildings").string()), sources);
   auto sourceStore = AssetCache::Open((root / "buildings/assets.sqlite").string());
   auto cache = AssetCache::Open((root / "views.sqlite").string());
   if (!assets || !sourceStore || !cache) {

@@ -67,9 +67,7 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
-  Open(const std::string &directory,
-       const Data::SourceSet &sources,
-       AssetCache::Runtime runtime = {});
+  Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources);
   [[nodiscard]] std::string Key(Data::TileId tile,
                                 uint64_t streetDigest,
                                 const ::outshine::Ground::ShapedGround &shape,
@@ -143,7 +141,7 @@ private:
     std::weak_ptr<const PreparedBuildingBasis> Product;
   };
 
-  PreparedBuildingAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
+  PreparedBuildingAssets(std::shared_ptr<AssetCache> cache, std::string recipe);
   [[nodiscard]] static BaseWrite
   PrepareBaseWrite(std::string key, PreparedStructureTile base, std::string requestKey);
   [[nodiscard]] std::expected<Base, StructureBakeError>
@@ -177,7 +175,7 @@ private:
                std::shared_ptr<SurfaceRead> &read);
   [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
   PublishSurfaces(SurfaceRead &read);
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
   std::weak_ptr<PreparedBuildingAssets> Self_;

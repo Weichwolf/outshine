@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "BuildingSourceDemand.h"
 #include "BuildingSourceCapture.h"
 #include "BuildingFieldRequest.h"
@@ -114,7 +115,8 @@ BuildingSourceDemand::Source Import(const Fs::path &input,
   }
   Data::RawSourceCache raw({.Directory = (root / "sources").string()});
   const Data::SourceSet inputs(raw);
-  auto assets = Generators::PreparedBuildingAssets::Open((root / "native").string(), inputs);
+  auto assets = Generators::PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((root / "native").string()), inputs);
   if (!assets) { Fail(assets.error()); }
   sources = std::move(*assets);
   const auto migrated = sources->Load(descriptor.BaseKey);

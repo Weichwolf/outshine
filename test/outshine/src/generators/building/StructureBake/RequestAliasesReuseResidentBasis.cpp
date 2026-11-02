@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedBuildingBasis.h"
 #include "PreparedStructureTile.h"
@@ -70,7 +71,8 @@ std::shared_ptr<const Ground::HeightField> Heights() {
 void Exercise(const std::filesystem::path &directory) {
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(directory.string(), sources);
+  auto cache =
+      PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()), sources);
   CHECK(cache, "the native building cache opens without network sources");
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
@@ -140,7 +142,8 @@ void Exercise(const std::filesystem::path &directory) {
   CHECK(previous && *previous && (**previous).BaseKey == key && current && *current &&
             (**current).BaseKey == changedKey,
         "publishing changed inputs preserves the previous pinned demand");
-  auto reopened = PreparedBuildingAssets::Open(directory.string(), sources);
+  auto reopened =
+      PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()), sources);
   CHECK(reopened, "a fresh cache connection opens the persistent demand bindings");
   if (!reopened) { return; }
   const auto oldHit = (*reopened)->LoadBasisRequest(request);

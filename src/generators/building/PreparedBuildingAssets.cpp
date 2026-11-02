@@ -16,9 +16,7 @@
 #include <string>
 #include <string_view>
 #include <cmath>
-#include <filesystem>
 #include <span>
-#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -39,23 +37,18 @@ bool EncodeShape(ByteWriter &bytes, const ::outshine::Ground::ShapedGround &shap
 }
 }
 
-PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache,
+PreparedBuildingAssets::PreparedBuildingAssets(std::shared_ptr<AssetCache> cache,
                                                std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string> PreparedBuildingAssets::Open(
-    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
-  std::error_code error;
-  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
-  if (error) { return std::unexpected("could not create the native building cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open the native building cache"); }
+std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
+PreparedBuildingAssets::Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources) {
+  if (!cache) { return std::unexpected("building assets require an asset store"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
   auto recipe = AssetSourceRecipe("prepared-building-base-12", sources, kinds);
   if (recipe.empty()) { return std::unexpected("building source metadata cannot be encoded"); }
   auto assets = std::shared_ptr<PreparedBuildingAssets>(
-      new PreparedBuildingAssets(std::move(*cache), std::move(recipe)));
+      new PreparedBuildingAssets(std::move(cache), std::move(recipe)));
   assets->Self_ = assets;
   return assets;
 }

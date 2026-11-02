@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "JobAdmissionFixture.h"
 #include "BuildingAssetFixture.h"
 #include "AssetCache.h"
@@ -81,7 +82,8 @@ struct Fixture {
   }
 
   bool Open() {
-    auto cache = PreparedBuildingAssets::Open(Directory.string(), Sources);
+    auto cache =
+        PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(Directory.string()), Sources);
     if (!cache || !Seed(**cache)) { return false; }
     Cache = std::move(*cache);
     auto basis = Cache->LoadBasis(Key(*Cache), Request(*Cache));

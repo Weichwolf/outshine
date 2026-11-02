@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "FacadeProfiles.h"
 #include "PreparedBuildingAssets.h"
@@ -199,7 +200,7 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(cache.has_value(), "native building cache opens");
   if (!cache) { return Report(); }
   auto raw = Inputs();

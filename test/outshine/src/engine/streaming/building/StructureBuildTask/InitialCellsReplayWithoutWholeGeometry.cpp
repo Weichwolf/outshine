@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "JobAdmissionFixture.h"
 #include "Tasks.h"
 #include "test/harness/shared/BuildingAssetFixture.h"
@@ -159,7 +160,8 @@ void Replay(const std::filesystem::path &root,
             std::array<std::string, kStructureCellsPerTile> &keys) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto opened = PreparedBuildingAssets::Open(root.string(), sources);
+  auto opened =
+      PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(opened, "the native asset store opens");
   if (!opened) { return; }
   auto cache = *opened;
@@ -260,7 +262,8 @@ void ParallelReplay(const std::filesystem::path &root,
                     const std::array<std::string, kStructureCellsPerTile> &keys) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto opened = PreparedBuildingAssets::Open(root.string(), sources);
+  auto opened =
+      PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(opened, "parallel geometry readers reopen the prepared native cache");
   if (!opened) { return; }
   auto cache = std::move(*opened);
@@ -322,7 +325,7 @@ void ParallelReplay(const std::filesystem::path &root,
 void ReuseWholeProduct(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(cache, "a separate cache opens for an existing whole product");
   if (!cache) { return; }
   const auto raw = Inputs();

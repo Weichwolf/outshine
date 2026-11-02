@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "BuildingImpostorSource.h"
 #include "BuildingMaterials.h"
 #include "RawSourceCache.h"
@@ -27,8 +28,8 @@ size_t Release(std::unique_ptr<BuildingImpostorSource> &source) {
 void Run(const std::filesystem::path &root) {
   Data::RawSourceCache sources({.Directory = (root / "sources").string()});
   const Data::SourceSet sourceSet(sources);
-  const auto opened =
-      Generators::PreparedBuildingAssets::Open((root / "native").string(), sourceSet);
+  const auto opened = Generators::PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((root / "native").string()), sourceSet);
   CHECK(opened.has_value(), "native prepared source storage opens");
   auto cache = AssetCache::Open((root / "fields.sqlite").string());
   CHECK(cache.has_value(), "the field asset cache opens");

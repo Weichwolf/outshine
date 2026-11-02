@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "JobAdmissionFixture.h"
 #include "test/harness/engine/NativeBuildingSources.h"
 #include "AssetCache.h"
@@ -160,7 +161,8 @@ bool HoldPublication(const Case &test, PreparedBuildingAssets::BaseWrite &prepar
 }
 
 void CheckPersistedRequest(const Case &test, const Data::SourceSet &sources) {
-  auto fresh = PreparedBuildingAssets::Open((test.Env.Directory.Path / "assets").string(), sources);
+  auto fresh = PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((test.Env.Directory.Path / "assets").string()), sources);
   CHECK(fresh, "a fresh native cache owner opens independently");
   if (!fresh) { return; }
   const auto alias = (*fresh)->LoadBasisRequest(test.Request);
@@ -179,8 +181,8 @@ void HoldEachPublication() {
   Data::RawSourceCache store(
       {.Directory = (test.Env.Directory.Path / "reference-sources").string()});
   const Data::SourceSet sources(store);
-  auto baseline =
-      PreparedBuildingAssets::Open((test.Env.Directory.Path / "reference").string(), sources);
+  auto baseline = PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((test.Env.Directory.Path / "reference").string()), sources);
   CHECK(baseline,
         "a separate uncontended native cache opens for the actual requested product keys");
   if (!baseline) { return; }

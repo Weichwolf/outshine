@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "JobAdmissionFixture.h"
 #include "test/harness/shared/BuildingAssetFixture.h"
 #include <span>
@@ -256,7 +257,7 @@ void NativeCache(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
   const auto directory = root.string();
-  auto opened = PreparedBuildingAssets::Open(directory, sources);
+  auto opened = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory), sources);
   CHECK(opened.has_value(), "native building service opens the shared spatial cache");
   if (!opened) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
@@ -284,7 +285,7 @@ void NativeCache(const std::filesystem::path &root) {
       BuildingAssetFixture::StoreGeometry(**opened, key, **generated, view, *geometry).has_value(),
       "native selected geometry is published beside the enriched base");
   opened->reset();
-  auto restarted = PreparedBuildingAssets::Open(directory, sources);
+  auto restarted = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory), sources);
   CHECK(restarted.has_value(), "building cache service survives a new connection");
   if (!restarted) { return; }
   const auto demanded = (*restarted)->LoadBasisRequest(request);
@@ -331,7 +332,7 @@ void NativeCache(const std::filesystem::path &root) {
 void RequestMigration(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(cache.has_value(), "request migration opens");
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
@@ -462,7 +463,7 @@ bool CheckResidentMetadata(PreparedBuildingAssets &cache,
 void ResidentRequests(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(cache.has_value(), "resident basis fixture opens");
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
@@ -537,7 +538,7 @@ void ResidentRequests(const std::filesystem::path &root) {
 void ResidentRequestLimit(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
   CHECK(cache.has_value(), "bounded resident fixture opens");
   if (!cache) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};

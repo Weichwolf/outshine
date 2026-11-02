@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "BuildingMesh.h"
 #include "PreparedBuildingAssets.h"
@@ -77,7 +78,8 @@ void CheckRecords(PreparedBuildingAssets &cache,
 void Exercise(const std::filesystem::path &directory) {
   Data::RawSourceCache raw({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(raw);
-  auto cache = PreparedBuildingAssets::Open(directory.string(), sources);
+  auto cache =
+      PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()), sources);
   auto store = AssetCache::Open((directory / "assets.sqlite").string());
   const auto heights = BuildingAssetFixture::Heights();
   CHECK(cache && store && heights, "the native asset cache and height inputs open");

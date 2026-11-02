@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "BuildingSourceDemand.h"
 #include "ImpostorViewAssets.h"
 #include "test/harness/engine/NativeBuildingSources.h"
@@ -164,7 +165,7 @@ void Unsupported(const Fixture &fixture, BuildingSourceDemand::Source source) {
   Data::RawSourceCache raw({.Directory = (fixture.Directory.Path / "partial-sources").string()});
   const Data::SourceSet sources(raw);
   auto native = Generators::PreparedBuildingAssets::Open(
-      (fixture.Directory.Path / "partial").string(), sources);
+      outshine::Test::OpenAssetStore((fixture.Directory.Path / "partial").string()), sources);
   auto nativeStore = AssetCache::Open((fixture.Directory.Path / "partial/assets.sqlite").string());
   auto fieldStore = AssetCache::Open((fixture.Directory.Path / "partial-fields.sqlite").string());
   CHECK(native && nativeStore && fieldStore, "the partial-source stores open");

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedBuildingBasis.h"
@@ -38,7 +39,8 @@ struct Fixture {
   AssetRecord Record;
 
   bool Open(const std::filesystem::path &directory, bool seed, uint64_t digest = 17) {
-    auto cache = PreparedBuildingAssets::Open(directory.string(), Sources);
+    auto cache =
+        PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()), Sources);
     auto store = AssetCache::Open((directory / "assets.sqlite").string());
     if (!cache || !store) { return false; }
     Cache = std::move(*cache);
@@ -126,7 +128,8 @@ void CheckRepair(std::string_view executable, const std::filesystem::path &direc
   Hook hook((directory / "assets.sqlite").string(),
             fixture.Record.Key,
             ShellArgument(executable) + " --repair " + ShellArgument(directory.string()));
-  auto reader = PreparedBuildingAssets::Open(directory.string(), fixture.Sources);
+  auto reader = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                             fixture.Sources);
   CHECK(reader, "a fresh actual building reader opens before the old snapshot is armed");
   if (!reader) { return; }
   hook.Armed = true;
@@ -155,7 +158,8 @@ void CheckReplacement(std::string_view executable, const std::filesystem::path &
   Hook hook((directory / "assets.sqlite").string(),
             fixture.Record.Key,
             ShellArgument(executable) + " --replace " + ShellArgument(directory.string()));
-  auto reader = PreparedBuildingAssets::Open(directory.string(), fixture.Sources);
+  auto reader = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                             fixture.Sources);
   CHECK(reader, "a fresh native request reader opens before concurrent rebinding");
   if (!reader) { return; }
   const auto expected =
