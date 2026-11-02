@@ -11,7 +11,7 @@
 
 namespace GroundClassInventory {
 inline bool Capture(outshine::Render::Native::Device *device,
-                    outshine::Render::Native::Buffer *buffer,
+                    const outshine::Render::Native::Buffer *buffer,
                     std::span<const uint32_t> words,
                     const std::string &path) {
   if (words.size() < 4 || words.size_bytes() > std::numeric_limits<uint32_t>::max()) {

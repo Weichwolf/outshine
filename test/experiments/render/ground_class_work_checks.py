@@ -1,22 +1,22 @@
 """Independent packed-grid examples for the classifier work inventory."""
 
+import array
+import struct
 import tempfile
 import unittest
 from pathlib import Path
-
-import numpy as np
 
 from ground_class_work import analyse
 
 
 def fixture():
-    words = np.zeros(60, dtype="<u4")
+    words = array.array("I", [0]) * 60
     words[0] = 4
-    words[4:6] = (3, 1)
-    words[8] = np.float32(4).view("u4")
-    words[9:13] = (28, 34, 46, 56)
-    words[28:34] = (2 << 16 | 1, 0, 2, 123456, 1 << 16 | 255, 2)
-    words[34:46] = (1, 0, 3, 0, 2, 3, 5, 0, 3, 8, 2, 0)
+    words[4:6] = array.array("I", [3, 1])
+    words[8] = struct.unpack("<I", struct.pack("<f", 4))[0]
+    words[9:13] = array.array("I", [28, 34, 46, 56])
+    words[28:34] = array.array("I", [2 << 16 | 1, 0, 2, 123456, 1 << 16 | 255, 2])
+    words[34:46] = array.array("I", [1, 0, 3, 0, 2, 3, 5, 0, 3, 8, 2, 0])
     return words
 
 
@@ -54,6 +54,12 @@ class ClassWork(unittest.TestCase):
                     self.analyse_words(words)
         with self.assertRaises(ValueError):
             self.analyse_words(fixture()[:2])
+
+    def test_unknown_layout_is_not_misreported(self):
+        words = fixture()
+        words[3] = 1
+        with self.assertRaisesRegex(ValueError, "layout changed"):
+            self.analyse_words(words)
 
 
 if __name__ == "__main__":
