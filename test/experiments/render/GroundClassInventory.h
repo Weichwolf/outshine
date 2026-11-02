@@ -10,9 +10,10 @@
 #include <string>
 
 namespace GroundClassInventory {
+template <typename Word>
 inline bool Capture(outshine::Render::Native::Device *device,
                     const outshine::Render::Native::Buffer *buffer,
-                    std::span<const uint32_t> words,
+                    std::span<const Word> words,
                     const std::string &path) {
   if (words.size() < 4 || words.size_bytes() > std::numeric_limits<uint32_t>::max()) {
     return false;

@@ -1,4 +1,4 @@
-"""Export the final submitted native classifier and count its cell-list work."""
+"""Export bound native classification/palette buffers and count cell-list work."""
 
 import argparse
 import hashlib
@@ -34,6 +34,11 @@ def build(native, output):
         "ActiveContent().Scene().GroundMaterials().Classes(), "
         "ActiveContent().Scene().Resources().GroundClasses(), "
         + json.dumps(str(output / "classes.u32"))
+        + ")) { return ReadState::Failed; }\n"
+        "  if (!GroundClassInventory::Capture(Device_.get(), "
+        "ActiveContent().Scene().GroundMaterials().Palette(), "
+        "ActiveContent().Scene().Resources().GroundPalette(), "
+        + json.dumps(str(output / "palette.f32"))
         + ")) { return ReadState::Failed; }",
     )
     proxy = output / "readback.cpp"
@@ -122,7 +127,9 @@ def main():
     ):
         raise ValueError("native benchmark did not submit a complete world/window")
     report = analyse(output / "classes.u32")
+    palette = (output / "palette.f32").read_bytes()
     report.update(
+        palette={"bytes": len(palette), "sha256": hashlib.sha256(palette).hexdigest()},
         gpu_bytes_equal=True,
         commands=[*commands, command],
         native_commit=subprocess.check_output(
