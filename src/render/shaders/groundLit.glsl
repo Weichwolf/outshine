@@ -67,17 +67,19 @@ void main() {
   float slopeDeg = degrees(acos(clamp(dot(normalize(surfaceNormal), normalize(lights.up.xyz)), 0.0, 1.0)));
   float rockWeight = groundRockWeight(which, rows, slopeDeg);
   float otherRockWeight = edgeM < kGroundNoEdgeM ? groundRockWeight(runnerUp, rows, slopeDeg) : rockWeight;
+  bool otherUsed = edgeM < kGroundNoEdgeM && classWeight < 1.0;
+  bool firstUsed = !otherUsed || classWeight > 0.0;
   int rockRow = int(floatBitsToUint(groundPalette[1]));
   GroundSurface rock = groundSurface(groundWears(rockRow, rows), GroundDetail(1.0, 0.0, vec2(0.0)));
-  if (max(rockWeight, otherRockWeight) > 0.0) {
+  if ((firstUsed && rockWeight > 0.0) || (otherUsed && otherRockWeight > 0.0)) {
     rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, rows));
   }
   vec2 atM = worldM.xz;
   GroundSurface composed = rock;
-  if (rockWeight < 1.0) {
+  if (firstUsed && rockWeight < 1.0) {
     composed = blendGroundSurfaces(groundSubstrateSurface(which, atM, worldDx.xz, worldDy.xz, rows), rock, rockWeight);
   }
-  if (edgeM < kGroundNoEdgeM && classWeight < 1.0) {
+  if (otherUsed) {
     GroundSurface other = rock;
     if (otherRockWeight < 1.0) {
       other = blendGroundSurfaces(groundSubstrateSurface(runnerUp, atM, worldDx.xz, worldDy.xz, rows), rock, otherRockWeight);

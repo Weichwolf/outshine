@@ -137,6 +137,15 @@ patches, including after removal of an avoidable integer-array copy. The positiv
 3D-only allocation result does not establish a win for complete material shading.
 Neither field representation is recommended as a native default from this study.
 
+The native `groundLit.glsl` now applies the support-selected analytic procedure:
+it skips the first substrate at zero class weight and only evaluates rock detail
+when a contributing class uses it. It retains the original mixture order and
+one lighting evaluation; no new cache, field, binding or pass. The existing
+128 captured-weight reference cases stay exact and all twelve fresh offline
+60-frame Place rotations preserve their previous final PNG hashes. This is
+limited native adoption of support selection, not approval of a stored field or
+the complete material basis. Device comparisons and remaining budgets: #1934.
+
 The reproducible cost driver uses nine rotating query rounds, checks complete
 result equality, measures bounded preparation separately and records allocations
 in separate Memray traces. NumPy and Memray are required; native stacks are
