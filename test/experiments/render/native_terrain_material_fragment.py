@@ -73,6 +73,7 @@ def main():
                     "-V",
                     "--target-env",
                     "vulkan1.0",
+                    "-I" + str(ROOT / "src/render/shaders"),
                     str(source),
                     "-o",
                     str(output / (name + ".spv")),
