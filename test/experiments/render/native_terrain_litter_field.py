@@ -52,11 +52,11 @@ def queries(field, anchor):
     return np.concatenate(blocks), np.array(expected_centres)
 
 
-def capture(output, name, field, q, commands):
+def capture(output, name, field, q, commands, extra_words=()):
     source, texture, target = [
         output / (name + suffix) for suffix in (".f32", ".r8", ".native.f32")
     ]
-    q.tofile(source)
+    source.write_bytes(q.tobytes() + np.asarray(extra_words, dtype="<u4").tobytes())
     texture.write_bytes(b"".join(level.tobytes() for level in field.levels))
     call = [
         "env",
@@ -204,6 +204,7 @@ def main():
                     "-V",
                     "--target-env",
                     "vulkan1.0",
+                    "-I" + str(ROOT / "src/render/shaders"),
                     str(path),
                     "-o",
                     str(output / (name + ".spv")),

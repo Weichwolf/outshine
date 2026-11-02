@@ -133,8 +133,7 @@ int main(int argc, char *const *argv) {
     }
   }
   const auto palette = ReadCaptureWords(argv[3]);
-  if (textureSide != 0 &&
-      palette.size() * sizeof(uint32_t) != count * sizeof(CaptureTextureQuery)) {
+  if (textureSide != 0 && palette.size() * sizeof(uint32_t) < count * sizeof(CaptureTextureQuery)) {
     return 2;
   }
   auto device = Require(CreateDevice({.Validation = true}));
