@@ -79,6 +79,7 @@ def compare(capture):
                     for selection, size in (
                         ("major", max(lengths)),
                         ("minor", min(lengths)),
+                        ("minor_quarter", min(lengths) / 4),
                     ):
                         lod = float(
                             np.clip(
