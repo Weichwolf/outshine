@@ -111,6 +111,13 @@ def specular_from_dots(roughness, nl, nv, nh, vh):
     return (0.04 + 0.96 * (1 - vh) ** 5) * distribution * visibility * nl
 
 
+def roughened(roughness, length):
+    a2 = roughness**4
+    d = length * a2 + 2 * (1 - a2) * (1 - length)
+    n = 2 * length * (1 - a2)
+    return (2 * d / (n + 2 * d)) ** 0.25
+
+
 def candidates(gradient, weights, roughness):
     mean = weights @ gradient
     normal = normals(mean[None])[0]

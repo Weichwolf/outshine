@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from facade_coating_raster import ROOT
 from relief_shading import ANGLES, ROUGHNESS
-from relief_shading_reference import direction, normals, specular_from_dots
+from relief_shading_reference import direction, normals, roughened, specular_from_dots
 
 CAPACITIES = (9, 17, 33, 65, 129)
 MAX_PEAK_ERROR = 0.02
@@ -93,13 +93,6 @@ def partition(gradient, weights, strategy="area"):
             np.array([g["length"] for g in groups]),
         )
     return models
-
-
-def roughened(roughness, length):
-    a2 = roughness**4
-    d = length * a2 + 2 * (1 - a2) * (1 - length)
-    n = 2 * length * (1 - a2)
-    return (2 * d / (n + 2 * d)) ** 0.25
 
 
 def response(lobes, coverage, roughness, lights, view):
