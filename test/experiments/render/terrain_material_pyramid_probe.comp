@@ -1,0 +1,80 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Palette {
+  float data[];
+};
+
+struct Probe {
+  vec4 Uniform;
+  vec2 Unused;
+  int Which;
+  uint Mode;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Inputs {
+  Probe probes[];
+};
+
+struct Sample {
+  vec4 Material;
+  vec4 GradientAddress;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs {
+  Sample results[];
+};
+
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  uint count;
+  uint unmapped;
+  uvec2 padding;
+};
+
+uint word(uint at) {
+  return floatBitsToUint(data[at]);
+}
+
+vec4 readFour(uint at) {
+  return vec4(data[at], data[at + 1u], data[at + 2u], data[at + 3u]);
+}
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe probe = probes[index];
+  if (probe.Which < 0 || uint(probe.Which) >= word(323u)) {
+    results[index] = Sample(vec4(0.0), vec4(0.0));
+    return;
+  }
+  uint queryAt = word(322u) + uint(probe.Which) * 8u;
+  vec4 horizontal = readFour(queryAt);
+  vec2 vertical = vec2(data[queryAt + 4u], data[queryAt + 5u]);
+  float lod = data[queryAt + 6u];
+  uint level = uint(floor(lod)) + uint(probe.Uniform.x < fract(lod));
+  uint header = word(321u) + level * 4u;
+  uint width = word(header), capacity = word(header + 1u);
+  precise vec2 at =
+      horizontal.xy + (probe.Uniform.y - 0.5) * horizontal.zw + (probe.Uniform.z - 0.5) * vertical;
+  uvec2 xy = min(uvec2(floor(at * float(width))), uvec2(width - 1u));
+  uint cell = xy.y * width + xy.x;
+  uint first = word(header + 2u) + cell * capacity * 8u;
+  float total = 0.0;
+  for (uint i = 0u; i < capacity; ++i) { total += data[first + i * 8u + 6u]; }
+  precise float wanted = probe.Uniform.w * total;
+  float cumulative = 0.0;
+  uint chosen = capacity - 1u;
+  for (uint i = 0u; i < capacity; ++i) {
+    cumulative += data[first + i * 8u + 6u];
+    if (wanted < cumulative) {
+      chosen = i;
+      break;
+    }
+  }
+  uint selected = first + chosen * 8u;
+  results[index] = Sample(
+      readFour(selected),
+      vec4(
+          data[selected + 4u], data[selected + 5u], float(level), float(cell * capacity + chosen)));
+}
