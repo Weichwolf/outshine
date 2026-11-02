@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -50,7 +51,8 @@ struct Fixture {
         Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
         Session->Sources(),
         Wire);
-    auto cache = PreparedOsmTiles::Open(root.string(), Session, Wire, Compute);
+    auto cache = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(root.string()), Session, Wire, Compute);
     if (!cache) { return false; }
     Cache = std::move(*cache);
     const std::array<std::string, 2> layers{"buildings", "water_polygons"};

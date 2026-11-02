@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "UrbanAssetFixture.h"
 #include "Check.h"
 #include <chrono>
@@ -66,8 +67,11 @@ void InvalidRequests(const std::filesystem::path &directory) {
   }
   PreparedUrbanAreas::Budget budget;
   budget.PendingMost = 0;
-  CHECK(!PreparedUrbanAreas::Open(
-            directory.string(), fixture.Session->Sources(), fixture.Compute, fixture.Tiles, budget),
+  CHECK(!PreparedUrbanAreas::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                  fixture.Session->Sources(),
+                                  fixture.Compute,
+                                  fixture.Tiles,
+                                  budget),
         "zero work capacity is rejected explicitly");
   CHECK(fixture.Calls == 0 && fixture.Urban->Costs().Misses == 0,
         "invalid requests schedule no asset or source work");

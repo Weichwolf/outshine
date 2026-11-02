@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedOsmTiles.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -106,7 +107,8 @@ struct Fixture {
     CHECK(session, "a controllable source opens for the actual moving window");
     if (!session) { return false; }
     Session = std::move(*session);
-    auto cache = PreparedOsmTiles::Open(directory.string(), Session, Transport, Compute);
+    auto cache = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(directory.string()), Session, Transport, Compute);
     CHECK(cache, "the actual shared native pipeline opens for window transitions");
     if (!cache) { return false; }
     Cache = std::move(*cache);

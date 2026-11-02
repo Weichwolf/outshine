@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "OsmCacheFixture.h"
 #include "PreparedOsmTiles.h"
@@ -83,7 +84,8 @@ void Retire(const std::filesystem::path &directory) {
   CHECK(session, "the pending provider belongs to an owned source session");
   if (!session) { return; }
   const std::weak_ptr<SourceSession> retained = *session;
-  auto cache = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto cache = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(cache, "native tile preparation binds its source scope before demand");
   if (!cache) { return; }
   session->reset();
@@ -123,7 +125,7 @@ void RefuseBeforeIO(const std::filesystem::path &directory, size_t payloadMost) 
   auto session = Test::OsmCache::OpenSession(std::make_unique<PendingSource>(calls));
   CHECK(session, "the pre-IO source fixture opens");
   if (!session) { return; }
-  auto cache = PreparedOsmTiles::Open(directory.string(),
+  auto cache = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
                                       *session,
                                       transport,
                                       compute,

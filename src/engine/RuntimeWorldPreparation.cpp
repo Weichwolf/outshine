@@ -217,8 +217,8 @@ bool Engine::State::PrepareRuntimeWorld(std::optional<Data::SourceSession::Confi
   if (!Services.Compute) { Services.Compute = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Surface().Opened()) {
     if (!Services.SurfaceCacheConnections) {
-      Services.SurfaceCacheConnections =
-          std::make_shared<JobAdmission>(2 * Ground::SurfacePreparation::kAssetCacheConnections);
+      constexpr int surfaceStoresMost = 2;
+      Services.SurfaceCacheConnections = std::make_shared<JobAdmission>(surfaceStoresMost);
     }
     const auto opened = World.Surface().OpenSession(
         contentDirectories,

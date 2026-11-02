@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -87,7 +88,8 @@ void Check(const std::filesystem::path &directory) {
       std::make_unique<Test::OsmCache::VectorSource>("r1", Test::Mvt::BuildingTile(), calls));
   CHECK(session, "the actual provider session opens");
   if (!session) { return; }
-  auto service = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto service = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(service, "native preparation opens its real asset pipeline");
   if (!service) { return; }
   const std::array<std::string, 1> layers{"buildings"};

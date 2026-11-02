@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #ifndef OUTSHINE_TEST_URBANASSETFIXTURE_H
 #define OUTSHINE_TEST_URBANASSETFIXTURE_H
 
@@ -118,12 +119,16 @@ struct Fixture {
     CHECK(session, "fixture source session opens");
     if (!session) { return; }
     Session = std::move(*session);
-    auto tiles = PreparedOsmTiles::Open(directory.string(), Session, SourceTransport, Compute);
+    auto tiles = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(directory.string()), Session, SourceTransport, Compute);
     CHECK(tiles, "source-product cache opens");
     if (!tiles) { return; }
     Tiles = *tiles;
-    auto urban =
-        PreparedUrbanAreas::Open(directory.string(), Session->Sources(), Compute, Tiles, budget);
+    auto urban = PreparedUrbanAreas::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                          Session->Sources(),
+                                          Compute,
+                                          Tiles,
+                                          budget);
     CHECK(urban, "urban cache-first producer opens");
     if (urban) { Urban = *urban; }
   }

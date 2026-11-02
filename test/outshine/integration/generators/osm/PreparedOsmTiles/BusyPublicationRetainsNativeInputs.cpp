@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -48,7 +49,8 @@ struct Fixture {
         Ground::TilePool::Config{.Compute = &Compute, .PreparedFields = {}},
         Session->Sources(),
         Transport);
-    auto opened = PreparedOsmTiles::Open(root.string(), Session, Transport, Compute, budget);
+    auto opened = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(root.string()), Session, Transport, Compute, budget);
     CHECK(opened, "the native OSM cache opens with declared publication admission");
     if (!opened) { return false; }
     Cache = std::move(*opened);

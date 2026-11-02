@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "AssetProduct.h"
 #include "Check.h"
@@ -92,7 +93,8 @@ void Shared(const std::filesystem::path &directory) {
       std::make_unique<Test::OsmCache::VectorSource>("r1", Test::Mvt::BuildingTile(), calls));
   CHECK(session, "a real MVT provider opens in an owned session");
   if (!session) { return; }
-  auto opened = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto opened = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(opened, "the actual native producer opens with shared asset admission");
   if (!opened) { return; }
   auto cache = std::move(*opened);
@@ -150,8 +152,11 @@ void BoundedWarm(const std::filesystem::path &directory, size_t budget, bool suf
       std::make_unique<Test::OsmCache::VectorSource>("r1", std::vector<uint8_t>{}, calls));
   CHECK(session, "an unavailable provider opens for the bounded native replay");
   if (!session) { return; }
-  auto opened = PreparedOsmTiles::Open(
-      directory.string(), *session, transport, compute, {.InputBytesMost = budget});
+  auto opened = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                       *session,
+                                       transport,
+                                       compute,
+                                       {.InputBytesMost = budget});
   CHECK(opened, "a small native cache opens with its actual available RAM bound");
   if (!opened) { return; }
   const std::array<std::string, 1> layers{"buildings"};
@@ -202,7 +207,7 @@ void PinnedOwners(const std::filesystem::path &directory) {
   CHECK(session, "the owner-pressure replay has no available source input");
   if (!session) { return; }
   constexpr size_t inputMost = size_t{128} * 1024;
-  auto opened = PreparedOsmTiles::Open(directory.string(),
+  auto opened = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
                                        *session,
                                        transport,
                                        compute,

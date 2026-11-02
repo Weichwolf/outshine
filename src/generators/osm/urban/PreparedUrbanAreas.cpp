@@ -10,14 +10,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <filesystem>
 #include <memory>
 #include <string>
-#include <system_error>
 #include <utility>
 
 namespace outshine::Generators::Osm {
-PreparedUrbanAreas::PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
+PreparedUrbanAreas::PreparedUrbanAreas(std::shared_ptr<AssetCache> cache,
                                        std::string recipe,
                                        Tasks &compute,
                                        std::shared_ptr<PreparedOsmTiles> prepared,
@@ -26,7 +24,7 @@ PreparedUrbanAreas::PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
       Prepared_(std::move(prepared)),
       Worker_(std::make_shared<Worker>(std::move(cache), std::move(recipe), budget)) {}
 
-PreparedUrbanAreas::Worker::Worker(std::unique_ptr<AssetCache> cache,
+PreparedUrbanAreas::Worker::Worker(std::shared_ptr<AssetCache> cache,
                                    std::string recipe,
                                    Budget budget)
     : Cache(std::move(cache)), Recipe(std::move(recipe)), Limits(budget) {}
@@ -46,20 +44,20 @@ PreparedUrbanAreas::Worker::Job::~Job() {
 }
 
 std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>
-PreparedUrbanAreas::Open(const std::string &directory,
+PreparedUrbanAreas::Open(std::shared_ptr<AssetCache> cache,
                          const Data::SourceSet &sources,
                          Tasks &compute,
                          std::shared_ptr<PreparedOsmTiles> prepared) {
-  return Open(directory, sources, compute, std::move(prepared), Budget{});
+  return Open(std::move(cache), sources, compute, std::move(prepared), Budget{});
 }
 
 std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>
-PreparedUrbanAreas::Open(const std::string &directory,
+PreparedUrbanAreas::Open(std::shared_ptr<AssetCache> cache,
                          const Data::SourceSet &sources,
                          Tasks &compute,
                          std::shared_ptr<PreparedOsmTiles> prepared,
-                         Budget budget,
-                         AssetCache::Runtime runtime) {
+                         Budget budget) {
+  if (!cache) { return std::unexpected("urban areas require an asset store"); }
   constexpr size_t maxPending = 16;
   constexpr size_t maxCells = 4194304;
   constexpr size_t maxSourceBytes = size_t{128} * 1024u * 1024u;
@@ -71,17 +69,11 @@ PreparedUrbanAreas::Open(const std::string &directory,
       budget.GenerationTime > maxTime) {
     return std::unexpected("invalid urban-area preparation budget or source service");
   }
-  std::error_code error;
-  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
-  if (error) { return std::unexpected("could not create native urban-area cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open native urban-area cache"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-urban-area-1-parent5", sources, std::array{Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("urban source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedUrbanAreas>(new PreparedUrbanAreas(
-      std::move(*cache), std::move(recipe), compute, std::move(prepared), budget));
+      std::move(cache), std::move(recipe), compute, std::move(prepared), budget));
 }
 
 std::unique_ptr<UrbanPrismPreparation> PreparedUrbanAreas::PreparePrism(std::string request,

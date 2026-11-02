@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "OsmCacheFixture.h"
 #include "PreparedOsmTiles.h"
@@ -84,7 +85,8 @@ void Exercise(const std::filesystem::path &directory) {
   CHECK(session, "the held provider belongs to one owned source session");
   if (!session) { return; }
   const std::weak_ptr<SourceSession> lifetime = *session;
-  auto cache = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto cache = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(cache, "the real native OSM service opens");
   if (!cache) { return; }
   session->reset();
@@ -147,7 +149,8 @@ void DiscardQueuedWork(const std::filesystem::path &directory) {
   CHECK(session, "the queued provider owns a valid source session");
   if (!session) { return; }
   const std::weak_ptr<SourceSession> lifetime = *session;
-  auto cache = PreparedOsmTiles::Open(directory.string(), *session, transport, *worker.Pool);
+  auto cache = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, *worker.Pool);
   CHECK(cache, "the native producer shares the blocked pool");
   if (!cache) { return; }
   session->reset();
@@ -189,7 +192,8 @@ void RetireIdle(const std::filesystem::path &directory) {
   CHECK(session, "idle preparation owns a valid provider session");
   if (!session) { return; }
   const std::weak_ptr<SourceSession> lifetime = *session;
-  auto cache = PreparedOsmTiles::Open(directory.string(), *session, transport, *worker.Pool);
+  auto cache = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, *worker.Pool);
   CHECK(cache, "the real idle native service opens");
   if (!cache) { return; }
   session->reset();

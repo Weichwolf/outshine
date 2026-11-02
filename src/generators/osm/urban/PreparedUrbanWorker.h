@@ -47,7 +47,7 @@ struct PreparedUrbanAreas::Worker {
     std::shared_ptr<Work> Pending;
   };
 
-  Worker(std::unique_ptr<AssetCache> cache, std::string recipe, Budget budget);
+  Worker(std::shared_ptr<AssetCache> cache, std::string recipe, Budget budget);
   [[nodiscard]] std::string RequestKey(const Definition &input) const;
   [[nodiscard]] std::expected<Loaded, std::string> Load(const std::string &request,
                                                         const Definition &input);

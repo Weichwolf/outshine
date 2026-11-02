@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "OsmCacheFixture.h"
 #include "OfflineSourceTransport.h"
@@ -91,7 +92,8 @@ void CheckAbsence(const std::filesystem::path &directory) {
         OsmCache::OpenSession(std::make_unique<MissingSource>(calls, input.Where, input.Response));
     CHECK(session, "absence uses the actual provider declaration and coverage");
     if (!session) { return; }
-    auto prepared = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+    auto prepared = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
     CHECK(prepared, "the absence consumer opens its isolated native source scope");
     if (!prepared) { return; }
     const std::array<std::string, 1> layers{"buildings"};
@@ -134,7 +136,8 @@ int main() {
     CHECK(session, "the actual source session owns an offline-requesting provider");
     if (!session) { return Report(); }
     sourceLifetime = *session;
-    auto prepared = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+    auto prepared = PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
     CHECK(prepared, "the native intermediate cache opens independently of source availability");
     if (!prepared) { return Report(); }
     const std::array<std::string, 1> layers{"buildings"};

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "JobAdmission.h"
@@ -44,12 +45,13 @@ int main() {
     CHECK(session, "source metadata opens without source IO");
     if (!session) { return std::unexpected(session.error()); }
     auto prepared = PreparedOsmTiles::Open(
-        blocked.string(),
+        outshine::Test::OpenAssetStore(
+            blocked.string(),
+            {.Workers = &compute, .Connections = std::make_shared<JobAdmission>(2)}),
         *session,
         transport,
         compute,
-        {},
-        {.Workers = &compute, .Connections = std::make_shared<JobAdmission>(2)});
+        {});
     CHECK(prepared, "runtime configuration defers the actual filesystem failure");
     if (!prepared) { return std::unexpected(prepared.error()); }
     const std::array<std::string, 1> layers{"buildings"};

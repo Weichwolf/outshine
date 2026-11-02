@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "TilePool.h"
 #include "PreparedOsmTiles.h"
 #include "Check.h"
@@ -43,7 +44,8 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
   if (!session) { return {}; }
   auto &sources = (*session)->Sources();
   Ground::TilePool pool({.Compute = &compute, .PreparedFields = {}}, sources, transport);
-  auto opened = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto opened = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(opened, "native service opens the persistent spatial cache");
   if (!opened) { return {}; }
   const std::array<std::string, 2> layers{"buildings", "water_polygons"};
@@ -88,7 +90,8 @@ void AbandonedRequestsDoNotBlock(const std::filesystem::path &directory) {
       std::make_unique<VectorSource>("r1", outshine::Test::Mvt::BuildingTile(), calls));
   CHECK(session, "abandoned-demand provider session opens");
   if (!session) { return; }
-  auto opened = PreparedOsmTiles::Open(directory.string(), *session, transport, compute);
+  auto opened = PreparedOsmTiles::Open(
+      outshine::Test::OpenAssetStore(directory.string()), *session, transport, compute);
   CHECK(opened, "isolated demand service opens");
   if (!opened) { return; }
   const std::array<std::string, 1> layers{"buildings"};

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #ifndef OUTSHINE_TEST_URBANPRISMSLOT_FIXTURE_H
 #define OUTSHINE_TEST_URBANPRISMSLOT_FIXTURE_H
 #include "UrbanPrismSlot.h"
@@ -28,12 +29,15 @@ struct Sources {
     CHECK(session, "cache-only prism owner has an offline source session");
     if (!session) { return {}; }
     Session = std::move(*session);
-    auto tiles =
-        Generators::Osm::PreparedOsmTiles::Open(cache.Directory().string(), Session, Wire, pool);
+    auto tiles = Generators::Osm::PreparedOsmTiles::Open(
+        outshine::Test::OpenAssetStore(cache.Directory().string()), Session, Wire, pool);
     CHECK(tiles, "offline source cache opens for the actual urban generator");
     if (!tiles) { return {}; }
     auto urban = Generators::Osm::PreparedUrbanAreas::Open(
-        cache.Directory().string(), Session->Sources(), pool, std::move(*tiles));
+        outshine::Test::OpenAssetStore(cache.Directory().string()),
+        Session->Sources(),
+        pool,
+        std::move(*tiles));
     CHECK(urban, "the actual urban generator owns its prism store");
     return urban ? std::move(*urban) : nullptr;
   }

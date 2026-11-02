@@ -64,7 +64,6 @@ struct SurfacePreparationMetrics {
 
 class SurfacePreparation {
 public:
-  static constexpr int kAssetCacheConnections = 7;
   SurfacePreparation() = default;
 
   ~SurfacePreparation() { Close(); }

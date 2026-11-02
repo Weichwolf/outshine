@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "UrbanAssetFixture.h"
 #include "JobAdmission.h"
 #include "Check.h"
@@ -30,12 +31,13 @@ void DeferredLookup(const std::filesystem::path &directory, bool warm) {
   const auto connections = std::make_shared<JobAdmission>(1);
   auto held = connections->TryAcquire();
   CHECK(held, "another cache owner occupies the sole runtime connection");
-  auto opened = PreparedUrbanAreas::Open(directory.string(),
-                                         fixture.Session->Sources(),
-                                         fixture.Compute,
-                                         fixture.Tiles,
-                                         {},
-                                         {.Workers = &fixture.Compute, .Connections = connections});
+  auto opened = PreparedUrbanAreas::Open(
+      outshine::Test::OpenAssetStore(directory.string(),
+                                     {.Workers = &fixture.Compute, .Connections = connections}),
+      fixture.Session->Sources(),
+      fixture.Compute,
+      fixture.Tiles,
+      {});
   CHECK(opened, "runtime configuration needs no free connection");
   if (!opened) { return; }
   fixture.Urban = std::move(*opened);
@@ -78,12 +80,13 @@ void StorageFailure(const std::filesystem::path &directory) {
     file << "not a directory";
   }
   const auto connections = std::make_shared<JobAdmission>(1);
-  auto opened = PreparedUrbanAreas::Open(blocked.string(),
-                                         fixture.Session->Sources(),
-                                         fixture.Compute,
-                                         fixture.Tiles,
-                                         {},
-                                         {.Workers = &fixture.Compute, .Connections = connections});
+  auto opened = PreparedUrbanAreas::Open(
+      outshine::Test::OpenAssetStore(blocked.string(),
+                                     {.Workers = &fixture.Compute, .Connections = connections}),
+      fixture.Session->Sources(),
+      fixture.Compute,
+      fixture.Tiles,
+      {});
   CHECK(opened, "deferred runtime opens do not inspect storage on the caller");
   if (!opened) { return; }
   fixture.Urban = std::move(*opened);

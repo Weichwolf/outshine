@@ -10,13 +10,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <filesystem>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <stop_token>
 #include <string>
-#include <system_error>
 #include <utility>
 
 namespace outshine::Generators::Osm {
@@ -33,7 +31,7 @@ PreparedOsmTiles::Work::Work(std::string request,
       Consumer(std::move(consumer)),
       Ticket(std::move(ticket)) {}
 
-PreparedOsmTiles::Worker::Worker(std::unique_ptr<AssetCache> cache,
+PreparedOsmTiles::Worker::Worker(std::shared_ptr<AssetCache> cache,
                                  std::shared_ptr<Data::SourceSession> sources,
                                  Data::SourceTransport &transport,
                                  Tasks &compute,
@@ -59,7 +57,7 @@ void PreparedOsmTiles::DecodeJob::Run() const {
   if (!Input->Cancelled.load()) { Context->Decode(*Input, Publication); }
 }
 
-PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
+PreparedOsmTiles::PreparedOsmTiles(std::shared_ptr<AssetCache> cache,
                                    std::shared_ptr<Data::SourceSession> sources,
                                    Data::SourceTransport &transport,
                                    Tasks &compute,
@@ -77,37 +75,31 @@ PreparedOsmTiles::PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
 }
 
 std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-PreparedOsmTiles::Open(const std::string &directory,
+PreparedOsmTiles::Open(std::shared_ptr<AssetCache> cache,
                        std::shared_ptr<Data::SourceSession> sources,
                        Data::SourceTransport &transport,
                        Tasks &compute) {
-  return Open(directory, std::move(sources), transport, compute, {});
+  return Open(std::move(cache), std::move(sources), transport, compute, {});
 }
 
 std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-PreparedOsmTiles::Open(const std::string &directory,
+PreparedOsmTiles::Open(std::shared_ptr<AssetCache> cache,
                        std::shared_ptr<Data::SourceSession> sources,
                        Data::SourceTransport &transport,
                        Tasks &compute,
-                       Budget budget,
-                       AssetCache::Runtime runtime) {
+                       Budget budget) {
+  if (!cache) { return std::unexpected("prepared OSM tiles require an asset store"); }
   if (!sources) { return std::unexpected("native OSM preparation requires configured sources"); }
   if (budget.PendingMost == 0 || budget.PublicationBytesMost == 0 || budget.ProductsMost == 0 ||
       budget.InputBytesMost == 0 ||
       budget.ProductsMost > std::numeric_limits<size_t>::max() / kReceiptBytesMost) {
     return std::unexpected("invalid native OSM admission budget");
   }
-  std::error_code error;
-  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
-  if (error) { return std::unexpected("could not create native OSM tile cache"); }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open native OSM tile cache"); }
   const auto recipe = Generators::AssetSourceRecipe(
       "prepared-osm-tile-3", sources->Sources(), std::array{Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("OSM source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedOsmTiles>(new PreparedOsmTiles(
-      std::move(*cache), std::move(sources), transport, compute, recipe, budget));
+      std::move(cache), std::move(sources), transport, compute, recipe, budget));
 }
 
 PreparedOsmTiles::~PreparedOsmTiles() {

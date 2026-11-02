@@ -45,17 +45,16 @@ public:
 
   // The transport and compute pool outlive this service and its unfinished work.
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-  Open(const std::string &directory,
+  Open(std::shared_ptr<AssetCache> cache,
        std::shared_ptr<Data::SourceSession> sources,
        Data::SourceTransport &transport,
        Tasks &compute);
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedOsmTiles>, std::string>
-  Open(const std::string &directory,
+  Open(std::shared_ptr<AssetCache> cache,
        std::shared_ptr<Data::SourceSession> sources,
        Data::SourceTransport &transport,
        Tasks &compute,
-       Budget budget,
-       AssetCache::Runtime runtime = {});
+       Budget budget);
   // Cancels demand; the pool releases worker state after its last queued/running use.
   ~PreparedOsmTiles();
   PreparedOsmTiles(const PreparedOsmTiles &) = delete;
@@ -76,7 +75,7 @@ private:
   struct Worker;
   struct DecodeJob;
 
-  PreparedOsmTiles(std::unique_ptr<AssetCache> cache,
+  PreparedOsmTiles(std::shared_ptr<AssetCache> cache,
                    std::shared_ptr<Data::SourceSession> sources,
                    Data::SourceTransport &transport,
                    Tasks &compute,

@@ -75,7 +75,7 @@ struct PreparedOsmTiles::Production {
 };
 
 struct PreparedOsmTiles::Worker {
-  Worker(std::unique_ptr<AssetCache> cache,
+  Worker(std::shared_ptr<AssetCache> cache,
          std::shared_ptr<Data::SourceSession> sources,
          Data::SourceTransport &transport,
          Tasks &compute,
@@ -127,7 +127,7 @@ struct PreparedOsmTiles::Worker {
   Load(const std::string &request, const AssetCache::ReadPlan &plan) const;
   [[nodiscard]] bool Matches(const OsmField &field, const Work &work, std::string_view key) const;
 
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
   std::shared_ptr<Data::SourceSession> Sources_;
   Data::SourceTransport &Transport_;
   Tasks &Compute_;

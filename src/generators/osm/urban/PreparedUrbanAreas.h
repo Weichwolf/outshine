@@ -62,17 +62,16 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>
-  Open(const std::string &directory,
+  Open(std::shared_ptr<AssetCache> cache,
        const Data::SourceSet &sources,
        Tasks &compute,
        std::shared_ptr<PreparedOsmTiles> prepared);
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>
-  Open(const std::string &directory,
+  Open(std::shared_ptr<AssetCache> cache,
        const Data::SourceSet &sources,
        Tasks &compute,
        std::shared_ptr<PreparedOsmTiles> prepared,
-       Budget budget,
-       AssetCache::Runtime runtime = {});
+       Budget budget);
   ~PreparedUrbanAreas();
   PreparedUrbanAreas(const PreparedUrbanAreas &) = delete;
   PreparedUrbanAreas &operator=(const PreparedUrbanAreas &) = delete;
@@ -89,7 +88,7 @@ private:
   struct Work;
   struct Worker;
 
-  PreparedUrbanAreas(std::unique_ptr<AssetCache> cache,
+  PreparedUrbanAreas(std::shared_ptr<AssetCache> cache,
                      std::string recipe,
                      Tasks &compute,
                      std::shared_ptr<PreparedOsmTiles> prepared,

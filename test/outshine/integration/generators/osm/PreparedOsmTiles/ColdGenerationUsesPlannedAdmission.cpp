@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedOsmTiles.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -61,8 +62,11 @@ void ColdAndWarm(const std::filesystem::path &directory) {
       std::make_unique<OsmCache::VectorSource>("r1", Mvt::BuildingTile(), calls));
   CHECK(source, "a finite source opens for the low-budget cold producer");
   if (!source) { return; }
-  auto cache = PreparedOsmTiles::Open(
-      directory.string(), *source, transport, compute, {.InputBytesMost = budget});
+  auto cache = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                      *source,
+                                      transport,
+                                      compute,
+                                      {.InputBytesMost = budget});
   CHECK(cache, "the actual cold service opens far below the old 384-MiB constant");
   if (!cache) { return; }
   const auto cold = Await(**cache, layout, compute, budget);
@@ -79,8 +83,11 @@ void ColdAndWarm(const std::filesystem::path &directory) {
   CHECK(offline, "an unavailable source opens for a fresh offline service");
   if (!offline) { return; }
   constexpr size_t warmBudget = size_t{128} * 1024;
-  auto fresh = PreparedOsmTiles::Open(
-      directory.string(), *offline, transport, compute, {.InputBytesMost = warmBudget});
+  auto fresh = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                      *offline,
+                                      transport,
+                                      compute,
+                                      {.InputBytesMost = warmBudget});
   CHECK(fresh, "the warm budget includes stored/native buffers and the explicit Zstd context");
   if (!fresh) { return; }
   const auto warm = Await(**fresh, layout, compute, warmBudget);
@@ -105,8 +112,11 @@ void RealCold(const std::filesystem::path &directory) {
   auto source = OsmCache::OpenSession(std::make_unique<OsmCache::VectorSource>("r1", input, calls));
   CHECK(source, "the real-input source opens without external network acquisition");
   if (!source) { return; }
-  auto cache = PreparedOsmTiles::Open(
-      directory.string(), *source, transport, compute, {.InputBytesMost = budget});
+  auto cache = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                      *source,
+                                      transport,
+                                      compute,
+                                      {.InputBytesMost = budget});
   CHECK(cache, "the real-input service opens with a bounded generation budget");
   if (!cache) { return; }
   const auto began = std::chrono::steady_clock::now();
@@ -142,8 +152,11 @@ void RefuseBeforeGeneration(const std::filesystem::path &directory) {
       std::make_unique<OsmCache::VectorSource>("r1", Mvt::BuildingTile(), calls));
   CHECK(source, "the source fits the deliberately insufficient generation budget");
   if (!source) { return; }
-  auto cache = PreparedOsmTiles::Open(
-      directory.string(), *source, transport, compute, {.InputBytesMost = budget});
+  auto cache = PreparedOsmTiles::Open(outshine::Test::OpenAssetStore(directory.string()),
+                                      *source,
+                                      transport,
+                                      compute,
+                                      {.InputBytesMost = budget});
   CHECK(cache, "a constrained producer opens before resolving its actual input");
   if (!cache) { return; }
   const std::array<std::string, 1> layers{"buildings"};
