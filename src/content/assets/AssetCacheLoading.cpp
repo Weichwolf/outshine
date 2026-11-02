@@ -79,6 +79,7 @@ AssetCache::PlanRead(std::string_view key, size_t packageBytesMost) const {
   if (!AssetSql::ValidKey(key) || packageBytesMost == 0) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   AssetSql::Statement statement;
   auto prepared = AssetSql::Prepare(
