@@ -1,4 +1,4 @@
-#include "LitterFieldPreparation.h"
+#include "LitterPagePreparation.h"
 #include "Check.h"
 #include "Tasks.h"
 #include <chrono>
@@ -20,7 +20,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
-constexpr LitterFieldAddress kAddress{.Tile = {-65, -64}, .Level = 4};
+constexpr LitterPageAddress kAddress{.Tile = {-65, -64}, .Level = 4};
 
 AssetPipeline::Limits Limits(size_t inputBytes = 16u << 20u) {
   return {.JobsMost = 4,
@@ -92,8 +92,8 @@ void SharedDemand(const std::shared_ptr<AssetCache> &cache) {
     release.release();
     return;
   }
-  auto first = RequestLitterField(pipeline, *a, cache, kAddress);
-  auto second = RequestLitterField(pipeline, *b, cache, kAddress);
+  auto first = RequestLitterPage(pipeline, *a, cache, kAddress);
+  auto second = RequestLitterPage(pipeline, *b, cache, kAddress);
   const auto pending = pipeline.Counts();
   CHECK(first && second && pending.Jobs == 1 && pending.InputBytes == 0,
         "equal selected mips share a job without caller-side IO or image allocation");
@@ -105,16 +105,16 @@ void SharedDemand(const std::shared_ptr<AssetCache> &cache) {
   const auto result = Wait(*second);
   const auto cancelled = Wait(*first);
   CHECK(result.Status == AssetPublicationStatus::Ready && result.Native && result.Receipt &&
-            result.Native->Bytes().size() == 1040 && !result.RequestHit,
+            result.Native->Bytes().size() == 4372 && !result.RequestHit,
         "the surviving demand receives only the selected coarse native image");
   CHECK(cancelled.Status == AssetPublicationStatus::Cancelled,
         "changing one generation does not cancel the shared surviving demand");
   if (result.Native) {
-    const auto view = DecodeLitterField(kAddress, result.Native->Bytes());
-    CHECK(view && view->Pixels.size() == 1024,
+    const auto view = DecodeLitterPage(kAddress, result.Native->Bytes());
+    CHECK(view && view->Pixels.size() == 4356,
           "ready backing directly decodes to the requested R8 pixels");
   }
-  auto fine = LitterFieldKey({.Tile = kAddress.Tile, .Level = 0});
+  auto fine = LitterPageKey({.Tile = {kAddress.Tile[0] * 16, kAddress.Tile[1] * 16}, .Level = 0});
   auto found = fine ? cache->Find(*fine) : std::unexpected(AssetCacheError::InvalidInput);
   CHECK(found && !*found, "coarse demand neither generates nor stores the finest sibling");
 }
@@ -127,8 +127,7 @@ void ReadOnlyAndBudget(const std::shared_ptr<AssetCache> &cache, const std::stri
   if (!consumer) { return; }
   WriteLock writer(path);
   if (!writer) { return; }
-  auto hit =
-      RequestLitterField(pipeline, *consumer, cache, kAddress, LitterFieldMiss::Refuse, 2048);
+  auto hit = RequestLitterPage(pipeline, *consumer, cache, kAddress, LitterPageMiss::Refuse, 2048);
   CHECK(hit, "a cached mip is requested without permitting its generator");
   if (hit) {
     const auto result = Wait(*hit);
@@ -137,21 +136,21 @@ void ReadOnlyAndBudget(const std::shared_ptr<AssetCache> &cache, const std::stri
           "a native hit requires no write slot and carries admitted consumer workspace");
   }
   writer.Release();
-  auto absent = RequestLitterField(
-      pipeline, *consumer, cache, {.Tile = {12, 34}, .Level = 4}, LitterFieldMiss::Refuse);
+  auto absent = RequestLitterPage(
+      pipeline, *consumer, cache, {.Tile = {12, 34}, .Level = 4}, LitterPageMiss::Refuse);
   CHECK(absent && Wait(*absent).Status == AssetPublicationStatus::Failed,
         "a missing read-only product does not invoke generation");
   AssetPipeline limited(workers, Limits(16));
   auto small = limited.OpenConsumer({.Identity = cache});
   CHECK(small, "the low-budget consumer opens");
   if (!small) { return; }
-  constexpr LitterFieldAddress missing{.Tile = {56, 78}, .Level = 4};
-  auto denied = RequestLitterField(limited, *small, cache, missing);
+  constexpr LitterPageAddress missing{.Tile = {56, 78}, .Level = 4};
+  auto denied = RequestLitterPage(limited, *small, cache, missing);
   const auto result = denied ? Wait(*denied) : AssetPublication{};
   CHECK(denied && result.Status == AssetPublicationStatus::Failed &&
             result.Error == AssetPublicationError::InvalidRequest,
         "a request larger than the configured hard bound is refused before generation");
-  const auto key = LitterFieldKey(missing);
+  const auto key = LitterPageKey(missing);
   const auto stored = key ? cache->Find(*key) : std::unexpected(AssetCacheError::InvalidInput);
   CHECK(stored && !*stored, "denied generation leaves no native asset");
 }
@@ -166,9 +165,9 @@ void BusyPublication(const std::shared_ptr<AssetCache> &cache,
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   CHECK(consumer, "publication consumer opens");
   if (!consumer) { return; }
-  const LitterFieldAddress address{.Tile = {finish == Completion::Cancel ? 235 : 234, -567},
-                                   .Level = 4};
-  auto package = PrepareLitterField(address, 1040);
+  const LitterPageAddress address{.Tile = {finish == Completion::Cancel ? 235 : 234, -567},
+                                  .Level = 4};
+  auto package = PrepareLitterPage(address, 4372);
   CHECK(package, "the bounded publication size reference is prepared");
   if (!package) { return; }
   auto prepared = cache->PreparePublication(std::move(package->Records), std::move(package->Bytes));
@@ -177,7 +176,7 @@ void BusyPublication(const std::shared_ptr<AssetCache> &cache,
   const auto heldBytes = prepared->CapacityBytes();
   WriteLock writer(path);
   if (!writer) { return; }
-  auto ticket = RequestLitterField(pipeline, *consumer, cache, address);
+  auto ticket = RequestLitterPage(pipeline, *consumer, cache, address);
   CHECK(ticket, "a cache miss enters the existing worker pipeline");
   if (!ticket) { return; }
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -210,7 +209,7 @@ void BusyPublication(const std::shared_ptr<AssetCache> &cache,
           "the retained prepared image publishes and loads after writer release");
   }
   if (finish == Completion::Cancel) {
-    const auto key = LitterFieldKey(address);
+    const auto key = LitterPageKey(address);
     const auto found = key ? cache->Find(*key) : std::unexpected(AssetCacheError::InvalidInput);
     CHECK(found && !*found, "a cancelled busy publication is not written after writer release");
   }

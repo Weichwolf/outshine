@@ -1,4 +1,4 @@
-#include "LitterFieldPreparation.h"
+#include "LitterPagePreparation.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -14,17 +14,15 @@ namespace {
 using namespace Generators;
 using Step = std::expected<AssetPipeline::LogicalStep, std::string>;
 constexpr size_t kMetadataBytes = 2048;
-constexpr size_t kWorkingBytes =
-    size_t{2} * (kLitterCellCount + 1) * (kLitterCellCount + 1) * sizeof(uint64_t);
 
 enum class Domain { Request, Content };
 
 struct Production {
   enum class Phase { Index, Load, GenerationAdmission, Generate, Publish, Deliver };
   std::shared_ptr<AssetCache> Cache;
-  LitterFieldAddress Address;
+  LitterPageAddress Address;
   std::string Key;
-  LitterFieldMiss OnMiss;
+  LitterPageMiss OnMiss;
   size_t PackageBytes = 0, GenerationBytes = 0, ConsumerBytes = 0;
   Phase Stage = Phase::Index;
   AssetCache::ReadPlan ReadPlan;
@@ -42,7 +40,7 @@ struct Production {
       Stage = Phase::Load;
       return AssetPipeline::InputAdmission{.Bytes = ReadPlan.BufferBytesMost};
     }
-    if (OnMiss == LitterFieldMiss::Refuse) {
+    if (OnMiss == LitterPageMiss::Refuse) {
       return std::unexpected("litter asset miss has no registered generator");
     }
     Stage = Phase::Generate;
@@ -50,9 +48,9 @@ struct Production {
   }
 
   Step Load(Domain domain) {
-    auto native = Cache->LoadValidated(
-        Key, "ground-litter-lattice-r8", ReadPlan, [&](const CachedAsset &asset) {
-          return DecodeLitterField(Address, asset.Bytes()).has_value();
+    auto native =
+        Cache->LoadValidated(Key, "ground-litter-page-r8", ReadPlan, [&](const CachedAsset &asset) {
+          return DecodeLitterPage(Address, asset.Bytes()).has_value();
         });
     if (!native) {
       if (native.error() == AssetCacheError::Busy) { return std::optional<AssetProduct>{}; }
@@ -71,7 +69,7 @@ struct Production {
   }
 
   Step Generate(const std::stop_token &stop) {
-    auto package = PrepareLitterField(Address, PackageBytes, stop);
+    auto package = PrepareLitterPage(Address, PackageBytes, stop);
     if (!package) { return std::unexpected(std::move(package.error())); }
     if (stop.stop_requested()) { return std::unexpected("litter asset generation cancelled"); }
     auto prepared =
@@ -118,19 +116,20 @@ struct Production {
 }
 
 std::expected<AssetPipeline::RequestTicket, AssetPublicationError>
-RequestLitterField(AssetPipeline &pipeline,
-                   const AssetPipeline::Consumer &consumer,
-                   std::shared_ptr<AssetCache> cache,
-                   Generators::LitterFieldAddress address,
-                   LitterFieldMiss onMiss,
-                   size_t consumerBytesMost) {
-  const auto key = LitterFieldKey(address);
-  const auto side = LitterMipSide(address.Tile, address.Level);
-  if (!cache || !key || !side) { return std::unexpected(AssetPublicationError::InvalidRequest); }
-  const size_t bytes = kLitterFieldHeaderBytes + size_t{*side} * *side;
+RequestLitterPage(AssetPipeline &pipeline,
+                  const AssetPipeline::Consumer &consumer,
+                  std::shared_ptr<AssetCache> cache,
+                  Generators::LitterPageAddress address,
+                  LitterPageMiss onMiss,
+                  size_t consumerBytesMost) {
+  const auto key = LitterPageKey(address);
+  const auto layout = PlanLitterPage(address);
+  if (!cache || !key || !layout) { return std::unexpected(AssetPublicationError::InvalidRequest); }
+  const size_t bytes = kLitterPageHeaderBytes + size_t{layout->Side} * layout->Side;
   const auto codec = AssetCache::PublicationBufferBytes(bytes);
   if (!codec ||
-      *codec > std::numeric_limits<size_t>::max() - bytes - kWorkingBytes - kMetadataBytes ||
+      *codec >
+          std::numeric_limits<size_t>::max() - bytes - layout->WorkingBytesMost - kMetadataBytes ||
       consumerBytesMost > std::numeric_limits<size_t>::max() - bytes) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
@@ -140,7 +139,7 @@ RequestLitterField(AssetPipeline &pipeline,
   work->Key = *key;
   work->OnMiss = onMiss;
   work->PackageBytes = bytes;
-  work->GenerationBytes = bytes + *codec + kWorkingBytes + kMetadataBytes;
+  work->GenerationBytes = bytes + *codec + layout->WorkingBytesMost + kMetadataBytes;
   work->ConsumerBytes = consumerBytesMost;
   return pipeline.RequestLogical(
       consumer,
