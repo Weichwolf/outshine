@@ -49,25 +49,37 @@ def bake(origin_m, tangent_u, tangent_v, extent_uv_m, shape, matrix, wavelength_
 
 
 def sample(grid, uv_m):
+    if not isinstance(grid, NoiseGrid):
+        raise TypeError("bounded noise grid required")
+    return interpolate(grid.values, grid.extent_uv_m, uv_m)
+
+
+def interpolate(values, extent_uv_m, uv_m):
+    """Shared bounded bilinear lookup, preserving endpoint queries without wrapping."""
     uv = np.asarray(uv_m, dtype=np.float64)
+    extent = np.asarray(extent_uv_m, dtype=np.float64)
     if (
-        not isinstance(grid, NoiseGrid)
+        values.ndim != 3
+        or min(values.shape[:2]) < 2
+        or extent.shape != (2,)
+        or not np.isfinite(extent).all()
+        or np.any(extent <= 0)
         or uv.ndim < 2
         or uv.shape[-1] != 2
         or uv.size > 2 * 262144
         or not np.isfinite(uv).all()
         or np.any(uv < 0)
-        or np.any(uv > grid.extent_uv_m)
+        or np.any(uv > extent)
     ):
         raise ValueError("bounded in-grid metric queries required")
-    size = np.asarray(grid.values.shape[1::-1])
-    at = uv / grid.extent_uv_m * (size - 1)
+    size = np.asarray(values.shape[1::-1])
+    at = uv / extent * (size - 1)
     low = np.minimum(np.floor(at).astype(np.int64), size - 2)
     fraction = at - low
-    a = grid.values[low[..., 1], low[..., 0]].astype(np.float64)
-    b = grid.values[low[..., 1], low[..., 0] + 1].astype(np.float64)
-    c = grid.values[low[..., 1] + 1, low[..., 0]].astype(np.float64)
-    d = grid.values[low[..., 1] + 1, low[..., 0] + 1].astype(np.float64)
+    a = values[low[..., 1], low[..., 0]].astype(np.float64)
+    b = values[low[..., 1], low[..., 0] + 1].astype(np.float64)
+    c = values[low[..., 1] + 1, low[..., 0]].astype(np.float64)
+    d = values[low[..., 1] + 1, low[..., 0] + 1].astype(np.float64)
     horizontal = fraction[..., :1]
     return (a + (b - a) * horizontal) * (1 - fraction[..., 1:]) + (
         c + (d - c) * horizontal
