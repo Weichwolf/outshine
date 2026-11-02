@@ -1,0 +1,18 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D feedback;
+layout(std430, set = 1, binding = 0) writeonly buffer Samples { vec4 samples[]; };
+layout(std140, set = 2, binding = 0) uniform Sampling {
+  uint width;
+  uint height;
+  uint stride;
+  uint phase;
+};
+void main() {
+  uvec2 grid = (uvec2(width, height) + stride - 1u) / stride;
+  uvec2 cell = gl_GlobalInvocationID.xy;
+  if (any(greaterThanEqual(cell, grid))) { return; }
+  uvec2 offset = uvec2(phase % stride, phase / stride);
+  uvec2 pixel = min(cell * stride + offset, uvec2(width, height) - 1u);
+  samples[cell.y * grid.x + cell.x] = texelFetch(feedback, ivec2(pixel), 0);
+}

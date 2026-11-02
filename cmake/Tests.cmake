@@ -113,6 +113,20 @@ foreach(source IN LISTS cases)
   string(REGEX REPLACE "\\.cpp$" "" name "${name}")
   string(REPLACE "/" "_" target "test_${name}")
   add_executable(${target} EXCLUDE_FROM_ALL "${source}")
+  if(name STREQUAL "outshine/src/render/terrain/FieldPageFeedbackPass/OcclusionPhasesAndReadbackStayBounded")
+    set(feedback_shader "${PROJECT_BINARY_DIR}/test-shaders/field-page-feedback.frag.spv")
+    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+    add_custom_command(OUTPUT "${feedback_shader}"
+      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+        "-I${PROJECT_SOURCE_DIR}/src/render/shaders" --depfile "${feedback_shader}.d"
+        "${PROJECT_SOURCE_DIR}/test/outshine/src/render/terrain/FieldPageFeedbackPass/VisiblePackets.frag"
+        -o "${feedback_shader}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/render/terrain/FieldPageFeedbackPass/VisiblePackets.frag"
+      DEPFILE "${feedback_shader}.d" VERBATIM)
+    add_custom_target(test_field_page_feedback_shader DEPENDS "${feedback_shader}")
+    add_dependencies(${target} test_field_page_feedback_shader test_pipeline_shaders)
+    target_compile_definitions(${target} PRIVATE "OUTSHINE_FIELD_FEEDBACK_SHADER=\"${feedback_shader}\"")
+  endif()
   if(name STREQUAL "outshine/src/render/device/R8PageAtlas/StoredPagesReachNativeShaderLookup")
     set(atlas_shader "${PROJECT_BINARY_DIR}/test-shaders/r8-page-atlas.frag.spv")
     file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
@@ -360,6 +374,7 @@ foreach(source IN LISTS cases)
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
   if(APPLE AND (name IN_LIST metal_validation_cases OR
       name MATCHES "^outshine/src/render/device/(R8FieldTexture|R8PageAtlas)/" OR
+      name MATCHES "^outshine/src/render/terrain/FieldPageFeedbackPass/" OR
       name MATCHES "^outshine/src/render/impostor/MaterialFieldPass/"))
     set_property(TEST "${name}" APPEND PROPERTY ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endif()

@@ -31,6 +31,7 @@ enum class ComputeShaderId : uint32_t {
   RadianceAreaFilter,
   RadianceIntegralRows,
   RadianceIntegralColumns,
+  FieldPageFeedback,
   Count
 };
 
@@ -121,7 +122,12 @@ inline constexpr std::array kComputeShaders = {
                             .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 64}},
     ComputeShaderDescriptor{.Id = ComputeShaderId::RadianceIntegralColumns,
                             .Path = "radianceIntegralColumns.comp.spv",
-                            .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 64}}};
+                            .Shape = {.Samplers = 1, .ReadWriteTextures = 1, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::FieldPageFeedback,
+        .Path = "fieldPageFeedback.comp.spv",
+        .Shape = {
+            .Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }
