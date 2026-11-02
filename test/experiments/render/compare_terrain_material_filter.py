@@ -21,6 +21,8 @@ from terrain_material_filter import (
     response,
 )
 from terrain_material_litter import compose
+from terrain_material_moments import accumulate
+from terrain_material_moments import response as moment_response
 
 
 def error(expected, actual):
@@ -57,8 +59,12 @@ def compare(capture):
                 canonical[:, 4:] = np.linalg.solve(np.stack((dx, dy)), canonical[0, 4:])
                 start = time.perf_counter_ns()
                 joint = joint_models(*samples[-1])
+                fixed_moments = accumulate(*samples[-1])
                 build_ms = (time.perf_counter_ns() - start) / 1e6
                 supports = {name: len(fields) for name, (fields, _) in joint.items()}
+                supports["fixed_sector_moments"] = int(
+                    np.count_nonzero(fixed_moments[:, 0])
+                )
                 for view in views:
                     curves = [
                         response(raw, weights, lights, view) for raw, weights in samples
@@ -74,12 +80,16 @@ def compare(capture):
                     candidates["current_analytic_filter"] = response(
                         canonical, np.ones(1), lights, view
                     )
+                    candidates["fixed_sector_moments"] = moment_response(
+                        fixed_moments, lights, view
+                    )
                     records.append(
                         {
                             "row": row,
                             "footprint_m": footprint,
                             "anisotropy": anisotropy,
                             "joint_build_ms_python": build_ms,
+                            "fixed_sector_bytes_float32": fixed_moments.size * 4,
                             "view": view.tolist(),
                             "reference_32_64": error(curves[1], curves[0]),
                             "reference_64_128": error(curves[2], curves[1]),
@@ -130,6 +140,7 @@ def main():
             for name in (
                 Path(__file__).name,
                 "terrain_material_filter.py",
+                "terrain_material_moments.py",
                 "terrain_material_litter.py",
                 "terrain_material_substrate.py",
                 "terrain_material_plane.py",
@@ -142,6 +153,7 @@ def main():
             "Point substrate/litter material; no class/rock blend, native sky or displaced visibility.",
             "Quadrature differences estimate convergence, not a proven integration error bound.",
             "Existing one-lobe moments and bounded joint PCA representatives; not exact GGX convolution or the LEAN Beckmann model.",
+            "Fixed-sector moments use ideal footprint integration; no bounded spatial query or native persistent format is qualified.",
             "No asset format, construction/runtime speed or native frame-time acceptance.",
         ],
         "records": records,
