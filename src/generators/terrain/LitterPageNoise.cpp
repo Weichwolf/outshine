@@ -95,17 +95,14 @@ std::expected<void, std::string> Coarse(std::span<const uint32_t> values,
                                         std::span<uint8_t> pixels,
                                         const std::stop_token &stop) {
   const uint32_t stride = layout.LatticeSide;
-  std::vector<uint64_t> prefix;
-  prefix.reserve(values.size());
-  prefix.resize(stride, 0);
+  std::vector<uint64_t> prefix(values.size());
   for (uint32_t y = 0; y + 1 < stride; ++y) {
     if (stop.stop_requested()) { return std::unexpected("litter page generation cancelled"); }
-    prefix.push_back(0);
     for (uint32_t x = 0; x + 1 < stride; ++x) {
       const size_t at = size_t{y} * stride + x;
       const uint64_t cell =
           uint64_t{values[at]} + values[at + 1] + values[at + stride] + values[at + stride + 1];
-      prefix.push_back(cell + prefix[at + 1] + prefix[at + stride] - prefix[at]);
+      prefix[at + stride + 1] = cell + prefix[at + 1] + prefix[at + stride] - prefix[at];
     }
   }
   constexpr uint32_t count = 2;
@@ -169,12 +166,12 @@ std::expected<void, std::string> GenerateLitterPage(LitterPageAddress address,
   }
   if (stopping.stop_requested()) { return std::unexpected("litter page generation cancelled"); }
   const size_t sites = size_t{layout->LatticeSide} * layout->LatticeSide;
-  std::vector<uint32_t> lattice;
-  lattice.reserve(sites);
+  std::vector<uint32_t> lattice(sites);
   for (uint32_t y = 0; y < layout->LatticeSide; ++y) {
     if (stopping.stop_requested()) { return std::unexpected("litter page generation cancelled"); }
     for (uint32_t x = 0; x < layout->LatticeSide; ++x) {
-      lattice.push_back(LatticeValue(layout->FirstCell[0] + x, layout->FirstCell[1] + y));
+      lattice[size_t{y} * layout->LatticeSide + x] =
+          LatticeValue(layout->FirstCell[0] + x, layout->FirstCell[1] + y);
     }
   }
   const std::span values(lattice);
