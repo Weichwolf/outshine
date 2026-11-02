@@ -36,14 +36,12 @@ public:
   };
 
   struct Counters {
-    size_t Sources = 0, Groups = 0, Resident = 0, InFlight = 0, Missing = 0;
+    size_t Sources = 0, Groups = 0, Resident = 0, InFlight = 0, Admitted = 0, Missing = 0;
     uint64_t Captures = 0, Publications = 0;
   };
 
-  UrbanAreaStreaming(Tasks &pool,
-                     std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
-                     Generators::Osm::MvtSchema schema,
-                     std::string database);
+  UrbanAreaStreaming(std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
+                     Generators::Osm::MvtSchema schema);
   ~UrbanAreaStreaming();
   void Into(Render::SceneRenderer &renderer) noexcept;
   [[nodiscard]] std::expected<void, std::string>
@@ -102,10 +100,8 @@ private:
           std::span<const Ground::GeoBounds> children,
           uint64_t childrenRevision);
   void Retire(Group &group);
-  Tasks &Pool_;
   std::shared_ptr<Generators::Osm::PreparedUrbanAreas> Sources_;
   Generators::Osm::MvtSchema Schema_;
-  std::string Database_;
   Render::SceneRenderer *Renderer_ = nullptr;
   std::optional<Render::MaterialRegistration> Material_;
   std::optional<View> View_;

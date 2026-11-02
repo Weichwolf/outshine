@@ -18,6 +18,8 @@ class SourceSet;
 }
 
 namespace outshine::Generators::Osm {
+class UrbanPrismPreparation;
+
 class PreparedUrbanAreas {
 public:
   class Request {
@@ -75,6 +77,8 @@ public:
   PreparedUrbanAreas(const PreparedUrbanAreas &) = delete;
   PreparedUrbanAreas &operator=(const PreparedUrbanAreas &) = delete;
   void Cancel() noexcept;
+  [[nodiscard]] std::unique_ptr<UrbanPrismPreparation> PreparePrism(std::string request,
+                                                                    size_t bytesMost);
   [[nodiscard]] std::expected<SourceDelivery, std::string> Acquire(const Request &request);
   [[nodiscard]] Counters Costs() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;

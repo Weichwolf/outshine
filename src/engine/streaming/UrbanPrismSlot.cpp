@@ -1,3 +1,4 @@
+#include "PreparedUrbanAreas.h"
 #include "UrbanPrismSlot.h"
 #include <cstddef>
 #include <expected>
@@ -6,11 +7,16 @@
 #include <utility>
 
 namespace outshine {
-UrbanPrismSlot::UrbanPrismSlot(Tasks &pool, std::string database, size_t bytesMost)
-    : Pool_(pool), Database_(std::move(database)), BytesMost_(bytesMost) {}
+UrbanPrismSlot::UrbanPrismSlot(std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
+                               size_t bytesMost)
+    : Sources_(std::move(sources)), BytesMost_(bytesMost) {}
 
 bool UrbanPrismSlot::InFlight() const noexcept {
   return (Job_ && Job_->InFlight()) || (Retiring_ && Retiring_->InFlight());
+}
+
+bool UrbanPrismSlot::HoldsAdmission() const noexcept {
+  return (Job_ && Job_->HoldsAdmission()) || (Retiring_ && Retiring_->HoldsAdmission());
 }
 
 bool UrbanPrismSlot::AwaitProgress(double seconds) const {
@@ -51,12 +57,13 @@ UrbanPrismSlot::Advance(const std::string &request,
   if (ReadyKey_ == Wanted_) { return false; }
   if (!Job_) {
     if (admission == Admission::CollectOnly) { return false; }
-    Job_ = std::make_unique<Generators::Osm::UrbanPrismPreparation>(
-        Pool_, Database_, Wanted_, BytesMost_);
+    if (!Sources_) { return std::unexpected("prism slot has no generator service"); }
+    Job_ = Sources_->PreparePrism(Wanted_, BytesMost_);
     ++Costs_.Started;
   }
   const Generators::Osm::UrbanPrismPreparation::Capture noCapture;
-  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture);
+  auto result = Job_->Advance(admission == Admission::AllowWork ? capture : noCapture,
+                              admission == Admission::AllowWork);
   if (!result) { return std::unexpected(result.error()); }
   if (!*result) { return false; }
   Ready_ = std::move(*result);

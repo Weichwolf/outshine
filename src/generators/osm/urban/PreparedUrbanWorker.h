@@ -55,7 +55,7 @@ struct PreparedUrbanAreas::Worker {
                                                             const Work &work);
   [[nodiscard]] bool Matches(const UrbanArea &area, const Definition &input) const;
 
-  std::unique_ptr<AssetCache> Cache;
+  std::shared_ptr<AssetCache> Cache;
   std::string Recipe;
   Budget Limits;
   std::stop_source Stop;

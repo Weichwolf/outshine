@@ -2,6 +2,8 @@
 #define OUTSHINE_TEST_URBANPRISMPREPARATION_FIXTURE_H
 
 #include "UrbanPrismPreparation.h"
+#include "AssetCache.h"
+#include "Check.h"
 #include "UrbanPrismAsset.h"
 #include <chrono>
 #include <filesystem>
@@ -13,22 +15,36 @@
 
 namespace outshine::Test::PrismPreparationFixture {
 struct Cache {
-  std::filesystem::path Directory =
-      std::filesystem::temp_directory_path() /
-      ("outshine-prism-job-" +
-       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-
   Cache() {
     std::error_code error;
-    std::filesystem::create_directories(Directory, error);
+    std::filesystem::create_directories(Directory_, error);
   }
 
   ~Cache() {
+    Store_.reset();
     std::error_code error;
-    std::filesystem::remove_all(Directory, error);
+    std::filesystem::remove_all(Directory_, error);
   }
 
-  [[nodiscard]] std::string Database() const { return (Directory / "assets.sqlite").string(); }
+  [[nodiscard]] const std::filesystem::path &Directory() const { return Directory_; }
+
+  [[nodiscard]] std::string Database() const { return (Directory_ / "assets.sqlite").string(); }
+
+  [[nodiscard]] std::shared_ptr<AssetCache> Store() const {
+    if (!Store_) {
+      auto cache = AssetCache::Open(Database());
+      CHECK(cache, "fixture asset store opens once");
+      if (cache) { Store_ = std::move(*cache); }
+    }
+    return Store_;
+  }
+
+private:
+  std::filesystem::path Directory_ =
+      std::filesystem::temp_directory_path() /
+      ("outshine-prism-job-" +
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  mutable std::shared_ptr<AssetCache> Store_;
 };
 
 inline Generators::Osm::UrbanPrisms Product() {

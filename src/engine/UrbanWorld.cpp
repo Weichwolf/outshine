@@ -38,11 +38,8 @@ bool Engine::State::AdvanceUrbanAreas() {
     return true;
   }
   if (!World.UrbanAreas) {
-    World.UrbanAreas =
-        std::make_unique<UrbanAreaStreaming>(*Services.Compute,
-                                             World.Surface().UrbanAssets(),
-                                             World.Surface().VectorSchema(),
-                                             Session.Under.AssetCacheDirectory + "/assets.sqlite");
+    World.UrbanAreas = std::make_unique<UrbanAreaStreaming>(World.Surface().UrbanAssets(),
+                                                            World.Surface().VectorSchema());
     World.UrbanAreas->Into(Picture.Device);
   }
   const auto origin = Session.Declared.Ground.Origin;

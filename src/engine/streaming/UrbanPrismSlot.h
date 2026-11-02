@@ -8,6 +8,10 @@
 #include <memory>
 #include <string>
 
+namespace outshine::Generators::Osm {
+class PreparedUrbanAreas;
+}
+
 namespace outshine {
 class UrbanPrismSlot {
 public:
@@ -17,15 +21,15 @@ public:
     uint64_t Started = 0, Canceled = 0, Replaced = 0;
   };
 
-  UrbanPrismSlot(Tasks &pool,
-                 std::string database,
-                 size_t bytesMost = Generators::Osm::kUrbanPrismBytesMost);
+  explicit UrbanPrismSlot(std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
+                          size_t bytesMost = Generators::Osm::kUrbanPrismBytesMost);
   [[nodiscard]] std::expected<bool, std::string>
   Advance(const std::string &request,
           const Generators::Osm::UrbanPrismPreparation::Capture &capture = {},
           Admission admission = Admission::AllowWork);
   void Clear();
   [[nodiscard]] bool InFlight() const noexcept;
+  [[nodiscard]] bool HoldsAdmission() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
 
   [[nodiscard]] const Generators::Osm::UrbanPrismPreparation::Product &Ready() const noexcept {
@@ -38,8 +42,7 @@ public:
 
 private:
   void Retire();
-  Tasks &Pool_;
-  std::string Database_;
+  std::shared_ptr<Generators::Osm::PreparedUrbanAreas> Sources_;
   size_t BytesMost_ = 0;
   std::string Wanted_, ReadyKey_;
   Generators::Osm::UrbanPrismPreparation::Product Ready_;

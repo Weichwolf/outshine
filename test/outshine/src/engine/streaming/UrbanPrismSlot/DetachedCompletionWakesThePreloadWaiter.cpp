@@ -15,8 +15,9 @@ int main() {
   using outshine::Generators::Osm::UrbanPrismPreparation;
   namespace Fixture = PrismPreparationFixture;
   const Fixture::Cache cache;
+  Fixture::Sources sources;
   Tasks pool(1);
-  UrbanPrismSlot slot(pool, cache.Database());
+  UrbanPrismSlot slot(sources.Open(pool, cache));
   const auto request = Sha256Hex("detached preload completion");
   CHECK(slot.Advance(request) && slot.AwaitProgress(2), "the cache lookup wakes its own waiter");
   std::latch entered(1);

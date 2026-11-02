@@ -29,11 +29,12 @@ Generators::Osm::UrbanPrismPreparation::Capture Capture(const std::string &reque
 
 int main() {
   const Fixture::Cache cache;
+  Fixture::Sources sources;
   Tasks pool(1);
   const auto first = Sha256Hex("prism slot/original");
   const auto canceled = Sha256Hex("prism slot/obsolete terrain");
   const auto latest = Sha256Hex("prism slot/latest terrain");
-  UrbanPrismSlot slot(pool, cache.Database());
+  UrbanPrismSlot slot(sources.Open(pool, cache));
   size_t captures = 0;
   CHECK(Fixture::Await(slot, first, Capture(first, captures)), "initial demand becomes resident");
   const auto original = slot.Ready();

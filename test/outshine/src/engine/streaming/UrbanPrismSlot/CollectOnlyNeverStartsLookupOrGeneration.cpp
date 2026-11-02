@@ -13,8 +13,9 @@ int main() {
   using outshine::Generators::Osm::UrbanPrismPreparation;
   namespace Fixture = PrismPreparationFixture;
   const Fixture::Cache cache;
+  Fixture::Sources sources;
   Tasks pool(1);
-  UrbanPrismSlot slot(pool, cache.Database());
+  UrbanPrismSlot slot(sources.Open(pool, cache));
   const auto first = Sha256Hex("prism slot/credit original");
   const auto next = Sha256Hex("prism slot/credit replacement");
   size_t captures = 0;

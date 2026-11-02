@@ -23,7 +23,7 @@ int main() {
   std::atomic<bool> builtOnWorker{false};
   bool capturedOnMain = true;
   {
-    UrbanPrismPreparation preparation(pool, cache.Database(), request);
+    UrbanPrismPreparation preparation(pool, cache.Store(), request);
     const UrbanPrismPreparation::Capture capture =
         [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
       capturedOnMain &= std::this_thread::get_id() == mainThread;
@@ -46,7 +46,7 @@ int main() {
           "worker work and actual ready bytes remain measurable");
   }
   {
-    UrbanPrismPreparation preparation(pool, cache.Database(), request);
+    UrbanPrismPreparation preparation(pool, cache.Store(), request);
     const auto ready = Fixture::Await(
         preparation,
         [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {

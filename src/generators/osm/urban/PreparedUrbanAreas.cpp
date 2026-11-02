@@ -1,3 +1,4 @@
+#include "UrbanPrismPreparation.h"
 #include "PreparedUrbanWorker.h"
 #include "AssetSourceRecipe.h"
 #include "SourceSet.h"
@@ -81,6 +82,12 @@ PreparedUrbanAreas::Open(const std::string &directory,
   if (recipe.empty()) { return std::unexpected("urban source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedUrbanAreas>(new PreparedUrbanAreas(
       std::move(*cache), std::move(recipe), compute, std::move(prepared), budget));
+}
+
+std::unique_ptr<UrbanPrismPreparation> PreparedUrbanAreas::PreparePrism(std::string request,
+                                                                        size_t bytesMost) {
+  return std::make_unique<UrbanPrismPreparation>(
+      Compute_, Worker_->Cache, std::move(request), bytesMost);
 }
 
 PreparedUrbanAreas::~PreparedUrbanAreas() {

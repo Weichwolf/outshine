@@ -70,10 +70,9 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
   std::string error;
   CHECK(PublishTerrain(terrain, patch, frame, error),
         "the consumer uses a published terrain surface");
-  const auto database = (directory / "assets.sqlite").string();
   {
-    Fixture fixture(directory, Availability::Ready);
-    UrbanAreaStreaming stream(fixture.Compute, fixture.Urban, MvtSchema::OpenMapTiles, database);
+    const Fixture fixture(directory, Availability::Ready);
+    UrbanAreaStreaming stream(fixture.Urban, MvtSchema::OpenMapTiles);
     stream.Into(renderer);
     CHECK(Pump(stream, view, terrain), "cold source demand reaches resident native scene assets");
     const auto cold = stream.Costs();
@@ -114,8 +113,8 @@ void Probe(Render::SceneRenderer &renderer, const std::filesystem::path &directo
           "removing children restores the same cached product without terrain capture");
   }
   {
-    Fixture fixture(directory, Availability::Unavailable);
-    UrbanAreaStreaming stream(fixture.Compute, fixture.Urban, MvtSchema::OpenMapTiles, database);
+    const Fixture fixture(directory, Availability::Unavailable);
+    UrbanAreaStreaming stream(fixture.Urban, MvtSchema::OpenMapTiles);
     stream.Into(renderer);
     CHECK(Pump(stream, view, terrain), "a fresh consumer restores scene products from SSD");
     CHECK(stream.Costs().Resident == stream.Costs().Groups && stream.Costs().Captures == 0 &&

@@ -21,13 +21,13 @@ int main() {
   CHECK(pool.PostDetached([gate] { (void)gate.wait_for(std::chrono::seconds(2)); }),
         "a bounded controlled job delays the lookup");
   {
-    UrbanPrismPreparation preparation(pool, cache.Database(), request);
+    UrbanPrismPreparation preparation(pool, cache.Store(), request);
     preparation.Cancel();
     CHECK(!preparation.Advance(), "canceling queued work does not block for the worker");
   }
   release.set_value();
   {
-    UrbanPrismPreparation preparation(pool, cache.Database(), request);
+    UrbanPrismPreparation preparation(pool, cache.Store(), request);
     const auto result = Fixture::Await(
         preparation, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
           return std::unexpected("selected terrain changed before snapshot capture");
@@ -36,7 +36,7 @@ int main() {
           "input capture failures remain explicit and cannot become ready assets");
   }
   {
-    UrbanPrismPreparation preparation(pool, cache.Database(), request);
+    UrbanPrismPreparation preparation(pool, cache.Store(), request);
     const auto result = Fixture::Await(
         preparation, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
           return AssetFactory{};
@@ -50,7 +50,7 @@ int main() {
     const auto record = (*stored)->FindRequest(request);
     CHECK(record && !*record, "canceled and failed requests publish no partial product");
   }
-  UrbanPrismPreparation invalid(pool, cache.Database(), "missing-identity");
+  UrbanPrismPreparation invalid(pool, cache.Store(), "missing-identity");
   CHECK(!invalid.Advance(), "invalid demand is rejected without starting IO");
   return Report();
 }
