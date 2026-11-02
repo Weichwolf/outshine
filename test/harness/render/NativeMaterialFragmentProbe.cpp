@@ -13,6 +13,7 @@
 #include <ios>
 #include <iosfwd>
 #include <optional>
+#include <print>
 #include <utility>
 #include <memory>
 #include <span>
@@ -137,6 +138,11 @@ int main(int argc, char *const *argv) {
                                               .Depth = std::nullopt,
                                               .Culling = Cull::None,
                                               .Label = {}}));
+  std::println("device={} cases={} r8_side={} mips={}",
+               device->Limits().Name,
+               count,
+               textureSide,
+               std::bit_width(textureSide));
   Capture(*device, *pipeline, palette, count, argv[4], textureSide, argc == 8 ? argv[6] : nullptr);
   return Report();
 }
