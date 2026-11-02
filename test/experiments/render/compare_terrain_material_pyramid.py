@@ -41,6 +41,8 @@ def probes(evaluate, origin, extent):
                 fields = [
                     distribution(evaluate, at, dx, dy, order) for order in (64, 128)
                 ]
+                current = evaluate(at[None], dx[None], dy[None])
+                current[:, 4:] = np.linalg.solve(np.stack((dx, dy)), current[0, 4:])
                 for view in views:
                     coarse, fine = [
                         response(raw, weights, lights, view) for raw, weights in fields
@@ -56,6 +58,7 @@ def probes(evaluate, origin, extent):
                             "lights": lights,
                             "reference": fine,
                             "reference_delta": error(fine, coarse),
+                            "current": response(current, np.ones(1), lights, view),
                         }
                     )
     return records
@@ -114,6 +117,10 @@ def compare(capture):
                                 "selected_cells": cells,
                                 "representatives": len(weights),
                                 "error": error(probe["reference"], actual),
+                                "current_error": error(
+                                    probe["reference"], probe["current"]
+                                ),
+                                "current_rgb": probe["current"].tolist(),
                                 "reference_delta_64_128": probe["reference_delta"],
                                 "reference_rgb": probe["reference"].tolist(),
                                 "rgb": actual.tolist(),
