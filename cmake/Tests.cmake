@@ -345,6 +345,7 @@ foreach(source IN LISTS cases)
     ENVIRONMENT "OUTSHINE_TIMEOUT_S=${OUTSHINE_TEST_TIMEOUT};OUTSHINE_CLIENT=$<TARGET_FILE:outshine>"
     FAIL_REGULAR_EXPRESSION "SKIPPED [1-9];UNPREPARED [1-9];PARTIAL [1-9]")
   if(APPLE AND (name IN_LIST metal_validation_cases OR
+      name MATCHES "^outshine/src/render/device/R8FieldTexture/" OR
       name MATCHES "^outshine/src/render/impostor/MaterialFieldPass/"))
     set_property(TEST "${name}" APPEND PROPERTY ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endif()
