@@ -12,6 +12,7 @@ def bake_page(tile, level, *, core_texels=64, words=hash_words):
         or not np.issubdtype(tile.dtype, np.integer)
         or np.any(tile < -(2**31))
         or np.any(tile >= 2**31)
+        or type(core_texels) is not int
         or core_texels not in (64, 128)
         or type(level) is not int
         or not 0 <= level <= 5

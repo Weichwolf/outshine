@@ -58,6 +58,7 @@ class LitterPageTests(unittest.TestCase):
         for tile, level, core in (
             ([0, 0], 6, 64),
             ([0, 0], 0, 32),
+            ([0, 0], 0, 64.0),
             ([2**31 - 1, 0], 5, 128),
         ):
             with self.assertRaises(ValueError):
