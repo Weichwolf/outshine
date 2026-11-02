@@ -37,11 +37,8 @@ struct LookupState {
     }
     if (Key.empty()) {
       if (!KeyFactory) {
-        return Preparation::Completed{.Key = {},
-                                      .Loaded = std::nullopt,
-                                      .RequestKey = Request,
-                                      .RequestHit = true,
-                                      .SurfacePages = nullptr};
+        return Preparation::Completed{
+            .Key = {}, .Loaded = std::nullopt, .RequestKey = Request, .SurfacePages = nullptr};
       }
       auto key = KeyFactory();
       if (!key) { return std::unexpected(std::move(key.error())); }

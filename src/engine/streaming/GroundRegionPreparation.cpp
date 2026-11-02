@@ -75,6 +75,7 @@ RestoreSurfacePages(GroundRegionPreparation::Completed &result,
   if (!*manifest) {
     result.Loaded.reset();
     result.SurfacePages.reset();
+    result.RequestHit = false;
   } else {
     result.SurfacePages = std::move(**manifest);
   }
