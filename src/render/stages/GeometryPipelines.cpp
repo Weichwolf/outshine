@@ -141,6 +141,8 @@ Native::Result<void> GeometryRenderer::Configure(const Gpu &gpu) {
   GeometryPipelineBinding candidate;
   const auto configured = Configure(candidate, gpu, nullptr, nullptr, false);
   if (!configured) { return configured; }
+  const auto ground = ConfigureGround(candidate, gpu);
+  if (!ground) { return ground; }
   OwnedBinding_ = std::move(candidate);
   Binding_ = &OwnedBinding_;
   Ground_.UsePipelines(OwnedBinding_.Ground);
@@ -169,6 +171,37 @@ Native::Result<void> GeometryRenderer::PrepareTerrainMaterialBuffers(const Gpu &
   return Ground_.AttachPipelines(Binding().Ground, *gpu.Device);
 }
 
+GeometryRenderer::SourceOptions GeometryRenderer::OutputsFor(std::span<const Resource> colours) {
+  return {.WritesVelocity = ColourAttachment(colours, Resource::SceneVelocity) >= 0,
+          .NormalIndex = ColourAttachment(colours, Resource::SceneShadingNormal),
+          .IdentityIndex = ColourAttachment(colours, Resource::SceneSurfaceIdentity),
+          .BaseIndex = ColourAttachment(colours, Resource::SceneSurfaceBase),
+          .MetalRoughIndex = ColourAttachment(colours, Resource::SceneSurfaceMetalRough)};
+}
+
+Native::Result<void> GeometryRenderer::ConfigureGround(GeometryPipelineBinding &binding,
+                                                       const Gpu &gpu) {
+  if (gpu.Device == nullptr || gpu.SceneColours.Size() == 0 ||
+      gpu.SceneColours.Size() > kMaxColourAttachments) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "ground pipeline requires its own valid targets"});
+  }
+  const std::span colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
+  const auto options = OutputsFor(colours);
+  const auto targets = Targets(gpu, options, colours, false);
+  Ground_.UploadsFrom(gpu.Uploads);
+  if (binding.Ground.Depth() == nullptr) {
+    const auto depth = TerrainRenderer::ConfigureDepth(binding.Ground, *gpu.Device);
+    if (!depth) { return depth; }
+  }
+  const auto attached = Ground_.AttachPipelines(binding.Ground, *gpu.Device);
+  Ground_.UsePipelines(Binding().Ground);
+  if (!attached) { return attached; }
+  return binding.Ground.ConfigureLit(
+      *gpu.Device, options, std::span(targets).first(colours.size()));
+}
+
 Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &binding,
                                                  const Gpu &gpu,
                                                  Native::Texture *behind,
@@ -187,12 +220,7 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
                                exact != nullptr)});
   }
   std::vector<Resource> colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
-  const SourceOptions options{
-      .WritesVelocity = ColourAttachment(colours, Resource::SceneVelocity) >= 0,
-      .NormalIndex = ColourAttachment(colours, Resource::SceneShadingNormal),
-      .IdentityIndex = ColourAttachment(colours, Resource::SceneSurfaceIdentity),
-      .BaseIndex = ColourAttachment(colours, Resource::SceneSurfaceBase),
-      .MetalRoughIndex = ColourAttachment(colours, Resource::SceneSurfaceMetalRough)};
+  const auto options = OutputsFor(colours);
   if ((options.BaseIndex >= 0 || options.MetalRoughIndex >= 0) &&
       (options.WritesVelocity || options.NormalIndex != 1 || options.IdentityIndex != 2 ||
        options.BaseIndex != 3 || options.MetalRoughIndex != 4)) {
@@ -224,10 +252,11 @@ Native::Result<void> GeometryRenderer::Configure(GeometryPipelineBinding &bindin
   if (!prisms) { return prisms; }
   if (!glass && scope == GeometryPipelineScope::Scene) {
     const auto targets = Targets(gpu, options, colours, false);
-    const auto configured = Ground_.Configure(
-        binding.Ground, *gpu.Device, options, std::span(targets).first(colours.size()));
-    Ground_.UsePipelines(Binding().Ground);
+    const auto configured = TerrainRenderer::ConfigureDepth(binding.Ground, *gpu.Device);
     if (!configured) { return configured; }
+    const auto groundAttached = Ground_.AttachPipelines(binding.Ground, *gpu.Device);
+    Ground_.UsePipelines(Binding().Ground);
+    if (!groundAttached) { return groundAttached; }
     const auto prismColour = binding.Prisms.ConfigureColour(
         *gpu.Device, options, std::span(targets).first(colours.size()));
     if (!prismColour) { return prismColour; }

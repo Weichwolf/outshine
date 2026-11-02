@@ -40,6 +40,8 @@ public:
 
   [[nodiscard]] Native::GraphicsPipeline *Patches() const { return Patches_.get(); }
 
+  [[nodiscard]] bool CapturesMaterial() const noexcept { return CapturesMaterial_; }
+
   [[nodiscard]] Native::Result<void> ConfigureSelection(Native::Device &device) {
     return TerrainPatchSelection::Configure(device, Selection_);
   }
@@ -52,6 +54,7 @@ private:
   std::unique_ptr<Native::GraphicsPipeline> Lit_;
   std::unique_ptr<Native::GraphicsPipeline> Depth_;
   std::unique_ptr<Native::GraphicsPipeline> Patches_;
+  bool CapturesMaterial_ = false;
   TerrainPatchSelection::Pipelines Selection_;
 };
 
@@ -66,6 +69,8 @@ public:
   TerrainRenderer &operator=(TerrainRenderer &&) = delete;
 
   void UploadsFrom(UploadQueue *queue) noexcept { Resident_->UploadsFrom(queue); }
+
+  [[nodiscard]] bool CapturesMaterial() const noexcept { return Pipelines_->CapturesMaterial(); }
 
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,

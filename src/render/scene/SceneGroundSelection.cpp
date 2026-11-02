@@ -33,6 +33,17 @@ bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &ren
   return Accepted(frame.GeometryPipelines.ConfigureGroundSelection(*frame.Handles.Device), error);
 }
 
+bool SceneRenderer::ConfigureGround(SceneRenderer &renderer,
+                                    FrameResources &frame,
+                                    const ExecutionPlan &plan,
+                                    [[maybe_unused]] bool drawsGlass,
+                                    std::string &error) {
+  auto gpu = frame.Handles;
+  gpu.SceneColours = ColoursForStage(frame, plan, Stage::Ground);
+  return Accepted(renderer.ActiveContent().Geometry().ConfigureGround(frame.GeometryPipelines, gpu),
+                  error);
+}
+
 Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,
                                                         const PassRecording &into) {
   if (ActiveContent().Geometry().Ground().Drawn() == 0) { return {}; }

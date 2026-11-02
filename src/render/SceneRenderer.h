@@ -903,6 +903,11 @@ private:
                                                      const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
+  [[nodiscard]] static bool ConfigureGround(SceneRenderer &renderer,
+                                            FrameResources &frame,
+                                            const ExecutionPlan &plan,
+                                            bool drawsGlass,
+                                            std::string &error);
   [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
                                                          const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGroundSelection(const FrameContext &ctx,

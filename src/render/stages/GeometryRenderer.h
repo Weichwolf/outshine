@@ -114,6 +114,8 @@ public:
             GeometryPipelineScope scope = GeometryPipelineScope::Scene);
   [[nodiscard]] Native::Result<void> AttachPipelines(GeometryPipelineBinding &binding,
                                                      const Gpu &gpu);
+  [[nodiscard]] Native::Result<void> ConfigureGround(GeometryPipelineBinding &binding,
+                                                     const Gpu &gpu);
   [[nodiscard]] Native::Result<void> PrepareTerrainMaterialBuffers(const Gpu &gpu);
 
   void UsePipelines(GeometryPipelineBinding &binding) noexcept {
@@ -341,6 +343,7 @@ private:
   [[nodiscard]] FrameUniforms FrameUniformsOf(const FrameContext &ctx);
   void BindVertexStreams(DrawResources &into, VertexLayout layout, VertexMotion motion) const;
   [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
+  [[nodiscard]] static SourceOptions OutputsFor(std::span<const Resource> colours);
   [[nodiscard]] static Native::Result<void>
   ConfigureKind(const Gpu &gpu,
                 const SourceOptions &options,

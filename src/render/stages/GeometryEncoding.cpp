@@ -270,7 +270,7 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
     if (surface.Colour.Image == nullptr || surface.Domain != SurfaceDomain::Ground) { continue; }
     std::array<Native::Binding, 7> bindings;
     size_t count = 0;
-    if (!Binding().CapturesMaterial) {
+    if (!Ground_.CapturesMaterial()) {
       auto shadow = Image(surface.Colour);
       auto reflection = shadow;
       if (Atlas_ != nullptr) { shadow = {.Image = {.Image = Atlas_}, .Sampling = AtlasSampler_}; }
@@ -280,7 +280,7 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
       bindings[count++] = {.Set = 2, .Slot = 0, .Value = shadow};
       bindings[count++] = {.Set = 2, .Slot = 1, .Value = reflection};
     }
-    const uint32_t firstStorage = Binding().CapturesMaterial ? 0u : 2u;
+    const uint32_t firstStorage = Ground_.CapturesMaterial() ? 0u : 2u;
     bindings[count++] = Storage(2, firstStorage, GroundClasses_);
     bindings[count++] = Storage(2, firstStorage + 1, GroundPalette_);
     bindings[count++] = {.Set = 1,
