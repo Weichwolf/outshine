@@ -11,9 +11,9 @@ values per case. No depth, blending, tone mapping, material atlas or temporal fi
 Build the registered diagnostic target with the normal project configuration:
 
 ```sh
-cmake --build "$build" --target outshine_ggx_fragment_probe --parallel
+cmake --build "$build" --target outshine_material_fragment_probe --parallel
 MTL_DEBUG_LAYER=1 GLSLANG="$glslang" python3 test/experiments/render/ggx_fragment_precision.py \
-  --binary "$build/outshine_ggx_fragment_probe" --output "$TMPDIR/outshine-ggx-fragment"
+  --binary "$build/outshine_material_fragment_probe" --output "$TMPDIR/outshine-ggx-fragment"
 ```
 
 `build` names the configured CMake build and `glslang` its selected GLSL compiler.

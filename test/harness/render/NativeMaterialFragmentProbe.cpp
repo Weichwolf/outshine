@@ -2,6 +2,7 @@
 #include "Check.h"
 #include <array>
 #include <chrono>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -12,29 +13,41 @@
 #include <utility>
 #include <memory>
 #include <span>
+#include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace {
 using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
-constexpr size_t kPalettePrefix = 64, kCaseWords = 12;
 constexpr uint32_t kMaximumCases = 16384;
 constexpr uint64_t kRowAlignment = 256;
-using Record = std::array<float, 8>;
-using Counts = std::array<uint32_t, 4>;
-static_assert(sizeof(Record) == 32 && sizeof(Counts) == 16);
 
-std::vector<uint32_t> ReadPalette(const char *path) {
+struct alignas(16) Record {
+  std::array<float, 4> First, Second;
+};
+
+struct alignas(16) Parameters {
+  uint32_t Count;
+  std::array<uint32_t, 3> Padding{};
+};
+
+static_assert(sizeof(Record) == 32 && alignof(Record) == 16 && offsetof(Record, First) == 0 &&
+              offsetof(Record, Second) == 16);
+static_assert(sizeof(Parameters) == 16 && alignof(Parameters) == 16 &&
+              offsetof(Parameters, Count) == 0 && offsetof(Parameters, Padding) == 4);
+
+std::vector<uint32_t> ReadInputs(const char *path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const std::streamoff size = file ? file.tellg() : std::streampos(-1);
-  constexpr std::streamoff limit = (kPalettePrefix + kMaximumCases * kCaseWords) * sizeof(uint32_t);
-  CHECK(size > 0 && size <= limit && size % sizeof(uint32_t) == 0, "palette bytes are bounded");
+  constexpr std::streamoff limit = 64L * 1024 * 1024;
+  CHECK(size > 0 && size <= limit && size % sizeof(uint32_t) == 0, "input bytes are bounded");
   if (size <= 0 || size > limit || size % sizeof(uint32_t) != 0) { Failed(); }
   std::vector<uint32_t> words(static_cast<size_t>(size) / sizeof(uint32_t));
   file.seekg(0);
   if (!file.read(reinterpret_cast<char *>(words.data()), size)) {
-    CHECK(false, "palette bytes read");
+    CHECK(false, "input bytes read");
     Failed();
   }
   return words;
@@ -61,10 +74,10 @@ void Capture(Device &device,
                               .Use = TextureUse::ColourAttachment | TextureUse::CopySource}));
     colours[i] = {.Image = {.Image = images[i].get()}, .Begin = Load::Clear};
   }
-  const Counts counts{count, 0, 0, 0};
+  const Parameters parameters{.Count = count};
   const std::array bindings{
       Storage(0, 0, *paletteBuffer),
-      Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&counts, 1))}}};
+      Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = std::nullopt}));
   Require(commands->Draw({.State = {.Pipeline = &pipeline,
                                     .Bindings = bindings,
@@ -82,14 +95,14 @@ void Capture(Device &device,
   }
   const auto token = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(token, std::chrono::seconds(10))) == CompletionStatus::Ready,
-        "fragment GGX capture completes within its wait budget");
+        "material fragment capture completes within its wait budget");
   const auto mapped = Require(device.MapRead(*readback, {.Bytes = rowBytes * 2}));
   std::vector<Record> records(count);
   for (size_t i = 0; i < records.size(); ++i) {
-    std::memcpy(records[i].data(),
+    std::memcpy(records[i].First.data(),
                 mapped.data() + i * sizeof(std::array<float, 4>),
                 sizeof(std::array<float, 4>));
-    std::memcpy(records[i].data() + 4,
+    std::memcpy(records[i].Second.data(),
                 mapped.data() + rowBytes + i * sizeof(std::array<float, 4>),
                 sizeof(std::array<float, 4>));
   }
@@ -98,17 +111,20 @@ void Capture(Device &device,
   const auto bytes = std::as_bytes(std::span(records));
   output.write(reinterpret_cast<const char *>(bytes.data()),
                static_cast<std::streamsize>(bytes.size()));
-  CHECK(bool(output), "all fragment GGX records are saved");
+  CHECK(bool(output), "all material fragment records are saved");
 }
 } // namespace
 
 int main(int argc, char *const *argv) {
-  if (argc != 5) { return 2; }
-  const auto palette = ReadPalette(argv[3]);
-  if (palette.size() <= kPalettePrefix || (palette.size() - kPalettePrefix) % kCaseWords != 0) {
+  if (argc != 6) { return 2; }
+  const std::string_view argument(argv[5]);
+  uint32_t count = 0;
+  const auto parsed = std::from_chars(argument.data(), argument.data() + argument.size(), count);
+  if (parsed.ec != std::errc{} || parsed.ptr != argument.data() + argument.size() || count == 0 ||
+      count > kMaximumCases) {
     return 2;
   }
-  const auto count = static_cast<uint32_t>((palette.size() - kPalettePrefix) / kCaseWords);
+  const auto palette = ReadInputs(argv[3]);
   auto device = Require(CreateDevice({.Validation = true}));
   const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
                            ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};

@@ -56,7 +56,14 @@ def capture(binary, shader_root, output, arm, cases, compiler):
     )
     raw = output / (arm + ".f32")
     executed = ggx.run(
-        [binary, output / "probe.vert.spv", spirv, output / "palette.f32", raw],
+        [
+            binary,
+            output / "probe.vert.spv",
+            spirv,
+            output / "palette.f32",
+            raw,
+            str(len(cases)),
+        ],
         output,
         arm + "-native",
     )

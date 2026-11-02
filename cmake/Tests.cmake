@@ -648,12 +648,12 @@ add_executable(outshine_material_compute_probe EXCLUDE_FROM_ALL
 target_compile_options(outshine_material_compute_probe PRIVATE -fno-exceptions)
 target_link_libraries(outshine_material_compute_probe PRIVATE outshine_render)
 
-add_executable(outshine_ggx_fragment_probe EXCLUDE_FROM_ALL
-  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeGgxFragmentProbe.cpp")
-target_include_directories(outshine_ggx_fragment_probe PRIVATE
+add_executable(outshine_material_fragment_probe EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/harness/render/NativeMaterialFragmentProbe.cpp")
+target_include_directories(outshine_material_fragment_probe PRIVATE
   "${PROJECT_SOURCE_DIR}/test/harness/shared" "${PROJECT_SOURCE_DIR}/test/harness/render")
-target_compile_options(outshine_ggx_fragment_probe PRIVATE -fno-exceptions)
-target_link_libraries(outshine_ggx_fragment_probe PRIVATE outshine_render)
+target_compile_options(outshine_material_fragment_probe PRIVATE -fno-exceptions)
+target_link_libraries(outshine_material_fragment_probe PRIVATE outshine_render)
 
 add_executable(outshine_terrain_coverage_probe EXCLUDE_FROM_ALL
   test/harness/terrain/NativeTerrainCoverageProbe.cpp)

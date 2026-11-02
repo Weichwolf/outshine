@@ -237,6 +237,7 @@ def main():
             for path in (
                 Path(__file__),
                 shader,
+                shader.with_name("terrain_material_sampling.glsl"),
                 Path(__file__).with_name("terrain_material_pyramid.py"),
                 Path(__file__).with_name("terrain_material_filter.py"),
                 Path(__file__).with_name("terrain_material_litter.py"),
