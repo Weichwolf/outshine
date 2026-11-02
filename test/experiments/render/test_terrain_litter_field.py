@@ -8,6 +8,13 @@ from terrain_litter_field import bake, sample
 
 
 class LitterFieldTests(unittest.TestCase):
+    def test_nearly_isotropic_footprint_does_not_add_a_wide_sampling_axis(self):
+        evaluate = lambda at: (0.5 + 0.001 * at[:, 0] ** 2, None)
+        field = bake([-16, -16], 1, side=64, dtype="float32", evaluate=evaluate)
+        a = sample(field, [[0.1, 0.2]], [[0.75, 0]], [[0, 0.75]])
+        b = sample(field, [[0.1, 0.2]], [[0.75, 0]], [[0, 0.75 * (1 + 1e-9)]])
+        np.testing.assert_allclose(a, b, atol=1e-10, rtol=0)
+
     def test_unorm8_decode_preserves_constant_coverage_with_half_step_error(self):
         for value in (0, 0.17, 0.5, 0.83, 1):
             evaluate = lambda at, value=value: (np.full(len(at), value), None)

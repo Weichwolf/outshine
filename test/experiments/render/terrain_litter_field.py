@@ -128,6 +128,7 @@ def sample(field, at_m, dx_m, dy_m, *, taps=8, lod_bias=-0.5):
     count[lengths[:, 0] <= field.scale_m * 0.01] = 1
     cell = field.extent_m / len(field.levels[0])
     minor = np.maximum(lengths[:, 1], lengths[:, 0] / count)
+    span = np.sqrt(np.maximum(lengths[:, 0] ** 2 - minor**2, 0))
     lod = np.clip(
         np.log2(np.maximum(minor / cell, 1)) + lod_bias, 0, len(field.levels) - 1
     )
@@ -136,7 +137,7 @@ def sample(field, at_m, dx_m, dy_m, *, taps=8, lod_bias=-0.5):
         selected = index < count
         offset = (index + 0.5) / count[selected] - 0.5
         point = local[selected] + offset[:, None] * (
-            axes[selected, :, 0] * lengths[selected, :1]
+            axes[selected, :, 0] * span[selected, None]
         )
         filtered[selected] += _trilinear(field, point, lod[selected]) / count[selected]
     t = np.clip(footprint[active] / field.scale_m - 1, 0, 1)
