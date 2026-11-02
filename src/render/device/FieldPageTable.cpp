@@ -58,7 +58,7 @@ Native::Result<std::vector<FieldPageEntry>> BuildFieldPageTable(
     }
     if (!placed) {
       return std::unexpected(
-          Native::Error{.Kind = Native::ErrorKind::Busy,
+          Native::Error{.Kind = Native::ErrorKind::Unsupported,
                         .Message = "field page table exceeds admitted probe count"});
     }
   }

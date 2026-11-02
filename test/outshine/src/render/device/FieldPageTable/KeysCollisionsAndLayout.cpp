@@ -56,8 +56,8 @@ void Collisions() {
   const auto &last = slots.back();
   if (!last) { return; }
   auto small = BuildFieldPageTable(slots, 8, 2);
-  CHECK(!small && small.error().Kind == outshine::Render::Native::ErrorKind::Busy,
-        "admission fails locally when the declared probe budget cannot hold a collision chain");
+  CHECK(!small && small.error().Kind == outshine::Render::Native::ErrorKind::Unsupported,
+        "an unsupported fixed lookup set is distinguished from temporary GPU backpressure");
   auto admitted = BuildFieldPageTable(slots, 8, 3);
   CHECK(admitted && FindFieldPageSlot(*admitted, 3, *last) == 2,
         "an admitted collision chain compares full keys and has a finite search bound");
