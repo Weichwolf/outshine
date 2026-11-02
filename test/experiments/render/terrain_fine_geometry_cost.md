@@ -47,8 +47,8 @@ rejected full terrain depth prepass from #1919 is not justified.
 
 The R8 mask experiment still has no whole-frame gain. Its World/feedback adapter
 and 84 shader permutations add 16,069,176 artifact bytes without a default image
-benefit. Withdraw that experimental frame integration; retain independent native
-sampling/cache references. Full static material reuse remains an open requirement.
+benefit. The experimental frame integration is withdrawn; independent native
+sampling/cache references remain. Full static material reuse is an open requirement.
 
 Raw commands, original/override sources, reflected layouts, shader/binary hashes,
 all GPU samples and images: `/tmp/outshine-master-1934-fine-cost/` on the owner host.

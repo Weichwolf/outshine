@@ -22,7 +22,6 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
   }
   switch (resource) {
     case Resource::LinearSampler: return CreateSampler(frame);
-    case Resource::GroundFieldSamples: return CreateGroundFieldSamples(frame);
     case Resource::GroundPyramid:
     case Resource::DepthPyramid:
       return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.GroundPyramid)

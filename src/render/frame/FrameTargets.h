@@ -34,7 +34,6 @@ private:
     SurfaceIdentity,
     SurfaceBase,
     SurfaceMetalRough,
-    GroundFields,
     Transmissive,
     Composited,
     Aerial,

@@ -77,9 +77,6 @@ std::array<Native::ColourTarget, kMaxColourAttachments> Targets(const Gpu &gpu,
     targets[options.BaseIndex].Texels = Native::Format::Rgba16Float;
     targets[options.MetalRoughIndex].Texels = Native::Format::Rg16Float;
   }
-  if (options.FieldFeedbackIndex >= 0) {
-    targets[options.FieldFeedbackIndex].Texels = Native::Format::Rgba32Float;
-  }
   return targets;
 }
 }
@@ -191,14 +188,7 @@ Native::Result<void> GeometryRenderer::ConfigureGround(GeometryPipelineBinding &
                       .Message = "ground pipeline requires its own valid targets"});
   }
   const std::span colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
-  auto options = OutputsFor(colours);
-  options.FieldPages = GroundFields_ != nullptr;
-  options.FieldFeedbackIndex = ColourAttachment(colours, Resource::GroundFieldRequests);
-  if (options.FieldFeedbackIndex >= 0 && !options.FieldPages) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "ground feedback requires a bound field atlas"});
-  }
+  const auto options = OutputsFor(colours);
   const auto targets = Targets(gpu, options, colours, false);
   Ground_.UploadsFrom(gpu.Uploads);
   if (binding.Ground.Depth() == nullptr) {

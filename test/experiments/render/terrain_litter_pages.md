@@ -2,7 +2,9 @@
 
 Owner: [#1934](https://github.com/Weichwolf/outshine/issues/1934).
 The R8 field is one material component, not the full static material basis.
-The production opt-in remains a qualification path, not a performance improvement.
+The experimental World opt-in was withdrawn after negative native comparisons.
+Independent native sampling/cache references remain; the ordinary frame path
+does not own its feedback, material-page stream or extra shader permutations.
 
 ## Rejected lookup reuse
 
@@ -46,7 +48,9 @@ compared, not inferred from that build label. Original shader hashes match.
 Raw commands, receipts and rejected patches stay in system temp; issue comments
 retain the decision. These trials prove neither a saturated GPU cache nor a
 complete material basis. Default rendering is unchanged. Both compared cache
-configurations exceed the 16.67 ms total frame budget.
+configurations exceeded the 16.67 ms total frame budget. Reproduce those archived
+World trials at `f9d8af17a`; current production no longer accepts that diagnostic
+render output. This retires the failed integration, not the open material goal.
 
 ## Rejected single-cell polynomial
 

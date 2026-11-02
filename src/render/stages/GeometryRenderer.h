@@ -41,7 +41,6 @@
 namespace outshine::Render {
 
 class RenderScene;
-class R8PageAtlas;
 
 class GeometryPipelineBinding {
 public:
@@ -411,9 +410,6 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  // The atlas outlives configured pipelines and draws; updates precede the frame submission.
-  void GroundFieldsFrom(const R8PageAtlas *atlas) noexcept { GroundFields_ = atlas; }
-
   [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
@@ -542,7 +538,6 @@ private:
   GeometryPassKind Pass_;
   const Native::Buffer *GroundClasses_ = nullptr;
   const Native::Buffer *GroundPalette_ = nullptr;
-  const R8PageAtlas *GroundFields_ = nullptr;
 
   [[nodiscard]] GeometryResidency &Bound() { return *Storage_; }
 

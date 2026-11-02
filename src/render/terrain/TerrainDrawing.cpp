@@ -27,7 +27,7 @@ Native::Result<void> TerrainRenderer::Draw(const PassRecording &into,
   constexpr size_t maximumBindings = LitShape.VertexSamplers + LitShape.VertexUniformBuffers +
                                      LitShape.FragmentSamplers + LitShape.FragmentUniformBuffers +
                                      LitShape.FragmentStorageBuffers;
-  std::array<Native::Binding, maximumBindings + kFieldPageBindings> resources;
+  std::array<Native::Binding, maximumBindings> resources;
   if (bindings.size() >= resources.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground draw has too many shader bindings"});

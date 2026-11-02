@@ -40,8 +40,6 @@ enum class Resource {
   DepthPyramid,
   GroundPyramid,
   GroundSelection,
-  GroundFieldRequests,
-  GroundFieldSamples,
 
   OverlayAtlas,
   FrameTex,
@@ -95,8 +93,6 @@ enum class Resource {
     case Resource::DepthPyramid:
     case Resource::GroundPyramid:
     case Resource::GroundSelection:
-    case Resource::GroundFieldRequests:
-    case Resource::GroundFieldSamples:
 
     case Resource::OverlayAtlas:
     case Resource::FrameTex:
@@ -143,7 +139,6 @@ enum class Stage {
   GroundPyramid,
   GroundSelection,
   Ground,
-  GroundFieldFeedback,
   TransmissiveGeometry,
   CompositeTransmission,
   AerialPerspective,
@@ -418,19 +413,6 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "groundSelection",
      .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
-    {.Id = Resource::GroundFieldRequests,
-     .Kind = ResourceKind::Attachment,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Rgba32Float,
-     .Name = "groundFieldRequests"},
-    {.Id = Resource::GroundFieldSamples,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "groundFieldSamples",
-     .Stride = 16},
     {.Id = Resource::OverlayAtlas,
      .Kind = ResourceKind::Given,
      .Fallback = FallbackKind::None,
@@ -797,16 +779,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                      Resource::SceneSurfaceIdentity,
                      Resource::SceneSurfaceBase,
                      Resource::SceneSurfaceMetalRough,
-                     Resource::GroundFieldRequests},
-     .FusesInto = kNoFusion},
-
-    {.Id = Stage::GroundFieldFeedback,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "groundFieldFeedback",
-     .Reads = {Resource::GroundFieldRequests, kNoEdge},
-     .Writes = {Resource::GroundFieldSamples, kNoEdge},
-     .Contributes = {kNoEdge},
+                     kNoEdge},
      .FusesInto = kNoFusion},
 
     {.Id = Stage::TransmissiveGeometry,
