@@ -144,7 +144,8 @@ target_link_libraries(outshine_scripting PRIVATE qjs Threads::Threads)
 target_link_libraries(outshine_sources PUBLIC outshine_base outshine_storage CURL::libcurl)
 target_link_libraries(outshine_storage PUBLIC outshine_base PkgConfig::sqlite3 PRIVATE PkgConfig::nlohmann_json)
 target_link_libraries(outshine_render PUBLIC outshine_base outshine_content_shade outshine_world outshine_ui_paint outshine_render_device outshine_render_frame outshine_render_pipelines outshine_render_plan outshine_render_view)
-target_link_libraries(outshine_render_device PUBLIC outshine_base outshine_render_device_native)
+target_link_libraries(outshine_render_device PUBLIC outshine_base outshine_render_device_native
+  PRIVATE SDL3::SDL3)
 target_link_libraries(outshine_render_device_native PUBLIC outshine_render_device_api
   PRIVATE Threads::Threads SDL3::SDL3 PkgConfig::spirv_cross ${SPIRV_CROSS_LIBRARIES})
 target_link_libraries(outshine_render_pipelines PUBLIC outshine_base outshine_render_device)

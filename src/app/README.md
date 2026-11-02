@@ -1,5 +1,9 @@
 # Szenarien
 
+Native Shader liegen unter `shaders/` neben dem ausführbaren Programm. Beim
+Verschieben des Programms das Shaderpaket mitnehmen. Ein fehlendes Paket ist ein
+Ladefehler; Buildbaum und Arbeitsverzeichnis sind keine Ersatzquellen.
+
 `outshine run [options] <scenario> [name]`
 
 `scenario` ist eine XML-/JSON-Datei oder ein vollständiges JSON-Objekt als Argument.

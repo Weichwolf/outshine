@@ -1,5 +1,6 @@
 #include "SpirvFile.h"
 #include "ReadTextFile.h"
+#include <SDL3/SDL_filesystem.h>
 #include <cstring>
 
 #include <cstdint>
@@ -43,7 +44,9 @@ std::expected<std::vector<uint32_t>, std::string> ReadSpirv(std::string_view pat
 }
 
 std::expected<std::vector<uint32_t>, std::string> ReadShaderSpirv(std::string_view name) {
-  return ReadSpirv(std::string(OUTSHINE_SHADER_DIRECTORY) + "/" + std::string(name));
+  const char *const base = SDL_GetBasePath();
+  if (base == nullptr) { return std::unexpected("could not locate the executable shader package"); }
+  return ReadSpirv(std::string(base) + "shaders/" + std::string(name));
 }
 
 }
