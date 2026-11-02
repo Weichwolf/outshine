@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PublishTerrainDeformation.h"
 #include <cstdint>
 #include <cstddef>
@@ -93,7 +94,7 @@ int main() {
   const size_t bytesMost = TerrainDeformationHeap(product.Pages);
   CHECK(bytesMost > kTerrainDeformationBytesMost, "fixture exceeds a single bounded package");
   {
-    auto cache = PreparedTerrainAssets::Open(directory, sources);
+    auto cache = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore(directory), sources);
     CHECK(cache.has_value(), "the large native region cache opens");
     if (!cache) { return Report(); }
     PublishWithContention(**cache, directory, key, product);
@@ -101,7 +102,7 @@ int main() {
     CHECK((*cache)->Costs().DeformationWrites == 1, "a logical region is published once");
   }
   {
-    auto cache = PreparedTerrainAssets::Open(directory, sources);
+    auto cache = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore(directory), sources);
     CHECK(cache.has_value(), "independent restart opens native region");
     if (!cache) { return Report(); }
     auto loaded = (*cache)->LoadDeformation(key, bytesMost);
@@ -119,7 +120,7 @@ int main() {
             (**record).Parent == key,
         "part has a bounded byte range and an explicit parent");
   CHECK((*storage)->Remove(partKey).has_value(), "simulate one missing package");
-  auto cache = PreparedTerrainAssets::Open(directory, sources);
+  auto cache = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore(directory), sources);
   CHECK(cache.has_value(), "region restarts after a part disappears");
   if (!cache) { return Report(); }
   auto partial = (*cache)->LoadDeformation(key, bytesMost);

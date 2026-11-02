@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <filesystem>
 #include <utility>
 #include <ratio>
 #include <span>
@@ -77,7 +78,11 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
                                     Tasks &compute,
                                     const AssetCache::Runtime &storage) {
   const auto &sources = Sources_->Sources();
-  auto terrain = Generators::PreparedTerrainAssets::Open(directory, sources, storage);
+  auto store =
+      AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(), storage);
+  if (!store) { return std::unexpected("could not open the native asset store"); }
+  std::shared_ptr<AssetCache> shared = std::move(*store);
+  auto terrain = Generators::PreparedTerrainAssets::Open(shared, sources);
   if (!terrain) { return std::unexpected(std::move(terrain.error())); }
   auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources, storage);
   if (!buildings) { return std::unexpected(std::move(buildings.error())); }
@@ -92,6 +97,7 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
   auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory, storage);
   if (!roads) { return std::unexpected(std::move(roads.error())); }
   PreparedRoads_ = std::move(*roads);
+  AssetStore_ = std::move(shared);
   PreparedTerrain_ = std::move(*terrain);
   PreparedBuildings_ = std::move(*buildings);
   PreparedNetwork_ = std::move(*network);
@@ -174,6 +180,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
 
   Close();
   Sources_ = std::move(candidate.Sources_);
+  AssetStore_ = std::move(candidate.AssetStore_);
   PreparedTerrain_ = std::move(candidate.PreparedTerrain_);
   PreparedBuildings_ = std::move(candidate.PreparedBuildings_);
   PreparedNetwork_ = std::move(candidate.PreparedNetwork_);
@@ -231,6 +238,7 @@ void SurfacePreparation::Close() {
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
   PreparedRoads_.reset();
+  AssetStore_.reset();
   StreetMode_ = StreetMode::Source;
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};

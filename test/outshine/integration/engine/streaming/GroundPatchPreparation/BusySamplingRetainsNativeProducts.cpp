@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "GroundPatchPreparation.h"
 #include "AssetCache.h"
 #include "PreparedTerrainAssets.h"
@@ -84,7 +85,7 @@ struct Fixture {
   }
 
   bool Open() {
-    auto opened = Assets::Open(Directory.string(), Sources);
+    auto opened = Assets::Open(outshine::Test::OpenAssetStore(Directory.string()), Sources);
     if (!opened) { return false; }
     Cache = std::move(*opened);
     Key = Cache->PatchKey(kAt, {}, 5, kAt.Zoom + 1);
@@ -182,7 +183,8 @@ void CheckColdAndWarm() {
   if (ready && *ready) { CheckBits(**ready); }
   fixture.Job.reset();
   fixture.Barrier();
-  auto independent = Assets::Open(fixture.Directory.string(), fixture.Sources);
+  auto independent =
+      Assets::Open(outshine::Test::OpenAssetStore(fixture.Directory.string()), fixture.Sources);
   CHECK(independent.has_value(),
         "a separate cache owner can read the complete warm native product");
   if (!independent) { return; }

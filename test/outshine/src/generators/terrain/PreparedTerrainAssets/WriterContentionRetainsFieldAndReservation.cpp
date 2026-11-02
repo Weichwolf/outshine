@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
@@ -43,7 +44,8 @@ struct Fixture {
                std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))),
         Raw_({.Directory = {}, .Using = Data::RawSourceCache::Use::Off}),
         Sources(Raw_) {
-    auto opened = Generators::PreparedTerrainAssets::Open(Root_.string(), Sources);
+    auto opened = Generators::PreparedTerrainAssets::Open(
+        outshine::Test::OpenAssetStore(Root_.string()), Sources);
     CHECK(opened.has_value(), "the native field service opens a private cold cache");
     if (!opened) { return; }
     Assets = std::move(*opened);
@@ -454,7 +456,8 @@ void AnotherProducerSatisfiesSourceWait() {
   const auto pending = request->Resume([] { return Ground::TerrainGrid::Deferred(); });
   CHECK(pending.Grid.Where() == Ground::TerrainGrid::State::Deferred && !pending.CacheDeferred,
         "the first source wait remains distinct from cache writer contention");
-  auto other = Generators::PreparedTerrainAssets::Open(fixture.Root_.string(), fixture.Sources);
+  auto other = Generators::PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore(fixture.Root_.string()), fixture.Sources);
   CHECK(other.has_value(), "an independent native producer opens the shared asset database");
   if (!other) { return; }
   const auto published = (*other)->RequestField(kTile, {})->Resume([] { return Field(kTile); });

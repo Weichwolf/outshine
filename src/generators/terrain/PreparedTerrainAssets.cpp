@@ -19,12 +19,10 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
-#include <filesystem>
 #include <numbers>
 #include <optional>
 #include <span>
 #include <stop_token>
-#include <system_error>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -100,24 +98,17 @@ Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
 
 }
 
-PreparedTerrainAssets::PreparedTerrainAssets(std::unique_ptr<AssetCache> cache, std::string recipe)
+PreparedTerrainAssets::PreparedTerrainAssets(std::shared_ptr<AssetCache> cache, std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string> PreparedTerrainAssets::Open(
-    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
-  std::error_code error;
-  if (runtime.Workers == nullptr) { std::filesystem::create_directories(directory, error); }
-  if (error) {
-    return std::unexpected("could not create the native asset cache: " + error.message());
-  }
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open the native asset cache"); }
+std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
+PreparedTerrainAssets::Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources) {
+  if (!cache) { return std::unexpected("terrain assets require an asset store"); }
   auto recipe =
       AssetSourceRecipe("prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation});
   if (recipe.empty()) { return std::unexpected("terrain source metadata cannot be encoded"); }
   auto assets = std::shared_ptr<PreparedTerrainAssets>(
-      new PreparedTerrainAssets(std::move(*cache), std::move(recipe)));
+      new PreparedTerrainAssets(std::move(cache), std::move(recipe)));
   assets->Self_ = assets;
   return assets;
 }

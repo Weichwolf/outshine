@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
@@ -86,7 +87,8 @@ int main() {
   CHECK(reference.TryField() != nullptr && original.Calls > 0,
         "cold reference performs source acquisition and edge/corner stitching");
   if (reference.TryField() == nullptr) { return outshine::Test::Report(); }
-  auto opened = Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  auto opened = Generators::PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "native terrain uses the common persistent spatial cache");
   if (!opened) { return outshine::Test::Report(); }
   auto assets = std::move(*opened);
@@ -103,7 +105,8 @@ int main() {
     CHECK(assets->Costs().Writes == 1, "one completed miss writes one native terrain package");
   }
   assets.reset();
-  opened = Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  opened = Generators::PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "fresh cache owner reopens the stored native package");
   if (!opened) { return outshine::Test::Report(); }
   assets = std::move(*opened);

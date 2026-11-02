@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PublishTerrainDeformation.h"
 #include "Check.h"
 #include "TerrainDeformationTask.h"
@@ -86,7 +87,8 @@ int main() {
   const auto &key = *identity;
   CHECK(key.size() == 64, "complete input plan has a versioned content identity");
 
-  auto cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
+  auto cache = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((path / "assets").string()), sources);
   CHECK(cache.has_value(), "native terrain service opens");
   if (!cache) { return Report(); }
   const std::array legacyKeys{
@@ -115,7 +117,8 @@ int main() {
             (*cache)->Costs().DeformationWrites == legacyKeys.size() + 1,
         "cold miss adds one current product beside both retained old solver products");
   cache->reset();
-  cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
+  cache = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore((path / "assets").string()),
+                                      sources);
   CHECK(cache.has_value(), "independent native cache connection restarts");
   if (!cache) { return Report(); }
   Patchwork warm = Inputs();

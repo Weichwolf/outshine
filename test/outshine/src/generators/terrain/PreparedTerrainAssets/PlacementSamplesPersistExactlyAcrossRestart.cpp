@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include <utility>
 #include <string>
 #include <cstdint>
@@ -72,7 +73,8 @@ int main() {
     }
     CHECK(!DecodePreparedGroundPatch(at, 3, broken), "invalid Earth heights remain invalid");
   }
-  auto opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  auto opened = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "sampling patches use the existing native asset cache");
   if (!opened) { return Test::Report(); }
   auto assets = std::move(*opened);
@@ -90,7 +92,8 @@ int main() {
   CHECK(assets->PatchKey(at, shape, 3, 13) != key,
         "terrain generation parameters separate placement products");
   assets.reset();
-  opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  opened = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore((root / "assets").string()),
+                                       sources);
   CHECK(opened.has_value(), "fresh cache owner reopens the persisted sampling patch");
   if (!opened) { return Test::Report(); }
   assets = std::move(*opened);

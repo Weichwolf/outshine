@@ -93,9 +93,7 @@ public:
   [[nodiscard]] static std::string DescribeFailure(const Failure &failure);
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
-  Open(const std::string &directory,
-       const Data::SourceSet &sources,
-       AssetCache::Runtime runtime = {});
+  Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources);
 
   [[nodiscard]] std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
   RequestField(Data::TileId at, const ::outshine::Ground::TerrainTiles::Shaped &shape);
@@ -122,7 +120,7 @@ public:
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
-  PreparedTerrainAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
+  PreparedTerrainAssets(std::shared_ptr<AssetCache> cache, std::string recipe);
   class FieldRead;
 
   struct Request {
@@ -138,7 +136,7 @@ private:
   [[nodiscard]] std::expected<PreparedAssetWrite, Failure>
   PrepareDeformationPackage(const DeformationWrite &write);
 
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
   std::unordered_map<std::string, std::weak_ptr<Request>> Requests_;

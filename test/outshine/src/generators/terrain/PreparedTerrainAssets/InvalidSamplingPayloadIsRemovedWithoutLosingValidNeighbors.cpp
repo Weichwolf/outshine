@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include <utility>
 #include <string>
 #include "Check.h"
@@ -17,7 +18,8 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
-  auto opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  auto opened = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "native sampling cache opens");
   if (!opened) { return Test::Report(); }
   auto assets = std::move(*opened);

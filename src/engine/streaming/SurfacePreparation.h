@@ -322,6 +322,7 @@ private:
   ValidatePosition(LongitudeLatitude at) const;
 
   std::shared_ptr<Data::SourceSession> Sources_;
+  std::shared_ptr<AssetCache> AssetStore_;
   std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> PreparedTerrain_;
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;

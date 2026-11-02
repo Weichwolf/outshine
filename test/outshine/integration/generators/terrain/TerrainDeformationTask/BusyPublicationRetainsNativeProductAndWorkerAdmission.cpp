@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "TerrainDeformationTask.h"
@@ -71,7 +72,8 @@ struct Fixture {
   std::unique_ptr<sqlite3, decltype(&sqlite3_close)> Writer{nullptr, sqlite3_close};
 
   Fixture() {
-    auto cache = PreparedTerrainAssets::Open(Directory.string(), Sources);
+    auto cache =
+        PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore(Directory.string()), Sources);
     CHECK(cache.has_value(), "the case opens a private native cache without source access");
     if (!cache) { return; }
     Cache = std::move(*cache);
@@ -165,7 +167,8 @@ void ColdAndWarm() {
   CHECK(published.DeformationMisses == 1 && published.DeformationPreparations == 1 &&
             published.DeformationWrites == 1 && published.DeformationPublicationAttempts >= 2,
         "Busy repeats only admission of one prepared package, not generation or encoding");
-  auto reopened = PreparedTerrainAssets::Open(fixture.Directory.string(), fixture.Sources);
+  auto reopened = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore(fixture.Directory.string()), fixture.Sources);
   CHECK(reopened.has_value(), "a fresh native cache connection reads the durable product");
   if (!reopened) { return; }
   CHECK(fixture.Hold(), "warm native reads run while another writer is held");

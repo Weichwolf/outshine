@@ -252,13 +252,13 @@ std::expected<void, AssetCacheError> AssetCache::State::EnsureOpen() {
     auto lease = Execution.Connections->TryAcquire();
     if (!lease) { return std::unexpected(AssetCacheError::Busy); }
     Connection = std::move(*lease);
-    const std::filesystem::path file(Path);
-    std::error_code error;
-    if (file.has_parent_path()) { std::filesystem::create_directories(file.parent_path(), error); }
-    if (error) {
-      ReleaseConnection();
-      return std::unexpected(AssetCacheError::Storage);
-    }
+  }
+  const std::filesystem::path file(Path);
+  std::error_code error;
+  if (file.has_parent_path()) { std::filesystem::create_directories(file.parent_path(), error); }
+  if (error) {
+    ReleaseConnection();
+    return std::unexpected(AssetCacheError::Storage);
   }
   const auto opened = Initialize();
   if (!opened) {

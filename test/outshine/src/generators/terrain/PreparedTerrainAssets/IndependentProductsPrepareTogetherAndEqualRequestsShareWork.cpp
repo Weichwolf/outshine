@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
@@ -108,8 +109,8 @@ int main() {
     config.Directory = (root / "sources").string();
     outshine::Data::RawSourceCache store(config);
     const outshine::Data::SourceSet sources(store);
-    auto assets =
-        outshine::Generators::PreparedTerrainAssets::Open((root / "assets").string(), sources);
+    auto assets = outshine::Generators::PreparedTerrainAssets::Open(
+        outshine::Test::OpenAssetStore((root / "assets").string()), sources);
     CHECK(assets, "the independent terrain cache opens");
     if (assets) { Exercise(*assets); }
   }

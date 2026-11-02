@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include <utility>
 #include <string>
 #include <memory>
@@ -68,7 +69,8 @@ int main() {
   const Data::TileId at{.Zoom = region.Zoom(),
                         .X = static_cast<uint32_t>(region.X()),
                         .Y = static_cast<uint32_t>(region.Y())};
-  auto opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  auto opened = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "native sampling cache opens");
   if (!opened) { return Test::Report(); }
   auto assets = std::move(*opened);
@@ -88,7 +90,8 @@ int main() {
           "repeated ready polls share the immutable product without query or disk work");
   }
   assets.reset();
-  opened = PreparedTerrainAssets::Open((root / "assets").string(), sources);
+  opened = PreparedTerrainAssets::Open(outshine::Test::OpenAssetStore((root / "assets").string()),
+                                       sources);
   CHECK(opened.has_value(), "restart uses a fresh cache connection");
   if (!opened) { return Test::Report(); }
   assets = std::move(*opened);

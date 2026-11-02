@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "TerrainDeformationTask.h"
 #include "PreparedTerrainAssets.h"
@@ -21,7 +22,8 @@ int main() {
   std::filesystem::create_directories(path);
   Data::RawSourceCache store({.Directory = (path / "sources").string()});
   const Data::SourceSet sources(store);
-  auto cache = PreparedTerrainAssets::Open((path / "assets").string(), sources);
+  auto cache = PreparedTerrainAssets::Open(
+      outshine::Test::OpenAssetStore((path / "assets").string()), sources);
   CHECK(cache.has_value(), "native cache opens for cancellation fixture");
   if (!cache) { return Report(); }
   constexpr TerrainPageLayout layout{.Side = 3, .Halo = 1};
