@@ -6,6 +6,7 @@
 #include <utility>
 #include <string_view>
 #include <cstdint>
+#include <memory>
 #include <Engine.h>
 #include "AssetCacheReclaimer.h"
 #include "FrameCoordinator.h"
@@ -19,7 +20,6 @@
 #include "UrbanAreaStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
-#include "GroundRegionPreparation.h"
 #include "GroundPatchPreparation.h"
 #include "RigidBodyState.h"
 #include "GroundSnapshot.h"
@@ -70,6 +70,7 @@
 #include "SceneRenderer.h"
 
 namespace outshine::Generators {
+class GroundRegionRequest;
 struct TerrainDeformationMetrics;
 }
 
@@ -175,7 +176,7 @@ struct WorldRegionState {
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
   std::string GroundLookupRequest;
-  std::unique_ptr<GroundRegionPreparation> GroundLookup;
+  std::unique_ptr<Generators::GroundRegionRequest> GroundLookup;
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 

@@ -1,4 +1,4 @@
-#include "GroundRegionPreparation.h"
+#include "GroundRegionRequest.h"
 #include "PreparedRoadPages.h"
 #include "GroundRegionAsset.h"
 #include <expected>
@@ -8,36 +8,36 @@
 #include <string>
 #include <utility>
 
-namespace outshine {
+namespace outshine::Generators {
 namespace {
-using Preparation = GroundRegionPreparation;
-using Regions = Generators::Osm::PreparedGroundRegions;
+using RegionRequest = GroundRegionRequest;
+using Regions = Osm::PreparedGroundRegions;
 
 struct LookupState {
   std::shared_ptr<Regions> Assets;
   std::string Request;
-  Preparation::KeyFactory KeyFactory;
+  RegionRequest::KeyFactory KeyFactory;
   bool CheckedRequest = false, CheckedContent = false;
   std::string Key;
   std::optional<Regions::Loaded> Held;
 
-  Preparation::Attempt Advance() {
+  RegionRequest::Attempt Advance() {
     if (!CheckedRequest) {
       auto loaded = Assets->LoadRequest(Request);
       if (!loaded) { return std::unexpected(std::move(loaded.error())); }
       CheckedRequest = true;
       if (*loaded) {
         auto key = (**loaded).Key;
-        return Preparation::Completed{.Key = std::move(key),
-                                      .Loaded = std::move(*loaded),
-                                      .RequestKey = Request,
-                                      .RequestHit = true,
-                                      .SurfacePages = nullptr};
+        return RegionRequest::Completed{.Key = std::move(key),
+                                        .Loaded = std::move(*loaded),
+                                        .RequestKey = Request,
+                                        .RequestHit = true,
+                                        .SurfacePages = nullptr};
       }
     }
     if (Key.empty()) {
       if (!KeyFactory) {
-        return Preparation::Completed{
+        return RegionRequest::Completed{
             .Key = {}, .Loaded = std::nullopt, .RequestKey = Request, .SurfacePages = nullptr};
       }
       auto key = KeyFactory();
@@ -58,19 +58,19 @@ struct LookupState {
       const auto bound = Assets->BindRequest(Key, Request);
       if (!bound) { return std::unexpected(bound.error()); }
     }
-    return Preparation::Completed{
+    return RegionRequest::Completed{
         .Key = Key, .Loaded = std::move(Held), .RequestKey = Request, .SurfacePages = nullptr};
   }
 };
 
 struct StoreState {
-  Preparation::StoreInputs Inputs;
+  RegionRequest::StoreInputs Inputs;
   std::optional<Regions::StoreWork> Ground;
-  std::optional<Generators::PreparedRoadPages::ManifestWrite> Manifest;
+  std::optional<PreparedRoadPages::ManifestWrite> Manifest;
   Box Bounds;
   bool BoundsReady = false, ManifestDone = false;
 
-  std::expected<void, Preparation::Failure> PrepareManifest(const std::stop_token &stop) {
+  std::expected<void, RegionRequest::Failure> PrepareManifest(const std::stop_token &stop) {
     if (!Inputs.Manifest && !Manifest) { return {}; }
     if (!Inputs.Pages) {
       return std::unexpected(std::string("road manifest has no native cache service"));
@@ -92,7 +92,7 @@ struct StoreState {
     return {};
   }
 
-  Preparation::Attempt Advance(const std::stop_token &stop) {
+  RegionRequest::Attempt Advance(const std::stop_token &stop) {
     if (!Inputs.Assets) {
       return std::unexpected(std::string("ground region cache service is missing"));
     }
@@ -101,7 +101,7 @@ struct StoreState {
         return std::unexpected(std::string("ground publication inputs are missing"));
       }
       Bounds = GroundRegionBoundsEcef(*Inputs.Region);
-      if (Inputs.Manifest) { Bounds.Cover(Generators::RoadPageManifestBounds(*Inputs.Manifest)); }
+      if (Inputs.Manifest) { Bounds.Cover(RoadPageManifestBounds(*Inputs.Manifest)); }
       BoundsReady = true;
     }
     if (!ManifestDone) {
@@ -123,19 +123,19 @@ struct StoreState {
     auto loaded = Inputs.Assets->Store(*Ground, stop);
     if (!loaded) { return std::unexpected(std::move(loaded.error())); }
     Ground.reset();
-    return Preparation::Completed{.Key = Inputs.Key,
-                                  .Loaded = std::move(*loaded),
-                                  .RequestKey = Inputs.RequestKey,
-                                  .SurfacePages = nullptr};
+    return RegionRequest::Completed{.Key = Inputs.Key,
+                                    .Loaded = std::move(*loaded),
+                                    .RequestKey = Inputs.RequestKey,
+                                    .SurfacePages = nullptr};
   }
 };
 }
 
-GroundRegionPreparation::Factory
-GroundRegionPreparation::Lookup(std::shared_ptr<Generators::Osm::PreparedGroundRegions> assets,
-                                std::string request,
-                                KeyFactory key,
-                                bool checked) {
+GroundRegionRequest::Factory
+GroundRegionRequest::Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
+                            std::string request,
+                            KeyFactory key,
+                            bool checked) {
   auto state = std::make_shared<LookupState>();
   state->Assets = std::move(assets);
   state->Request = std::move(request);
@@ -152,7 +152,7 @@ GroundRegionPreparation::Lookup(std::shared_ptr<Generators::Osm::PreparedGroundR
   };
 }
 
-GroundRegionPreparation::Factory GroundRegionPreparation::PrepareStore(StoreInputs inputs) {
+GroundRegionRequest::Factory GroundRegionRequest::PrepareStore(StoreInputs inputs) {
   auto state = std::make_shared<StoreState>();
   state->Inputs = std::move(inputs);
   return [state = std::move(state)](const std::stop_token &stop) -> Attempt {

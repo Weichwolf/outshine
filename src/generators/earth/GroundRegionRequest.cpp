@@ -1,4 +1,4 @@
-#include "GroundRegionPreparation.h"
+#include "GroundRegionRequest.h"
 #include "PreparedRoadPages.h"
 #include <algorithm>
 #include <atomic>
@@ -13,10 +13,10 @@
 #include <utility>
 #include <variant>
 
-namespace outshine {
-struct GroundRegionPreparation::Work {
+namespace outshine::Generators {
+struct GroundRegionRequest::Work {
   Factory Produce;
-  std::shared_ptr<Generators::PreparedRoadPages> Pages;
+  std::shared_ptr<PreparedRoadPages> Pages;
   std::optional<Completed> Candidate;
   std::optional<std::expected<Completed, std::string>> Result;
   enum class Status { Running, Deferred, CancelRequested, Complete };
@@ -49,7 +49,7 @@ struct GroundRegionPreparation::Work {
 };
 
 namespace {
-using Failure = GroundRegionPreparation::Failure;
+using Failure = GroundRegionRequest::Failure;
 
 std::string Describe(const Failure &failure) {
   if (const auto *message = std::get_if<std::string>(&failure)) { return *message; }
@@ -63,9 +63,8 @@ std::string Describe(const Failure &failure) {
   return "unknown ground asset cache failure";
 }
 
-std::expected<void, Failure>
-RestoreSurfacePages(GroundRegionPreparation::Completed &result,
-                    const std::shared_ptr<Generators::PreparedRoadPages> &pages) {
+std::expected<void, Failure> RestoreSurfacePages(GroundRegionRequest::Completed &result,
+                                                 const std::shared_ptr<PreparedRoadPages> &pages) {
   if (!result.Loaded || result.Loaded->Region.SurfaceManifest.empty()) { return {}; }
   if (!pages) {
     return std::unexpected(std::string("ground region surface products have no cache service"));
@@ -83,15 +82,16 @@ RestoreSurfacePages(GroundRegionPreparation::Completed &result,
 }
 }
 
-GroundRegionPreparation::GroundRegionPreparation(
-    Tasks &pool, Factory factory, std::shared_ptr<Generators::PreparedRoadPages> pages)
+GroundRegionRequest::GroundRegionRequest(Tasks &pool,
+                                         Factory factory,
+                                         std::shared_ptr<PreparedRoadPages> pages)
     : Pool_(pool), Work_(std::make_shared<Work>()) {
   Work_->Produce = std::move(factory);
   Work_->Pages = std::move(pages);
   Post();
 }
 
-void GroundRegionPreparation::Post() {
+void GroundRegionRequest::Post() {
   Work_->State.store(Work::Status::Running, std::memory_order_release);
   if (Pool_.PostDetached([work = Work_, stop = Stop_.get_token()] { Run(*work, stop); })) {
     return;
@@ -100,7 +100,7 @@ void GroundRegionPreparation::Post() {
   Work_->Finish();
 }
 
-void GroundRegionPreparation::Work::Fail(const Failure &error) {
+void GroundRegionRequest::Work::Fail(const Failure &error) {
 
   const auto *cache = std::get_if<AssetCacheError>(&error);
   if (cache != nullptr && *cache == AssetCacheError::Busy) {
@@ -112,7 +112,7 @@ void GroundRegionPreparation::Work::Fail(const Failure &error) {
   }
 }
 
-void GroundRegionPreparation::Run(Work &work, const std::stop_token &stop) {
+void GroundRegionRequest::Run(Work &work, const std::stop_token &stop) {
   const auto began = std::chrono::steady_clock::now();
 
   if (stop.stop_requested()) {
@@ -149,11 +149,11 @@ void GroundRegionPreparation::Run(Work &work, const std::stop_token &stop) {
   work.Finish();
 }
 
-GroundRegionPreparation::~GroundRegionPreparation() {
+GroundRegionRequest::~GroundRegionRequest() {
   Cancel();
 }
 
-void GroundRegionPreparation::Cancel() noexcept {
+void GroundRegionRequest::Cancel() noexcept {
   Stop_.request_stop();
   auto state = Work_->State.load(std::memory_order_acquire);
   if (state == Work::Status::Running &&
@@ -166,15 +166,15 @@ void GroundRegionPreparation::Cancel() noexcept {
   if (state == Work::Status::Deferred) { Post(); }
 }
 
-void GroundRegionPreparation::Advance() {
+void GroundRegionRequest::Advance() {
   if (Work_->State.load(std::memory_order_acquire) == Work::Status::Deferred &&
       std::chrono::steady_clock::now() >= Work_->RetryAt) {
     Post();
   }
 }
 
-std::optional<std::expected<GroundRegionPreparation::Completed, std::string>>
-GroundRegionPreparation::Collect() {
+std::optional<std::expected<GroundRegionRequest::Completed, std::string>>
+GroundRegionRequest::Collect() {
   Advance();
   if (Work_->State.load(std::memory_order_acquire) != Work::Status::Complete) {
     return std::nullopt;
@@ -182,8 +182,8 @@ GroundRegionPreparation::Collect() {
   return std::exchange(Work_->Result, std::nullopt);
 }
 
-const std::expected<GroundRegionPreparation::Completed, std::string> *
-GroundRegionPreparation::Peek() const noexcept {
+const std::expected<GroundRegionRequest::Completed, std::string> *
+GroundRegionRequest::Peek() const noexcept {
   if (Work_->State.load(std::memory_order_acquire) != Work::Status::Complete || !Work_->Result) {
     return nullptr;
   }

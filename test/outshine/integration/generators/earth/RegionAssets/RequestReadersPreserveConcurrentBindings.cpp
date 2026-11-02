@@ -1,4 +1,4 @@
-#include "test/harness/engine/GroundPublicationFixture.h"
+#include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "AssetCache.h"
 #include "PreparedRoadPages.h"

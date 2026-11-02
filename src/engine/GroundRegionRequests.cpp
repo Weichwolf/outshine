@@ -1,5 +1,6 @@
 #include "TerrainLattice.h"
 #include "EngineState.h"
+#include "GroundRegionRequest.h"
 #include "BinaryValueArchive.h"
 #include "TerrainRefinement.h"
 #include <expected>
@@ -86,9 +87,9 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (*request != World.GroundLookupRequest) {
     World.Surface().ForgetCachedRegionNetwork();
     World.GroundLookupRequest = std::move(*request);
-    World.GroundLookup = std::make_unique<GroundRegionPreparation>(
+    World.GroundLookup = std::make_unique<Generators::GroundRegionRequest>(
         *Services.Compute,
-        GroundRegionPreparation::Lookup(assets, World.GroundLookupRequest),
+        Generators::GroundRegionRequest::Lookup(assets, World.GroundLookupRequest),
         World.Surface().RoadAssets());
   }
   if (!World.GroundLookup) { return true; }

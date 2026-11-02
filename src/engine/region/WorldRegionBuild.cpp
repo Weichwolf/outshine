@@ -58,7 +58,7 @@
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
 #include "StreetGraphPreparation.h"
-#include "GroundRegionPreparation.h"
+#include "GroundRegionRequest.h"
 #include "WaterGeometryPreparation.h"
 #include "BinaryValueArchive.h"
 #include "RoadHeightCoverage.h"
@@ -240,7 +240,7 @@ WorldRegionState::~WorldRegionState() = default;
 
 int Engine::State::VectorPreparationRing() const noexcept {
   if (World.GroundPublished.Current()) { return Ground::kVectorRing; }
-  const GroundRegionPreparation *worker = World.GroundLookup.get();
+  const Generators::GroundRegionRequest *worker = World.GroundLookup.get();
   if (worker == nullptr && World.GroundBuild) {
     if (World.GroundBuild->HasReadyRegion() &&
         World.GroundBuild->RegionRequest() == World.GroundLookupRequest) {
@@ -1381,7 +1381,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
   }
   state.BeginRegion(
       *Services.Compute,
-      GroundRegionPreparation::Lookup(
+      Generators::GroundRegionRequest::Lookup(
           assets,
           std::move(request),
           [assets, vectors, shape, native] -> std::expected<std::string, std::string> {
@@ -1613,13 +1613,13 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(*Services.Compute,
-                    GroundRegionPreparation::PrepareStore({.Assets = assets,
-                                                           .Key = key,
-                                                           .RequestKey = request,
-                                                           .Region = region,
-                                                           .Water = water,
-                                                           .Manifest = roadManifest,
-                                                           .Pages = roadAssets}),
+                    Generators::GroundRegionRequest::PrepareStore({.Assets = assets,
+                                                                   .Key = key,
+                                                                   .RequestKey = request,
+                                                                   .Region = region,
+                                                                   .Water = water,
+                                                                   .Manifest = roadManifest,
+                                                                   .Pages = roadAssets}),
                     Phase::Storing,
                     roadAssets);
   return GroundBuildProgress::Pending;

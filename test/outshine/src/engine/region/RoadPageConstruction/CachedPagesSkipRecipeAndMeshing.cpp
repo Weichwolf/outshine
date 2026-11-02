@@ -4,7 +4,7 @@
 #include "ControlledRoadPageProducer.h"
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
-#include "GroundRegionPreparation.h"
+#include "GroundRegionRequest.h"
 #include "GroundRegionAsset.h"
 #include "WaterAsset.h"
 #include "ProfiledRoadMesher.h"
@@ -56,17 +56,17 @@ bool Complete(RoadPageRestoration &restore, Geometry &into) {
   return false;
 }
 
-std::optional<GroundRegionPreparation::Completed>
+std::optional<Generators::GroundRegionRequest::Completed>
 LoadRegion(Tasks &pool,
            const std::shared_ptr<PreparedRoadPages> &pages,
            const std::vector<uint8_t> &bytes) {
-  GroundRegionPreparation worker(
+  Generators::GroundRegionRequest worker(
       pool,
       [&bytes](const std::stop_token &)
-          -> std::expected<GroundRegionPreparation::Completed, std::string> {
+          -> std::expected<Generators::GroundRegionRequest::Completed, std::string> {
         auto region = DecodeGroundRegionAsset(bytes, size_t{1024} * 1024);
         if (!region) { return std::unexpected("invalid native region fixture"); }
-        return GroundRegionPreparation::Completed{
+        return Generators::GroundRegionRequest::Completed{
             .Key = std::string(64, 'a'),
             .Loaded = Osm::PreparedGroundRegions::Loaded{.Region = std::move(*region),
                                                          .Water = {},

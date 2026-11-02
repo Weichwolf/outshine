@@ -15,6 +15,7 @@
 #include "TerrainInputPreparation.h"
 #include "TerrainMesh.h"
 #include "WaterGeometryPreparation.h"
+#include "GroundRegionRequest.h"
 #include "WaterSurfaceBuilder.h"
 #include <algorithm>
 #include <cassert>
@@ -206,7 +207,7 @@ public:
 
   [[nodiscard]] RegionPhase RegionStatus() const noexcept { return RegionPhase_; }
 
-  [[nodiscard]] GroundRegionPreparation *RegionWorker() const noexcept {
+  [[nodiscard]] Generators::GroundRegionRequest *RegionWorker() const noexcept {
     return RegionWorker_.get();
   }
 
@@ -217,15 +218,15 @@ public:
   [[nodiscard]] bool HasReadyRegion() const noexcept { return Schedule_.HasReadyRegion(); }
 
   void BeginRegion(Tasks &pool,
-                   GroundRegionPreparation::Factory factory,
+                   Generators::GroundRegionRequest::Factory factory,
                    RegionPhase phase,
                    std::shared_ptr<Generators::PreparedRoadPages> pages = {}) {
-    RegionWorker_ =
-        std::make_unique<GroundRegionPreparation>(pool, std::move(factory), std::move(pages));
+    RegionWorker_ = std::make_unique<Generators::GroundRegionRequest>(
+        pool, std::move(factory), std::move(pages));
     RegionPhase_ = phase;
   }
 
-  void BeginRegion(std::unique_ptr<GroundRegionPreparation> worker, RegionPhase phase) {
+  void BeginRegion(std::unique_ptr<Generators::GroundRegionRequest> worker, RegionPhase phase) {
     RegionWorker_ = std::move(worker);
     RegionPhase_ = phase;
   }
@@ -498,7 +499,7 @@ private:
   std::string SurfaceManifestKey_;
   bool RoadsRestored_ = false;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
-  std::unique_ptr<GroundRegionPreparation> RegionWorker_;
+  std::unique_ptr<Generators::GroundRegionRequest> RegionWorker_;
   std::string RegionKey_;
   std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;

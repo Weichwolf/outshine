@@ -1,4 +1,4 @@
-#include "test/harness/engine/GroundPublicationFixture.h"
+#include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "GroundRegionAsset.h"
 #include "PreparedRoadPages.h"
@@ -19,8 +19,8 @@ void MissingRequest() {
   const bool opened = fixture.Open();
   CHECK(opened, "an empty native asset database opens without source inputs");
   if (!opened) { return; }
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
-      fixture.Pool, GroundRegionPreparation::Lookup(fixture.Cache, fixture.Request));
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
+      fixture.Pool, Generators::GroundRegionRequest::Lookup(fixture.Cache, fixture.Request));
   const auto result = fixture.Await();
   CHECK(result && *result, "a missing request completes as a miss rather than an error");
   if (!result || !*result) { return; }
@@ -54,9 +54,9 @@ void StoredRequest(bool roads, bool manifestStored) {
   auto fresh = Regions::Open(fixture.Directory.string(), fixture.Sources, "fixture-rules");
   CHECK(fresh, "a fresh cache owner restores the persisted request without generation inputs");
   if (!fresh) { return; }
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
       fixture.Pool,
-      GroundRegionPreparation::Lookup(std::move(*fresh), fixture.Request),
+      Generators::GroundRegionRequest::Lookup(std::move(*fresh), fixture.Request),
       fixture.Pages);
   const auto result = fixture.Await();
   CHECK(result && *result, "native dependency restoration completes without source work");

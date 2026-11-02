@@ -1,4 +1,4 @@
-#include "test/harness/engine/GroundPublicationFixture.h"
+#include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "GroundRegionAsset.h"
 #include "Check.h"
@@ -54,13 +54,13 @@ void WarmBindAndPeek() {
   if (!stored) { return; }
   std::atomic_uint32_t keys{0};
   std::atomic_uint32_t attempts{0};
-  auto actual = GroundRegionPreparation::Lookup(
+  auto actual = Generators::GroundRegionRequest::Lookup(
       fixture.Cache, fixture.Request, [&] -> std::expected<std::string, std::string> {
         ++keys;
         return fixture.Key;
       });
   fixture.Hold();
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
       fixture.Pool,
       [actual = std::exchange(actual, {}), &attempts](const std::stop_token &stop) mutable {
         ++attempts;
@@ -96,19 +96,19 @@ void ColdPublication(bool roads, bool cancel) {
   const std::weak_ptr<const GroundRegionAsset> original = fixture.Region;
   const std::weak_ptr<const Generators::WaterAsset> water = fixture.Water;
   const std::weak_ptr<const Generators::RoadPageManifest> manifest = fixture.Manifest;
-  auto actual = GroundRegionPreparation::PrepareStore({.Assets = fixture.Cache,
-                                                       .Key = fixture.Key,
-                                                       .RequestKey = fixture.Request,
-                                                       .Region = fixture.Region,
-                                                       .Water = fixture.Water,
-                                                       .Manifest = fixture.Manifest,
-                                                       .Pages = fixture.Pages});
+  auto actual = Generators::GroundRegionRequest::PrepareStore({.Assets = fixture.Cache,
+                                                               .Key = fixture.Key,
+                                                               .RequestKey = fixture.Request,
+                                                               .Region = fixture.Region,
+                                                               .Water = fixture.Water,
+                                                               .Manifest = fixture.Manifest,
+                                                               .Pages = fixture.Pages});
   fixture.Region.reset();
   fixture.Water.reset();
   fixture.Manifest.reset();
   std::atomic_uint32_t attempts{0};
   fixture.Hold();
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
       fixture.Pool,
       [actual = std::exchange(actual, {}), &attempts](const std::stop_token &stop) mutable {
         ++attempts;
@@ -158,8 +158,9 @@ void RunningCancelAndTypedErrors() {
   std::promise<void> release;
   const auto running = entered.get_future();
   const auto gate = release.get_future().share();
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
-      fixture.Pool, [&entered, gate](const std::stop_token &) -> GroundRegionPreparation::Attempt {
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
+      fixture.Pool,
+      [&entered, gate](const std::stop_token &) -> Generators::GroundRegionRequest::Attempt {
         entered.set_value();
         (void)gate.wait_for(std::chrono::seconds(2));
         return std::unexpected(std::string("a permanent error containing busy is not cache Busy"));
@@ -171,8 +172,8 @@ void RunningCancelAndTypedErrors() {
   const auto canceled = fixture.Await();
   CHECK(canceled && !*canceled && canceled->error() == "ground region preparation canceled",
         "one cancellation request makes active work terminal after cleanup");
-  fixture.Job = std::make_unique<GroundRegionPreparation>(
-      fixture.Pool, [](const std::stop_token &) -> GroundRegionPreparation::Attempt {
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
+      fixture.Pool, [](const std::stop_token &) -> Generators::GroundRegionRequest::Attempt {
         return std::unexpected(std::string("permanent busy wording"));
       });
   const auto failed = fixture.Await();

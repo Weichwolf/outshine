@@ -1,6 +1,6 @@
-#ifndef OUTSHINE_TEST_ENGINE_GROUNDPUBLICATIONFIXTURE_H
-#define OUTSHINE_TEST_ENGINE_GROUNDPUBLICATIONFIXTURE_H
-#include "GroundRegionPreparation.h"
+#ifndef OUTSHINE_TEST_GENERATORS_GROUNDPUBLICATIONFIXTURE_H
+#define OUTSHINE_TEST_GENERATORS_GROUNDPUBLICATIONFIXTURE_H
+#include "GroundRegionRequest.h"
 #include "PreparedGroundRegions.h"
 #include "PreparedRoadPages.h"
 #include "PreparedRoadPageFixture.h"
@@ -46,7 +46,7 @@ struct Fixture {
   std::shared_ptr<Generators::RoadPageManifest> Manifest;
   const std::string Key = Sha256Hex("native ground publication/sources/terrain/parameters");
   const std::string Request = Sha256Hex("native ground publication/demand");
-  std::unique_ptr<GroundRegionPreparation> Job;
+  std::unique_ptr<Generators::GroundRegionRequest> Job;
   std::unique_ptr<sqlite3, decltype(&sqlite3_close)> Writer{nullptr, sqlite3_close};
 
   ~Fixture() {
@@ -139,7 +139,8 @@ struct Fixture {
           "the independent writer releases native publication admission");
   }
 
-  std::optional<std::expected<GroundRegionPreparation::Completed, std::string>> Await() const {
+  std::optional<std::expected<Generators::GroundRegionRequest::Completed, std::string>>
+  Await() const {
     const auto deadline = std::chrono::steady_clock::now() + kDeadline;
     while (std::chrono::steady_clock::now() < deadline) {
       auto value = Job->Collect();

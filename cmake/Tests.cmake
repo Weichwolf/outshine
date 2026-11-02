@@ -187,6 +187,7 @@ foreach(source IN LISTS cases)
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS} Vulkan::Vulkan)
   endif()
   if(CMAKE_DL_LIBS AND (name STREQUAL "outshine/src/content/assets/AssetCache/ConcurrentMigrationRechecksTheLockedSchema"
+      OR name STREQUAL "outshine/integration/generators/earth/RegionAssets/RequestReadersPreserveConcurrentBindings"
       OR name STREQUAL "outshine/src/content/assets/AssetCache/ReadPlansIncludeCodecWorkspace"
       OR name STREQUAL "outshine/src/content/assets/AssetCache/IncrementalPublicationBoundsSqlStorageAndRollsBack"
       OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
@@ -296,6 +297,8 @@ foreach(source IN LISTS cases)
       set(owner generators/building)
     elseif(name MATCHES "^outshine/integration/generators/water/")
       set(owner generators/water)
+    elseif(name MATCHES "^outshine/integration/generators/earth/")
+      set(owner generators/earth)
     elseif(name MATCHES "^outshine/integration/generators/terrain/providers/")
       set(owner generators/terrain/providers)
     elseif(name MATCHES "^outshine/integration/generators/transport/AppearancePages/")

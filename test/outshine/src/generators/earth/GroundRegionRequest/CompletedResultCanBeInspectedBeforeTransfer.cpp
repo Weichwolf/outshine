@@ -1,4 +1,4 @@
-#include "GroundRegionPreparation.h"
+#include "GroundRegionRequest.h"
 #include "Check.h"
 #include <chrono>
 #include <expected>
@@ -15,17 +15,17 @@ int main() {
   Tasks pool(1);
   std::binary_semaphore entered(0);
   std::binary_semaphore release(0);
-  GroundRegionPreparation work(
+  Generators::GroundRegionRequest work(
       pool,
       [&](const std::stop_token &)
-          -> std::expected<GroundRegionPreparation::Completed, std::string> {
+          -> std::expected<Generators::GroundRegionRequest::Completed, std::string> {
         entered.release();
         release.acquire();
-        return GroundRegionPreparation::Completed{.Key = "native-product",
-                                                  .Loaded = std::nullopt,
-                                                  .RequestKey = "planned-demand",
-                                                  .RequestHit = true,
-                                                  .SurfacePages = nullptr};
+        return Generators::GroundRegionRequest::Completed{.Key = "native-product",
+                                                          .Loaded = std::nullopt,
+                                                          .RequestKey = "planned-demand",
+                                                          .RequestHit = true,
+                                                          .SurfacePages = nullptr};
       });
   const bool running = entered.try_acquire_for(5s);
   CHECK(running, "region lookup starts on the compute worker");
