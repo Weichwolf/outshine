@@ -17,6 +17,7 @@ from native_terrain_material_pyramid import ROOT, pack, pack_levels, run
 from PIL import Image, ImageDraw
 from probe_terrain_material_substrate import optical_row
 from scipy.stats import qmc
+from terrain_material_codebook import fit_recipe
 from terrain_material_filter import response
 from terrain_material_litter import compose
 from terrain_material_moments import pyramid as moment_pyramid
@@ -117,6 +118,9 @@ def main():
     parser.add_argument("--size", type=int, default=32)
     parser.add_argument("--frames", type=int, default=60)
     parser.add_argument(
+        "--partition", choices=("quadrants", "joint"), default="quadrants"
+    )
+    parser.add_argument(
         "--methods",
         nargs="+",
         choices=("iid", "sobol", "sobol4", "moments"),
@@ -179,12 +183,18 @@ def main():
         )
     palette, layout, receipt = load_capture(args.capture)
     origin = np.asarray(receipt["fine"]["origin_m"]) + [0.137, 0.271]
-    pyramid = bake(
-        partial(compose, **optical_row(palette, layout, 12)), origin, 0.0064, 64
+    evaluate = partial(compose, **optical_row(palette, layout, 12))
+    pyramid = bake(evaluate, origin, 0.0064, 64)
+    codebook = fit_recipe(evaluate, origin) if args.partition == "joint" else None
+    moments = (
+        moment_pyramid(pyramid, codebook=codebook)
+        if "moments" in args.methods
+        else None
     )
-    moments = moment_pyramid(pyramid) if "moments" in args.methods else None
     if moments is not None:
         np.savez(output / "moments.npz", *moments)
+    if codebook is not None:
+        np.save(output / "codebook.npy", codebook.centres)
     records = []
     canvas = Image.new("RGB", (3 * 256, 3 * len(args.methods) * 280), "white")
     draw = ImageDraw.Draw(canvas)
@@ -279,6 +289,7 @@ def main():
         "palette": receipt["palette"],
         "size": args.size,
         "frames": args.frames,
+        "partition": args.partition,
         "material_bytes_float32": (
             sum(level.nbytes for level in moments)
             if moments is not None
@@ -293,6 +304,7 @@ def main():
                 Path(__file__),
                 Path(__file__).with_name("material_temporal_camera.py"),
                 Path(__file__).with_name("terrain_material_moments.py"),
+                Path(__file__).with_name("terrain_material_codebook.py"),
                 Path(__file__).with_name("terrain_material_moments.glsl"),
                 sources[1],
                 sources[1].with_name("terrain_material_sampling.glsl"),

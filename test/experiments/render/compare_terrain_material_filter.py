@@ -14,6 +14,7 @@ import numpy as np
 from compare_terrain_material_basis import load_capture
 from probe_terrain_material_substrate import optical_row
 from relief_shading_reference import direction
+from terrain_material_codebook import fit_recipe
 from terrain_material_filter import (
     distribution,
     joint_models,
@@ -46,8 +47,11 @@ def compare(capture):
         [[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]]
     )
     records = []
+    codebooks = {}
     for row in range(layout["rows"]):
         evaluate = partial(compose, **optical_row(palette, layout, row))
+        codebook = fit_recipe(evaluate, origin)
+        codebooks[row] = codebook.centres.tolist()
         for footprint in (0.0001, 0.001, 0.01, 0.1, 1.0):
             for anisotropy in (1, 16):
                 dx, dy = directions * [[footprint], [footprint / anisotropy]]
@@ -60,10 +64,14 @@ def compare(capture):
                 start = time.perf_counter_ns()
                 joint = joint_models(*samples[-1])
                 fixed_moments = accumulate(*samples[-1])
+                learned_moments = accumulate(*samples[-1], codebook=codebook)
                 build_ms = (time.perf_counter_ns() - start) / 1e6
                 supports = {name: len(fields) for name, (fields, _) in joint.items()}
                 supports["fixed_sector_moments"] = int(
                     np.count_nonzero(fixed_moments[:, 0])
+                )
+                supports["static_joint_moments"] = int(
+                    np.count_nonzero(learned_moments[:, 0])
                 )
                 for view in views:
                     curves = [
@@ -83,12 +91,15 @@ def compare(capture):
                     candidates["fixed_sector_moments"] = moment_response(
                         fixed_moments, lights, view
                     )
+                    candidates["static_joint_moments"] = moment_response(
+                        learned_moments, lights, view
+                    )
                     records.append(
                         {
                             "row": row,
                             "footprint_m": footprint,
                             "anisotropy": anisotropy,
-                            "joint_build_ms_python": build_ms,
+                            "candidate_build_ms_python": build_ms,
                             "fixed_sector_bytes_float32": fixed_moments.size * 4,
                             "view": view.tolist(),
                             "reference_32_64": error(curves[1], curves[0]),
@@ -105,7 +116,7 @@ def compare(capture):
                             },
                         }
                     )
-    return receipt, records
+    return receipt, records, codebooks
 
 
 def main():
@@ -120,7 +131,7 @@ def main():
     ):
         parser.error("private comparison output belongs in system temp")
     output.mkdir(parents=True, exist_ok=False)
-    receipt, records = compare(args.capture)
+    receipt, records, codebooks = compare(args.capture)
     result = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -128,6 +139,15 @@ def main():
         "command": [sys.executable, *sys.argv],
         "python": sys.version,
         "numpy": np.__version__,
+        "codebooks": codebooks,
+        "codebook_training": {
+            "origin_m": (
+                np.asarray(receipt["fine"]["origin_m"]) + [0.137, 0.271]
+            ).tolist(),
+            "extents_m": [0.0064, 6.4],
+            "side": 64,
+            "lloyd_iterations": 32,
+        },
         "native_commit": receipt["native_commit"],
         "palette": receipt["palette"],
         "capture_receipt_sha256": hashlib.sha256(
@@ -141,6 +161,7 @@ def main():
                 Path(__file__).name,
                 "terrain_material_filter.py",
                 "terrain_material_moments.py",
+                "terrain_material_codebook.py",
                 "terrain_material_litter.py",
                 "terrain_material_substrate.py",
                 "terrain_material_plane.py",

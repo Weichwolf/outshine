@@ -5,9 +5,11 @@ from relief_shading_reference import normals, roughened, specular
 from terrain_material_grid import frozen
 
 
-def _components(raw):
+def _components(raw, codebook):
     n = normals(raw[:, 4:])
     labels = (n[:, 0] < 0).astype(int) + 2 * (n[:, 1] < 0)
+    if codebook is not None:
+        labels = codebook.classify(raw)
     fields = np.column_stack(
         (
             np.ones(len(raw)),
@@ -19,7 +21,7 @@ def _components(raw):
     return labels, fields
 
 
-def accumulate(raw, weights):
+def accumulate(raw, weights, *, codebook=None):
     """Four persistent labels; addition/filtering never needs to match fitted lobes."""
     raw, weights = np.asarray(raw, dtype=float), np.asarray(weights, dtype=float)
     if (
@@ -32,7 +34,7 @@ def accumulate(raw, weights):
         or not np.isclose(weights.sum(), 1, rtol=1e-12, atol=1e-12)
     ):
         raise ValueError("finite joint material samples and normalized areas required")
-    labels, fields = _components(raw)
+    labels, fields = _components(raw, codebook)
     result = np.zeros((4, 14))
     np.add.at(result, labels, fields * weights[:, None])
     return result
@@ -71,10 +73,10 @@ def response(moments, lights, view):
     )
 
 
-def pyramid(source):
+def pyramid(source, *, codebook=None):
     """Mips of additive moments from the same stored fine basis, without refitting."""
     raw = source.levels[0].fields[:, :, 0].reshape(-1, 6).astype(float)
-    labels, fields = _components(raw)
+    labels, fields = _components(raw, codebook)
     width = len(source.levels[0].fields)
     values = np.zeros((len(raw), 4, 14))
     values[np.arange(len(raw)), labels] = fields
