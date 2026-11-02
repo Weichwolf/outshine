@@ -1,5 +1,6 @@
 #include "NativeMaterialCapture.h"
 #include "NativeMaterialCaptureTexture.h"
+#include "R8FieldTexture.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
 #include <array>
@@ -55,7 +56,7 @@ void Capture(Device &device,
   std::vector bindings{
       Storage(0, 0, *paletteBuffer),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
-  CaptureTexture texture;
+  outshine::Render::R8FieldTexture texture;
   if (texturePath != nullptr) {
     texture = UploadCaptureTexture(device, *commands, texturePath, textureSide);
     bindings.push_back({.Set = 0,
