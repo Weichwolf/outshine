@@ -34,7 +34,7 @@ void Capture(Device &device,
              std::span<const uint32_t> palette,
              uint32_t count,
              const char *outputPath,
-             uint32_t textureSide,
+             CaptureTextureSize textureSize,
              const char *texturePath) {
   auto commands = Require(device.Begin());
   const auto paletteBuffer = outshine::Test::Gpu::Upload(device, *commands, palette);
@@ -58,13 +58,13 @@ void Capture(Device &device,
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
   outshine::Render::R8FieldTexture texture;
   if (texturePath != nullptr) {
-    texture = UploadCaptureTexture(device, *commands, texturePath, textureSide);
-    bindings.push_back({.Set = 0,
-                        .Slot = 1,
-                        .Value = SampledTexture{
-                            .Image = {.Image = texture.Image.get(),
-                                      .Mips = static_cast<uint32_t>(std::bit_width(textureSide))},
-                            .Sampling = texture.Sampling.get()}});
+    texture = UploadCaptureTexture(device, *commands, texturePath, textureSize);
+    bindings.push_back(
+        {.Set = 0,
+         .Slot = 1,
+         .Value = SampledTexture{
+             .Image = {.Image = texture.Image.get(), .Mips = texture.Image->Description().Mips},
+             .Sampling = texture.Sampling.get()}});
   }
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = std::nullopt}));
   Require(commands->Draw({.State = {.Pipeline = &pipeline,
@@ -105,7 +105,7 @@ void Capture(Device &device,
 } // namespace
 
 int main(int argc, char *const *argv) {
-  if (argc != 6 && argc != 8) { return 2; }
+  if (argc != 6 && argc != 8 && argc != 9) { return 2; }
   const std::string_view argument(argv[5]);
   uint32_t count = 0;
   const auto parsed = std::from_chars(argument.data(), argument.data() + argument.size(), count);
@@ -114,12 +114,22 @@ int main(int argc, char *const *argv) {
     return 2;
   }
   uint32_t textureSide = 0;
-  if (argc == 8) {
+  uint32_t textureMips = 0;
+  if (argc >= 8) {
     const std::string_view extent(argv[7]);
     const auto side = std::from_chars(extent.data(), extent.data() + extent.size(), textureSide);
     if (side.ec != std::errc{} || side.ptr != extent.data() + extent.size() || textureSide == 0 ||
-        textureSide > 512 || !std::has_single_bit(textureSide)) {
+        textureSide > 512) {
       return 2;
+    }
+    textureMips = static_cast<uint32_t>(std::bit_width(textureSide));
+    if (argc == 9) {
+      const std::string_view range(argv[8]);
+      const auto mips = std::from_chars(range.data(), range.data() + range.size(), textureMips);
+      if (mips.ec != std::errc{} || mips.ptr != range.data() + range.size() || textureMips == 0 ||
+          std::cmp_greater(textureMips, std::bit_width(textureSide))) {
+        return 2;
+      }
     }
   }
   const auto palette = ReadCaptureWords(argv[3]);
@@ -143,7 +153,13 @@ int main(int argc, char *const *argv) {
                device->Limits().Name,
                count,
                textureSide,
-               std::bit_width(textureSide));
-  Capture(*device, *pipeline, palette, count, argv[4], textureSide, argc == 8 ? argv[6] : nullptr);
+               textureMips);
+  Capture(*device,
+          *pipeline,
+          palette,
+          count,
+          argv[4],
+          {.Side = textureSide, .Mips = textureMips},
+          argc >= 8 ? argv[6] : nullptr);
   return Report();
 }

@@ -69,6 +69,7 @@ def capture(output, name, field, q, commands):
         str(len(q)),
         str(texture),
         str(len(field.levels[0])),
+        str(len(field.levels)),
     ]
     commands.append(run(call, output, name))
     native = np.fromfile(target, dtype="<f4").reshape(len(q), 8)

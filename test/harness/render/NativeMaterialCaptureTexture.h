@@ -23,11 +23,23 @@ static_assert(sizeof(CaptureTextureQuery) == 48 && alignof(CaptureTextureQuery) 
               offsetof(CaptureTextureQuery, DyScaleBias) == 16 &&
               offsetof(CaptureTextureQuery, Control) == 32);
 
-inline Render::R8FieldTexture
-UploadCaptureTexture(Device &device, Commands &commands, const char *path, uint32_t side) {
+struct CaptureTextureSize {
+  uint32_t Side = 0;
+  uint32_t Mips = 0;
+};
+
+inline Render::R8FieldTexture UploadCaptureTexture(Device &device,
+                                                   Commands &commands,
+                                                   const char *path,
+                                                   CaptureTextureSize extent) {
+  const auto side = extent.Side;
+  const auto mipCount = extent.Mips;
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   uint64_t sourceBytes = 0;
-  for (uint32_t width = side; width != 0; width /= 2) { sourceBytes += uint64_t{width} * width; }
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    const uint32_t width = side >> mip;
+    sourceBytes += uint64_t{width} * width;
+  }
   const std::streamoff length = file ? file.tellg() : std::streampos(-1);
   CHECK(std::cmp_equal(length, sourceBytes), "R8 input contains exactly its bounded mip range");
   if (!std::cmp_equal(length, sourceBytes)) { Failed(); }
@@ -38,13 +50,13 @@ UploadCaptureTexture(Device &device, Commands &commands, const char *path, uint3
   if (!file) { Failed(); }
   std::array<Render::R8FieldMip, 32> levels;
   size_t offset = 0;
-  size_t count = 0;
-  for (uint32_t width = side; width != 0; width /= 2) {
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    const uint32_t width = side >> mip;
     const size_t size = size_t{width} * width;
-    levels[count++] = {.Side = width, .Pixels = std::span(pixels).subspan(offset, size)};
+    levels[mip] = {.Side = width, .Pixels = std::span(pixels).subspan(offset, size)};
     offset += size;
   }
-  const auto mips = std::span(levels).first(count);
+  const auto mips = std::span(levels).first(mipCount);
   const auto bytes = Require(Render::R8FieldTextureStorage(mips));
   return Require(Render::UploadR8FieldTexture(device, commands, mips, bytes));
 }
