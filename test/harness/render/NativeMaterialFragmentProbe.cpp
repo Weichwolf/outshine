@@ -1,3 +1,4 @@
+#include "NativeMaterialCapture.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
 #include <array>
@@ -24,35 +25,6 @@ using namespace outshine::Test::Gpu;
 constexpr uint32_t kMaximumCases = 16384;
 constexpr uint64_t kRowAlignment = 256;
 
-struct alignas(16) Record {
-  std::array<float, 4> First, Second;
-};
-
-struct alignas(16) Parameters {
-  uint32_t Count;
-  std::array<uint32_t, 3> Padding{};
-};
-
-static_assert(sizeof(Record) == 32 && alignof(Record) == 16 && offsetof(Record, First) == 0 &&
-              offsetof(Record, Second) == 16);
-static_assert(sizeof(Parameters) == 16 && alignof(Parameters) == 16 &&
-              offsetof(Parameters, Count) == 0 && offsetof(Parameters, Padding) == 4);
-
-std::vector<uint32_t> ReadInputs(const char *path) {
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
-  const std::streamoff size = file ? file.tellg() : std::streampos(-1);
-  constexpr std::streamoff limit = 64L * 1024 * 1024;
-  CHECK(size > 0 && size <= limit && size % sizeof(uint32_t) == 0, "input bytes are bounded");
-  if (size <= 0 || size > limit || size % sizeof(uint32_t) != 0) { Failed(); }
-  std::vector<uint32_t> words(static_cast<size_t>(size) / sizeof(uint32_t));
-  file.seekg(0);
-  if (!file.read(reinterpret_cast<char *>(words.data()), size)) {
-    CHECK(false, "input bytes read");
-    Failed();
-  }
-  return words;
-}
-
 void Capture(Device &device,
              const GraphicsPipeline &pipeline,
              std::span<const uint32_t> palette,
@@ -74,7 +46,7 @@ void Capture(Device &device,
                               .Use = TextureUse::ColourAttachment | TextureUse::CopySource}));
     colours[i] = {.Image = {.Image = images[i].get()}, .Begin = Load::Clear};
   }
-  const Parameters parameters{.Count = count};
+  const CaptureUniform parameters{.Count = count};
   const std::array bindings{
       Storage(0, 0, *paletteBuffer),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
@@ -97,7 +69,7 @@ void Capture(Device &device,
   CHECK(Require(device.Wait(token, std::chrono::seconds(10))) == CompletionStatus::Ready,
         "material fragment capture completes within its wait budget");
   const auto mapped = Require(device.MapRead(*readback, {.Bytes = rowBytes * 2}));
-  std::vector<Record> records(count);
+  std::vector<CapturePixel> records(count);
   for (size_t i = 0; i < records.size(); ++i) {
     std::memcpy(records[i].First.data(),
                 mapped.data() + i * sizeof(std::array<float, 4>),
@@ -124,7 +96,7 @@ int main(int argc, char *const *argv) {
       count > kMaximumCases) {
     return 2;
   }
-  const auto palette = ReadInputs(argv[3]);
+  const auto palette = ReadCaptureWords(argv[3]);
   auto device = Require(CreateDevice({.Validation = true}));
   const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
                            ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
