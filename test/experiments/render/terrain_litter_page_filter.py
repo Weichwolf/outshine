@@ -5,6 +5,35 @@ from native_litter_page_sampling import bilinear
 from terrain_field_demand import _sample_plan
 
 
+def lookup_counts(queries, core, present=None):
+    """Compare per-tap lookup with one retained page per mip; stop on the same miss."""
+    at, active, lod, count, offsets = _sample_plan(
+        queries[:, :2], queries[:, 2:4], queries[:, 4:6], 1, -0.5
+    )
+    counts = np.zeros((len(queries), 2), dtype=np.int32)
+    for index, origin, level, taps, span in zip(
+        np.flatnonzero(active), at, lod, count.astype(int), offsets, strict=True
+    ):
+        previous = {}
+        lower = int(np.floor(level))
+        levels = (lower, lower + 1) if level > lower else (lower,)
+        missing = False
+        for tap in range(taps):
+            point = origin + span * ((tap + 0.5) / taps - 0.5)
+            for mip in levels:
+                tile = np.floor(point * 2 ** (4 - mip) / core).astype(np.int64)
+                key = (int(tile[0]), int(tile[1]), mip)
+                counts[index, 0] += 1
+                counts[index, 1] += previous.get(mip) != key
+                if present is not None and key not in present:
+                    missing = True
+                    break
+                previous[mip] = key
+            if missing:
+                break
+    return counts
+
+
 def filtered_queries(keys, core, rng):
     mip = min(key[2] for key in keys)
     origin = np.min(np.asarray([k[:2] for k in keys if k[2] == mip]), axis=0)
