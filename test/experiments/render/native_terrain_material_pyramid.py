@@ -34,15 +34,23 @@ def run(command, output, name):
 
 
 def pack(palette, pyramid, queries):
-    prefix = np.zeros(320 + 4 + 4 * len(pyramid.levels), dtype="<f4")
-    prefix[: len(palette)] = palette
-    words = prefix.view("<u4")
-    words[320:324] = [len(pyramid.levels), 324, 0, len(queries)]
-    blocks, offset = [], len(prefix)
-    for index, level in enumerate(pyramid.levels):
+    levels = []
+    for level in pyramid.levels:
         width, _, capacity, _ = level.fields.shape
         records = np.zeros((width, width, capacity, 8), dtype="<f4")
         records[..., :6], records[..., 6] = level.fields, level.weights
+        levels.append(records)
+    return pack_levels(palette, levels, queries)
+
+
+def pack_levels(palette, levels, queries):
+    prefix = np.zeros(320 + 4 + 4 * len(levels), dtype="<f4")
+    prefix[: len(palette)] = palette
+    words = prefix.view("<u4")
+    words[320:324] = [len(levels), 324, 0, len(queries)]
+    blocks, offset = [], len(prefix)
+    for index, records in enumerate(levels):
+        width, _, capacity, _ = records.shape
         words[324 + index * 4 : 328 + index * 4] = [width, capacity, offset, 0]
         blocks.append(records.ravel())
         offset += records.size

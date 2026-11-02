@@ -8,6 +8,7 @@ layout(std430, set = 0, binding = 0) readonly buffer Palette {
 #include "terrain_material_sampling.glsl"
 const float kPi = 3.14159265358979323846;
 #include "metalRoughBrdf.glsl"
+#include "terrain_material_moments.glsl"
 
 layout(std140, set = 2, binding = 0) uniform Pushed {
   uint count;
@@ -48,12 +49,17 @@ void main() {
     gradientAddress = vec4(0.0);
     return;
   }
+  uint encoded = word(probeAt + 7u);
+  uint mode = encoded & 255u;
+  if (mode == 3u || mode == 4u) {
+    material = vec4(shadeMoments(which, mode), 1.0);
+    gradientAddress = vec4(data[probeAt + 4u], data[probeAt + 5u], 0.0, 0.0);
+    return;
+  }
   vec4 uniforms = readFour(probeAt);
   Sample selected = sampleMaterial(uniforms, which);
   material = selected.Material;
   gradientAddress = selected.GradientAddress;
-  uint encoded = word(probeAt + 7u);
-  uint mode = encoded & 255u;
   if (mode == 1u || mode == 2u) {
     uint samples = clamp(encoded >> 8u, 1u, 4u);
     const vec4 offsets[4] =

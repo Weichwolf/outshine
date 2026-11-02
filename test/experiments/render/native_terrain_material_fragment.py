@@ -120,6 +120,7 @@ def main():
                 Path(__file__),
                 fragment,
                 fragment.with_name("terrain_material_sampling.glsl"),
+                fragment.with_name("terrain_material_moments.glsl"),
                 ROOT / "test/harness/render/NativeMaterialFragmentProbe.cpp",
                 binary,
             )
