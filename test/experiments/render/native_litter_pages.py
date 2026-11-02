@@ -56,7 +56,7 @@ def probe(output, name, database, tile, core, first, mode, commands, count=1):
 
 
 def compare(output, tile, core, case, commands):
-    database = output / "assets.sqlite"
+    database = output / "assets" / "pages.sqlite"
     prefix = f"case-{case}-{core}"
     coarse = probe(
         output, prefix + "-coarse", database, tile, core, 4, "build", commands
@@ -127,6 +127,7 @@ def main():
     ):
         parser.error("bounded native batch and private system-temp output required")
     output.mkdir(parents=True, exist_ok=False)
+    (output / "assets").mkdir()
     commands = [
         run(
             [
@@ -152,7 +153,9 @@ def main():
             ((0, 0), (-65, -64), (12345, -23456), (8388606, -8388607))
         ):
             records.append(compare(output, tile, core, case, commands))
-        database = output / f"batch-{core}.sqlite"
+        asset_root = output / f"batch-{core}-assets"
+        asset_root.mkdir()
+        database = asset_root / "pages.sqlite"
         cold = probe(
             output,
             f"batch-{core}-build",
