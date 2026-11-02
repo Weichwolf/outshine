@@ -53,6 +53,7 @@
 
 namespace {
 using namespace outshine;
+using namespace outshine::Experiments;
 using Json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 namespace Fs = std::filesystem;
@@ -556,7 +557,7 @@ struct BuildingViewSource {
     return *Producer;
   }
 
-  Content::ImpostorViewAssets::Description Description() {
+  Experiments::ImpostorViewAssets::Description Description() {
     if (Recipe.is_object()) {
       const auto &source = RequireInputs();
       return {.Centre = source.Projection().Centre,
@@ -565,11 +566,11 @@ struct BuildingViewSource {
               .Directions = source.Metadata().ViewDirections};
     }
     const auto &atlas = Require(0);
-    Content::ImpostorViewAssets::Description description{.Centre = atlas.CentreM(),
-                                                         .HalfExtentM = atlas.HalfExtentM(),
-                                                         .Pixels =
-                                                             static_cast<uint32_t>(atlas.Pixels()),
-                                                         .Directions = {}};
+    Experiments::ImpostorViewAssets::Description description{
+        .Centre = atlas.CentreM(),
+        .HalfExtentM = atlas.HalfExtentM(),
+        .Pixels = static_cast<uint32_t>(atlas.Pixels()),
+        .Directions = {}};
     for (const auto &view : atlas.Views()) { description.Directions.push_back(view.TowardEye); }
     return description;
   }
@@ -614,8 +615,8 @@ struct BuildingViewJobs {
   std::shared_ptr<BuildingViewSource> Source;
 };
 
-Content::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
-  using Content::ImpostorViewAssets;
+Experiments::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
+  using Experiments::ImpostorViewAssets;
   auto request = ImpostorMetadataRequest::Start(
       jobs.Pipeline,
       jobs.Consumer,
@@ -670,10 +671,11 @@ ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorVie
   }
 }
 
-std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorViewAssets &products,
-                                                        const BuildingViewJobs &jobs,
-                                                        size_t view,
-                                                        bool &hit) {
+std::shared_ptr<const ImpostorAtlas>
+ResolveSourceField(const Experiments::ImpostorViewAssets &products,
+                   const BuildingViewJobs &jobs,
+                   size_t view,
+                   bool &hit) {
   constexpr size_t limit = size_t{64} * 1024 * 1024;
   const auto key = products.FieldKey({view});
   ImpostorViewJob job{
@@ -684,7 +686,7 @@ std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorV
       .Product = ImpostorViewJob::MaterialView{
           .Selected = {view},
           .Generate = [source = jobs.Source, pixels = products.Metadata().Pixels, &hit](
-                          Content::ImpostorViewAssets::ViewIndex selected,
+                          Experiments::ImpostorViewAssets::ViewIndex selected,
                           size_t budget,
                           const std::stop_token &) -> std::expected<ImpostorAtlas, std::string> {
             const auto bound =
@@ -723,7 +725,7 @@ std::shared_ptr<const ImpostorAtlas> ResolveSourceField(const Content::ImpostorV
 }
 
 struct RadianceRequest {
-  const Content::ImpostorViewAssets &Products;
+  const Experiments::ImpostorViewAssets &Products;
   const BuildingViewJobs &Jobs;
   size_t View;
   const Json &Query;
@@ -974,8 +976,8 @@ void RadianceViews(const Fs::path &root, const Json &input) {
 }
 
 ImpostorCards ResolveView(const BuildingViewJobs &jobs,
-                          const Content::ImpostorViewAssets &products,
-                          Content::ImpostorViewAssets::Selection selected,
+                          const Experiments::ImpostorViewAssets &products,
+                          Experiments::ImpostorViewAssets::Selection selected,
                           size_t limit,
                           bool &hit) {
   const auto key = products.Key(selected);
@@ -1003,7 +1005,7 @@ ImpostorCards ResolveView(const BuildingViewJobs &jobs,
 }
 
 void CachedWorldViews(const Fs::path &root, const Json &input) {
-  using Content::ImpostorViewAssets;
+  using Experiments::ImpostorViewAssets;
   constexpr size_t limit = size_t{64} * 1024 * 1024;
   const auto openedAt = Clock::now();
   auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());

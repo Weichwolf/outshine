@@ -1,6 +1,5 @@
 #ifndef OUTSHINE_TEST_ENGINE_NATIVEBUILDINGSOURCES_H
 #define OUTSHINE_TEST_ENGINE_NATIVEBUILDINGSOURCES_H
-#include "BuildingSourceDemand.h"
 #include "test/harness/engine/NativeBuildingReplay.h"
 #include "BuiltinSourceProviders.h"
 #include "test/outshine/src/engine/streaming/StructureBuildQueue/BuildingQueueFixture.h"
@@ -97,17 +96,6 @@ struct Fixture {
     return key;
   }
 };
-
-inline bool
-WaitFor(BuildingSourceDemand &demand, Fixture &fixture, BuildingSourceDemand::Phase phase) {
-  const auto deadline = std::chrono::steady_clock::now() + kDeadline;
-  do {
-    (void)demand.Advance(fixture.Queue, fixture.Stack, 1);
-    if (demand.Entries().size() == 1 && demand.Entries()[0].Where == phase) { return true; }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  } while (std::chrono::steady_clock::now() < deadline);
-  return false;
-}
 
 }
 #endif

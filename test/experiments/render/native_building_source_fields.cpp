@@ -1,3 +1,4 @@
+#include "BuildingSourceDemand.h"
 #include "BuildingSourceCapture.h"
 #include "BuildingFieldRequest.h"
 #include "PreparedBuildingAssets.h"
@@ -30,6 +31,7 @@
 
 namespace {
 using namespace outshine;
+using namespace outshine::Experiments;
 using Json = nlohmann::json;
 namespace Fs = std::filesystem;
 using Clock = std::chrono::steady_clock;

@@ -1,4 +1,4 @@
-"""Replay an archived complete group through production native field jobs and an offline hit."""
+"""Replay an archived complete group through experimental native field jobs and an offline hit."""
 
 import argparse
 import hashlib
@@ -123,7 +123,7 @@ def compare(args):
         "unavailable_other_view_refused": True,
         "miss": miss,
         "hit": hit,
-        "scope": "Actual BuildingFieldRequest/metadata/field/CPU lease path. Archive import and legacy migration precede measured jobs. Producer reservations and sampled host heap do not prove total producer/GPU/driver peaks. No original-pixel, pose, World, frame-p99 or 8GB admission.",
+        "scope": "Experimental BuildingFieldRequest/metadata/field/CPU lease path; not called by the scenario application. Archive import and legacy migration precede measured jobs. Producer reservations and sampled host heap do not prove total producer/GPU/driver peaks. No original-pixel, pose, World, frame-p99 or 8GB admission.",
     }
     (output / "comparison.json").write_text(json.dumps(result, indent=2) + "\n")
     print(

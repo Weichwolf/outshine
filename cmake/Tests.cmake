@@ -1,4 +1,5 @@
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-output")
+include("${PROJECT_SOURCE_DIR}/cmake/BuildingFieldExperiments.cmake")
 file(STRINGS "${PROJECT_SOURCE_DIR}/test/world-gate.txt" gate_scopes)
 file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/test/outshine/integration/*.cpp")
@@ -37,7 +38,7 @@ set(capture_cases
 )
 set(metal_validation_cases
   outshine/src/render/stages/GeometryRenderer/GroundPassHasIndependentTargets
-  outshine/integration/engine/streaming/BuildingFieldRequest/WorldDescriptorsResolveOnlyTheirRequestedField
+  ${building_field_gpu_cases}
   outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission
   outshine/integration/engine/GpuSubmission/NativePieceNormalsFollowAffinePlanes
   outshine/integration/engine/frame/FrameCoordinator/ClaimFailureKeepsResidentGeometry
@@ -319,7 +320,18 @@ foreach(source IN LISTS cases)
       set(owner engine)
     endif()
   endif()
-  string(REPLACE "/" "_" component "outshine_${owner}")
+  if(name MATCHES "^outshine/integration/experiments/building_fields/")
+    set(owner experiments/render/building_fields)
+    set(component test_experiments_building_fields)
+    if(name IN_LIST building_field_gpu_cases)
+      add_dependencies(${target} outshine_shaders)
+    endif()
+    if(name MATCHES "/CachedViewsPreservePublishedWorlds$")
+      target_link_libraries(${target} PRIVATE outshine_engine)
+    endif()
+  else()
+    string(REPLACE "/" "_" component "outshine_${owner}")
+  endif()
   if(name MATCHES "^outshine/src/generators/weather/(LowCloud|inputs/WeatherSnapshotLoader)/")
     target_link_libraries(${target} PRIVATE outshine_generators_weather_providers)
   endif()
@@ -515,7 +527,6 @@ set_tests_properties(experiments/render/StoredSampleQuads PROPERTIES
 
 add_executable(test_experiments_render_NativeBuildingImpostors EXCLUDE_FROM_ALL
   test/experiments/render/native_building_impostors.cpp
-  test/experiments/render/BuildingSourceCapture.cpp
   test/experiments/render/BuildingRadianceField.cpp)
 add_executable(test_experiments_render_NativeInstanceUpdates EXCLUDE_FROM_ALL
   test/experiments/render/native_instance_updates.cpp)
@@ -524,24 +535,24 @@ target_compile_options(test_experiments_render_NativeInstanceUpdates PRIVATE -fn
 target_link_libraries(test_experiments_render_NativeInstanceUpdates PRIVATE
   outshine_core PkgConfig::nlohmann_json)
 add_executable(test_experiments_render_NativeBuildingSourcePlanes EXCLUDE_FROM_ALL
-  test/experiments/render/native_building_source_planes.cpp
-  test/experiments/render/BuildingSourceCapture.cpp)
+  test/experiments/render/native_building_source_planes.cpp)
 add_executable(test_experiments_render_NativeBuildingOriginals EXCLUDE_FROM_ALL
-  test/experiments/render/native_building_originals.cpp
-  test/experiments/render/BuildingSourceCapture.cpp)
+  test/experiments/render/native_building_originals.cpp)
 target_compile_options(test_experiments_render_NativeBuildingOriginals PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingOriginals PRIVATE
+  test_harness_building_source_capture
   outshine_core PkgConfig::nlohmann_json)
 add_executable(test_experiments_render_NativeBuildingSourceFields EXCLUDE_FROM_ALL
-  test/experiments/render/native_building_source_fields.cpp
-  test/experiments/render/BuildingSourceCapture.cpp)
+  test/experiments/render/native_building_source_fields.cpp)
 add_dependencies(test_experiments_render_NativeBuildingSourceFields outshine_shaders)
 target_compile_options(test_experiments_render_NativeBuildingSourceFields PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingSourceFields PRIVATE
+  test_harness_building_source_capture
   outshine_core PkgConfig::nlohmann_json)
 add_dependencies(test_experiments_render_NativeBuildingSourcePlanes outshine_shaders)
 target_compile_options(test_experiments_render_NativeBuildingSourcePlanes PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingSourcePlanes PRIVATE
+  test_harness_building_source_capture
   outshine_core PkgConfig::nlohmann_json)
 add_executable(test_experiments_render_NativeMaterialResidency EXCLUDE_FROM_ALL
   test/experiments/render/native_material_residency.cpp)
@@ -560,6 +571,7 @@ target_include_directories(test_experiments_render_NativeBuildingImpostors PRIVA
   "${PROJECT_SOURCE_DIR}")
 target_compile_options(test_experiments_render_NativeBuildingImpostors PRIVATE -fno-exceptions)
 target_link_libraries(test_experiments_render_NativeBuildingImpostors PRIVATE
+  test_harness_building_source_capture
   test_harness_stored_sample_quads
   outshine_core PkgConfig::nlohmann_json)
 target_compile_options(test_experiments_render_NativeBuildingParents PRIVATE -fno-exceptions)

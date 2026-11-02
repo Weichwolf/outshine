@@ -1,5 +1,8 @@
 # Native building impostors
 
+The view-job/cache chain is experimental (`building_fields/`, CMake target
+`test_experiments_building_fields`). The scenario application does not call it.
+
 Owner/acceptance: #1570/#1127. Original controls: `native_building_cell_controls.md`.
 This diagnostic uses fixed source geometry, capture directions, lighting and queries.
 It does not admit a World LOD, source occluder, smaller error bound or frame budget.

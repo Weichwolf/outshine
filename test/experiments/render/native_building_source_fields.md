@@ -1,8 +1,10 @@
 # Native complete-source field jobs
 
-`NativeBuildingSourceFields` uses the production `BuildingFieldRequest`: prepared
+`NativeBuildingSourceFields` exercises the experimental `BuildingFieldRequest`: prepared
 native assets → metadata job → selected field job → stored field → held CPU lease.
-It adds no renderer, scheduler, source selector or meshing algorithm.
+The scenario application does not call this chain. Its code lives in
+`building_fields/`, linked only by `test_experiments_building_fields` and native
+studies/tests. It adds no renderer, scheduler, source selector or meshing algorithm.
 
 ```sh
 cmake --build "$native_build" --target test_experiments_render_NativeBuildingSourceFields --parallel

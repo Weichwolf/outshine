@@ -29,7 +29,7 @@ public:
   [[nodiscard]] const Render::ImpostorCapture &Metadata() const noexcept;
   [[nodiscard]] const Render::ImpostorCaptureProjection &Projection() const noexcept;
   [[nodiscard]] const nlohmann::json &Report() const;
-  [[nodiscard]] std::expected<BuildingSourceDemand::Source, std::string>
+  [[nodiscard]] std::expected<Experiments::BuildingSourceDemand::Source, std::string>
   StorePrepared(const std::filesystem::path &directory);
   [[nodiscard]] std::expected<void, std::string>
   ExportOriginals(Generators::BuildingSourceBudget budget,
