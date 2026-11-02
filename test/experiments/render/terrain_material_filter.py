@@ -71,7 +71,7 @@ def moment_responses(raw, weights, lights, view):
     }
 
 
-def joint_models(raw, weights):
+def joint_models(raw, weights, *, capacities=(1, 2, 4, 8)):
     """Bounded light-independent PCA candidate; no exact GGX-filter guarantee."""
     n = normals(raw[:, 4:])
     roughness = np.clip(raw[:, 3], 0.04, 1)
@@ -87,7 +87,7 @@ def joint_models(raw, weights):
 
     groups = [group(np.arange(len(raw)))]
     models = {}
-    for capacity in (1, 2, 4, 8):
+    for capacity in capacities:
         while len(groups) < capacity:
             which = max(range(len(groups)), key=lambda i: groups[i][1])
             indices, score, axis = groups[which]
