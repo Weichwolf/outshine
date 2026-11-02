@@ -1,7 +1,9 @@
 #include "NativeMaterialCapture.h"
+#include "NativeMaterialCaptureTexture.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
 #include <array>
+#include <bit>
 #include <chrono>
 #include <charconv>
 #include <cstddef>
@@ -29,7 +31,9 @@ void Capture(Device &device,
              const GraphicsPipeline &pipeline,
              std::span<const uint32_t> palette,
              uint32_t count,
-             const char *outputPath) {
+             const char *outputPath,
+             uint32_t textureSide,
+             const char *texturePath) {
   auto commands = Require(device.Begin());
   const auto paletteBuffer = outshine::Test::Gpu::Upload(device, *commands, palette);
   const uint64_t rowBytes =
@@ -47,9 +51,19 @@ void Capture(Device &device,
     colours[i] = {.Image = {.Image = images[i].get()}, .Begin = Load::Clear};
   }
   const CaptureUniform parameters{.Count = count};
-  const std::array bindings{
+  std::vector bindings{
       Storage(0, 0, *paletteBuffer),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
+  CaptureTexture texture;
+  if (texturePath != nullptr) {
+    texture = UploadCaptureTexture(device, *commands, texturePath, textureSide);
+    bindings.push_back({.Set = 0,
+                        .Slot = 1,
+                        .Value = SampledTexture{
+                            .Image = {.Image = texture.Image.get(),
+                                      .Mips = static_cast<uint32_t>(std::bit_width(textureSide))},
+                            .Sampling = texture.Sampling.get()}});
+  }
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = std::nullopt}));
   Require(commands->Draw({.State = {.Pipeline = &pipeline,
                                     .Bindings = bindings,
@@ -83,12 +97,13 @@ void Capture(Device &device,
   const auto bytes = std::as_bytes(std::span(records));
   output.write(reinterpret_cast<const char *>(bytes.data()),
                static_cast<std::streamsize>(bytes.size()));
+  output.close();
   CHECK(bool(output), "all material fragment records are saved");
 }
 } // namespace
 
 int main(int argc, char *const *argv) {
-  if (argc != 6) { return 2; }
+  if (argc != 6 && argc != 8) { return 2; }
   const std::string_view argument(argv[5]);
   uint32_t count = 0;
   const auto parsed = std::from_chars(argument.data(), argument.data() + argument.size(), count);
@@ -96,7 +111,20 @@ int main(int argc, char *const *argv) {
       count > kMaximumCases) {
     return 2;
   }
+  uint32_t textureSide = 0;
+  if (argc == 8) {
+    const std::string_view extent(argv[7]);
+    const auto side = std::from_chars(extent.data(), extent.data() + extent.size(), textureSide);
+    if (side.ec != std::errc{} || side.ptr != extent.data() + extent.size() || textureSide == 0 ||
+        textureSide > 512 || !std::has_single_bit(textureSide)) {
+      return 2;
+    }
+  }
   const auto palette = ReadCaptureWords(argv[3]);
+  if (textureSide != 0 &&
+      palette.size() * sizeof(uint32_t) != count * sizeof(CaptureTextureQuery)) {
+    return 2;
+  }
   auto device = Require(CreateDevice({.Validation = true}));
   const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
                            ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
@@ -109,6 +137,6 @@ int main(int argc, char *const *argv) {
                                               .Depth = std::nullopt,
                                               .Culling = Cull::None,
                                               .Label = {}}));
-  Capture(*device, *pipeline, palette, count, argv[4]);
+  Capture(*device, *pipeline, palette, count, argv[4], textureSide, argc == 8 ? argv[6] : nullptr);
   return Report();
 }
