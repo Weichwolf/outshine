@@ -24,17 +24,22 @@ std::vector<uint8_t> Pattern(uint32_t side, uint32_t tag) {
   return values;
 }
 
-void UploadAndRetire() {
+void UploadAndRetire(uint32_t baseSide, uint32_t mipCount) {
   auto device = CreateDevice({.Validation = true});
   CHECK(device, "a real native GPU device opens with validation");
   if (!device) { return; }
   auto commands = (*device)->Begin();
   CHECK(commands, "the R8 upload batch opens");
   if (!commands) { return; }
-  const std::array expected{Pattern(32, 19), Pattern(16, 173)};
+  std::vector<std::vector<uint8_t>> expected(mipCount);
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    expected[mip] = Pattern(baseSide >> mip, mip * 154 + 19);
+  }
   auto input = expected;
-  const std::array mips{R8FieldMip{.Side = 32, .Pixels = input[0]},
-                        R8FieldMip{.Side = 16, .Pixels = input[1]}};
+  std::vector<R8FieldMip> mips(mipCount);
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    mips[mip] = {.Side = baseSide >> mip, .Pixels = input[mip]};
+  }
   const auto bytes = R8FieldTextureStorage(mips);
   CHECK(bytes, "the selected coarse mip storage is planned before allocation");
   if (!bytes) { return; }
@@ -54,9 +59,10 @@ void UploadAndRetire() {
   CHECK(field, "the bounded native field texture uploads");
   if (!field) { return; }
   const auto &description = field->Image->Description();
-  CHECK(description.Width == 32 && description.Height == 32 && description.Mips == 2 &&
-            description.Texels == Format::R8Unorm && field->Storage.TexelBytes == 1280,
-        "native allocation contains only the two supplied coarse mips");
+  CHECK(description.Width == baseSide && description.Height == baseSide &&
+            description.Mips == mipCount && description.Texels == Format::R8Unorm &&
+            field->Storage.TexelBytes == bytes->TexelBytes,
+        "native allocation contains only the supplied mip extents");
   for (auto &pixels : input) { std::vector<uint8_t>().swap(pixels); }
   auto output = (*device)->CreateBuffer({.Bytes = bytes->TransferBytes,
                                          .Use = BufferUse::CopyDestination,
@@ -64,8 +70,8 @@ void UploadAndRetire() {
   CHECK(output, "aligned native readback storage allocates");
   if (!output) { return; }
   uint64_t offset = 0;
-  for (uint32_t mip = 0; mip < 2; ++mip) {
-    const uint32_t side = 32u >> mip;
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    const uint32_t side = baseSide >> mip;
     CHECK((*commands)->Copy(*field->Image,
                             **output,
                             {.BufferOffset = offset,
@@ -87,8 +93,8 @@ void UploadAndRetire() {
   CHECK(mapped, "completed mip pixels can be inspected");
   if (!mapped) { return; }
   offset = 0;
-  for (uint32_t mip = 0; mip < 2; ++mip) {
-    const uint32_t side = 32u >> mip;
+  for (uint32_t mip = 0; mip < mipCount; ++mip) {
+    const uint32_t side = baseSide >> mip;
     bool same = true;
     for (uint32_t row = 0; row < side; ++row) {
       const auto got = mapped->subspan(offset + uint64_t{256} * row, side);
@@ -103,6 +109,8 @@ void UploadAndRetire() {
 }
 
 int main() {
-  UploadAndRetire();
+  UploadAndRetire(32, 2);
+  UploadAndRetire(66, 1);
+  UploadAndRetire(130, 1);
   return Report();
 }

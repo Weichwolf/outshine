@@ -21,7 +21,9 @@ void SelectedRange() {
         "only supplied coarse mips contribute texel and aligned transfer storage");
   CHECK(!R8FieldTextureStorage({}), "an empty field has no upload plan");
   const std::array nondyadic{R8FieldMip{.Side = 3, .Pixels = std::span(coarse).first(9)}};
-  CHECK(!R8FieldTextureStorage(nondyadic), "a nondyadic field is rejected");
+  const auto page = R8FieldTextureStorage(nondyadic);
+  CHECK(page && page->TexelBytes == 9 && page->TransferBytes == 768,
+        "native non-power-of-two page sides do not require artificial padding");
   const std::array truncated{R8FieldMip{.Side = 32, .Pixels = std::span(coarse).first(1023)}};
   CHECK(!R8FieldTextureStorage(truncated), "truncated mip pixels are rejected");
   const std::array skipped{mips[0], R8FieldMip{.Side = 8, .Pixels = std::span(tail).first(64)}};

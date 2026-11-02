@@ -17,10 +17,11 @@ uint64_t RowBytes(uint32_t side) noexcept {
 }
 
 Native::Result<R8FieldStorage> R8FieldTextureStorage(std::span<const R8FieldMip> mips) {
-  if (mips.empty() || !std::has_single_bit(mips.front().Side) ||
+  if (mips.empty() || mips.front().Side == 0 ||
       std::cmp_greater(mips.size(), std::bit_width(mips.front().Side))) {
-    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "R8 field requires a dyadic mip range"});
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "R8 field requires a bounded square mip range"});
   }
   uint32_t side = mips.front().Side;
   R8FieldStorage bytes;
