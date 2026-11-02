@@ -31,7 +31,7 @@ class PreparedTransportPlans {
 public:
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedTransportPlans>,
                                      TransportPlanAssetError>
-  Open(const std::string &directory);
+  Open(std::shared_ptr<AssetCache> cache);
 
   [[nodiscard]] std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
   LoadRequest(const TransportPlanAddress &address, TransportPlanCodecLimits limits);
@@ -51,12 +51,12 @@ public:
   BindRequest(const TransportPlanAddress &address, const TransportPlanAsset &product);
 
 private:
-  explicit PreparedTransportPlans(std::unique_ptr<AssetCache> cache);
+  explicit PreparedTransportPlans(std::shared_ptr<AssetCache> cache);
   [[nodiscard]] static std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
   Decode(std::expected<std::optional<CachedAsset>, AssetCacheError> cached,
          const TransportPlanDefinition &definition,
          TransportPlanCodecLimits limits);
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
   std::mutex Lock_;
 };
 }

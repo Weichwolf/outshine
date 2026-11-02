@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedTransportPlans.h"
 #include "TransportPlanFixture.h"
 #include "TransportPlanSourceFixture.h"
@@ -47,7 +48,7 @@ bool HasBoundSources(const World::TransportNetworkSnapshot &network) {
 }
 
 int Offline(const std::string &directory) {
-  auto cache = PreparedTransportPlans::Open(directory);
+  auto cache = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   if (!cache) { return 2; }
   const auto a = (*cache)->LoadRequest(Address(0), kTransportFixtureLimits);
   const auto b = (*cache)->LoadRequest(Address(1), kTransportFixtureLimits);
@@ -100,7 +101,7 @@ bool Spawn(const std::string &executable, const std::string &directory) {
 }
 
 void Prepare(const std::string &directory) {
-  auto cache = PreparedTransportPlans::Open(directory);
+  auto cache = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   const auto plan = TransportPlanSourceFixture();
   CHECK(cache && plan, "the native source plan and existing asset store are available");
   if (!cache || !plan) { return; }

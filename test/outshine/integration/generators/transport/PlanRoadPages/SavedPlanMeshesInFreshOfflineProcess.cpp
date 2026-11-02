@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedTransportPlans.h"
 #include "ProfiledRoadMesher.h"
 #include "TransportRoadPageMeshing.h"
@@ -53,7 +54,7 @@ std::string MeshDigest(const TransportPlan &plan) {
 }
 
 TransportPlanLease Load(const std::string &directory) {
-  auto cache = PreparedTransportPlans::Open(directory);
+  auto cache = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   if (!cache) { return {}; }
   auto loaded = (*cache)->LoadRequest(Address(), kTransportFixtureLimits);
   return loaded && *loaded ? (**loaded).Plan : TransportPlanLease{};
@@ -89,7 +90,7 @@ bool Spawn(const std::string &executable, const std::string &directory, const st
 }
 
 bool Prepare(const std::string &directory, const TransportPlan &plan) {
-  auto cache = PreparedTransportPlans::Open(directory);
+  auto cache = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   if (!cache) { return false; }
   constexpr double extent = 2 * kEarthMeanRadiusM;
   const Box bounds{.Min = {{-extent, -extent, -extent}}, .Max = {{extent, extent, extent}}};

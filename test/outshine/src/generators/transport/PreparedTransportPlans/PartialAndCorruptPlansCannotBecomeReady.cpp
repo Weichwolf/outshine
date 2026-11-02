@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedTransportPlans.h"
 #include "TransportPlanFixture.h"
 #include "Check.h"
@@ -18,7 +19,7 @@ using namespace outshine::Generators;
 using namespace outshine::Test;
 
 void Exercise(const std::string &directory) {
-  auto store = PreparedTransportPlans::Open(directory);
+  auto store = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   auto raw = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   auto plan = TransportPlanFixture();
   CHECK(store && raw && plan, "the store and independent fault injector are available");

@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -12,14 +11,13 @@
 #include <utility>
 
 namespace outshine::Generators {
-PreparedTransportPlans::PreparedTransportPlans(std::unique_ptr<AssetCache> cache)
+PreparedTransportPlans::PreparedTransportPlans(std::shared_ptr<AssetCache> cache)
     : Cache_(std::move(cache)) {}
 
 std::expected<std::unique_ptr<PreparedTransportPlans>, TransportPlanAssetError>
-PreparedTransportPlans::Open(const std::string &directory) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
-  if (!cache) { return std::unexpected(TransportPlanAssetError::Storage); }
-  return std::unique_ptr<PreparedTransportPlans>(new PreparedTransportPlans(std::move(*cache)));
+PreparedTransportPlans::Open(std::shared_ptr<AssetCache> cache) {
+  if (!cache) { return std::unexpected(TransportPlanAssetError::InvalidRequest); }
+  return std::unique_ptr<PreparedTransportPlans>(new PreparedTransportPlans(std::move(cache)));
 }
 
 std::expected<AssetRecord, TransportPlanAssetError>
