@@ -30,6 +30,7 @@
 #include "BuildingPageAdapter.h"
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
+#include "BuildingSourceCoverage.h"
 #include "RoadAlignmentBuildQueue.h"
 #include "RouteSpeedProfile.h"
 #include "Tasks.h"
@@ -162,8 +163,7 @@ struct WorldRegionState {
   std::vector<Standing> Instances;
   std::unique_ptr<VegetationStreaming> Vegetation;
   std::unique_ptr<UrbanAreaStreaming> UrbanAreas;
-  std::optional<uint64_t> UrbanChildrenRevision;
-  std::vector<Ground::GeoBounds> UrbanChildren;
+  BuildingSourceCoverage BuildingCoverage;
   size_t Pending = 0;
   size_t Bare = 0;
   size_t Wanted = 0;

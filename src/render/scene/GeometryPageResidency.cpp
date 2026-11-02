@@ -636,6 +636,7 @@ void GeometryPageResidency::RefreshDigest() noexcept {
     if (stood.Cell != 0) { Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Cell)) * kDigestPrime; }
     Digest_ = (Digest_ ^ stood.Digest) * kDigestPrime;
     if (stood.SourceKey != 0) { Digest_ = (Digest_ ^ stood.SourceKey) * kDigestPrime; }
+    if (stood.FallbackHeights) { Digest_ = (Digest_ ^ uint64_t{1}) * kDigestPrime; }
   }
 }
 

@@ -3,7 +3,6 @@
 #include <memory>
 #include <string_view>
 #include <vector>
-#include <map>
 #include <utility>
 
 namespace outshine {
@@ -16,35 +15,6 @@ void Engine::State::PublishUrbanMeasurements() {
   Published.RecordMetric("urban terrain captures", static_cast<double>(urban.Captures), "captures");
   Published.RecordMetric(
       "urban scene publications", static_cast<double>(urban.Publications), "publications");
-}
-
-namespace {
-std::vector<Ground::GeoBounds>
-PublishedBuildingTiles(const Render::GeometryPageResidency &pieces,
-                       const Generators::Osm::BuildingField &footprints) {
-  std::map<uint32_t, uint64_t> masks;
-  pieces.ForEachDigest([&](const Render::GeometryPageResidency::DigestRecord &piece) {
-    const auto *input = footprints.InputOfTile(piece.Tile);
-    if (!input || !input->Qualified || !input->Vector || input->SourceKey != piece.SourceKey ||
-        piece.FallbackHeights) {
-      return;
-    }
-    if (piece.Cell == 0) {
-      masks[piece.Tile] = input->OccupiedCells;
-    } else if (piece.Cell <= Ground::kStructureCellsPerTile) {
-      masks[piece.Tile] |= uint64_t{1} << (piece.Cell - 1);
-    }
-  });
-  std::vector<Ground::GeoBounds> bounds;
-  bounds.reserve(masks.size());
-  for (const auto &[tile, mask] : masks) {
-    const auto &input = *footprints.InputOfTile(tile);
-    if (input.Vector && mask == input.OccupiedCells) {
-      bounds.push_back(Ground::TileBounds(input.Vector->Tile));
-    }
-  }
-  return bounds;
-}
 }
 
 std::string_view Engine::State::UrbanWorldBlocker() const noexcept {
@@ -76,10 +46,7 @@ bool Engine::State::AdvanceUrbanAreas() {
     World.UrbanAreas->Into(Picture.Device);
   }
   const auto origin = Session.Declared.Ground.Origin;
-  if (World.UrbanChildrenRevision != World.Pieces.Digest()) {
-    World.UrbanChildren = PublishedBuildingTiles(World.Pieces, World.Surface().Footprints());
-    World.UrbanChildrenRevision = World.Pieces.Digest();
-  }
+  (void)World.BuildingCoverage.Update(World.Pieces, World.Surface().Footprints());
   auto advanced =
       World.UrbanAreas->Advance({.Focus = CurrentGeographicFocus(),
                                  .EyeEcef = *eye,
@@ -89,7 +56,7 @@ bool Engine::State::AdvanceUrbanAreas() {
                                                             .LatitudeDeg = origin.LatitudeDeg})},
                                 *terrain,
                                 World.Rebuilds,
-                                World.UrbanChildren,
+                                World.BuildingCoverage.Regions(),
                                 World.Pieces.Digest());
   if (!advanced) {
     Error = std::move(advanced.error());

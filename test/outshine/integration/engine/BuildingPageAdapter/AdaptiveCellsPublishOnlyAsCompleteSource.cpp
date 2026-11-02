@@ -3,6 +3,8 @@
 #include "GeometryPageResidency.h"
 #include "BuildingPageAdapter.h"
 #include "StructureSourcePublication.h"
+#include "BuildingSourceCoverage.h"
+#include "BuildingField.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -14,6 +16,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -207,6 +210,92 @@ void Publish(Fixture &fixture) {
             fixture.Visible().size() == 4 && pieces.CellsActive(kInitialTile, kCells, kNewSource),
         "the first complete adaptive cell set publishes without a monolithic predecessor");
 }
+
+void CoverageTracksLiveSourceInputs(Fixture &fixture) {
+  auto &pieces = fixture.Pieces;
+  const auto reset = [&] {
+    pieces.Clear();
+    pieces.BindRenderer(&fixture.Renderer);
+    pieces.SetFrame(fixture.Frame);
+  };
+  reset();
+  Generators::Osm::BuildingField footprints;
+  BuildingSourceCoverage coverage;
+  Generators::Osm::BuildingField::Baked accepted;
+  accepted.OccupiedCells = 3;
+  const Data::TileSourceIdentity vector{.Kind = Data::DataKind::VectorMap,
+                                        .Tile = {.Zoom = 14, .X = 7, .Y = 8},
+                                        .SourceId = "coverage-source",
+                                        .Revision = "one"};
+  const auto accept = [&](uint64_t heightDigest) {
+    Generators::Osm::BuildingField::BakeInputs input;
+    input.HeightRasterDigest = heightDigest;
+    input.PreparedAssetKey = "native-basis";
+    auto pending = footprints.PrepareAcceptance(kTile, accepted, {}, true, vector, input);
+    if (footprints.InputOfTile(kTile)) {
+      footprints.ReplaceAcceptance(std::move(pending), accepted);
+    } else {
+      footprints.CommitAcceptance(std::move(pending), accepted);
+    }
+    return footprints.InputOfTile(kTile)->SourceKey;
+  };
+  const auto upload = [&](const Generators::BakedTile &baked, uint64_t source) {
+    return pieces.Upload(kTile,
+                         BuildingPageView(baked, fixture.Materials).View(),
+                         fixture.Frame.OriginEcef(),
+                         fixture.Error,
+                         source);
+  };
+  auto whole = Mesh(0, std::nullopt);
+  const auto firstSource = accept(1);
+  CHECK(upload(whole, firstSource) && coverage.Update(pieces, footprints) &&
+            coverage.Regions().size() == 1 && !coverage.Update(pieces, footprints),
+        "a complete published source is cached until either input changes");
+  const auto geometryRevision = pieces.Digest();
+  const auto secondSource = accept(2);
+  CHECK(firstSource != secondSource && pieces.Digest() == geometryRevision &&
+            coverage.Update(pieces, footprints) && coverage.Regions().empty(),
+        "a changed semantic input withdraws stale coverage without a geometry publication");
+  CHECK(upload(whole, secondSource) && coverage.Update(pieces, footprints) &&
+            coverage.Regions().size() == 1,
+        "matching replacement geometry restores coverage for the new source");
+  reset();
+  const auto first = Mesh(0, 1);
+  const auto second = Mesh(0, 2);
+  const auto stage = [&](uint32_t cell, const Generators::BakedTile &baked) {
+    return pieces.StageCell(kTile,
+                            cell,
+                            BuildingPageView(baked, fixture.Materials).View(),
+                            fixture.Frame.OriginEcef(),
+                            fixture.Error,
+                            secondSource);
+  };
+  CHECK(stage(1, first) && coverage.Update(pieces, footprints) && coverage.Regions().empty(),
+        "a staged child cannot suppress its original parent region");
+  CHECK(stage(2, second), "the remaining source child stages");
+  (void)coverage.Update(pieces, footprints);
+  CHECK(coverage.Regions().empty(), "complete hidden children still publish no coverage");
+  CHECK(pieces.ActivateCells(kTile, {.Key = secondSource, .Occupied = 3}, kCells, fixture.Error) &&
+            coverage.Update(pieces, footprints) && coverage.Regions().size() == 1,
+        "only the complete activated cell union covers its source");
+  pieces.RetireCell(kTile, 1);
+  CHECK(coverage.Update(pieces, footprints) && coverage.Regions().empty(),
+        "a remaining partial source cannot claim whole-tile coverage");
+  reset();
+  whole.FallbackHeights = true;
+  CHECK(upload(whole, secondSource) && coverage.Update(pieces, footprints) &&
+            coverage.Regions().empty(),
+        "fallback heights do not establish qualified source coverage");
+  whole.FallbackHeights = false;
+  CHECK(upload(whole, secondSource) && coverage.Update(pieces, footprints) &&
+            coverage.Regions().size() == 1,
+        "refined heights restore valid source coverage");
+  footprints.ResetDerived();
+  CHECK(coverage.Update(pieces, footprints) && coverage.Regions().empty(),
+        "reset semantic inputs cannot leave old regions published");
+  reset();
+}
+
 }
 
 int main() {
@@ -215,7 +304,10 @@ int main() {
     Fixture fixture;
     const bool opened = fixture.Open();
     CHECK(opened, "the world fixture opens");
-    if (opened) { Publish(fixture); }
+    if (opened) {
+      Publish(fixture);
+      CoverageTracksLiveSourceInputs(fixture);
+    }
   }
   SDL_Quit();
   return Report();
