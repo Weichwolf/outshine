@@ -22,6 +22,7 @@
 #include <optional>
 #include <ratio>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -39,7 +40,7 @@ std::atomic<size_t> FineAssetLoads{0};
 std::atomic<size_t> NativeBytes{0};
 std::atomic<size_t> DeclaredSliceBytes{0};
 std::atomic<size_t> ForbiddenReads{0};
-std::atomic<size_t> Resolves{0};
+std::atomic<size_t> Preparations{0};
 size_t Frames = 0;
 size_t ManifestCount = 0;
 double CaptureMs = 0;
@@ -86,7 +87,7 @@ struct Summary {
                {"frames", Frames},
                {"manifest_count", ManifestCount},
                {"road_load_key_calls", PayloadReads.load()},
-               {"road_resolve_calls", Resolves.load()},
+               {"road_prepare_calls", Preparations.load()},
                {"road_asset_load_calls", FineAssetLoads.load()},
                {"native_bytes", NativeBytes.load()},
                {"declared_asset_slice_bytes", DeclaredSliceBytes.load()},
@@ -196,19 +197,31 @@ ProbeLoad(outshine::Generators::PreparedRoadPages *pages, const std::string &key
   return loaded;
 }
 
-ResolveResult ProbeResolve(outshine::Generators::PreparedRoadPages *pages,
+PrepareResult ProbePrepare(const outshine::Generators::PreparedRoadPages *pages,
                            const outshine::Generators::RoadPageRequest &request,
                            const outshine::Generators::RoadPageProducer *producer,
-                           [[maybe_unused]] std::stop_token stop) {
-  ++Resolves;
+                           [[maybe_unused]] const std::stop_token &stop) {
+  ++Preparations;
   return std::unexpected(std::format(
-      "consumer forbids resolution: cache={} level={} parent={} request={} limit={} producer={}",
+      "consumer forbids preparation: cache={} level={} parent={} request={} limit={} producer={}",
       pages != nullptr,
       request.Address.Level,
       request.Parent,
       request.RequestKey,
       request.NativeBytesMost,
       producer != nullptr));
+}
+
+PrepareStepResult ProbePrepareStep(const outshine::Generators::PreparedRoadPages *pages,
+                                   const outshine::Generators::PreparedRoadPages::PageWrite &write,
+                                   const outshine::Generators::RoadPageProducer *producer,
+                                   [[maybe_unused]] const std::stop_token &stop) {
+  ++Preparations;
+  return std::unexpected(outshine::Generators::PreparedRoadPages::Failure{
+      std::format("consumer forbids preparation: cache={} metadata_reads={} producer={}",
+                  pages != nullptr,
+                  write.Costs().MetadataReads,
+                  producer != nullptr)});
 }
 
 CacheResult ProbeCacheLoad(const outshine::AssetCache *cache, std::string_view key, size_t limit) {

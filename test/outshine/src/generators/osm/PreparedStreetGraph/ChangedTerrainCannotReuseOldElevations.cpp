@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "RawSourceCache.h"
 #include "GroundMaterialCatalog.h"
@@ -72,7 +73,8 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
         "one fixed road is declared independently of its terrain elevations");
   Osm::StreetField ways;
   CHECK(ways.Ingest(vectors, templates) == 1, "the fixed source scope contains one street");
-  const auto opened = Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
+  const auto opened = Osm::PreparedStreetGraph::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened, "the production street graph cache opens");
   if (!opened) { return; }
   const auto &cache = *opened;
@@ -102,7 +104,8 @@ void CheckTerrainBinding(const std::filesystem::path &root) {
         "changed terrain must run elevation rather than reuse the previous graph");
   CHECK(profile && profile->HeightM == kChangedHeightM,
         "the native road profile follows the terrain actually supplied to production");
-  const auto reopened = Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
+  const auto reopened = Osm::PreparedStreetGraph::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(reopened, "a new cache owner opens both persisted terrain variants");
   if (!reopened) { return; }
   const auto samplesBefore = counts.Samples;

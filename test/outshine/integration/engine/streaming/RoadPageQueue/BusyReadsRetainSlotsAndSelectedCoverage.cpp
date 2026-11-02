@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "AssetCache.h"
 #include "Check.h"
 #include "PreparedRoadPages.h"
@@ -95,7 +96,7 @@ struct Fixture {
                .Anchor = Manifest.Anchor,
                .Level = 0,
                .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 0}}};
-    auto pages = PreparedRoadPages::Open(Directory.string());
+    auto pages = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(Directory.string()));
     auto records = AssetCache::Open((Directory / "assets.sqlite").string());
     CHECK(Hook.Connections.load(std::memory_order_relaxed) >= 2,
           "both native readers install their SQL observer through the real open boundary");

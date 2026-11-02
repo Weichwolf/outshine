@@ -68,7 +68,8 @@ struct Fixture {
         Regions::Open(outshine::Test::OpenAssetStore(Directory.string()), Sources, "fixture-rules");
     if (!opened) { return false; }
     Cache = std::move(*opened);
-    auto pages = Generators::PreparedRoadPages::Open(Directory.string());
+    auto pages =
+        Generators::PreparedRoadPages::Open(outshine::Test::OpenAssetStore(Directory.string()));
     if (!pages) { return false; }
     Pages = std::move(*pages);
     Region = std::make_shared<GroundRegionAsset>();

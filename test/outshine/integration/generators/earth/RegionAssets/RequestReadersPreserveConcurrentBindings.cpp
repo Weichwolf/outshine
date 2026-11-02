@@ -89,7 +89,7 @@ int ReplaceGround(const std::filesystem::path &directory, const RequestBinding &
 }
 
 int ReplaceRoad(const std::filesystem::path &directory, const RequestBinding &binding) {
-  auto cache = PreparedRoadPages::Open(directory.string());
+  auto cache = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   if (!cache) { return 1; }
   auto loaded = (*cache)->LoadKey(binding.ProductKey, kBytesMost);
   if (!loaded || !*loaded || !(**loaded).Page) { return 1; }
@@ -168,7 +168,7 @@ void CheckRoad(std::string_view executable) {
   Hook hook((fixture.Directory / "assets.sqlite").string(),
             key,
             Command(executable, "--road", fixture.Directory, key, request));
-  auto reader = PreparedRoadPages::Open(fixture.Directory.string());
+  auto reader = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(fixture.Directory.string()));
   CHECK(reader, "the independent native road request reader opens");
   if (!reader) { return; }
   hook.Armed = true;

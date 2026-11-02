@@ -1,7 +1,7 @@
 # Native road-demand replay
 
 This optional Linux/Clang/libc++ diagnostic wraps the native demand, page-load,
-asset-load, resolve and render entry points. Its explicit manifest selection is
+asset-load, both page-preparation overloads and render entry points. Its explicit manifest selection is
 a test input. It does not establish coverage or authorize product page suppression.
 The GNU wrapper names bind the inspected libc++ ABI; other toolchains need their
 own verified bindings.
@@ -42,16 +42,20 @@ OUTSHINE_CONSUMER_SELECTION=/tmp/road-selection.json \
 
 Only one manifest is accepted. Native selection validation succeeds before the
 allowlist becomes visible. Excluded `LoadKey` and road-tagged `AssetCache::Load`
-calls fail; `Resolve` always fails without invoking its factory. Frame records
+calls fail; both `Prepare` overloads fail before invoking a producer. Frame records
 retain camera serial, dimensions and complete Zstandard-compressed RGBA data.
 `declared_asset_slice_bytes` counts requested native record lengths, not compressed
 package or physical SSD traffic. Capture overhead is recorded separately and
 changes execution; these runs do not measure a product frame budget.
 
-`GuardCheck <fresh-directory>` exercises all three guards through actual native
+`GuardCheck <fresh-directory>` exercises all four guarded entries through actual native
 API calls, with an independently readable packet and an ordinary cache miss as
 positive controls. Set `OUTSHINE_CONSUMER_PROBE_DIR` to that same directory; it
 receives the guard summary. The fixture writes only its own temporary caches.
+
+Match every wrapped name to the actual libc++ binary, then run `GuardCheck` before
+replay. A macOS compile check does not validate GNU/Linux wrapper linking or execution;
+historical receipts do not qualify a changed probe.
 
 The historical excluded-page image counterexample remains unresolved
 ([#990](https://github.com/Weichwolf/outshine/issues/990#issuecomment-6302365198)).

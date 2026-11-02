@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedRoadPages.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
@@ -89,7 +90,7 @@ int main() {
   auto root = (std::filesystem::temp_directory_path() / "outshine-road-record-XXXXXX").string();
   CHECK(mkdtemp(root.data()) != nullptr, "the fixture owns an isolated road asset store");
   if (!std::filesystem::is_directory(root)) { return Report(); }
-  auto opened = PreparedRoadPages::Open(root);
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root));
   CHECK(opened.has_value(), "the real native road asset store opens");
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));

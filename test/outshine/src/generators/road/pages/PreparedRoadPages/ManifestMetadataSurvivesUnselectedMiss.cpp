@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreRoadManifest.h"
 #include "PreparedRoadPageFixture.h"
 #include "Earth.h"
@@ -105,7 +106,7 @@ int main() {
   std::error_code error;
   std::filesystem::create_directories(directory, error);
   CHECK(!error, "the private native asset directory is created");
-  auto pages = PreparedRoadPages::Open(directory.string());
+  auto pages = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(pages.has_value(), "the native road page service opens");
   const auto manifest = pages ? Prepare(**pages) : std::nullopt;
   CHECK(manifest.has_value(), "two independently stored native pages prepare shared metadata");

@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -75,21 +74,19 @@ std::optional<StreetGraphBuilder::Built> Decode(std::span<const uint8_t> bytes) 
 }
 }
 
-PreparedStreetGraph::PreparedStreetGraph(std::unique_ptr<AssetCache> cache, std::string recipe)
+PreparedStreetGraph::PreparedStreetGraph(std::shared_ptr<AssetCache> cache, std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {}
 
-std::expected<std::shared_ptr<PreparedStreetGraph>, std::string> PreparedStreetGraph::Open(
-    const std::string &directory, const Data::SourceSet &sources, AssetCache::Runtime runtime) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open the prepared street graph cache"); }
+std::expected<std::shared_ptr<PreparedStreetGraph>, std::string>
+PreparedStreetGraph::Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources) {
+  if (!cache) { return std::unexpected("street graphs require an asset store"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-street-graph-4",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("street source metadata cannot be encoded"); }
   return std::shared_ptr<PreparedStreetGraph>(
-      new PreparedStreetGraph(std::move(*cache), std::move(recipe)));
+      new PreparedStreetGraph(std::move(cache), std::move(recipe)));
 }
 
 std::expected<PreparedStreetGraph::Loaded, std::string>

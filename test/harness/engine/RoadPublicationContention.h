@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #ifndef OUTSHINE_TEST_ENGINE_ROADPUBLICATIONCONTENTION_H
 #define OUTSHINE_TEST_ENGINE_ROADPUBLICATIONCONTENTION_H
 #include "PreparedRoadPages.h"
@@ -64,7 +65,7 @@ struct Fixture {
 
   bool Open() {
     std::filesystem::create_directories(Directory);
-    auto opened = Pages::Open(Directory.string());
+    auto opened = Pages::Open(outshine::Test::OpenAssetStore(Directory.string()));
     if (!opened) { return false; }
     Cache = std::move(*opened);
     Pipeline = RoadPublications(Pool);

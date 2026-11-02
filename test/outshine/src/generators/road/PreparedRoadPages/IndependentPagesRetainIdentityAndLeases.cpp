@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedRoadPageFixture.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
@@ -158,7 +159,7 @@ void CheckDiagnostics() {
 
 void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   using namespace outshine::Test;
-  auto opened = PreparedRoadPages::Open(root.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root.string()));
   CHECK(opened.has_value(), "road pages use the existing assets.sqlite schema");
   if (!opened) { return; }
   size_t factories = 0;
@@ -228,7 +229,7 @@ void CheckCache(const std::filesystem::path &root, const RoadPageAsset &first) {
   const auto bound = (*cache)->FindRequest(request);
   CHECK(bound && *bound && (**bound).Key == cold->Record.Key,
         "demand binding points to the complete page");
-  auto fresh = PreparedRoadPages::Open(root.string());
+  auto fresh = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root.string()));
   CHECK(fresh.has_value(), "a fresh page connection opens");
   if (!fresh) { return; }
   const auto restored = fresh ? (*fresh)->LoadRequest(request, kLimit)

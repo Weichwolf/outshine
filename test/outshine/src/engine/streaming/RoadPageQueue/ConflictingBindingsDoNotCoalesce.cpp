@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "RoadPublicationFixture.h"
 #include "RoadPageQueue.h"
 #include "ControlledRoadPageProducer.h"
@@ -46,7 +47,7 @@ std::vector<RoadPageQueue::Completed> Wait(RoadPageQueue &queue) {
 void CheckBindings(const std::filesystem::path &directory) {
   using namespace outshine::Test;
   std::filesystem::create_directories(directory);
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(opened.has_value(), "the real native page cache opens");
   if (!opened) { return; }
   const std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
@@ -113,7 +114,7 @@ void CheckBindings(const std::filesystem::path &directory) {
       }
     }
   }
-  auto fresh = PreparedRoadPages::Open(directory.string());
+  auto fresh = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(fresh.has_value(), "a fresh offline cache connection opens after publication");
   if (!fresh) { return; }
   const auto bound = (*fresh)->LoadRequest(first.RequestKey, kLimit);

@@ -101,7 +101,9 @@ public:
   InvalidateManifest(const std::string &key, const std::string &failedPage, size_t pageBytesMost);
 
   [[nodiscard]] static std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
-  Open(const std::string &directory, AssetCache::Runtime runtime = {});
+  Open(std::shared_ptr<AssetCache> cache);
+  PreparedRoadPages(const PreparedRoadPages &) = delete;
+  PreparedRoadPages &operator=(const PreparedRoadPages &) = delete;
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   Inspect(const RoadPageAddress &address, size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure>
@@ -116,7 +118,7 @@ public:
           const std::stop_token &stop = {});
 
 private:
-  explicit PreparedRoadPages(std::unique_ptr<AssetCache> cache);
+  explicit PreparedRoadPages(std::shared_ptr<AssetCache> cache);
   [[nodiscard]] std::expected<void, Failure> ResolvePageRecord(PageWrite &write);
   [[nodiscard]] std::expected<void, Failure>
   GeneratePage(PageWrite &write, const RoadPageProducer *producer, const std::stop_token &stop);
@@ -124,7 +126,7 @@ private:
                                                                           size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
   ReadRecord(const std::string &key, const RoadPageAddress &address, size_t bytesMost);
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
 };
 }
 #endif

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedRoadPageFixture.h"
 #include "Earth.h"
 #include "ControlledRoadPageProducer.h"
@@ -68,7 +69,7 @@ int main() {
                     ("outshine-road-page-retry-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
-  auto opened = PreparedRoadPages::Open(root.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root.string()));
   CHECK(opened.has_value(), "the existing native cache opens");
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));

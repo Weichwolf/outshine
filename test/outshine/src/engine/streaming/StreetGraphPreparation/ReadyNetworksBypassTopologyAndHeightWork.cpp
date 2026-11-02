@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "GroundMaterialCatalog.h"
 #include "OsmField.h"
@@ -77,7 +78,8 @@ int main() {
   auto vectors = Input(false);
   auto ways = std::make_shared<Generators::Osm::StreetField>();
   CHECK(ways->Ingest(*vectors, templates) == 2, "both roads are normalized");
-  auto opened = Generators::Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
+  auto opened = Generators::Osm::PreparedStreetGraph::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "street graphs use the common asset database");
   if (!opened) { return Report(); }
   auto cache = std::move(*opened);
@@ -105,7 +107,8 @@ int main() {
   }
   if (!cold || !cold->Graph.Graph) { return Report(); }
   cache.reset();
-  opened = Generators::Osm::PreparedStreetGraph::Open((root / "assets").string(), sources);
+  opened = Generators::Osm::PreparedStreetGraph::Open(
+      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
   CHECK(opened.has_value(), "a fresh owner reopens the native network");
   if (!opened) { return Report(); }
   cache = std::move(*opened);

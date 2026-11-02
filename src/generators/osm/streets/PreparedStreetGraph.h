@@ -30,9 +30,7 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedStreetGraph>, std::string>
-  Open(const std::string &directory,
-       const Data::SourceSet &sources,
-       AssetCache::Runtime runtime = {});
+  Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources);
   [[nodiscard]] std::expected<std::string, std::string>
   Key(const OsmField &vectors,
       const StreetField &ways,
@@ -43,8 +41,8 @@ public:
                                                            const Factory &factory);
 
 private:
-  PreparedStreetGraph(std::unique_ptr<AssetCache> cache, std::string recipe);
-  std::unique_ptr<AssetCache> Cache_;
+  PreparedStreetGraph(std::shared_ptr<AssetCache> cache, std::string recipe);
+  std::shared_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
 };

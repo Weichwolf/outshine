@@ -84,7 +84,7 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
   if (!terrain) { return std::unexpected(std::move(terrain.error())); }
   auto buildings = Generators::PreparedBuildingAssets::Open(shared, sources);
   if (!buildings) { return std::unexpected(std::move(buildings.error())); }
-  auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources, storage);
+  auto network = Generators::Osm::PreparedStreetGraph::Open(shared, sources);
   if (!network) { return std::unexpected(std::move(network.error())); }
   auto vectors =
       Generators::Osm::PreparedOsmTiles::Open(directory, Sources_, transport, compute, {}, storage);
@@ -92,7 +92,7 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
   auto urban =
       Generators::Osm::PreparedUrbanAreas::Open(directory, sources, compute, *vectors, {}, storage);
   if (!urban) { return std::unexpected(std::move(urban.error())); }
-  auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory, storage);
+  auto roads = ::outshine::Generators::PreparedRoadPages::Open(shared);
   if (!roads) { return std::unexpected(std::move(roads.error())); }
   PreparedRoads_ = std::move(*roads);
   AssetStore_ = std::move(shared);

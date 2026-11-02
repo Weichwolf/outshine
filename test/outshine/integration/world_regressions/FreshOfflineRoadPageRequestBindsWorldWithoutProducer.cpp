@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreRoadManifest.h"
 #include "Earth.h"
 #include "PreparedRoadPages.h"
@@ -61,7 +62,7 @@ RoadPageRecipe Recipe() {
 }
 
 std::optional<Fixture> Seed(const std::filesystem::path &directory) {
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   if (!opened) { return std::nullopt; }
   auto &pages = **opened;
   RoadPageManifest manifest;
@@ -100,7 +101,7 @@ std::optional<Fixture> Seed(const std::filesystem::path &directory) {
 
 std::optional<Fixture> SeedBound(const std::filesystem::path &directory) {
   auto source = outshine::Test::TransportPlanFixture();
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   if (!source || !opened) { return std::nullopt; }
   const auto plan = std::make_shared<const TransportPlan>(std::move(*source));
   const auto planKey = TransportPlanContentKey(plan->Definition, plan->InputBinding);
@@ -187,7 +188,7 @@ int ChildResult() {
 
 int Offline(const char *directory, const Fixture &fixture) {
   using namespace outshine::Test;
-  auto opened = PreparedRoadPages::Open(directory);
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory));
   CHECK(opened, "a fresh process opens only the finished native cache");
   if (!opened) { return ChildResult(); }
   const std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);

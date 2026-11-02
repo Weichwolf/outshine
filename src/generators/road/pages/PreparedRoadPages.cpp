@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <expected>
-#include <filesystem>
 #include <memory>
 #include <optional>
 #include <stop_token>
@@ -80,15 +79,13 @@ std::expected<GeneratedAssetPackage, std::string> ProducePackage(const RoadPageR
 
 }
 
-PreparedRoadPages::PreparedRoadPages(std::unique_ptr<AssetCache> cache)
+PreparedRoadPages::PreparedRoadPages(std::shared_ptr<AssetCache> cache)
     : Cache_(std::move(cache)) {}
 
 std::expected<std::unique_ptr<PreparedRoadPages>, std::string>
-PreparedRoadPages::Open(const std::string &directory, AssetCache::Runtime runtime) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open the native road page cache"); }
-  return std::unique_ptr<PreparedRoadPages>(new PreparedRoadPages(std::move(*cache)));
+PreparedRoadPages::Open(std::shared_ptr<AssetCache> cache) {
+  if (!cache) { return std::unexpected("road pages require an asset store"); }
+  return std::unique_ptr<PreparedRoadPages>(new PreparedRoadPages(std::move(cache)));
 }
 
 std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>

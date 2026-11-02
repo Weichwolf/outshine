@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreRoadManifest.h"
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
@@ -38,7 +39,7 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
   std::error_code error;
   std::filesystem::create_directories(directory, error);
   if (error) { return std::nullopt; }
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   if (!opened) { return std::nullopt; }
   std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
   auto manifest = std::make_shared<RoadPageManifest>();

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreRoadManifest.h"
 #include "PreparedRoadPageFixture.h"
 #include "RoadPublicationFixture.h"
@@ -298,7 +299,7 @@ void CheckBuild(const std::filesystem::path &directory,
   std::vector<EarthworkStamp> earthworks;
   std::vector<DiagnosticSample> notes;
   CHECK(producer.Lay(site, expected, earthworks, notes), "the original road producer is available");
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(opened.has_value(), "the real native product cache opens");
   if (!opened) { return; }
   std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
@@ -349,7 +350,7 @@ void CheckBuild(const std::filesystem::path &directory,
   cold = std::unexpected("released");
   plan.reset();
   pages.reset();
-  opened = PreparedRoadPages::Open(directory.string());
+  opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(opened.has_value(), "a fresh service restores persisted products");
   if (!opened) { return; }
   pages = std::move(*opened);

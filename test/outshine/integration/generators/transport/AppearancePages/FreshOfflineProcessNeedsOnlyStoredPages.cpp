@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreRoadManifest.h"
 #include "PreparedRoadPages.h"
 #include "TransportRoadPageProducer.h"
@@ -38,7 +39,7 @@ constexpr size_t kAppearanceBytes = 4 + 64;
 
 std::optional<RoadPageManifest> Prepare(const std::string &directory) {
   auto source = TransportPlanFixture();
-  auto pages = PreparedRoadPages::Open(directory);
+  auto pages = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory));
   if (!source || !pages) { return {}; }
   const auto plan = std::make_shared<const TransportPlan>(std::move(*source));
   const auto planKey = TransportPlanContentKey(plan->Definition, plan->InputBinding);
@@ -162,7 +163,7 @@ bool Hit(PreparedRoadPages &pages, const std::string &key, bool version2) {
 int Offline(const std::filesystem::path &directory,
             const std::string &key,
             const std::string &legacyKey) {
-  auto pages = PreparedRoadPages::Open(directory.string());
+  auto pages = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   const bool valid = pages && Hit(**pages, key, true) && Hit(**pages, legacyKey, false);
   std::println("ROAD_OFFLINE v1_and_v2={} producer=absent plan_asset=absent source_modules=absent",
                valid);
@@ -213,7 +214,7 @@ int main(int argc, char *const *argv) {
     std::string key;
     std::string legacyKey;
     {
-      auto pages = PreparedRoadPages::Open(directory.string());
+      auto pages = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
       if (!pages) { return 1; }
       const auto stored = ::outshine::Test::StoreRoadManifest(**pages, *manifest);
       CHECK(stored.has_value(), "the fully bound manifest persists after its dependency");

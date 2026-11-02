@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "RoadPublicationFixture.h"
 #include "ControlledRoadPageProducer.h"
 #include "Check.h"
@@ -201,7 +202,7 @@ int main() {
   auto root =
       (std::filesystem::temp_directory_path() / "outshine-alias-generation-XXXXXX").string();
   CHECK(mkdtemp(root.data()) != nullptr, "the fixture owns isolated native assets");
-  auto opened = PreparedRoadPages::Open(root);
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root));
   CHECK(opened.has_value(), "the actual native page service opens");
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));

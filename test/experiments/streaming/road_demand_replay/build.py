@@ -62,6 +62,7 @@ def main():
             ["pkg-config", "--cflags", "libxxhash", "libzstd"], text=True
         )
     )
+    cflags.extend(("-I", str(folder.parents[2] / "harness/shared")))
     cdb = []
     for name in ("ConsumerReplay", "GuardCheck"):
         source, target = folder / f"{name}.cpp", output / f"{name}.o"

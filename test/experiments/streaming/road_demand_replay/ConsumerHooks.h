@@ -10,13 +10,16 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 
 using Restore = outshine::RoadPageRestoration;
 using BeginResult = std::expected<std::unique_ptr<Restore>, std::string>;
 using LoadResult = std::expected<std::optional<outshine::Generators::RoadPageLease>, std::string>;
-using ResolveResult = std::expected<outshine::Generators::RoadPageLease, std::string>;
+using PrepareResult = std::expected<outshine::AssetRecord, std::string>;
+using PrepareStepResult =
+    std::expected<outshine::AssetRecord, outshine::Generators::PreparedRoadPages::Failure>;
 using CacheResult = std::expected<std::optional<outshine::CachedAsset>, outshine::AssetCacheError>;
 BeginResult RealBegin(
     outshine::Tasks &pool,
@@ -44,12 +47,20 @@ LoadResult
 ProbeLoad(outshine::Generators::PreparedRoadPages *pages, const std::string &key, size_t limit) asm(
     "__wrap__ZN8outshine10Generators17PreparedRoadPages7LoadKeyERKNSt3__112basic_stringIcNS2_"
     "11char_traitsIcEENS2_9allocatorIcEEEEm");
-ResolveResult ProbeResolve(
-    outshine::Generators::PreparedRoadPages *pages,
-    const outshine::Generators::RoadPageRequest &request,
-    const outshine::Generators::RoadPageProducer *producer,
-    std::stop_token stop) asm("__wrap__ZN8outshine10Generators17PreparedRoadPages7ResolveERKNS0_"
-                              "15RoadPageRequestEPKNS0_16RoadPageProducerENSt3__110stop_tokenE");
+PrepareResult
+ProbePrepare(const outshine::Generators::PreparedRoadPages *pages,
+             const outshine::Generators::RoadPageRequest &request,
+             const outshine::Generators::RoadPageProducer *producer,
+             const std::stop_token
+                 &stop) asm("__wrap__ZN8outshine10Generators17PreparedRoadPages7PrepareERKNS0_"
+                            "15RoadPageRequestEPKNS0_16RoadPageProducerERKNSt3__110stop_tokenE");
+PrepareStepResult
+ProbePrepareStep(const outshine::Generators::PreparedRoadPages *pages,
+                 const outshine::Generators::PreparedRoadPages::PageWrite &write,
+                 const outshine::Generators::RoadPageProducer *producer,
+                 const std::stop_token
+                     &stop) asm("__wrap__ZN8outshine10Generators17PreparedRoadPages7PrepareERNS1_"
+                                "9PageWriteEPKNS0_16RoadPageProducerERKNSt3__110stop_tokenE");
 outshine::Result
 RealRender(outshine::Engine *engine,
            outshine::Extent extent) asm("__real__ZN8outshine6Engine6renderENS_6ExtentE");

@@ -1,4 +1,5 @@
 #include "test/harness/engine/RoadPublicationContention.h"
+#include "OpenAssetStore.h"
 #include "Check.h"
 #include "ControlledRoadPageProducer.h"
 #include "RoadPublicationFixture.h"
@@ -62,7 +63,7 @@ void CheckSharedCold() {
   CHECK(one && two && one->Package == two->Package && one->RequestKey == first.RequestKey &&
             two->RequestKey == second.RequestKey && cooks.load() == 1,
         "each consumer receives its binding to the same committed immutable package");
-  auto independent = Pages::Open(fixture.Directory.string());
+  auto independent = Pages::Open(outshine::Test::OpenAssetStore(fixture.Directory));
   CHECK(independent.has_value(),
         "a separate cache owner restores durable aliases without a producer");
   if (independent) {

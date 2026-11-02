@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "RoadPageRecipe.h"
 #include "RoadPublicationFixture.h"
 #include "PreparedRoadPageFixture.h"
@@ -215,7 +216,7 @@ void CheckMetadata(Tasks &pool, const std::filesystem::path &directory) {
                                          .Planes = {}});
   CHECK(rows && rows->size() == 1, "the existing spatial index returns the prepared page metadata");
   if (!rows || rows->size() != 1) { return; }
-  auto opened = PreparedRoadPages::Open(directory.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory.string()));
   CHECK(opened.has_value(), "the consumer starts with a fresh page service");
   if (!opened) { return; }
   const auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
@@ -261,7 +262,7 @@ int main() {
                     ("outshine-road-page-queue-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
-  auto opened = PreparedRoadPages::Open(root.string());
+  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(root.string()));
   CHECK(opened.has_value(), "the actual native page cache opens");
   if (!opened) { return Report(); }
   auto pages = std::shared_ptr<PreparedRoadPages>(std::move(*opened));
