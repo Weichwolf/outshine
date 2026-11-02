@@ -54,7 +54,7 @@ def compare(capture):
                 dy = np.tile((v / anisotropy + shear * u) * width * scale, (len(at), 1))
                 mask = footprint_field(at, dx, dy, scale)
                 expected = light_response(compose(at, dx, dy, **recipe), dx, dy)
-                for dtype in ("float16", "float32"):
+                for dtype in ("uint8", "float16", "float32"):
                     key = (float(scale), dtype)
                     if key not in products:
                         products[key] = bake(origin, scale, dtype=dtype)

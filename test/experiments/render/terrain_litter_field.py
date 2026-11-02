@@ -31,7 +31,7 @@ def bake(origin_m, scale_m, *, cells=32, side=512, dtype="float16", evaluate=noi
         or type(side) is not int
         or not 16 <= side <= 512
         or side & (side - 1)
-        or storage not in (np.dtype("float16"), np.dtype("float32"))
+        or storage not in (np.dtype("uint8"), np.dtype("float16"), np.dtype("float32"))
     ):
         raise ValueError("bounded metric scalar tile and dyadic resolution required")
     extent = cells * scale_m
@@ -42,16 +42,26 @@ def bake(origin_m, scale_m, *, cells=32, side=512, dtype="float16", evaluate=noi
     if (
         values.shape != (side * side,)
         or not np.isfinite(values).all()
-        or np.any(np.abs(values) > np.finfo(storage).max)
+        or np.any(
+            np.abs(values)
+            > (0.5 if storage == np.dtype("uint8") else np.finfo(storage).max)
+        )
     ):
         raise ValueError("finite scalar source field required")
     values = values.reshape(side, side)
-    levels = [frozen(values.astype(storage))]
+
+    def encode(scalar):
+        packed = (
+            np.rint((scalar + 0.5) * 255) if storage == np.dtype("uint8") else scalar
+        )
+        return frozen(packed.astype(storage))
+
+    levels = [encode(values)]
     width = side
     while width > 1:
         width //= 2
         values = values.reshape(width, 2, width, 2).mean(axis=(1, 3))
-        levels.append(frozen(values.astype(storage)))
+        levels.append(encode(values))
     return LitterField(tuple(origin), extent, scale_m, tuple(levels))
 
 
@@ -74,6 +84,8 @@ def _trilinear(field, at, lod):
                     ((width - 1) * cell,) * 2,
                     at[selected] - field.origin_m - cell / 2,
                 )[:, 0]
+            if values.dtype == np.dtype("uint8"):
+                scalar = scalar / 255 - 0.5
             result[selected] += scalar * amount[selected]
     return result
 

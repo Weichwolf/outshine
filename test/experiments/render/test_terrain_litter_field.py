@@ -8,6 +8,14 @@ from terrain_litter_field import bake, sample
 
 
 class LitterFieldTests(unittest.TestCase):
+    def test_unorm8_decode_preserves_constant_coverage_with_half_step_error(self):
+        for value in (0, 0.17, 0.5, 0.83, 1):
+            evaluate = lambda at, value=value: (np.full(len(at), value), None)
+            field = bake([-16, -16], 1, side=32, dtype="uint8", evaluate=evaluate)
+            actual = sample(field, [[0, 0]], [[0.7, 0]], [[0, 0.3]])[0]
+            self.assertLessEqual(abs(actual - (value - 0.5)), 0.5 / 255 + 1e-16)
+            self.assertEqual(field.retained_bytes, sum(4**i for i in range(6)))
+
     def test_affine_field_survives_mips_rotation_and_anisotropy_without_generation(
         self,
     ):
