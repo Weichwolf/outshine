@@ -23,8 +23,8 @@ Increasing shared publication capacity from four to 32 jobs retained the same
 workers, 32 tickets, 128 MiB input limit and 128 KiB receipt limit. It delivered
 more pages but worsened frame time. The second 32-job run published 7,346 pages
 into 1,024 slots over four rotations: publication count is not unique residency.
-Sparse used-page feedback and an oversubscribed working set need review before
-raising admission. The shared production limit remains four.
+Sparse used-page feedback and possible working-set oversubscription need review
+before raising admission. The shared production limit remains four.
 
 ## Native comparison
 
