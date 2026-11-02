@@ -37,6 +37,27 @@ def word_sources(at, recipe):
 
 
 class LitterFields(unittest.TestCase):
+    def test_prepared_mask_reuses_full_composition_without_source_lookup(self):
+        at = np.array([[0.3, -0.2], [-0.5, 0.1]])
+        dx, dy = np.tile([0.1, 0], (2, 1)), np.tile([0, 0.03], (2, 1))
+        recipe = {
+            "mean": [0.4, 0.3, 0.2, 0.7],
+            "recipe": [0.05, 0.002, 0.7, 0.04],
+            "contrast": 0.25,
+            "litter_recipe": [0.02, 0.001, 0.3, 0.03],
+            "difference": [0.1, -0.1, 0, 0.1],
+            "coverage": 0.4,
+        }
+        mask = footprint_field(at, dx, dy, 0.7)
+        original = compose(at, dx, dy, **recipe)
+        words = Mock(side_effect=AssertionError("source lookup on prepared mask hit"))
+        cached = compose(at, dx, dy, **recipe, mask_values=mask, mask_words=words)
+        np.testing.assert_array_equal(original, cached)
+        words.assert_not_called()
+        for invalid in ([0.1], [np.nan, 0]):
+            with self.assertRaises(ValueError):
+                compose(at, dx, dy, **recipe, mask_values=invalid)
+
     def test_oriented_gauss_filter_matches_previous_and_original_lookup(self):
         points = np.random.default_rng(1684).uniform(-2, 2, (32, 2))
         plane = prepare([[-2, -2], [2, 2]], halo=3)

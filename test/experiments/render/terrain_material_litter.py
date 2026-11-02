@@ -72,6 +72,7 @@ def compose(
     base_words=None,
     litter_words=None,
     mask_words=hash_words,
+    mask_values=None,
 ):
     """Current GroundSurface before later rock/class blending, clamp and lighting."""
     mean, difference = (
@@ -96,11 +97,16 @@ def compose(
     litter = detail(at, dx, dy, litter_recipe, contrast, word_sources=litter_words)
     if coverage == 1:
         return wearing(mean, litter)
-    field = (
-        footprint_field(at, dx, dy, recipe[2], words=mask_words)
-        if recipe[2] > 0
-        else np.zeros(len(at))
-    )
+    if mask_values is None:
+        field = (
+            footprint_field(at, dx, dy, recipe[2], words=mask_words)
+            if recipe[2] > 0
+            else np.zeros(len(at))
+        )
+    else:
+        field = np.asarray(mask_values, dtype=float)
+        if field.shape != (len(at),) or not np.isfinite(field).all():
+            raise ValueError("finite prepared litter mask per material query required")
     weight = np.clip(coverage + 2 * min(coverage, 1 - coverage) * field, 0, 1)
     first = mean - coverage * difference
     return (
