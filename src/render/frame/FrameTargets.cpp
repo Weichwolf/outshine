@@ -17,6 +17,7 @@ FrameTargets::Slot FrameTargets::Index(Resource resource) noexcept {
     case Resource::SceneSurfaceIdentity: return Slot::SurfaceIdentity;
     case Resource::SceneSurfaceBase: return Slot::SurfaceBase;
     case Resource::SceneSurfaceMetalRough: return Slot::SurfaceMetalRough;
+    case Resource::GroundFieldRequests: return Slot::GroundFields;
     case Resource::SceneTransmissive: return Slot::Transmissive;
     case Resource::SceneComposited: return Slot::Composited;
     case Resource::SceneAerial: return Slot::Aerial;

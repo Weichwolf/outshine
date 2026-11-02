@@ -30,6 +30,9 @@ const float kPi = acos(-1.0);
 #include "groundFineShadow.glsl"
 #endif
 #endif
+#if GROUND_FIELD_FEEDBACK_LOCATION > 0
+layout(location = GROUND_FIELD_FEEDBACK_LOCATION) out vec4 outGroundFields;
+#endif
 void main() {
   readSurfaceVaryings(interpolateAtOffset(positionMetric, vec2(0.0)));
   vec3 positionDx = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.25, 0.0)).xyz - position);
@@ -98,5 +101,8 @@ void main() {
 #endif
       shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
+#endif
+#if GROUND_FIELD_FEEDBACK_LOCATION > 0
+  outGroundFields = groundFieldRequest;
 #endif
 }

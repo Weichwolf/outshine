@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <Engine.h>
 #include "AssetCacheReclaimer.h"
+#include "LitterPageStream.h"
+#include "FieldPageTable.h"
 #include "FrameCoordinator.h"
 #include "Units.h"
 #include "Vec2.h"
@@ -118,6 +120,7 @@ struct EngineServices {
   EngineServices &operator=(const EngineServices &) = delete;
   EngineServices(EngineServices &&) = delete;
   EngineServices &operator=(EngineServices &&) = delete;
+  [[nodiscard]] std::shared_ptr<AssetPipeline> AssetPublications();
 
   // World consumers die first; providers and transport also outlive worker teardown.
   std::unique_ptr<Data::SourceTransport> Transport;
@@ -148,6 +151,8 @@ struct WorldRegionState {
 
   std::shared_ptr<Data::SourceSession> Sources;
   std::unique_ptr<Ground::SurfacePreparation> SurfaceOwner;
+  std::unique_ptr<LitterPageStream> MaterialPages;
+  std::vector<Render::FieldPageAddress> MaterialDemand;
 
   [[nodiscard]] decltype(auto) Surface(this auto &self) noexcept {
     return std::forward_like<decltype(self)>(*self.SurfaceOwner);
@@ -489,6 +494,7 @@ struct Engine::State {
                                                                Patchwork &patchwork);
   [[nodiscard]] GroundBuildProgress AdvanceGroundClasses();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
+  [[nodiscard]] Result AdvanceGroundMaterialPages();
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
   [[nodiscard]] GroundBuildProgress AdvanceGroundRoadAlignments(const TangentFrame &standing);

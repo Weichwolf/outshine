@@ -38,6 +38,7 @@ Result FrameCoordinator::Render(Extent frame) {
   }
   if (!State_.EnsureRuntimeScene()) { return std::unexpected(State_.Error); }
   const auto began = std::chrono::steady_clock::now();
+  if (const auto streamed = State_.AdvanceGroundMaterialPages(); !streamed) { return streamed; }
   if (!State_.Picture.Standing->Draw(State_.Error)) { return std::unexpected(State_.Error); }
   if (Open()) { Phase_ = Phase::DrawSucceeded; }
   State_.PublishRenderedFrame(began);

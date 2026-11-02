@@ -40,6 +40,9 @@ struct SDL_Window;
 #include "TextureFormat.h"
 #include "UploadQueue.h"
 #include "TerrainMaterialBuffers.h"
+#include "FieldPageFeedback.h"
+#include "FieldPageFeedbackPass.h"
+#include "R8PageAtlas.h"
 
 #include "Readback.h"
 #include "scene/SceneResources.h"
@@ -131,6 +134,12 @@ public:
   [[nodiscard]] UploadQueue::WaitScope OfflineUploads(std::chrono::nanoseconds budget) {
     return {UploadBudget_, budget};
   }
+
+  [[nodiscard]] R8PageAtlas *GroundFields() noexcept { return GroundFields_.get(); }
+
+  [[nodiscard]] size_t GroundFieldSamples() const noexcept;
+  [[nodiscard]] Native::Result<std::optional<size_t>>
+  TakeGroundFieldRequests(std::span<FieldPageAddress> into);
 
   [[nodiscard]] bool
   BeginsWorldCandidate(std::string &error,
@@ -889,7 +898,7 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 23;
+  static constexpr size_t kExecutorCount = 24;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
@@ -908,6 +917,11 @@ private:
                                             const ExecutionPlan &plan,
                                             bool drawsGlass,
                                             std::string &error);
+  [[nodiscard]] Native::Result<void> BindGroundFields(FrameResources &frame, bool enabled);
+  [[nodiscard]] Native::Result<void> CreateGroundFieldSamples(FrameResources &frame);
+  [[nodiscard]] Native::Result<void> BeginGroundFieldReadback();
+  [[nodiscard]] Native::Result<void> EncodeGroundFieldFeedback(const FrameContext &ctx,
+                                                               const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
                                                          const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGroundSelection(const FrameContext &ctx,
@@ -1061,6 +1075,7 @@ private:
   [[nodiscard]] Native::Texture *DisplaySource() const;
 
   std::unique_ptr<Native::Device> Device_;
+  std::unique_ptr<R8PageAtlas> GroundFields_;
   std::unique_ptr<RadianceFilter> RadianceFilter_;
   std::unique_ptr<MaterialFieldPass> MaterialFields_;
   std::chrono::nanoseconds UploadBudget_{};
@@ -1081,6 +1096,7 @@ private:
     TonemapStage Tonemap;
     DepthPyramidPass DepthPyramid;
     DepthPyramidPass GroundPyramid;
+    FieldPageFeedbackPass GroundFeedback;
     SkyStage Sky;
     SunShadowPass Shadow;
     GeometryCullStage Cull;

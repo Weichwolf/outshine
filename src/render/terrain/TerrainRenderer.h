@@ -42,6 +42,8 @@ public:
 
   [[nodiscard]] bool CapturesMaterial() const noexcept { return CapturesMaterial_; }
 
+  [[nodiscard]] bool UsesFieldPages() const noexcept { return UsesFieldPages_; }
+
   [[nodiscard]] Native::Result<void> ConfigureSelection(Native::Device &device) {
     return TerrainPatchSelection::Configure(device, Selection_);
   }
@@ -55,6 +57,7 @@ private:
   std::unique_ptr<Native::GraphicsPipeline> Depth_;
   std::unique_ptr<Native::GraphicsPipeline> Patches_;
   bool CapturesMaterial_ = false;
+  bool UsesFieldPages_ = false;
   TerrainPatchSelection::Pipelines Selection_;
 };
 
@@ -72,6 +75,8 @@ public:
 
   [[nodiscard]] bool CapturesMaterial() const noexcept { return Pipelines_->CapturesMaterial(); }
 
+  [[nodiscard]] bool UsesFieldPages() const noexcept { return Pipelines_->UsesFieldPages(); }
+
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,
                                       .FragmentSamplers = 2,
@@ -86,6 +91,7 @@ public:
     return shape;
   }();
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};
+  static constexpr size_t kFieldPageBindings = 2;
 
   [[nodiscard]] Native::Result<void> Configure(TerrainPipelines &pipelines,
                                                Native::Device &device,

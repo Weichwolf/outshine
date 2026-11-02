@@ -64,7 +64,7 @@ struct SurfacePreparationMetrics {
 
 class SurfacePreparation {
 public:
-  static constexpr int kAssetCacheConnections = 7;
+  static constexpr int kAssetCacheConnections = 8;
   SurfacePreparation() = default;
 
   ~SurfacePreparation() { Close(); }
@@ -175,6 +175,10 @@ public:
   [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedRoadPages> &
   RoadAssets() const noexcept {
     return PreparedRoads_;
+  }
+
+  [[nodiscard]] const std::shared_ptr<AssetCache> &MaterialAssets() const noexcept {
+    return MaterialAssets_;
   }
 
   [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedUrbanAreas> &
@@ -327,6 +331,7 @@ private:
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
   std::shared_ptr<::outshine::Generators::PreparedRoadPages> PreparedRoads_;
+  std::shared_ptr<AssetCache> MaterialAssets_;
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
   std::shared_ptr<Generators::Osm::PreparedUrbanAreas> PreparedUrban_;
   enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };

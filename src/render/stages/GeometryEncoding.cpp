@@ -1,6 +1,7 @@
 #include "GeometryRenderer.h"
 #include "BatchVisibility.h"
 #include "SurfaceBindings.h"
+#include "R8PageAtlas.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -268,7 +269,7 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
   if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return {}; }
   for (const auto &surface : Slots) {
     if (surface.Colour.Image == nullptr || surface.Domain != SurfaceDomain::Ground) { continue; }
-    std::array<Native::Binding, 7> bindings;
+    std::array<Native::Binding, 9> bindings;
     size_t count = 0;
     if (!Ground_.CapturesMaterial()) {
       auto shadow = Image(surface.Colour);
@@ -283,6 +284,18 @@ Native::Result<void> GeometryRenderer::EncodeGround(const PassRecording &into,
     const uint32_t firstStorage = Ground_.CapturesMaterial() ? 0u : 2u;
     bindings[count++] = Storage(2, firstStorage, GroundClasses_);
     bindings[count++] = Storage(2, firstStorage + 1, GroundPalette_);
+    if (Ground_.UsesFieldPages()) {
+      if (GroundFields_ == nullptr) {
+        return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                             .Message = "ground field atlas binding is missing"});
+      }
+      bindings[count++] = Storage(2, firstStorage + 2, &GroundFields_->Lookup());
+      bindings[count++] = {.Set = 2,
+                           .Slot = firstStorage + 3,
+                           .Value =
+                               Native::SampledTexture{.Image = {.Image = &GroundFields_->Image()},
+                                                      .Sampling = &GroundFields_->Sampling()}};
+    }
     bindings[count++] = {.Set = 1,
                          .Slot = 0,
                          .Value =

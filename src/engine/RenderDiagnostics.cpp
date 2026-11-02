@@ -1,5 +1,7 @@
 #include "TerrainLattice.h"
 #include "EngineState.h"
+#include "FieldPageTable.h"
+#include "LitterPageStream.h"
 #include "Heap.h"
 #include "RuntimeScene.h"
 #include "Units.h"
@@ -206,6 +208,31 @@ void Engine::State::Inspected() {
   InspectShadow(Picture, Published);
   InspectCulling(Picture, Published);
   InspectGround(Picture, Published);
+  if (World.MaterialPages) {
+    const auto counts = World.MaterialPages->Counts();
+    Published.RecordMetric("ground: field requests", static_cast<double>(counts.Wanted), "pages");
+    Published.RecordMetric("ground: field pending", static_cast<double>(counts.Pending), "pages");
+    Published.RecordMetric("ground: field started", static_cast<double>(counts.Started), "pages");
+    Published.RecordMetric(
+        "ground: field published", static_cast<double>(counts.Published), "pages");
+    Published.RecordMetric(
+        "ground: field native hits", static_cast<double>(counts.CacheHits), "pages");
+    Published.RecordMetric(
+        "ground: field deferred", static_cast<double>(counts.Deferred), "events");
+    Published.RecordMetric(
+        "ground: field CPU metadata bytes",
+        static_cast<double>(counts.BookkeepingBytes +
+                            World.MaterialDemand.capacity() * sizeof(Render::FieldPageAddress)),
+        "bytes");
+    if (const auto *atlas = Picture.Device.GroundFields()) {
+      Published.RecordMetric("ground: field GPU resident reservation bytes",
+                             static_cast<double>(atlas->Storage().ResidentBytes),
+                             "bytes");
+      Published.RecordMetric("ground: field GPU transfer reservation bytes",
+                             static_cast<double>(atlas->Storage().TransferBytes),
+                             "bytes");
+    }
+  }
   InspectIrradiance(Picture, Published);
   InspectVelocity(Picture, Published);
   Published.RecordMetric("the exposure the picture applied",

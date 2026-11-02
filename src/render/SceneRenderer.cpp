@@ -42,6 +42,18 @@ SceneRenderer::~SceneRenderer() {
 }
 
 namespace {
+std::array<float, 4> ClearColour(Resource resource) {
+  switch (resource) {
+    case Resource::SceneVelocity: return {kVelocityStatic, kVelocityStatic, 0.0f, 0.0f};
+    case Resource::SceneHdr:
+    case Resource::SceneComposited:
+    case Resource::SceneTransmissive:
+    case Resource::SceneLinear:
+    case Resource::GroundFieldRequests: return {};
+    default: return {0.0f, 0.0f, 0.0f, 1.0f};
+  }
+}
+
 bool DepthPyramidNeeded(const ExecutionPlan &plan) {
   return !plan.Holds(Stage::TemporalResolve) ||
          std::ranges::contains(plan.Specification().Outputs, Resource::DepthPyramid) ||
@@ -170,6 +182,9 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Ground,
          .Configure = &SceneRenderer::ConfigureGround,
          .Encode = &SceneRenderer::EncodeGround},
+        {.Named = Stage::GroundFieldFeedback,
+         .Configure = nullptr,
+         .Encode = &SceneRenderer::EncodeGroundFieldFeedback},
         {.Named = Stage::TransmissiveGeometry,
          .Configure = &SceneRenderer::ConfigureGlass,
          .Encode = &SceneRenderer::EncodeGlass},
@@ -520,6 +535,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
     case Resource::DepthPyramid: return frame.DepthPyramid.Buffer() != nullptr;
     case Resource::GroundPyramid: return frame.GroundPyramid.Buffer() != nullptr;
+    case Resource::GroundFieldSamples: return frame.GroundFeedback.Samples() != 0;
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
     case Resource::AtmosphereUniform:
@@ -903,6 +919,8 @@ void SceneRenderer::ApplyWorldDeclarations() {
 
 void SceneRenderer::BindFrameResources() {
   ActiveContent().Geometry().UsePipelines(ActiveFrame().GeometryPipelines);
+  ActiveContent().Geometry().GroundFieldsFrom(
+      ActiveContent().Geometry().Ground().UsesFieldPages() ? GroundFields_.get() : nullptr);
   ActiveContent().Transmission().UsePipelines(ActiveFrame().GlassPipelines);
   ActiveFrame().Shadow.Binds(ActiveContent().Geometry());
   ActiveFrame().Cull.Binds(CullSource(ActiveContent().Geometry()));
@@ -1377,11 +1395,7 @@ Native::Result<void> SceneRenderer::EncodeGraphicsPass(Native::Commands *command
     colour.Begin = Touched_[static_cast<size_t>(wanted)] ? Native::Load::Load : Native::Load::Clear;
     Touched_[static_cast<size_t>(wanted)] = true;
     colour.End = ActiveState().Plan->Stored(wanted) ? Native::Store::Store : Native::Store::Discard;
-    const bool coverage = wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
-                          wanted == Resource::SceneTransmissive || wanted == Resource::SceneLinear;
-    colour.Clear = wanted == Resource::SceneVelocity
-                       ? std::array{kVelocityStatic, kVelocityStatic, 0.0f, 0.0f}
-                       : std::array{0.0f, 0.0f, 0.0f, coverage ? 0.0f : 1.0f};
+    colour.Clear = ClearColour(wanted);
   }
   std::optional<Native::DepthAttachment> depth;
   if (declared.Depth != kNoEdge) {
@@ -1606,6 +1620,8 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
   CommitSubmittedFrame(stageSubmission, camera);
+  const auto readback = BeginGroundFieldReadback();
+  if (!readback) { return std::unexpected(readback.error().Message); }
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   CommitCostProfile(timing);

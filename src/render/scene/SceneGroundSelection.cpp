@@ -40,6 +40,10 @@ bool SceneRenderer::ConfigureGround(SceneRenderer &renderer,
                                     std::string &error) {
   auto gpu = frame.Handles;
   gpu.SceneColours = ColoursForStage(frame, plan, Stage::Ground);
+  if (!Accepted(renderer.BindGroundFields(frame, plan.Holds(Resource::GroundFieldRequests)),
+                error)) {
+    return false;
+  }
   return Accepted(renderer.ActiveContent().Geometry().ConfigureGround(frame.GeometryPipelines, gpu),
                   error);
 }

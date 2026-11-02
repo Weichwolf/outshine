@@ -9,3 +9,11 @@ layout(set = 2, binding = 0) uniform sampler2D shadowMap;
 #endif
 layout(std430, set = 2, binding = GROUND_CLASS_BINDING) readonly buffer GroundClasses { uint groundClasses[]; };
 layout(std430, set = 2, binding = GROUND_CLASS_BINDING + 1) readonly buffer GroundPalette { float groundPalette[]; };
+#if GROUND_FIELD_PAGES
+layout(std430, set = 2, binding = GROUND_CLASS_BINDING + 2) readonly buffer GroundFieldPages {
+  uvec4 groundFieldLayout;
+  uvec4 groundFieldEntries[];
+};
+layout(set = 2, binding = GROUND_CLASS_BINDING + 3) uniform sampler2D groundFieldAtlas;
+uvec4 fieldPageEntry(uint index) { return groundFieldEntries[index]; }
+#endif

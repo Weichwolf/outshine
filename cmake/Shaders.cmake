@@ -60,6 +60,18 @@ foreach(output IN LISTS outputs)
     -DSURFACE_IDENTITY_LOCATION=${i} -DSURFACE_BASE_LOCATION=${base} -DSURFACE_METALROUGH_LOCATION=${metal})
   outshine_shader("groundLit-${output}.frag" groundLit.glsl frag ${locations})
   outshine_shader("groundPatchLit-${output}.frag" groundLit.glsl frag -DGROUND_PATCHES=1 ${locations})
+  outshine_shader("groundLit-pages-${output}.frag" groundLit.glsl frag -DGROUND_FIELD_PAGES=1 ${locations})
+  outshine_shader("groundPatchLit-pages-${output}.frag" groundLit.glsl frag -DGROUND_PATCHES=1 -DGROUND_FIELD_PAGES=1 ${locations})
+  math(EXPR feedback "1 + ${v}")
+  foreach(location ${n} ${i} ${base} ${metal})
+    if(location GREATER_EQUAL feedback)
+      math(EXPR feedback "1 + ${location}")
+    endif()
+  endforeach()
+  outshine_shader("groundLit-pages-f${feedback}-${output}.frag" groundLit.glsl frag
+    -DGROUND_FIELD_PAGES=1 -DGROUND_FIELD_FEEDBACK_LOCATION=${feedback} ${locations})
+  outshine_shader("groundPatchLit-pages-f${feedback}-${output}.frag" groundLit.glsl frag
+    -DGROUND_PATCHES=1 -DGROUND_FIELD_PAGES=1 -DGROUND_FIELD_FEEDBACK_LOCATION=${feedback} ${locations})
   outshine_shader("prismLit-${output}.frag" litFragment.glsl frag -DPRISM_GRID=1
     -DLIT_KIND=0 -DLIT_TEXTURED=1 -DLIT_MAPPED=1 ${locations})
   foreach(kind 00 01 10 11 20 21 30)

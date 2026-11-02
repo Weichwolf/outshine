@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <filesystem>
 #include <utility>
 #include <ratio>
 #include <span>
@@ -91,6 +92,10 @@ SurfacePreparation::BindAssetCaches(const std::string &directory,
   if (!urban) { return std::unexpected(std::move(urban.error())); }
   auto roads = ::outshine::Generators::PreparedRoadPages::Open(directory, storage);
   if (!roads) { return std::unexpected(std::move(roads.error())); }
+  auto materialAssets =
+      AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(), storage);
+  if (!materialAssets) { return std::unexpected("could not bind terrain material assets"); }
+  MaterialAssets_ = std::shared_ptr<AssetCache>(std::move(*materialAssets));
   PreparedRoads_ = std::move(*roads);
   PreparedTerrain_ = std::move(*terrain);
   PreparedBuildings_ = std::move(*buildings);
@@ -179,6 +184,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
   PreparedNetwork_ = std::move(candidate.PreparedNetwork_);
   PreparedRegions_ = std::move(candidate.PreparedRegions_);
   PreparedRoads_ = std::move(candidate.PreparedRoads_);
+  MaterialAssets_ = std::move(candidate.MaterialAssets_);
   PreparedVectors_ = std::move(candidate.PreparedVectors_);
   PreparedUrban_ = std::move(candidate.PreparedUrban_);
   Materials_ = std::move(candidate.Materials_);
@@ -231,6 +237,7 @@ void SurfacePreparation::Close() {
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
   PreparedRoads_.reset();
+  MaterialAssets_.reset();
   StreetMode_ = StreetMode::Source;
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};

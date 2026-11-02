@@ -1,5 +1,38 @@
 #include "groundLitterFilter.glsl"
 #include "groundLitterOriented.glsl"
+#if GROUND_FIELD_PAGES
+#include "groundLitterPages.glsl"
+#if GROUND_FIELD_FEEDBACK_LOCATION > 0
+#include "fieldPageFeedback.glsl"
+vec4 groundFieldRequest = vec4(0.0);
+bool groundFieldMiss = false;
+#endif
+#endif
+
+float groundLitterSurfaceField(vec2 atM, vec2 worldDx, vec2 worldDy, float scaleM) {
+#if GROUND_FIELD_PAGES
+  vec2 dx = worldDx / scaleM;
+  vec2 dy = worldDy / scaleM;
+  if (max(dot(dx, dx), dot(dy, dy)) >= 4.0) { return 0.0; }
+  FieldPageLayout shape = FieldPageLayout(groundFieldLayout.x, groundFieldLayout.y,
+                                          groundFieldLayout.z, groundFieldLayout.w);
+  vec4 sampled;
+  ivec3 missing;
+  uint observation = uint(gl_FragCoord.x) + 3u * uint(gl_FragCoord.y);
+  bool hit = groundLitterPagesObserved(groundFieldAtlas, shape, atM / scaleM, dx, dy,
+                                       observation, sampled, missing);
+#if GROUND_FIELD_FEEDBACK_LOCATION > 0
+  if (!groundFieldMiss && (!hit || sampled.z > 0.0)) {
+    groundFieldRequest = fieldPageFeedback(missing);
+    groundFieldMiss = !hit;
+  }
+#endif
+  if (hit) {
+    return sampled.x;
+  }
+#endif
+  return groundLitterFootprintField(atM, worldDx, worldDy, scaleM);
+}
 
 struct GroundSurface {
   vec3 Albedo;
@@ -45,7 +78,7 @@ GroundSurface groundSubstrateSurface(int which, vec2 atM, vec2 worldDx, vec2 wor
                            groundPalette[layerAt + 7u]);
   GroundDetail litter = substrateDetail(litterRecipe, contrast, atM, worldDx, worldDy, footprintM);
   if (coverage >= 1.0) { return groundSurface(wears, litter); }
-  float field = recipe.z > 0.0 ? groundLitterFootprintField(atM, worldDx, worldDy, recipe.z) : 0.0;
+  float field = recipe.z > 0.0 ? groundLitterSurfaceField(atM, worldDx, worldDy, recipe.z) : 0.0;
   float weight = clamp(coverage + 2.0 * min(coverage, 1.0 - coverage) * field, 0.0, 1.0);
   vec4 first = wears - coverage * difference;
   return blendGroundSurfaces(

@@ -36,6 +36,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/integration/render/scene/SceneResources/GroundFieldBindingsSurviveWorldPublication
   outshine/src/render/stages/GeometryRenderer/GroundPassHasIndependentTargets
   outshine/integration/engine/streaming/BuildingFieldRequest/WorldDescriptorsResolveOnlyTheirRequestedField
   outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission

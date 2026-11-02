@@ -50,7 +50,7 @@ Native::Result<void> TerrainRenderer::DrawPatches(const PassRecording &into,
                                      PatchShape.VertexStorageBuffers + PatchShape.FragmentSamplers +
                                      PatchShape.FragmentUniformBuffers +
                                      PatchShape.FragmentStorageBuffers;
-  std::array<Native::Binding, maximumBindings> resources;
+  std::array<Native::Binding, maximumBindings + kFieldPageBindings> resources;
   if (bindings.size() + 3u > resources.size()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,

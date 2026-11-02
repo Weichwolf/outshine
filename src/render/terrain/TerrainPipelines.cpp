@@ -92,6 +92,7 @@ Native::Result<void> TerrainPipelines::ConfigureLit(Native::Device &device,
   Lit_ = std::move(*made);
   Patches_ = std::move(*patches);
   CapturesMaterial_ = outputs.BaseIndex >= 0;
+  UsesFieldPages_ = outputs.FieldPages;
   return {};
 }
 

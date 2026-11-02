@@ -16,21 +16,6 @@
 
 namespace outshine {
 namespace {
-std::shared_ptr<AssetPipeline> RoadPublications(EngineServices &services) {
-  if (!services.Compute) { return {}; }
-  if (!services.Publications) {
-    constexpr size_t kMebibyte = size_t{1024} * 1024;
-    services.Publications = std::make_shared<AssetPipeline>(
-        *services.Compute,
-        AssetPipeline::Limits{.JobsMost = 4,
-                              .ConsumersMost = 32,
-                              .TicketsMost = 32,
-                              .InputBytesMost = 128 * kMebibyte,
-                              .ReceiptBytesMost = size_t{32} * 4096});
-  }
-  return services.Publications;
-}
-
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 
@@ -220,7 +205,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                        site,
                        Services.Compute.get(),
                        World.Surface().RoadAssets(),
-                       World.Surface().RoadAssets() ? RoadPublications(Services) : nullptr);
+                       World.Surface().RoadAssets() ? Services.AssetPublications() : nullptr);
     if (!accepted) {
       Error = accepted.error();
       return false;

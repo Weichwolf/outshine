@@ -1,6 +1,7 @@
 #include "GeometryRenderer.h"
 #include "RenderScene.h"
 #include "Gpu.h"
+#include "R8PageAtlas.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "Check.h"
@@ -73,6 +74,18 @@ void Probe(Observed &device) {
   Require(geometry.ConfigureGround(binding, gpu));
   CHECK(geometry.Ground().CapturesMaterial() && device.GroundTargets.back() == 5,
         "terrain resource bindings derive from its own capture mode independently of opaque mode");
+  const R8PageAtlasOptions options{
+      .Layout = {.CoreTexels = 64, .Columns = 2, .Entries = 16, .Probes = 16},
+      .Slots = 2,
+      .EditsPerBatch = 2,
+      .PendingBatches = 2};
+  const auto atlas =
+      Require(R8PageAtlas::Create(device, options, Require(R8PageAtlasStorageFor(options))));
+  geometry.GroundFieldsFrom(&atlas);
+  CHECK(gpu.SceneColours.Add(Resource::GroundFieldRequests), "terrain feedback has its own target");
+  Require(geometry.ConfigureGround(binding, gpu));
+  CHECK(geometry.Ground().UsesFieldPages() && device.GroundTargets.back() == 6,
+        "the cached terrain capture binds its lookup and feedback variant independently of opaque");
 }
 }
 
