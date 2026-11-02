@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "GroundRegionAsset.h"
@@ -51,7 +52,7 @@ void StoredRequest(bool roads, bool manifestStored) {
                                         fixture.Request);
   CHECK(stored, "a real native region and its request binding persist independently of lookup");
   if (!stored) { return; }
-  auto fresh = Regions::Open(fixture.Directory.string(), fixture.Sources, "fixture-rules");
+  auto fresh = Regions::Open(OpenAssetStore(fixture.Directory), fixture.Sources, "fixture-rules");
   CHECK(fresh, "a fresh cache owner restores the persisted request without generation inputs");
   if (!fresh) { return; }
   fixture.Job = std::make_unique<Generators::GroundRegionRequest>(

@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "test/harness/generators/GroundPublicationFixture.h"
 #include "GroundRegionAsset.h"
 #include "PreparedRoadPages.h"
@@ -72,7 +73,7 @@ void ColdThenWarmBind() {
   const auto bound = fixture.Cache->Store(*warm);
   CHECK(bound && fixture.Cache->Costs().Decodes == costs.Decodes,
         "admission release binds and returns the retained native region without another decode");
-  auto fresh = Regions::Open(fixture.Directory.string(), fixture.Sources, "fixture-rules");
+  auto fresh = Regions::Open(OpenAssetStore(fixture.Directory), fixture.Sources, "fixture-rules");
   CHECK(fresh, "a fresh native owner can verify the persisted request binding");
   if (!fresh) { return; }
   const auto hit = (*fresh)->LoadRequest(alias);

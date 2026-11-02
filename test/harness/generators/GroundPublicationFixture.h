@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #ifndef OUTSHINE_TEST_GENERATORS_GROUNDPUBLICATIONFIXTURE_H
 #define OUTSHINE_TEST_GENERATORS_GROUNDPUBLICATIONFIXTURE_H
 #include "GroundRegionRequest.h"
@@ -63,7 +64,8 @@ struct Fixture {
 
   bool Open(bool roads = false) {
     std::filesystem::create_directories(Directory);
-    auto opened = Regions::Open(Directory.string(), Sources, "fixture-rules");
+    auto opened =
+        Regions::Open(outshine::Test::OpenAssetStore(Directory.string()), Sources, "fixture-rules");
     if (!opened) { return false; }
     Cache = std::move(*opened);
     auto pages = Generators::PreparedRoadPages::Open(Directory.string());

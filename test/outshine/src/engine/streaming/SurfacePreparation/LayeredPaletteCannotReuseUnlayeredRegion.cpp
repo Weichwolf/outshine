@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "BuiltinSourceProviders.h"
 #include "Check.h"
 #include "SurfacePreparation.h"
@@ -61,7 +62,7 @@ int main() {
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
   auto legacy = Generators::Osm::PreparedGroundRegions::Open(
-      (cache.Path / "assets").string(), sources, *materialRules);
+      outshine::Test::OpenAssetStore((cache.Path / "assets").string()), sources, *materialRules);
   CHECK(legacy, "the previous region recipe opens without source acquisition");
   if (!legacy) { return Report(); }
   const Ground::ShapedGround shape;

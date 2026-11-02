@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreGroundRegion.h"
 #include "Check.h"
 #include "GroundRegionAsset.h"
@@ -58,7 +59,8 @@ bool Prime(const std::filesystem::path &root) {
   Data::RawSourceCache raw({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(raw);
   Fixture::RegisterRecipe(sources, false);
-  const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
+  const auto opened = PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(root.string()), sources, "fixture-rules");
   CHECK(opened, "the native producer opens its test-owned asset directory");
   if (!opened) { return false; }
   GroundRegionAsset region{};
@@ -100,7 +102,8 @@ int Offline(const std::filesystem::path &root, bool pair) {
   Data::RawSourceCache raw({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   Data::SourceSet sources(raw);
   Fixture::RegisterRecipe(sources, pair);
-  const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
+  const auto opened = PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(root.string()), sources, "fixture-rules");
   CHECK(opened, "the fresh process opens metadata and assets with no source data available");
   if (!opened) { return Test::Report(); }
   const auto request = Request(**opened);

@@ -11,7 +11,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
-#include <filesystem>
 #include <memory>
 #include <optional>
 #include <span>
@@ -80,7 +79,7 @@ Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMos
 }
 }
 
-PreparedGroundRegions::PreparedGroundRegions(std::unique_ptr<AssetCache> cache, std::string recipe)
+PreparedGroundRegions::PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe)
     : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {
   BinaryValueWriter prefix(kRequestBytesMost);
   if (!prefix.Text("native-ground-region-demand-2") || !prefix.Text(Recipe_)) { return; }
@@ -89,14 +88,9 @@ PreparedGroundRegions::PreparedGroundRegions(std::unique_ptr<AssetCache> cache, 
   RequestPrefixBytes_ = bytes.size();
 }
 
-std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
-PreparedGroundRegions::Open(const std::string &directory,
-                            const Data::SourceSet &sources,
-                            std::string_view rules,
-                            AssetCache::Runtime runtime) {
-  auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string(),
-                                std::move(runtime));
-  if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
+std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
+    std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources, std::string_view rules) {
+  if (!cache) { return std::unexpected("ground regions require an asset store"); }
   auto recipe = Generators::AssetSourceRecipe(
       "prepared-ground-region-100",
       sources,
@@ -104,7 +98,7 @@ PreparedGroundRegions::Open(const std::string &directory,
   if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }
   recipe.append(rules);
   return std::shared_ptr<PreparedGroundRegions>(
-      new PreparedGroundRegions(std::move(*cache), std::move(recipe)));
+      new PreparedGroundRegions(std::move(cache), std::move(recipe)));
 }
 
 std::string PreparedGroundRegions::Key(const OsmField &vectors,

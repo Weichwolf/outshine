@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "AssetCache.h"
@@ -72,7 +73,8 @@ Hook::~Hook() {
 int ReplaceGround(const std::filesystem::path &directory, const RequestBinding &binding) {
   Data::RawSourceCache raw{{.Directory = {}, .Using = Data::RawSourceCache::Use::Off}};
   const Data::SourceSet sources(raw);
-  auto cache = Osm::PreparedGroundRegions::Open(directory.string(), sources, "fixture-rules");
+  auto cache = Osm::PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(directory.string()), sources, "fixture-rules");
   if (!cache) { return 1; }
   auto original = (*cache)->Load(binding.ProductKey);
   if (!original || !*original) { return 1; }
@@ -131,7 +133,7 @@ void CheckGround(std::string_view executable) {
             fixture.Key,
             Command(executable, "--ground", fixture.Directory, fixture.Key, fixture.Request));
   auto reader = Osm::PreparedGroundRegions::Open(
-      fixture.Directory.string(), fixture.Sources, "fixture-rules");
+      outshine::Test::OpenAssetStore(fixture.Directory.string()), fixture.Sources, "fixture-rules");
   auto records = AssetCache::Open((fixture.Directory / "assets.sqlite").string());
   CHECK(reader && records, "independent native ground and metadata readers open");
   if (!reader || !records) { return; }

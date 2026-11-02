@@ -73,10 +73,7 @@ public:
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
-  Open(const std::string &directory,
-       const Data::SourceSet &sources,
-       std::string_view rules,
-       AssetCache::Runtime runtime = {});
+  Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources, std::string_view rules);
   [[nodiscard]] std::expected<std::string, std::string>
   PlanRequest(LongitudeLatitude focus,
               int zoom,
@@ -105,11 +102,11 @@ public:
                                                      const std::stop_token &stop = {});
 
 private:
-  PreparedGroundRegions(std::unique_ptr<AssetCache> cache, std::string recipe);
+  PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe);
   [[nodiscard]] ReadResult Read(const std::string &key);
   [[nodiscard]] std::expected<Loaded, Failure> ResumeStore(StoreWork &work,
                                                            const std::stop_token &stop);
-  std::unique_ptr<AssetCache> Cache_;
+  std::shared_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::optional<Sha256Prefix> RequestPrefix_;
   size_t RequestPrefixBytes_ = 0;

@@ -52,8 +52,7 @@ SurfacePreparation::CreateVectorField() const {
 
 std::expected<void, std::string>
 SurfacePreparation::BindRegionCache(const ContentDirectories &under,
-                                    const Data::SourceSet &sources,
-                                    const AssetCache::Runtime &storage) {
+                                    const Data::SourceSet &sources) {
   if (under.Assets.empty()) { return {}; }
   const auto &builtinData = under.BuiltinData;
   constexpr size_t bytesMost = size_t{1024} * 1024u;
@@ -65,8 +64,7 @@ SurfacePreparation::BindRegionCache(const ContentDirectories &under,
   materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
-  auto regions =
-      Generators::Osm::PreparedGroundRegions::Open(under.Assets, sources, *materials, storage);
+  auto regions = Generators::Osm::PreparedGroundRegions::Open(AssetStore_, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
   return {};
@@ -170,7 +168,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
       candidate.Recipes_.Load((builtinData + "/world/vegetation.json").c_str(),
                               candidate.Materials_);
   if (candidate.RecipesReady_) {
-    if (auto bound = candidate.BindRegionCache(under, sources, storage); !bound) {
+    if (auto bound = candidate.BindRegionCache(under, sources); !bound) {
       return std::unexpected(std::move(bound.error()));
     }
   } else if (diagnostics != nullptr) {

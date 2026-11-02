@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "PreparedGroundRegions.h"
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
@@ -122,7 +123,8 @@ int main() {
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   previous.append(rules);
   {
-    const auto opened = PreparedGroundRegions::Open(root.string(), sources, rules);
+    const auto opened =
+        PreparedGroundRegions::Open(outshine::Test::OpenAssetStore(root.string()), sources, rules);
     CHECK(opened, "the source-independent request service opens with a large recipe");
     if (opened) {
       rules.assign(rules.size(), 'x');
@@ -136,8 +138,8 @@ int main() {
   }
   {
     const std::string oversized(kLegacyLimit, 'r');
-    const auto opened =
-        PreparedGroundRegions::Open((root / "oversized").string(), sources, oversized);
+    const auto opened = PreparedGroundRegions::Open(
+        outshine::Test::OpenAssetStore((root / "oversized").string()), sources, oversized);
     const Ground::ShapedGround shape;
     CHECK(opened && (*opened)->RequestKey(4, MvtSchema::Shortbread, shape, {}, {}).empty(),
           "an oversized immutable prefix remains an invalid request");

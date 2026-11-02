@@ -313,10 +313,8 @@ private:
                   Data::SourceTransport &transport,
                   Tasks &compute,
                   const AssetCache::Runtime &storage);
-  [[nodiscard]] std::expected<void, std::string>
-  BindRegionCache(const ContentDirectories &under,
-                  const Data::SourceSet &sources,
-                  const AssetCache::Runtime &storage);
+  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const ContentDirectories &under,
+                                                                 const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;

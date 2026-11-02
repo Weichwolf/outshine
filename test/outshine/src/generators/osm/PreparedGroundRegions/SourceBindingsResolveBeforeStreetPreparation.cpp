@@ -1,3 +1,4 @@
+#include "OpenAssetStore.h"
 #include "StoreGroundRegion.h"
 #include "PreparedGroundRegions.h"
 #include "OsmField.h"
@@ -42,7 +43,8 @@ void FreshRequestHit(const std::string &directory,
   using namespace outshine::Test;
   using Generators::Osm::MvtSchema;
   using Generators::Osm::PreparedGroundRegions;
-  const auto opened = PreparedGroundRegions::Open(directory, sources, "fixture-rules");
+  const auto opened = PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(directory), sources, "fixture-rules");
   CHECK(opened, "fresh service opens without vector, elevation or street preparation");
   if (!opened) { return; }
   const Ground::ShapedGround shape;
@@ -83,7 +85,8 @@ int main() {
   std::filesystem::create_directories(root);
   Data::RawSourceCache store({.Directory = {}, .Using = Data::RawSourceCache::Use::Off});
   const Data::SourceSet sources(store);
-  const auto opened = PreparedGroundRegions::Open(root.string(), sources, "fixture-rules");
+  const auto opened = PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(root.string()), sources, "fixture-rules");
   CHECK(opened, "native regions open before any source or street preparation");
   if (!opened) { return Report(); }
   const auto &cache = *opened;
@@ -143,7 +146,8 @@ int main() {
   OsmField other(2, layers);
   CHECK(other.Accept(1, 1, tile) && cache->Key(other, shape, parameters) != key,
         "a raw geometry change invalidates the region before derived products exist");
-  const auto otherRules = PreparedGroundRegions::Open(root.string(), sources, "other-rules");
+  const auto otherRules = PreparedGroundRegions::Open(
+      outshine::Test::OpenAssetStore(root.string()), sources, "other-rules");
   CHECK(otherRules && (*otherRules)->Key(vectors, shape, parameters) != key,
         "generator material and placement rules participate in region identity");
   OsmField declared(2, layers);
