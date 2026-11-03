@@ -731,6 +731,9 @@ public:
     StageCost Gpu;
     uint64_t UnavailableGpuFrames = 0;
     uint64_t DroppedGpuSamples = 0;
+    uint64_t FrustumSelections = 0;
+    uint64_t OcclusionSelections = 0;
+    uint64_t ReusedSelections = 0;
     double GpuQueryMs = 0.0;
     uint64_t Frames = 0;
   };

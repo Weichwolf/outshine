@@ -119,6 +119,16 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
   Published.RecordMetric("cull: logical jobs admitted",
                          static_cast<double>(Render::GeometryCullStage::JobsAdmittedTaken()),
                          "jobs");
+  const auto &selectionCosts = Picture.Device.Costs();
+  Published.RecordMetric("cull encodings: frustum only",
+                         static_cast<double>(selectionCosts.FrustumSelections),
+                         "passes");
+  Published.RecordMetric("cull encodings: depth occlusion",
+                         static_cast<double>(selectionCosts.OcclusionSelections),
+                         "passes");
+  Published.RecordMetric("cull encodings: reused selection",
+                         static_cast<double>(selectionCosts.ReusedSelections),
+                         "passes");
   const auto &bodyPublication = ScenarioState->Entities.PublicationCost();
   Published.RecordMetric("body publication: copied payload",
                          static_cast<double>(bodyPublication.CopiedBytes),

@@ -1225,7 +1225,16 @@ Native::Result<void> SceneRenderer::EncodeGeometryRoots(const FrameContext &ctx,
       .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
                                     1.0f / static_cast<float>(lens.HighPx)}}
                            : Vec2f{}};
-  return ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+  const auto encoded = ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+  if (!encoded) { return encoded; }
+  if (ActiveFrame().Cull.JobsAdmitted() == 0) {
+    ++Costs_.ReusedSelections;
+  } else if (ActiveFrame().Cull.EncodedOcclusion()) {
+    ++Costs_.OcclusionSelections;
+  } else {
+    ++Costs_.FrustumSelections;
+  }
+  return {};
 }
 
 Native::Result<void> SceneRenderer::EncodeGeometryCull([[maybe_unused]] const FrameContext &ctx,

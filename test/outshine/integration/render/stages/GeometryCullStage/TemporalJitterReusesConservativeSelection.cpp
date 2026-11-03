@@ -128,6 +128,8 @@ void Exercise(DepthRequest requestedDepth) {
     rasterChanged |= depth != initial;
   }
   CHECK(rasterChanged, "raster jitter continues while selection is reused");
+  CHECK(renderer.Costs().OcclusionSelections == 0 && renderer.Costs().ReusedSelections >= 32,
+        "temporal selection reuse is measured separately from depth occlusion");
   eye.EyeM[0] = kMovedEyeXM;
   scene->Eye(eye);
   reject = true;

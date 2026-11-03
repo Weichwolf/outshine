@@ -74,6 +74,8 @@ public:
 
   [[nodiscard]] uint32_t JobsAdmitted() const { return Swept_; }
 
+  [[nodiscard]] bool EncodedOcclusion() const noexcept { return Swept_ != 0 && OccludeThisFrame_; }
+
   [[nodiscard]] bool HasAcceptedSelection() const noexcept { return Cache_.Submitted(); }
 
   void Projects(float heightPx) {

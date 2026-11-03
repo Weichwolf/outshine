@@ -114,6 +114,13 @@ void Exercise() {
         "only one world frame was measured and published");
   CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() > 0,
         "the next stable frame can refine against genuine previous depth");
+  CHECK(renderer.Costs().OcclusionSelections == 1 && renderer.Costs().FrustumSelections != 0 &&
+            renderer.Costs().ReusedSelections != 0,
+        "the counters distinguish encoded depth work from preparation and reuse");
+  renderer.ResetMeasurements();
+  CHECK(renderer.Costs().OcclusionSelections == 0 && renderer.Costs().FrustumSelections == 0 &&
+            renderer.Costs().ReusedSelections == 0,
+        "a new measurement interval excludes previous selection work");
 }
 }
 
