@@ -41,6 +41,13 @@ void InspectCulling(EngineRenderState &picture, Core::DiagnosticLedger &publishe
                              kept, Render::GeometryReadback::Counters) == Render::ReadState::Ready;
   published.RecordMetric("cull snapshot: available", available ? 1.0 : 0.0, "");
   if (available) {
+    published.RecordMetric("cull snapshot: phases", kept.TwoPhase ? 2 : 1, "passes");
+    published.RecordMetric("cull snapshot: predicted index references",
+                           static_cast<double>(kept.PredictedIndices),
+                           "indices");
+    published.RecordMetric("cull snapshot: deferred index references",
+                           static_cast<double>(kept.DeferredIndices),
+                           "indices");
     published.RecordMetric(
         "cull: indices the geometry cull kept", static_cast<double>(kept.Indices), "indices");
     published.RecordMetric(
@@ -57,7 +64,10 @@ void InspectCulling(EngineRenderState &picture, Core::DiagnosticLedger &publishe
         std::pair{"cluster queue overflow", kept.ClusterWork.Overflow},
         std::pair{"selected index references", kept.ClusterWork.LogicalWork}};
     for (const auto &[name, value] : values) {
-      published.RecordMetric("cull snapshot: " + std::string(name), static_cast<double>(value), "");
+      published.RecordMetric("cull snapshot: " + std::string(kept.TwoPhase ? "final pass " : "") +
+                                 name,
+                             static_cast<double>(value),
+                             "");
     }
     published.RecordMetric(
         "cull snapshot: readback payload", static_cast<double>(kept.ReadbackBytes), "bytes");

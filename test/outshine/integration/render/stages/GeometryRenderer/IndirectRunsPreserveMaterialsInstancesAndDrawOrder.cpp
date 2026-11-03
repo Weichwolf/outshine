@@ -104,8 +104,14 @@ void Compare(outshine::Render::SceneRenderer &actual, outshine::Render::SceneRen
   CHECK(direct.DirectTriangles == 96 && direct.IndirectInputTriangles == 1 &&
             direct.IndirectRecords == 1,
         "direct pieces and the shared indirect main triangle have distinct input counts");
-  CHECK(actual.GeometryDrawCallCount() == 6 && oracle.GeometryDrawCallCount() == 25,
-        "material, layout and direct-batch boundaries split compatible indirect runs");
+  const auto &retry = actual.Spent(Stage::OpaqueGeometryRetry);
+  const auto &directRetry = oracle.Spent(Stage::OpaqueGeometryRetry);
+  CHECK(retry.Draws == 5 && retry.DirectTriangles == 0 && retry.IndirectRecords == 47 &&
+            directRetry.Draws == 1 && directRetry.DirectTriangles == 0 &&
+            directRetry.IndirectRecords == 1,
+        "recovery preserves compatible runs and never repeats direct fallback draws");
+  CHECK(actual.GeometryDrawCallCount() == 6 + 5 && oracle.GeometryDrawCallCount() == 25 + 1,
+        "frame draw counters include both visibility phases and their material boundaries");
 }
 }
 

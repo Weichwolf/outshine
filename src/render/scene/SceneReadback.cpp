@@ -212,6 +212,10 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
   into = {};
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  if (ActiveFrame().Cull.HasCombinedSelection()) {
+    return ReadCombinedGeometrySelection(into, detail);
+  }
   const GeometryResidency &resident = ActiveContent().Geometry().Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();

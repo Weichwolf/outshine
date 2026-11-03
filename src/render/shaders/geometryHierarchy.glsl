@@ -19,6 +19,7 @@ const uint kGeometryChunkClusters = 64u;
 const uint kGeometryRootBound = 1u;
 const uint kGeometryUnboundedDeformation = 2u;
 const uint kGeometryShadowOnly = 4u;
+const uint kGeometryBlended = 8u;
 uint geometryGroup() {
   return gl_WorkGroupID.y * hierarchy.work.y + gl_WorkGroupID.x;
 }

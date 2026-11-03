@@ -12,6 +12,7 @@ layout(std430, set = 0, binding = 4) readonly buffer Buffer_chunks { uvec2 chunk
 layout(std430, set = 0, binding = 5) readonly buffer Buffer_chunkState { GeometryQueueState chunkState; };
 layout(std430, set = 0, binding = 6) readonly buffer Buffer_prefix { uint prefix[]; };
 layout(std430, set = 0, binding = 7) readonly buffer Buffer_pyramid { float pyramid[]; };
+layout(std430, set = 0, binding = 8) readonly buffer Buffer_firstKept { uint firstKept[]; };
 layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
 layout(std430, set = 1, binding = 1) buffer Buffer_clusters { uvec2 clusters[]; };
 layout(std430, set = 1, binding = 2) buffer Buffer_clusterState { GeometryQueueState clusterState; };
@@ -42,10 +43,13 @@ void main() {
   if (ordinal >= root.cluster.y) { return; }
   atomicAdd(clusterState.counts.z, 1u);
   const uvec4 item = templates[root.cluster.x + ordinal];
-  const uint count = (root.instance.w & kGeometryUnboundedDeformation) != 0u
+  const uint logical = root.cluster.z + ordinal;
+  const bool defer = view.phase == 1u && (root.instance.w & kGeometryBlended) != 0u;
+  const bool drawn = view.phase == 2u && firstKept[logical] != 0u;
+  const uint count = defer || drawn ? 0u : (root.instance.w & kGeometryUnboundedDeformation) != 0u
                      ? item.z
                      : geometryClusterCount(placements[root.instance.x].current, item.x, item.z);
-  kept[root.cluster.z + ordinal] = count;
+  kept[logical] = count;
   if (count == 0u) { return; }
   atomicAdd(clusterState.counts.w, 1u);
   atomicAdd(clusterState.dispatch.w, count);

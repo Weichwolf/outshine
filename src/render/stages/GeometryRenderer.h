@@ -80,6 +80,7 @@ struct GeometryUploadMetrics {
 
 enum class GeometryPassKind : uint8_t { Opaque, Transmission };
 enum class GeometryPipelineScope : uint8_t { Meshes, Scene };
+enum class GeometryDrawPhase : uint8_t { Complete, Prediction, Deferred };
 
 class GeometryRenderer {
 public:
@@ -378,6 +379,11 @@ private:
                                                   const FrameUniforms &uniforms) const;
   [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
                                                   const FrameUniforms &uniforms);
+  [[nodiscard]] Native::Result<void> EncodeBatches(const FrameContext &ctx,
+                                                   const PassRecording &into,
+                                                   const FrameUniforms &uniforms,
+                                                   GeometryDrawPhase phase,
+                                                   bool blended);
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,
                                                     bool culled,
@@ -410,7 +416,18 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx,
+                                            const PassRecording &into,
+                                            GeometryDrawPhase phase = GeometryDrawPhase::Complete);
+
+  [[nodiscard]] std::span<const GeometryRoot> SelectionRoots() const noexcept {
+    return TableRoots_;
+  }
+
+  [[nodiscard]] std::span<const GeometryClusterTemplate> SelectionTemplates() const noexcept {
+    return TableTemplates_;
+  }
+
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 

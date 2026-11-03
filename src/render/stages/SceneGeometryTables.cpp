@@ -99,6 +99,7 @@ bool GeometryRenderer::PrepareMainMeshTables(std::string &error) {
     const auto sphere = TemplateSphere(templates, TableSpheres_);
     uint32_t flags = sphere ? kGeometryRootBound : 0u;
     if (!MainMeshBoundsCurrent_ || batch.Instances != 1) { flags = kGeometryUnboundedDeformation; }
+    if (batch.Kind == SurfaceKind::Blended) { flags |= kGeometryBlended; }
     if (!AppendRoot({.LocalSphere = sphere.value_or(BatchSphere{}),
                      .TemplateFirst = batch.FirstJob,
                      .TemplateCount = batch.JobCount,
@@ -208,7 +209,10 @@ bool GeometryRenderer::UploadTables(std::string &error) {
   };
   const auto &view = Hierarchy_.View;
   const auto indirect = read | Native::BufferUse::Indirect;
-  if (!grow(S::ClusterKept, Jobs_ * sizeof(uint32_t), read) ||
+  if (!grow(S::ClusterKept, Jobs_ * sizeof(uint32_t), read | Native::BufferUse::CopySource) ||
+      !grow(S::ClusterFirstKept,
+            Jobs_ * sizeof(uint32_t),
+            read | Native::BufferUse::CopyDestination | Native::BufferUse::CopySource) ||
       !grow(S::ClusterVisible, view.RootCount * sizeof(uint32_t), read) ||
       !grow(S::ClusterChunks, view.ChunkCapacity * sizeof(std::array<uint32_t, 2>), read) ||
       !grow(S::ClusterSelected, view.ClusterCapacity * sizeof(std::array<uint32_t, 2>), read) ||
@@ -227,7 +231,10 @@ bool GeometryRenderer::UploadTables(std::string &error) {
 bool GeometryRenderer::HandRootBounds(std::string &error) {
   if (!RootBoundsStale_ || TableRoots_.empty() || Jobs_ == 0) { return true; }
   const size_t count = std::min(MainMeshBatches_.size(), TableRoots_.size());
-  for (size_t at = 0; at < count; ++at) { TableRoots_[at].Flags = kGeometryUnboundedDeformation; }
+  for (size_t at = 0; at < count; ++at) {
+    TableRoots_[at].Flags = (TableRoots_[at].Flags & (kGeometryBlended | kGeometryShadowOnly)) |
+                            kGeometryUnboundedDeformation;
+  }
   const auto roots = std::span(TableRoots_).first(count);
   std::array crossing{
       GeometryResidency::Crossing{.Which = GeometryResidency::Stream::ClusterRoots,

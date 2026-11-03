@@ -14,11 +14,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace outshine::Render {
 
 class GeometryCullStage {
 public:
+  enum class Phase : uint32_t { Conservative = 0, Prediction = 1, Deferred = 2 };
+
   struct Source {
     const GeometryResidency *Resident = nullptr;
     Vec3 AnchorM{};
@@ -45,6 +48,11 @@ public:
     Pyramid_ = shape;
   }
 
+  void CurrentPyramidFrom(Native::Buffer *pyramid, const PyramidShape &shape) noexcept {
+    CurrentPyramidBuffer_ = pyramid;
+    CurrentPyramid_ = shape;
+  }
+
   static constexpr ComputeShaderId RootShader = ComputeShaderId::GeometryRootCull;
   static constexpr ComputeShaderId CullShader = ComputeShaderId::GeometryLeafCull;
   static constexpr ComputeShape CullShape = FindComputeShader(CullShader)->Shape;
@@ -59,15 +67,19 @@ public:
   void Invalidate() noexcept {
     Cache_.Invalidate();
     DepthForSelection_ = false;
+    DepthFrame_.reset();
   }
 
-  void DepthSubmitted(bool pyramidWritten) noexcept {
+  void DepthSubmitted(bool pyramidWritten,
+                      std::optional<FrameContext> frame = std::nullopt) noexcept {
     DepthForSelection_ = pyramidWritten && Cache_.Submitted();
+    DepthFrame_ = DepthForSelection_ ? frame : std::nullopt;
   }
 
   [[nodiscard]] Native::Result<void> EncodeRoots(const FrameContext &ctx,
                                                  const PassRecording &into,
-                                                 const SelectionProjection &projection);
+                                                 const SelectionProjection &projection,
+                                                 Phase phase = Phase::Conservative);
   [[nodiscard]] Native::Result<void> EncodeCull(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeScan(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeCompact(const PassRecording &into);
@@ -77,6 +89,10 @@ public:
   [[nodiscard]] bool EncodedOcclusion() const noexcept { return Swept_ != 0 && OccludeThisFrame_; }
 
   [[nodiscard]] bool HasAcceptedSelection() const noexcept { return Cache_.Submitted(); }
+
+  [[nodiscard]] bool HasCombinedSelection() const noexcept {
+    return Phase_ == Phase::Deferred && Cache_.Submitted() && DeferredCache_.Submitted();
+  }
 
   void Projects(float heightPx) {
     if (HeightPx_ != heightPx) { Invalidate(); }
@@ -103,7 +119,7 @@ private:
     uint32_t Occludes;
     uint32_t SourceWide;
     uint32_t SourceHigh;
-    uint32_t Pad2 = 0;
+    uint32_t PhaseIndex = 0;
   };
 
   static_assert(sizeof(CullView) == 256 && alignof(CullView) == 16);
@@ -111,10 +127,21 @@ private:
   static_assert(offsetof(CullView, PyramidWide) == kPyramidOffset);
   static_assert(offsetof(CullView, SourceWide) == kSourceOffset);
   static_assert(offsetof(CullView, SourceHigh) == kSourceOffset + sizeof(uint32_t));
+  static_assert(offsetof(CullView, PhaseIndex) == kSourceOffset + 2 * sizeof(uint32_t));
 
   Native::Buffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
+  Native::Buffer *CurrentPyramidBuffer_ = nullptr;
+  PyramidShape CurrentPyramid_;
+
+  [[nodiscard]] Native::Buffer *SelectionPyramid() const noexcept {
+    return Phase_ == Phase::Deferred ? CurrentPyramidBuffer_ : PyramidBuffer_;
+  }
+
   StageCache Cache_;
+  StageCache DeferredCache_;
+  Phase Phase_ = Phase::Conservative;
+  std::optional<FrameContext> DepthFrame_;
   bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
   bool Refined_ = false;

@@ -43,7 +43,7 @@ SceneRenderer::~SceneRenderer() {
 
 namespace {
 bool DepthPyramidNeeded(const ExecutionPlan &plan) {
-  return !plan.Holds(Stage::TemporalResolve) ||
+  return plan.Holds(Stage::OpaqueGeometryRetry) || !plan.Holds(Stage::TemporalResolve) ||
          std::ranges::contains(plan.Specification().Outputs, Resource::DepthPyramid) ||
          std::ranges::contains(plan.Specification().Content, Stage::DepthPyramid);
 }
@@ -123,79 +123,95 @@ Lens SceneRenderer::Through() const {
           .Jitter = ActiveState().History.Sequence().Jitter()};
 }
 
-const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRenderer::kExecutors =
-    {{
-        {.Named = Stage::MediumTransmittance,
-         .Configure = &SceneRenderer::ConfigureMediumTransmittance,
-         .Encode = &SceneRenderer::EncodeMediumTransmittance},
-        {.Named = Stage::MediumMultiScatter,
-         .Configure = &SceneRenderer::ConfigureMediumMultiScatter,
-         .Encode = &SceneRenderer::EncodeMediumMultiScatter},
-        {.Named = Stage::MediumRadiance,
-         .Configure = &SceneRenderer::ConfigureMediumRadiance,
-         .Encode = &SceneRenderer::EncodeMediumRadiance},
-        {.Named = Stage::EnvironmentSpecular,
-         .Configure = &SceneRenderer::ConfigureEnvironmentSpecular,
-         .Encode = &SceneRenderer::EncodeEnvironmentSpecular},
-        {.Named = Stage::Irradiance,
-         .Configure = &SceneRenderer::ConfigureIrradiance,
-         .Encode = &SceneRenderer::EncodeIrradiance},
-        {.Named = Stage::GeometryRootCull,
-         .Configure = &SceneRenderer::ConfigureGeometryCull,
-         .Encode = &SceneRenderer::EncodeGeometryRoots},
-        {.Named = Stage::GeometryCull,
-         .Configure = &SceneRenderer::ConfigureGeometryCull,
-         .Encode = &SceneRenderer::EncodeGeometryCull},
-        {.Named = Stage::GeometryScan,
-         .Configure = &SceneRenderer::ConfigureGeometryCull,
-         .Encode = &SceneRenderer::EncodeGeometryScan},
-        {.Named = Stage::GeometryCompact,
-         .Configure = &SceneRenderer::ConfigureGeometryCull,
-         .Encode = &SceneRenderer::EncodeGeometryCompact},
-        {.Named = Stage::LightVisibility,
-         .Configure = &SceneRenderer::ConfigureLightVisibility,
-         .Encode = &SceneRenderer::EncodeLightVisibility},
-        {.Named = Stage::Sky,
-         .Configure = &SceneRenderer::ConfigureSky,
-         .Encode = &SceneRenderer::EncodeSky},
-        {.Named = Stage::OpaqueGeometry,
-         .Configure = &SceneRenderer::ConfigureGeometry,
-         .Encode = &SceneRenderer::EncodeGeometry},
-        {.Named = Stage::GroundPyramid,
-         .Configure = &SceneRenderer::ConfigureGroundPyramid,
-         .Encode = &SceneRenderer::EncodeGroundPyramid},
-        {.Named = Stage::GroundSelection,
-         .Configure = &SceneRenderer::ConfigureGroundSelection,
-         .Encode = &SceneRenderer::EncodeGroundSelection},
-        {.Named = Stage::Ground,
-         .Configure = &SceneRenderer::ConfigureGround,
-         .Encode = &SceneRenderer::EncodeGround},
-        {.Named = Stage::TransmissiveGeometry,
-         .Configure = &SceneRenderer::ConfigureGlass,
-         .Encode = &SceneRenderer::EncodeGlass},
-        {.Named = Stage::CompositeTransmission,
-         .Configure = &SceneRenderer::ConfigureCompositeTransmission,
-         .Encode = &SceneRenderer::EncodeCompositeTransmission},
-        {.Named = Stage::AerialPerspective,
-         .Configure = &SceneRenderer::ConfigureAerialPerspective,
-         .Encode = &SceneRenderer::EncodeAerialPerspective},
-        {.Named = Stage::DepthPyramid,
-         .Configure = &SceneRenderer::ConfigureDepthPyramid,
-         .Encode = &SceneRenderer::EncodeDepthPyramid},
-        {.Named = Stage::TemporalResolve, .Configure = nullptr, .Encode = nullptr},
-        {.Named = Stage::Tonemap,
-         .Configure = &SceneRenderer::ConfigureTonemap,
-         .Encode = &SceneRenderer::EncodeTonemap},
-        {.Named = Stage::Overlay,
-         .Configure = &SceneRenderer::ConfigureOverlay,
-         .Encode = &SceneRenderer::EncodeOverlay},
-        {.Named = Stage::Present,
-         .Configure = &SceneRenderer::ConfigurePresent,
-         .Encode = &SceneRenderer::EncodePresent},
-    }};
-
 const SceneRenderer::Executor *SceneRenderer::ExecutorOf(Stage stage) {
-  for (const Executor &one : kExecutors) {
+  static constexpr auto executors = std::to_array<Executor>({
+      {.Named = Stage::MediumTransmittance,
+       .Configure = &SceneRenderer::ConfigureMediumTransmittance,
+       .Encode = &SceneRenderer::EncodeMediumTransmittance},
+      {.Named = Stage::MediumMultiScatter,
+       .Configure = &SceneRenderer::ConfigureMediumMultiScatter,
+       .Encode = &SceneRenderer::EncodeMediumMultiScatter},
+      {.Named = Stage::MediumRadiance,
+       .Configure = &SceneRenderer::ConfigureMediumRadiance,
+       .Encode = &SceneRenderer::EncodeMediumRadiance},
+      {.Named = Stage::EnvironmentSpecular,
+       .Configure = &SceneRenderer::ConfigureEnvironmentSpecular,
+       .Encode = &SceneRenderer::EncodeEnvironmentSpecular},
+      {.Named = Stage::Irradiance,
+       .Configure = &SceneRenderer::ConfigureIrradiance,
+       .Encode = &SceneRenderer::EncodeIrradiance},
+      {.Named = Stage::GeometryRootCull,
+       .Configure = &SceneRenderer::ConfigureGeometryCull,
+       .Encode = &SceneRenderer::EncodeGeometryRoots},
+      {.Named = Stage::GeometryCull,
+       .Configure = &SceneRenderer::ConfigureGeometryCull,
+       .Encode = &SceneRenderer::EncodeGeometryCull},
+      {.Named = Stage::GeometryScan,
+       .Configure = &SceneRenderer::ConfigureGeometryCull,
+       .Encode = &SceneRenderer::EncodeGeometryScan},
+      {.Named = Stage::GeometryCompact,
+       .Configure = &SceneRenderer::ConfigureGeometryCull,
+       .Encode = &SceneRenderer::EncodeGeometryCompact},
+      {.Named = Stage::LightVisibility,
+       .Configure = &SceneRenderer::ConfigureLightVisibility,
+       .Encode = &SceneRenderer::EncodeLightVisibility},
+      {.Named = Stage::Sky,
+       .Configure = &SceneRenderer::ConfigureSky,
+       .Encode = &SceneRenderer::EncodeSky},
+      {.Named = Stage::OpaqueGeometry,
+       .Configure = &SceneRenderer::ConfigureGeometry,
+       .Encode = &SceneRenderer::EncodeGeometry},
+      {.Named = Stage::VisibilityPyramid,
+       .Configure = &SceneRenderer::ConfigureVisibilityPyramid,
+       .Encode = &SceneRenderer::EncodeVisibilityPyramid},
+      {.Named = Stage::GeometryRetryRoots,
+       .Configure = nullptr,
+       .Encode = &SceneRenderer::EncodeGeometryRetryRoots},
+      {.Named = Stage::GeometryRetryCull,
+       .Configure = nullptr,
+       .Encode = &SceneRenderer::EncodeGeometryCull},
+      {.Named = Stage::GeometryRetryScan,
+       .Configure = nullptr,
+       .Encode = &SceneRenderer::EncodeGeometryScan},
+      {.Named = Stage::GeometryRetryCompact,
+       .Configure = nullptr,
+       .Encode = &SceneRenderer::EncodeGeometryCompact},
+      {.Named = Stage::OpaqueGeometryRetry,
+       .Configure = nullptr,
+       .Encode = &SceneRenderer::EncodeGeometryRetry},
+      {.Named = Stage::GroundPyramid,
+       .Configure = &SceneRenderer::ConfigureGroundPyramid,
+       .Encode = &SceneRenderer::EncodeGroundPyramid},
+      {.Named = Stage::GroundSelection,
+       .Configure = &SceneRenderer::ConfigureGroundSelection,
+       .Encode = &SceneRenderer::EncodeGroundSelection},
+      {.Named = Stage::Ground,
+       .Configure = &SceneRenderer::ConfigureGround,
+       .Encode = &SceneRenderer::EncodeGround},
+      {.Named = Stage::TransmissiveGeometry,
+       .Configure = &SceneRenderer::ConfigureGlass,
+       .Encode = &SceneRenderer::EncodeGlass},
+      {.Named = Stage::CompositeTransmission,
+       .Configure = &SceneRenderer::ConfigureCompositeTransmission,
+       .Encode = &SceneRenderer::EncodeCompositeTransmission},
+      {.Named = Stage::AerialPerspective,
+       .Configure = &SceneRenderer::ConfigureAerialPerspective,
+       .Encode = &SceneRenderer::EncodeAerialPerspective},
+      {.Named = Stage::DepthPyramid,
+       .Configure = &SceneRenderer::ConfigureDepthPyramid,
+       .Encode = &SceneRenderer::EncodeDepthPyramid},
+      {.Named = Stage::TemporalResolve, .Configure = nullptr, .Encode = nullptr},
+      {.Named = Stage::Tonemap,
+       .Configure = &SceneRenderer::ConfigureTonemap,
+       .Encode = &SceneRenderer::EncodeTonemap},
+      {.Named = Stage::Overlay,
+       .Configure = &SceneRenderer::ConfigureOverlay,
+       .Encode = &SceneRenderer::EncodeOverlay},
+      {.Named = Stage::Present,
+       .Configure = &SceneRenderer::ConfigurePresent,
+       .Encode = &SceneRenderer::EncodePresent},
+  });
+  for (const Executor &one : executors) {
     if (one.Named == stage) { return &one; }
   }
   return nullptr;
@@ -504,7 +520,9 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
     for (const auto *texture : {frame.Offscreen.get(), frame.Shadow.Atlas()}) {
       if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const auto *buffer : {frame.DepthPyramid.Buffer(), frame.GroundPyramid.Buffer()}) {
+    for (const auto *buffer : {frame.DepthPyramid.Buffer(),
+                               frame.VisibilityPyramid.Buffer(),
+                               frame.GroundPyramid.Buffer()}) {
       if (buffer != nullptr) { ++counts.Buffers; }
     }
     if (frame.Samp) { ++counts.Samplers; }
@@ -515,10 +533,12 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
 }
 
 bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
+  resource = StorageResource(resource);
   if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Has(resource); }
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
     case Resource::DepthPyramid: return frame.DepthPyramid.Buffer() != nullptr;
+    case Resource::VisibilityPyramid: return frame.VisibilityPyramid.Buffer() != nullptr;
     case Resource::GroundPyramid: return frame.GroundPyramid.Buffer() != nullptr;
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
@@ -541,6 +561,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::ClusterReset:
     case Resource::GeometryPlacements:
     case Resource::ClusterKept:
+    case Resource::ClusterFirstKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:
@@ -556,6 +577,7 @@ Native::Texture *SceneRenderer::Target(Resource resource) const {
 
 Native::Texture *
 SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t linearIndex) {
+  resource = StorageResource(resource);
   if (AtmospherePasses::Owns(resource)) { return frame.Atmosphere.Texture(resource); }
   switch (resource) {
     case Resource::OverlayAtlas: return nullptr;
@@ -575,6 +597,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::ClusterReset:
     case Resource::GeometryPlacements:
     case Resource::ClusterKept:
+    case Resource::ClusterFirstKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments: return nullptr;
@@ -589,6 +612,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::GroundPyramid:
     case Resource::GroundSelection:
     case Resource::DepthPyramid:
+    case Resource::VisibilityPyramid:
     case Resource::AoBuffer:
     case Resource::kCount: return nullptr;
     default: return frame.Targets.Get(resource, linearIndex);
@@ -955,9 +979,11 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
   spent.IndirectRecords = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
-  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry) {
-    const GeometryRenderer &drew = stage == Stage::OpaqueGeometry ? ActiveContent().Geometry()
-                                                                  : ActiveContent().Transmission();
+  if (stage == Stage::OpaqueGeometry || stage == Stage::OpaqueGeometryRetry ||
+      stage == Stage::TransmissiveGeometry) {
+    const GeometryRenderer &drew = stage != Stage::TransmissiveGeometry
+                                       ? ActiveContent().Geometry()
+                                       : ActiveContent().Transmission();
     const auto &work = drew.Work();
     spent.Draws = work.DrawRequests;
     spent.DirectTriangles = work.DirectTriangles;
@@ -975,7 +1001,10 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
 
 Native::Result<void> SceneRenderer::EncodeGeometry(const FrameContext &ctx,
                                                    const PassRecording &into) {
-  return ActiveContent().Geometry().Encode(ctx, Picture(true, into));
+  const auto phase = ActiveState().Plan->Holds(Stage::OpaqueGeometryRetry)
+                         ? GeometryDrawPhase::Prediction
+                         : GeometryDrawPhase::Complete;
+  return ActiveContent().Geometry().Encode(ctx, Picture(true, into), phase);
 }
 
 Native::Result<void> SceneRenderer::EncodeGlass(const FrameContext &ctx,
@@ -1217,15 +1246,16 @@ Native::Result<void> SceneRenderer::EncodeGeometryRoots(const FrameContext &ctx,
                                                         const PassRecording &into) {
   ActiveFrame().Cull.Binds(CullSource(ActiveContent().Geometry()));
   ActiveFrame().Cull.Projects(static_cast<float>(ActiveFrame().Height));
-  auto lens = Through();
-  const bool temporal = ActiveState().Plan->Holds(Stage::TemporalResolve);
-  lens.Jitter = {};
-  const GeometryCullStage::SelectionProjection projection{
-      .Clip = temporal ? lens.ViewProjection(ActiveState().Camera) : ctx.Mvp,
-      .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
-                                    1.0f / static_cast<float>(lens.HighPx)}}
-                           : Vec2f{}};
-  const auto encoded = ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+  auto &frame = ActiveFrame();
+  frame.Cull.PyramidFrom(frame.DepthPyramid.Buffer(), frame.DepthPyramid.Shape());
+  const bool prediction = ActiveState().Plan->Holds(Stage::OpaqueGeometryRetry) &&
+                          into.Submission.Kind() == StageSubmission::Purpose::Frame;
+  const auto encoded = frame.Cull.EncodeRoots(ctx,
+                                              into,
+                                              GeometryProjection(ctx),
+                                              prediction ? GeometryCullStage::Phase::Prediction
+                                                         : GeometryCullStage::Phase::Conservative);
+  if (prediction && encoded) { ++Costs_.PredictionSelections; }
   if (!encoded) { return encoded; }
   if (ActiveFrame().Cull.JobsAdmitted() == 0) {
     ++Costs_.ReusedSelections;
@@ -1473,7 +1503,7 @@ std::expected<Native::Completion, std::string> SceneRenderer::PrepareWorldResour
   const auto flushed = FlushCrossings(**commands);
   if (!flushed) { return std::unexpected(flushed.error().Message); }
   const FrameContext ctx = Framing();
-  StageSubmission preparation;
+  StageSubmission preparation(StageSubmission::Purpose::Preparation);
   const auto world = [](Stage stage) { return Row(stage).Phase == StagePhase::WorldPreparation; };
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];
@@ -1513,11 +1543,13 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
 }
 
 void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission,
-                                         const CameraBasis &camera) {
+                                         const CameraBasis &camera,
+                                         const FrameContext &ctx) {
   ActiveContent().Scene().Meshes().CommitCrossings();
   stageSubmission.Commit();
   ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
-                                    DepthPyramidNeeded(*ActiveState().Plan));
+                                        DepthPyramidNeeded(*ActiveState().Plan),
+                                    ctx);
   ActiveContent().Geometry().CarryFrame();
   ActiveContent().Transmission().CarryFrame();
 
@@ -1614,7 +1646,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   Frames_.Submitted(*submitted);
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
-  CommitSubmittedFrame(stageSubmission, camera);
+  CommitSubmittedFrame(stageSubmission, camera, ctx);
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   CommitCostProfile(timing);

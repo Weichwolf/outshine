@@ -67,8 +67,11 @@ void RefineStaticView(outshine::Core::RuntimeScene &scene,
   CHECK(refined.Indices < initial.Indices,
         "stationary HiZ removes the hidden target instead of disabling occlusion");
   CHECK(before == after, "removing hidden geometry preserves the image exactly");
-  CHECK(scene.Draw(error) && GeometryCullStage::JobsAdmittedTaken() == 0,
-        "a settled unchanged view reuses its refined draw input");
+  CHECK(scene.Draw(error), "a settled view completes its current-depth verification");
+  KeptDraws settled;
+  CHECK(renderer.ReadGeometrySelection(settled, GeometryReadback::Indices) == ReadState::Ready &&
+            settled.Visibility == refined.Visibility && settled.Indices == refined.Indices,
+        "the settled view preserves its complete visible selection");
 }
 
 void ReplaceMaterials(outshine::Core::RuntimeScene &scene,
@@ -178,6 +181,12 @@ int main() {
                                   }),
           "the independent new view contains the target at twelve metres");
     CHECK(actual == expected, "previous-view depth cannot erase geometry visible in the new view");
+    KeptDraws moved;
+    CHECK(
+        history.ReadGeometrySelection(moved, GeometryReadback::Indices) == ReadState::Ready &&
+            moved.TwoPhase && moved.DeferredIndices > 0 &&
+            moved.PredictedIndices + moved.DeferredIndices == moved.Indices,
+        "the second phase restores the newly exposed target without duplicating first-phase work");
     eye.EyeM[0] = kRetryEyeXM;
     historyScene->Eye(eye);
     controlScene->Eye(eye);

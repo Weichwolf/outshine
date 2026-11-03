@@ -104,8 +104,8 @@ void Exercise() {
   CHECK(!renderer.Drew() && renderer.LastSubmittedCamera().Serial == 0 &&
             renderer.Costs().Frames == 0,
         "preparation performs no world frames or camera publication");
-  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() == 0,
-        "the first real frame reuses the prepared selection");
+  CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() > 0,
+        "the first real frame verifies selection against actual current depth");
   std::vector<float> depth;
   CHECK(renderer.ReadDepth(depth) == ReadState::Ready &&
             std::ranges::any_of(depth, [](float z) { return z > 0; }),
@@ -114,12 +114,14 @@ void Exercise() {
         "only one world frame was measured and published");
   CHECK(renderer.RenderFrame().has_value() && GeometryCullStage::JobsAdmittedTaken() > 0,
         "the next stable frame can refine against genuine previous depth");
-  CHECK(renderer.Costs().OcclusionSelections == 1 && renderer.Costs().FrustumSelections != 0 &&
+  CHECK(renderer.Costs().OcclusionSelections == 3 && renderer.Costs().PredictionSelections == 2 &&
+            renderer.Costs().DeferredSelections == 2 && renderer.Costs().FrustumSelections != 0 &&
             renderer.Costs().ReusedSelections != 0,
-        "the counters distinguish encoded depth work from preparation and reuse");
+        "two frame phases are distinct from preparation and its cached selection");
   renderer.ResetMeasurements();
   CHECK(renderer.Costs().OcclusionSelections == 0 && renderer.Costs().FrustumSelections == 0 &&
-            renderer.Costs().ReusedSelections == 0,
+            renderer.Costs().ReusedSelections == 0 && renderer.Costs().PredictionSelections == 0 &&
+            renderer.Costs().DeferredSelections == 0,
         "a new measurement interval excludes previous selection work");
 }
 }

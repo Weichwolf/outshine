@@ -111,7 +111,7 @@ Inputs Fixture() {
 struct Buffers {
   std::unique_ptr<Buffer> Roots, Templates, Spheres, Placements, Prefix, Source, Pyramid;
   std::unique_ptr<Buffer> Chunks, ChunkState, Clusters, ClusterState, Visible;
-  std::unique_ptr<Buffer> Kept, Slot, Arguments, Index;
+  std::unique_ptr<Buffer> Kept, FirstKept, Slot, Arguments, Index;
 };
 
 Buffers Uploaded(Device &device, Commands &commands, const Inputs &inputs) {
@@ -137,6 +137,7 @@ Buffers Uploaded(Device &device, Commands &commands, const Inputs &inputs) {
   result.ClusterState = Upload(device, commands, Words(std::span(states)), stateUse);
   result.Visible = upload(std::vector<uint32_t>(inputs.Roots.size() + 16, kGuard));
   result.Kept = upload(std::vector<uint32_t>(inputs.Logical + 16, kGuard));
+  result.FirstKept = upload(std::vector<uint32_t>(inputs.Logical, 0u));
   std::vector<uint32_t> slots(inputs.Logical, 0xffffffffu);
   slots.resize(slots.size() + inputs.Batches.size() / 2, kGeometryIndexCold);
   slots.resize(slots.size() + 16, kGuard);
@@ -194,6 +195,7 @@ void Hierarchy(Device &device,
                         Storage(0, 5, *b.ChunkState),
                         Storage(0, 6, *b.Prefix),
                         Storage(0, 7, *b.Pyramid),
+                        Storage(0, 8, *b.FirstKept),
                         Storage(1, 0, *b.Kept),
                         Storage(1, 1, *b.Clusters),
                         Storage(1, 2, *b.ClusterState),

@@ -69,8 +69,13 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
                                            S::ClusterSelectedState},
                                 7);
   if (!buffers) { return std::unexpected(buffers.error()); }
+  const auto *firstKept = resident.Buffer(S::ClusterFirstKept).get();
+  if (firstKept == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "geometry prediction buffer is missing"});
+  }
   const auto *pyramid =
-      PyramidBuffer_ != nullptr ? PyramidBuffer_ : resident.Buffer(S::ClusterSpheres).get();
+      SelectionPyramid() != nullptr ? SelectionPyramid() : resident.Buffer(S::ClusterSpheres).get();
   const auto &h = Source_.Hierarchy->View;
   const std::array bindings{
       (*buffers)[0],
@@ -81,6 +86,7 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
       (*buffers)[5],
       (*buffers)[6],
       Storage(0, 7, *pyramid),
+      Storage(0, 8, *firstKept),
       (*buffers)[7],
       (*buffers)[8],
       (*buffers)[9],
@@ -160,7 +166,15 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
                                       *Source_.Resident->Buffer(S::ClusterSelectedState),
                                       offsetof(GeometryQueueState, Dispatch));
   if (!encoded) { return encoded; }
-  into.Submission.Record(Stage::GeometryCompact, Cache_);
+  if (Phase_ == Phase::Prediction) {
+    const auto copied = into.Commands->Copy(*Source_.Resident->Buffer(S::ClusterKept),
+                                            *Source_.Resident->Buffer(S::ClusterFirstKept),
+                                            {.Bytes = uint64_t{Source_.Jobs} * sizeof(uint32_t)});
+    if (!copied) { return copied; }
+  }
+  into.Submission.Record(Phase_ == Phase::Deferred ? Stage::GeometryRetryCompact
+                                                   : Stage::GeometryCompact,
+                         Phase_ == Phase::Deferred ? DeferredCache_ : Cache_);
   return {};
 }
 }

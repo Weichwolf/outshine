@@ -11,5 +11,5 @@ vec4 planes[6];
   uvec4 pyramidHigh;
   uvec4 pyramidAt;
   uint occludes;
-  uint sourceWide, sourceHigh, pad2;
+  uint sourceWide, sourceHigh, phase;
 } view;
