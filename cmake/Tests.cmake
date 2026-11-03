@@ -44,6 +44,7 @@ set(metal_validation_cases
   outshine/src/render/terrain/ClipmapRenderer/MainAndShadowShareMorphedGeometry
   outshine/src/render/terrain/ClipmapNormalPass/DirtyBandsPreserveFineSurfaceNormals
   outshine/src/render/terrain/ClipmapSurface/FieldsPublishTogetherAfterAcceptedSubmission
+  outshine/src/render/terrain/TerrainRenderer/ClipmapsPrepareBeforeCachedShadows
   outshine/src/render/stages/GeometryRenderer/GroundPassHasIndependentTargets
   ${building_field_gpu_cases}
   outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission

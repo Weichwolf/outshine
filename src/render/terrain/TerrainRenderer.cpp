@@ -1,6 +1,9 @@
 #include <span>
 #include <vector>
 #include <cstdint>
+#include <cstddef>
+#include <expected>
+#include <memory>
 #include "TerrainRenderer.h"
 #include <array>
 
@@ -39,12 +42,35 @@ void TerrainRenderer::ReleasePage(PageId which) {
 Native::Result<void> TerrainRenderer::SetInstances(std::span<const GroundTile> real,
                                                    std::span<const GroundTile> virtual_) {
   auto changed = Resident_->SetInstances(real, virtual_);
-  if (changed) { SyncInputs(); }
+  if (changed) {
+    Clipmaps_.reset();
+    Path_ = Path::Lattice;
+    SyncInputs();
+  }
   return changed;
+}
+
+Native::Result<std::shared_ptr<ClipmapSurface>> TerrainRenderer::CreateClipmaps(ClipmapGrid grid,
+                                                                                size_t bytesMost) {
+  if (Resident_->Device_ == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "clipmaps require a terrain device"});
+  }
+  auto surface = ClipmapSurface::Make(*Resident_->Device_, grid, bytesMost);
+  if (!surface) { return std::unexpected(surface.error()); }
+  const auto ready =
+      Pipelines_->ConfigureClipmaps(*Resident_->Device_,
+                                    grid.HalfCells,
+                                    bytesMost - static_cast<size_t>((*surface)->HeldBytes()));
+  if (!ready) { return std::unexpected(ready.error()); }
+  Clipmaps_ = *surface;
+  ClipmapGeometryBytesMost_ = bytesMost - static_cast<size_t>((*surface)->HeldBytes());
+  return surface;
 }
 
 uint64_t TerrainRenderer::HeldBytes() const {
   uint64_t bytes = Resident_->HeldBytes() + Selection_.HeldBytes();
+  if (Clipmaps_) { bytes += Clipmaps_->DeviceBytes() + Pipelines_->Clipmaps().HeldBytes(); }
   for (const auto *buffer : std::array<const Native::Buffer *, 3>{
            Visible_.get(), VisibleStaging_.get(), PatchList_.get()}) {
     if (buffer != nullptr) { bytes += buffer->Description().Bytes; }

@@ -4,6 +4,7 @@
 #include "SpirvFile.h"
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <memory>
 #include <span>
@@ -92,6 +93,8 @@ Native::Result<void> TerrainPipelines::ConfigureLit(Native::Device &device,
   Lit_ = std::move(*made);
   Patches_ = std::move(*patches);
   CapturesMaterial_ = outputs.BaseIndex >= 0;
+  Outputs_ = outputs;
+  Targets_.assign(targets.begin(), targets.end());
   return {};
 }
 
@@ -102,6 +105,15 @@ Native::Result<void> TerrainPipelines::ConfigureDepth(Native::Device &device) {
                        Native::Cull::Front);
   if (!made) { return std::unexpected(made.error()); }
   Depth_ = std::move(*made);
+  return {};
+}
+
+Native::Result<void>
+TerrainPipelines::ConfigureClipmaps(Native::Device &device, uint32_t halfCells, size_t bytesMost) {
+  if (ClipmapHalfCells_ == halfCells) { return {}; }
+  const auto ready = Clipmaps_.Configure(device, Outputs_, Targets_, halfCells, bytesMost);
+  if (!ready) { return ready; }
+  ClipmapHalfCells_ = halfCells;
   return {};
 }
 

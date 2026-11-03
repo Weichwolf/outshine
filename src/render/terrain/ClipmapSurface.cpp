@@ -121,15 +121,19 @@ Native::Result<void> ClipmapSurface::Publish(const ClipmapHeightUpdate &heights,
     return std::unexpected(Invalid("accepted clipmap publication lost its CPU generation"));
   }
   Rings_.clear();
+  if (!heights.Samples().empty()) { ++Generation_; }
   return {};
 }
 
 Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
+  if (View_ == view && !Rings_.empty()) { return {}; }
   auto rings = MakeClipmapRings(Heights_, NormalHeights_, view);
   if (!rings) { return std::unexpected(Invalid("clipmap fields do not cover the current view")); }
   const auto bytes = std::as_bytes(std::span(*rings));
   if (Rings_.size() == rings->size() &&
       std::memcmp(Rings_.data(), bytes.data(), bytes.size()) == 0) {
+    Shift_ = view.Shift;
+    View_ = view;
     return {};
   }
   auto upload = Device_->CreateBuffer({.Bytes = bytes.size(),
@@ -143,6 +147,8 @@ Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   if (!unmapped) { return unmapped; }
   RingBuffer_ = std::move(*upload);
   Rings_ = std::move(*rings);
+  Shift_ = view.Shift;
+  View_ = view;
   return {};
 }
 
@@ -161,12 +167,16 @@ ClipmapFields ClipmapSurface::Fields() const noexcept {
 }
 
 uint64_t ClipmapSurface::HeldBytes() const noexcept {
+  return Heights_.HeapBytes() + NormalHeights_.HeapBytes() +
+         Rings_.capacity() * sizeof(ClipmapRing) + DeviceBytes();
+}
+
+uint64_t ClipmapSurface::DeviceBytes() const noexcept {
   const uint64_t geometryNodes =
       uint64_t{Heights_.Side()} * Heights_.Side() * Heights_.Grid().Levels;
   const uint64_t normalNodes =
       uint64_t{NormalHeights_.Side()} * NormalHeights_.Side() * NormalHeights_.Grid().Levels;
-  return Heights_.HeapBytes() + NormalHeights_.HeapBytes() + geometryNodes * sizeof(float) +
-         normalNodes * (sizeof(float) + 8) + Rings_.capacity() * sizeof(ClipmapRing) +
+  return geometryNodes * sizeof(float) + normalNodes * (sizeof(float) + 8) +
          (RingBuffer_ ? RingBuffer_->Description().Bytes : 0);
 }
 

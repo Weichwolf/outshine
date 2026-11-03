@@ -1456,6 +1456,9 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
       return std::unexpected(std::move(why));
     }
   }
+  const auto clipmaps = ActiveContent().Geometry().Ground().PrepareClipmaps(
+      Framing(), ActiveContent().Geometry().AnchorM());
+  if (!clipmaps) { return std::unexpected(clipmaps.error().Message); }
   SettleShadow();
   return {};
 }

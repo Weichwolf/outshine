@@ -162,7 +162,8 @@ Cast(Device &device, const TerrainRenderer &ground, const std::string &prefix, b
                        .Clip = {.Width = kWidth, .Height = kHeight}},
                       view.Light,
                       view.Shift,
-                      bindings));
+                      bindings,
+                      view.Light));
   Require(commands->EndRenderPass());
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,

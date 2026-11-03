@@ -65,7 +65,7 @@ Native::Result<void> ClipmapRenderer::Encode(const PassRecording &into,
                             .VertexUniformBuffers = 1,
                             .VertexStorageBuffers = 1,
                             .FragmentSamplers = 3,
-                            .FragmentUniformBuffers = kGeometryFragmentUniformCount,
+                            .FragmentUniformBuffers = kGeometryFragmentUniformCount + 1,
                             .FragmentStorageBuffers = 3};
   constexpr size_t count = shape.VertexSamplers + shape.VertexUniformBuffers +
                            shape.VertexStorageBuffers + shape.FragmentSamplers +

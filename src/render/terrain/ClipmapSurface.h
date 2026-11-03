@@ -5,6 +5,7 @@
 #include "ClipmapRenderer.h"
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -25,7 +26,12 @@ public:
   [[nodiscard]] ClipmapFields Fields() const noexcept;
   [[nodiscard]] bool Complete() const noexcept;
   [[nodiscard]] uint64_t HeldBytes() const noexcept;
+  [[nodiscard]] uint64_t DeviceBytes() const noexcept;
   [[nodiscard]] uint32_t Triangles() const noexcept;
+
+  [[nodiscard]] uint64_t Generation() const noexcept { return Generation_; }
+
+  [[nodiscard]] const Vec3 &Shift() const noexcept { return Shift_; }
 
 private:
   ClipmapSurface(Native::Device &device, ClipmapHeightCache heights, ClipmapHeightCache normals);
@@ -37,6 +43,9 @@ private:
   std::unique_ptr<Native::Buffer> RingBuffer_;
   ClipmapNormalPass NormalPass_;
   std::vector<ClipmapRing> Rings_;
+  Vec3 Shift_{};
+  uint64_t Generation_ = 0;
+  std::optional<ClipmapView> View_;
 };
 }
 #endif

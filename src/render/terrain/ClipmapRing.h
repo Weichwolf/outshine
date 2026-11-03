@@ -34,6 +34,7 @@ struct ClipmapView {
   Vec2 PreviousCamera{};
   Vec3 Shift{};
   Vec3 PreviousShift{};
+  bool operator==(const ClipmapView &) const noexcept = default;
 };
 
 enum class ClipmapRingError { IncompatibleGrids, Unpublished, InvalidView };

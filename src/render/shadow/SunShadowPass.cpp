@@ -358,7 +358,8 @@ Native::Result<void> SunShadowPass::Cast(size_t region, const PassRecording &int
     const auto bytes = std::as_bytes(std::span(&uniform, 1));
     const std::array bindings{
         Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
-    const auto ground = Geometry_->Ground().Cast(recording, selection, uniform.Shift, bindings);
+    const auto ground =
+        Geometry_->Ground().Cast(recording, selection, uniform.Shift, bindings, uniform.Light);
     if (!ground) { return ground; }
     const auto geometry = CastGeometry(recording, bytes, selection);
     if (!geometry) { return geometry; }

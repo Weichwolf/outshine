@@ -32,6 +32,9 @@ const float kPi = acos(-1.0);
 #endif
 #if GROUND_CLIPMAPS
 #include "clipmapNormal.glsl"
+#if SURFACE_BASE_LOCATION == 0
+#include "geometryView.glsl"
+#endif
 #endif
 void main() {
   readSurfaceVaryings(interpolateAtOffset(positionMetric, vec2(0.0)));
@@ -52,6 +55,10 @@ void main() {
 #endif
 #elif GROUND_CLIPMAPS
   vec3 surfaceNormal = clipmapNormal();
+#if SURFACE_BASE_LOCATION == 0
+  vec2 receiverSlope = shadowReceiverPlaneSlope(lightSpace,
+      s.lightFromWorld * vec4(positionDx, 0.0), s.lightFromWorld * vec4(positionDy, 0.0));
+#endif
 #else
   vec3 surfaceNormal = normal;
 #endif
@@ -100,6 +107,8 @@ void main() {
       surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0),
 #if GROUND_PATCHES
       shadowLightSpace, receiverSlope,
+#elif GROUND_CLIPMAPS
+      lightSpace, receiverSlope,
 #else
       lightSpace, sunShadowReceiverSlope(lightSpace),
 #endif

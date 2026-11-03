@@ -69,6 +69,9 @@ Native::Result<void> TerrainRenderer::Draw(const PassRecording &into,
 Native::Result<void> TerrainRenderer::Encode(const PassRecording &into,
                                              std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
+  if (Path_ == Path::Clipmap) {
+    return Pipelines_->Clipmaps().Encode(into, Clipmaps_->Fields(), bindings);
+  }
   if (!Current() && Resident_->Instances() != 0) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Busy,

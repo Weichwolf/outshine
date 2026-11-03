@@ -88,7 +88,7 @@ void RoundedCentre(Device &device, TerrainRenderer &ground) {
   StageSubmission submission;
   const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f narrow{{1000, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -20, 0, 0, 1}};
-  Require(ground.Cast(into, narrow, {{-kWorldShiftM, 0, 0, 0}}, {}));
+  Require(ground.Cast(into, narrow, {{-kWorldShiftM, 0, 0, 0}}, {}, narrow));
   CHECK(
       commands.RecordedDraws.size() == 1,
       "bounds retain a tiny caster when float centre rounding differs from shifted GPU placement");
@@ -108,25 +108,25 @@ void CastCases(Device &device, TerrainRenderer &ground) {
   StageSubmission submission;
   const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f identity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-  Require(ground.Cast(into, identity, {}, {}));
+  Require(ground.Cast(into, identity, {}, {}, identity));
   CheckRuns(commands);
   CHECK(ground.Drawn() == real.size() + virtualTiles.size(),
         "shadow selection does not overwrite camera visibility");
   commands.RecordedDraws.clear();
   auto translated = identity;
   translated[12] = -outsideEastM;
-  Require(ground.Cast(into, translated, {}, {}));
+  Require(ground.Cast(into, translated, {}, {}, translated));
   CHECK(commands.RecordedDraws.size() == 3 && commands.RecordedDraws[0].First == 2 &&
             commands.RecordedDraws[1].First == 4 && commands.RecordedDraws[2].First == 7,
         "another light projection selects its own casters independently of camera selection");
   commands.RecordedDraws.clear();
   commands.Reject = true;
-  const auto failed = ground.Cast(into, identity, {}, {});
+  const auto failed = ground.Cast(into, identity, {}, {}, identity);
   CHECK(!failed && failed.error().Message == "shadow draw rejected",
         "native recording failures propagate without publishing shadow success");
   commands.Reject = false;
   ground.SetDrawEnabled(false);
-  Require(ground.Cast(into, identity, {}, {}));
+  Require(ground.Cast(into, identity, {}, {}, identity));
   CHECK(commands.RecordedDraws.empty(), "disabled terrain submits no shadow draws");
   ground.SetDrawEnabled(true);
   for (auto &tile : real) {
@@ -140,7 +140,7 @@ void CastCases(Device &device, TerrainRenderer &ground) {
   }
   Require(RetryOffline([&] { return ground.SetInstances(real, displacedVirtual); },
                        std::chrono::seconds(5)));
-  Require(ground.Cast(into, identity, {{-kWorldShiftM, -kWorldShiftM, 0, 0}}, {}));
+  Require(ground.Cast(into, identity, {{-kWorldShiftM, -kWorldShiftM, 0, 0}}, {}, identity));
   CheckRuns(commands);
 }
 }

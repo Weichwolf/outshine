@@ -8,6 +8,10 @@
 namespace outshine::Render {
 Native::Result<TerrainRenderer::DrawArguments> TerrainRenderer::ReadDrawArguments() const {
   DrawArguments result;
+  if (DrawEnabled_ && Path_ == Path::Clipmap) {
+    result.DirectTriangles = Clipmaps_->Triangles();
+    return result;
+  }
   result.SkirtInstances = Drawn();
   if (result.SkirtInstances == 0) { return result; }
   if (!Current() || !Selection_.Ready()) {

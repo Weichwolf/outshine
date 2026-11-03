@@ -60,6 +60,9 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
   Selection_.BeginFrame();
+  const auto prepared = PrepareClipmaps(ctx, anchorM);
+  if (!prepared) { return prepared; }
+  if (Path_ == Path::Clipmap) { return {}; }
   if (Resident_->Held_.empty()) { return {}; }
   if (Resident_->Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -98,8 +101,10 @@ TerrainRenderer::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comm
 Native::Result<void> TerrainRenderer::Cast(const PassRecording &into,
                                            const Mat4f &projection,
                                            const Vec4f &shift,
-                                           std::span<const Native::Binding> bindings) const {
+                                           std::span<const Native::Binding> bindings,
+                                           const Mat4f &clipFromWorld) const {
   if (!DrawEnabled_) { return {}; }
+  if (Path_ == Path::Clipmap) { return CastClipmaps(into, clipFromWorld, shift); }
   const SidePlanes planes = SidePlanesOf(projection);
   const auto total = static_cast<uint32_t>(Resident_->Held_.size());
   uint32_t at = 0;

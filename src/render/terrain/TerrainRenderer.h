@@ -18,14 +18,14 @@
 #include "GroundTile.h"
 #include "MaterialBinding.h"
 #include "TerrainPatchSelection.h"
+#include "ClipmapSurface.h"
+#include "SurfaceOutputs.h"
 #include "TerrainResidency.h"
 #include <optional>
 #include "scene/HeightPageBatch.h"
 
 namespace outshine::Render {
 class UploadQueue;
-
-struct SurfaceOutputs;
 
 class TerrainPipelines {
 public:
@@ -42,6 +42,11 @@ public:
 
   [[nodiscard]] bool CapturesMaterial() const noexcept { return CapturesMaterial_; }
 
+  [[nodiscard]] Native::Result<void>
+  ConfigureClipmaps(Native::Device &device, uint32_t halfCells, size_t bytesMost);
+
+  [[nodiscard]] const ClipmapRenderer &Clipmaps() const noexcept { return Clipmaps_; }
+
   [[nodiscard]] Native::Result<void> ConfigureSelection(Native::Device &device) {
     return TerrainPatchSelection::Configure(device, Selection_);
   }
@@ -56,6 +61,10 @@ private:
   std::unique_ptr<Native::GraphicsPipeline> Patches_;
   bool CapturesMaterial_ = false;
   TerrainPatchSelection::Pipelines Selection_;
+  ClipmapRenderer Clipmaps_;
+  SurfaceOutputs Outputs_;
+  std::vector<Native::ColourTarget> Targets_;
+  uint32_t ClipmapHalfCells_ = 0;
 };
 
 class TerrainRenderer {
@@ -113,6 +122,9 @@ public:
   void ReleasePage(PageId which);
   [[nodiscard]] Native::Result<void> SetInstances(std::span<const GroundTile> real,
                                                   std::span<const GroundTile> virtual_);
+  [[nodiscard]] Native::Result<std::shared_ptr<ClipmapSurface>> CreateClipmaps(ClipmapGrid grid,
+                                                                               size_t bytesMost);
+  [[nodiscard]] Native::Result<void> PrepareClipmaps(const FrameContext &ctx, const Vec3 &anchorM);
   [[nodiscard]] Native::Result<void>
   Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands);
   [[nodiscard]] Native::Result<void> ConfigurePatchSelection();
@@ -129,6 +141,7 @@ public:
   struct DrawArguments {
     std::array<Native::IndexedIndirectArguments, 4> Patches{};
     uint32_t SkirtInstances = 0;
+    uint64_t DirectTriangles = 0;
   };
 
   [[nodiscard]] Native::Result<DrawArguments> ReadDrawArguments() const;
@@ -138,7 +151,8 @@ public:
   [[nodiscard]] Native::Result<void> Cast(const PassRecording &into,
                                           const Mat4f &projection,
                                           const Vec4f &shift,
-                                          std::span<const Native::Binding> bindings) const;
+                                          std::span<const Native::Binding> bindings,
+                                          const Mat4f &clipFromWorld) const;
 
   [[nodiscard]] uint64_t Generation() const { return Resident_->Generation() + DrawRevision_; }
 
@@ -152,16 +166,24 @@ public:
 
   [[nodiscard]] uint32_t Drawn() const {
     if (!DrawEnabled_) { return 0; }
+    if (Path_ == Path::Clipmap) { return Clipmaps_->Heights().Grid().Levels; }
     return Current() ? VisibleReal_ + VisibleVirtual_ : Resident_->Instances();
   }
 
   [[nodiscard]] uint32_t PagesStanding() const { return Resident_->PagesStanding(); }
 
-  [[nodiscard]] uint32_t Triangles() const { return Drawn() * (TerrainLattice::kIndices / 3u); }
+  [[nodiscard]] uint32_t Triangles() const {
+    if (!DrawEnabled_) { return 0; }
+    return Path_ == Path::Clipmap ? Clipmaps_->Triangles()
+                                  : Drawn() * (TerrainLattice::kIndices / 3u);
+  }
 
   [[nodiscard]] uint64_t HeldBytes() const;
 
 private:
+  enum class Path { Lattice, Clipmap };
+  [[nodiscard]] Native::Result<void>
+  CastClipmaps(const PassRecording &into, const Mat4f &clipFromWorld, const Vec4f &shift) const;
   void SyncInputs();
 
   [[nodiscard]] bool Current() const noexcept {
@@ -190,6 +212,11 @@ private:
   std::unique_ptr<Native::Buffer> PatchList_, Visible_, VisibleStaging_;
   std::vector<TerrainInstance> Seen_;
   uint32_t VisibleReal_ = 0, VisibleVirtual_ = 0, VisibleRoom_ = 0;
+  std::shared_ptr<ClipmapSurface> Clipmaps_;
+  Path Path_ = Path::Lattice;
+  size_t ClipmapGeometryBytesMost_ = 0;
+  uint64_t ClipmapGeneration_ = 0;
+  std::optional<Vec2> ClipmapCamera_;
 };
 }
 #endif

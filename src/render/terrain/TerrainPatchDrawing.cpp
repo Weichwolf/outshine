@@ -22,7 +22,7 @@ Native::Result<void> TerrainRenderer::SelectPatches(const FrameContext &ctx,
                                                     const PassRecording &into,
                                                     Native::Buffer &pyramid,
                                                     const PyramidShape &shape) {
-  if (!DrawEnabled_ || Drawn() == 0) { return {}; }
+  if (!DrawEnabled_ || Drawn() == 0 || Path_ == Path::Clipmap) { return {}; }
   if (!Current()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Busy,
