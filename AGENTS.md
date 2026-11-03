@@ -46,6 +46,13 @@ Gemeinsame Basis und Merges koordinieren. Lokale Blocker sperren nur abhängige 
 pausiert ein Goal. Ein fertiges Paket beendet einen Arbeitsblock, nicht den Gesamtauftrag.
 
 ## Prioritäten und Design
+Ich priorisiere wie ein kleines Game-Studio: nutzbare Spielszenen, sichtbare Qualität,
+belegte Engpässe und der kritische Lieferpfad bestimmen die Arbeit. P0 blockiert den
+aktuellen Meilenstein, P1 folgt danach, P2 ist weiterer Ausbau, P3 Reserve/Feinschliff.
+Technische Detailfragen erhalten keine Dringlichkeit allein durch ihre Schwierigkeit.
+Je arbeitendem Agenten ist ein Umsetzungspaket aktiv; seine steuernden Eltern dürfen
+aktiv bleiben. Konkrete Reihenfolge und Abnahme stehen im führenden Refactor-Issue.
+
 1. **Refactor vollständig abschließen** (#1233). Erkannte Fehler und nötige Optimierungen direkt im Paket beheben; ungeeignete Verfahren ersetzen.
 2. **Gesamte aktuelle Codebasis durch die verantwortlichen Besitzer architektonisch abnehmen/korrigieren** (#1320), einschließlich neuerer Teile. Erst danach neue Features integrieren.
 
