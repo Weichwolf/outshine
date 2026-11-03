@@ -1,4 +1,5 @@
 #include "WorldRegionBuildState.h"
+#include "StreetGraphRequest.h"
 #include "StructureCell.h"
 
 #include <algorithm>
@@ -16,6 +17,16 @@
 #include <vector>
 
 namespace outshine {
+WorldRegionBuildState::~WorldRegionBuildState() = default;
+
+void WorldRegionBuildState::BeginStreetGraph(
+    std::unique_ptr<Generators::Osm::StreetGraphRequest> worker) noexcept {
+  StreetGraphWorker_ = std::move(worker);
+}
+
+void WorldRegionBuildState::FinishStreetGraph() noexcept {
+  StreetGraphWorker_.reset();
+}
 
 WorldRegionBuildState::WorldRegionBuildState(
     Render::SceneRenderer &renderer,

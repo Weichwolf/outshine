@@ -1,4 +1,4 @@
-#include "StreetGraphPreparation.h"
+#include "StreetGraphRequest.h"
 #include "PreparedStreetGraph.h"
 #include "GroundMaterialCatalog.h"
 #include "OsmField.h"
@@ -31,6 +31,8 @@
 #include <variant>
 #include <vector>
 
+using outshine::Generators::Osm::StreetGraphRequest;
+
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
@@ -62,7 +64,7 @@ struct Fixture {
   std::shared_ptr<const std::array<float, 4>> Heights;
   std::string Key;
   std::unique_ptr<sqlite3, decltype(&sqlite3_close)> Writer{nullptr, sqlite3_close};
-  std::unique_ptr<StreetGraphPreparation> Job;
+  std::unique_ptr<StreetGraphRequest> Job;
   std::atomic_uint32_t Generations{0}, Samples{0}, Keys{0}, Resolutions{0};
   std::weak_ptr<const Path::Network> Generated;
   std::weak_ptr<Osm::OsmField> SourceOwner;
@@ -143,7 +145,7 @@ struct Fixture {
     const auto vectors = std::exchange(Vectors, {});
     const auto ways = std::exchange(Ways, {});
     const auto heights = std::exchange(Heights, {});
-    StreetGraphPreparation::JobFactory begin = [this, vectors, ways, heights, gate, entered] {
+    StreetGraphRequest::JobFactory begin = [this, vectors, ways, heights, gate, entered] {
       ++Generations;
       if (gate.valid() && entered != nullptr) {
         entered->set_value();
@@ -155,7 +157,7 @@ struct Fixture {
             return heights->front();
           });
     };
-    auto resolver = StreetGraphPreparation::CachedResolver(
+    auto resolver = StreetGraphRequest::CachedResolver(
         Cache, [this, vectors, ways, heights] -> std::expected<std::string, std::string> {
           ++Keys;
           return Cache->Key(
@@ -163,7 +165,7 @@ struct Fixture {
         });
     const auto owner = std::make_shared<int>(1);
     ResolverOwner = owner;
-    Job = std::make_unique<StreetGraphPreparation>(
+    Job = std::make_unique<StreetGraphRequest>(
         Pool,
         std::move(begin),
         [this, resolver = std::move(resolver), owner](const Native::Factory &factory,
@@ -289,7 +291,7 @@ void WorkerContinuation(bool cancel) {
   if (cancel) { fixture.CancelWithOccupiedWorker(); }
   fixture.Release();
   const auto deadline = Clock::now() + kDeadline;
-  std::optional<std::expected<StreetGraphPreparation::Completed, std::string>> result;
+  std::optional<std::expected<StreetGraphRequest::Completed, std::string>> result;
   while (!result && Clock::now() < deadline) {
     result = fixture.Job->Collect();
     std::this_thread::sleep_for(std::chrono::milliseconds(1));

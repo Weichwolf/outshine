@@ -6,7 +6,6 @@
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
 #include "RoadHeightCoverage.h"
-#include "StreetGraphPreparation.h"
 #include "GroundWorldCandidate.h"
 #include "GroundBuildSchedule.h"
 #include "BuildingFoundationJob.h"
@@ -27,6 +26,10 @@
 #include <vector>
 
 namespace outshine {
+namespace Generators::Osm {
+class StreetGraphRequest;
+}
+
 inline constexpr uint64_t kRegionDigestLowWordMask = 0xFFFFFFFFULL;
 inline constexpr size_t kCorridorRetireUnitsPerFrame = 512;
 
@@ -73,6 +76,7 @@ public:
                         Around coverage,
                         GroundRevision revision,
                         uint64_t id);
+  ~WorldRegionBuildState();
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return RevisionDifference(revision) == 0;
@@ -350,15 +354,12 @@ public:
 
   [[nodiscard]] bool AdvancesCorridorRetirement(std::chrono::steady_clock::time_point began);
 
-  [[nodiscard]] StreetGraphPreparation *StreetGraphWorker() noexcept {
+  [[nodiscard]] Generators::Osm::StreetGraphRequest *StreetGraphWorker() noexcept {
     return StreetGraphWorker_.get();
   }
 
-  void BeginStreetGraph(std::unique_ptr<StreetGraphPreparation> worker) noexcept {
-    StreetGraphWorker_ = std::move(worker);
-  }
-
-  void FinishStreetGraph() noexcept { StreetGraphWorker_.reset(); }
+  void BeginStreetGraph(std::unique_ptr<Generators::Osm::StreetGraphRequest> worker) noexcept;
+  void FinishStreetGraph() noexcept;
 
   [[nodiscard]] Generators::TerrainRefinementJob *RefinementJob() noexcept {
     return RefinementJob_.get();
@@ -498,7 +499,7 @@ private:
   std::shared_ptr<const Generators::RoadPageManifest> RoadManifest_;
   std::string SurfaceManifestKey_;
   bool RoadsRestored_ = false;
-  std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
+  std::unique_ptr<Generators::Osm::StreetGraphRequest> StreetGraphWorker_;
   std::unique_ptr<Generators::GroundRegionRequest> RegionWorker_;
   std::string RegionKey_;
   std::string RegionRequest_;

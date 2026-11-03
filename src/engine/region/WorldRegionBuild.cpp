@@ -57,7 +57,7 @@
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
-#include "StreetGraphPreparation.h"
+#include "StreetGraphRequest.h"
 #include "GroundRegionRequest.h"
 #include "WaterGeometryPreparation.h"
 #include "BinaryValueArchive.h"
@@ -1112,16 +1112,16 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
         state.TerrainInputs().SnapshotSourceFields());
     const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
-    StreetGraphPreparation::JobFactory begin =
+    Generators::Osm::StreetGraphRequest::JobFactory begin =
         [vectors = sources.Vectors, ways, fields, sourceZoom] {
           return outshine::Generators::Osm::StreetGraphBuildJob::Begin(
               *vectors, *ways, [fields, sourceZoom](LongitudeLatitude at) {
                 return fields->AslMAt(sourceZoom, at);
               });
         };
-    StreetGraphPreparation::Resolver resolve;
+    Generators::Osm::StreetGraphRequest::Resolver resolve;
     if (const auto assets = World.Surface().NetworkAssets()) {
-      resolve = StreetGraphPreparation::CachedResolver(
+      resolve = Generators::Osm::StreetGraphRequest::CachedResolver(
           assets,
           [assets,
            vectors = sources.Vectors,
@@ -1136,7 +1136,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
             return assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
           });
     }
-    state.BeginStreetGraph(std::make_unique<StreetGraphPreparation>(
+    state.BeginStreetGraph(std::make_unique<Generators::Osm::StreetGraphRequest>(
         *Services.Compute, std::move(begin), std::move(resolve)));
     return GroundBuildProgress::Pending;
   }

@@ -1,3 +1,4 @@
+#include "StreetGraphRequest.h"
 #include "WorldRegionBuildState.h"
 #include <algorithm>
 #include <array>

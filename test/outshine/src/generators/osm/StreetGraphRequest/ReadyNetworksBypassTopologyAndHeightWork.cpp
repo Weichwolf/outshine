@@ -5,7 +5,7 @@
 #include "PreparedStreetGraph.h"
 #include "Sha256.h"
 #include "SourceSet.h"
-#include "StreetGraphPreparation.h"
+#include "StreetGraphRequest.h"
 #include "RegionSurfaceRecipes.h"
 #include <array>
 #include <atomic>
@@ -21,6 +21,8 @@
 #include <thread>
 #include <utility>
 
+using outshine::Generators::Osm::StreetGraphRequest;
+
 namespace {
 using namespace outshine;
 using Clock = std::chrono::steady_clock;
@@ -28,7 +30,7 @@ constexpr std::string_view kTerrainRecipe = "declared-elevation-100m-plus-latitu
 constexpr double kBaseHeightM = 100;
 constexpr size_t kPackageBytesMost = size_t{1024} * 1024u;
 
-std::optional<StreetGraphPreparation::Completed> Await(StreetGraphPreparation &work) {
+std::optional<StreetGraphRequest::Completed> Await(StreetGraphRequest &work) {
   const auto deadline = Clock::now() + std::chrono::seconds(5);
   while (!work.Complete() && Clock::now() < deadline) { std::this_thread::yield(); }
   auto completed = work.Collect();
@@ -37,9 +39,9 @@ std::optional<StreetGraphPreparation::Completed> Await(StreetGraphPreparation &w
   return std::move(completed->value());
 }
 
-StreetGraphPreparation::Resolver
-Resolve(std::shared_ptr<Generators::Osm::PreparedStreetGraph> cache, std::string key) {
-  return StreetGraphPreparation::CachedResolver(
+StreetGraphRequest::Resolver Resolve(std::shared_ptr<Generators::Osm::PreparedStreetGraph> cache,
+                                     std::string key) {
+  return StreetGraphRequest::CachedResolver(
       std::move(cache),
       [key = std::move(key)] -> std::expected<std::string, std::string> { return key; });
 }
@@ -91,16 +93,16 @@ int main() {
   Tasks pool(1);
   size_t factories = 0;
   size_t heightSamples = 0;
-  const StreetGraphPreparation::JobFactory begin = [&] {
+  const StreetGraphRequest::JobFactory begin = [&] {
     ++factories;
     return Generators::Osm::StreetGraphBuildJob::Begin(*vectors, *ways, [&](LongitudeLatitude at) {
       ++heightSamples;
       return std::optional<double>(kBaseHeightM + at.LatitudeDeg);
     });
   };
-  std::optional<StreetGraphPreparation::Completed> cold;
+  std::optional<StreetGraphRequest::Completed> cold;
   {
-    StreetGraphPreparation work(pool, begin, Resolve(cache, *key));
+    StreetGraphRequest work(pool, begin, Resolve(cache, *key));
     cold = Await(work);
     CHECK(cold && !cold->CacheHit && cold->ReadBytes > 0 && work.Advances() > 0 && factories == 1 &&
               heightSamples > 0,
@@ -114,7 +116,7 @@ int main() {
   if (!opened) { return Report(); }
   cache = std::move(*opened);
   {
-    StreetGraphPreparation work(pool, StreetGraphPreparation::JobFactory{}, Resolve(cache, *key));
+    StreetGraphRequest work(pool, StreetGraphRequest::JobFactory{}, Resolve(cache, *key));
     auto warm = Await(work);
     CHECK(warm && warm->CacheHit && warm->ReadBytes == cold->ReadBytes && work.Advances() == 0 &&
               factories == 1,
@@ -151,14 +153,14 @@ int main() {
   CHECK((*raw)->Publish({&record, 1}, corrupt).has_value(),
         "a checksum-valid unsupported native format is installed");
   {
-    StreetGraphPreparation work(pool, begin, Resolve(cache, *key));
+    StreetGraphRequest work(pool, begin, Resolve(cache, *key));
     auto repaired = Await(work);
     CHECK(repaired && !repaired->CacheHit && factories == 2,
           "native format corruption causes regeneration rather than publication of bad topology");
   }
   const auto incompleteKey = Sha256Hex("incomplete-height-fixture");
   {
-    StreetGraphPreparation work(
+    StreetGraphRequest work(
         pool,
         [&] {
           return Generators::Osm::StreetGraphBuildJob::Begin(

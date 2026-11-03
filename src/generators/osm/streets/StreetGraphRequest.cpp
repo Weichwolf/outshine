@@ -1,4 +1,4 @@
-#include "StreetGraphPreparation.h"
+#include "StreetGraphRequest.h"
 
 #include <atomic>
 #include <algorithm>
@@ -14,11 +14,11 @@
 #include <string>
 #include <utility>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 constexpr size_t kWorkItemsPerSlice = 1024;
 
-std::string Describe(const Generators::Osm::PreparedStreetGraph::Failure &failure) {
+std::string Describe(const PreparedStreetGraph::Failure &failure) {
   if (const auto *message = std::get_if<std::string>(&failure)) { return *message; }
   switch (std::get<AssetCacheError>(failure)) {
     case AssetCacheError::InvalidInput: return "invalid street graph cache input";
@@ -31,13 +31,13 @@ std::string Describe(const Generators::Osm::PreparedStreetGraph::Failure &failur
 }
 }
 
-struct StreetGraphPreparation::Work {
-  explicit Work(Generators::Osm::StreetGraphBuildJob job) : Job(std::move(job)) {}
+struct StreetGraphRequest::Work {
+  explicit Work(StreetGraphBuildJob job) : Job(std::move(job)) {}
 
   Work(JobFactory factory, Resolver resolver)
       : Factory(std::move(factory)), Resolve(std::move(resolver)) {}
 
-  std::optional<Generators::Osm::StreetGraphBuildJob> Job;
+  std::optional<StreetGraphBuildJob> Job;
   JobFactory Factory;
   Resolver Resolve;
   double LongestSliceMs = 0.0, WorkerMs = 0.0;
@@ -69,21 +69,19 @@ struct StreetGraphPreparation::Work {
   }
 };
 
-StreetGraphPreparation::StreetGraphPreparation(Tasks &pool,
-                                               Generators::Osm::StreetGraphBuildJob job)
+StreetGraphRequest::StreetGraphRequest(Tasks &pool, StreetGraphBuildJob job)
     : Pool_(pool), Work_(std::make_shared<Work>(std::move(job))) {
   Start(pool);
 }
 
-StreetGraphPreparation::StreetGraphPreparation(Tasks &pool, JobFactory factory, Resolver resolver)
+StreetGraphRequest::StreetGraphRequest(Tasks &pool, JobFactory factory, Resolver resolver)
     : Pool_(pool), Work_(std::make_shared<Work>(std::move(factory), std::move(resolver))) {
   Start(pool);
 }
 
-StreetGraphPreparation::Resolver
-StreetGraphPreparation::CachedResolver(std::shared_ptr<Generators::Osm::PreparedStreetGraph> cache,
-                                       KeyFactory key) {
-  using Native = Generators::Osm::PreparedStreetGraph;
+StreetGraphRequest::Resolver
+StreetGraphRequest::CachedResolver(std::shared_ptr<PreparedStreetGraph> cache, KeyFactory key) {
+  using Native = PreparedStreetGraph;
   return
       [cache = std::move(cache),
        key = std::move(key),
@@ -102,18 +100,18 @@ StreetGraphPreparation::CachedResolver(std::shared_ptr<Generators::Osm::Prepared
       };
 }
 
-void StreetGraphPreparation::Start(Tasks &pool) {
+void StreetGraphRequest::Start(Tasks &pool) {
   Work_->State.store(Work::Status::Running, std::memory_order_release);
   if (pool.PostDetached([work = Work_, stop = Stop_.get_token()] { Run(*work, stop); })) { return; }
   Work_->Result.emplace(std::unexpected(std::string("street graph compute queue is closed")));
   Work_->Finish();
 }
 
-StreetGraphPreparation::~StreetGraphPreparation() {
+StreetGraphRequest::~StreetGraphRequest() {
   Cancel();
 }
 
-void StreetGraphPreparation::Cancel() noexcept {
+void StreetGraphRequest::Cancel() noexcept {
   Stop_.request_stop();
   auto status = Work_->State.load(std::memory_order_acquire);
   if (status == Work::Status::Running &&
@@ -126,20 +124,20 @@ void StreetGraphPreparation::Cancel() noexcept {
   if (status == Work::Status::Deferred) { Start(Pool_); }
 }
 
-bool StreetGraphPreparation::Complete() const noexcept {
+bool StreetGraphRequest::Complete() const noexcept {
   return Work_->State.load(std::memory_order_acquire) == Work::Status::Complete;
 }
 
-const char *StreetGraphPreparation::PhaseName() const noexcept {
+const char *StreetGraphRequest::PhaseName() const noexcept {
   return Work_->Phase.load(std::memory_order_relaxed);
 }
 
-size_t StreetGraphPreparation::Advances() const noexcept {
+size_t StreetGraphRequest::Advances() const noexcept {
   return Work_->Advances.load(std::memory_order_relaxed);
 }
 
-std::expected<Generators::Osm::StreetGraphBuilder::Built, std::string>
-StreetGraphPreparation::Generate(Work &work, const std::stop_token &stop) {
+std::expected<StreetGraphBuilder::Built, std::string>
+StreetGraphRequest::Generate(Work &work, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("street graph candidate canceled"); }
   if (!work.Job) {
     if (!work.Factory) { return std::unexpected("street graph miss has no job factory"); }
@@ -163,11 +161,9 @@ StreetGraphPreparation::Generate(Work &work, const std::stop_token &stop) {
   return std::unexpected("street graph candidate canceled");
 }
 
-void StreetGraphPreparation::Run(Work &work, const std::stop_token &stop) {
+void StreetGraphRequest::Run(Work &work, const std::stop_token &stop) {
   const auto began = std::chrono::steady_clock::now();
-  const Generators::Osm::PreparedStreetGraph::Factory generate = [&] {
-    return Generate(work, stop);
-  };
+  const PreparedStreetGraph::Factory generate = [&] { return Generate(work, stop); };
   if (stop.stop_requested()) {
     work.Result.emplace(std::unexpected("street graph candidate canceled"));
   } else if (work.Resolve) {
@@ -208,8 +204,8 @@ void StreetGraphPreparation::Run(Work &work, const std::stop_token &stop) {
   work.Finish();
 }
 
-std::optional<std::expected<StreetGraphPreparation::Completed, std::string>>
-StreetGraphPreparation::Collect() {
+std::optional<std::expected<StreetGraphRequest::Completed, std::string>>
+StreetGraphRequest::Collect() {
   const auto status = Work_->State.load(std::memory_order_acquire);
   if (status == Work::Status::Running || status == Work::Status::CancelRequested) {
     return std::nullopt;

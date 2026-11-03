@@ -1,4 +1,4 @@
-#include "StreetGraphPreparation.h"
+#include "StreetGraphRequest.h"
 #include "GroundMaterialCatalog.h"
 #include "OsmField.h"
 #include "StreetField.h"
@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 #include <utility>
+
+using outshine::Generators::Osm::StreetGraphRequest;
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -35,7 +37,7 @@ struct ComputeGate {
   ~ComputeGate() { Open->store(true); }
 };
 
-bool Await(const outshine::StreetGraphPreparation &work) {
+bool Await(const outshine::Generators::Osm::StreetGraphRequest &work) {
   const auto deadline = Clock::now() + std::chrono::seconds(3);
   while (!work.Complete() && Clock::now() < deadline) { std::this_thread::yield(); }
   return work.Complete();
@@ -77,7 +79,7 @@ int main() {
     auto job = StreetGraphBuildJob::Begin(field, streets, heightOf);
     CHECK(job.has_value(), "the asynchronous graph job is accepted");
     if (!job) { return Report(); }
-    StreetGraphPreparation work(pool, std::move(*job));
+    StreetGraphRequest work(pool, std::move(*job));
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     CHECK(!work.Complete() && work.Advances() == 0,
           "street graph work uses the occupied shared worker rather than a private thread");
@@ -100,7 +102,7 @@ int main() {
     auto job = StreetGraphBuildJob::Begin(field, streets, heightOf);
     CHECK(job.has_value(), "a queued graph can be canceled");
     if (!job) { return Report(); }
-    StreetGraphPreparation work(pool, std::move(*job));
+    StreetGraphRequest work(pool, std::move(*job));
     work.Cancel();
     gate.Open->store(true);
     CHECK(Await(work), "queued cancellation reaches a terminal result");
@@ -113,13 +115,13 @@ int main() {
     const ComputeGate gate(pool);
     auto pin = std::make_shared<int>(100);
     const std::weak_ptr<int> retained = pin;
-    std::unique_ptr<StreetGraphPreparation> work;
+    std::unique_ptr<StreetGraphRequest> work;
     {
       auto job = StreetGraphBuildJob::Begin(
           field, streets, [pin](LongitudeLatitude) { return std::optional<double>(*pin); });
       CHECK(job.has_value(), "retired graph work owns its height inputs");
       if (!job) { return Report(); }
-      work = std::make_unique<StreetGraphPreparation>(pool, std::move(*job));
+      work = std::make_unique<StreetGraphRequest>(pool, std::move(*job));
     }
     pin.reset();
     const auto began = Clock::now();
