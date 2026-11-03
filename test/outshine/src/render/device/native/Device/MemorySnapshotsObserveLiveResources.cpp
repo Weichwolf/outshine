@@ -4,6 +4,7 @@
 #include "Check.h"
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <print>
 #include <string>
 
@@ -12,7 +13,10 @@ int main() {
   using namespace outshine::Test;
   auto device = CreateDevice({.Validation = true});
   CHECK(device, "a real native device opens without a scene or window");
-  if (!device) { return Report(); }
+  if (!device) {
+    std::println(stderr, "{}", device.error().Message);
+    return Report();
+  }
   auto &gpu = **device;
   const auto before = gpu.ReadMemoryStatus();
   constexpr size_t bytes = size_t{1024} * 1024;

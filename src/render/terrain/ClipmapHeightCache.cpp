@@ -146,13 +146,20 @@ size_t ClipmapHeightCache::Slot(ClipmapNode node) const noexcept {
 }
 
 std::expected<void, ClipmapHeightError>
-ClipmapHeightCache::Commit(const ClipmapHeightUpdate &update) noexcept {
+ClipmapHeightCache::Validate(const ClipmapHeightUpdate &update) const noexcept {
   if (Levels_.empty() || update.Owner_ != this || update.Generation_ != Generation_) {
     return std::unexpected(ClipmapHeightError::StaleUpdate);
   }
   if (std::ranges::any_of(update.Samples_, [](float height) { return std::isinf(height); })) {
     return std::unexpected(ClipmapHeightError::InvalidSamples);
   }
+  return {};
+}
+
+std::expected<void, ClipmapHeightError>
+ClipmapHeightCache::Commit(const ClipmapHeightUpdate &update) noexcept {
+  const auto valid = Validate(update);
+  if (!valid) { return valid; }
   size_t at = 0;
   for (const auto &region : update.Regions_) {
     for (uint32_t y = 0; y < region.Height; ++y) {

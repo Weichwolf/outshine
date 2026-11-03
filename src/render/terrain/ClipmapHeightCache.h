@@ -56,6 +56,8 @@ public:
 
   [[nodiscard]] std::span<float> Samples() noexcept { return Samples_; }
 
+  [[nodiscard]] std::span<const float> Samples() const noexcept { return Samples_; }
+
   [[nodiscard]] std::span<const ClipmapHeightRegion> Regions() const noexcept { return Regions_; }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
@@ -89,6 +91,8 @@ public:
                                                                             size_t bytesMost) const;
   [[nodiscard]] std::expected<void, ClipmapHeightError>
   Commit(const ClipmapHeightUpdate &update) noexcept;
+  [[nodiscard]] std::expected<void, ClipmapHeightError>
+  Validate(const ClipmapHeightUpdate &update) const noexcept;
 
   [[nodiscard]] std::optional<float> Height(uint32_t level, ClipmapNode node) const noexcept;
   [[nodiscard]] std::span<const float> Values(uint32_t level) const noexcept;

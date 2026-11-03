@@ -38,7 +38,9 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/device/native/Device/MemorySnapshotsObserveLiveResources
   outshine/src/render/device/native/Device/PitchedTextureCopiesUseOnlyActualTexelSpan
+  outshine/src/render/terrain/ClipmapHeightUpload/ToroidalBandsReachOnlyTheirGpuSlots
   outshine/src/render/stages/GeometryRenderer/GroundPassHasIndependentTargets
   ${building_field_gpu_cases}
   outshine/integration/engine/GpuSubmission/MainMotionSettlesAfterSuccessfulSubmission
