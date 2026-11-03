@@ -198,22 +198,30 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificat
 
 std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAsset &region,
                                                             size_t bytesMost) {
-  if (!ValidRegion(region) || region.Terrain.Sheets.size() > kPagesMost) { return std::nullopt; }
   BinaryValueWriter out(bytesMost);
+  if (!EncodeGroundRegionAsset(region, out)) { return std::nullopt; }
+  return std::move(out.Out).TakeBytes();
+}
+
+bool EncodeGroundRegionAsset(const GroundRegionAsset &region, BinaryValueWriter &out) {
+  if (!ValidRegion(region) || region.Terrain.Sheets.size() > kPagesMost) { return false; }
   if (!out(kFormat) || !RegionFields(out, region) ||
       !out(static_cast<uint32_t>(region.Terrain.Sheets.size())) ||
       !std::ranges::all_of(region.Terrain.Sheets,
                            [&](const Sheet &page) { return PageFields(out, page); }) ||
       !WriteClasses(out, region.Classes) || !out(region.Network != nullptr)) {
-    return std::nullopt;
+    return false;
   }
   if (region.Network) {
-    const auto bytes = region.Network->EncodeAsset(bytesMost - out.Out.Bytes().size());
-    if (!bytes || !out.Array<uint8_t>(*bytes)) { return std::nullopt; }
+    const size_t lengthAt = out.Out.Bytes().size();
+    if (!out(uint32_t{0}) || !region.Network->EncodeAsset(out)) { return false; }
+    const size_t bytes = out.Out.Bytes().size() - lengthAt - sizeof(uint32_t);
+    if (bytes > std::numeric_limits<uint32_t>::max() ||
+        !out.Out.NumberAt(lengthAt, static_cast<uint32_t>(bytes))) {
+      return false;
+    }
   }
-  const auto geometry = EncodeGeometryProduct(region.Surfaces, bytesMost - out.Out.Bytes().size());
-  if (!geometry || !out.Out.Put(*geometry)) { return std::nullopt; }
-  return std::move(out.Out).TakeBytes();
+  return EncodeGeometryProduct(region.Surfaces, out);
 }
 
 std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t> bytes,
@@ -236,9 +244,11 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   bool network = false;
   if (!in(network)) { return std::nullopt; }
   if (network) {
-    std::vector<uint8_t> encoded;
-    if (!in.Array(encoded)) { return std::nullopt; }
-    auto graph = Path::Network::DecodeAsset(encoded, bytesMost);
+    uint32_t size = 0;
+    if (!in(size)) { return std::nullopt; }
+    const auto encoded = in.In.Take(size);
+    if (!encoded) { return std::nullopt; }
+    auto graph = Path::Network::DecodeAsset(*encoded, bytesMost);
     if (!graph) { return std::nullopt; }
     region.Network = std::make_shared<const Path::Network>(std::move(*graph));
   }

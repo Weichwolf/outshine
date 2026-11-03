@@ -14,6 +14,10 @@
 #include <string>
 #include <vector>
 
+namespace outshine {
+class BinaryValueWriter;
+}
+
 namespace outshine::Generators {
 class WaterAsset {
 public:
@@ -116,6 +120,7 @@ public:
   [[nodiscard]] long InvalidBodyCount() const noexcept;
   [[nodiscard]] std::expected<std::vector<uint8_t>, std::string>
   EncodeNative(size_t bytesMost) const;
+  [[nodiscard]] std::expected<void, std::string> EncodeNative(BinaryValueWriter &out) const;
   [[nodiscard]] static std::expected<WaterAsset, std::string>
   DecodeNative(std::span<const uint8_t> bytes);
 

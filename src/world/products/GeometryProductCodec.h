@@ -9,6 +9,9 @@
 #include <vector>
 
 namespace outshine {
+class BinaryValueWriter;
+
+[[nodiscard]] bool EncodeGeometryProduct(const Geometry &geometry, BinaryValueWriter &out);
 
 [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeGeometryProduct(const Geometry &geometry,
                                                                         size_t bytesMost);

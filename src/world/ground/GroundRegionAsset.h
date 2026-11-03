@@ -14,6 +14,8 @@
 #include <vector>
 
 namespace outshine {
+class BinaryValueWriter;
+
 struct GroundRegionAsset {
   LongitudeLatitude Anchor;
   Patchwork Terrain;
@@ -30,6 +32,7 @@ struct GroundRegionAsset {
 
 [[nodiscard]] std::optional<std::vector<uint8_t>>
 EncodeGroundRegionAsset(const GroundRegionAsset &region, size_t bytesMost);
+[[nodiscard]] bool EncodeGroundRegionAsset(const GroundRegionAsset &region, BinaryValueWriter &out);
 [[nodiscard]] std::optional<GroundRegionAsset>
 DecodeGroundRegionAsset(std::span<const uint8_t> bytes, size_t bytesMost);
 [[nodiscard]] Box GroundRegionBoundsEcef(const GroundRegionAsset &region);

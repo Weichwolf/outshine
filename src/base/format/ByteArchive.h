@@ -36,6 +36,13 @@ public:
     return Put({reinterpret_cast<const uint8_t *>(&encoded), sizeof(T)});
   }
 
+  template <class T> bool NumberAt(size_t offset, T value) noexcept {
+    if (offset > Bytes_.size() || sizeof(T) > Bytes_.size() - offset) { return false; }
+    const auto encoded = LittleEndian(value);
+    std::memcpy(Bytes_.data() + offset, &encoded, sizeof(T));
+    return true;
+  }
+
   bool Put(std::span<const uint8_t> bytes) {
     if (bytes.size() > Most_ - Bytes_.size()) { return false; }
     Bytes_.insert(Bytes_.end(), bytes.begin(), bytes.end());

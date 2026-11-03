@@ -180,8 +180,13 @@ bool ReadParts(BinaryValueReader &in, Geometry &geometry, int parts) {
 
 std::optional<std::vector<uint8_t>> EncodeGeometryProduct(const Geometry &geometry,
                                                           size_t bytesMost) {
-  if (!Complete(geometry)) { return std::nullopt; }
   BinaryValueWriter out(bytesMost);
+  if (!EncodeGeometryProduct(geometry, out)) { return std::nullopt; }
+  return std::move(out.Out).TakeBytes();
+}
+
+bool EncodeGeometryProduct(const Geometry &geometry, BinaryValueWriter &out) {
+  if (!Complete(geometry)) { return false; }
   out.Out.Reserve(geometry.storageBytes());
   ImageStorage storage;
   for (int index = 0; index < geometry.images(); ++index) {
@@ -194,12 +199,9 @@ std::optional<std::vector<uint8_t>> EncodeGeometryProduct(const Geometry &geomet
   storage.Prepared = storage.Prepared || storage.Typed;
   auto format = storage.Prepared ? kPreparedGeometryProductFormat : kGeometryProductFormat;
   if (storage.Typed) { format = kTypedGeometryProductFormat; }
-  if (!out(format, geometry.images(), geometry.surfaces(), geometry.lamps(), geometry.parts()) ||
-      !WriteImages(out, geometry, storage) || !WriteTables(out, geometry) ||
-      !WriteParts(out, geometry)) {
-    return std::nullopt;
-  }
-  return std::move(out.Out).TakeBytes();
+  return out(format, geometry.images(), geometry.surfaces(), geometry.lamps(), geometry.parts()) &&
+         WriteImages(out, geometry, storage) && WriteTables(out, geometry) &&
+         WriteParts(out, geometry);
 }
 
 std::optional<Geometry> DecodeGeometryProduct(std::span<const uint8_t> bytes, size_t bytesMost) {

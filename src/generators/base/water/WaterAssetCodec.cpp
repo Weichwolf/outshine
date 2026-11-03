@@ -123,11 +123,17 @@ bool Valid(const WaterAsset::Data &data) {
 }
 
 std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t bytesMost) const {
+  BinaryValueWriter out(bytesMost);
+  const auto encoded = EncodeNative(out);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  return std::move(out.Out).TakeBytes();
+}
+
+std::expected<void, std::string> WaterAsset::EncodeNative(BinaryValueWriter &out) const {
   const auto &data = Contents();
   if (!Complete() || !Valid(data)) {
     return std::unexpected("water asset is incomplete or invalid");
   }
-  BinaryValueWriter out(bytesMost);
   const auto *geometry = PreparedSurfaces();
   const auto version = NativeVersion(geometry);
   if (!out(version,
@@ -141,7 +147,7 @@ std::expected<std::vector<uint8_t>, std::string> WaterAsset::EncodeNative(size_t
       !WaterFormat::Metadata(out, data) || !ArchiveGeometry(out, geometry, version)) {
     return std::unexpected("water asset exceeds its encoding budget");
   }
-  return std::move(out.Out).TakeBytes();
+  return {};
 }
 
 std::expected<WaterAsset, std::string> WaterAsset::DecodeNative(std::span<const uint8_t> bytes) {

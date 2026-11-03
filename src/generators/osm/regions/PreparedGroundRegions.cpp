@@ -67,12 +67,17 @@ Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMos
   if (!water.SurfacesReady()) {
     return std::unexpected("native region water surfaces are not prepared");
   }
-  auto ground = EncodeGroundRegionAsset(region, bytesMost);
-  auto inputs = water.EncodeNative(bytesMost);
-  if (!ground || !inputs) { return std::unexpected("native region products cannot be encoded"); }
   BinaryValueWriter out(bytesMost);
-  if (!out(kPackageVersion, static_cast<uint64_t>(ground->size())) || !out.Out.Put(*ground) ||
-      !out(static_cast<uint64_t>(inputs->size())) || !out.Out.Put(*inputs)) {
+  if (!out(kPackageVersion, uint64_t{0}) || !EncodeGroundRegionAsset(region, out)) {
+    return std::unexpected("native region products cannot be encoded");
+  }
+  const size_t waterLengthAt = out.Out.Bytes().size();
+  if (!out.Out.NumberAt(sizeof(uint64_t),
+                        static_cast<uint64_t>(waterLengthAt - 2 * sizeof(uint64_t))) ||
+      !out(uint64_t{0}) || !water.EncodeNative(out) ||
+      !out.Out.NumberAt(
+          waterLengthAt,
+          static_cast<uint64_t>(out.Out.Bytes().size() - waterLengthAt - sizeof(uint64_t)))) {
     return std::unexpected("native region package exceeds its budget");
   }
   return std::move(out.Out).TakeBytes();

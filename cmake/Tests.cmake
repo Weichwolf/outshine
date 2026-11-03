@@ -258,6 +258,7 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
       OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex"
+      OR name STREQUAL "outshine/src/world/ground/GroundRegionAsset/CompositionUsesOnlyDestinationStorage"
       OR name STREQUAL "outshine/src/world/products/GeometryProductCodec/DecodedStreamsNeedOnlyTheirOwnedAllocations")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()

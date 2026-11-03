@@ -20,6 +20,10 @@
 #include "Earth.h"
 #include "Box.h"
 
+namespace outshine {
+class BinaryValueWriter;
+}
+
 namespace outshine::Path {
 
 inline constexpr size_t kMaxNetworkPoints = 4000000;
@@ -88,6 +92,7 @@ public:
   [[nodiscard]] static std::expected<Network, std::string_view> Create(Snap snap, Sphere on);
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeAsset(size_t bytesMost) const;
+  [[nodiscard]] bool EncodeAsset(BinaryValueWriter &out) const;
   [[nodiscard]] static std::optional<Network> DecodeAsset(std::span<const uint8_t> bytes,
                                                           size_t bytesMost);
 

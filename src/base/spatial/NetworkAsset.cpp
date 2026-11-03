@@ -263,10 +263,13 @@ private:
 };
 
 std::optional<std::vector<uint8_t>> Network::EncodeAsset(size_t bytesMost) const {
-  if (!NetworkAssetCodec::Validate(*this)) { return std::nullopt; }
   BinaryValueWriter out(bytesMost);
-  if (!NetworkAssetCodec::Write(out, *this)) { return std::nullopt; }
+  if (!EncodeAsset(out)) { return std::nullopt; }
   return std::move(out.Out).TakeBytes();
+}
+
+bool Network::EncodeAsset(BinaryValueWriter &out) const {
+  return NetworkAssetCodec::Validate(*this) && NetworkAssetCodec::Write(out, *this);
 }
 
 std::optional<Network> Network::DecodeAsset(std::span<const uint8_t> bytes, size_t bytesMost) {
