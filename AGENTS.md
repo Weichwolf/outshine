@@ -103,6 +103,8 @@ Formate/Daten und laufende Lieferungen schützen. Tests allein erhalten keinen A
 Master hält **zwölf wechselnde Places** lokal unter `build/shots/places/` aktuell, je Place
 nur die neueste erfolgreiche Hash-PNG; Pins/Referenzen erhalten. Bilder tatsächlich öffnen,
 Vorher/Nachher und datierte [Webcam-/Archivbilder](https://www.foto-webcam.eu/) vergleichen.
+Bildänderungen sind erlaubt; ich beurteile ihre sichtbare Qualität. Pixelidentität ist
+kein Produktziel und keine allgemeine Abnahmebedingung.
 Natur, Mischszenen, Städte/Parkränder und geografische Gegenfälle rotieren; zwölf Ansichten
 beweisen keine weltweite Funktion. Mindestens ein aktueller Place gehört ins Gate.
 Aktuell alle zwölf **ohne Vegetation**, um Transport/Gebäude/Boden zu prüfen; das Diagnoseprofil
