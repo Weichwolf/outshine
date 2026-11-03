@@ -80,6 +80,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryRenderer/NativePieceClustersBoundTheirUploadedIndices
   outshine/src/render/stages/GeometryRenderer/OptionalAttributesReserveOnlyTheirConsumers
   outshine/src/render/stages/GeometryRenderer/PassPipelinesExcludeUnreachableMaterials
+  outshine/src/render/stages/GeometryRenderer/PieceGrowthCopiesAllocatedPrefixesWithoutReserve
   outshine/src/render/stages/GeometryRenderer/ResidentIndexCapacityRejectsWrappedDestinations
   outshine/src/render/stages/GeometryRenderer/ResidentSelectionPreservesMaterialPixels
   outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
@@ -90,6 +91,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryResidency/FloatImagesRetainExactValuesAcrossDeferredUpload
   outshine/src/render/stages/GeometryResidency/HalfFloatImagesRetainMipOffsetsAcrossDeferredUpload
   outshine/src/render/stages/GeometryResidency/IsolatedUploadsRecordWithoutQueueSubmissions
+  outshine/src/render/stages/GeometryResidency/KnownPrefixesSurviveGrowthAndRejectedSubmission
   outshine/src/render/stages/GeometryResidency/LargeReservationsFitAdmissionAndPreserveAcceptedData
   outshine/src/render/stages/GeometryResidency/MipSubmissionFailureRetainsRetry
   outshine/src/render/stages/GeometryResidency/PreparedMipBytesReachTheDevice

@@ -90,6 +90,8 @@ struct GeometryResidency {
     uint32_t Bytes = 0;
     ExistingContents Existing = ExistingContents::Preserve;
     bool Deferred = false;
+    // Without a known live prefix, preserve the complete existing allocation.
+    std::optional<uint64_t> PreserveBytes = std::nullopt;
   };
 
   struct Crossing {
@@ -161,6 +163,8 @@ struct GeometryResidency {
   [[nodiscard]] const Range &MainTangentRange() const noexcept { return MainTangentRange_; }
 
   [[nodiscard]] uint32_t TangentRoom() const noexcept { return TopT_; }
+
+  [[nodiscard]] uint32_t ColourRoom() const noexcept { return TopC_; }
 
   void SetMainMeshRanges(Range vertices, Range indices, Range colours, Range tangents) {
     MainVertexRange_ = vertices;

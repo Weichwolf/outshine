@@ -302,6 +302,9 @@ void Engine::State::PublishGroundMemoryMeasurements() {
     Published.RecordMetric("world: geometry transfer buffer capacity",
                            static_cast<double>(memory.TransferBytes),
                            "bytes");
+    Published.RecordMetric("world: geometry preservation bytes scheduled",
+                           static_cast<double>(memory.DeviceCopyBytes),
+                           "bytes");
     Published.RecordMetric(
         "world: geometry vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
     Published.RecordMetric(

@@ -614,16 +614,19 @@ private:
   uint32_t PiecesLive_ = 0;
   uint32_t PieceTriangles_ = 0;
 
-  [[nodiscard]] Native::Result<void> RoomForStreams();
-
-  struct OptionalStreamEnds {
+  struct StreamEnds {
     uint32_t VertexEnd;
     uint32_t ColourEnd;
     uint32_t TangentEnd;
+    uint32_t IndexEnd = 0;
   };
 
-  [[nodiscard]] Native::Result<void> RoomForOptionalStreams(OptionalStreamEnds ends,
-                                                            VertexRunsCarried carried);
+  [[nodiscard]] Native::Result<void>
+  RoomForStreams(std::optional<StreamEnds> previous = std::nullopt);
+  [[nodiscard]] Native::Result<void>
+  RoomForOptionalStreams(StreamEnds ends,
+                         VertexRunsCarried carried,
+                         std::optional<StreamEnds> previous = std::nullopt);
   void BindPlacementStorage(DrawResources &into, VertexLayout layout) const;
   void BindShadowResources(DrawResources &resources,
                            const DrawBatch &batch,

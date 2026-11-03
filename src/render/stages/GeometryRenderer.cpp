@@ -198,7 +198,7 @@ UploadPieceRuns(GeometryResidency &res, const PieceMesh &piece, const PieceAlloc
 
 }
 
-Native::Result<void> GeometryRenderer::RoomForStreams() {
+Native::Result<void> GeometryRenderer::RoomForStreams(std::optional<StreamEnds> previous) {
   GeometryResidency &res = Bound();
   const uint32_t verts = res.VertexRoom();
   const uint32_t mainVertexEnd = res.MainVertexRange().First + res.MainVertexRange().Count;
@@ -214,7 +214,14 @@ Native::Result<void> GeometryRenderer::RoomForStreams() {
       std::pair{S::Emitted, res.Shape().HasEmitted ? bytes(mainVertexEnd, kPositionFloats) : 0u}};
   for (const auto &[stream, size] : streams) {
     if (size == 0) { continue; }
-    auto grown = res.Grow(stream, {.Usage = vertex, .Bytes = size, .Deferred = true});
+    const auto width = stream == S::Normal ? 1u : kPositionFloats;
+    auto grown = res.Grow(stream,
+                          {.Usage = vertex,
+                           .Bytes = size,
+                           .Deferred = true,
+                           .PreserveBytes = previous ? std::optional{uint64_t{previous->VertexEnd} *
+                                                                     width * sizeof(float)}
+                                                     : std::nullopt});
     if (!grown) { return grown; }
   }
   if (mainVertexEnd != 0) {
@@ -225,17 +232,22 @@ Native::Result<void> GeometryRenderer::RoomForStreams() {
                                {.Uv = res.Shape().HasUv,
                                 .Uv1 = res.Shape().HasUv1,
                                 .Tangent = res.Shape().HasTangent,
-                                .Colour = res.Shape().HasColour});
+                                .Colour = res.Shape().HasColour},
+                               previous);
     if (!optional) { return optional; }
   }
-  return res.Grow(S::Index,
-                  {.Usage = kIndexUse,
-                   .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)),
-                   .Deferred = true});
+  return res.Grow(
+      S::Index,
+      {.Usage = kIndexUse,
+       .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)),
+       .Deferred = true,
+       .PreserveBytes = previous ? std::optional{uint64_t{previous->IndexEnd} * sizeof(uint32_t)}
+                                 : std::nullopt});
 }
 
-Native::Result<void> GeometryRenderer::RoomForOptionalStreams(OptionalStreamEnds ends,
-                                                              VertexRunsCarried carried) {
+Native::Result<void> GeometryRenderer::RoomForOptionalStreams(StreamEnds ends,
+                                                              VertexRunsCarried carried,
+                                                              std::optional<StreamEnds> previous) {
   using S = GeometryResidency::Stream;
   const auto bytes = [](bool present, uint32_t end, uint32_t components) {
     return present ? end * components * static_cast<uint32_t>(sizeof(float)) : 0u;
@@ -249,7 +261,21 @@ Native::Result<void> GeometryRenderer::RoomForOptionalStreams(OptionalStreamEnds
     if (size == 0) { continue; }
     const auto use = stream == S::Tangent || stream == S::Colour ? Native::BufferUse::Storage
                                                                  : Native::BufferUse::Vertex;
-    auto grown = Bound().Grow(stream, {.Usage = use, .Bytes = size, .Deferred = true});
+    const bool separate = stream == S::Tangent || stream == S::Colour;
+    uint32_t end = 0;
+    if (previous) {
+      end = previous->VertexEnd;
+      if (stream == S::Tangent) { end = previous->TangentEnd; }
+      if (stream == S::Colour) { end = previous->ColourEnd; }
+    }
+    const auto width = separate ? kQuadFloats : kPairFloats;
+    auto grown = Bound().Grow(
+        stream,
+        {.Usage = use,
+         .Bytes = size,
+         .Deferred = true,
+         .PreserveBytes =
+             previous ? std::optional{uint64_t{end} * width * sizeof(float)} : std::nullopt});
     if (!grown) { return grown; }
   }
   return {};
@@ -638,6 +664,10 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   const auto verts = static_cast<uint32_t>(piece.Verts.size());
   const auto indices = static_cast<uint32_t>(piece.Indices.size());
   GeometryResidency &res = Bound();
+  const StreamEnds previous{.VertexEnd = res.VertexRoom(),
+                            .ColourEnd = res.ColourRoom(),
+                            .TangentEnd = res.TangentRoom(),
+                            .IndexEnd = res.IndexRoom()};
   const GeometryResidency::Range v = res.TakeVertices(verts);
   const GeometryResidency::Range i = res.TakeIndices(indices);
   const auto c = piece.Colours.empty() ? GeometryResidency::Range{} : res.TakeColours(verts);
@@ -648,14 +678,15 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
     res.GiveColours(c);
     res.GiveTangents(t);
   };
-  auto uploaded = RoomForStreams();
+  auto uploaded = RoomForStreams(previous);
   if (uploaded) {
     uploaded = RoomForOptionalStreams(
         {.VertexEnd = v.First + verts, .ColourEnd = c.First + verts, .TangentEnd = t.First + verts},
         {.Uv = piece.Textured,
          .Uv1 = !piece.Uv1.empty(),
          .Tangent = !piece.Tangents.empty(),
-         .Colour = !piece.Colours.empty()});
+         .Colour = !piece.Colours.empty()},
+        previous);
   }
   if (uploaded) {
     uploaded =

@@ -307,6 +307,10 @@ Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
   auto &held = Buffer(which);
   auto &stood = Held_[static_cast<size_t>(which)];
   if (held && stood >= need.Bytes && MatchesUsage(*held, need.Usage)) { return {}; }
+  const auto preserve =
+      static_cast<uint32_t>(held && need.Existing == ExistingContents::Preserve
+                                ? std::min(uint64_t{stood}, need.PreserveBytes.value_or(stood))
+                                : 0);
   constexpr uint32_t batchBytes = 16u * 1024u * 1024u;
   if (!need.Deferred || uint64_t{PendingUploadBytes_} + stood > batchBytes) {
     const auto flushed = SubmitPendingUploads();
@@ -323,8 +327,8 @@ Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
       {.Bytes = widened,
        .Use = need.Usage | Native::BufferUse::CopySource | Native::BufferUse::CopyDestination});
   if (!fresh) { return UploadFailed(fresh.error()); }
-  if (held && stood > 0 && need.Existing == ExistingContents::Preserve) {
-    auto copied = PreserveBuffer(*held, **fresh, stood, need.Deferred);
+  if (preserve > 0) {
+    auto copied = PreserveBuffer(*held, **fresh, preserve, need.Deferred);
     if (!copied) { return UploadFailed(copied.error()); }
   }
   if (held && StagedCount_ > 0) { RetiredBuffers_.push_back(std::move(held)); }
