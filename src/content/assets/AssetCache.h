@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_ASSETS_ASSETCACHE_H
 
 #include "AssetRecord.h"
+#include "ByteLease.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace outshine {
@@ -48,9 +50,10 @@ public:
 private:
   friend class AssetCache;
   friend class AssetProduct;
+  friend struct AssetPublication;
   CachedAsset(AssetRecord record, std::vector<uint8_t> bytes);
   AssetRecord Record_;
-  std::vector<uint8_t> Package_;
+  std::variant<std::vector<uint8_t>, ByteBlock> Package_;
 };
 
 class PreparedAssetWrite {

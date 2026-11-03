@@ -6,13 +6,16 @@
 #include <variant>
 
 namespace outshine {
+class AssetPipeline;
+
 class AssetProduct {
 public:
   explicit AssetProduct(AssetRecord record, size_t consumerBytesMost = 0);
   explicit AssetProduct(CachedAsset native, size_t consumerBytesMost = 0);
   [[nodiscard]] const AssetRecord &Record() const noexcept;
   [[nodiscard]] const CachedAsset *Native() const noexcept;
-  // Object/string capacities and the whole retained package, excluding allocator overhead.
+  // Inline product/string capacities and payload; excludes external control-block/allocator
+  // overhead.
   [[nodiscard]] size_t CapacityBytes() const noexcept;
   [[nodiscard]] size_t BackingBytes() const noexcept;
 
@@ -22,6 +25,8 @@ public:
   void ClearRequestBinding() noexcept;
 
 private:
+  friend class AssetPipeline;
+  [[nodiscard]] bool RetainBacking(MemoryBudget::Reservation &source);
   std::variant<AssetRecord, CachedAsset> Data_;
   size_t ConsumerBytesMost_ = 0;
 };

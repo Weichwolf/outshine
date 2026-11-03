@@ -1,3 +1,5 @@
+#include <variant>
+#include <memory>
 #include "AssetPublication.h"
 #include <cstddef>
 #include <cstdint>
@@ -5,6 +7,14 @@
 #include <string_view>
 
 namespace outshine {
+std::optional<ByteLease> AssetPublication::Lease() const noexcept {
+  if (!Native) { return std::nullopt; }
+  const auto *block = std::get_if<ByteBlock>(&Native->Package_);
+  return block != nullptr
+             ? std::optional(ByteLease(std::shared_ptr<const ByteBlock>(Native, block)))
+             : std::nullopt;
+}
+
 std::optional<AssetRequestKey> AssetRequestKey::Parse(std::string_view hex) noexcept {
   const auto key = AssetProductKey::Parse(hex);
   return key ? std::optional(AssetRequestKey{key->Digest}) : std::nullopt;

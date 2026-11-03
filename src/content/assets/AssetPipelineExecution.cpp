@@ -61,11 +61,14 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
       StoredReceipt{.Reservation = job->Output, .Product = std::move(*result)});
   {
     const std::scoped_lock lock(Lock);
-    const size_t retained = backingBytes + consumerBytes;
-    if (!job->Inputs.TransferTo(job->Output->Inputs, retained)) {
+    if (!stored->Product.RetainBacking(job->Inputs)) {
+      return Failed(AssetPublicationError::InvalidReceipt, "invalid native backing reservation");
+    }
+    JobInputBytes -= backingBytes;
+    if (!job->Inputs.TransferTo(job->Output->Workspace, consumerBytes)) {
       return Failed(AssetPublicationError::InvalidReceipt, "invalid retained input reservation");
     }
-    JobInputBytes -= retained;
+    JobInputBytes -= consumerBytes;
     job->Output->ConsumerBytes = consumerBytes;
   }
   std::shared_ptr<const AssetRecord> record(stored, &stored->Product.Record());

@@ -1,5 +1,7 @@
 #include "AssetProduct.h"
 #include <cstddef>
+#include <cstdint>
+#include <vector>
 #include <string>
 #include <utility>
 #include <variant>
@@ -30,7 +32,25 @@ size_t AssetProduct::CapacityBytes() const noexcept {
 
 size_t AssetProduct::BackingBytes() const noexcept {
   const auto *native = Native();
-  return native != nullptr ? native->Package_.capacity() : 0;
+  if (native == nullptr) { return 0; }
+  const auto *raw = std::get_if<std::vector<uint8_t>>(&native->Package_);
+  return raw != nullptr ? raw->capacity() : std::get<ByteBlock>(native->Package_).CapacityBytes();
+}
+
+bool AssetProduct::RetainBacking(MemoryBudget::Reservation &source) {
+  auto *native = std::get_if<CachedAsset>(&Data_);
+  if (native == nullptr) { return true; }
+  auto *raw = std::get_if<std::vector<uint8_t>>(&native->Package_);
+  if (raw == nullptr) { return false; }
+  MemoryBudget::Reservation retained;
+  if (!source.TransferTo(retained, raw->capacity())) { return false; }
+  auto lease = ByteBlock::Adopt(*raw, retained);
+  if (!lease) {
+    (void)retained.TransferTo(source, retained.Bytes());
+    return false;
+  }
+  native->Package_ = std::move(*lease);
+  return true;
 }
 
 void AssetProduct::SetRequestBinding(std::string request) {

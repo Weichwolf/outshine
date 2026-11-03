@@ -47,7 +47,7 @@ void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
 void AssetPipeline::State::ReleaseConsumerWorkspace(Job &job) {
   if (!job.Output) { return; }
   const size_t unused = std::exchange(job.Output->ConsumerBytes, 0);
-  (void)job.Output->Inputs.Resize(job.Output->Inputs.Bytes() - unused);
+  (void)job.Output->Workspace.Resize(job.Output->Workspace.Bytes() - unused);
 }
 
 void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
@@ -262,7 +262,7 @@ AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
   if (carried != 0) {
-    if (!output->Inputs.TransferTo(workspace, carried)) {
+    if (!output->Workspace.TransferTo(workspace, carried)) {
       (void)workspace.Resize(previous);
       return std::unexpected(AssetPublicationError::InvalidRequest);
     }

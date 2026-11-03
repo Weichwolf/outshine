@@ -13,7 +13,7 @@ namespace outshine {
 struct AssetPipeline::State : std::enable_shared_from_this<State> {
   struct PublicationReservation {
     MemoryBudget::Reservation Receipt;
-    MemoryBudget::Reservation Inputs;
+    MemoryBudget::Reservation Workspace;
     size_t ConsumerBytes = 0;
   };
 

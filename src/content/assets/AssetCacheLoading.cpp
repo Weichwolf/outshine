@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <zlib.h>
 
@@ -70,8 +71,11 @@ CachedAsset::CachedAsset(AssetRecord record, std::vector<uint8_t> bytes)
     : Record_(std::move(record)), Package_(std::move(bytes)) {}
 
 std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
-  return std::span(Package_).subspan(static_cast<size_t>(Record_.OffsetBytes),
-                                     static_cast<size_t>(Record_.ByteCount));
+  const auto *raw = std::get_if<std::vector<uint8_t>>(&Package_);
+  const std::span<const uint8_t> bytes =
+      raw != nullptr ? std::span<const uint8_t>(*raw) : std::get<ByteBlock>(Package_).Bytes();
+  return bytes.subspan(static_cast<size_t>(Record_.OffsetBytes),
+                       static_cast<size_t>(Record_.ByteCount));
 }
 
 std::expected<std::optional<AssetCache::ReadPlan>, AssetCacheError>

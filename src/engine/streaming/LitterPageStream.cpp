@@ -122,9 +122,16 @@ Render::Native::Result<void> LitterPageStream::PrepareEdits() {
       ++Counts_.Deferred;
       continue;
     }
+    const auto lease = result.Lease();
+    if (!lease) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid, .Message = "litter asset has no admitted backing"});
+    }
+    const auto &record = result.Native->Record();
+    const auto bytes = lease->Bytes().subspan(static_cast<size_t>(record.OffsetBytes),
+                                              static_cast<size_t>(record.ByteCount));
     const auto decoded = Generators::DecodeLitterPage(
-        NativeAddress(pending.Address, Atlas_->Options().Layout.CoreTexels),
-        result.Native->Bytes());
+        NativeAddress(pending.Address, Atlas_->Options().Layout.CoreTexels), bytes);
     if (!decoded) {
       return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = decoded.error()});
     }

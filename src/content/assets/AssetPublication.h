@@ -67,6 +67,7 @@ struct AssetPublication {
   bool RequestHit = false;
   std::shared_ptr<const std::any> Failure = nullptr;
   size_t ConsumerBytesMost = 0;
+  [[nodiscard]] std::optional<ByteLease> Lease() const noexcept;
 };
 }
 #endif
