@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <spawn.h>
 #include <string>
 #include <string_view>
@@ -107,16 +108,17 @@ int Offline(const std::filesystem::path &root, bool pair) {
   CHECK(opened, "the fresh process opens metadata and assets with no source data available");
   if (!opened) { return Test::Report(); }
   const auto request = Request(**opened);
-  const auto loaded = (*opened)->LoadRequest(request);
-  CHECK(loaded, "the real early request lookup completes without a storage error");
-  const bool hit = loaded && loaded->has_value();
+  auto product = (*opened)->LoadRequestProduct(request);
+  CHECK(product, "the real early request lookup completes without a storage error");
+  const auto loaded = product && *product ? (*opened)->Decode(std::move(**product)) : std::nullopt;
+  const bool hit = loaded.has_value();
   if (pair) {
     CHECK(!hit && request != kLegacyRequest,
           "the different source binding cannot inherit the current or old ambiguous product");
   } else {
-    CHECK(loaded && loaded->has_value(), "the same binding remains an offline hit");
-    if (loaded && loaded->has_value()) {
-      const auto &region = (**loaded).Region;
+    CHECK(loaded.has_value(), "the same binding remains an offline hit");
+    if (loaded.has_value()) {
+      const auto &region = loaded->Region;
       CHECK(region.Terrain.Sheets.size() == 1 &&
                 region.Terrain.Sheets.front().Nodes ==
                     std::vector<float>(kTerrainHeightsM.begin(), kTerrainHeightsM.end()),

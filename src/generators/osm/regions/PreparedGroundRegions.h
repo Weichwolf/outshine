@@ -47,7 +47,7 @@ public:
 
   [[nodiscard]] Counters Costs() const noexcept;
   using Failure = std::variant<AssetCacheError, std::string>;
-  using ReadResult = std::expected<std::optional<Loaded>, Failure>;
+  using ReadResult = std::expected<std::optional<CachedAsset>, Failure>;
 
   class StoreWork {
   public:
@@ -92,8 +92,10 @@ public:
   [[nodiscard]] std::string RequestKey(const OsmField &vectors,
                                        const ::outshine::Ground::ShapedGround &shape,
                                        std::span<const uint8_t> parameters) const;
-  [[nodiscard]] ReadResult Load(const std::string &key);
-  [[nodiscard]] ReadResult LoadRequest(const std::string &requestKey);
+  // Native reads check kind and binding; Decode consumes the package and validates its schema.
+  [[nodiscard]] ReadResult LoadProduct(const std::string &key);
+  [[nodiscard]] ReadResult LoadRequestProduct(const std::string &requestKey);
+  [[nodiscard]] std::optional<Loaded> Decode(CachedAsset product);
   [[nodiscard]] std::expected<void, Failure> BindRequest(const std::string &key,
                                                          const std::string &requestKey);
   [[nodiscard]] std::expected<StoreWork, Failure> PrepareStore(const std::string &key,
@@ -106,7 +108,7 @@ public:
 
 private:
   PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe);
-  [[nodiscard]] ReadResult Read(const std::string &key);
+  [[nodiscard]] std::expected<std::optional<Loaded>, Failure> LoadDecoded(const std::string &key);
   [[nodiscard]] std::expected<Loaded, Failure> ResumeStore(StoreWork &work,
                                                            const std::stop_token &stop);
   std::shared_ptr<AssetCache> Cache_;

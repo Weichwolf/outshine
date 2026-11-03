@@ -8,6 +8,7 @@
 #include <optional>
 #include <sqlite3.h>
 #include <string>
+#include <utility>
 #include <stop_token>
 #include <vector>
 
@@ -76,8 +77,9 @@ void ColdThenWarmBind() {
   auto fresh = Regions::Open(OpenAssetStore(fixture.Directory), fixture.Sources, "fixture-rules");
   CHECK(fresh, "a fresh native owner can verify the persisted request binding");
   if (!fresh) { return; }
-  const auto hit = (*fresh)->LoadRequest(alias);
-  CHECK(hit && *hit && (**hit).Key == fixture.Key,
+  auto product = (*fresh)->LoadRequestProduct(alias);
+  const auto hit = product && *product ? (*fresh)->Decode(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && hit->Key == fixture.Key,
         "the exact warm request alias survives independently of the original owner");
 }
 

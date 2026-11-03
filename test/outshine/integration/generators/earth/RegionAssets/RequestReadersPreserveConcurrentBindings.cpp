@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <dlfcn.h>
 #include <filesystem>
+#include <optional>
 #include <sqlite3.h>
 #include <stop_token>
 #include <string>
@@ -76,9 +77,11 @@ int ReplaceGround(const std::filesystem::path &directory, const RequestBinding &
   auto cache = Osm::PreparedGroundRegions::Open(
       outshine::Test::OpenAssetStore(directory.string()), sources, "fixture-rules");
   if (!cache) { return 1; }
-  auto original = (*cache)->Load(binding.ProductKey);
+  auto original = (*cache)->LoadProduct(binding.ProductKey);
   if (!original || !*original) { return 1; }
-  const auto &loaded = **original;
+  const auto decoded = (*cache)->Decode(std::move(**original));
+  if (!decoded) { return 1; }
+  const auto &loaded = *decoded;
   const auto stored = StoreGroundRegion(**cache,
                                         std::string(64, 'b'),
                                         GroundRegionBoundsEcef(loaded.Region),
@@ -138,11 +141,16 @@ void CheckGround(std::string_view executable) {
   CHECK(reader && records, "independent native ground and metadata readers open");
   if (!reader || !records) { return; }
   hook.Armed = true;
-  auto loaded = (*reader)->LoadRequest(fixture.Request);
+  auto product = (*reader)->LoadRequestProduct(fixture.Request);
+  CHECK((*reader)->Costs().Decodes == 0,
+        "a replaced native target never allocates a discarded decoded world region");
+  const auto loaded = product && *product ? (*reader)->Decode(std::move(**product)) : std::nullopt;
   CHECK(hook.Pauses == 1 && hook.ChildStatus == 0,
         "a separate native process replaces the alias while its old ground target is read");
-  CHECK(loaded && *loaded && (**loaded).Key == std::string(64, 'b'),
+  CHECK(product && *product && loaded && loaded->Key == std::string(64, 'b'),
         "the ground request reader returns the current replacement rather than its old target");
+  CHECK(loaded && (*reader)->Costs().Decodes == 1,
+        "only the stable replacement receives its domain decode");
   const auto current = (*records)->FindRequest(fixture.Request);
   CHECK(current && *current && (**current).Key == std::string(64, 'b'),
         "the ground request read preserves the replacement binding");

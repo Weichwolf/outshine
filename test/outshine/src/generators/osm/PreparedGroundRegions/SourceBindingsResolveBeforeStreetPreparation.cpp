@@ -13,8 +13,10 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -58,12 +60,13 @@ void FreshRequestHit(const std::string &directory,
   CHECK(!(*opened)->PlanRequest({}, -1, MvtSchema::Shortbread, 0, shape, parameters) &&
             !(*opened)->PlanRequest({}, 2, MvtSchema::Shortbread, -1, shape, parameters),
         "invalid planned demands fail before source access");
-  auto hit = (*opened)->LoadRequest(request);
-  CHECK(hit && *hit && (**hit).Key == key && (**hit).Region.Terrain.Sheets.size() == 1 &&
-            (**hit).Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),
+  auto product = (*opened)->LoadRequestProduct(request);
+  auto hit = product && *product ? (*opened)->Decode(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && hit->Key == key && hit->Region.Terrain.Sheets.size() == 1 &&
+            hit->Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),
         "bound demand restores native contacts before any unavailable inputs exist");
   const auto changed = (*opened)->RequestKey(3, MvtSchema::Shortbread, shape, parameters, inputs);
-  const auto miss = (*opened)->LoadRequest(changed);
+  const auto miss = (*opened)->LoadRequestProduct(changed);
   CHECK(changed != request && miss && !*miss, "different region layout remains a miss");
   CHECK((*opened)->RequestKey(2, MvtSchema::OpenMapTiles, shape, parameters, inputs) != request,
         "source schema participates in the source-independent demand");
@@ -126,8 +129,9 @@ int main() {
   const auto saved = ::outshine::Test::StoreGroundRegion(
       *cache, key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
   CHECK(saved, "complete native region is stored under source and demand bindings");
-  const auto hit = cache->Load(key);
-  CHECK(hit && *hit && (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
+  auto product = cache->LoadProduct(key);
+  const auto hit = product && *product ? cache->Decode(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && hit->Region.Terrain.Sheets == region.Terrain.Sheets,
         "a region hit loads native contact pages without a prepared street graph");
   const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
   const auto request =
@@ -140,7 +144,7 @@ int main() {
   auto changedShape = shape;
   changedShape.Seed = 9;
   const auto changed = cache->Key(vectors, changedShape, parameters);
-  const auto miss = cache->Load(changed);
+  const auto miss = cache->LoadProduct(changed);
   CHECK(changed != key && miss && !*miss, "changed generation parameters cannot reuse the region");
   const std::array<uint8_t, 3> otherDemand{1, 2, 4};
   CHECK(cache->Key(vectors, shape, otherDemand) != key, "different detail demand remains distinct");

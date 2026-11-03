@@ -36,7 +36,8 @@ bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround 
                                      shape.Seed);
 }
 
-std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const uint8_t> bytes) {
+std::expected<PreparedGroundRegions::Loaded, std::string>
+DecodePackage(std::span<const uint8_t> bytes) {
   BinaryValueReader in(bytes);
   uint64_t version = 0;
   uint64_t groundSize = 0;
@@ -133,8 +134,23 @@ std::string PreparedGroundRegions::Key(const OsmField &vectors,
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
-PreparedGroundRegions::ReadResult PreparedGroundRegions::Load(const std::string &key) {
-  return Read(key);
+PreparedGroundRegions::ReadResult PreparedGroundRegions::LoadProduct(const std::string &key) {
+  auto product = Cache_->Load(key, PackageBytesMost);
+  if (!product) { return std::unexpected(product.error()); }
+  if (*product) {
+    ReadBytes_ += (**product).Bytes().size();
+    if ((**product).Record().Kind != "ground-region") { product->reset(); }
+  }
+  return product;
+}
+
+std::optional<PreparedGroundRegions::Loaded> PreparedGroundRegions::Decode(CachedAsset product) {
+  if (product.Record().Kind != "ground-region") { return std::nullopt; }
+  ++Decodes_;
+  auto decoded = DecodePackage(product.Bytes());
+  if (!decoded) { return std::nullopt; }
+  decoded->Key = product.Record().Key;
+  return std::move(*decoded);
 }
 
 std::string
@@ -188,16 +204,16 @@ PreparedGroundRegions::PlanRequest(LongitudeLatitude focus,
 }
 
 PreparedGroundRegions::ReadResult
-PreparedGroundRegions::LoadRequest(const std::string &requestKey) {
+PreparedGroundRegions::LoadRequestProduct(const std::string &requestKey) {
   constexpr unsigned kAttemptsMost = 2;
   for (unsigned attempt = 0; attempt < kAttemptsMost; ++attempt) {
     auto found = Cache_->FindRequest(requestKey);
     if (!found) { return std::unexpected(found.error()); }
-    if (!*found) { return std::optional<Loaded>{}; }
-    auto loaded = Read((**found).Key);
+    if (!*found) { return std::optional<CachedAsset>{}; }
+    auto loaded = LoadProduct((**found).Key);
     const auto current = Cache_->FindRequest(requestKey);
     if (!current) { return std::unexpected(current.error()); }
-    if (!*current) { return std::optional<Loaded>{}; }
+    if (!*current) { return std::optional<CachedAsset>{}; }
     if (**current != **found) { continue; }
     return loaded;
   }
@@ -214,18 +230,11 @@ PreparedGroundRegions::BindRequest(const std::string &key, const std::string &re
   return {};
 }
 
-PreparedGroundRegions::ReadResult PreparedGroundRegions::Read(const std::string &key) {
-  auto cached = Cache_->Load(key, PackageBytesMost);
-  if (!cached) { return std::unexpected(cached.error()); }
-  if (!*cached) { return std::optional<Loaded>{}; }
-  ReadBytes_ += (**cached).Bytes().size();
-  ++Decodes_;
-  auto region = Decode((**cached).Bytes());
-  if ((**cached).Record().Kind == "ground-region" && region) {
-    region->Key = key;
-    return std::move(*region);
-  }
-  return std::optional<Loaded>{};
+std::expected<std::optional<PreparedGroundRegions::Loaded>, PreparedGroundRegions::Failure>
+PreparedGroundRegions::LoadDecoded(const std::string &key) {
+  auto product = LoadProduct(key);
+  if (!product) { return std::unexpected(std::move(product.error())); }
+  return *product ? Decode(std::move(**product)) : std::nullopt;
 }
 
 std::expected<PreparedGroundRegions::StoreWork, PreparedGroundRegions::Failure>
@@ -234,7 +243,7 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
                                     const GroundRegionAsset &region,
                                     const WaterAsset &water,
                                     const std::string &requestKey) {
-  auto loaded = Read(key);
+  auto loaded = LoadDecoded(key);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
   StoreWork work(key, requestKey);
   if (*loaded) {
@@ -276,7 +285,7 @@ PreparedGroundRegions::ResumeStore(StoreWork &work, const std::stop_token &stop)
     work.Current_ = Phase::Restore;
   }
   if (work.Current_ == Phase::Restore) {
-    auto loaded = Read(work.Key_);
+    auto loaded = LoadDecoded(work.Key_);
     if (!loaded) { return std::unexpected(std::move(loaded.error())); }
     if (!*loaded) {
       return std::unexpected(std::string("published ground region failed native validation"));

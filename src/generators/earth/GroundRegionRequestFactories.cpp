@@ -25,13 +25,14 @@ struct LookupState {
 
   RegionRequest::Attempt Advance() {
     if (!CheckedRequest) {
-      auto loaded = Assets->LoadRequest(Request);
-      if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+      auto product = Assets->LoadRequestProduct(Request);
+      if (!product) { return std::unexpected(std::move(product.error())); }
       CheckedRequest = true;
-      if (*loaded) {
-        auto key = (**loaded).Key;
+      auto loaded = *product ? Assets->Decode(std::move(**product)) : std::nullopt;
+      if (loaded) {
+        auto key = loaded->Key;
         return RegionRequest::Completed{.Key = std::move(key),
-                                        .Loaded = std::move(*loaded),
+                                        .Loaded = std::move(loaded),
                                         .RequestKey = Request,
                                         .RequestHit = true,
                                         .SurfacePages = nullptr};
@@ -55,9 +56,9 @@ struct LookupState {
       Inputs.reset();
     }
     if (!CheckedContent) {
-      auto loaded = Assets->Load(Key);
-      if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-      Held = std::move(*loaded);
+      auto product = Assets->LoadProduct(Key);
+      if (!product) { return std::unexpected(std::move(product.error())); }
+      Held = *product ? Assets->Decode(std::move(**product)) : std::nullopt;
       CheckedContent = true;
     }
     if (Held) {

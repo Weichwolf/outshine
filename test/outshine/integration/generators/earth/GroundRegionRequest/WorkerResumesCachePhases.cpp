@@ -146,7 +146,7 @@ void ColdPublication(bool roads, bool cancel) {
   if (cancel) {
     CHECK(!*result && result->error() == "ground region preparation canceled",
           "a canceled pending World publication remains terminal and explicit");
-    const auto absent = fixture.Cache->LoadRequest(fixture.Request);
+    const auto absent = fixture.Cache->LoadRequestProduct(fixture.Request);
     CHECK(absent && !*absent, "canceled native region publication never binds a later request");
     return;
   }
