@@ -21,7 +21,8 @@ from native_package_storage import open_packages
 BYTES_MOST = 64 * 1024**2
 
 
-def package(cache, key):
+def package(cache, key, *, max_bytes=None):
+    byte_limit = BYTES_MOST if max_bytes is None else max_bytes
     with closing(
         open_packages(cache.resolve().as_uri() + "?mode=ro", uri=True)
     ) as db:
@@ -34,7 +35,7 @@ def package(cache, key):
         if row is None:
             raise ValueError("existing native ground-region key required")
         rowid, stored_size, native_size, codec, crc, offset, size, body_table = row
-        if not 0 < stored_size <= BYTES_MOST or not 0 < native_size <= BYTES_MOST:
+        if not 0 < stored_size <= byte_limit or not 0 < native_size <= byte_limit:
             raise ValueError("bounded cached package required before blob read")
         if offset != 0 or size != native_size:
             raise ValueError("single complete ground-region package required")
