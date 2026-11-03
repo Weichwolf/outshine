@@ -4,13 +4,14 @@
 
 namespace {
 bool Tracking = false;
+size_t MinimumBytes = 0;
 outshine::Test::CppAllocationCounts Counts;
 }
 
 void *operator new(std::size_t bytes) {
   void *memory = std::malloc(bytes == 0 ? 1 : bytes);
   if (memory == nullptr) { std::abort(); }
-  if (Tracking) {
+  if (Tracking && bytes >= MinimumBytes) {
     ++Counts.Calls;
     Counts.Bytes += bytes;
   }
@@ -25,7 +26,8 @@ void operator delete(void *memory, [[maybe_unused]] std::size_t bytes) noexcept 
   std::free(memory);
 }
 
-void outshine::Test::BeginCppAllocationProbe() noexcept {
+void outshine::Test::BeginCppAllocationProbe(size_t minimumBytes) noexcept {
+  MinimumBytes = minimumBytes;
   Counts = {};
   Tracking = true;
 }

@@ -1,43 +1,18 @@
 #include "GeometryProductCodec.h"
 #include "Check.h"
+#include "CppAllocationProbe.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <print>
-#include <cstdlib>
-#include <new>
 #include <span>
 #include <utility>
 #include <vector>
 
 namespace {
-constexpr size_t kLargeBytes = size_t{512} * 1024;
-bool Tracking = false;
-size_t Allocations = 0;
-size_t AllocatedBytes = 0;
-}
-
-void *operator new(std::size_t bytes) {
-  void *memory = std::malloc(bytes == 0 ? 1 : bytes);
-  if (memory == nullptr) { std::abort(); }
-  if (Tracking && bytes >= kLargeBytes) {
-    ++Allocations;
-    AllocatedBytes += bytes;
-  }
-  return memory;
-}
-
-void operator delete(void *memory) noexcept {
-  std::free(memory);
-}
-
-void operator delete(void *memory, [[maybe_unused]] std::size_t bytes) noexcept {
-  std::free(memory);
-}
-
-namespace {
 using namespace outshine;
 using namespace outshine::Test;
+constexpr size_t kLargeBytes = size_t{512} * 1024;
 
 std::vector<uint8_t> Product() {
   constexpr size_t kVertices = 131072;
@@ -66,9 +41,9 @@ std::vector<uint8_t> Product() {
 
 int main() {
   const auto bytes = Product();
-  Tracking = true;
+  outshine::Test::BeginCppAllocationProbe(kLargeBytes);
   auto decoded = outshine::DecodeGeometryProduct(bytes, bytes.size());
-  Tracking = false;
+  const auto allocations = outshine::Test::EndCppAllocationProbe();
   CHECK(decoded.has_value(), "the complete product decodes");
   if (!decoded) { return outshine::Test::Report(); }
   const std::array streams{decoded->positionsOf(0),
@@ -80,10 +55,10 @@ int main() {
   size_t expectedBytes = 0;
   for (const auto stream : streams) { expectedBytes += stream.size_bytes(); }
   std::println("decode large allocations={} bytes={} owned_stream_bytes={}",
-               Allocations,
-               AllocatedBytes,
+               allocations.Calls,
+               allocations.Bytes,
                expectedBytes);
-  CHECK(Allocations == streams.size() && AllocatedBytes == expectedBytes,
+  CHECK(allocations.Calls == streams.size() && allocations.Bytes == expectedBytes,
         "decoding allocates each owned stream once without large scratch buffers");
   const auto replay = outshine::EncodeGeometryProduct(*decoded, bytes.size());
   CHECK(replay && *replay == bytes, "ownership changes preserve every encoded byte");

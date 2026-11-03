@@ -257,7 +257,8 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/src/generators/terrain/inputs/HeightField/LocatedSamplesRetainTheActualBlock"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/DecodingAllocatesOnlyOwnedProductStorage"
       OR name STREQUAL "outshine/src/generators/contracts/TransportPlanCodec/NativeSourceBindingsSurviveOfflineRoundTrip"
-      OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex")
+      OR name STREQUAL "outshine/src/world/products/navigation/TransportTopology/PreparedValuesRetainTheirOwnedIndex"
+      OR name STREQUAL "outshine/src/world/products/GeometryProductCodec/DecodedStreamsNeedOnlyTheirOwnedAllocations")
     target_sources(${target} PRIVATE test/harness/shared/CppAllocationProbe.cpp)
   endif()
   if(name STREQUAL "outshine/src/render/impostor/ImpostorBaker/RepeatedCapturesReuseTheDeviceAndRetireSources")

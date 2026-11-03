@@ -9,7 +9,7 @@ struct CppAllocationCounts {
   size_t Bytes = 0;
 };
 
-void BeginCppAllocationProbe() noexcept;
+void BeginCppAllocationProbe(size_t minimumBytes = 0) noexcept;
 [[nodiscard]] CppAllocationCounts EndCppAllocationProbe() noexcept;
 }
 #endif

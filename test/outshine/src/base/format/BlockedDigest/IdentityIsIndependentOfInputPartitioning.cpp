@@ -12,7 +12,9 @@ int main() {
   for (size_t index = 0; index < block.size(); ++index) {
     block[index] = static_cast<uint8_t>(index);
   }
-  BlockedDigest continuous, partitioned, changed;
+  BlockedDigest continuous;
+  BlockedDigest partitioned;
+  BlockedDigest changed;
   constexpr size_t repeats = 17000;
   for (size_t index = 0; index < repeats; ++index) {
     CHECK(continuous.Put(block), "continuous feed accepts source bytes");
