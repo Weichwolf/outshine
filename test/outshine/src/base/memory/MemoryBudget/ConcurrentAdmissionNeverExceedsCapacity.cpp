@@ -1,7 +1,7 @@
 #include "MemoryBudget.h"
 #include "Check.h"
 #include <atomic>
-#include <barrier>
+#include <latch>
 #include <chrono>
 #include <cstddef>
 #include <thread>
@@ -17,7 +17,7 @@ int main() {
   std::atomic_size_t live{0};
   std::atomic_size_t completed{0};
   std::atomic_size_t failures{0};
-  std::barrier start(static_cast<std::ptrdiff_t>(threads));
+  std::latch start(static_cast<std::ptrdiff_t>(threads));
   std::vector<std::jthread> workers;
   workers.reserve(threads);
   for (size_t index = 0; index < threads; ++index) {
