@@ -10,8 +10,12 @@
 #include <expected>
 #include "TangentFrame.h"
 #include "TerrainResidency.h"
+#include "Vec2.h"
+#include <span>
+#include <stop_token>
 
 namespace outshine {
+enum class TerrainSamplingError { Unpublished, InvalidInput, Cancelled };
 
 namespace Render {
 class SceneRenderer;
@@ -54,6 +58,12 @@ public:
   [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept {
     return Framed_ ? Residency_.HeightMAt(at) : std::nullopt;
   }
+
+  [[nodiscard]] std::expected<void, TerrainSamplingError>
+  SampleRenderHeights(std::span<const Vec2> positions,
+                      std::span<float> heights,
+                      double spacingM,
+                      const std::stop_token &stop = {}) const noexcept;
 
   [[nodiscard]] std::optional<std::array<double, 2>> AslBoundsM() const noexcept {
     return Framed_ ? Residency_.AslBoundsM() : std::nullopt;
