@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "SceneLighting.h"
 #include "TerrainLattice.h"
 #include "WorldRegionBuildState.h"
@@ -71,12 +72,6 @@ constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact 
 constexpr auto GroundDetailCameraInvalid =
     "ground detail needs a finite camera eye, positive lens and frame height";
 }
-
-static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
-              "the elevation stream is opened ONE zoom below the finest tile so its posting equals "
-              "the patchwork's vertex spacing; that holds only while a stream tile carries twice "
-              "the intervals a patchwork tile lays, and if either grid moves the zoom must be "
-              "re-derived rather than kept");
 
 namespace {
 
@@ -1363,14 +1358,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
     Error = parameters.error();
     return GroundBuildProgress::Failed;
   }
-  const auto native = std::make_shared<const std::vector<uint8_t>>(std::move(*parameters));
-  std::vector<Ground::TileSpot> inputs;
-  inputs.reserve(vectors->Tiles().size());
-  for (const auto &tile : vectors->Tiles()) {
-    inputs.push_back(
-        {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
-  }
-  auto request = assets->RequestKey(vectors->Zoom(), vectors->Schema(), shape, *native, inputs);
+  auto request = assets->RequestKey(*vectors, shape, *parameters);
   const bool checked = World.GroundLookup && World.GroundLookupRequest == request &&
                        World.GroundLookup->Peek() != nullptr;
   if (checked && World.GroundLookup->Peek()->has_value() &&
@@ -1383,13 +1371,8 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
       Generators::GroundRegionRequest::Lookup(
           assets,
           std::move(request),
-          [assets, vectors, shape, native] -> std::expected<std::string, std::string> {
-            if (std::ranges::any_of(vectors->Tiles(),
-                                    [](const auto &tile) { return tile.InputDigest.empty(); })) {
-              return std::unexpected("ground region contains unbound vector inputs");
-            }
-            return assets->Key(*vectors, shape, *native);
-          },
+          Generators::GroundRegionRequest::IdentityInputs{
+              .Vectors = vectors, .Shape = shape, .Parameters = std::move(*parameters)},
           checked),
       Phase::Loading,
       World.Surface().RoadAssets());

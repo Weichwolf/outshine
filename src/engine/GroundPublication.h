@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #ifndef OUTSHINE_ENGINE_GROUNDPUBLICATION_H
 #define OUTSHINE_ENGINE_GROUNDPUBLICATION_H
 
@@ -8,7 +9,6 @@
 #include <optional>
 
 namespace outshine {
-enum class GroundQuality : uint8_t { Playable, Refined };
 
 struct GroundCoverage {
   double ContactRadiusM = 0.0;

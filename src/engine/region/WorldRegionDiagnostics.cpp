@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "StreetGraphRequest.h"
 #include "WorldRegionBuildState.h"
 #include <algorithm>

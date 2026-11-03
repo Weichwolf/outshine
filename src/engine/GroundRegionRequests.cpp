@@ -1,11 +1,13 @@
+#include "GroundQuality.h"
 #include "TerrainLattice.h"
 #include "EngineState.h"
 #include "GroundRegionRequest.h"
-#include "BinaryValueArchive.h"
+#include "GroundRegionDefinition.h"
 #include "TerrainRefinement.h"
 #include <expected>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <utility>
@@ -18,30 +20,22 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
   const auto anchor = Session.Declared.Ground.Origin;
   const auto eye =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  BinaryValueWriter parameters(4096);
-  if (!parameters(coverage.LatitudeDeg,
-                  coverage.LongitudeDeg,
-                  coverage.Zoom,
-                  coverage.Levels,
-                  coverage.Grid,
-                  coverage.PlayableOnly,
-                  quality,
-                  anchor.LatitudeDeg,
-                  anchor.LongitudeDeg,
-                  eye.EyeM.Axis,
-                  eye.Kind,
-                  eye.YfovRad,
-                  eye.YMagM,
-                  Picture.Frame.HeightPx,
-                  Generators::TerrainRefinementDetail{}.ErrorPx,
-                  Render::TerrainLattice::kMaximumPages)) {
-    return std::unexpected("ground region parameters exceed their encoding limit");
+  Generators::GroundRegionDefinition definition{
+      .Coverage = coverage,
+      .Anchor = {.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg},
+      .Quality = quality,
+      .EyeM = eye.EyeM.Axis,
+      .Projection = static_cast<Generators::GroundProjection>(std::to_underlying(eye.Kind)),
+      .YfovRad = eye.YfovRad,
+      .YMagM = eye.YMagM,
+      .HeightPx = Picture.Frame.HeightPx,
+      .ErrorPx = Generators::TerrainRefinementDetail{}.ErrorPx,
+      .PagesMost = Render::TerrainLattice::kMaximumPages,
+      .DeclaredDigest = std::nullopt};
+  if (!World.Surface().HasVectorSource() || World.Surface().HasDeclaredVectors()) {
+    definition.DeclaredDigest = World.Surface().DeclaredDigest();
   }
-  if ((!World.Surface().HasVectorSource() || World.Surface().HasDeclaredVectors()) &&
-      !parameters.Text(World.Surface().DeclaredDigest())) {
-    return std::unexpected("declared ground input identity exceeds its encoding limit");
-  }
-  return std::move(parameters.Out).TakeBytes();
+  return Generators::EncodeGroundRegionDefinition(definition);
 }
 
 bool Engine::State::CanPrimeGroundRegion(GroundQuality quality) const {

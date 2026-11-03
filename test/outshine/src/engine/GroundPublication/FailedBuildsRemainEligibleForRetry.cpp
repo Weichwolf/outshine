@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "GroundPublication.h"
 #include "Check.h"
 #include <array>

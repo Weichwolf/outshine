@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "EngineState.h"
 #include "SourceFailure.h"
 #include "GpuFrameSample.h"

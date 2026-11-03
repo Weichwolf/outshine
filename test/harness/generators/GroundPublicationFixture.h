@@ -45,7 +45,7 @@ struct Fixture {
   std::shared_ptr<GroundRegionAsset> Region;
   std::shared_ptr<Generators::WaterAsset> Water;
   std::shared_ptr<Generators::RoadPageManifest> Manifest;
-  const std::string Key = Sha256Hex("native ground publication/sources/terrain/parameters");
+  std::string Key = Sha256Hex("native ground publication/sources/terrain/parameters");
   const std::string Request = Sha256Hex("native ground publication/demand");
   std::unique_ptr<Generators::GroundRegionRequest> Job;
   std::unique_ptr<sqlite3, decltype(&sqlite3_close)> Writer{nullptr, sqlite3_close};

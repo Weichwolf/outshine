@@ -154,6 +154,18 @@ PreparedGroundRegions::RequestKey(int zoom,
   return RequestPrefix_->Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
+std::string PreparedGroundRegions::RequestKey(const OsmField &vectors,
+                                              const ::outshine::Ground::ShapedGround &shape,
+                                              std::span<const uint8_t> parameters) const {
+  std::vector<::outshine::Ground::TileSpot> inputs;
+  inputs.reserve(vectors.Tiles().size());
+  for (const auto &tile : vectors.Tiles()) {
+    inputs.push_back(
+        {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
+  }
+  return RequestKey(vectors.Zoom(), vectors.Schema(), shape, parameters, inputs);
+}
+
 std::expected<std::string, std::string>
 PreparedGroundRegions::PlanRequest(LongitudeLatitude focus,
                                    int zoom,

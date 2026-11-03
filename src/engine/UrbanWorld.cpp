@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "EngineState.h"
 #include <cstdint>
 #include <memory>

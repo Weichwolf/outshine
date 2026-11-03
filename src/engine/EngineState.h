@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #ifndef OUTSHINE_ENGINE_ENGINESTATE_H
 #define OUTSHINE_ENGINE_ENGINESTATE_H
 

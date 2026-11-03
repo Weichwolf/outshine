@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_EARTH_GROUNDREGIONREQUEST_H
 
 #include "PreparedGroundRegions.h"
+#include "ShapedGround.h"
 #include "Tasks.h"
 #include <expected>
 #include <functional>
@@ -9,6 +10,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <vector>
 
 namespace outshine::Generators {
 class PreparedRoadPages;
@@ -28,7 +30,12 @@ public:
   using Failure = Osm::PreparedGroundRegions::Failure;
   using Attempt = std::expected<Completed, Failure>;
   using Factory = std::function<Attempt(const std::stop_token &)>;
-  using KeyFactory = std::function<std::expected<std::string, std::string>()>;
+
+  struct IdentityInputs {
+    std::shared_ptr<const Osm::OsmField> Vectors;
+    ::outshine::Ground::ShapedGround Shape;
+    std::vector<uint8_t> Parameters;
+  };
 
   struct StoreInputs {
     std::shared_ptr<Osm::PreparedGroundRegions> Assets;
@@ -41,7 +48,7 @@ public:
 
   [[nodiscard]] static Factory Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
                                       std::string request,
-                                      KeyFactory key = {},
+                                      std::optional<IdentityInputs> inputs = {},
                                       bool checked = false);
   [[nodiscard]] static Factory PrepareStore(StoreInputs inputs);
 

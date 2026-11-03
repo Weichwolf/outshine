@@ -89,6 +89,9 @@ public:
   [[nodiscard]] std::string Key(const OsmField &vectors,
                                 const ::outshine::Ground::ShapedGround &shape,
                                 std::span<const uint8_t> parameters) const;
+  [[nodiscard]] std::string RequestKey(const OsmField &vectors,
+                                       const ::outshine::Ground::ShapedGround &shape,
+                                       std::span<const uint8_t> parameters) const;
   [[nodiscard]] ReadResult Load(const std::string &key);
   [[nodiscard]] ReadResult LoadRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<void, Failure> BindRequest(const std::string &key,

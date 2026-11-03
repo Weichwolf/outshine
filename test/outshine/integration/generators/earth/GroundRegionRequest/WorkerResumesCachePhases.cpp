@@ -1,6 +1,11 @@
 #include "test/harness/generators/GroundPublicationFixture.h"
 #include "StoreGroundRegion.h"
 #include "GroundRegionAsset.h"
+#include "GroundRegionDefinition.h"
+#include "OsmField.h"
+#include "MvtSchema.h"
+#include <array>
+#include <vector>
 #include "Check.h"
 #include <atomic>
 #include <chrono>
@@ -45,6 +50,14 @@ void WarmBindAndPeek() {
   const bool opened = fixture.Open();
   CHECK(opened, "native warm-binding inputs open");
   if (!opened) { return; }
+  auto vectors = std::make_shared<Generators::Osm::OsmField>(
+      14, std::array<std::string, 0>{}, Generators::Osm::MvtSchema::OpenMapTiles);
+  auto parameters = Generators::EncodeGroundRegionDefinition(
+      {.YfovRad = 1.0, .HeightPx = 720, .ErrorPx = 0.5, .PagesMost = 128});
+  CHECK(parameters, "the source snapshot has a canonical native definition");
+  if (!parameters) { return; }
+  fixture.Key = fixture.Cache->Key(*vectors, {}, *parameters);
+  const std::weak_ptr<const Generators::Osm::OsmField> sourceLifetime = vectors;
   const auto stored = StoreGroundRegion(*fixture.Cache,
                                         fixture.Key,
                                         GroundRegionBoundsEcef(*fixture.Region),
@@ -52,13 +65,12 @@ void WarmBindAndPeek() {
                                         *fixture.Water);
   CHECK(stored, "a content product commits without the later request binding");
   if (!stored) { return; }
-  std::atomic_uint32_t keys{0};
   std::atomic_uint32_t attempts{0};
   auto actual = Generators::GroundRegionRequest::Lookup(
-      fixture.Cache, fixture.Request, [&] -> std::expected<std::string, std::string> {
-        ++keys;
-        return fixture.Key;
-      });
+      fixture.Cache,
+      fixture.Request,
+      Generators::GroundRegionRequest::IdentityInputs{
+          .Vectors = std::move(vectors), .Shape = {}, .Parameters = std::move(*parameters)});
   fixture.Hold();
   fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
       fixture.Pool,
@@ -67,8 +79,9 @@ void WarmBindAndPeek() {
         return actual(stop);
       });
   Barrier(fixture);
-  CHECK(!fixture.Job->Peek() && attempts == 1 && keys == 1,
-        "the actual lookup holds decoded content while its new alias is busy");
+  CHECK(
+      !fixture.Job->Peek() && attempts == 1 && sourceLifetime.expired(),
+      "lookup releases source identity inputs and retains decoded content while its alias is busy");
   const auto costs = fixture.Cache->Costs();
   const auto until = Clock::now() + std::chrono::milliseconds(25);
   while (Clock::now() < until) {
@@ -77,13 +90,13 @@ void WarmBindAndPeek() {
   }
   CHECK(attempts == 1, "observation alone cannot enqueue a cache retry");
   if (!DriveHeld(fixture, attempts)) { return; }
-  CHECK(keys == 1 && fixture.Cache->Costs().Decodes == costs.Decodes &&
+  CHECK(sourceLifetime.expired() && fixture.Cache->Costs().Decodes == costs.Decodes &&
             fixture.Cache->Costs().ReadBytes == costs.ReadBytes,
         "the real worker retains its key and decoded region through repeated alias admission");
   fixture.Release();
   const auto result = fixture.Await();
   CHECK(result && *result && result->value().Loaded && result->value().Key == fixture.Key &&
-            keys == 1 && fixture.Cache->Costs().Decodes == costs.Decodes,
+            sourceLifetime.expired() && fixture.Cache->Costs().Decodes == costs.Decodes,
         "release returns the actual bound World product without another key computation or decode");
 }
 

@@ -132,6 +132,8 @@ int main() {
   const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
   const auto request =
       cache->RequestKey(vectors.Zoom(), vectors.Schema(), shape, parameters, inputs);
+  CHECK(cache->RequestKey(vectors, shape, parameters) == request,
+        "the generator-owned source address preserves the original tile ordering and bytes");
   CHECK(cache->BindRequest(key, request),
         "legacy region gains a demand without package generation");
   FreshRequestHit(root.string(), sources, key);

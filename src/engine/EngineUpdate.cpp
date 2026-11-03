@@ -1,3 +1,4 @@
+#include "GroundQuality.h"
 #include "RigidBodyDynamics.h"
 #include "GeodeticCamera.h"
 #include "Earth.h"

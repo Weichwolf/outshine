@@ -1,6 +1,8 @@
 #include "GroundRegionRequest.h"
 #include "PreparedRoadPages.h"
 #include "GroundRegionAsset.h"
+#include "OsmField.h"
+#include <algorithm>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -16,7 +18,7 @@ using Regions = Osm::PreparedGroundRegions;
 struct LookupState {
   std::shared_ptr<Regions> Assets;
   std::string Request;
-  RegionRequest::KeyFactory KeyFactory;
+  std::optional<RegionRequest::IdentityInputs> Inputs;
   bool CheckedRequest = false, CheckedContent = false;
   std::string Key;
   std::optional<Regions::Loaded> Held;
@@ -36,17 +38,21 @@ struct LookupState {
       }
     }
     if (Key.empty()) {
-      if (!KeyFactory) {
+      if (!Inputs) {
         return RegionRequest::Completed{
             .Key = {}, .Loaded = std::nullopt, .RequestKey = Request, .SurfacePages = nullptr};
       }
-      auto key = KeyFactory();
-      if (!key) { return std::unexpected(std::move(key.error())); }
-      if (key->empty()) {
+      if (!Inputs->Vectors || std::ranges::any_of(Inputs->Vectors->Tiles(), [](const auto &tile) {
+            return tile.InputDigest.empty();
+          })) {
+        return std::unexpected(std::string("ground region contains unbound vector inputs"));
+      }
+      auto key = Assets->Key(*Inputs->Vectors, Inputs->Shape, Inputs->Parameters);
+      if (key.empty()) {
         return std::unexpected(std::string("ground region key exceeds its encoding limit"));
       }
-      Key = std::move(*key);
-      KeyFactory = {};
+      Key = std::move(key);
+      Inputs.reset();
     }
     if (!CheckedContent) {
       auto loaded = Assets->Load(Key);
@@ -134,12 +140,12 @@ struct StoreState {
 GroundRegionRequest::Factory
 GroundRegionRequest::Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
                             std::string request,
-                            KeyFactory key,
+                            std::optional<IdentityInputs> inputs,
                             bool checked) {
   auto state = std::make_shared<LookupState>();
   state->Assets = std::move(assets);
   state->Request = std::move(request);
-  state->KeyFactory = std::move(key);
+  state->Inputs = std::move(inputs);
   state->CheckedRequest = checked;
   return [state = std::move(state)](const std::stop_token &stop) -> Attempt {
     if (stop.stop_requested()) {
