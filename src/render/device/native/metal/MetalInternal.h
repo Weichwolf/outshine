@@ -332,6 +332,8 @@ public:
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Limits_; }
 
+  [[nodiscard]] MemoryStatus ReadMemoryStatus() const override;
+
   [[nodiscard]] bool Supports(Format format, UseMask<TextureUse> use, bool filtered) const override;
 
   Result<std::unique_ptr<Buffer>> CreateBuffer(BufferDescription description,

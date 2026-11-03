@@ -28,6 +28,10 @@ namespace outshine {
 
 namespace Render {
 struct GpuFrameSample;
+
+namespace Native {
+struct MemoryStatus;
+}
 }
 
 template <typename Value> using Holds = std::expected<Value, std::string>;
@@ -152,6 +156,7 @@ public:
   [[nodiscard]] bool camera(Camera &out) const;
 
   [[nodiscard]] std::string_view gpuName() const;
+  [[nodiscard]] Render::Native::MemoryStatus gpuMemory() const;
 
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
 

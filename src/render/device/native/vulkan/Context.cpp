@@ -106,9 +106,10 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
   messages.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   messages.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                              VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  messages.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                         VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  messages.messageType =
+      VkDebugUtilsMessageTypeFlagsEXT{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT} |
+      VkDebugUtilsMessageTypeFlagsEXT{VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT} |
+      VkDebugUtilsMessageTypeFlagsEXT{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT};
   messages.pfnUserCallback = ReportValidation;
   messages.pUserData = &context;
   const auto make = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
@@ -135,7 +136,7 @@ std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevi
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, nullptr);
   std::vector<VkQueueFamilyProperties> queues(count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, queues.data());
-  constexpr auto required = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+  constexpr VkQueueFlags required = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
   const bool window = context.Surface != VK_NULL_HANDLE;
   for (uint32_t wanted = context.WsiEnabled ? 2u : 1u; wanted > 0; --wanted) {
     if (window && wanted < 2 && !SupportsSharedPresentQueue(physical)) { break; }
@@ -252,8 +253,11 @@ Result<void> InitLogical(Context &context) {
   core.shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats;
   context.StorageImageExtendedFormats = core.shaderStorageImageExtendedFormats != VK_FALSE;
   constexpr std::array priorities{1.0f, .5f};
-  std::array<const char *, 3> extensions{
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME, nullptr};
+  std::vector<const char *> extensions;
+  if (context.PresentCapable) {
+    extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    extensions.push_back(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+  }
   VkDeviceQueueCreateInfo queue{};
   queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
   queue.queueFamilyIndex = context.QueueFamily;
@@ -262,7 +266,7 @@ Result<void> InitLogical(Context &context) {
 #ifdef VK_KHR_internally_synchronized_queues
   if (context.PresentCapable && shared) {
     queue.flags = VK_DEVICE_QUEUE_CREATE_INTERNALLY_SYNCHRONIZED_BIT_KHR;
-    extensions.back() = VK_KHR_INTERNALLY_SYNCHRONIZED_QUEUES_EXTENSION_NAME;
+    extensions.push_back(VK_KHR_INTERNALLY_SYNCHRONIZED_QUEUES_EXTENSION_NAME);
   }
 #endif
   VkDeviceCreateInfo create{};
@@ -271,10 +275,11 @@ Result<void> InitLogical(Context &context) {
   create.pEnabledFeatures = &core;
   create.queueCreateInfoCount = 1;
   create.pQueueCreateInfos = &queue;
-  if (context.PresentCapable) {
-    create.enabledExtensionCount = shared ? 3u : 2u;
-    create.ppEnabledExtensionNames = extensions.data();
-  }
+  constexpr std::array memoryExtensions{VK_EXT_MEMORY_BUDGET_EXTENSION_NAME};
+  context.MemoryBudgetEnabled = HasDeviceExtensions(context.Physical, memoryExtensions);
+  if (context.MemoryBudgetEnabled) { extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME); }
+  create.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+  create.ppEnabledExtensionNames = extensions.data();
   const auto result = vkCreateDevice(context.Physical, &create, nullptr, &context.Logical);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateDevice", result)); }
   VkDeviceQueueInfo2 lookup{};

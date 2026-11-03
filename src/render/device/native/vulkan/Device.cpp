@@ -61,6 +61,10 @@ public:
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Context_->Limits; }
 
+  [[nodiscard]] MemoryStatus ReadMemoryStatus() const override {
+    return Vulkan::ReadMemoryStatus(*Context_);
+  }
+
   [[nodiscard]] bool
   Supports(Format format, UseMask<TextureUse> use, bool filtered) const override {
     return Vulkan::Supports(*Context_, format, use, filtered);

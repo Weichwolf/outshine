@@ -52,6 +52,7 @@ Native::Result<Report> Run(Native::Device &device, Shaders shaders, Build build)
                           std::make_move_iterator(gpu->begin()),
                           std::make_move_iterator(gpu->end()));
   report.Memory = ReadProcessMemory();
+  report.GpuMemory = device.ReadMemoryStatus();
   return report;
 }
 }

@@ -1,4 +1,6 @@
 #include "Calibration.h"
+#include "DeviceMemoryJson.h"
+#include <nlohmann/json.hpp>
 #include "Parameters.inc"
 #include <algorithm>
 #include <cmath>
@@ -113,7 +115,8 @@ std::string Json(const Report &report) {
   std::string result = std::format(
       "{{\"workload_version\":{},\"verified\":true,\"warmup_samples\":1,\"measured_samples\":{},"
       "\"cpu\":{},\"gpu\":{},\"backend\":{},\"compiler\":{},\"architecture\":{},"
-      "\"ram_bytes\":{},\"process_memory\":{},\"logical_cpu_count\":{},\"fma_target_feature\":{},"
+      "\"ram_bytes\":{},\"process_memory\":{},\"gpu_memory\":{},\"logical_cpu_count\":{},\"fma_"
+      "target_feature\":{},"
       "\"gpu_validation\":{},"
       "\"build\":{{\"commit\":{},\"flags\":{},\"host_load\":{}}},\"workloads\":[",
       CALIBRATION_VERSION,
@@ -125,6 +128,7 @@ std::string Json(const Report &report) {
       Quote(report.Architecture),
       report.RamBytes,
       Memory(report.Memory),
+      DeviceMemoryJson(report.GpuMemory, "after_workloads").dump(),
       report.LogicalCpuCount,
       report.FmaTargetFeature,
       report.GpuValidation,

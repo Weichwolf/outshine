@@ -1,8 +1,23 @@
 #include "MetalPresentation.h"
 #include <atomic>
+#include <chrono>
+#include <ratio>
 #include <limits>
 
 namespace outshine::Render::Native::Metal {
+
+MemoryStatus MetalDevice::ReadMemoryStatus() const {
+  const auto began = std::chrono::steady_clock::now();
+  MemoryStatus status{.ResourceAllocatedBytes = Native_.currentAllocatedSize,
+                      .RecommendedWorkingSetBytes = Native_.recommendedMaxWorkingSetSize,
+                      .UnifiedMemory = Native_.hasUnifiedMemory != NO,
+                      .CollectionNs = {},
+                      .Heaps = {}};
+  status.CollectionNs = static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began)
+          .count());
+  return status;
+}
 
 MetalDevice::MetalDevice(uint64_t identity,
                          id<MTLDevice> device,

@@ -23,6 +23,10 @@ std::string_view SceneRenderer::GpuName() const noexcept {
   return Device_ ? std::string_view(Device_->Limits().Name) : std::string_view{};
 }
 
+Native::MemoryStatus SceneRenderer::ReadMemoryStatus() const {
+  return Device_ ? Device_->ReadMemoryStatus() : Native::MemoryStatus{};
+}
+
 void SceneRenderer::CollectGpuTime(Native::Completion completion) {
   if (completion.Device == MeasurementBegin_.Device &&
       completion.Serial <= MeasurementBegin_.Serial) {

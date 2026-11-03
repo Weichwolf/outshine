@@ -738,6 +738,7 @@ public:
   [[nodiscard]] const CostProfile &Costs() const noexcept { return Costs_; }
 
   [[nodiscard]] std::string_view GpuName() const noexcept;
+  [[nodiscard]] Native::MemoryStatus ReadMemoryStatus() const;
 
   void ResetMeasurements() noexcept;
   void KeepGpuSamples(size_t maximum);

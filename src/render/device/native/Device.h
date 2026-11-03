@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_DEVICE_H
 
 #include "Commands.h"
+#include "MemoryStatus.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -81,6 +82,9 @@ public:
   Device &operator=(const Device &) = delete;
 
   [[nodiscard]] virtual const Capabilities &Limits() const noexcept = 0;
+
+  [[nodiscard]] virtual MemoryStatus ReadMemoryStatus() const { return {}; }
+
   [[nodiscard]] virtual bool
   Supports(Format format, UseMask<TextureUse> use, bool filtered) const = 0;
 

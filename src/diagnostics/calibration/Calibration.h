@@ -61,6 +61,7 @@ struct Report {
   bool GpuValidation = false;
   Build Compilation;
   ProcessMemorySnapshot Memory{};
+  Native::MemoryStatus GpuMemory;
   std::vector<Workload> Workloads;
 };
 

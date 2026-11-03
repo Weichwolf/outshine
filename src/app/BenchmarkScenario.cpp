@@ -190,6 +190,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.Cpu = HostProcessorName();
   report.Memory = ReadProcessMemory();
   report.Gpu = engine.renderer().gpuName();
+  report.GpuMemory = engine.renderer().gpuMemory();
   report.HardwareMs = ElapsedMs(hardwareAt);
   report.LoadAfter = HostLoad();
   return ScenarioBenchmarkJson(report);

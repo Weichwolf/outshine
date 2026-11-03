@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <atomic>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <thread>
 #include <string>
@@ -34,6 +35,7 @@ struct Context {
   GpuTimingMode GpuTiming = GpuTimingMode::None;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
+  bool MemoryBudgetEnabled = false;
   bool StorageImageExtendedFormats = false;
   bool IndependentBlend = false;
   bool DepthClamp = false;
@@ -59,6 +61,9 @@ struct Context {
 [[nodiscard]] bool OnOwner(const Context &context) noexcept;
 [[nodiscard]] Result<void> CheckOwner(const Context &context);
 [[nodiscard]] Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options);
+[[nodiscard]] bool HasDeviceExtensions(VkPhysicalDevice physical,
+                                       std::span<const char *const> names);
+[[nodiscard]] MemoryStatus ReadMemoryStatus(const Context &context);
 
 struct MemoryChoice {
   VkMemoryPropertyFlags Required = 0;

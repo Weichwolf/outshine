@@ -1,5 +1,6 @@
 #include "BenchmarkReport.h"
 #include "BenchmarkMotion.h"
+#include "DeviceMemoryJson.h"
 #include "AppBuild.h"
 #include "GpuFrameSample.h"
 #include "GpuFrameTiming.h"
@@ -202,6 +203,8 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"logical_cpu_count", SDL_GetNumLogicalCPUCores()},
       {"ram_bytes", static_cast<uint64_t>(std::max(0, SDL_GetSystemRAM())) * 1024u * 1024u},
       {"process_memory", MemoryJson(report.Memory)},
+      {"gpu_memory",
+       Diagnostics::Calibration::DeviceMemoryJson(report.GpuMemory, "after_measurement")},
       {"build",
        {{"commit", kBuildCommit},
         {"flags", kBuildFlags},

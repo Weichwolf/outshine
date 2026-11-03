@@ -449,6 +449,10 @@ std::string_view Renderer::gpuName() const {
   return Of_->S_->Picture.Device.GpuName();
 }
 
+Render::Native::MemoryStatus Renderer::gpuMemory() const {
+  return Of_->S_->Picture.Device.ReadMemoryStatus();
+}
+
 int Renderer::settleFrames() const {
   return Of_->S_->Picture.Device.SettleFrames();
 }
