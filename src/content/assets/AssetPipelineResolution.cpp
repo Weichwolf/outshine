@@ -19,14 +19,14 @@ void AssetPipeline::State::Join(const std::shared_ptr<Job> &from, const std::sha
 }
 
 void AssetPipeline::State::RetireJoined(const std::shared_ptr<Job> &job) {
-  std::shared_ptr<Reservation> released;
+  std::shared_ptr<PublicationReservation> released;
   {
     const std::scoped_lock lock(Lock);
     job->Running = false;
     --Held.Running;
     --Held.Jobs;
-    JobInputBytes -= job->InputBytes;
-    Held.InputBytes -= std::exchange(job->InputBytes, 0);
+    JobInputBytes -= job->Inputs.Bytes();
+    job->Inputs = {};
     released = std::move(job->Output);
   }
 }
@@ -45,7 +45,7 @@ AssetPipeline::State::Resolve(const std::shared_ptr<Job> &job, const ResolvedWor
     const auto found = Jobs.find(content);
     if (found != Jobs.end() && !found->second->StopRequested) {
       const auto target = found->second;
-      if (job->Output->Bytes < target->Output->Bytes) {
+      if (job->Output->Receipt.Bytes() < target->Output->Receipt.Bytes()) {
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
       Join(job, target);

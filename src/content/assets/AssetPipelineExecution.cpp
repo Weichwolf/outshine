@@ -50,8 +50,9 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
                            ? request && *request == job->Key
                            : !content.RequestKey && key && *key == job->Key;
   if (!key || !binding || !AssetProductKey::Parse(content.Package) || content.ByteCount == 0 ||
-      content.Kind.empty() || result->CapacityBytes() - backingBytes > job->Output->Bytes ||
-      backingBytes > job->InputBytes || consumerBytes > job->InputBytes - backingBytes) {
+      content.Kind.empty() ||
+      result->CapacityBytes() - backingBytes > job->Output->Receipt.Bytes() ||
+      backingBytes > job->Inputs.Bytes() || consumerBytes > job->Inputs.Bytes() - backingBytes) {
     return Failed(AssetPublicationError::InvalidReceipt,
                   "producer returned an invalid publication receipt");
   }
@@ -59,11 +60,12 @@ AssetPublication AssetPipeline::State::Receipt(const std::shared_ptr<Job> &job,
   const auto stored = std::make_shared<StoredReceipt>(
       StoredReceipt{.Reservation = job->Output, .Product = std::move(*result)});
   {
-    const std::scoped_lock lock(job->Output->Owner->Lock);
+    const std::scoped_lock lock(Lock);
     const size_t retained = backingBytes + consumerBytes;
-    job->InputBytes -= retained;
-    job->Output->Owner->JobInputBytes -= retained;
-    job->Output->InputBytes = retained;
+    if (!job->Inputs.TransferTo(job->Output->Inputs, retained)) {
+      return Failed(AssetPublicationError::InvalidReceipt, "invalid retained input reservation");
+    }
+    JobInputBytes -= retained;
     job->Output->ConsumerBytes = consumerBytes;
   }
   std::shared_ptr<const AssetRecord> record(stored, &stored->Product.Record());
@@ -84,8 +86,9 @@ AssetPublication AssetPipeline::State::Failure(const std::shared_ptr<Job> &job,
     return Failed(AssetPublicationError::ProducerFailed, std::move(*text));
   }
   auto failure = std::get<AssetFailure>(std::move(error));
-  if (failure.Bytes > job->Output->Bytes ||
-      (failure.Detail.has_value() && sizeof(StoredFailure) > job->Output->Bytes - failure.Bytes) ||
+  if (failure.Bytes > job->Output->Receipt.Bytes() ||
+      (failure.Detail.has_value() &&
+       sizeof(StoredFailure) > job->Output->Receipt.Bytes() - failure.Bytes) ||
       (!failure.Detail.has_value() && failure.Bytes != 0)) {
     return Failed(AssetPublicationError::InvalidReceipt,
                   "asset failure metadata exceeds its admitted receipt budget");
@@ -107,9 +110,8 @@ void AssetPipeline::State::Finish(const std::shared_ptr<Job> &job,
   job->Finished = true;
   job->Running = false;
   --Held.Running;
-  JobInputBytes -= job->InputBytes;
-  Held.InputBytes -= job->InputBytes;
-  job->InputBytes = 0;
+  JobInputBytes -= job->Inputs.Bytes();
+  job->Inputs = {};
   if (job->Result.Status == AssetPublicationStatus::Failed &&
       job->Result.Error == AssetPublicationError::ResourceDeferred) {
     std::erase_if(Jobs, [&](const auto &entry) { return entry.second == job; });
@@ -168,7 +170,7 @@ void AssetPipeline::State::Execution::Run() {
     if (Work->Stop.stop_requested() || !record) {
       result = Failed(AssetPublicationError::Cancelled, "asset publication canceled");
     } else {
-      result = State::Receipt(Work, std::move(*record));
+      result = Owner->Receipt(Work, std::move(*record));
     }
     break;
   }
@@ -183,25 +185,25 @@ size_t AssetPipeline::State::OldestInputGrowth(uint64_t sequence) const {
   const size_t limit = ProducerInputLimit();
   for (const auto &[key, work] : Jobs) {
     if (work->Sequence >= sequence || work->Finished || work->StopRequested ||
-        !work->NextInputBytes || *work->NextInputBytes <= work->InputBytes ||
+        !work->NextInputBytes || *work->NextInputBytes <= work->Inputs.Bytes() ||
         *work->NextInputBytes > limit) {
       continue;
     }
     if (oldest == nullptr || work->Sequence < oldest->Sequence) {
       oldest = work.get();
-      growth = *work->NextInputBytes - work->InputBytes;
+      growth = *work->NextInputBytes - work->Inputs.Bytes();
     }
   }
   return growth;
 }
 
 size_t AssetPipeline::State::InputRoom(uint64_t sequence) const {
-  const size_t room = Budget.InputBytesMost - Held.InputBytes;
+  const size_t room = Budget.InputBytesMost - Inputs.Used();
   return room - std::min(room, OldestInputGrowth(sequence));
 }
 
 size_t AssetPipeline::State::ProducerInputLimit() const {
-  return Budget.InputBytesMost - (Held.InputBytes - JobInputBytes);
+  return Budget.InputBytesMost - (Inputs.Used() - JobInputBytes);
 }
 
 std::expected<bool, AssetPublicationError>
@@ -215,17 +217,16 @@ AssetPipeline::State::AdmitInput(const std::shared_ptr<Job> &job) {
   if (wanted > ProducerInputLimit()) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
-  const size_t others = Held.InputBytes - job->InputBytes;
-  if (wanted > job->InputBytes && wanted - job->InputBytes > InputRoom(job->Sequence)) {
-    if (job->InputBytes != 0 &&
-        OldestInputGrowth(job->Sequence) > Budget.InputBytesMost - Held.InputBytes) {
+  if (wanted > job->Inputs.Bytes() && wanted - job->Inputs.Bytes() > InputRoom(job->Sequence)) {
+    if (job->Inputs.Bytes() != 0 &&
+        OldestInputGrowth(job->Sequence) > Budget.InputBytesMost - Inputs.Used()) {
       return std::unexpected(AssetPublicationError::ResourceDeferred);
     }
     return false;
   }
-  JobInputBytes = JobInputBytes - job->InputBytes + wanted;
-  Held.InputBytes = others + wanted;
-  job->InputBytes = wanted;
+  const size_t previous = job->Inputs.Bytes();
+  if (!job->Inputs.Resize(wanted)) { return false; }
+  JobInputBytes = JobInputBytes - previous + wanted;
   job->NextInputBytes.reset();
   return true;
 }

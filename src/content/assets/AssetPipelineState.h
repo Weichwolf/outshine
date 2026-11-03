@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETPIPELINESTATE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETPIPELINESTATE_H
 #include "AssetPipeline.h"
+#include "MemoryBudget.h"
 #include <chrono>
 #include <map>
 #include <mutex>
@@ -10,12 +11,10 @@
 
 namespace outshine {
 struct AssetPipeline::State : std::enable_shared_from_this<State> {
-  struct Reservation {
-    std::shared_ptr<State> Owner;
-    size_t Bytes = 0;
-    size_t InputBytes = 0;
+  struct PublicationReservation {
+    MemoryBudget::Reservation Receipt;
+    MemoryBudget::Reservation Inputs;
     size_t ConsumerBytes = 0;
-    ~Reservation();
   };
 
   struct ScopedKey {
@@ -38,21 +37,22 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     AssetProductKey Key;
     KeyDomain Domain;
     AssetStoreScope Scope;
-    size_t References = 0, Demands = 0, InputBytes = 0;
+    size_t References = 0, Demands = 0;
+    MemoryBudget::Reservation Inputs;
     std::optional<size_t> NextInputBytes;
     bool StopRequested = false, Finished = false, Running = true;
     LogicalProducer Resume;
     std::chrono::steady_clock::time_point RetryAt;
     std::chrono::milliseconds Delay{1};
     std::stop_source Stop;
-    std::shared_ptr<Reservation> Output;
+    std::shared_ptr<PublicationReservation> Output;
     AssetPublication Result;
   };
 
   struct Demand {
     AssetConsumerId Consumer;
     AssetConsumerGeneration Generation;
-    size_t Bytes = 0;
+    MemoryBudget::Reservation Workspace;
     bool Cancelled = false;
     std::shared_ptr<Job> Work;
     std::optional<AssetRequestKey> Address;
@@ -62,7 +62,7 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     AssetConsumerGeneration Generation;
     AssetStoreScope Scope;
     size_t Tickets = 0;
-    size_t Bytes = 0;
+    MemoryBudget::Reservation Workspace;
     bool Alive = true;
   };
 
@@ -77,7 +77,11 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     ~Execution();
   };
 
-  State(Tasks &pool, Limits limits) : Pool(pool), Budget(limits) {}
+  State(Tasks &pool, Limits limits)
+      : Pool(pool),
+        Budget(limits),
+        Inputs(limits.InputBytesMost),
+        Receipts(limits.ReceiptBytesMost) {}
 
   [[nodiscard]] static std::optional<std::stop_source> Cancel(Demand &demand);
   void CancelTicket(uint64_t ticket) noexcept;
@@ -101,12 +105,13 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
   [[nodiscard]] static AssetPublication Failure(const std::shared_ptr<Job> &job,
                                                 LogicalFailure error);
   void Finish(const std::shared_ptr<Job> &job, AssetPublication result) noexcept;
-  [[nodiscard]] static AssetPublication Receipt(const std::shared_ptr<Job> &job,
-                                                std::expected<AssetProduct, std::string> result);
+  [[nodiscard]] AssetPublication Receipt(const std::shared_ptr<Job> &job,
+                                         std::expected<AssetProduct, std::string> result);
   void Remove(const std::shared_ptr<Job> &job);
-  void ReleaseConsumerWorkspace(Job &job);
+  static void ReleaseConsumerWorkspace(Job &job);
   Tasks &Pool;
   Limits Budget;
+  MemoryBudget Inputs, Receipts;
   mutable std::mutex Lock;
   std::map<ScopedKey, std::shared_ptr<Job>, KeyLess> Jobs;
   std::map<uint64_t, Demand> Tickets;

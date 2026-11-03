@@ -93,34 +93,36 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
     }
     const State::ScopedKey address{
         .Scope = owner->second.Scope, .Domain = request.Domain, .Key = request.Key};
+    auto workspace = State_->Inputs.TryReserve(request.ConsumerBytes);
+    if (!workspace) { return std::unexpected(AssetPublicationError::ResourceDeferred); }
     const auto found = State_->Jobs.find(address);
     std::shared_ptr<State::Job> job;
     if (found != State_->Jobs.end()) {
       job = found->second;
-      if (job->StopRequested || request.ReceiptBytesMost < job->Output->Bytes) {
+      if (job->StopRequested || request.ReceiptBytesMost < job->Output->Receipt.Bytes()) {
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
     } else {
       const auto inputRoom = room - request.ConsumerBytes;
       if (State_->Held.Jobs >= State_->Budget.JobsMost || request.InputBytes > inputRoom ||
-          request.ReceiptBytesMost > State_->Budget.ReceiptBytesMost - State_->Held.ReceiptBytes) {
+          request.ReceiptBytesMost > State_->Receipts.Maximum() - State_->Receipts.Used()) {
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
+      auto inputs = State_->Inputs.TryReserve(request.InputBytes);
+      auto receipt = State_->Receipts.TryReserve(request.ReceiptBytesMost);
+      if (!inputs || !receipt) { return std::unexpected(AssetPublicationError::ResourceDeferred); }
       job = std::make_shared<State::Job>();
       job->Sequence = State_->NextTicket;
       job->Key = request.Key;
       job->Domain = request.Domain;
       job->Scope = address.Scope;
-      job->InputBytes = request.InputBytes;
-      job->Output = std::make_shared<State::Reservation>();
-      job->Output->Owner = State_;
-      job->Output->Bytes = request.ReceiptBytesMost;
+      job->Inputs = std::move(*inputs);
+      job->Output = std::make_shared<State::PublicationReservation>();
+      job->Output->Receipt = std::move(*receipt);
       State_->Jobs.emplace(address, job);
       ++State_->Held.Jobs;
       ++State_->Held.Running;
-      State_->Held.InputBytes += request.InputBytes;
       State_->JobInputBytes += request.InputBytes;
-      State_->Held.ReceiptBytes += request.ReceiptBytesMost;
       execution = std::make_shared<State::Execution>();
       execution->Owner = State_;
       execution->Work = job;
@@ -131,7 +133,7 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
         ticket,
         State::Demand{.Consumer = consumer.Id_,
                       .Generation = request.Generation,
-                      .Bytes = request.ConsumerBytes,
+                      .Workspace = std::move(*workspace),
                       .Cancelled = false,
                       .Work = job,
                       .Address = request.Domain == KeyDomain::Request
@@ -141,7 +143,6 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
     ++job->Demands;
     ++owner->second.Tickets;
     ++State_->Held.Tickets;
-    State_->Held.InputBytes += request.ConsumerBytes;
   }
   if (execution && !State_->Pool.PostDetached([execution] { execution->Run(); })) {
     execution.reset();
@@ -153,6 +154,8 @@ AssetPipeline::Snapshot AssetPipeline::Counts() const noexcept {
   const std::scoped_lock lock(State_->Lock);
   auto result = State_->Held;
   result.Addresses = State_->Jobs.size();
+  result.InputBytes = State_->Inputs.Used();
+  result.ReceiptBytes = State_->Receipts.Used();
   return result;
 }
 }

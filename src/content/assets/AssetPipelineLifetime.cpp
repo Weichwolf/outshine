@@ -11,12 +11,6 @@
 #include <vector>
 
 namespace outshine {
-AssetPipeline::State::Reservation::~Reservation() {
-  const std::scoped_lock lock(Owner->Lock);
-  Owner->Held.ReceiptBytes -= Bytes;
-  Owner->Held.InputBytes -= InputBytes;
-}
-
 std::optional<std::stop_source> AssetPipeline::State::Cancel(Demand &demand) {
   if (demand.Cancelled) { return std::nullopt; }
   demand.Cancelled = true;
@@ -53,8 +47,7 @@ void AssetPipeline::State::Remove(const std::shared_ptr<Job> &job) {
 void AssetPipeline::State::ReleaseConsumerWorkspace(Job &job) {
   if (!job.Output) { return; }
   const size_t unused = std::exchange(job.Output->ConsumerBytes, 0);
-  job.Output->InputBytes -= unused;
-  Held.InputBytes -= unused;
+  (void)job.Output->Inputs.Resize(job.Output->Inputs.Bytes() - unused);
 }
 
 void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
@@ -69,7 +62,6 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
     released.emplace(std::move(at->second));
     Tickets.erase(at);
     --Held.Tickets;
-    Held.InputBytes -= released->Bytes;
     const auto owner = Consumers.find(released->Consumer);
     if (--owner->second.Tickets == 0 && !owner->second.Alive) {
       retired.emplace(std::move(owner->second));
@@ -80,6 +72,8 @@ void AssetPipeline::State::ReleaseTicket(uint64_t ticket) noexcept {
     --released->Work->References;
     Remove(released->Work);
   }
+  released.reset();
+  retired.reset();
   if (stop) {
     (void)stop->request_stop();
     WakeStopped();
@@ -116,8 +110,7 @@ void AssetPipeline::State::Retire(AssetConsumerId consumer) noexcept {
     const std::scoped_lock lock(Lock);
     const auto owner = Consumers.find(consumer);
     if (owner == Consumers.end()) { return; }
-    Held.InputBytes -= owner->second.Bytes;
-    owner->second.Bytes = 0;
+    owner->second.Workspace = {};
     owner->second.Alive = false;
     for (auto &[id, demand] : Tickets) {
       if (demand.Consumer == consumer) {
@@ -156,8 +149,10 @@ AssetPipeline::RetainConsumerBytes(const Consumer &consumer, RequestTicket &tick
       demand->second.Work->Result.Status != AssetPublicationStatus::Ready) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
-  owner->second.Bytes += demand->second.Bytes;
-  demand->second.Bytes = 0;
+  if (!demand->second.Workspace.TransferTo(owner->second.Workspace,
+                                           demand->second.Workspace.Bytes())) {
+    return std::unexpected(AssetPublicationError::InvalidRequest);
+  }
   return {};
 }
 
@@ -219,7 +214,7 @@ void AssetPipeline::RequestTicket::Cancel() noexcept {
 bool AssetPipeline::RequestTicket::Reject() noexcept {
   if (!State_) { return false; }
   AssetPublication retired;
-  std::shared_ptr<State::Reservation> reservation;
+  std::shared_ptr<State::PublicationReservation> reservation;
   {
     const std::scoped_lock lock(State_->Lock);
     const auto found = State_->Tickets.find(Id_);
@@ -230,7 +225,7 @@ bool AssetPipeline::RequestTicket::Reject() noexcept {
       return job->Result.Error == AssetPublicationError::Rejected;
     }
     retired = std::move(job->Result);
-    State_->ReleaseConsumerWorkspace(*job);
+    State::ReleaseConsumerWorkspace(*job);
     job->Result = {.Status = AssetPublicationStatus::Failed,
                    .Receipt = {},
                    .Error = AssetPublicationError::Rejected,
@@ -255,23 +250,24 @@ AssetPipeline::RequestTicket::SetConsumerBytes(size_t bytes) noexcept {
   if (bytes > state.Budget.InputBytesMost) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
-  const size_t previous = at->second.Bytes;
+  auto &workspace = at->second.Workspace;
+  const size_t previous = workspace.Bytes();
   const size_t growth = bytes > previous ? bytes - previous : 0;
   auto *output = at->second.Work->Output.get();
   const size_t carried = output != nullptr ? std::min(growth, output->ConsumerBytes) : 0;
   if (growth > carried && growth - carried > state.InputRoom(Id_)) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
-  if (output != nullptr) {
+  if (!workspace.Resize(bytes - carried)) {
+    return std::unexpected(AssetPublicationError::ResourceDeferred);
+  }
+  if (carried != 0) {
+    if (!output->Inputs.TransferTo(workspace, carried)) {
+      (void)workspace.Resize(previous);
+      return std::unexpected(AssetPublicationError::InvalidRequest);
+    }
     output->ConsumerBytes -= carried;
-    output->InputBytes -= carried;
   }
-  if (bytes >= previous) {
-    state.Held.InputBytes += growth - carried;
-  } else {
-    state.Held.InputBytes -= previous - bytes;
-  }
-  at->second.Bytes = bytes;
   return {};
 }
 
