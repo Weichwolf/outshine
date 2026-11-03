@@ -87,7 +87,8 @@ Result Engine::preloadWithQuality(double patienceS,
         std::chrono::duration<double>(std::clamp(remaining, 0.0, 5.0)));
     const auto uploads = S_->Picture.Device.OfflineUploads(uploadBudget);
     const auto pumpAt = std::chrono::steady_clock::now();
-    const auto pumped = S_->PumpPreload(quality);
+    const auto pumped =
+        S_->PumpPreload(quality).and_then([&] { return S_->AdvanceTerrainClipmaps(); });
     S_->PreloadPumpMs += elapsedMs(pumpAt);
     ++S_->PreloadPumps;
     if (!pumped) { return timed(pumped); }

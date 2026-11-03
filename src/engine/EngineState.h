@@ -79,6 +79,7 @@ namespace outshine {
 struct GroundBuildProducts;
 class WorldRegionBuildState;
 class GroundWorldCandidate;
+class TerrainClipmapPreparation;
 
 constexpr int kFrameUnsaidWidePx = 1280;
 constexpr int kFrameUnsaidHighPx = 720;
@@ -197,6 +198,8 @@ struct WorldRegionState {
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
   size_t Relaid = 0;
+  size_t ClipmapPublication = 0;
+  std::unique_ptr<TerrainClipmapPreparation> TerrainClipmaps;
   size_t Asked = 0;
   double RebuildMs = 0.0;
   size_t Rebuilds = 0;
@@ -577,6 +580,8 @@ struct Engine::State {
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
+  [[nodiscard]] Result AdvanceTerrainClipmaps();
+  [[nodiscard]] bool TerrainClipmapsReady() const noexcept;
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
   [[nodiscard]] bool AdvanceUrbanAreas();
   [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;

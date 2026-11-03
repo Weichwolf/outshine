@@ -2,6 +2,8 @@
 #define OUTSHINE_ENGINE_STREAMING_TERRAINSURFACEPUBLICATION_H
 
 #include <cstddef>
+#include <memory>
+#include <utility>
 #include <string>
 
 #include "GroundMesher.h"
@@ -15,6 +17,9 @@
 #include <stop_token>
 
 namespace outshine {
+namespace Generators {
+class TerrainFieldSet;
+}
 enum class TerrainSamplingError { Unpublished, InvalidInput, Cancelled };
 
 namespace Render {
@@ -34,6 +39,10 @@ public:
   void SetFrame(const TangentFrame &frame) {
     Frame_ = frame;
     Framed_ = true;
+  }
+
+  void SetRenderFallback(std::shared_ptr<const Generators::TerrainFieldSet> fields) noexcept {
+    RenderFallback_ = std::move(fields);
   }
 
   [[nodiscard]] bool StitchSeams(Patchwork &laid, std::string &error);
@@ -89,6 +98,7 @@ private:
   TerrainResidency Residency_;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;
+  std::shared_ptr<const Generators::TerrainFieldSet> RenderFallback_;
 };
 
 }

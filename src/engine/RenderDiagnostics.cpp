@@ -87,8 +87,10 @@ void InspectGround(const EngineRenderState &picture, Core::DiagnosticLedger &pub
   const auto skirts = uint64_t{Render::TerrainLattice::kSkirtQuads} * 6u * ground->SkirtInstances;
   published.RecordMetric("ground: skirt instances", ground->SkirtInstances, "instances");
   published.RecordMetric("ground: skirt index references", static_cast<double>(skirts), "indices");
-  published.RecordMetric(
-      "ground: colour draw triangles", static_cast<double>(indices + skirts) / 3.0, "triangles");
+  published.RecordMetric("ground: colour draw triangles",
+                         static_cast<double>(indices + skirts) / 3.0 +
+                             static_cast<double>(ground->DirectTriangles),
+                         "triangles");
 }
 
 void InspectIrradiance(EngineRenderState &picture, Core::DiagnosticLedger &published) {

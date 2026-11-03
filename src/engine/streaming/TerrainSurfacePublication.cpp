@@ -34,6 +34,7 @@ std::expected<bool, std::string> TerrainSurfacePublication::AdvanceResidency(con
 
 void TerrainSurfacePublication::Clear() {
   Residency_.Clear();
+  RenderFallback_.reset();
 }
 
 uint64_t TerrainSurfacePublication::Digest() const {

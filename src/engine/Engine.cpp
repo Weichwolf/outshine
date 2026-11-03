@@ -329,7 +329,9 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   }
   return {
       {RequiredBlocker(refined, published && World.GroundTiles > 0, Says::kMissingTerrainCoverage),
-       RequiredBlocker(refined, published && World.Pending == 0, Says::kPendingTerrain),
+       RequiredBlocker(refined,
+                       published && World.Pending == 0 && TerrainClipmapsReady(),
+                       Says::kPendingTerrain),
        RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
        RequiredBlocker(refined, World.RimsMissing == 0, Says::kMissingNeighbours),
        World.Grown ? "" : Says::kPendingSnapshot,
@@ -590,6 +592,7 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   const bool structuresReady = !continuingCandidate && published &&
                                StructuresReady(World.Surface().Footprints(), *published);
   if (!AdvanceWorldRegionBuild(true, quality)) { return std::unexpected(Error); }
+  if (const auto clipmaps = AdvanceTerrainClipmaps(); !clipmaps) { return clipmaps; }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }
@@ -752,7 +755,8 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
 }
 
 bool Engine::State::WorldPreparationPending() const {
-  return WeatherRunning() || GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
+  return !TerrainClipmapsReady() || WeatherRunning() || GroundDeformationPending() ||
+         World.RoadAlignmentBuilds.Busy() ||
          (World.OsmSource && World.OsmSource->PendingCount() > 0) ||
          (World.UrbanAreas && !World.UrbanAreas->Ready()) ||
          (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
