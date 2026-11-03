@@ -97,6 +97,38 @@ float HalfToFloat(uint16_t bits) {
   return value;
 }
 
+ReadState
+ReadDrawnIndices(Native::Device *device, const GeometryResidency &resident, KeptDraws &into) {
+  const auto rows = into.Arguments.size() / 5u;
+  const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
+  if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
+  Readback drawn;
+  uint64_t end = 0;
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
+  }
+  const uint64_t indexBytes = end * sizeof(uint32_t);
+  if (indexBytes > index->Description().Bytes ||
+      indexBytes > std::numeric_limits<uint32_t>::max() ||
+      drawn.FromBuffer(device, index, static_cast<uint32_t>(indexBytes)) != ReadState::Ready) {
+    into = {};
+    return ReadState::Failed;
+  }
+  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
+  into.ReadbackBytes += indexBytes;
+  into.DrawIndex.reserve(into.Indices);
+  for (size_t at = 0; at < rows; ++at) {
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto count = into.Arguments[at * 5];
+    if (count != 0) {
+      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
+    }
+  }
+  return ReadState::Ready;
+}
+
 }
 
 namespace Says {
@@ -220,8 +252,7 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
   const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
-  if (!ActiveState().Ready || !ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr ||
-      rows == 0) {
+  if (!ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr || rows == 0) {
     return ReadState::Failed;
   }
   if (!ReadSelectionQueues(Device_.get(), resident, into)) {
@@ -263,34 +294,7 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
     }
     into.ReadbackBytes += rows * sizeof(uint32_t);
   }
-  const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
-  if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
-  Readback drawn;
-  uint64_t end = 0;
-  for (size_t at = 0; at < rows; ++at) {
-    const auto first = into.Arguments[at * 5 + 2];
-    const auto count = into.Arguments[at * 5];
-    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
-  }
-  const uint64_t indexBytes = end * sizeof(uint32_t);
-  if (indexBytes > index->Description().Bytes ||
-      indexBytes > std::numeric_limits<uint32_t>::max() ||
-      drawn.FromBuffer(Device_.get(), index, static_cast<uint32_t>(indexBytes)) !=
-          ReadState::Ready) {
-    into = {};
-    return ReadState::Failed;
-  }
-  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
-  into.ReadbackBytes += indexBytes;
-  into.DrawIndex.reserve(into.Indices);
-  for (size_t at = 0; at < rows; ++at) {
-    const auto first = into.Arguments[at * 5 + 2];
-    const auto count = into.Arguments[at * 5];
-    if (count != 0) {
-      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
-    }
-  }
-  return ReadState::Ready;
+  return ReadDrawnIndices(Device_.get(), resident, into);
 }
 
 ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
