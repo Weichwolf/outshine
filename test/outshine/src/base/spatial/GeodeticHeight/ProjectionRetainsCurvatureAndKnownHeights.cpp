@@ -1,9 +1,11 @@
 #include "Check.h"
 #include "Earth.h"
 #include "GeodeticHeight.h"
+#include "Geocentric.h"
 #include "TangentFrame.h"
 #include "Vec2.h"
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -74,11 +76,38 @@ void UnknownAndUnrepresentable() {
   CHECK(!HeightInFrame(frame, {{100000, 0}}, 1, discontinuous),
         "an unresolved discontinuity cannot publish a guessed surface");
 }
+
+void QuantizedSurface() {
+  const auto frame = TangentFrame::At({.LongitudeDeg = 10.115857, .LatitudeDeg = 47.256121});
+  const auto source = [](LongitudeLatitude geo) noexcept -> std::optional<double> {
+    return static_cast<float>(1200 +
+                              900 * std::sin(geo.LongitudeDeg * 3) * std::cos(geo.LatitudeDeg * 2));
+  };
+  for (int i = 0; i < 128; ++i) {
+    const Vec2 xy{{-258048.0 + i * 3611, -256000.0 + i * 3689}};
+    const auto height = HeightInFrame(frame, xy, 0.5, source);
+    CHECK(height.has_value(), "quantized source fields cannot cycle below their float precision");
+    if (!height) { continue; }
+    const auto geo =
+        GeoFromEcef(frame.ToEcefPosition({.EastM = xy[0], .NorthM = xy[1], .UpM = *height}));
+    CHECK(geo.has_value(), "the sampled render point has geographic coordinates");
+    if (!geo) { continue; }
+    const auto expected =
+        source({.LongitudeDeg = geo->LongitudeDeg, .LatitudeDeg = geo->LatitudeDeg});
+    CHECK(expected.has_value(), "the quantized reference covers the sampled point");
+    if (!expected) { continue; }
+    const double tolerance = 4 * std::numeric_limits<float>::epsilon() *
+                             std::max({1.0, std::abs(*height), std::abs(*expected)});
+    CHECK(std::abs(geo->HeightM - *expected) <= tolerance,
+          "fallback residual stays within the admitted float storage precision");
+  }
+}
 }
 
 int main() {
   ConstantSurface();
   ActualForwardPoints();
   UnknownAndUnrepresentable();
+  QuantizedSurface();
   return Report();
 }
