@@ -1120,22 +1120,21 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
               });
         };
     StreetGraphPreparation::Resolver resolve;
-    if (auto assets = World.Surface().NetworkAssets()) {
-      resolve = [assets = std::move(assets),
-                 vectors = sources.Vectors,
-                 ways,
-                 fields,
-                 shape = World.Surface().Pool().Shaped(),
-                 sourceZoom](const Generators::Osm::PreparedStreetGraph::Factory &factory)
-          -> std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string> {
-        const auto binding = fields->BindingAt(sourceZoom);
-        if (!binding) {
-          return std::unexpected("street graph terrain binding is invalid or over budget");
-        }
-        auto key = assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
-        if (!key) { return std::unexpected(std::move(key.error())); }
-        return assets->Resolve(*key, factory);
-      };
+    if (const auto assets = World.Surface().NetworkAssets()) {
+      resolve = StreetGraphPreparation::CachedResolver(
+          assets,
+          [assets,
+           vectors = sources.Vectors,
+           ways,
+           fields,
+           shape = World.Surface().Pool().Shaped(),
+           sourceZoom] -> std::expected<std::string, std::string> {
+            const auto binding = fields->BindingAt(sourceZoom);
+            if (!binding) {
+              return std::unexpected("street graph terrain binding is invalid or over budget");
+            }
+            return assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
+          });
     }
     state.BeginStreetGraph(std::make_unique<StreetGraphPreparation>(
         *Services.Compute, std::move(begin), std::move(resolve)));
