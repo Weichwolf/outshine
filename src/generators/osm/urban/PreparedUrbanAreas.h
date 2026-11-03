@@ -59,6 +59,7 @@ public:
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Generations = 0, Writes = 0, ReadBytes = 0;
     uint64_t SourcePolls = 0, GeneratedCells = 0, Deferred = 0;
+    uint64_t PublicationBytes = 0, PublicationAttempts = 0, PublicationDeferred = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedUrbanAreas>, std::string>

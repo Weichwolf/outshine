@@ -8,6 +8,8 @@
 #include <mutex>
 #include <stop_token>
 #include <vector>
+#include <optional>
+#include <variant>
 
 namespace outshine::Generators::Osm {
 struct PreparedUrbanAreas::Loaded {
@@ -24,13 +26,22 @@ struct PreparedUrbanAreas::Definition {
 };
 
 struct PreparedUrbanAreas::Work {
-  enum class Phase : uint8_t { Lookup, LookupRetry, Source, Generate };
+  enum class Phase : uint8_t { Lookup, Retry, Source, Generate, Publish, Restore };
   Definition Input;
   std::vector<std::weak_ptr<const uint8_t>> Owners;
   std::array<std::unique_ptr<OsmField>, 2> Layouts;
   std::array<std::shared_ptr<const OsmField>, 2> Sources;
   size_t SourceCount = 0;
   Phase Stage = Phase::Lookup;
+  Phase Resume = Phase::Lookup;
+  std::optional<PreparedAssetWrite> Publication;
+  std::atomic_size_t PublicationBytes{0};
+
+  void ClearPublication() noexcept {
+    Publication.reset();
+    PublicationBytes.store(0, std::memory_order_release);
+  }
+
   std::chrono::steady_clock::time_point RetryAt;
   std::chrono::milliseconds RetryDelay{1};
   std::atomic_bool Running{false};
@@ -51,8 +62,12 @@ struct PreparedUrbanAreas::Worker {
   [[nodiscard]] std::string RequestKey(const Definition &input) const;
   [[nodiscard]] std::expected<Loaded, std::string> Load(const std::string &request,
                                                         const Definition &input);
-  [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request,
-                                                            const Work &work);
+  using Failure = std::variant<AssetCacheError, std::string>;
+  [[nodiscard]] std::expected<Loaded, Failure> Read(const std::string &request,
+                                                    const Definition &input);
+  [[nodiscard]] std::expected<Loaded, std::string> Generate(const std::string &request, Work &work);
+  [[nodiscard]] std::expected<Loaded, std::string> Publish(const std::string &request, Work &work);
+  [[nodiscard]] static std::expected<Loaded, std::string> ReadFailure(const Failure &error);
   [[nodiscard]] bool Matches(const UrbanArea &area, const Definition &input) const;
 
   std::shared_ptr<AssetCache> Cache;
@@ -65,6 +80,7 @@ struct PreparedUrbanAreas::Worker {
   uint64_t CompletionGeneration = 0;
   std::atomic_uint64_t Hits{0}, Misses{0}, Generations{0}, Writes{0}, ReadBytes{0};
   std::atomic_uint64_t SourcePolls{0}, GeneratedCells{0}, Deferred{0};
+  std::atomic_uint64_t PublicationAttempts{0}, PublicationDeferred{0};
 };
 }
 #endif

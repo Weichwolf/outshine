@@ -15,6 +15,22 @@ void Engine::State::PublishUrbanMeasurements() {
   Published.RecordMetric("urban terrain captures", static_cast<double>(urban.Captures), "captures");
   Published.RecordMetric(
       "urban scene publications", static_cast<double>(urban.Publications), "publications");
+  if (const auto areas = World.Surface().UrbanAssets()) {
+    const auto costs = areas->Costs();
+    Published.RecordMetric(
+        "urban area generations", static_cast<double>(costs.Generations), "areas");
+    Published.RecordMetric("urban area writes", static_cast<double>(costs.Writes), "areas");
+    Published.RecordMetric(
+        "urban area native reads", static_cast<double>(costs.ReadBytes), "bytes");
+    Published.RecordMetric(
+        "urban area retained publication", static_cast<double>(costs.PublicationBytes), "bytes");
+    Published.RecordMetric("urban area publication attempts",
+                           static_cast<double>(costs.PublicationAttempts),
+                           "attempts");
+    Published.RecordMetric("urban area publication deferred",
+                           static_cast<double>(costs.PublicationDeferred),
+                           "attempts");
+  }
 }
 
 std::string_view Engine::State::UrbanWorldBlocker() const noexcept {

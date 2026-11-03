@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -95,6 +96,9 @@ PreparedUrbanAreas::~PreparedUrbanAreas() {
 
 void PreparedUrbanAreas::Cancel() noexcept {
   Worker_->Stop.request_stop();
+  for (const auto &[key, work] : Pending_) {
+    if (!work->Running.load(std::memory_order_acquire)) { (void)Start(key, work); }
+  }
 }
 
 Data::TileId PreparedUrbanAreas::Parent(Data::TileId owner) noexcept {
@@ -162,8 +166,19 @@ bool PreparedUrbanAreas::Start(const std::string &key, const std::shared_ptr<Wor
       pending.Result = std::unexpected(std::string("urban-area preparation cancelled"));
     } else if (pending.Stage == Work::Phase::Lookup) {
       pending.Result = owner.Load(key, pending.Input);
-    } else {
+    } else if (pending.Stage == Work::Phase::Generate) {
       pending.Result = owner.Generate(key, pending);
+    } else {
+      pending.Result = owner.Publish(key, pending);
+    }
+    if (owner.Stop.stop_requested()) {
+      pending.Result = std::unexpected(std::string("urban-area preparation cancelled"));
+    }
+    if (!pending.Result || pending.Result->Area) {
+      pending.Sources = {};
+      pending.Layouts = {};
+      pending.SourceCount = 0;
+      pending.ClearPublication();
     }
   });
 }
@@ -171,9 +186,9 @@ bool PreparedUrbanAreas::Start(const std::string &key, const std::shared_ptr<Wor
 std::expected<PreparedUrbanAreas::SourceDelivery, std::string>
 PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> &work) {
   if (work->Running.load(std::memory_order_acquire)) { return SourceDelivery{}; }
-  if (work->Stage == Work::Phase::LookupRetry) {
+  if (work->Stage == Work::Phase::Retry) {
     if (std::chrono::steady_clock::now() >= work->RetryAt) {
-      work->Stage = Work::Phase::Lookup;
+      work->Stage = work->Resume;
       if (!Start(key, work)) { return std::unexpected("urban-area lookup retry was not accepted"); }
     }
     return SourceDelivery{};
@@ -185,15 +200,16 @@ PreparedUrbanAreas::Advance(const std::string &key, const std::shared_ptr<Work> 
                             .Product = std::move(work->Result->Area),
                             .AssetKey = std::move(work->Result->Key)};
     }
-    if (work->Stage == Work::Phase::Generate) {
-      return std::unexpected("urban-area generation returned no complete asset");
-    }
     if (work->Result->Stage == Loaded::Phase::Deferred) {
       ++Worker_->Deferred;
-      work->Stage = Work::Phase::LookupRetry;
+      work->Resume = work->Stage;
+      work->Stage = Work::Phase::Retry;
       work->RetryAt = std::chrono::steady_clock::now() + work->RetryDelay;
       work->RetryDelay = std::min(work->RetryDelay * 2, std::chrono::milliseconds(16));
       return SourceDelivery{};
+    }
+    if (work->Stage != Work::Phase::Lookup) {
+      return std::unexpected("urban-area generation returned no complete asset");
     }
     work->Stage = Work::Phase::Source;
   }
@@ -244,32 +260,45 @@ PreparedUrbanAreas::GatherSources(Work &work) {
 }
 
 PreparedUrbanAreas::Counters PreparedUrbanAreas::Costs() const noexcept {
-  return {.Hits = Worker_->Hits.load(),
-          .Misses = Worker_->Misses.load(),
-          .Generations = Worker_->Generations.load(),
-          .Writes = Worker_->Writes.load(),
-          .ReadBytes = Worker_->ReadBytes.load(),
-          .SourcePolls = Worker_->SourcePolls.load(),
-          .GeneratedCells = Worker_->GeneratedCells.load(),
-          .Deferred = Worker_->Deferred.load()};
+  Counters result{.Hits = Worker_->Hits.load(),
+                  .Misses = Worker_->Misses.load(),
+                  .Generations = Worker_->Generations.load(),
+                  .Writes = Worker_->Writes.load(),
+                  .ReadBytes = Worker_->ReadBytes.load(),
+                  .SourcePolls = Worker_->SourcePolls.load(),
+                  .GeneratedCells = Worker_->GeneratedCells.load(),
+                  .Deferred = Worker_->Deferred.load(),
+                  .PublicationBytes = 0,
+                  .PublicationAttempts = Worker_->PublicationAttempts.load(),
+                  .PublicationDeferred = Worker_->PublicationDeferred.load()};
+  for (const auto &[key, work] : Pending_) {
+    result.PublicationBytes += work->PublicationBytes.load(std::memory_order_acquire);
+  }
+  return result;
 }
 
 bool PreparedUrbanAreas::AwaitProgress(double seconds) const {
   std::unique_lock lock(Worker_->CompletionMutex);
   bool running = false;
+  std::optional<std::chrono::steady_clock::time_point> retryAt;
+  const auto now = std::chrono::steady_clock::now();
   for (const auto &[key, work] : Pending_) {
     if (work->Running.load(std::memory_order_acquire)) {
       running = true;
+    } else if (work->Stage == Work::Phase::Retry) {
+      if (now >= work->RetryAt) { return true; }
+      retryAt = retryAt ? std::min(*retryAt, work->RetryAt) : work->RetryAt;
     } else if (work->Stage != Work::Phase::Source) {
       return true;
     }
   }
-  if (!running) { return true; }
+  if (!running && !retryAt) { return true; }
   if (!(seconds > 0.0)) { return false; }
+  auto duration = std::chrono::duration<double>(seconds);
+  if (retryAt) { duration = std::min(duration, std::chrono::duration<double>(*retryAt - now)); }
   const auto generation = Worker_->CompletionGeneration;
-  return Worker_->Completed.wait_for(
-      lock, std::chrono::duration<double>(seconds), [this, generation] {
-        return Worker_->CompletionGeneration != generation;
-      });
+  const bool completed = Worker_->Completed.wait_for(
+      lock, duration, [this, generation] { return Worker_->CompletionGeneration != generation; });
+  return completed || (retryAt && std::chrono::steady_clock::now() >= *retryAt);
 }
 }
