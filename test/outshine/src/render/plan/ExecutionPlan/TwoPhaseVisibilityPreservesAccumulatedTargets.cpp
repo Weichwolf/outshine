@@ -2,6 +2,8 @@
 #include "ExecutionPlan.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <span>
 
 int main() {
   using namespace outshine::Render;

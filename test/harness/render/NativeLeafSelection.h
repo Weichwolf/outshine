@@ -22,7 +22,6 @@ struct LeafSelectionInput {
   const Buffer &Pyramid;
   std::span<const std::byte> View;
   std::span<const uint32_t> Initial;
-  std::span<const uint32_t> FirstKept = {};
 };
 
 template <class T, size_t N> std::vector<uint32_t> SelectionWords(std::span<const T, N> values) {
@@ -60,10 +59,7 @@ SelectAllLeaves(Device &device, Commands &commands, const LeafSelectionInput &in
   const auto clusters = Upload(device, commands, std::vector<uint32_t>(size_t{logical} * 2));
   auto kept = Upload(device, commands, input.Initial);
   const std::vector<uint32_t> emptyFirst(logical, 0u);
-  const auto first =
-      Upload(device,
-             commands,
-             input.FirstKept.empty() ? std::span<const uint32_t>(emptyFirst) : input.FirstKept);
+  const auto first = Upload(device, commands, emptyFirst);
   const GeometryHierarchyView hierarchy{.RootCount = static_cast<uint32_t>(input.Roots.size()),
                                         .TemplateCount =
                                             static_cast<uint32_t>(input.Templates.size()),
