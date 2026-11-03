@@ -32,6 +32,7 @@ enum class ComputeShaderId : uint32_t {
   RadianceIntegralRows,
   RadianceIntegralColumns,
   FieldPageFeedback,
+  ClipmapNormals,
   Count
 };
 
@@ -126,8 +127,13 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::FieldPageFeedback,
         .Path = "fieldPageFeedback.comp.spv",
+        .Shape =
+            {.Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::ClipmapNormals,
+        .Path = "clipmapNormals.comp.spv",
         .Shape = {
-            .Samplers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}}};
+            .Samplers = 1, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}}};
 
 [[nodiscard]] constexpr bool ValidComputeShaderCatalog() noexcept {
   if (kComputeShaders.size() != static_cast<std::size_t>(ComputeShaderId::Count)) { return false; }

@@ -1,0 +1,32 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2DArray heights;
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2DArray normals;
+layout(std140, set = 2, binding = 0) uniform Region {
+  uvec4 area;
+  uvec2 field;
+  float inverseTwoStep;
+  float padding;
+};
+
+float heightAt(uvec2 at) {
+  return texelFetch(heights, ivec3(at % field.x, field.y), 0).r;
+}
+
+void main() {
+  uvec2 local = gl_GlobalInvocationID.xy;
+  if (any(greaterThanEqual(local, area.zw))) { return; }
+  uvec2 at = (area.xy + local) % field.x;
+  vec4 h = vec4(heightAt(at + uvec2(field.x - 1u, 0u)),
+                heightAt(at + uvec2(1u, 0u)),
+                heightAt(at + uvec2(0u, field.x - 1u)),
+                heightAt(at + uvec2(0u, 1u)));
+  bool known = all(notEqual(floatBitsToUint(h) & uvec4(0x7f800000u), uvec4(0x7f800000u))) &&
+      (floatBitsToUint(heightAt(at)) & 0x7f800000u) != 0x7f800000u;
+  float magnitude = max(1.0, max(max(abs(h.x), abs(h.y)), max(abs(h.z), abs(h.w))));
+  vec2 difference = h.yw / magnitude - h.xz / magnitude;
+  float vertical = (1.0 / inverseTwoStep) / magnitude;
+  float scale = max(vertical, max(abs(difference.x), abs(difference.y)));
+  vec3 normal = scale > 0.0 ? normalize(vec3(-difference / scale, vertical / scale)) : vec3(0.0, 0.0, 1.0);
+  imageStore(normals, ivec3(at, field.y), known ? vec4(normal, 1.0) : vec4(0.0));
+}
