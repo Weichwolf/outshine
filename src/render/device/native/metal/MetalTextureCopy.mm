@@ -14,9 +14,9 @@ bool FitsTransfer(const MetalBuffer &buffer,
       transfer.RowBytes > std::numeric_limits<uint64_t>::max() / transfer.Region.Height) {
     return false;
   }
-  return Fits(
-      {.Offset = transfer.BufferOffset, .Bytes = transfer.RowBytes * transfer.Region.Height},
-      buffer.Description().Bytes);
+  const uint64_t span = transfer.RowBytes * (transfer.Region.Height - 1u) +
+                        uint64_t{transfer.Region.Width} * texels->Bytes;
+  return Fits({.Offset = transfer.BufferOffset, .Bytes = span}, buffer.Description().Bytes);
 }
 
 bool Overlap(TextureRegion a, TextureRegion b) {
