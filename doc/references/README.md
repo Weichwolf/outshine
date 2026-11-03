@@ -37,8 +37,9 @@ Seiten einmal erfassen. Spätes Aussortieren gibt den vorherigen Ladepeak nicht 
 
 ## Gemeinsamer Engine-Referenzkern
 
-Die fünf Grundlagen tragen unterschiedliche Schritte derselben Pipeline; weitere
-Einträge bleiben gezielte Fachreferenzen. Auswahl, Original-/Abbildungsprüfung und
+Bewährte, zusammenpassende Grundlagen tragen unterschiedliche Schritte derselben Pipeline;
+die Auswahl folgt ihrem Nutzen, keiner festen Anzahl. Weitere Einträge bleiben gezielte
+Fachreferenzen. Auswahl, Original-/Abbildungsprüfung und
 Abstimmung: [#1225](https://github.com/Weichwolf/outshine/issues/1225#issuecomment-6410933180).
 Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
 
@@ -53,7 +54,7 @@ Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
 Worldpublikation, Simulation, Audio, JS und Persistenz-Lebensdauer besitzen
 [#1230](https://github.com/Weichwolf/outshine/issues/1230),
 [#1231](https://github.com/Weichwolf/outshine/issues/1231) und
-[#1232](https://github.com/Weichwolf/outshine/issues/1232); die fünf Quellen
+[#1232](https://github.com/Weichwolf/outshine/issues/1232); dieser Referenzkern
 decken sie nicht vollständig ab. Generatoren bleiben ein breites Forschungsfeld,
 ohne vorgeschriebene Solver-/Grammatikfamilie. Refactor und gemeinsame Abnahme
 der gesamten aktuellen Codebasis gehen neuer Featureintegration voraus (#1233/#1320).
