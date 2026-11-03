@@ -118,7 +118,7 @@ std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::Worker::Restore(Production &work) {
   auto loaded = Cache_->LoadValidated(
       work.ProductKey, "osm-tile", work.LoadPlan, [](const CachedAsset &native) {
-        return OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost).has_value();
+        return OsmField::NativeTileDecodeBytes(native.Bytes()).has_value();
       });
   if (!loaded) {
     if (loaded.error() == AssetCacheError::CapacityExceeded) {

@@ -90,7 +90,6 @@ private:
   [[nodiscard]] std::expected<SourceDelivery, std::string>
   Advance(const std::shared_ptr<Work> &work);
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
-  static constexpr size_t kHeapBytesMost = size_t{128} * 1024 * 1024;
   static constexpr size_t kReceiptBytesMost = 4096;
   std::shared_ptr<Worker> Worker_;
   AssetPipeline Pipeline_;

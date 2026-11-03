@@ -217,9 +217,9 @@ void PreparedOsmTiles::Worker::Decode(Work &work, const AssetPublication &public
   }
   std::optional<size_t> bytes;
   if (work.Override) {
-    bytes = OsmField::NativeTileDecodeBytes(native->Bytes(), kHeapBytesMost);
+    bytes = OsmField::NativeTileDecodeBytes(native->Bytes());
   } else if (publication.ConsumerBytesMost > kReceiptBytesMost) {
-    bytes = std::min(kHeapBytesMost, publication.ConsumerBytesMost - kReceiptBytesMost);
+    bytes = publication.ConsumerBytesMost - kReceiptBytesMost;
   }
   if (!bytes) {
     work.BadBinding = publication.RequestHit || work.Override.has_value();

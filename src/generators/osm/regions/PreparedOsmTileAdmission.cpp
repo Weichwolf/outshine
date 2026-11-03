@@ -56,7 +56,7 @@ PreparedOsmTiles::Worker::PlanGeneration(Production &work) {
 
 std::expected<AssetPipeline::LogicalStep, std::string>
 PreparedOsmTiles::Worker::PrepareDelivery(Production &work, CachedAsset native) {
-  const auto decoded = OsmField::NativeTileDecodeBytes(native.Bytes(), kHeapBytesMost);
+  const auto decoded = OsmField::NativeTileDecodeBytes(native.Bytes());
   const auto consumer = Sum({decoded.value_or(work.LoadPlan.BufferBytesMost), kReceiptBytesMost});
   if (!consumer) { return std::unexpected("native OSM consumer storage plan overflows"); }
   AssetProduct product(std::move(native), *consumer);
