@@ -25,6 +25,7 @@ void Fill(ClipmapHeightUpdate &update) {
 
 void CheckStored(const ClipmapHeightCache &cache) {
   for (uint32_t level = 0; level < cache.Grid().Levels; ++level) {
+    CHECK(cache.Complete(level), "fully known retained windows expose complete coverage");
     const auto low = cache.Origin(level);
     CHECK(low.has_value(), "committed level has an origin");
     if (!low) { continue; }
@@ -112,6 +113,7 @@ void RejectionsPreserveThePreviousWindow() {
   if (!unknown) { return; }
   CHECK(cache.Commit(*unknown).has_value(), "unknown samples remain unknown");
   CHECK(!cache.Height(0, {100, 100}), "missing source is never converted to flat ground");
+  CHECK(!cache.Complete(0), "unknown samples revoke complete coverage");
 }
 
 void OwnershipSurvivesJobTransfer() {

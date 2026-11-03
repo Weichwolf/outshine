@@ -60,6 +60,7 @@ std::expected<ClipmapHeightCache, ClipmapHeightError> ClipmapHeightCache::Make(C
     cache.Levels_[i].Step = std::ldexp(grid.CellM, static_cast<int>(i));
     cache.Levels_[i].Values.resize(static_cast<size_t>(side * side),
                                    std::numeric_limits<float>::quiet_NaN());
+    cache.Levels_[i].Missing = cache.Levels_[i].Values.size();
   }
   return cache;
 }
@@ -164,8 +165,12 @@ ClipmapHeightCache::Commit(const ClipmapHeightUpdate &update) noexcept {
   for (const auto &region : update.Regions_) {
     for (uint32_t y = 0; y < region.Height; ++y) {
       for (uint32_t x = 0; x < region.Width; ++x) {
-        Levels_[region.Level].Values[Slot({region.Low[0] + x, region.Low[1] + y})] =
-            update.Samples_[at++];
+        auto &level = Levels_[region.Level];
+        auto &value = level.Values[Slot({region.Low[0] + x, region.Low[1] + y})];
+        const float next = update.Samples_[at++];
+        if (std::isnan(value)) { --level.Missing; }
+        if (std::isnan(next)) { ++level.Missing; }
+        value = next;
       }
     }
   }
@@ -193,6 +198,10 @@ std::span<const float> ClipmapHeightCache::Values(uint32_t level) const noexcept
 
 std::optional<ClipmapNode> ClipmapHeightCache::Origin(uint32_t level) const noexcept {
   return level < Levels_.size() ? Levels_[level].Low : std::nullopt;
+}
+
+bool ClipmapHeightCache::Complete(uint32_t level) const noexcept {
+  return level < Levels_.size() && Levels_[level].Low.has_value() && Levels_[level].Missing == 0;
 }
 
 size_t ClipmapHeightCache::HeapBytes() const noexcept {

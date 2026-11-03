@@ -30,6 +30,9 @@ const float kPi = acos(-1.0);
 #include "groundFineShadow.glsl"
 #endif
 #endif
+#if GROUND_CLIPMAPS
+#include "clipmapNormal.glsl"
+#endif
 void main() {
   readSurfaceVaryings(interpolateAtOffset(positionMetric, vec2(0.0)));
   vec3 positionDx = 4.0 * (interpolateAtOffset(positionMetric, vec2(0.25, 0.0)).xyz - position);
@@ -47,6 +50,8 @@ void main() {
         s.lightFromWorld * vec4(positionDx, 0.0), s.lightFromWorld * vec4(positionDy, 0.0));
   }
 #endif
+#elif GROUND_CLIPMAPS
+  vec3 surfaceNormal = clipmapNormal();
 #else
   vec3 surfaceNormal = normal;
 #endif

@@ -97,6 +97,7 @@ public:
   [[nodiscard]] std::optional<float> Height(uint32_t level, ClipmapNode node) const noexcept;
   [[nodiscard]] std::span<const float> Values(uint32_t level) const noexcept;
   [[nodiscard]] std::optional<ClipmapNode> Origin(uint32_t level) const noexcept;
+  [[nodiscard]] bool Complete(uint32_t level) const noexcept;
 
   [[nodiscard]] uint32_t Side() const noexcept { return Side_; }
 
@@ -109,6 +110,7 @@ private:
     std::vector<float> Values;
     std::optional<ClipmapNode> Low = std::nullopt;
     double Step = 0;
+    size_t Missing = 0;
   };
 
   struct WorkSize {

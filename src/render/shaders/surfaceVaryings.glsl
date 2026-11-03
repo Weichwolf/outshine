@@ -30,6 +30,11 @@ layout(location = 11) flat VARYING uint groundSampleCode;
 SURFACE_VARYING(12) vec2 groundSampleUV;
 #endif
 
+#if GROUND_CLIPMAPS
+layout(location = 11) flat VARYING uint clipmapLevel;
+SURFACE_VARYING(12) vec2 clipmapGrid;
+#endif
+
 #if defined(SURFACE_VERTEX_STAGE)
 void writeSurfaceVaryings() {
 #if !SURFACE_CONSTANT_UV

@@ -1,0 +1,7 @@
+CLIPMAP_FLOAT4(CentreStep)
+CLIPMAP_FLOAT4(RelativeCentres)
+CLIPMAP_FLOAT4(Morph)
+CLIPMAP_FLOAT4(PreviousMorph)
+CLIPMAP_INT4(HeightAddress)
+CLIPMAP_INT4(NormalAddress)
+CLIPMAP_INT4(Offsets)
