@@ -66,7 +66,12 @@ auf Vorrat oder gebündelter Fremdcode; Homebrew/apt nutzen, nötige Pakete nenn
 Vor Arbeitsblöcken, nach Integration und bei Regressionen den gesamten Fluss bis Bild,
 Ton, Aktion und nächstem Weltzustand durchdenken: Laden, Stillstand, Drehung, Bewegung,
 Änderungen, Persistenz, Fehler. Besitz/Threads/Kopien/Kosten prüfen, Gegenbeispiele suchen,
-Hypothesen messen. Nach zwei erfolglosen Reparatur-Iterationen Ansatz prüfen/ersetzen.
+Hypothesen messen. Eigene Issues, Bestand und frühere Entscheidungen sind keine Belege.
+Feste Grenzen brauchen Herleitung und nachgewiesenen Geltungsbereich; alte Subsystemquoten
+nicht als Architekturvorgaben übernehmen. Variable Arbeitsmengen vor ihrer Ausführung
+abschätzen und zur Laufzeit aus dem gemeinsamen Gerätebudget zulassen, aufteilen oder
+verschieben; keine stillen Inhalts-/Qualitätskürzungen. Nach zwei erfolglosen
+Reparatur-Iterationen Ansatz prüfen/ersetzen.
 Keine Verwaltungs-/Beweissysteme ohne Bedarf; Commits und Tests sind kein Bildgewinn.
 Straßenqualität/Terrain-Deformation erhalten; Abstürze, Datenverlust und falsche Geometrie sofort beheben.
 
