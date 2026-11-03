@@ -8,6 +8,8 @@
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
+  CHECK(StorageResource(kNoEdge) == kNoEdge,
+        "an absent attachment remains absent without indexing the resource catalogue");
   PlanSpec specification;
   specification.Content = {Stage::OpaqueGeometry};
   specification.Outputs = {Resource::SceneHdr, Resource::SceneDepth};
@@ -19,12 +21,13 @@ int main() {
   const auto position = [&](Stage stage) {
     return std::ranges::find(order, stage) - order.begin();
   };
-  CHECK(position(Stage::OpaqueGeometry) < position(Stage::VisibilityPyramid) &&
+  CHECK(position(Stage::OpaqueGeometry) < position(Stage::Ground) &&
+            position(Stage::Ground) < position(Stage::VisibilityPyramid) &&
             position(Stage::VisibilityPyramid) < position(Stage::GeometryRetryRoots) &&
             position(Stage::GeometryRetryCull) < position(Stage::GeometryRetryCompact) &&
             position(Stage::GeometryRetryCompact) < position(Stage::OpaqueGeometryRetry) &&
             position(Stage::OpaqueGeometryRetry) < position(Stage::DepthPyramid),
-        "current-depth recovery finishes before publishing final history");
+        "terrain contributes current occluder depth before recovery and final history");
   CHECK(plan.Stored(Resource::SceneDepth) && plan.Stored(Resource::SceneHdr),
         "phase-one attachments survive the intervening compute work");
   size_t rasterPhases = 0;
