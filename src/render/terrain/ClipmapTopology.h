@@ -14,10 +14,10 @@ struct ClipmapVertex {
   float North = 0;
 };
 
-static_assert(sizeof(ClipmapVertex) == 2 * sizeof(float));
-static_assert(alignof(ClipmapVertex) == alignof(float));
+static_assert(sizeof(ClipmapVertex) == 8);
+static_assert(alignof(ClipmapVertex) == 4);
 static_assert(offsetof(ClipmapVertex, East) == 0);
-static_assert(offsetof(ClipmapVertex, North) == sizeof(float));
+static_assert(offsetof(ClipmapVertex, North) == 4);
 
 struct ClipmapShape {
   uint32_t HalfCells = 0;
