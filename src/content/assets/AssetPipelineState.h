@@ -77,11 +77,8 @@ struct AssetPipeline::State : std::enable_shared_from_this<State> {
     ~Execution();
   };
 
-  State(Tasks &pool, Limits limits)
-      : Pool(pool),
-        Budget(limits),
-        Inputs(limits.InputBytesMost),
-        Receipts(limits.ReceiptBytesMost) {}
+  State(Tasks &pool, Limits limits, MemoryBudget inputs)
+      : Pool(pool), Budget(limits), Inputs(std::move(inputs)), Receipts(limits.ReceiptBytesMost) {}
 
   [[nodiscard]] static std::optional<std::stop_source> Cancel(Demand &demand);
   void CancelTicket(uint64_t ticket) noexcept;

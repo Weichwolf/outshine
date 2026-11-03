@@ -9,6 +9,12 @@ class MemoryBudget {
   struct State;
 
 public:
+  struct Snapshot {
+    size_t Maximum = 0;
+    size_t Used = 0;
+    [[nodiscard]] size_t Available() const noexcept;
+  };
+
   class Reservation {
   public:
     Reservation() = default;
@@ -32,6 +38,10 @@ public:
   };
 
   explicit MemoryBudget(size_t maximum);
+  // Lowering admission never revokes live reservations; release them before reclaiming bytes.
+  void SetMaximum(size_t maximum) noexcept;
+  [[nodiscard]] Snapshot Read() const noexcept;
+  [[nodiscard]] size_t Available() const noexcept;
   [[nodiscard]] size_t Maximum() const noexcept;
   [[nodiscard]] size_t Used() const noexcept;
   // Contention may defer admission, even while capacity is available.

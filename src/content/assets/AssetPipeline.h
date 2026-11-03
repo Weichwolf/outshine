@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_ASSETS_ASSETPIPELINE_H
 #include "AssetPublication.h"
 #include "AssetProduct.h"
+#include "MemoryBudget.h"
 #include "Tasks.h"
 #include <cstddef>
 #include <cstdint>
@@ -130,6 +131,9 @@ public:
   };
 
   AssetPipeline(Tasks &pool, Limits limits);
+  // Shared admission is owned by the caller; InputBytesMost still bounds each work stage.
+  // Snapshot::InputBytes reports the shared account, not a sum of per-pipeline allocations.
+  AssetPipeline(Tasks &pool, Limits limits, MemoryBudget inputs);
   [[nodiscard]] std::expected<Consumer, AssetPublicationError>
   OpenConsumer(AssetStoreScope scope = {});
   [[nodiscard]] std::expected<RequestTicket, AssetPublicationError>

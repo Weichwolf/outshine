@@ -12,7 +12,10 @@
 
 namespace outshine {
 AssetPipeline::AssetPipeline(Tasks &pool, Limits limits)
-    : State_(std::make_shared<State>(pool, limits)) {}
+    : AssetPipeline(pool, limits, MemoryBudget(limits.InputBytesMost)) {}
+
+AssetPipeline::AssetPipeline(Tasks &pool, Limits limits, MemoryBudget inputs)
+    : State_(std::make_shared<State>(pool, limits, std::move(inputs))) {}
 
 std::expected<AssetPipeline::Consumer, AssetPublicationError>
 AssetPipeline::OpenConsumer(AssetStoreScope scope) {
@@ -105,7 +108,8 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
     } else {
       const auto inputRoom = room - request.ConsumerBytes;
       if (State_->Held.Jobs >= State_->Budget.JobsMost || request.InputBytes > inputRoom ||
-          request.ReceiptBytesMost > State_->Receipts.Maximum() - State_->Receipts.Used()) {
+          request.InputBytes > State_->Budget.InputBytesMost ||
+          request.ReceiptBytesMost > State_->Receipts.Available()) {
         return std::unexpected(AssetPublicationError::ResourceDeferred);
       }
       auto inputs = State_->Inputs.TryReserve(request.InputBytes);

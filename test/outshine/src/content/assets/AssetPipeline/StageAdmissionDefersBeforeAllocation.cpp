@@ -166,6 +166,55 @@ void ImpossibleStage() {
         "a stage larger than the unchanged total fails before a second callback or allocation");
 }
 
+void RuntimePressurePermitsShrinking() {
+  Tasks pool(1);
+  MemoryBudget memory(kRam);
+  AssetPipeline pipeline(pool,
+                         {.JobsMost = 1,
+                          .ConsumersMost = 1,
+                          .TicketsMost = 1,
+                          .InputBytesMost = kRam,
+                          .ReceiptBytesMost = 2048},
+                         memory);
+  auto consumer = pipeline.OpenConsumer();
+  CHECK(consumer, "a live-budget stage consumer opens");
+  if (!consumer) { return; }
+
+  struct State {
+    std::atomic_bool Entered{false}, Shrink{false};
+    std::atomic_size_t Stage{0}, Held{0};
+  };
+
+  const auto state = std::make_shared<State>();
+  auto ticket = pipeline.RequestLogical(
+      *consumer,
+      {.Address = kAddress,
+       .Generation = consumer->Generation(),
+       .InputBytes = kBlocked,
+       .ReceiptBytesMost = 2048},
+      [state, memory](const std::stop_token &)
+          -> std::expected<AssetPipeline::LogicalStep, AssetPipeline::LogicalFailure> {
+        state->Entered = true;
+        if (!state->Shrink.load()) { return std::optional<AssetProduct>{}; }
+        if (state->Stage++ == 0) { return AssetPipeline::InputAdmission{.Bytes = kLookup}; }
+        state->Held = memory.Used();
+        return std::optional<AssetProduct>(AssetProduct(Record('a', true)));
+      });
+  CHECK(ticket, "the initial stage is admitted before runtime pressure");
+  if (!ticket) { return; }
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!state->Entered.load() && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::yield();
+  }
+  CHECK(state->Entered && memory.Used() == kBlocked, "the first stage holds its original bound");
+  memory.SetMaximum(0);
+  state->Shrink = true;
+  const auto complete = Wait(*ticket);
+  CHECK(complete.Status == AssetPublicationStatus::Ready && state->Held == kLookup &&
+            memory.Maximum() == 0 && memory.Used() == 0,
+        "a smaller positive next stage repays debt and completes without waiting for new room");
+}
+
 void CancelWaitingStage(bool advance) {
   Tasks pool(1);
   AssetPipeline pipeline(pool,
@@ -240,6 +289,7 @@ void CancelWaitingStage(bool advance) {
 int main() {
   GrowthAndShrink();
   ImpossibleStage();
+  RuntimePressurePermitsShrinking();
   CancelWaitingStage(false);
   CancelWaitingStage(true);
   return Report();

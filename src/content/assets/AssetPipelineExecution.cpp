@@ -201,12 +201,14 @@ size_t AssetPipeline::State::OldestInputGrowth(uint64_t sequence) const {
 }
 
 size_t AssetPipeline::State::InputRoom(uint64_t sequence) const {
-  const size_t room = Budget.InputBytesMost - Inputs.Used();
+  const size_t room = Inputs.Available();
   return room - std::min(room, OldestInputGrowth(sequence));
 }
 
 size_t AssetPipeline::State::ProducerInputLimit() const {
-  return Budget.InputBytesMost - (Inputs.Used() - JobInputBytes);
+  const auto memory = Inputs.Read();
+  const size_t retained = memory.Used - JobInputBytes;
+  return std::min(Budget.InputBytesMost, memory.Maximum - std::min(memory.Maximum, retained));
 }
 
 std::expected<bool, AssetPublicationError>
@@ -217,17 +219,17 @@ AssetPipeline::State::AdmitInput(const std::shared_ptr<Job> &job) {
   if (wanted > Budget.InputBytesMost) {
     return std::unexpected(AssetPublicationError::InvalidRequest);
   }
-  if (wanted > ProducerInputLimit()) {
+  const size_t previous = job->Inputs.Bytes();
+  if (wanted > previous && wanted > Inputs.Maximum()) { return false; }
+  if (wanted > previous && wanted > ProducerInputLimit()) {
     return std::unexpected(AssetPublicationError::ResourceDeferred);
   }
   if (wanted > job->Inputs.Bytes() && wanted - job->Inputs.Bytes() > InputRoom(job->Sequence)) {
-    if (job->Inputs.Bytes() != 0 &&
-        OldestInputGrowth(job->Sequence) > Budget.InputBytesMost - Inputs.Used()) {
+    if (job->Inputs.Bytes() != 0 && OldestInputGrowth(job->Sequence) > Inputs.Available()) {
       return std::unexpected(AssetPublicationError::ResourceDeferred);
     }
     return false;
   }
-  const size_t previous = job->Inputs.Bytes();
   if (!job->Inputs.Resize(wanted)) { return false; }
   JobInputBytes = JobInputBytes - previous + wanted;
   job->NextInputBytes.reset();
