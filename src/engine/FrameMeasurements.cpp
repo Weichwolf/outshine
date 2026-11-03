@@ -291,7 +291,6 @@ void Engine::State::PublishGroundMemoryMeasurements() {
                                "world: geometry cluster selected state buffer",
                                "world: geometry cluster reset buffer",
                                "world: geometry cluster kept buffer",
-                               "world: geometry first selection buffer",
                                "world: geometry cluster slot buffer",
                                "world: geometry draw index buffer",
                                "world: geometry draw argument buffer"};

@@ -93,7 +93,6 @@ uint32_t GeometryCullStage::JobsAdmittedTaken() {
 
 void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProjection &projection) {
   auto &into = View_;
-  const auto &pyramid = Phase_ == Phase::Deferred ? CurrentPyramid_ : Pyramid_;
   into = CullView{};
   PlanesOf(projection.Clip, into.Planes);
   for (int axis = 0; axis < 3; ++axis) {
@@ -101,22 +100,12 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
   }
   into.Jobs = Source_.Jobs;
   into.Clip = ctx.Mvp;
-  into.PhaseIndex = static_cast<uint32_t>(Phase_);
-  if (Phase_ == Phase::Prediction && DepthFrame_) {
-    into.Clip = DepthFrame_->Mvp;
-    const Vec3 shift = DepthFrame_->PreViewTranslation - ctx.PreViewTranslation;
-    for (size_t row = 0; row < 4; ++row) {
-      into.Clip[12 + row] += into.Clip[row] * static_cast<float>(shift[0]) +
-                             into.Clip[4 + row] * static_cast<float>(shift[1]) +
-                             into.Clip[8 + row] * static_cast<float>(shift[2]);
-    }
-  }
-  into.PyramidWide = pyramid.Wide;
-  into.PyramidHigh = pyramid.High;
-  into.PyramidAt = pyramid.At;
+  into.PyramidWide = Pyramid_.Wide;
+  into.PyramidHigh = Pyramid_.High;
+  into.PyramidAt = Pyramid_.At;
   into.Occludes = OccludeThisFrame_ ? 1u : 0u;
-  into.SourceWide = pyramid.SourceWide;
-  into.SourceHigh = pyramid.SourceHigh;
+  into.SourceWide = Pyramid_.SourceWide;
+  into.SourceHigh = Pyramid_.SourceHigh;
   const float *const up = into.Planes.data() + static_cast<size_t>(2U * 4U);
   const float *const down = into.Planes.data() + static_cast<size_t>(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];
@@ -132,28 +121,22 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
 
 Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
                                                     const PassRecording &into,
-                                                    const SelectionProjection &projection,
-                                                    Phase phase) {
+                                                    const SelectionProjection &projection) {
   Swept_ = 0;
-  const bool unchanged = Cache_.Submitted() && Phase_ != Phase::Deferred &&
-                         LastProjection_ == projection &&
+  const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
                          LastGeometryGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
-  Phase_ = phase;
-  if (!unchanged && phase == Phase::Conservative) { DepthForSelection_ = false; }
-  const bool exactHistory = DepthForSelection_ && unchanged && projection.GuardNdc == Vec2f{} &&
-                            projection.Clip == ctx.Mvp;
-  const bool prediction = phase == Phase::Prediction && DepthForSelection_ && DepthFrame_;
-  OccludeThisFrame_ =
-      SelectionPyramid() != nullptr && (phase == Phase::Deferred || prediction || exactHistory);
+  if (!unchanged) { DepthForSelection_ = false; }
+  OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
+                      projection.GuardNdc == Vec2f{} && projection.Clip == ctx.Mvp;
   CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
-                   (phase != Phase::Conservative || !unchanged || (OccludeThisFrame_ && !Refined_));
+                   (!unchanged || (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {
     gJobsAdmitted.store(0, std::memory_order_relaxed);
     return {};
   }
-  (phase == Phase::Deferred ? DeferredCache_ : Cache_).Invalidate();
+  Cache_.Invalidate();
   if (!Root_ || Source_.Hierarchy == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "culling stage is not configured"});

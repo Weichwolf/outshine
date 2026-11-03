@@ -313,9 +313,6 @@ void Exercise(Device &device) {
   Require(resident.Grow(Stream::ClusterKept,
                         {.Usage = BufferUse::Storage,
                          .Bytes = static_cast<uint32_t>(input.Jobs.size() * sizeof(uint32_t))}));
-  Require(resident.Grow(Stream::ClusterFirstKept,
-                        {.Usage = BufferUse::Storage,
-                         .Bytes = static_cast<uint32_t>(input.Jobs.size() * sizeof(uint32_t))}));
   Require(resident.Grow(Stream::DrawIndex,
                         {.Usage = BufferUse::Storage | BufferUse::Index,
                          .Bytes = static_cast<uint32_t>(input.Source.size() * sizeof(uint32_t))}));

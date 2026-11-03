@@ -28,12 +28,7 @@ private:
 
 class StageSubmission {
 public:
-  enum class Purpose { Frame, Preparation };
-
-  explicit StageSubmission(Purpose purpose = Purpose::Frame) noexcept : Purpose_(purpose) {}
-
-  [[nodiscard]] Purpose Kind() const noexcept { return Purpose_; }
-
+  StageSubmission() = default;
   StageSubmission(const StageSubmission &) = delete;
   StageSubmission &operator=(const StageSubmission &) = delete;
 
@@ -60,7 +55,6 @@ private:
   }
 
   std::array<StageCache *, kStageCount> Updates_{};
-  Purpose Purpose_;
 };
 
 }

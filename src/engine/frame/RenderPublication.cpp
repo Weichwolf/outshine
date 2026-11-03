@@ -129,11 +129,6 @@ void Engine::State::PublishRenderedFrame(std::chrono::steady_clock::time_point b
   Published.RecordMetric("cull encodings: reused selection",
                          static_cast<double>(selectionCosts.ReusedSelections),
                          "passes");
-  Published.RecordMetric("cull encodings: prediction",
-                         static_cast<double>(selectionCosts.PredictionSelections),
-                         "passes");
-  Published.RecordMetric(
-      "cull encodings: deferred", static_cast<double>(selectionCosts.DeferredSelections), "passes");
   const auto &bodyPublication = ScenarioState->Entities.PublicationCost();
   Published.RecordMetric("body publication: copied payload",
                          static_cast<double>(bodyPublication.CopiedBytes),

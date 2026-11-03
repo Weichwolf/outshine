@@ -3,8 +3,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
-#include <initializer_list>
 #include <span>
 #include <cstddef>
 #include <cstdint>
@@ -40,7 +38,6 @@ enum class Resource {
   AoBuffer,
   SceneLinear,
   DepthPyramid,
-  VisibilityPyramid,
   GroundPyramid,
   GroundSelection,
 
@@ -61,19 +58,9 @@ enum class Resource {
   ClusterReset,
   GeometryPlacements,
   ClusterKept,
-  ClusterFirstKept,
   ClusterSlot,
   DrawIndex,
   DrawArguments,
-  RetryClusterChunks,
-  RetryClusterChunkState,
-  RetryClusterVisible,
-  RetryClusterKept,
-  RetryClusterSelected,
-  RetryClusterSelectedState,
-  RetryClusterSlot,
-  RetryDrawIndex,
-  RetryDrawArguments,
   kCount
 };
 
@@ -123,17 +110,6 @@ enum class Resource {
     case Resource::ClusterReset:
     case Resource::GeometryPlacements:
     case Resource::ClusterKept:
-    case Resource::ClusterFirstKept:
-    case Resource::VisibilityPyramid:
-    case Resource::RetryClusterChunks:
-    case Resource::RetryClusterChunkState:
-    case Resource::RetryClusterVisible:
-    case Resource::RetryClusterKept:
-    case Resource::RetryClusterSelected:
-    case Resource::RetryClusterSelectedState:
-    case Resource::RetryClusterSlot:
-    case Resource::RetryDrawIndex:
-    case Resource::RetryDrawArguments:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:
@@ -163,12 +139,6 @@ enum class Stage {
   GroundPyramid,
   GroundSelection,
   Ground,
-  VisibilityPyramid,
-  GeometryRetryRoots,
-  GeometryRetryCull,
-  GeometryRetryScan,
-  GeometryRetryCompact,
-  OpaqueGeometryRetry,
   TransmissiveGeometry,
   CompositeTransmission,
   AerialPerspective,
@@ -202,7 +172,7 @@ enum class TexelFormat {
   Depth32Float
 };
 
-inline constexpr size_t kMaxEdges = static_cast<size_t>(Resource::kCount);
+inline constexpr size_t kMaxEdges = 8;
 
 inline constexpr size_t kMaxColourAttachments = 8;
 
@@ -215,34 +185,9 @@ struct ResourceRow {
   const char *Name;
 
   uint32_t Stride = 0;
-  Resource Backing = Resource::kCount;
 };
 
 inline constexpr Resource kNoEdge = Resource::kCount;
-
-class ResourceEdges {
-public:
-  constexpr ResourceEdges(std::initializer_list<Resource> edges = {}) {
-    assert(edges.size() <= Values_.size());
-    Values_.fill(kNoEdge);
-    std::ranges::copy(edges, Values_.begin());
-  }
-
-  [[nodiscard]] constexpr const Resource *data() const noexcept { return Values_.data(); }
-
-  [[nodiscard]] constexpr auto begin() const noexcept { return Values_.begin(); }
-
-  [[nodiscard]] constexpr auto end() const noexcept { return Values_.end(); }
-
-  [[nodiscard]] constexpr size_t size() const noexcept { return Values_.size(); }
-
-  [[nodiscard]] constexpr Resource operator[](size_t at) const noexcept { return Values_[at]; }
-
-  [[nodiscard]] constexpr bool operator==(const ResourceEdges &) const = default;
-
-private:
-  std::array<Resource, kMaxEdges> Values_{};
-};
 
 struct StageRow {
   Stage Id;
@@ -251,14 +196,16 @@ struct StageRow {
   StagePhase Phase = StagePhase::Frame;
   const char *Name;
 
-  ResourceEdges Reads{kNoEdge};
-  ResourceEdges Writes{kNoEdge};
-  ResourceEdges Contributes{kNoEdge};
+  std::array<Resource, kMaxEdges> Reads{};
+  std::array<Resource, kMaxEdges> Writes{};
+  std::array<Resource, kMaxEdges> Contributes{};
 
   Stage FusesInto;
 
-  ResourceEdges ReadsLastFrame{kNoEdge};
-  ResourceEdges ReadsAccumulated{kNoEdge};
+  std::array<Resource, kMaxEdges> ReadsLastFrame = {
+      {kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge}};
+  std::array<Resource, kMaxEdges> ReadsAccumulated = {
+      {kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge, kNoEdge}};
 };
 
 inline constexpr Stage kNoFusion = Stage::kCount;
@@ -452,13 +399,6 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "depthPyramid",
      .Stride = static_cast<uint32_t>(sizeof(float))},
-    {.Id = Resource::VisibilityPyramid,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "visibilityPyramid",
-     .Stride = static_cast<uint32_t>(sizeof(float))},
     {.Id = Resource::GroundPyramid,
      .Kind = ResourceKind::Derived,
      .Fallback = FallbackKind::None,
@@ -583,13 +523,6 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "clusterKept",
      .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
-    {.Id = Resource::ClusterFirstKept,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "clusterFirstKept",
-     .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
     {.Id = Resource::ClusterSlot,
      .Kind = ResourceKind::Derived,
      .Fallback = FallbackKind::None,
@@ -611,78 +544,6 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "drawArguments",
      .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments))},
-    {.Id = Resource::RetryClusterChunks,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterChunks",
-     .Stride = 2u * static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::ClusterChunks},
-    {.Id = Resource::RetryClusterChunkState,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterChunkState",
-     .Stride = 32u,
-     .Backing = Resource::ClusterChunkState},
-    {.Id = Resource::RetryClusterVisible,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterVisible",
-     .Stride = static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::ClusterVisible},
-    {.Id = Resource::RetryClusterKept,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterKept",
-     .Stride = static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::ClusterKept},
-    {.Id = Resource::RetryClusterSelected,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterSelected",
-     .Stride = 2u * static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::ClusterSelected},
-    {.Id = Resource::RetryClusterSelectedState,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterSelectedState",
-     .Stride = 32u,
-     .Backing = Resource::ClusterSelectedState},
-    {.Id = Resource::RetryClusterSlot,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryClusterSlot",
-     .Stride = static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::ClusterSlot},
-    {.Id = Resource::RetryDrawIndex,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryDrawIndex",
-     .Stride = static_cast<uint32_t>(sizeof(uint32_t)),
-     .Backing = Resource::DrawIndex},
-    {.Id = Resource::RetryDrawArguments,
-     .Kind = ResourceKind::Derived,
-     .Fallback = FallbackKind::None,
-     .AliasOf = kNoEdge,
-     .Format = TexelFormat::Table,
-     .Name = "retryDrawArguments",
-     .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments)),
-     .Backing = Resource::DrawArguments},
 }};
 
 [[nodiscard]] constexpr bool IsBuffer(const ResourceRow &row) {
@@ -818,7 +679,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                Resource::DrawArguments,
                Resource::ClusterIndex,
                Resource::ClusterVisible},
-     .Writes = {Resource::DrawIndex, Resource::ClusterFirstKept, kNoEdge},
+     .Writes = {Resource::DrawIndex, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion},
     {.Id = Stage::LightVisibility,
@@ -883,6 +744,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                      Resource::SceneSurfaceMetalRough,
                      kNoEdge},
      .FusesInto = kNoFusion},
+
     {.Id = Stage::GroundPyramid,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
@@ -907,97 +769,6 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .Reads = {Resource::GroundSelection,
                Resource::ShadowAtlas,
                Resource::LutSampler,
-               Resource::EnvironmentSpecular,
-               kNoEdge},
-     .Writes = {kNoEdge},
-     .Contributes = {Resource::SceneHdr,
-                     Resource::SceneVelocity,
-                     Resource::SceneDepth,
-                     Resource::SceneShadingNormal,
-                     Resource::SceneSurfaceIdentity,
-                     Resource::SceneSurfaceBase,
-                     Resource::SceneSurfaceMetalRough,
-                     kNoEdge},
-     .FusesInto = kNoFusion},
-
-    {.Id = Stage::VisibilityPyramid,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "visibilityPyramid",
-     .Reads = {Resource::LinearSampler, kNoEdge},
-     .Writes = {Resource::VisibilityPyramid, kNoEdge},
-     .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion,
-     .ReadsAccumulated = {Resource::SceneDepth, kNoEdge}},
-    {.Id = Stage::GeometryRetryRoots,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "geometryRetryRoots",
-     .Reads =
-         {Resource::ClusterRoots, Resource::GeometryPlacements, Resource::ClusterReset, kNoEdge},
-     .Writes = {Resource::RetryClusterChunks,
-                Resource::RetryClusterChunkState,
-                Resource::RetryClusterVisible,
-                kNoEdge},
-     .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion},
-    {.Id = Stage::GeometryRetryCull,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "geometryRetryCull",
-     .Reads = {Resource::ClusterRoots,
-               Resource::ClusterTemplates,
-               Resource::ClusterSphere,
-               Resource::GeometryPlacements,
-               Resource::RetryClusterChunks,
-               Resource::RetryClusterChunkState,
-               Resource::ClusterPrefix,
-               Resource::ClusterReset,
-               Resource::VisibilityPyramid,
-               Resource::ClusterFirstKept,
-               kNoEdge},
-     .Writes = {Resource::RetryClusterKept,
-                Resource::RetryClusterSelected,
-                Resource::RetryClusterSelectedState,
-                kNoEdge},
-     .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion},
-    {.Id = Stage::GeometryRetryScan,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "geometryRetryScan",
-     .Reads = {Resource::ClusterRoots,
-               Resource::RetryClusterVisible,
-               Resource::RetryClusterKept,
-               Resource::ClusterSlot,
-               Resource::DrawArguments,
-               kNoEdge},
-     .Writes = {Resource::RetryClusterSlot, Resource::RetryDrawArguments, kNoEdge},
-     .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion},
-    {.Id = Stage::GeometryRetryCompact,
-     .From = Provenance::Machinery,
-     .Kind = PassKind::Compute,
-     .Name = "geometryRetryCompact",
-     .Reads = {Resource::ClusterRoots,
-               Resource::ClusterTemplates,
-               Resource::RetryClusterSelected,
-               Resource::RetryClusterSelectedState,
-               Resource::RetryClusterSlot,
-               Resource::RetryDrawArguments,
-               Resource::ClusterIndex,
-               Resource::RetryClusterVisible},
-     .Writes = {Resource::RetryDrawIndex, kNoEdge},
-     .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion},
-    {.Id = Stage::OpaqueGeometryRetry,
-     .From = Provenance::Content,
-     .Kind = PassKind::Raster,
-     .Name = "opaqueGeometryRetry",
-     .Reads = {Resource::ShadowAtlas,
-               Resource::LutSampler,
-               Resource::RetryDrawIndex,
-               Resource::RetryDrawArguments,
                Resource::EnvironmentSpecular,
                kNoEdge},
      .Writes = {kNoEdge},
@@ -1118,7 +889,7 @@ constexpr size_t kStageCount = static_cast<size_t>(Stage::kCount);
   return kStages[static_cast<size_t>(s)];
 }
 
-[[nodiscard]] constexpr bool Names(const ResourceEdges &edges, Resource wanted) {
+[[nodiscard]] constexpr bool Names(std::span<const Resource, kMaxEdges> edges, Resource wanted) {
   for (size_t i = 0; i < kMaxEdges && edges[i] != kNoEdge; ++i) {
     if (edges[i] == wanted) { return true; }
   }
@@ -1135,10 +906,6 @@ constexpr size_t kStageCount = static_cast<size_t>(Stage::kCount);
     if (Produces(static_cast<Stage>(s), r)) { ++found; }
   }
   return found;
-}
-
-[[nodiscard]] constexpr Resource StorageResource(Resource resource) {
-  return resource == kNoEdge || Row(resource).Backing == kNoEdge ? resource : Row(resource).Backing;
 }
 
 constexpr bool EveryRowIsAtItsOwnIndex() {

@@ -102,9 +102,6 @@ struct KeptDraws {
   GeometryQueueState RootWork;
   GeometryQueueState ClusterWork;
   uint64_t ReadbackBytes = 0;
-  uint64_t PredictedIndices = 0;
-  uint64_t DeferredIndices = 0;
-  bool TwoPhase = false;
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
   std::vector<uint32_t> Visibility;
@@ -737,8 +734,6 @@ public:
     uint64_t FrustumSelections = 0;
     uint64_t OcclusionSelections = 0;
     uint64_t ReusedSelections = 0;
-    uint64_t PredictionSelections = 0;
-    uint64_t DeferredSelections = 0;
     double GpuQueryMs = 0.0;
     uint64_t Frames = 0;
   };
@@ -785,8 +780,9 @@ public:
   }
 
   [[nodiscard]] uint32_t GeometryDrawCallCount() const noexcept {
-    return Spent(Stage::OpaqueGeometry).Draws + Spent(Stage::OpaqueGeometryRetry).Draws +
-           Spent(Stage::TransmissiveGeometry).Draws;
+    const auto &content = ActiveContent();
+    return content.Geometry().EncodedDrawCalls() +
+           (content.DrawsGlass ? content.Transmission().EncodedDrawCalls() : 0u);
   }
 
   [[nodiscard]] uint32_t GeometryPipelineCount() const {
@@ -870,9 +866,7 @@ private:
 
   [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame);
   [[nodiscard]] bool PrepareGroundMaterialBuffers(FrameResources &frame, std::string &error);
-  void CommitSubmittedFrame(StageSubmission &stageSubmission,
-                            const CameraBasis &camera,
-                            const FrameContext &ctx);
+  void CommitSubmittedFrame(StageSubmission &stageSubmission, const CameraBasis &camera);
   [[nodiscard]] Native::Result<void>
   Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
@@ -899,6 +893,8 @@ private:
                                                   const PassRecording &into);
   };
 
+  static constexpr size_t kExecutorCount = 23;
+  static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
   [[nodiscard]] static bool ConfigureGroundPyramid(SceneRenderer &renderer,
@@ -1028,20 +1024,6 @@ private:
                                                       const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeDepthPyramid(const FrameContext &ctx,
                                                         const PassRecording &into);
-  [[nodiscard]] static bool ConfigureVisibilityPyramid(SceneRenderer &renderer,
-                                                       FrameResources &frame,
-                                                       const ExecutionPlan &plan,
-                                                       bool drawsGlass,
-                                                       std::string &error);
-  [[nodiscard]] Native::Result<void> EncodeVisibilityPyramid(const FrameContext &ctx,
-                                                             const PassRecording &into);
-  [[nodiscard]] GeometryCullStage::SelectionProjection
-  GeometryProjection(const FrameContext &ctx) const;
-  [[nodiscard]] Native::Result<void> EncodeGeometryRetryRoots(const FrameContext &ctx,
-                                                              const PassRecording &into);
-  [[nodiscard]] Native::Result<void> EncodeGeometryRetry(const FrameContext &ctx,
-                                                         const PassRecording &into);
-  [[nodiscard]] ReadState ReadCombinedGeometrySelection(KeptDraws &into, GeometryReadback detail);
   [[nodiscard]] EyeBasis Eye() const;
   [[nodiscard]] Native::Result<void> EncodeSky(const FrameContext &ctx, const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeAerialPerspective(const FrameContext &ctx,
@@ -1102,7 +1084,6 @@ private:
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
     DepthPyramidPass DepthPyramid;
-    DepthPyramidPass VisibilityPyramid;
     DepthPyramidPass GroundPyramid;
     SkyStage Sky;
     SunShadowPass Shadow;

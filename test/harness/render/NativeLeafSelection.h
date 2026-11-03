@@ -58,8 +58,6 @@ SelectAllLeaves(Device &device, Commands &commands, const LeafSelectionInput &in
   const auto selected = Upload(device, commands, SelectionWords(std::span(clusterState)));
   const auto clusters = Upload(device, commands, std::vector<uint32_t>(size_t{logical} * 2));
   auto kept = Upload(device, commands, input.Initial);
-  const std::vector<uint32_t> emptyFirst(logical, 0u);
-  const auto first = Upload(device, commands, emptyFirst);
   const GeometryHierarchyView hierarchy{.RootCount = static_cast<uint32_t>(input.Roots.size()),
                                         .TemplateCount =
                                             static_cast<uint32_t>(input.Templates.size()),
@@ -76,7 +74,6 @@ SelectAllLeaves(Device &device, Commands &commands, const LeafSelectionInput &in
       Storage(0, 5, *queued),
       Storage(0, 6, *offsets),
       Storage(0, 7, input.Pyramid),
-      Storage(0, 8, *first),
       Storage(1, 0, *kept),
       Storage(1, 1, *clusters),
       Storage(1, 2, *selected),

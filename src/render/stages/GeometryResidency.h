@@ -77,7 +77,6 @@ struct GeometryResidency {
     ClusterSelectedState,
     ClusterReset,
     ClusterKept,
-    ClusterFirstKept,
     ClusterSlot,
     DrawIndex,
     DrawArguments,

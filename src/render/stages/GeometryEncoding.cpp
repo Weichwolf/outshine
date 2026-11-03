@@ -30,15 +30,6 @@ Native::VertexBuffer Vertex(uint32_t slot, const Native::Buffer *buffer) {
           .Data = buffer,
           .Range = {.Bytes = buffer != nullptr ? buffer->Description().Bytes : 0}};
 }
-
-bool DrawInPhase(const DrawBatch &batch, SurfaceKind kind, GeometryDrawPhase phase, bool blended) {
-  if (batch.Passes == GeometryPasses::Shadow) { return false; }
-  if (phase == GeometryDrawPhase::Prediction) { return kind != SurfaceKind::Blended; }
-  if (phase == GeometryDrawPhase::Deferred) {
-    return (kind == SurfaceKind::Blended) == blended && (blended || batch.JobCount != 0);
-  }
-  return true;
-}
 }
 
 void GeometryRenderer::BindPlacementStorage(DrawResources &into, VertexLayout layout) const {
@@ -217,14 +208,16 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
   return recorded;
 }
 
-Native::Result<void> GeometryRenderer::EncodeBatches(const FrameContext &ctx,
-                                                     const PassRecording &into,
-                                                     const FrameUniforms &uniforms,
-                                                     GeometryDrawPhase phase,
-                                                     bool blended) {
+Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const PassRecording &into) {
   const BatchFrustum visible(ctx, Anchor);
+  EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
                             Bound().Buffer(GeometryResidency::Stream::Index);
+  if (!drawsBatches &&
+      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_->Products().empty()))) {
+    return {};
+  }
+  const auto uniforms = FrameUniformsOf(ctx);
   const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
                    Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
   std::pair bound{kPipelines, VertexMotion::Deforming};
@@ -232,8 +225,8 @@ Native::Result<void> GeometryRenderer::EncodeBatches(const FrameContext &ctx,
   DrawResources resources;
   for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
     const auto &batch = Batches[at];
+    if (batch.Passes == GeometryPasses::Shadow) { continue; }
     const auto &surface = Slots[batch.MaterialSlot];
-    if (!DrawInPhase(batch, surface.Kind, phase, blended)) { continue; }
     const bool glass =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
     if (visible.Outside(batch.WorldSphere) || glass != (Binding().Behind != nullptr)) { continue; }
@@ -260,25 +253,6 @@ Native::Result<void> GeometryRenderer::EncodeBatches(const FrameContext &ctx,
     const auto recorded = DrawBatchRange(into, at, culled, end, resources);
     if (!recorded) { return recorded; }
     at = end - 1;
-  }
-  return {};
-}
-
-Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx,
-                                              const PassRecording &into,
-                                              GeometryDrawPhase phase) {
-  EncodedWork_ = {};
-  const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
-                            Bound().Buffer(GeometryResidency::Stream::Index);
-  if (!drawsBatches &&
-      (Binding().Behind != nullptr || (Ground_.Drawn() == 0 && Prisms_->Products().empty()))) {
-    return {};
-  }
-  const auto uniforms = FrameUniformsOf(ctx);
-  const auto opaque = EncodeBatches(ctx, into, uniforms, phase, false);
-  if (!opaque) { return opaque; }
-  if (phase == GeometryDrawPhase::Deferred) {
-    return EncodeBatches(ctx, into, uniforms, phase, true);
   }
   return EncodePrisms(into, uniforms);
 }

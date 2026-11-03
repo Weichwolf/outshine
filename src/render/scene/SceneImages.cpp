@@ -17,15 +17,11 @@ Native::Result<void> SceneRenderer::CreateSampler(FrameResources &frame) {
 
 Native::Result<void>
 SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource resource) {
-  resource = StorageResource(resource);
   if (AtmospherePasses::Owns(resource)) {
     return frame.Atmosphere.Create(*Device_, plan, resource);
   }
   switch (resource) {
     case Resource::LinearSampler: return CreateSampler(frame);
-    case Resource::VisibilityPyramid:
-      return frame.VisibilityPyramid.Allocate(*Device_,
-                                              {.WidthPx = frame.Width, .HeightPx = frame.Height});
     case Resource::GroundPyramid:
     case Resource::DepthPyramid:
       return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.GroundPyramid)
@@ -51,7 +47,6 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::ClusterReset:
     case Resource::GeometryPlacements:
     case Resource::ClusterKept:
-    case Resource::ClusterFirstKept:
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:

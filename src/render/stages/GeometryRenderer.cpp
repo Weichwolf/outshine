@@ -1007,8 +1007,7 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
                      .ModelSlot = batch.ModelSlot,
                      .IndexCapacity = static_cast<uint32_t>(capacity),
                      .Flags = (one.LocalSphere ? kGeometryRootBound : 0u) |
-                              (one.Passes == GeometryPasses::Shadow ? kGeometryShadowOnly : 0u) |
-                              (batch.Kind == SurfaceKind::Blended ? kGeometryBlended : 0u)},
+                              (one.Passes == GeometryPasses::Shadow ? kGeometryShadowOnly : 0u)},
                     error)) {
       return false;
     }
