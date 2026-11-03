@@ -85,6 +85,8 @@ public:
 
   [[nodiscard]] static std::expected<ClipmapHeightCache, ClipmapHeightError> Make(ClipmapGrid grid,
                                                                                   size_t bytesMost);
+  [[nodiscard]] static std::expected<size_t, ClipmapHeightError>
+  StorageBytes(ClipmapGrid grid) noexcept;
 
   // Plan/commit on the owner; workers only fill their owned update's Samples.
   [[nodiscard]] std::expected<ClipmapHeightUpdate, ClipmapHeightError> Plan(Vec2 camera,

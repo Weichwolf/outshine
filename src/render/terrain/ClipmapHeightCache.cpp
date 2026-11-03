@@ -37,8 +37,8 @@ size_t Samples(const ClipmapHeightRegion &region) {
 }
 }
 
-std::expected<ClipmapHeightCache, ClipmapHeightError> ClipmapHeightCache::Make(ClipmapGrid grid,
-                                                                               size_t bytesMost) {
+std::expected<size_t, ClipmapHeightError>
+ClipmapHeightCache::StorageBytes(ClipmapGrid grid) noexcept {
   const uint64_t side = 2 * uint64_t{grid.HalfCells} + 3;
   if (grid.HalfCells < 8 || (grid.HalfCells & 1u) != 0 || grid.Levels == 0 ||
       grid.Levels > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
@@ -48,10 +48,19 @@ std::expected<ClipmapHeightCache, ClipmapHeightError> ClipmapHeightCache::Make(C
                      static_cast<double>(side))) {
     return std::unexpected(ClipmapHeightError::InvalidGrid);
   }
-  const size_t levelBudget = bytesMost / grid.Levels;
+  const size_t levelBudget = std::numeric_limits<size_t>::max() / grid.Levels;
   if (levelBudget < sizeof(Level) || side > (levelBudget - sizeof(Level)) / sizeof(float) / side) {
     return std::unexpected(ClipmapHeightError::OverBudget);
   }
+  return (sizeof(Level) + static_cast<size_t>(side * side) * sizeof(float)) * grid.Levels;
+}
+
+std::expected<ClipmapHeightCache, ClipmapHeightError> ClipmapHeightCache::Make(ClipmapGrid grid,
+                                                                               size_t bytesMost) {
+  const auto bytes = StorageBytes(grid);
+  if (!bytes) { return std::unexpected(bytes.error()); }
+  if (*bytes > bytesMost) { return std::unexpected(ClipmapHeightError::OverBudget); }
+  const uint64_t side = 2 * uint64_t{grid.HalfCells} + 3;
   ClipmapHeightCache cache;
   cache.Grid_ = grid;
   cache.Side_ = static_cast<uint32_t>(side);
