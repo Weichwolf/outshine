@@ -7,6 +7,8 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -45,9 +47,12 @@ PieceId Mover(SceneRenderer &renderer, std::string &error) {
                                              .ParentErr = kDagRootErr,
                                              .Count = indices.size()}}};
   const std::array<Mat4, 1> rows{kIdentity};
-  return renderer.PlacePiece({.Verts = vertices,
+  return renderer.PlacePiece({.Tangents = {},
+                              .Verts = vertices,
                               .Indices = indices,
                               .Clusters = clusters,
+                              .Colours = {},
+                              .Uv1 = {},
                               .Instances = rows,
                               .MaxInstances = 1,
                               .Surface = PieceSurface(2)},
@@ -75,14 +80,17 @@ void Exercise() {
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 128;
   declaration.Stages = {"opaqueGeometry", "depthPyramid"};
   declaration.Outputs = {"sceneLinear", "sceneDepth"};
-  SceneRenderer history, reference;
-  std::unique_ptr<Core::RuntimeScene> a, b;
+  SceneRenderer history;
+  SceneRenderer reference;
+  std::unique_ptr<Core::RuntimeScene> a;
+  std::unique_ptr<Core::RuntimeScene> b;
   std::string error;
   CHECK(Core::RuntimeScene::Open(history, declaration, nullptr, a, error) &&
             Core::RuntimeScene::Open(reference, declaration, nullptr, b, error),
         "history and independent fresh-pose reference use identical inputs");
   if (!a || !b) { return; }
-  const auto moverA = Mover(history, error), moverB = Mover(reference, error);
+  const auto moverA = Mover(history, error);
+  const auto moverB = Mover(reference, error);
   CHECK(moverA != kNoPiece && moverB != kNoPiece, "both scenes contain a dynamic instance");
   Viewpoint eye;
   eye.YfovRad = 1;
@@ -94,7 +102,8 @@ void Exercise() {
   a->Eye(eye);
   b->Eye(eye);
   CHECK(a->Draw(error) && b->Draw(error), "camera movement exposes the target behind the blend");
-  std::vector<float> actual, expected;
+  std::vector<float> actual;
+  std::vector<float> expected;
   CHECK(history.ReadSceneLinear(actual) == ReadState::Ready &&
             reference.ReadSceneLinear(expected) == ReadState::Ready && actual == expected,
         "deferred opaque recovery precedes translucent compositing");
