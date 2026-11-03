@@ -129,4 +129,13 @@ std::expected<ClipmapTopology, ClipmapTopologyError> ClipmapTopology::Make(Clipm
   }
   return std::move(builder).Take();
 }
+
+std::expected<ClipmapTopologySize, ClipmapTopologyError>
+ClipmapTopology::Measure(ClipmapShape shape) {
+  const auto plan = Plan(shape, std::numeric_limits<size_t>::max());
+  if (!plan) { return std::unexpected(plan.error()); }
+  return ClipmapTopologySize{.VertexBytes = plan->Vertices * sizeof(ClipmapVertex),
+                             .IndexBytes = plan->Indices * sizeof(uint32_t),
+                             .ScratchBytes = plan->Scratch * sizeof(uint32_t)};
+}
 }

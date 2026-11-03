@@ -26,9 +26,18 @@ struct ClipmapShape {
 
 enum class ClipmapTopologyError { InvalidShape, OverBudget };
 
+struct ClipmapTopologySize {
+  size_t VertexBytes = 0;
+  size_t IndexBytes = 0;
+  size_t ScratchBytes = 0;
+};
+
 struct ClipmapTopology {
   std::vector<ClipmapVertex> Vertices;
   std::vector<uint32_t> Indices;
+
+  [[nodiscard]] static std::expected<ClipmapTopologySize, ClipmapTopologyError>
+  Measure(ClipmapShape shape);
 
   [[nodiscard]] static std::expected<ClipmapTopology, ClipmapTopologyError> Make(ClipmapShape shape,
                                                                                  size_t bytesMost);
