@@ -16,12 +16,7 @@
 #include "SourceSet.h"
 #include "SourceSession.h"
 #include "PreparedTerrainAssets.h"
-#include "PreparedBuildingAssets.h"
-#include "PreparedGroundRegions.h"
-#include "PreparedRoadPages.h"
 #include "PreparedOsmTiles.h"
-#include "PreparedUrbanAreas.h"
-#include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
 #include <SourceDecl.h>
 #include "BuildingField.h"
@@ -37,6 +32,17 @@
 
 namespace outshine {
 class LogSink;
+}
+
+namespace outshine::Generators {
+class PreparedBuildingAssets;
+class PreparedRoadPages;
+}
+
+namespace outshine::Generators::Osm {
+class PreparedStreetGraph;
+class PreparedGroundRegions;
+class PreparedUrbanAreas;
 }
 
 namespace outshine::Ground {

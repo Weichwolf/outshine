@@ -1,3 +1,4 @@
+#include "SurfacePreparation.h"
 #include "StructureBuildQueue.h"
 #include "PreparedBuildingAssets.h"
 #include <algorithm>

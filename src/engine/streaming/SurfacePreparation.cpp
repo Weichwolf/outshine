@@ -4,6 +4,10 @@
 #include "SurfacePreparation.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
+#include "PreparedStreetGraph.h"
+#include "PreparedGroundRegions.h"
+#include "PreparedRoadPages.h"
+#include "PreparedUrbanAreas.h"
 #include "ReadTextFile.h"
 
 #include <cstddef>

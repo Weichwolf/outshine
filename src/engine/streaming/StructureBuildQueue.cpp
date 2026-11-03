@@ -1,3 +1,4 @@
+#include "SurfacePreparation.h"
 #include <expected>
 #include <exception>
 #include "StructureBuildQueue.h"

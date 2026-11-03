@@ -1,3 +1,4 @@
+#include "PreparedBuildingAssets.h"
 #include "EngineState.h"
 
 #include <array>

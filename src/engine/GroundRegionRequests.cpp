@@ -1,3 +1,4 @@
+#include "PreparedGroundRegions.h"
 #include "GroundQuality.h"
 #include "TerrainLattice.h"
 #include "EngineState.h"

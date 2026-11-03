@@ -20,12 +20,17 @@
 
 #include "HeightField.h"
 #include "OsmStructurePreparation.h"
-#include "SurfacePreparation.h"
+#include "PreparedBuildingAssets.h"
+#include "BuildingField.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
 #include "StructureCellAssembly.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
+
+namespace outshine::Ground {
+class SurfacePreparation;
+}
 
 namespace outshine {
 

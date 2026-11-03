@@ -1,3 +1,4 @@
+#include "PreparedUrbanAreas.h"
 #include "GroundQuality.h"
 #include "EngineState.h"
 #include <cstdint>
