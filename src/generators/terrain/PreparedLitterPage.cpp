@@ -34,8 +34,9 @@ std::expected<std::string, std::string> LitterPageKey(LitterPageAddress address)
   return Sha256Hex(header.Bytes().data(), header.Bytes().size());
 }
 
-std::expected<GeneratedAssetPackage, std::string> PrepareLitterPage(
-    LitterPageAddress address, size_t packageBytesMost, const std::stop_token &stopping) {
+std::expected<AssetPackage, std::string> PrepareLitterPage(LitterPageAddress address,
+                                                           size_t packageBytesMost,
+                                                           const std::stop_token &stopping) {
   const auto layout = PlanLitterPage(address);
   if (!layout || stopping.stop_requested()) {
     return std::unexpected("invalid or cancelled litter field request");
@@ -49,7 +50,7 @@ std::expected<GeneratedAssetPackage, std::string> PrepareLitterPage(
   ByteWriter header(bytes);
   header.Reserve(bytes);
   if (!Header(header, address)) { return std::unexpected("litter header could not be encoded"); }
-  GeneratedAssetPackage package;
+  AssetPackage package;
   package.Bytes = std::move(header).TakeBytes();
   package.Bytes.resize(bytes);
   auto filled = GenerateLitterPage(

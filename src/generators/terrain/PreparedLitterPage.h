@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_PREPAREDLITTERPAGE_H
 #define OUTSHINE_GENERATORS_TERRAIN_PREPAREDLITTERPAGE_H
 
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
 #include "LitterPageNoise.h"
 #include <array>
 #include <cstddef>
@@ -24,7 +24,7 @@ inline constexpr size_t kLitterPageBytesMost =
 // Addresses/bounds use procedure lattice units; metric placement is a consumer binding.
 [[nodiscard]] std::expected<std::string, std::string> LitterPageKey(LitterPageAddress address);
 
-[[nodiscard]] std::expected<GeneratedAssetPackage, std::string> PrepareLitterPage(
+[[nodiscard]] std::expected<AssetPackage, std::string> PrepareLitterPage(
     LitterPageAddress address, size_t packageBytesMost, const std::stop_token &stopping = {});
 
 // The returned view borrows its package; retain that owner through its final consumer.

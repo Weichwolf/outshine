@@ -3,7 +3,7 @@
 
 #include "PlantCrownAsset.h"
 #include "PlantLimbAsset.h"
-#include "AssetGeneration.h"
+#include "../assets/SynchronousAssetGeneration.h"
 #include "GeometryProductCodec.h"
 #include "Sha256.h"
 #include <cstddef>
@@ -28,9 +28,12 @@ struct Source {
 };
 
 inline std::expected<Source, std::string> Load(AssetCache &cache, std::string_view request) {
-  const auto crown = ResolveAssetRequest(cache, Request(request, "crown"), kAssetBytesMost, {});
-  const auto wood = ResolveAssetRequest(cache, Request(request, "wood"), kAssetBytesMost, {});
-  const auto blades = ResolveAssetRequest(cache, Request(request, "blades"), kAssetBytesMost, {});
+  const auto crown =
+      Experiments::ResolveAssetRequest(cache, Request(request, "crown"), kAssetBytesMost, {});
+  const auto wood =
+      Experiments::ResolveAssetRequest(cache, Request(request, "wood"), kAssetBytesMost, {});
+  const auto blades =
+      Experiments::ResolveAssetRequest(cache, Request(request, "blades"), kAssetBytesMost, {});
   if (!crown || !wood || !blades) { return std::unexpected("prepared plant package is missing"); }
   if (crown->Record().Kind != "plant-crown-plan" || wood->Record().Kind != "plant-limb-plan" ||
       blades->Record().Kind != "plant-blade-geometry" ||

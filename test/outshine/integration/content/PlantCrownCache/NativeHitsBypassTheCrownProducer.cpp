@@ -1,4 +1,5 @@
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include "PlantCrownAsset.h"
 #include "PlantCrownPlan.h"
 #include "Sha256.h"
@@ -33,9 +34,9 @@ std::string Quote(std::string_view text) {
 int Hit(const std::string &path) {
   auto cache = AssetCache::Open(path);
   if (!cache) { return 1; }
-  const auto hit = ResolveAssetRequest(**cache, Request(), kBudget, {});
-  if (!hit) { return 2; }
-  const auto plan = DecodePlantCrownPlan(hit->Bytes(), kBudget);
+  const auto hit = (*cache)->LoadRequest(Request(), kBudget);
+  if (!hit || !*hit) { return 2; }
+  const auto plan = DecodePlantCrownPlan((**hit).Bytes(), kBudget);
   if (!plan || plan->Summarize().IndexBuildBytes != 0) { return 3; }
   const auto leaves = plan->Leaves({.Node = 2, .Maximum = 2});
   if (!leaves || leaves->size() != 2 || leaves->front().Id != 0 || leaves->front().OwnerNode != 2 ||
@@ -51,14 +52,12 @@ int main(int argc, char *const *argv) {
   const std::string path = PlantedPath("native-crown-plan.sqlite");
   std::error_code error;
   std::filesystem::remove(path, error);
-  size_t builds = 0;
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "shared native asset cache opens before any source plan exists");
     if (!cache) { return Report(); }
-    const AssetFactory generate =
-        [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-      ++builds;
+    const AssetPackageFactory generate =
+        [&](size_t budget) -> std::expected<AssetPackage, std::string> {
       PlantGrowthPlan growth{.PositionsM = {{0, 0, 0}, {0, 0, 1}, {0, 0, 2}, {1, 0, 2}, {0, 0, 3}},
                              .Parents = {-1, 0, 1, 2, 2},
                              .Unreached = {},
@@ -70,22 +69,24 @@ int main(int argc, char *const *argv) {
       auto bytes = EncodePlantCrownPlan(*plan, budget);
       if (!bytes) { return std::unexpected(std::string(bytes.error())); }
       const std::string key = Sha256Hex(bytes->data(), bytes->size());
-      return GeneratedAssetPackage{
-          .Records = {{.Key = key,
-                       .Kind = "plant-crown-plan",
-                       .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 4}}},
-                       .Package = {},
-                       .ByteCount = bytes->size(),
-                       .Parent = {},
-                       .RequestKey = Request()}},
-          .Bytes = std::move(*bytes)};
+      return AssetPackage{.Records = {{.Key = key,
+                                       .Kind = "plant-crown-plan",
+                                       .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 4}}},
+                                       .Package = {},
+                                       .ByteCount = bytes->size(),
+                                       .Parent = {},
+                                       .RequestKey = Request()}},
+                          .Bytes = std::move(*bytes)};
     };
-    const auto prepared = ResolveAssetRequest(**cache, Request(), kBudget, generate);
-    CHECK(prepared && builds == 1, "only the miss creates and publishes the complete plan/index");
+    const auto package = generate(kBudget);
+    CHECK(package, "the fixture creates a complete plan and index");
+    if (!package) { return Report(); }
+    CHECK((*cache)->Publish(package->Records, package->Bytes),
+          "the complete plan and index publish as one package");
   }
   std::string output;
   const int child = Run(Quote(argv[0]) + " --hit " + Quote(path), output);
-  CHECK(child == 0 && builds == 1,
+  CHECK(child == 0,
         "fresh process restores the same demand with no producer, index construction or source "
         "input");
   std::filesystem::remove(path, error);

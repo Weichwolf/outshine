@@ -1,6 +1,6 @@
 #include "PreparedLitterPage.h"
 #include "AssetCache.h"
-#include "AssetGeneration.h"
+#include "../../experiments/assets/SynchronousAssetGeneration.h"
 #include "Check.h"
 #include <charconv>
 #include <chrono>
@@ -61,7 +61,7 @@ bool CaptureLevel(AssetCache &cache,
     auto key = LitterPageKey(at);
     CHECK(key, "the selected page has a versioned product identity");
     if (!key) { return false; }
-    AssetFactory factory;
+    AssetPackageFactory factory;
     if (mode == Mode::Build) {
       factory = [&](size_t bound) {
         ++generated;
@@ -74,7 +74,7 @@ bool CaptureLevel(AssetCache &cache,
       };
     }
     const auto began = std::chrono::steady_clock::now();
-    auto asset = ResolveAsset(cache, *key, limit, factory);
+    auto asset = Experiments::ResolveAsset(cache, *key, limit, factory);
     const double us =
         std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - began).count();
     CHECK(asset, "native page resolution respects generator availability");

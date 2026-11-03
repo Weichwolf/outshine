@@ -1,4 +1,4 @@
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "Check.h"
 #include <array>
 #include <chrono>
@@ -50,8 +50,8 @@ int Offline(const std::string &path) {
   auto opened = AssetCache::Open(path);
   if (!opened) { return 2; }
   auto &cache = **opened;
-  const auto a = ResolveAssetRequest(cache, kFirst, 64, {});
-  const auto b = ResolveAssetRequest(cache, kSecond, 64, {});
+  const auto a = Experiments::ResolveAssetRequest(cache, kFirst, 64, {});
+  const auto b = Experiments::ResolveAssetRequest(cache, kSecond, 64, {});
   const auto content = cache.Load(kProduct, 64);
   const auto metadata = cache.Find(kProduct);
   const auto selected = cache.Select({.Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
@@ -101,14 +101,16 @@ void Faults(const std::string &path) {
         "stored package checksum is deliberately corrupted");
   auto first = cache.LoadRequest(kFirst, 64);
   auto second = cache.LoadRequest(kSecond, 64);
-  CHECK(first && !*first && second && !*second && !ResolveAssetRequest(cache, kFirst, 64, {}),
+  CHECK(first && !*first && second && !*second &&
+            !Experiments::ResolveAssetRequest(cache, kFirst, 64, {}),
         "neither alias turns a corrupt package into an offline cache hit");
   CHECK(Publish(cache, kProduct), "repair without an alias retains both bindings");
   CHECK(sqlite3_exec(database, "DELETE FROM packages", nullptr, nullptr, nullptr) == SQLITE_OK,
         "payload is removed independently of the metadata");
   first = cache.LoadRequest(kFirst, 64);
   second = cache.LoadRequest(kSecond, 64);
-  CHECK(first && !*first && second && !*second && !ResolveAssetRequest(cache, kSecond, 64, {}),
+  CHECK(first && !*first && second && !*second &&
+            !Experiments::ResolveAssetRequest(cache, kSecond, 64, {}),
         "neither alias turns a missing package into an offline cache hit");
   CHECK(sqlite3_close(database) == SQLITE_OK, "independent payload injector closes");
   CHECK(Publish(cache, kProduct) && PointsTo(cache, kFirst, kProduct) &&

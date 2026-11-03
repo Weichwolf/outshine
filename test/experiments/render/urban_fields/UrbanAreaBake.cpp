@@ -3,18 +3,21 @@
 #include "UrbanAreaAsset.h"
 #include "OsmField.h"
 #include "Check.h"
-#include "AssetGeneration.h"
+#include "../../assets/SynchronousAssetGeneration.h"
 #include <array>
 #include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <ratio>
 #include <utility>
 #include <vector>
 using namespace outshine;
@@ -40,8 +43,9 @@ int Number(const char *text) {
 std::vector<uint8_t> Read(const char *path) {
   std::ifstream in(path, std::ios::binary | std::ios::ate);
   const auto length = static_cast<std::streamoff>(in.tellg());
-  CHECK(length > 0 && length <= 8 * 1024 * 1024, "source fits byte budget");
-  if (length <= 0 || length > 8 * 1024 * 1024) { return {}; }
+  constexpr auto sourceBytesMost = std::streamoff{8} * 1024 * 1024;
+  CHECK(length > 0 && length <= sourceBytesMost, "source fits byte budget");
+  if (length <= 0 || length > sourceBytesMost) { return {}; }
   std::vector<uint8_t> bytes(static_cast<size_t>(length));
   in.seekg(0);
   in.read(reinterpret_cast<char *>(bytes.data()), length);
@@ -49,7 +53,7 @@ std::vector<uint8_t> Read(const char *path) {
   return bytes;
 }
 
-std::expected<UrbanArea, std::string> Cook(char **argv, Work &work) {
+std::expected<UrbanArea, std::string> Cook(const char *const *argv, Work &work) {
   const std::array<std::string, 7> layers{
       "sites", "land", "park", "water_polygons", "water_lines", "streets", "aeroway"};
   const std::array<std::string, 1> parentLayers{"sites"};
@@ -70,19 +74,19 @@ std::expected<UrbanArea, std::string> Cook(char **argv, Work &work) {
   return area;
 }
 
-std::expected<UrbanArea, std::string> Cached(char **argv, Work &work) {
+std::expected<UrbanArea, std::string> Cached(const char *const *argv, Work &work) {
   auto cache = AssetCache::Open(argv[10]);
   if (!cache) { return std::unexpected("asset cache open failed"); }
   const std::string request(argv[11]);
-  const auto loaded =
-      ResolveAssetRequest(**cache,
-                          request,
-                          kUrbanAreaBytesMost,
-                          [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-                            auto area = Cook(argv, work);
-                            if (!area) { return std::unexpected(area.error()); }
-                            return PackageUrbanArea(*area, request, budget);
-                          });
+  const auto loaded = Experiments::ResolveAssetRequest(
+      **cache,
+      request,
+      kUrbanAreaBytesMost,
+      [&](size_t budget) -> std::expected<AssetPackage, std::string> {
+        auto area = Cook(argv, work);
+        if (!area) { return std::unexpected(area.error()); }
+        return PackageUrbanArea(*area, request, budget);
+      });
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (loaded->Record().Kind != "urban-area") {
     return std::unexpected("unexpected native asset kind");
@@ -92,7 +96,7 @@ std::expected<UrbanArea, std::string> Cached(char **argv, Work &work) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   CHECK(argc == 10 || argc == 12,
         "owner/parent tiles and output, optionally database/request key supplied");
   if (argc != 10 && argc != 12) { return 1; }

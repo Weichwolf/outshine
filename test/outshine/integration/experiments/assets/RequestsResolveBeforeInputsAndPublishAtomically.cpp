@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "Sha256.h"
 #include <array>
 #include <chrono>
@@ -21,9 +21,9 @@ std::string Key(std::string_view value) {
   return Sha256Hex(value.data(), value.size());
 }
 
-GeneratedAssetPackage Package(std::string_view revision, std::string request) {
+AssetPackage Package(std::string_view revision, std::string request) {
   constexpr double kCellExtentM = 1000;
-  GeneratedAssetPackage result;
+  AssetPackage result;
   result.Bytes.assign(revision.begin(), revision.end());
   result.Records.push_back(
       {.Key = Key(revision),
@@ -45,9 +45,9 @@ void FreshHits(const std::string &path) {
   auto cache = AssetCache::Open(path);
   CHECK(cache.has_value(), "request index opens");
   if (!cache) { return; }
-  auto cold = ResolveAssetRequest(**cache, request, 64, [&](size_t) {
+  auto cold = Experiments::ResolveAssetRequest(**cache, request, 64, [&](size_t) {
     ++sources;
-    return std::expected<GeneratedAssetPackage, std::string>(Package("input-one", request));
+    return std::expected<AssetPackage, std::string>(Package("input-one", request));
   });
   CHECK(cold && sources == 1 && cold->Record().Key == Key("input-one"),
         "only the miss discovers the content identity through its inputs");
@@ -55,13 +55,13 @@ void FreshHits(const std::string &path) {
   cache = AssetCache::Open(path);
   CHECK(cache.has_value(), "fresh cache instance reopens the request binding");
   if (!cache) { return; }
-  auto hit = ResolveAssetRequest(**cache, request, 64, {});
+  auto hit = Experiments::ResolveAssetRequest(**cache, request, 64, {});
   CHECK(hit && hit->Record().RequestKey == request && hit->Bytes().size() == 9 && sources == 1,
         "offline hit resolves from known demand without any source or generator");
   auto changed = Package("input-two", request);
   CHECK((*cache)->Publish(changed.Records, changed.Bytes).has_value(),
         "explicit input change publishes the new binding with its complete product");
-  hit = ResolveAssetRequest(**cache, request, 64, {});
+  hit = Experiments::ResolveAssetRequest(**cache, request, 64, {});
   CHECK(hit && hit->Record().Key == Key("input-two") && hit->Bytes().back() == 'o' && cold &&
             cold->Bytes().back() == 'e',
         "new requests use the new product while the old lease retains its own bytes");
@@ -82,8 +82,8 @@ void FreshHits(const std::string &path) {
   CHECK((*cache)->Remove(Key("input-two")).has_value() &&
             !(*cache)->FindRequest(request)->has_value(),
         "removing a product removes its demand binding without leaving a false hit");
-  const auto incomplete = ResolveAssetRequest(**cache, request, 64, [](size_t) {
-    return std::expected<GeneratedAssetPackage, std::string>(Package("unrelated", {}));
+  const auto incomplete = Experiments::ResolveAssetRequest(**cache, request, 64, [](size_t) {
+    return std::expected<AssetPackage, std::string>(Package("unrelated", {}));
   });
   CHECK(!incomplete && !(*cache)->Find(Key("unrelated"))->has_value(),
         "factory that omits the demand publishes nothing");

@@ -1,3 +1,4 @@
+#include "AssetCache.h"
 #include <cstdint>
 #include <expected>
 #include "UrbanArea.h"

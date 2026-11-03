@@ -12,7 +12,8 @@
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include "Sha256.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
@@ -626,31 +627,24 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   if (!opened) { return std::nullopt; }
   constexpr std::string_view recipe = "prepared-buildings-format-1";
   const auto key = Sha256Hex(recipe.data(), recipe.size());
-  size_t generated = 0;
-  const auto published = ResolveAsset(**opened, key, encoded->size(), [&](size_t) {
-    ++generated;
-    GeneratedAssetPackage package;
-    package.Bytes = *encoded;
-    package.Records.push_back({.Key = key,
-                               .Kind = "buildings",
-                               .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                               .Package = {},
-                               .ByteCount = package.Bytes.size(),
-                               .Parent = {}});
-    return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
-  });
-  CHECK(published && generated == 1, "one miss publishes an actual native prepared building tile");
+  AssetPackage package;
+  package.Bytes = *encoded;
+  package.Records.push_back({.Key = key,
+                             .Kind = "buildings",
+                             .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
+                             .Package = {},
+                             .ByteCount = package.Bytes.size(),
+                             .Parent = {}});
+  CHECK((*opened)->Publish(package.Records, package.Bytes),
+        "the fixture publishes the complete prepared-building package");
   opened->reset();
   auto restarted = AssetCache::Open(path);
   CHECK(restarted.has_value(), "fresh cache connection opens the prepared building package");
   if (!restarted) { return std::nullopt; }
-  const auto hit = ResolveAsset(**restarted, key, encoded->size(), [&](size_t) {
-    ++generated;
-    return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("source offline"));
-  });
-  CHECK(hit && generated == 1, "native package hits bypass the unavailable generator and provider");
-  if (!hit) { return std::nullopt; }
-  auto decoded = DecodePreparedStructureTile(hit->Bytes(), static_cast<long>(1024) * 1024);
+  const auto hit = (*restarted)->Load(key, encoded->size());
+  CHECK(hit && *hit, "native package hits need no generator or provider");
+  if (!hit || !*hit) { return std::nullopt; }
+  auto decoded = DecodePreparedStructureTile((**hit).Bytes(), static_cast<long>(1024) * 1024);
   CHECK(decoded.has_value(), "held cache bytes reconstruct complete source-independent shapes");
   if (!decoded) { return std::nullopt; }
   CHECK(decoded->HeightSources == base.HeightSources &&
@@ -665,7 +659,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
                                }) &&
             decoded->HeightRequest.Fallback == base.HeightRequest.Fallback,
         "terrain lineage, sample signature, capture scope and qualification survive restart");
-  CHECK(!DecodePreparedStructureTile(hit->Bytes(), 1),
+  CHECK(!DecodePreparedStructureTile((**hit).Bytes(), 1),
         "native arrays cannot allocate beyond the supplied resident budget");
   auto truncated = *encoded;
   truncated.pop_back();

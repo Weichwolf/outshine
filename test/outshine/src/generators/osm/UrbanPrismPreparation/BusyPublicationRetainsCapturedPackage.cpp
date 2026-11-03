@@ -60,7 +60,7 @@ struct Case {
       ++Captures;
       const auto input = std::make_shared<const UrbanPrisms>(Fixture::Product());
       Input = input;
-      return AssetFactory{[this, input](size_t budget) {
+      return AssetPackageFactory{[this, input](size_t budget) {
         ++Generations;
         return PackageUrbanPrisms(*input, Request, {.BytesMost = budget});
       }};

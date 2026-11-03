@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "GeometryProductCodec.h"
 #include "Generator.h"
 #include <array>
@@ -37,14 +37,13 @@ public:
 
   [[nodiscard]] Product make(const Generators::Request &asked) const override {
     const std::string key(64, asked.Seed == 0 ? 'a' : 'b');
-    const auto asset = ResolveAssetRequest(Cache_, key, kBytes, [&](size_t) {
+    const auto asset = Experiments::ResolveAssetRequest(Cache_, key, kBytes, [&](size_t) {
       if (!asked.Ground) {
-        return std::expected<GeneratedAssetPackage, std::string>(
-            std::unexpected("ground unavailable"));
+        return std::expected<AssetPackage, std::string>(std::unexpected("ground unavailable"));
       }
       const auto height = asked.Ground->sampleHeightAslM({});
       if (!height) {
-        return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("ground unknown"));
+        return std::expected<AssetPackage, std::string>(std::unexpected("ground unknown"));
       }
       const auto y = static_cast<float>(*height);
       std::string contentKey = key;
@@ -55,15 +54,15 @@ public:
       const auto part = geometry.addPart("triangle", {});
       if (!part || !geometry.setPositions(*part, positions) ||
           !geometry.setTriangles(*part, triangles)) {
-        return std::expected<GeneratedAssetPackage, std::string>(
+        return std::expected<AssetPackage, std::string>(
             std::unexpected("invalid generated geometry"));
       }
       auto encoded = EncodeGeometryProduct(geometry, kBytes);
       if (!encoded) {
-        return std::expected<GeneratedAssetPackage, std::string>(
+        return std::expected<AssetPackage, std::string>(
             std::unexpected("native geometry exceeds its package budget"));
       }
-      GeneratedAssetPackage package;
+      AssetPackage package;
       package.Bytes = std::move(*encoded);
       package.Records.push_back({.Key = std::move(contentKey),
                                  .Kind = "external-triangle",
@@ -72,7 +71,7 @@ public:
                                  .ByteCount = package.Bytes.size(),
                                  .Parent = {},
                                  .RequestKey = key});
-      return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
+      return std::expected<AssetPackage, std::string>(std::move(package));
     });
     if (!asset) { return std::unexpected(asset.error()); }
     auto geometry = DecodeGeometryProduct(asset->Bytes(), kBytes);

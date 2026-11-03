@@ -24,7 +24,7 @@ int main() {
   std::latch release(1);
   const auto captured = slot.Advance(
       request, [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
-        return AssetFactory{[&](size_t most) {
+        return AssetPackageFactory{[&](size_t most) {
           entered.count_down();
           release.wait();
           return Generators::Osm::PackageUrbanPrisms(

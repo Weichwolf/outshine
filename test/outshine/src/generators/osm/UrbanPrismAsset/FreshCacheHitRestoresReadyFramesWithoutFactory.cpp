@@ -1,3 +1,4 @@
+#include "AssetCache.h"
 #include "Check.h"
 #include "UrbanPrismAsset.h"
 #include "Sha256.h"
@@ -53,27 +54,25 @@ int main() {
   CHECK(identity, "the ready asset request binds source, surface, selection and level");
   if (!identity) { return Report(); }
   const auto &request = *identity;
-  size_t generations = 0;
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "a native asset store opens");
     if (!cache) { return Report(); }
-    const auto first =
-        ResolveAssetRequest(**cache, request, Osm::kUrbanPrismBytesMost, [&](size_t most) {
-          ++generations;
-          return Osm::PackageUrbanPrisms(Product(), request, {.Level = 3, .BytesMost = most});
-        });
-    CHECK(first && generations == 1, "a miss packages and persists a complete ready product once");
+    const auto package = Osm::PackageUrbanPrisms(
+        Product(), request, {.Level = 3, .BytesMost = Osm::kUrbanPrismBytesMost});
+    CHECK(package, "the complete ready product encodes within its byte budget");
+    if (!package) { return Report(); }
+    CHECK((*cache)->Publish(package->Records, package->Bytes),
+          "the complete ready product persists as one native package");
   }
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "a new owner reopens the persisted asset database");
     if (!cache) { return Report(); }
-    const auto hit = ResolveAssetRequest(**cache, request, Osm::kUrbanPrismBytesMost, {});
-    CHECK(hit && generations == 1,
-          "a source-free cache hit never calls a factory or height sampler");
-    if (hit) {
-      const auto restored = Osm::DecodeUrbanPrisms(hit->Bytes());
+    const auto hit = (*cache)->LoadRequest(request, Osm::kUrbanPrismBytesMost);
+    CHECK(hit && *hit, "a source-free cache hit never calls a factory or height sampler");
+    if (hit && *hit) {
+      const auto restored = Osm::DecodeUrbanPrisms((**hit).Bytes());
       CHECK(restored && restored->Placements.front().EcefFromLocal.At(0, 3) == kFixtureEcefX &&
                 restored->Geometry.Samples->front().Lower == -10 &&
                 restored->Geometry.Samples->front().Upper == kGeometryTopM,
@@ -85,12 +84,16 @@ int main() {
                           .Level = 3,
                           .Radius = std::nullopt,
                           .Planes = {}});
-    CHECK(selected && selected->size() == 1 && !selected->front().RequestKey && hit &&
-              selected->front().Key == hit->Record().Key && hit->Record().RequestKey == request,
+    CHECK(selected && selected->size() == 1 && !selected->front().RequestKey && hit && *hit &&
+              selected->front().Key == (**hit).Record().Key &&
+              (**hit).Record().RequestKey == request,
           "ready geometry has content-only spatial metadata and request-specific lookup context");
     terrain[0] ^= 1;
     const auto changed = Osm::UrbanPrismRequestKey(source, terrain, patches, 3);
-    CHECK(changed && !ResolveAssetRequest(**cache, *changed, Osm::kUrbanPrismBytesMost, {}),
+    CHECK(changed, "changed terrain produces a valid independent request");
+    if (!changed) { return Report(); }
+    const auto missing = (*cache)->LoadRequest(*changed, Osm::kUrbanPrismBytesMost);
+    CHECK(missing && !*missing,
           "changed published terrain misses rather than loading an unrelated ready asset");
   }
   CHECK(!Osm::PackageUrbanPrisms(Product(), "unknown-request", {.Level = 3}),

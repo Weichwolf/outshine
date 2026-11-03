@@ -1,3 +1,4 @@
+#include "../assets/SynchronousAssetGeneration.h"
 #include "NativePlantWorldAssets.h"
 #include "NativePlantLeafCarrier.h"
 #include "PlantBladeSurface.h"
@@ -150,7 +151,7 @@ std::expected<std::vector<uint8_t>, std::string> CrownInput(const char *const *a
   if (std::string_view(argv[2]) != "-") {
     auto cache = AssetCache::Open(argv[2]);
     if (!cache) { return std::unexpected("source crown cache"); }
-    const auto original = ResolveAssetRequest(**cache, argv[3], kAssetBytesMost, {});
+    const auto original = Experiments::ResolveAssetRequest(**cache, argv[3], kAssetBytesMost, {});
     if (!original) { return std::unexpected(original.error()); }
     return std::vector<uint8_t>(original->Bytes().begin(), original->Bytes().end());
   }
@@ -258,7 +259,7 @@ int Prepare(int argc, const char *const *argv) {
   const std::array<std::string_view, 3> kinds{
       "plant-crown-plan", "plant-limb-plan", "plant-blade-geometry"};
   const std::array<std::string_view, 3> names{"crown", "wood", "blades"};
-  GeneratedAssetPackage package;
+  AssetPackage package;
   std::string parent;
   for (size_t at = 0; at < slices.size(); ++at) {
     const auto bytes = slices[at];

@@ -20,7 +20,7 @@ Generators::Osm::UrbanPrismPreparation::Capture Capture(const std::string &reque
   return [request, &calls](const std::stop_token &)
              -> std::optional<Generators::Osm::UrbanPrismPreparation::Captured> {
     ++calls;
-    return AssetFactory{[request](size_t most) {
+    return AssetPackageFactory{[request](size_t most) {
       return Generators::Osm::PackageUrbanPrisms(Fixture::Product(), request, {.BytesMost = most});
     }};
   };

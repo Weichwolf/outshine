@@ -1,7 +1,9 @@
 # Native foliage-plan assets — #1 / #10
 
 PlantCrownAsset stores the [demanded spatial foliage plan](native_plant_crown.md)
-through the existing native AssetCache/ResolveAssetRequest service. A request
+through the synchronous reference helper now isolated under
+`test/experiments/assets/SynchronousAssetGeneration.h` (#1943). The runtime uses
+its asynchronous producers; this report describes the offline experiment. A request
 binds generator/format version and complete persistent parameters before source
 acquisition. Only a miss invokes growth and host selection. The generator owns
 the payload format; the shared store remains generator agnostic.

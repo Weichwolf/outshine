@@ -22,7 +22,7 @@ int main() {
   const auto capture = [&](const std::string &request) -> UrbanPrismPreparation::Capture {
     return [&, request](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
       ++captures;
-      return AssetFactory{[request](size_t most) {
+      return AssetPackageFactory{[request](size_t most) {
         return Generators::Osm::PackageUrbanPrisms(
             Fixture::Product(), request, {.BytesMost = most});
       }};

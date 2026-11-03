@@ -1,6 +1,6 @@
 #include "Check.h"
 #include "Sha256.h"
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -158,9 +158,9 @@ void Exercise(const std::string &path) {
   const auto repeated = cache.BindRequest(second, otherRequest);
   CHECK(repeated && *repeated, "repeated binding performs no request-index write");
   size_t generated = 0;
-  auto loaded = ResolveAssetRequest(cache, otherRequest, 64, [&](size_t) {
+  auto loaded = Experiments::ResolveAssetRequest(cache, otherRequest, 64, [&](size_t) {
     ++generated;
-    return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("unexpected miss"));
+    return std::expected<AssetPackage, std::string>(std::unexpected("unexpected miss"));
   });
   CHECK(loaded && generated == 0 && std::ranges::equal(loaded->Bytes(), payload),
         "native replay retains bytes and bypasses the producer");

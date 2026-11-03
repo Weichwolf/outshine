@@ -32,7 +32,7 @@ PrepareUrbanPrisms(const Generators::Osm::UrbanArea &area,
                    const TerrainResidency &terrain,
                    size_t samplesMost);
 
-[[nodiscard]] std::expected<AssetFactory, std::string>
+[[nodiscard]] std::expected<AssetPackageFactory, std::string>
 CaptureUrbanPrismFactory(std::shared_ptr<const Generators::Osm::UrbanArea> area,
                          std::span<const Generators::Osm::UrbanPatchRange> patches,
                          const TerrainResidency &terrain,

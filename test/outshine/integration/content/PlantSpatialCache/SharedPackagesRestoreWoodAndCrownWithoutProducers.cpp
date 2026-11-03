@@ -1,4 +1,5 @@
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include "PlantCrownAsset.h"
 #include "PlantCrownPlan.h"
 #include "PlantLimbAsset.h"
@@ -36,7 +37,7 @@ std::string Quote(std::string_view text) {
   return result + '\'';
 }
 
-std::expected<GeneratedAssetPackage, std::string> Generate(size_t budget) {
+std::expected<AssetPackage, std::string> Generate(size_t budget) {
   PlantGrowthPlan growth{.PositionsM = {{0, 0, 0}, {0, 0, 1}, {0, 0, 2}, {1, 0, 2}},
                          .Parents = {-1, 0, 1, 1},
                          .Unreached = {},
@@ -64,22 +65,22 @@ std::expected<GeneratedAssetPackage, std::string> Generate(size_t budget) {
   }
   const std::string crownKey = Sha256Hex(foliage->data(), foliage->size());
   const std::string woodKey = Sha256Hex(wood->data(), wood->size());
-  GeneratedAssetPackage package{.Records = {{.Key = crownKey,
-                                             .Kind = "plant-crown-plan",
-                                             .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 3}}},
-                                             .Package = {},
-                                             .ByteCount = foliage->size(),
-                                             .Parent = {},
-                                             .RequestKey = Request("crown")},
-                                            {.Key = woodKey,
-                                             .Kind = "plant-limb-plan",
-                                             .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 3}}},
-                                             .Package = {},
-                                             .OffsetBytes = foliage->size(),
-                                             .ByteCount = wood->size(),
-                                             .Parent = crownKey,
-                                             .RequestKey = Request("wood")}},
-                                .Bytes = std::move(*foliage)};
+  AssetPackage package{.Records = {{.Key = crownKey,
+                                    .Kind = "plant-crown-plan",
+                                    .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 3}}},
+                                    .Package = {},
+                                    .ByteCount = foliage->size(),
+                                    .Parent = {},
+                                    .RequestKey = Request("crown")},
+                                   {.Key = woodKey,
+                                    .Kind = "plant-limb-plan",
+                                    .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{2, 1, 3}}},
+                                    .Package = {},
+                                    .OffsetBytes = foliage->size(),
+                                    .ByteCount = wood->size(),
+                                    .Parent = crownKey,
+                                    .RequestKey = Request("wood")}},
+                       .Bytes = std::move(*foliage)};
   package.Bytes.insert(package.Bytes.end(), wood->begin(), wood->end());
   return package;
 }
@@ -87,15 +88,18 @@ std::expected<GeneratedAssetPackage, std::string> Generate(size_t budget) {
 int Hit(const std::string &path) {
   auto cache = AssetCache::Open(path);
   if (!cache) { return 1; }
-  const auto crown = ResolveAssetRequest(**cache, Request("crown"), kBudget, {});
-  const auto wood = ResolveAssetRequest(**cache, Request("wood"), kBudget, {});
-  if (!crown || !wood || crown->Record().Package != wood->Record().Package ||
-      wood->Record().Parent != crown->Record().Key ||
-      wood->Record().OffsetBytes != crown->Bytes().size()) {
+  const auto crown = (*cache)->LoadRequest(Request("crown"), kBudget);
+  const auto wood = (*cache)->LoadRequest(Request("wood"), kBudget);
+  if (!crown || !*crown || !wood || !*wood) { return 2; }
+  const auto &crownAsset = **crown;
+  const auto &woodAsset = **wood;
+  if (crownAsset.Record().Package != woodAsset.Record().Package ||
+      woodAsset.Record().Parent != crownAsset.Record().Key ||
+      woodAsset.Record().OffsetBytes != crownAsset.Bytes().size()) {
     return 2;
   }
-  const auto foliage = DecodePlantCrownPlan(crown->Bytes(), kBudget);
-  const auto limbs = DecodePlantLimbs(wood->Bytes(), kBudget);
+  const auto foliage = DecodePlantCrownPlan(crownAsset.Bytes(), kBudget);
+  const auto limbs = DecodePlantLimbs(woodAsset.Bytes(), kBudget);
   if (!foliage || !limbs || limbs->size() != 2 || foliage->Summarize().IndexBuildBytes != 0) {
     return 3;
   }
@@ -123,23 +127,19 @@ int main(int argc, char *const *argv) {
   const std::string path = PlantedPath("native-spatial-plant.sqlite");
   std::error_code error;
   std::filesystem::remove(path, error);
-  size_t builds = 0;
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "common cache opens before either source product is available");
     if (!cache) { return Report(); }
-    const AssetFactory generate = [&](size_t budget) {
-      ++builds;
-      return Generate(budget);
-    };
-    const auto crown = ResolveAssetRequest(**cache, Request("crown"), kBudget, generate);
-    const auto wood = ResolveAssetRequest(**cache, Request("wood"), kBudget, {});
-    CHECK(crown && wood && builds == 1,
-          "one miss publishes both prepared products in one shared package");
+    const auto package = Generate(kBudget);
+    CHECK(package, "the fixture builds the shared crown and wood package");
+    if (!package) { return Report(); }
+    CHECK((*cache)->Publish(package->Records, package->Bytes),
+          "both prepared products publish in one shared package");
   }
   std::string output;
   const int child = Run(Quote(argv[0]) + " --hit " + Quote(path), output);
-  CHECK(child == 0 && builds == 1,
+  CHECK(child == 0,
         "fresh process restores wood and crown with no registered producer or source inputs");
   std::filesystem::remove(path, error);
   return Report();

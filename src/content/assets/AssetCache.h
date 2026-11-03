@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_ASSETCACHE_H
 #define OUTSHINE_CONTENT_ASSETS_ASSETCACHE_H
 
-#include "Box.h"
+#include "AssetRecord.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -17,20 +17,6 @@
 namespace outshine {
 class JobAdmission;
 class Tasks;
-
-struct AssetRecord {
-  std::string Key;
-  std::string Kind;
-  Box Bounds;
-  std::string Package;
-  uint64_t OffsetBytes = 0;
-  uint64_t ByteCount = 0;
-  uint32_t Level = 0;
-  std::string Parent;
-  std::optional<std::string> RequestKey = std::nullopt;
-
-  [[nodiscard]] bool operator==(const AssetRecord &) const = default;
-};
 
 struct AssetRadius {
   Vec3 Centre;

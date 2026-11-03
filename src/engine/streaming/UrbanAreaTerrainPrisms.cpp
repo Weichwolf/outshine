@@ -113,7 +113,7 @@ PrepareUrbanPrisms(const Generators::Osm::UrbanArea &area,
   return Generators::Osm::PrepareUrbanPrisms(area, inputs, samplesMost);
 }
 
-std::expected<AssetFactory, std::string>
+std::expected<AssetPackageFactory, std::string>
 CaptureUrbanPrismFactory(std::shared_ptr<const Generators::Osm::UrbanArea> area,
                          std::span<const Generators::Osm::UrbanPatchRange> patches,
                          const TerrainResidency &terrain,
@@ -138,26 +138,25 @@ CaptureUrbanPrismFactory(std::shared_ptr<const Generators::Osm::UrbanArea> area,
   auto heights = CaptureHeights(*area, patches, terrain, captureMost);
   if (!heights) { return std::unexpected(InputError(heights.error())); }
   if (stop.stop_requested()) { return std::unexpected("prism input capture canceled"); }
-  return AssetFactory{
-      [area = std::move(area),
-       ranges = std::vector(patches.begin(), patches.end()),
-       heights = std::move(*heights),
-       request = std::move(request),
-       samplesMost,
-       options,
-       stop](size_t bytesMost) -> std::expected<GeneratedAssetPackage, std::string> {
-        if (stop.stop_requested()) { return std::unexpected("prism input capture canceled"); }
-        const size_t budget = std::min(options.BytesMost, bytesMost);
-        const size_t frameBytes = ranges.size() * placementBytes;
-        if (frameBytes > budget || heights.size() > (budget - frameBytes) / sizeof(PrismSpan)) {
-          return std::unexpected("selected prism output exceeds byte budget");
-        }
-        const auto inputs = InputsFor(ranges, heights);
-        auto product = Generators::Osm::PrepareUrbanPrisms(*area, inputs, samplesMost);
-        if (!product) { return std::unexpected(InputError(product.error())); }
-        if (stop.stop_requested()) { return std::unexpected("prism input capture canceled"); }
-        return Generators::Osm::PackageUrbanPrisms(
-            *product, request, {.Level = options.Level, .BytesMost = budget});
-      }};
+  return AssetPackageFactory{[area = std::move(area),
+                              ranges = std::vector(patches.begin(), patches.end()),
+                              heights = std::move(*heights),
+                              request = std::move(request),
+                              samplesMost,
+                              options,
+                              stop](size_t bytesMost) -> std::expected<AssetPackage, std::string> {
+    if (stop.stop_requested()) { return std::unexpected("prism input capture canceled"); }
+    const size_t budget = std::min(options.BytesMost, bytesMost);
+    const size_t frameBytes = ranges.size() * placementBytes;
+    if (frameBytes > budget || heights.size() > (budget - frameBytes) / sizeof(PrismSpan)) {
+      return std::unexpected("selected prism output exceeds byte budget");
+    }
+    const auto inputs = InputsFor(ranges, heights);
+    auto product = Generators::Osm::PrepareUrbanPrisms(*area, inputs, samplesMost);
+    if (!product) { return std::unexpected(InputError(product.error())); }
+    if (stop.stop_requested()) { return std::unexpected("prism input capture canceled"); }
+    return Generators::Osm::PackageUrbanPrisms(
+        *product, request, {.Level = options.Level, .BytesMost = budget});
+  }};
 }
 }

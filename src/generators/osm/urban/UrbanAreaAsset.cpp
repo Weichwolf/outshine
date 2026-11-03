@@ -50,7 +50,7 @@ Box Coverage(const UrbanArea &area) {
 }
 }
 
-std::expected<GeneratedAssetPackage, std::string>
+std::expected<AssetPackage, std::string>
 PackageUrbanArea(const UrbanArea &area, std::string_view request, size_t bytesMost) {
   if (request.size() != 64 ||
       request.find_first_not_of("0123456789abcdef") != std::string_view::npos) {
@@ -59,7 +59,7 @@ PackageUrbanArea(const UrbanArea &area, std::string_view request, size_t bytesMo
   auto encoded = EncodeUrbanArea(area, bytesMost);
   if (!encoded) { return std::unexpected(encoded.error()); }
   const auto key = Sha256Hex(std::string(request) + Sha256Hex(encoded->data(), encoded->size()));
-  return GeneratedAssetPackage{
+  return AssetPackage{
       .Records = {{.Key = key,
                    .Kind = "urban-area",
                    .Bounds = Coverage(area),

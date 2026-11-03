@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_URBAN_URBANPRISMASSET_H
 
 #include "UrbanPrismCodec.h"
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
 #include <array>
 #include <span>
 #include <cstddef>
@@ -23,7 +23,7 @@ UrbanPrismRequestKey(std::string_view areaAssetKey,
                      std::span<const UrbanPatchRange> patches,
                      uint32_t level);
 
-[[nodiscard]] std::expected<GeneratedAssetPackage, std::string> PackageUrbanPrisms(
+[[nodiscard]] std::expected<AssetPackage, std::string> PackageUrbanPrisms(
     const UrbanPrisms &product, std::string_view request, UrbanPrismAssetOptions options = {});
 }
 #endif

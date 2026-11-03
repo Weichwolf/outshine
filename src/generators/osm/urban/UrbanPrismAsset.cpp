@@ -81,8 +81,9 @@ UrbanPrismRequestKey(std::string_view areaAssetKey,
   return Sha256Hex(writer.Out.Bytes().data(), writer.Out.Bytes().size());
 }
 
-std::expected<GeneratedAssetPackage, std::string> PackageUrbanPrisms(
-    const UrbanPrisms &product, std::string_view request, UrbanPrismAssetOptions options) {
+std::expected<AssetPackage, std::string> PackageUrbanPrisms(const UrbanPrisms &product,
+                                                            std::string_view request,
+                                                            UrbanPrismAssetOptions options) {
   if (request.size() != 64 ||
       request.find_first_not_of("0123456789abcdef") != std::string_view::npos) {
     return std::unexpected("urban-prism demand requires a SHA-256 request identity");
@@ -92,14 +93,14 @@ std::expected<GeneratedAssetPackage, std::string> PackageUrbanPrisms(
   const auto bounds = Coverage(product);
   if (!bounds) { return std::unexpected(bounds.error()); }
   const auto key = Sha256Hex(std::string(request) + Sha256Hex(encoded->data(), encoded->size()));
-  return GeneratedAssetPackage{.Records = {{.Key = key,
-                                            .Kind = "urban-prisms",
-                                            .Bounds = *bounds,
-                                            .Package = {},
-                                            .ByteCount = encoded->size(),
-                                            .Level = options.Level,
-                                            .Parent = {},
-                                            .RequestKey = std::string(request)}},
-                               .Bytes = std::move(*encoded)};
+  return AssetPackage{.Records = {{.Key = key,
+                                   .Kind = "urban-prisms",
+                                   .Bounds = *bounds,
+                                   .Package = {},
+                                   .ByteCount = encoded->size(),
+                                   .Level = options.Level,
+                                   .Parent = {},
+                                   .RequestKey = std::string(request)}},
+                      .Bytes = std::move(*encoded)};
 }
 }

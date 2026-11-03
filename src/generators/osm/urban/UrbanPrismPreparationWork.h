@@ -11,7 +11,7 @@ struct UrbanPrismPreparation::Work {
   Result Value;
   Costs Measured;
   std::optional<PreparedAssetWrite> Package;
-  AssetFactory Factory;
+  AssetPackageFactory Factory;
   Operation Next = Operation::Read;
   bool Busy = false;
   std::atomic<bool> Complete{false};

@@ -1,4 +1,4 @@
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "AssetCache.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -18,7 +18,7 @@ std::string Key(const char *name) {
   return Sha256Hex(name);
 }
 
-GeneratedAssetPackage Package() {
+AssetPackage Package() {
   return {.Records = {{.Key = Key("first"),
                        .Kind = "first",
                        .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
@@ -44,13 +44,16 @@ void CheckReceipt(const std::string &path) {
   CHECK(opened.has_value(), "the existing native asset store opens");
   if (!opened) { return; }
   const auto package = Package();
-  const auto missing = CommitAsset(**opened, Key("missing"), package.Bytes.size(), package);
+  const auto missing =
+      Experiments::CommitAsset(**opened, Key("missing"), package.Bytes.size(), package);
   CHECK(!missing && !(*opened)->Find(Key("first"))->has_value(),
         "a commit cannot publish unrelated records without the demanded target");
-  const auto over = CommitAsset(**opened, Key("second"), package.Bytes.size() - 1, package);
+  const auto over =
+      Experiments::CommitAsset(**opened, Key("second"), package.Bytes.size() - 1, package);
   CHECK(!over && !(*opened)->Find(Key("first"))->has_value(),
         "whole-package admission is checked before publication");
-  const auto receipt = CommitAsset(**opened, Key("second"), package.Bytes.size(), package);
+  const auto receipt =
+      Experiments::CommitAsset(**opened, Key("second"), package.Bytes.size(), package);
   CHECK(receipt && receipt->Key == Key("second") && receipt->Kind == "second" &&
             receipt->Package == Sha256Hex(package.Bytes.data(), package.Bytes.size()) &&
             receipt->OffsetBytes == 3 && receipt->ByteCount == 3 && !receipt->RequestKey,

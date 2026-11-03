@@ -32,7 +32,7 @@ void IndependentRequests() {
   store.reset();
   const auto capture = [](const std::string &key) -> UrbanPrismPreparation::Capture {
     return [key](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
-      return AssetFactory{[key](size_t most) {
+      return AssetPackageFactory{[key](size_t most) {
         return PackageUrbanPrisms(Fixture::Product(), key, {.BytesMost = most});
       }};
     };

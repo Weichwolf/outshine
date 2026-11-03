@@ -39,7 +39,7 @@ int main() {
     UrbanPrismPreparation preparation(pool, cache.Store(), request);
     const auto result = Fixture::Await(
         preparation, [](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
-          return AssetFactory{};
+          return AssetPackageFactory{};
         });
     CHECK(!result && result.error() == "captured prism factory is empty",
           "an empty captured job cannot leave preparation pending forever");

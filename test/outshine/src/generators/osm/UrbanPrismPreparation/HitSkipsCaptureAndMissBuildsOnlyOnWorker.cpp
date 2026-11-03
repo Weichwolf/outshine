@@ -30,7 +30,7 @@ int main() {
       if (++captures < 3) { return std::nullopt; }
       const auto immutableInput =
           std::make_shared<const Generators::Osm::UrbanPrisms>(Fixture::Product());
-      return AssetFactory{[&, immutableInput](size_t budget) {
+      return AssetPackageFactory{[&, immutableInput](size_t budget) {
         ++generations;
         builtOnWorker.store(std::this_thread::get_id() != mainThread);
         return Generators::Osm::PackageUrbanPrisms(

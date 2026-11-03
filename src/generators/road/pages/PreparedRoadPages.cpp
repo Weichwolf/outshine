@@ -1,5 +1,5 @@
 #include "PreparedRoadPages.h"
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
 #include <algorithm>
 #include <cstddef>
 #include <expected>
@@ -47,19 +47,19 @@ BindRecord(AssetCache &cache, AssetRecord &record, const std::string &requestKey
   return {};
 }
 
-std::expected<GeneratedAssetPackage, std::string>
+std::expected<AssetPackage, std::string>
 EncodePackage(const RoadPageAsset &page, AssetRecord record, size_t bytesMost) {
   auto bytes = EncodeRoadPageAsset(page, bytesMost);
   if (!bytes) { return std::unexpected(std::string(bytes.error())); }
   record.Bounds = RoadPageBoundsEcef(page);
   record.ByteCount = bytes->size();
-  return GeneratedAssetPackage{.Records = {std::move(record)}, .Bytes = std::move(*bytes)};
+  return AssetPackage{.Records = {std::move(record)}, .Bytes = std::move(*bytes)};
 }
 
-std::expected<GeneratedAssetPackage, std::string> ProducePackage(const RoadPageRequest &request,
-                                                                 const std::string &key,
-                                                                 const RoadPageProducer &producer,
-                                                                 const std::stop_token &stop) {
+std::expected<AssetPackage, std::string> ProducePackage(const RoadPageRequest &request,
+                                                        const std::string &key,
+                                                        const RoadPageProducer &producer,
+                                                        const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   auto geometry = producer.Produce(request, stop);
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }

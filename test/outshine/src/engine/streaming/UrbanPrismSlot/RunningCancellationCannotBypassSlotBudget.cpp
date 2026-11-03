@@ -29,7 +29,7 @@ int main() {
   const UrbanPrismPreparation::Capture slow =
       [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
     ++captures;
-    return AssetFactory{[&, gate](size_t most) {
+    return AssetPackageFactory{[&, gate](size_t most) {
       entered.set_value();
       (void)gate.wait_for(std::chrono::seconds(3));
       return Generators::Osm::PackageUrbanPrisms(Fixture::Product(), request, {.BytesMost = most});
@@ -68,7 +68,7 @@ int main() {
       request,
       [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
         ++captures;
-        return AssetFactory{[request](size_t most) {
+        return AssetPackageFactory{[request](size_t most) {
           return Generators::Osm::PackageUrbanPrisms(
               Fixture::Product(), request, {.BytesMost = most});
         }};

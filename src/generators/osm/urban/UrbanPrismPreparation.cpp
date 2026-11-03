@@ -71,7 +71,7 @@ void UrbanPrismPreparation::Cancel() noexcept {
   }
 }
 
-void UrbanPrismPreparation::Post(Operation operation, AssetFactory factory) {
+void UrbanPrismPreparation::Post(Operation operation, AssetPackageFactory factory) {
   Work_ = std::make_shared<Work>();
   Work_->Next = operation;
   Work_->Package = std::exchange(Pending_, std::nullopt);

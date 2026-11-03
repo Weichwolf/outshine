@@ -4,11 +4,13 @@
 #include <cstddef>
 #include <expected>
 #include <system_error>
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <span>
 
 namespace {
 using namespace outshine;
@@ -61,30 +63,23 @@ int main() {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "shared asset cache opens for the cold request");
     if (!cache) { return Report(); }
-    size_t builds = 0;
-    const AssetFactory generate =
-        [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-      ++builds;
-      if (encoded->size() > budget) { return std::unexpected("budget"); }
-      return GeneratedAssetPackage{.Records = {{.Key = key,
-                                                .Kind = "plant-prototype",
-                                                .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
-                                                .Package = {},
-                                                .ByteCount = encoded->size(),
-                                                .Parent = {}}},
-                                   .Bytes = *encoded};
-    };
-    const auto built = ResolveAsset(**cache, key, kBudget, generate);
-    CHECK(built && builds == 1, "only the missing product invokes its producer");
+    const AssetRecord record{.Key = key,
+                             .Kind = "plant-prototype",
+                             .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
+                             .Package = {},
+                             .ByteCount = encoded->size(),
+                             .Parent = {}};
+    CHECK((*cache)->Publish(std::span(&record, 1), *encoded),
+          "the encoded native prototype is published as one complete product");
   }
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "fresh cache connection opens the persisted product");
     if (!cache) { return Report(); }
-    const auto hit = ResolveAsset(**cache, key, kBudget, {});
-    CHECK(hit, "persisted product loads with no generator or plan available");
-    if (hit) {
-      const auto loaded = DecodePreparedPlant(hit->Bytes(), kBudget);
+    const auto hit = (*cache)->Load(key, kBudget);
+    CHECK(hit && *hit, "persisted product loads with no generator or plan available");
+    if (hit && *hit) {
+      const auto loaded = DecodePreparedPlant((**hit).Bytes(), kBudget);
       CHECK(loaded, "stored product decodes without source preparation or meshing");
       if (loaded) { SameProduct(source, *loaded); }
     }

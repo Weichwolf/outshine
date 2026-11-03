@@ -1,7 +1,8 @@
 #include "UrbanAreaCodec.h"
 #include "Check.h"
 #include "Sha256.h"
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include <DataKind.h>
 #include <algorithm>
 #include <array>
@@ -107,34 +108,29 @@ void CacheMissThenRead() {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "native asset cache opens");
     if (!cache) { return; }
-    size_t cooks = 0;
-    const AssetFactory produce =
-        [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
-      ++cooks;
-      auto encoded = Osm::EncodeUrbanArea(Example(), budget);
-      if (!encoded) { return std::unexpected(encoded.error()); }
-      const auto key = Sha256Hex(encoded->data(), encoded->size());
-      return GeneratedAssetPackage{
-          .Records = {{.Key = key,
-                       .Kind = "urban-area",
-                       .Bounds = {.Min = {{0, 0, 0}}, .Max = {{64, 48, 64}}},
-                       .Package = {},
-                       .ByteCount = encoded->size(),
-                       .Parent = {},
-                       .RequestKey = request}},
-          .Bytes = std::move(*encoded)};
-    };
-    const auto cold = ResolveAssetRequest(**cache, request, Osm::kUrbanAreaBytesMost, produce);
-    CHECK(cold && cooks == 1, "cache miss generates and publishes the complete field once");
+    auto encoded = Osm::EncodeUrbanArea(Example(), Osm::kUrbanAreaBytesMost);
+    CHECK(encoded, "the fixture area encodes within its native byte budget");
+    if (!encoded) { return; }
+    const auto key = Sha256Hex(encoded->data(), encoded->size());
+    const AssetPackage package{.Records = {{.Key = key,
+                                            .Kind = "urban-area",
+                                            .Bounds = {.Min = {{0, 0, 0}}, .Max = {{64, 48, 64}}},
+                                            .Package = {},
+                                            .ByteCount = encoded->size(),
+                                            .Parent = {},
+                                            .RequestKey = request}},
+                               .Bytes = std::move(*encoded)};
+    CHECK((*cache)->Publish(package.Records, package.Bytes),
+          "the complete area is published atomically");
   }
   {
     auto cache = AssetCache::Open(path);
     CHECK(cache, "fresh asset connection opens");
     if (!cache) { return; }
-    const auto hit = ResolveAssetRequest(**cache, request, Osm::kUrbanAreaBytesMost, {});
-    CHECK(hit, "warm request resolves with no source or generator available");
-    if (hit) {
-      const auto loaded = Osm::DecodeUrbanArea(hit->Bytes());
+    const auto hit = (*cache)->LoadRequest(request, Osm::kUrbanAreaBytesMost);
+    CHECK(hit && *hit, "warm request resolves with no source or generator available");
+    if (hit && *hit) {
+      const auto loaded = Osm::DecodeUrbanArea((**hit).Bytes());
       CHECK(loaded, "cached field restores without source geometry work");
       if (loaded) { Same(*loaded); }
     }

@@ -1,4 +1,4 @@
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "AssetCacheTrim.h"
 #include "Check.h"
 #include <algorithm>
@@ -89,15 +89,12 @@ void Exercise(const std::filesystem::path &path) {
   CHECK(recent && *recent && std::ranges::equal((**recent).Bytes(), kNew),
         "retained demand still loads its complete original bytes");
   size_t generated = 0;
-  auto restored = ResolveAsset(**opened,
-                               oldRecords[0].Key,
-                               1024,
-                               [&](size_t) -> std::expected<GeneratedAssetPackage, std::string> {
-                                 ++generated;
-                                 return GeneratedAssetPackage{
-                                     .Records = {oldRecords[0]},
-                                     .Bytes = std::vector<uint8_t>(kOld.begin(), kOld.end())};
-                               });
+  auto restored = Experiments::ResolveAsset(
+      **opened, oldRecords[0].Key, 1024, [&](size_t) -> std::expected<AssetPackage, std::string> {
+        ++generated;
+        return AssetPackage{.Records = {oldRecords[0]},
+                            .Bytes = std::vector<uint8_t>(kOld.begin(), kOld.end())};
+      });
   CHECK(restored && generated == 1 && std::ranges::equal(restored->Bytes(), kOld),
         "one evicted demand regenerates through the ordinary miss path");
 }

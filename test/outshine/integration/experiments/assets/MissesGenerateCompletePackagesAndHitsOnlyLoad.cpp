@@ -1,4 +1,4 @@
-#include "AssetGeneration.h"
+#include "SynchronousAssetGeneration.h"
 #include "Check.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -25,8 +25,8 @@ std::string Key(std::string_view name) {
   return Sha256Hex(name.data(), name.size());
 }
 
-GeneratedAssetPackage Package() {
-  GeneratedAssetPackage package;
+AssetPackage Package() {
+  AssetPackage package;
   package.Bytes.assign(kPayload.begin(), kPayload.end());
   for (const auto *kind : {"terrain", "roads", "buildings", "vegetation"}) {
     package.Records.push_back({.Key = Key(kind),
@@ -43,14 +43,15 @@ GeneratedAssetPackage Package() {
 }
 
 void RefusesIncompleteWork(AssetCache &cache) {
-  const auto refused = ResolveAsset(cache, Key("failed"), 16, [](size_t) {
-    return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("provider failed"));
+  const auto refused = Experiments::ResolveAsset(cache, Key("failed"), 16, [](size_t) {
+    return std::expected<AssetPackage, std::string>(std::unexpected("provider failed"));
   });
   CHECK(!refused && refused.error() == "provider failed",
         "provider refusal remains a real generation failure");
   CHECK(!cache.Load(Key("failed"), 16)->has_value(),
         "failed generation cannot publish a cache hit");
-  const auto missing = ResolveAsset(cache, Key("missing"), 16, [](size_t) { return Package(); });
+  const auto missing =
+      Experiments::ResolveAsset(cache, Key("missing"), 16, [](size_t) { return Package(); });
   CHECK(!missing && !cache.Find(Key("terrain"))->has_value(),
         "omitted demand cannot publish an unrelated valid package");
   auto invalid = Package();
@@ -66,25 +67,25 @@ void FreshHitsAndSnapshots(const std::string &path) {
   if (!opened) { return; }
   RefusesIncompleteWork(**opened);
   size_t generated = 0;
-  const AssetFactory factory =
-      [&](size_t budget) -> std::expected<GeneratedAssetPackage, std::string> {
+  const AssetPackageFactory factory =
+      [&](size_t budget) -> std::expected<AssetPackage, std::string> {
     CHECK(budget == 16, "generator receives the requested payload budget before doing work");
     ++generated;
     return Package();
   };
-  auto cold = ResolveAsset(**opened, Key("terrain"), 16, factory);
+  auto cold = Experiments::ResolveAsset(**opened, Key("terrain"), 16, factory);
   CHECK(cold && generated == 1 && cold->Bytes().size() == 3 && cold->Bytes().front() == 1,
         "one miss generates the complete package and loads its requested slice");
   opened->reset();
   auto restarted = AssetCache::Open(path);
   CHECK(restarted.has_value(), "a fresh cache instance opens stored assets");
   if (!restarted) { return; }
-  const AssetFactory offline = [&](size_t) -> std::expected<GeneratedAssetPackage, std::string> {
+  const AssetPackageFactory offline = [&](size_t) -> std::expected<AssetPackage, std::string> {
     ++generated;
     return std::unexpected("provider unavailable offline");
   };
   for (const auto *kind : {"terrain", "roads", "buildings", "vegetation"}) {
-    const auto hit = ResolveAsset(**restarted, Key(kind), 16, offline);
+    const auto hit = Experiments::ResolveAsset(**restarted, Key(kind), 16, offline);
     CHECK(hit && generated == 1 && hit->Bytes().size() == 3,
           "all prepared content kinds load without any provider or generator work");
   }
@@ -119,9 +120,9 @@ void RepairsCorruption(const std::string &path) {
   CHECK(!(*opened)->Load(Key("terrain"), 16)->has_value(),
         "corrupt bytes are misses rather than native assets");
   size_t generated = 0;
-  const auto rebuilt = ResolveAsset(**opened, Key("terrain"), 16, [&](size_t) {
+  const auto rebuilt = Experiments::ResolveAsset(**opened, Key("terrain"), 16, [&](size_t) {
     ++generated;
-    return std::expected<GeneratedAssetPackage, std::string>(Package());
+    return std::expected<AssetPackage, std::string>(Package());
   });
   CHECK(rebuilt && generated == 1 && rebuilt->Bytes().front() == 1,
         "corruption causes exactly one fresh generation and republishes a complete package");

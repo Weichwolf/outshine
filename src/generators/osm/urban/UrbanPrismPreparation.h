@@ -3,7 +3,8 @@
 
 #include "Tasks.h"
 #include "UrbanPrismCodec.h"
-#include "AssetGeneration.h"
+#include "AssetPackage.h"
+#include "AssetCache.h"
 #include <cstddef>
 #include <cstdint>
 #include <chrono>
@@ -19,7 +20,7 @@ class UrbanPrismPreparation {
 public:
   using Product = std::shared_ptr<const UrbanPrisms>;
   using Result = std::expected<Product, std::string>;
-  using Captured = std::expected<AssetFactory, std::string>;
+  using Captured = std::expected<AssetPackageFactory, std::string>;
   using Capture = std::function<std::optional<Captured>(std::stop_token)>;
 
   struct Costs {
@@ -58,7 +59,7 @@ private:
   enum class Phase { Reading, Inputs, Building, Ready, Failed };
   enum class Operation { Read, Build, Publish, Restore };
   struct Work;
-  void Post(Operation operation, AssetFactory factory = {});
+  void Post(Operation operation, AssetPackageFactory factory = {});
   void Collect();
   void Defer();
 
@@ -72,7 +73,7 @@ private:
   Result Result_;
   Costs Costs_;
   std::optional<PreparedAssetWrite> Pending_;
-  AssetFactory Factory_;
+  AssetPackageFactory Factory_;
   Operation Next_ = Operation::Read;
   unsigned Retries_ = 0;
   std::chrono::steady_clock::time_point RetryAt_;

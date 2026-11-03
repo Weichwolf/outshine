@@ -2,7 +2,7 @@
 #define OUTSHINE_TEST_RENDER_NATIVEURBANFIELD_H
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
-#include "AssetGeneration.h"
+#include "../../assets/SynchronousAssetGeneration.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -80,8 +80,8 @@ inline std::expected<HeightGrid, std::string> LoadHeightGrid(const Request &requ
   const auto key = Sha256Hex("native-urban-control-1\n" + request.SourceSha256);
   auto cache = AssetCache::Open(request.Database);
   if (!cache) { return std::unexpected("asset database does not open"); }
-  const auto loaded = ResolveAsset(
-      **cache, key, kBytes, [&](size_t) -> std::expected<GeneratedAssetPackage, std::string> {
+  const auto loaded = Experiments::ResolveAsset(
+      **cache, key, kBytes, [&](size_t) -> std::expected<AssetPackage, std::string> {
         auto bytes = EncodeInput(request);
         if (!bytes) { return std::unexpected(bytes.error()); }
         BinaryValueReader reader(*bytes);
@@ -92,7 +92,7 @@ inline std::expected<HeightGrid, std::string> LoadHeightGrid(const Request &requ
           return std::unexpected("cold native field is invalid");
         }
         const auto top = std::ranges::max(field.HeightsM);
-        GeneratedAssetPackage package;
+        AssetPackage package;
         package.Records.push_back(
             {.Key = key,
              .Kind = "urban-patch-control",

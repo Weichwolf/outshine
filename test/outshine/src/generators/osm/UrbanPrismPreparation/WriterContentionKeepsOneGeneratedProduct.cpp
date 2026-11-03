@@ -36,7 +36,7 @@ int main() {
   const UrbanPrismPreparation::Capture capture =
       [&](const std::stop_token &) -> std::optional<UrbanPrismPreparation::Captured> {
     ++captures;
-    return AssetFactory{[&](size_t most) {
+    return AssetPackageFactory{[&](size_t most) {
       ++generations;
       return PackageUrbanPrisms(Fixture::Product(), request, {.BytesMost = most});
     }};
