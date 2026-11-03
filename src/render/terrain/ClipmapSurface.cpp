@@ -1,6 +1,7 @@
 #include "ClipmapSurface.h"
 #include "ClipmapHeightUpload.h"
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -127,12 +128,26 @@ Native::Result<void> ClipmapSurface::Publish(const ClipmapHeightUpdate &heights,
 
 Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   if (View_ == view && !Rings_.empty()) { return {}; }
-  auto rings = MakeClipmapRings(Heights_, NormalHeights_, view);
+  const auto origin = Heights_.Origin(0);
+  if (!origin) { return std::unexpected(Invalid("clipmap height window is unpublished")); }
+  Vec2 focus;
+  const auto &grid = Heights_.Grid();
+  const double reach = (grid.HalfCells - 2) * grid.CellM;
+  for (size_t axis = 0; axis < 2; ++axis) {
+    focus[axis] = static_cast<double>((*origin)[axis] + grid.HalfCells + 1) * grid.CellM;
+    if (!std::isfinite(view.Camera[axis]) || std::abs(view.Camera[axis] - focus[axis]) > reach) {
+      return std::unexpected(Invalid("camera left the prepared clipmap window"));
+    }
+  }
+  auto sampled = view;
+  sampled.Camera = sampled.PreviousCamera = focus;
+  auto rings = MakeClipmapRings(Heights_, NormalHeights_, sampled);
   if (!rings) { return std::unexpected(Invalid("clipmap fields do not cover the current view")); }
   const auto bytes = std::as_bytes(std::span(*rings));
   if (Rings_.size() == rings->size() &&
       std::memcmp(Rings_.data(), bytes.data(), bytes.size()) == 0) {
     Shift_ = view.Shift;
+    LodFocus_ = focus;
     View_ = view;
     return {};
   }
@@ -148,6 +163,7 @@ Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   RingBuffer_ = std::move(*upload);
   Rings_ = std::move(*rings);
   Shift_ = view.Shift;
+  LodFocus_ = focus;
   View_ = view;
   return {};
 }

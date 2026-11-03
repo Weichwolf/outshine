@@ -36,7 +36,7 @@ Native::Result<void> TerrainRenderer::PrepareClipmaps(const FrameContext &ctx,
                                               .PreviousShift = previous});
     if (prepared) {
       Path_ = Path::Clipmap;
-      const Vec2 camera{{-current[0], current[2]}};
+      const Vec2 &camera = Clipmaps_->LodFocus();
       if (previousPath != Path_ || ClipmapGeneration_ != Clipmaps_->Generation() ||
           ClipmapCamera_ != camera) {
         ++DrawRevision_;

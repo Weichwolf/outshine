@@ -95,7 +95,7 @@ TerrainClipmapPreparation::Advance(Vec2 camera, TerrainClipmapAdmission admissio
 }
 
 bool TerrainClipmapPreparation::Ready() const noexcept {
-  return !Heights_ && !Normals_ && Surface_->Complete();
+  return Surface_->Complete();
 }
 
 size_t TerrainClipmapPreparation::HeapBytes() const noexcept {

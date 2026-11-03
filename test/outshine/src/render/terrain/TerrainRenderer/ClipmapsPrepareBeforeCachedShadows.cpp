@@ -58,7 +58,13 @@ int main() {
         "camera rotation and vertical translation preserve world geometry and update its frame");
   frame.PreViewTranslation[0] = -0.6;
   Require(ground.PrepareClipmaps(frame, {}));
+  CHECK(ground.Generation() == prepared,
+        "camera motion preserves the accepted LOD surface until replacement fields are published");
+  const auto nextHeights = Samples(surface->Heights(), {{2.5, 0.5}});
+  const auto nextNormals = Samples(surface->NormalHeights(), {{2.5, 0.5}});
+  Require(surface->Publish(nextHeights, nextNormals, kBytes));
+  Require(ground.PrepareClipmaps(frame, {}));
   CHECK(ground.Generation() != prepared,
-        "changed morph geometry invalidates shadows before raster selection");
+        "changed published geometry invalidates shadows before raster selection");
   return Report();
 }

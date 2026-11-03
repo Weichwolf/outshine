@@ -33,6 +33,8 @@ public:
 
   [[nodiscard]] const Vec3 &Shift() const noexcept { return Shift_; }
 
+  [[nodiscard]] const Vec2 &LodFocus() const noexcept { return LodFocus_; }
+
 private:
   ClipmapSurface(Native::Device &device, ClipmapHeightCache heights, ClipmapHeightCache normals);
   [[nodiscard]] Native::Result<void> Allocate();
@@ -44,6 +46,7 @@ private:
   ClipmapNormalPass NormalPass_;
   std::vector<ClipmapRing> Rings_;
   Vec3 Shift_{};
+  Vec2 LodFocus_{};
   uint64_t Generation_ = 0;
   std::optional<ClipmapView> View_;
 };
