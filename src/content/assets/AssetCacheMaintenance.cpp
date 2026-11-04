@@ -2,6 +2,7 @@
 #include "AssetCacheReclamation.h"
 #include <algorithm>
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <filesystem>
 #include <limits>
@@ -43,6 +44,27 @@ std::expected<int64_t, AssetCacheError> Scalar(sqlite3 *db, const char *sql) {
   const int code = sqlite3_step(statement.Value);
   if (code != SQLITE_ROW) { return std::unexpected(AssetSql::Error(code)); }
   return sqlite3_column_int64(statement.Value, 0);
+}
+
+std::expected<uint64_t, AssetCacheError> PublicationGrowth(sqlite3 *db, size_t bytes) {
+  if (bytes == 0) { return kMetadataGrowthAllowance; }
+  const auto page = Scalar(db, "PRAGMA page_size");
+  if (!page) { return std::unexpected(page.error()); }
+  if (*page < 512 || std::cmp_greater(*page, kMaximumSqlitePageBytes)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  constexpr uint64_t kOverflowLinkBytes = 4;
+  constexpr uint64_t kWalFrameHeaderBytes = 24;
+  constexpr uint64_t kWalHeaderBytes = 32;
+  const auto pageBytes = static_cast<uint64_t>(*page);
+  const auto payload = pageBytes - kOverflowLinkBytes;
+  const uint64_t pages = bytes / payload + static_cast<uint64_t>(bytes % payload != 0) + 1;
+  const uint64_t frame = pageBytes + kWalFrameHeaderBytes;
+  const auto maximum = (std::numeric_limits<uint64_t>::max() - kMetadataGrowthAllowance) / 2;
+  if (pages > (maximum - kWalHeaderBytes) / frame) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  return 2 * (kWalHeaderBytes + pages * frame) + kMetadataGrowthAllowance;
 }
 
 std::expected<void, AssetCacheError> Checkpoint(sqlite3 *db) {
@@ -205,17 +227,24 @@ std::expected<void, AssetCacheError> AssetCache::State::Reclaim(uint64_t require
   return {};
 }
 
-std::expected<void, AssetCacheError> AssetCache::State::BeginWrite() const {
+std::expected<void, AssetCacheError> AssetCache::State::BeginWrite(size_t payloadBytes) const {
+  const auto growth = PublicationGrowth(Database, payloadBytes);
+  if (!growth) { return std::unexpected(growth.error()); }
+  const uint64_t required =
+      *growth <= Budget->Limit() - Budget->Reserve() ? *growth : kMetadataGrowthAllowance;
   auto usage = Budget->Inspect();
   if (!usage) { return std::unexpected(AssetCacheError::Storage); }
-  if (!Fits(*usage, *Budget, kMetadataGrowthAllowance)) {
-    const auto reclaimed = Reclaim(kMetadataGrowthAllowance);
-    if (!reclaimed) { return reclaimed; }
+  if (!Fits(*usage, *Budget, required)) {
+    const auto reclaimed = Reclaim(required);
+    if (!reclaimed) {
+      if (payloadBytes != 0 && reclaimed.error() == AssetCacheError::CapacityExceeded) {
+        return BeginWrite();
+      }
+      return reclaimed;
+    }
     usage = Budget->Inspect();
     if (!usage) { return std::unexpected(AssetCacheError::Storage); }
-    if (!Fits(*usage, *Budget, kMetadataGrowthAllowance)) {
-      return std::unexpected(AssetCacheError::Busy);
-    }
+    if (!Fits(*usage, *Budget, required)) { return std::unexpected(AssetCacheError::Busy); }
   }
   return AssetSql::Exec(Database, "BEGIN IMMEDIATE");
 }

@@ -297,7 +297,7 @@ StoreUsage(sqlite3 *database, std::string_view key, size_t bytes) {
 
 std::expected<void, AssetCacheError>
 AssetCache::State::StorePublication(const AssetCache::Publication &publication) {
-  auto began = BeginWrite();
+  auto began = BeginWrite(publication.Bytes.size());
   if (!began) { return began; }
   Transaction transaction(Database);
   const auto stored = StorePackage(Database,

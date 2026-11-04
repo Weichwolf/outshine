@@ -6,6 +6,7 @@
 #include "SqliteFileBudget.h"
 #include "JobAdmission.h"
 #include <atomic>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <sqlite3.h>
@@ -30,7 +31,8 @@ struct AssetCache::State {
   void Observe(std::string_view key, uint64_t storedBytes, bool published = false);
   void WarnUsage();
   [[nodiscard]] std::expected<void, AssetCacheError> Reclaim(uint64_t required = 0) const;
-  [[nodiscard]] std::expected<void, AssetCacheError> BeginWrite() const;
+  // Payload estimates guide reclamation; the VFS enforces the physical quota.
+  [[nodiscard]] std::expected<void, AssetCacheError> BeginWrite(size_t payloadBytes = 0) const;
   [[nodiscard]] std::expected<void, AssetCacheError>
   StorePublication(const AssetCache::Publication &publication);
   ~State();
