@@ -442,6 +442,7 @@ void MetadataBindings(const Fixture &fixture, const BuildingFieldRequest::Produc
   BuildingImpostorSource::Recipe recipe{
       .BaseKey = source.BaseKey,
       .Cells = {},
+      .Sources = {},
       .Frame = {.Axes =
                     EnuAxesEcef({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}),
                 .Origin = {}},

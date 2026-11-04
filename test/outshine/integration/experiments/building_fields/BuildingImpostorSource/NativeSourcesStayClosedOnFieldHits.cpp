@@ -57,6 +57,7 @@ Generators::RawTile Inputs() {
 BuildingImpostorSource::Recipe Recipe(const std::string &baseKey) {
   return {.BaseKey = baseKey,
           .Cells = {1},
+          .Sources = {},
           .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}),
                     .Origin = {{3, 4, 5}}},
           .Directions = {{{0, 0, -1}}},
@@ -69,6 +70,16 @@ void Keys(const BuildingImpostorSource::Recipe &recipe) {
   auto reordered = recipe;
   reordered.Cells = {1, 1};
   CHECK(reordered.Key() == recipe.Key(), "cell ordering and duplicates are not source variation");
+  auto group = recipe;
+  group.Cells.clear();
+  group.Sources = {1, 0, 1};
+  const auto groupKey = group.Key();
+  CHECK(!groupKey.empty() && groupKey != recipe.Key(),
+        "source-group ordinals and cell ids occupy distinct cache identities");
+  group.Sources = {0, 1};
+  CHECK(group.Key() == groupKey, "group order and duplicates preserve canonical identity");
+  group.Cells = {1};
+  CHECK(group.Key().empty(), "a recipe cannot mix cells and explicit source groups");
   auto changed = recipe;
   changed.WallRoofMetreMaterials[0].Roughness = .5f;
   CHECK(changed.Key() != recipe.Key(), "actual PBR inputs are part of the raw-source identity");
@@ -380,6 +391,76 @@ void Run(const std::filesystem::path &root, const std::string &executable) {
   }
 }
 
+void Groups(const std::filesystem::path &root) {
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
+  const Data::SourceSet sources(store);
+  auto assets = Generators::PreparedBuildingAssets::Open(
+      outshine::Test::OpenAssetStore((root / "buildings").string()), sources);
+  CHECK(assets, "the grouped native source store opens");
+  if (!assets) { return; }
+  auto raw = Inputs();
+  const auto first = raw.LatLon;
+  for (size_t point = 0; point < first.size(); point += 2) {
+    raw.LatLon.push_back(first[point]);
+    raw.LatLon.push_back(first[point + 1] + 0.002);
+  }
+  auto second = raw.Structures.front();
+  second.LocalFirst = second.SourceFirst = 4;
+  second.HeightM = 90;
+  raw.Structures.push_back(second);
+  Ground::HeightField::Block block;
+  block.At = {.Zoom = 0, .X = 0, .Y = 0};
+  block.Raster = {.Side = 2, .Postings = 2};
+  block.Nodes = {100, 100, 100, 100};
+  const auto heights = Ground::HeightField::Of(0, {block});
+  CHECK(heights, "the grouped source has constant terrain");
+  if (!heights) { return; }
+  const auto key = (*assets)->Key({.Zoom = 0, .X = 0, .Y = 0}, 0, {}, 1000, std::string(64, 'b'));
+  const std::atomic_bool stop{false};
+  const auto base = (*assets)->Generate(key, raw, *heights, stop);
+  CHECK(base && *base && (*base)->Structures.size() == 2,
+        "two separated buildings in the same cell prepare as one immutable source");
+  if (!base || !*base) { return; }
+  auto database = AssetCache::Open((root / "views.sqlite").string());
+  CHECK(database, "the group field store opens");
+  if (!database) { return; }
+  const std::shared_ptr<AssetCache> cache(std::move(*database));
+  auto wholeRecipe = Recipe(key);
+  auto groupRecipe = wholeRecipe;
+  groupRecipe.Cells.clear();
+  groupRecipe.Sources = {0};
+  const auto group = std::make_shared<BuildingImpostorSource>(groupRecipe, *assets);
+  auto secondRecipe = groupRecipe;
+  secondRecipe.Sources = {1};
+  const auto neighbor = std::make_shared<BuildingImpostorSource>(secondRecipe, *assets);
+  const auto before = (*assets)->Costs();
+  auto metadata = Metadata(cache, group);
+  auto other = Metadata(cache, neighbor);
+  CHECK(metadata && other && (*assets)->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
+        "both subgroup bounds resolve without opening their shared form block");
+  if (!metadata || !other) { return; }
+  CHECK(group->Provenance() != neighbor->Provenance() &&
+            Length(metadata->Metadata().Centre - other->Metadata().Centre) > 100 &&
+            metadata->Metadata().HalfExtentM < other->Metadata().HalfExtentM,
+        "capture centers and extents describe their own source group rather than the cell");
+  const Generators::BuildingSourceBudget one{
+      .Samples = 1024, .Sources = 1, .Faces = 1000, .TriangleAttempts = 100000};
+  BuildingImpostorSource whole(std::move(wholeRecipe), *assets);
+  CHECK(!whole.Generate({0}, kBytes, one),
+        "the two-source whole cell cannot pass a one-source generation budget");
+  CHECK(group->Generate({0}, kBytes, one) && neighbor->Generate({0}, kBytes, one),
+        "each subgroup generates its field within the one-source budget");
+  const auto cold = Resolve(cache, *metadata, group, 1);
+  const auto offline = std::make_shared<BuildingImpostorSource>(groupRecipe, nullptr);
+  const auto warm = Metadata(cache, offline);
+  CHECK(warm, "subgroup metadata restores without a building source store");
+  if (warm) {
+    const auto field = Resolve(cache, *warm, offline, 0);
+    CHECK(cold && field && *cold == *field,
+          "the source-free group cache returns its own complete coupled material field");
+  }
+}
+
 void Partial(const std::filesystem::path &root, std::string_view index) {
   const auto bytes = ReadTextFile(index, size_t{64} * 1024 * 1024);
   CHECK(bytes.has_value(), "the explicitly requested original index is readable");
@@ -418,12 +499,21 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
   BuildingImpostorSource::Recipe recipe{
       .BaseKey = key,
       .Cells = {},
+      .Sources = {},
       .Frame = {.Axes = {.East = {{1, 0, 0}}, .North = {{0, 1, 0}}, .Up = {{0, 0, 1}}},
                 .Origin = {}},
       .Directions = {{{0, 0, 1}}},
       .WallRoofMetreMaterials = {},
       .Pixels = 32};
   for (uint32_t cell = 1; cell <= 64; ++cell) { recipe.Cells.push_back(cell); }
+  auto groupRecipe = recipe;
+  groupRecipe.Cells.clear();
+  const auto supported = std::ranges::find_if(base->Surfaces, [](const auto &surface) {
+    return surface.FaceCount() != 0 && !surface.Bounds().Empty();
+  });
+  CHECK(supported != base->Surfaces.end(), "the real source has a supported subgroup");
+  if (supported == base->Surfaces.end()) { return; }
+  groupRecipe.Sources = {static_cast<uint32_t>(supported - base->Surfaces.begin())};
   BuildingImpostorSource source(std::move(recipe), *assets);
   const auto metadata = source.ResolveMetadata(**cache);
   CHECK(!metadata && metadata.error().contains("unsupported building source ordinal"),
@@ -432,6 +522,12 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
         "incomplete source rejection requires no form loading or generation");
   const auto absent = Experiments::ImpostorViewAssets::Open(**cache, source.Provenance());
   CHECK(absent && !*absent, "an incomplete original set publishes no replacement metadata");
+  BuildingImpostorSource group(std::move(groupRecipe), *assets);
+  const auto grouped = group.ResolveMetadata(**cache);
+  CHECK(grouped && group.Provenance() != source.Provenance(),
+        "a complete real subgroup publishes its own metadata despite unresolved neighbors");
+  CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,
+        "real subgroup metadata requires neither form reads nor source regeneration");
 }
 
 }
@@ -451,6 +547,7 @@ int main(int argc, char *const *argv) {
     Partial(root, argv[1]);
   } else {
     Run(root, std::filesystem::absolute(argv[0]).string());
+    Groups(root / "groups");
   }
   std::filesystem::remove_all(root);
   SDL_Quit();

@@ -35,6 +35,7 @@ BuildingImpostorSource::Recipe RecipeOf(const BuildingSourceDemand::Source &sour
                                         const BuildingFieldRequest::Demand &demand) {
   BuildingImpostorSource::Recipe recipe{.BaseKey = source.BaseKey,
                                         .Cells = {},
+                                        .Sources = {},
                                         .Frame = FrameOf(source.AnchorEcef),
                                         .Directions = demand.Directions,
                                         .WallRoofMetreMaterials =

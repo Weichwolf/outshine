@@ -19,6 +19,7 @@ public:
   struct Recipe {
     std::string BaseKey;
     std::vector<uint32_t> Cells;
+    std::vector<uint32_t> Sources;
     Generators::BuildingCaptureFrame Frame;
     std::vector<Vec3> Directions;
     std::array<Material, 3> WallRoofMetreMaterials;

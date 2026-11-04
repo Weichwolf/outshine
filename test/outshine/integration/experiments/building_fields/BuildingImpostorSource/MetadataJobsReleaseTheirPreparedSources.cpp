@@ -65,6 +65,7 @@ void Run(const std::filesystem::path &root) {
   const BuildingImpostorSource::Recipe recipe{
       .BaseKey = key,
       .Cells = {1},
+      .Sources = {},
       .Frame = {.Axes = EnuAxesEcef({.LongitudeDeg = 16, .LatitudeDeg = 48}), .Origin = {}},
       .Directions = {{{0, 0, -1}}},
       .WallRoofMetreMaterials = Generators::BuildingSurfaceMaterials(),

@@ -20,7 +20,10 @@ std::expected<Generators::BuildingSourceView, std::string> BuildingImpostorSourc
   }
   const auto base = Assets_->Load(Recipe_.BaseKey);
   if (!base || !*base) { return std::unexpected("prepared building source unavailable"); }
-  auto source = Generators::BuildingSourceView::Open(*base, Recipe_.Cells, Recipe_.Frame);
+  auto source =
+      Recipe_.Sources.empty()
+          ? Generators::BuildingSourceView::Open(*base, Recipe_.Cells, Recipe_.Frame)
+          : Generators::BuildingSourceView::OpenSources(*base, Recipe_.Sources, Recipe_.Frame);
   if (!source) { return std::unexpected(source.error().Message); }
   if (!source->Unsupported().empty()) {
     return std::unexpected("unsupported building source ordinal " +

@@ -51,6 +51,12 @@ public:
        std::span<const uint32_t> cells,
        BuildingCaptureFrame frame);
 
+  // Stable prepared-source ordinals; selection does not open lazy form blocks.
+  [[nodiscard]] static std::expected<BuildingSourceView, Error>
+  OpenSources(std::shared_ptr<const PreparedStructureTile> base,
+              std::span<const uint32_t> sources,
+              BuildingCaptureFrame frame);
+
   [[nodiscard]] const Box &Bounds() const noexcept { return Bounds_; }
 
   [[nodiscard]] const Vec3 &AnchorEcef() const noexcept { return Base_->AnchorEcef; }

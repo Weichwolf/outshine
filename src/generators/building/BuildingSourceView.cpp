@@ -58,11 +58,35 @@ BuildingSourceView::Open(std::shared_ptr<const PreparedStructureTile> base,
     return std::unexpected(Error{.Message = "invalid building source view inputs"});
   }
   const std::unordered_set<uint32_t> selected(cells.begin(), cells.end());
+  std::vector<uint32_t> sources;
+  for (size_t at = 0; at < base->Surfaces.size(); ++at) {
+    if (selected.contains(base->Structures[at].Layout.Cell.Index)) {
+      sources.push_back(static_cast<uint32_t>(at));
+    }
+  }
+  return OpenSources(std::move(base), sources, frame);
+}
+
+std::expected<BuildingSourceView, BuildingSourceView::Error>
+BuildingSourceView::OpenSources(std::shared_ptr<const PreparedStructureTile> base,
+                                std::span<const uint32_t> sources,
+                                BuildingCaptureFrame frame) {
+  if (!base || base->Structures.size() != base->Surfaces.size() || sources.empty() ||
+      base->Surfaces.size() > std::numeric_limits<uint32_t>::max() || !frame.Valid()) {
+    return std::unexpected(Error{.Message = "invalid building source group inputs"});
+  }
+  std::vector<uint32_t> selected(sources.begin(), sources.end());
+  std::ranges::sort(selected);
+  const auto duplicates = std::ranges::unique(selected);
+  selected.erase(duplicates.begin(), duplicates.end());
+  if (selected.back() >= base->Surfaces.size()) {
+    return std::unexpected(Error{.Source = selected.back(),
+                                 .Message = "building source ordinal outside prepared inputs"});
+  }
   std::vector<uint32_t> ordinals;
   std::vector<uint32_t> unsupported;
   Box bounds;
-  for (size_t at = 0; at < base->Surfaces.size(); ++at) {
-    if (!selected.contains(base->Structures[at].Layout.Cell.Index)) { continue; }
+  for (const uint32_t at : selected) {
     const auto &source = base->Surfaces[at];
     if (source.FaceCount() == 0 || source.Bounds().Empty()) {
       unsupported.push_back(static_cast<uint32_t>(at));

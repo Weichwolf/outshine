@@ -161,6 +161,32 @@ std::vector<Triangle> Triangles(const Geometry &geometry) {
   return output;
 }
 
+void SourceGroups() {
+  const auto fixture = Make(Availability::Ready);
+  if (!fixture) { return; }
+  const std::array<uint32_t, 2> selected{1, 1};
+  auto group = BuildingSourceView::OpenSources(fixture->Base, selected, fixture->Frame);
+  CHECK(group && *fixture->Reads == 0, "source-group selection opens no lazy form block");
+  if (!group) { return; }
+  CHECK(group->Sources().size() == 1 && group->Sources()[0] == 1 && group->Unsupported().empty(),
+        "a supported subgroup excludes the unsupported source in the same cell");
+  const std::array<uint32_t, 3> mixed{1, 0, 1};
+  const auto whole = BuildingSourceView::OpenSources(fixture->Base, mixed, fixture->Frame);
+  CHECK(whole && whole->Sources().size() == 1 && whole->Unsupported().size() == 1 &&
+            whole->Unsupported()[0] == 0 && *fixture->Reads == 0,
+        "canonical groups keep unresolved ordinals explicit without form IO");
+  const std::array<uint32_t, 1> outside{2};
+  const auto invalid = BuildingSourceView::OpenSources(fixture->Base, outside, fixture->Frame);
+  CHECK(!invalid && invalid.error().Source == 2 && *fixture->Reads == 0,
+        "an out-of-range source fails before lazy forms are touched");
+  CHECK(!BuildingSourceView::OpenSources(fixture->Base, {}, fixture->Frame),
+        "an empty group cannot silently mean the complete cell");
+  const auto mesh = group->Originals({.Sources = 1, .Faces = 1000, .TriangleAttempts = 10000},
+                                     BuildingSurfaceMaterials());
+  CHECK(mesh && mesh->parts() > 0 && *fixture->Reads == 1,
+        "the subgroup generates one original without admitting its unresolved neighbor");
+}
+
 void Originals(Availability availability) {
   auto fixture = Make(availability);
   if (!fixture) { return; }
@@ -336,6 +362,7 @@ void MixedColours(bool paintedFirst) {
 
 int main() {
   HeadersAndLifetime();
+  SourceGroups();
   Originals(Availability::Ready);
   Originals(Availability::Missing);
   ExhaustedBudgetPrecedesNextLoad();

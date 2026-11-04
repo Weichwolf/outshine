@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <limits>
 #include <string>
 #include <vector>
 #include <utility>
@@ -70,23 +71,28 @@ bool WriteCapture(BinaryValueWriter &out, const BuildingImpostorSource::Recipe &
 }
 
 std::string BuildingImpostorSource::Recipe::Key() const {
-  if (!AssetProductKey::Parse(BaseKey) || Cells.empty() || Cells.size() > 64 || !Frame.Valid() ||
+  const bool group = !Sources.empty();
+  constexpr size_t sourcesMost =
+      std::min<size_t>(std::numeric_limits<uint32_t>::max(),
+                       (std::numeric_limits<size_t>::max() - kRecipeBytesMost) / sizeof(uint32_t));
+  if (!AssetProductKey::Parse(BaseKey) || Cells.empty() == Sources.empty() || Cells.size() > 64 ||
+      Sources.size() > sourcesMost || !Frame.Valid() ||
       !ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(Pixels), .Views = 1})) {
     return {};
   }
   const auto materials = Materials(WallRoofMetreMaterials);
   if (!materials) { return {}; }
-  auto cells = Cells;
-  std::ranges::sort(cells);
-  const auto duplicates = std::ranges::unique(cells);
-  cells.erase(duplicates.begin(), duplicates.end());
-  BinaryValueWriter out(kRecipeBytesMost);
-  if (!out.Text("building-complete-original-view-4") || !out.Text(BaseKey) ||
-      !out(Pixels, static_cast<uint32_t>(cells.size()))) {
+  auto selected = group ? Sources : Cells;
+  std::ranges::sort(selected);
+  const auto duplicates = std::ranges::unique(selected);
+  selected.erase(duplicates.begin(), duplicates.end());
+  BinaryValueWriter out(kRecipeBytesMost + selected.size() * sizeof(uint32_t));
+  if (!out.Text(group ? "building-source-group-view-1" : "building-complete-original-view-4") ||
+      !out.Text(BaseKey) || !out(Pixels, static_cast<uint32_t>(selected.size()))) {
     return {};
   }
-  for (const auto cell : cells) {
-    if (cell == 0 || cell > 64 || !out(cell)) { return {}; }
+  for (const auto identity : selected) {
+    if ((!group && (identity == 0 || identity > 64)) || !out(identity)) { return {}; }
   }
   if (!WriteCapture(out, *this) || !out(static_cast<uint64_t>(materials->size())) ||
       !out.Out.Put(*materials)) {
