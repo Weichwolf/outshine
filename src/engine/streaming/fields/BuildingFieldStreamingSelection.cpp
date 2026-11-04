@@ -177,8 +177,6 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   tile.CandidateProducts.assign(candidateKeys.begin(), candidateKeys.end());
   tile.Active = active;
   tile.ActiveGroups = selected.ActiveGroups;
-  tile.SelectedKey = tile.SourceKey;
-  tile.SelectedCoverage = mask;
   return true;
 }
 }

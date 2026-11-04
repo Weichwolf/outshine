@@ -65,7 +65,7 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string> MainProducts, ShadowProducts;
     std::vector<std::string> CandidateProducts;
     size_t ActiveGroups = 0;
-    uint64_t Active = 0, SelectedKey = 0, SelectedCoverage = 0;
+    uint64_t Active = 0;
   };
 
   struct OriginalProduct {
