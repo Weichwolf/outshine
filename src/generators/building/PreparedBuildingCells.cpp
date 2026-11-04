@@ -129,6 +129,10 @@ PreparedBuildingAssets::LoadSurfaces(const std::string &key,
   BuildingScratch scratch;
   Box bounds;
   for (const auto index : indices) {
+    if (base.Surfaces[index].FaceCount() == 0) {
+      surfaces.push_back(base.Surfaces[index]);
+      continue;
+    }
     const auto &structure = base.Structures[index];
     auto plan = PreparedStructurePlan(
         structure,

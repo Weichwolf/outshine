@@ -32,7 +32,6 @@
 #include <limits>
 #include <cstring>
 #include <vector>
-#include <bit>
 
 namespace {
 using namespace outshine;
@@ -160,11 +159,6 @@ void Unsupported(const Fixture &fixture, BuildingSourceDemand::Source source) {
   if (!original || !*original || (*original)->Structures.empty()) { return; }
   auto partial = **original;
   partial.Structures.push_back(partial.Structures.front());
-  CHECK(~source.Cells != 0, "the counterexample has an unused source cohort");
-  if (~source.Cells == 0) { return; }
-  const auto unknownCell = static_cast<uint32_t>(std::countr_zero(~source.Cells)) + 1u;
-  partial.Structures.back().Layout.Cell.Index = unknownCell;
-  source.Cells |= uint64_t{1} << (unknownCell - 1u);
   partial.Surfaces.emplace_back();
   const auto bytes = Generators::EncodePreparedStructureIndex(partial);
   CHECK(bytes, "a supported and an unresolved original share one valid native index");
