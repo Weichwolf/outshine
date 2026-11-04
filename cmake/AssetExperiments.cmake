@@ -18,6 +18,10 @@ add_executable(outshine_experiment_source_geometry EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/render/source_geometry_control.cpp")
 target_link_libraries(outshine_experiment_source_geometry PRIVATE outshine_engine)
 
+add_executable(outshine_experiment_source_inputs EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/source_product_inputs.cpp")
+target_link_libraries(outshine_experiment_source_inputs PRIVATE outshine_generators_building)
+
 add_executable(outshine_experiment_building_geometry_cache EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/render/building_geometry_cache.cpp")
 target_link_libraries(outshine_experiment_building_geometry_cache PRIVATE outshine_engine)
@@ -32,6 +36,6 @@ target_link_libraries(outshine_experiment_building_geometry_asset PRIVATE outshi
 
 foreach(probe IN ITEMS outshine_experiment_urban_bake outshine_experiment_plant_prepare
     outshine_experiment_urban_control outshine_experiment_source_geometry outshine_experiment_building_geometry_cache
-    outshine_experiment_source_group_bake outshine_experiment_building_geometry_asset)
+    outshine_experiment_source_group_bake outshine_experiment_building_geometry_asset outshine_experiment_source_inputs)
   target_compile_options(${probe} PRIVATE -fno-exceptions)
 endforeach()

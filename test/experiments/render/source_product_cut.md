@@ -31,26 +31,13 @@ selection here; dense cities can still request excessive hidden field payloads.
 
 ## Reproduce
 
-Build the normal native library first. Compile the thin exporter with the current
-CMake compiler and flags; no additional library or native build target is needed:
+Build the metadata exporter through its CMake target:
 
 ```sh
-python3 - <<'PY'
-import json, shlex, subprocess
-from pathlib import Path
-rows = json.loads(Path('build/compile_commands.json').read_text())
-row = next(r for r in rows if r['file'].endswith('/src/app/Main.cpp'))
-compiler = (row.get('arguments') or shlex.split(row['command']))[0]
-def flags(kind):
-    return shlex.split(subprocess.check_output(
-        ['sh', 'test/run.sh', '--native-' + kind + '-flags'], text=True))
-subprocess.run([compiler, *flags('compile'), '-fno-exceptions',
-    'test/experiments/render/source_product_inputs.cpp', 'build/liboutshine.a',
-    *flags('link'), '-o', '/tmp/outshine-source-product-inputs'], check=True)
-PY
+cmake --build build --target outshine_experiment_source_inputs --parallel
 PYTHONPATH=test/experiments/render python3 -m unittest -q test_source_product_cut
 python3 test/experiments/render/compare_source_product_cut.py \
-  --exporter /tmp/outshine-source-product-inputs \
+  --exporter build/outshine_experiment_source_inputs \
   --database build/assets/assets.sqlite --base-key "$BASE_KEY" \
   --eye "$ECEF_X" "$ECEF_Y" "$ECEF_Z" --focal-px 1000 \
   --output /tmp/outshine-source-product-study
