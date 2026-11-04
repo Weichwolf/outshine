@@ -13,6 +13,7 @@
 #include "ReadTextFile.h"
 #include "Sha256.h"
 #include "PreparedStructureCodec.h"
+#include "PageIndexAsset.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -23,12 +24,15 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <print>
+#include <ratio>
 #include <span>
 #include <stop_token>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 #include <SDL3/SDL.h>
 
 namespace {
@@ -421,6 +425,23 @@ void Groups(const std::filesystem::path &root) {
   CHECK(base && *base && (*base)->Structures.size() == 2,
         "two separated buildings in the same cell prepare as one immutable source");
   if (!base || !*base) { return; }
+  const auto indexBytes = PageIndexAsset::EncodedBytes((*base)->Structures.size());
+  CHECK(indexBytes, "the grouped source index reservation is derived from its source count");
+  if (!indexBytes) { return; }
+  const auto index = (*assets)->ResolveSourceIndex(key, *indexBytes);
+  CHECK(index && *index, "source-group selection has a persisted metadata hierarchy");
+  if (!index || !*index) { return; }
+  std::vector<std::vector<uint32_t>> groups;
+  CHECK((*index)->Hierarchy.SelectNodesNearFirst(
+            raw.AnchorEcef + (*base)->Surfaces[0].Bounds().Middle(),
+            [](const auto &node) { return node.Count == 1; },
+            [&](const auto &node) {
+              const auto members = (*index)->Hierarchy.Members(node);
+              groups.emplace_back(members.begin(), members.end());
+            }) &&
+            groups.size() == 2,
+        "the stored hierarchy selects both complete source groups before form IO");
+  if (groups.size() != 2) { return; }
   auto database = AssetCache::Open((root / "views.sqlite").string());
   CHECK(database, "the group field store opens");
   if (!database) { return; }
@@ -428,10 +449,10 @@ void Groups(const std::filesystem::path &root) {
   auto wholeRecipe = Recipe(key);
   auto groupRecipe = wholeRecipe;
   groupRecipe.Cells.clear();
-  groupRecipe.Sources = {0};
+  groupRecipe.Sources = groups[0];
   const auto group = std::make_shared<BuildingImpostorSource>(groupRecipe, *assets);
   auto secondRecipe = groupRecipe;
-  secondRecipe.Sources = {1};
+  secondRecipe.Sources = groups[1];
   const auto neighbor = std::make_shared<BuildingImpostorSource>(secondRecipe, *assets);
   const auto before = (*assets)->Costs();
   auto metadata = Metadata(cache, group);
@@ -459,6 +480,39 @@ void Groups(const std::filesystem::path &root) {
     CHECK(cold && field && *cold == *field,
           "the source-free group cache returns its own complete coupled material field");
   }
+}
+
+void CheckSourceIndex(Generators::PreparedBuildingAssets &assets,
+                      const std::string &key,
+                      size_t sources) {
+  const auto bytes = PageIndexAsset::EncodedBytes(sources);
+  CHECK(bytes, "the real source hierarchy reservation follows its source count");
+  if (!bytes) { return; }
+  const auto before = assets.Costs();
+  const auto began = std::chrono::steady_clock::now();
+  const auto cold = assets.ResolveSourceIndex(key, *bytes);
+  const auto storedAt = std::chrono::steady_clock::now();
+  const auto stored = assets.Costs();
+  const auto warm = assets.ResolveSourceIndex(key, *bytes);
+  const auto finishedAt = std::chrono::steady_clock::now();
+  CHECK(cold && *cold && (*cold)->From == PageIndexAsset::Origin::Created &&
+            (*cold)->Hierarchy.SourceOrder().size() == sources && (*cold)->ByteCount == *bytes,
+        "the real hierarchy preserves every supported and unresolved source ordinal");
+  CHECK(warm && *warm && (*warm)->From == PageIndexAsset::Origin::Stored &&
+            (*warm)->Hierarchy.SourceOrder().size() == sources,
+        "the real source tree restores directly from its own cached metadata");
+  CHECK(assets.Costs().ReadBytes == stored.ReadBytes &&
+            assets.Costs().SurfaceReadBytes == before.SurfaceReadBytes &&
+            assets.Costs().GeometryReadBytes == before.GeometryReadBytes,
+        "the real hierarchy hit opens no prepared header, form block or geometry");
+  std::println("SOURCE_INDEX sources={} bytes={} build_ms={:.3f} hit_ms={:.3f} header_bytes={} "
+               "hit_header_bytes={}",
+               sources,
+               *bytes,
+               std::chrono::duration<double, std::milli>(storedAt - began).count(),
+               std::chrono::duration<double, std::milli>(finishedAt - storedAt).count(),
+               stored.ReadBytes - before.ReadBytes,
+               assets.Costs().ReadBytes - stored.ReadBytes);
 }
 
 void Partial(const std::filesystem::path &root, std::string_view index) {
@@ -496,6 +550,7 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
                            .Parent = {}};
   CHECK((*sourceStore)->Publish(std::span(&record, 1), data).has_value(),
         "the original headers enter the native store without form packages");
+  CheckSourceIndex(**assets, key, base->Structures.size());
   BuildingImpostorSource::Recipe recipe{
       .BaseKey = key,
       .Cells = {},
