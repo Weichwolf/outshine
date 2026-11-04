@@ -117,7 +117,7 @@ std::string BuildingGeometrySource::Recipe::Key() const {
   if (!encoded) { return {}; }
   BinaryValueWriter out(std::numeric_limits<size_t>::max());
   const char *const family = Detail == LevelOfDetail::Fine ? "building-native-fine-group-1"
-                                                          : "building-native-shell-group-1";
+                                                           : "building-native-shell-group-1";
   if (!out.Text(family) || !out.Text(BaseKey) || !out(SourceCount) ||
       !out.Array<uint32_t>(sources) || !out.Out.Put(*encoded)) {
     return {};
