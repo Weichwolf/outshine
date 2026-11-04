@@ -6,9 +6,9 @@
 #include <thread>
 
 namespace outshine::Test::BuildingSources {
-inline bool WaitFor(Experiments::BuildingSourceDemand &demand,
+inline bool WaitFor(outshine::BuildingSourceDemand &demand,
                     Fixture &fixture,
-                    Experiments::BuildingSourceDemand::Phase phase) {
+                    outshine::BuildingSourceDemand::Phase phase) {
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
   do {
     (void)demand.Advance(fixture.Queue, fixture.Stack, 1);

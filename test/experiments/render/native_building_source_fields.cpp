@@ -38,7 +38,7 @@
 
 namespace {
 using namespace outshine;
-using namespace outshine::Experiments;
+
 using Json = nlohmann::json;
 namespace Fs = std::filesystem;
 using Clock = std::chrono::steady_clock;

@@ -53,7 +53,7 @@
 
 namespace {
 using namespace outshine;
-using namespace outshine::Experiments;
+
 using Json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 namespace Fs = std::filesystem;
@@ -557,7 +557,7 @@ struct BuildingViewSource {
     return *Producer;
   }
 
-  Experiments::ImpostorViewAssets::Description Description() {
+  outshine::ImpostorViewAssets::Description Description() {
     if (Recipe.is_object()) {
       const auto &source = RequireInputs();
       return {.Centre = source.Projection().Centre,
@@ -566,11 +566,11 @@ struct BuildingViewSource {
               .Directions = source.Metadata().ViewDirections};
     }
     const auto &atlas = Require(0);
-    Experiments::ImpostorViewAssets::Description description{
-        .Centre = atlas.CentreM(),
-        .HalfExtentM = atlas.HalfExtentM(),
-        .Pixels = static_cast<uint32_t>(atlas.Pixels()),
-        .Directions = {}};
+    outshine::ImpostorViewAssets::Description description{.Centre = atlas.CentreM(),
+                                                          .HalfExtentM = atlas.HalfExtentM(),
+                                                          .Pixels =
+                                                              static_cast<uint32_t>(atlas.Pixels()),
+                                                          .Directions = {}};
     for (const auto &view : atlas.Views()) { description.Directions.push_back(view.TowardEye); }
     return description;
   }
@@ -615,8 +615,8 @@ struct BuildingViewJobs {
   std::shared_ptr<BuildingViewSource> Source;
 };
 
-Experiments::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
-  using Experiments::ImpostorViewAssets;
+outshine::ImpostorViewAssets OpenViewAssets(const BuildingViewJobs &jobs, Box bounds) {
+  using outshine::ImpostorViewAssets;
   auto request = ImpostorMetadataRequest::Start(
       jobs.Pipeline,
       jobs.Consumer,
@@ -672,7 +672,7 @@ ResolveProduct(const BuildingViewJobs &jobs, const std::string &key, ImpostorVie
 }
 
 std::shared_ptr<const ImpostorAtlas>
-ResolveSourceField(const Experiments::ImpostorViewAssets &products,
+ResolveSourceField(const outshine::ImpostorViewAssets &products,
                    const BuildingViewJobs &jobs,
                    size_t view,
                    bool &hit) {
@@ -686,7 +686,7 @@ ResolveSourceField(const Experiments::ImpostorViewAssets &products,
       .Product = ImpostorViewJob::MaterialView{
           .Selected = {view},
           .Generate = [source = jobs.Source, pixels = products.Metadata().Pixels, &hit](
-                          Experiments::ImpostorViewAssets::ViewIndex selected,
+                          outshine::ImpostorViewAssets::ViewIndex selected,
                           size_t budget,
                           const std::stop_token &) -> std::expected<ImpostorAtlas, std::string> {
             const auto bound =
@@ -725,7 +725,7 @@ ResolveSourceField(const Experiments::ImpostorViewAssets &products,
 }
 
 struct RadianceRequest {
-  const Experiments::ImpostorViewAssets &Products;
+  const outshine::ImpostorViewAssets &Products;
   const BuildingViewJobs &Jobs;
   size_t View;
   const Json &Query;
@@ -988,8 +988,8 @@ void RadianceViews(const Fs::path &root, const Json &input) {
 }
 
 ImpostorCards ResolveView(const BuildingViewJobs &jobs,
-                          const Experiments::ImpostorViewAssets &products,
-                          Experiments::ImpostorViewAssets::Selection selected,
+                          const outshine::ImpostorViewAssets &products,
+                          outshine::ImpostorViewAssets::Selection selected,
                           size_t limit,
                           bool &hit) {
   const auto key = products.Key(selected);
@@ -1017,7 +1017,7 @@ ImpostorCards ResolveView(const BuildingViewJobs &jobs,
 }
 
 void CachedWorldViews(const Fs::path &root, const Json &input) {
-  using Experiments::ImpostorViewAssets;
+  using outshine::ImpostorViewAssets;
   constexpr size_t limit = size_t{64} * 1024 * 1024;
   const auto openedAt = Clock::now();
   auto opened = AssetCache::Open((root / "world-view-assets.sqlite").string());

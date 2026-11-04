@@ -1,10 +1,10 @@
 # Native complete-source field jobs
 
-`NativeBuildingSourceFields` exercises the experimental `BuildingFieldRequest`: prepared
-native assets → metadata job → selected field job → stored field → held CPU lease.
-The scenario application does not call this chain. Its code lives in
-`building_fields/`, linked only by `test_experiments_building_fields` and native
-studies/tests. It adds no renderer, scheduler, source selector or meshing algorithm.
+`NativeBuildingSourceFields` exercises the native `BuildingFieldRequest`: prepared
+assets → metadata job → selected field job → stored field → held CPU lease.
+Cache/jobs live in `src/content/assets/impostor`; building orchestration lives in
+`src/engine/streaming/fields`. The study adds no scheduler or meshing algorithm.
+World integration and acceptance: #1955.
 
 ```sh
 cmake --build "$native_build" --target test_experiments_render_NativeBuildingSourceFields --parallel

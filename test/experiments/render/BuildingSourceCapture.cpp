@@ -45,7 +45,7 @@
 namespace outshine::Test {
 namespace {
 using namespace outshine;
-using namespace outshine::Experiments;
+
 using namespace outshine::Generators;
 using Json = nlohmann::json;
 namespace Fs = std::filesystem;

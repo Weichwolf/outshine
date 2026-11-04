@@ -1,7 +1,7 @@
 # Whole-field moving-pose geometry
 
-The native BuildingFieldRequest connection discussed below is experimental
-(`building_fields/`); the scenario application does not call it.
+The native `BuildingFieldRequest` lives in `src/engine/streaming/fields`.
+World integration and acceptance: #1955.
 
 Owner: #1821, Parent #1797, native consumer #1570. Python only. This extends
 the #1663 projection identity, using its directed intervals, rather than fitting
@@ -251,7 +251,7 @@ Native check and independent exact rational oracle (Python >=3.10):
 
 ```sh
 sh test/run.sh outshine/src/render/impostor/ImpostorPoseBounds \
-  outshine/integration/experiments/building_fields/BuildingFieldRequest
+  outshine/integration/engine/streaming/fields/BuildingFieldRequest
 python test/experiments/render/native_world_field_pose_oracle.py \
   build/test_outshine_src_render_impostor_ImpostorPoseBounds_WorldFramesPreserveRelativeProjection
 ```

@@ -1,7 +1,7 @@
 # Native building impostors
 
-The view-job/cache chain is experimental (`building_fields/`, CMake target
-`test_experiments_building_fields`). The scenario application does not call it.
+The study uses the native cache/job chain in `src/content/assets/impostor` and
+building orchestration in `src/engine/streaming/fields`. World acceptance: #1955.
 
 Owner/acceptance: #1570/#1127. Original controls: `native_building_cell_controls.md`.
 This diagnostic uses fixed source geometry, capture directions, lighting and queries.

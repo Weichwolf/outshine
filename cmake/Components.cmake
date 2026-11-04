@@ -107,7 +107,7 @@ target_link_libraries(outshine_audio PUBLIC outshine_base)
 target_link_libraries(outshine_app_capture PUBLIC outshine_app_scenario outshine_base outshine_render outshine_engine
   PRIVATE SDL3_image::SDL3_image)
 target_link_libraries(outshine_content PUBLIC outshine_base outshine_content_assets outshine_content_shade outshine_world_products)
-target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage
+target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage outshine_world_products
   PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
 target_link_libraries(outshine_content_shade PUBLIC outshine_base PRIVATE SDL3::SDL3)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
