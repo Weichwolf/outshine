@@ -42,11 +42,7 @@ void TerrainRenderer::ReleasePage(PageId which) {
 Native::Result<void> TerrainRenderer::SetInstances(std::span<const GroundTile> real,
                                                    std::span<const GroundTile> virtual_) {
   auto changed = Resident_->SetInstances(real, virtual_);
-  if (changed) {
-    Clipmaps_.reset();
-    Path_ = Path::Lattice;
-    SyncInputs();
-  }
+  if (changed) { SyncInputs(); }
   return changed;
 }
 

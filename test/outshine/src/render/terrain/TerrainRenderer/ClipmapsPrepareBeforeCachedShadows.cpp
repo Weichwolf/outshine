@@ -48,10 +48,14 @@ int main() {
   Require(ground.PrepareClipmaps(frame, {}));
   CHECK(ground.Generation() != initial && ground.Drawn() == 3,
         "preload selects the new representation before a shadow key is captured");
-  const auto prepared = ground.Generation();
   const auto counts = Require(ground.ReadDrawArguments());
   CHECK(counts.DirectTriangles == surface->Triangles() && counts.SkirtInstances == 0,
         "diagnostics report actual clipmap topology instead of obsolete page draws");
+  Require(ground.SetInstances({}, {}));
+  Require(ground.PrepareClipmaps(frame, {}));
+  CHECK(ground.Triangles() == surface->Triangles() && ground.Drawn() == 3,
+        "legacy page-list updates preserve the independently accepted clipmap surface");
+  const auto prepared = ground.Generation();
   frame.Mvp[0] = 0.5f;
   frame.PreViewTranslation[1] = -4;
   Require(ground.PrepareClipmaps(frame, {}));
