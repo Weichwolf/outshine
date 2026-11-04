@@ -73,6 +73,17 @@ Native::Result<void> MaterialFieldPass::Configure() {
                                          .Message = "material field has no sampling resource"});
   }
   pipelines.Sampling = std::move(*sampler);
+  auto mipSampler = pipelines.Device.CreateSampler({.Min = Native::Filter::Linear,
+                                                    .Mag = Native::Filter::Linear,
+                                                    .Mip = Native::Filter::Linear,
+                                                    .U = Native::Address::ClampToEdge,
+                                                    .V = Native::Address::ClampToEdge});
+  if (!mipSampler) { return std::unexpected(mipSampler.error()); }
+  if (!*mipSampler) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                         .Message = "material field has no mipmap sampler"});
+  }
+  pipelines.MipSampling = std::move(*mipSampler);
   pipelines.Ready = true;
   return {};
 }

@@ -54,8 +54,9 @@ bool ValidMaterialFieldLighting(const MaterialFieldView &view,
     }
     const auto &image = *map.Atlas;
     if (image.Device != &device || !image.Texture || !image.Sampling ||
-        image.Encoding != RadianceEncoding::Texels || image.Produced.Device == 0 ||
-        image.Produced.Serial == 0) {
+        (image.Encoding != RadianceEncoding::Texels &&
+         image.Encoding != RadianceEncoding::MipmappedTexels) ||
+        image.Produced.Device == 0 || image.Produced.Serial == 0) {
       return false;
     }
     const auto &shape = image.Texture->Description();

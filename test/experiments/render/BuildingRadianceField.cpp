@@ -98,6 +98,12 @@ std::expected<void, std::string> Shade(Render::SceneRenderer &renderer,
   }
   auto placed = ViewOf(atlas, view);
   if (!placed) { return std::unexpected(placed.error()); }
+  const auto filtering = query.value("field_filter", "integral");
+  if (filtering == "mipmaps") {
+    placed->Encoding = Render::RadianceEncoding::MipmappedTexels;
+  } else if (filtering != "integral") {
+    return std::unexpected("unknown radiance field filtering mode");
+  }
   placed->LightingCamera = *observer;
   const auto toSun =
       EastUpSouthDirection(0, query.value("sun_elevation_deg", 0.0) * std::numbers::pi / 180.0);

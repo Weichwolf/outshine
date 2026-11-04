@@ -170,6 +170,20 @@ void Exercise() {
             fractional.Depth->Description().Height == 32,
         "fractional colour footprints leave raw depth in its original capture raster");
   CHECK(device.Buffers == buffers, "fractional reduction reuses the resident source buffers");
+  view.Encoding = RadianceEncoding::MipmappedTexels;
+  view.Target = {.WidthPx = 32, .HeightPx = 32};
+  const auto mipmapped = Relight(device, pass, *sourceA, view);
+  CHECK(mipmapped.Filtered->Encoding == RadianceEncoding::MipmappedTexels &&
+            mipmapped.Filtered->Texture->Description().Mips == 6 &&
+            mipmapped.Depth->Description().Width == 32,
+        "mipmapped radiance retains the original depth raster and publishes its full chain");
+  view.Target = {.WidthPx = 7, .HeightPx = 11};
+  const auto reducedMips = Relight(device, pass, *sourceA, view);
+  CHECK(reducedMips.Filtered->Texture->Description().Mips == 4 &&
+            reducedMips.Filtered->Texture->Description().Width == 7 &&
+            reducedMips.Filtered->Texture->Description().Height == 11,
+        "fractional rectangular outputs also publish complete mip chains");
+  CHECK(device.Buffers == buffers, "mip filtering never reuploads the resident source buffers");
   view.Target = {.WidthPx = 33, .HeightPx = 7};
   CHECK(!pass.Relight(*sourceA, view), "an enlarged field axis publishes no output");
   const auto empty = MaterialFieldInput::Prepare(Geometry{}, {.WidthPx = 32, .HeightPx = 32});

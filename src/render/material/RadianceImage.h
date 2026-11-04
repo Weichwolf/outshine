@@ -6,7 +6,7 @@
 #include <cstdint>
 
 namespace outshine::Render {
-enum class RadianceEncoding : uint8_t { Texels, IntegralPairs };
+enum class RadianceEncoding : uint8_t { Texels, IntegralPairs, MipmappedTexels };
 
 // IntegralPairs stores adjacent hi/lo RGBA32F texels with a logical zero border.
 // Premultiplied scene-linear radiance/coverage, consumed on the producing device.

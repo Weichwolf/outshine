@@ -1,11 +1,13 @@
 #include "RadianceFilter.h"
 #include "PipelineFactory.h"
 #include <array>
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace outshine::Render {
@@ -28,6 +30,18 @@ bool Valid(FilterImages images) {
          (static_cast<uint32_t>(from.Use) & static_cast<uint32_t>(Native::TextureUse::Sampled)) !=
              0 &&
          (static_cast<uint32_t>(to.Use) & static_cast<uint32_t>(Native::TextureUse::Storage)) != 0;
+}
+
+std::optional<Native::TextureDescription> Description(Native::TextureView view) {
+  if (view.Image == nullptr || view.Mips != 1 || view.Layers != 1 || view.FirstLayer != 0 ||
+      view.FirstMip >= view.Image->Description().Mips || view.FirstMip >= 32 ||
+      view.Image->Description().Width == 0 || view.Image->Description().Height == 0) {
+    return std::nullopt;
+  }
+  auto description = view.Image->Description();
+  description.Width = std::max(1u, description.Width >> view.FirstMip);
+  description.Height = std::max(1u, description.Height >> view.FirstMip);
+  return description;
 }
 }
 
@@ -105,21 +119,28 @@ Native::Result<void> RadianceFilter::Configure(Native::Device &device) {
 Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
                                             const Native::Texture &source,
                                             Native::Texture &destination) const {
-  const auto &from = source.Description();
-  const auto &to = destination.Description();
-  if (!Pipeline_ || !AreaPipeline_ || !Sampler_ || &source == &destination ||
-      !Valid({.Source = from, .Target = to})) {
+  return Encode(commands, Native::TextureView{.Image = &source}, {.Image = &destination});
+}
+
+Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
+                                            Native::TextureView source,
+                                            Native::TextureView destination) const {
+  const auto fromDescription = Description(source);
+  const auto toDescription = Description(destination);
+  if (!Pipeline_ || !AreaPipeline_ || !Sampler_ || !fromDescription || !toDescription ||
+      (source.Image == destination.Image && source.FirstMip == destination.FirstMip) ||
+      !Valid({.Source = *fromDescription, .Target = *toDescription})) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
-                      .Message = "radiance filter needs distinct bounded linear HDR rasters"});
+                      .Message = "radiance filter needs disjoint bounded linear HDR rasters"});
   }
+  const auto &from = *fromDescription;
+  const auto &to = *toDescription;
   const std::array bindings{
-      Native::Binding{
-          .Set = 0,
-          .Slot = 0,
-          .Value = Native::SampledTexture{.Image = {.Image = &source}, .Sampling = Sampler_.get()}},
-      Native::Binding{
-          .Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = {.Image = &destination}}}};
+      Native::Binding{.Set = 0,
+                      .Slot = 0,
+                      .Value = Native::SampledTexture{.Image = source, .Sampling = Sampler_.get()}},
+      Native::Binding{.Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = destination}}};
   constexpr auto shape = FindComputeShader(ComputeShaderId::RadianceFilter)->Shape;
   constexpr auto areaShape = FindComputeShader(ComputeShaderId::RadianceAreaFilter)->Shape;
   static_assert(shape.GroupX == areaShape.GroupX && shape.GroupY == areaShape.GroupY &&
@@ -138,5 +159,24 @@ Native::Result<void> RadianceFilter::Encode(Native::Commands &commands,
       {.X = cooperative ? to.Width : (to.Width + shape.GroupX - 1) / shape.GroupX,
        .Y = cooperative ? to.Height : (to.Height + shape.GroupY - 1) / shape.GroupY,
        .Z = 1});
+}
+
+Native::Result<void> RadianceFilter::EncodeMipmaps(Native::Commands &commands,
+                                                   Native::Texture &image) const {
+  const auto &shape = image.Description();
+  if (shape.Width == 0 || shape.Height == 0 ||
+      std::cmp_not_equal(shape.Mips, std::bit_width(std::max(shape.Width, shape.Height))) ||
+      !Valid({.Source = shape, .Target = shape})) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "radiance mipmaps require a complete HDR chain"});
+  }
+  for (uint32_t mip = 1; mip < shape.Mips; ++mip) {
+    const auto encoded = Encode(commands,
+                                Native::TextureView{.Image = &image, .FirstMip = mip - 1},
+                                {.Image = &image, .FirstMip = mip});
+    if (!encoded) { return encoded; }
+  }
+  return {};
 }
 }

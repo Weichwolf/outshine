@@ -25,6 +25,7 @@ struct MaterialFieldPipelines {
   RadianceFilter Filter;
   RadianceIntegral Integral;
   std::shared_ptr<Native::Sampler> Sampling;
+  std::shared_ptr<Native::Sampler> MipSampling;
   bool Ready = false;
 };
 

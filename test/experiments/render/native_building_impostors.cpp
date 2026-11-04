@@ -760,6 +760,7 @@ struct RetainedRadiance {
     }
     const auto key = Json{{"source", sourceKey},
                           {"lighting_observer", lighting},
+                          {"filter", query.value("field_filter", "integral")},
                           {"sun_elevation_deg", query.value("sun_elevation_deg", 0.0)},
                           {"source_snapshot", query.value("dump_source_field", true)}}
                          .dump();
@@ -853,6 +854,20 @@ Json NativeResidencyReport(const Render::SceneRenderer &renderer, const NativeFr
   return result;
 }
 
+uint64_t RadianceStorageBytes(const Render::RadianceImage &image) {
+  const auto &shape = image.Texture->Description();
+  const uint64_t bytes = shape.Texels == Render::Native::Format::Rgba32Float ? 16 : 8;
+  uint64_t total = 0;
+  uint32_t width = shape.Width;
+  uint32_t height = shape.Height;
+  for (uint32_t mip = 0; mip < shape.Mips; ++mip) {
+    total += uint64_t{width} * height * bytes;
+    width = std::max(1u, width / 2);
+    height = std::max(1u, height / 2);
+  }
+  return total;
+}
+
 void RadianceViews(const Fs::path &root, const Json &input) {
   const auto source = std::make_shared<BuildingViewSource>(BuildingViewSource{
       .AtlasFile = root / "atlas.bin",
@@ -921,28 +936,25 @@ void RadianceViews(const Fs::path &root, const Json &input) {
                            colours,
                            &frame);
     const auto &image = *field.Radiance;
-    result.update(
-        {{"query", name},
-         {"selected_view", view},
-         {"field_prepare_ms", field.PrepareMs},
-         {"field_relight_filter_gpu_ms", field.GpuMs},
-         {"field_source_upload_gpu_ms", field.SetupGpuMs},
-         {"field_configure_ms", field.ConfigureMs},
-         {"field_source_prepare_ms", field.SourcePrepareMs},
-         {"field_source_upload_call_ms", field.SourceUploadMs},
-         {"field_relight_encode_call_ms", field.RelightEncodeMs},
-         {"field_offline_wait_ms", field.WaitMs},
-         {"field_readback_ms", field.ReadbackMs},
-         {"field_source_reused", retained.SourceReused},
-         {"field_reused", retained.Reused},
-         {"field_hit", retained.SourceHit},
-         {"field_load_ms", retained.LoadMs},
-         {"field_resolve_ms", retained.ResolveMs},
-         {"field_asset_key", products.FieldKey({view})},
-         {"source_readback_bytes", retained.ReadbackBytes},
-         {"resident_image_bytes",
-          size_t{image.Texture->Description().Width} * image.Texture->Description().Height *
-              (image.Encoding == Render::RadianceEncoding::IntegralPairs ? 16 : 8)}});
+    result.update({{"query", name},
+                   {"selected_view", view},
+                   {"field_prepare_ms", field.PrepareMs},
+                   {"field_relight_filter_gpu_ms", field.GpuMs},
+                   {"field_source_upload_gpu_ms", field.SetupGpuMs},
+                   {"field_configure_ms", field.ConfigureMs},
+                   {"field_source_prepare_ms", field.SourcePrepareMs},
+                   {"field_source_upload_call_ms", field.SourceUploadMs},
+                   {"field_relight_encode_call_ms", field.RelightEncodeMs},
+                   {"field_offline_wait_ms", field.WaitMs},
+                   {"field_readback_ms", field.ReadbackMs},
+                   {"field_source_reused", retained.SourceReused},
+                   {"field_reused", retained.Reused},
+                   {"field_hit", retained.SourceHit},
+                   {"field_load_ms", retained.LoadMs},
+                   {"field_resolve_ms", retained.ResolveMs},
+                   {"field_asset_key", products.FieldKey({view})},
+                   {"source_readback_bytes", retained.ReadbackBytes},
+                   {"resident_image_bytes", RadianceStorageBytes(image)}});
     result.update(RadianceSupportReport(field, query));
     result["lighting_observer"] = {
         {"eye_m", field.LightingCamera.EyeM.Axis},

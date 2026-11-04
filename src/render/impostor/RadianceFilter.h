@@ -17,6 +17,11 @@ public:
   [[nodiscard]] Native::Result<void> Encode(Native::Commands &commands,
                                             const Native::Texture &source,
                                             Native::Texture &destination) const;
+  [[nodiscard]] Native::Result<void> Encode(Native::Commands &commands,
+                                            Native::TextureView source,
+                                            Native::TextureView destination) const;
+  [[nodiscard]] Native::Result<void> EncodeMipmaps(Native::Commands &commands,
+                                                   Native::Texture &image) const;
 
 private:
   Native::Device *Device_ = nullptr;

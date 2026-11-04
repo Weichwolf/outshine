@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <atomic>
 #include "MaterialFieldPassState.h"
+#include <bit>
 #include <span>
 #include <vector>
 #include "FrameContext.h"
@@ -71,9 +72,11 @@ Native::Result<FrameContext> FrameOf(const MaterialFieldView &view, Extent exten
 Native::Result<std::shared_ptr<Native::Texture>> Target(Native::Device &device,
                                                         Extent extent,
                                                         Native::Format format,
-                                                        Native::UseMask<Native::TextureUse> use) {
+                                                        Native::UseMask<Native::TextureUse> use,
+                                                        uint32_t mips = 1) {
   auto image = device.CreateTexture({.Width = static_cast<uint32_t>(extent.WidthPx),
                                      .Height = static_cast<uint32_t>(extent.HeightPx),
+                                     .Mips = mips,
                                      .Texels = format,
                                      .Use = use});
   if (!image) { return std::unexpected(image.error()); }
@@ -86,7 +89,8 @@ Native::Result<std::shared_ptr<Native::Texture>> Target(Native::Device &device,
 
 bool ValidOutput(const MaterialFieldView &view, Extent raster, uint32_t textureLimit) {
   switch (view.Encoding) {
-    case RadianceEncoding::Texels: return true;
+    case RadianceEncoding::Texels:
+    case RadianceEncoding::MipmappedTexels: return true;
     case RadianceEncoding::IntegralPairs:
       return view.Target == raster &&
              RadianceIntegral::StorageExtent(raster, textureLimit).has_value();
@@ -107,11 +111,13 @@ MaterialFieldImages ImagesOf(MaterialFieldPipelines &pipelines,
                                                                   .Texture = targets.Raw,
                                                                   .Sampling = pipelines.Sampling,
                                                                   .Produced = produced}),
-      .Filtered = std::make_shared<RadianceImage>(RadianceImage{.Device = &pipelines.Device,
-                                                                .Texture = targets.Filtered,
-                                                                .Sampling = pipelines.Sampling,
-                                                                .Produced = produced,
-                                                                .Encoding = view.Encoding}),
+      .Filtered = std::make_shared<RadianceImage>(RadianceImage{
+          .Device = &pipelines.Device,
+          .Texture = targets.Filtered,
+          .Sampling = view.Encoding == RadianceEncoding::MipmappedTexels ? pipelines.MipSampling
+                                                                         : pipelines.Sampling,
+          .Produced = produced,
+          .Encoding = view.Encoding}),
       .Depth = targets.Depth,
       .Camera = view.Camera,
       .LightingCamera = view.LightingCamera.value_or(view.Camera)};
@@ -122,6 +128,10 @@ Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
   constexpr auto kColourUse = Native::TextureUse::ColourAttachment | Native::TextureUse::Sampled |
                               Native::TextureUse::Storage | Native::TextureUse::CopySource;
   const bool integral = view.Encoding == RadianceEncoding::IntegralPairs;
+  const bool mipmapped = view.Encoding == RadianceEncoding::MipmappedTexels;
+  const uint32_t mips = mipmapped ? std::bit_width(static_cast<uint32_t>(
+                                        std::max(view.Target.WidthPx, view.Target.HeightPx)))
+                                  : 1;
   const auto storage = RadianceIntegral::StorageExtent(raster, device.Limits().MaxTextureExtent);
   if (integral && !storage) {
     return std::unexpected(
@@ -129,7 +139,11 @@ Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
                       .Message = "paired integral storage exceeds the device extent"});
   }
   const Extent extent = integral ? *storage : view.Target;
-  auto raw = Target(device, raster, Native::Format::Rgba16Float, kColourUse);
+  auto raw = Target(device,
+                    raster,
+                    Native::Format::Rgba16Float,
+                    kColourUse,
+                    mipmapped && view.Target == raster ? mips : 1);
   if (!raw) { return std::unexpected(raw.error()); }
   const auto use =
       Native::TextureUse::Storage | Native::TextureUse::Sampled | Native::TextureUse::CopySource;
@@ -138,7 +152,8 @@ Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
                       : Target(device,
                                extent,
                                integral ? Native::Format::Rgba32Float : Native::Format::Rgba16Float,
-                               use);
+                               use,
+                               mips);
   if (!filtered) { return std::unexpected(filtered.error()); }
   auto depth = Target(device,
                       raster,
@@ -159,6 +174,23 @@ Targets(Native::Device &device, Extent raster, const MaterialFieldView &view) {
                       .Filtered = std::move(*filtered),
                       .Depth = std::move(*depth),
                       .Scratch = std::move(scratch)};
+}
+
+Native::Result<void> FilterOutput(const MaterialFieldPipelines &pipelines,
+                                  Native::Commands &commands,
+                                  const FieldTargets &targets,
+                                  const MaterialFieldView &view,
+                                  Extent raster) {
+  if (view.Encoding == RadianceEncoding::IntegralPairs) {
+    return pipelines.Integral.Encode(commands, *targets.Raw, *targets.Scratch, *targets.Filtered);
+  }
+  if (view.Target != raster) {
+    const auto reduced = pipelines.Filter.Encode(commands, *targets.Raw, *targets.Filtered);
+    if (!reduced) { return reduced; }
+  }
+  return view.Encoding == RadianceEncoding::MipmappedTexels
+             ? pipelines.Filter.EncodeMipmaps(commands, *targets.Filtered)
+             : Native::Result<void>{};
 }
 
 }
@@ -298,13 +330,8 @@ MaterialFieldPass::Relight(const ResidentMaterialField &source,
   if (!drawn) { return std::unexpected(drawn.error()); }
   auto ended = (*commands)->EndRenderPass();
   if (!ended) { return std::unexpected(ended.error()); }
-  if (view.Encoding == RadianceEncoding::IntegralPairs) {
-    const auto integrated = state.Pipelines->Integral.Encode(**commands, *raw, *scratch, *filtered);
-    if (!integrated) { return std::unexpected(integrated.error()); }
-  } else if (view.Target != data->Raster) {
-    auto reduced = state.Pipelines->Filter.Encode(**commands, *raw, *filtered);
-    if (!reduced) { return std::unexpected(reduced.error()); }
-  }
+  const auto output = FilterOutput(*state.Pipelines, **commands, *targets, view, data->Raster);
+  if (!output) { return std::unexpected(output.error()); }
   if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Cancelled,
                                          .Message = "material field request cancelled"});
