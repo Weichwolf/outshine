@@ -65,6 +65,13 @@ public:
                                       std::span<const std::string_view> shadow,
                                       std::string &error);
 
+  [[nodiscard]] bool ConsolidateProducts(uint32_t tile,
+                                         uint64_t sourceKey,
+                                         const GeometryPageView &product,
+                                         std::span<const std::string_view> keys,
+                                         std::string &error);
+  void DiscardProduct(uint32_t tile, uint64_t sourceKey, std::string_view key);
+
   struct CellSelection {
     uint32_t Cell = 0;
     std::optional<LevelOfDetail> Detail = LevelOfDetail::Fine;

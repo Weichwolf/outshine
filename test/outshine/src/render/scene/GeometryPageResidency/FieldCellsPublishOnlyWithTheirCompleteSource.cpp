@@ -519,6 +519,87 @@ void CheckProductAddresses(SceneRenderer &renderer,
   pages.Clear();
 }
 
+void CheckConsolidation(SceneRenderer &renderer,
+                        GeometryPageResidency &pages,
+                        const TangentFrame &frame) {
+  pages.Clear();
+  pages.BindRenderer(&renderer);
+  pages.SetFrame(frame);
+  const auto material = Register(renderer);
+  const auto vertices = Vertices(frame, {{-.8, .8}});
+  constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
+  const std::array parts{GeometryPagePartView{.Tangents = {},
+                                              .Verts = vertices,
+                                              .Indices = indices,
+                                              .Clusters = {},
+                                              .Colours = {},
+                                              .Uv1 = {},
+                                              .Surface = PieceSurface::Registered(material),
+                                              .Textured = true}};
+  std::string error;
+  GeometryPageView parent;
+  parent.Parts = parts;
+  CHECK(pages.Upload(kTile, parent, frame.OriginEcef(), error, kSource),
+        "the original parent remains visible while products upload");
+  const auto original = Draw(renderer);
+  const std::array<SourceCoverage::Range, 1> whole{{{.First = 0, .Count = 2}}};
+  const auto expected = SourceCoverage::FromRanges("merge", 2, whole);
+  CHECK(expected, "the aggregate has a complete source domain");
+  if (!expected) { return; }
+  const auto stage = [&](std::string_view key, uint64_t source) {
+    const std::array<SourceCoverage::Range, 1> range{{{.First = source, .Count = 1}}};
+    auto coverage = SourceCoverage::FromRanges("merge", 2, range);
+    if (!coverage) { return false; }
+    GeometryPageView page;
+    page.Parts = parts;
+    page.AssetKey = key;
+    page.RequestedDetail = LevelOfDetail::Massed;
+    page.Coverage = std::move(*coverage);
+    return pages.StageProduct(kTile, page, frame.OriginEcef(), error, kSource);
+  };
+  GeometryPageView combined;
+  combined.AssetKey = "combined";
+  combined.RequestedDetail = LevelOfDetail::Massed;
+  combined.Coverage = *expected;
+  constexpr std::array<std::string_view, 2> keys{"a", "b"};
+  CHECK(stage("a", 0), "one product reaches GPU residency independently");
+  CHECK(!pages.ConsolidateProducts(kTile, kSource, combined, keys, error) &&
+            Draw(renderer) == original,
+        "a missing product cannot replace the parent");
+  CHECK(stage("b", 0), "an overlapping counterexample can be staged");
+  CHECK(!pages.ConsolidateProducts(kTile, kSource, combined, keys, error) &&
+            Draw(renderer) == original,
+        "two products claiming the same source do not form complete coverage");
+  pages.DiscardProduct(kTile, kSource, "b");
+  CHECK(stage("b", 1), "the complete disjoint source partition becomes resident");
+  const auto before = pages.Handles();
+  const size_t uploads = pages.Uploads();
+  CHECK(pages.ConsolidateProducts(kTile, kSource, combined, keys, error) &&
+            pages.Uploads() == uploads && Draw(renderer) == original,
+        "consolidation transfers existing GPU parts without upload or early visibility");
+  const auto after = pages.Handles();
+  CHECK(after.size() == before.size() &&
+            std::ranges::all_of(
+                before,
+                [&](auto handle) { return std::ranges::find(after, handle) != after.end(); }) &&
+            pages.ValidateSources(error),
+        "consolidation preserves every original resource handle");
+  constexpr std::array<std::string_view, 1> selected{"combined"};
+  CHECK(pages.ActivateProducts(kTile, kSource, *expected, selected, selected, error),
+        "only a complete consolidated product replaces the original parent");
+  const auto visible = Draw(renderer);
+  const auto digest = pages.Digest();
+  pages.DiscardProduct(kTile, kSource, "combined");
+  CHECK(pages.Digest() == digest && Draw(renderer) == visible,
+        "staged cleanup never destroys a visible product");
+  CHECK(stage("abandoned", 0), "an unused partial product can be staged alongside the active one");
+  const auto count = pages.Handles().size();
+  pages.DiscardProduct(kTile, kSource, "abandoned");
+  CHECK(pages.Handles().size() + 1 == count && pages.ValidateSources(error),
+        "abandoned partial products release only their own GPU resources");
+  pages.Clear();
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
@@ -625,6 +706,7 @@ void Exercise() {
   CheckSkyline(renderer, pages, frame);
   CheckExactSources(renderer, pages, frame);
   CheckProductAddresses(renderer, pages, frame);
+  CheckConsolidation(renderer, pages, frame);
   pages.Clear();
 }
 }
