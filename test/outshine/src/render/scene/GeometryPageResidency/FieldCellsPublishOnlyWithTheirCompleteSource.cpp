@@ -94,7 +94,8 @@ bool StageCellProduct(GeometryPageResidency &pages,
                       GeometryPasses passes,
                       std::string &error,
                       const MaterialRegistration *shadow = nullptr,
-                      const SourceCoverage *coverage = nullptr) {
+                      const SourceCoverage *coverage = nullptr,
+                      std::string_view assetKey = {}) {
   const Vec2 horizontal{{cell == 1 ? -.8 : 0, cell == 1 ? 0 : .8}};
   const auto vertices = Vertices(frame, horizontal);
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
@@ -120,7 +121,7 @@ bool StageCellProduct(GeometryPageResidency &pages,
       cell,
       {.Parts = std::span(parts.data(), shadow != nullptr ? 2u : 1u),
        .Digest = cell + uint64_t{static_cast<uint8_t>(detail)} * 8,
-       .AssetKey = {},
+       .AssetKey = assetKey,
        .FallbackHeights = false,
        .SelectedView = {},
        .RequestedDetail = detail,
@@ -519,6 +520,95 @@ void CheckProductAddresses(SceneRenderer &renderer,
   pages.Clear();
 }
 
+void CheckOriginalProducts(SceneRenderer &renderer,
+                           GeometryPageResidency &pages,
+                           const TangentFrame &frame) {
+  pages.Clear();
+  pages.BindRenderer(&renderer);
+  pages.SetFrame(frame);
+  const auto material = Register(renderer);
+  std::string error;
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         1,
+                         LevelOfDetail::Fine,
+                         material,
+                         GeometryPasses::MainAndShadow,
+                         error,
+                         nullptr,
+                         nullptr,
+                         "original-left") &&
+            StageCellProduct(pages,
+                             frame,
+                             2,
+                             LevelOfDetail::Fine,
+                             material,
+                             GeometryPasses::MainAndShadow,
+                             error,
+                             nullptr,
+                             nullptr,
+                             "original-right"),
+        "legacy originals have stable native asset identities");
+  const std::array originalCells{GeometryPageResidency::CellSelection{.Cell = 1},
+                                 GeometryPageResidency::CellSelection{.Cell = 2}};
+  CHECK(pages.ActivateCells(kTile, kCells, originalCells, error), "the originals are visible");
+  const auto before = Draw(renderer);
+  const auto expected = SourceCoverage::FromSources("originals", 2, std::array<uint32_t, 2>{0, 1});
+  const auto left = SourceCoverage::FromSources("originals", 2, std::array<uint32_t, 1>{0});
+  const auto right = SourceCoverage::FromSources("originals", 2, std::array<uint32_t, 1>{1});
+  CHECK(expected && left && right, "original source inventories are complete");
+  if (!expected || !left || !right) { return; }
+  const auto uploads = pages.Uploads();
+  const auto handles = pages.Handles();
+  CHECK(pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-left"},
+                           *left) &&
+            pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-right"},
+                               *right) &&
+            pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-left"},
+                               *left),
+        "source metadata binds idempotently without replacing original GPU pieces");
+  CHECK(
+      !pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-left"},
+                          *right) &&
+          !pages.BindCoverage(
+              {.Tile = kTile, .SourceKey = kSource + 1, .AssetKey = "original-left"}, *left) &&
+          !pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "missing"}, *left),
+      "source ownership is immutable and scoped by native product identity");
+  CHECK(pages.Uploads() == uploads && pages.Handles() == handles && Draw(renderer) == before,
+        "metadata attachment has no upload or visible mutation");
+  CHECK(pages.ActivateCells(kTile, kCells, originalCells, error),
+        "the legacy owner can still restore annotated original pages");
+  const auto vertices = Vertices(frame, {{-.8, 0}});
+  constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
+  const std::array parts{
+      GeometryPagePartView{.Tangents = {},
+                           .Verts = vertices,
+                           .Indices = indices,
+                           .Clusters = {},
+                           .Colours = {},
+                           .Uv1 = {},
+                           .Surface = PieceSurface::Registered(Register(renderer, Field(renderer))),
+                           .Textured = true}};
+  GeometryPageView field;
+  field.Parts = parts;
+  field.AssetKey = "field-left";
+  field.Coverage = *left;
+  CHECK(pages.StageProduct(kTile, field, frame.OriginEcef(), error, kSource),
+        "a field product stages alongside the annotated originals");
+  const std::array<std::string_view, 2> shadow{"original-left", "original-right"};
+  const std::array<std::string_view, 1> partial{"field-left"};
+  CHECK(!pages.ActivateProducts(kTile, kSource, *expected, partial, shadow, error) &&
+            Draw(renderer) == before,
+        "a partial generic cut cannot hide the complete original source");
+  const std::array<std::string_view, 2> main{"field-left", "original-right"};
+  CHECK(pages.ActivateProducts(kTile, kSource, *expected, main, shadow, error),
+        "fields and original remainders share the generic coverage handoff");
+  const auto after = Draw(renderer);
+  constexpr size_t pixel = (size_t{16} * 32 + 8) * 4;
+  CHECK(after[pixel] == .75f && after[pixel] != before[pixel],
+        "the complete mixed cut changes the actual native image");
+}
+
 void CheckConsolidation(SceneRenderer &renderer,
                         GeometryPageResidency &pages,
                         const TangentFrame &frame) {
@@ -707,6 +797,7 @@ void Exercise() {
   CheckExactSources(renderer, pages, frame);
   CheckProductAddresses(renderer, pages, frame);
   CheckConsolidation(renderer, pages, frame);
+  CheckOriginalProducts(renderer, pages, frame);
   pages.Clear();
 }
 }

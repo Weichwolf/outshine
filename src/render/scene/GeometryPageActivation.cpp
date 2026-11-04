@@ -118,7 +118,7 @@ bool GeometryPageResidency::ActivateProducts(uint32_t tile,
     const bool inMain = std::ranges::binary_search(main, std::string_view(at->AssetKey));
     const bool inShadow = std::ranges::binary_search(shadow, std::string_view(at->AssetKey));
     if (!inMain && !inShadow) { continue; }
-    if (at->Mode != Publication::Product || !at->Coverage) {
+    if (!at->Coverage) {
       error = "selected geometry product has no exact source coverage";
       return false;
     }
@@ -224,7 +224,8 @@ bool GeometryPageResidency::ValidateActivation(uint32_t tile,
       return false;
     }
     if (target->Coverage &&
-        (choice.ExpectedSources == nullptr || *target->Coverage != *choice.ExpectedSources)) {
+        ((choice.ExpectedSources != nullptr && *target->Coverage != *choice.ExpectedSources) ||
+         (choice.ExpectedSources == nullptr && target->CoverageFrom == CoverageSource::Product))) {
       error = "geometry product does not cover its declared source selection";
       return false;
     }

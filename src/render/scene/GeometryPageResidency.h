@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <expected>
 #include <optional>
 #include <limits>
 #include <span>
@@ -57,6 +58,16 @@ public:
                                   const Vec3 &anchorEcef,
                                   std::string &error,
                                   uint64_t sourceKey);
+
+  // Metadata only; a resident product's source coverage cannot change.
+  struct ProductAddress {
+    uint32_t Tile = 0;
+    uint64_t SourceKey = 0;
+    std::string_view AssetKey;
+  };
+
+  [[nodiscard]] std::expected<const SourceCoverage *, std::string>
+  BindCoverage(ProductAddress address, const SourceCoverage &coverage);
   // Sorted unique asset keys; each pass must partition the declared source coverage.
   [[nodiscard]] bool ActivateProducts(uint32_t tile,
                                       uint64_t sourceKey,
@@ -134,6 +145,8 @@ public:
     std::optional<LevelOfDetail> Detail;
     uint64_t OccupiedCells = 0;
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
+    std::string_view AssetKey;
+    const SourceCoverage *Coverage = nullptr;
   };
 
   template <typename Each>
@@ -151,7 +164,9 @@ public:
                         .FallbackHeights = stood.FallbackHeights,
                         .Detail = stood.Detail,
                         .OccupiedCells = stood.OccupiedCells,
-                        .Passes = stood.Passes});
+                        .Passes = stood.Passes,
+                        .AssetKey = stood.AssetKey,
+                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr});
     }
   }
 
@@ -185,6 +200,7 @@ public:
 
 private:
   enum class Publication { Immediate, Cell, Cohort, Product };
+  enum class CoverageSource { Metadata, Product };
   enum class WholeTileTransition : uint8_t { NoCells, Replaced, Failed };
 
   struct TileCell {
@@ -209,6 +225,7 @@ private:
     std::optional<LevelOfDetail> Detail;
     std::optional<ViewReuseDomain> SelectedView;
     std::optional<SourceCoverage> Coverage;
+    CoverageSource CoverageFrom = CoverageSource::Product;
     Mat4 Row;
     bool Visible = true;
     std::vector<ResidentPart> Parts;
