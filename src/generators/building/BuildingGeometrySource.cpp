@@ -102,7 +102,8 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
 }
 
 std::string BuildingGeometrySource::Recipe::Key() const {
-  if (!AssetProductKey::Parse(BaseKey) || SourceCount == 0 || Sources.empty() ||
+  if ((Detail != LevelOfDetail::Fine && Detail != LevelOfDetail::Shell) ||
+      !AssetProductKey::Parse(BaseKey) || SourceCount == 0 || Sources.empty() ||
       Sources.size() > std::numeric_limits<uint32_t>::max()) {
     return {};
   }
@@ -115,7 +116,9 @@ std::string BuildingGeometrySource::Recipe::Key() const {
   const auto encoded = EncodeGeometryProduct(*materials, std::numeric_limits<size_t>::max());
   if (!encoded) { return {}; }
   BinaryValueWriter out(std::numeric_limits<size_t>::max());
-  if (!out.Text("building-native-fine-group-1") || !out.Text(BaseKey) || !out(SourceCount) ||
+  const char *const family = Detail == LevelOfDetail::Fine ? "building-native-fine-group-1"
+                                                          : "building-native-shell-group-1";
+  if (!out.Text(family) || !out.Text(BaseKey) || !out(SourceCount) ||
       !out.Array<uint32_t>(sources) || !out.Out.Put(*encoded)) {
     return {};
   }
@@ -158,10 +161,15 @@ BuildingGeometrySource::Resolve(AssetCache &cache,
   BuildingScratch scratch;
   scratch.Triangles.emplace(BuildingScratch::TriangleBudget{.Remaining = budget.TriangleAttempts});
   RawTile view;
-  view.RequestedDetail = LevelOfDetail::Fine;
+  view.RequestedDetail = recipe.Detail;
   const BuildingMesh mesher;
   auto baked = BakePreparedStructureSources(**base, view, selected, mesher, scratch, &cancelled);
-  if (!baked) { return std::unexpected(std::string(Describe(baked.error()))); }
+  if (!baked) {
+    if (scratch.Triangles && scratch.Triangles->Exhausted) {
+      return std::unexpected("native building geometry exhausted its triangle-work allowance");
+    }
+    return std::unexpected(std::string(Describe(baked.error())));
+  }
   auto product = Convert(std::move(*baked), recipe.BaseKey);
   if (!product) { return product; }
   if (stop.stop_requested()) { return std::unexpected("building group generation cancelled"); }

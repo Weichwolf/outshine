@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_BUILDINGGEOMETRYSOURCE_H
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGGEOMETRYSOURCE_H
 #include "GeometryAsset.h"
+#include "LevelOfDetail.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -17,6 +18,7 @@ public:
     std::string BaseKey;
     uint64_t SourceCount = 0;
     std::vector<uint32_t> Sources;
+    LevelOfDetail Detail = LevelOfDetail::Fine;
     [[nodiscard]] std::string Key() const;
   };
 
@@ -25,8 +27,8 @@ public:
     uint64_t TriangleAttempts = 0;
   };
 
-  // Fine render geometry; caller owns producer/resident admission. EncodedBytesMost is no peak
-  // bound.
+  // Camera-independent Fine/Shell render geometry; caller owns producer/resident admission.
+  // EncodedBytesMost is no peak bound.
   [[nodiscard]] static std::expected<GeometryAsset::Product, std::string>
   Resolve(AssetCache &cache,
           PreparedBuildingAssets *sources,

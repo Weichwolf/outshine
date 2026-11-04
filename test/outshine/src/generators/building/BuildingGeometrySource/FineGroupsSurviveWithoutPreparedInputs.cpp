@@ -64,6 +64,41 @@ void CheckKeys(const std::string &key) {
         "group identity is canonical, revision bound and unambiguous");
 }
 
+void CheckShell(AssetCache &cache,
+                PreparedBuildingAssets &assets,
+                const std::string &key,
+                const PreparedStructureTile &base) {
+  const BuildingGeometrySource::Recipe recipe{.BaseKey = key,
+                                              .SourceCount = base.Structures.size(),
+                                              .Sources = {0},
+                                              .Detail = LevelOfDetail::Shell};
+  auto fine = recipe;
+  fine.Detail = LevelOfDetail::Fine;
+  CHECK(!recipe.Key().empty() && recipe.Key() != fine.Key(),
+        "Fine and Shell are distinct immutable render assets");
+  const auto shell = BuildingGeometrySource::Resolve(cache, &assets, recipe, kBudget);
+  CHECK(shell, "the exact native Shell group publishes");
+  if (!shell) { return; }
+  RawTile view;
+  view.RequestedDetail = LevelOfDetail::Shell;
+  const BuildingMesh mesher;
+  BuildingScratch scratch;
+  scratch.Triangles.emplace(BuildingScratch::TriangleBudget{.Remaining = kBudget.TriangleAttempts});
+  const auto reference = BakePreparedStructureSources(base, view, recipe.Sources, mesher, scratch);
+  CHECK(reference && Triangles(shell->Mesh) ==
+                         (reference->Mesh.WallRun.size() + reference->Mesh.RoofRun.size()) / 3,
+        "the stored Shell preserves the existing native Shell recipe");
+  if (reference) { CheckFrame(*shell, *reference); }
+  const auto hit = BuildingGeometrySource::Resolve(
+      cache, nullptr, recipe, {.EncodedBytesMost = kBytes, .TriangleAttempts = 0});
+  CHECK(hit &&
+            EncodeGeometryProduct(hit->Mesh, kBytes) == EncodeGeometryProduct(shell->Mesh, kBytes),
+        "Shell assets also restore without their prepared producer");
+  auto unsupported = recipe;
+  unsupported.Detail = LevelOfDetail::Massed;
+  CHECK(unsupported.Key().empty(), "unsupported native representation families are not mislabeled");
+}
+
 void Exercise(const std::filesystem::path &root) {
   const auto cache = OpenAssetStore((root / "products").string());
   Data::RawSourceCache rawSource({.Directory = (root / "sources").string()});
@@ -84,6 +119,7 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(base && *base, "two source buildings prepare in one source cell");
   if (!base || !*base) { return; }
   CheckKeys(key);
+  CheckShell(*cache, **assets, key, **base);
   const BuildingGeometrySource::Recipe recipe{.BaseKey = key, .SourceCount = 2, .Sources = {0}};
   auto denied = kBudget;
   denied.TriangleAttempts = 1;
