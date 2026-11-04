@@ -47,10 +47,23 @@ StructureTerrainContacts(const PreparedStructureTile &base,
 struct BakedStructureGroup {
   size_t SourceCount = 0;
   std::vector<uint32_t> Sources;
-  BakedTile Mesh;
+  Vec3 AnchorEcef;
+  Raised Mesh;
+  ClusteredMesh Walls, Roofs;
+  uint64_t Digest = 0;
+  bool FallbackHeights = false;
+  std::optional<ViewReuseDomain> SelectedView;
+  std::optional<LevelOfDetail> Detail;
+  std::optional<StructureSurfaceErrorInterval> SurfaceError;
+  std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return CapacityBytes(Sources) + Mesh.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes();
+  }
 };
 
-// Sources are stable prepared ordinals; cell occupancy does not certify their full coverage.
+// Render-only products name exact prepared ordinals; physical contacts stay with their owner.
+
 [[nodiscard]] std::expected<BakedStructureGroup, StructureBakeError>
 BakePreparedStructureSources(const PreparedStructureTile &base,
                              const RawTile &view,

@@ -426,7 +426,9 @@ struct StructureBakeProgress::State {
     if (!emitted) { return emitted; }
     Tile.Prints.back().FirstPoint = one.Layout.LocalFirst;
     Tile.Prints.back().FirstHole = one.Layout.FirstHole;
-    if (base.Origin.Provenance) { Tile.Coordinates->Sources.push_back(one.Layout.SourceId); }
+    if (Tile.Coordinates && base.Origin.Provenance) {
+      Tile.Coordinates->Sources.push_back(one.Layout.SourceId);
+    }
     return {};
   }
 
@@ -456,6 +458,7 @@ struct StructureBakeProgress::State {
     Start(view, base.FallbackHeights, Sources ? Sources->size() : base.Structures.size());
     Tile.SkippedRings = base.SkippedRings;
     Tile.NoGround = base.NoGround;
+    if (Sources) { return; }
     Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
     Tile.Coordinates->Origin = base.Origin;
     Tile.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
@@ -667,9 +670,21 @@ BakePreparedStructureSources(const PreparedStructureTile &base,
   if (!progress) { return std::unexpected(progress.error()); }
   auto baked = BakePreparedProduct(*progress, base, view, mesher, scratch, stopping);
   if (!baked) { return std::unexpected(baked.error()); }
+  if (baked->UnsupportedMeshes != 0 || baked->Prints.size() != sources.size()) {
+    return std::unexpected(StructureMeshError::UnsupportedFootprint);
+  }
   return BakedStructureGroup{.SourceCount = base.Structures.size(),
                              .Sources = {sources.begin(), sources.end()},
-                             .Mesh = std::move(*baked)};
+                             .AnchorEcef = base.AnchorEcef,
+                             .Mesh = std::move(baked->Built),
+                             .Walls = std::move(baked->Walls),
+                             .Roofs = std::move(baked->Roofs),
+                             .Digest = baked->Digest,
+                             .FallbackHeights = baked->FallbackHeights,
+                             .SelectedView = baked->SelectedView,
+                             .Detail = baked->RequestedDetail,
+                             .SurfaceError = baked->SurfaceError,
+                             .SurfaceFailure = baked->SurfaceFailure};
 }
 
 std::expected<BakedTile, StructureBakeError>

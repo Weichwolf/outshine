@@ -90,14 +90,28 @@ int main() {
         "only the exact requested source opens its form, despite shared cell ownership");
   if (!group) { return Report(); }
   CHECK(group->SourceCount == 3 && std::ranges::equal(group->Sources, sources) &&
-            group->Mesh.Prints == reference->Prints,
-        "the group retains exact source ordinals and local physical coordinates");
-  const auto &actual = group->Mesh.Built;
+            group->AnchorEcef == base->AnchorEcef && group->Detail == view.RequestedDetail,
+        "the render group retains exact source ordinals, frame and detail without cell coverage");
+  const auto &actual = group->Mesh;
   const auto &expected = reference->Built;
   CHECK(Equal(actual.WallCorners, expected.WallCorners) &&
             Equal(actual.RoofCorners, expected.RoofCorners) && actual.WallRun == expected.WallRun &&
             actual.RoofRun == expected.RoofRun,
         "native selected geometry equals the independent single-source bake");
+  view.RequestedDetail.reset();
+  view.Eye = {.LongitudeDeg = 16, .LatitudeDeg = 48};
+  view.EyeEcef = base->AnchorEcef;
+  view.Projection = {.FocalPx = 1000, .AllowedErrorPx = 0};
+  const auto projectedReference = BakePreparedStructures(single, view, mesher, scratch);
+  const auto projected = BakePreparedStructureSources(*index, view, sources, mesher, scratch);
+  CHECK(projected && projectedReference &&
+            Equal(projected->Mesh.WallCorners, projectedReference->Built.WallCorners) &&
+            Equal(projected->Mesh.RoofCorners, projectedReference->Built.RoofCorners) &&
+            projected->Mesh.WallRun == projectedReference->Built.WallRun &&
+            projected->Mesh.RoofRun == projectedReference->Built.RoofRun &&
+            projected->SelectedView.has_value() == projectedReference->SelectedView.has_value(),
+        "view-dependent selection and emission retain the single-source geometry contract");
+  view.RequestedDetail = LevelOfDetail::Fine;
   CHECK(!StructureBakeProgress::ForSources(std::array<uint32_t, 2>{1, 1}) &&
             !StructureBakeProgress::ForSources(std::array<uint32_t, 2>{2, 1}) &&
             !StructureBakeProgress::ForSources({}),
