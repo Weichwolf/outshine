@@ -44,6 +44,21 @@ PrepareStructureTile(const RawTile &raw,
 StructureTerrainContacts(const PreparedStructureTile &base,
                          const std::atomic_bool *stopping = nullptr);
 
+struct BakedStructureGroup {
+  size_t SourceCount = 0;
+  std::vector<uint32_t> Sources;
+  BakedTile Mesh;
+};
+
+// Sources are stable prepared ordinals; cell occupancy does not certify their full coverage.
+[[nodiscard]] std::expected<BakedStructureGroup, StructureBakeError>
+BakePreparedStructureSources(const PreparedStructureTile &base,
+                             const RawTile &view,
+                             std::span<const uint32_t> sources,
+                             const StructureMesher &mesher,
+                             MeshScratch &scratch,
+                             const std::atomic_bool *stopping = nullptr);
+
 [[nodiscard]] std::expected<BakedTile, StructureBakeError>
 BakePreparedStructures(const PreparedStructureTile &base,
                        const RawTile &view,

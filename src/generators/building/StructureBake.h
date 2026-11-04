@@ -41,6 +41,7 @@ enum class StructureBakeErrorKind {
   ChangedDetail,
   InvalidCell,
   ChangedCell,
+  InvalidSourceSelection,
   InvalidHeightInput,
   HeightInputCapacityExceeded,
   NativeInputsMissing,
@@ -65,6 +66,7 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
     case StructureBakeErrorKind::ChangedDetail: return "structure detail changed during bake";
     case StructureBakeErrorKind::InvalidCell: return "unsupported structure cell";
     case StructureBakeErrorKind::ChangedCell: return "structure cell changed during bake";
+    case StructureBakeErrorKind::InvalidSourceSelection: return "invalid prepared source selection";
     case StructureBakeErrorKind::InvalidHeightInput: return "structure terrain input is invalid";
     case StructureBakeErrorKind::HeightInputCapacityExceeded:
       return "structure terrain preparation exceeds its byte budget";
@@ -177,6 +179,11 @@ class StructureBakeProgress {
 public:
   StructureBakeProgress();
   ~StructureBakeProgress();
+  StructureBakeProgress(StructureBakeProgress &&other) noexcept;
+  StructureBakeProgress &operator=(StructureBakeProgress &&other) noexcept;
+
+  [[nodiscard]] static std::expected<StructureBakeProgress, StructureBakeError>
+  ForSources(std::span<const uint32_t> sources);
   StructureBakeProgress(const StructureBakeProgress &) = delete;
   StructureBakeProgress &operator=(const StructureBakeProgress &) = delete;
 

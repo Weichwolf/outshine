@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -350,6 +351,7 @@ struct StructureBakeProgress::State {
   BakedTile Tile;
   size_t Next = 0;
   size_t Count = 0;
+  std::optional<std::vector<uint32_t>> Sources;
   bool Started = false;
   bool Finalized = false;
 
@@ -402,9 +404,56 @@ struct StructureBakeProgress::State {
     Started = true;
   }
 
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  EmitPreparedSource(const PreparedStructureTile &base,
+                     const RawTile &view,
+                     const StructureMesher &mesher,
+                     MeshScratch &scratch,
+                     size_t source) {
+    const auto &one = base.Structures[source];
+    const auto emitted =
+        EmitStructure(one,
+                      base.PointsLatLon,
+                      base.Holes,
+                      std::span(base.CornerAslM).subspan(one.CornerFirst, one.Layout.PointCount),
+                      view,
+                      mesher,
+                      scratch,
+                      Tile,
+                      Masses,
+                      Selection,
+                      &base.Surfaces[source]);
+    if (!emitted) { return emitted; }
+    Tile.Prints.back().FirstPoint = one.Layout.LocalFirst;
+    Tile.Prints.back().FirstHole = one.Layout.FirstHole;
+    if (base.Origin.Provenance) { Tile.Coordinates->Sources.push_back(one.Layout.SourceId); }
+    return {};
+  }
+
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  Validate(const PreparedStructureTile &base,
+           const RawTile &view,
+           const std::atomic_bool *stopping) const {
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+    if (base.Surfaces.size() != base.Structures.size()) {
+      return std::unexpected(StructureMeshError::InvalidPlan);
+    }
+    if (!Started && Sources) {
+      if (Sources->back() >= base.Structures.size()) {
+        return std::unexpected(StructureBakeErrorKind::InvalidSourceSelection);
+      }
+      if (view.RequestedCell && std::ranges::any_of(*Sources, [&](uint32_t at) {
+            return base.Structures[at].Layout.Cell.Index != *view.RequestedCell;
+          })) {
+        return std::unexpected(StructureBakeErrorKind::InvalidSourceSelection);
+      }
+    }
+    return Validate(view);
+  }
+
   void StartPrepared(const PreparedStructureTile &base, const RawTile &view) {
     if (Started) { return; }
-    Start(view, base.FallbackHeights, base.Structures.size());
+    Start(view, base.FallbackHeights, Sources ? Sources->size() : base.Structures.size());
     Tile.SkippedRings = base.SkippedRings;
     Tile.NoGround = base.NoGround;
     Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
@@ -417,6 +466,22 @@ StructureBakeProgress::StructureBakeProgress() : State_(std::make_unique<State>(
 
 StructureBakeProgress::~StructureBakeProgress() = default;
 
+StructureBakeProgress::StructureBakeProgress(StructureBakeProgress &&other) noexcept = default;
+
+StructureBakeProgress &
+StructureBakeProgress::operator=(StructureBakeProgress &&other) noexcept = default;
+
+std::expected<StructureBakeProgress, StructureBakeError>
+StructureBakeProgress::ForSources(std::span<const uint32_t> sources) {
+  if (sources.empty() ||
+      std::ranges::adjacent_find(sources, std::greater_equal{}) != sources.end()) {
+    return std::unexpected(StructureBakeErrorKind::InvalidSourceSelection);
+  }
+  StructureBakeProgress progress;
+  progress.State_->Sources.emplace(sources.begin(), sources.end());
+  return progress;
+}
+
 size_t StructureBakeProgress::BakedStructures() const noexcept {
   return State_->Next;
 }
@@ -428,6 +493,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                          MeshScratch &scratch,
                                          size_t structuresMost,
                                          const std::atomic_bool *stopping) {
+  if (State_->Sources) { return std::unexpected(StructureBakeErrorKind::InvalidSourceSelection); }
   const auto valid = State_->Validate(raw);
   if (!valid) { return std::unexpected(valid.error()); }
   if (structuresMost == 0) { return false; }
@@ -518,11 +584,7 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
                                        MeshScratch &scratch,
                                        size_t structuresMost,
                                        const std::atomic_bool *stopping) {
-  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-  if (base.Surfaces.size() != base.Structures.size()) {
-    return std::unexpected(StructureMeshError::InvalidPlan);
-  }
-  const auto valid = State_->Validate(view);
+  const auto valid = State_->Validate(base, view, stopping);
   if (!valid) { return std::unexpected(valid.error()); }
   if (structuresMost == 0) { return false; }
   State &state = *State_;
@@ -537,29 +599,16 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
     return *emitted;
   }
   size_t processed = 0;
-  for (; state.Next < base.Structures.size() && processed < structuresMost; ++state.Next) {
-    const auto &one = base.Structures[state.Next];
+  for (; state.Next < state.Count && processed < structuresMost; ++state.Next) {
+    const size_t source = state.Sources ? (*state.Sources)[state.Next] : state.Next;
+    const auto &one = base.Structures[source];
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     if (view.RequestedCell && one.Layout.Cell.Index != *view.RequestedCell) { continue; }
     ++processed;
-    const auto emitted =
-        EmitStructure(one,
-                      base.PointsLatLon,
-                      base.Holes,
-                      std::span(base.CornerAslM).subspan(one.CornerFirst, one.Layout.PointCount),
-                      view,
-                      mesher,
-                      scratch,
-                      out,
-                      state.Masses,
-                      state.Selection,
-                      &base.Surfaces[state.Next]);
+    const auto emitted = state.EmitPreparedSource(base, view, mesher, scratch, source);
     if (!emitted) { return std::unexpected(emitted.error()); }
-    out.Prints.back().FirstPoint = one.Layout.LocalFirst;
-    out.Prints.back().FirstHole = one.Layout.FirstHole;
-    if (base.Origin.Provenance) { out.Coordinates->Sources.push_back(one.Layout.SourceId); }
   }
-  if (state.Next != base.Structures.size()) { return false; }
+  if (state.Next != state.Count) { return false; }
   if (view.RequestedDetail) {
     state.Current = State::Phase::Complete;
     return true;
@@ -570,12 +619,13 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
   return false;
 }
 
-std::expected<BakedTile, StructureBakeError>
-BakePreparedStructures(const PreparedStructureTile &base,
-                       const RawTile &view,
-                       const StructureMesher &mesher,
-                       MeshScratch &scratch,
-                       const std::atomic_bool *stopping) {
+namespace {
+std::expected<BakedTile, StructureBakeError> BakePreparedProduct(StructureBakeProgress &progress,
+                                                                 const PreparedStructureTile &base,
+                                                                 const RawTile &view,
+                                                                 const StructureMesher &mesher,
+                                                                 MeshScratch &scratch,
+                                                                 const std::atomic_bool *stopping) {
   RawTile raw;
   raw.Eye = view.Eye;
   raw.EyeEcef = view.EyeEcef;
@@ -586,13 +636,40 @@ BakePreparedStructures(const PreparedStructureTile &base,
   raw.AnchorEcef = base.AnchorEcef;
   raw.TileSpanM = base.TileSpanM;
   raw.Extent = base.Extent;
-  StructureBakeProgress progress;
   for (;;) {
     const auto advanced = progress.AdvancePrepared(base, raw, mesher, scratch, 64, stopping);
     if (!advanced) { return std::unexpected(advanced.error()); }
     if (*advanced) { break; }
   }
   return progress.Finalize(raw, mesher, scratch, stopping);
+}
+
+}
+
+std::expected<BakedTile, StructureBakeError>
+BakePreparedStructures(const PreparedStructureTile &base,
+                       const RawTile &view,
+                       const StructureMesher &mesher,
+                       MeshScratch &scratch,
+                       const std::atomic_bool *stopping) {
+  StructureBakeProgress progress;
+  return BakePreparedProduct(progress, base, view, mesher, scratch, stopping);
+}
+
+std::expected<BakedStructureGroup, StructureBakeError>
+BakePreparedStructureSources(const PreparedStructureTile &base,
+                             const RawTile &view,
+                             std::span<const uint32_t> sources,
+                             const StructureMesher &mesher,
+                             MeshScratch &scratch,
+                             const std::atomic_bool *stopping) {
+  auto progress = StructureBakeProgress::ForSources(sources);
+  if (!progress) { return std::unexpected(progress.error()); }
+  auto baked = BakePreparedProduct(*progress, base, view, mesher, scratch, stopping);
+  if (!baked) { return std::unexpected(baked.error()); }
+  return BakedStructureGroup{.SourceCount = base.Structures.size(),
+                             .Sources = {sources.begin(), sources.end()},
+                             .Mesh = std::move(*baked)};
 }
 
 std::expected<BakedTile, StructureBakeError>
