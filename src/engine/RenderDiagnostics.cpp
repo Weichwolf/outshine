@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -188,8 +189,17 @@ void Engine::State::Inspected() {
   const Heap::Tagged measuring(kFrameMeasurementsTag);
   const uint64_t structures = World.Pieces.Digest();
   size_t structureTiles = 0;
-  World.Pieces.ForEachDigest(
-      [&structureTiles](Render::GeometryPageResidency::DigestRecord) { ++structureTiles; });
+  size_t structurePages = 0;
+  size_t projectedTiles = 0;
+  std::optional<uint32_t> previousTile;
+  const auto eye = CurrentGeographicFocus();
+  World.Pieces.ForEachDigest([&](Render::GeometryPageResidency::DigestRecord record) {
+    ++structurePages;
+    if (previousTile == record.Tile) { return; }
+    previousTile = record.Tile;
+    ++structureTiles;
+    if (StructureProductsReady(record.Tile, eye)) { ++projectedTiles; }
+  });
   Published.RecordMetric(
       "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
   Published.RecordMetric("world: live structure digest low half",
@@ -197,6 +207,17 @@ void Engine::State::Inspected() {
                          "digest");
   Published.RecordMetric(
       "world: live structure tiles", static_cast<double>(structureTiles), "tiles");
+  Published.RecordMetric(
+      "world: live structure pages", static_cast<double>(structurePages), "pages");
+  Published.RecordMetric(
+      "world: projected structure tiles", static_cast<double>(projectedTiles), "tiles");
+  Published.RecordMetric("world: live structure source binding",
+                         World.Region &&
+                                 World.Region->MatchesLiveSources(World.Surface().Vectors(),
+                                                                  World.Surface().Footprints())
+                             ? 1
+                             : 0,
+                         "boolean");
   Published.RecordMetric(
       "render: live native pieces", static_cast<double>(Picture.Device.PiecesStanding()), "pieces");
   Published.RecordMetric("render: live piece sources",
