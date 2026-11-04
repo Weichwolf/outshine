@@ -61,6 +61,10 @@ public:
   [[nodiscard]] std::expected<std::span<const uint32_t>, SourceProductSelectionError>
   Members(const Cut &cut, const Product &product) const;
   [[nodiscard]] const Box &Bounds(const Product &product) const;
+  [[nodiscard]] static double GeometryErrorPx(const Box &bounds,
+                                              const Render::CameraBasis &camera,
+                                              double focalPx,
+                                              double errorM);
 
 private:
   struct Node {

@@ -42,6 +42,18 @@ void SourceSupport() {
             shell->Products[0].Representation == Selection::Kind::Shell &&
             shell->Products[0].WorldErrorM == 0.5,
         "a complete shell group uses the maximum child error rather than an average");
+  if (shell && !shell->Products.empty()) {
+    const auto &product = shell->Products.front();
+    CHECK(Selection::GeometryErrorPx(
+              selector->Bounds(product), camera, projection.FocalPx, product.WorldErrorM) ==
+              product.ProjectedErrorPx,
+          "runtime Shell qualification uses the same perspective bound as metadata selection");
+    auto invalid = camera;
+    invalid.Forward = {};
+    CHECK(!std::isfinite(Selection::GeometryErrorPx(
+              selector->Bounds(product), invalid, projection.FocalPx, product.WorldErrorM)),
+          "an invalid runtime camera never qualifies a coarse geometry product");
+  }
   camera.EyeM[2] = 1000000;
   const auto hull = selector->SelectGeometry(camera, projection);
   CHECK(hull && hull->Products.size() == 1 &&

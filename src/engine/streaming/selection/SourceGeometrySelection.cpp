@@ -67,6 +67,17 @@ double ShellError(const ProjectionDomain &domain, double focal, double error, bo
 }
 }
 
+double SourceProductSelection::GeometryErrorPx(const Box &bounds,
+                                               const Render::CameraBasis &camera,
+                                               double focalPx,
+                                               double errorM) {
+  if (!ValidCamera(camera) || bounds.Empty() || !std::isfinite(focalPx) || focalPx <= 0 ||
+      !std::isfinite(errorM) || errorM < 0) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return ShellError(Domain(bounds, camera, 0), focalPx, errorM, false);
+}
+
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
 SourceProductSelection::SelectGeometry(const Render::CameraBasis &camera,
                                        ProjectedErrorBudget projection,
