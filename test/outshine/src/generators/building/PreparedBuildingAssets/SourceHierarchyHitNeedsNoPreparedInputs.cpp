@@ -14,6 +14,8 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <span>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -48,6 +50,67 @@ std::vector<uint32_t> NearFirst(const PageIndexAsset &index, const Vec3 &eye) {
             [&](const auto &node) { order.push_back(index.Hierarchy.SourceOrder()[node.First]); }),
         "source ordinals can be prioritized using only the retained metadata");
   return order;
+}
+
+void MalformedGroups(AssetCache &cache,
+                     PreparedBuildingAssets &owner,
+                     const std::string &key,
+                     const Box &bounds,
+                     size_t bytes) {
+  const auto rows = cache.Select({.Bounds = bounds,
+                                  .Kind = "building-source-groups",
+                                  .Level = std::nullopt,
+                                  .Radius = std::nullopt,
+                                  .Planes = {},
+                                  .Parent = key});
+  CHECK(rows && rows->size() == 1, "one revision-bound metadata product exists");
+  if (!rows || rows->size() != 1) { return; }
+  auto record = rows->front();
+  auto loaded = cache.Load(record.Key, bytes);
+  CHECK(loaded && *loaded, "the compact metadata body is available independently");
+  if (!loaded || !*loaded) { return; }
+  const auto encoded = (**loaded).Bytes();
+  CHECK(encoded.size() == 12 + 2 * 5,
+        "metadata carries two five-byte members and a versioned header");
+  if (encoded.size() != 22) { return; }
+  std::vector<std::vector<uint8_t>> invalid(5, {encoded.begin(), encoded.end()});
+  invalid[0].pop_back();
+  invalid[1][0] ^= 1;
+  invalid[2][12] = 0;
+  invalid[3][16] = 2;
+  invalid[4][8] = 255;
+  loaded->reset();
+  record.Package.clear();
+  record.OffsetBytes = 0;
+  for (const auto &payload : invalid) {
+    CHECK(cache.Remove(record.Key), "the prior test metadata is evicted before replacement");
+    record.ByteCount = payload.size();
+    CHECK(cache.Publish(std::span(&record, 1), payload), "the malformed counterexample is stored");
+    CHECK(!owner.DescribeSourceGroups(key, {.Occupied = 1, .IndexBytesMost = bytes}),
+          "truncation, version, cohort, support and oversized count fail before source fallback");
+  }
+}
+
+void CachedGroups(const std::filesystem::path &root,
+                  const Data::SourceSet &sources,
+                  const std::string &key,
+                  size_t bytes) {
+  const auto cache = OpenAssetStore(root.string());
+  auto owner = PreparedBuildingAssets::Open(cache, sources);
+  CHECK(owner, "a fresh metadata-only owner opens after source eviction");
+  if (!owner) { return; }
+  const auto hit = (*owner)->DescribeSourceGroups(key, {.Occupied = 1, .IndexBytesMost = bytes});
+  CHECK(hit && *hit && (**hit).Members.size() == 2 && (**hit).Cells.empty(),
+        "cached cohorts survive absent headers without inventing complete cell products");
+  CHECK((*owner)->Costs().ReadBytes == 0 && (*owner)->Costs().SurfaceReadBytes == 0,
+        "fresh group hits decode neither prepared headers nor form blocks");
+  if (hit && *hit) {
+    for (const auto &member : (**hit).Members) {
+      CHECK(member.Cell == 1 && member.FieldSupported,
+            "cached source cohorts retain their native classification");
+    }
+    MalformedGroups(*cache, **owner, key, (**hit).Index->Hierarchy.Nodes().front().Bounds, bytes);
+  }
 }
 
 void Exercise(const std::filesystem::path &root) {
@@ -133,6 +196,7 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(costs.ReadBytes == 0 && costs.SurfaceReadBytes == 0 && costs.GeometryReadBytes == 0 &&
             costs.BasePreparations == 0 && costs.GeometryPreparations == 0,
         "fresh hierarchy hits require neither prepared input reads nor generation");
+  CachedGroups(root, sources, key, *bytes);
 }
 }
 
