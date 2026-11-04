@@ -460,6 +460,10 @@ bool Engine::State::AdvanceBuildingFields() {
       "building fields: active cells", static_cast<double>(counts.Active), "cells");
   Published.RecordMetric(
       "building fields: rejected cells", static_cast<double>(counts.Rejected), "cells");
+  Published.RecordMetric(
+      "building fields: ready groups", static_cast<double>(counts.ReadyGroups), "groups");
+  Published.RecordMetric(
+      "building fields: active groups", static_cast<double>(counts.ActiveGroups), "groups");
   return true;
 }
 

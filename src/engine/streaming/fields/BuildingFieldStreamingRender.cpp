@@ -6,6 +6,7 @@
 #include "Lens.h"
 #include "PieceMesh.h"
 #include "Log.h"
+#include "Sha256.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -20,47 +21,61 @@
 #include <vector>
 
 namespace outshine {
-void BuildingFieldStreaming::State::PollFields(Context &context) {
-  for (auto &tile : Tiles) {
-    for (auto &cell : tile.Cells) {
-      if (cell.Where != Cell::Phase::Pending || !cell.Request) { continue; }
-      const auto ready = cell.Request->Poll();
-      if (!ready) {
-        if (LastRejection != ready.error()) {
-          Log::Warn(LogTag::World, "building_field_rejected", {{"reason", ready.error()}});
-        }
-        LastRejection = ready.error();
-        cell.Request.reset();
-        cell.Where = Cell::Phase::Rejected;
-        continue;
-      }
-      if (!*ready) { continue; }
-      cell.Product = *ready;
-      std::string error;
-      if (!Stage(context, tile, cell, error)) {
-        if (LastRejection != error) {
-          Log::Warn(LogTag::World, "building_field_staging_rejected", {{"reason", error}});
-        }
-        LastRejection = std::move(error);
-        cell.Product.reset();
-        cell.Request.reset();
-        cell.Where = Cell::Phase::Rejected;
-        continue;
-      }
-      cell.Metadata = cell.Product->Metadata->Metadata();
-      cell.Support = cell.Product->GeometricSupport;
-      cell.Product.reset();
-      cell.Request.reset();
-      cell.Where = Cell::Phase::Ready;
+void BuildingFieldStreaming::State::Reject(Cell &cell) {
+  cell.Where = Phase::Rejected;
+  cell.Groups.clear();
+  cell.Alternatives.clear();
+}
+
+void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell &cell) {
+  if (cell.Where != Phase::Pending) { return; }
+  std::string error;
+  for (auto &group : cell.Groups) {
+    if (group.Where != Phase::Pending || !group.Request) { continue; }
+    const auto ready = group.Request->Poll();
+    if (!ready) {
+      error = ready.error();
+      break;
     }
+    if (!*ready) { continue; }
+    if (!StageGroup(context, tile, group, **ready, error)) { break; }
+    group.Metadata = (**ready).Metadata->Metadata();
+    group.Support = (**ready).GeometricSupport;
+    group.Request.reset();
+    group.Where = Phase::Ready;
+  }
+  if (error.empty() &&
+      std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Ready; }) &&
+      Stage(context, tile, cell, error)) {
+    cell.Where = Phase::Ready;
+    cell.Alternatives.clear();
+    for (auto &group : cell.Groups) { group.Surface.reset(); }
+  }
+  if (error.empty()) { return; }
+  if (LastRejection != error) {
+    Log::Warn(LogTag::World, "building_field_rejected", {{"reason", error}});
+  }
+  LastRejection = std::move(error);
+  if (cell.Alternatives.empty()) {
+    Reject(cell);
+  } else {
+    cell.Groups = std::move(cell.Alternatives);
+    cell.Alternatives.clear();
+    cell.Where = Phase::Waiting;
   }
 }
 
-bool BuildingFieldStreaming::State::Stage(Context &context,
-                                          Tile &tile,
-                                          Cell &cell,
-                                          std::string &error) {
-  const auto &product = *cell.Product;
+void BuildingFieldStreaming::State::PollFields(Context &context) {
+  for (auto &tile : Tiles) {
+    for (auto &cell : tile.Cells) { PollCell(context, tile, cell); }
+  }
+}
+
+bool BuildingFieldStreaming::State::StageGroup(Context &context,
+                                               const Tile &tile,
+                                               Group &group,
+                                               const BuildingFieldRequest::Product &product,
+                                               std::string &error) {
   if (!product.Field || !product.Metadata || !product.GeometricSupport ||
       !product.Metadata->Metadata().WorldFromField) {
     error = "building field has no complete registered source or geometric support";
@@ -104,25 +119,47 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
     }
   }
   const auto indices = geometry->trianglesOf(0);
-  const std::vector<uint32_t> triangles(indices.begin(), indices.end());
+  std::vector<uint32_t> triangles(indices.begin(), indices.end());
   auto material = context.Renderer.RegisterPieceMaterials(std::move(*geometry));
   if (!material) {
     error = material.error();
     return false;
   }
-  const Render::GeometryPagePartView part{.Tangents = tangents,
-                                          .Verts = vertices,
-                                          .Indices = triangles,
-                                          .Clusters = {},
-                                          .Colours = {},
-                                          .Uv1 = {},
-                                          .Surface = Render::PieceSurface::Registered(*material),
-                                          .Textured = true,
-                                          .Passes = Render::GeometryPasses::Main};
-  cell.AssetKey = product.Metadata->FieldKey({0});
+  group.Surface.emplace(Part{.Vertices = std::move(vertices),
+                             .Tangents = std::move(tangents),
+                             .Triangles = std::move(triangles),
+                             .Material = std::move(*material)});
+  group.AssetKey = product.Metadata->FieldKey({0});
+  return true;
+}
+
+bool BuildingFieldStreaming::State::Stage(Context &context,
+                                          Tile &tile,
+                                          Cell &cell,
+                                          std::string &error) {
+  std::vector<Render::GeometryPagePartView> parts;
+  std::string identity = "building-field-cell-2/" + tile.Source.BaseKey;
+  for (const auto &group : cell.Groups) {
+    if (!group.Surface) {
+      error = "building field group incomplete";
+      return false;
+    }
+    const auto &surface = *group.Surface;
+    parts.push_back({.Tangents = surface.Tangents,
+                     .Verts = surface.Vertices,
+                     .Indices = surface.Triangles,
+                     .Clusters = {},
+                     .Colours = {},
+                     .Uv1 = {},
+                     .Surface = Render::PieceSurface::Registered(surface.Material),
+                     .Textured = true,
+                     .Passes = Render::GeometryPasses::Main});
+    identity += "/" + group.AssetKey;
+  }
+  cell.AssetKey = Sha256Hex(reinterpret_cast<const uint8_t *>(identity.data()), identity.size());
   uint64_t digest = 0;
   (void)std::from_chars(cell.AssetKey.data(), cell.AssetKey.data() + 16, digest, 16);
-  const Render::GeometryPageView page{.Parts = std::span(&part, 1),
+  const Render::GeometryPageView page{.Parts = parts,
                                       .Digest = digest,
                                       .AssetKey = cell.AssetKey,
                                       .FallbackHeights = false,
@@ -135,27 +172,25 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
   return cell.Staged;
 }
 
-bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Cell &cell) {
-  if (!cell.Staged || !cell.Support || !cell.Metadata || !cell.Metadata->WorldFromField) {
-    return false;
-  }
+bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Group &group) {
+  if (!group.Support || !group.Metadata || !group.Metadata->WorldFromField) { return false; }
   const auto lens =
       Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
-  const auto hull = Render::ImpostorPoseBounds::From(cell.Support->Plane);
+  const auto hull = Render::ImpostorPoseBounds::From(group.Support->Plane);
   if (!lens || !hull) { return false; }
   const auto camera = WorldCamera(context);
-  const double radius = Length(cell.Source.Bounds.Span());
-  const double distance = Length(camera.EyeM - cell.Source.Bounds.Middle()) - radius;
+  const double radius = Length(group.Bounds.Span());
+  const double distance = Length(camera.EyeM - group.Bounds.Middle()) - radius;
   const auto projection = context.Surface.Footprints().Projection();
-  if (distance <= 0 || 4 * projection.FocalPx * radius / distance + 2 > cell.Metadata->Pixels) {
+  if (distance <= 0 || 4 * projection.FocalPx * radius / distance + 2 > group.Metadata->Pixels) {
     return false;
   }
-  const auto bound = hull->Project(camera, *lens, *cell.Metadata->WorldFromField);
+  const auto bound = hull->Project(camera, *lens, *group.Metadata->WorldFromField);
   return bound && bound->DepthInside && bound->L1UpperPx <= projection.AllowedErrorPx;
 }
 
 bool BuildingFieldStreaming::State::Select(Context &context, std::string &error) {
-  Statistics.Active = 0;
+  Statistics.Active = Statistics.ActiveGroups = 0;
   for (auto &tile : Tiles) {
     const auto qualified =
         StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
@@ -187,10 +222,13 @@ bool BuildingFieldStreaming::State::Select(Context &context, std::string &error)
       const auto found =
           std::ranges::find(tile.Cells, choice.Cell, [](const Cell &c) { return c.Source.Cell; });
       if (parentsValid && key == tile.SourceKey && choice.Cell > 0 && choice.Cell <= 64 &&
-          found != tile.Cells.end() && found->Where == Cell::Phase::Ready &&
-          choice.Mask() == (uint64_t{1} << (choice.Cell - 1u)) && ValidPose(context, *found)) {
+          found != tile.Cells.end() && found->Where == Phase::Ready &&
+          choice.Mask() == (uint64_t{1} << (choice.Cell - 1u)) && found->Staged &&
+          std::ranges::all_of(found->Groups,
+                              [&](const Group &g) { return ValidPose(context, g); })) {
         choice.Detail = LevelOfDetail::Skyline;
         active |= choice.Mask();
+        Statistics.ActiveGroups += found->Groups.size();
       }
     }
     Statistics.Active += static_cast<size_t>(std::popcount(active));
