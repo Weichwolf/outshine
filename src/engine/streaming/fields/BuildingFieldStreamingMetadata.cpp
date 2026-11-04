@@ -16,15 +16,17 @@
 
 namespace outshine {
 void BuildingFieldStreaming::State::PrepareCells(
-    Tile &tile, const Generators::PreparedBuildingAssets::SourceGroups &groups) {
+    Tile &tile,
+    const Generators::PreparedBuildingAssets::SourceGroups &groups,
+    const SourceProductSelection &selection,
+    const SourceProductSelection::Cut &cut) {
   for (const auto &source : groups.Cells) {
     Cell cell;
     cell.Source = source;
     tile.Cells.push_back(std::move(cell));
   }
-  if (!tile.Selection || !tile.Cut) { return; }
-  for (const auto &product : tile.Cut->Products) {
-    const auto members = tile.Selection->Members(*tile.Cut, product);
+  for (const auto &product : cut.Products) {
+    const auto members = selection.Members(cut, product);
     if (!members || members->empty()) { continue; }
     const auto cellId = groups.Members[(*members)[0]].Cell;
     const auto cell =
@@ -35,18 +37,13 @@ void BuildingFieldStreaming::State::PrepareCells(
       continue;
     }
     Group group;
-    group.Selected = product;
-    group.Bounds = tile.Selection->Bounds(product);
+    group.Sources.assign(members->begin(), members->end());
+    group.Bounds = selection.Bounds(product);
     cell->Groups.push_back(std::move(group));
   }
   for (auto &cell : tile.Cells) {
     size_t covered = 0;
-    for (const auto &group : cell.Groups) {
-      const auto members = group.Selected
-                               ? tile.Selection->Members(*tile.Cut, *group.Selected)
-                               : std::unexpected(SourceProductSelectionError::InvalidProduct);
-      if (members) { covered += members->size(); }
-    }
+    for (const auto &group : cell.Groups) { covered += group.Sources.size(); }
     if (cell.Where != Phase::Rejected && !cell.Groups.empty() &&
         covered == tile.Source.CellSourceCounts[cell.Source.Cell - 1u]) {
       cell.Alternatives = std::move(cell.Groups);
@@ -62,9 +59,7 @@ void BuildingFieldStreaming::State::PrepareCells(
 void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
   if (Reading->Groups && Reading->Selection && Reading->Cut && ReadingTile) {
-    ReadingTile->Selection = std::move(Reading->Selection);
-    ReadingTile->Cut = std::move(Reading->Cut);
-    PrepareCells(*ReadingTile, *Reading->Groups);
+    PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut);
     Tiles.push_back(std::move(*ReadingTile));
   }
   ReadingTile.reset();
@@ -88,9 +83,7 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
             .SourceKey = *qualified,
             .Source = *entry.Value,
             .Originals = {},
-            .Cells = {},
-            .Selection = {},
-            .Cut = {}};
+            .Cells = {}};
   context.Pages.ForEachDigest(
       [&](const auto &page) {
         if (page.Tile == at && page.SourceKey == tile.SourceKey && page.Cell != 0 &&

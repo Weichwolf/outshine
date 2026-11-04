@@ -28,7 +28,7 @@ struct BuildingFieldStreaming::State {
   };
 
   struct Group {
-    std::optional<SourceProductSelection::Product> Selected;
+    std::vector<uint32_t> Sources;
     Box Bounds;
     Phase Where = Phase::Waiting;
     std::optional<BuildingFieldRequest> Request;
@@ -53,8 +53,6 @@ struct BuildingFieldStreaming::State {
     BuildingSourceDemand::Source Source;
     std::vector<Render::GeometryPageResidency::CellSelection> Originals;
     std::vector<Cell> Cells;
-    std::optional<SourceProductSelection> Selection;
-    std::optional<SourceProductSelection::Cut> Cut;
     uint64_t Active = 0, SelectedKey = 0, SelectedCoverage = 0;
   };
 
@@ -78,7 +76,9 @@ struct BuildingFieldStreaming::State {
   void Discover(Context &context);
   void PollMetadata();
   static void PrepareCells(Tile &tile,
-                           const Generators::PreparedBuildingAssets::SourceGroups &groups);
+                           const Generators::PreparedBuildingAssets::SourceGroups &groups,
+                           const SourceProductSelection &selection,
+                           const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);

@@ -136,18 +136,9 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   auto demand = DemandFor(context, tile.Source, group.Bounds, WorldCamera(context));
   if (!demand) { return false; }
   auto count = tile.Source.CellSourceCounts[cell.Source.Cell - 1u];
-  if (group.Selected) {
-    if (!tile.Selection || !tile.Cut) {
-      Reject(cell);
-      return false;
-    }
-    const auto members = tile.Selection->Members(*tile.Cut, *group.Selected);
-    if (!members || members->empty()) {
-      Reject(cell);
-      return false;
-    }
-    demand->Sources.emplace(members->begin(), members->end());
-    count = static_cast<uint32_t>(members->size());
+  if (!group.Sources.empty()) {
+    demand->Sources = group.Sources;
+    count = static_cast<uint32_t>(group.Sources.size());
   }
   const auto budget = BudgetFor(cell.Source, demand->Pixels, count);
   if (!budget) {
