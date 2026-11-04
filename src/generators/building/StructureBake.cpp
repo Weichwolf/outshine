@@ -595,4 +595,47 @@ BakePreparedStructures(const PreparedStructureTile &base,
   return progress.Finalize(raw, mesher, scratch, stopping);
 }
 
+std::expected<BakedTile, StructureBakeError>
+StructureTerrainContacts(const PreparedStructureTile &base, const std::atomic_bool *stopping) {
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+  BakedTile result;
+  result.CellShellErrorM.fill(-1.0);
+  result.FallbackHeights = base.FallbackHeights;
+  result.NoGround = base.NoGround;
+  result.SkippedRings = base.SkippedRings;
+  result.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  result.Coordinates->Origin = base.Origin;
+  result.Coordinates->OwnCoordinates(base.PointsLatLon, base.Holes);
+  result.Prints.reserve(base.Structures.size());
+  result.FootprintDetails.reserve(base.Structures.size());
+  result.SeatSpreadM.reserve(base.Structures.size());
+  result.AcrossM.reserve(base.Structures.size());
+  for (const auto &prepared : base.Structures) {
+    if (stopping != nullptr && stopping->load(std::memory_order_relaxed)) {
+      return std::unexpected(StructureBakeErrorKind::Cancelled);
+    }
+    const auto &cell = prepared.Layout.Cell;
+    if (cell.Index == 0 || cell.Index > kStructureCellsPerTile) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+    }
+    IncludeFootprint(result, cell);
+    const auto &standing = prepared.Standing;
+    result.Prints.push_back(standing);
+    result.Prints.back().FirstPoint = prepared.Layout.LocalFirst;
+    result.Prints.back().FirstHole = prepared.Layout.FirstHole;
+    result.FootprintDetails.push_back(LevelOfDetail::Fine);
+    result.SeatSpreadM.push_back(prepared.SeatAslM - prepared.BaseAslM);
+    result.AcrossM.push_back(prepared.AcrossM);
+    result.CellMaxHeightM[cell.Index - 1u] =
+        std::max(result.CellMaxHeightM[cell.Index - 1u], standing.HeightM);
+    result.Fronted += static_cast<int>(standing.Street.Known);
+    result.OsmHeights +=
+        static_cast<int>(standing.Source == Ground::BuildingHeightSource::Declared);
+    result.DefaultHeights +=
+        static_cast<int>(standing.Source == Ground::BuildingHeightSource::Generated);
+    if (base.Origin.Provenance) { result.Coordinates->Sources.push_back(prepared.Layout.SourceId); }
+  }
+  return result;
+}
+
 }

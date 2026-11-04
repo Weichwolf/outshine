@@ -41,6 +41,10 @@ PrepareStructureTile(const RawTile &raw,
                      const std::atomic_bool *stopping = nullptr);
 
 [[nodiscard]] std::expected<BakedTile, StructureBakeError>
+StructureTerrainContacts(const PreparedStructureTile &base,
+                         const std::atomic_bool *stopping = nullptr);
+
+[[nodiscard]] std::expected<BakedTile, StructureBakeError>
 BakePreparedStructures(const PreparedStructureTile &base,
                        const RawTile &view,
                        const StructureMesher &mesher,
