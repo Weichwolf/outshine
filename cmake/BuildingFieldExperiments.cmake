@@ -10,6 +10,8 @@ target_link_libraries(test_experiments_building_fields PUBLIC
 
 add_library(test_harness_building_source_capture STATIC EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/render/BuildingSourceCapture.cpp")
+target_include_directories(test_harness_building_source_capture PUBLIC
+  "${PROJECT_SOURCE_DIR}/test/harness/render")
 target_compile_options(test_harness_building_source_capture PRIVATE -fno-exceptions)
 target_link_libraries(test_harness_building_source_capture PUBLIC
   test_experiments_building_fields outshine_core PkgConfig::nlohmann_json)

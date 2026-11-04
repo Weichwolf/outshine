@@ -1,5 +1,6 @@
 #include "BuildingSourceDemand.h"
 #include "BuildingSourceCapture.h"
+#include "GeometryExport.h"
 #include "AssetCache.h"
 #include "Sha256.h"
 #include "BuildingSourceView.h"
@@ -148,33 +149,6 @@ template <class T> void Write(const Fs::path &path, std::span<const T> bytes) {
   if (!stream) { Fail("output write failed"); }
 }
 
-void SaveGeometry(const Geometry &geometry, const Fs::path &path) {
-  Fs::create_directories(path);
-  Json parts = Json::array();
-  for (int part = 0; part < geometry.parts(); ++part) {
-    const auto directory = path / std::to_string(part);
-    Fs::create_directories(directory);
-    const size_t vertices = geometry.positionsOf(part).size() / 3;
-    Write<float>(directory / "positions.bin", geometry.positionsOf(part));
-    Write<float>(directory / "normals.bin", geometry.normalsOf(part));
-    Write<float>(directory / "uv.bin", geometry.textureOf(part));
-    Write<uint32_t>(directory / "indices.bin", geometry.trianglesOf(part));
-    const auto uv1 = geometry.textureOf(part, UvSet::Uv1);
-    const auto colours = geometry.coloursOf(part);
-    const std::vector<float> defaultUv(uv1.empty() ? vertices * 2 : 0);
-    const std::vector<float> defaultColour(colours.empty() ? vertices * 4 : 0, 1.0f);
-    Write<float>(directory / "uv1.bin", uv1.empty() ? std::span<const float>(defaultUv) : uv1);
-    Write<float>(directory / "colours.bin",
-                 colours.empty() ? std::span<const float>(defaultColour) : colours);
-    parts.push_back({{"vertices", vertices},
-                     {"triangles", geometry.trianglesOf(part).size() / 3},
-                     {"material", geometry.materialOf(part).index()}});
-  }
-  std::ofstream description(path / "input.json");
-  description << Json{{"parts", parts}}.dump(2) << '\n';
-  if (!description) { Fail("source mesh description write failed"); }
-}
-
 std::expected<Geometry, std::string> PlaneGeometry(const Raised &raised,
                                                    const BuildingCaptureFrame &frame,
                                                    const std::array<Material, 3> &materials) {
@@ -242,7 +216,9 @@ ImpostorAtlas CapturePlaneViews(const BuildingPlaneCapture &producer,
     auto geometry = std::move(*converted);
     const auto conversionDone = Clock::now();
     if (geometryOutput != nullptr) {
-      SaveGeometry(geometry, *geometryOutput / "geometry" / std::to_string(views.size()));
+      const auto saved =
+          Test::SaveGeometry(geometry, *geometryOutput / "geometry" / std::to_string(views.size()));
+      if (!saved) { Fail(saved.error()); }
     }
     size_t triangles = 0;
     size_t vertices = 0;
@@ -469,8 +445,7 @@ std::expected<void, std::string> BuildingSourceCapture::ExportOriginals(
                  {"triangles", triangles},
                  {"logical_mesh_bytes", bytes}});
   state.Report["originals"] = std::move(result);
-  SaveGeometry(*mesh, output);
-  return {};
+  return Test::SaveGeometry(*mesh, output);
 }
 
 ImpostorAtlas BuildingSourceCapture::Capture(std::optional<size_t> view,

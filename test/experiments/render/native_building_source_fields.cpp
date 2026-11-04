@@ -2,7 +2,10 @@
 #include "BuildingSourceDemand.h"
 #include "BuildingSourceCapture.h"
 #include "BuildingFieldRequest.h"
+#include "BuildingMaterials.h"
+#include "BuildingSourceView.h"
 #include "ImpostorSurface.h"
+#include "GeometryExport.h"
 #include "PreparedBuildingAssets.h"
 #include "StructureCell.h"
 #include "Tasks.h"
@@ -14,6 +17,7 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -261,6 +265,53 @@ void Export(const BuildingFieldRequest::Product &product, const Fs::path &root, 
     }
   }
 }
+
+void ExportOriginals(const BuildingFieldRequest::Product &product,
+                     const std::shared_ptr<Generators::PreparedBuildingAssets> &sources,
+                     const Json &request,
+                     const Fs::path &root,
+                     Json &report) {
+  const auto began = Clock::now();
+  const auto base = sources->Load(product.Source.BaseKey);
+  if (!base || !*base) { Fail("original native source is unavailable"); }
+  const auto &worldFromField = product.Metadata->Metadata().WorldFromField;
+  if (!worldFromField) { Fail("original comparison source has no World frame"); }
+  const auto &transform = *worldFromField;
+  const auto column = [&](size_t axis) {
+    return Vec3{{transform.At(0, axis), transform.At(1, axis), transform.At(2, axis)}};
+  };
+  const Generators::BuildingCaptureFrame frame{
+      .Axes = {.East = column(0), .North = column(2) * -1.0, .Up = column(1)}, .Origin = {}};
+  std::vector<uint32_t> cells;
+  uint64_t remaining = product.Source.Cells;
+  while (remaining != 0) {
+    cells.push_back(static_cast<uint32_t>(std::countr_zero(remaining)) + 1u);
+    remaining &= remaining - 1u;
+  }
+  const auto source = Generators::BuildingSourceView::Open(*base, cells, frame);
+  if (!source) { Fail(source.error().Message); }
+  const auto mesh = source->Originals(Budget(request.at("limits")).Capture,
+                                      Generators::BuildingSurfaceMaterials());
+  if (!mesh) { Fail(mesh.error().Message); }
+  const auto directory = root / "original";
+  const auto saved = Test::SaveGeometry(*mesh, directory);
+  if (!saved) { Fail(saved.error()); }
+  auto description = Document(directory / "input.json");
+  description["least"] = Vector(source->Bounds().Min);
+  description["most"] = Vector(source->Bounds().Max);
+  description["catalogue"] = request.at("directions");
+  description["capture_pixels"] = request.at("pixels");
+  description["capture_half_extent_m"] = product.Field->HalfExtentM();
+  description["queries"] = request.at("render_queries");
+  Write(directory / "input.json", description);
+  size_t triangles = 0;
+  for (const auto &part : description.at("parts")) {
+    triangles += part.at("triangles").get<size_t>();
+  }
+  report["original_mesh"] = {
+      {"triangles", triangles},
+      {"export_ms", std::chrono::duration<double, std::milli>(Clock::now() - began).count()}};
+}
 }
 
 int main(int argc, char *const *argv) {
@@ -278,6 +329,9 @@ int main(int argc, char *const *argv) {
     Fail("select native source assets or a source-free field descriptor");
   }
   const bool importing = !stored && !request.contains("source");
+  if (request.contains("render_queries") && !stored && !importing) {
+    Fail("original render comparison requires native source assets");
+  }
   const auto sourceAt = Clock::now();
   const auto source = [&] {
     if (stored) { return StoredSource(request, root, sources); }
@@ -309,6 +363,9 @@ int main(int argc, char *const *argv) {
                 {"source_costs_before", before}};
     const auto product = Produce(request, source, sources, cache, workers, pipeline, report);
     Export(*product, root, report);
+    if (request.contains("render_queries")) {
+      ExportOriginals(*product, sources, request, root, report);
+    }
     report["source_costs_after"] = sources ? Costs(sources->Costs()) : Costs({});
     report["scope"] =
         "Native BuildingFieldRequest; import excluded from request timing, "

@@ -45,6 +45,11 @@ selects whole stored cells explicitly. Unsupported sources still reject their
 selected cohort. Rejected cells require their original representation.
 Results include flat/depth proxy triangle counts and construction time. These
 counts do not qualify their projections, occlusion or visual quality.
+`render_queries` also exports the complete selected original mesh and a native
+comparison input under `original/`. Run `NativeBuildingImpostors` on that directory
+to render originals, flat and depth proxies at identical camera/light settings.
+Original export costs are separate from the field request. It requires native
+sources and never silently reconstructs them from an atlas.
 
 This proves the real native job/cache/CPU-lease connection. It does not compare
 the resulting field pixels with independent original rendering, qualify pose or
