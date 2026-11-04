@@ -40,6 +40,29 @@ Output heap counts owned product capacities; coordinate bytes are a component,
 not an additional total. Neither number proves peak process/UMA residency.
 
 Form blocks are still stored per physical cell. Even a small source request can
-read the whole form block. Prepared native group assets and independent source
-coverage before World IO/publication remain work in #1955. This probe does not
+read the whole form block. Native Fine group assets are now independently stored by `BuildingGeometrySource`.
+World selection/IO/publication of mixed native groups remains work in #1955. This probe does not
 replace that runtime integration or its Metal/Places/movement acceptance.
+
+## Native Fine asset cache
+
+`BuildingGeometrySource` stores selected Fine geometry, PBR materials, intrinsic
+frame and exact revision/source domain in `GeometryAsset`. Its recipe includes
+source count, canonical ordinals, generator family and the actual material catalog.
+No camera or cell address is part of this Fine recipe. Unsupported/partial bakes
+fail locally. Encoded-byte and triangle allowances are caller inputs, not peak-RAM
+proofs; a worker must retain producer admission. This does not grant a smaller LOD
+error bound or publish a mixed World cut.
+
+```sh
+cmake --build build --target outshine_experiment_building_geometry_asset --parallel
+build/outshine_experiment_building_geometry_asset \
+  build/assets/assets.sqlite <base-key> /tmp/group/products.sqlite \
+  2000000 2097152 <source-count> <source-ordinal>...
+```
+
+Repeat with triangle allowance `0` in a new process to require a cache hit: no
+prepared-input database/owner opens. The probe also reopens the asset store and
+compares the encoded mesh/materials, frame/coverage and source-read counters.
+The output separates first resolve and source-free restore; these are CPU/IO
+measurements, not a World frame benchmark or GPU residency admission.
