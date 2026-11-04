@@ -40,19 +40,8 @@ std::expected<Generators::BuildingSourceView, std::string> BuildingImpostorSourc
   return std::move(*source);
 }
 
-ImpostorViewAssets::Description
-BuildingImpostorSource::Description(const Generators::BuildingSourceView &source) const {
-  Render::ImpostorCapture capture;
-  capture.LeastM = source.Bounds().Min;
-  capture.MostM = source.Bounds().Max;
-  capture.ViewDirections = Recipe_.Directions;
-  std::string error;
-  const auto projection = Render::ImpostorBaker::ProjectionFor(
-      capture,
-      {.Pixels = static_cast<int>(Recipe_.Pixels),
-       .Views = static_cast<unsigned>(Recipe_.Directions.size())},
-      error);
-  if (!projection) { return {}; }
+GeometryAsset::Description
+BuildingImpostorSource::Layout(const Generators::BuildingSourceView &source) const {
   Mat4 worldFromField;
   for (size_t axis = 0; axis < 3; ++axis) {
     Vec3 unit;
@@ -61,11 +50,27 @@ BuildingImpostorSource::Description(const Generators::BuildingSourceView &source
     for (size_t row = 0; row < 3; ++row) { worldFromField.At(row, axis) = direction[row]; }
   }
   worldFromField.SetTranslation(source.AnchorEcef() + Recipe_.Frame.Origin);
+  return {.Bounds = source.Bounds(), .WorldFromLocal = worldFromField};
+}
+
+ImpostorViewAssets::Description
+BuildingImpostorSource::Description(const GeometryAsset::Description &layout) const {
+  Render::ImpostorCapture capture;
+  capture.LeastM = layout.Bounds.Min;
+  capture.MostM = layout.Bounds.Max;
+  capture.ViewDirections = Recipe_.Directions;
+  std::string error;
+  const auto projection = Render::ImpostorBaker::ProjectionFor(
+      capture,
+      {.Pixels = static_cast<int>(Recipe_.Pixels),
+       .Views = static_cast<unsigned>(Recipe_.Directions.size())},
+      error);
+  if (!projection) { return {}; }
   return {.Centre = projection->Centre,
           .HalfExtentM = projection->HalfExtentM,
           .Pixels = Recipe_.Pixels,
           .Directions = Recipe_.Directions,
-          .WorldFromField = worldFromField};
+          .WorldFromField = layout.WorldFromLocal};
 }
 
 std::expected<ImpostorViewAssets, std::string>
@@ -76,55 +81,71 @@ BuildingImpostorSource::ResolveMetadata(AssetCache &cache, const std::stop_token
   auto opened = ImpostorViewAssets::Open(cache, Provenance_);
   if (!opened) { return std::unexpected("building source metadata lookup failed"); }
   if (*opened && (**opened).Metadata().WorldFromField) { return std::move(**opened); }
-  const auto source = Source();
-  if (!source) { return std::unexpected(source.error()); }
-  const auto description = Description(*source);
-  Box bounds;
-  for (unsigned corner = 0; corner < 8; ++corner) {
-    bounds.Cover(source->AnchorEcef() + Recipe_.Frame.Origin +
-                 Recipe_.Frame.SourceDirection(source->Bounds().Corner(corner)));
+  auto layout = GeometryAsset::Describe(cache, Recipe_.GeometryKey(), Recipe_.BaseKey);
+  if (!layout) { return std::unexpected("building geometry metadata lookup failed"); }
+  if (!*layout) {
+    const auto source = Source();
+    if (!source) { return std::unexpected(source.error()); }
+    *layout = Layout(*source);
   }
+  const auto description = Description(**layout);
+  const Box bounds = (**layout).Bounds.Through((**layout).WorldFromLocal);
   if (stop.stop_requested()) { return std::unexpected("building source metadata cancelled"); }
   auto published = ImpostorViewAssets::Publish(cache, Provenance_, description, bounds);
   if (!published) { return std::unexpected("building source metadata publication failed"); }
   return std::move(*published);
 }
 
+std::expected<GeometryAsset::Product, std::string> BuildingImpostorSource::GeometryFor(
+    AssetCache &cache, Budget budget, const std::stop_token &stop) const {
+  const auto key = Recipe_.GeometryKey();
+  auto cached = GeometryAsset::Load(cache, key, Recipe_.BaseKey, budget.GeometryBytesMost);
+  if (!cached) { return std::unexpected("building geometry asset lookup failed"); }
+  if (*cached) { return std::move(**cached); }
+  const auto source = Source();
+  if (!source) { return std::unexpected(source.error()); }
+  auto originals = source->Originals(budget.Capture, Recipe_.WallRoofMetreMaterials, stop);
+  if (!originals) { return std::unexpected(originals.error().Message); }
+  if (stop.stop_requested()) { return std::unexpected("building geometry generation cancelled"); }
+  GeometryAsset::Product product{.Layout = Layout(*source), .Mesh = std::move(*originals)};
+  const auto stored = GeometryAsset::Publish(
+      cache, key, Recipe_.BaseKey, product.Layout, product.Mesh, budget.GeometryBytesMost);
+  if (!stored) { return std::unexpected("building geometry asset publication failed"); }
+  return product;
+}
+
 std::expected<ImpostorAtlas, std::string>
-BuildingImpostorSource::Generate(ImpostorViewAssets::ViewIndex view,
-                                 size_t bytesMost,
-                                 Generators::BuildingSourceBudget budget,
+BuildingImpostorSource::Generate(AssetCache &cache,
+                                 ImpostorViewAssets::ViewIndex view,
+                                 Budget budget,
                                  const std::stop_token &stop) {
   thread_local Render::ImpostorBaker captures;
-  return Generate(captures, view, bytesMost, budget, stop);
+  return Generate(captures, cache, view, budget, stop);
 }
 
 std::expected<ImpostorAtlas, std::string>
 BuildingImpostorSource::Generate(Render::ImpostorBaker &captures,
+                                 AssetCache &cache,
                                  ImpostorViewAssets::ViewIndex view,
-                                 size_t bytesMost,
-                                 Generators::BuildingSourceBudget budget,
+                                 Budget budget,
                                  const std::stop_token &stop) {
   const auto bound =
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1});
   if (stop.stop_requested() || Provenance_.empty() || view.Value >= Recipe_.Directions.size() ||
-      !bound || *bound > bytesMost ||
-      budget.Samples < static_cast<uint64_t>(Recipe_.Pixels) * Recipe_.Pixels ||
-      budget.Sources == 0 || budget.Faces == 0 || budget.TriangleAttempts == 0) {
+      !bound || *bound > budget.FieldBytesMost || budget.GeometryBytesMost == 0 ||
+      budget.Capture.Samples < static_cast<uint64_t>(Recipe_.Pixels) * Recipe_.Pixels ||
+      budget.Capture.Sources == 0 || budget.Capture.Faces == 0 ||
+      budget.Capture.TriangleAttempts == 0) {
     return std::unexpected("building field request exceeds valid admission");
   }
+  auto geometry = GeometryFor(cache, budget, stop);
+  if (!geometry) { return std::unexpected(geometry.error()); }
+  const auto description = Description(geometry->Layout);
   Render::ImpostorCapture capture;
-  {
-    const auto source = Source();
-    if (!source) { return std::unexpected(source.error()); }
-    const auto description = Description(*source);
-    auto originals = source->Originals(budget, Recipe_.WallRoofMetreMaterials, stop);
-    if (!originals) { return std::unexpected(originals.error().Message); }
-    capture.LeastM = source->Bounds().Min;
-    capture.MostM = source->Bounds().Max;
-    capture.HalfExtentM = description.HalfExtentM;
-    capture.Sources.push_back({.Mesh = std::move(*originals), .Instances = {Mat4{}}});
-  }
+  capture.LeastM = geometry->Layout.Bounds.Min;
+  capture.MostM = geometry->Layout.Bounds.Max;
+  capture.HalfExtentM = description.HalfExtentM;
+  capture.Sources.push_back({.Mesh = std::move(geometry->Mesh), .Instances = {Mat4{}}});
   if (stop.stop_requested()) { return std::unexpected("building field capture cancelled"); }
   capture.ViewDirections = {Recipe_.Directions[view.Value]};
   std::string error;

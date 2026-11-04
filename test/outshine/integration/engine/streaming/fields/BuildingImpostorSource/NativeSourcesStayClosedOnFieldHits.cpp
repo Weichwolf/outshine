@@ -157,15 +157,19 @@ std::optional<std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
       .BytesMost = kBytes,
       .Product = ImpostorViewJob::MaterialView{
           .Selected = {0},
-          .Generate = [source, &calls](outshine::ImpostorViewAssets::ViewIndex view,
-                                       size_t budget,
-                                       const std::stop_token &stop) {
+          .Generate = [source, cache, &calls](outshine::ImpostorViewAssets::ViewIndex view,
+                                              size_t budget,
+                                              const std::stop_token &stop) {
             ++calls;
-            return source->Generate(
-                view,
-                budget,
-                {.Samples = 1024, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000},
-                stop);
+            return source->Generate(*cache,
+                                    view,
+                                    {.FieldBytesMost = budget,
+                                     .GeometryBytesMost = kBytes,
+                                     .Capture = {.Samples = 1024,
+                                                 .Sources = 100,
+                                                 .Faces = 1000,
+                                                 .TriangleAttempts = 100000}},
+                                    stop);
           }}};
   const auto parsed = AssetProductKey::Parse(key);
   if (!parsed) {
@@ -297,6 +301,41 @@ bool Restart(const std::string &executable,
   return SDL_WaitProcess(process.get(), true, &status) && status == 0;
 }
 
+void FrameRecovery(const std::shared_ptr<AssetCache> &cache,
+                   const std::shared_ptr<BuildingImpostorSource> &source,
+                   const std::shared_ptr<BuildingImpostorSource> &offline,
+                   const ImpostorViewAssets &metadata,
+                   const Mat4 &world,
+                   const Vec3 &anchor) {
+  const Vec3 padding{{1000, 1000, 1000}};
+  const Box bounds{.Min = anchor - padding, .Max = anchor + padding};
+  const auto unframe = [&] {
+    auto description = metadata.Metadata();
+    description.WorldFromField.reset();
+    CHECK(ImpostorViewAssets::Publish(*cache, source->Provenance(), std::move(description), bounds),
+          "an unframed view supplies an independent stale-source counterexample");
+  };
+  unframe();
+  const auto restored = Metadata(cache, offline);
+  CHECK(restored && restored->Metadata().WorldFromField == world,
+        "a native geometry descriptor restores a lost view frame without a source owner");
+  const auto info = cache->Select({.Bounds = bounds,
+                                   .Kind = "native-geometry-info",
+                                   .Level = std::nullopt,
+                                   .Radius = std::nullopt,
+                                   .Planes = {},
+                                   .Parent = std::nullopt});
+  CHECK(info && info->size() == 1, "the exact native source geometry has one small descriptor");
+  if (!info || info->size() != 1) { return; }
+  CHECK(cache->Remove(info->front().Key), "the last persisted source placement is evicted");
+  unframe();
+  CHECK(!Metadata(cache, offline),
+        "without native geometry metadata or source headers no World frame can be invented");
+  const auto repaired = Metadata(cache, source);
+  CHECK(repaired && repaired->Metadata().WorldFromField == world,
+        "the retained native source repairs a genuinely missing World frame");
+}
+
 void Run(const std::filesystem::path &root, const std::string &executable) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
@@ -343,7 +382,11 @@ void Run(const std::filesystem::path &root, const std::string &executable) {
   const auto source = std::make_shared<BuildingImpostorSource>(recipe, assets);
   const auto before = assets->Costs();
   const auto refused = source->Generate(
-      {0}, kBytes, {.Samples = 1023, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000});
+      *cache,
+      {0},
+      {.FieldBytesMost = kBytes,
+       .GeometryBytesMost = kBytes,
+       .Capture = {.Samples = 1023, .Sources = 100, .Faces = 1000, .TriangleAttempts = 100000}});
   CHECK(!refused && assets->Costs().ReadBytes == before.ReadBytes &&
             assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
         "sample admission precedes native descriptor and form IO");
@@ -378,23 +421,32 @@ void Run(const std::filesystem::path &root, const std::string &executable) {
   CHECK(assets->Costs().ReadBytes == after.ReadBytes &&
             assets->Costs().SurfaceReadBytes == after.SurfaceReadBytes,
         "stored fields repeat no native source decode or form generation");
-  if (warm) {
-    auto unframed = warm->Metadata();
-    unframed.WorldFromField.reset();
-    const Vec3 padding{{1000, 1000, 1000}};
-    CHECK(outshine::ImpostorViewAssets::Publish(
-              *cache,
-              source->Provenance(),
-              std::move(unframed),
-              {.Min = raw.AnchorEcef - padding, .Max = raw.AnchorEcef + padding}),
-          "an unframed index supplies the independent stale-source counterexample");
-    CHECK(!Metadata(cache, offline),
-          "an unframed native hit cannot invent a World placement without its source");
-    const auto repaired = Metadata(cache, source);
-    CHECK(repaired && repaired->Metadata().WorldFromField && world &&
-              repaired->Metadata().WorldFromField->Column == world->Column,
-          "the retained native source can repair a missing intrinsic World frame");
-  }
+  if (warm && world) { FrameRecovery(cache, source, offline, *warm, *world, raw.AnchorEcef); }
+}
+
+void ReuseGeometry(AssetCache &cache,
+                   const Generators::PreparedBuildingAssets &assets,
+                   const BuildingImpostorSource::Recipe &groupRecipe,
+                   Render::ImpostorBaker &captures,
+                   Generators::BuildingSourceBudget one) {
+  const auto prior = assets.Costs();
+  auto anotherView = groupRecipe;
+  anotherView.Pixels = 16;
+  anotherView.Directions = {{{1, 0, 0}}};
+  CHECK(anotherView.GeometryKey() == groupRecipe.GeometryKey() &&
+            anotherView.Key() != groupRecipe.Key(),
+        "view direction and field resolution select one camera-independent source mesh");
+  BuildingImpostorSource sourceFree(anotherView, nullptr);
+  const auto freshMetadata = sourceFree.ResolveMetadata(cache);
+  const auto freshField =
+      sourceFree.Generate(captures,
+                          cache,
+                          {0},
+                          {.FieldBytesMost = kBytes, .GeometryBytesMost = kBytes, .Capture = one});
+  CHECK(freshMetadata && freshField && assets.Costs().ReadBytes == prior.ReadBytes &&
+            assets.Costs().SurfaceReadBytes == prior.SurfaceReadBytes,
+        "a new field direction and resolution render from cached native geometry with no source "
+        "owner");
 }
 
 void Groups(const std::filesystem::path &root) {
@@ -477,11 +529,20 @@ void Groups(const std::filesystem::path &root) {
   const Generators::BuildingSourceBudget one{
       .Samples = 1024, .Sources = 1, .Faces = 1000, .TriangleAttempts = 100000};
   BuildingImpostorSource whole(std::move(wholeRecipe), *assets);
-  CHECK(!whole.Generate({0}, kBytes, one),
+  CHECK(!whole.Generate(
+            *cache, {0}, {.FieldBytesMost = kBytes, .GeometryBytesMost = kBytes, .Capture = one}),
         "the two-source whole cell cannot pass a one-source generation budget");
-  CHECK(group->Generate(*captures, {0}, kBytes, one) &&
-            neighbor->Generate(*captures, {0}, kBytes, one),
+  CHECK(group->Generate(*captures,
+                        *cache,
+                        {0},
+                        {.FieldBytesMost = kBytes, .GeometryBytesMost = kBytes, .Capture = one}) &&
+            neighbor->Generate(
+                *captures,
+                *cache,
+                {0},
+                {.FieldBytesMost = kBytes, .GeometryBytesMost = kBytes, .Capture = one}),
         "each subgroup generates its field within the one-source budget");
+  ReuseGeometry(*cache, **assets, groupRecipe, *captures, one);
   CHECK(devices == 1, "independent source products share one native capture device");
   const auto cold = Resolve(cache, *metadata, group, 1);
   const auto offline = std::make_shared<BuildingImpostorSource>(groupRecipe, nullptr);

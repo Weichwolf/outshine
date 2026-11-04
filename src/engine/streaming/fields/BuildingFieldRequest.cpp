@@ -145,18 +145,25 @@ struct BuildingFieldRequest::State {
     const auto key = Value.Metadata->FieldKey(Requested.View);
     const auto parsed = AssetProductKey::Parse(key);
     if (!parsed) { return std::unexpected("building field has no valid product address"); }
-    ImpostorViewJob job{.Cache = Cache,
-                        .Provenance = Producer->Provenance(),
-                        .ProductKey = key,
-                        .BytesMost = Limits.FieldBytesMost,
-                        .Product = ImpostorViewJob::MaterialView{
-                            .Selected = Requested.View,
-                            .Generate = [source = Producer, budget = Limits.Capture](
-                                            ImpostorViewAssets::ViewIndex view,
-                                            size_t bytes,
-                                            const std::stop_token &stop) {
-                              return source->Generate(view, bytes, budget, stop);
-                            }}};
+    ImpostorViewJob job{
+        .Cache = Cache,
+        .Provenance = Producer->Provenance(),
+        .ProductKey = key,
+        .BytesMost = Limits.FieldBytesMost,
+        .Product = ImpostorViewJob::MaterialView{
+            .Selected = Requested.View,
+            .Generate = [source = Producer,
+                         cache = Cache,
+                         budget = Limits.Capture,
+                         geometryBytes = Limits.ProducerBytes](ImpostorViewAssets::ViewIndex view,
+                                                               size_t bytes,
+                                                               const std::stop_token &stop) {
+              return source->Generate(
+                  *cache,
+                  view,
+                  {.FieldBytesMost = bytes, .GeometryBytesMost = geometryBytes, .Capture = budget},
+                  stop);
+            }}};
     auto requested =
         Pipeline->RequestResolved(Consumer,
                                   {.Key = *parsed,

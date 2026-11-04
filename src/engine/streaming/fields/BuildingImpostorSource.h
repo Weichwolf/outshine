@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_FIELDS_BUILDINGIMPOSTORSOURCE_H
 
 #include "BuildingSourceView.h"
+#include "GeometryAsset.h"
 #include "ImpostorViewAssets.h"
 #include "PreparedBuildingAssets.h"
 #include <array>
@@ -31,6 +32,13 @@ public:
     std::array<Material, 3> WallRoofMetreMaterials;
     uint32_t Pixels = 128;
     [[nodiscard]] std::string Key() const;
+    [[nodiscard]] std::string GeometryKey() const;
+  };
+
+  struct Budget {
+    size_t FieldBytesMost = 0;
+    size_t GeometryBytesMost = 0;
+    Generators::BuildingSourceBudget Capture;
   };
 
   BuildingImpostorSource(Recipe recipe,
@@ -43,22 +51,26 @@ public:
   [[nodiscard]] std::expected<ImpostorViewAssets, std::string>
   ResolveMetadata(AssetCache &cache, const std::stop_token &stop = {});
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
-  Generate(ImpostorViewAssets::ViewIndex view,
-           size_t bytesMost,
-           Generators::BuildingSourceBudget budget,
+  Generate(AssetCache &cache,
+           ImpostorViewAssets::ViewIndex view,
+           Budget budget,
            const std::stop_token &stop = {});
   // The supplied capture context belongs to this calling content thread.
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
   Generate(Render::ImpostorBaker &captures,
+           AssetCache &cache,
            ImpostorViewAssets::ViewIndex view,
-           size_t bytesMost,
-           Generators::BuildingSourceBudget budget,
+           Budget budget,
            const std::stop_token &stop = {});
 
 private:
   [[nodiscard]] std::expected<Generators::BuildingSourceView, std::string> Source() const;
   [[nodiscard]] ImpostorViewAssets::Description
-  Description(const Generators::BuildingSourceView &source) const;
+  Description(const GeometryAsset::Description &layout) const;
+  [[nodiscard]] GeometryAsset::Description
+  Layout(const Generators::BuildingSourceView &source) const;
+  [[nodiscard]] std::expected<GeometryAsset::Product, std::string>
+  GeometryFor(AssetCache &cache, Budget budget, const std::stop_token &stop) const;
   std::shared_ptr<BuildingSourceRead> Read_;
   Recipe Recipe_;
   std::string Provenance_;
