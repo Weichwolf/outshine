@@ -36,6 +36,7 @@ public:
     size_t Tickets = 0;
     size_t InputBytes = 0;
     size_t ReceiptBytes = 0;
+    bool operator==(const Snapshot &) const = default;
   };
 
   class Consumer {

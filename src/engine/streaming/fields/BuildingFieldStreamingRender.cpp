@@ -14,9 +14,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -27,35 +29,54 @@ void BuildingFieldStreaming::State::Reject(Cell &cell) {
   cell.Alternatives.clear();
 }
 
+std::expected<bool, std::string>
+BuildingFieldStreaming::State::PollGroup(Context &context, Tile &tile, Cell &cell, Group &group) {
+  std::string error;
+  if (group.GeometryRequest) {
+    const auto ready = PollGeometry(context, group);
+    if (!ready || !*ready) { return ready; }
+  } else {
+    if (!group.Request) { return false; }
+    const auto ready = group.Request->Poll();
+    if (!ready) { return std::unexpected(ready.error()); }
+    if (!*ready) { return false; }
+    if (!StageGroup(context, tile, group, **ready, error)) { return std::unexpected(error); }
+    group.Metadata = (**ready).Metadata->Metadata();
+    group.Support = (**ready).GeometricSupport;
+  }
+  if (!StageProduct(context, tile, cell, group, error)) { return std::unexpected(error); }
+  group.Request.reset();
+  group.Where = Phase::Ready;
+  return true;
+}
+
 void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell &cell) {
   if (cell.Where != Phase::Pending) { return; }
   std::string error;
   for (auto &group : cell.Groups) {
-    if (group.Where != Phase::Pending || !group.Request) { continue; }
-    const auto ready = group.Request->Poll();
+    if (group.Where != Phase::Pending) { continue; }
+    const auto ready = PollGroup(context, tile, cell, group);
     if (!ready) {
       error = ready.error();
       break;
     }
-    if (!*ready) { continue; }
-    if (!StageGroup(context, tile, group, **ready, error)) { break; }
-    group.Metadata = (**ready).Metadata->Metadata();
-    group.Support = (**ready).GeometricSupport;
-    group.Request.reset();
-    group.Where = Phase::Ready;
   }
   if (error.empty() &&
       std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Ready; }) &&
       Stage(context, tile, cell, error)) {
     cell.Where = Phase::Ready;
     cell.Alternatives.clear();
-    for (auto &group : cell.Groups) { group.Surface.reset(); }
   }
   if (error.empty()) { return; }
   if (LastRejection != error) {
     Log::Warn(LogTag::World, "building_field_rejected", {{"reason", error}});
   }
   LastRejection = std::move(error);
+  for (const auto &group : cell.Groups) {
+    if (group.Where == Phase::Ready) {
+      context.Pages.DiscardProduct(tile.Index, tile.SourceKey, group.AssetKey);
+    }
+  }
   if (cell.Alternatives.empty()) {
     Reject(cell);
   } else {
@@ -128,8 +149,55 @@ bool BuildingFieldStreaming::State::StageGroup(Context &context,
   group.Surface.emplace(Part{.Vertices = std::move(vertices),
                              .Tangents = std::move(tangents),
                              .Triangles = std::move(triangles),
+                             .Colours = {},
+                             .Uv1 = {},
                              .Material = std::move(*material)});
   group.AssetKey = product.Metadata->FieldKey({0});
+  return true;
+}
+
+bool BuildingFieldStreaming::State::StageProduct(
+    Context &context, const Tile &tile, const Cell &cell, Group &group, std::string &error) {
+  std::vector<Render::GeometryPagePartView> parts;
+  const auto append = [&](const Part &surface) {
+    parts.push_back(
+        {.Tangents = surface.Tangents,
+         .Verts = surface.Vertices,
+         .Indices = surface.Triangles,
+         .Clusters = {},
+         .Colours = surface.Colours,
+         .Uv1 = surface.Uv1,
+         .Surface = Render::PieceSurface::Registered(surface.Material, surface.MaterialIndex),
+         .Textured = true,
+         .Passes = Render::GeometryPasses::Main});
+  };
+  if (group.Surface) {
+    append(*group.Surface);
+  } else if (group.Native) {
+    for (const auto &surface : group.Native->Parts) { append(surface); }
+  }
+  if (parts.empty() || !group.Coverage) {
+    error = "building product has no complete surface";
+    return false;
+  }
+  uint64_t digest = 0;
+  (void)std::from_chars(group.AssetKey.data(), group.AssetKey.data() + 16, digest, 16);
+  const Render::GeometryPageView page{.Parts = parts,
+                                      .Digest = digest,
+                                      .AssetKey = group.AssetKey,
+                                      .FallbackHeights = false,
+                                      .SelectedView = {},
+                                      .RequestedDetail = LevelOfDetail::Skyline,
+                                      .RequestedCell = cell.Source.Cell,
+                                      .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u),
+                                      .Coverage = group.Coverage};
+  if (!context.Pages.StageProduct(
+          tile.Index, page, tile.Source.AnchorEcef, error, tile.SourceKey)) {
+    return false;
+  }
+  group.Surface.reset();
+  group.Native.reset();
+  group.GeometryRequest.reset();
   return true;
 }
 
@@ -138,51 +206,44 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
                                           Cell &cell,
                                           std::string &error) {
   std::vector<const SourceCoverage *> products;
+  std::vector<std::string_view> keys;
   products.reserve(cell.Groups.size());
-  for (const auto &group : cell.Groups) {
-    products.push_back(group.Coverage ? &*group.Coverage : nullptr);
-  }
-  if (!SourceCoverage::Partition(cell.Coverage, products)) {
-    error = "building field groups do not partition their expected sources";
-    return false;
-  }
-  std::vector<Render::GeometryPagePartView> parts;
+  keys.reserve(cell.Groups.size());
   std::string identity = "building-field-cell-2/" + tile.Source.BaseKey;
   for (const auto &group : cell.Groups) {
-    if (!group.Surface) {
-      error = "building field group incomplete";
-      return false;
-    }
-    const auto &surface = *group.Surface;
-    parts.push_back({.Tangents = surface.Tangents,
-                     .Verts = surface.Vertices,
-                     .Indices = surface.Triangles,
-                     .Clusters = {},
-                     .Colours = {},
-                     .Uv1 = {},
-                     .Surface = Render::PieceSurface::Registered(surface.Material),
-                     .Textured = true,
-                     .Passes = Render::GeometryPasses::Main});
+    products.push_back(group.Coverage ? &*group.Coverage : nullptr);
+    keys.push_back(group.AssetKey);
     identity += "/" + group.AssetKey;
   }
+  if (!SourceCoverage::Partition(cell.Coverage, products)) {
+    error = "building groups do not partition their expected sources";
+    return false;
+  }
+  std::ranges::sort(keys);
   cell.AssetKey = Sha256Hex(reinterpret_cast<const uint8_t *>(identity.data()), identity.size());
   uint64_t digest = 0;
   (void)std::from_chars(cell.AssetKey.data(), cell.AssetKey.data() + 16, digest, 16);
-  const Render::GeometryPageView page{.Parts = parts,
+  const Render::GeometryPageView page{.Parts = {},
                                       .Digest = digest,
                                       .AssetKey = cell.AssetKey,
                                       .FallbackHeights = false,
-                                      .SelectedView = std::nullopt,
+                                      .SelectedView = {},
                                       .RequestedDetail = LevelOfDetail::Skyline,
                                       .RequestedCell = cell.Source.Cell,
                                       .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u),
                                       .Coverage = cell.Coverage};
-  cell.Staged =
-      context.Pages.StageProduct(tile.Index, page, tile.Source.AnchorEcef, error, tile.SourceKey);
+  cell.Staged = context.Pages.ConsolidateProducts(tile.Index, tile.SourceKey, page, keys, error);
   return cell.Staged;
 }
 
 bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Group &group) {
+  if (group.GeometryDetail) {
+    const auto projection = context.Surface.Footprints().Projection();
+    return *group.GeometryDetail == LevelOfDetail::Fine ||
+           SourceProductSelection::GeometryErrorPx(
+               group.Bounds, WorldCamera(context), projection.FocalPx, group.GeometryErrorM) <=
+               projection.AllowedErrorPx;
+  }
   if (!group.Support || !group.Metadata || !group.Metadata->WorldFromField) { return false; }
   const auto lens =
       Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
@@ -200,7 +261,7 @@ bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Grou
 }
 
 bool BuildingFieldStreaming::State::Select(Context &context, std::string &error) {
-  Statistics.Active = Statistics.ActiveGroups = 0;
+  Statistics.Active = 0;
   for (auto &tile : Tiles) {
     const auto qualified =
         StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
@@ -232,7 +293,6 @@ bool BuildingFieldStreaming::State::Select(Context &context, std::string &error)
         choice.ExpectedSources = &found->Coverage;
         choice.Detail = LevelOfDetail::Skyline;
         active |= choice.Mask();
-        Statistics.ActiveGroups += found->Groups.size();
       }
     }
     if (key == tile.SourceKey && coverage == tile.Source.Cells) { tile.Originals = original; }

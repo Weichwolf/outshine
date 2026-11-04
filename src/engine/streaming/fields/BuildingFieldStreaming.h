@@ -38,6 +38,7 @@ public:
   struct Counts {
     size_t Sources = 0, Pending = 0, Ready = 0, Active = 0, Rejected = 0;
     size_t ReadyGroups = 0, ActiveGroups = 0;
+    size_t GeometryReadyGroups = 0, GeometryActiveGroups = 0;
   };
 
   BuildingFieldStreaming();

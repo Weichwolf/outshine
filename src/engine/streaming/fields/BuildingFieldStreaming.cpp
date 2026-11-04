@@ -133,8 +133,24 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
                                                  Cell &cell,
                                                  Group &group) {
   if (group.Where != Phase::Waiting) { return false; }
+  if (group.GeometryDetail) { return RequestGeometry(context, tile, cell, group); }
   auto demand = DemandFor(context, tile.Source, group.Bounds, WorldCamera(context));
-  if (!demand) { return false; }
+  if (!demand) {
+    const auto camera = WorldCamera(context);
+    const double radius = Length(group.Bounds.Span());
+    const double distance = Length(camera.EyeM - group.Bounds.Middle()) - radius;
+    const auto projection = context.Surface.Footprints().Projection();
+    const bool tooLarge =
+        distance <= 0 ||
+        projection.FocalPx * radius * radius / (distance * distance) > projection.AllowedErrorPx;
+    if (!cell.Alternatives.empty() && group.Sources.empty() && tooLarge) {
+      cell.Groups = std::move(cell.Alternatives);
+      cell.Alternatives.clear();
+      cell.Where = Phase::Waiting;
+      return true;
+    }
+    return false;
+  }
   auto count = tile.Source.CellSourceCounts[cell.Source.Cell - 1u];
   if (!group.Sources.empty()) {
     demand->Sources = group.Sources;
@@ -203,13 +219,26 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   for (const auto &entry : State_->Sources.Entries()) {
     counts.Pending += entry.Where == BuildingSourceDemand::Phase::Pending ? 1 : 0;
   }
-  counts.Ready = counts.Rejected = counts.ReadyGroups = 0;
+  counts.Ready = counts.Rejected = counts.ReadyGroups = counts.GeometryReadyGroups = 0;
+  counts.ActiveGroups = counts.GeometryActiveGroups = 0;
   for (const auto &tile : State_->Tiles) {
     for (const auto &cell : tile.Cells) {
       counts.Pending += static_cast<size_t>(std::ranges::count_if(
           cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Pending; }));
-      counts.ReadyGroups += static_cast<size_t>(std::ranges::count_if(
-          cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Ready; }));
+      counts.ReadyGroups +=
+          static_cast<size_t>(std::ranges::count_if(cell.Groups, [](const State::Group &g) {
+            return g.Where == State::Phase::Ready && !g.GeometryDetail;
+          }));
+      counts.GeometryReadyGroups +=
+          static_cast<size_t>(std::ranges::count_if(cell.Groups, [](const State::Group &g) {
+            return g.Where == State::Phase::Ready && g.GeometryDetail;
+          }));
+      if ((tile.Active & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0) {
+        const auto geometry = std::ranges::count_if(
+            cell.Groups, [](const State::Group &g) { return g.GeometryDetail.has_value(); });
+        counts.GeometryActiveGroups += static_cast<size_t>(geometry);
+        counts.ActiveGroups += cell.Groups.size() - static_cast<size_t>(geometry);
+      }
       counts.Ready += cell.Where == State::Phase::Ready ? 1 : 0;
       counts.Rejected += cell.Where == State::Phase::Rejected ? 1 : 0;
     }
