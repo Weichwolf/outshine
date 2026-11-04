@@ -93,6 +93,16 @@ public:
   // Worker-only. A stored hierarchy needs neither the prepared headers nor form blocks.
   [[nodiscard]] std::expected<std::shared_ptr<const PageIndexAsset>, StructureBakeError>
   ResolveSourceIndex(const std::string &key, size_t bytesMost);
+
+  struct SourceCell {
+    uint32_t Cell = 0;
+    Box Bounds;
+    size_t NativeBytes = 0;
+    size_t HeaderBytes = 0;
+  };
+
+  [[nodiscard]] std::expected<std::vector<SourceCell>, StructureBakeError>
+  DescribeSourceCells(const std::string &key, uint64_t occupied) const;
   [[nodiscard]] std::expected<Base, StructureBakeError>
   Generate(const std::string &key,
            const RawTile &raw,

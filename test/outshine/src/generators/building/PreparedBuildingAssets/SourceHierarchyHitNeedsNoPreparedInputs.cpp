@@ -74,6 +74,12 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(bytes, "the hierarchy reservation derives from its native source count");
   if (!bytes) { return; }
   const auto before = (*assets)->Costs();
+  const auto described = (*assets)->DescribeSourceCells(key, 1);
+  CHECK(described && described->size() == 1 && described->front().Cell == 1 &&
+            described->front().NativeBytes > 0 && described->front().HeaderBytes > 0 &&
+            (*assets)->Costs().ReadBytes == before.ReadBytes &&
+            (*assets)->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
+        "cell envelopes and native IO sizes resolve from metadata without body reads");
   CHECK(!(*assets)->ResolveSourceIndex(key, *bytes - 1),
         "an insufficient hierarchy reservation is refused");
   const auto index = (*assets)->ResolveSourceIndex(key, *bytes);
