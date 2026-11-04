@@ -6,6 +6,8 @@
 #include "FrameTiming.h"
 #include "GpuFrameTiming.h"
 #include "HostProcessor.h"
+#include "LogSinks.h"
+#include "TextTarget.h"
 #include "ImageCapture.h"
 #include "ScenarioInput.h"
 #include "ScenarioWrite.h"
@@ -31,6 +33,20 @@
 
 namespace outshine::App {
 namespace {
+class BenchmarkLog final : public LogSink {
+public:
+  void Write(double time,
+             LogLevel level,
+             Saying who,
+             std::span<const LogField> fields) noexcept override {
+    if (level >= LogLevel::Warn) { Sink_.Write(time, level, who, fields); }
+  }
+
+private:
+  TextTarget Target_{TextStream::Stderr};
+  TextLogSink Sink_{Target_};
+};
+
 using Clock = std::chrono::steady_clock;
 constexpr Extent kDefaultBenchmarkFrame{.WidthPx = 1280, .HeightPx = 720};
 
@@ -149,7 +165,9 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
     return std::unexpected("SDL video did not start: " + std::string(SDL_GetError()));
   }
   [[maybe_unused]] const VideoSystem video;
+  BenchmarkLog diagnostics;
   auto engine = App::CreateEngine();
+  engine.logsTo(&diagnostics);
   if (const auto rooted = engine.setRoots(std::move(*roots)); !rooted) {
     return std::unexpected(rooted.error());
   }
