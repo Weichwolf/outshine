@@ -33,7 +33,6 @@ public:
     Render::SceneRenderer &Renderer;
     Render::Viewpoint Camera;
     TangentFrame Frame;
-    LongitudeLatitude Eye;
   };
 
   struct Counts {

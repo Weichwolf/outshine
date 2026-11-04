@@ -208,20 +208,13 @@ bool BuildingFieldStreaming::State::Select(Context &context, std::string &error)
         Render::GeometryPasses::Shadow);
     if (original.empty()) { continue; }
     auto main = original;
-    const bool parentsValid =
-        context.Pages.HasProjectedTile(tile.Index,
-                                       {.Key = key, .Occupied = tile.Source.Cells},
-                                       context.Eye,
-                                       context.Surface.Footprints().Projection(),
-                                       context.Surface.Footprints().EyeEcef(),
-                                       Render::GeometryPasses::Shadow);
     uint64_t coverage = 0;
     uint64_t active = 0;
     for (auto &choice : main) {
       coverage |= choice.Mask();
       const auto found =
           std::ranges::find(tile.Cells, choice.Cell, [](const Cell &c) { return c.Source.Cell; });
-      if (parentsValid && key == tile.SourceKey && choice.Cell > 0 && choice.Cell <= 64 &&
+      if (key == tile.SourceKey && choice.Cell > 0 && choice.Cell <= 64 &&
           found != tile.Cells.end() && found->Where == Phase::Ready &&
           choice.Mask() == (uint64_t{1} << (choice.Cell - 1u)) && found->Staged &&
           std::ranges::all_of(found->Groups,

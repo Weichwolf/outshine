@@ -446,8 +446,7 @@ bool Engine::State::AdvanceBuildingFields() {
       .Renderer = Picture.Device,
       .Camera = Picture.Standing->Watching(),
       .Frame = TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}),
-      .Eye = CurrentGeographicFocus()};
+                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg})};
   if (!World.BuildingFields->Advance(context, Error)) { return false; }
   const auto counts = World.BuildingFields->Read();
   Published.RecordMetric(
