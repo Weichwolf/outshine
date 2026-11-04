@@ -70,7 +70,8 @@ Native::Result<void> TerrainRenderer::Encode(const PassRecording &into,
                                              std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
   if (Path_ == Path::Clipmap) {
-    return Pipelines_->Clipmaps().Encode(into, Clipmaps_->Fields(), bindings);
+    return Pipelines_->Clipmaps().Encode(
+        into, Clipmaps_->Fields(), bindings, ClipmapPass::Surface, &ClipmapMain_);
   }
   if (!Current() && Resident_->Instances() != 0) {
     return std::unexpected(

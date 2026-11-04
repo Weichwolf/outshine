@@ -1,5 +1,6 @@
 #include "ClipmapSurface.h"
 #include "ClipmapHeightUpload.h"
+#include "ClipmapVisibility.h"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -21,7 +22,12 @@ Native::Error Invalid(const char *message) {
 ClipmapSurface::ClipmapSurface(Native::Device &device,
                                ClipmapHeightCache heights,
                                ClipmapHeightCache normals)
-    : Device_(&device), Heights_(std::move(heights)), NormalHeights_(std::move(normals)) {}
+    : Device_(&device),
+      Heights_(std::move(heights)),
+      NormalHeights_(std::move(normals)),
+      HeightRanges_(
+          Heights_.Grid().Levels,
+          {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()}) {}
 
 Native::Result<std::shared_ptr<ClipmapSurface>>
 ClipmapSurface::Make(Native::Device &device, ClipmapGrid grid, size_t bytesMost) {
@@ -42,9 +48,10 @@ ClipmapSurface::Make(Native::Device &device, ClipmapGrid grid, size_t bytesMost)
   const uint64_t normalNodes = normalSide * normalSide * grid.Levels;
   const uint64_t half = grid.HalfCells;
   const uint64_t triangles = 8 * half * half + (grid.Levels - 1) * (6 * half * half + 4 * half);
-  const uint64_t held = *heightBytes + *normalBytes + geometryNodes * sizeof(float) +
-                        normalNodes * (sizeof(float) + 8) +
-                        uint64_t{grid.Levels} * sizeof(ClipmapRing) * 3;
+  const uint64_t held =
+      *heightBytes + *normalBytes + geometryNodes * sizeof(float) +
+      normalNodes * (sizeof(float) + 8) +
+      uint64_t{grid.Levels} * (sizeof(ClipmapRing) * 3 + sizeof(std::array<float, 2>) * 2);
   if (held > bytesMost || triangles > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Busy,
@@ -121,6 +128,11 @@ Native::Result<void> ClipmapSurface::Publish(const ClipmapHeightUpdate &heights,
   if (!committedHeight || !committedNormal) {
     return std::unexpected(Invalid("accepted clipmap publication lost its CPU generation"));
   }
+  if (!heights.Samples().empty()) {
+    for (uint32_t level = 0; level < Heights_.Grid().Levels; ++level) {
+      HeightRanges_[level] = ClipmapHeightRange(Heights_, level);
+    }
+  }
   Rings_.clear();
   if (!heights.Samples().empty()) { ++Generation_; }
   return {};
@@ -179,12 +191,15 @@ ClipmapFields ClipmapSurface::Fields() const noexcept {
   return {.Heights = HeightImage_.get(),
           .Normals = NormalImage_.get(),
           .RingBuffer = RingBuffer_.get(),
-          .Rings = Rings_};
+          .Rings = Rings_,
+          .HeightRanges = HeightRanges_,
+          .HeightShift = static_cast<float>(Shift_[1])};
 }
 
 uint64_t ClipmapSurface::HeldBytes() const noexcept {
   return Heights_.HeapBytes() + NormalHeights_.HeapBytes() +
-         Rings_.capacity() * sizeof(ClipmapRing) + DeviceBytes();
+         Rings_.capacity() * sizeof(ClipmapRing) +
+         HeightRanges_.capacity() * sizeof(std::array<float, 2>) + DeviceBytes();
 }
 
 uint64_t ClipmapSurface::DeviceBytes() const noexcept {

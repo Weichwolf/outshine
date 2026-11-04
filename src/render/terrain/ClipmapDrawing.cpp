@@ -58,7 +58,8 @@ Native::Result<void> ClipmapRenderer::Validate(const ClipmapFields &fields,
 Native::Result<void> ClipmapRenderer::Encode(const PassRecording &into,
                                              const ClipmapFields &fields,
                                              std::span<const Native::Binding> bindings,
-                                             ClipmapPass pass) const {
+                                             ClipmapPass pass,
+                                             const ClipmapDrawList *selection) const {
   const auto valid = Validate(fields, pass);
   if (!valid) { return valid; }
   constexpr DrawShape shape{.VertexSamplers = 1,
@@ -97,17 +98,13 @@ Native::Result<void> ClipmapRenderer::Encode(const PassRecording &into,
             .Image = {.Image = fields.Normals, .Layers = fields.Normals->Description().Layers},
             .Sampling = Linear_.get()}};
   }
-  for (size_t level = 0; level < fields.Rings.size(); ++level) {
-    const size_t meshIndex = level == 0
-                                 ? 0
-                                 : 1u + static_cast<size_t>(fields.Rings[level - 1].Offsets[0] +
-                                                            2 * fields.Rings[level - 1].Offsets[1]);
-    const auto &mesh = Meshes_[meshIndex];
+  const auto draw = [&](uint32_t level, uint32_t first, uint32_t count) {
+    const auto &mesh = Meshes_[MeshIndex(fields, level)];
     const std::array vertices{
         Native::VertexBuffer{.Stream = 0,
                              .Data = mesh.Vertices.get(),
                              .Range = {.Bytes = mesh.Vertices->Description().Bytes}}};
-    const auto drawn = into.Commands->DrawIndexed(
+    return into.Commands->DrawIndexed(
         {.State = {.Pipeline = pass == ClipmapPass::Surface ? Surface_.get() : Depth_.get(),
                    .Bindings = std::span(resources).first(bindings.size() + added),
                    .Vertices = vertices,
@@ -115,9 +112,19 @@ Native::Result<void> ClipmapRenderer::Encode(const PassRecording &into,
                    .Clip = into.Clip},
          .Indices = {.Data = mesh.Indices.get(),
                      .Range = {.Bytes = mesh.Indices->Description().Bytes}},
-         .Range = {
-             .Count = mesh.Count, .Instances = 1, .FirstInstance = static_cast<uint32_t>(level)}});
-    if (!drawn) { return drawn; }
+         .Range = {.First = first, .Count = count, .Instances = 1, .FirstInstance = level}});
+  };
+  if (selection != nullptr) {
+    for (const auto &range : selection->Ranges) {
+      const auto drawn = draw(range.Level, range.First, range.Count);
+      if (!drawn) { return drawn; }
+    }
+  } else {
+    for (size_t level = 0; level < fields.Rings.size(); ++level) {
+      const auto drawn =
+          draw(static_cast<uint32_t>(level), 0, Meshes_[MeshIndex(fields, level)].Count);
+      if (!drawn) { return drawn; }
+    }
   }
   return {};
 }

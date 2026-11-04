@@ -3,6 +3,7 @@
 #include "ClipmapHeightCache.h"
 #include "ClipmapNormalPass.h"
 #include "ClipmapRenderer.h"
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -45,6 +46,7 @@ private:
   std::unique_ptr<Native::Buffer> RingBuffer_;
   ClipmapNormalPass NormalPass_;
   std::vector<ClipmapRing> Rings_;
+  std::vector<std::array<float, 2>> HeightRanges_;
   Vec3 Shift_{};
   Vec2 LodFocus_{};
   uint64_t Generation_ = 0;

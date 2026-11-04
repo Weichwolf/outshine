@@ -166,7 +166,7 @@ public:
 
   [[nodiscard]] uint32_t Drawn() const {
     if (!DrawEnabled_) { return 0; }
-    if (Path_ == Path::Clipmap) { return Clipmaps_->Heights().Grid().Levels; }
+    if (Path_ == Path::Clipmap) { return static_cast<uint32_t>(ClipmapMain_.Ranges.size()); }
     return Current() ? VisibleReal_ + VisibleVirtual_ : Resident_->Instances();
   }
 
@@ -174,7 +174,7 @@ public:
 
   [[nodiscard]] uint32_t Triangles() const {
     if (!DrawEnabled_) { return 0; }
-    return Path_ == Path::Clipmap ? Clipmaps_->Triangles()
+    return Path_ == Path::Clipmap ? ClipmapMain_.Triangles
                                   : Drawn() * (TerrainLattice::kIndices / 3u);
   }
 
@@ -213,6 +213,7 @@ private:
   std::vector<TerrainInstance> Seen_;
   uint32_t VisibleReal_ = 0, VisibleVirtual_ = 0, VisibleRoom_ = 0;
   std::shared_ptr<ClipmapSurface> Clipmaps_;
+  ClipmapDrawList ClipmapMain_;
   Path Path_ = Path::Lattice;
   size_t ClipmapGeometryBytesMost_ = 0;
   uint64_t ClipmapGeneration_ = 0;

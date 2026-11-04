@@ -42,6 +42,7 @@ int main() {
   const auto normals = Samples(surface->NormalHeights(), {{0.5, 0.5}});
   Require(surface->Publish(heights, normals, kBytes));
   FrameContext frame;
+  frame.Mvp[0] = frame.Mvp[5] = frame.Mvp[10] = 1.0f / 64;
   frame.PreViewTranslation = {{-0.5, 0, 0.5}};
   frame.PrevPreViewTranslation = frame.PreViewTranslation;
   Require(ground.PrepareClipmaps(frame, {}));
@@ -56,6 +57,8 @@ int main() {
   Require(ground.PrepareClipmaps(frame, {}));
   CHECK(ground.Generation() == prepared && surface->Shift()[1] == -4,
         "camera rotation and vertical translation preserve world geometry and update its frame");
+  CHECK(ground.Triangles() < surface->Triangles(),
+        "view selection reduces submitted topology before cached shadow preparation");
   frame.PreViewTranslation[0] = -0.6;
   Require(ground.PrepareClipmaps(frame, {}));
   CHECK(ground.Generation() == prepared,

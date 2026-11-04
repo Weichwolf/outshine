@@ -43,7 +43,7 @@ Native::Result<void> TerrainRenderer::PrepareClipmaps(const FrameContext &ctx,
       }
       ClipmapGeneration_ = Clipmaps_->Generation();
       ClipmapCamera_ = camera;
-      return {};
+      return Pipelines_->Clipmaps().Select(Clipmaps_->Fields(), ctx.Mvp, ClipmapMain_);
     }
     if (prepared.error().Kind != Native::ErrorKind::Invalid) { return prepared; }
   }
@@ -69,6 +69,10 @@ Native::Result<void> TerrainRenderer::CastClipmaps(const PassRecording &into,
   }
   const std::array bindings{Native::Binding{
       .Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&view, 1))}}};
-  return Pipelines_->Clipmaps().Encode(into, Clipmaps_->Fields(), bindings, ClipmapPass::Depth);
+  ClipmapDrawList selection;
+  const auto selected = Pipelines_->Clipmaps().Select(Clipmaps_->Fields(), view.View, selection);
+  if (!selected) { return selected; }
+  return Pipelines_->Clipmaps().Encode(
+      into, Clipmaps_->Fields(), bindings, ClipmapPass::Depth, &selection);
 }
 }

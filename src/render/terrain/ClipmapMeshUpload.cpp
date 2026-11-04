@@ -57,7 +57,7 @@ ClipmapRenderer::BuildMeshes(Native::Device &device, uint32_t halfCells, size_t 
   if (!mapped) { return std::unexpected(mapped.error()); }
   uint64_t offset = 0;
   for (uint32_t i = 0; i < meshes.size(); ++i) {
-    const auto topology =
+    auto topology =
         ClipmapTopology::Make(Shape(halfCells, static_cast<MeshPhase>(i)), geometryBytesMost);
     if (!topology) {
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -79,7 +79,8 @@ ClipmapRenderer::BuildMeshes(Native::Device &device, uint32_t halfCells, size_t 
     offset += indices.size();
     meshes[i] = {.Vertices = std::move(*vertex),
                  .Indices = std::move(*index),
-                 .Count = static_cast<uint32_t>(topology->Indices.size())};
+                 .Count = static_cast<uint32_t>(topology->Indices.size()),
+                 .Blocks = std::move(topology->Blocks)};
   }
   const auto unmapped = device.Unmap(**staging);
   if (!unmapped) { return unmapped; }

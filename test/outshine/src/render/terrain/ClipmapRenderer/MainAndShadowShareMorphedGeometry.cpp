@@ -4,6 +4,7 @@
 #include "ClipmapHeightCache.h"
 #include "ClipmapHeightUpload.h"
 #include "ClipmapRing.h"
+#include "ClipmapVisibility.h"
 #include "test/harness/render/NativeTerrainRendererProbe.h"
 #include <algorithm>
 #include <array>
@@ -179,10 +180,19 @@ void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool war
       Binding{.Set = 3, .Slot = 0, .Value = Uniform{.Bytes = std::as_bytes(std::span(material))}},
       Binding{
           .Set = 3, .Slot = 1, .Value = Uniform{.Bytes = std::as_bytes(std::span(&lighting, 1))}}};
+  std::vector<std::array<float, 2>> heightRanges(records->size());
+  for (uint32_t level = 0; level < heightRanges.size(); ++level) {
+    heightRanges[level] = ClipmapHeightRange(*heights, level);
+  }
   const ClipmapFields fields{.Heights = heightImage.get(),
                              .Normals = normalImage.get(),
                              .RingBuffer = rings.get(),
-                             .Rings = *records};
+                             .Rings = *records,
+                             .HeightRanges = heightRanges};
+  ClipmapDrawList selection;
+  Require(renderer.Select(fields, view.Current, selection));
+  CHECK(selection.Triangles > 0 && selection.Triangles < 1344,
+        "native culling retains visible coverage and removes some reference geometry");
   StageSubmission submission;
   const PassRecording into{.Commands = commands.get(),
                            .Submission = submission,
@@ -191,12 +201,13 @@ void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool war
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  Require(renderer.Encode(into, fields, bindings));
+  Require(renderer.Encode(into, fields, bindings, ClipmapPass::Surface, &selection));
   Require(commands->EndRenderPass());
   Require(commands->BeginRenderPass(
       {.Colours = {},
        .Depth = DepthAttachment{.Image = {.Image = shadow.get()}, .Begin = Load::Clear}}));
-  Require(renderer.Encode(into, fields, std::span(bindings).first(1), ClipmapPass::Depth));
+  Require(
+      renderer.Encode(into, fields, std::span(bindings).first(1), ClipmapPass::Depth, &selection));
   Require(commands->EndRenderPass());
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
