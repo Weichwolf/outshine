@@ -24,6 +24,20 @@ template <typename T> bool Equal(const std::vector<T> &a, const std::vector<T> &
   return std::ranges::equal(std::as_bytes(std::span(a)), std::as_bytes(std::span(b)));
 }
 
+class UnsupportedMesher final : public StructureMesher {
+public:
+  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override {
+    return std::make_unique<BuildingScratch>();
+  }
+
+  [[nodiscard]] std::expected<void, StructureMeshError>
+  Mesh([[maybe_unused]] const StructurePlan &plan,
+       [[maybe_unused]] MeshScratch &scratch,
+       [[maybe_unused]] Raised &into) const noexcept override {
+    return std::unexpected(StructureMeshError::UnsupportedFootprint);
+  }
+};
+
 std::expected<PreparedStructureTile, StructureBakeError> Prepare() {
   RawTile raw;
   raw.TileSpanM = 1000;
@@ -112,6 +126,13 @@ int main() {
             projected->SelectedView.has_value() == projectedReference->SelectedView.has_value(),
         "view-dependent selection and emission retain the single-source geometry contract");
   view.RequestedDetail = LevelOfDetail::Fine;
+  const UnsupportedMesher unsupportedMesher;
+  const auto legacyPartial = BakePreparedStructures(single, view, unsupportedMesher, scratch);
+  const auto refused =
+      BakePreparedStructureSources(*index, view, sources, unsupportedMesher, scratch);
+  CHECK(legacyPartial && legacyPartial->UnsupportedMeshes == 1 && !refused &&
+            refused.error() == StructureBakeError{StructureMeshError::UnsupportedFootprint},
+        "a skipped legacy mesh cannot become complete source-group coverage");
   CHECK(!StructureBakeProgress::ForSources(std::array<uint32_t, 2>{1, 1}) &&
             !StructureBakeProgress::ForSources(std::array<uint32_t, 2>{2, 1}) &&
             !StructureBakeProgress::ForSources({}),

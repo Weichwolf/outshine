@@ -28,7 +28,9 @@ python3 test/experiments/render/compare_source_group_bake.py \
 ```
 
 The controller requests eight supported sources from the largest supported cohort
-and alternates subset/whole-cell bakes in three fresh processes each. Both use
+and alternates subset/whole-cell bakes in three fresh processes each. `--cell`
+selects another explicit input cohort. Unsupported geometry keeps the comparison
+failed; retain that counterexample separately. Both modes use
 fixed Fine geometry. Coverage deliberately differs: the cell control also builds
 unrequested neighbours. This measures avoided generation, not World frame speedup
 or the cost of the existing adaptive runtime LOD.

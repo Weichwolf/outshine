@@ -23,7 +23,9 @@ def compare(args):
     populations = Counter(cell for cell, support in zip(cells, supported) if support)
     if not populations:
         raise ValueError("no supported native source exists")
-    cell = populations.most_common(1)[0][0]
+    cell = args.cell if args.cell is not None else populations.most_common(1)[0][0]
+    if cell not in populations:
+        raise ValueError("the requested cohort has no supported native sources")
     selected = [at for at, (cohort, support) in enumerate(zip(cells, supported))
                 if cohort == cell and support][:args.sources]
     rows = []
@@ -69,6 +71,7 @@ def main():
     parser.add_argument("--cells", type=Path, required=True)
     parser.add_argument("--supported", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cell", type=int)
     parser.add_argument("--sources", type=int, default=8)
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--triangle-attempts", type=int, required=True)
