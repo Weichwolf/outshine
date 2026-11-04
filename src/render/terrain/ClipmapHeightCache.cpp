@@ -39,6 +39,9 @@ size_t Samples(const ClipmapHeightRegion &region) {
 
 std::expected<size_t, ClipmapHeightError>
 ClipmapHeightCache::StorageBytes(ClipmapGrid grid) noexcept {
+  if (!std::isfinite(grid.ViewRadiusM) || grid.ViewRadiusM < 0) {
+    return std::unexpected(ClipmapHeightError::InvalidGrid);
+  }
   const uint64_t side = 2 * uint64_t{grid.HalfCells} + 3;
   if (grid.HalfCells < 8 || (grid.HalfCells & 1u) != 0 || grid.Levels == 0 ||
       grid.Levels > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||

@@ -34,7 +34,7 @@ size_t AvailableFieldBytes(const Render::Native::MemoryStatus &status) {
 }
 
 Render::ClipmapGrid GridFor(double sightM) {
-  Render::ClipmapGrid grid{.HalfCells = 128, .Levels = 1};
+  Render::ClipmapGrid grid{.HalfCells = 128, .Levels = 1, .ViewRadiusM = sightM};
   double reach = grid.HalfCells - 2;
   const double required = sightM + reach;
   while (reach < required && std::isfinite(reach)) {

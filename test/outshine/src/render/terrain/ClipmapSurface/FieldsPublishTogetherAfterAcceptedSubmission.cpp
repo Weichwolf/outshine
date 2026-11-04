@@ -30,8 +30,8 @@ int main() {
   auto device = Require(CreateDevice({.Validation = true}));
   CHECK(!ClipmapSurface::Make(*device, {.HalfCells = 8, .Levels = 3}, 1),
         "combined field admission precedes GPU allocation");
-  const auto surface =
-      Require(ClipmapSurface::Make(*device, {.HalfCells = 8, .Levels = 3}, kBytes));
+  const auto surface = Require(
+      ClipmapSurface::Make(*device, {.HalfCells = 8, .Levels = 3, .ViewRadiusM = 16}, kBytes));
   CHECK(!surface->Complete() && surface->Fields().Rings.empty(),
         "new fields have no claimed coverage or drawable records");
   const auto heights = Samples(surface->Heights(), {{0.5, 0.5}});
@@ -47,6 +47,12 @@ int main() {
   Require(surface->Prepare({.Camera = {{0.5, 0.5}}, .PreviousCamera = {{0.5, 0.5}}}));
   CHECK(fields.RingBuffer == surface->Fields().RingBuffer,
         "a stationary view reuses the existing ring buffer");
+  Require(surface->Prepare(
+      {.Camera = {{10, 0}}, .PreviousCamera = {{0.5, 0.5}}, .Shift = {{-10, 0, 0}}}));
+  CHECK(surface->LodFocus() == Vec2{},
+        "a coarser accepted surface remains valid outside the finest window");
+  CHECK(!surface->Prepare({.Camera = {{20, 0}}}),
+        "accepted rings must still cover the entire requested view radius");
   CHECK(!surface->Publish(heights, normals, kBytes) && surface->Complete(),
         "stale preparation cannot invalidate a complete surface");
   const auto missingHeights = Samples(surface->Heights(), {{2.5, 2.5}});

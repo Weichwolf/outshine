@@ -35,8 +35,10 @@ ClipmapSurface::Make(Native::Device &device, ClipmapGrid grid, size_t bytesMost)
       grid.Levels > device.Limits().MaxTextureLayers) {
     return std::unexpected(Invalid("clipmap normal grid extent overflow"));
   }
-  const ClipmapGrid normalGrid{
-      .HalfCells = grid.HalfCells * 2, .Levels = grid.Levels, .CellM = grid.CellM * 0.5};
+  const ClipmapGrid normalGrid{.HalfCells = grid.HalfCells * 2,
+                               .Levels = grid.Levels,
+                               .CellM = grid.CellM * 0.5,
+                               .ViewRadiusM = grid.ViewRadiusM};
   const auto heightBytes = ClipmapHeightCache::StorageBytes(grid);
   const auto normalBytes = ClipmapHeightCache::StorageBytes(normalGrid);
   if (!heightBytes || !normalBytes) {
@@ -144,10 +146,18 @@ Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   if (!origin) { return std::unexpected(Invalid("clipmap height window is unpublished")); }
   Vec2 focus;
   const auto &grid = Heights_.Grid();
-  const double reach = (grid.HalfCells - 2) * grid.CellM;
+  const auto outer = Heights_.Origin(grid.Levels - 1);
+  if (!outer) { return std::unexpected(Invalid("clipmap outer window is unpublished")); }
+  const double outerStep = std::ldexp(grid.CellM, static_cast<int>(grid.Levels - 1));
+  const double reach = grid.HalfCells * outerStep;
   for (size_t axis = 0; axis < 2; ++axis) {
     focus[axis] = static_cast<double>((*origin)[axis] + grid.HalfCells + 1) * grid.CellM;
-    if (!std::isfinite(view.Camera[axis]) || std::abs(view.Camera[axis] - focus[axis]) > reach) {
+    const double centre = static_cast<double>((*outer)[axis] + grid.HalfCells + 1) * outerStep;
+    const double guard =
+        64 * std::numeric_limits<float>::epsilon() *
+        (std::abs(centre) + reach + std::abs(view.Camera[axis]) + grid.ViewRadiusM + 1);
+    if (!std::isfinite(view.Camera[axis]) ||
+        std::abs(view.Camera[axis] - centre) + grid.ViewRadiusM + guard > reach) {
       return std::unexpected(Invalid("camera left the prepared clipmap window"));
     }
   }

@@ -18,6 +18,7 @@ struct ClipmapGrid {
   uint32_t HalfCells = 0;
   uint32_t Levels = 0;
   double CellM = 1;
+  double ViewRadiusM = 0;
 };
 
 struct ClipmapHeightRegion {
