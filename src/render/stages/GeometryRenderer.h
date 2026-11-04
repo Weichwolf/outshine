@@ -387,6 +387,8 @@ private:
 public:
   [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
 
+  [[nodiscard]] std::span<const SceneLight> Lights() const noexcept { return Placed; }
+
   void SetEnvironment(const EnvironmentLighting &environment) { IndirectLight = environment; }
 
   [[nodiscard]] const EnvironmentLighting &Environment() const { return IndirectLight; }

@@ -42,6 +42,9 @@ public:
   [[nodiscard]] bool Settled(Stage stage) const noexcept;
   [[nodiscard]] bool Has(Resource resource) const noexcept;
   [[nodiscard]] Native::Texture *Texture(Resource resource) const noexcept;
+  [[nodiscard]] std::shared_ptr<Native::Texture> TextureLease(Resource resource) const noexcept;
+
+  [[nodiscard]] std::shared_ptr<Native::Sampler> SamplerLease() const noexcept { return Sampler_; }
 
   [[nodiscard]] Native::Sampler *Sampler() const noexcept { return Sampler_.get(); }
 
@@ -53,8 +56,8 @@ private:
   enum class Lookup : uint8_t { Transmittance, MultiScatter, SkyView, Environment, Count };
   [[nodiscard]] static Lookup LookupFor(Resource resource) noexcept;
 
-  std::array<std::unique_ptr<Native::Texture>, static_cast<size_t>(Lookup::Count)> Textures_;
-  std::unique_ptr<Native::Sampler> Sampler_;
+  std::array<std::shared_ptr<Native::Texture>, static_cast<size_t>(Lookup::Count)> Textures_;
+  std::shared_ptr<Native::Sampler> Sampler_;
   std::unique_ptr<Native::Buffer> Irradiance_;
   MediumTransmittanceStage Transmittance_;
   MediumMultiScatterStage MultiScatter_;

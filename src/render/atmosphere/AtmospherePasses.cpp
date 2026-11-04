@@ -4,6 +4,7 @@
 #include "TextureFormat.h"
 #include <cstddef>
 #include <expected>
+#include <memory>
 #include <utility>
 
 namespace outshine::Render {
@@ -26,6 +27,11 @@ bool AtmospherePasses::Owns(Resource resource) noexcept {
 Native::Texture *AtmospherePasses::Texture(Resource resource) const noexcept {
   const auto lookup = LookupFor(resource);
   return lookup == Lookup::Count ? nullptr : Textures_[static_cast<size_t>(lookup)].get();
+}
+
+std::shared_ptr<Native::Texture> AtmospherePasses::TextureLease(Resource resource) const noexcept {
+  const auto lookup = LookupFor(resource);
+  return lookup == Lookup::Count ? nullptr : Textures_[static_cast<size_t>(lookup)];
 }
 
 bool AtmospherePasses::Has(Resource resource) const noexcept {

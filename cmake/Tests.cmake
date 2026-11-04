@@ -58,6 +58,7 @@ set(metal_validation_cases
   outshine/src/render/device/ReadbackTransfer/MovesRetainCompletionAndMappedBytes
   outshine/src/render/device/ReadbackTransfer/TextureBatchesShareOneCompletion
   outshine/src/render/device/UploadQueue/BackpressureRetainsAcceptedTransfers
+  outshine/src/render/atmosphere/AtmospherePasses/LeasesRetainRetiredLookupResources
   outshine/src/render/impostor/RadianceFilter/CoupledHdrAndCoverageStayLinear
   outshine/src/render/impostor/RadianceFilter/MipChainsPreservePremultipliedHdrAndCoverage
   outshine/src/render/impostor/RadianceFilter/HalfBoundariesRoundToNearestEven

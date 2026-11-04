@@ -68,6 +68,7 @@ class MaterialFieldInput;
 class MaterialFieldPass;
 class ResidentMaterialField;
 struct MaterialFieldImages;
+struct SceneMaterialFieldView;
 struct MaterialFieldView;
 
 struct GroundClassUploadMetrics {
@@ -230,6 +231,12 @@ public:
   RelightMaterialField(const ResidentMaterialField &source,
                        const MaterialFieldView &view,
                        const std::atomic_bool *stopping = nullptr);
+
+  // SceneFromField is rigid; lighting and reflection leases come from the active scene.
+  [[nodiscard]] Native::Result<MaterialFieldImages>
+  RelightSceneMaterialField(const ResidentMaterialField &source,
+                            const SceneMaterialFieldView &view,
+                            const std::atomic_bool *stopping = nullptr);
 
   [[nodiscard]] Native::Result<MaterialFieldImages>
   RelightMaterialField(const ResidentMaterialField &source,

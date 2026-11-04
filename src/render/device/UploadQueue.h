@@ -60,6 +60,8 @@ public:
 
   void Submitted(Native::Completion completion) { Last_ = completion; }
 
+  [[nodiscard]] std::optional<Native::Completion> LastSubmitted() const noexcept { return Last_; }
+
   [[nodiscard]] Native::Device &Device() const { return Device_; }
 
 private:
