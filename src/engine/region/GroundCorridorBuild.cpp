@@ -1,4 +1,5 @@
 #include "EngineState.h"
+#include "PageIndexAsset.h"
 #include "WorldRegionBuildState.h"
 #include "GroundWorldCandidate.h"
 #include "DiagnosticLedger.h"
@@ -240,11 +241,23 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
       Error = "road restoration has no worker pool";
       return GroundBuildProgress::Failed;
     }
+    if (const auto &index = state.RoadManifest()->PageIndex) {
+      Published.RecordMetric("ground candidate: road page hierarchy nodes",
+                             static_cast<double>(index->Hierarchy.Nodes().size()),
+                             "nodes");
+      Published.RecordMetric("ground candidate: road page hierarchy bytes",
+                             static_cast<double>(index->ByteCount),
+                             "bytes");
+      Published.RecordMetric("ground candidate: road page hierarchy cache hit",
+                             index->From == PageIndexAsset::Origin::Stored ? 1.0 : 0.0,
+                             "bool");
+    }
     auto restore = RoadPageRestoration::Begin(*Services.Compute,
                                               World.Surface().RoadAssets(),
                                               state.RoadManifest(),
                                               std::nullopt,
-                                              state.SurfaceManifestKey());
+                                              state.SurfaceManifestKey(),
+                                              CurrentGeographicEyeEcef());
     if (!restore) {
       Error = std::move(restore.error());
       return GroundBuildProgress::Failed;

@@ -1,5 +1,6 @@
 #include "PreparedRoadPages.h"
 #include "Sha256.h"
+#include "PageIndexAsset.h"
 #include <algorithm>
 #include <cstddef>
 #include <expected>
@@ -87,6 +88,12 @@ PreparedRoadPages::LoadManifest(const std::string &key) {
   const auto bytes = (**package).Bytes();
   auto manifest = DecodeRoadPageManifest(bytes, ManifestBytesMost);
   if (!manifest || Sha256Hex(bytes.data(), bytes.size()) != key) { return std::nullopt; }
+  std::vector<Box> bounds;
+  bounds.reserve(manifest->Pages.size());
+  for (const auto &page : manifest->Pages) { bounds.push_back(page.Bounds); }
+  auto index = ResolvePageIndex(*Cache_, key, bounds);
+  if (!index) { return std::unexpected(index.error()); }
+  manifest->PageIndex = std::make_shared<const PageIndexAsset>(std::move(*index));
   return std::make_shared<const RoadPageManifest>(std::move(*manifest));
 }
 

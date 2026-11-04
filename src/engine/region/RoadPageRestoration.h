@@ -27,6 +27,7 @@ public:
         std::shared_ptr<const Generators::RoadPageManifest> manifest,
         std::optional<std::span<const uint32_t>> selected = std::nullopt,
         std::string manifestKey = {},
+        std::optional<Vec3> eye = std::nullopt,
         Limits limits = {.PendingMost = 4, .NativeBytesMost = size_t{8} * 1024u * 1024u});
   [[nodiscard]] std::expected<bool, std::string> Advance(Geometry &ground);
 
@@ -48,6 +49,7 @@ private:
                       std::shared_ptr<Generators::PreparedRoadPages> pages,
                       std::shared_ptr<const Generators::RoadPageManifest> manifest,
                       Limits limits);
+  [[nodiscard]] bool OrderPages(const Vec3 &eye);
   [[nodiscard]] std::expected<void, std::string> Prefetch();
   [[nodiscard]] std::expected<void, std::string> CollectReady();
   [[nodiscard]] std::expected<bool, std::string> Collect(Geometry &ground);

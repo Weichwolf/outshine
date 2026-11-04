@@ -55,6 +55,15 @@ bool ValidStoredNode(std::span<const PlanHierarchy::Node> nodes,
 }
 }
 
+double PlanHierarchy::DistanceSquared(const Box &bounds, const Vec3 &eye) noexcept {
+  double squared = 0;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double distance = eye[axis] - std::clamp(eye[axis], bounds.Min[axis], bounds.Max[axis]);
+    squared += distance * distance;
+  }
+  return squared;
+}
+
 bool PlanHierarchy::ValidRay(const Vec3 &origin,
                              const Vec3 &direction,
                              double minimum,

@@ -1,4 +1,5 @@
 #include "RoadPageRestoration.h"
+#include "PageIndexAsset.h"
 #include "Log.h"
 #include <algorithm>
 #include <chrono>
@@ -13,6 +14,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -36,6 +38,7 @@ RoadPageRestoration::Begin(Tasks &pool,
                            std::shared_ptr<const Generators::RoadPageManifest> manifest,
                            std::optional<std::span<const uint32_t>> selected,
                            std::string manifestKey,
+                           std::optional<Vec3> eye,
                            Limits limits) {
   if (!pages || !manifest || manifest->Materials.surfaces() != 1 ||
       manifest->Materials.parts() != 0 || manifest->Materials.images() != 0 ||
@@ -69,7 +72,29 @@ RoadPageRestoration::Begin(Tasks &pool,
       return std::unexpected("road restoration page exceeds its native payload ceiling");
     }
   }
+  if (eye && result->Manifest_->PageIndex && !result->OrderPages(*eye)) {
+    return std::unexpected("road page hierarchy does not match its selected manifest");
+  }
   return result;
+}
+
+bool RoadPageRestoration::OrderPages(const Vec3 &eye) {
+  const auto &hierarchy = Manifest_->PageIndex->Hierarchy;
+  if (hierarchy.SourceOrder().size() != Manifest_->Pages.size()) { return false; }
+  std::vector<uint8_t> wanted(Manifest_->Pages.size());
+  for (const auto page : Selected_) { wanted[page] = 1; }
+  std::vector<uint32_t> ordered;
+  ordered.reserve(Selected_.size());
+  const bool selected = hierarchy.SelectNodesNearFirst(
+      eye,
+      [](const PlanHierarchy::Node &) { return false; },
+      [&](const PlanHierarchy::Node &node) {
+        const uint32_t page = hierarchy.SourceOrder()[node.First];
+        if (wanted[page] != 0) { ordered.push_back(page); }
+      });
+  if (!selected || ordered.size() != Selected_.size()) { return false; }
+  Selected_.swap(ordered);
+  return true;
 }
 
 std::expected<bool, std::string> RoadPageRestoration::Advance(Geometry &ground) {

@@ -5,12 +5,17 @@
 #include "RoadPageAsset.h"
 #include "Box.h"
 #include "Geometry.h"
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
+
+namespace outshine {
+struct PageIndexAsset;
+}
 
 namespace outshine::Generators {
 struct RoadPageReference {
@@ -28,6 +33,7 @@ struct RoadPageManifest {
   LongitudeLatitude Anchor;
   Geometry Materials;
   std::vector<RoadPageReference> Pages;
+  std::shared_ptr<const PageIndexAsset> PageIndex;
   RoadPageAppearance Appearance = LegacyRoadPageV1{};
 };
 

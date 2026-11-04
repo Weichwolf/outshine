@@ -70,6 +70,32 @@ public:
     SelectNodes([&](const Node &node) { return accept(node.Bounds); }, emit);
   }
 
+  // Near child first; leaf order is spatially prioritized, not globally distance-sorted.
+  template <class Accept, class Emit>
+  [[nodiscard]] bool SelectNodesNearFirst(const Vec3 &eye, Accept &&accept, Emit &&emit) const {
+    for (const auto value : eye) {
+      if (!std::isfinite(value)) { return false; }
+    }
+    if (Nodes_.empty()) { return true; }
+    std::array<uint32_t, 32> pending{};
+    size_t count = 1;
+    while (count != 0) {
+      const Node &node = Nodes_[pending[--count]];
+      if (node.Count == 1 || accept(node)) {
+        emit(node);
+        continue;
+      }
+      auto near = node.Left;
+      auto far = node.Right;
+      if (DistanceSquared(Nodes_[far].Bounds, eye) < DistanceSquared(Nodes_[near].Bounds, eye)) {
+        std::swap(near, far);
+      }
+      pending[count++] = far;
+      pending[count++] = near;
+    }
+    return true;
+  }
+
   template <class Emit> [[nodiscard]] bool Query(const Box &region, Emit &&emit) const {
     for (size_t axis = 0; axis < 3; ++axis) {
       if (!(region.Min[axis] <= region.Max[axis])) { return true; }
@@ -144,6 +170,7 @@ public:
   }
 
 private:
+  [[nodiscard]] static double DistanceSquared(const Box &bounds, const Vec3 &eye) noexcept;
   [[nodiscard]] static bool
   ValidRay(const Vec3 &origin, const Vec3 &direction, double minimum, double maximum) noexcept;
   [[nodiscard]] static std::optional<double> RayEntry(const Box &bounds,

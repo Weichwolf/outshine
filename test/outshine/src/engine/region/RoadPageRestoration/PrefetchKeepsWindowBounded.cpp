@@ -3,6 +3,7 @@
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
 #include "RoadPageRestoration.h"
+#include "PageIndexAsset.h"
 #include "Sha256.h"
 #include "Check.h"
 #include <GeometryProductCodec.h>
@@ -17,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <semaphore>
+#include <set>
 #include <span>
 #include <sqlite3.h>
 #include <string>
@@ -98,6 +100,46 @@ bool Ordered(const Geometry &geometry, size_t count) {
     }
   }
   return true;
+}
+
+void CheckSpatialOrder(Tasks &pool, const Fixture &fixture) {
+  using namespace outshine::Test;
+  const auto loaded = fixture.Pages->LoadManifest(fixture.Key);
+  CHECK(loaded && *loaded, "the persisted road manifest is available");
+  if (!loaded || !*loaded) { return; }
+  const auto &manifest = **loaded;
+  CHECK(manifest->PageIndex && manifest->PageIndex->From == PageIndexAsset::Origin::Stored,
+        "a cached road manifest restores its persisted generic page hierarchy");
+  if (!manifest->PageIndex) { return; }
+  const auto &last = manifest->Pages.back().Bounds;
+  const Vec3 eye = (last.Min + last.Max) * 0.5;
+  auto restore =
+      RoadPageRestoration::Begin(pool, fixture.Pages, manifest, std::nullopt, fixture.Key, eye);
+  CHECK(restore, "the road reader accepts spatial priority before starting payload IO");
+  if (!restore) { return; }
+  Geometry geometry;
+  bool finished = false;
+  for (size_t calls = 0; calls < 1024; ++calls) {
+    const auto advanced = (*restore)->Advance(geometry);
+    if (!advanced || (*restore)->Missing()) { break; }
+    if (*advanced) {
+      finished = true;
+      break;
+    }
+    if (!Barrier(pool)) { break; }
+  }
+  CHECK(finished && geometry.parts() == static_cast<int>(manifest->Pages.size()),
+        "spatially prioritized IO restores every original native page");
+  if (geometry.parts() == 0) { return; }
+  CHECK(geometry.positionsOf(0)[0] == static_cast<float>(manifest->Pages.size() - 1),
+        "the near last page is loaded and published before the far first page");
+  std::set<float> sources;
+  for (int part = 0; part < geometry.parts(); ++part) {
+    sources.insert(geometry.positionsOf(part)[0]);
+  }
+  CHECK(sources.size() == manifest->Pages.size() && *sources.begin() == 0 &&
+            *sources.rbegin() == static_cast<float>(manifest->Pages.size() - 1),
+        "priority changes neither source coverage nor native geometry");
 }
 
 void CheckPacing(Tasks &pool, const Fixture &fixture) {
@@ -190,7 +232,7 @@ void CheckWindow(Tasks &pool,
       blocked != Tasks::kNoTask && control->Entered.try_acquire_for(std::chrono::seconds(5));
   CHECK(running, "the single native worker is held before any page IO");
   auto restore = RoadPageRestoration::Begin(
-      pool, fixture.Pages, fixture.Manifest, std::nullopt, fixture.Key, limits);
+      pool, fixture.Pages, fixture.Manifest, std::nullopt, fixture.Key, std::nullopt, limits);
   Geometry geometry;
   const auto advanced = restore ? (*restore)->Advance(geometry)
                                 : std::expected<bool, std::string>(std::unexpected("no reader"));
@@ -224,6 +266,7 @@ void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::pa
                                            fixture.Manifest,
                                            std::nullopt,
                                            {},
+                                           std::nullopt,
                                            {.PendingMost = 4, .NativeBytesMost = 1});
   Geometry geometry;
   bool complete = false;
@@ -243,12 +286,14 @@ void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::pa
                                     fixture.Manifest,
                                     std::nullopt,
                                     {},
+                                    std::nullopt,
                                     {.PendingMost = 0, .NativeBytesMost = 1}) &&
             !RoadPageRestoration::Begin(pool,
                                         fixture.Pages,
                                         fixture.Manifest,
                                         std::nullopt,
                                         {},
+                                        std::nullopt,
                                         {.PendingMost = 1, .NativeBytesMost = 0}),
         "empty admission budgets fail before starting any worker");
   const auto excessive = std::make_shared<RoadPageManifest>();
@@ -285,6 +330,7 @@ int main() {
   CHECK(fixture.has_value(), "32 independent native pages and their shared manifest are persisted");
   if (fixture) {
     Tasks pool(1);
+    CheckSpatialOrder(pool, *fixture);
     CheckPacing(pool, *fixture);
     CheckWindows(pool, *fixture, directory);
   }
