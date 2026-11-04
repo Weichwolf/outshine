@@ -427,9 +427,10 @@ struct Engine::State {
   [[nodiscard]] std::expected<PreloadFlush, std::string> FlushPreloadGround(
       std::chrono::steady_clock::time_point began, double bound, GroundQuality quality);
   [[nodiscard]] Result PreloadTimeout(double bound, GroundQuality quality);
-  void AwaitPreloadProgress(double seconds);
+  void AwaitPreloadProgress(std::chrono::duration<double> patience, uint64_t workerEpoch);
   void BackoffPreload(double seconds);
-  [[nodiscard]] bool AwaitWorldWorkerProgress(double seconds) const;
+  [[nodiscard]] bool AwaitWorldWorkerProgress(std::chrono::duration<double> patience,
+                                              uint64_t workerEpoch) const;
   [[nodiscard]] bool GroundDeformationPending() const noexcept;
   [[nodiscard]] bool AwaitGroundDeformation(double seconds) const;
   [[nodiscard]] bool UpdateActiveCamera();

@@ -1,12 +1,14 @@
 #include "GroundQuality.h"
 #include "EngineState.h"
 #include "OsmSourceAcquisition.h"
+#include "Tasks.h"
 #include <Engine.h>
 #include <Units.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <expected>
 #include <functional>
 #include <ratio>
@@ -81,6 +83,7 @@ Result Engine::preloadWithQuality(double patienceS,
   const GroundQuality quality =
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
   for (;;) {
+    const uint64_t workerEpoch = S_->Services.Compute ? S_->Services.Compute->CompletionEpoch() : 0;
     const double remaining =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     const auto uploadBudget = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -110,9 +113,9 @@ Result Engine::preloadWithQuality(double patienceS,
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    const double waitS = leftS < kMostWaitS ? leftS : kMostWaitS;
+    const double waitS = std::min(leftS, kMostWaitS);
     const auto awaitAt = std::chrono::steady_clock::now();
-    S_->AwaitPreloadProgress(waitS);
+    S_->AwaitPreloadProgress(std::chrono::duration<double>(waitS), workerEpoch);
     S_->PreloadAwaitMs += elapsedMs(awaitAt);
     ++S_->PreloadAwaits;
   }

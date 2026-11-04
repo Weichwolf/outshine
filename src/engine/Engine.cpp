@@ -742,7 +742,9 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
   return std::unexpected(Error);
 }
 
-bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
+bool Engine::State::AwaitWorldWorkerProgress(std::chrono::duration<double> patience,
+                                             uint64_t workerEpoch) const {
+  const double seconds = patience.count();
   if (WeatherRunning()) { return World.Weather->AwaitProgress(seconds); }
   if (World.OsmSource && World.OsmSource->PendingCount() > 0) {
     return World.OsmSource->AwaitSlice(seconds);
@@ -754,7 +756,7 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
   if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
     return World.UrbanAreas->AwaitProgress(seconds);
   }
-  return Services.Compute->AwaitCompletion(seconds);
+  return Services.Compute->AwaitProgress(workerEpoch, seconds);
 }
 
 bool Engine::State::WorldPreparationPending() const {
@@ -766,7 +768,9 @@ bool Engine::State::WorldPreparationPending() const {
          (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
 }
 
-void Engine::State::AwaitPreloadProgress(double seconds) {
+void Engine::State::AwaitPreloadProgress(std::chrono::duration<double> patience,
+                                         uint64_t workerEpoch) {
+  const double seconds = patience.count();
   if (World.Surface().LastAdvance().IngestionUnits > 0) { return; }
   auto &waited = PreloadWaited;
 
@@ -823,7 +827,8 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
   }
   if (WorldPreparationPending() && Services.Compute) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = AwaitWorldWorkerProgress(remaining());
+    const bool signalled =
+        AwaitWorldWorkerProgress(std::chrono::duration<double>(remaining()), workerEpoch);
     record({.Milliseconds = waited.WorldWorkerMs,
             .Calls = waited.WorldWorkerCalls,
             .Signals = waited.WorldWorkerSignals},

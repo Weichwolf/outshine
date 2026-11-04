@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_IO_TASKS_H
 
 #include <condition_variable>
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -35,6 +36,12 @@ public:
   [[nodiscard]] bool TakeCompletion(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
   [[nodiscard]] bool AwaitCompletion(Handle which, double seconds);
+
+  [[nodiscard]] uint64_t CompletionEpoch() const noexcept {
+    return Completed_.load(std::memory_order_acquire);
+  }
+
+  [[nodiscard]] bool AwaitProgress(uint64_t since, double seconds);
   void Wait(Handle which);
 
   [[nodiscard]] int Threads() const { return static_cast<int>(Threads_.size()); }
@@ -56,6 +63,7 @@ private:
   std::condition_variable Landed_;
   std::deque<Posted> Queue_;
   std::set<Handle> Done_;
+  std::atomic<uint64_t> Completed_{0};
   Handle Next_ = 1;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;

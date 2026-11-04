@@ -1,5 +1,6 @@
 #include "Tasks.h"
 #include <algorithm>
+#include <atomic>
 #include <variant>
 
 #include <cstddef>
@@ -87,6 +88,14 @@ bool Tasks::AwaitCompletion(Handle which, double seconds) {
   });
 }
 
+bool Tasks::AwaitProgress(uint64_t since, double seconds) {
+  if (!(seconds > 0.0)) { return false; }
+  std::unique_lock<std::mutex> lock(Mutex_);
+  return Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this, since] {
+    return Completed_.load(std::memory_order_acquire) != since;
+  });
+}
+
 void Tasks::Wait(Handle which) {
   std::unique_lock<std::mutex> lock(Mutex_);
   Landed_.wait(lock, [this, which] { return Done_.contains(which); });
@@ -117,6 +126,7 @@ void Tasks::Work() {
         continue;
       }
       if (taken.Tracked) { Done_.insert(taken.Which); }
+      Completed_.fetch_add(1, std::memory_order_release);
     }
     Landed_.notify_all();
   }
