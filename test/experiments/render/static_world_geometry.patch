@@ -1,0 +1,44 @@
+diff --git a/src/generators/building/BuildingMesh.h b/src/generators/building/BuildingMesh.h
+index 423ef089b..3922e3a84 100644
+--- a/src/generators/building/BuildingMesh.h
++++ b/src/generators/building/BuildingMesh.h
+@@ -23,7 +23,7 @@ public:
+   [[nodiscard]] std::expected<bool, StructureMeshError>
+   KnownEmptySurface(const StructurePlan &plan) const noexcept override;
+ 
+-  [[nodiscard]] bool HasSurfaceProjection() const noexcept override { return true; }
++  [[nodiscard]] bool HasSurfaceProjection() const noexcept override { return false; }
+ 
+   [[nodiscard]] std::expected<ProjectedStructureMesh, StructureMeshError>
+   Project(std::span<const StructurePlan> plans,
+diff --git a/src/generators/building/PreparedBuildingGeometry.cpp b/src/generators/building/PreparedBuildingGeometry.cpp
+index 4ce96bf93..826b04142 100644
+--- a/src/generators/building/PreparedBuildingGeometry.cpp
++++ b/src/generators/building/PreparedBuildingGeometry.cpp
+@@ -30,7 +30,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
+     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
+   };
+   const bool intrinsic = view.RequestedDetail.has_value();
+-  if (!text(intrinsic ? "building-static-lod-3" : "building-lod-6") || !text(base) ||
++  if (!text(intrinsic ? "building-static-lod-3" : "building-lod-static-probe-1") || !text(base) ||
+       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
+       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles)) {
+     return {};
+@@ -108,7 +108,7 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
+   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+   const auto loaded = Cache_->Load(key, kGeometryBytesMost);
+   if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
+-  const std::string_view kind = view.RequestedDetail ? "building-static-lod" : "building-lod";
++  const std::string_view kind = view.RequestedDetail ? "building-static-lod" : "building-lod-static-probe";
+   if (*loaded && (**loaded).Record().Parent == baseKey && (**loaded).Record().Kind == kind &&
+       (**loaded).Record().Level ==
+           static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine))) {
+@@ -160,7 +160,7 @@ PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
+   }
+   AssetRecord record{
+       .Key = key,
+-      .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod",
++      .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod-static-probe",
+       .Bounds = view.RequestedDetail ? GeometryBounds(tile, base.AnchorEcef) : Bounds(base),
+       .Package = {},
+       .ByteCount = encoded->size(),

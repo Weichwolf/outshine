@@ -54,3 +54,17 @@ An explicit `--target` changes it; `--orthographic-px-per-m` selects a parallel 
 Reports identify input/code hashes and count sources as well as products. Reusing
 logical groups is not a native cache hit, full-world performance or memory proof.
 Native integration and current device evidence belong exclusively to #1955.
+
+## Whole-world control
+
+`static_world_geometry.patch` is an experimental change for a detached checkout:
+turn off only surface projection, isolate geometry keys/kinds, keep all scenario
+parameters. This retains the legacy adaptive mesh's 64m selection domain; it is
+not an intrinsic shell product and its cache key still includes the eye.
+Build normally, then run the ordinary `places.py`/motion benchmark with the same
+source and asset stores. Shader artifacts must accompany the executable. Keep
+experimental images/reports in system temp; do not promote them to Places.
+`building-lod-static-probe` identifies the temporary products for targeted cleanup.
+
+A18 results and the decision belong in #1955. The control tests actual GPU cost;
+triangle counts alone do not establish a native performance result.
