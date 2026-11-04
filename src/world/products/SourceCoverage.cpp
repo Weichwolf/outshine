@@ -55,6 +55,19 @@ std::expected<SourceCoverage, SourceCoverageError> SourceCoverage::FromSources(
   return FromRanges(std::move(revision), sourceCount, ranges);
 }
 
+bool SourceCoverage::Contains(const SourceCoverage &other) const noexcept {
+  if (Revision_ != other.Revision_ || SourceCount_ != other.SourceCount_) { return false; }
+  auto parent = Ranges_.begin();
+  for (const auto child : other.Ranges_) {
+    while (parent != Ranges_.end() && parent->First + parent->Count <= child.First) { ++parent; }
+    if (parent == Ranges_.end() || parent->First > child.First ||
+        parent->First + parent->Count < child.First + child.Count) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::expected<void, SourceCoverageError>
 SourceCoverage::Partition(const SourceCoverage &expected,
                           std::span<const SourceCoverage *const> products) {

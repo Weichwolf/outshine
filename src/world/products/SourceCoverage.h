@@ -35,6 +35,8 @@ public:
     return Revision_.capacity() + 1 + Ranges_.capacity() * sizeof(Range);
   }
 
+  [[nodiscard]] bool Contains(const SourceCoverage &other) const noexcept;
+
   bool operator==(const SourceCoverage &other) const = default;
 
 private:

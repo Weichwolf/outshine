@@ -22,6 +22,9 @@ int main() {
       std::array{Range{.First = 12, .Count = 1}, Range{.First = 13, .Count = 1}});
   CHECK(expected && first && second, "sparse coverage does not allocate by domain size");
   if (!expected || !first || !second) { return Report(); }
+  CHECK(expected->Contains(*first) && expected->Contains(*second) &&
+            expected->Contains(*expected) && !first->Contains(*expected),
+        "containment follows sparse intervals without enumerating their source domain");
   CHECK(SourceCoverage::Partition(*expected, std::array{&*second, &*first}),
         "unordered products can exactly partition a sparse source domain");
   CHECK(second->Ranges().size() == 1 && second->Ranges()[0] == (Range{.First = 12, .Count = 2}),
@@ -37,6 +40,8 @@ int main() {
       SourceCoverage::FromRanges("source-a", 1000000000001ULL, second->Ranges());
   CHECK(foreign && otherCount, "foreign coverage may be valid in its own domain");
   if (!foreign || !otherCount) { return Report(); }
+  CHECK(!expected->Contains(*foreign) && !expected->Contains(*otherCount),
+        "source containment refuses another revision or universe");
   CHECK(!SourceCoverage::Partition(*expected, std::array{&*first, &*foreign}) &&
             !SourceCoverage::Partition(*expected, std::array{&*first, &*otherCount}),
         "revision and source count must both match before handoff");
