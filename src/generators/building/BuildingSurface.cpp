@@ -171,13 +171,18 @@ BuildingSurface::Prepare(const StructurePlan &plan, BuildingScratch &scratch) {
   if (!shapes) { return std::unexpected(shapes.error()); }
   if (shapes->empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
   BuildingSurface source;
-  const LongitudeLatitudeHeight origin{.LongitudeDeg = plan.RingLatLon[1],
-                                       .LatitudeDeg = plan.RingLatLon[0],
-                                       .HeightM = plan.BaseAslM};
-  GeoToEcef(origin, source.Origin_);
-  source.Origin_ = source.Origin_ - plan.AnchorEcef;
-  source.Axes_ =
-      EnuAxesEcef({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
+  if (plan.Prepared != nullptr) {
+    source.Origin_ = plan.Prepared->Origin_;
+    source.Axes_ = plan.Prepared->Axes_;
+  } else {
+    const LongitudeLatitudeHeight origin{.LongitudeDeg = plan.RingLatLon[1],
+                                         .LatitudeDeg = plan.RingLatLon[0],
+                                         .HeightM = plan.BaseAslM};
+    GeoToEcef(origin, source.Origin_);
+    source.Origin_ = source.Origin_ - plan.AnchorEcef;
+    source.Axes_ =
+        EnuAxesEcef({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
+  }
   source.MinimumHeightM_ = plan.MinimumHeightM;
   source.WallColour_ = plan.WallColour;
   source.Shapes_.assign(shapes->begin(), shapes->end());

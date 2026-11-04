@@ -130,12 +130,13 @@ PreparedBuildingAssets::LoadSurfaces(const std::string &key,
   Box bounds;
   for (const auto index : indices) {
     const auto &structure = base.Structures[index];
-    const auto plan = PreparedStructurePlan(
+    auto plan = PreparedStructurePlan(
         structure,
         base.PointsLatLon,
         base.Holes,
         std::span(base.CornerAslM).subspan(structure.CornerFirst, structure.Layout.PointCount),
         base.AnchorEcef);
+    plan.Prepared = &base.Surfaces[index];
     auto surface = BuildingSurface::Prepare(plan, scratch);
     if (!surface && surface.error() != StructureMeshError::UnsupportedFootprint) {
       return std::unexpected(surface.error());
