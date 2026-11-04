@@ -137,6 +137,98 @@ std::vector<float> Draw(SceneRenderer &renderer) {
   return pixels;
 }
 
+void CheckCohorts(SceneRenderer &renderer,
+                  GeometryPageResidency &pages,
+                  const TangentFrame &frame) {
+  const auto field = Register(renderer, Field(renderer));
+  const auto vertices = Vertices(frame, {{-.8, .8}});
+  constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
+  std::array parts{GeometryPagePartView{.Tangents = {},
+                                        .Verts = vertices,
+                                        .Indices = indices,
+                                        .Clusters = {},
+                                        .Colours = {},
+                                        .Uv1 = {},
+                                        .Surface = PieceSurface::Registered(field),
+                                        .Textured = true,
+                                        .Passes = GeometryPasses::Main}};
+  GeometryPageView group{.Parts = parts,
+                         .Digest = 100,
+                         .AssetKey = {},
+                         .FallbackHeights = false,
+                         .SelectedView = {},
+                         .RequestedDetail = LevelOfDetail::Massed,
+                         .RequestedCell = 1,
+                         .OccupiedCells = kCells.Occupied};
+  std::string error;
+  const auto before = Draw(renderer);
+  CHECK(!pages.StageCell(kTile, 1, group, frame.OriginEcef(), error, kSource),
+        "the single-cell API cannot silently publish a multi-cell product");
+  CHECK(pages.StageCells(kTile, group, frame.OriginEcef(), error, kSource) &&
+            Draw(renderer) == before,
+        "one staged far product covers both source cells without hiding its originals");
+  const std::array coarse{GeometryPageResidency::CellSelection{
+      .Cell = 1, .Detail = LevelOfDetail::Massed, .OccupiedCells = kCells.Occupied}};
+  CHECK(pages.ActivateCells(kTile, kCells, coarse, error) &&
+            pages.CellsActive(kTile, coarse, kSource),
+        "one complete cohort replaces several original cells atomically");
+  uint64_t coverage = 0;
+  size_t active = 0;
+  pages.ForEachDigest([&](const GeometryPageResidency::DigestRecord &record) {
+    coverage |= record.OccupiedCells;
+    ++active;
+  });
+  CHECK(active == 1 && coverage == kCells.Occupied,
+        "downstream coverage sees every source cell behind a single visible cohort");
+  const auto painted = Draw(renderer);
+  constexpr size_t left = (size_t{16} * 32 + 8) * 4;
+  constexpr size_t right = (size_t{16} * 32 + 24) * 4;
+  CHECK(painted[left] == .75f && painted[right] == .75f,
+        "the actual native far image covers every replaced source cell");
+  CHECK(!pages.SelectDetail(kTile, 2, LevelOfDetail::Fine, error) && Draw(renderer) == painted,
+        "a one-cell detail change cannot punch a hole in an active parent cohort");
+  const std::array overlap{
+      coarse.front(),
+      GeometryPageResidency::CellSelection{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  CHECK(!pages.ActivateCells(kTile, kCells, overlap, error) && Draw(renderer) == painted,
+        "overlapping cohort and child coverage is rejected before any visible mutation");
+  const auto childVertices = Vertices(frame, {{-.8, 0}});
+  parts[0].Verts = childVertices;
+  auto child = group;
+  child.Digest = 101;
+  child.OccupiedCells = 1;
+  CHECK(pages.StageCells(kTile, child, frame.OriginEcef(), error, kSource) &&
+            Draw(renderer) == painted,
+        "a finer cohort can share its parent's anchor and LOD while the parent remains visible");
+  const std::array children{
+      GeometryPageResidency::CellSelection{.Cell = 1, .Detail = LevelOfDetail::Massed},
+      GeometryPageResidency::CellSelection{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  CHECK(pages.ActivateCells(kTile, kCells, children, error),
+        "complete mixed children replace the parent without duplicating source coverage");
+  const auto mixed = Draw(renderer);
+  CHECK(mixed[left] == .75f && mixed[right + 1] == before[right + 1],
+        "the original remainder remains visible beside the finer native field");
+  CHECK(pages.ActivateCells(kTile, kCells, coarse, error) && Draw(renderer) == painted,
+        "the held parent cohort remains available for a distance fallback");
+  parts[0].Verts = vertices;
+  const auto held = pages.Handles().size();
+  for (uint64_t revision = 0; revision < 4; ++revision) {
+    group.Digest = 200 + revision;
+    CHECK(pages.StageCells(kTile, group, frame.OriginEcef(), error, kSource) &&
+              pages.ActivateCells(kTile, kCells, coarse, error),
+          "a new field revision stages beside the active version before switching");
+    CHECK(Draw(renderer) == painted && pages.Handles().size() <= held + 1,
+          "repeated field updates keep bounded active and staged representations");
+  }
+  const std::array fine{
+      GeometryPageResidency::CellSelection{.Cell = 1, .Detail = LevelOfDetail::Fine},
+      GeometryPageResidency::CellSelection{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  CHECK(pages.ActivateCells(kTile, kCells, fine, error), "the original fine cells remain held");
+  CHECK(Draw(renderer) == before,
+        "returning to near geometry restores the original complete image");
+  CHECK(pages.ValidateSources(error), "all grouped and original native source leases remain valid");
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
@@ -237,6 +329,7 @@ void Exercise() {
   const auto restored = Draw(renderer);
   CHECK(restored[left] == before[left] && restored[right + 1] == before[right + 1],
         "a field fallback restores the original visible surfaces");
+  CheckCohorts(renderer, pages, frame);
   pages.Clear();
 }
 }

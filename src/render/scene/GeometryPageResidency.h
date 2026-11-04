@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include <limits>
 #include <span>
 #include <string>
 #include <utility>
@@ -44,10 +45,24 @@ public:
                                const Vec3 &anchorEcef,
                                std::string &error,
                                uint64_t sourceKey);
+  [[nodiscard]] bool StageCells(uint32_t tile,
+                                const GeometryPageView &baked,
+                                const Vec3 &anchorEcef,
+                                std::string &error,
+                                uint64_t sourceKey);
 
   struct CellSelection {
     uint32_t Cell = 0;
     std::optional<LevelOfDetail> Detail = LevelOfDetail::Fine;
+    // Zero retains the single-cell selection; groups name their lowest occupied cell.
+    uint64_t OccupiedCells = 0;
+
+    [[nodiscard]] uint64_t Mask() const noexcept {
+      if (OccupiedCells != 0) { return OccupiedCells; }
+      return Cell > 0 && std::cmp_less_equal(Cell, std::numeric_limits<uint64_t>::digits)
+                 ? uint64_t{1} << (Cell - 1u)
+                 : 0;
+    }
   };
 
   struct CellSource {
@@ -87,6 +102,7 @@ public:
     uint64_t SourceKey = 0;
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
+    uint64_t OccupiedCells = 0;
   };
 
   template <typename Each> void ForEachDigest(Each each) const {
@@ -97,7 +113,8 @@ public:
                         .Digest = stood.Digest,
                         .SourceKey = stood.SourceKey,
                         .FallbackHeights = stood.FallbackHeights,
-                        .Detail = stood.Detail});
+                        .Detail = stood.Detail,
+                        .OccupiedCells = stood.OccupiedCells});
     }
   }
 
@@ -127,6 +144,7 @@ public:
   }
 
 private:
+  enum class Publication { Immediate, Cell, Cohort };
   enum class WholeTileTransition : uint8_t { NoCells, Replaced, Failed };
 
   struct TileCell {
@@ -157,11 +175,12 @@ private:
   [[nodiscard]] bool ValidateStore(TileCell address,
                                    const GeometryPageView &baked,
                                    uint64_t sourceKey,
-                                   bool staged,
+                                   Publication publication,
                                    std::string &error) const;
   [[nodiscard]] bool ValidateStage(uint32_t tile,
                                    const GeometryPageView &baked,
                                    uint64_t sourceKey,
+                                   Publication publication,
                                    std::string &error) const;
   [[nodiscard]] bool ValidateActivation(uint32_t tile,
                                         CellSource source,
@@ -172,6 +191,8 @@ private:
   [[nodiscard]] ResidentGeometryPage *
   CellTarget(uint32_t tile, CellSource source, CellSelection choice) noexcept;
   void DiscardSupersededStage(uint32_t tile, uint64_t sourceKey);
+  void
+  DiscardStagedRepresentation(TileCell address, const GeometryPageView &baked, uint64_t sourceKey);
   [[nodiscard]] WholeTileTransition
   RetireCellsForWholeTile(uint32_t tile, uint64_t sourceKey, std::string &error);
   [[nodiscard]] bool Store(uint32_t tile,
@@ -180,7 +201,7 @@ private:
                            const Vec3 &anchorEcef,
                            std::string &error,
                            uint64_t sourceKey,
-                           bool staged);
+                           Publication publication);
   [[nodiscard]] bool ShouldShow(uint32_t tile,
                                 uint32_t cell,
                                 std::optional<LevelOfDetail> detail,

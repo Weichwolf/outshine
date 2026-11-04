@@ -21,7 +21,8 @@ bool BuildingSourceCoverage::Update(const Render::GeometryPageResidency &pieces,
     if (piece.Cell == 0) {
       masks[piece.Tile] = input->OccupiedCells;
     } else if (piece.Cell <= Ground::kStructureCellsPerTile) {
-      masks[piece.Tile] |= uint64_t{1} << (piece.Cell - 1);
+      masks[piece.Tile] |=
+          piece.OccupiedCells != 0 ? piece.OccupiedCells : uint64_t{1} << (piece.Cell - 1);
     }
   });
   Regions_.clear();
