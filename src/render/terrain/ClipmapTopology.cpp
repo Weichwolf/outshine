@@ -1,4 +1,5 @@
 #include "ClipmapTopology.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +16,8 @@ struct TopologyPlan {
   size_t Vertices;
   size_t Indices;
   size_t Scratch;
+  uint32_t BlockCells;
+  size_t Blocks;
 };
 
 std::expected<TopologyPlan, ClipmapTopologyError> Plan(ClipmapShape shape, size_t bytesMost) {
@@ -27,13 +30,18 @@ std::expected<TopologyPlan, ClipmapTopologyError> Plan(ClipmapShape shape, size_
   const uint64_t vertices = shape.HolePhase ? 3 * half * half + 10 * half : side * side;
   const uint64_t faces = shape.HolePhase ? 6 * half * half + 4 * half : 8 * half * half;
   const uint64_t scratch = side * side;
-  const uint64_t bytes =
-      vertices * sizeof(ClipmapVertex) + (3 * faces + scratch) * sizeof(uint32_t);
+  const uint32_t blockCells = std::max(2u, shape.HalfCells / 4u);
+  const uint64_t columns = (2 * half + blockCells - 1) / blockCells;
+  const uint64_t bytes = vertices * sizeof(ClipmapVertex) +
+                         (3 * faces + scratch) * sizeof(uint32_t) +
+                         columns * columns * sizeof(ClipmapBlock);
   if (bytes > bytesMost) { return std::unexpected(ClipmapTopologyError::OverBudget); }
   return TopologyPlan{.Side = static_cast<uint32_t>(side),
                       .Vertices = static_cast<size_t>(vertices),
                       .Indices = static_cast<size_t>(3 * faces),
-                      .Scratch = static_cast<size_t>(scratch)};
+                      .Scratch = static_cast<size_t>(scratch),
+                      .BlockCells = blockCells,
+                      .Blocks = static_cast<size_t>(columns * columns)};
 }
 
 enum class CellEdge { None = -1, South, East, North, West };
@@ -43,7 +51,22 @@ public:
   Builder(TopologyPlan plan, uint32_t half) : Side_(plan.Side), Half_(half) {
     Mesh_.Vertices.reserve(plan.Vertices);
     Mesh_.Indices.reserve(plan.Indices);
+    Mesh_.Blocks.reserve(plan.Blocks);
     Nodes_.resize(plan.Scratch, std::numeric_limits<uint32_t>::max());
+  }
+
+  void BeginBlock(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+    const auto half = static_cast<float>(Half_);
+    Mesh_.Blocks.push_back(
+        {.First = static_cast<uint32_t>(Mesh_.Indices.size()),
+         .Low = {static_cast<float>(x) - half, static_cast<float>(y) - half},
+         .High = {static_cast<float>(x + width) - half, static_cast<float>(y + height) - half}});
+  }
+
+  void EndBlock() {
+    auto &block = Mesh_.Blocks.back();
+    block.Count = static_cast<uint32_t>(Mesh_.Indices.size()) - block.First;
+    if (block.Count == 0) { Mesh_.Blocks.pop_back(); }
   }
 
   void Cell(uint32_t x, uint32_t y, CellEdge edge) {
@@ -121,10 +144,19 @@ std::expected<ClipmapTopology, ClipmapTopologyError> ClipmapTopology::Make(Clipm
                 .North = south + shape.HalfCells};
   }
   Builder builder(*plan, shape.HalfCells);
-  for (uint32_t y = 0; y < 2 * shape.HalfCells; ++y) {
-    for (uint32_t x = 0; x < 2 * shape.HalfCells; ++x) {
-      if (hole && hole->Contains(x, y)) { continue; }
-      builder.Cell(x, y, hole ? hole->StitchAt(x, y) : CellEdge::None);
+  const uint32_t side = 2 * shape.HalfCells;
+  for (uint32_t by = 0; by < side; by += plan->BlockCells) {
+    const uint32_t height = std::min(plan->BlockCells, side - by);
+    for (uint32_t bx = 0; bx < side; bx += plan->BlockCells) {
+      const uint32_t width = std::min(plan->BlockCells, side - bx);
+      builder.BeginBlock(bx, by, width, height);
+      for (uint32_t y = by; y < by + height; ++y) {
+        for (uint32_t x = bx; x < bx + width; ++x) {
+          if (hole && hole->Contains(x, y)) { continue; }
+          builder.Cell(x, y, hole ? hole->StitchAt(x, y) : CellEdge::None);
+        }
+      }
+      builder.EndBlock();
     }
   }
   return std::move(builder).Take();
@@ -136,6 +168,7 @@ ClipmapTopology::Measure(ClipmapShape shape) {
   if (!plan) { return std::unexpected(plan.error()); }
   return ClipmapTopologySize{.VertexBytes = plan->Vertices * sizeof(ClipmapVertex),
                              .IndexBytes = plan->Indices * sizeof(uint32_t),
+                             .BlockBytes = plan->Blocks * sizeof(ClipmapBlock),
                              .ScratchBytes = plan->Scratch * sizeof(uint32_t)};
 }
 }

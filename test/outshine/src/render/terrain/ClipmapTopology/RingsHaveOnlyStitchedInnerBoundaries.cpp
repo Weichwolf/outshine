@@ -89,12 +89,28 @@ void CheckMesh(ClipmapShape shape) {
   CHECK(area == (shape.HolePhase ? 3 : 4) * static_cast<double>(half * half),
         "mesh area excludes the hole before geometry emission");
   CHECK(used.size() == mesh.Vertices.size(), "the hole leaves no unused vertices");
+  size_t next = 0;
+  for (const auto &block : mesh.Blocks) {
+    CHECK(block.First == next && block.Count > 0 && block.Count % 3 == 0,
+          "blocks partition the index stream into complete triangles");
+    next += block.Count;
+    for (size_t i = block.First; i < next; ++i) {
+      const auto &v = mesh.Vertices[mesh.Indices[i]];
+      CHECK(v.East >= block.Low[0] && v.East <= block.High[0] && v.North >= block.Low[1] &&
+                v.North <= block.High[1],
+            "block bounds contain regular and stitched vertices");
+    }
+  }
+  CHECK(next == mesh.Indices.size(), "block ranges preserve the entire surface exactly once");
+  const auto measured = ClipmapTopology::Measure(shape);
+  CHECK(measured && measured->BlockBytes >= mesh.Blocks.capacity() * sizeof(ClipmapBlock),
+        "admission covers all retained block metadata");
   CheckBoundary(mesh, shape, edges);
 }
 }
 
 int main() {
-  for (const uint32_t half : {8u, 64u, 128u}) {
+  for (const uint32_t half : {8u, 14u, 64u, 128u}) {
     CheckMesh({.HalfCells = half});
     for (uint32_t y = 0; y < 2; ++y) {
       for (uint32_t x = 0; x < 2; ++x) { CheckMesh({.HalfCells = half, .HolePhase = {{x, y}}}); }

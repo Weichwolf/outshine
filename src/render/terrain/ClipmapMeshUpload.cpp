@@ -24,6 +24,7 @@ ClipmapShape Shape(uint32_t half, MeshPhase phase) {
 Native::Result<uint64_t> MeshBytes(ClipmapShape request, size_t geometryBytesMost) {
   uint64_t bytes = 0;
   size_t scratch = 0;
+  size_t metadata = 0;
   for (uint32_t i = 0; i < 5; ++i) {
     const auto size = ClipmapTopology::Measure(Shape(request.HalfCells, static_cast<MeshPhase>(i)));
     if (!size || size->IndexBytes / sizeof(uint32_t) > std::numeric_limits<uint32_t>::max()) {
@@ -31,9 +32,11 @@ Native::Result<uint64_t> MeshBytes(ClipmapShape request, size_t geometryBytesMos
                                            .Message = "invalid native clipmap topology"});
     }
     bytes += size->VertexBytes + size->IndexBytes;
+    metadata += size->BlockBytes;
     scratch = std::max(scratch, size->ScratchBytes);
   }
-  if (geometryBytesMost < scratch || bytes > (geometryBytesMost - scratch) / 3u) {
+  if (geometryBytesMost < scratch || metadata > (geometryBytesMost - scratch) / 2u ||
+      bytes > (geometryBytesMost - scratch - 2u * metadata) / 3u) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Busy,
                       .Message = "clipmap geometry exceeds CPU/GPU/staging admission"});
