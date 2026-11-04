@@ -2,9 +2,13 @@
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureTile.h"
 #include "PageIndexAsset.h"
+#include "ByteArchive.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <chrono>
+#include <cstddef>
+#include <cmath>
+#include <limits>
 #include <cstdint>
 #include <fstream>
 #include <ios>
@@ -23,6 +27,28 @@ bool Write(const std::string &path, std::span<const uint8_t> bytes) {
              static_cast<std::streamsize>(bytes.size()));
   file.flush();
   return static_cast<bool>(file);
+}
+
+bool WriteGeometry(const std::string &path,
+                   const outshine::Generators::PreparedStructureTile &base,
+                   const std::string &revision) {
+  if (base.Surfaces.size() > std::numeric_limits<uint32_t>::max()) { return false; }
+  outshine::ByteWriter bytes(std::numeric_limits<size_t>::max());
+  if (!bytes.Number(uint64_t{0x3152544D4F454753ULL}) ||
+      !bytes.Number(static_cast<uint32_t>(base.Surfaces.size())) ||
+      !bytes.Number(static_cast<uint32_t>(revision.size())) ||
+      !bytes.Put({reinterpret_cast<const uint8_t *>(revision.data()), revision.size()})) {
+    return false;
+  }
+  for (const auto &surface : base.Surfaces) {
+    const auto &selection = surface.PreparedSelection();
+    const double error = selection ? selection->ShellErrorM.value_or(-1) : -1;
+    if (!std::isfinite(error) || surface.FaceCount() > std::numeric_limits<uint32_t>::max() ||
+        !bytes.Number(error) || !bytes.Number(static_cast<uint32_t>(surface.FaceCount()))) {
+      return false;
+    }
+  }
+  return Write(path, bytes.Bytes());
 }
 }
 
@@ -61,7 +87,8 @@ int main(int argc, char *const *argv) {
     supported.push_back(surface.FaceCount() != 0 && !surface.Bounds().Empty() ? 1 : 0);
   }
   if (cells.size() != supported.size() || !Write(prefix + ".bin", (**stored).Bytes()) ||
-      !Write(prefix + ".cells", cells) || !Write(prefix + ".supported", supported)) {
+      !Write(prefix + ".cells", cells) || !Write(prefix + ".supported", supported) ||
+      !WriteGeometry(prefix + ".geometry", **base, argv[2])) {
     return 9;
   }
   const auto costs = (*assets)->Costs();
