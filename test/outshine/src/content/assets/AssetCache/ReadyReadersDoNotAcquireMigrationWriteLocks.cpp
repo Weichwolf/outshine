@@ -21,18 +21,34 @@ int main() {
   sqlite3 *writer = nullptr;
   CHECK(sqlite3_open(path.c_str(), &writer) == SQLITE_OK, "independent writer opens the cache");
   if (writer == nullptr) { return Report(); }
-  const int locked = sqlite3_exec(writer, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
-  CHECK(locked == SQLITE_OK, "another preparation job holds the SQLite writer lock");
-  {
-    auto reader = AssetCache::Open(path);
-    CHECK(reader, "a ready-cache reader opens without requesting a schema migration write lock");
-    if (reader) {
-      const auto found = (*reader)->FindRequest(std::string(64, 'a'));
-      CHECK(found && !*found, "the concurrent reader sees the unchanged committed empty cache");
+  for (const bool indexed : {true, false}) {
+    if (!indexed) {
+      CHECK(
+          sqlite3_exec(writer, "DROP INDEX assets_parent_kind_level", nullptr, nullptr, nullptr) ==
+              SQLITE_OK,
+          "an older ready cache remains usable without the optional hierarchy acceleration");
     }
-    CHECK(sqlite3_get_autocommit(writer) == 0, "the independent writer still owns its transaction");
-    CHECK(sqlite3_exec(writer, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
-          "the independent writer can finish its unchanged transaction");
+    const int locked = sqlite3_exec(writer, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    CHECK(locked == SQLITE_OK, "another preparation job holds the SQLite writer lock");
+    {
+      auto reader = AssetCache::Open(path);
+      CHECK(reader, "a ready-cache reader opens without requesting a schema migration write lock");
+      if (reader) {
+        const auto found = (*reader)->FindRequest(std::string(64, 'a'));
+        CHECK(found && !*found, "the concurrent reader sees the unchanged committed empty cache");
+      }
+      CHECK(sqlite3_get_autocommit(writer) == 0,
+            "the independent writer still owns its transaction");
+      CHECK(sqlite3_exec(writer, "ROLLBACK", nullptr, nullptr, nullptr) == SQLITE_OK,
+            "the independent writer can finish its unchanged transaction");
+    }
+  }
+  {
+    const auto upgraded = AssetCache::Open(path);
+    CHECK(upgraded, "a later uncontended reader completes the optional hierarchy index");
+    CHECK(sqlite3_exec(writer, "DROP INDEX assets_parent_kind_level", nullptr, nullptr, nullptr) ==
+              SQLITE_OK,
+          "the deferred index was actually created after the writer released its lock");
   }
   CHECK(sqlite3_close(writer) == SQLITE_OK, "the independent writer releases its connection");
   std::filesystem::remove_all(directory);

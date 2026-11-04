@@ -124,6 +124,9 @@ std::expected<void, AssetCacheError> MigrateRequests(sqlite3 *database, int vers
   return {};
 }
 
+constexpr auto kHierarchyIndex =
+    "CREATE INDEX IF NOT EXISTS assets_parent_kind_level ON assets(parent,kind,level)";
+
 std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
   const auto migration = AssetSql::Exec(database, "BEGIN IMMEDIATE;");
   if (!migration) { return std::unexpected(migration.error()); }
@@ -159,9 +162,27 @@ std::expected<void, AssetCacheError> MigrateSchema(sqlite3 *database) {
                        "REFERENCES packages(key) ON DELETE CASCADE,bytes BLOB NOT NULL);");
     if (!bodies) { return bodies; }
   }
+  const auto indexed = AssetSql::Exec(database, kHierarchyIndex);
+  if (!indexed) { return indexed; }
   const auto committed =
       AssetSql::Exec(database, *current == 5 ? "COMMIT;" : "PRAGMA user_version=5;COMMIT;");
   if (!committed) { return std::unexpected(committed.error()); }
+  return {};
+}
+
+std::expected<void, AssetCacheError> PrepareHierarchyIndex(sqlite3 *database) {
+  AssetSql::Statement index;
+  const auto checked = AssetSql::Prepare(
+      database,
+      "SELECT 1 FROM sqlite_schema WHERE type='index' AND name='assets_parent_kind_level'",
+      index);
+  if (!checked) { return std::unexpected(checked.error()); }
+  const int status = sqlite3_step(index.Value);
+  sqlite3_finalize(std::exchange(index.Value, nullptr));
+  if (status == SQLITE_ROW) { return {}; }
+  if (status != SQLITE_DONE) { return std::unexpected(AssetSql::Error(status)); }
+  const auto created = AssetSql::Exec(database, kHierarchyIndex);
+  if (!created && created.error() != AssetCacheError::Busy) { return created; }
   return {};
 }
 
@@ -241,7 +262,7 @@ std::expected<void, AssetCacheError> AssetCache::State::Initialize() {
     const auto indexed = PrepareUsageIndex(Database);
     if (!indexed) { return std::unexpected(indexed.error()); }
   }
-  return {};
+  return PrepareHierarchyIndex(Database);
 }
 
 std::expected<void, AssetCacheError> AssetCache::State::EnsureOpen() {

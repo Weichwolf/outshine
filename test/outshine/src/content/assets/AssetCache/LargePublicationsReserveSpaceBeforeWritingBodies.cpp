@@ -9,6 +9,8 @@
 #include <dlfcn.h>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <print>
 #include <sqlite3.h>
 #include <string>
 #include <string_view>
@@ -84,6 +86,42 @@ bool Publish(AssetCache &cache, const PreparedAssetWrite &prepared) {
   return false;
 }
 
+std::optional<size_t> NearQuotaBytes(const std::string &path, const SqliteFileBudget &budget) {
+  const auto usage = budget.Inspect();
+  CHECK(usage, "near-capacity sizing observes the actual empty schema storage");
+  if (!usage) { return std::nullopt; }
+  sqlite3 *raw = nullptr;
+  const int opened = sqlite3_open_v2(path.c_str(), &raw, SQLITE_OPEN_READONLY, budget.VfsName());
+  const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> database(raw, sqlite3_close);
+  CHECK(opened == SQLITE_OK, "near-capacity sizing reads the actual SQLite page format");
+  if (opened != SQLITE_OK) { return std::nullopt; }
+  sqlite3_stmt *statement = nullptr;
+  const int prepared = sqlite3_prepare_v2(raw, "PRAGMA page_size", -1, &statement, nullptr);
+  const std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> page(statement,
+                                                                        sqlite3_finalize);
+  const int read = prepared == SQLITE_OK ? sqlite3_step(statement) : prepared;
+  CHECK(read == SQLITE_ROW,
+        "the native page size is available independently of admission's estimate");
+  if (read != SQLITE_ROW) { return std::nullopt; }
+  const auto pageBytes = static_cast<uint64_t>(sqlite3_column_int64(statement, 0));
+  constexpr uint64_t frameHeaderBytes = 24;
+  constexpr uint64_t overflowLinkBytes = 4;
+  const uint64_t metadata = 2 * usage->ChargedBytes;
+  const uint64_t available = budget.Limit() - budget.Reserve();
+  CHECK(pageBytes > overflowLinkBytes && metadata < available,
+        "two observed metadata copies fit beside the maintenance reserve");
+  if (pageBytes <= overflowLinkBytes || metadata >= available) { return std::nullopt; }
+  const uint64_t pages = (available - metadata) / (2 * (pageBytes + frameHeaderBytes));
+  CHECK(pages > 1, "a large native blob fits its WAL and checkpoint copies plus a record page");
+  if (pages <= 1) { return std::nullopt; }
+  const uint64_t bytes = (pages - 1) * (pageBytes - overflowLinkBytes);
+  std::println("SQL_NEAR_QUOTA schema_bytes={} page_bytes={} payload_bytes={}",
+               usage->ChargedBytes,
+               pageBytes,
+               bytes);
+  return static_cast<size_t>(bytes);
+}
+
 void NearQuotaEstimate() {
   const Environment environment;
   CHECK(SqliteFileBudget::Configure(environment.Root, kLimit),
@@ -92,8 +130,11 @@ void NearQuotaEstimate() {
   const auto budget = SqliteFileBudget::Open(environment.Root);
   CHECK(cache && budget, "the nearly full package has an empty bank");
   if (!cache || !budget) { return; }
-  const auto bytes = (kLimit - (*budget)->Reserve()) / 2 - uint64_t{160} * 1024;
-  const auto prepared = Prepare(**cache, {.Id = 100, .Bytes = static_cast<size_t>(bytes)});
+  const auto bytes = NearQuotaBytes((environment.Root / "assets.sqlite").string(), **budget);
+  CHECK(bytes && *bytes > (kLimit - (*budget)->Reserve()) / 3,
+        "the schema-derived control still occupies most of the two-copy blob capacity");
+  if (!bytes) { return; }
+  const auto prepared = Prepare(**cache, {.Id = 100, .Bytes = *bytes});
   CHECK(prepared && Publish(**cache, *prepared),
         "a conservative estimate cannot reject a package that physically fits");
   const auto usage = (*budget)->Inspect();

@@ -54,7 +54,10 @@ std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
 namespace {
 
 bool Valid(const AssetQuery &query) {
-  if (!AssetSql::Valid(query.Bounds)) { return false; }
+  if (!AssetSql::Valid(query.Bounds) ||
+      (query.Parent && !query.Parent->empty() && !AssetSql::ValidKey(*query.Parent))) {
+    return false;
+  }
   if (query.Radius) {
     if (!std::isfinite(query.Radius->Metres) || query.Radius->Metres < 0 ||
         !std::ranges::all_of(
@@ -96,6 +99,34 @@ bool Intersects(const Box &bounds, const AssetQuery &query) {
 }
 
 namespace {
+std::expected<void, AssetCacheError> BindSelection(sqlite3_stmt *statement,
+                                                   const AssetQuery &query) {
+  for (int axis = 0; axis < 3; ++axis) {
+    const auto index = static_cast<size_t>(axis);
+    if (sqlite3_bind_double(statement, 1 + 2 * axis, query.Bounds.Max[index]) != SQLITE_OK ||
+        sqlite3_bind_double(statement, 2 + 2 * axis, query.Bounds.Min[index]) != SQLITE_OK) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+  }
+  int parameter = 7;
+  if (!query.Kind.empty()) {
+    if (!AssetSql::Text(statement, parameter, query.Kind)) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    ++parameter;
+  }
+  if (query.Level) {
+    if (sqlite3_bind_int64(statement, parameter, *query.Level) != SQLITE_OK) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    ++parameter;
+  }
+  if (query.Parent && !AssetSql::Text(statement, parameter, *query.Parent)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  return {};
+}
+
 enum class Lookup { Product, Request };
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
@@ -142,27 +173,17 @@ AssetCache::Select(const AssetQuery &query) const {
   const std::scoped_lock lock(*State_->Mutex);
   if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
-  const std::string sql =
+  std::string sql =
       std::string("SELECT ") + AssetSql::kColumns +
       " FROM bounds r JOIN assets a ON a.id=r.id WHERE "
-      "r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=? "
-      "AND (?='' OR a.kind=?) AND (?<0 OR a.level=?)";
+      "r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=?";
+  if (!query.Kind.empty()) { sql += " AND a.kind=?"; }
+  if (query.Level) { sql += " AND a.level=?"; }
+  if (query.Parent) { sql += " AND a.parent=?"; }
   auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
-  for (int axis = 0; axis < 3; ++axis) {
-    const auto index = static_cast<size_t>(axis);
-    if (sqlite3_bind_double(statement.Value, 1 + 2 * axis, query.Bounds.Max[index]) != SQLITE_OK ||
-        sqlite3_bind_double(statement.Value, 2 + 2 * axis, query.Bounds.Min[index]) != SQLITE_OK) {
-      return std::unexpected(AssetCacheError::Storage);
-    }
-  }
-  const sqlite3_int64 level = query.Level ? static_cast<sqlite3_int64>(*query.Level) : -1;
-  if (!AssetSql::Text(statement.Value, 7, query.Kind) ||
-      !AssetSql::Text(statement.Value, 8, query.Kind) ||
-      sqlite3_bind_int64(statement.Value, 9, level) != SQLITE_OK ||
-      sqlite3_bind_int64(statement.Value, 10, level) != SQLITE_OK) {
-    return std::unexpected(AssetCacheError::Storage);
-  }
+  const auto bound = BindSelection(statement.Value, query);
+  if (!bound) { return std::unexpected(bound.error()); }
   std::vector<AssetRecord> records;
   int code = SQLITE_ROW;
   while ((code = sqlite3_step(statement.Value)) == SQLITE_ROW) {

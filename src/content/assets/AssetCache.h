@@ -31,6 +31,8 @@ struct AssetQuery {
   std::optional<uint32_t> Level;
   std::optional<AssetRadius> Radius;
   std::span<const std::array<double, 4>> Planes;
+  // nullopt selects any parent; an empty address selects roots.
+  std::optional<std::string_view> Parent = std::nullopt;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };
