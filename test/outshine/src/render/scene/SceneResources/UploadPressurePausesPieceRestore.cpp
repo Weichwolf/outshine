@@ -14,6 +14,7 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -64,6 +65,33 @@ bool Configure(GeometryRenderer &draw, Pressure &device) {
   return true;
 }
 
+void CheckPassBatch(SceneResources &resources,
+                    GeometryRenderer &geometry,
+                    std::span<const PieceHandle> handles) {
+  std::string error;
+  const std::array<Mat4, 1> row{};
+  std::array changes{
+      SceneResources::PieceRows{.Piece = handles[0], .Rows = {}, .Passes = GeometryPasses::Shadow},
+      SceneResources::PieceRows{.Piece = handles[1], .Rows = row, .Passes = GeometryPasses::Main}};
+  CHECK(resources.SetPieceInstances(geometry, changes, error) && geometry.HandTables(error),
+        "one native batch publishes instance rows and their new pass participation");
+  CHECK(geometry.Drawn().size() == handles.size() - 1 &&
+            geometry.Drawn()[0].Passes == GeometryPasses::Main,
+        "the removed first instance and visible second Main instance reach native tables");
+  changes[0].Rows = row;
+  changes[0].Passes = GeometryPasses::Main;
+  changes[1].Passes = static_cast<GeometryPasses>(255);
+  CHECK(!resources.SetPieceInstances(geometry, changes, error) && geometry.HandTables(error) &&
+            geometry.Drawn().size() == handles.size() - 1,
+        "invalid later participation rejects earlier row and pass changes before mutation");
+  changes[1].Passes = GeometryPasses::Shadow;
+  CHECK(resources.SetPieceInstances(geometry, changes, error) && geometry.HandTables(error) &&
+            geometry.Drawn().size() == handles.size() &&
+            geometry.Drawn()[0].Passes == GeometryPasses::Main &&
+            geometry.Drawn()[1].Passes == GeometryPasses::Shadow,
+        "a valid retry restores both original resource-owned roles");
+}
+
 void Exercise(bool acquire, Native::ErrorKind kind) {
   const auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
   outshine::Test::Gpu::NativeOfflineDevice offline(*native);
@@ -97,6 +125,7 @@ void Exercise(bool acquire, Native::ErrorKind kind) {
   CHECK(
       !original.SetPiecePasses(published, handles[0], static_cast<GeometryPasses>(255), passError),
       "invalid resource participation changes are rejected before mutation");
+  CheckPassBatch(original, published, handles);
   copied.CopySourcesFrom(original, SceneResources::PieceSources::Copy);
   device.Acquire = acquire;
   device.SubmitBusy = !acquire;

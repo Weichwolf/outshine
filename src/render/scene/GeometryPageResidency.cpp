@@ -54,12 +54,12 @@ std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
 }
 
 void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,
-                     std::span<const PieceHandle> parts,
+                     const auto &parts,
                      const Mat4 *row) {
   const std::span<const Mat4> instances =
       row == nullptr ? std::span<const Mat4>{} : std::span<const Mat4>{row, 1};
-  for (const auto part : parts) {
-    if (part) { rows.push_back({.Piece = part, .Rows = instances}); }
+  for (const auto &part : parts) {
+    if (part.Handle) { rows.push_back({.Piece = part.Handle, .Rows = instances}); }
   }
 }
 
@@ -194,7 +194,9 @@ bool GeometryPageResidency::Store(uint32_t tile,
       error = Why_;
       return false;
     }
-    if (*uploaded) { stood.Parts.push_back(*uploaded); }
+    if (*uploaded) {
+      stood.Parts.push_back({.Handle = *uploaded, .Passes = baked.Parts[at].Passes});
+    }
   }
   if (!visible) {
     std::vector<SceneRenderer::PieceRows> rows;
@@ -292,11 +294,11 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
     return false;
   }
   if ((baked.RequestedDetail || baked.RequestedCell) && sourceKey == 0) {
-    error = "addressed geometry geometry requires a source key";
+    error = "addressed geometry requires a source key";
     return false;
   }
-  if ((address.Cell == 0 && baked.RequestedCell) ||
-      (address.Cell != 0 && baked.RequestedCell != address.Cell)) {
+  const auto addressedCell = address.Cell == 0 ? std::nullopt : std::optional{address.Cell};
+  if (baked.RequestedCell != addressedCell) {
     error = "geometry product cell and residency address differ";
     return false;
   }
@@ -323,11 +325,12 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
       error = "stage geometry cells before replacing a whole tile";
       return false;
     }
-    if (std::ranges::any_of(Pages_, [address, cell](const ResidentGeometryPage &held) {
+    if (IndependentPasses(address.Tile) ||
+        std::ranges::any_of(Pages_, [address, cell](const ResidentGeometryPage &held) {
           return held.Tile == address.Tile && held.Visible && held.Cell != 0 &&
                  (held.OccupiedCells & cell) != 0 && held.OccupiedCells != cell;
         })) {
-      error = "stage geometry cells before replacing an overlapping cohort";
+      error = "stage complete geometry selections before replacing cohorts or independent passes";
       return false;
     }
   }
@@ -380,139 +383,6 @@ void GeometryPageResidency::DiscardSupersededStage(uint32_t tile, uint64_t sourc
   });
 }
 
-bool GeometryPageResidency::ActivateCells(uint32_t tile,
-                                          CellSource source,
-                                          std::span<const CellSelection> selected,
-                                          std::string &error) {
-  if (!ValidateActivation(tile, source, selected, error)) { return false; }
-  const auto firstTile = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
-  const auto lastTile =
-      std::find_if(firstTile, Pages_.end(), [tile](const ResidentGeometryPage &held) {
-        return held.Tile != tile;
-      });
-  std::vector<SceneRenderer::PieceRows> rows;
-  size_t parts = 0;
-  for (auto at = firstTile; at != lastTile; ++at) { parts += at->Parts.size(); }
-  rows.reserve(parts);
-  std::vector<ResidentGeometryPage *> targets;
-  targets.reserve(selected.size());
-  for (const CellSelection choice : selected) {
-    targets.push_back(CellTarget(tile, source, choice));
-  }
-  for (auto at = firstTile; at != lastTile; ++at) {
-    if (at->Visible && std::ranges::find(targets, &*at) == targets.end()) {
-      AppendPieceRows(rows, at->Parts, nullptr);
-    }
-  }
-  for (const ResidentGeometryPage *target : targets) {
-    if (!target->Visible) { AppendPieceRows(rows, target->Parts, &target->Row); }
-  }
-  if (!Renderer_->SetPieceInstances(rows, error)) { return false; }
-  for (auto at = firstTile; at != lastTile; ++at) { at->Visible = false; }
-  for (ResidentGeometryPage *target : targets) { target->Visible = true; }
-  for (auto at = firstTile; at != lastTile; ++at) {
-    if (at->Cell == 0 || at->SourceKey != source.Key) { Releases(*at); }
-  }
-  std::erase_if(Pages_, [tile, source](const ResidentGeometryPage &held) {
-    return held.Tile == tile && (held.Cell == 0 || held.SourceKey != source.Key);
-  });
-  RefreshDigest();
-  return true;
-}
-
-bool GeometryPageResidency::ValidateActivation(uint32_t tile,
-                                               CellSource source,
-                                               std::span<const CellSelection> selected,
-                                               std::string &error) const {
-  if (Renderer_ == nullptr || source.Key == 0 || source.Occupied == 0 || selected.empty()) {
-    error = "geometry cell activation needs a complete source selection";
-    return false;
-  }
-  uint64_t selectedMask = 0;
-  uint32_t previousCell = 0;
-  for (const CellSelection choice : selected) {
-    const uint64_t cells = choice.Mask();
-    if (choice.Cell <= previousCell || choice.Cell > kGeometryPageCellsMost || cells == 0 ||
-        choice.Cell != static_cast<uint32_t>(std::countr_zero(cells)) + 1u ||
-        (selectedMask & cells) != 0 || (choice.Detail && *choice.Detail > LevelOfDetail::Massed)) {
-      error = "geometry cell selection is not ordered or has an invalid level";
-      return false;
-    }
-    selectedMask |= cells;
-    previousCell = choice.Cell;
-  }
-  if (selectedMask != source.Occupied) {
-    error = "geometry cell selection omits or adds a source cell";
-    return false;
-  }
-  if (!ValidateResidentSources(tile, source, error)) { return false; }
-  const auto firstTile = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
-  const auto lastTile =
-      std::find_if(firstTile, Pages_.end(), [tile](const ResidentGeometryPage &held) {
-        return held.Tile != tile;
-      });
-  for (const CellSelection choice : selected) {
-    const auto first =
-        std::ranges::lower_bound(firstTile, lastTile, std::pair{tile, choice.Cell}, {}, AddressOf);
-    const auto last = std::find_if(first, lastTile, [choice](const ResidentGeometryPage &held) {
-      return held.Cell != choice.Cell;
-    });
-    const auto target =
-        std::find_if(first, last, [choice, source](const ResidentGeometryPage &held) {
-          return held.Detail == choice.Detail && held.SourceKey == source.Key &&
-                 held.OccupiedCells == choice.Mask();
-        });
-    if (target == last) {
-      error = "required geometry cell detail is not resident";
-      return false;
-    }
-  }
-  return true;
-}
-
-bool GeometryPageResidency::ValidateResidentSources(uint32_t tile,
-                                                    CellSource source,
-                                                    std::string &error) const {
-  const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
-  const auto last = std::find_if(
-      first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
-  const auto visible =
-      std::find_if(first, last, [](const ResidentGeometryPage &held) { return held.Visible; });
-  const std::optional<uint64_t> visibleSource =
-      visible == last ? std::nullopt : std::optional<uint64_t>{visible->SourceKey};
-  for (auto at = first; at != last; ++at) {
-    if (at->Visible && visibleSource != at->SourceKey) {
-      error = "visible geometry cells have mixed source revisions";
-      return false;
-    }
-    if (at->SourceKey != source.Key && at->SourceKey != visibleSource) {
-      error = "staged geometry cell belongs to another source revision";
-      return false;
-    }
-    if (at->SourceKey == source.Key && at->Cell != 0 &&
-        (at->Cell > kGeometryPageCellsMost || at->OccupiedCells == 0 ||
-         (source.Occupied & at->OccupiedCells) != at->OccupiedCells)) {
-      error = "resident geometry cell is outside the source selection";
-      return false;
-    }
-  }
-  return true;
-}
-
-GeometryPageResidency::ResidentGeometryPage *
-GeometryPageResidency::CellTarget(uint32_t tile, CellSource source, CellSelection choice) noexcept {
-  const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, choice.Cell}, {}, AddressOf);
-  const auto last =
-      std::find_if(first, Pages_.end(), [tile, choice](const ResidentGeometryPage &held) {
-        return held.Tile != tile || held.Cell != choice.Cell;
-      });
-  const auto target = std::find_if(first, last, [choice, source](const ResidentGeometryPage &held) {
-    return held.Detail == choice.Detail && held.SourceKey == source.Key &&
-           held.OccupiedCells == choice.Mask();
-  });
-  return &*target;
-}
-
 void GeometryPageResidency::Retire(uint32_t tile) {
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
@@ -552,7 +422,7 @@ bool GeometryPageResidency::HasProjectedTile(uint32_t tile,
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
   uint64_t covered = 0;
   for (auto at = first; at != last; ++at) {
-    if (!at->Visible) { continue; }
+    if (!at->Visible || at->Passes == GeometryPasses::Shadow) { continue; }
     if (at->Detail || at->SourceKey != source.Key || !at->SelectedView ||
         !at->SelectedView->Contains(eye, projection, eyeEcef)) {
       return false;
@@ -574,7 +444,7 @@ bool GeometryPageResidency::CellsActive(uint32_t tile,
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
   size_t at = 0;
   for (auto stood = first; stood != last; ++stood) {
-    if (!stood->Visible) { continue; }
+    if (!stood->Visible || stood->Passes == GeometryPasses::Shadow) { continue; }
     if (at == selected.size() || stood->Cell == 0 || stood->Cell > kGeometryPageCellsMost ||
         stood->Cell != selected[at].Cell || stood->Detail != selected[at].Detail ||
         stood->SourceKey != sourceKey || stood->OccupiedCells != selected[at].Mask()) {
@@ -623,7 +493,7 @@ void GeometryPageResidency::RetireDetail(uint32_t tile,
 
 void GeometryPageResidency::Releases(const ResidentGeometryPage &stood) {
   if (Renderer_ == nullptr) { return; }
-  for (const auto part : stood.Parts) { Renderer_->ReleasePiece(part); }
+  for (const auto &part : stood.Parts) { Renderer_->ReleasePiece(part.Handle); }
 }
 
 bool GeometryPageResidency::SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error) {
@@ -638,7 +508,7 @@ bool GeometryPageResidency::SelectDetail(uint32_t tile,
     error = "tile geometry requires a live world";
     return false;
   }
-  if (cell > kGeometryPageCellsMost ||
+  if (cell > kGeometryPageCellsMost || IndependentPasses(tile) ||
       std::ranges::any_of(Pages_, [tile, cell](const ResidentGeometryPage &held) {
         return held.Tile == tile && held.Visible && held.Cell != 0 && cell != 0 &&
                (held.OccupiedCells & (uint64_t{1} << (cell - 1u))) != 0 &&
@@ -678,7 +548,8 @@ bool GeometryPageResidency::ValidateSources(std::string &error) const {
     return false;
   }
   for (const ResidentGeometryPage &stood : Pages_) {
-    for (const PieceHandle piece : stood.Parts) {
+    for (const auto &part : stood.Parts) {
+      const PieceHandle piece = part.Handle;
       if (!piece || Renderer_->HasPieceSource(piece)) { continue; }
       error = "geometry tile " + std::to_string(stood.Tile) + " cell " +
               std::to_string(stood.Cell) + " holds missing piece slot " +
@@ -701,6 +572,9 @@ void GeometryPageResidency::RefreshDigest() noexcept {
     if (stood.Cell != 0) { Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Cell)) * kDigestPrime; }
     if (stood.Cell != 0 && stood.OccupiedCells != 0 && !std::has_single_bit(stood.OccupiedCells)) {
       Digest_ = (Digest_ ^ stood.OccupiedCells) * kDigestPrime;
+    }
+    if (stood.Passes != GeometryPasses::MainAndShadow) {
+      Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Passes)) * kDigestPrime;
     }
     Digest_ = (Digest_ ^ stood.Digest) * kDigestPrime;
     if (stood.SourceKey != 0) { Digest_ = (Digest_ ^ stood.SourceKey) * kDigestPrime; }

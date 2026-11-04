@@ -6,6 +6,7 @@
 #include "test/harness/render/NativeOffline.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -229,18 +230,85 @@ void CheckCohorts(SceneRenderer &renderer,
   CHECK(pages.ValidateSources(error), "all grouped and original native source leases remain valid");
 }
 
+void CheckIndependentPasses(SceneRenderer &renderer, GeometryPageResidency &pages) {
+  using Choice = GeometryPageResidency::CellSelection;
+  const std::array fine{Choice{.Cell = 1, .Detail = LevelOfDetail::Fine},
+                        Choice{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  const std::array coarse{
+      Choice{.Cell = 1, .Detail = LevelOfDetail::Massed, .OccupiedCells = kCells.Occupied}};
+  std::string error;
+  const auto original = Draw(renderer);
+  std::vector<float> originalShadow;
+  CHECK(renderer.ReadShadowAtlas(originalShadow) == ReadState::Ready &&
+            std::ranges::any_of(originalShadow, [](float value) { return value > 0; }),
+        "the original fine cells produce actual nonempty native shadow depth");
+  CHECK(pages.ActivateCells(kTile, kCells, coarse, fine, error),
+        "one native field replaces Main while both original cells remain shadow casters");
+  const auto field = Draw(renderer);
+  std::vector<float> fieldShadow;
+  CHECK(renderer.ReadShadowAtlas(fieldShadow) == ReadState::Ready && fieldShadow == originalShadow,
+        "replacing only Main preserves every native shadow texel from the original source");
+  CHECK(field != original && pages.CellsActive(kTile, coarse, kSource),
+        "the original shadow selection does not leak into the actual Main image");
+  size_t mainPages = 0;
+  size_t shadowPages = 0;
+  pages.ForEachDigest([&](const auto &record) {
+    CHECK(record.Detail == LevelOfDetail::Massed && record.Passes == GeometryPasses::Main,
+          "Main coverage names only its field representation");
+    ++mainPages;
+  });
+  pages.ForEachDigest(
+      [&](const auto &record) {
+        CHECK(record.Detail == LevelOfDetail::Fine && record.Passes == GeometryPasses::Shadow,
+              "shadow coverage retains its original fine sources");
+        ++shadowPages;
+      },
+      GeometryPasses::Shadow);
+  CHECK(mainPages == 1 && shadowPages == 2, "each pass retains complete independent coverage");
+  CHECK(pages.ActivateCells(kTile, kCells, coarse, error) && Draw(renderer) == field,
+        "the main-only field keeps its image when selected for both passes");
+  CHECK(renderer.ReadShadowAtlas(fieldShadow) == ReadState::Ready &&
+            std::ranges::none_of(fieldShadow, [](float value) { return value > 0; }),
+        "a main-only field cannot silently replace its original shadow depth");
+  CHECK(pages.ActivateCells(kTile, kCells, coarse, fine, error) && Draw(renderer) == field,
+        "the held fine shadow source restores independently of the field image");
+  const auto digest = pages.Digest();
+  CHECK(!pages.SelectDetail(kTile, 1, LevelOfDetail::Fine, error) && pages.Digest() == digest &&
+            Draw(renderer) == field,
+        "one-cell detail updates cannot bypass independent complete pass selections");
+  CHECK(!pages.ActivateCells(kTile, kCells, fine, std::span(fine).first(1), error) &&
+            pages.Digest() == digest && Draw(renderer) == field,
+        "incomplete shadow coverage rejects the whole Main and Shadow transaction");
+  pages.DiscardStagedCells(kTile);
+  CHECK(pages.CellsActive(kTile, coarse, kSource) && Draw(renderer) == field,
+        "discarding unused staging retains the active field and original shadow sources");
+  CHECK(pages.ActivateCells(kTile, kCells, fine, error) && Draw(renderer) == original,
+        "fallback restores the original Main and Shadow participation without a new upload");
+  mainPages = shadowPages = 0;
+  pages.ForEachDigest([&](const auto &record) {
+    CHECK(record.Passes == GeometryPasses::MainAndShadow,
+          "original part participation is restored after the far field");
+    ++mainPages;
+  });
+  pages.ForEachDigest([&](const auto &) { ++shadowPages; }, GeometryPasses::Shadow);
+  CHECK(mainPages == 2 && shadowPages == 2, "both passes return to the same complete fine source");
+  CHECK(renderer.ReadShadowAtlas(fieldShadow) == ReadState::Ready && fieldShadow == originalShadow,
+        "returning to original geometry restores the same native shadow atlas");
+  CHECK(pages.ValidateSources(error), "independent pass publication preserves native leases");
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
     return Native::CreateDevice(options);
   }});
   const auto offline = renderer.OfflineUploads(std::chrono::seconds(5));
-  const auto plan =
-      ExecutionPlan::Compile({.Outputs = {Resource::SceneLinear, Resource::SceneDepth},
-                              .Content = {Stage::OpaqueGeometry},
-                              .Exposure = {},
-                              .Display = {},
-                              .Precision = {}});
+  const auto plan = ExecutionPlan::Compile(
+      {.Outputs = {Resource::SceneLinear, Resource::SceneDepth, Resource::ShadowAtlas},
+       .Content = {Stage::OpaqueGeometry, Stage::LightVisibility},
+       .Exposure = {},
+       .Display = {},
+       .Precision = {}});
   CHECK(plan, "the native world plan compiles");
   if (!plan) { return; }
   const auto initialized = renderer.Init({.WidthPx = 32, .HeightPx = 32}, *plan);
@@ -255,6 +323,7 @@ void Exercise() {
   CHECK(lens, "the world page camera has a valid lens");
   if (!lens) { return; }
   renderer.SetCamera(camera, *lens);
+  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true, 0);
   const auto frame = TangentFrame::At({});
   GeometryPageResidency pages;
   pages.BindRenderer(&renderer);
@@ -330,6 +399,7 @@ void Exercise() {
   CHECK(restored[left] == before[left] && restored[right + 1] == before[right + 1],
         "a field fallback restores the original visible surfaces");
   CheckCohorts(renderer, pages, frame);
+  CheckIndependentPasses(renderer, pages);
   pages.Clear();
 }
 }

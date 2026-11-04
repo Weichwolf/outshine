@@ -142,9 +142,7 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
   return SetPieceInstances(geometry, {&one, 1}, error);
 }
 
-bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
-                                       std::span<const PieceRows> pieces,
-                                       std::string &error) {
+bool SceneResources::ValidatePieceRows(std::span<const PieceRows> pieces, std::string &error) {
   size_t marked = 0;
   const auto clearVisited = [&] {
     for (const auto &change : pieces.first(marked)) {
@@ -156,6 +154,11 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
       error = std::string(Says::MissingPiece) + " (slot=" + std::to_string(change.Piece.Slot) +
               ", generation=" + std::to_string(change.Piece.Generation) +
               ", slots=" + std::to_string(Pieces_.size()) + ")";
+      clearVisited();
+      return false;
+    }
+    if (change.Passes && !ValidGeometryPasses(*change.Passes)) {
+      error = "piece batch contains invalid passes";
       clearVisited();
       return false;
     }
@@ -177,23 +180,40 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
     }
   }
   clearVisited();
+  return true;
+}
+
+bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
+                                       std::span<const PieceRows> pieces,
+                                       std::string &error) {
+  if (!ValidatePieceRows(pieces, error)) { return false; }
   size_t changed = 0;
   for (; changed < pieces.size(); ++changed) {
     const PieceRows &change = pieces[changed];
-    if (geometry.SetPieceInstances(Pieces_[change.Piece.Slot].Resident, change.Rows, error)) {
-      continue;
+    auto &piece = Pieces_[change.Piece.Slot];
+    if (geometry.SetPieceInstances(piece.Resident, change.Rows, error)) {
+      if (!change.Passes || geometry.SetPiecePasses(piece.Resident, *change.Passes, error)) {
+        continue;
+      }
+      std::string ignored;
+      (void)geometry.SetPieceInstances(piece.Resident, piece.Rows, ignored);
     }
     while (changed > 0) {
       --changed;
       const PieceRows &undo = pieces[changed];
       std::string ignored;
-      (void)geometry.SetPieceInstances(
-          Pieces_[undo.Piece.Slot].Resident, Pieces_[undo.Piece.Slot].Rows, ignored);
+      const auto &previous = Pieces_[undo.Piece.Slot];
+      (void)geometry.SetPieceInstances(previous.Resident, previous.Rows, ignored);
+      if (undo.Passes) {
+        (void)geometry.SetPiecePasses(previous.Resident, previous.Passes, ignored);
+      }
     }
     return false;
   }
   for (const PieceRows &change : pieces) {
-    Pieces_[change.Piece.Slot].Rows.assign(change.Rows.begin(), change.Rows.end());
+    auto &piece = Pieces_[change.Piece.Slot];
+    piece.Rows.assign(change.Rows.begin(), change.Rows.end());
+    if (change.Passes) { piece.Passes = *change.Passes; }
   }
   return true;
 }

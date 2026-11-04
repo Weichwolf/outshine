@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -49,6 +50,7 @@ public:
   struct PieceRows {
     PieceHandle Piece;
     std::span<const Mat4> Rows;
+    std::optional<GeometryPasses> Passes = std::nullopt;
   };
 
   [[nodiscard]] std::expected<PieceHandle, std::string>
@@ -145,6 +147,8 @@ public:
   }
 
 private:
+  [[nodiscard]] bool ValidatePieceRows(std::span<const PieceRows> pieces, std::string &error);
+
   struct PieceSource {
     std::vector<float> Tangents;
     std::vector<StoredVertex> Vertices;

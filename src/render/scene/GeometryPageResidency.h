@@ -74,6 +74,12 @@ public:
                                    CellSource source,
                                    std::span<const CellSelection> selected,
                                    std::string &error);
+  // Each pass selects complete source coverage; part roles still restrict participation.
+  [[nodiscard]] bool ActivateCells(uint32_t tile,
+                                   CellSource source,
+                                   std::span<const CellSelection> main,
+                                   std::span<const CellSelection> shadow,
+                                   std::string &error);
 
   void Retire(uint32_t tile);
   void DiscardStagedCells(uint32_t tile);
@@ -103,18 +109,25 @@ public:
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
     uint64_t OccupiedCells = 0;
+    GeometryPasses Passes = GeometryPasses::MainAndShadow;
   };
 
-  template <typename Each> void ForEachDigest(Each each) const {
+  template <typename Each>
+  void ForEachDigest(Each each, GeometryPasses passes = GeometryPasses::Main) const {
     for (const auto &stood : Pages_) {
-      if (!stood.Visible) { continue; }
+      if (!stood.Visible ||
+          (passes != GeometryPasses::MainAndShadow &&
+           stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
+        continue;
+      }
       each(DigestRecord{.Tile = stood.Tile,
                         .Cell = stood.Cell,
                         .Digest = stood.Digest,
                         .SourceKey = stood.SourceKey,
                         .FallbackHeights = stood.FallbackHeights,
                         .Detail = stood.Detail,
-                        .OccupiedCells = stood.OccupiedCells});
+                        .OccupiedCells = stood.OccupiedCells,
+                        .Passes = stood.Passes});
     }
   }
 
@@ -124,7 +137,7 @@ public:
     for (const auto &page : Pages_) { parts += page.Parts.size(); }
     handles.reserve(parts);
     for (const ResidentGeometryPage &stood : Pages_) {
-      handles.insert(handles.end(), stood.Parts.begin(), stood.Parts.end());
+      for (const auto &part : stood.Parts) { handles.push_back(part.Handle); }
     }
     return handles;
   }
@@ -139,7 +152,7 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Pages_.capacity() * sizeof(ResidentGeometryPage) + Why_.capacity();
-    for (const auto &page : Pages_) { bytes += page.Parts.capacity() * sizeof(PieceHandle); }
+    for (const auto &page : Pages_) { bytes += page.Parts.capacity() * sizeof(ResidentPart); }
     return bytes;
   }
 
@@ -150,6 +163,11 @@ private:
   struct TileCell {
     uint32_t Tile = 0;
     uint32_t Cell = 0;
+  };
+
+  struct ResidentPart {
+    PieceHandle Handle;
+    GeometryPasses Passes;
   };
 
   struct ResidentGeometryPage {
@@ -163,7 +181,8 @@ private:
     std::optional<ViewReuseDomain> SelectedView;
     Mat4 Row;
     bool Visible = true;
-    std::vector<PieceHandle> Parts;
+    std::vector<ResidentPart> Parts;
+    GeometryPasses Passes = GeometryPasses::MainAndShadow;
   };
 
   [[nodiscard]] static std::pair<uint32_t, uint32_t>
@@ -171,6 +190,16 @@ private:
     return {stood.Tile, stood.Cell};
   }
 
+  struct PageSelection {
+    ResidentGeometryPage *Page;
+    GeometryPasses Passes;
+  };
+
+  [[nodiscard]] std::vector<PageSelection> SelectedPages(uint32_t tile,
+                                                         CellSource source,
+                                                         std::span<const CellSelection> main,
+                                                         std::span<const CellSelection> shadow);
+  [[nodiscard]] bool IndependentPasses(uint32_t tile) const noexcept;
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
   [[nodiscard]] bool ValidateStore(TileCell address,
                                    const GeometryPageView &baked,
