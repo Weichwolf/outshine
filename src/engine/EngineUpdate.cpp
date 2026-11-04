@@ -463,6 +463,9 @@ bool Engine::State::AdvanceBuildingFields() {
       "building fields: ready groups", static_cast<double>(counts.ReadyGroups), "groups");
   Published.RecordMetric(
       "building fields: active groups", static_cast<double>(counts.ActiveGroups), "groups");
+  Published.RecordMetric("building fields: selected products",
+                         static_cast<double>(counts.SelectedProducts),
+                         "products");
   return true;
 }
 

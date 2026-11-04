@@ -11,9 +11,11 @@
 #include "StoredVertex.h"
 #include <atomic>
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 
@@ -59,7 +61,17 @@ struct BuildingFieldStreaming::State {
     BuildingSourceDemand::Source Source;
     std::vector<Render::GeometryPageResidency::CellSelection> Originals;
     std::vector<Cell> Cells;
+    std::optional<SourceCoverage> Coverage;
+    std::vector<std::string> MainProducts, ShadowProducts;
+    std::vector<std::string> CandidateProducts;
+    size_t ActiveGroups = 0;
     uint64_t Active = 0, SelectedKey = 0, SelectedCoverage = 0;
+  };
+
+  struct OriginalProduct {
+    Render::GeometryPageResidency::CellSelection Legacy;
+    std::string_view Key;
+    const SourceCoverage *Coverage = nullptr;
   };
 
   struct Metadata {
@@ -67,6 +79,13 @@ struct BuildingFieldStreaming::State {
     std::optional<Generators::PreparedBuildingAssets::SourceGroups> Groups;
     std::optional<SourceProductSelection> Selection;
     std::optional<SourceProductSelection::Cut> Cut;
+  };
+
+  struct ProductCut {
+    std::vector<std::string_view> Main;
+    std::vector<std::string_view> Shadow;
+    uint64_t ActiveCells = 0;
+    size_t ActiveGroups = 0;
   };
 
   BuildingSourceDemand Sources;
@@ -94,6 +113,13 @@ struct BuildingFieldStreaming::State {
   void PollCell(Context &context, Tile &tile, Cell &cell);
   void PollFields(Context &context);
   [[nodiscard]] bool Select(Context &context, std::string &error);
+  [[nodiscard]] bool SelectTile(Context &context, Tile &tile, std::string &error);
+  [[nodiscard]] static std::expected<std::vector<OriginalProduct>, std::string>
+  BindOriginals(Context &context, const Tile &tile, uint64_t sourceKey);
+  [[nodiscard]] static ProductCut SelectReplacements(std::span<const OriginalProduct> originals,
+                                                     std::span<const Cell *const> candidates);
+  [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
+                                                                                   uint64_t cells);
   [[nodiscard]] static bool Stage(Context &context, Tile &tile, Cell &cell, std::string &error);
   [[nodiscard]] static bool StageGroup(Context &context,
                                        const Tile &tile,

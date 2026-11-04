@@ -10,6 +10,7 @@
 #include <expected>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +35,15 @@ bool BuildingFieldStreaming::State::PrepareCellSources(
     if (!coverage) { return false; }
     tile.Cells.emplace_back(source, std::move(*coverage));
   }
+  std::vector<SourceCoverage::Range> ranges;
+  for (const auto &cell : tile.Cells) {
+    const auto source = cell.Coverage.Ranges();
+    ranges.insert(ranges.end(), source.begin(), source.end());
+  }
+  std::ranges::sort(ranges, {}, &SourceCoverage::Range::First);
+  auto coverage = SourceCoverage::FromRanges(tile.Source.BaseKey, groups.Members.size(), ranges);
+  if (!coverage) { return false; }
+  tile.Coverage = std::move(*coverage);
   return true;
 }
 
@@ -112,7 +122,11 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
             .SourceKey = *qualified,
             .Source = *entry.Value,
             .Originals = {},
-            .Cells = {}};
+            .Cells = {},
+            .Coverage = std::nullopt,
+            .MainProducts = {},
+            .ShadowProducts = {},
+            .CandidateProducts = {}};
   const size_t count = std::accumulate(
       tile.Source.CellSourceCounts.begin(), tile.Source.CellSourceCounts.end(), size_t{0});
   const auto bytes = PageIndexAsset::EncodedBytes(count);
