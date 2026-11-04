@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #define OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #include "PieceMesh.h"
+#include "GeometryPasses.h"
 #include "LevelOfDetail.h"
 #include "ViewReuseDomain.h"
 #include <cstdint>
@@ -18,6 +19,7 @@ struct GeometryPagePartView {
   std::span<const float> Uv1;
   PieceSurface Surface;
   bool Textured = false;
+  GeometryPasses Passes = GeometryPasses::MainAndShadow;
 };
 
 struct GeometryPageView {

@@ -49,7 +49,8 @@ std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
                                        .Instances = {},
                                        .Surface = part.Surface,
                                        .Textured = part.Textured,
-                                       .ProductOrder = productOrder});
+                                       .ProductOrder = productOrder,
+                                       .Passes = part.Passes});
 }
 
 void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,

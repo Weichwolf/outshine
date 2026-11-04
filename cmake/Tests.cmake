@@ -70,6 +70,7 @@ set(metal_validation_cases
   outshine/src/render/prism/PrismResidency/CameraPlanesRejectZeroAreaAndKeepGrazingHits
   outshine/src/render/prism/PrismResidency/RasterDepthMatchesIndependentPrismBounds
   outshine/src/render/prism/PrismResidency/TransfersAndReleasePreserveRecordedProducts
+  outshine/src/render/scene/GeometryPageResidency/FieldCellsPublishOnlyWithTheirCompleteSource
   outshine/src/render/scene/SceneResources/PrismHandlesSurviveRestoreAndRejectPartialReplacement
   outshine/src/render/scene/SceneResources/UploadPressurePausesPieceRestore
   outshine/src/render/shadow/SunShadowPass/AtlasAllocationRetainsItsOwner
