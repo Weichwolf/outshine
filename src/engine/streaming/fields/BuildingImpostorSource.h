@@ -13,6 +13,10 @@
 #include <string>
 #include <vector>
 
+namespace outshine::Render {
+class ImpostorBaker;
+}
+
 namespace outshine {
 class BuildingImpostorSource {
 public:
@@ -36,6 +40,13 @@ public:
   ResolveMetadata(AssetCache &cache, const std::stop_token &stop = {});
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
   Generate(ImpostorViewAssets::ViewIndex view,
+           size_t bytesMost,
+           Generators::BuildingSourceBudget budget,
+           const std::stop_token &stop = {});
+  // The supplied capture context belongs to this calling content thread.
+  [[nodiscard]] std::expected<ImpostorAtlas, std::string>
+  Generate(Render::ImpostorBaker &captures,
+           ImpostorViewAssets::ViewIndex view,
            size_t bytesMost,
            Generators::BuildingSourceBudget budget,
            const std::stop_token &stop = {});

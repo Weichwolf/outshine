@@ -1,6 +1,7 @@
 #include "ImpostorViewAssets.h"
 #include "BuildingImpostorSource.h"
 #include "ImpostorBaker.h"
+#include "ImpostorAtlasShape.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -88,6 +89,16 @@ BuildingImpostorSource::Generate(ImpostorViewAssets::ViewIndex view,
                                  size_t bytesMost,
                                  Generators::BuildingSourceBudget budget,
                                  const std::stop_token &stop) {
+  thread_local Render::ImpostorBaker captures;
+  return Generate(captures, view, bytesMost, budget, stop);
+}
+
+std::expected<ImpostorAtlas, std::string>
+BuildingImpostorSource::Generate(Render::ImpostorBaker &captures,
+                                 ImpostorViewAssets::ViewIndex view,
+                                 size_t bytesMost,
+                                 Generators::BuildingSourceBudget budget,
+                                 const std::stop_token &stop) {
   const auto bound =
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1});
   if (stop.stop_requested() || Provenance_.empty() || view.Value >= Recipe_.Directions.size() ||
@@ -111,8 +122,8 @@ BuildingImpostorSource::Generate(ImpostorViewAssets::ViewIndex view,
   if (stop.stop_requested()) { return std::unexpected("building field capture cancelled"); }
   capture.ViewDirections = {Recipe_.Directions[view.Value]};
   std::string error;
-  auto field = Render::ImpostorBaker::Bake(
-      std::move(capture), {.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1}, error, stop);
+  const ImpostorAtlasShape shape{.Pixels = static_cast<int>(Recipe_.Pixels), .Views = 1};
+  auto field = captures.Capture(std::move(capture), shape, error, stop);
   if (!field) { return std::unexpected(std::move(error)); }
   if (stop.stop_requested()) { return std::unexpected("building field capture cancelled"); }
   return std::move(*field);

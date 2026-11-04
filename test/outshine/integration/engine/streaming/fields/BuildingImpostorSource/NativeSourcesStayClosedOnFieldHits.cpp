@@ -1,6 +1,8 @@
 #include "OpenAssetStore.h"
 #include "ImpostorViewAssets.h"
 #include "BuildingImpostorSource.h"
+#include "ImpostorBaker.h"
+#include "GpuSubmission.h"
 #include "BuildingMaterials.h"
 #include "ImpostorViewJob.h"
 #include "ImpostorFieldLoad.h"
@@ -450,6 +452,14 @@ void Groups(const std::filesystem::path &root) {
   auto groupRecipe = wholeRecipe;
   groupRecipe.Cells.clear();
   groupRecipe.Sources = groups[0];
+  size_t devices = 0;
+  const auto captures = std::make_shared<Render::ImpostorBaker>(
+      Render::GpuSubmission{.Context = &devices,
+                            .Create = [](void *context, Render::Native::DeviceOptions options)
+                                -> Render::Native::Result<std::unique_ptr<Render::Native::Device>> {
+                              ++*static_cast<size_t *>(context);
+                              return Render::Native::CreateDevice(options);
+                            }});
   const auto group = std::make_shared<BuildingImpostorSource>(groupRecipe, *assets);
   auto secondRecipe = groupRecipe;
   secondRecipe.Sources = groups[1];
@@ -469,8 +479,10 @@ void Groups(const std::filesystem::path &root) {
   BuildingImpostorSource whole(std::move(wholeRecipe), *assets);
   CHECK(!whole.Generate({0}, kBytes, one),
         "the two-source whole cell cannot pass a one-source generation budget");
-  CHECK(group->Generate({0}, kBytes, one) && neighbor->Generate({0}, kBytes, one),
+  CHECK(group->Generate(*captures, {0}, kBytes, one) &&
+            neighbor->Generate(*captures, {0}, kBytes, one),
         "each subgroup generates its field within the one-source budget");
+  CHECK(devices == 1, "independent source products share one native capture device");
   const auto cold = Resolve(cache, *metadata, group, 1);
   const auto offline = std::make_shared<BuildingImpostorSource>(groupRecipe, nullptr);
   const auto warm = Metadata(cache, offline);
