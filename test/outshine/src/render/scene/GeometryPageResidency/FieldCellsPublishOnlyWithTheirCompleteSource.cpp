@@ -297,6 +297,40 @@ void CheckIndependentPasses(SceneRenderer &renderer, GeometryPageResidency &page
   CHECK(pages.ValidateSources(error), "independent pass publication preserves native leases");
 }
 
+void CheckSkyline(SceneRenderer &renderer,
+                  GeometryPageResidency &pages,
+                  const TangentFrame &frame) {
+  using Choice = GeometryPageResidency::CellSelection;
+  std::string error;
+  const auto image = Field(renderer);
+  const auto material = Register(renderer, image);
+  for (uint32_t cell = 1; cell <= 2; ++cell) {
+    CHECK(StageCellProduct(
+              pages, frame, cell, LevelOfDetail::Skyline, material, GeometryPasses::Main, error),
+          "a native skyline variant stages independently of original source geometry");
+    CHECK(pages.HasCell(kTile, cell, LevelOfDetail::Skyline, kSource),
+          "the field representation has its own resident LOD address");
+  }
+  const std::array main{Choice{.Cell = 1, .Detail = LevelOfDetail::Skyline},
+                        Choice{.Cell = 2, .Detail = LevelOfDetail::Skyline}};
+  const std::array fine{Choice{.Cell = 1, .Detail = LevelOfDetail::Fine},
+                        Choice{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  CHECK(pages.ActivateCells(kTile, kCells, main, fine, error),
+        "skyline Main and original Shadow preserve complete source coverage");
+  const auto displayed = Draw(renderer);
+  pages.Retire(kTile, kSource + 1, LevelOfDetail::Skyline);
+  CHECK(pages.HasCell(kTile, 1, LevelOfDetail::Skyline, kSource) && Draw(renderer) == displayed,
+        "retirement of another revision cannot release current field geometry");
+  CHECK(pages.ActivateCells(kTile, kCells, fine, fine, error),
+        "the original source restores before retiring a field representation");
+  pages.Retire(kTile, kSource, LevelOfDetail::Skyline);
+  CHECK(!pages.HasCell(kTile, 1, LevelOfDetail::Skyline, kSource) &&
+            pages.HasCell(kTile, 1, LevelOfDetail::Fine, kSource) &&
+            pages.HasCell(kTile, 2, LevelOfDetail::Fine, kSource),
+        "variant retirement releases only skyline pages and preserves original geometry");
+  CHECK(pages.ValidateSources(error), "retired field material and GPU leases remain valid");
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
@@ -400,6 +434,7 @@ void Exercise() {
         "a field fallback restores the original visible surfaces");
   CheckCohorts(renderer, pages, frame);
   CheckIndependentPasses(renderer, pages);
+  CheckSkyline(renderer, pages, frame);
   pages.Clear();
 }
 }

@@ -132,7 +132,7 @@ bool GeometryPageResidency::ValidateActivation(uint32_t tile,
     const uint64_t cells = choice.Mask();
     if (choice.Cell <= previousCell || choice.Cell > kGeometryPageCellsMost || cells == 0 ||
         choice.Cell != static_cast<uint32_t>(std::countr_zero(cells)) + 1u ||
-        (selectedMask & cells) != 0 || (choice.Detail && *choice.Detail > LevelOfDetail::Massed)) {
+        (selectedMask & cells) != 0 || (choice.Detail && *choice.Detail > LevelOfDetail::Skyline)) {
       error = "geometry cell selection is not ordered or has an invalid level";
       return false;
     }

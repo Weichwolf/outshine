@@ -397,7 +397,7 @@ bool GeometryPageResidency::HasCell(uint32_t tile,
                                     LevelOfDetail detail,
                                     uint64_t sourceKey) const noexcept {
   if (cell == 0 || cell > kGeometryPageCellsMost || sourceKey == 0 ||
-      detail > LevelOfDetail::Massed) {
+      detail > LevelOfDetail::Skyline) {
     return false;
   }
   const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, cell}, {}, AddressOf);
@@ -415,14 +415,17 @@ bool GeometryPageResidency::HasProjectedTile(uint32_t tile,
                                              CellSource source,
                                              LongitudeLatitude eye,
                                              ProjectedErrorBudget projection,
-                                             std::optional<Vec3> eyeEcef) const noexcept {
+                                             std::optional<Vec3> eyeEcef,
+                                             GeometryPasses passes) const noexcept {
   if (source.Key == 0) { return false; }
   const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
   const auto last = std::find_if(
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
   uint64_t covered = 0;
   for (auto at = first; at != last; ++at) {
-    if (!at->Visible || at->Passes == GeometryPasses::Shadow) { continue; }
+    if (!at->Visible || (at->Passes != GeometryPasses::MainAndShadow && at->Passes != passes)) {
+      continue;
+    }
     if (at->Detail || at->SourceKey != source.Key || !at->SelectedView ||
         !at->SelectedView->Contains(eye, projection, eyeEcef)) {
       return false;
@@ -459,6 +462,15 @@ void GeometryPageResidency::DiscardStagedCells(uint32_t tile) {
   std::erase_if(Pages_, [this, tile](const ResidentGeometryPage &held) {
     if (held.Tile != tile || held.Visible) { return false; }
     Releases(held);
+    return true;
+  });
+  RefreshDigest();
+}
+
+void GeometryPageResidency::Retire(uint32_t tile, uint64_t sourceKey, LevelOfDetail detail) {
+  std::erase_if(Pages_, [this, tile, sourceKey, detail](const auto &page) {
+    if (page.Tile != tile || page.SourceKey != sourceKey || page.Detail != detail) { return false; }
+    Releases(page);
     return true;
   });
   RefreshDigest();

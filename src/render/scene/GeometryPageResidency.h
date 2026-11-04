@@ -82,6 +82,7 @@ public:
                                    std::string &error);
 
   void Retire(uint32_t tile);
+  void Retire(uint32_t tile, uint64_t sourceKey, LevelOfDetail detail);
   void DiscardStagedCells(uint32_t tile);
   void RetireCell(uint32_t tile, uint32_t cell);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
@@ -93,7 +94,8 @@ public:
                                       CellSource source,
                                       LongitudeLatitude eye,
                                       ProjectedErrorBudget projection,
-                                      std::optional<Vec3> eyeEcef = std::nullopt) const noexcept;
+                                      std::optional<Vec3> eyeEcef = std::nullopt,
+                                      GeometryPasses passes = GeometryPasses::Main) const noexcept;
   [[nodiscard]] bool CellsActive(uint32_t tile,
                                  std::span<const CellSelection> selected,
                                  uint64_t sourceKey) const noexcept;
