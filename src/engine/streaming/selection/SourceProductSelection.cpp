@@ -17,7 +17,10 @@ SourceProductSelection::Of(std::shared_ptr<const PlanHierarchy> hierarchy,
                            std::span<const Source> sources,
                            std::string revision) {
   if (!hierarchy || sources.empty() || hierarchy->SourceOrder().size() != sources.size() ||
-      revision.empty()) {
+      revision.empty() || !std::ranges::all_of(sources, [](const Source &source) {
+        return !source.ShellErrorM ||
+               (std::isfinite(*source.ShellErrorM) && *source.ShellErrorM >= 0);
+      })) {
     return std::unexpected(SourceProductSelectionError::InvalidInput);
   }
   SourceProductSelection result;
@@ -36,12 +39,18 @@ SourceProductSelection::Of(std::shared_ptr<const PlanHierarchy> hierarchy,
     if (source.Count == 1) {
       const auto &leaf = sources[result.Hierarchy_->SourceOrder()[source.First]];
       node.Cohort = leaf.Cohort;
-      node.Supported = leaf.FieldSupported;
+      node.FieldSupported = leaf.FieldSupported;
+      node.GeometrySupported = leaf.FieldSupported || leaf.Faces != 0;
+      node.ShellErrorM = node.GeometrySupported ? leaf.ShellErrorM : std::nullopt;
     } else {
       const auto &left = result.Nodes_[source.Left];
       const auto &right = result.Nodes_[source.Right];
       node.Cohort = left.Cohort == right.Cohort ? left.Cohort : std::nullopt;
-      node.Supported = left.Supported && right.Supported;
+      node.FieldSupported = left.FieldSupported && right.FieldSupported;
+      node.GeometrySupported = left.GeometrySupported && right.GeometrySupported;
+      if (left.ShellErrorM && right.ShellErrorM) {
+        node.ShellErrorM = std::max(*left.ShellErrorM, *right.ShellErrorM);
+      }
     }
   }
   return result;
@@ -50,7 +59,7 @@ SourceProductSelection::Of(std::shared_ptr<const PlanHierarchy> hierarchy,
 std::optional<SourceProductSelection::Product> SourceProductSelection::Candidate(
     uint32_t at, const Vec3 &eye, ProjectedErrorBudget projection) const {
   const auto &node = Nodes_[at];
-  if (!node.Supported || node.Radius <= 0 || projection.AllowedErrorPx <= 0) {
+  if (!node.FieldSupported || node.Radius <= 0 || projection.AllowedErrorPx <= 0) {
     return std::nullopt;
   }
   const double distance = Length(node.Centre - eye);
@@ -63,8 +72,10 @@ std::optional<SourceProductSelection::Product> SourceProductSelection::Candidate
   if (distance <= 2 * half) { return std::nullopt; }
   const double error = 4 * projection.FocalPx * half * half / (distance * (distance - 2 * half));
   if (!std::isfinite(error) || error > projection.AllowedErrorPx) { return std::nullopt; }
-  return Product{
-      .Node = at, .Representation = Kind::MaterialField, .Pixels = pixels, .CentredErrorPx = error};
+  return Product{.Node = at,
+                 .Representation = Kind::MaterialField,
+                 .Pixels = pixels,
+                 .ProjectedErrorPx = error};
 }
 
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
@@ -93,9 +104,9 @@ SourceProductSelection::Select(const Vec3 &eye,
           ++cut.VisitedNodes;
           selected = Candidate(at, eye, projection);
           if (!selected) {
-            selected =
-                Product{.Node = at,
-                        .Representation = Nodes_[at].Supported ? Kind::Geometry : Kind::Unresolved};
+            selected = Product{.Node = at,
+                               .Representation = Nodes_[at].GeometrySupported ? Kind::Geometry
+                                                                              : Kind::Unresolved};
           }
         }
         cut.Products.push_back(*selected);

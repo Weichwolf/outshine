@@ -113,7 +113,10 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
           std::vector<SourceProductSelection::Source> traits;
           traits.reserve((**groups).Members.size());
           for (const auto &member : (**groups).Members) {
-            traits.push_back({.Cohort = member.Cell, .FieldSupported = member.FieldSupported});
+            traits.push_back({.Cohort = member.Cell,
+                              .FieldSupported = member.FieldSupported,
+                              .Faces = member.Faces,
+                              .ShellErrorM = member.ShellErrorM});
           }
           const auto &index = (**groups).Index;
           auto selected = SourceProductSelection::Of(
