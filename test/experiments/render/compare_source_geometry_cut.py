@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import platform
 import statistics
 import subprocess
@@ -24,7 +25,17 @@ def main():
     parser.add_argument("--error-px", type=float, default=1)
     parser.add_argument("--lookahead-m", type=float, nargs="+", default=[0, 100, 1000])
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--native-control", type=Path)
+    parser.add_argument("--asset-db", type=Path)
     args = parser.parse_args()
+    if args.native_control and (
+        not args.asset_db
+        or args.target is not None
+        or args.orthographic_px_per_m is not None
+    ):
+        parser.error(
+            "native comparison requires --asset-db and the default perspective target"
+        )
     inputs = {
         suffix: args.input_prefix.with_suffix(suffix).read_bytes()
         for suffix in [".bin", ".cells", ".supported", ".geometry"]
@@ -65,9 +76,43 @@ def main():
         }
         hull_sources = sum(tree.nodes[p.node][7] for p in cut if p.kind == "hull")
         unresolved = sum(tree.nodes[p.node][7] for p in cut if p.kind == "unresolved")
+        native = None
+        if args.native_control:
+            command = [
+                str(args.native_control.resolve()),
+                str(args.asset_db.resolve()),
+                args.source_revision,
+                str(len(tree.order)),
+                *map(str, args.eye),
+                str(args.focal_px),
+                str(args.error_px),
+                str(radius),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            native = json.loads(result.stdout)
+            expected = [[p.node, p.kind] for p in cut]
+            if [p[:2] for p in native["products"]] != expected or native[
+                "visited"
+            ] != visited:
+                raise ValueError(
+                    "native product partition differs from the Python reference"
+                )
+            for actual, product in zip(native["products"], cut):
+                if not all(
+                    math.isclose(a, b, rel_tol=2e-9, abs_tol=1e-9)
+                    for a, b in zip(
+                        actual[2:], [product.error_m, product.selection_error_px]
+                    )
+                ):
+                    raise ValueError(
+                        "native declared error differs from the Python reference"
+                    )
+            native = {key: value for key, value in native.items() if key != "products"}
+            native["command"] = command
         cases.append(
             {
                 "lookahead_m": radius,
+                "native": native,
                 "products": len(cut),
                 "visited": visited,
                 "kinds": kinds,
@@ -83,6 +128,7 @@ def main():
         "source_geometry_cut.py",
         "test_source_geometry_cut.py",
         "source_product_inputs.cpp",
+        "source_geometry_control.cpp",
         "compare_source_geometry_cut.py",
     ]
     report = {
@@ -90,6 +136,11 @@ def main():
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "platform": platform.platform(),
+        "native_control_sha256": hashlib.sha256(
+            args.native_control.read_bytes()
+        ).hexdigest()
+        if args.native_control
+        else None,
         "source_revision": args.source_revision,
         "eye_ecef_m": args.eye,
         "target_ecef_m": target,
@@ -105,7 +156,7 @@ def main():
             for n in sources
         },
         "scope": "One native cached parent, not a full Place. Declared source bounds/shell "
-        "errors and real arithmetic only; no native/GPU/rounding/material/coverage "
+        "errors and real arithmetic only; no native rendered-product/GPU/rounding/material/coverage "
         "or frame-budget acceptance. Hulls are render proxies, not functional CAD "
         "assets. Shell batching reduces selection/products, not source triangles. "
         "Logical addresses do not certify native material/frame cache identity.",

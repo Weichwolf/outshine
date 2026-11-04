@@ -14,7 +14,11 @@ target_include_directories(outshine_experiment_urban_control PRIVATE
   "${PROJECT_SOURCE_DIR}/test/harness/shared")
 target_link_libraries(outshine_experiment_urban_control PRIVATE outshine_app_capture outshine_engine)
 
+add_executable(outshine_experiment_source_geometry EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/source_geometry_control.cpp")
+target_link_libraries(outshine_experiment_source_geometry PRIVATE outshine_engine)
+
 foreach(probe IN ITEMS outshine_experiment_urban_bake outshine_experiment_plant_prepare
-    outshine_experiment_urban_control)
+    outshine_experiment_urban_control outshine_experiment_source_geometry)
   target_compile_options(${probe} PRIVATE -fno-exceptions)
 endforeach()

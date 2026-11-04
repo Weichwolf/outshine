@@ -55,6 +55,32 @@ Reports identify input/code hashes and count sources as well as products. Reusin
 logical groups is not a native cache hit, full-world performance or memory proof.
 Native integration and current device evidence belong exclusively to #1955.
 
+
+## Native candidate selection
+
+`SourceProductSelection::SelectGeometry` implements this candidate cut. Native
+source-group metadata stores face support and optional declared shell error per
+original ordinal. Its versioned hit reads neither prepared headers nor forms.
+Unknown errors/sources stay explicit; this does not certify generated products.
+
+```sh
+cmake --build build --target outshine_experiment_source_geometry --parallel
+python3 test/experiments/render/compare_source_geometry_cut.py \
+  --input-prefix /tmp/source --source-revision "$BASE_KEY" \
+  --eye "$ECEF_X" "$ECEF_Y" "$ECEF_Z" --focal-px 1000 --error-px 1 \
+  --lookahead-m 0 100 1000 --output /tmp/outshine-native-geometry-study \
+  --native-control build/outshine_experiment_source_geometry \
+  --asset-db build/assets/assets.sqlite
+```
+
+The optional native comparison uses the default root-centred perspective camera.
+It checks source partitions, product kinds, declared errors and visited-node counts
+against Python. `metadata_ms` measures catalog lookup/decode; `selection_with_setup_ms`
+includes native aggregate-table construction and selection. First catalog creation
+may read source headers; repeat in a fresh process to verify header/form/mesh bytes
+are zero. World integration, native geometric qualification and GPU cost remain
+separate acceptance requirements in #1955; this tool does not grant LOD authority.
+
 ## Whole-world control
 
 `static_world_geometry.patch` is an experimental change for a detached checkout:
