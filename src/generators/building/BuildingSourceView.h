@@ -61,6 +61,8 @@ public:
 
   [[nodiscard]] const Vec3 &AnchorEcef() const noexcept { return Base_->AnchorEcef; }
 
+  [[nodiscard]] size_t SourceCount() const noexcept { return Base_->Structures.size(); }
+
   [[nodiscard]] std::span<const uint32_t> Sources() const noexcept { return Sources_; }
 
   [[nodiscard]] std::span<const uint32_t> Unsupported() const noexcept { return Unsupported_; }

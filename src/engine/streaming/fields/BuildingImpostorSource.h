@@ -49,7 +49,7 @@ public:
 
   // Execute on the content worker; only complete selected source sets publish metadata.
   [[nodiscard]] std::expected<ImpostorViewAssets, std::string>
-  ResolveMetadata(AssetCache &cache, const std::stop_token &stop = {});
+  ResolveMetadata(AssetCache &cache, size_t geometryBytesMost, const std::stop_token &stop = {});
   [[nodiscard]] std::expected<ImpostorAtlas, std::string>
   Generate(AssetCache &cache,
            ImpostorViewAssets::ViewIndex view,
@@ -67,7 +67,7 @@ private:
   [[nodiscard]] std::expected<Generators::BuildingSourceView, std::string> Source() const;
   [[nodiscard]] ImpostorViewAssets::Description
   Description(const GeometryAsset::Description &layout) const;
-  [[nodiscard]] GeometryAsset::Description
+  [[nodiscard]] std::expected<GeometryAsset::Description, std::string>
   Layout(const Generators::BuildingSourceView &source) const;
   [[nodiscard]] std::expected<GeometryAsset::Product, std::string>
   GeometryFor(AssetCache &cache, Budget budget, const std::stop_token &stop) const;

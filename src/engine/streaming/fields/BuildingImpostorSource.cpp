@@ -40,7 +40,7 @@ std::expected<Generators::BuildingSourceView, std::string> BuildingImpostorSourc
   return std::move(*source);
 }
 
-GeometryAsset::Description
+std::expected<GeometryAsset::Description, std::string>
 BuildingImpostorSource::Layout(const Generators::BuildingSourceView &source) const {
   Mat4 worldFromField;
   for (size_t axis = 0; axis < 3; ++axis) {
@@ -50,7 +50,12 @@ BuildingImpostorSource::Layout(const Generators::BuildingSourceView &source) con
     for (size_t row = 0; row < 3; ++row) { worldFromField.At(row, axis) = direction[row]; }
   }
   worldFromField.SetTranslation(source.AnchorEcef() + Recipe_.Frame.Origin);
-  return {.Bounds = source.Bounds(), .WorldFromLocal = worldFromField};
+  auto coverage =
+      SourceCoverage::FromSources(Recipe_.BaseKey, source.SourceCount(), source.Sources());
+  if (!coverage) { return std::unexpected("invalid building geometry source coverage"); }
+  return GeometryAsset::Description{.Bounds = source.Bounds(),
+                                    .WorldFromLocal = worldFromField,
+                                    .Coverage = std::move(*coverage)};
 }
 
 ImpostorViewAssets::Description
@@ -73,20 +78,23 @@ BuildingImpostorSource::Description(const GeometryAsset::Description &layout) co
           .WorldFromField = layout.WorldFromLocal};
 }
 
-std::expected<ImpostorViewAssets, std::string>
-BuildingImpostorSource::ResolveMetadata(AssetCache &cache, const std::stop_token &stop) {
+std::expected<ImpostorViewAssets, std::string> BuildingImpostorSource::ResolveMetadata(
+    AssetCache &cache, size_t geometryBytesMost, const std::stop_token &stop) {
   if (stop.stop_requested() || Provenance_.empty()) {
     return std::unexpected("invalid or cancelled building source metadata request");
   }
   auto opened = ImpostorViewAssets::Open(cache, Provenance_);
   if (!opened) { return std::unexpected("building source metadata lookup failed"); }
   if (*opened && (**opened).Metadata().WorldFromField) { return std::move(**opened); }
-  auto layout = GeometryAsset::Describe(cache, Recipe_.GeometryKey(), Recipe_.BaseKey);
+  auto layout =
+      GeometryAsset::Describe(cache, Recipe_.GeometryKey(), Recipe_.BaseKey, geometryBytesMost);
   if (!layout) { return std::unexpected("building geometry metadata lookup failed"); }
   if (!*layout) {
     const auto source = Source();
     if (!source) { return std::unexpected(source.error()); }
-    *layout = Layout(*source);
+    auto prepared = Layout(*source);
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    *layout = std::move(*prepared);
   }
   const auto description = Description(**layout);
   const Box bounds = (**layout).Bounds.Through((**layout).WorldFromLocal);
@@ -107,7 +115,9 @@ std::expected<GeometryAsset::Product, std::string> BuildingImpostorSource::Geome
   auto originals = source->Originals(budget.Capture, Recipe_.WallRoofMetreMaterials, stop);
   if (!originals) { return std::unexpected(originals.error().Message); }
   if (stop.stop_requested()) { return std::unexpected("building geometry generation cancelled"); }
-  GeometryAsset::Product product{.Layout = Layout(*source), .Mesh = std::move(*originals)};
+  auto layout = Layout(*source);
+  if (!layout) { return std::unexpected(layout.error()); }
+  GeometryAsset::Product product{.Layout = std::move(*layout), .Mesh = std::move(*originals)};
   const auto stored = GeometryAsset::Publish(
       cache, key, Recipe_.BaseKey, product.Layout, product.Mesh, budget.GeometryBytesMost);
   if (!stored) { return std::unexpected("building geometry asset publication failed"); }

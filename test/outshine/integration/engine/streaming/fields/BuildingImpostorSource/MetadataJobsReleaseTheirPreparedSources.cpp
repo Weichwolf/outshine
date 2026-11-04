@@ -75,7 +75,7 @@ void Run(const std::filesystem::path &root) {
   const auto recipeBytes = Release(control);
   auto source = std::make_unique<BuildingImpostorSource>(recipe, assets);
   const auto before = assets->Costs();
-  const auto metadata = source->ResolveMetadata(**cache);
+  const auto metadata = source->ResolveMetadata(**cache, 4096);
   CHECK(metadata.has_value(), "the real metadata miss publishes a source-free description");
   CHECK(assets->Costs().ReadBytes > before.ReadBytes &&
             assets->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
@@ -101,7 +101,7 @@ void Run(const std::filesystem::path &root) {
     BuildingImpostorSource::Recipe other = recipe;
     other.BaseKey = std::string(64, 'b');
     BuildingImpostorSource foreign(other, assets, read);
-    CHECK(!foreign.ResolveMetadata(**cache),
+    CHECK(!foreign.ResolveMetadata(**cache, 4096),
           "another source revision cannot borrow the scoped read");
   }
   CHECK(released.expired(),

@@ -1,4 +1,5 @@
 #include "OpenAssetStore.h"
+#include "GeometryAsset.h"
 #include "ImpostorViewAssets.h"
 #include "BuildingImpostorSource.h"
 #include "ImpostorBaker.h"
@@ -255,7 +256,7 @@ Metadata(const std::shared_ptr<AssetCache> &cache,
       cache,
       source->Provenance(),
       [cache, source](const std::stop_token &stop) {
-        return source->ResolveMetadata(*cache, stop);
+        return source->ResolveMetadata(*cache, kBytes, stop);
       },
       256);
   if (!request) { return std::unexpected("native metadata admission failed"); }
@@ -436,8 +437,20 @@ void ReuseGeometry(AssetCache &cache,
   CHECK(anotherView.GeometryKey() == groupRecipe.GeometryKey() &&
             anotherView.Key() != groupRecipe.Key(),
         "view direction and field resolution select one camera-independent source mesh");
+  const auto geometry =
+      GeometryAsset::Describe(cache, groupRecipe.GeometryKey(), groupRecipe.BaseKey, kBytes);
+  CHECK(geometry && *geometry && (**geometry).Coverage,
+        "native group geometry persists its source ownership independently of field views");
+  if (geometry && *geometry && (**geometry).Coverage) {
+    auto ids = groupRecipe.Sources;
+    std::ranges::sort(ids);
+    const auto expected =
+        SourceCoverage::FromSources(groupRecipe.BaseKey, (**geometry).Coverage->SourceCount(), ids);
+    CHECK(expected && *expected == *(**geometry).Coverage,
+          "the stored descriptor names the exact requested source ordinals and revision");
+  }
   BuildingImpostorSource sourceFree(anotherView, nullptr);
-  const auto freshMetadata = sourceFree.ResolveMetadata(cache);
+  const auto freshMetadata = sourceFree.ResolveMetadata(cache, kBytes);
   const auto freshField =
       sourceFree.Generate(captures,
                           cache,
@@ -643,7 +656,7 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
   if (supported == base->Surfaces.end()) { return; }
   groupRecipe.Sources = {static_cast<uint32_t>(supported - base->Surfaces.begin())};
   BuildingImpostorSource source(std::move(recipe), *assets);
-  const auto metadata = source.ResolveMetadata(**cache);
+  const auto metadata = source.ResolveMetadata(**cache, kBytes);
   CHECK(!metadata && metadata.error().contains("unsupported building source ordinal"),
         "real unresolved originals prevent a complete-source metadata declaration");
   CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,
@@ -651,7 +664,7 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
   const auto absent = outshine::ImpostorViewAssets::Open(**cache, source.Provenance());
   CHECK(absent && !*absent, "an incomplete original set publishes no replacement metadata");
   BuildingImpostorSource group(std::move(groupRecipe), *assets);
-  const auto grouped = group.ResolveMetadata(**cache);
+  const auto grouped = group.ResolveMetadata(**cache, kBytes);
   CHECK(grouped && group.Provenance() != source.Provenance(),
         "a complete real subgroup publishes its own metadata despite unresolved neighbors");
   CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,

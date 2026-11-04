@@ -2,6 +2,8 @@
 #include "GeometryProductCodec.h"
 #include "Check.h"
 #include <array>
+#include <algorithm>
+#include <utility>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -31,6 +33,65 @@ Geometry Triangle() {
   return geometry;
 }
 
+void CheckCoverage(AssetCache &cache,
+                   GeometryAsset::Description layout,
+                   const Geometry &mesh,
+                   const std::string &path) {
+  const std::string key(64, 'e');
+  const std::string parent(64, 'f');
+  std::vector<SourceCoverage::Range> ranges;
+  ranges.reserve(50);
+  for (uint64_t at = 0; at < 50; ++at) { ranges.push_back({.First = at * 3, .Count = 1}); }
+  auto coverage = SourceCoverage::FromRanges(parent, 1000000000000ULL, ranges);
+  CHECK(coverage, "sparse product ownership is valid independently of its mesh");
+  if (!coverage) { return; }
+  layout.Coverage = std::move(*coverage);
+  const auto encoded = EncodeGeometryProduct(mesh, kBytes);
+  if (!encoded) { return; }
+  CHECK(!GeometryAsset::Publish(cache, key, parent, layout, mesh, encoded->size()) &&
+            cache.Find(key) && !*cache.Find(key),
+        "description admission fails before mesh publication when only the mesh would fit");
+  CHECK(GeometryAsset::Publish(cache, key, parent, layout, mesh, kBytes),
+        "coverage and native geometry publish within the explicit per-record budget");
+  auto fresh = AssetCache::Open(path);
+  CHECK(fresh, "the coverage owner can be reopened without generator state");
+  if (!fresh) { return; }
+  const auto metadata = GeometryAsset::Describe(**fresh, key, parent, kBytes);
+  const auto loaded = GeometryAsset::Load(**fresh, key, parent, kBytes);
+  CHECK(metadata && *metadata && (**metadata).Coverage == layout.Coverage && loaded && *loaded &&
+            (**loaded).Layout.Coverage == layout.Coverage,
+        "revision, large domain and exact sparse intervals survive fresh-owner restore");
+  CHECK(!GeometryAsset::Describe(**fresh, key, parent, 184),
+        "metadata reads obey the caller budget before decoding dynamic ranges");
+  CHECK((*fresh)->Remove(key), "mesh eviction can precede metadata inspection");
+  const auto isolated = GeometryAsset::Describe(**fresh, key, parent, kBytes);
+  CHECK(isolated && *isolated && (**isolated).Coverage == layout.Coverage,
+        "coverage metadata restores without reading any mesh or prepared-source payload");
+  const auto rows = (*fresh)->Select({.Bounds = layout.Bounds.Through(layout.WorldFromLocal),
+                                      .Kind = "native-geometry-info",
+                                      .Level = std::nullopt,
+                                      .Radius = std::nullopt,
+                                      .Planes = {},
+                                      .Parent = parent});
+  CHECK(rows && rows->size() == 1, "the index finds the separate product descriptor");
+  if (!rows || rows->size() != 1) { return; }
+  auto record = rows->front();
+  std::vector<uint8_t> corrupt;
+  {
+    const auto original = (*fresh)->Load(record.Key, kBytes);
+    if (!original || !*original) { return; }
+    const auto bytes = (**original).Bytes();
+    corrupt.assign(bytes.begin(), bytes.end());
+  }
+  record.Package.clear();
+  record.OffsetBytes = 0;
+  std::fill(corrupt.end() - 8, corrupt.end(), uint8_t{0});
+  CHECK((*fresh)->Remove(record.Key) && (*fresh)->Publish(std::span(&record, 1), corrupt),
+        "the fixture stores an otherwise valid descriptor with an invalid final source range");
+  CHECK(!GeometryAsset::Describe(**fresh, key, parent, kBytes),
+        "corrupt ownership cannot restore as an unqualified legacy descriptor");
+}
+
 void Exercise(const std::filesystem::path &root) {
   const auto path = (root / "assets.sqlite").string();
   auto opened = AssetCache::Open(path);
@@ -58,7 +119,7 @@ void Exercise(const std::filesystem::path &root) {
     CHECK(false, "the fresh process-equivalent asset owner opens");
     return;
   }
-  const auto metadata = GeometryAsset::Describe(**fresh, key, parent);
+  const auto metadata = GeometryAsset::Describe(**fresh, key, parent, kBytes);
   CHECK(metadata && *metadata && (**metadata).Bounds == layout.Bounds &&
             (**metadata).WorldFromLocal == layout.WorldFromLocal,
         "source-free metadata preserves local bounds and the world transform");
@@ -70,7 +131,7 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(GeometryAsset::Publish(**fresh, std::string(64, 'd'), "", layout, mesh, kBytes),
         "generic assets also support roots without an external source provider");
   CHECK(!GeometryAsset::Load(**fresh, key, std::string(64, 'c'), kBytes) &&
-            !GeometryAsset::Describe(**fresh, "invalid", parent),
+            !GeometryAsset::Describe(**fresh, "invalid", parent, kBytes),
         "foreign source revisions and malformed addresses are rejected");
   auto bad = layout;
   bad.Bounds.Max[0] = 1;
@@ -95,7 +156,7 @@ void Exercise(const std::filesystem::path &root) {
         "spatial selection finds one fixed-size descriptor without reading its mesh");
   if (!rows || rows->size() != 1) { return; }
   CHECK((*fresh)->Remove(key), "the mesh can be evicted independently");
-  const auto infoOnly = GeometryAsset::Describe(**fresh, key, parent);
+  const auto infoOnly = GeometryAsset::Describe(**fresh, key, parent, kBytes);
   const auto evicted = GeometryAsset::Load(**fresh, key, parent, kBytes);
   CHECK(infoOnly && *infoOnly && evicted && !*evicted,
         "metadata survives eviction but is not reported as a resident mesh product");
@@ -106,8 +167,9 @@ void Exercise(const std::filesystem::path &root) {
   record.OffsetBytes = 0;
   record.ByteCount = truncated.size();
   CHECK((*fresh)->Publish(std::span(&record, 1), truncated), "the malformed descriptor is stored");
-  CHECK(!GeometryAsset::Describe(**fresh, key, parent),
+  CHECK(!GeometryAsset::Describe(**fresh, key, parent, kBytes),
         "a truncated descriptor fails rather than becoming an implicit cache miss");
+  CheckCoverage(**fresh, layout, mesh, path);
 }
 }
 

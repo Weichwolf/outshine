@@ -1,12 +1,14 @@
 #include "AssetCache.h"
 #include "BuildingImpostorSource.h"
 #include "BuildingMaterials.h"
+#include "GeometryAsset.h"
 #include "ImpostorBaker.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "TileGeodesy.h"
 #include <SDL3/SDL.h>
 #include <charconv>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -73,7 +75,7 @@ int Run(int argc, char *const *argv) {
   const auto before = (*assets)->Costs();
   const auto began = std::chrono::steady_clock::now();
   BuildingImpostorSource producer(recipe, *assets);
-  const auto metadata = producer.ResolveMetadata(*cache);
+  const auto metadata = producer.ResolveMetadata(*cache, geometryBytes);
   const auto first = producer.Generate(captures, *cache, {0}, budget);
   if (!metadata || !first) {
     std::cerr << (first ? metadata.error() : first.error());
@@ -83,11 +85,18 @@ int Run(int argc, char *const *argv) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   const auto once = (*assets)->Costs();
   const auto record = cache->Find(recipe.GeometryKey());
+  const auto geometry =
+      GeometryAsset::Describe(*cache, recipe.GeometryKey(), recipe.BaseKey, geometryBytes);
+  auto ids = recipe.Sources;
+  std::ranges::sort(ids);
+  const auto expected =
+      SourceCoverage::FromSources(recipe.BaseKey, (*base)->Structures.size(), ids);
+  if (!geometry || !*geometry || !expected || (**geometry).Coverage != *expected) { return 10; }
   recipe.Pixels = 32;
   recipe.Directions = {{{1, 0, 0}}};
   const auto started = std::chrono::steady_clock::now();
   BuildingImpostorSource offline(recipe, nullptr);
-  const auto offlineMetadata = offline.ResolveMetadata(*cache);
+  const auto offlineMetadata = offline.ResolveMetadata(*cache, geometryBytes);
   const auto second = offline.Generate(captures, *cache, {0}, budget);
   if (!offlineMetadata || !second) {
     std::cerr << (second ? offlineMetadata.error() : second.error());

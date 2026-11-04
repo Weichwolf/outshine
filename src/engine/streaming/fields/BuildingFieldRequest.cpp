@@ -274,8 +274,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
       workers,
       cache,
       producer->Provenance(),
-      [cache, producer](const std::stop_token &stop) {
-        return producer->ResolveMetadata(*cache, stop);
+      [cache, producer, budget](const std::stop_token &stop) {
+        return producer->ResolveMetadata(*cache, budget.ProducerBytes, stop);
       },
       budget.ProducerBytes);
   if (!metadata) { return std::unexpected(metadata.error()); }

@@ -13,11 +13,13 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <limits>
+#include <vector>
 
 namespace outshine {
 namespace {
 constexpr uint64_t kFormat = 0x3154455353414547ULL;
-constexpr size_t kDescriptionBytes = sizeof(kFormat) + (6 + 16) * sizeof(double);
+constexpr uint64_t kCoverageFormat = 0x3254455353414547ULL;
 
 std::string DescriptionKey(std::string_view key) {
   const auto recipe = "geometry-asset-info-1/" + std::string(key);
@@ -40,6 +42,44 @@ bool Valid(const GeometryAsset::Description &description) {
          std::ranges::all_of(worldBounds.Max, finite);
 }
 
+bool ReadCoverage(BinaryValueReader &in, GeometryAsset::Description &description) {
+  std::string revision;
+  uint64_t sources = 0;
+  uint32_t count = 0;
+  if (!in.Text(revision) || !in(sources, count) ||
+      count > in.In.Remaining() / (2 * sizeof(uint64_t))) {
+    return false;
+  }
+  std::vector<SourceCoverage::Range> ranges(count);
+  for (auto &range : ranges) {
+    if (!in(range.First, range.Count)) { return false; }
+  }
+  auto coverage = SourceCoverage::FromRanges(std::move(revision), sources, ranges);
+  if (!coverage) { return false; }
+  description.Coverage = std::move(*coverage);
+  return true;
+}
+
+bool WriteDescription(BinaryValueWriter &out, const GeometryAsset::Description &description) {
+  if (!out(description.Coverage ? kCoverageFormat : kFormat,
+           description.Bounds.Min.Axis,
+           description.Bounds.Max.Axis,
+           description.WorldFromLocal.Column)) {
+    return false;
+  }
+  if (!description.Coverage) { return true; }
+  const auto &coverage = *description.Coverage;
+  if (coverage.Ranges().size() > std::numeric_limits<uint32_t>::max() ||
+      !out.Text(coverage.Revision()) ||
+      !out(coverage.SourceCount(), static_cast<uint32_t>(coverage.Ranges().size()))) {
+    return false;
+  }
+  for (const auto &range : coverage.Ranges()) {
+    if (!out(range.First, range.Count)) { return false; }
+  }
+  return true;
+}
+
 bool Contains(const Geometry &geometry, const Box &bounds) {
   for (int part = 0; part < geometry.parts(); ++part) {
     const auto vertices = geometry.positionsOf(part);
@@ -54,12 +94,12 @@ bool Contains(const Geometry &geometry, const Box &bounds) {
 
 }
 
-std::expected<std::optional<GeometryAsset::Description>, AssetCacheError>
-GeometryAsset::Describe(const AssetCache &cache, std::string_view key, std::string_view parent) {
+std::expected<std::optional<GeometryAsset::Description>, AssetCacheError> GeometryAsset::Describe(
+    const AssetCache &cache, std::string_view key, std::string_view parent, size_t bytesMost) {
   if (!AssetProductKey::Parse(key) || (!parent.empty() && !AssetProductKey::Parse(parent))) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
-  auto loaded = cache.Load(DescriptionKey(key), kDescriptionBytes);
+  auto loaded = cache.Load(DescriptionKey(key), bytesMost);
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (!*loaded) { return std::nullopt; }
   const auto &record = (**loaded).Record();
@@ -71,7 +111,9 @@ GeometryAsset::Describe(const AssetCache &cache, std::string_view key, std::stri
           description.Bounds.Min.Axis,
           description.Bounds.Max.Axis,
           description.WorldFromLocal.Column) ||
-      format != kFormat || in.In.Remaining() != 0 || !Valid(description) ||
+      (format != kFormat && format != kCoverageFormat) ||
+      (format == kCoverageFormat && !ReadCoverage(in, description)) || in.In.Remaining() != 0 ||
+      !Valid(description) ||
       description.Bounds.Through(description.WorldFromLocal) != record.Bounds) {
     return std::unexpected(AssetCacheError::Storage);
   }
@@ -80,7 +122,7 @@ GeometryAsset::Describe(const AssetCache &cache, std::string_view key, std::stri
 
 std::expected<std::optional<GeometryAsset::Product>, AssetCacheError> GeometryAsset::Load(
     const AssetCache &cache, std::string_view key, std::string_view parent, size_t bytesMost) {
-  auto description = Describe(cache, key, parent);
+  auto description = Describe(cache, key, parent, bytesMost);
   if (!description) { return std::unexpected(description.error()); }
   if (!*description) { return std::nullopt; }
   auto loaded = cache.Load(key, bytesMost);
@@ -107,6 +149,10 @@ std::expected<void, AssetCacheError> GeometryAsset::Publish(AssetCache &cache,
       !Contains(geometry, description.Bounds)) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
+  BinaryValueWriter out(bytesMost);
+  if (!WriteDescription(out, description)) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
   auto encoded = EncodeGeometryProduct(geometry, bytesMost);
   if (!encoded) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   const auto bounds = description.Bounds.Through(description.WorldFromLocal);
@@ -118,13 +164,6 @@ std::expected<void, AssetCacheError> GeometryAsset::Publish(AssetCache &cache,
                            .Parent = parent};
   auto stored = cache.Publish(std::span(&record, 1), *encoded);
   if (!stored) { return std::unexpected(stored.error()); }
-  BinaryValueWriter out(kDescriptionBytes);
-  if (!out(kFormat,
-           description.Bounds.Min.Axis,
-           description.Bounds.Max.Axis,
-           description.WorldFromLocal.Column)) {
-    return std::unexpected(AssetCacheError::CapacityExceeded);
-  }
   const AssetRecord info{.Key = DescriptionKey(key),
                          .Kind = "native-geometry-info",
                          .Bounds = bounds,
