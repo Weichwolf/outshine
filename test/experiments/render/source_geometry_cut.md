@@ -94,3 +94,28 @@ experimental images/reports in system temp; do not promote them to Places.
 
 A18 results and the decision belong in #1955. The control tests actual GPU cost;
 triangle counts alone do not establish a native performance result.
+
+## Native mesh-cache reuse
+
+The field producer also consumes camera-independent `GeometryAsset` products.
+Their fixed descriptor is `8+(6+16)*8=184` bytes: version, local bounds and world
+transform. Mesh/material streams use `GeometryProductCodec` in a separate package,
+so metadata queries do not decode meshes. Missing meshes remain misses; a retained
+descriptor may still reconstruct view metadata. No descriptor certifies LOD error.
+
+```sh
+cmake --build build --target outshine_experiment_building_geometry_cache --parallel
+/usr/bin/time -l build/outshine_experiment_building_geometry_cache \
+  build/assets/assets.sqlite "$BASE_KEY" /tmp/outshine-mesh-products.sqlite \
+  "$GEOMETRY_BYTE_LIMIT" "$SOURCE_ORDINAL" "$ANOTHER_SOURCE_ORDINAL"
+```
+
+Use ordinals from one immutable parent. The byte limit bounds encoded geometry;
+it does not prove total producer/GPU residency. The first capture publishes a mesh,
+then a different direction/resolution renders with no source owner. The geometry
+address retains source revision/set, capture frame and materials, excluding view
+catalogue/resolution. Existing field addresses keep their previous byte sequence.
+Timings include metadata, mesh work and GPU capture; first-use device/shader startup
+prevents attributing their whole difference to caching. Source IO counters and
+process RSS are separate evidence. Normal World fields use this path on misses;
+selection before the legacy world's initial geometry remains work in #1955.
