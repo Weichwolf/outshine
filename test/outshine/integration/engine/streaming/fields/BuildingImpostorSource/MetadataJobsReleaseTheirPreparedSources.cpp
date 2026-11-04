@@ -1,5 +1,6 @@
 #include "OpenAssetStore.h"
 #include "BuildingImpostorSource.h"
+#include "BuildingSourceRead.h"
 #include "BuildingMaterials.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
@@ -86,6 +87,25 @@ void Run(const std::filesystem::path &root) {
         "source lifetime compares actual nonempty instrumented ownership");
   CHECK(queriedBytes == recipeBytes,
         "a finished metadata job leaves only its recipe in the retained producer");
+  const auto initial = assets->Costs();
+  std::weak_ptr<const Generators::PreparedStructureTile> released;
+  {
+    const auto read = std::make_shared<BuildingSourceRead>(assets, key);
+    const auto first = read->Load();
+    const auto once = assets->Costs();
+    const auto again = read->Load();
+    CHECK(first && *first && again && *again && *first == *again &&
+              once.ReadBytes > initial.ReadBytes && assets->Costs().ReadBytes == once.ReadBytes,
+          "a scoped source read decodes its headers once across neighbouring field products");
+    if (first && *first) { released = *first; }
+    BuildingImpostorSource::Recipe other = recipe;
+    other.BaseKey = std::string(64, 'b');
+    BuildingImpostorSource foreign(other, assets, read);
+    CHECK(!foreign.ResolveMetadata(**cache),
+          "another source revision cannot borrow the scoped read");
+  }
+  CHECK(released.expired(),
+        "releasing the scoped read releases all retained native headers and forms");
 }
 }
 

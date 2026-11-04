@@ -31,6 +31,8 @@
 #include <span>
 #include <limits>
 #include <cstring>
+#include <vector>
+#include <bit>
 
 namespace {
 using namespace outshine;
@@ -158,6 +160,11 @@ void Unsupported(const Fixture &fixture, BuildingSourceDemand::Source source) {
   if (!original || !*original || (*original)->Structures.empty()) { return; }
   auto partial = **original;
   partial.Structures.push_back(partial.Structures.front());
+  CHECK(~source.Cells != 0, "the counterexample has an unused source cohort");
+  if (~source.Cells == 0) { return; }
+  const auto unknownCell = static_cast<uint32_t>(std::countr_zero(~source.Cells)) + 1u;
+  partial.Structures.back().Layout.Cell.Index = unknownCell;
+  source.Cells |= uint64_t{1} << (unknownCell - 1u);
   partial.Surfaces.emplace_back();
   const auto bytes = Generators::EncodePreparedStructureIndex(partial);
   CHECK(bytes, "a supported and an unresolved original share one valid native index");
@@ -187,15 +194,48 @@ void Unsupported(const Fixture &fixture, BuildingSourceDemand::Source source) {
                           .TicketsMost = 4,
                           .InputBytesMost = 8 * kMiB,
                           .ReceiptBytesMost = 16384});
-  auto request =
-      BuildingFieldRequest::Start(pipeline, workers, cache, *native, source, Demand(), Budget());
-  CHECK(request, "an unresolved original is discovered by the native source job");
-  if (!request) { return; }
-  const auto result = Await(*request);
-  CHECK(!result && result.error().contains("unsupported building source ordinal"),
-        "partial native sources refuse a complete replacement and retain the caller's parent");
+  {
+    auto request =
+        BuildingFieldRequest::Start(pipeline, workers, cache, *native, source, Demand(), Budget());
+    CHECK(request, "an unresolved original is discovered by the native source job");
+    if (!request) { return; }
+    const auto result = Await(*request);
+    CHECK(!result && result.error().contains("unsupported building source ordinal"),
+          result ? "partial native sources must refuse a complete replacement"
+                 : result.error().c_str());
+  }
   CHECK((*native)->Costs().SurfaceReadBytes == 0 && (*native)->Costs().SurfaceWrites == 0,
         "unsupported source metadata requires no source form generation or loading");
+  auto subgroup = Demand();
+  subgroup.Sources = std::vector<uint32_t>{0};
+  std::string fieldHash;
+  {
+    auto request =
+        BuildingFieldRequest::Start(pipeline, workers, cache, *native, source, subgroup, Budget());
+    CHECK(request,
+          "the supported source can be requested independently of its unresolved neighbour");
+    if (!request) { return; }
+    const auto result = Await(*request);
+    CHECK(result && *result,
+          result ? "an exact subgroup produces its own native field" : result.error().c_str());
+    if (!result || !*result) { return; }
+    fieldHash = Hash(*(**result).Field);
+  }
+  CHECK((*nativeStore)->Remove(source.BaseKey),
+        "subgroup headers are removed before its fresh hit");
+  const auto before = (*native)->Costs();
+  {
+    auto request =
+        BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, subgroup, Budget());
+    CHECK(request, "the source-free subgroup request retains the same content identity");
+    if (!request) { return; }
+    const auto result = Await(*request);
+    CHECK(result && *result && Hash(*(**result).Field) == fieldHash,
+          "subgroup metadata and PBR payload restore without their generator inputs");
+  }
+  CHECK((*native)->Costs().ReadBytes == before.ReadBytes &&
+            (*native)->Costs().SurfaceReadBytes == before.SurfaceReadBytes,
+        "field hits repeat neither prepared-header nor form IO");
 }
 
 void CheckMetadataBinding(const Fixture &fixture,

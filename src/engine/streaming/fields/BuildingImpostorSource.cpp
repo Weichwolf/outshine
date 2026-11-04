@@ -1,5 +1,6 @@
 #include "ImpostorViewAssets.h"
 #include "BuildingImpostorSource.h"
+#include "BuildingSourceRead.h"
 #include "ImpostorBaker.h"
 #include "ImpostorAtlasShape.h"
 #include <cstddef>
@@ -12,14 +13,19 @@
 
 namespace outshine {
 BuildingImpostorSource::BuildingImpostorSource(
-    Recipe recipe, std::shared_ptr<Generators::PreparedBuildingAssets> assets)
-    : Recipe_(std::move(recipe)), Provenance_(Recipe_.Key()), Assets_(std::move(assets)) {}
+    Recipe recipe,
+    std::shared_ptr<Generators::PreparedBuildingAssets> assets,
+    std::shared_ptr<BuildingSourceRead> read)
+    : Read_(std::move(read)),
+      Recipe_(std::move(recipe)),
+      Provenance_(Recipe_.Key()),
+      Assets_(std::move(assets)) {}
 
 std::expected<Generators::BuildingSourceView, std::string> BuildingImpostorSource::Source() const {
-  if (Provenance_.empty() || !Assets_) {
+  if (Provenance_.empty() || (!Assets_ && !Read_) || (Read_ && Read_->Key() != Recipe_.BaseKey)) {
     return std::unexpected("building source inputs unavailable");
   }
-  const auto base = Assets_->Load(Recipe_.BaseKey);
+  const auto base = Read_ ? Read_->Load() : Assets_->Load(Recipe_.BaseKey);
   if (!base || !*base) { return std::unexpected("prepared building source unavailable"); }
   auto source =
       Recipe_.Sources.empty()

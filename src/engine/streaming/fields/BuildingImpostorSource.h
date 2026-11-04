@@ -18,6 +18,8 @@ class ImpostorBaker;
 }
 
 namespace outshine {
+class BuildingSourceRead;
+
 class BuildingImpostorSource {
 public:
   struct Recipe {
@@ -31,7 +33,9 @@ public:
     [[nodiscard]] std::string Key() const;
   };
 
-  BuildingImpostorSource(Recipe recipe, std::shared_ptr<Generators::PreparedBuildingAssets> assets);
+  BuildingImpostorSource(Recipe recipe,
+                         std::shared_ptr<Generators::PreparedBuildingAssets> assets,
+                         std::shared_ptr<BuildingSourceRead> read = {});
 
   [[nodiscard]] const std::string &Provenance() const noexcept { return Provenance_; }
 
@@ -55,6 +59,7 @@ private:
   [[nodiscard]] std::expected<Generators::BuildingSourceView, std::string> Source() const;
   [[nodiscard]] ImpostorViewAssets::Description
   Description(const Generators::BuildingSourceView &source) const;
+  std::shared_ptr<BuildingSourceRead> Read_;
   Recipe Recipe_;
   std::string Provenance_;
   std::shared_ptr<Generators::PreparedBuildingAssets> Assets_;

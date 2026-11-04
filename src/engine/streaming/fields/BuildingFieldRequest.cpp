@@ -22,6 +22,7 @@
 #include <stop_token>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -35,13 +36,14 @@ BuildingImpostorSource::Recipe RecipeOf(const BuildingSourceDemand::Source &sour
                                         const BuildingFieldRequest::Demand &demand) {
   BuildingImpostorSource::Recipe recipe{.BaseKey = source.BaseKey,
                                         .Cells = {},
-                                        .Sources = {},
+                                        .Sources = demand.Sources.value_or(std::vector<uint32_t>{}),
                                         .Frame = FrameOf(source.AnchorEcef),
                                         .Directions = demand.Directions,
                                         .WallRoofMetreMaterials =
                                             Generators::BuildingSurfaceMaterials(),
                                         .Pixels = demand.Pixels};
   uint64_t cells = source.Cells;
+  if (!recipe.Sources.empty()) { return recipe; }
   while (cells != 0) {
     recipe.Cells.push_back(static_cast<uint32_t>(std::countr_zero(cells)) + 1u);
     cells &= cells - 1u;
@@ -225,11 +227,13 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
                             std::shared_ptr<Generators::PreparedBuildingAssets> sources,
                             BuildingSourceDemand::Source source,
                             const Demand &demand,
-                            Budget budget) {
+                            Budget budget,
+                            std::shared_ptr<BuildingSourceRead> read) {
   const auto bytes =
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(demand.Pixels), .Views = 1});
-  if (!cache || source.Bounds.Empty() || source.Cells == 0 || !bytes ||
-      *bytes > budget.FieldBytesMost || budget.ProducerBytes == 0 || budget.ResidentBytes == 0 ||
+  if ((demand.Sources && demand.Sources->empty()) || !cache || source.Bounds.Empty() ||
+      source.Cells == 0 || !bytes || *bytes > budget.FieldBytesMost || budget.ProducerBytes == 0 ||
+      budget.ResidentBytes == 0 ||
       budget.RasterBytesMost > std::numeric_limits<size_t>::max() - budget.ResidentBytes ||
       budget.RasterBytesMost / (2 * sizeof(Render::MaterialFieldRasterInput::Word)) <
           static_cast<uint64_t>(demand.Pixels) * demand.Pixels ||
@@ -253,8 +257,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
   if (recipe.Key().empty()) { return std::unexpected(AssetPublicationError::InvalidRequest); }
   auto consumer = pipeline.OpenConsumer({.Identity = cache});
   if (!consumer) { return std::unexpected(consumer.error()); }
-  const auto producer =
-      std::make_shared<BuildingImpostorSource>(std::move(recipe), std::move(sources));
+  const auto producer = std::make_shared<BuildingImpostorSource>(
+      std::move(recipe), std::move(sources), std::move(read));
   auto state = std::make_shared<State>(
       pipeline, workers, cache, std::move(*consumer), producer, std::move(source), demand, budget);
   auto metadata = ImpostorMetadataRequest::Start(

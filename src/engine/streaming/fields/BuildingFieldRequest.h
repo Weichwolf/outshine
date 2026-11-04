@@ -21,6 +21,8 @@ class MaterialFieldInput;
 
 namespace outshine {
 
+class BuildingSourceRead;
+
 class BuildingFieldRequest {
   struct State;
 
@@ -42,6 +44,8 @@ public:
     ImpostorViewAssets::ViewIndex View;
     // Geometric selection only; an absent pose is a raw diagnostic request.
     std::optional<Pose> GeometricView = std::nullopt;
+    // Nonempty ordinals select an exact subgroup instead of whole source cells.
+    std::optional<std::vector<uint32_t>> Sources = std::nullopt;
   };
 
   struct Budget {
@@ -76,7 +80,8 @@ public:
         std::shared_ptr<Generators::PreparedBuildingAssets> sources,
         BuildingSourceDemand::Source source,
         const Demand &demand,
-        Budget budget);
+        Budget budget,
+        std::shared_ptr<BuildingSourceRead> read = {});
   BuildingFieldRequest(BuildingFieldRequest &&) noexcept;
   BuildingFieldRequest &operator=(BuildingFieldRequest &&other) noexcept;
   ~BuildingFieldRequest();
