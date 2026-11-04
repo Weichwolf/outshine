@@ -23,6 +23,7 @@ SourceOf(const StructureBuildQueue::NativeBasisQuery &query) {
   for (const auto &part : result.Product->Sources) {
     if (part.Cell == 0 || part.Cell > Generators::kStructureCellsPerTile) { return std::nullopt; }
     source.Cells |= uint64_t{1} << (part.Cell - 1u);
+    ++source.CellSourceCounts[part.Cell - 1u];
   }
   return source;
 }

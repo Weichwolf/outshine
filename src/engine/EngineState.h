@@ -78,6 +78,7 @@ struct TerrainDeformationMetrics;
 namespace outshine {
 struct GroundBuildProducts;
 class WorldRegionBuildState;
+class BuildingFieldStreaming;
 class GroundWorldCandidate;
 class TerrainClipmapPreparation;
 
@@ -167,6 +168,7 @@ struct WorldRegionState {
   std::vector<Standing> Instances;
   std::unique_ptr<VegetationStreaming> Vegetation;
   std::unique_ptr<UrbanAreaStreaming> UrbanAreas;
+  std::unique_ptr<BuildingFieldStreaming> BuildingFields;
   BuildingSourceCoverage BuildingCoverage;
   size_t Pending = 0;
   size_t Bare = 0;
@@ -583,6 +585,7 @@ struct Engine::State {
   [[nodiscard]] Result AdvanceTerrainClipmaps();
   [[nodiscard]] bool TerrainClipmapsReady() const noexcept;
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
+  [[nodiscard]] bool AdvanceBuildingFields();
   [[nodiscard]] bool AdvanceUrbanAreas();
   [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
   [[nodiscard]] bool WorldPreparationPending() const;

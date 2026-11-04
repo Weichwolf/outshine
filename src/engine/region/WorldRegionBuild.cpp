@@ -49,6 +49,7 @@
 #include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
 #include "EngineState.h"
+#include "BuildingFieldStreaming.h"
 #include "TerrainClipmapPreparation.h"
 #include "StructureSourcePublication.h"
 #include "GroundWorldCandidate.h"

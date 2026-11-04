@@ -5,6 +5,7 @@
 #include "ShapedGround.h"
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <optional>
 #include <span>
@@ -37,6 +38,7 @@ public:
     Vec3 AnchorEcef;
     uint64_t Cells = 0;
     bool HeightQualified = false;
+    std::array<uint32_t, 64> CellSourceCounts{};
   };
   enum class Phase : uint8_t { Unrequested, Pending, Missing, Ready, Failed };
 

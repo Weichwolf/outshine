@@ -25,6 +25,7 @@
 #include <cstdint>
 
 #include "EngineState.h"
+#include "BuildingFieldStreaming.h"
 #include "StructureTilePublication.h"
 #include "TerrainFieldPinning.h"
 #include "Lens.h"
@@ -329,6 +330,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!World.Surface().Opened()) { return true; }
   const LongitudeLatitude eye = CurrentGeographicFocus();
   World.Surface().Footprints().ViewedFrom(CurrentGeographicEyeEcef());
+  if (!AdvanceBuildingFields()) { return false; }
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
     const auto collectionAt = std::chrono::steady_clock::now();
@@ -424,6 +426,40 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   Published.RecordMetric("buildings: stale tiles discarded",
                          static_cast<double>(World.StructureBuilds.Discarded()),
                          "tiles");
+  return true;
+}
+
+bool Engine::State::AdvanceBuildingFields() {
+  if (!Services.Compute || !Picture.Standing || !World.Surface().BuildingAssets() ||
+      World.GroundBuild || !World.GroundPublished.Current() || !World.Region) {
+    return true;
+  }
+  const auto pipeline = Services.AssetPublications();
+  if (!pipeline) { return true; }
+  if (!World.BuildingFields) { World.BuildingFields = std::make_unique<BuildingFieldStreaming>(); }
+  BuildingFieldStreaming::Context context{
+      .Workers = *Services.Compute,
+      .Pipeline = *pipeline,
+      .Surface = World.Surface(),
+      .Sources = World.StructureBuilds,
+      .Pages = World.Pieces,
+      .Renderer = Picture.Device,
+      .Camera = Picture.Standing->Watching(),
+      .Frame = TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}),
+      .Eye = CurrentGeographicFocus()};
+  if (!World.BuildingFields->Advance(context, Error)) { return false; }
+  const auto counts = World.BuildingFields->Read();
+  Published.RecordMetric(
+      "building fields: source tiles", static_cast<double>(counts.Sources), "tiles");
+  Published.RecordMetric(
+      "building fields: pending work", static_cast<double>(counts.Pending), "jobs");
+  Published.RecordMetric(
+      "building fields: ready cells", static_cast<double>(counts.Ready), "cells");
+  Published.RecordMetric(
+      "building fields: active cells", static_cast<double>(counts.Active), "cells");
+  Published.RecordMetric(
+      "building fields: rejected cells", static_cast<double>(counts.Rejected), "cells");
   return true;
 }
 

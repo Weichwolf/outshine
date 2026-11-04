@@ -167,6 +167,10 @@ public:
     return PreparedBuildings_;
   }
 
+  [[nodiscard]] const std::shared_ptr<AssetCache> &AssetStore() const noexcept {
+    return AssetStore_;
+  }
+
   [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> &
   TerrainAssets() const noexcept {
     return PreparedTerrain_;

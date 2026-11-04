@@ -1,5 +1,6 @@
 #include "GroundQuality.h"
 #include "EngineState.h"
+#include "BuildingFieldStreaming.h"
 #include "SourceFailure.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
@@ -274,7 +275,8 @@ bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye)
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        eye,
                                        footprints.Projection(),
-                                       footprints.EyeEcef());
+                                       footprints.EyeEcef(),
+                                       Render::GeometryPasses::Shadow);
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -626,6 +628,7 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
       return std::unexpected(finished.error());
     }
     if (Readiness(quality).Ready() &&
+        (!World.BuildingFields || World.BuildingFields->Read().Pending == 0) &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       if (quality == GroundQuality::Refined) {
         if (const auto uploaded = CompletePreloadResources(began, bound); !uploaded) {
@@ -756,6 +759,7 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
 
 bool Engine::State::WorldPreparationPending() const {
   return !TerrainClipmapsReady() || WeatherRunning() || GroundDeformationPending() ||
+         (World.BuildingFields && World.BuildingFields->Read().Pending != 0) ||
          World.RoadAlignmentBuilds.Busy() ||
          (World.OsmSource && World.OsmSource->PendingCount() > 0) ||
          (World.UrbanAreas && !World.UrbanAreas->Ready()) ||
