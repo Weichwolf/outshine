@@ -84,18 +84,6 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
             .Source = *entry.Value,
             .Originals = {},
             .Cells = {}};
-  context.Pages.ForEachDigest(
-      [&](const auto &page) {
-        if (page.Tile == at && page.SourceKey == tile.SourceKey && page.Cell != 0 &&
-            page.Detail != LevelOfDetail::Skyline) {
-          tile.Originals.push_back(
-              {.Cell = page.Cell, .Detail = page.Detail, .OccupiedCells = page.OccupiedCells});
-        }
-      },
-      Render::GeometryPasses::Shadow);
-  uint64_t covered = 0;
-  for (const auto &choice : tile.Originals) { covered |= choice.Mask(); }
-  if (covered != tile.Source.Cells) { return; }
   const size_t count = std::accumulate(
       tile.Source.CellSourceCounts.begin(), tile.Source.CellSourceCounts.end(), size_t{0});
   const auto bytes = PageIndexAsset::EncodedBytes(count);

@@ -224,6 +224,7 @@ bool BuildingFieldStreaming::State::Select(Context &context, std::string &error)
         Statistics.ActiveGroups += found->Groups.size();
       }
     }
+    if (key == tile.SourceKey && coverage == tile.Source.Cells) { tile.Originals = original; }
     Statistics.Active += static_cast<size_t>(std::popcount(active));
     if (active == tile.Active && key == tile.SelectedKey && coverage == tile.SelectedCoverage) {
       continue;

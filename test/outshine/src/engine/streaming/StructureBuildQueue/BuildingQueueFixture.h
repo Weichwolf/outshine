@@ -75,13 +75,14 @@ struct BuildingQueueFixture {
 
   [[nodiscard]] bool Open() { return Open(Buildings); }
 
-  [[nodiscard]] bool Open(std::span<const Generators::Osm::OsmField::Declared> buildings) {
+  [[nodiscard]] bool Open(std::span<const Generators::Osm::OsmField::Declared> buildings,
+                          const std::string &assets = {}) {
     Data::SourceProvider terrain;
     terrain.Kind = "terrain";
     const std::array providers{terrain};
     Data::ProviderRegistry registry;
     Generators::RegisterBuiltinSourceProviders(registry);
-    CHECK(Stack.Open({.BuiltinData = "data", .Sources = Cache.Path.string(), .Assets = {}},
+    CHECK(Stack.Open({.BuiltinData = "data", .Sources = Cache.Path.string(), .Assets = assets},
                      providers,
                      registry,
                      Eye,

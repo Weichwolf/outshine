@@ -179,7 +179,9 @@ void BuildingFieldStreaming::State::RequestOne(Context &context) {
   }
   for (auto &tile : Tiles) {
     for (auto &cell : tile.Cells) {
-      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { continue; }
+      if (tile.Originals.empty() || cell.Where == Phase::Rejected || cell.Where == Phase::Ready) {
+        continue;
+      }
       for (auto &group : cell.Groups) {
         if (RequestGroup(context, tile, cell, group)) { return; }
         if (cell.Where == Phase::Rejected) { break; }
@@ -193,8 +195,8 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   if (!context.Surface.BuildingAssets() || !context.Surface.AssetStore()) { return true; }
   State_->Discover(context);
   State_->PollFields(context);
-  State_->RequestOne(context);
   if (!State_->Select(context, error)) { return false; }
+  State_->RequestOne(context);
   auto &counts = State_->Statistics;
   counts.Sources = State_->Tiles.size();
   counts.Pending = State_->Reading ? 1 : 0;
