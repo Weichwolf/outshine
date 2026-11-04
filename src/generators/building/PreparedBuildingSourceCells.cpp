@@ -1,12 +1,43 @@
 #include "PreparedBuildingAssets.h"
+#include "PageIndexAsset.h"
+#include "PreparedStructureTile.h"
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <string>
 #include <vector>
+#include <optional>
+#include <utility>
 
 namespace outshine::Generators {
+std::expected<std::optional<PreparedBuildingAssets::SourceGroups>, StructureBakeError>
+PreparedBuildingAssets::DescribeSourceGroups(const std::string &key, SourceGroupQuery query) {
+  auto base = Load(key);
+  if (!base) { return std::unexpected(base.error()); }
+  if (!*base) { return std::nullopt; }
+  auto index = SourceIndex(key, query.IndexBytesMost, *base);
+  if (!index) { return std::unexpected(index.error()); }
+  if (!*index) { return std::nullopt; }
+  auto cells = DescribeSourceCells(key, query.Occupied);
+  if (!cells) { return std::unexpected(cells.error()); }
+  if ((*base)->Structures.size() != (*base)->Surfaces.size()) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  SourceGroups result{.Index = std::move(*index), .Members = {}, .Cells = std::move(*cells)};
+  result.Members.reserve((*base)->Structures.size());
+  for (size_t at = 0; at < (*base)->Structures.size(); ++at) {
+    const auto cell = (*base)->Structures[at].Layout.Cell.Index;
+    if (cell == 0 || cell > 64) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+    }
+    const auto &surface = (*base)->Surfaces[at];
+    result.Members.push_back(
+        {.Cell = cell, .FieldSupported = surface.FaceCount() != 0 && !surface.Bounds().Empty()});
+  }
+  return result;
+}
+
 std::expected<std::vector<PreparedBuildingAssets::SourceCell>, StructureBakeError>
 PreparedBuildingAssets::DescribeSourceCells(const std::string &key, uint64_t occupied) const {
   std::vector<SourceCell> cells;

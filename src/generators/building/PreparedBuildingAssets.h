@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace outshine::Data {
 class SourceSet;
@@ -101,6 +102,25 @@ public:
     size_t HeaderBytes = 0;
   };
 
+  struct SourceMember {
+    uint32_t Cell = 0;
+    bool FieldSupported = false;
+  };
+
+  struct SourceGroups {
+    std::shared_ptr<const PageIndexAsset> Index;
+    std::vector<SourceMember> Members;
+    std::vector<SourceCell> Cells;
+  };
+
+  struct SourceGroupQuery {
+    uint64_t Occupied = 0;
+    size_t IndexBytesMost = 0;
+  };
+
+  [[nodiscard]] std::expected<std::optional<SourceGroups>, StructureBakeError>
+  DescribeSourceGroups(const std::string &key, SourceGroupQuery query);
+
   [[nodiscard]] std::expected<std::vector<SourceCell>, StructureBakeError>
   DescribeSourceCells(const std::string &key, uint64_t occupied) const;
   [[nodiscard]] std::expected<Base, StructureBakeError>
@@ -132,6 +152,8 @@ public:
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
+  [[nodiscard]] std::expected<std::shared_ptr<const PageIndexAsset>, StructureBakeError>
+  SourceIndex(const std::string &key, size_t bytesMost, Base base);
   [[nodiscard]] static StructureBakeError CacheFailure(AssetCacheError error) noexcept;
   static constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
   static constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;

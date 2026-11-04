@@ -91,6 +91,21 @@ void Exercise(const std::filesystem::path &root) {
             (*assets)->Costs().GeometryPreparations == before.GeometryPreparations,
         "hierarchy construction opens no form blocks and regenerates no source or geometry");
   if (!index || !*index) { return; }
+  const auto groups =
+      (*assets)->DescribeSourceGroups(key, {.Occupied = 1, .IndexBytesMost = *bytes});
+  CHECK(groups && *groups && (**groups).Members.size() == 2 && (**groups).Cells.size() == 1 &&
+            (**groups).Index->Hierarchy.SourceOrder().size() == 2,
+        "group discovery retains every source and its persisted hierarchy");
+  if (groups && *groups) {
+    for (const auto &member : (**groups).Members) {
+      CHECK(member.Cell == 1 && member.FieldSupported,
+            "native headers expose cohort and support without opening forms");
+    }
+  }
+  CHECK((*assets)->Costs().SurfaceReadBytes == before.SurfaceReadBytes &&
+            (*assets)->Costs().SurfacePreparations == before.SurfacePreparations &&
+            (*assets)->Costs().GeometryPreparations == before.GeometryPreparations,
+        "group discovery neither decodes forms nor constructs render geometry");
   const Vec3 eye = raw.AnchorEcef + (*base)->Surfaces[1].Bounds().Middle();
   const auto order = NearFirst(**index, eye);
   CHECK(order == std::vector<uint32_t>({1, 0}), "metadata selects the nearest original ordinal");
