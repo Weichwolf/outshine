@@ -67,6 +67,24 @@ double ShellError(const ProjectionDomain &domain, double focal, double error, bo
 }
 }
 
+std::optional<SourceProductSelection::Product> SourceProductSelection::GeometryCandidate(
+    uint32_t at, double hullPx, double shellPx, double allowedPx) const {
+  const auto &node = Nodes_[at];
+  if (hullPx <= allowedPx && (Hierarchy_->Nodes()[at].Count > 1 || shellPx > allowedPx)) {
+    return Product{.Node = at,
+                   .Representation = Kind::Hull,
+                   .ProjectedErrorPx = hullPx,
+                   .WorldErrorM = 2 * node.Radius};
+  }
+  if (shellPx <= allowedPx && node.ShellErrorM) {
+    return Product{.Node = at,
+                   .Representation = Kind::Shell,
+                   .ProjectedErrorPx = shellPx,
+                   .WorldErrorM = *node.ShellErrorM};
+  }
+  return std::nullopt;
+}
+
 double SourceProductSelection::GeometryErrorPx(const Box &bounds,
                                                const Render::CameraBasis &camera,
                                                double focalPx,
@@ -106,18 +124,7 @@ SourceProductSelection::SelectGeometry(const Render::CameraBasis &camera,
         traits.ShellErrorM
             ? ShellError(domain, projection.FocalPx, *traits.ShellErrorM, orthographic)
             : std::numeric_limits<double>::infinity();
-    if (hull <= projection.AllowedErrorPx &&
-        (node.Count > 1 || shell > projection.AllowedErrorPx)) {
-      selected = Product{.Node = at,
-                         .Representation = Kind::Hull,
-                         .ProjectedErrorPx = hull,
-                         .WorldErrorM = 2 * traits.Radius};
-    } else if (shell <= projection.AllowedErrorPx) {
-      selected = Product{.Node = at,
-                         .Representation = Kind::Shell,
-                         .ProjectedErrorPx = shell,
-                         .WorldErrorM = *traits.ShellErrorM};
-    }
+    selected = GeometryCandidate(at, hull, shell, projection.AllowedErrorPx);
     return selected.has_value();
   };
   Hierarchy_->SelectNodes(candidate, [&](const PlanHierarchy::Node &node) {

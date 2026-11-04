@@ -33,15 +33,44 @@ containment, shell error, float/GPU transforms, materials, coverage, shadows and
 runtime handoff remain separate acceptance requirements. This does not raise the
 old CPU capture's `EyeRadiusM=0` or lower the native LOD error threshold.
 
+## Round coverage
+
+`--panoramic-viewport 1280 720` selects a complete cut for **any camera rotation**
+inside a centred perspective viewport. It does not select an equirectangular lens.
+Viewport extents must include projection jitter and off-centre margins; both axes
+must enclose every visible ray relative to the optical axis.
+The current directional selector must refine boxes behind its near plane; applying
+it unchanged to round coverage would request originals behind the camera.
+
+Let `d = max(0, distance(eye, source_box) - lookahead_radius)`,
+`a = width/(2F)`, `b = height/(2F)` and `s = sqrt(1+a²+b²)`.
+Any endpoint inside the viewport satisfies `z >= norm(endpoint-eye)/s` and
+`(|x|+|y|)/z <= a+b`, independently of orientation. For declared shell error `e`,
+both endpoints lie inside the original box expanded by `e`; use
+`z0 = max(0,d-e)/s`. Hull and source endpoints both lie in the original box:
+use `e = box_diagonal` and `z0 = d/s`. In both cases the L1 image error is at most
+`F e sqrt(2+(a+b)²)/(z0-e)` for `z0>e`; otherwise refinement is required.
+The numerator uses the coupled 2→1 norm of the perspective difference operator,
+`[[1,0,-x/z],[0,1,-y/z]]`. Bounding lateral and depth displacement separately would
+replace the square root by `sqrt(2)+a+b` and needlessly refine additional sources.
+Zero error remains zero. Unknown errors remain unknown.
+
+Python exercises viewport edges, either endpoint visible, shells outside the source
+box and translations throughout the eye domain. Native selection shares the
+product-kind decision with directional selection. This is candidate qualification,
+not evidence for field materials, native mesh containment, GPU error or frame time.
+Round shell groups are not a replacement for far material fields: batching all
+source shells still retains their triangles. World integration remains #1955.
+
 ## Reproduce
 
-Build `source_product_inputs.cpp` using the compiler/flags in
+Build `outshine_experiment_source_inputs` as in
 [source_product_cut.md](source_product_cut.md). It additionally writes `.geometry`:
 a versioned little-endian header, immutable revision, and `(shell_error_m, faces)`
 for every original ordinal; `-1` means unknown error. Export reads headers, no forms.
 
 ```sh
-/tmp/outshine-source-product-inputs build/assets/assets.sqlite "$BASE_KEY" /tmp/source
+build/outshine_experiment_source_inputs build/assets/assets.sqlite "$BASE_KEY" /tmp/source
 PYTHONPATH=test/experiments/render python3 -m unittest -q test_source_geometry_cut
 python3 test/experiments/render/compare_source_geometry_cut.py \
   --input-prefix /tmp/source --source-revision "$BASE_KEY" \

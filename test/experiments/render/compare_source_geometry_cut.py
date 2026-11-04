@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from source_geometry_cut import Camera, GeometrySources
+from panoramic_geometry_cut import PanoramicView
 from source_product_cut import SourceProducts
 
 
@@ -22,12 +23,15 @@ def main():
     parser.add_argument("--target", type=float, nargs=3)
     parser.add_argument("--focal-px", type=float, default=1000)
     parser.add_argument("--orthographic-px-per-m", type=float)
+    parser.add_argument("--panoramic-viewport", type=float, nargs=2, metavar=("WIDTH", "HEIGHT"))
     parser.add_argument("--error-px", type=float, default=1)
     parser.add_argument("--lookahead-m", type=float, nargs="+", default=[0, 100, 1000])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--native-control", type=Path)
     parser.add_argument("--asset-db", type=Path)
     args = parser.parse_args()
+    if args.panoramic_viewport and (args.target or args.orthographic_px_per_m is not None):
+        parser.error("panoramic selection requires a centred perspective viewport and no target")
     if args.native_control and (
         not args.asset_db
         or args.target is not None
@@ -56,12 +60,11 @@ def main():
     cases = []
     baseline = None
     for radius in args.lookahead_m:
-        camera = Camera.toward(
-            args.eye,
-            target,
-            scale,
-            radius=radius,
-            orthographic=args.orthographic_px_per_m is not None,
+        camera = (
+            PanoramicView(tuple(args.eye), scale, *args.panoramic_viewport, radius=radius)
+            if args.panoramic_viewport
+            else Camera.toward(args.eye, target, scale, radius=radius,
+                               orthographic=args.orthographic_px_per_m is not None)
         )
         elapsed = []
         for _ in range(3):
@@ -88,6 +91,8 @@ def main():
                 str(args.error_px),
                 str(radius),
             ]
+            if args.panoramic_viewport:
+                command.extend(map(str, args.panoramic_viewport))
             result = subprocess.run(command, capture_output=True, text=True, check=True)
             native = json.loads(result.stdout)
             expected = [[p.node, p.kind] for p in cut]
@@ -127,6 +132,8 @@ def main():
     sources = [
         "source_geometry_cut.py",
         "test_source_geometry_cut.py",
+        "panoramic_geometry_cut.py",
+        "test_panoramic_geometry_cut.py",
         "source_product_inputs.cpp",
         "source_geometry_control.cpp",
         "compare_source_geometry_cut.py",
@@ -143,9 +150,10 @@ def main():
         else None,
         "source_revision": args.source_revision,
         "eye_ecef_m": args.eye,
-        "target_ecef_m": target,
+        "target_ecef_m": None if args.panoramic_viewport else target,
         "scale": scale,
-        "orthographic": camera.orthographic,
+        "orthographic": args.orthographic_px_per_m is not None,
+        "panoramic_viewport_px": args.panoramic_viewport,
         "allowed_error_px": args.error_px,
         "sources": len(tree.order),
         "declared_faces": sum(geometry.faces),

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_SELECTION_SOURCEPRODUCTSELECTION_H
 #include "PlanHierarchy.h"
 #include "ProjectedErrorBudget.h"
+#include "Vec2.h"
 #include "Vec3.h"
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,13 @@ public:
                  double translationM = 0,
                  bool orthographic = false,
                  bool cohortGroups = false) const;
+  // Centred perspective viewport, all rotations, eye displacement at most TranslationM.
+  [[nodiscard]] std::expected<Cut, SourceProductSelectionError>
+  SelectGeometry(const Vec3 &eye,
+                 const Vec2 &viewportPx,
+                 ProjectedErrorBudget projection,
+                 double translationM = 0,
+                 bool cohortGroups = false) const;
   [[nodiscard]] std::expected<std::span<const uint32_t>, SourceProductSelectionError>
   Members(const Cut &cut, const Product &product) const;
   [[nodiscard]] const Box &Bounds(const Product &product) const;
@@ -78,6 +86,8 @@ private:
 
   [[nodiscard]] std::optional<Product>
   Candidate(uint32_t at, const Vec3 &eye, ProjectedErrorBudget projection) const;
+  [[nodiscard]] std::optional<Product>
+  GeometryCandidate(uint32_t at, double hullPx, double shellPx, double allowedPx) const;
   std::shared_ptr<const PlanHierarchy> Hierarchy_;
   std::vector<Node> Nodes_;
   std::string Revision_;

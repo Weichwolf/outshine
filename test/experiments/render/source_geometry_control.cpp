@@ -5,6 +5,7 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "Viewing.h"
+#include "Vec2.h"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -58,9 +59,9 @@ std::string_view Kind(outshine::SourceProductSelection::Kind kind) {
 
 int main(int argc, char *const *argv) {
   using namespace outshine;
-  if (argc != 10) {
+  if (argc != 10 && argc != 12) {
     std::cerr << "source_geometry_control <asset-db> <base-key> <sources> <eye-x> <eye-y> <eye-z> "
-                 "<focal-px> <error-px> <lookahead-m>\n";
+                 "<focal-px> <error-px> <lookahead-m> [viewport-width-px viewport-height-px]\n";
     return 2;
   }
   size_t count = 0;
@@ -70,6 +71,10 @@ int main(int argc, char *const *argv) {
   if (!Number(argv[3], count) || !Number(argv[4], eye[0]) || !Number(argv[5], eye[1]) ||
       !Number(argv[6], eye[2]) || !Number(argv[7], projection.FocalPx) ||
       !Number(argv[8], projection.AllowedErrorPx) || !Number(argv[9], lookahead)) {
+    return 2;
+  }
+  Vec2 viewport;
+  if (argc == 12 && (!Number(argv[10], viewport[0]) || !Number(argv[11], viewport[1]))) {
     return 2;
   }
   const auto bytes = PageIndexAsset::EncodedBytes(count);
@@ -102,7 +107,8 @@ int main(int argc, char *const *argv) {
       std::shared_ptr<const PlanHierarchy>(input.Index, &input.Index->Hierarchy), traits, argv[2]);
   if (!selector) { return 6; }
   const auto camera = Toward(eye, input.Index->Hierarchy.Nodes()[0].Bounds.Middle());
-  const auto selected = selector->SelectGeometry(camera, projection, lookahead);
+  const auto selected = argc == 12 ? selector->SelectGeometry(eye, viewport, projection, lookahead)
+                                   : selector->SelectGeometry(camera, projection, lookahead);
   if (!selected) { return 7; }
   const auto elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
