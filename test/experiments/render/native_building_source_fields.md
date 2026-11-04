@@ -36,6 +36,16 @@ limits. A request with `source` and `cache` fields uses only stored field data.
 wall time, reserved input and sampled host heap. Sampling occurs in the polling
 driver, not the runtime hot path. It is not an exact peak or GPU/driver counter.
 
+`native_asset_database` plus `base_key` reads an existing scenario building group
+directly from its asset database. No archive import or database copy is needed.
+It resolves the stored basis, bounds, anchor and complete cell set; explicit
+request budgets still govern capture. Field products use the separate `cache`.
+`stored-source.json` inventories source headers before capture; optional `cells`
+selects whole stored cells explicitly. Unsupported sources still reject their
+selected cohort. Rejected cells require their original representation.
+Results include flat/depth proxy triangle counts and construction time. These
+counts do not qualify their projections, occlusion or visual quality.
+
 This proves the real native job/cache/CPU-lease connection. It does not compare
 the resulting field pixels with independent original rendering, qualify pose or
 background composition, activate World replacement, or prove 720p60/8GB. The

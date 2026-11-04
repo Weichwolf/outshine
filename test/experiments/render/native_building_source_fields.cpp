@@ -2,7 +2,9 @@
 #include "BuildingSourceDemand.h"
 #include "BuildingSourceCapture.h"
 #include "BuildingFieldRequest.h"
+#include "ImpostorSurface.h"
 #include "PreparedBuildingAssets.h"
+#include "StructureCell.h"
 #include "Tasks.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
@@ -125,6 +127,63 @@ BuildingSourceDemand::Source Import(const Fs::path &input,
   return descriptor;
 }
 
+BuildingSourceDemand::Source
+StoredSource(const Json &request,
+             const Fs::path &root,
+             std::shared_ptr<Generators::PreparedBuildingAssets> &sources) {
+  auto opened = AssetCache::Open(request.at("native_asset_database").get<std::string>());
+  if (!opened) { Fail("native source asset database unavailable"); }
+  const std::shared_ptr<AssetCache> cache(std::move(*opened));
+  Data::RawSourceCache raw({.Directory = (root / "sources").string()});
+  const Data::SourceSet inputs(raw);
+  auto assets = Generators::PreparedBuildingAssets::Open(cache, inputs);
+  if (!assets) { Fail(assets.error()); }
+  sources = std::move(*assets);
+  const auto key = request.at("base_key").get<std::string>();
+  const auto record = cache->Find(key);
+  const auto basis = sources->LoadBasis(key);
+  const auto base = sources->Load(key);
+  if (!record || !*record || !basis || !*basis || !base || !*base) {
+    Fail("requested native building basis is unavailable");
+  }
+  BuildingSourceDemand::Source result{.RequestKey = {},
+                                      .BaseKey = key,
+                                      .Bounds = (**record).Bounds,
+                                      .AnchorEcef = (**basis).AnchorEcef,
+                                      .Cells = 0,
+                                      .HeightQualified = (**basis).HeightQualified};
+  for (const auto &part : (**basis).Sources) {
+    if (part.Cell == 0 || part.Cell > Generators::kStructureCellsPerTile) {
+      Fail("native source contains an invalid cell");
+    }
+    result.Cells |= uint64_t{1} << (part.Cell - 1u);
+  }
+  Json inventory = Json::array();
+  for (size_t i = 0; i < (**base).Surfaces.size(); ++i) {
+    const auto &surface = (**base).Surfaces[i];
+    inventory.push_back({{"ordinal", i},
+                         {"cell", (**base).Structures[i].Layout.Cell.Index},
+                         {"faces", surface.FaceCount()},
+                         {"bounds_empty", surface.Bounds().Empty()},
+                         {"selection_prepared", surface.PreparedSelection().has_value()}});
+  }
+  Write(root / "stored-source.json", {{"source", Description(result)}, {"inventory", inventory}});
+  if (request.contains("cells")) {
+    uint64_t selected = 0;
+    for (const auto &value : request.at("cells")) {
+      const auto cell = value.get<uint32_t>();
+      if (cell == 0 || cell > Generators::kStructureCellsPerTile ||
+          (result.Cells & (uint64_t{1} << (cell - 1u))) == 0) {
+        Fail("requested cell is absent from the stored native group");
+      }
+      selected |= uint64_t{1} << (cell - 1u);
+    }
+    if (selected == 0) { Fail("stored source selection is empty"); }
+    result.Cells = selected;
+  }
+  return result;
+}
+
 std::shared_ptr<const BuildingFieldRequest::Product>
 Produce(const Json &request,
         const BuildingSourceDemand::Source &source,
@@ -177,6 +236,19 @@ void Export(const BuildingFieldRequest::Product &product, const Fs::path &root, 
   report["half_extent_m"] = atlas.HalfExtentM();
   report["pixels"] = atlas.Pixels();
   report["views"] = atlas.Views().size();
+  for (const auto detail :
+       {Render::ImpostorSurfaceDetail::Flat, Render::ImpostorSurfaceDetail::Depth}) {
+    const auto began = Clock::now();
+    const auto mesh = Render::BuildImpostorSurface(atlas, 0, detail);
+    if (!mesh) { Fail("native field proxy mesh unavailable"); }
+    size_t triangles = 0;
+    for (int part = 0; part < mesh->parts(); ++part) {
+      triangles += mesh->trianglesOf(part).size() / 3;
+    }
+    report[detail == Render::ImpostorSurfaceDetail::Flat ? "flat_proxy" : "depth_proxy"] = {
+        {"triangles", triangles},
+        {"build_ms", std::chrono::duration<double, std::milli>(Clock::now() - began).count()}};
+  }
   report["covered"] = std::count_if(atlas.Views()[0].Texels.begin(),
                                     atlas.Views()[0].Texels.end(),
                                     [](const auto &texel) { return texel.Surface != 0; });
@@ -201,10 +273,20 @@ int main(int argc, char *const *argv) {
   }
   const auto request = Document(argv[2]);
   std::shared_ptr<Generators::PreparedBuildingAssets> sources;
-  const bool importing = !request.contains("source");
-  const auto source =
-      importing ? Import(argv[1], request, root, sources) : Description(request.at("source"));
-  if (importing && !SDL_Init(SDL_INIT_VIDEO)) { Fail("native source video initialization failed"); }
+  const bool stored = request.contains("native_asset_database");
+  if (stored && request.contains("source")) {
+    Fail("select native source assets or a source-free field descriptor");
+  }
+  const bool importing = !stored && !request.contains("source");
+  const auto sourceAt = Clock::now();
+  const auto source = [&] {
+    if (stored) { return StoredSource(request, root, sources); }
+    if (importing) { return Import(argv[1], request, root, sources); }
+    return Description(request.at("source"));
+  }();
+  const auto sourceMs = std::chrono::duration<double, std::milli>(Clock::now() - sourceAt).count();
+  const bool capture = stored || importing;
+  if (capture && !SDL_Init(SDL_INIT_VIDEO)) { Fail("native source video initialization failed"); }
   {
     const Fs::path cachePath = request.value("cache", (root / "fields.sqlite").string());
     auto opened = AssetCache::Open(cachePath.string());
@@ -222,7 +304,9 @@ int main(int argc, char *const *argv) {
                             .TicketsMost = 4,
                             .InputBytesMost = 2 * (limits.ProducerBytes + limits.ResidentBytes),
                             .ReceiptBytesMost = 16384});
-    Json report{{"native_sources_present", importing}, {"source_costs_before", before}};
+    Json report{{"native_sources_present", capture},
+                {"source_preparation_ms", sourceMs},
+                {"source_costs_before", before}};
     const auto product = Produce(request, source, sources, cache, workers, pipeline, report);
     Export(*product, root, report);
     report["source_costs_after"] = sources ? Costs(sources->Costs()) : Costs({});
@@ -231,6 +315,6 @@ int main(int argc, char *const *argv) {
         "sampled host heap excludes unsampled/GPU/driver peaks; no World/pose/p99/8GB pass";
     Write(root / "native-field-result.json", report);
   }
-  if (importing) { SDL_Quit(); }
+  if (capture) { SDL_Quit(); }
   return 0;
 }
