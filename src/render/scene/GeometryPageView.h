@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #define OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #include "PieceMesh.h"
+#include "SourceCoverage.h"
 #include "GeometryPasses.h"
 #include "LevelOfDetail.h"
 #include "ViewReuseDomain.h"
@@ -31,6 +32,7 @@ struct GeometryPageView {
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   uint64_t OccupiedCells = 0;
+  std::optional<SourceCoverage> Coverage = std::nullopt;
 };
 }
 #endif

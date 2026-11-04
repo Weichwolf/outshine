@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace outshine {
 struct BuildingFieldStreaming::State {
@@ -30,6 +31,7 @@ struct BuildingFieldStreaming::State {
   struct Group {
     std::vector<uint32_t> Sources;
     Box Bounds;
+    std::optional<SourceCoverage> Coverage;
     Phase Where = Phase::Waiting;
     std::optional<BuildingFieldRequest> Request;
     std::optional<ImpostorViewAssets::Description> Metadata;
@@ -39,7 +41,11 @@ struct BuildingFieldStreaming::State {
   };
 
   struct Cell {
+    Cell(Generators::PreparedBuildingAssets::SourceCell source, SourceCoverage coverage)
+        : Source(source), Coverage(std::move(coverage)) {}
+
     Generators::PreparedBuildingAssets::SourceCell Source;
+    SourceCoverage Coverage;
     Phase Where = Phase::Waiting;
     std::vector<Group> Groups;
     std::vector<Group> Alternatives;
@@ -75,10 +81,13 @@ struct BuildingFieldStreaming::State {
 
   void Discover(Context &context);
   void PollMetadata();
-  static void PrepareCells(Tile &tile,
-                           const Generators::PreparedBuildingAssets::SourceGroups &groups,
-                           const SourceProductSelection &selection,
-                           const SourceProductSelection::Cut &cut);
+  [[nodiscard]] static bool
+  PrepareCellSources(Tile &tile, const Generators::PreparedBuildingAssets::SourceGroups &groups);
+  [[nodiscard]] static bool
+  PrepareCells(Tile &tile,
+               const Generators::PreparedBuildingAssets::SourceGroups &groups,
+               const SourceProductSelection &selection,
+               const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);

@@ -164,6 +164,11 @@ bool GeometryPageResidency::ValidateActivation(uint32_t tile,
       error = "required geometry cell detail is not resident";
       return false;
     }
+    if (target->Coverage &&
+        (choice.ExpectedSources == nullptr || *target->Coverage != *choice.ExpectedSources)) {
+      error = "geometry product does not cover its declared source selection";
+      return false;
+    }
   }
   return true;
 }

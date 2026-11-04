@@ -56,6 +56,7 @@ public:
     std::optional<LevelOfDetail> Detail = LevelOfDetail::Fine;
     // Zero retains the single-cell selection; groups name their lowest occupied cell.
     uint64_t OccupiedCells = 0;
+    const SourceCoverage *ExpectedSources = nullptr;
 
     [[nodiscard]] uint64_t Mask() const noexcept {
       if (OccupiedCells != 0) { return OccupiedCells; }
@@ -154,7 +155,10 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Pages_.capacity() * sizeof(ResidentGeometryPage) + Why_.capacity();
-    for (const auto &page : Pages_) { bytes += page.Parts.capacity() * sizeof(ResidentPart); }
+    for (const auto &page : Pages_) {
+      bytes += page.Parts.capacity() * sizeof(ResidentPart);
+      if (page.Coverage) { bytes += page.Coverage->CapacityBytes(); }
+    }
     return bytes;
   }
 
@@ -181,6 +185,7 @@ private:
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
     std::optional<ViewReuseDomain> SelectedView;
+    std::optional<SourceCoverage> Coverage;
     Mat4 Row;
     bool Visible = true;
     std::vector<ResidentPart> Parts;

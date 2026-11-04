@@ -15,16 +15,34 @@
 #include <vector>
 
 namespace outshine {
-void BuildingFieldStreaming::State::PrepareCells(
+bool BuildingFieldStreaming::State::PrepareCellSources(
+    Tile &tile, const Generators::PreparedBuildingAssets::SourceGroups &groups) {
+  std::vector<std::vector<uint32_t>> members(tile.Source.CellSourceCounts.size());
+  for (size_t at = 0; at < groups.Members.size(); ++at) {
+    const auto cell = groups.Members[at].Cell;
+    if (cell == 0 || cell > members.size()) { return false; }
+    members[cell - 1u].push_back(static_cast<uint32_t>(at));
+  }
+  tile.Cells.reserve(groups.Cells.size());
+  for (const auto &source : groups.Cells) {
+    if (source.Cell == 0 || source.Cell > members.size() ||
+        members[source.Cell - 1u].size() != tile.Source.CellSourceCounts[source.Cell - 1u]) {
+      return false;
+    }
+    auto coverage = SourceCoverage::FromSources(
+        tile.Source.BaseKey, groups.Members.size(), members[source.Cell - 1u]);
+    if (!coverage) { return false; }
+    tile.Cells.emplace_back(source, std::move(*coverage));
+  }
+  return true;
+}
+
+bool BuildingFieldStreaming::State::PrepareCells(
     Tile &tile,
     const Generators::PreparedBuildingAssets::SourceGroups &groups,
     const SourceProductSelection &selection,
     const SourceProductSelection::Cut &cut) {
-  for (const auto &source : groups.Cells) {
-    Cell cell;
-    cell.Source = source;
-    tile.Cells.push_back(std::move(cell));
-  }
+  if (!PrepareCellSources(tile, groups)) { return false; }
   for (const auto &product : cut.Products) {
     const auto members = selection.Members(cut, product);
     if (!members || members->empty()) { continue; }
@@ -38,29 +56,40 @@ void BuildingFieldStreaming::State::PrepareCells(
     }
     Group group;
     group.Sources.assign(members->begin(), members->end());
+    std::ranges::sort(group.Sources);
+    auto coverage =
+        SourceCoverage::FromSources(tile.Source.BaseKey, groups.Members.size(), group.Sources);
+    if (!coverage) { return false; }
+    group.Coverage = std::move(*coverage);
     group.Bounds = selection.Bounds(product);
     cell->Groups.push_back(std::move(group));
   }
   for (auto &cell : tile.Cells) {
-    size_t covered = 0;
-    for (const auto &group : cell.Groups) { covered += group.Sources.size(); }
+    std::vector<const SourceCoverage *> products;
+    products.reserve(cell.Groups.size());
+    for (const auto &group : cell.Groups) {
+      products.push_back(group.Coverage ? &*group.Coverage : nullptr);
+    }
     if (cell.Where != Phase::Rejected && !cell.Groups.empty() &&
-        covered == tile.Source.CellSourceCounts[cell.Source.Cell - 1u]) {
+        SourceCoverage::Partition(cell.Coverage, products)) {
       cell.Alternatives = std::move(cell.Groups);
     }
     cell.Groups.clear();
     Group coarse;
     coarse.Bounds = cell.Source.Bounds;
+    coarse.Coverage = cell.Coverage;
     cell.Groups.push_back(std::move(coarse));
     cell.Where = Phase::Waiting;
   }
+  return true;
 }
 
 void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
   if (Reading->Groups && Reading->Selection && Reading->Cut && ReadingTile) {
-    PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut);
-    Tiles.push_back(std::move(*ReadingTile));
+    if (PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
+      Tiles.push_back(std::move(*ReadingTile));
+    }
   }
   ReadingTile.reset();
   Reading.reset();

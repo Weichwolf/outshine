@@ -137,6 +137,15 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
                                           Tile &tile,
                                           Cell &cell,
                                           std::string &error) {
+  std::vector<const SourceCoverage *> products;
+  products.reserve(cell.Groups.size());
+  for (const auto &group : cell.Groups) {
+    products.push_back(group.Coverage ? &*group.Coverage : nullptr);
+  }
+  if (!SourceCoverage::Partition(cell.Coverage, products)) {
+    error = "building field groups do not partition their expected sources";
+    return false;
+  }
   std::vector<Render::GeometryPagePartView> parts;
   std::string identity = "building-field-cell-2/" + tile.Source.BaseKey;
   for (const auto &group : cell.Groups) {
@@ -166,7 +175,8 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
                                       .SelectedView = std::nullopt,
                                       .RequestedDetail = LevelOfDetail::Skyline,
                                       .RequestedCell = cell.Source.Cell,
-                                      .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u)};
+                                      .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u),
+                                      .Coverage = cell.Coverage};
   cell.Staged = context.Pages.StageCell(
       tile.Index, cell.Source.Cell, page, tile.Source.AnchorEcef, error, tile.SourceKey);
   return cell.Staged;
@@ -219,6 +229,7 @@ bool BuildingFieldStreaming::State::Select(Context &context, std::string &error)
           choice.Mask() == (uint64_t{1} << (choice.Cell - 1u)) && found->Staged &&
           std::ranges::all_of(found->Groups,
                               [&](const Group &g) { return ValidPose(context, g); })) {
+        choice.ExpectedSources = &found->Coverage;
         choice.Detail = LevelOfDetail::Skyline;
         active |= choice.Mask();
         Statistics.ActiveGroups += found->Groups.size();

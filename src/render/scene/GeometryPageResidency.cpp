@@ -180,6 +180,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .FallbackHeights = baked.FallbackHeights,
                              .Detail = baked.RequestedDetail,
                              .SelectedView = baked.SelectedView,
+                             .Coverage = baked.Coverage,
                              .Row = row,
                              .Visible = visible,
                              .Parts = {}};

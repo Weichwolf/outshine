@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -92,7 +93,8 @@ bool StageCellProduct(GeometryPageResidency &pages,
                       const MaterialRegistration &material,
                       GeometryPasses passes,
                       std::string &error,
-                      const MaterialRegistration *shadow = nullptr) {
+                      const MaterialRegistration *shadow = nullptr,
+                      const SourceCoverage *coverage = nullptr) {
   const Vec2 horizontal{{cell == 1 ? -.8 : 0, cell == 1 ? 0 : .8}};
   const auto vertices = Vertices(frame, horizontal);
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
@@ -113,19 +115,21 @@ bool StageCellProduct(GeometryPageResidency &pages,
     parts[1].Surface = PieceSurface::Registered(*shadow);
     parts[1].Passes = GeometryPasses::Shadow;
   }
-  return pages.StageCell(kTile,
-                         cell,
-                         {.Parts = std::span(parts.data(), shadow != nullptr ? 2u : 1u),
-                          .Digest = cell + uint64_t{static_cast<uint8_t>(detail)} * 8,
-                          .AssetKey = {},
-                          .FallbackHeights = false,
-                          .SelectedView = {},
-                          .RequestedDetail = detail,
-                          .RequestedCell = cell,
-                          .OccupiedCells = uint64_t{1} << (cell - 1)},
-                         frame.OriginEcef(),
-                         error,
-                         kSource);
+  return pages.StageCell(
+      kTile,
+      cell,
+      {.Parts = std::span(parts.data(), shadow != nullptr ? 2u : 1u),
+       .Digest = cell + uint64_t{static_cast<uint8_t>(detail)} * 8,
+       .AssetKey = {},
+       .FallbackHeights = false,
+       .SelectedView = {},
+       .RequestedDetail = detail,
+       .RequestedCell = cell,
+       .OccupiedCells = uint64_t{1} << (cell - 1),
+       .Coverage = coverage != nullptr ? std::optional(*coverage) : std::nullopt},
+      frame.OriginEcef(),
+      error,
+      kSource);
 }
 
 std::vector<float> Draw(SceneRenderer &renderer) {
@@ -331,6 +335,82 @@ void CheckSkyline(SceneRenderer &renderer,
   CHECK(pages.ValidateSources(error), "retired field material and GPU leases remain valid");
 }
 
+void CheckExactSources(SceneRenderer &renderer,
+                       GeometryPageResidency &pages,
+                       const TangentFrame &frame) {
+  using Choice = GeometryPageResidency::CellSelection;
+  pages.Clear();
+  pages.BindRenderer(&renderer);
+  const auto original = Register(renderer);
+  const auto field = Register(renderer, Field(renderer));
+  const auto expected = SourceCoverage::FromSources("base-a", 4, std::array<uint32_t, 2>{0, 1});
+  const auto wrong = SourceCoverage::FromSources("base-a", 4, std::array<uint32_t, 2>{0, 2});
+  const auto foreign = SourceCoverage::FromSources("base-b", 4, std::array<uint32_t, 2>{0, 1});
+  CHECK(expected && wrong && foreign, "test products have independent valid source manifests");
+  if (!expected || !wrong || !foreign) { return; }
+  std::string error;
+  for (uint32_t cell = 1; cell <= 2; ++cell) {
+    CHECK(StageCellProduct(pages,
+                           frame,
+                           cell,
+                           LevelOfDetail::Fine,
+                           original,
+                           GeometryPasses::MainAndShadow,
+                           error),
+          "whole-cell originals remain the fallback during source migration");
+  }
+  const std::array fine{Choice{.Cell = 1, .Detail = LevelOfDetail::Fine},
+                        Choice{.Cell = 2, .Detail = LevelOfDetail::Fine}};
+  CHECK(pages.ActivateCells(kTile, kCells, fine, error), "complete original pages publish");
+  const auto before = Draw(renderer);
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         1,
+                         LevelOfDetail::Skyline,
+                         field,
+                         GeometryPasses::Main,
+                         error,
+                         nullptr,
+                         &*wrong),
+        "a valid but wrong source subset can stage without becoming visible");
+  auto main = fine;
+  main[0].Detail = LevelOfDetail::Skyline;
+  main[0].ExpectedSources = &*expected;
+  CHECK(!pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) == before,
+        "equal cell masks and source counts cannot conceal wrong source ownership");
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         1,
+                         LevelOfDetail::Massed,
+                         field,
+                         GeometryPasses::Main,
+                         error,
+                         nullptr,
+                         &*foreign),
+        "a foreign revision stays staged");
+  main[0].Detail = LevelOfDetail::Massed;
+  CHECK(!pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) == before,
+        "a foreign source revision preserves the previous native image");
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         1,
+                         LevelOfDetail::Shell,
+                         field,
+                         GeometryPasses::Main,
+                         error,
+                         nullptr,
+                         &*expected),
+        "an exactly matching product stages");
+  main[0].Detail = LevelOfDetail::Shell;
+  main[0].ExpectedSources = nullptr;
+  CHECK(!pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) == before,
+        "coverage-bearing products require an explicit expected source declaration");
+  main[0].ExpectedSources = &*expected;
+  CHECK(pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) != before,
+        "exact source ownership publishes atomically with independent original shadows");
+  pages.Clear();
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
@@ -435,6 +515,7 @@ void Exercise() {
   CheckCohorts(renderer, pages, frame);
   CheckIndependentPasses(renderer, pages);
   CheckSkyline(renderer, pages, frame);
+  CheckExactSources(renderer, pages, frame);
   pages.Clear();
 }
 }
