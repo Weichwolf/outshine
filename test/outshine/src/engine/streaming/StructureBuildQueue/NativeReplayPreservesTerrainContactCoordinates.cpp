@@ -96,8 +96,7 @@ bool LandReplay(SurfacePreparation &stack,
   auto &prints = stack.Footprints();
   const auto initialContacts = prints.PinProducts();
   bool landed = false;
-  const auto purpose = initialCells ? StructureBuildQueue::BuildPurpose::SourceGeometry
-                                    : StructureBuildQueue::BuildPurpose::ViewDetail;
+  constexpr auto purpose = StructureBuildQueue::BuildPurpose::ViewDetail;
   const size_t coordinateCount = initialCells ? 20 : 12;
   while (!landed && std::chrono::steady_clock::now() < deadline) {
     terrain.DeliveredThisPump = false;

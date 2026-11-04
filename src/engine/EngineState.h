@@ -501,11 +501,11 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
   [[nodiscard]] GroundBuildProgress AdvanceGroundRoadAlignments(const TangentFrame &standing);
-  [[nodiscard]] GroundBuildProgress AdvanceGroundStructureBakes() const;
+  [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingContacts() const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
-  [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
+  [[nodiscard]] bool CollectGroundBuildingContacts(size_t landsMost);
 
   [[nodiscard]] Laid Focuses(GroundRequest &request,
                              LongitudeLatitude at,

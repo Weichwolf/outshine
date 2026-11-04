@@ -38,7 +38,7 @@ class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
-  enum class BuildPurpose : uint8_t { ViewDetail, SourceGeometry };
+  enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts };
 
   struct NativeBasisQuery {
     enum class Phase : uint8_t { Unavailable, Pending, Missing, Ready };
@@ -124,7 +124,7 @@ public:
                                       : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
              ((RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
-              Purpose == BuildPurpose::SourceGeometry || Projection == footprints.Projection()) &&
+              Purpose != BuildPurpose::ViewDetail || Projection == footprints.Projection()) &&
              TileSpanM == footprints.TileSpanM();
     }
 

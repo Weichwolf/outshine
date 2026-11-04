@@ -28,7 +28,7 @@ bool QualifyPhysicalSource(BuildingQueueFixture &fixture) {
                               1,
                               StructureBuildQueue::HeightRequirement::FineOnly,
                               std::nullopt,
-                              StructureBuildQueue::BuildPurpose::SourceGeometry);
+                              StructureBuildQueue::BuildPurpose::TerrainContacts);
     auto complete = fixture.Queue.NextLandings(fixture.Stack,
                                                prints,
                                                fixture.Eye,
@@ -36,7 +36,7 @@ bool QualifyPhysicalSource(BuildingQueueFixture &fixture) {
                                                1,
                                                StructureBuildQueue::HeightRequirement::FineOnly,
                                                std::nullopt,
-                                               StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                               StructureBuildQueue::BuildPurpose::TerrainContacts);
     CHECK(complete.has_value(), "source qualification finishes without an error");
     if (!complete) { return false; }
     if (!complete->empty()) { fixture.Queue.CommitsLandings(prints, *complete); }

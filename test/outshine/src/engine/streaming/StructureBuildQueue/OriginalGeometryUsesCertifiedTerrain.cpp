@@ -122,7 +122,7 @@ void CheckReplacement(const BuildView &view,
                     1,
                     StructureBuildQueue::HeightRequirement::FineOnly,
                     LevelOfDetail::Fine,
-                    StructureBuildQueue::BuildPurpose::SourceGeometry) == 1,
+                    StructureBuildQueue::BuildPurpose::ViewDetail) == 1,
         "empty source gets an atomic native product replacement");
   bool replaced = false;
   for (int attempt = 0; attempt < kAttempts && !replaced; ++attempt) {
@@ -133,7 +133,7 @@ void CheckReplacement(const BuildView &view,
                                     1,
                                     StructureBuildQueue::HeightRequirement::FineOnly,
                                     LevelOfDetail::Fine,
-                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                    StructureBuildQueue::BuildPurpose::ViewDetail);
     CHECK(ready.has_value(), "empty replacement has no mesh or DEM requirement");
     if (!ready) { break; }
     if (!ready->empty()) {
@@ -229,7 +229,7 @@ int main() {
                     1,
                     StructureBuildQueue::HeightRequirement::FineOnly,
                     LevelOfDetail::Fine,
-                    StructureBuildQueue::BuildPurpose::SourceGeometry) == 1,
+                    StructureBuildQueue::BuildPurpose::ViewDetail) == 1,
         "original source posts to the existing certified structure queue");
   bool landed = false;
   for (int attempt = 0; attempt < kAttempts && !landed; ++attempt) {
@@ -240,7 +240,7 @@ int main() {
                                     1,
                                     StructureBuildQueue::HeightRequirement::FineOnly,
                                     LevelOfDetail::Fine,
-                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                    StructureBuildQueue::BuildPurpose::ViewDetail);
     CHECK(ready.has_value(), "native mesh bake succeeds");
     if (!ready) { break; }
     if (!ready->empty()) {

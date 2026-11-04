@@ -157,7 +157,7 @@ struct BuildingQueueFixture {
                        1,
                        StructureBuildQueue::HeightRequirement::FineOnly,
                        std::nullopt,
-                       StructureBuildQueue::BuildPurpose::SourceGeometry);
+                       StructureBuildQueue::BuildPurpose::TerrainContacts);
   }
 
   [[nodiscard]] std::vector<StructureBuildQueue::Landing> Finish(bool refinement = false) {
@@ -172,7 +172,7 @@ struct BuildingQueueFixture {
                              refinement ? StructureBuildQueue::HeightRequirement::FineOnly
                                         : StructureBuildQueue::HeightRequirement::AllowFallback,
                              std::nullopt,
-                             refinement ? StructureBuildQueue::BuildPurpose::SourceGeometry
+                             refinement ? StructureBuildQueue::BuildPurpose::TerrainContacts
                                         : StructureBuildQueue::BuildPurpose::ViewDetail);
       CHECK(ready.has_value(), "whole-tile build completes without a mesher error");
       if (!ready) { break; }

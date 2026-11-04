@@ -142,7 +142,7 @@ void CheckReplacement(
                       1,
                       StructureBuildQueue::HeightRequirement::FineOnly,
                       LevelOfDetail::Fine,
-                      StructureBuildQueue::BuildPurpose::SourceGeometry);
+                      StructureBuildQueue::BuildPurpose::ViewDetail);
     auto ready = queue.NextLandings(stack,
                                     prints,
                                     eye,
@@ -150,7 +150,7 @@ void CheckReplacement(
                                     1,
                                     StructureBuildQueue::HeightRequirement::FineOnly,
                                     LevelOfDetail::Fine,
-                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                    StructureBuildQueue::BuildPurpose::ViewDetail);
     CHECK(ready.has_value(), "updated native ownership bakes and lands");
     if (!ready) { return; }
     if (ready->empty()) {
@@ -172,7 +172,7 @@ void CheckReplacement(
                     1,
                     StructureBuildQueue::HeightRequirement::FineOnly,
                     LevelOfDetail::Fine,
-                    StructureBuildQueue::BuildPurpose::SourceGeometry) == 0 &&
+                    StructureBuildQueue::BuildPurpose::ViewDetail) == 0 &&
             queue.Queued() == 0,
         "unchanged resident cell products generate no further work");
   const uint64_t publishedRevision = prints.Revision();
@@ -224,7 +224,7 @@ bool CheckLandings(
                       1,
                       StructureBuildQueue::HeightRequirement::FineOnly,
                       LevelOfDetail::Fine,
-                      StructureBuildQueue::BuildPurpose::SourceGeometry) == 1,
+                      StructureBuildQueue::BuildPurpose::ViewDetail) == 1,
           "each cell uses the existing native structure queue");
     bool landed = false;
     for (int attempt = 0; attempt < kAttempts && !landed; ++attempt) {
@@ -235,7 +235,7 @@ bool CheckLandings(
                                       1,
                                       StructureBuildQueue::HeightRequirement::FineOnly,
                                       LevelOfDetail::Fine,
-                                      StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                      StructureBuildQueue::BuildPurpose::ViewDetail);
       CHECK(ready.has_value(), "native cell bake succeeds");
       if (!ready) { return false; }
       if (!ready->empty()) {

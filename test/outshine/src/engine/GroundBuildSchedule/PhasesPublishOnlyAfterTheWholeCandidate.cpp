@@ -27,7 +27,7 @@ int main() {
       GroundBuildSchedule::Stage::NeedsNetwork,
       GroundBuildSchedule::Stage::NeedsRoadAlignments,
       GroundBuildSchedule::Stage::NeedsCorridors,
-      GroundBuildSchedule::Stage::NeedsBakes,
+      GroundBuildSchedule::Stage::NeedsBuildingContacts,
       GroundBuildSchedule::Stage::NeedsEarthworks,
       GroundBuildSchedule::Stage::NeedsTerrainResidency,
       GroundBuildSchedule::Stage::NeedsWater,

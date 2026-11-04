@@ -15,10 +15,10 @@ using namespace outshine::Ground;
 using namespace outshine::Test;
 
 std::optional<std::pair<uint64_t, Generators::BakedTile>>
-BuildSource(BuildingQueueFixture &fixture,
-            LongitudeLatitude postedEye,
-            double focalPx,
-            std::optional<LevelOfDetail> detail = std::nullopt) {
+BuildRenderProduct(BuildingQueueFixture &fixture,
+                   LongitudeLatitude postedEye,
+                   double focalPx,
+                   std::optional<LevelOfDetail> detail = std::nullopt) {
   auto &prints = fixture.Stack.Footprints();
   fixture.Queue.Clear();
   prints.Release(0);
@@ -32,11 +32,9 @@ BuildSource(BuildingQueueFixture &fixture,
                             1,
                             StructureBuildQueue::HeightRequirement::FineOnly,
                             detail,
-                            StructureBuildQueue::BuildPurpose::SourceGeometry) == 1,
-        "source geometry admits the declared source independently of the camera");
-  const auto landedEye = LongitudeLatitude{.LongitudeDeg = postedEye.LongitudeDeg + 1.0,
-                                           .LatitudeDeg = postedEye.LatitudeDeg};
-  prints.SeenWith({.FocalPx = focalPx * 2.0});
+                            StructureBuildQueue::BuildPurpose::ViewDetail) == 1,
+        "render geometry admits the declared source for its requested view");
+  const auto landedEye = postedEye;
   for (int attempt = 0; attempt < 100 && fixture.Queue.Queued() != 0; ++attempt) {
     auto landed = fixture.Queue.NextLandings(fixture.Stack,
                                              prints,
@@ -45,8 +43,8 @@ BuildSource(BuildingQueueFixture &fixture,
                                              1,
                                              StructureBuildQueue::HeightRequirement::FineOnly,
                                              detail,
-                                             StructureBuildQueue::BuildPurpose::SourceGeometry);
-    CHECK(landed.has_value(), "camera changes do not invalidate source geometry completion");
+                                             StructureBuildQueue::BuildPurpose::ViewDetail);
+    CHECK(landed.has_value(), "the requested render view completes without stale source inputs");
     if (!landed) { return std::nullopt; }
     if (!landed->empty()) { return std::pair{landed->front().SourceKey, *landed->front().Baked}; }
     (void)fixture.Queue.AwaitSlice(0.02);
@@ -64,10 +62,11 @@ bool CheckCameraIndependentSources(BuildingQueueFixture &fixture) {
   CHECK(fixture.Copies == beforeLanding,
         "certified whole-tile landing never resolves heights again");
   if (ready.empty()) { return false; }
-  const auto nearSource = BuildSource(fixture, fixture.Eye, 720.0);
+  const auto nearSource = BuildRenderProduct(fixture, fixture.Eye, 720.0);
   CHECK(nearSource.has_value(), "near source request lands");
   if (!nearSource) { return false; }
-  const auto farSource = BuildSource(fixture, {.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0);
+  const auto farSource =
+      BuildRenderProduct(fixture, {.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0);
   CHECK(nearSource && farSource, "near and remote source requests both land after camera changes");
   if (!farSource) { return false; }
   CHECK(!nearSource->second.RequestedDetail && !farSource->second.RequestedDetail &&
@@ -78,14 +77,14 @@ bool CheckCameraIndependentSources(BuildingQueueFixture &fixture) {
             !nearSource->second.Built.WallRun.empty() && !farSource->second.Built.WallRun.empty() &&
             !farSource->second.Built.RoofRun.empty(),
         "view-dependent fallback keeps source identity and visible remote geometry");
-  const auto nearShell = BuildSource(fixture, fixture.Eye, 720.0, LevelOfDetail::Shell);
-  const auto farShell = BuildSource(
+  const auto nearShell = BuildRenderProduct(fixture, fixture.Eye, 720.0, LevelOfDetail::Shell);
+  const auto farShell = BuildRenderProduct(
       fixture, {.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0, LevelOfDetail::Shell);
   CHECK(nearShell && farShell && nearShell->second.Digest == farShell->second.Digest &&
             nearShell->second.RequestedDetail == LevelOfDetail::Shell &&
             farShell->second.RequestedDetail == LevelOfDetail::Shell,
         "explicit LOD products remain independent of camera position and focal length");
-  const auto fineSource = BuildSource(fixture, fixture.Eye, 720.0, LevelOfDetail::Fine);
+  const auto fineSource = BuildRenderProduct(fixture, fixture.Eye, 720.0, LevelOfDetail::Fine);
   CHECK(fineSource && fineSource->second.RequestedDetail == LevelOfDetail::Fine &&
             fineSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine},
         "an explicit Fine source request is preserved");

@@ -51,7 +51,6 @@
 #include "EngineState.h"
 #include "BuildingFieldStreaming.h"
 #include "TerrainClipmapPreparation.h"
-#include "StructureSourcePublication.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
 #include "GroundPalette.h"
@@ -1240,9 +1239,9 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() const {
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundBuildingContacts() const {
   WorldRegionBuildState &state = *World.GroundBuild;
-  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
+  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBuildingContacts) {
     return GroundBuildProgress::Ready;
   }
   const bool ready =
@@ -1263,16 +1262,15 @@ size_t Engine::State::StructureCandidatesMost() const noexcept {
              : kRefinedStructureCandidates;
 }
 
-bool Engine::State::StagesGroundBakes(size_t landsMost) {
+bool Engine::State::CollectGroundBuildingContacts(size_t landsMost) {
   if (!World.GroundBuild ||
       (World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsCorridors &&
-       World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes)) {
+       World.GroundBuild->CurrentStage() !=
+           Core::GroundBuildSchedule::Stage::NeedsBuildingContacts)) {
     return true;
   }
   WorldRegionBuildState &state = *World.GroundBuild;
   state.Footprints().ViewedFrom(CurrentGeographicEyeEcef());
-  GroundWorldCandidate &candidate = state.Candidate();
-  GroundBuildProducts &build = candidate.Products();
   Published.RecordMetric("ground candidate: structure tiles to certify",
                          static_cast<double>(state.Footprints().RefinementRemaining()),
                          "tiles");
@@ -1303,7 +1301,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                                          landsMost,
                                          heights,
                                          std::nullopt,
-                                         StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                         StructureBuildQueue::BuildPurpose::TerrainContacts);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -1311,19 +1309,6 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     Error = Generators::Describe(ready.error());
     return false;
   }
-  const auto transferAt = std::chrono::steady_clock::now();
-  if (!build.Surfaces) {
-    Error = "structure materials were not registered before baking";
-    return false;
-  }
-  for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!PublishStructureSource(build.Pieces, landing, *build.Surfaces, Error)) { return false; }
-  }
-  const double transferMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
-          .count();
-  Cost.BakeTransfer.Took(transferMs);
-  Cost.BakeCandidateTransfer.Took(transferMs);
   const auto commitAt = std::chrono::steady_clock::now();
   World.StructureBuilds.CommitsLandings(state.Footprints(), *ready);
   Cost.BakeCommit.Took(
@@ -1337,7 +1322,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                                     StructureCandidatesMost(),
                                     heights,
                                     std::nullopt,
-                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
+                                    StructureBuildQueue::BuildPurpose::TerrainContacts);
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());
@@ -1921,7 +1906,7 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   }
   const GroundBuildProgress roads = AdvanceGroundRoadAlignments(standing);
   if (roads != GroundBuildProgress::Ready) { return roads != GroundBuildProgress::Failed; }
-  const GroundBuildProgress bakes = AdvanceGroundStructureBakes();
+  const GroundBuildProgress bakes = AdvanceGroundBuildingContacts();
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   const GroundBuildProgress construction = AdvanceGroundConstructionStages(standing, laid, state);
   if (construction != GroundBuildProgress::Ready) {

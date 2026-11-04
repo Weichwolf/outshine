@@ -338,7 +338,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     Cost.BakeCollection.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
             .count());
-    return StagesGroundBakes(landsMost);
+    return CollectGroundBuildingContacts(landsMost);
   }
   if (!World.GroundPublished.Current()) {
     const auto collectionAt = std::chrono::steady_clock::now();

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STRUCTURETILEPUBLICATION_H
 
 #include "EngineState.h"
+#include "StructureSourcePublication.h"
 #include <cassert>
 #include <cstdint>
 #include <expected>
@@ -18,14 +19,9 @@ PublishStructureTile(WorldRegionState &world,
   const auto published = renderer.PublishedWorld();
   auto &pieces = world.Pieces;
   pieces.BindRenderer(&renderer);
-  const auto &baked = *landing.Baked;
   std::string error;
-  if (!pieces.Upload(
-          landing.Tile,
-          BuildingPageView(baked, world.StructureSurfaces.value_or(BuildingPageMaterials{})).View(),
-          landing.AnchorEcef,
-          error,
-          landing.SourceKey)) {
+  if (!PublishStructureSource(
+          pieces, landing, world.StructureSurfaces.value_or(BuildingPageMaterials{}), error)) {
     return std::unexpected(std::move(error));
   }
   world.BindSceneResources(renderer);

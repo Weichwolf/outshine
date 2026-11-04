@@ -505,6 +505,26 @@ struct StructureBuildTask::Payload {
     bool Started = false;
   };
 
+  void CollectContacts() {
+    if (Native && !Native->EnsureBase(*Raw, Heights.get(), Base, Basis.get(), *Result, *Stopping)) {
+      return;
+    }
+    if (!Base) {
+      auto prepared = Generators::PrepareStructureTile(*Raw, *Heights, Stopping.get());
+      if (!prepared) {
+        Result->Status = std::unexpected(prepared.error());
+        return;
+      }
+      Base = std::make_shared<const Generators::PreparedStructureTile>(std::move(*prepared));
+    }
+    auto metadata = Generators::StructureTerrainContacts(*Base, Stopping.get());
+    if (metadata) {
+      Result->Tile = std::move(*metadata);
+    } else {
+      Result->Status = std::unexpected(metadata.error());
+    }
+  }
+
   std::shared_ptr<const void> Lifetime;
   JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
@@ -513,6 +533,8 @@ struct StructureBuildTask::Payload {
   std::shared_ptr<const Generators::PreparedStructureTile> Base;
   std::shared_ptr<const Generators::PreparedBuildingBasis> Basis;
   std::unique_ptr<NativeProducts> Native;
+  enum class Product { Geometry, TerrainContacts };
+  Product Requested = Product::Geometry;
   std::unique_ptr<Output> Result;
   std::optional<Generators::BakedTile> DiscardedTile;
   std::unique_ptr<MeshScratch> Scratch;
@@ -686,6 +708,11 @@ std::optional<std::string_view> StructureBuildTask::PreparedAssetKey() const noe
                                       : std::nullopt;
 }
 
+void StructureBuildTask::UseTerrainContacts() {
+  assert(State_ == State::Ready && !Payload_->SurfaceComparison);
+  Payload_->Requested = Payload::Product::TerrainContacts;
+}
+
 void StructureBuildTask::UseInitialCells() {
   assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
          !Payload_->Raw->RequestedDetail);
@@ -745,21 +772,24 @@ void StructureBuildTask::Posts(Tasks &pool) {
       }
       return;
     }
-    if (native && native->BeforeBake(*raw, heights, *base, basis, *output, *stopping)) {
+    const bool contacts = payload->Requested == Payload::Product::TerrainContacts;
+    if (contacts) {
+      payload->CollectContacts();
+    } else if (native && native->BeforeBake(*raw, heights, *base, basis, *output, *stopping)) {
       output->LastTaskMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();
       output->BakeMs += output->LastTaskMs;
       return;
     }
-    if (*base) {
+    if (!contacts && *base) {
       BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping, base->get());
-    } else if (comparison) {
+    } else if (!contacts && comparison) {
       comparison->Bake(*raw, *heights, *mesher, *scratch, *progress, *output, stopping);
-    } else {
+    } else if (!contacts) {
       BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping);
     }
-    if (native != nullptr) { native->AfterBake(*raw, **base, *output, *stopping); }
+    if (native != nullptr && !contacts) { native->AfterBake(*raw, **base, *output, *stopping); }
     if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

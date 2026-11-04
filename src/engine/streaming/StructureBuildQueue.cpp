@@ -313,7 +313,7 @@ bool StructureBuildQueue::BakeRevision::Matches(
     const Data::SourceObjects *inputObjects) const noexcept {
   return OwnsReservation(vectors, footprints, eye, heightSource, inputObjects) &&
          RequestedDetail == detail && Purpose == purpose &&
-         (purpose == BuildPurpose::SourceGeometry ||
+         (purpose != BuildPurpose::ViewDetail ||
           (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
           Generators::StructureSelectionDomain(Eye, Projection, EyeEcef)
               .Contains(eye, footprints.Projection(), footprints.EyeEcef())) &&
@@ -651,7 +651,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
       accepted->Coordinates->Origin.Selection == original->SourceInputs.Origin.Selection &&
       accepted->HeightRevision != 0 && accepted->HeightRevision == heightAt.Revision.Value &&
       accepted->Qualified &&
-      (purpose == BuildPurpose::SourceGeometry ||
+      (purpose != BuildPurpose::ViewDetail ||
        Generators::StructureSelectionDomain(
            accepted->Bake.Eye, accepted->Bake.Projection, accepted->Bake.EyeEcef)
            .Contains(eye, prints.Projection(), prints.EyeEcef()))) {
@@ -729,6 +729,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                             .SourceKey = sourceKey,
                             .Replacement = accepted != nullptr,
                             .ReservationOwner = prints.ReservationOwner()});
+  if (purpose == BuildPurpose::TerrainContacts) { Context_.Queue.back().Task.UseTerrainContacts(); }
   PostSlice(Context_.Queue.back());
   ++Posted_;
   return 1;
@@ -816,10 +817,11 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
   if (!selected.Key.empty() && !revision.FallbackHeights &&
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
-    if (revision.Purpose == BuildPurpose::SourceGeometry && !revision.RequestedDetail) {
+    if (revision.Purpose != BuildPurpose::TerrainContacts && !revision.RequestedDetail) {
       task.UseInitialCells();
     }
   }
+  if (revision.Purpose == BuildPurpose::TerrainContacts) { task.UseTerrainContacts(); }
   const uint64_t sourceKey =
       StructureSourceKey({.Vector = VectorSource(*stack.Vectors(), next.Tile),
                           .HeightSources = task.HeightSources(),

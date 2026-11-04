@@ -79,6 +79,7 @@ public:
                        std::string key,
                        std::string requestKey = {});
   [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
+  void UseTerrainContacts();
   void UseInitialCells();
   [[nodiscard]] uint64_t InitialCells() const noexcept;
   void SelectNextCell(uint32_t cell);
