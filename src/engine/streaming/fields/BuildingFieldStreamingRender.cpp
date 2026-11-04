@@ -177,8 +177,8 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
                                       .RequestedCell = cell.Source.Cell,
                                       .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u),
                                       .Coverage = cell.Coverage};
-  cell.Staged = context.Pages.StageCell(
-      tile.Index, cell.Source.Cell, page, tile.Source.AnchorEcef, error, tile.SourceKey);
+  cell.Staged =
+      context.Pages.StageProduct(tile.Index, page, tile.Source.AnchorEcef, error, tile.SourceKey);
   return cell.Staged;
 }
 

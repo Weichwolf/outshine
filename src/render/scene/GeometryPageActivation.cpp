@@ -8,6 +8,7 @@
 #include <limits>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -85,19 +86,74 @@ bool GeometryPageResidency::ActivateCells(uint32_t tile,
       (!shared && !ValidateActivation(tile, source, shadow, error))) {
     return false;
   }
+  auto targets = SelectedPages(tile, source, main, shadow);
+  std::ranges::sort(targets, {}, &PageSelection::Page);
+  return PublishSelection(tile, source.Key, targets, error);
+}
+
+bool GeometryPageResidency::ActivateProducts(uint32_t tile,
+                                             uint64_t sourceKey,
+                                             const SourceCoverage &expected,
+                                             std::span<const std::string_view> main,
+                                             std::span<const std::string_view> shadow,
+                                             std::string &error) {
+  const auto ordered = [](auto keys) {
+    return std::adjacent_find(keys.begin(), keys.end(), [](auto a, auto b) { return a >= b; }) ==
+           keys.end();
+  };
+  if (Renderer_ == nullptr || sourceKey == 0 || main.empty() || shadow.empty() || !ordered(main) ||
+      !ordered(shadow)) {
+    error = "geometry product activation needs ordered unique keys and complete pass selections";
+    return false;
+  }
+  std::vector<PageSelection> targets;
+  std::vector<const SourceCoverage *> mainSources;
+  std::vector<const SourceCoverage *> shadowSources;
+  targets.reserve(main.size() + shadow.size());
+  mainSources.reserve(main.size());
+  shadowSources.reserve(shadow.size());
+  const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
+  for (auto at = first; at != Pages_.end() && at->Tile == tile; ++at) {
+    if (at->SourceKey != sourceKey) { continue; }
+    const bool inMain = std::ranges::binary_search(main, std::string_view(at->AssetKey));
+    const bool inShadow = std::ranges::binary_search(shadow, std::string_view(at->AssetKey));
+    if (!inMain && !inShadow) { continue; }
+    if (at->Mode != Publication::Product || !at->Coverage) {
+      error = "selected geometry product has no exact source coverage";
+      return false;
+    }
+    if (inMain) { mainSources.push_back(&*at->Coverage); }
+    if (inShadow) { shadowSources.push_back(&*at->Coverage); }
+    auto passes = GeometryPasses::MainAndShadow;
+    if (!inMain) { passes = GeometryPasses::Shadow; }
+    if (!inShadow) { passes = GeometryPasses::Main; }
+    targets.push_back({.Page = &*at, .Passes = passes});
+  }
+  if (mainSources.size() != main.size() || shadowSources.size() != shadow.size() ||
+      !SourceCoverage::Partition(expected, mainSources) ||
+      !SourceCoverage::Partition(expected, shadowSources)) {
+    error = "geometry products do not cover their complete revision in both passes";
+    return false;
+  }
+  return PublishSelection(tile, sourceKey, targets, error);
+}
+
+bool GeometryPageResidency::PublishSelection(uint32_t tile,
+                                             uint64_t sourceKey,
+                                             std::span<const PageSelection> targets,
+                                             std::string &error) {
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
-
-  const auto targets = SelectedPages(tile, source, main, shadow);
   size_t parts = 0;
   for (auto at = first; at != last; ++at) { parts += at->Parts.size(); }
   std::vector<SceneRenderer::PieceRows> rows;
   rows.reserve(parts);
+  auto selected = targets.begin();
   for (auto at = first; at != last; ++at) {
-    const auto selected = std::ranges::find(targets, &*at, &PageSelection::Page);
-    AppendSelectionRows(
-        rows, *at, selected != targets.end() ? std::optional{selected->Passes} : std::nullopt);
+    const bool chosen = selected != targets.end() && selected->Page == &*at;
+    AppendSelectionRows(rows, *at, chosen ? std::optional{selected->Passes} : std::nullopt);
+    if (chosen) { ++selected; }
   }
   if (!Renderer_->SetPieceInstances(rows, error)) { return false; }
   for (auto at = first; at != last; ++at) {
@@ -109,10 +165,13 @@ bool GeometryPageResidency::ActivateCells(uint32_t tile,
     target.Page->Passes = target.Passes;
   }
   for (auto at = first; at != last; ++at) {
-    if (at->Cell == 0 || at->SourceKey != source.Key) { Releases(*at); }
+    if ((at->Cell == 0 && at->Mode != Publication::Product) || at->SourceKey != sourceKey) {
+      Releases(*at);
+    }
   }
-  std::erase_if(Pages_, [tile, source](const ResidentGeometryPage &held) {
-    return held.Tile == tile && (held.Cell == 0 || held.SourceKey != source.Key);
+  std::erase_if(Pages_, [tile, sourceKey](const ResidentGeometryPage &held) {
+    return held.Tile == tile &&
+           ((held.Cell == 0 && held.Mode != Publication::Product) || held.SourceKey != sourceKey);
   });
   RefreshDigest();
   return true;

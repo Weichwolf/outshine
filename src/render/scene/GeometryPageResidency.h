@@ -7,6 +7,7 @@
 #include <limits>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -50,6 +51,19 @@ public:
                                 const Vec3 &anchorEcef,
                                 std::string &error,
                                 uint64_t sourceKey);
+
+  [[nodiscard]] bool StageProduct(uint32_t tile,
+                                  const GeometryPageView &baked,
+                                  const Vec3 &anchorEcef,
+                                  std::string &error,
+                                  uint64_t sourceKey);
+  // Sorted unique asset keys; each pass must partition the declared source coverage.
+  [[nodiscard]] bool ActivateProducts(uint32_t tile,
+                                      uint64_t sourceKey,
+                                      const SourceCoverage &expected,
+                                      std::span<const std::string_view> main,
+                                      std::span<const std::string_view> shadow,
+                                      std::string &error);
 
   struct CellSelection {
     uint32_t Cell = 0;
@@ -156,14 +170,14 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Pages_.capacity() * sizeof(ResidentGeometryPage) + Why_.capacity();
     for (const auto &page : Pages_) {
-      bytes += page.Parts.capacity() * sizeof(ResidentPart);
+      bytes += page.Parts.capacity() * sizeof(ResidentPart) + page.AssetKey.capacity() + 1;
       if (page.Coverage) { bytes += page.Coverage->CapacityBytes(); }
     }
     return bytes;
   }
 
 private:
-  enum class Publication { Immediate, Cell, Cohort };
+  enum class Publication { Immediate, Cell, Cohort, Product };
   enum class WholeTileTransition : uint8_t { NoCells, Replaced, Failed };
 
   struct TileCell {
@@ -181,6 +195,8 @@ private:
     uint32_t Cell = 0;
     uint64_t Digest = 0;
     uint64_t SourceKey = 0;
+    std::string AssetKey;
+    Publication Mode = Publication::Immediate;
     uint64_t OccupiedCells = 0;
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
@@ -206,6 +222,10 @@ private:
                                                          CellSource source,
                                                          std::span<const CellSelection> main,
                                                          std::span<const CellSelection> shadow);
+  [[nodiscard]] bool PublishSelection(uint32_t tile,
+                                      uint64_t sourceKey,
+                                      std::span<const PageSelection> targets,
+                                      std::string &error);
   [[nodiscard]] bool IndependentPasses(uint32_t tile) const noexcept;
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
   [[nodiscard]] bool ValidateStore(TileCell address,

@@ -99,10 +99,13 @@ bool GeometryPageResidency::ShouldShow(uint32_t tile,
       })) {
     return true;
   }
-  const auto previous = std::find_if(
-      first, last, [detail](const ResidentGeometryPage &held) { return held.Detail == detail; });
+  const auto previous = std::find_if(first, last, [detail](const ResidentGeometryPage &held) {
+    return held.Mode != Publication::Product && held.Detail == detail;
+  });
   if (previous != last) { return previous->Visible; }
-  return std::none_of(first, last, [](const ResidentGeometryPage &held) { return held.Visible; });
+  return std::none_of(first, last, [](const ResidentGeometryPage &held) {
+    return held.Mode != Publication::Product && held.Visible;
+  });
 }
 
 bool GeometryPageResidency::Upload(uint32_t tile,
@@ -150,6 +153,30 @@ bool GeometryPageResidency::StageCells(uint32_t tile,
   return Store(tile, first, baked, anchorEcef, error, sourceKey, Publication::Cohort);
 }
 
+bool GeometryPageResidency::StageProduct(uint32_t tile,
+                                         const GeometryPageView &baked,
+                                         const Vec3 &anchorEcef,
+                                         std::string &error,
+                                         uint64_t sourceKey) {
+  if (Renderer_ == nullptr || sourceKey == 0 || baked.AssetKey.empty() || !baked.Coverage) {
+    error = "staged geometry product needs a renderer, key, revision and exact source coverage";
+    return false;
+  }
+  if (std::ranges::any_of(Pages_, [&](const ResidentGeometryPage &held) {
+        return held.Tile == tile && held.SourceKey == sourceKey && held.AssetKey == baked.AssetKey;
+      })) {
+    error = "geometry product is already resident";
+    return false;
+  }
+  return Store(tile,
+               baked.RequestedCell.value_or(0),
+               baked,
+               anchorEcef,
+               error,
+               sourceKey,
+               Publication::Product);
+}
+
 bool GeometryPageResidency::Store(uint32_t tile,
                                   uint32_t cell,
                                   const GeometryPageView &baked,
@@ -176,6 +203,8 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .Cell = cell,
                              .Digest = baked.Digest,
                              .SourceKey = sourceKey,
+                             .AssetKey = std::string(baked.AssetKey),
+                             .Mode = publication,
                              .OccupiedCells = baked.OccupiedCells,
                              .FallbackHeights = baked.FallbackHeights,
                              .Detail = baked.RequestedDetail,
@@ -221,7 +250,9 @@ bool GeometryPageResidency::Store(uint32_t tile,
   }
   if (staged) {
     DiscardSupersededStage(tile, sourceKey);
-    DiscardStagedRepresentation({.Tile = tile, .Cell = cell}, baked, sourceKey);
+    if (publication != Publication::Product) {
+      DiscardStagedRepresentation({.Tile = tile, .Cell = cell}, baked, sourceKey);
+    }
   }
   if (!staged && retired != WholeTileTransition::Replaced) {
     if (baked.RequestedDetail && !sourceChanged) {
@@ -244,23 +275,30 @@ GeometryPageResidency::WholeTileTransition GeometryPageResidency::RetireCellsFor
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
-  if (std::none_of(first, last, [](const ResidentGeometryPage &held) { return held.Cell != 0; })) {
+  if (std::none_of(first, last, [](const ResidentGeometryPage &held) {
+        return held.Cell != 0 || held.Mode == Publication::Product;
+      })) {
     return WholeTileTransition::NoCells;
   }
   std::vector<SceneRenderer::PieceRows> rows;
   size_t parts = 0;
   for (auto at = first; at != last; ++at) {
-    if (at->Visible && at->Cell != 0) { parts += at->Parts.size(); }
+    if (at->Visible && (at->Cell != 0 || at->Mode == Publication::Product)) {
+      parts += at->Parts.size();
+    }
   }
   rows.reserve(parts);
   for (auto at = first; at != last; ++at) {
-    if (at->Visible && at->Cell != 0) { AppendPieceRows(rows, at->Parts, nullptr); }
+    if (at->Visible && (at->Cell != 0 || at->Mode == Publication::Product)) {
+      AppendPieceRows(rows, at->Parts, nullptr);
+    }
   }
   if (!rows.empty() && !Renderer_->SetPieceInstances(rows, error)) {
     return WholeTileTransition::Failed;
   }
   const auto retire = [tile, sourceKey](const ResidentGeometryPage &held) {
-    return held.Tile == tile && (held.Cell == 0 || held.Visible || held.SourceKey != sourceKey);
+    return held.Tile == tile && ((held.Cell == 0 && held.Mode != Publication::Product) ||
+                                 held.Visible || held.SourceKey != sourceKey);
   };
   for (auto at = first; at != last; ++at) {
     if (retire(*at)) { Releases(*at); }
@@ -274,9 +312,9 @@ void GeometryPageResidency::DiscardStagedRepresentation(TileCell address,
                                                         const GeometryPageView &baked,
                                                         uint64_t sourceKey) {
   std::erase_if(Pages_, [&](const ResidentGeometryPage &held) {
-    if (held.Tile != address.Tile || held.Cell != address.Cell || held.Visible ||
-        held.SourceKey != sourceKey || held.Detail != baked.RequestedDetail ||
-        held.OccupiedCells != baked.OccupiedCells) {
+    if (held.Mode == Publication::Product || held.Tile != address.Tile ||
+        held.Cell != address.Cell || held.Visible || held.SourceKey != sourceKey ||
+        held.Detail != baked.RequestedDetail || held.OccupiedCells != baked.OccupiedCells) {
       return false;
     }
     Releases(held);
@@ -290,6 +328,7 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
                                           Publication publication,
                                           std::string &error) const {
   const bool staged = publication != Publication::Immediate;
+  if (publication == Publication::Product) { return true; }
   if (Renderer_ == nullptr || address.Cell > kGeometryPageCellsMost) {
     error = "tile geometry requires a live world and a valid cell";
     return false;
@@ -535,6 +574,12 @@ bool GeometryPageResidency::SelectDetail(uint32_t tile,
       std::find_if(first, Pages_.end(), [tile, cell](const ResidentGeometryPage &held) {
         return held.Tile != tile || held.Cell != cell;
       });
+  if (std::any_of(first, last, [](const ResidentGeometryPage &held) {
+        return held.Mode == Publication::Product;
+      })) {
+    error = "activate complete product selections before selecting a single detail";
+    return false;
+  }
   const auto target = std::find_if(
       first, last, [detail](const ResidentGeometryPage &held) { return held.Detail == detail; });
   if (target == last) {

@@ -411,6 +411,114 @@ void CheckExactSources(SceneRenderer &renderer,
   pages.Clear();
 }
 
+void CheckProductAddresses(SceneRenderer &renderer,
+                           GeometryPageResidency &pages,
+                           const TangentFrame &frame) {
+  pages.Clear();
+  pages.BindRenderer(&renderer);
+  pages.SetFrame(frame);
+  const auto material = Register(renderer);
+  const auto vertices = Vertices(frame, {{-.8, .8}});
+  constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
+  const std::array parts{GeometryPagePartView{.Tangents = {},
+                                              .Verts = vertices,
+                                              .Indices = indices,
+                                              .Clusters = {},
+                                              .Colours = {},
+                                              .Uv1 = {},
+                                              .Surface = PieceSurface::Registered(material),
+                                              .Textured = true}};
+  std::string error;
+  GeometryPageView parentPage;
+  parentPage.Parts = parts;
+  parentPage.Digest = 999;
+  parentPage.RequestedDetail = LevelOfDetail::Fine;
+  CHECK(pages.Upload(kTile, parentPage, frame.OriginEcef(), error, kSource),
+        "a complete parent precedes individual products");
+  const auto parent = Draw(renderer);
+  constexpr uint64_t count = 128;
+  constexpr std::array<SourceCoverage::Range, 1> whole{{{.First = 0, .Count = count}}};
+  const auto expected = SourceCoverage::FromRanges("products", count, whole);
+  CHECK(expected, "the full product source domain is valid");
+  if (!expected) { return; }
+  const auto stage =
+      [&](std::string_view key, uint64_t first, uint64_t size, std::string revision = "products") {
+        const std::array<SourceCoverage::Range, 1> range{{{.First = first, .Count = size}}};
+        const auto coverage = SourceCoverage::FromRanges(std::move(revision), count, range);
+        CHECK(coverage, "the staged product has valid source intervals");
+        if (!coverage) { return false; }
+        GeometryPageView page;
+        page.Parts = parts;
+        page.Digest = first + 1000;
+        page.AssetKey = key;
+        page.RequestedDetail = LevelOfDetail::Fine;
+        page.Coverage = *coverage;
+        return pages.StageProduct(kTile, page, frame.OriginEcef(), error, kSource);
+      };
+  std::vector<std::string> owners;
+  owners.reserve(count);
+  for (uint64_t at = 0; at < count; ++at) {
+    owners.push_back("product/" + std::to_string(at));
+    CHECK(stage(owners.back(), at, 1), "each source has an independent addressed product");
+  }
+  std::vector<std::string_view> selected;
+  selected.reserve(owners.size());
+  for (const auto &key : owners) { selected.push_back(key); }
+  std::ranges::sort(selected);
+  CHECK(!stage(owners.front(), 0, 1), "a product key cannot name two resident products");
+  auto unqualified = parentPage;
+  unqualified.AssetKey = "unqualified";
+  CHECK(!pages.StageProduct(kTile, unqualified, frame.OriginEcef(), error, kSource),
+        "a product without exact coverage cannot be staged");
+  CHECK(pages.Upload(kTile, parentPage, frame.OriginEcef(), error, kSource) &&
+            Draw(renderer) == parent,
+        "refreshing the whole parent preserves staged independently addressed children");
+  auto repeated = selected;
+  repeated.push_back(selected.back());
+  CHECK(!pages.ActivateProducts(kTile, kSource, *expected, repeated, selected, error) &&
+            Draw(renderer) == parent,
+        "duplicate keys cannot create false source coverage");
+
+  CHECK(!pages.ActivateProducts(
+            kTile, kSource, *expected, std::span(selected).first(count - 1), selected, error) &&
+            Draw(renderer) == parent,
+        "a missing product preserves its visible parent");
+  const std::array<std::string_view, 1> missing{"not-resident"};
+  CHECK(!pages.ActivateProducts(kTile, kSource, *expected, missing, selected, error) &&
+            Draw(renderer) == parent,
+        "an unknown product never substitutes empty geometry");
+  CHECK(stage("overlap", 0, count) && stage("foreign", 0, count, "other"),
+        "alternate revisions and whole-source products can be staged independently");
+  auto overlap = selected;
+  overlap.emplace_back("overlap");
+  std::ranges::sort(overlap);
+  const std::array<std::string_view, 1> foreign{"foreign"};
+  CHECK(!pages.ActivateProducts(kTile, kSource, *expected, overlap, selected, error) &&
+            !pages.ActivateProducts(kTile, kSource, *expected, selected, foreign, error) &&
+            Draw(renderer) == parent,
+        "overlap and foreign shadow coverage preserve the parent transactionally");
+  CHECK(pages.ActivateProducts(kTile, kSource, *expected, selected, selected, error),
+        "128 products publish without a cell mask or cell address");
+  size_t main = 0;
+  pages.ForEachDigest([&](const auto &) { ++main; });
+  CHECK(main == count && pages.ValidateSources(error), "all 128 GPU products retain live sources");
+  const std::array<std::string_view, 1> coarse{"overlap"};
+  CHECK(pages.ActivateProducts(kTile, kSource, *expected, coarse, selected, error),
+        "main and shadow choose different complete product partitions");
+  main = 0;
+  size_t shadow = 0;
+  pages.ForEachDigest([&](const auto &) { ++main; });
+  pages.ForEachDigest([&](const auto &) { ++shadow; }, GeometryPasses::Shadow);
+  CHECK(main == 1 && shadow == count, "the two passes preserve their independent products");
+  const auto stable = Draw(renderer);
+  CHECK(!pages.SelectDetail(kTile, LevelOfDetail::Fine, error) && Draw(renderer) == stable,
+        "single-detail selection cannot bypass complete source coverage");
+  CHECK(!pages.ActivateProducts(kTile, kSource + 1, *expected, coarse, selected, error) &&
+            Draw(renderer) == stable,
+        "a different source revision cannot disturb a published product selection");
+  pages.Clear();
+}
+
 void Exercise() {
   SceneRenderer renderer({.Create = [](void *, Native::DeviceOptions options) {
     options.Validation = true;
@@ -516,6 +624,7 @@ void Exercise() {
   CheckIndependentPasses(renderer, pages);
   CheckSkyline(renderer, pages, frame);
   CheckExactSources(renderer, pages, frame);
+  CheckProductAddresses(renderer, pages, frame);
   pages.Clear();
 }
 }
