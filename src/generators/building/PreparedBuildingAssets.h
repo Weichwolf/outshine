@@ -105,6 +105,8 @@ public:
   struct SourceMember {
     uint32_t Cell = 0;
     bool FieldSupported = false;
+    uint32_t Faces = 0;
+    std::optional<double> ShellErrorM;
   };
 
   struct SourceGroups {

@@ -7,6 +7,9 @@
 #include "Check.h"
 #include <atomic>
 #include <chrono>
+#include <cstring>
+#include <limits>
+#include "ByteArchive.h"
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -70,15 +73,21 @@ void MalformedGroups(AssetCache &cache,
   CHECK(loaded && *loaded, "the compact metadata body is available independently");
   if (!loaded || !*loaded) { return; }
   const auto encoded = (**loaded).Bytes();
-  CHECK(encoded.size() == 12 + 2 * 5,
-        "metadata carries two five-byte members and a versioned header");
-  if (encoded.size() != 22) { return; }
-  std::vector<std::vector<uint8_t>> invalid(5, {encoded.begin(), encoded.end()});
+  CHECK(encoded.size() == 12 + 2 * 17,
+        "metadata carries two seventeen-byte members and a versioned header");
+  if (encoded.size() != 46) { return; }
+  std::vector<std::vector<uint8_t>> invalid(9, {encoded.begin(), encoded.end()});
   invalid[0].pop_back();
   invalid[1][0] ^= 1;
   invalid[2][12] = 0;
   invalid[3][16] = 2;
   invalid[4][8] = 255;
+  for (size_t at = 17; at < 21; ++at) { invalid[5][at] = 0; }
+  const auto negative = LittleEndian(-0.5);
+  const auto nan = LittleEndian(std::numeric_limits<double>::quiet_NaN());
+  std::memcpy(invalid[6].data() + 21, &negative, sizeof(negative));
+  std::memcpy(invalid[7].data() + 21, &nan, sizeof(nan));
+  invalid[8].push_back(0);
   loaded->reset();
   record.Package.clear();
   record.OffsetBytes = 0;
@@ -87,7 +96,7 @@ void MalformedGroups(AssetCache &cache,
     record.ByteCount = payload.size();
     CHECK(cache.Publish(std::span(&record, 1), payload), "the malformed counterexample is stored");
     CHECK(!owner.DescribeSourceGroups(key, {.Occupied = 1, .IndexBytesMost = bytes}),
-          "truncation, version, cohort, support and oversized count fail before source fallback");
+          "invalid source metadata fails before source fallback");
   }
 }
 
@@ -106,8 +115,9 @@ void CachedGroups(const std::filesystem::path &root,
         "fresh group hits decode neither prepared headers nor form blocks");
   if (hit && *hit) {
     for (const auto &member : (**hit).Members) {
-      CHECK(member.Cell == 1 && member.FieldSupported,
-            "cached source cohorts retain their native classification");
+      CHECK(member.Cell == 1 && member.FieldSupported && member.Faces > 0 && member.ShellErrorM &&
+                *member.ShellErrorM >= 0,
+            "cached sources retain native support and declared geometry errors without source IO");
     }
     MalformedGroups(*cache, **owner, key, (**hit).Index->Hierarchy.Nodes().front().Bounds, bytes);
   }
@@ -161,8 +171,10 @@ void Exercise(const std::filesystem::path &root) {
         "group discovery retains every source and its persisted hierarchy");
   if (groups && *groups) {
     for (const auto &member : (**groups).Members) {
-      CHECK(member.Cell == 1 && member.FieldSupported,
-            "native headers expose cohort and support without opening forms");
+      CHECK(
+          member.Cell == 1 && member.FieldSupported && member.Faces > 0 && member.ShellErrorM &&
+              *member.ShellErrorM >= 0,
+          "native headers expose cohort, geometry support and declared shell error without forms");
     }
   }
   CHECK((*assets)->Costs().SurfaceReadBytes == before.SurfaceReadBytes &&
