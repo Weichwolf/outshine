@@ -93,3 +93,10 @@ The 1024 m planar straight control emits six rather than 192 triangles with iden
 contact words; this is a control-case geometry reduction, not a Tokyo or GPU speedup.
 World/page demand, canonical recipe persistence and independently keyed cached display
 products remain unconnected.
+
+Road-page addresses can separately identify `UpperModelErrorM`. The optional value
+describes the fitted Upper position model only; it is not full FP/material/normal or
+device qualification. Version 4 encodes the value and the appearance variant explicitly.
+Absent values retain the original version 2/3 address bytes and keys. Nonpositive/
+nonfinite values, incomplete replacement diagnostics and empty replacements for nonempty
+source sets are rejected. Spatial `Level` remains separate from the model budget.
