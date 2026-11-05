@@ -465,6 +465,13 @@ int Renderer::settleFrames() const {
   return Of_->S_->Picture.Device.SettleFrames();
 }
 
+Result Renderer::readGeometry(Render::GeometrySnapshot &out) {
+  if (Of_->S_->Picture.Device.ReadGeometrySnapshot(out) != Render::ReadState::Ready) {
+    return std::unexpected("resident geometry snapshot readback failed");
+  }
+  return {};
+}
+
 Result Renderer::readPixels(std::vector<uint8_t> &rgba) {
   return Of_->readPixels(rgba);
 }

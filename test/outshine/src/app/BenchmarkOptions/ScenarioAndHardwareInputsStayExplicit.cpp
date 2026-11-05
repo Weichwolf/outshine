@@ -28,14 +28,16 @@ int main() {
                                                       "--output",
                                                       "report.json",
                                                       "--image",
-                                                      "last.png"});
+                                                      "last.png",
+                                                      "--geometry-output",
+                                                      "resident"});
   CHECK(parsed && parsed->Scenario,
         "a complete scenario measurement is parsed without device work");
   if (parsed && parsed->Scenario) {
     const auto &scenario = *parsed->Scenario;
     CHECK(scenario.Source == "scene.json" && scenario.Motion.Frames == 60 &&
               scenario.View == "start" && scenario.Offline && scenario.Image == "last.png" &&
-              parsed->Output == "report.json",
+              parsed->Output == "report.json" && scenario.GeometryDirectory == "resident",
           "scenario, time window, camera and outputs retain their identities");
     CHECK(scenario.Motion.LinearVelocityMps[0] == 1 && scenario.Motion.LinearVelocityMps[1] == -2 &&
               scenario.Motion.LinearVelocityMps[2] == 3 &&
@@ -57,6 +59,26 @@ int main() {
   reject(std::array{"--offline", "--offline"});
   reject(std::array{"--output", "a", "--output", "b"});
   reject(std::array{"--unknown"});
+  reject(std::array{"--geometry-output", "resident"});
+  reject(std::array{"--scenario", "scene.json", "--frames", "1", "--geometry-output", ""});
+  reject(std::array{"--scenario",
+                    "scene.json",
+                    "--frames",
+                    "1",
+                    "--geometry-output",
+                    "a",
+                    "--geometry-output",
+                    "b"});
+  reject(std::array{"--scenario",
+                    "scene.json",
+                    "--frames",
+                    "1",
+                    "--geometry-output",
+                    "same",
+                    "--output",
+                    "same"});
+  reject(std::array{
+      "--scenario", "scene.json", "--frames", "1", "--geometry-output", "same", "--image", "same"});
   for (const char *number : {"0", "-1", "1.0", "1000001", "18446744073709551616", "1extra", ""}) {
     reject(std::array{"--scenario", "scene.json", "--frames", number});
   }

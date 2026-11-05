@@ -424,6 +424,18 @@ public:
     return Pass_ == GeometryPassKind::Transmission;
   }
 
+  [[nodiscard]] VertexLayout BatchLayoutAt(size_t row) const { return BatchLayout[row]; }
+
+  [[nodiscard]] uint32_t BatchPipelineAt(size_t row) const {
+    const auto &surface = Slots[Batches[row].MaterialSlot];
+    return static_cast<uint32_t>(
+        PipelineAt(surface.Domain, BatchLayout[row], surface.Kind, surface.CullsBack));
+  }
+
+  [[nodiscard]] SurfaceKind BatchSurfaceKindAt(size_t row) const {
+    return Slots[Batches[row].MaterialSlot].Kind;
+  }
+
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
   [[nodiscard]] Native::Result<uint32_t> EncodeShadow(const PassRecording &into,

@@ -28,6 +28,7 @@ namespace outshine {
 
 namespace Render {
 struct GpuFrameSample;
+struct GeometrySnapshot;
 
 namespace Native {
 struct MemoryStatus;
@@ -157,6 +158,8 @@ public:
 
   [[nodiscard]] std::string_view gpuName() const;
   [[nodiscard]] Render::Native::MemoryStatus gpuMemory() const;
+
+  [[nodiscard]] Result readGeometry(Render::GeometrySnapshot &out);
 
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
 

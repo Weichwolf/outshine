@@ -1,5 +1,6 @@
 #include "EngineFactory.h"
 #include "BenchmarkScenario.h"
+#include "GeometrySnapshotOutput.h"
 #include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkReport.h"
@@ -99,6 +100,18 @@ Result MeasureFrames(Engine &engine,
     return std::unexpected("the benchmark lost its final camera");
   }
   return {};
+}
+
+std::expected<std::string, std::string> ExportBenchmark(Engine &engine,
+                                                        const ScenarioBenchmarkOptions &options,
+                                                        const ScenarioBenchmarkReport &report) {
+  auto json = ScenarioBenchmarkJson(report);
+  if (!options.GeometryDirectory.empty()) {
+    auto renderer = engine.renderer();
+    const auto written = WriteGeometrySnapshot(renderer, options.GeometryDirectory, json);
+    if (!written) { return std::unexpected(written.error()); }
+  }
+  return json;
 }
 
 Result FinishMeasurement(Engine &engine,
@@ -211,7 +224,7 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.GpuMemory = engine.renderer().gpuMemory();
   report.HardwareMs = ElapsedMs(hardwareAt);
   report.LoadAfter = HostLoad();
-  return ScenarioBenchmarkJson(report);
+  return ExportBenchmark(engine, options, report);
 }
 
 }

@@ -96,6 +96,8 @@ struct RenderFrameTiming {
   double TotalMs = 0.0;
 };
 
+struct GeometrySnapshot;
+
 enum class GeometryReadback { Counters, Indices };
 
 struct KeptDraws {
@@ -244,6 +246,8 @@ public:
                        std::span<const std::shared_ptr<const ResidentMaterialField>> additional,
                        const MaterialFieldView &view,
                        const std::atomic_bool *stopping = nullptr);
+
+  [[nodiscard]] ReadState ReadGeometrySnapshot(GeometrySnapshot &into);
 
   // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
   [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);

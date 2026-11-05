@@ -13,6 +13,7 @@ struct ScenarioBenchmarkOptions {
   std::string_view Overrides;
   std::string_view View;
   std::string_view Image;
+  std::string_view GeometryDirectory;
   std::string_view CacheDirectory;
   BenchmarkMotionInput Motion;
   double PreloadSeconds = kDefaultPreloadSeconds;

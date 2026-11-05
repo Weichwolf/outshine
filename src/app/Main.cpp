@@ -161,22 +161,24 @@ void Usage(std::string_view verb = {}) {
     return;
   }
   if (verb == "benchmark") {
-    std::println("Usage: outshine benchmark [--output <file.json>] [--gpu-validation]\n"
-                 "Measure the fixed native CPU, GPU and memory workloads; output JSON.\n"
-                 "An output path alone selects the synthetic hardware measurement.\n"
-                 "GPU validation applies to this synthetic mode and changes measurement costs.\n\n"
-                 "Usage: outshine benchmark --scenario <file|JSON> --frames <N> [options]\n"
-                 "  --view <id>                    starting declared camera\n"
-                 "  --scenario-overrides <JSON>    generic scenario overrides, including fps\n"
-                 "  --linear-velocity <x,y,z>      world-space velocity in m/s\n"
-                 "  --angular-velocity <x,y,z>     right-handed world-axis velocity in degrees/s\n"
-                 "  --preload-seconds <s>          refined preparation deadline (default10)\n"
-                 "  --cache-dir <directory>        source directory; assets remain separate\n"
-                 "  --offline                      use cached and shipped sources\n"
-                 "  --output <file.json>           atomic report; default stdout\n"
-                 "  --image <file.png>             save only the final measured frame\n"
-                 "N is 1..1000000; the scenario supplies width, height and target fps.\n"
-                 "No warmup frames; GPU percentiles stay absent when timestamps are incomplete.");
+    std::println(
+        "Usage: outshine benchmark [--output <file.json>] [--gpu-validation]\n"
+        "Measure the fixed native CPU, GPU and memory workloads; output JSON.\n"
+        "An output path alone selects the synthetic hardware measurement.\n"
+        "GPU validation applies to this synthetic mode and changes measurement costs.\n\n"
+        "Usage: outshine benchmark --scenario <file|JSON> --frames <N> [options]\n"
+        "  --view <id>                    starting declared camera\n"
+        "  --scenario-overrides <JSON>    generic scenario overrides, including fps\n"
+        "  --linear-velocity <x,y,z>      world-space velocity in m/s\n"
+        "  --angular-velocity <x,y,z>     right-handed world-axis velocity in degrees/s\n"
+        "  --preload-seconds <s>          refined preparation deadline (default10)\n"
+        "  --cache-dir <directory>        source directory; assets remain separate\n"
+        "  --offline                      use cached and shipped sources\n"
+        "  --output <file.json>           atomic report; default stdout\n"
+        "  --image <file.png>             save only the final measured frame\n"
+        "  --geometry-output <new-dir>    snapshot resident mesh indices after measurement\n"
+        "N is 1..1000000; the scenario supplies width, height and target fps.\n"
+        "No warmup frames; GPU percentiles stay absent when timestamps are incomplete.");
   } else if (verb == "run" || verb == "measures") {
     std::println(
         "Usage: outshine {} [options] <scenario> [name]\n"

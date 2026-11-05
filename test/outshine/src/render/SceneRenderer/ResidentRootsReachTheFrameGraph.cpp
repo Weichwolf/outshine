@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "SceneRenderer.h"
+#include "GeometrySnapshot.h"
 #include "GeometryCullStage.h"
 #include "GpuSubmission.h"
 #include <SDL3/SDL.h>
@@ -20,6 +21,24 @@ bool Draw(SceneRenderer &renderer) {
   const auto frame = renderer.RenderFrame();
   CHECK(frame, frame ? "the complete native frame graph submits" : frame.error().c_str());
   return frame.has_value();
+}
+
+void CheckSnapshot(SceneRenderer &renderer, const KeptDraws &visible) {
+  GeometrySnapshot snapshot;
+  CHECK(renderer.ReadGeometrySnapshot(snapshot) == ReadState::Ready && snapshot.SelectionReady &&
+            snapshot.Roots.size() == 2 && snapshot.Templates.size() == 1 &&
+            snapshot.Batches.size() == 2 && snapshot.Arguments == visible.Arguments,
+        "the resident snapshot preserves actual templates, instance roots and draw arguments");
+  if (!snapshot.Templates.empty()) {
+    const auto &one = snapshot.Templates.front();
+    const size_t firstIndex = one.RelativeFirstIndex;
+    CHECK(firstIndex <= snapshot.SourceIndices.size() &&
+              snapshot.SourceIndices.size() - firstIndex >= size_t{3} &&
+              snapshot.SourceIndices[firstIndex] == 0 &&
+              snapshot.SourceIndices[firstIndex + 1] == 1 &&
+              snapshot.SourceIndices[firstIndex + 2] == 2,
+          "source references survive the original resident index offset");
+  }
 }
 
 void Exercise() {
@@ -96,6 +115,7 @@ void Exercise() {
   CHECK(renderer.ReadGeometrySelection(counters, GeometryReadback::Counters) == ReadState::Ready &&
             counters.Indices == visible.Indices && counters.Batches == visible.Batches,
         "the small diagnostic query agrees with the complete original draw selection");
+  CheckSnapshot(renderer, visible);
   CHECK(counters.RootWork.Visited == 2 && counters.RootWork.Accepted == 1 &&
             counters.RootWork.Requested == 1 && counters.RootWork.LogicalWork == 1 &&
             counters.RootWork.Overflow == 0 && counters.ClusterWork.Visited == 1 &&

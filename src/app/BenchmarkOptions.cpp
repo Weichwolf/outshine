@@ -31,6 +31,7 @@ enum class Argument : uint8_t {
   Preload,
   Offline,
   Cache,
+  Geometry,
   Image
 };
 
@@ -50,6 +51,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--preload-seconds", .Kind = Argument::Preload},
                             Flag{.Name = "--offline", .Kind = Argument::Offline},
                             Flag{.Name = "--cache-dir", .Kind = Argument::Cache},
+                            Flag{.Name = "--geometry-output", .Kind = Argument::Geometry},
                             Flag{.Name = "--image", .Kind = Argument::Image}};
 
 std::expected<Vec3, std::string_view> ReadVelocity(std::string_view value) noexcept {
@@ -79,6 +81,7 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Scenario: scenario.Source = value; break;
     case Argument::View: scenario.View = value; break;
     case Argument::Image: scenario.Image = value; break;
+    case Argument::Geometry: scenario.GeometryDirectory = value; break;
     case Argument::Cache: scenario.CacheDirectory = value; break;
     case Argument::Overrides: {
       if (!ValidScenarioOverrides(value)) {
@@ -128,6 +131,11 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   }
   if (!options.Output.empty() && options.Output == options.Scenario->Image) {
     return std::unexpected("benchmark JSON and image require distinct output paths");
+  }
+  if (!options.Scenario->GeometryDirectory.empty() &&
+      (options.Scenario->GeometryDirectory == options.Output ||
+       options.Scenario->GeometryDirectory == options.Scenario->Image)) {
+    return std::unexpected("geometry snapshot needs a distinct directory");
   }
   return {};
 }
