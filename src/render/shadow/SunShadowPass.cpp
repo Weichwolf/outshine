@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -102,13 +103,18 @@ Native::Result<void> SunShadowPass::Configure(GeometryRenderer &geometry, const 
   return {};
 }
 
-void SunShadowPass::Declare(Overhead sky, double radiusM, bool cameraCentred) {
+void SunShadowPass::Declare(Overhead sky,
+                            double radiusM,
+                            bool cameraCentred,
+                            std::optional<Vec3> casterCentreM) {
   const Vec3 toSun = {{sky.ToSun[0], sky.ToSun[1], sky.ToSun[2]}};
   const Vec3 up = {{sky.Up[0], sky.Up[1], sky.Up[2]}};
-  if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM || CameraCentred_ != cameraCentred) {
+  if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM || CameraCentred_ != cameraCentred ||
+      DeclaredCasterCentreM_ != casterCentreM) {
     Cache_.Invalidate();
   }
   CameraCentred_ = cameraCentred;
+  DeclaredCasterCentreM_ = casterCentreM;
   for (int axis = 0; axis < 3; ++axis) {
     ToSun_[axis] = static_cast<double>(sky.ToSun[axis]);
     Up_[axis] = static_cast<double>(sky.Up[axis]);
@@ -121,11 +127,15 @@ void SunShadowPass::Declare(Overhead sky, double radiusM, bool cameraCentred) {
     upLength += Up_[axis] * Up_[axis];
   }
   Declared_ = std::isfinite(radiusM) && radiusM > 0.0 && std::isfinite(sunLength) &&
-              sunLength > 0.0 && std::isfinite(upLength) && upLength > 0.0;
+              sunLength > 0.0 && std::isfinite(upLength) && upLength > 0.0 &&
+              (!casterCentreM || std::ranges::all_of(*casterCentreM, [](double value) {
+                return std::isfinite(value);
+              }));
 }
 
 Vec3 SunShadowPass::CasterCentre() const {
   const Vec3 anchor = Geometry_ != nullptr ? Geometry_->AnchorM() : Vec3{};
+  if (DeclaredCasterCentreM_) { return anchor + *DeclaredCasterCentreM_; }
   Box bounds;
   if (Geometry_ != nullptr) {
     const std::vector<double> &placed = Geometry_->Placements();

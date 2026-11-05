@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <cstdint>
 #include "DrawList.h"
@@ -44,7 +45,11 @@ public:
     Vec3f Up;
   };
 
-  void Declare(Overhead sky, double radiusM, bool cameraCentred = false);
+  // A declared scene-local centre is independent of mesh residency; the frame anchor still applies.
+  void Declare(Overhead sky,
+               double radiusM,
+               bool cameraCentred = false,
+               std::optional<Vec3> casterCentreM = std::nullopt);
 
   void Prepare(const FrameContext &ctx);
 
@@ -121,6 +126,7 @@ private:
   Vec3 ToSun_ = {{0, 0, 1}};
   Vec3 Up_ = {{0, 1, 0}};
   double RadiusM_ = 0.0;
+  std::optional<Vec3> DeclaredCasterCentreM_;
   Mat4 LightFromWorld_ = {{}};
 
   std::array<Mat4, kSunShadowRegions> Projections_{};

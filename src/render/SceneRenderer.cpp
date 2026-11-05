@@ -897,7 +897,8 @@ void SceneRenderer::ApplyWorldDeclarations() {
   if (ActiveState().ShadowDeclared) {
     ActiveFrame().Shadow.Declare({.ToSun = ActiveState().ShadowToSun, .Up = ActiveState().ShadowUp},
                                  ActiveState().ShadowRadiusM,
-                                 ActiveState().ShadowCameraCentred);
+                                 ActiveState().ShadowCameraCentred,
+                                 ActiveState().ShadowCasterCentreM);
   }
 }
 
