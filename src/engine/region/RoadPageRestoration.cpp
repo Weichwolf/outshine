@@ -13,12 +13,25 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
 namespace outshine {
 namespace {
 constexpr size_t kPageBytesMost = size_t{64} * 1024u * 1024u;
+
+bool UniqueCoverage(const Generators::RoadPageManifest &manifest,
+                    std::span<const uint32_t> selected) {
+  std::unordered_set<uint64_t> parts;
+  for (const auto index : selected) {
+    for (const auto &part : manifest.Pages[index].Parts) {
+      const uint64_t key = (static_cast<uint64_t>(part.Kind) << 32) | part.Index;
+      if (!parts.insert(key).second) { return false; }
+    }
+  }
+  return true;
+}
 }
 
 RoadPageRestoration::RoadPageRestoration(
@@ -60,6 +73,9 @@ RoadPageRestoration::Begin(Tasks &pool,
       (!result->Selected_.empty() && result->Selected_.back() >= result->Manifest_->Pages.size())) {
     return std::unexpected(
         "road restoration selection is duplicated, unordered or outside its manifest");
+  }
+  if (!UniqueCoverage(*result->Manifest_, result->Selected_)) {
+    return std::unexpected("road restoration selection overlaps source coverage");
   }
   for (const auto index : result->Selected_) {
     const auto &reference = result->Manifest_->Pages[index];
@@ -178,6 +194,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
       Loaded_->Address.Anchor.LongitudeDeg != Manifest_->Anchor.LongitudeDeg ||
       Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
+      Loaded_->Address.UpperModelErrorM != reference.UpperModelErrorM ||
       loaded->NativeBytes != reference.ByteCount) {
     return std::unexpected(
         "road restoration product differs from its plan, material, appearance or frame");

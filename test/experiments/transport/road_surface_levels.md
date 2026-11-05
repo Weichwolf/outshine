@@ -108,3 +108,11 @@ nor sampling budget. Header admission checks framing size without pretending an 
 display page is a valid replacement. The six-versus-192-triangle cache control is one
 straight planar recipe, not a scene performance result. Sampling limits exclude fitting,
 corner generation and total page allocation; those costs still need admission evidence.
+
+RoadPageManifest version 3 carries each optional Upper model budget next to its product
+key and appearance, so metadata lookup does not decode geometry. Original-only manifests
+retain version 1/2 bytes. Original/display variants may describe the same source partition,
+but restoration requires a nonoverlapping selected cut and verifies payload/model identity
+before adopting geometry. An explicitly selected display page restores while its original
+payload has a deliberately invalid CRC; the original metadata remains present. This checks
+selection before payload IO, not an automatic camera/LOD policy or model qualification.

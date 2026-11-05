@@ -8,6 +8,7 @@
 #include "Check.h"
 #include <GeometryProductCodec.h>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -37,7 +38,7 @@ struct Fixture {
   std::string Key;
 };
 
-std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
+std::optional<Fixture> Prepare(const std::filesystem::path &directory, bool display) {
   std::error_code error;
   std::filesystem::create_directories(directory, error);
   if (error) { return std::nullopt; }
@@ -52,12 +53,14 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
   if (!material) { return std::nullopt; }
   manifest->MaterialKey = Sha256Hex(material->data(), material->size());
   for (uint32_t index = 0; index < 32; ++index) {
-    const RoadPageAddress address{.PlanKey = manifest->PlanKey,
-                                  .MaterialKey = manifest->MaterialKey,
-                                  .MaterialIndex = 0,
-                                  .Anchor = manifest->Anchor,
-                                  .Level = 0,
-                                  .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}}};
+    const RoadPageAddress address{
+        .PlanKey = manifest->PlanKey,
+        .MaterialKey = manifest->MaterialKey,
+        .MaterialIndex = 0,
+        .Anchor = manifest->Anchor,
+        .Level = 0,
+        .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}},
+        .UpperModelErrorM = display && index % 2 != 0 ? std::optional<double>(1) : std::nullopt};
     const auto result = pages->Prepare(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
         outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
@@ -75,7 +78,8 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory) {
                                .Bounds = result->Bounds,
                                .ByteCount = result->ByteCount,
                                .Level = 0,
-                               .Parts = address.Parts});
+                               .Parts = address.Parts,
+                               .UpperModelErrorM = address.UpperModelErrorM});
   }
   auto key = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   if (!key) { return std::nullopt; }
@@ -208,6 +212,80 @@ bool ChangeCrc(const std::filesystem::path &directory, const std::string &key, i
          sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(raw) == 1;
 }
 
+std::expected<Geometry, std::string> RestoreSelected(
+    Tasks &pool, const Fixture &fixture, std::shared_ptr<const RoadPageManifest> manifest) {
+  const std::array selected{uint32_t{1}};
+  auto restore = RoadPageRestoration::Begin(pool, fixture.Pages, std::move(manifest), selected);
+  if (!restore) { return std::unexpected(restore.error()); }
+  Geometry geometry;
+  for (size_t step = 0; step < 1024; ++step) {
+    const auto ready = (*restore)->Advance(geometry);
+    if (!ready) {
+      CHECK(geometry.parts() == 0, "a mismatched display model publishes no geometry");
+      return std::unexpected(ready.error());
+    }
+    if (*ready) { return geometry; }
+    if ((*restore)->Missing() || !Barrier(pool)) { break; }
+  }
+  return std::unexpected("selected display restoration did not complete");
+}
+
+void CheckDisplaySelection(Tasks &pool,
+                           const Fixture &fixture,
+                           const std::filesystem::path &directory) {
+  using namespace outshine::Test;
+  const auto original = fixture.Pages->LoadKey(fixture.Manifest->Pages[0].Key, 4096);
+  CHECK(original && *original, "the control payload is available before controlled corruption");
+  if (!original || !*original) { return; }
+  auto address = (**original).Page->Address;
+  address.UpperModelErrorM = 1;
+  const auto product = fixture.Pages->Prepare(
+      {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
+      RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
+        return std::expected<RoadPageGeometry, std::string>((**original).Page->Geometry);
+      }).get());
+  CHECK(product.has_value(), "the immutable triangle control has a separate display identity");
+  if (!product) { return; }
+  const auto manifest = std::make_shared<RoadPageManifest>();
+  manifest->PlanKey = fixture.Manifest->PlanKey;
+  manifest->MaterialKey = fixture.Manifest->MaterialKey;
+  manifest->Anchor = fixture.Manifest->Anchor;
+  CHECK(manifest->Materials.addSurface("streets", Material{}).has_value(),
+        "the selected variant retains the original material table");
+  manifest->Pages = {fixture.Manifest->Pages[0],
+                     {.Key = product->Key,
+                      .Bounds = product->Bounds,
+                      .ByteCount = product->ByteCount,
+                      .Level = address.Level,
+                      .Parts = address.Parts,
+                      .UpperModelErrorM = address.UpperModelErrorM}};
+  const auto key = StoreRoadManifest(*fixture.Pages, *manifest);
+  CHECK(!RoadPageRestoration::Begin(pool, fixture.Pages, manifest),
+        "default loading cannot publish overlapping original and display variants together");
+  const auto loaded =
+      key ? fixture.Pages->LoadManifest(*key)
+          : std::expected<std::optional<std::shared_ptr<const RoadPageManifest>>,
+                          PreparedRoadPages::Failure>(std::unexpected("no manifest"));
+  CHECK(loaded && *loaded, "stored variant metadata can be read without either payload");
+  CHECK(ChangeCrc(directory, fixture.Manifest->Pages[0].Key, 1),
+        "the unselected original is corrupted to detect speculative reads");
+  const auto restored =
+      loaded && *loaded ? RestoreSelected(pool, fixture, **loaded)
+                        : std::expected<Geometry, std::string>(std::unexpected("missing manifest"));
+  CHECK(restored && restored->parts() == 1,
+        "explicit display selection restores one variant without decoding the original");
+  const auto retained = key ? fixture.Pages->LoadManifest(*key) : loaded;
+  CHECK(retained && *retained, "unselected corruption does not invalidate the manifest");
+  const auto unread = fixture.Pages->Inspect((**original).Page->Address, 4096);
+  CHECK(unread && *unread, "unselected corrupt payload was not read and evicted");
+  manifest->Pages[1].UpperModelErrorM = 2;
+  const auto wrong = RestoreSelected(pool, fixture, manifest);
+  CHECK(!wrong && wrong.error().contains("differs from"),
+        "payload model identity must match the selected metadata before geometry publication");
+  CHECK(ChangeCrc(directory, fixture.Manifest->Pages[0].Key, -1),
+        "the original control payload is restored after selection checks");
+}
+
 void CheckWindow(Tasks &pool,
                  const Fixture &fixture,
                  const std::filesystem::path &directory,
@@ -326,13 +404,18 @@ int main() {
       std::filesystem::temp_directory_path() /
       ("outshine-tests.road-prefetch-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  const auto fixture = Prepare(directory);
-  CHECK(fixture.has_value(), "32 independent native pages and their shared manifest are persisted");
-  if (fixture) {
-    Tasks pool(1);
-    CheckSpatialOrder(pool, *fixture);
-    CheckPacing(pool, *fixture);
-    CheckWindows(pool, *fixture, directory);
+  for (const bool display : {false, true}) {
+    const auto path = directory / (display ? "display" : "original");
+    const auto fixture = Prepare(path, display);
+    CHECK(fixture.has_value(),
+          "32 independent native pages retain their original or mixed display metadata");
+    if (fixture) {
+      Tasks pool(1);
+      CheckSpatialOrder(pool, *fixture);
+      CheckPacing(pool, *fixture);
+      CheckWindows(pool, *fixture, path);
+      if (!display) { CheckDisplaySelection(pool, *fixture, path); }
+    }
   }
   std::error_code error;
   std::filesystem::remove_all(directory, error);
