@@ -141,3 +141,15 @@ Page format 5 and manifest format 4 identify the policy; all older original/Uppe
 formats and identities remain unchanged. Restoration checks the exact policy before
 geometry adoption. This permits shared spatial pages without forcing separate body
 draws; camera/pass policy and World selection are still independent integration work.
+
+`SourceProductSelection::GeometryErrorLimitM` inverts the existing geometric projection
+bound for generation demand. With perspective bound `p = f*e*(sqrt(2)+s)/(z-e)`,
+the inverse is `e = p*z/(f*(sqrt(2)+s)+p)`. Orthographic demand uses pixels per metre.
+The panoramic overload covers all rotations and source-bound expansion: for depth
+scale `S`, displacement scale `F` and nearest distance `d`, its inverse is
+`e = p*d/(F*S+p*(S+1))`. Motion reduces the available depth/distance first.
+Denominators round outward, budgets inward, and the same forward function rechecks
+every admitted positive value. Invalid/overflowing demands return zero, preserving
+the original. Metadata candidate selection uses the same inverse; native road demand
+still needs wiring to qualified source bounds and exact view/pass/reuse domains.
+These are candidate position budgets, not material/normal/GPU qualification.

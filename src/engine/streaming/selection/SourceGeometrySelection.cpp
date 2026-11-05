@@ -65,6 +65,26 @@ double ShellError(const ProjectionDomain &domain, double focal, double error, bo
   const double slope = (domain.XMost + domain.YMost) / domain.ZLeast;
   return focal * error * (std::numbers::sqrt2 + slope) / (domain.ZLeast - error);
 }
+
+double
+ShellLimit(const ProjectionDomain &domain, ProjectedErrorBudget projection, bool orthographic) {
+  const double slope = orthographic ? 0 : (domain.XMost + domain.YMost) / domain.ZLeast;
+  const double infinity = std::numeric_limits<double>::infinity();
+  const double factor = std::nextafter(std::numbers::sqrt2 + slope, infinity);
+  const double product = std::nextafter(projection.FocalPx * factor, infinity);
+  const double denominator =
+      std::nextafter(product + (orthographic ? 0 : projection.AllowedErrorPx), infinity);
+  if (!std::isfinite(denominator) || denominator <= 0 || (!orthographic && domain.ZLeast <= 0)) {
+    return 0;
+  }
+  const double fraction = std::nextafter(projection.AllowedErrorPx / denominator, 0.0);
+  const double limit = fraction * (orthographic ? 1 : domain.ZLeast);
+  if (!std::isfinite(limit) || limit <= 0) { return 0; }
+  const double guarded = std::nextafter(limit, 0.0);
+  return ShellError(domain, projection.FocalPx, guarded, orthographic) <= projection.AllowedErrorPx
+             ? guarded
+             : 0;
+}
 }
 
 std::optional<SourceProductSelection::Product> SourceProductSelection::GeometryCandidate(
@@ -96,6 +116,22 @@ double SourceProductSelection::GeometryErrorPx(const Box &bounds,
   return ShellError(Domain(bounds, camera, 0), focalPx, errorM, false);
 }
 
+double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
+                                                   const Render::CameraBasis &camera,
+                                                   ProjectedErrorBudget projection,
+                                                   double translationM,
+                                                   bool orthographic) {
+  if (!ValidCamera(camera) || bounds.Empty() || !std::isfinite(translationM) || translationM < 0 ||
+      !std::isfinite(projection.FocalPx) || projection.FocalPx <= 0 ||
+      !std::isfinite(projection.AllowedErrorPx) || projection.AllowedErrorPx < 0) {
+    return 0;
+  }
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(bounds.Min[axis]) || !std::isfinite(bounds.Max[axis])) { return 0; }
+  }
+  return ShellLimit(Domain(bounds, camera, translationM), projection, orthographic);
+}
+
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
 SourceProductSelection::SelectGeometry(const Render::CameraBasis &camera,
                                        ProjectedErrorBudget projection,
@@ -120,8 +156,9 @@ SourceProductSelection::SelectGeometry(const Render::CameraBasis &camera,
     const double hull = projection.AllowedErrorPx > 0
                             ? HullError(domain, projection.FocalPx, orthographic)
                             : std::numeric_limits<double>::infinity();
+    const double limit = ShellLimit(domain, projection, orthographic);
     const double shell =
-        traits.ShellErrorM
+        traits.ShellErrorM && *traits.ShellErrorM <= limit
             ? ShellError(domain, projection.FocalPx, *traits.ShellErrorM, orthographic)
             : std::numeric_limits<double>::infinity();
     selected = GeometryCandidate(at, hull, shell, projection.AllowedErrorPx);

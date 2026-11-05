@@ -73,6 +73,18 @@ public:
                                               const Render::CameraBasis &camera,
                                               double focalPx,
                                               double errorM);
+  // Candidate position budget only; zero denies positive-error coarsening.
+  [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
+                                                  const Render::CameraBasis &camera,
+                                                  ProjectedErrorBudget projection,
+                                                  double translationM = 0,
+                                                  bool orthographic = false);
+  // All rotations; includes source-bound expansion by the geometric error.
+  [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
+                                                  const Vec3 &eye,
+                                                  const Vec2 &viewportPx,
+                                                  ProjectedErrorBudget projection,
+                                                  double translationM = 0);
 
 private:
   struct Node {

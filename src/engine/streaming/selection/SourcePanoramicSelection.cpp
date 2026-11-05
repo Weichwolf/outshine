@@ -27,7 +27,32 @@ struct PanoramicError {
                ? DisplacementScalePx * envelope.WorldM / (depth - envelope.WorldM)
                : std::numeric_limits<double>::infinity();
   }
+
+  [[nodiscard]] double Limit(double distance, double pixels) const {
+    const double infinity = std::numeric_limits<double>::infinity();
+    const double projected = std::nextafter(DisplacementScalePx * DepthScale, infinity);
+    const double expansion =
+        std::nextafter(pixels * std::nextafter(DepthScale + 1, infinity), infinity);
+    const double denominator = std::nextafter(projected + expansion, infinity);
+    if (!std::isfinite(denominator) || denominator <= 0 || !std::isfinite(distance) ||
+        distance <= 0) {
+      return 0;
+    }
+    const double fraction = std::nextafter(pixels / denominator, 0.0);
+    const double error = std::nextafter(fraction * distance, 0.0);
+    return error > 0 && std::isfinite(error) &&
+                   Bound(distance, {.WorldM = error, .BoundsExpansionM = error}) <= pixels
+               ? error
+               : 0;
+  }
 };
+
+PanoramicError Envelope(const Vec2 &viewport, double focal) {
+  const double tx = viewport[0] / (2 * focal);
+  const double ty = viewport[1] / (2 * focal);
+  return {.DepthScale = std::hypot(1.0, tx, ty),
+          .DisplacementScalePx = focal * std::hypot(std::numbers::sqrt2, tx + ty)};
+}
 
 double Distance(const Box &bounds, const Vec3 &eye) {
   Vec3 delta;
@@ -36,6 +61,24 @@ double Distance(const Box &bounds, const Vec3 &eye) {
   }
   return std::hypot(delta[0], delta[1], delta[2]);
 }
+}
+
+double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
+                                                   const Vec3 &eye,
+                                                   const Vec2 &viewportPx,
+                                                   ProjectedErrorBudget projection,
+                                                   double translationM) {
+  const auto finite = [](double value) { return std::isfinite(value); };
+  if (bounds.Empty() || !std::ranges::all_of(bounds.Min, finite) ||
+      !std::ranges::all_of(bounds.Max, finite) || !std::ranges::all_of(eye, finite) ||
+      !std::ranges::all_of(viewportPx, finite) || viewportPx[0] <= 0 || viewportPx[1] <= 0 ||
+      !finite(projection.FocalPx) || projection.FocalPx <= 0 ||
+      !finite(projection.AllowedErrorPx) || projection.AllowedErrorPx < 0 ||
+      !finite(translationM) || translationM < 0) {
+    return 0;
+  }
+  return Envelope(viewportPx, projection.FocalPx)
+      .Limit(std::max(0.0, Distance(bounds, eye) - translationM), projection.AllowedErrorPx);
 }
 
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
@@ -52,11 +95,7 @@ SourceProductSelection::SelectGeometry(const Vec3 &eye,
       !finite(translationM) || translationM < 0) {
     return std::unexpected(SourceProductSelectionError::InvalidInput);
   }
-  const double tx = viewportPx[0] / (2 * projection.FocalPx);
-  const double ty = viewportPx[1] / (2 * projection.FocalPx);
-  const PanoramicError envelope{.DepthScale = std::hypot(1.0, tx, ty),
-                                .DisplacementScalePx =
-                                    projection.FocalPx * std::hypot(std::numbers::sqrt2, tx + ty)};
+  const PanoramicError envelope = Envelope(viewportPx, projection.FocalPx);
   Cut cut{.Revision = Revision_, .Products = {}, .VisitedNodes = 0};
   std::optional<Product> selected;
   const auto nodes = Hierarchy_->Nodes();
@@ -70,7 +109,8 @@ SourceProductSelection::SelectGeometry(const Vec3 &eye,
     const double hull = projection.AllowedErrorPx > 0
                             ? envelope.Bound(distance, {.WorldM = traits.Radius * 2})
                             : std::numeric_limits<double>::infinity();
-    const double shell = traits.ShellErrorM
+    const double limit = envelope.Limit(distance, projection.AllowedErrorPx);
+    const double shell = traits.ShellErrorM && *traits.ShellErrorM <= limit
                              ? envelope.Bound(distance,
                                               {.WorldM = *traits.ShellErrorM,
                                                .BoundsExpansionM = *traits.ShellErrorM})
