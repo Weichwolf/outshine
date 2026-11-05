@@ -41,7 +41,6 @@ Result<std::unique_ptr<Sampler>> MetalDevice::CreateSampler(SamplerDescription d
                                                        : MTLSamplerMinMagFilterNearest;
     info.mipFilter =
         description.Mip == Filter::Linear ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
-    info.supportArgumentBuffers = YES;
     info.label = Text(label);
     info.lodMinClamp = description.MinLod;
     info.lodMaxClamp = description.MaxLod;

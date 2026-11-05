@@ -105,20 +105,6 @@ struct PipelineState {
   uint64_t Device;
 };
 
-struct ArgumentSlice {
-  id<MTLBuffer> Buffer;
-  uint64_t Offset = 0;
-};
-
-struct ArgumentArena {
-  std::vector<id<MTLBuffer>> Blocks;
-  std::vector<id<MTLSamplerState>> Samplers;
-  uint64_t Cursor = 0;
-
-  [[nodiscard]] Result<ArgumentSlice>
-  Allocate(id<MTLDevice> device, uint64_t bytes, uint64_t alignment);
-};
-
 struct ShaderArgument {
   const ResourceBinding *Layout = nullptr;
   const StorageBuffer *Storage = nullptr;
@@ -162,15 +148,7 @@ Arguments(const Shader &shader,
 [[nodiscard]] Result<void> Bind(RenderState &pass,
                                 ShaderStage stage,
                                 const Shader &shader,
-                                std::span<const ShaderArgument> arguments,
-                                id<MTLArgumentEncoder> textures,
-                                std::shared_ptr<ArgumentArena> &arena);
-[[nodiscard]] Result<ArgumentSlice>
-EncodeTextureArguments(const RenderState &pass,
-                       ShaderStage stage,
-                       id<MTLArgumentEncoder> encoder,
-                       std::span<const ShaderArgument> arguments,
-                       ArgumentArena &arena);
+                                std::span<const ShaderArgument> arguments);
 
 class MetalPipeline final : public ComputePipeline {
 public:
@@ -223,7 +201,6 @@ struct CommandPermit {
 };
 
 struct SubmissionResources {
-  std::shared_ptr<ArgumentArena> Arguments;
   std::vector<Reservation> Buffers;
   std::shared_ptr<CommandPermit> Permit;
   std::unique_ptr<PresentFrame> Presentation;
@@ -321,7 +298,6 @@ private:
   std::optional<RenderState> Render;
   std::unordered_map<const void *, TrackedResource> Accesses;
   std::array<std::vector<ShaderArgument>, 2> ArgumentBuffers;
-  std::shared_ptr<ArgumentArena> TextureArguments;
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
   void UpdateAccess(id<MTLResource> resource, Access usage);
@@ -394,12 +370,10 @@ private:
   struct CompiledShader {
     Shader Translated;
     id<MTLFunction> Function = nil;
-    id<MTLArgumentEncoder> TextureArguments = nil;
   };
 
   [[nodiscard]] Result<CompiledShader *> ShaderProgram(std::span<const uint32_t> spirv,
-                                                       std::string_view entry,
-                                                       bool textureArguments = false);
+                                                       std::string_view entry);
   [[nodiscard]] Result<id<MTLFunction>> Function(CompiledShader &shader, MTLFunctionType type);
   std::unordered_map<std::string, CompiledShader> Shaders_;
   id<MTLDevice> Native_;

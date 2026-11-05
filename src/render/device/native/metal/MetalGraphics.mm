@@ -191,29 +191,24 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     }
     MTLRenderPipelineDescriptor *const pipeline = [MTLRenderPipelineDescriptor new];
     pipeline.label = Text(description.Label);
-    pipeline.supportIndirectCommandBuffers = description.PreparedIndexedCommands;
     if (auto valid = Targets(*this, description, pipeline); !valid) {
       return std::unexpected(valid.error());
     }
     const auto vertices = Vertices(description);
     if (!vertices) { return std::unexpected(vertices.error()); }
     pipeline.vertexDescriptor = *vertices;
-    const auto vertex = ShaderProgram(
-        description.Vertex.Spirv, description.Vertex.Entry, description.PreparedIndexedCommands);
+    const auto vertex = ShaderProgram(description.Vertex.Spirv, description.Vertex.Entry);
     if (!vertex) { return std::unexpected(vertex.error()); }
     const auto vertexFunction = Function(**vertex, MTLFunctionTypeVertex);
     if (!vertexFunction) { return std::unexpected(vertexFunction.error()); }
     state->Vertex = (*vertex)->Translated;
     pipeline.vertexFunction = *vertexFunction;
-    state->TextureArguments[0] = (*vertex)->TextureArguments;
     GraphicsLayout layout;
     if (auto valid = StageBindings(layout, state->Vertex, ShaderStage::Vertex); !valid) {
       return std::unexpected(valid.error());
     }
     if (description.Fragment) {
-      const auto fragment = ShaderProgram(description.Fragment->Spirv,
-                                          description.Fragment->Entry,
-                                          description.PreparedIndexedCommands);
+      const auto fragment = ShaderProgram(description.Fragment->Spirv, description.Fragment->Entry);
       if (!fragment) { return std::unexpected(fragment.error()); }
       if (auto valid = CompatibleImages(state->Vertex, (*fragment)->Translated); !valid) {
         return std::unexpected(valid.error());
@@ -222,7 +217,6 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
       if (!fragmentFunction) { return std::unexpected(fragmentFunction.error()); }
       state->Fragment = (*fragment)->Translated;
       pipeline.fragmentFunction = *fragmentFunction;
-      state->TextureArguments[1] = (*fragment)->TextureArguments;
       if (auto valid = StageBindings(layout, *state->Fragment, ShaderStage::Fragment); !valid) {
         return std::unexpected(valid.error());
       }

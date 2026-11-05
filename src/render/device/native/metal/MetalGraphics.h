@@ -4,7 +4,6 @@
 #include "Graphics.h"
 #include "MetalShader.h"
 #import <Metal/Metal.h>
-#include <array>
 #include <memory>
 
 namespace outshine::Render::Native::Metal {
@@ -24,7 +23,6 @@ struct AttributeFormat {
 struct GraphicsState {
   id<MTLRenderPipelineState> Native;
   id<MTLDepthStencilState> Depth;
-  std::array<id<MTLArgumentEncoder>, 2> TextureArguments{};
   Shader Vertex;
   std::optional<Shader> Fragment;
   std::vector<VertexStream> Streams;

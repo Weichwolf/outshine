@@ -48,7 +48,7 @@ void DrawPixel(Commands &commands,
 int main() {
   auto device = Require(CreateDevice({.Validation = true}));
   const auto vertex = Shader("fullscreen.vert.spv");
-  const auto fragment = Spirv(OUTSHINE_TEXTURE_ARGUMENT_SHADER);
+  const auto fragment = Spirv(OUTSHINE_TEXTURE_BINDING_SHADER);
   const std::array colours{ColourTarget{.Texels = Format::Rgba8Unorm, .Rgb = {}, .Alpha = {}}};
   auto pipeline = Require(device->CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                                           .Fragment = ShaderCode{.Spirv = fragment},
@@ -57,7 +57,6 @@ int main() {
                                                           .Colours = colours,
                                                           .Depth = {},
                                                           .Culling = Cull::None,
-                                                          .PreparedIndexedCommands = true,
                                                           .Label = {}}));
   auto commands = Require(device->Begin());
   std::array<std::unique_ptr<Texture>, 3> sources;
@@ -93,7 +92,7 @@ int main() {
   pipeline.reset();
   CHECK(Require(device->Wait(Require(device->Submit(std::move(commands))), kWait)) ==
             CompletionStatus::Ready,
-        "many material views survive arena growth and caller destruction through GPU completion");
+        "material views survive caller destruction through GPU completion");
   auto readback =
       Require(ReadbackTransfer::Start(*device, *target, {.Width = kWidth, .Height = kHeight}));
   const auto pixels = Require(readback.Wait(*device, kWait));
@@ -108,7 +107,6 @@ int main() {
       wrong += std::to_integer<uint8_t>((*pixels)[offset]) != expected ? 1u : 0u;
     }
   }
-  CHECK(wrong == 0,
-        "all 5000 distinct descriptor slices retain the selected mip and material colour");
+  CHECK(wrong == 0, "all 5000 bindings retain the selected mip and material colour");
   return Report();
 }

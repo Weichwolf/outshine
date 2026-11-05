@@ -45,7 +45,6 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     submission->Commands = metal->Native;
     const auto held = std::make_shared<SubmissionResources>();
     held->Buffers = std::move(metal->Held);
-    held->Arguments = std::move(metal->TextureArguments);
     metal->Permit->ReleaseRecording();
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
@@ -62,7 +61,6 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
         }
       }
       held->Buffers.clear();
-      held->Arguments.reset();
       held->Permit.reset();
       held->Presentation.reset();
       {

@@ -8,7 +8,6 @@
 namespace outshine::Render::Native::Metal {
 
 constexpr uint32_t kBufferSizesSlot = 25;
-constexpr uint32_t kTextureArgumentsSlot = kBufferSizesSlot - 1;
 
 struct ResourceBinding {
   ShaderBinding Source;
@@ -24,11 +23,9 @@ struct Shader {
   ComputeLayout Layout;
   std::vector<ResourceBinding> Resources;
   bool NeedsBufferSizes = false;
-  bool TextureArguments = false;
 };
 
-[[nodiscard]] Result<Shader>
-Translate(std::span<const uint32_t> spirv, std::string_view entry, bool textureArguments = false);
+[[nodiscard]] Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry);
 
 }
 #endif

@@ -203,20 +203,10 @@ Result<void> MetalCommands::PrepareDraw(const DrawState &state,
                              beforeStages:stages];
       EraseAccesses(hazards);
     }
-    auto bound = Bind(*Render,
-                      ShaderStage::Vertex,
-                      graphics.Vertex,
-                      *vertex,
-                      graphics.TextureArguments[0],
-                      TextureArguments);
+    auto bound = Bind(*Render, ShaderStage::Vertex, graphics.Vertex, *vertex);
     if (!bound) { return bound; }
     if (graphics.Fragment) {
-      bound = Bind(*Render,
-                   ShaderStage::Fragment,
-                   *graphics.Fragment,
-                   *fragment,
-                   graphics.TextureArguments[1],
-                   TextureArguments);
+      bound = Bind(*Render, ShaderStage::Fragment, *graphics.Fragment, *fragment);
       if (!bound) { return bound; }
     }
     ApplyRasterState(*Render, pipeline->State, state, *vertices);

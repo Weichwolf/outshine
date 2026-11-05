@@ -31,24 +31,6 @@ void BindBytes(RenderState &pass,
   }
 }
 
-Result<void>
-BindUniform(RenderState &pass, ShaderStage stage, std::span<const std::byte> bytes, uint32_t slot) {
-  constexpr size_t inlineBytes = 4096;
-  if (bytes.size() <= inlineBytes) {
-    BindBytes(pass, stage, bytes, slot);
-  } else {
-    const id<MTLBuffer> constants =
-        [pass.Encoder.device newBufferWithBytes:bytes.data()
-                                         length:bytes.size()
-                                        options:MTLResourceStorageModeShared];
-    if (constants == nil) {
-      return Failure(ErrorKind::OutOfMemory, "Metal render uniform allocation failed");
-    }
-    BindBuffer(pass, stage, constants, 0, slot);
-  }
-  return {};
-}
-
 void BindTexture(RenderState &pass, ShaderStage stage, const ShaderArgument &argument) {
   auto &bindings = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u];
   const auto encoder = pass.Encoder;
@@ -78,9 +60,7 @@ void BindTexture(RenderState &pass, ShaderStage stage, const ShaderArgument &arg
 Result<void> Bind(RenderState &pass,
                   ShaderStage stage,
                   const Shader &shader,
-                  std::span<const ShaderArgument> arguments,
-                  id<MTLArgumentEncoder> textures,
-                  std::shared_ptr<ArgumentArena> &arena) {
+                  std::span<const ShaderArgument> arguments) {
   std::array<uint32_t, kBufferSizesSlot> sizes{};
   for (const auto &argument : arguments) {
     const auto slot = argument.Layout->Buffer;
@@ -88,25 +68,28 @@ Result<void> Bind(RenderState &pass,
       BindBuffer(pass, stage, argument.Buffer->Native, argument.Storage->Range.Offset, slot);
       sizes[slot] = static_cast<uint32_t>(argument.Storage->Range.Bytes);
     } else if (argument.Texture != nil) {
-      if (!shader.TextureArguments) { BindTexture(pass, stage, argument); }
+      BindTexture(pass, stage, argument);
     } else {
-      const auto bound = BindUniform(pass, stage, argument.Constants->Bytes, slot);
-      if (!bound) { return bound; }
+      const auto bytes = argument.Constants->Bytes;
+      constexpr size_t inlineBytes = 4096;
+      if (bytes.size() <= inlineBytes) {
+        BindBytes(pass, stage, bytes, slot);
+      } else {
+        const id<MTLBuffer> constants =
+            [pass.Encoder.device newBufferWithBytes:bytes.data()
+                                             length:bytes.size()
+                                            options:MTLResourceStorageModeShared];
+        if (constants == nil) {
+          return Failure(ErrorKind::OutOfMemory, "Metal render uniform allocation failed");
+        }
+        BindBuffer(pass, stage, constants, 0, slot);
+      }
     }
   }
   auto &bindings = pass.Bindings[stage == ShaderStage::Vertex ? 0u : 1u];
   if (shader.NeedsBufferSizes && (!bindings.Sizes || *bindings.Sizes != sizes)) {
     BindBytes(pass, stage, std::as_bytes(std::span(sizes)), kBufferSizesSlot);
     bindings.Sizes = sizes;
-  }
-  if (shader.TextureArguments) {
-    if (textures == nil) {
-      return Failure(ErrorKind::Invalid, "Metal texture argument encoder is missing");
-    }
-    if (!arena) { arena = std::make_shared<ArgumentArena>(); }
-    const auto packed = EncodeTextureArguments(pass, stage, textures, arguments, *arena);
-    if (!packed) { return std::unexpected(packed.error()); }
-    BindBuffer(pass, stage, packed->Buffer, packed->Offset, kTextureArgumentsSlot);
   }
   return {};
 }
