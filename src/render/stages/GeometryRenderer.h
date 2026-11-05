@@ -196,7 +196,9 @@ public:
 
   [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
 
-  [[nodiscard]] Native::Result<void> PrepareIndexedCommands(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> PrepareIndexedCommands(
+      const PassRecording &into,
+      GeometryResidency::SelectionPhase phase = GeometryResidency::SelectionPhase::Primary);
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
@@ -252,6 +254,15 @@ public:
   void CarryFrame();
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
+
+  [[nodiscard]] bool AllowsVisibilityPrediction() const {
+    return std::ranges::none_of(Batches, [this](const auto &batch) {
+      return batch.Passes != GeometryPasses::Shadow &&
+             Slots[batch.MaterialSlot].Kind == SurfaceKind::Blended;
+    });
+  }
+
+  [[nodiscard]] uint64_t ClusterTopologyGeneration() const noexcept { return TableRevision_; }
 
   [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_->Generation(); }
 
@@ -384,7 +395,8 @@ private:
                                                     size_t first,
                                                     bool culled,
                                                     size_t end,
-                                                    const DrawResources &resources);
+                                                    const DrawResources &resources,
+                                                    GeometryResidency::SelectionPhase phase);
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
@@ -414,7 +426,10 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void>
+  Encode(const FrameContext &ctx,
+         const PassRecording &into,
+         GeometryResidency::SelectionPhase phase = GeometryResidency::SelectionPhase::Primary);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 
@@ -535,8 +550,8 @@ private:
   size_t NativeMaterialSlots_ = 0;
   uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
-  std::unique_ptr<Native::IndexedCommands> IndexedCommands_;
-  uint32_t IndexedCommandCapacity_ = 0;
+  std::array<std::unique_ptr<Native::IndexedCommands>, 2> IndexedCommands_;
+  std::array<uint32_t, 2> IndexedCommandCapacity_{};
 
   std::vector<VertexLayout> BatchLayout;
 
@@ -643,6 +658,7 @@ private:
   [[nodiscard]] bool PrepareMainMeshTables(std::string &error);
   [[nodiscard]] bool AppendRoot(GeometryRoot root, std::string &error);
   [[nodiscard]] bool HandRootBounds(std::string &error);
+  [[nodiscard]] bool PrepareCompletionBuffers(std::string &error);
   void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();

@@ -38,7 +38,7 @@ enum class Resource {
   AoBuffer,
   SceneLinear,
   DepthPyramid,
-  GroundPyramid,
+  OpaqueDepthPyramid,
   GroundSelection,
 
   OverlayAtlas,
@@ -61,6 +61,13 @@ enum class Resource {
   ClusterSlot,
   DrawIndex,
   DrawArguments,
+  PredictionAccepted,
+  CompletionKept,
+  CompletionSelected,
+  CompletionSelectedState,
+  CompletionSlot,
+  CompletionDrawIndex,
+  CompletionDrawArguments,
   kCount
 };
 
@@ -91,7 +98,7 @@ enum class Resource {
     case Resource::SceneSurfaceMetalRough:
     case Resource::AoBuffer:
     case Resource::DepthPyramid:
-    case Resource::GroundPyramid:
+    case Resource::OpaqueDepthPyramid:
     case Resource::GroundSelection:
 
     case Resource::OverlayAtlas:
@@ -113,6 +120,13 @@ enum class Resource {
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:
+    case Resource::PredictionAccepted:
+    case Resource::CompletionKept:
+    case Resource::CompletionSelected:
+    case Resource::CompletionSelectedState:
+    case Resource::CompletionSlot:
+    case Resource::CompletionDrawIndex:
+    case Resource::CompletionDrawArguments:
     case Resource::kCount: return false;
   }
   return false;
@@ -136,7 +150,11 @@ enum class Stage {
   Moon,
   Stars,
   OpaqueGeometry,
-  GroundPyramid,
+  OpaqueDepthPyramid,
+  GeometryCompletionCull,
+  GeometryCompletionScan,
+  GeometryCompletionCompact,
+  OpaqueCompletion,
   GroundSelection,
   Ground,
   TransmissiveGeometry,
@@ -172,7 +190,7 @@ enum class TexelFormat {
   Depth32Float
 };
 
-inline constexpr size_t kMaxEdges = 8;
+inline constexpr size_t kMaxEdges = 10;
 
 inline constexpr size_t kMaxColourAttachments = 8;
 
@@ -399,12 +417,12 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "depthPyramid",
      .Stride = static_cast<uint32_t>(sizeof(float))},
-    {.Id = Resource::GroundPyramid,
+    {.Id = Resource::OpaqueDepthPyramid,
      .Kind = ResourceKind::Derived,
      .Fallback = FallbackKind::None,
      .AliasOf = kNoEdge,
      .Format = TexelFormat::Table,
-     .Name = "groundPyramid",
+     .Name = "opaqueDepthPyramid",
      .Stride = static_cast<uint32_t>(sizeof(float))},
     {.Id = Resource::GroundSelection,
      .Kind = ResourceKind::Derived,
@@ -544,6 +562,55 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "drawArguments",
      .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments))},
+    {.Id = Resource::PredictionAccepted,
+     .Kind = ResourceKind::Given,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "predictionAccepted",
+     .Stride = static_cast<uint32_t>(2u * sizeof(uint32_t))},
+    {.Id = Resource::CompletionKept,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionKept",
+     .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
+    {.Id = Resource::CompletionSelected,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionSelected",
+     .Stride = static_cast<uint32_t>(2u * sizeof(uint32_t))},
+    {.Id = Resource::CompletionSelectedState,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionSelectedState",
+     .Stride = static_cast<uint32_t>(32u)},
+    {.Id = Resource::CompletionSlot,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionSlot",
+     .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
+    {.Id = Resource::CompletionDrawIndex,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionDrawIndex",
+     .Stride = static_cast<uint32_t>(sizeof(uint32_t))},
+    {.Id = Resource::CompletionDrawArguments,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "completionDrawArguments",
+     .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments))},
 }};
 
 [[nodiscard]] constexpr bool IsBuffer(const ResourceRow &row) {
@@ -655,7 +722,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                 kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion,
-     .ReadsLastFrame = {Resource::DepthPyramid, kNoEdge}},
+     .ReadsLastFrame = {Resource::PredictionAccepted, kNoEdge}},
     {.Id = Stage::GeometryScan,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
@@ -745,20 +812,84 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                      kNoEdge},
      .FusesInto = kNoFusion},
 
-    {.Id = Stage::GroundPyramid,
+    {.Id = Stage::OpaqueDepthPyramid,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
-     .Name = "groundPyramid",
+     .Name = "opaqueDepthPyramid",
      .Reads = {Resource::LinearSampler, kNoEdge},
-     .Writes = {Resource::GroundPyramid, kNoEdge},
+     .Writes = {Resource::OpaqueDepthPyramid, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion,
      .ReadsAccumulated = {Resource::SceneDepth, kNoEdge}},
+    {.Id = Stage::GeometryCompletionCull,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "geometryCompletionCull",
+     .Reads = {Resource::ClusterRoots,
+               Resource::ClusterTemplates,
+               Resource::ClusterSphere,
+               Resource::GeometryPlacements,
+               Resource::ClusterChunks,
+               Resource::ClusterChunkState,
+               Resource::ClusterPrefix,
+               Resource::ClusterReset,
+               Resource::ClusterKept,
+               Resource::OpaqueDepthPyramid},
+     .Writes = {Resource::CompletionKept,
+                Resource::CompletionSelected,
+                Resource::CompletionSelectedState,
+                kNoEdge},
+     .Contributes = {Resource::PredictionAccepted, kNoEdge},
+     .FusesInto = kNoFusion},
+    {.Id = Stage::GeometryCompletionScan,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "geometryCompletionScan",
+     .Reads = {Resource::ClusterRoots, Resource::ClusterVisible, Resource::CompletionKept, kNoEdge},
+     .Writes = {Resource::CompletionSlot, Resource::CompletionDrawArguments, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion,
+     .ReadsLastFrame = {Resource::CompletionSlot, Resource::CompletionDrawArguments, kNoEdge}},
+    {.Id = Stage::GeometryCompletionCompact,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "geometryCompletionCompact",
+     .Reads = {Resource::ClusterRoots,
+               Resource::ClusterTemplates,
+               Resource::CompletionSelected,
+               Resource::CompletionSelectedState,
+               Resource::CompletionSlot,
+               Resource::CompletionDrawArguments,
+               Resource::ClusterIndex,
+               Resource::ClusterVisible},
+     .Writes = {Resource::CompletionDrawIndex, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion},
+    {.Id = Stage::OpaqueCompletion,
+     .From = Provenance::Content,
+     .Kind = PassKind::Raster,
+     .Name = "opaqueCompletion",
+     .Reads = {Resource::ShadowAtlas,
+               Resource::LutSampler,
+               Resource::CompletionDrawIndex,
+               Resource::CompletionDrawArguments,
+               Resource::EnvironmentSpecular,
+               kNoEdge},
+     .Writes = {kNoEdge},
+     .Contributes = {Resource::SceneHdr,
+                     Resource::SceneVelocity,
+                     Resource::SceneDepth,
+                     Resource::SceneShadingNormal,
+                     Resource::SceneSurfaceIdentity,
+                     Resource::SceneSurfaceBase,
+                     Resource::SceneSurfaceMetalRough,
+                     kNoEdge},
+     .FusesInto = kNoFusion},
     {.Id = Stage::GroundSelection,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
      .Name = "groundSelection",
-     .Reads = {Resource::GroundPyramid, kNoEdge},
+     .Reads = {Resource::OpaqueDepthPyramid, kNoEdge},
      .Writes = {Resource::GroundSelection, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion},

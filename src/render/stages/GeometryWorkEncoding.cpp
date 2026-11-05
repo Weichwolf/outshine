@@ -1,5 +1,6 @@
 #include "GeometryCullStage.h"
 #include "GpuPlacement.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -23,11 +24,14 @@ Native::Binding Storage(uint32_t set, uint32_t slot, const Native::Buffer &buffe
 }
 
 template <size_t N>
-Native::Result<std::array<Native::Binding, N>>
-Bindings(const GeometryResidency &resident, const std::array<S, N> &streams, size_t readonly) {
+Native::Result<std::array<Native::Binding, N>> Bindings(const GeometryResidency &resident,
+                                                        const std::array<S, N> &streams,
+                                                        size_t readonly,
+                                                        GeometryResidency::SelectionPhase phase) {
   std::array<Native::Binding, N> bindings;
   for (size_t at = 0; at < N; ++at) {
-    const auto *buffer = resident.Buffer(streams[at]).get();
+    const auto *buffer =
+        resident.Buffer(GeometryResidency::SelectionStream(streams[at], phase)).get();
     if (buffer == nullptr) {
       return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                            .Message = "geometry work buffer is missing"});
@@ -49,7 +53,8 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
   }
   const auto &resident = *Source_.Resident;
   const auto *reset = resident.Buffer(S::ClusterReset).get();
-  auto *state = resident.Buffer(S::ClusterSelectedState).get();
+  auto *state =
+      resident.Buffer(GeometryResidency::SelectionStream(S::ClusterSelectedState, Phase())).get();
   if (reset == nullptr || state == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "geometry leaf reset buffer is missing"});
@@ -67,12 +72,13 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
                                            S::ClusterKept,
                                            S::ClusterSelected,
                                            S::ClusterSelectedState},
-                                7);
+                                7,
+                                Phase());
   if (!buffers) { return std::unexpected(buffers.error()); }
   const auto *pyramid =
       PyramidBuffer_ != nullptr ? PyramidBuffer_ : resident.Buffer(S::ClusterSpheres).get();
   const auto &h = Source_.Hierarchy->View;
-  const std::array bindings{
+  const std::array base{
       (*buffers)[0],
       (*buffers)[1],
       (*buffers)[2],
@@ -88,8 +94,24 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
           .Set = 2, .Slot = 0, .Value = Native::Uniform{std::as_bytes(std::span(&View_, 1))}},
       Native::Binding{
           .Set = 2, .Slot = 1, .Value = Native::Uniform{std::as_bytes(std::span(&h, 1))}}};
+  std::array<Native::Binding, 15> bindings;
+  std::copy(base.begin(), base.end(), bindings.begin());
+  size_t count = base.size();
+  if (Source_.Selection != SelectionKind::Single) {
+    const auto *accepted = resident.Buffer(S::PredictionAccepted).get();
+    if (accepted == nullptr) {
+      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                           .Message = "prediction mask is missing"});
+    }
+    if (Source_.Selection == SelectionKind::Predicted) {
+      bindings[count++] = Storage(0, 8, *accepted);
+    } else {
+      bindings[count++] = Storage(0, 8, *resident.Buffer(S::ClusterKept));
+      bindings[count++] = Storage(1, 3, *accepted);
+    }
+  }
   return into.Commands->DispatchIndirect(*Cull_,
-                                         bindings,
+                                         std::span(bindings).first(count),
                                          *resident.Buffer(S::ClusterChunkState),
                                          offsetof(GeometryQueueState, Dispatch));
 }
@@ -105,7 +127,8 @@ Native::Result<void> GeometryCullStage::EncodeScan(const PassRecording &into) {
       *Source_.Resident,
       std::array{
           S::ClusterRoots, S::ClusterVisible, S::ClusterKept, S::ClusterSlot, S::DrawArguments},
-      3);
+      3,
+      Phase());
   if (!buffers) { return std::unexpected(buffers.error()); }
   const auto &h = Source_.Hierarchy->View;
   const std::array bindings{
@@ -137,7 +160,8 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
                                            S::Index,
                                            S::ClusterVisible,
                                            S::DrawIndex},
-                                8);
+                                8,
+                                Phase());
   if (!buffers) { return std::unexpected(buffers.error()); }
   const auto &h = Source_.Hierarchy->View;
   const std::array bindings{
@@ -157,10 +181,14 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
   const auto encoded =
       into.Commands->DispatchIndirect(*Compact_,
                                       bindings,
-                                      *Source_.Resident->Buffer(S::ClusterSelectedState),
+                                      *Source_.Resident->Buffer(GeometryResidency::SelectionStream(
+                                          S::ClusterSelectedState, Phase())),
                                       offsetof(GeometryQueueState, Dispatch));
   if (!encoded) { return encoded; }
-  into.Submission.Record(Stage::GeometryCompact, Cache_);
+  into.Submission.Record(Source_.Selection == SelectionKind::Completion
+                             ? Stage::GeometryCompletionCompact
+                             : Stage::GeometryCompact,
+                         Cache_);
   return {};
 }
 }

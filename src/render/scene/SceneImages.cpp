@@ -22,9 +22,9 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
   }
   switch (resource) {
     case Resource::LinearSampler: return CreateSampler(frame);
-    case Resource::GroundPyramid:
+    case Resource::OpaqueDepthPyramid:
     case Resource::DepthPyramid:
-      return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.GroundPyramid)
+      return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.OpaqueDepthPyramid)
           .Allocate(*Device_, {.WidthPx = frame.Width, .HeightPx = frame.Height});
     case Resource::ShadowAtlas: return frame.Shadow.Allocate(*Device_);
     case Resource::AtmosphereUniform:
@@ -50,6 +50,13 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:
+    case Resource::PredictionAccepted:
+    case Resource::CompletionKept:
+    case Resource::CompletionSelected:
+    case Resource::CompletionSelectedState:
+    case Resource::CompletionSlot:
+    case Resource::CompletionDrawIndex:
+    case Resource::CompletionDrawArguments:
     case Resource::AoBuffer:
     case Resource::kCount: return {};
     default:

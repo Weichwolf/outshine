@@ -157,13 +157,14 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
                                                       size_t first,
                                                       bool culled,
                                                       size_t end,
-                                                      const DrawResources &resources) {
+                                                      const DrawResources &resources,
+                                                      GeometryResidency::SelectionPhase phase) {
   const auto &batch = Batches[first];
   const auto &surface = Slots[batch.MaterialSlot];
   const auto pipeline =
       PipelineAt(surface.Domain, BatchLayout[first], surface.Kind, surface.CullsBack);
-  const auto &index = Bound().Buffer(culled ? GeometryResidency::Stream::DrawIndex
-                                            : GeometryResidency::Stream::Index);
+  const auto &index = Bound().Buffer(GeometryResidency::SelectionStream(
+      culled ? GeometryResidency::Stream::DrawIndex : GeometryResidency::Stream::Index, phase));
   if (into.Commands == nullptr || !index || !Binding().Pipelines[pipeline]) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "geometry draw is missing native resources"});
@@ -181,7 +182,10 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
     recorded = into.Commands->DrawIndexedIndirect(
         {.State = state,
          .Indices = indices,
-         .Range = {.Data = Bound().Buffer(GeometryResidency::Stream::DrawArguments).get(),
+         .Range = {.Data = Bound()
+                               .Buffer(GeometryResidency::SelectionStream(
+                                   GeometryResidency::Stream::DrawArguments, phase))
+                               .get(),
                    .Offset = first * Native::kIndexedIndirectBytes,
                    .Count = static_cast<uint32_t>(end - first)}});
   } else {
@@ -208,7 +212,9 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
   return recorded;
 }
 
-Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const PassRecording &into) {
+Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx,
+                                              const PassRecording &into,
+                                              GeometryResidency::SelectionPhase phase) {
   const BatchFrustum visible(ctx, Anchor);
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
@@ -218,14 +224,21 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     return {};
   }
   const auto uniforms = FrameUniformsOf(ctx);
-  const bool cut = Bound().Buffer(GeometryResidency::Stream::DrawIndex) &&
-                   Bound().Buffer(GeometryResidency::Stream::DrawArguments) && !Args_.empty();
+  const bool completion = phase == GeometryResidency::SelectionPhase::Completion;
+  const bool cut =
+      Bound().Buffer(
+          GeometryResidency::SelectionStream(GeometryResidency::Stream::DrawIndex, phase)) &&
+      Bound().Buffer(
+          GeometryResidency::SelectionStream(GeometryResidency::Stream::DrawArguments, phase)) &&
+      !Args_.empty();
   std::pair bound{kPipelines, VertexMotion::Deforming};
   uint32_t boundSlot = kNoMaterialSlot;
   DrawResources resources;
   for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
     const auto &batch = Batches[at];
-    if (batch.Passes == GeometryPasses::Shadow) { continue; }
+    if (batch.Passes == GeometryPasses::Shadow || (completion && (!cut || batch.JobCount == 0))) {
+      continue;
+    }
     const auto &surface = Slots[batch.MaterialSlot];
     const bool glass =
         surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
@@ -250,11 +263,11 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     }
     const bool culled = cut && batch.JobCount > 0;
     const size_t end = culled ? IndirectRunEnd(at) : at + 1;
-    const auto recorded = DrawBatchRange(into, at, culled, end, resources);
+    const auto recorded = DrawBatchRange(into, at, culled, end, resources, phase);
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return EncodePrisms(into, uniforms);
+  return completion ? Native::Result<void>{} : EncodePrisms(into, uniforms);
 }
 
 Native::Result<void> GeometryRenderer::EncodeGround(const FrameContext &ctx,

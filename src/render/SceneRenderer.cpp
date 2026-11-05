@@ -88,18 +88,18 @@ struct FrameAcquisition {
 };
 }
 
-namespace {
-
-GeometryCullStage::Source CullSource(const GeometryRenderer &draw) {
-  return {.Resident = &draw.Resident(),
+GeometryCullStage::Source SceneRenderer::CullSource(const GeometryRenderer &draw,
+                                                    GeometryCullStage::SelectionKind selection) {
+  return {.Selection = selection,
+          .AllowPrediction = draw.AllowsVisibilityPrediction(),
+          .Resident = &draw.Resident(),
           .AnchorM = draw.AnchorM(),
           .Jobs = draw.ClusterJobs(),
           .BatchRows = draw.ClusterBatchRows(),
           .Hierarchy = &draw.Hierarchy(),
           .Generation = draw.Generation(),
+          .PredictionGeneration = draw.ClusterTopologyGeneration(),
           .GroundGeneration = draw.Ground().Generation()};
-}
-
 }
 
 void SceneRenderer::SetCamera(const CameraBasis &basis, const Lens &lens) noexcept {
@@ -188,9 +188,21 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::OpaqueGeometry,
          .Configure = &SceneRenderer::ConfigureGeometry,
          .Encode = &SceneRenderer::EncodeGeometry},
-        {.Named = Stage::GroundPyramid,
-         .Configure = &SceneRenderer::ConfigureGroundPyramid,
-         .Encode = &SceneRenderer::EncodeGroundPyramid},
+        {.Named = Stage::OpaqueDepthPyramid,
+         .Configure = &SceneRenderer::ConfigureOpaqueDepthPyramid,
+         .Encode = &SceneRenderer::EncodeOpaqueDepthPyramid},
+        {.Named = Stage::GeometryCompletionCull,
+         .Configure = &SceneRenderer::ConfigureGeometryCompletion,
+         .Encode = &SceneRenderer::EncodeGeometryCompletionCull},
+        {.Named = Stage::GeometryCompletionScan,
+         .Configure = &SceneRenderer::ConfigureGeometryCompletion,
+         .Encode = &SceneRenderer::EncodeGeometryCompletionScan},
+        {.Named = Stage::GeometryCompletionCompact,
+         .Configure = &SceneRenderer::ConfigureGeometryCompletion,
+         .Encode = &SceneRenderer::EncodeGeometryCompletionCompact},
+        {.Named = Stage::OpaqueCompletion,
+         .Configure = &SceneRenderer::ConfigureGeometry,
+         .Encode = &SceneRenderer::EncodeOpaqueCompletion},
         {.Named = Stage::GroundSelection,
          .Configure = &SceneRenderer::ConfigureGroundSelection,
          .Encode = &SceneRenderer::EncodeGroundSelection},
@@ -531,7 +543,7 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
     for (const auto *texture : {frame.Offscreen.get(), frame.Shadow.Atlas()}) {
       if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const auto *buffer : {frame.DepthPyramid.Buffer(), frame.GroundPyramid.Buffer()}) {
+    for (const auto *buffer : {frame.DepthPyramid.Buffer(), frame.OpaqueDepthPyramid.Buffer()}) {
       if (buffer != nullptr) { ++counts.Buffers; }
     }
     if (frame.Samp) { ++counts.Samplers; }
@@ -546,7 +558,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
     case Resource::DepthPyramid: return frame.DepthPyramid.Buffer() != nullptr;
-    case Resource::GroundPyramid: return frame.GroundPyramid.Buffer() != nullptr;
+    case Resource::OpaqueDepthPyramid: return frame.OpaqueDepthPyramid.Buffer() != nullptr;
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
     case Resource::AtmosphereUniform:
@@ -571,6 +583,13 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::ClusterSlot:
     case Resource::DrawIndex:
     case Resource::DrawArguments:
+    case Resource::PredictionAccepted:
+    case Resource::CompletionKept:
+    case Resource::CompletionSelected:
+    case Resource::CompletionSelectedState:
+    case Resource::CompletionSlot:
+    case Resource::CompletionDrawIndex:
+    case Resource::CompletionDrawArguments:
     case Resource::AoBuffer:
     case Resource::kCount: return true;
     default: return frame.Targets.Get(resource) != nullptr;
@@ -613,7 +632,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
-    case Resource::GroundPyramid:
+    case Resource::OpaqueDepthPyramid:
     case Resource::GroundSelection:
     case Resource::DepthPyramid:
     case Resource::AoBuffer:
@@ -983,9 +1002,11 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
   spent.IndirectRecords = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
-  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry) {
-    const GeometryRenderer &drew = stage == Stage::OpaqueGeometry ? ActiveContent().Geometry()
-                                                                  : ActiveContent().Transmission();
+  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry ||
+      stage == Stage::OpaqueCompletion) {
+    const GeometryRenderer &drew = stage != Stage::TransmissiveGeometry
+                                       ? ActiveContent().Geometry()
+                                       : ActiveContent().Transmission();
     const auto &work = drew.Work();
     spent.Draws = work.DrawRequests;
     spent.DirectTriangles = work.DirectTriangles;
@@ -1245,15 +1266,9 @@ Native::Result<void> SceneRenderer::EncodeGeometryRoots(const FrameContext &ctx,
                                                         const PassRecording &into) {
   ActiveFrame().Cull.Binds(CullSource(ActiveContent().Geometry()));
   ActiveFrame().Cull.Projects(static_cast<float>(ActiveFrame().Height));
-  auto lens = Through();
-  const bool temporal = ActiveState().Plan->Holds(Stage::TemporalResolve);
-  lens.Jitter = {};
-  const GeometryCullStage::SelectionProjection projection{
-      .Clip = temporal ? lens.ViewProjection(ActiveState().Camera) : ctx.Mvp,
-      .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
-                                    1.0f / static_cast<float>(lens.HighPx)}}
-                           : Vec2f{}};
-  const auto encoded = ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+  const auto source = CullSource(ActiveContent().Geometry());
+  const auto encoded = ActiveFrame().Cull.EncodeRoots(
+      ctx, into, GeometryProjection(ctx), ActiveFrame().Completion.PredictionFor(source));
   if (!encoded) { return encoded; }
   if (ActiveFrame().Cull.JobsAdmitted() == 0) {
     ++Costs_.ReusedSelections;

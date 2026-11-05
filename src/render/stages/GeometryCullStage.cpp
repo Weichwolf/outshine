@@ -68,7 +68,11 @@ Native::Result<void> GeometryCullStage::Configure(Source source, const Gpu &gpu)
   }
   const auto root = EnsurePipeline(*gpu.Device, RootShader, Root_);
   if (!root) { return root; }
-  const auto cull = EnsurePipeline(*gpu.Device, CullShader, Cull_);
+  const auto shader = source.Selection == SelectionKind::Single ? CullShader
+                      : source.Selection == SelectionKind::Predicted
+                          ? ComputeShaderId::GeometryPredictCull
+                          : ComputeShaderId::GeometryCompleteCull;
+  const auto cull = EnsurePipeline(*gpu.Device, shader, Cull_);
   if (!cull) { return cull; }
   const auto scan = EnsurePipeline(*gpu.Device, ScanShader, Scan_);
   if (!scan) { return scan; }
@@ -81,7 +85,7 @@ Native::Result<void> GeometryCullStage::Configure(Source source, const Gpu &gpu)
 void GeometryCullStage::Binds(Source source) noexcept {
   if (Source_.Resident != source.Resident || Source_.AnchorM != source.AnchorM ||
       Source_.Jobs != source.Jobs || Source_.BatchRows != source.BatchRows ||
-      Source_.Hierarchy != source.Hierarchy) {
+      Source_.Hierarchy != source.Hierarchy || Source_.AllowPrediction != source.AllowPrediction) {
     Invalidate();
   }
   Source_ = source;
@@ -121,17 +125,20 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
 
 Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
                                                     const PassRecording &into,
-                                                    const SelectionProjection &projection) {
+                                                    const SelectionProjection &projection,
+                                                    uint64_t prediction) {
   Swept_ = 0;
   const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
                          LastGeometryGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
   if (!unchanged) { DepthForSelection_ = false; }
-  OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
-                      projection.GuardNdc == Vec2f{} && projection.Clip == ctx.Mvp;
+  OccludeThisFrame_ = Source_.Selection == SelectionKind::Single && DepthForSelection_ &&
+                      PyramidBuffer_ != nullptr && unchanged && projection.GuardNdc == Vec2f{} &&
+                      projection.Clip == ctx.Mvp;
   CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
-                   (!unchanged || (OccludeThisFrame_ && !Refined_));
+                   (Source_.Selection == SelectionKind::Predicted || !unchanged ||
+                    (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {
     gJobsAdmitted.store(0, std::memory_order_relaxed);
     return {};
@@ -160,6 +167,9 @@ Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
       into.Commands->Copy(*read[2], *chunkState, {.Bytes = sizeof(GeometryQueueState)});
   if (!reset) { return reset; }
   Standing(ctx, projection);
+  View_.PredictionAvailable = prediction != 0 ? 1u : 0u;
+  View_.PredictionEpoch = {static_cast<uint32_t>(prediction),
+                           static_cast<uint32_t>(prediction >> 32)};
   const auto &hierarchy = *Source_.Hierarchy;
   const std::array bindings{
       Storage(0, 0, *read[0]),

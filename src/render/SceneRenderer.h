@@ -107,6 +107,7 @@ struct KeptDraws {
   std::vector<uint32_t> Arguments;
   std::vector<uint32_t> DrawIndex;
   std::vector<uint32_t> Visibility;
+  std::vector<uint32_t> NextVisibility;
 };
 
 struct PyramidDepths {
@@ -246,7 +247,10 @@ public:
                        const std::atomic_bool *stopping = nullptr);
 
   // Explicit readback of the last accepted selection; counters omit index/visibility payloads.
-  [[nodiscard]] ReadState ReadGeometrySelection(KeptDraws &into, GeometryReadback detail);
+  [[nodiscard]] ReadState ReadGeometrySelection(
+      KeptDraws &into,
+      GeometryReadback detail,
+      GeometryResidency::SelectionPhase phase = GeometryResidency::SelectionPhase::Primary);
 
   [[nodiscard]] Native::Result<TerrainRenderer::DrawArguments> ReadGroundDrawArguments() const;
 
@@ -918,15 +922,15 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 23;
+  static constexpr size_t kExecutorCount = 27;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
-  [[nodiscard]] static bool ConfigureGroundPyramid(SceneRenderer &renderer,
-                                                   FrameResources &frame,
-                                                   const ExecutionPlan &plan,
-                                                   bool drawsGlass,
-                                                   std::string &error);
+  [[nodiscard]] static bool ConfigureOpaqueDepthPyramid(SceneRenderer &renderer,
+                                                        FrameResources &frame,
+                                                        const ExecutionPlan &plan,
+                                                        bool drawsGlass,
+                                                        std::string &error);
   [[nodiscard]] static bool ConfigureGroundSelection(SceneRenderer &renderer,
                                                      FrameResources &frame,
                                                      const ExecutionPlan &plan,
@@ -937,8 +941,8 @@ private:
                                             const ExecutionPlan &plan,
                                             bool drawsGlass,
                                             std::string &error);
-  [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
-                                                         const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeOpaqueDepthPyramid(const FrameContext &ctx,
+                                                              const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGroundSelection(const FrameContext &ctx,
                                                            const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
@@ -1018,6 +1022,24 @@ private:
                                                      const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
+  [[nodiscard]] static GeometryCullStage::Source CullSource(
+      const GeometryRenderer &draw,
+      GeometryCullStage::SelectionKind selection = GeometryCullStage::SelectionKind::Predicted);
+  [[nodiscard]] GeometryCullStage::SelectionProjection
+  GeometryProjection(const FrameContext &ctx) const;
+  [[nodiscard]] static bool ConfigureGeometryCompletion(SceneRenderer &renderer,
+                                                        FrameResources &frame,
+                                                        const ExecutionPlan &plan,
+                                                        bool drawsGlass,
+                                                        std::string &error);
+  [[nodiscard]] Native::Result<void> EncodeGeometryCompletionCull(const FrameContext &ctx,
+                                                                  const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryCompletionScan(const FrameContext &ctx,
+                                                                  const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGeometryCompletionCompact(const FrameContext &ctx,
+                                                                     const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeOpaqueCompletion(const FrameContext &ctx,
+                                                            const PassRecording &into);
   [[nodiscard]] static bool ConfigureGeometryCull(SceneRenderer &renderer,
                                                   FrameResources &frame,
                                                   const ExecutionPlan &plan,
@@ -1109,10 +1131,11 @@ private:
     AerialPerspectiveStage Aerial;
     TonemapStage Tonemap;
     DepthPyramidPass DepthPyramid;
-    DepthPyramidPass GroundPyramid;
+    DepthPyramidPass OpaqueDepthPyramid;
     SkyStage Sky;
     SunShadowPass Shadow;
     GeometryCullStage Cull;
+    GeometryCullStage Completion;
     OverlayPipeline OverlayPipe;
     PresentStage Present;
     GeometryPipelineBinding GeometryPipelines;

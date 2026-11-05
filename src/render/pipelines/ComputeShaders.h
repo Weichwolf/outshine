@@ -25,6 +25,8 @@ enum class ComputeShaderId : uint32_t {
   CalibrationTriad,
   GeometryRootCull,
   GeometryLeafCull,
+  GeometryPredictCull,
+  GeometryCompleteCull,
   GeometryRootScan,
   GeometrySelectedCompact,
   RadianceFilter,
@@ -102,6 +104,14 @@ inline constexpr std::array kComputeShaders = {
         .Id = ComputeShaderId::GeometryLeafCull,
         .Path = "geometryLeafCull.comp.spv",
         .Shape = {.ReadOnlyBuffers = 8, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryPredictCull,
+        .Path = "geometryPredictCull.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 9, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryCompleteCull,
+        .Path = "geometryCompleteCull.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 9, .ReadWriteBuffers = 4, .UniformBuffers = 2, .GroupX = 64}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::GeometryRootScan,
         .Path = "geometryRootScan.comp.spv",

@@ -19,13 +19,18 @@ namespace outshine::Render {
 
 class GeometryCullStage {
 public:
+  enum class SelectionKind { Single, Predicted, Completion };
+
   struct Source {
+    SelectionKind Selection = SelectionKind::Single;
+    bool AllowPrediction = true;
     const GeometryResidency *Resident = nullptr;
     Vec3 AnchorM{};
     uint32_t Jobs = 0;
     uint32_t BatchRows = 0;
     const GeometryHierarchyAdmission *Hierarchy = nullptr;
     uint64_t Generation = 0;
+    uint64_t PredictionGeneration = 0;
     uint64_t GroundGeneration = 0;
   };
 
@@ -67,10 +72,24 @@ public:
 
   [[nodiscard]] Native::Result<void> EncodeRoots(const FrameContext &ctx,
                                                  const PassRecording &into,
-                                                 const SelectionProjection &projection);
+                                                 const SelectionProjection &projection,
+                                                 uint64_t prediction = 0);
+  [[nodiscard]] Native::Result<void> EncodeCompletion(const FrameContext &ctx,
+                                                      const PassRecording &into,
+                                                      const SelectionProjection &projection);
+
+  [[nodiscard]] uint64_t PredictionFor(const Source &source) const noexcept {
+    return source.AllowPrediction && Cache_.Submitted() && Source_.Resident == source.Resident &&
+                   LastPredictionGeneration_ == source.PredictionGeneration
+               ? PredictionEpoch_
+               : 0;
+  }
+
   [[nodiscard]] Native::Result<void> EncodeCull(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeScan(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeCompact(const PassRecording &into);
+
+  [[nodiscard]] uint64_t PredictionEpoch() const noexcept { return PredictionEpoch_; }
 
   [[nodiscard]] uint32_t JobsAdmitted() const { return Swept_; }
 
@@ -95,7 +114,7 @@ private:
     Vec4f Shift;
     uint32_t Jobs;
     float ErrorPerMetre;
-    std::array<uint32_t, 2> Pad{};
+    std::array<uint32_t, 2> PredictionEpoch{};
     Mat4f Clip{};
     std::array<uint32_t, 4> PyramidWide{};
     std::array<uint32_t, 4> PyramidHigh{};
@@ -103,11 +122,12 @@ private:
     uint32_t Occludes;
     uint32_t SourceWide;
     uint32_t SourceHigh;
-    uint32_t Pad2 = 0;
+    uint32_t PredictionAvailable = 0;
   };
 
   static_assert(sizeof(CullView) == 256 && alignof(CullView) == 16);
   static_assert(offsetof(CullView, Clip) == 128);
+  static_assert(offsetof(CullView, PredictionEpoch) == 120);
   static_assert(offsetof(CullView, PyramidWide) == kPyramidOffset);
   static_assert(offsetof(CullView, SourceWide) == kSourceOffset);
   static_assert(offsetof(CullView, SourceHigh) == kSourceOffset + sizeof(uint32_t));
@@ -122,6 +142,7 @@ private:
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastGeometryGeneration_ = 0;
+  uint64_t LastPredictionGeneration_ = 0;
   uint64_t LastGroundGeneration_ = 0;
   [[nodiscard]] static Native::Result<void>
   EnsurePipeline(Native::Device &device,
@@ -129,6 +150,13 @@ private:
                  std::unique_ptr<Native::ComputePipeline> &into);
   void Standing(const FrameContext &ctx, const SelectionProjection &projection);
 
+  [[nodiscard]] GeometryResidency::SelectionPhase Phase() const noexcept {
+    return Source_.Selection == SelectionKind::Completion
+               ? GeometryResidency::SelectionPhase::Completion
+               : GeometryResidency::SelectionPhase::Primary;
+  }
+
+  uint64_t PredictionEpoch_ = 0;
   Source Source_;
   CullView View_{};
   std::unique_ptr<Native::ComputePipeline> Root_, Cull_, Scan_, Compact_;
