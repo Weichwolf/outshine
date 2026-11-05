@@ -117,6 +117,10 @@ void RetainLatest(id<MTLDevice> device, const std::filesystem::path &prefix) {
   constexpr uint64_t identity = 78;
   constexpr uint64_t submitted = 300;
   constexpr uint64_t retained = 256;
+  const auto output = Output(prefix, identity);
+  std::error_code removed;
+  std::filesystem::remove(output, removed);
+  CHECK(!removed, "an old retention trace cannot satisfy this run");
   auto session = CreateEncoderProfileSession(device, identity);
   CHECK(session, "the retention probe has a timestamp session");
   if (!session) { return; }
@@ -140,7 +144,7 @@ void RetainLatest(id<MTLDevice> device, const std::filesystem::path &prefix) {
     }
   }
   session.reset();
-  NSString *const file = [NSString stringWithUTF8String:Output(prefix, identity).c_str()];
+  NSString *const file = [NSString stringWithUTF8String:output.c_str()];
   NSData *const data = [NSData dataWithContentsOfFile:file];
   NSError *error = nil;
   NSDictionary *const document =
