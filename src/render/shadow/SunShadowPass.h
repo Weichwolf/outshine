@@ -78,6 +78,8 @@ public:
 
   [[nodiscard]] const Mat4 &RegionProjection(size_t region) const { return Projections_[region]; }
 
+  [[nodiscard]] const Mat4 &RegionWorldProjection(size_t region) const { return Static_[region]; }
+
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
 
   [[nodiscard]] const Vec3 &ShadowCentreM() const { return ShadowCentreM_; }

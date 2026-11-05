@@ -58,6 +58,7 @@ struct SDL_Window;
 #include "stages/CompositeTransmissionStage.h"
 #include "visibility/DepthPyramidPass.h"
 #include "shadow/SunShadowPass.h"
+#include "shadow/ShadowDemand.h"
 #include "stages/GeometryCullStage.h"
 #include "stages/SkyStage.h"
 #include "stages/TonemapStage.h"
@@ -715,6 +716,8 @@ public:
   }
 
   [[nodiscard]] size_t ShadowCastCount() const { return ActiveFrame().Shadow.CastBatches(); }
+
+  [[nodiscard]] std::optional<ShadowDemand> DeclaredShadowDemand() const;
 
   [[nodiscard]] const std::array<ShadowRegionUniform, kSunShadowRegions> &ShadowRegions() const {
     return ActiveFrame().Shadow.Regions();

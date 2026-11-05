@@ -112,6 +112,33 @@ void SceneRenderer::SetCamera(const CameraBasis &basis, const Lens &lens) noexce
   ActiveState().CameraFull = true;
 }
 
+std::optional<ShadowDemand> SceneRenderer::DeclaredShadowDemand() const {
+  if (!ActiveState().Ready || !ActiveState().CameraFull) { return std::nullopt; }
+  if (!ActiveState().ShadowDeclared) { return ShadowDemand{}; }
+  if (!ActiveState().ShadowCasterCentreM) { return std::nullopt; }
+  const auto anchor = ActiveContent().Geometry().AnchorM();
+  SunShadowPass projected;
+  projected.Declare({.ToSun = ActiveState().ShadowToSun, .Up = ActiveState().ShadowUp},
+                    ActiveState().ShadowRadiusM,
+                    ActiveState().ShadowCameraCentred,
+                    *ActiveState().ShadowCasterCentreM + anchor);
+  if (!projected.IsDeclared()) { return std::nullopt; }
+  ShadowDemand demand{.ClipFromScene = {},
+                      .Regions = projected.RegionCount(),
+                      .EyeM = ActiveState().Camera.EyeM - anchor};
+  projected.Build(ActiveState().Camera.EyeM * -1.0);
+  for (size_t region = 0; region < demand.Regions; ++region) {
+    demand.ClipFromScene[region] = projected.RegionWorldProjection(region);
+    for (size_t row = 0; row < 4; ++row) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        demand.ClipFromScene[region][12 + row] +=
+            projected.RegionWorldProjection(region)[axis * 4 + row] * anchor[axis];
+      }
+    }
+  }
+  return demand;
+}
+
 Lens SceneRenderer::Through() const {
   return {.WidePx = PictureW(),
           .HighPx = PictureH(),
