@@ -60,43 +60,51 @@ static_assert(__builtin_offsetof(Output, first) == 8 && __builtin_offsetof(Outpu
 static_assert(__builtin_offsetof(Output, instance) == 16);
 static_assert(sizeof(uint2) == 8 && alignof(uint2) == 8);
 struct V { float4 position [[position]]; float4 colour; };
-V shade(uint vid, uint instance, device const uint *colours, device const float2 *positions) {
-  float2 xy = (float2(instance%128,instance/128) + positions[vid]) / float2(128,64);
+V shadePoint(float2 point, uint instance, device const uint *colours) {
+  float2 xy = (float2(instance%128,instance/128) + point) / float2(128,64);
   uint colour = colours[instance];
   return {float4(xy*2-1,0,1),float4(float(colour%251)/251,float(colour%127)/127,.5,1)};
 }
 vertex V original(uint vid [[vertex_id]], uint instance [[instance_id]],
                   device const uint *colours [[buffer(2)]], device const float2 *positions [[buffer(3)]]) {
-  return shade(vid,instance,colours,positions);
+  return shadePoint(positions[vid],instance,colours);
 }
 vertex V pulling(uint vid [[vertex_id]], device const uint *colours [[buffer(2)]],
                  device const float2 *positions [[buffer(3)]], device const uint2 *roots [[buffer(4)]]) {
   uint2 root = roots[vid >> 6];
-  return shade(root.x + (vid & 63),root.y,colours,positions);
+  return shadePoint(positions[root.x + (vid & 63)],root.y,colours);
+}
+struct Input { float2 point [[attribute(0)]]; };
+vertex V nativeFetch(Input in [[stage_in]], uint vid [[vertex_id]],
+                     device const uint *colours [[buffer(2)]],
+                     device const uint *models [[buffer(5)]]) {
+  return shadePoint(in.point,models[vid],colours);
 }
 fragment float4 fragmentMain(V in [[stage_in]]) { return in.colour; }
 kernel void compact(device const DrawArguments *args [[buffer(0)]],
                     device uint *indices [[buffer(1)]], device Output &output [[buffer(2)]],
-                    constant uint &count [[buffer(3)]], uint id [[thread_position_in_grid]]) {
+                    constant uint &count [[buffer(3)]], device const uint2 *roots [[buffer(4)]],
+                    constant uint &mode [[buffer(5)]], uint id [[thread_position_in_grid]]) {
   if (id >= count) return;
   if (id == 0) output.instances = 1;
   if (args[id].count == 0 || args[id].instances == 0) return;
-  uint first = atomic_fetch_add_explicit(&output.count,3,memory_order_relaxed);
-  indices[first] = id*64;
-  indices[first+1] = id*64+1;
-  indices[first+2] = id*64+2;
+  uint first = atomic_fetch_add_explicit(&output.count,6,memory_order_relaxed);
+  const uint corners[6] = {0,1,2,0,2,3};
+  uint base = mode == 2 ? roots[id].x : id*64;
+  for (uint at = 0; at < 6; ++at) indices[first+at] = base+corners[at];
 }
 )";
 
 constexpr uint32_t kRecords = 8192;
+constexpr uint32_t kModes = 3;
 
 struct Programs {
-  std::array<id<MTLRenderPipelineState>, 2> Pipelines;
+  std::array<id<MTLRenderPipelineState>, kModes> Pipelines;
   id<MTLComputePipelineState> Compute;
 };
 
 struct Buffers {
-  id<MTLBuffer> Arguments, Colours, Positions, Roots, Indices, SelectedIndices, Count;
+  id<MTLBuffer> Arguments, Colours, Positions, Roots, Indices, SelectedIndices, Count, Models;
   id<MTLTexture> Target;
   id<MTLCommandQueue> Queue;
 };
@@ -110,11 +118,12 @@ id<MTLCommandBuffer> Encode(const Programs &programs, const Buffers &buffers, ui
                originalIndices,
                compactIndices,
                draw,
+               models,
                target,
                queue] = buffers;
   constexpr uint32_t count = kRecords;
   const auto commands = [queue commandBuffer];
-  if (mode == 1) {
+  if (mode != 0) {
     const auto clear = [commands blitCommandEncoder];
     [clear fillBuffer:draw range:NSMakeRange(0, sizeof(DrawArguments)) value:0];
     [clear endEncoding];
@@ -124,6 +133,8 @@ id<MTLCommandBuffer> Encode(const Programs &programs, const Buffers &buffers, ui
     [encoder setBuffer:compactIndices offset:0 atIndex:1];
     [encoder setBuffer:draw offset:0 atIndex:2];
     [encoder setBytes:&count length:sizeof(count) atIndex:3];
+    [encoder setBuffer:rootBuffer offset:0 atIndex:4];
+    [encoder setBytes:&mode length:sizeof(mode) atIndex:5];
     [encoder dispatchThreads:MTLSizeMake(count, 1, 1) threadsPerThreadgroup:MTLSizeMake(64, 1, 1)];
     [encoder endEncoding];
   }
@@ -136,6 +147,7 @@ id<MTLCommandBuffer> Encode(const Programs &programs, const Buffers &buffers, ui
   [render setVertexBuffer:colourBuffer offset:0 atIndex:2];
   [render setVertexBuffer:positionBuffer offset:0 atIndex:3];
   if (mode == 1) { [render setVertexBuffer:rootBuffer offset:0 atIndex:4]; }
+  if (mode == 2) { [render setVertexBuffer:models offset:0 atIndex:5]; }
   if (mode == 0) {
     for (uint32_t at = 0; at < count; ++at) {
       [render drawIndexedPrimitives:MTLPrimitiveTypeTriangle
@@ -170,14 +182,14 @@ bool HasColour(std::span<const uint8_t> pixels) {
 }
 
 int Measure(const Programs &programs, const Buffers &buffers, uint32_t divisor) {
-  std::array<double, 2> cpu{};
-  std::array<double, 2> gpu{};
+  std::array<double, kModes> cpu{};
+  std::array<double, kModes> gpu{};
   std::vector<uint8_t> reference(size_t{256} * 128 * 4);
   std::vector<uint8_t> actual(reference.size());
   const auto &target = buffers.Target;
   for (uint32_t round = 0; round < 14; ++round) {
-    for (uint32_t one = 0; one < 2; ++one) {
-      const uint32_t mode = (one + round) % 2;
+    for (uint32_t one = 0; one < kModes; ++one) {
+      const uint32_t mode = (one + round) % kModes;
       const auto start = std::chrono::steady_clock::now();
       const auto commands = Encode(programs, buffers, mode);
       const auto encoded = std::chrono::steady_clock::now();
@@ -209,9 +221,9 @@ int Measure(const Programs &programs, const Buffers &buffers, uint32_t divisor) 
     std::println(stderr, "nonempty visibility must produce actual pixels");
     return 7;
   }
-  for (uint32_t mode = 0; mode < 2; ++mode) {
+  for (uint32_t mode = 0; mode < kModes; ++mode) {
     std::println("mode={} records={} divisor={} cpu_ms={:.6f} gpu_ms={:.6f} equal=1",
-                 mode == 0 ? "loop" : "pull",
+                 std::array{"loop", "pull", "native"}[mode],
                  kRecords,
                  divisor,
                  cpu[mode] / 12,
@@ -219,6 +231,27 @@ int Measure(const Programs &programs, const Buffers &buffers, uint32_t divisor) 
   }
   return 0;
 }
+
+id<MTLRenderPipelineState>
+MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, NSString *entry) {
+  const auto desc = [MTLRenderPipelineDescriptor new];
+  desc.vertexFunction = [library newFunctionWithName:entry];
+  desc.fragmentFunction = [library newFunctionWithName:@"fragmentMain"];
+  desc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
+  if ([entry isEqualToString:@"nativeFetch"]) {
+    const auto layout = [MTLVertexDescriptor new];
+    layout.attributes[0].format = MTLVertexFormatFloat2;
+    layout.attributes[0].bufferIndex = 3;
+    layout.layouts[3].stride = sizeof(VertexPoint);
+    layout.layouts[3].stepFunction = MTLVertexStepFunctionPerVertex;
+    desc.vertexDescriptor = layout;
+  }
+  NSError *error = nil;
+  const auto pipeline = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+  if (pipeline == nil) { std::println(stderr, "{}", Message(error)); }
+  return pipeline;
+}
+
 }
 
 int main(int argc, char *const *argv) {
@@ -231,54 +264,52 @@ int main(int argc, char *const *argv) {
           std::from_chars(argument.data(), argument.data() + argument.size(), divisor);
       if (parsed.ec != std::errc{} || parsed.ptr != argument.data() + argument.size()) { return 1; }
     }
-    auto device = MTLCreateSystemDefaultDevice();
+    const auto device = MTLCreateSystemDefaultDevice();
     NSError *error = nil;
     NSString *const source = [NSString stringWithUTF8String:kSource];
     if (source == nil) { return 2; }
-    auto library = [device newLibraryWithSource:source options:nil error:&error];
+    const auto library = [device newLibraryWithSource:source options:nil error:&error];
     if (library == nullptr) {
       std::println(stderr, "{}", Message(error));
       return 2;
     }
-    const auto pipeline = [&](NSString *entry) {
-      const auto desc = [MTLRenderPipelineDescriptor new];
-      desc.vertexFunction = [library newFunctionWithName:entry];
-      desc.fragmentFunction = [library newFunctionWithName:@"fragmentMain"];
-      desc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
-      return [device newRenderPipelineStateWithDescriptor:desc error:&error];
-    };
-    std::array<id<MTLRenderPipelineState>, 2> pipelines{pipeline(@"original"),
-                                                        pipeline(@"pulling")};
+    std::array<id<MTLRenderPipelineState>, kModes> pipelines{
+        MakePipeline(device, library, @"original"),
+        MakePipeline(device, library, @"pulling"),
+        MakePipeline(device, library, @"nativeFetch")};
     const id<MTLFunction> function = [library newFunctionWithName:@"compact"];
     if (function == nil) { return 3; }
     const auto compute = [device newComputePipelineStateWithFunction:function error:&error];
-    if ((pipelines[0] == nullptr) || (pipelines[1] == nullptr) || (compute == nullptr)) {
+    if ((pipelines[0] == nullptr) || (pipelines[1] == nullptr) || (pipelines[2] == nullptr) ||
+        (compute == nullptr)) {
       std::println(stderr, "{}", Message(error));
       return 3;
     }
     constexpr uint32_t count = kRecords;
     std::vector<DrawArguments> args(count);
     std::vector<uint32_t> colours(count);
-    std::vector<VertexPoint> positions(size_t{count} * 3);
+    std::vector<VertexPoint> positions(size_t{count} * 4);
+    std::vector<uint32_t> models(size_t{count} * 4);
     std::vector<ClusterRoot> roots(count);
-    std::vector<uint32_t> rawIndices(size_t{count} * 3 + 1);
+    std::vector<uint32_t> rawIndices(size_t{count} * 6 + 1);
     rawIndices[0] = 0xdeadbeef;
     for (uint32_t at = 0; at < count; ++at) {
-      args[at] = {.Count = divisor != 0 && at % divisor == 0 ? 3u : 0u,
+      args[at] = {.Count = divisor != 0 && at % divisor == 0 ? 6u : 0u,
                   .Instances = 1,
-                  .First = at * 3,
+                  .First = at * 6,
                   .Base = -1,
                   .Instance = (at * 73 + 19) % count};
       colours[at] = at ^ 0x5a;
-      roots[at] = {.First = ((at * 37 + 11) % count) * 3, .Instance = args[at].Instance};
-      positions[size_t{at} * 3] =
-          at % 2 == 0 ? VertexPoint{.X = 0, .Y = 0} : VertexPoint{.X = 1, .Y = 1};
-      positions[size_t{at} * 3 + 1] =
-          at % 2 == 0 ? VertexPoint{.X = 1, .Y = 0} : VertexPoint{.X = 0, .Y = 1};
-      positions[size_t{at} * 3 + 2] =
-          at % 2 == 0 ? VertexPoint{.X = 0, .Y = 1} : VertexPoint{.X = 1, .Y = 0};
-      for (uint32_t v = 0; v < 3; ++v) {
-        rawIndices[1 + size_t{at} * 3 + v] = 1 + roots[at].First + v;
+      roots[at] = {.First = ((at * 37 + 11) % count) * 4, .Instance = args[at].Instance};
+      constexpr std::array<VertexPoint, 4> square{
+          {{.X = 0, .Y = 0}, {.X = 1, .Y = 0}, {.X = 1, .Y = 1}, {.X = 0, .Y = 1}}};
+      constexpr std::array<uint32_t, 6> corners{0, 1, 2, 0, 2, 3};
+      for (uint32_t v = 0; v < 4; ++v) {
+        positions[size_t{at} * 4 + v] = square[(v + (at % 2) * 2) % 4];
+        models[roots[at].First + v] = roots[at].Instance;
+      }
+      for (uint32_t v = 0; v < corners.size(); ++v) {
+        rawIndices[1 + size_t{at} * 6 + v] = 1 + roots[at].First + corners[v];
       }
     }
     const auto arguments = [device newBufferWithBytes:args.data()
@@ -296,7 +327,10 @@ int main(int argc, char *const *argv) {
     const auto rootBuffer = [device newBufferWithBytes:roots.data()
                                                 length:roots.size() * sizeof(ClusterRoot)
                                                options:MTLResourceStorageModeShared];
-    const auto compactIndices = [device newBufferWithLength:uint64_t{count} * 3 * 4
+    const auto modelBuffer = [device newBufferWithBytes:models.data()
+                                                 length:models.size() * sizeof(uint32_t)
+                                                options:MTLResourceStorageModeShared];
+    const auto compactIndices = [device newBufferWithLength:uint64_t{count} * 6 * 4
                                                     options:MTLResourceStorageModePrivate];
     const auto draw = [device newBufferWithLength:sizeof(DrawArguments)
                                           options:MTLResourceStorageModePrivate];
@@ -310,8 +344,9 @@ int main(int argc, char *const *argv) {
     const auto target = [device newTextureWithDescriptor:texture];
     const auto queue = [device newCommandQueue];
     if ((arguments == nullptr) || (colourBuffer == nullptr) || (positionBuffer == nullptr) ||
-        (rootBuffer == nullptr) || (originalIndices == nullptr) || (compactIndices == nullptr) ||
-        (draw == nullptr) || (target == nullptr) || (queue == nullptr)) {
+        (rootBuffer == nullptr) || (modelBuffer == nullptr) || (originalIndices == nullptr) ||
+        (compactIndices == nullptr) || (draw == nullptr) || (target == nullptr) ||
+        (queue == nullptr)) {
       return 4;
     }
 
@@ -327,6 +362,7 @@ int main(int argc, char *const *argv) {
                     .Indices = originalIndices,
                     .SelectedIndices = compactIndices,
                     .Count = draw,
+                    .Models = modelBuffer,
                     .Target = target,
                     .Queue = queue},
                    divisor);
