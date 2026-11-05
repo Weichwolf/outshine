@@ -98,6 +98,42 @@ class ShellView(PanoramicView):
         return math.inf
 
 
+def ranges(ordinals):
+    result = []
+    for ordinal in sorted(ordinals):
+        if result and sum(result[-1]) == ordinal:
+            result[-1][1] += 1
+        else:
+            result.append([ordinal, 1])
+    return result
+
+
+def coalesce(sources, products):
+    groups = {}
+    covered = set()
+    for product in products:
+        node = sources.tree.nodes[product.node]
+        members = sources.tree.order[node[6]:node[6] + node[7]]
+        if covered.intersection(members):
+            raise ValueError("product source coverage overlaps")
+        covered.update(members)
+        cell = sources.tree.cohorts[product.node]
+        if cell is None:
+            raise ValueError("coalesced geometry crosses source cohorts")
+        kind = {"original": "fine", "unresolved": "unknown"}.get(product.kind, product.kind)
+        group = groups.setdefault((cell, kind), {"cell": cell, "kind": kind,
+            "sources": [], "source_faces": 0, "supports": []})
+        group["sources"].extend(members)
+        group["source_faces"] += sum(sources.faces[at] for at in members)
+        group["supports"].append({"node": product.node,
+                                   "error_m": product.error_m})
+    if covered != set(range(len(sources.tree.order))):
+        raise ValueError("coalesced products leave source coverage missing")
+    for group in groups.values():
+        group["source_ranges"] = ranges(group.pop("sources"))
+    return list(groups.values())
+
+
 def cut(sources, eye, viewport, focal, allowed, hulls):
     view = (PanoramicView if hulls else ShellView)(tuple(eye), focal, *viewport)
     products, visited = sources.cut(view, allowed, cell_cohorts=True)
@@ -111,7 +147,13 @@ def cut(sources, eye, viewport, focal, allowed, hulls):
         row["products"] += 1
         row["sources"] += len(members)
         row["source_faces"] += sum(sources.faces[at] for at in members)
-    return {"visited_nodes": visited, "representations": kinds}
+    groups = coalesce(sources, products)
+    unknown_cells = {group["cell"] for group in groups if group["kind"] == "unknown"}
+    return {"visited_nodes": visited, "representations": kinds,
+            "groups": groups,
+            "known_fine_sources_sharing_cells_with_unknown": sum(
+                sum(count for _, count in group["source_ranges"])
+                for group in groups if group["kind"] == "fine" and group["cell"] in unknown_cells)}
 
 
 def ecef(latitude, longitude, height):

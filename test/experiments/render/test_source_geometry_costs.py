@@ -1,7 +1,8 @@
 import struct
 import unittest
 
-from source_geometry_costs import cut, geometry_inputs
+from source_geometry_costs import coalesce, cut, geometry_inputs
+from panoramic_geometry_cut import PanoramicView
 from test_source_product_cut import index
 
 
@@ -41,6 +42,23 @@ class SourceGeometryCostsTests(unittest.TestCase):
         self.assertEqual(rows["unknown"]["sources"], 1)
         self.assertEqual(rows["fine"]["sources"], 1)
         self.assertEqual(sum(row["sources"] for row in rows.values()), 4)
+
+    def test_unresolved_members_never_poison_known_recipe_groups(self):
+        data, _, _ = index()
+        _, sources = geometry_inputs(inventory(((1, 6, -1), (0, 0, -1),
+                                                (1, 6, -1), (1, 6, -1))), data, "fixture")
+        products, _ = sources.cut(PanoramicView((15, 1, 1000), 720, 1280, 720), 1,
+                                  cell_cohorts=True)
+        groups = coalesce(sources, products)
+        decoded = {row["kind"]: {at for first, count in row["source_ranges"]
+                                for at in range(first, first + count)} for row in groups}
+        self.assertEqual(decoded["unknown"], {1})
+        self.assertEqual(decoded["fine"], {0, 2, 3})
+        self.assertTrue(decoded["fine"].isdisjoint(decoded["unknown"]))
+        with self.assertRaises(ValueError):
+            coalesce(sources, products + products[:1])
+        with self.assertRaises(ValueError):
+            coalesce(sources, products[:-1])
 
     def test_truncated_and_foreign_dimensions_fail(self):
         data, _, _ = index()
