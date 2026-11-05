@@ -186,7 +186,20 @@ BuildingGeometrySource::Resolve(AssetCache &cache,
   if (stop.stop_requested()) { return std::unexpected("building group generation cancelled"); }
   const auto stored =
       GeometryAsset::Publish(cache, key, recipe.BaseKey, *product, budget.EncodedBytesMost);
-  if (!stored) { return std::unexpected("native building group publication failed"); }
+  if (!stored) {
+    switch (stored.error()) {
+      case AssetCacheError::CapacityExceeded:
+        return std::unexpected("native building group exceeds its encoded byte allowance");
+      case AssetCacheError::InvalidInput:
+        return std::unexpected("native building group geometry or cluster layout is invalid");
+      case AssetCacheError::Busy:
+        return std::unexpected("native building group storage is busy or awaiting reclamation");
+      case AssetCacheError::UnsupportedVersion:
+        return std::unexpected("native building group storage version is unsupported");
+      case AssetCacheError::Storage: return std::unexpected("native building group storage failed");
+    }
+    return std::unexpected("native building group publication failed");
+  }
   return product;
 }
 }
