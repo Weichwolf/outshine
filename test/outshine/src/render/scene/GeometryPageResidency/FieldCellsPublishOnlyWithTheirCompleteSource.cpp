@@ -595,6 +595,9 @@ void CheckOriginalProducts(SceneRenderer &renderer,
   field.Coverage = *left;
   CHECK(pages.StageProduct(kTile, field, frame.OriginEcef(), error, kSource),
         "a field product stages alongside the annotated originals");
+  pages.DiscardStagedCells(kTile);
+  CHECK(pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "field-left"}, *left),
+        "starting a legacy cell assembly preserves independently prepared field products");
   const std::array<std::string_view, 2> shadow{"original-left", "original-right"};
   const std::array<std::string_view, 1> partial{"field-left"};
   CHECK(!pages.ActivateProducts(kTile, kSource, *expected, partial, shadow, error) &&

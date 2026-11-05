@@ -500,7 +500,7 @@ bool GeometryPageResidency::CellsActive(uint32_t tile,
 
 void GeometryPageResidency::DiscardStagedCells(uint32_t tile) {
   std::erase_if(Pages_, [this, tile](const ResidentGeometryPage &held) {
-    if (held.Tile != tile || held.Visible) { return false; }
+    if (held.Tile != tile || held.Visible || held.Mode == Publication::Product) { return false; }
     Releases(held);
     return true;
   });

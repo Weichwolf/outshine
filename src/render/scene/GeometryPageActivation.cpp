@@ -4,6 +4,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstddef>
+#include <format>
 #include <optional>
 #include <limits>
 #include <span>
@@ -129,8 +130,16 @@ bool GeometryPageResidency::ActivateProducts(uint32_t tile,
     if (!inShadow) { passes = GeometryPasses::Main; }
     targets.push_back({.Page = &*at, .Passes = passes});
   }
-  if (mainSources.size() != main.size() || shadowSources.size() != shadow.size() ||
-      !SourceCoverage::Partition(expected, mainSources) ||
+  if (mainSources.size() != main.size() || shadowSources.size() != shadow.size()) {
+    error = std::format("geometry product residency mismatch: tile={} main={}/{} shadow={}/{}",
+                        tile,
+                        mainSources.size(),
+                        main.size(),
+                        shadowSources.size(),
+                        shadow.size());
+    return false;
+  }
+  if (!SourceCoverage::Partition(expected, mainSources) ||
       !SourceCoverage::Partition(expected, shadowSources)) {
     error = "geometry products do not cover their complete revision in both passes";
     return false;
