@@ -3,7 +3,9 @@
 #include "TangentFrame.h"
 #include "Viewing.h"
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace outshine::Ground {
@@ -39,6 +41,7 @@ public:
     size_t Sources = 0, Pending = 0, Ready = 0, Active = 0, Rejected = 0;
     size_t ReadyGroups = 0, ActiveGroups = 0;
     size_t SelectedProducts = 0;
+    size_t OriginalCellsSkipped = 0;
   };
 
   BuildingFieldStreaming();
@@ -47,6 +50,15 @@ public:
   BuildingFieldStreaming &operator=(const BuildingFieldStreaming &) = delete;
   [[nodiscard]] bool Advance(Context &context, std::string &error);
   [[nodiscard]] Counts Read() const noexcept;
+  [[nodiscard]] bool Preparing(uint32_t tile) const noexcept;
+
+  struct SourceAddress {
+    uint32_t Tile;
+    uint64_t Key;
+  };
+
+  [[nodiscard]] bool ProductsReady(SourceAddress source) const noexcept;
+  [[nodiscard]] std::optional<uint64_t> OriginalCells(SourceAddress source) const noexcept;
 
 private:
   std::unique_ptr<State> State_;

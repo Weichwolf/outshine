@@ -218,16 +218,22 @@ struct RefinementSelection {
 };
 
 template <typename GroundStands>
-RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField &prints,
-                                     const ::outshine::Generators::Osm::OsmField &vectors,
-                                     const ::outshine::Generators::Osm::StreetField &streets,
-                                     std::shared_ptr<const Ground::HeightField> &heights,
-                                     const Generators::PreparedBuildingAssets::Basis &basis,
-                                     const std::string &preparedAssetKey,
-                                     GroundStands &&groundStands,
-                                     size_t &remaining,
-                                     bool checksView,
-                                     const std::function<bool(uint32_t)> &cellReady) {
+RefinementSelection SelectCandidate(::outshine::Generators::Osm::BuildingField &prints,
+                                    const ::outshine::Generators::Osm::OsmField &vectors,
+                                    const ::outshine::Generators::Osm::StreetField &streets,
+                                    std::shared_ptr<const Ground::HeightField> &heights,
+                                    const Generators::PreparedBuildingAssets::Basis &basis,
+                                    const std::string &preparedAssetKey,
+                                    GroundStands &&groundStands,
+                                    size_t &remaining,
+                                    bool checksView,
+                                    const std::function<bool(uint32_t)> &cellReady,
+                                    bool refining,
+                                    size_t candidatesMost) {
+  if (!refining) {
+    const auto next = prints.Next(vectors, groundStands, candidatesMost);
+    return {.Next = next, .Deferred = !next};
+  }
   if (remaining == 0) { return {.Next = std::nullopt, .Deferred = true}; }
   --remaining;
   const std::optional<uint32_t> tile = prints.RefinementTile();
@@ -707,7 +713,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                                  .TileSpanM = prints.TileSpanM(),
                                                  .FallbackHeights = heights->Fallback(),
                                                  .Origin = &raw->SourceInputs.Origin});
-  const BakeRevision revision{.HeightSource = heightAt.Revision,
+  const BakeRevision revision{.OriginalCells = std::nullopt,
+                              .HeightSource = heightAt.Revision,
                               .Projection = prints.Projection(),
                               .TileSpanM = prints.TileSpanM(),
                               .Eye = eye,
@@ -743,7 +750,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   HeightRequirement requirement,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
-                                  const std::function<bool(uint32_t)> &cellReady) {
+                                  const std::function<bool(uint32_t)> &cellReady,
+                                  const CellDemand &originalCells) {
   if (candidatesMost == 0 || Pool_ == nullptr || Context_.Mesher == nullptr) { return 0; }
   if (!AdmitContext()) { return 0; }
   AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
@@ -762,8 +770,16 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
     }
     return 0;
   }
-  return PostsVectors(
-      stack, prints, eye, heightAt, candidatesMost, requirement, detail, purpose, cellReady);
+  return PostsVectors(stack,
+                      prints,
+                      eye,
+                      heightAt,
+                      candidatesMost,
+                      requirement,
+                      detail,
+                      purpose,
+                      cellReady,
+                      originalCells);
 }
 
 StructureBuildQueue::QueuedBuild
@@ -818,7 +834,7 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
     if (revision.Purpose != BuildPurpose::TerrainContacts && !revision.RequestedDetail) {
-      task.UseInitialCells();
+      task.UseInitialCells(revision.OriginalCells.value_or(~uint64_t{0}));
     }
   }
   if (revision.Purpose == BuildPurpose::TerrainContacts) { task.UseTerrainContacts(); }
@@ -962,7 +978,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                          HeightRequirement requirement,
                                          std::optional<LevelOfDetail> detail,
                                          BuildPurpose purpose,
-                                         const std::function<bool(uint32_t)> &cellReady) {
+                                         const std::function<bool(uint32_t)> &cellReady,
+                                         const CellDemand &originalCells) {
   if (Pool_ == nullptr || Context_.Mesher == nullptr || stack.Vectors() == nullptr ||
       !prints.Anchored()) {
     return 0;
@@ -979,39 +996,41 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
           stack, prints, over, heightAt, requirement, selected, heightResolutionMs);
     };
     const auto selectionAt = std::chrono::steady_clock::now();
-    std::optional<::outshine::Generators::Osm::TileAdmission::Next> next;
-    bool replacement = false;
-    if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
-      const RefinementSelection refinement = SelectRefinement(prints,
-                                                              vectors,
-                                                              stack.Ways(),
-                                                              selected.Heights,
-                                                              selected.Basis,
-                                                              selected.Key,
-                                                              groundStands,
-                                                              remaining,
-                                                              purpose == BuildPurpose::ViewDetail,
-                                                              cellReady);
-      if (refinement.Deferred) { break; }
-      if (!refinement.Next) { continue; }
-      next = refinement.Next;
-      replacement = true;
-    } else {
-      next = prints.Next(vectors, groundStands, candidatesMost);
-    }
+    const bool replacement =
+        requirement == HeightRequirement::FineOnly && !prints.RefinementComplete();
+    const auto candidate = SelectCandidate(prints,
+                                           vectors,
+                                           stack.Ways(),
+                                           selected.Heights,
+                                           selected.Basis,
+                                           selected.Key,
+                                           groundStands,
+                                           remaining,
+                                           purpose == BuildPurpose::ViewDetail,
+                                           cellReady,
+                                           replacement,
+                                           candidatesMost);
+    if (candidate.Deferred) { break; }
+    const auto &next = candidate.Next;
+    if (!next) { continue; }
     SlowestCandidateSelectionMs_ = std::max(
         SlowestCandidateSelectionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - selectionAt)
             .count());
     SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, heightResolutionMs);
-    if (!next) { break; }
     const auto streetDigest = selected.Basis ? std::optional(selected.StreetDigest)
                                              : StreetDigest(stack.Ways(), vectors, next->Tile);
     if (!streetDigest) {
       ++Deferred_;
       break;
     }
-    const BakeRevision revision{.Vectors = vectors.Generation(),
+    const auto needed = originalCells ? originalCells(next->Tile) : std::nullopt;
+    if (needed && *needed == 0) {
+      ++Deferred_;
+      break;
+    }
+    const BakeRevision revision{.OriginalCells = needed,
+                                .Vectors = vectors.Generation(),
                                 .HeightSource = heightAt.Revision,
                                 .Projection = prints.Projection(),
                                 .TileSpanM = prints.TileSpanM(),
@@ -1201,7 +1220,9 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                   .SourceKey = bake.SourceKey,
                   .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
                   .SourceComplete = complete,
-                  .Footprints = std::nullopt};
+                  .Footprints = std::nullopt,
+                  .Publish = bake.Revision.OriginalCells ? Landing::Publication::Products
+                                                         : Landing::Publication::Source};
   if (!complete) { return landing; }
   if (bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
       landing.SourceKey != 0 && QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {

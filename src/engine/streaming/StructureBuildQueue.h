@@ -83,6 +83,7 @@ public:
   [[nodiscard]] bool HasOriginal() const noexcept { return !Context_.Originals.empty(); }
 
   struct BakeRevision {
+    std::optional<uint64_t> OriginalCells;
     uint64_t Vectors = 0;
     HeightSourceRevision HeightSource;
     ProjectedErrorBudget Projection{};
@@ -148,6 +149,7 @@ public:
     HeightSourceRevision Revision;
   };
 
+  using CellDemand = std::function<std::optional<uint64_t>(uint32_t)>;
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
                              ::outshine::Generators::Osm::BuildingField &footprints,
                              LongitudeLatitude eye,
@@ -156,12 +158,14 @@ public:
                              HeightRequirement requirement = HeightRequirement::AllowFallback,
                              std::optional<LevelOfDetail> detail = std::nullopt,
                              BuildPurpose purpose = BuildPurpose::ViewDetail,
-                             const std::function<bool(uint32_t)> &cellReady = {});
+                             const std::function<bool(uint32_t)> &cellReady = {},
+                             const CellDemand &originalCells = {});
 
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile);
 
   struct Landing {
+    enum class Publication { Source, Products };
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
@@ -169,6 +173,7 @@ public:
     uint64_t InitialCells = 0;
     bool SourceComplete = true;
     std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
+    Publication Publish = Publication::Source;
   };
 
   [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
@@ -259,7 +264,8 @@ private:
                                     HeightRequirement requirement,
                                     std::optional<LevelOfDetail> detail,
                                     BuildPurpose purpose,
-                                    const std::function<bool(uint32_t)> &cellReady);
+                                    const std::function<bool(uint32_t)> &cellReady,
+                                    const CellDemand &originalCells);
   [[nodiscard]] size_t PostsOriginal(uint32_t tile,
                                      Ground::SurfacePreparation &stack,
                                      ::outshine::Generators::Osm::BuildingField &footprints,

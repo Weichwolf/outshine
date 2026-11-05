@@ -9,6 +9,7 @@
 #include "SourceProductSelection.h"
 #include "MaterialRegistration.h"
 #include "StoredVertex.h"
+#include "ShadowDemand.h"
 #include <atomic>
 #include <cstdint>
 #include <expected>
@@ -40,6 +41,7 @@ struct BuildingFieldStreaming::State {
     std::optional<BuildingFieldRequest::ProjectedSupport> Support;
     std::optional<Part> Surface;
     std::string AssetKey;
+    std::optional<Box> SceneBounds;
   };
 
   struct Cell {
@@ -53,6 +55,8 @@ struct BuildingFieldStreaming::State {
     std::vector<Group> Alternatives;
     std::string AssetKey;
     bool Staged = false;
+    bool Qualified = false;
+    bool ShadowNeeded = true;
   };
 
   struct Tile {
@@ -64,8 +68,12 @@ struct BuildingFieldStreaming::State {
     std::optional<SourceCoverage> Coverage;
     std::vector<std::string> MainProducts, ShadowProducts;
     std::vector<std::string> CandidateProducts;
+    std::vector<std::string> OriginalProducts;
     size_t ActiveGroups = 0;
     uint64_t Active = 0;
+    uint64_t ShadowCells = 0, ResidentOriginals = 0;
+    uint64_t PublishedShadowCells = 0;
+    bool Complete = false;
   };
 
   struct OriginalProduct {
@@ -86,6 +94,7 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string_view> Shadow;
     uint64_t ActiveCells = 0;
     size_t ActiveGroups = 0;
+    std::vector<const SourceCoverage *> MainSources, ShadowSources;
   };
 
   BuildingSourceDemand Sources;
@@ -97,6 +106,7 @@ struct BuildingFieldStreaming::State {
   uint32_t ReadCell = 0;
   Counts Statistics;
   std::string LastRejection;
+  std::optional<Render::ShadowDemand> Shadows;
 
   void Discover(Context &context);
   void PollMetadata();
@@ -114,10 +124,12 @@ struct BuildingFieldStreaming::State {
   void PollFields(Context &context);
   [[nodiscard]] bool Select(Context &context, std::string &error);
   [[nodiscard]] bool SelectTile(Context &context, Tile &tile, std::string &error);
+  [[nodiscard]] std::vector<const Cell *> EvaluateCells(Context &context, Tile &tile);
   [[nodiscard]] static std::expected<std::vector<OriginalProduct>, std::string>
   BindOriginals(Context &context, const Tile &tile, uint64_t sourceKey);
   [[nodiscard]] static ProductCut SelectReplacements(std::span<const OriginalProduct> originals,
-                                                     std::span<const Cell *const> candidates);
+                                                     std::span<const Cell *const> candidates,
+                                                     uint64_t shadowCells);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
                                                                                    uint64_t cells);
   [[nodiscard]] static bool Stage(Context &context, Tile &tile, Cell &cell, std::string &error);

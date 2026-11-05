@@ -96,10 +96,13 @@ bool BuildingFieldStreaming::State::PrepareCells(
 
 void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
-  if (Reading->Groups && Reading->Selection && Reading->Cut && ReadingTile) {
-    if (PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
-      Tiles.push_back(std::move(*ReadingTile));
+  if (ReadingTile) {
+    if (!Reading->Groups || !Reading->Selection || !Reading->Cut ||
+        !PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
+      ReadingTile->Cells.clear();
+      ReadingTile->Coverage.reset();
     }
+    Tiles.push_back(std::move(*ReadingTile));
   }
   ReadingTile.reset();
   Reading.reset();
@@ -126,7 +129,8 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
             .Coverage = std::nullopt,
             .MainProducts = {},
             .ShadowProducts = {},
-            .CandidateProducts = {}};
+            .CandidateProducts = {},
+            .OriginalProducts = {}};
   const size_t count = std::accumulate(
       tile.Source.CellSourceCounts.begin(), tile.Source.CellSourceCounts.end(), size_t{0});
   const auto bytes = PageIndexAsset::EncodedBytes(count);

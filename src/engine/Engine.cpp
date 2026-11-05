@@ -271,6 +271,10 @@ bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye)
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
   if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
+  if (World.BuildingFields &&
+      World.BuildingFields->ProductsReady({.Tile = tile, .Key = *sourceKey})) {
+    return true;
+  }
   return World.Pieces.HasProjectedTile(tile,
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        eye,

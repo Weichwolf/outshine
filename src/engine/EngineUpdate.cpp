@@ -407,7 +407,19 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       StructureBuildQueue::HeightRequirement::FineOnly,
       std::nullopt,
       StructureBuildQueue::BuildPurpose::ViewDetail,
-      [this, eye](uint32_t tile) { return StructureProductsReady(tile, eye); });
+      [this, eye](uint32_t tile) {
+        return StructureProductsReady(tile, eye) ||
+               (World.BuildingFields &&
+                StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile) &&
+                World.BuildingFields->Preparing(tile));
+      },
+      [this](uint32_t tile) -> std::optional<uint64_t> {
+        const auto source =
+            StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile);
+        return source && World.BuildingFields
+                   ? World.BuildingFields->OriginalCells({.Tile = tile, .Key = *source})
+                   : std::nullopt;
+      });
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());
@@ -466,6 +478,9 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building fields: selected products",
                          static_cast<double>(counts.SelectedProducts),
                          "products");
+  Published.RecordMetric("building fields: original cells skipped",
+                         static_cast<double>(counts.OriginalCellsSkipped),
+                         "cells");
   return true;
 }
 

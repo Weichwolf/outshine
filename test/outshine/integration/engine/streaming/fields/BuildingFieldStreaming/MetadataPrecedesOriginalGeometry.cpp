@@ -3,6 +3,7 @@
 #include "AssetPipeline.h"
 #include "GeometryPageResidency.h"
 #include "SceneRenderer.h"
+#include "Lens.h"
 #include "Check.h"
 #include "LogSinks.h"
 #include "Log.h"
@@ -45,6 +46,27 @@ bool Collect(BuildingQueueFixture &fixture, StructureBuildQueue::HeightRequireme
     (void)fixture.Queue.AwaitSlice(0.02);
   } while (std::chrono::steady_clock::now() < deadline);
   return false;
+}
+
+void PublishWithoutOriginals(BuildingFieldStreaming &fields,
+                             BuildingFieldStreaming::Context &context) {
+  context.Renderer.SetCamera(
+      context.Camera,
+      {.WidePx = 32, .HighPx = 32, .FovDeg = 57.29578f, .NearM = .1f, .FarM = 240000});
+  const auto before = context.Surface.BuildingAssets()->Costs();
+  std::string error;
+  CHECK(fields.Advance(context, error) && error.empty(),
+        "a known empty shadow demand permits a complete field-only source cut");
+  const auto source = StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), 0);
+  CHECK(source && fields.ProductsReady({.Tile = 0, .Key = *source}) &&
+            fields.OriginalCells({.Tile = 0, .Key = *source}) == 0,
+        "a qualified field completes the source without requesting original cells");
+  CHECK(fields.Read().Active == 1 && fields.Read().OriginalCellsSkipped == 1,
+        "field publication records the skipped original cell");
+  const auto after = context.Surface.BuildingAssets()->Costs();
+  CHECK(after.GeometryReadBytes == before.GeometryReadBytes &&
+            after.GeometryPreparations == before.GeometryPreparations,
+        "the complete field-only cut performs no original payload IO or generation");
 }
 
 void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
@@ -96,6 +118,7 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   size_t visible = 0;
   context.Pages.ForEachDigest([&](const auto &) { ++visible; });
   CHECK(visible == 0, "a prepared field stays unpublished without fallback coverage");
+  PublishWithoutOriginals(fields, context);
   context.Pages.Clear();
 }
 

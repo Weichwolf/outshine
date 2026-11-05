@@ -21,6 +21,23 @@
 #include <vector>
 
 namespace outshine {
+namespace {
+Box CaptureBounds(const BuildingFieldStreaming::Context &context,
+                  const Render::RadiancePlane &plane,
+                  const Mat4 &worldFromField) {
+  const double extent = 3 * plane.HalfExtentM;
+  const Vec3 half{{extent, extent, extent}};
+  const Box capture{.Min = plane.Centre - half, .Max = plane.Centre + half};
+  const auto world = capture.Through(worldFromField);
+  Box scene;
+  for (unsigned corner = 0; corner < 8; ++corner) {
+    const auto local = context.Frame.ToLocalPosition(world.Corner(corner));
+    scene.Cover(Vec3{{local.EastM, local.UpM, -local.NorthM}});
+  }
+  return scene;
+}
+}
+
 void BuildingFieldStreaming::State::Reject(Cell &cell) {
   cell.Where = Phase::Rejected;
   cell.Groups.clear();
@@ -130,6 +147,7 @@ bool BuildingFieldStreaming::State::StageGroup(Context &context,
                              .Triangles = std::move(triangles),
                              .Material = std::move(*material)});
   group.AssetKey = product.Metadata->FieldKey({0});
+  group.SceneBounds = CaptureBounds(context, product.GeometricSupport->Plane, world);
   return true;
 }
 

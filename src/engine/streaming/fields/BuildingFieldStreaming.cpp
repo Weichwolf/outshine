@@ -31,6 +31,42 @@ BuildingFieldStreaming::Counts BuildingFieldStreaming::Read() const noexcept {
   return State_->Statistics;
 }
 
+bool BuildingFieldStreaming::Preparing(uint32_t tile) const noexcept {
+  const auto entries = State_->Sources.Entries();
+  if (tile >= entries.size()) { return false; }
+  const auto &entry = entries[tile];
+  const auto phase = entry.Where;
+  if (phase == BuildingSourceDemand::Phase::Unrequested ||
+      phase == BuildingSourceDemand::Phase::Pending) {
+    return true;
+  }
+  if (phase != BuildingSourceDemand::Phase::Ready) { return false; }
+  if (!entry.Value || !entry.Value->HeightQualified) { return false; }
+  const auto found = std::ranges::find(State_->Tiles, tile, &State::Tile::Index);
+  if (found == State_->Tiles.end()) { return true; }
+  return State_->Statistics.Pending != 0 && std::ranges::any_of(found->Cells, [](const auto &cell) {
+           return cell.Where == State::Phase::Waiting || cell.Where == State::Phase::Pending;
+         });
+}
+
+bool BuildingFieldStreaming::ProductsReady(SourceAddress source) const noexcept {
+  const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
+  return found != State_->Tiles.end() && found->SourceKey == source.Key && found->Complete;
+}
+
+std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress source) const noexcept {
+  const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
+  if (found == State_->Tiles.end() || found->SourceKey != source.Key || !found->Coverage) {
+    return std::nullopt;
+  }
+  uint64_t needed = 0;
+  for (const auto &cell : found->Cells) {
+    if (!cell.Qualified || cell.ShadowNeeded) { needed |= uint64_t{1} << (cell.Source.Cell - 1u); }
+  }
+  needed &= ~found->ResidentOriginals;
+  return needed;
+}
+
 Render::CameraBasis BuildingFieldStreaming::State::WorldCamera(const Context &context) {
   const auto direction = [&](const Vec3 &v) {
     return context.Frame.ToEcefDirection({.EastM = v[0], .NorthM = -v[2], .UpM = v[1]});
@@ -44,7 +80,9 @@ Render::CameraBasis BuildingFieldStreaming::State::WorldCamera(const Context &co
 }
 
 void BuildingFieldStreaming::State::Discover(Context &context) {
-  (void)Sources.Advance(context.Sources, context.Surface, 1);
+  if (Sources.Advance(context.Sources, context.Surface, 1)) {
+    std::erase_if(Tiles, [](const Tile &tile) { return !tile.Coverage; });
+  }
   PollMetadata();
   const auto current = Sources.Entries();
   std::erase_if(Tiles, [&](const auto &tile) {
@@ -196,6 +234,7 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   if (!context.Surface.BuildingAssets() || !context.Surface.AssetStore()) { return true; }
   State_->Discover(context);
   State_->PollFields(context);
+  State_->Shadows = context.Renderer.DeclaredShadowDemand();
   if (!State_->Select(context, error)) { return false; }
   State_->RequestOne(context);
   auto &counts = State_->Statistics;

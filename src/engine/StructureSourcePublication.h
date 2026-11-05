@@ -33,7 +33,10 @@ namespace outshine {
                         landing.SourceKey)) {
     return false;
   }
-  if (!landing.SourceComplete) { return true; }
+  if (!landing.SourceComplete ||
+      landing.Publish == StructureBuildQueue::Landing::Publication::Products) {
+    return true;
+  }
   std::array<Render::GeometryPageResidency::CellSelection, Generators::kStructureCellsPerTile>
       selected{};
   size_t count = 0;
