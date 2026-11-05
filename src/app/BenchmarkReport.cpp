@@ -125,6 +125,10 @@ ReportJson GpuTimes(const ScenarioBenchmarkReport &report, double budgetMs) {
 }
 
 ReportJson LoadingJson(const Loading &loading) {
+  const auto wait = [](double milliseconds, size_t calls, size_t signals) {
+    return ReportJson{{"ms", milliseconds}, {"calls", calls}, {"signals", signals}};
+  };
+  const auto &waited = loading.Waited;
   auto sources = ReportJson::array();
   for (const auto &source : loading.Sources) {
     sources.push_back({{"kind", source.Kind},
@@ -149,6 +153,18 @@ ReportJson LoadingJson(const Loading &loading) {
           {"preload_pump_ms", loading.PreloadPumpMs},
           {"preload_flush_ms", loading.PreloadFlushMs},
           {"preload_await_ms", loading.PreloadAwaitMs},
+          {"preload_pumps", loading.PreloadPumps},
+          {"preload_flushes", loading.PreloadFlushes},
+          {"preload_awaits", loading.PreloadAwaits},
+          {"waits",
+           {{"structure", wait(waited.StructureMs, waited.StructureCalls, waited.StructureSignals)},
+            {"classification", wait(waited.ClassMs, waited.ClassCalls, waited.ClassSignals)},
+            {"tiles", wait(waited.TileMs, waited.TileCalls, waited.TileSignals)},
+            {"world_worker",
+             wait(waited.WorldWorkerMs, waited.WorldWorkerCalls, waited.WorldWorkerSignals)},
+            {"idle", {{"ms", waited.IdleMs}, {"calls", waited.IdleCalls}}},
+            {"tiles_no_outstanding",
+             {{"ms", waited.TileNoOutstandingMs}, {"calls", waited.TileNoOutstandingCalls}}}}},
           {"sources", std::move(sources)}};
 }
 
