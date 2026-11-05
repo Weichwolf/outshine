@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_ROAD_SURFACE_ROADDISPLAYSAMPLER_H
 
 #include "ReferenceLine.h"
+#include "RoadDisplayPolicy.h"
 #include "Ribbon.h"
 #include "Vec3.h"
 #include <array>
@@ -20,6 +21,7 @@ struct RoadDisplayLimits {
 struct RoadDisplayRequest {
   double ErrorM = 0;
   RoadDisplayLimits Limits;
+  RoadDisplayPolicy Policy = RoadDisplayPolicy::UpperOnly;
 };
 
 struct RoadDisplayPlan {

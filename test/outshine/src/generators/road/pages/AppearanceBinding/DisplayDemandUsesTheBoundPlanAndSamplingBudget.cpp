@@ -1,8 +1,11 @@
 #include "TransportRoadPageProducer.h"
 #include "TransportPlanCodec.h"
 #include "TransportPlanFixture.h"
+#include "ProfiledRoadMesher.h"
+#include "TransportRoadPageMeshing.h"
 #include "Check.h"
 #include <cstddef>
+#include <expected>
 #include <memory>
 #include <string>
 #include <utility>
@@ -52,6 +55,17 @@ int main() {
   request.SweepLimits = {.StationsMost = 8, .PoseQueriesMost = 256};
   CHECK(bridge && !bridge->Produce(request, {}),
         "an Upper-only product cannot silently substitute fine closed bridge geometry");
+  request.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+  const auto retained = TransportRoadPageProducer::Bind(closed, request.Address, parts);
+  const auto originalBody = MeshTransportRoadPage(ProfiledRoadMesher{}, *closed, parts);
+  const auto mixed =
+      retained ? retained->Produce(request, {})
+               : std::expected<RoadPageGeometry, std::string>(std::unexpected("no producer"));
+  CHECK(mixed && originalBody && mixed->Mesh.PositionM == originalBody->Mesh.PositionM &&
+            mixed->Mesh.NormalM == originalBody->Mesh.NormalM &&
+            mixed->Mesh.ColourRgba == originalBody->Mesh.ColourRgba &&
+            mixed->Mesh.Index == originalBody->Mesh.Index,
+        "the explicit mixed policy preserves the native plan's entire original body");
   request.Address.UpperModelErrorM = 2;
   CHECK(!producer->Produce(request, {}), "another error demand belongs to another product");
   return Report();

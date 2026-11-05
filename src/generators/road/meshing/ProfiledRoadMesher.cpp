@@ -285,8 +285,13 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
   const double halfWidthM = how.HalfWidthM;
   RoadMeshingStats tally;
   RoadMeshingRejections &rejections = tally.Rejections;
-  if (along.size() < 2 || !(halfWidthM > 0.0) || (Display_ && how.Form != RibbonForm::Surface)) {
-    if (Display_) {
+  auto display = Display_;
+  if (display && display->Policy == RoadDisplayPolicy::UpperWithOriginalBodies &&
+      how.Form == RibbonForm::ClosedShell) {
+    display.reset();
+  }
+  if (along.size() < 2 || !(halfWidthM > 0.0) || (display && how.Form != RibbonForm::Surface)) {
+    if (display) {
       tally.Refused = 1;
       ++rejections.Sweep;
     }
@@ -294,7 +299,6 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
   }
   const std::array before{
       into.PositionM.size(), into.NormalM.size(), into.ColourRgba.size(), into.Index.size()};
-  auto display = Display_;
 
   const auto samples = GatherRoadSamples(along);
   tally = AppendRoadPieces(*this, along, how, samples, into, display ? &*display : nullptr);

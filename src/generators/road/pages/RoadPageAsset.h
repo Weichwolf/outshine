@@ -4,6 +4,7 @@
 #include "Earth.h"
 #include "RoadPageGeometry.h"
 #include "RoadPageAppearance.h"
+#include "RoadDisplayPolicy.h"
 #include "Box.h"
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,7 @@ struct RoadPageAddress {
   std::vector<RoadPagePart> Parts;
   RoadPageAppearance Appearance = LegacyRoadPageV1{};
   std::optional<double> UpperModelErrorM = std::nullopt;
+  RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
 };
 
 struct RoadPageAsset {

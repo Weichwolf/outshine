@@ -61,11 +61,13 @@ RoadPageMeshProducer::Produce(const RoadPageRequest &request, std::stop_token st
       return std::unexpected("Upper display generation needs an explicit sampling budget");
     }
     for (const auto &interval : Recipe_.Intervals) {
-      if (interval.StepBody || interval.Surface.Form != RibbonForm::Surface) {
+      if (request.Address.DisplayPolicy == RoadDisplayPolicy::UpperOnly &&
+          (interval.StepBody || interval.Surface.Form != RibbonForm::Surface)) {
         return std::unexpected("Upper display generation cannot replace closed or step bodies");
       }
     }
-    display = RoadDisplayRequest{.ErrorM = *error, .Limits = *limits};
+    display = RoadDisplayRequest{
+        .ErrorM = *error, .Limits = *limits, .Policy = request.Address.DisplayPolicy};
   }
   const ProfiledRoadMesher mesher = display ? ProfiledRoadMesher(*display) : ProfiledRoadMesher{};
   auto result = MeshRoadPage(mesher, Recipe_, stop);

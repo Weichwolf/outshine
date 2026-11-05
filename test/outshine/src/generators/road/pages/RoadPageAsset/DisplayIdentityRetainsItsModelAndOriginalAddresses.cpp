@@ -40,6 +40,7 @@ void Roundtrip(const RoadPageAsset &page) {
   const auto decoded = DecodeRoadPageAsset(*bytes, kLimit);
   CHECK(decoded && decoded->Address.UpperModelErrorM == page.Address.UpperModelErrorM &&
             decoded->Address.Appearance == page.Address.Appearance &&
+            decoded->Address.DisplayPolicy == page.Address.DisplayPolicy &&
             RoadPageKey(decoded->Address) == RoadPageKey(page.Address) &&
             decoded->Geometry.Mesh.Index == page.Geometry.Mesh.Index,
         "independent decoding preserves model identity, appearance and geometry");
@@ -73,6 +74,20 @@ int main() {
   Roundtrip(page);
   page.Address.UpperModelErrorM = 1;
   Roundtrip(page);
+  const auto upperKey = RoadPageKey(page.Address);
+  CHECK(upperKey == "fc8044587115e14ae827fbf81444795065ceb871ba5d2ff7dfd1be6a45a274ec",
+        "the independently encoded v4 Upper-only address retains its existing key");
+  page.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+  CHECK(RoadPageKey(page.Address) != upperKey,
+        "keeping original bodies requires a distinct explicit product identity");
+  Roundtrip(page);
+  page.Address.DisplayPolicy = static_cast<RoadDisplayPolicy>(99);
+  CHECK(RoadPageKey(page.Address).empty() && !EncodeRoadPageAsset(page, kLimit),
+        "unknown display policies cannot identify native products");
+  page.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+  page.Address.UpperModelErrorM.reset();
+  CHECK(RoadPageKey(page.Address).empty(), "a mixed policy requires an explicit Upper model");
+  page.Address.DisplayPolicy = RoadDisplayPolicy::UpperOnly;
   for (const double bad : {0.0,
                            -1.0,
                            std::numeric_limits<double>::infinity(),

@@ -24,6 +24,7 @@ namespace {
 constexpr uint64_t kLegacyFormat = 0x000231504452ULL;
 constexpr uint64_t kAppearanceFormat = 0x000331504452ULL;
 constexpr uint64_t kDisplayFormat = 0x000431504452ULL;
+constexpr uint64_t kOriginalBodiesFormat = 0x000531504452ULL;
 
 bool HashKey(const std::string &key) {
   return key.size() == 64 && std::ranges::all_of(key, [](char value) {
@@ -36,6 +37,11 @@ bool Before(const RoadPagePart &left, const RoadPagePart &right) {
 }
 
 bool ValidAddress(const RoadPageAddress &address) {
+  if ((address.DisplayPolicy != RoadDisplayPolicy::UpperOnly &&
+       address.DisplayPolicy != RoadDisplayPolicy::UpperWithOriginalBodies) ||
+      (!address.UpperModelErrorM && address.DisplayPolicy != RoadDisplayPolicy::UpperOnly)) {
+    return false;
+  }
   if (address.UpperModelErrorM &&
       (!std::isfinite(*address.UpperModelErrorM) || *address.UpperModelErrorM <= 0)) {
     return false;
@@ -59,6 +65,9 @@ bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
   const bool appearance = std::holds_alternative<RoadPageAppearanceV2>(address.Appearance);
   auto format = appearance ? kAppearanceFormat : kLegacyFormat;
   if (address.UpperModelErrorM) { format = kDisplayFormat; }
+  if (address.DisplayPolicy == RoadDisplayPolicy::UpperWithOriginalBodies) {
+    format = kOriginalBodiesFormat;
+  }
   if (!out(format) || !out.Text(address.PlanKey) || !out.Text(address.MaterialKey)) {
     return false;
   }
@@ -72,6 +81,7 @@ bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
     return false;
   }
   if (address.UpperModelErrorM && !out(*address.UpperModelErrorM)) { return false; }
+  if (format == kOriginalBodiesFormat && !out(address.DisplayPolicy)) { return false; }
   return std::ranges::all_of(address.Parts,
                              [&](const auto &part) { return out(part.Kind, part.Index); });
 }
@@ -80,12 +90,14 @@ bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
   uint64_t version = 0;
   uint32_t count = 0;
   if (!in(version) ||
-      (version != kLegacyFormat && version != kAppearanceFormat && version != kDisplayFormat) ||
+      (version != kLegacyFormat && version != kAppearanceFormat && version != kDisplayFormat &&
+       version != kOriginalBodiesFormat) ||
       !in.Text(address.PlanKey) || !in.Text(address.MaterialKey)) {
     return false;
   }
   uint32_t appearance = version == kAppearanceFormat ? 1 : 0;
-  if (version == kDisplayFormat && (!in(appearance) || appearance > 1)) { return false; }
+  const bool display = version == kDisplayFormat || version == kOriginalBodiesFormat;
+  if (display && (!in(appearance) || appearance > 1)) { return false; }
   if (!ReadRoadPageAppearance(in, appearance != 0, address.Appearance) ||
       !in(address.MaterialIndex,
           address.Anchor.LatitudeDeg,
@@ -95,10 +107,15 @@ bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
       count > in.In.Remaining() / (2 * sizeof(uint32_t))) {
     return false;
   }
-  if (version == kDisplayFormat) {
+  if (display) {
     double errorM = 0;
     if (!in(errorM)) { return false; }
     address.UpperModelErrorM = errorM;
+  }
+  if (version == kOriginalBodiesFormat &&
+      (!in(address.DisplayPolicy) ||
+       address.DisplayPolicy != RoadDisplayPolicy::UpperWithOriginalBodies)) {
+    return false;
   }
   address.Parts.resize(count);
   return std::ranges::all_of(address.Parts,

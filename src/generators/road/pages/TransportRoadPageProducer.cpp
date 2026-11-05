@@ -64,11 +64,13 @@ TransportRoadPageProducer::Produce(const RoadPageRequest &request, std::stop_tok
         return std::unexpected("unknown Upper display path");
       }
       const auto &path = Plan_->Paths[part.Part.Index];
-      if (path.Bridge || path.Body) {
+      if (request.Address.DisplayPolicy == RoadDisplayPolicy::UpperOnly &&
+          (path.Bridge || path.Body)) {
         return std::unexpected("Upper display generation cannot replace closed or step bodies");
       }
     }
-    display = RoadDisplayRequest{.ErrorM = *error, .Limits = *limits};
+    display = RoadDisplayRequest{
+        .ErrorM = *error, .Limits = *limits, .Policy = request.Address.DisplayPolicy};
   }
   const ProfiledRoadMesher mesher = display ? ProfiledRoadMesher(*display) : ProfiledRoadMesher{};
   auto product = MeshTransportRoadPage(mesher, *Plan_, Parts_, stop);
