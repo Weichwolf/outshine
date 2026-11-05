@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from metal_encoder_profile import benchmark_window, gpurow_window
+from metal_encoder_profile import benchmark_window, gpurow_window, counter_timeline
 
 
 def inputs():
@@ -30,6 +30,53 @@ def inputs():
         },
     }
     return document, benchmark
+
+
+def counter_row(first, last):
+    return {"calibration_cpu_ns": [0, 1000000], "calibration_gpu": [0, 1000000],
+            "encoders": [{"kind": "compute", "available": True,
+                          "ticks": [first, last, 0, 0]}]}
+
+
+class CounterTimeline(unittest.TestCase):
+    def test_overlapping_latencies_are_not_added_as_frame_work(self):
+        result = counter_timeline([counter_row(1000000, 21000000),
+                                   counter_row(11000000, 31000000)])
+        self.assertEqual(result["envelope_sum_ms"], 40)
+        self.assertEqual(result["envelope_union_ms"], 30)
+        self.assertEqual(result["overlap_ms"], 10)
+        self.assertEqual(result["encoder_end_intervals"]["p99_ms"], 10)
+
+    def test_gaps_and_missing_baseline_do_not_invent_samples(self):
+        single = counter_timeline([counter_row(1, 1000001)])
+        self.assertEqual(single["encoder_end_intervals"]["samples"], 0)
+        self.assertIsNone(single["encoder_end_intervals"]["p99_ms"])
+        result = counter_timeline([counter_row(1, 1000001), counter_row(3000001, 4000001)])
+        self.assertEqual(result["envelope_union_ms"], 2)
+        self.assertEqual(result["encoder_end_intervals"]["p99_ms"], 3)
+
+    def test_out_of_order_endings_are_explicit(self):
+        result = counter_timeline([counter_row(1, 10000001), counter_row(2, 5000001)])
+        self.assertFalse(result["ordered_encoder_endings"])
+        self.assertEqual(result["encoder_end_intervals"]["samples"], 0)
+
+    def test_unknown_empty_or_invalid_counters_fail(self):
+        for rows in ([], [{**counter_row(1, 2), "encoders": []}],
+                     [counter_row(2, 1)], [counter_row(0, 1)]):
+            with self.assertRaises(ValueError):
+                counter_timeline(rows)
+
+    def test_calibration_and_render_sample_shape_are_checked(self):
+        original = counter_row(1, 2)
+        for cpu, gpu in (([2, 1], [1, 2]), ([1, 2], [2, 1]),
+                         ([0, float("inf")], [0, 1])):
+            row = {**original, "calibration_cpu_ns": cpu, "calibration_gpu": gpu}
+            with self.assertRaises(ValueError):
+                counter_timeline([row])
+        original["encoders"][0]["kind"] = "render"
+        original["encoders"][0]["ticks"] = [1, 2]
+        with self.assertRaises(ValueError):
+            counter_timeline([original])
 
 
 class MetalBenchmarkWindow(unittest.TestCase):

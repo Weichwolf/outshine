@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import shlex
+import statistics
 import subprocess
 import tempfile
 from pathlib import Path
@@ -171,6 +172,58 @@ def gpurow_window(document, log):
     return window
 
 
+def counter_timeline(window):
+    spans, scales = [], []
+    for submission in window:
+        cpu, gpu = submission["calibration_cpu_ns"], submission["calibration_gpu"]
+        if (not all(math.isfinite(x) for x in (*cpu, *gpu))
+                or cpu[1] <= cpu[0] or gpu[1] <= gpu[0]):
+            raise ValueError("invalid common-clock calibration")
+        ratio = (cpu[1] - cpu[0]) / (gpu[1] - gpu[0])
+        if not math.isfinite(ratio) or ratio <= 0:
+            raise ValueError("invalid counter clock scale")
+        scales.append(ratio)
+        ticks = []
+        for encoder in submission["encoders"]:
+            if encoder["kind"] not in ("render", "compute") or not encoder["available"]:
+                raise ValueError("encoder counter samples unavailable")
+            count = 4 if encoder["kind"] == "render" else 2
+            used = encoder["ticks"][:count]
+            if (len(used) != count or any(not math.isfinite(t) or t <= 0 for t in used)
+                    or any(used[at + 1] < used[at] for at in range(0, len(used), 2))):
+                raise ValueError("invalid encoder counter interval")
+            ticks.extend(used)
+        if not ticks:
+            raise ValueError("empty encoder counter envelope")
+        spans.append((min(ticks), max(ticks)))
+    if not spans:
+        raise ValueError("empty counter window")
+    scale = statistics.median(scales) / 1e6
+    merged = []
+    for first, last in sorted(spans):
+        if merged and first <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], last)
+        else:
+            merged.append([first, last])
+    total = sum(last - first for first, last in spans) * scale
+    union = sum(last - first for first, last in merged) * scale
+    intervals = [(b[1] - a[1]) * scale for a, b in zip(spans, spans[1:])]
+    ordered = all(value > 0 for value in intervals)
+    values = sorted(intervals) if ordered else []
+    return {
+        "scope": "Encoder envelopes exclude unprofiled commands; neither utilization nor a budget verdict.",
+        "clock": "same-device raw ticks, median calibration scale",
+        "calibration_ns_per_tick_min_max": [min(scales), max(scales)],
+        "envelope_sum_ms": total, "envelope_union_ms": union,
+        "overlap_ms": total - union,
+        "ordered_encoder_endings": ordered,
+        "encoder_end_intervals": {
+            "samples": len(values),
+            **{f"p{percentile}_ms": values[math.ceil(len(values) * percentile / 100) - 1]
+               if values else None for percentile in (50, 95, 99)}},
+    }
+
+
 def analyse(trace, log, output, benchmark=None):
     document = json.loads(trace.read_text())
     if document["allocation_failures"] or (
@@ -234,6 +287,7 @@ def analyse(trace, log, output, benchmark=None):
         "collect_cpu_ms_all_submissions": document["collect_cpu_ns"] / 1e6,
         "scope": "Counter stages overlap; do not sum them or substitute CPU waits.",
         "overhead": "Collection only; allocation and GPU sampling cost not isolated.",
+        "counter_timeline": counter_timeline(window),
         "encoders": list(groups.values()),
     }
     for group in result["encoders"]:
