@@ -1061,12 +1061,21 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
                                                  const HeightSource &heightAt,
                                                  const QueuedBuild &bake,
                                                  HeightRequirement heights) const {
-  if (bake.Task.FromPreparedInputs()) {
+  const auto sourceCurrent = [&] {
+    const auto &inputs = bake.Task.Raw().SourceInputs;
+    if (inputs.Objects) {
+      return inputs.Objects.get() == InputObjectsFor(bake.Task.Tile()) &&
+             inputs.Origin.Selection ==
+                 Context_.Originals[bake.Task.Tile()].Input->SourceInputs.Origin.Selection;
+    }
+    return stack.Vectors() != nullptr &&
+           bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile());
+  };
+  if (bake.Task.HasPreparedBase()) {
     return (heights != HeightRequirement::FineOnly || bake.Task.PreparedStructureCount() == 0 ||
             bake.Task.HeightQualified()) &&
            bake.Revision.HeightSource == heightAt.Revision &&
-           (bake.Task.PreparedAssetKey().has_value() ||
-            bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile()));
+           (bake.Task.PreparedAssetKey().has_value() || sourceCurrent());
   }
   const auto &captured = bake.Task.Heights();
   if (heights == HeightRequirement::FineOnly && !bake.Task.Raw().Structures.empty() &&
@@ -1086,12 +1095,7 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
       return false;
     }
   }
-  if (bake.Task.Raw().SourceInputs.Objects) {
-    return bake.Task.Raw().SourceInputs.Objects.get() == InputObjectsFor(bake.Task.Tile()) &&
-           bake.Task.Raw().SourceInputs.Origin.Selection ==
-               Context_.Originals[bake.Task.Tile()].Input->SourceInputs.Origin.Selection;
-  }
-  return bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile());
+  return sourceCurrent();
 }
 
 bool StructureBuildQueue::RetryMissingNativeInputs(
@@ -1232,7 +1236,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
   const bool qualified = [&] {
-    if (bake.Task.FromPreparedInputs()) {
+    if (bake.Task.HasPreparedBase()) {
       return bake.Task.PreparedStructureCount() == 0 || bake.Task.HeightQualified();
     }
     if (baked.Coordinates->Origin.Provenance) {
@@ -1270,7 +1274,7 @@ void StructureBuildQueue::CommitFootprints(
     ::outshine::Generators::Osm::BuildingField &footprints) noexcept {
   const auto product = ContactMetadata(bake);
   if (!product.Coordinates) { std::terminate(); }
-  if (!bake.Task.FromPreparedInputs()) {
+  if (!bake.Task.HasPreparedBase()) {
     auto &completed = bake.Task.Result().Tile;
     assert(completed && completed->Coordinates);
     completed->Coordinates->OwnCoordinates(std::move(bake.Task.Raw().LatLon),

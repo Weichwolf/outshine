@@ -107,7 +107,7 @@ public:
   [[nodiscard]] const Generators::RawTile &Raw() const noexcept;
   [[nodiscard]] const Ground::HeightField &Heights() const noexcept;
   [[nodiscard]] const Generators::PreparedStructureTile *PreparedBase() const noexcept;
-  [[nodiscard]] bool FromPreparedInputs() const noexcept;
+  [[nodiscard]] bool HasPreparedBase() const noexcept;
 
   [[nodiscard]] size_t PreparedStructureCount() const noexcept;
   [[nodiscard]] std::span<const Data::TileSourceIdentity> HeightSources() const noexcept;

@@ -636,7 +636,7 @@ const Generators::PreparedStructureTile *StructureBuildTask::PreparedBase() cons
   return Payload_ ? Payload_->Base.get() : nullptr;
 }
 
-bool StructureBuildTask::FromPreparedInputs() const noexcept {
+bool StructureBuildTask::HasPreparedBase() const noexcept {
   return Payload_ && (Payload_->Base || Payload_->Basis);
 }
 
