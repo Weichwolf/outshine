@@ -12,6 +12,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace outshine {
 class RoadPageRestoration {
@@ -39,6 +40,8 @@ public:
 
   [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
 
+  [[nodiscard]] GeometryClusters TakeClusters() noexcept { return std::move(Clusters_); }
+
 private:
   struct Pending {
     uint32_t Index;
@@ -61,6 +64,7 @@ private:
   std::deque<Pending> Window_;
   Limits Limits_;
   RoadMeshingStats Meshing_;
+  GeometryClusters Clusters_;
   std::unique_ptr<Generators::RoadPageAsset> Loaded_;
   std::optional<MaterialInstance> Surface_;
   size_t Next_ = 0;

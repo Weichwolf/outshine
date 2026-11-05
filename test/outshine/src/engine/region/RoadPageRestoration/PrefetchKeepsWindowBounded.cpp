@@ -3,6 +3,8 @@
 #include "ControlledRoadPageProducer.h"
 #include <stop_token>
 #include "RoadPageRestoration.h"
+#include "MeshClusterBuildJob.h"
+#include "RenderGeometryStorage.h"
 #include "PageIndexAsset.h"
 #include "Sha256.h"
 #include "Check.h"
@@ -38,7 +40,8 @@ struct Fixture {
   std::string Key;
 };
 
-std::optional<Fixture> Prepare(const std::filesystem::path &directory, bool display) {
+std::optional<Fixture>
+Prepare(const std::filesystem::path &directory, bool display, bool clustered) {
   std::error_code error;
   std::filesystem::create_directories(directory, error);
   if (error) { return std::nullopt; }
@@ -60,7 +63,8 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory, bool disp
         .Anchor = manifest->Anchor,
         .Level = 0,
         .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}},
-        .UpperModelErrorM = display && index % 2 != 0 ? std::optional<double>(1) : std::nullopt};
+        .UpperModelErrorM = display && index % 2 != 0 ? std::optional<double>(1) : std::nullopt,
+        .Clustered = clustered};
     const auto result = pages->Prepare(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
         outshine::Test::RoadProducer([index](const RoadPageRequest &, const std::stop_token &) {
@@ -79,7 +83,8 @@ std::optional<Fixture> Prepare(const std::filesystem::path &directory, bool disp
                                .ByteCount = result->ByteCount,
                                .Level = 0,
                                .Parts = address.Parts,
-                               .UpperModelErrorM = address.UpperModelErrorM});
+                               .UpperModelErrorM = address.UpperModelErrorM,
+                               .Clustered = address.Clustered});
   }
   auto key = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   if (!key) { return std::nullopt; }
@@ -177,6 +182,22 @@ void CheckPacing(Tasks &pool, const Fixture &fixture) {
         "paced worker-ready polling restores every selected page");
   CHECK(Ordered(geometry, fixture.Manifest->Pages.size()),
         "prefetched results retain manifest order and original local triangle indices");
+  auto prepared = (*restore)->TakeClusters();
+  if (fixture.Manifest->Pages.front().Clustered) {
+    CHECK(prepared.size() == fixture.Manifest->Pages.size(),
+          "each prepared page retains its cluster owner through World restoration");
+    Render::RenderGeometryStorage storage;
+    CHECK(Render::PrepareRenderGeometryStorage(
+              std::make_shared<const Geometry>(std::move(geometry)), storage),
+          "restored source attributes bind without changes");
+    Render::MeshClusterBuildJob build(storage, storage.Surfaces, std::move(prepared));
+    const auto completed = build.Advance(100000);
+    CHECK(completed && *completed && storage.Clustering.CookedParts == 0 &&
+              storage.Clustering.RestoredParts == fixture.Manifest->Pages.size(),
+          "freshly loaded road pages need no cluster construction");
+  } else {
+    CHECK(prepared.empty(), "raw pages remain explicitly unprepared");
+  }
   std::println("ROAD_PACING pages={} calls={} native_bytes={} wall_ms={:.3f} max_advance_us={:.3f}",
                (*restore)->Pages(),
                calls,
@@ -258,7 +279,8 @@ void CheckDisplaySelection(Tasks &pool,
                       .ByteCount = product->ByteCount,
                       .Level = address.Level,
                       .Parts = address.Parts,
-                      .UpperModelErrorM = address.UpperModelErrorM}};
+                      .UpperModelErrorM = address.UpperModelErrorM,
+                      .Clustered = address.Clustered}};
   const auto key = StoreRoadManifest(*fixture.Pages, *manifest);
   CHECK(!RoadPageRestoration::Begin(pool, fixture.Pages, manifest),
         "default loading cannot publish overlapping original and display variants together");
@@ -287,6 +309,11 @@ void CheckDisplaySelection(Tasks &pool,
   const auto wrongPolicy = RestoreSelected(pool, fixture, manifest);
   CHECK(!wrongPolicy && wrongPolicy.error().contains("differs from"),
         "matching numeric budgets cannot conceal a different body policy at restoration");
+  manifest->Pages[1].DisplayPolicy = address.DisplayPolicy;
+  manifest->Pages[1].Clustered = !address.Clustered;
+  const auto wrongTopology = RestoreSelected(pool, fixture, manifest);
+  CHECK(!wrongTopology && wrongTopology.error().contains("differs from"),
+        "payload topology must match the selected product identity");
   CHECK(ChangeCrc(directory, fixture.Manifest->Pages[0].Key, -1),
         "the original control payload is restored after selection checks");
 }
@@ -409,17 +436,20 @@ int main() {
       std::filesystem::temp_directory_path() /
       ("outshine-tests.road-prefetch-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  for (const bool display : {false, true}) {
-    const auto path = directory / (display ? "display" : "original");
-    const auto fixture = Prepare(path, display);
-    CHECK(fixture.has_value(),
-          "32 independent native pages retain their original or mixed display metadata");
-    if (fixture) {
-      Tasks pool(1);
-      CheckSpatialOrder(pool, *fixture);
-      CheckPacing(pool, *fixture);
-      CheckWindows(pool, *fixture, path);
-      if (!display) { CheckDisplaySelection(pool, *fixture, path); }
+  for (const bool clustered : {false, true}) {
+    for (const bool display : {false, true}) {
+      const auto path =
+          directory / (clustered ? "prepared" : "raw") / (display ? "display" : "original");
+      const auto fixture = Prepare(path, display, clustered);
+      CHECK(fixture.has_value(),
+            "32 independent native pages retain their original or mixed display metadata");
+      if (fixture) {
+        Tasks pool(1);
+        CheckSpatialOrder(pool, *fixture);
+        CheckPacing(pool, *fixture);
+        CheckWindows(pool, *fixture, path);
+        if (!display) { CheckDisplaySelection(pool, *fixture, path); }
+      }
     }
   }
   std::error_code error;

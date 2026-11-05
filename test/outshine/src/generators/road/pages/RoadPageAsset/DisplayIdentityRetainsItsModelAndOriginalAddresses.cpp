@@ -1,10 +1,14 @@
 #include "RoadPageAsset.h"
+#include "ClusterCook.h"
 #include "Check.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
+#include <span>
 #include <string>
+#include <utility>
 
 namespace {
 using namespace outshine;
@@ -23,7 +27,8 @@ RoadPageAsset Triangle() {
                                 .Index = {0, 1, 2}},
                        .Swept = {},
                        .Diagnostics = {},
-                       .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 7}}}};
+                       .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 7}},
+                       .Clusters = {}}};
 }
 
 void Roundtrip(const RoadPageAsset &page) {
@@ -48,9 +53,52 @@ void Roundtrip(const RoadPageAsset &page) {
   truncated.pop_back();
   CHECK(!DecodeRoadPageAsset(truncated, kLimit), "truncated geometry cannot become a cache hit");
 }
+
+void CheckPrepared(RoadPageAsset page) {
+  const auto originalKey = RoadPageKey(page.Address);
+  page.Address.Clustered = true;
+  auto &mesh = page.Geometry.Mesh;
+  auto prepared =
+      CookClusters({.PositionsM = mesh.PositionM, .Indices = mesh.Index}, kClusterTriangles);
+  CHECK(prepared, "the producer prepares native index ranges and culling bounds");
+  if (!prepared) { return; }
+  mesh.Index = std::move(prepared->Index);
+  page.Geometry.Clusters = std::move(prepared->Clusters);
+  const auto bytes = EncodeRoadPageAsset(page, kLimit);
+  const auto decoded = bytes ? DecodeRoadPageAsset(*bytes, kLimit) : std::nullopt;
+  CHECK(decoded && decoded->Address.Clustered &&
+            decoded->Address.Appearance == page.Address.Appearance &&
+            decoded->Address.UpperModelErrorM == page.Address.UpperModelErrorM &&
+            decoded->Address.DisplayPolicy == page.Address.DisplayPolicy &&
+            decoded->Geometry.Clusters == page.Geometry.Clusters &&
+            decoded->Geometry.Mesh.Index == mesh.Index &&
+            RoadPageKey(decoded->Address) == RoadPageKey(page.Address) &&
+            RoadPageKey(page.Address) != originalKey,
+        "prepared topology roundtrips with distinct identity for every model and appearance");
+  if (bytes) {
+    for (size_t size = 0; size < bytes->size(); ++size) {
+      CHECK(!DecodeRoadPageAsset(std::span(*bytes).first(size), kLimit),
+            "no truncated cluster payload becomes a ready product");
+    }
+  }
+  page.Address.Clustered = false;
+  CHECK(!EncodeRoadPageAsset(page, kLimit), "raw identity cannot hide prepared topology");
+  page.Address.Clustered = true;
+  ++page.Geometry.Clusters.front().First;
+  CHECK(!EncodeRoadPageAsset(page, kLimit), "prepared ranges cannot lose source indices");
+}
 }
 
 int main() {
+  for (const bool appearance : {false, true}) {
+    auto prepared = Triangle();
+    if (appearance) { prepared.Address.Appearance = RoadPageAppearanceV2{std::string(64, 'c')}; }
+    CheckPrepared(prepared);
+    prepared.Address.UpperModelErrorM = 1;
+    CheckPrepared(prepared);
+    prepared.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+    CheckPrepared(prepared);
+  }
   auto page = Triangle();
   CHECK(RoadPageKey(page.Address) ==
             "14c446b49c1e38a9e800223545ac0355ad96b55e3be26764c66b2ee813b643a3",

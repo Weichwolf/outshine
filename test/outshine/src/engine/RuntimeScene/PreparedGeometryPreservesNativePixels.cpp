@@ -41,9 +41,8 @@ void Compare() {
             product.setColours(
                 0, std::array<float, 16>{1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1}),
         "the generated product differs visibly from the driven seed");
-  auto prepared =
-      CookClusters({.PositionsM = product.positionsOf(0), .Indices = product.trianglesOf(0)},
-                   Render::kClusterTriangles);
+  auto prepared = CookClusters(
+      {.PositionsM = product.positionsOf(0), .Indices = product.trianglesOf(0)}, kClusterTriangles);
   CHECK(prepared && product.setTriangles(0, prepared->Index),
         "the producer finishes its index order");
   if (!prepared) { return; }

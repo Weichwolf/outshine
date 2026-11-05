@@ -1,5 +1,6 @@
 #include "PreparedRoadPages.h"
 #include "AssetPackage.h"
+#include "ClusterCook.h"
 #include <algorithm>
 #include <cstddef>
 #include <expected>
@@ -57,6 +58,18 @@ std::expected<AssetPackage, std::string> ProducePackage(const RoadPageRequest &r
   auto geometry = producer.Produce(request, stop);
   if (stop.stop_requested()) { return std::unexpected("road page request canceled"); }
   if (!geometry) { return std::unexpected(std::move(geometry.error())); }
+  if (request.Address.Clustered && geometry->Clusters.empty() && !geometry->Mesh.Index.empty()) {
+    auto &mesh = geometry->Mesh;
+    ClusterCookJob cook({.PositionsM = mesh.PositionM, .Indices = mesh.Index}, kClusterTriangles);
+    while (!cook.Ready()) {
+      if (stop.stop_requested()) { return std::unexpected("road page clustering canceled"); }
+      const auto advanced = cook.Advance(4096);
+      if (!advanced) { return std::unexpected(std::string(Describe(advanced.error()))); }
+    }
+    auto prepared = cook.Take();
+    mesh.Index = std::move(prepared.Index);
+    geometry->Clusters = std::move(prepared.Clusters);
+  }
   return EncodePackage(
       {.Address = request.Address, .Geometry = std::move(*geometry)},
       {.Key = key,

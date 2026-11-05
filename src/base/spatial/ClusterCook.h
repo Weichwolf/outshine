@@ -13,6 +13,8 @@
 
 namespace outshine {
 
+inline constexpr uint32_t kClusterTriangles = 128;
+
 struct ClusteredMesh {
   std::vector<DagCluster> Clusters;
   std::vector<uint32_t> Index;

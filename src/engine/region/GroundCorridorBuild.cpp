@@ -283,6 +283,11 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   Published.RecordMetric("streets: pieces the sweep could not lay",
                          static_cast<double>(restore->Meshing().Refused),
                          "pieces");
+  auto &products = state.Candidate().Products();
+  products.GroundClusters = restore->TakeClusters();
+  if (!products.GroundClusters.empty()) {
+    products.GroundClusters.resize(static_cast<size_t>(products.Ground.parts()));
+  }
   state.FinishRoadRestoration();
   return GroundBuildProgress::Pending;
 }

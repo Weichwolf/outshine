@@ -108,9 +108,21 @@ bool SameMesh(const Geometry &parts, const Geometry &whole) {
         !same(colours, whole.coloursOf(0).subspan(4 * vertices, colours.size()))) {
       return false;
     }
-    for (size_t at = 0; at < indices.size(); ++at) {
-      if (indices[at] + vertices != whole.trianglesOf(0)[triangles + at]) { return false; }
+    std::vector<std::array<uint32_t, 3>> actualFaces;
+    std::vector<std::array<uint32_t, 3>> originalFaces;
+    for (size_t at = 0; at < indices.size(); at += 3) {
+      std::array<uint32_t, 3> actual{};
+      std::array<uint32_t, 3> original{};
+      for (size_t corner = 0; corner < 3; ++corner) {
+        actual[corner] = indices[at + corner] + static_cast<uint32_t>(vertices);
+        original[corner] = whole.trianglesOf(0)[triangles + at + corner];
+      }
+      actualFaces.push_back(actual);
+      originalFaces.push_back(original);
     }
+    std::ranges::sort(actualFaces);
+    std::ranges::sort(originalFaces);
+    if (actualFaces != originalFaces) { return false; }
     if (!(parts.surfaceAt(parts.materialOf(part)) == whole.surfaceAt(whole.materialOf(0)))) {
       return false;
     }
@@ -370,7 +382,7 @@ void CheckBuild(const std::filesystem::path &directory,
         "the same bounded native reader assembles complete road pages");
   CHECK(restore && (*restore)->Pages() >= 2 && (*restore)->NativeBytes() > 0 &&
             SameMesh(geometry, expected),
-        "page boundaries preserve original words, primitive order and material rows");
+        "prepared page boundaries preserve source words, oriented triangles and material rows");
   const auto invalid = RoadPageRestoration::Begin(pool, {}, restored->SurfacePages);
   CHECK(!invalid, "a missing cache service is explicit before a world transition");
   CheckSelection(pool, pages, restored->SurfacePages, *manifestKey, directory, *encoded);

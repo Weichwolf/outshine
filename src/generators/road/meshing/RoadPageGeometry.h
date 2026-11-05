@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_ROAD_MESHING_ROADPAGEGEOMETRY_H
 
 #include "RoadMesher.h"
+#include "ClusterDag.h"
 #include <cstdint>
 #include <vector>
 
@@ -31,6 +32,7 @@ struct RoadPageGeometry {
   RoadMeshingStats Swept;
   std::vector<RoadPageDiagnostic> Diagnostics;
   std::vector<RoadPagePart> Parts;
+  std::vector<DagCluster> Clusters;
 };
 }
 #endif

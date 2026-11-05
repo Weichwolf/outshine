@@ -2,6 +2,7 @@
 #include <expected>
 #include <exception>
 #include "StructureBuildQueue.h"
+#include "ClusterCook.h"
 
 #include <algorithm>
 #include <atomic>
@@ -798,9 +799,9 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
     raw->EyeEcef = revision.EyeEcef;
     raw->Projection = revision.Projection;
     raw->RequestedDetail = revision.RequestedDetail;
-    raw->ClusterTriangles = Render::kClusterTriangles;
+    raw->ClusterTriangles = kClusterTriangles;
   } else {
-    raw->ClusterTriangles = Render::kClusterTriangles;
+    raw->ClusterTriangles = kClusterTriangles;
     Generators::Osm::PrepareBuildingInputs(*stack.Vectors(),
                                            prints,
                                            stack.Ways(),

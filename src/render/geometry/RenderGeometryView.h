@@ -63,7 +63,5 @@ struct RenderGeometryView {
   [[nodiscard]] Box BoundsOf(size_t parts) const;
 };
 
-inline constexpr uint32_t kClusterTriangles = 128;
-
 }
 #endif

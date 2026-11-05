@@ -26,6 +26,7 @@ struct RoadPageAddress {
   RoadPageAppearance Appearance = LegacyRoadPageV1{};
   std::optional<double> UpperModelErrorM = std::nullopt;
   RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
+  bool Clustered = false;
 };
 
 struct RoadPageAsset {

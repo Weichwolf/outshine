@@ -23,6 +23,7 @@ constexpr uint64_t kLegacyFormat = 0x0001314d4452ULL;
 constexpr uint64_t kAppearanceFormat = 0x0002314d4452ULL;
 constexpr uint64_t kDisplayFormat = 0x0003314d4452ULL;
 constexpr uint64_t kOriginalBodiesFormat = 0x0004314d4452ULL;
+constexpr uint64_t kClusteredFormat = 0x0005314d4452ULL;
 constexpr size_t kAppearanceBytes = sizeof(uint32_t) + 64;
 constexpr size_t kReferenceBytes =
     sizeof(uint32_t) + 64 + 6 * sizeof(double) + sizeof(uint64_t) + 2 * sizeof(uint32_t);
@@ -59,7 +60,8 @@ bool Valid(const RoadPageManifest &manifest) {
                      .Parts = page.Parts,
                      .Appearance = page.Appearance,
                      .UpperModelErrorM = page.UpperModelErrorM,
-                     .DisplayPolicy = page.DisplayPolicy}) != page.Key) {
+                     .DisplayPolicy = page.DisplayPolicy,
+                     .Clustered = page.Clustered}) != page.Key) {
       return false;
     }
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -77,7 +79,8 @@ bool Valid(const RoadPageManifest &manifest) {
 bool ReferenceFields(BinaryValueWriter &archive,
                      const RoadPageReference &page,
                      bool display,
-                     bool policies) {
+                     bool policies,
+                     bool clustered) {
   if (page.Parts.size() > std::numeric_limits<uint32_t>::max() || !archive.Text(page.Key) ||
       !WriteRoadPageAppearance(archive, page.Appearance) ||
       !archive(page.Bounds.Min.Axis,
@@ -92,6 +95,7 @@ bool ReferenceFields(BinaryValueWriter &archive,
     return false;
   }
   if (policies && !archive(page.DisplayPolicy)) { return false; }
+  if (clustered && !archive(page.Clustered)) { return false; }
   return std::ranges::all_of(page.Parts,
                              [&](const auto &part) { return archive(part.Kind, part.Index); });
 }
@@ -100,7 +104,8 @@ bool ReferenceFields(BinaryValueReader &archive,
                      RoadPageReference &page,
                      bool appearance,
                      bool display,
-                     bool policies) {
+                     bool policies,
+                     bool clustered) {
   uint32_t count = 0;
   if (!archive.Text(page.Key) || !ReadRoadPageAppearance(archive, appearance, page.Appearance) ||
       !archive(page.Bounds.Min.Axis, page.Bounds.Max.Axis, page.ByteCount, page.Level, count) ||
@@ -117,6 +122,7 @@ bool ReferenceFields(BinaryValueReader &archive,
     }
   }
   if (policies && !archive(page.DisplayPolicy)) { return false; }
+  if (clustered && !archive(page.Clustered)) { return false; }
   page.Parts.resize(count);
   return std::ranges::all_of(page.Parts,
                              [&](auto &part) { return archive(part.Kind, part.Index); });
@@ -153,23 +159,28 @@ std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifes
   }
   BinaryValueWriter out(bytesMost);
   const bool appearance = std::holds_alternative<RoadPageAppearanceV2>(manifest.Appearance);
-  const bool display = std::ranges::any_of(
-      manifest.Pages, [](const auto &page) { return page.UpperModelErrorM.has_value(); });
+  const bool clustered =
+      std::ranges::any_of(manifest.Pages, [](const auto &page) { return page.Clustered; });
+  const bool display = clustered || std::ranges::any_of(manifest.Pages, [](const auto &page) {
+                         return page.UpperModelErrorM.has_value();
+                       });
   auto format = appearance ? kAppearanceFormat : kLegacyFormat;
   if (display) { format = kDisplayFormat; }
-  const bool policies = std::ranges::any_of(manifest.Pages, [](const auto &page) {
-    return page.DisplayPolicy != RoadDisplayPolicy::UpperOnly;
-  });
+  const bool policies = clustered || std::ranges::any_of(manifest.Pages, [](const auto &page) {
+                          return page.DisplayPolicy != RoadDisplayPolicy::UpperOnly;
+                        });
   if (policies) { format = kOriginalBodiesFormat; }
+  if (clustered) { format = kClusteredFormat; }
   if (!out(format) || !out.Text(manifest.PlanKey) || !out.Text(manifest.MaterialKey) ||
       (display && !out(static_cast<uint32_t>(appearance))) ||
       !WriteRoadPageAppearance(out, manifest.Appearance) ||
       !out(manifest.Anchor.LongitudeDeg,
            manifest.Anchor.LatitudeDeg,
            static_cast<uint32_t>(manifest.Pages.size())) ||
-      !std::ranges::all_of(
-          manifest.Pages,
-          [&](const auto &page) { return ReferenceFields(out, page, display, policies); }) ||
+      !std::ranges::all_of(manifest.Pages,
+                           [&](const auto &page) {
+                             return ReferenceFields(out, page, display, policies, clustered);
+                           }) ||
       !out.Array<uint8_t>(*materials)) {
     return std::nullopt;
   }
@@ -185,24 +196,26 @@ std::optional<RoadPageManifest> DecodeRoadPageManifest(std::span<const uint8_t> 
   uint32_t count = 0;
   if (!in(format) ||
       (format != kLegacyFormat && format != kAppearanceFormat && format != kDisplayFormat &&
-       format != kOriginalBodiesFormat) ||
+       format != kOriginalBodiesFormat && format != kClusteredFormat) ||
       !in.Text(manifest.PlanKey) || !in.Text(manifest.MaterialKey)) {
     return std::nullopt;
   }
-  const bool policies = format == kOriginalBodiesFormat;
+  const bool clustered = format == kClusteredFormat;
+  const bool policies = format == kOriginalBodiesFormat || clustered;
   const bool display = format == kDisplayFormat || policies;
   uint32_t appearance = format == kAppearanceFormat ? 1 : 0;
   if ((display && (!in(appearance) || appearance > 1)) ||
       !ReadRoadPageAppearance(in, appearance != 0, manifest.Appearance) ||
       !in(manifest.Anchor.LongitudeDeg, manifest.Anchor.LatitudeDeg, count) ||
-      count > in.In.Remaining() /
-                  (kReferenceBytes + (appearance != 0 ? kAppearanceBytes : 0) +
-                   (display ? sizeof(uint8_t) : 0) + (policies ? sizeof(uint32_t) : 0))) {
+      count >
+          in.In.Remaining() / (kReferenceBytes + (appearance != 0 ? kAppearanceBytes : 0) +
+                               (display ? sizeof(uint8_t) : 0) + (policies ? sizeof(uint32_t) : 0) +
+                               (clustered ? sizeof(uint8_t) : 0))) {
     return std::nullopt;
   }
   manifest.Pages.resize(count);
   if (!std::ranges::all_of(manifest.Pages, [&](auto &page) {
-        return ReferenceFields(in, page, appearance != 0, display, policies);
+        return ReferenceFields(in, page, appearance != 0, display, policies, clustered);
       })) {
     return std::nullopt;
   }

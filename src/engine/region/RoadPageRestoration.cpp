@@ -196,6 +196,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
       Loaded_->Address.UpperModelErrorM != reference.UpperModelErrorM ||
       Loaded_->Address.DisplayPolicy != reference.DisplayPolicy ||
+      Loaded_->Address.Clustered != reference.Clustered ||
       loaded->NativeBytes != reference.ByteCount) {
     return std::unexpected(
         "road restoration product differs from its plan, material, appearance or frame");
@@ -240,6 +241,10 @@ std::expected<bool, std::string> RoadPageRestoration::Transfer(Geometry &ground)
       break;
     case Stage::Triangles:
       transferred = ground.adoptTriangles(Part_, mesh.Index).has_value();
+      if (transferred && Loaded_->Address.Clustered) {
+        Clusters_.resize(static_cast<size_t>(ground.parts()));
+        Clusters_[static_cast<size_t>(Part_)] = std::move(Loaded_->Geometry.Clusters);
+      }
       FinishPage();
       break;
     default: return std::unexpected("road restoration transfer is not active");

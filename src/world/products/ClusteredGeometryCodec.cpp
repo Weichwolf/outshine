@@ -1,5 +1,6 @@
 #include "ClusteredGeometryCodec.h"
 #include "ClusterCook.h"
+#include "ClusterValueFields.h"
 #include "GeometryProductCodec.h"
 #include "BinaryValueArchive.h"
 #include <algorithm>
@@ -16,18 +17,6 @@ namespace outshine {
 namespace {
 constexpr uint64_t kFormat = 0x31444c434f4547ULL;
 constexpr size_t kClusterBytes = 10 * sizeof(float) + 3 * sizeof(uint32_t);
-
-template <class Archive, class Cluster> bool Transfer(Archive &io, Cluster &cluster) {
-  return io(cluster.SelfCenter.Axis,
-            cluster.SelfRadius,
-            cluster.ParentCenter.Axis,
-            cluster.ParentRadius,
-            cluster.SelfErr,
-            cluster.ParentErr,
-            cluster.First,
-            cluster.Count,
-            cluster.Level);
-}
 
 }
 
@@ -59,7 +48,7 @@ std::optional<std::vector<uint8_t>> EncodeClusteredGeometry(
       return std::nullopt;
     }
     for (const auto &cluster : part) {
-      if (!Transfer(out, cluster)) { return std::nullopt; }
+      if (!ClusterFields(out, cluster)) { return std::nullopt; }
     }
   }
   return std::move(out.Out).TakeBytes();
@@ -88,7 +77,7 @@ std::optional<ClusteredGeometryProduct> DecodeClusteredGeometry(std::span<const 
     if (!in(count) || count > in.In.Remaining() / kClusterBytes) { return std::nullopt; }
     part.resize(count);
     for (auto &cluster : part) {
-      if (!Transfer(in, cluster)) { return std::nullopt; }
+      if (!ClusterFields(in, cluster)) { return std::nullopt; }
     }
   }
   if (in.In.Remaining() != 0 || !ValidGeometryClusters(*mesh, clusters)) { return std::nullopt; }

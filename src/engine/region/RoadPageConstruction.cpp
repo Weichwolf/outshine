@@ -48,6 +48,7 @@ RoadPageConstruction::Begin(Tasks &pool,
   result->Address_.PlanKey = Sha256Hex("world-road-pages-1\n" + planKey);
   result->Address_.MaterialKey = Sha256Hex(encoded->data(), encoded->size());
   result->Address_.Anchor = site.Standing.Anchor();
+  result->Address_.Clustered = true;
   result->Manifest_.PlanKey = result->Address_.PlanKey;
   result->Manifest_.MaterialKey = result->Address_.MaterialKey;
   result->Manifest_.Anchor = result->Address_.Anchor;
@@ -113,7 +114,8 @@ std::expected<bool, std::string> RoadPageConstruction::Collect() {
                              .Bounds = record->Bounds,
                              .ByteCount = record->ByteCount,
                              .Level = record->Level,
-                             .Parts = Address_.Parts});
+                             .Parts = Address_.Parts,
+                             .Clustered = Address_.Clustered});
   ++Next_;
   ++PageCount_;
   Stage_ = Stage::Request;
