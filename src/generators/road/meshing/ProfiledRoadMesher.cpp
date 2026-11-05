@@ -37,6 +37,7 @@ bool FitPiece(std::span<const double> eastNorthM,
               ReferenceLine &line,
               double &tightestM,
               RoadMeshingRejections &rejections) {
+  tightestM = 0.0;
   if (eastNorthM.size() == 4) {
     const double runE = eastNorthM[2] - eastNorthM[0];
     const double runN = eastNorthM[3] - eastNorthM[1];
@@ -96,15 +97,13 @@ std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
   return rise;
 }
 
-bool LayPiece(std::span<const double> eastNorthM,
+bool LayPiece(ReferenceLine line,
+              double tightestM,
               ElevationSamples elevation,
               const RoadSweep &how,
               RoadMeshBuffers &into,
               RoadMeshingRejections &rejections,
               RoadDisplayRequest *display) {
-  ReferenceLine line;
-  double tightestM = 0.0;
-  if (!FitPiece(eastNorthM, line, tightestM, rejections)) { return false; }
   auto rise = ElevationKnots(elevation, line.LengthM());
   std::array<Knot, 2> bank = {
       {Knot{.AlongM = 0.0, .Value = how.Crossfall, .RatePerM = 0.0},
@@ -234,17 +233,27 @@ RoadMeshingStats AppendRoadPieces(const ProfiledRoadMesher &mesher,
   RoadMeshingRejections &rejections = tally.Rejections;
   size_t from = 0;
   while (from + 2u <= along.size()) {
-    ReferenceLine probe;
-    const CurveFitResult got = Fit(
+    ReferenceLine line;
+    const CurveFitResult fit = Fit(
         std::span<const double>(samples.EastNorth.data() + from * 2u, (along.size() - from) * 2u),
         kLayWithinM,
         kLayTightestM,
-        probe);
-    const size_t upTo = got.Succeeded ? along.size() - from - 1u : got.TightestDemandedAtVertex;
+        line);
+    const size_t upTo = fit.Succeeded ? along.size() - from - 1u : fit.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
     if (count >= 2u) {
       const RoadSweep piece = PieceSettings(how, along.subspan(from, count), from, along.size());
-      if (LayPiece(std::span<const double>(samples.EastNorth.data() + from * 2u, count * 2u),
+      const bool reuse = fit.Succeeded && count > 2u;
+      double tightestM = fit.TightestRadiusM;
+      const bool fitted =
+          reuse ||
+          FitPiece(std::span<const double>(samples.EastNorth.data() + from * 2u, count * 2u),
+                   line,
+                   tightestM,
+                   rejections);
+      if (fitted &&
+          LayPiece(std::move(line),
+                   tightestM,
                    {.GradeM = std::span<const double>(samples.Grade.data() + from, count),
                     .ReachedM = std::span<const double>(samples.Reached.data() + from, count)},
                    piece,
@@ -260,8 +269,8 @@ RoadMeshingStats AppendRoadPieces(const ProfiledRoadMesher &mesher,
       ++rejections.TooShort;
     }
     if (display != nullptr && tally.Refused != 0) { break; }
-    if (got.Succeeded) { break; }
-    if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
+    if (fit.Succeeded) { break; }
+    if (fit.Undrivable == 0 || fit.TightestDemandedAtVertex == 0) {
       ++tally.Refused;
       break;
     }
