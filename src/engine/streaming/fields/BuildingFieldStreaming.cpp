@@ -44,9 +44,10 @@ bool BuildingFieldStreaming::Preparing(uint32_t tile) const noexcept {
   if (!entry.Value || !entry.Value->HeightQualified) { return false; }
   const auto found = std::ranges::find(State_->Tiles, tile, &State::Tile::Index);
   if (found == State_->Tiles.end()) { return true; }
-  return State_->Statistics.Pending != 0 && std::ranges::any_of(found->Cells, [](const auto &cell) {
-           return cell.Where == State::Phase::Waiting || cell.Where == State::Phase::Pending;
-         });
+  return std::ranges::any_of(found->Cells, [](const auto &cell) {
+    return std::ranges::any_of(
+        cell.Groups, [](const auto &group) { return group.Where == State::Phase::Pending; });
+  });
 }
 
 bool BuildingFieldStreaming::ProductsReady(SourceAddress source) const noexcept {

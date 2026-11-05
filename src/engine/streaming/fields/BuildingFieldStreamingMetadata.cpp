@@ -53,6 +53,10 @@ bool BuildingFieldStreaming::State::PrepareCells(
     const SourceProductSelection &selection,
     const SourceProductSelection::Cut &cut) {
   if (!PrepareCellSources(tile, groups)) { return false; }
+  uint64_t unsupportedCells = 0;
+  for (const auto &member : groups.Members) {
+    if (!member.FieldSupported) { unsupportedCells |= uint64_t{1} << (member.Cell - 1u); }
+  }
   for (const auto &product : cut.Products) {
     const auto members = selection.Members(cut, product);
     if (!members || members->empty()) { continue; }
@@ -75,6 +79,10 @@ bool BuildingFieldStreaming::State::PrepareCells(
     cell->Groups.push_back(std::move(group));
   }
   for (auto &cell : tile.Cells) {
+    if ((unsupportedCells & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0) {
+      Reject(cell);
+      continue;
+    }
     std::vector<const SourceCoverage *> products;
     products.reserve(cell.Groups.size());
     for (const auto &group : cell.Groups) {
