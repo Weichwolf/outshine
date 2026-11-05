@@ -43,7 +43,7 @@ std::optional<RoadPageManifest> Manifest(bool appearance) {
   return manifest;
 }
 
-void CheckModels(bool appearance) {
+void CheckModels(bool appearance, RoadDisplayPolicy policy) {
   auto manifest = Manifest(appearance);
   CHECK(manifest.has_value(), "the native material and original address form a manifest");
   if (!manifest) { return; }
@@ -56,6 +56,7 @@ void CheckModels(bool appearance) {
         "absent model metadata keeps the existing v1/v2 manifest version");
   auto coarse = manifest->Pages.front();
   coarse.UpperModelErrorM = 1;
+  coarse.DisplayPolicy = policy;
   coarse.Key = RoadPageKey({.PlanKey = manifest->PlanKey,
                             .MaterialKey = manifest->MaterialKey,
                             .MaterialIndex = 0,
@@ -63,7 +64,8 @@ void CheckModels(bool appearance) {
                             .Level = coarse.Level,
                             .Parts = coarse.Parts,
                             .Appearance = coarse.Appearance,
-                            .UpperModelErrorM = coarse.UpperModelErrorM});
+                            .UpperModelErrorM = coarse.UpperModelErrorM,
+                            .DisplayPolicy = coarse.DisplayPolicy});
   manifest->Pages.push_back(coarse);
   if (appearance) {
     manifest->Appearance = RoadPageAppearanceV2{RoadPageManifestAppearanceKey(manifest->Pages)};
@@ -71,7 +73,7 @@ void CheckModels(bool appearance) {
   const auto bytes = EncodeRoadPageManifest(*manifest, kLimit);
   const auto decoded = bytes ? DecodeRoadPageManifest(*bytes, kLimit) : std::nullopt;
   CHECK(decoded && decoded->Pages.size() == 2 && !decoded->Pages[0].UpperModelErrorM &&
-            decoded->Pages[1].UpperModelErrorM == 1 &&
+            decoded->Pages[1].UpperModelErrorM == 1 && decoded->Pages[1].DisplayPolicy == policy &&
             decoded->Pages[0].Parts == decoded->Pages[1].Parts &&
             EncodeRoadPageManifest(*decoded, kLimit) == bytes,
         "metadata independently identifies original and display variants of the same sources");
@@ -96,7 +98,10 @@ void CheckModels(bool appearance) {
 }
 
 int main() {
-  CheckModels(false);
-  CheckModels(true);
+  for (const auto policy :
+       {RoadDisplayPolicy::UpperOnly, RoadDisplayPolicy::UpperWithOriginalBodies}) {
+    CheckModels(false, policy);
+    CheckModels(true, policy);
+  }
   return Report();
 }

@@ -129,3 +129,15 @@ remain explicit caller inputs. No second recipe format, source reload, solver or
 graph is introduced. This does not migrate the legacy World planner or supply an
 automatic camera/pass selection policy; grouped misses should share a loaded plan
 lease through the existing bound producer rather than decode the same plan per page.
+
+`UpperWithOriginalBodies` is a separate explicit product policy. Only open Upper
+surfaces are sampled; closed shells, step bodies and junctions retain the original
+native construction. This is deliberate composition, not a failed surface silently
+falling back under a coarse key. An incomplete Upper or original body rejects the whole
+replacement. Controls compare all body attribute words with original construction;
+step indices change only by their appended vertex base. The Upper model remains
+unqualified for full FP, normals/material response and final GPU transforms.
+Page format 5 and manifest format 4 identify the policy; all older original/Upper-only
+formats and identities remain unchanged. Restoration checks the exact policy before
+geometry adoption. This permits shared spatial pages without forcing separate body
+draws; camera/pass policy and World selection are still independent integration work.

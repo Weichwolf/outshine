@@ -195,6 +195,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
       Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
       Loaded_->Address.UpperModelErrorM != reference.UpperModelErrorM ||
+      Loaded_->Address.DisplayPolicy != reference.DisplayPolicy ||
       loaded->NativeBytes != reference.ByteCount) {
     return std::unexpected(
         "road restoration product differs from its plan, material, appearance or frame");

@@ -282,6 +282,11 @@ void CheckDisplaySelection(Tasks &pool,
   const auto wrong = RestoreSelected(pool, fixture, manifest);
   CHECK(!wrong && wrong.error().contains("differs from"),
         "payload model identity must match the selected metadata before geometry publication");
+  manifest->Pages[1].UpperModelErrorM = 1;
+  manifest->Pages[1].DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+  const auto wrongPolicy = RestoreSelected(pool, fixture, manifest);
+  CHECK(!wrongPolicy && wrongPolicy.error().contains("differs from"),
+        "matching numeric budgets cannot conceal a different body policy at restoration");
   CHECK(ChangeCrc(directory, fixture.Manifest->Pages[0].Key, -1),
         "the original control payload is restored after selection checks");
 }

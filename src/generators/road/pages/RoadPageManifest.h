@@ -26,6 +26,7 @@ struct RoadPageReference {
   std::vector<RoadPagePart> Parts;
   RoadPageAppearance Appearance = LegacyRoadPageV1{};
   std::optional<double> UpperModelErrorM = std::nullopt;
+  RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
 };
 
 struct RoadPageManifest {
