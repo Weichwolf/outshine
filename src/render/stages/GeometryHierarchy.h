@@ -33,6 +33,19 @@ struct alignas(16) GeometryClusterTemplate {
   uint32_t Flags = 0;
 };
 
+struct alignas(16) GeometryClusterAddress {
+  uint32_t SourceFirst = 0;
+  uint32_t ModelSlot = 0;
+  uint32_t RootRow = 0;
+  uint32_t BatchRow = 0;
+};
+
+static_assert(sizeof(GeometryClusterAddress) == 16 && alignof(GeometryClusterAddress) == 16);
+static_assert(offsetof(GeometryClusterAddress, SourceFirst) == 0);
+static_assert(offsetof(GeometryClusterAddress, ModelSlot) == 4);
+static_assert(offsetof(GeometryClusterAddress, RootRow) == 8);
+static_assert(offsetof(GeometryClusterAddress, BatchRow) == 12);
+
 struct alignas(16) GeometryQueueState {
   uint32_t Requested = 0;
   uint32_t Overflow = 0;

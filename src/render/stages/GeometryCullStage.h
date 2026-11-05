@@ -7,6 +7,7 @@
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 #include "GeometryResidency.h"
+#include "GeometryPrefixScan.h"
 #include "GeometryHierarchyAdmission.h"
 #include "Vec4.h"
 #include "Vec2.h"
@@ -48,8 +49,6 @@ public:
   static constexpr ComputeShaderId RootShader = ComputeShaderId::GeometryRootCull;
   static constexpr ComputeShaderId CullShader = ComputeShaderId::GeometryLeafCull;
   static constexpr ComputeShape CullShape = FindComputeShader(CullShader)->Shape;
-  static constexpr ComputeShaderId ScanShader = ComputeShaderId::GeometryRootScan;
-  static constexpr ComputeShape ScanShape = FindComputeShader(ScanShader)->Shape;
   static constexpr ComputeShaderId CompactShader = ComputeShaderId::GeometrySelectedCompact;
   static constexpr ComputeShape CompactShape = FindComputeShader(CompactShader)->Shape;
 
@@ -131,7 +130,8 @@ private:
 
   Source Source_;
   CullView View_{};
-  std::unique_ptr<Native::ComputePipeline> Root_, Cull_, Scan_, Compact_;
+  std::unique_ptr<Native::ComputePipeline> Root_, Cull_, Compact_;
+  GeometryPrefixScan PrefixScan_;
   uint32_t Swept_ = 0;
   float HeightPx_ = 0;
 };

@@ -39,7 +39,6 @@ def write_fixture(directory, count):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", type=Path, required=True)
-    parser.add_argument("--shaders", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(exist_ok=False)
@@ -48,8 +47,7 @@ def main():
         directory = (args.output / str(count)).resolve()
         directory.mkdir()
         write_fixture(directory, count)
-        command = [str(args.probe.resolve()), str(directory), str(directory),
-                   str(args.shaders.resolve())]
+        command = [str(args.probe.resolve()), str(directory), str(directory)]
         with (directory / "run.log").open("w") as log:
             result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=60)
         results.append({"clusters": count, "command": command, "exit": result.returncode})

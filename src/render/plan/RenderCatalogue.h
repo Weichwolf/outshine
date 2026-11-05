@@ -49,6 +49,7 @@ enum class Resource {
   ClusterIndex,
   ClusterTemplates,
   ClusterRoots,
+  ClusterAddresses,
   ClusterPrefix,
   ClusterVisible,
   ClusterChunks,
@@ -101,6 +102,7 @@ enum class Resource {
     case Resource::ClusterIndex:
     case Resource::ClusterTemplates:
     case Resource::ClusterRoots:
+    case Resource::ClusterAddresses:
     case Resource::ClusterPrefix:
     case Resource::ClusterVisible:
     case Resource::ClusterChunks:
@@ -460,6 +462,13 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "clusterRoots",
      .Stride = kHierarchyRootStride},
+    {.Id = Resource::ClusterAddresses,
+     .Kind = ResourceKind::Given,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "clusterAddresses",
+     .Stride = 16},
     {.Id = Resource::ClusterPrefix,
      .Kind = ResourceKind::Given,
      .Fallback = FallbackKind::None,
@@ -661,7 +670,8 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .Kind = PassKind::Compute,
      .Phase = StagePhase::WorldPreparation,
      .Name = "geometryScan",
-     .Reads = {Resource::ClusterRoots, Resource::ClusterVisible, Resource::ClusterKept, kNoEdge},
+     .Reads =
+         {Resource::ClusterAddresses, Resource::ClusterVisible, Resource::ClusterKept, kNoEdge},
      .Writes = {Resource::ClusterSlot, Resource::DrawArguments, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion,

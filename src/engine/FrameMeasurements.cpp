@@ -283,6 +283,7 @@ void Engine::State::PublishGroundMemoryMeasurements() {
                                "world: geometry cluster sphere buffer",
                                "world: geometry cluster template buffer",
                                "world: geometry cluster root buffer",
+                               "world: geometry cluster address buffer",
                                "world: geometry cluster prefix buffer",
                                "world: geometry cluster visibility buffer",
                                "world: geometry cluster chunk queue buffer",

@@ -70,7 +70,7 @@ Native::Result<void> GeometryCullStage::Configure(Source source, const Gpu &gpu)
   if (!root) { return root; }
   const auto cull = EnsurePipeline(*gpu.Device, CullShader, Cull_);
   if (!cull) { return cull; }
-  const auto scan = EnsurePipeline(*gpu.Device, ScanShader, Scan_);
+  const auto scan = PrefixScan_.Configure(*gpu.Device);
   if (!scan) { return scan; }
   const auto compact = EnsurePipeline(*gpu.Device, CompactShader, Compact_);
   if (!compact) { return compact; }

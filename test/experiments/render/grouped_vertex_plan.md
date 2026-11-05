@@ -1,7 +1,8 @@
 # Grouped cluster draws
 
 #1955; native input: `resident_vertex_references.md`. This is a reference plan and
-native scan comparison, not an integrated renderer speedup.
+native scan comparison. The segmented scan is now shared with the renderer; grouped
+drawing remains pending, and these kernel timings establish no renderer speedup.
 
 ## Plan
 
@@ -21,16 +22,17 @@ Group index-buffer slices reserve the sum of root capacities, independent of sel
 
 ## Scan
 
-The existing `geometryRootScan.comp` already accepts multiple roots per batch, but
+The test reference `grouped_scan/serial.comp` already accepts multiple roots per batch, but
 serializes their loops/barriers within a workgroup. Direct grouping makes it slower.
 
-`grouped_scan/` uses segmented inclusive scans of 256-element blocks. Keys are monotone
+`src/render/shaders/geometryPrefix*` uses segmented inclusive scans of 256-element blocks. Keys are monotone
 group IDs. The first level reads live `kept`/root visibility through cluster metadata.
 Each block publishes its final segment sum/key. Those tails are scanned recursively.
 A carry applies only when the preceding block's final key equals the element's key.
 The last pass writes exclusive cluster offsets and final draw counts. Rejected/zero
-clusters get the sentinel; groups with logical clusters mark their index data dirty.
-The experiment does not yet preserve the finer existing per-batch compaction cache.
+clusters get the sentinel; only changed offsets/counts mark their group dirty.
+The first pass resets group flags; the finish pass compares prior offsets/counts.
+Unchanged selections retain their compacted indices, including after visible → zero → visible.
 
 For fixed block size W, work is `O(N log W)` = `O(N)`; temporary levels form a geometric
 series. No added scene-size/recursion cap; uint32 addressing and native resource
@@ -46,16 +48,19 @@ python3 -B test/experiments/render/grouped_vertex_plan_cases.py
 python3 -B test/experiments/render/grouped_vertex_plan.py /tmp/resident-geometry \
   --output /tmp/grouped-plan
 nice -n 10 cmake --build build --target outshine_experiment_group_scan --parallel
-build/outshine_experiment_group_scan /tmp/resident-geometry /tmp/grouped-plan \
-  build/shaders/grouped-scan
+build/outshine_experiment_group_scan /tmp/resident-geometry /tmp/grouped-plan
 MTL_DEBUG_LAYER=1 build/outshine_experiment_group_scan /tmp/resident-geometry \
-  /tmp/grouped-plan build/shaders/grouped-scan
+  /tmp/grouped-plan
 python3 -B test/experiments/render/grouped_scan/cases.py \
-  --probe build/outshine_experiment_group_scan --shaders build/shaders/grouped-scan \
+  --probe build/outshine_experiment_group_scan \
   --output /tmp/grouped-scan-cases
 ```
 
 Fresh output directories required. Normal build/gate does not run the experiment.
+The probe runs the production `GeometryPrefixScan`, with an independent CPU scan and
+the serial GPU reference. Cluster addresses carry source offset, model, root and batch
+in a 16-byte GPU record; size/alignment/offsets are asserted. Validation remains separate
+from address construction, preserving shared-template admission costs.
 Native API and GLSL are shared; Iris Xe measurements remain missing.
 
 ## A18 Pro/Metal observations, 2026-11-05

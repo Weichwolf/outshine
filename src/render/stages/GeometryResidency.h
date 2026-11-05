@@ -69,6 +69,7 @@ struct GeometryResidency {
     ClusterSpheres,
     ClusterTemplates,
     ClusterRoots,
+    ClusterAddresses,
     ClusterPrefix,
     ClusterVisible,
     ClusterChunks,

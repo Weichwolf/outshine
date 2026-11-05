@@ -8,6 +8,7 @@
 
 namespace outshine::Render {
 static_assert(Row(Resource::ClusterRoots).Stride == sizeof(GeometryRoot));
+static_assert(Row(Resource::ClusterAddresses).Stride == sizeof(GeometryClusterAddress));
 static_assert(Row(Resource::ClusterTemplates).Stride == sizeof(GeometryClusterTemplate));
 static_assert(Row(Resource::ClusterChunkState).Stride == sizeof(GeometryQueueState));
 static_assert(Row(Resource::GeometryPlacements).Stride == sizeof(GpuPlacement));
@@ -96,27 +97,18 @@ Native::Result<void> GeometryCullStage::EncodeCull(const PassRecording &into) {
 
 Native::Result<void> GeometryCullStage::EncodeScan(const PassRecording &into) {
   if (!CullThisFrame_) { return {}; }
-  if (!Scan_ || Source_.Resident == nullptr || Source_.Hierarchy == nullptr ||
-      into.Commands == nullptr) {
+  if (Source_.Resident == nullptr || Source_.Hierarchy == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "geometry root scan is not configured"});
+                                         .Message = "geometry prefix scan is not configured"});
   }
-  const auto buffers = Bindings(
-      *Source_.Resident,
-      std::array{
-          S::ClusterRoots, S::ClusterVisible, S::ClusterKept, S::ClusterSlot, S::DrawArguments},
-      3);
-  if (!buffers) { return std::unexpected(buffers.error()); }
-  const auto &h = Source_.Hierarchy->View;
-  const std::array bindings{
-      (*buffers)[0],
-      (*buffers)[1],
-      (*buffers)[2],
-      (*buffers)[3],
-      (*buffers)[4],
-      Native::Binding{
-          .Set = 2, .Slot = 0, .Value = Native::Uniform{std::as_bytes(std::span(&h, 1))}}};
-  return into.Commands->Dispatch(*Scan_, bindings, Source_.Hierarchy->ScanGroups);
+  const auto &resident = *Source_.Resident;
+  return PrefixScan_.Encode(*into.Commands,
+                            {.Addresses = resident.Buffer(S::ClusterAddresses).get(),
+                             .Kept = resident.Buffer(S::ClusterKept).get(),
+                             .Visible = resident.Buffer(S::ClusterVisible).get(),
+                             .Slots = resident.Buffer(S::ClusterSlot).get(),
+                             .Arguments = resident.Buffer(S::DrawArguments).get(),
+                             .LogicalCount = Source_.Hierarchy->View.LogicalCount});
 }
 
 Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into) {

@@ -1,0 +1,4 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#define LIVE_INPUT 0
+#include "geometryPrefixScan.glsl"

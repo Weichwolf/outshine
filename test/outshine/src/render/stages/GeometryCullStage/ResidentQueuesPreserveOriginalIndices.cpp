@@ -1,3 +1,4 @@
+#include "GeometryClusterAddresses.h"
 #include "src/render/stages/GeometryCullStage.h"
 #include "src/render/stages/GpuPlacement.h"
 #include "src/render/device/ReadbackTransfer.h"
@@ -263,6 +264,11 @@ UploadHierarchy(const Device &device, GeometryResidency &resident, const Inputs 
          templates.data(),
          templates.size() * sizeof(GeometryClusterTemplate));
   Upload(resident, Stream::ClusterRoots, roots.data(), roots.size() * sizeof(GeometryRoot));
+  const auto addresses = BuildClusterAddresses(roots, templates);
+  Upload(resident,
+         Stream::ClusterAddresses,
+         addresses.data(),
+         addresses.size() * sizeof(GeometryClusterAddress));
   Upload(resident,
          Stream::ClusterPrefix,
          hierarchy.ChunkPrefix.data(),

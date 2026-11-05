@@ -1,4 +1,5 @@
 #include "Check.h"
+#include "GeometryPrefixScan.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include <algorithm>
 #include <array>
@@ -74,7 +75,7 @@ Fixture Prepare(Device &device, const std::filesystem::path &path) {
   Fixture result;
   result.ExpectedArguments = inputs[4];
   result.ExpectedSlots.assign(logical, 0xffffffffu);
-  result.Metadata.resize(logical * 2);
+  result.Metadata.resize(logical * 4);
   std::vector<uint64_t> prefix(batches);
   size_t nextLogical = 0;
   size_t previousBatch = 0;
@@ -92,8 +93,8 @@ Fixture Prepare(Device &device, const std::filesystem::path &path) {
     nextLogical += count;
     previousBatch = batch;
     for (size_t one = 0; one < count; ++one) {
-      result.Metadata[(from + one) * 2] = static_cast<uint32_t>(row);
-      result.Metadata[(from + one) * 2 + 1] = static_cast<uint32_t>(batch);
+      result.Metadata[(from + one) * 4 + 2] = static_cast<uint32_t>(row);
+      result.Metadata[(from + one) * 4 + 3] = static_cast<uint32_t>(batch);
     }
     if (inputs[1][row] == 0) { continue; }
     for (size_t one = 0; one < count; ++one) {
@@ -122,96 +123,26 @@ Fixture Prepare(Device &device, const std::filesystem::path &path) {
   return result;
 }
 
-struct ScanLevel {
-  std::unique_ptr<Buffer> Prefix, Tail;
-  uint32_t Count = 0;
-};
-
 struct ParallelScan {
   std::unique_ptr<Buffer> Metadata;
-  std::vector<ScanLevel> Levels;
-  std::array<std::unique_ptr<ComputePipeline>, 4> Programs;
+  outshine::Render::GeometryPrefixScan Scan;
 };
 
-ParallelScan
-PrepareParallel(Device &device, const Fixture &fixture, const std::filesystem::path &directory) {
+ParallelScan PrepareParallel(Device &device, const Fixture &fixture) {
   ParallelScan result;
-  constexpr std::array names{"prefix-first.spv", "prefix-block.spv", "carry.spv", "finish.spv"};
-  for (size_t at = 0; at < names.size(); ++at) {
-    result.Programs[at] =
-        Require(device.CreateComputePipeline(Spirv((directory / names[at]).c_str())));
-  }
+  Require(result.Scan.Configure(device));
   auto commands = Require(device.Begin());
   result.Metadata = Upload(device, *commands, fixture.Metadata);
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(10))) == CompletionStatus::Ready,
         "cluster metadata upload completes");
-  uint32_t count = fixture.View[6];
-  while (true) {
-    const uint32_t blocks = count / 256u + uint32_t{count % 256u != 0};
-    result.Levels.push_back({.Prefix = Require(device.CreateBuffer(
-                                 {.Bytes = uint64_t{count} * 8, .Use = BufferUse::Storage})),
-                             .Tail = Require(device.CreateBuffer(
-                                 {.Bytes = uint64_t{blocks} * 8, .Use = BufferUse::Storage})),
-                             .Count = count});
-    if (blocks == 1) { break; }
-    count = blocks;
-  }
   return result;
-}
-
-Binding ScanView(uint32_t count, uint32_t width, std::array<uint32_t, 4> &words) {
-  words = {count, width, 0, 0};
-  return {.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(words))}};
-}
-
-void Parallel(const Device &device,
-              Commands &commands,
-              const Fixture &fixture,
-              const ParallelScan &scan) {
-  const uint32_t width = std::min(256u, device.Limits().MaxWorkgroupCount[0]);
-  const auto grid = [width](uint32_t count) {
-    const uint32_t blocks = count / 256u + uint32_t{count % 256u != 0};
-    return Workgroups{.X = std::min(width, blocks),
-                      .Y = blocks / width + uint32_t{blocks % width != 0}};
-  };
-  for (size_t at = 0; at < scan.Levels.size(); ++at) {
-    const auto &level = scan.Levels[at];
-    const auto &source = at == 0 ? scan.Metadata : scan.Levels[at - 1].Tail;
-    std::array<uint32_t, 4> view{};
-    std::vector bindings{Storage(0, 0, *source),
-                         Storage(1, 0, *level.Prefix),
-                         Storage(1, 1, *level.Tail),
-                         ScanView(level.Count, width, view)};
-    if (at == 0) {
-      bindings.push_back(Storage(0, 1, *fixture.Buffers[2]));
-      bindings.push_back(Storage(0, 2, *fixture.Buffers[1]));
-    }
-    Require(commands.Dispatch(*scan.Programs[at == 0 ? 0 : 1], bindings, grid(level.Count)));
-  }
-  for (size_t at = scan.Levels.size() - 1; at > 1; --at) {
-    const auto &level = scan.Levels[at - 1];
-    std::array<uint32_t, 4> view{};
-    const std::array bindings{Storage(0, 0, *scan.Levels[at].Prefix),
-                              Storage(1, 0, *level.Prefix),
-                              ScanView(level.Count, width, view)};
-    Require(commands.Dispatch(*scan.Programs[2], bindings, grid(level.Count)));
-  }
-  const auto &first = scan.Levels.front();
-  const auto &parent = scan.Levels.size() > 1 ? scan.Levels[1].Prefix : first.Tail;
-  std::array<uint32_t, 4> view{};
-  const std::array bindings{Storage(0, 0, *first.Prefix),
-                            Storage(0, 1, *parent),
-                            Storage(1, 0, *fixture.Buffers[3]),
-                            Storage(1, 1, *fixture.Buffers[4]),
-                            ScanView(first.Count, width, view)};
-  Require(commands.Dispatch(*scan.Programs[3], bindings, grid(first.Count)));
 }
 
 double Run(Device &device,
            const ComputePipeline &pipeline,
            const Fixture &fixture,
-           const ParallelScan *parallel = nullptr) {
+           ParallelScan *parallel = nullptr) {
   std::array bindings{
       Storage(0, 0, *fixture.Buffers[0]),
       Storage(0, 1, *fixture.Buffers[1]),
@@ -222,7 +153,13 @@ double Run(Device &device,
   auto commands = Require(device.Begin());
   const uint32_t width = fixture.View[5];
   if (parallel != nullptr) {
-    Parallel(device, *commands, fixture, *parallel);
+    Require(parallel->Scan.Encode(*commands,
+                                  {.Addresses = parallel->Metadata.get(),
+                                   .Kept = fixture.Buffers[2].get(),
+                                   .Visible = fixture.Buffers[1].get(),
+                                   .Slots = fixture.Buffers[3].get(),
+                                   .Arguments = fixture.Buffers[4].get(),
+                                   .LogicalCount = fixture.View[6]}));
   } else {
     Require(commands->Dispatch(
         pipeline,
@@ -283,7 +220,7 @@ void ReplaceCounts(Device &device, Fixture &fixture, std::span<const uint32_t> w
 void VerifySelectionChange(Device &device,
                            const ComputePipeline &pipeline,
                            Fixture &fixture,
-                           const ParallelScan &scan,
+                           ParallelScan &scan,
                            std::span<const uint32_t> original) {
   const auto arguments = fixture.ExpectedArguments;
   const auto slots = fixture.ExpectedSlots;
@@ -297,14 +234,22 @@ void VerifySelectionChange(Device &device,
   fixture.ExpectedSlots = slots;
   fixture.Times = {Run(device, pipeline, fixture, &scan)};
   Verify(device, fixture, "visible_after_zero");
+  (void)Run(device, pipeline, fixture, &scan);
+  const size_t logical = fixture.View[6];
+  const auto states =
+      Download(device, *fixture.Buffers[3], logical + fixture.ExpectedArguments.size() / 5);
+  for (size_t at = 0; at < logical; ++at) {
+    const size_t group = fixture.Metadata[at * 4 + 3];
+    CHECK(states[logical + group] == 0,
+          "unchanged selection preserves the previously compacted group indices");
+  }
   fixture.Times.clear();
 }
 }
 
 int main(int argc, const char *argv[]) {
-  if (argc != 3 && argc != 4) {
-    std::println(stderr,
-                 "GeometryGroupScanProbe <resident-snapshot> <grouped-plan> [parallel-shaders]");
+  if (argc != 3) {
+    std::println(stderr, "GeometryGroupScanProbe <resident-snapshot> <grouped-plan>");
     return 2;
   }
   const char *validation = SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "MTL_DEBUG_LAYER");
@@ -316,8 +261,8 @@ int main(int argc, const char *argv[]) {
   std::array fixtures{Prepare(*device, argv[1]), Prepare(*device, argv[2])};
   std::unique_ptr<ParallelScan> parallel;
   std::vector<double> parallelTimes;
-  if (argc == 4) {
-    parallel = std::make_unique<ParallelScan>(PrepareParallel(*device, fixtures[1], argv[3]));
+  {
+    parallel = std::make_unique<ParallelScan>(PrepareParallel(*device, fixtures[1]));
     const double ms = Run(*device, *pipeline, fixtures[1], parallel.get());
     fixtures[1].Times.push_back(ms);
     Verify(*device, fixtures[1], "parallel_initial_verification");

@@ -559,6 +559,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::ClusterIndex:
     case Resource::ClusterTemplates:
     case Resource::ClusterRoots:
+    case Resource::ClusterAddresses:
     case Resource::ClusterPrefix:
     case Resource::ClusterVisible:
     case Resource::ClusterChunks:
@@ -593,6 +594,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::ClusterIndex:
     case Resource::ClusterTemplates:
     case Resource::ClusterRoots:
+    case Resource::ClusterAddresses:
     case Resource::ClusterPrefix:
     case Resource::ClusterVisible:
     case Resource::ClusterChunks:

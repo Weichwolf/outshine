@@ -38,6 +38,7 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::ClusterIndex:
     case Resource::ClusterTemplates:
     case Resource::ClusterRoots:
+    case Resource::ClusterAddresses:
     case Resource::ClusterPrefix:
     case Resource::ClusterVisible:
     case Resource::ClusterChunks:

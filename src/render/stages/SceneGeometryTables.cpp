@@ -1,3 +1,4 @@
+#include "GeometryClusterAddresses.h"
 #include "GeometryRenderer.h"
 #include "BatchVisibility.h"
 #include "native/Render.h"
@@ -186,12 +187,14 @@ bool GeometryRenderer::UploadTables(std::string &error) {
                                        .Bytes = static_cast<uint32_t>(values.size_bytes())};
   };
   const std::array<GeometryQueueState, 1> reset{};
+  const auto addresses = BuildClusterAddresses(TableRoots_, TableTemplates_);
   std::vector<uint32_t> slots(Jobs_, std::numeric_limits<uint32_t>::max());
   slots.resize(slots.size() + Batches.size(), kGeometryIndexCold);
   std::array cut{
       crossing(S::ClusterSpheres, std::span<const float>(TableSpheres_)),
       crossing(S::ClusterTemplates, std::span<const GeometryClusterTemplate>(TableTemplates_)),
       crossing(S::ClusterRoots, std::span<const GeometryRoot>(TableRoots_)),
+      crossing(S::ClusterAddresses, std::span<const GeometryClusterAddress>(addresses)),
       crossing(S::ClusterPrefix, std::span<const uint32_t>(Hierarchy_.ChunkPrefix)),
       crossing(S::ClusterSlot, std::span<const uint32_t>(slots)),
       GeometryResidency::Crossing{.Which = S::ClusterReset,

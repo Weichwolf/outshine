@@ -110,7 +110,8 @@ AdmitGeometryHierarchy(const GeometryHierarchyInputs &inputs, const Native::Capa
     chunks += root.TemplateCount / kGeometryChunkClusters +
               uint32_t{root.TemplateCount % kGeometryChunkClusters != 0};
     indices += root.IndexCapacity;
-    if (!Fits(logical, 8, limits) || !Fits(chunks, 8, limits) || !Fits(indices, 4, limits)) {
+    if (!Fits(logical, sizeof(GeometryClusterAddress), limits) || !Fits(chunks, 8, limits) ||
+        !Fits(indices, 4, limits)) {
       return std::unexpected(InvalidHierarchy());
     }
     result.ChunkPrefix.push_back(static_cast<uint32_t>(chunks));

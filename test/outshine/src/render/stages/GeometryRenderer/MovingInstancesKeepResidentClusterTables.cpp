@@ -27,6 +27,7 @@ using Stream = GeometryResidency::Stream;
 constexpr std::array tableStreams{Stream::ClusterSpheres,
                                   Stream::ClusterTemplates,
                                   Stream::ClusterRoots,
+                                  Stream::ClusterAddresses,
                                   Stream::ClusterPrefix,
                                   Stream::ClusterReset,
                                   Stream::DrawArguments};
@@ -210,7 +211,7 @@ void CheckTopology(Fixture &fixture, PieceId clustered, std::array<Mat4, 3> rows
         "a changed instance count rebuilds the actual topology");
   CHECK(fixture.Draw.ClusterJobs() == 2 && fixture.Draw.Drawn().size() == 2 &&
             fixture.Draw.Residency().StagedBytes() > 0 &&
-            fixture.Draw.Residency().RecordedCrossings() == crossings + 7,
+            fixture.Draw.Residency().RecordedCrossings() == crossings + 8,
         "removed instances leave neither cluster jobs nor stale batches");
   rows[0][12] += 100;
   fixture.ResetMetrics();

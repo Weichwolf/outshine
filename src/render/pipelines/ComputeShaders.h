@@ -25,8 +25,11 @@ enum class ComputeShaderId : uint32_t {
   CalibrationTriad,
   GeometryRootCull,
   GeometryLeafCull,
-  GeometryRootScan,
   GeometrySelectedCompact,
+  GeometryPrefix,
+  GeometryPrefixBlocks,
+  GeometryPrefixCarry,
+  GeometryPrefixFinish,
   RadianceFilter,
   RadianceAreaFilter,
   RadianceIntegralRows,
@@ -103,13 +106,25 @@ inline constexpr std::array kComputeShaders = {
         .Path = "geometryLeafCull.comp.spv",
         .Shape = {.ReadOnlyBuffers = 8, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
     ComputeShaderDescriptor{
-        .Id = ComputeShaderId::GeometryRootScan,
-        .Path = "geometryRootScan.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 3, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 32}},
-    ComputeShaderDescriptor{
         .Id = ComputeShaderId::GeometrySelectedCompact,
         .Path = "geometrySelectedCompact.comp.spv",
         .Shape = {.ReadOnlyBuffers = 8, .ReadWriteBuffers = 1, .UniformBuffers = 2, .GroupX = 64}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryPrefix,
+        .Path = "geometryPrefix.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 3, .ReadWriteBuffers = 3, .UniformBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryPrefixBlocks,
+        .Path = "geometryPrefixBlocks.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryPrefixCarry,
+        .Path = "geometryPrefixCarry.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 256}},
+    ComputeShaderDescriptor{
+        .Id = ComputeShaderId::GeometryPrefixFinish,
+        .Path = "geometryPrefixFinish.comp.spv",
+        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::RadianceFilter,
         .Path = "radianceFilter.comp.spv",
