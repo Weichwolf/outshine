@@ -9,10 +9,12 @@
 #include "Log.h"
 #include <SDL3/SDL.h>
 #include <chrono>
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <print>
 #include <string>
+#include <span>
 #include <thread>
 
 namespace {
@@ -69,8 +71,18 @@ void PublishWithoutOriginals(BuildingFieldStreaming &fields,
         "the complete field-only cut performs no original payload IO or generation");
 }
 
+void PointCamera(Render::Viewpoint &camera) {
+  camera.EyeM = {{0, 30, 1000}};
+  camera.Forward = {{0, 0, 1}};
+  camera.Right = {{-1, 0, 0}};
+  camera.YfovRad = 1;
+  camera.ZNearM = .1;
+  camera.ZFarM = 240000;
+}
+
 void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
-                             BuildingFieldStreaming::Context &context) {
+                             BuildingFieldStreaming::Context &context,
+                             size_t expectedGroups) {
   const auto plan = Render::ExecutionPlan::Compile(
       {.Outputs = {Render::Resource::SceneLinear, Render::Resource::SceneDepth},
        .Content = {Render::Stage::OpaqueGeometry},
@@ -85,12 +97,7 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   const auto offline = context.Renderer.OfflineUploads(std::chrono::seconds(5));
   context.Pages.BindRenderer(&context.Renderer);
   context.Pages.SetFrame(context.Frame);
-  context.Camera.EyeM = {{0, 30, 1000}};
-  context.Camera.Forward = {{0, 0, 1}};
-  context.Camera.Right = {{-1, 0, 0}};
-  context.Camera.YfovRad = 1;
-  context.Camera.ZNearM = .1;
-  context.Camera.ZFarM = 240000;
+  PointCamera(context.Camera);
   const auto before = context.Surface.BuildingAssets()->Costs();
   std::string error;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -110,6 +117,8 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   }
   CHECK(error.empty() && counts.Ready == 1 && counts.Pending == 0 && counts.Rejected == 0,
         "a field behind the camera is ready before any original geometry is loaded");
+  CHECK(counts.ReadyGroups == expectedGroups,
+        "an ineligible coarse field descends to its complete eligible subgroup family");
   CHECK(counts.Active == 0 && counts.SelectedProducts == 0,
         "preparation alone cannot publish an incomplete main or shadow source cut");
   CHECK(after.GeometryReadBytes == before.GeometryReadBytes &&
@@ -122,11 +131,16 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   context.Pages.Clear();
 }
 
-int Exercise() {
+int Exercise(bool subgroups) {
   using namespace outshine;
   using namespace outshine::Test;
   BuildingQueueFixture fixture;
-  if (!fixture.Open(fixture.Buildings, (fixture.Cache.Path / "assets").string())) {
+  std::array buildings{fixture.Buildings[0], fixture.Buildings[0]};
+  for (size_t at = 1; at < buildings[1].LatLon.size(); at += 2) {
+    buildings[1].LatLon[at] -= .0006;
+  }
+  if (!fixture.Open(std::span(buildings).first(subgroups ? 2 : 1),
+                    (fixture.Cache.Path / "assets").string())) {
     return Report();
   }
   const bool initial = Collect(fixture, StructureBuildQueue::HeightRequirement::AllowFallback);
@@ -155,6 +169,7 @@ int Exercise() {
                                           .Renderer = renderer,
                                           .Camera = {},
                                           .Frame = TangentFrame::At(fixture.Eye)};
+  if (subgroups) { PointCamera(context.Camera); }
   const auto before = fixture.Stack.BuildingAssets()->Costs();
   std::string error;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -174,7 +189,7 @@ int Exercise() {
             after.GeometryReadBytes == before.GeometryReadBytes &&
             after.SurfaceReadBytes == before.SurfaceReadBytes,
         "early discovery does not generate render meshes or decode surface forms");
-  PrepareWithoutOriginals(fields, context);
+  PrepareWithoutOriginals(fields, context, subgroups ? 2 : 1);
   return Report();
 }
 }
@@ -183,7 +198,8 @@ int main() {
   outshine::TextLogSink sink{outshine::TextTarget(outshine::TextStream::Stderr)};
   const outshine::LogThreadSinkScope logging(&sink);
   CHECK(SDL_Init(SDL_INIT_VIDEO), "early field preparation opens the native video backend");
-  const int result = Exercise();
+  const int single = Exercise(false);
+  const int result = Exercise(true) | single;
   SDL_Quit();
   return result;
 }
