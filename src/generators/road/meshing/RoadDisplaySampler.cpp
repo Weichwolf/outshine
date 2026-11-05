@@ -22,6 +22,7 @@ struct Profile {
   std::vector<double> Seams;
   std::vector<double> Second;
   Vec3 Origin;
+  std::array<Ring, 2> Ends;
   size_t Queries = 0;
 };
 
@@ -87,6 +88,7 @@ std::expected<Profile, std::string_view> Prepare(const ReferenceLine &line, Sect
   if (result.Seams.size() < 2 || !line.At(0, a)) { return std::unexpected(kInvalid); }
   result.Queries = 1;
   result.Origin = {{a.EastM, a.HeightM, RenderFrame::ZOfNorth(a.NorthM)}};
+  result.Ends[0] = Positions(a, section, result.Origin);
   result.Second.reserve(result.Seams.size() - 1);
   for (size_t at = 0; at + 1 < result.Seams.size(); ++at) {
     const double start = result.Seams[at];
@@ -104,7 +106,35 @@ std::expected<Profile, std::string_view> Prepare(const ReferenceLine &line, Sect
     result.Second.push_back(*second);
     a = b;
   }
+  result.Ends[1] = Positions(a, section, result.Origin);
   return result;
+}
+
+std::expected<double, std::string_view> ContactDisplacement(const Profile &profile,
+                                                            const RoadDisplayContacts &contacts) {
+  double maximum = 0;
+  for (size_t end = 0; end < contacts.EndRings.size(); ++end) {
+    const auto &ring = contacts.EndRings[end];
+    if (!ring) { continue; }
+    Vec3 across;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      across[axis] = static_cast<double>(ring->back()[axis]) - ring->front()[axis];
+    }
+    if (!(Dot(across, profile.Ends[end].back() - profile.Ends[end].front()) > 0)) {
+      return std::unexpected(kInvalid);
+    }
+    for (size_t at = 0; at < kRibbonAcross; ++at) {
+      Vec3 difference;
+      for (size_t axis = 0; axis < 3; ++axis) {
+        const double target = (*ring)[at][axis];
+        if (!std::isfinite(target)) { return std::unexpected(kInvalid); }
+        difference[axis] = (target - profile.Origin[axis]) - profile.Ends[end][at][axis];
+      }
+      maximum = std::max(maximum, Norm(difference));
+    }
+  }
+  if (!std::isfinite(maximum)) { return std::unexpected(kInvalid); }
+  return maximum;
 }
 
 struct Interval {
@@ -161,10 +191,15 @@ std::expected<double, std::string_view> Envelope(const ReferenceLine &line,
   for (size_t at = 0; at < kRibbonAcross; ++at) {
     for (const Ring *ring : {&start, &end}) {
       Vec3 difference;
+      Vec3 meshDifference;
       for (size_t axis = 0; axis < 3; ++axis) {
-        difference[axis] = (*ring)[at][axis] - static_cast<float>((*ring)[at][axis]);
+        const double source = (*ring)[at][axis];
+        const auto local = static_cast<float>(source);
+        const auto placed = static_cast<float>(static_cast<double>(local) + profile.Origin[axis]);
+        difference[axis] = source - local;
+        meshDifference[axis] = source - (static_cast<double>(placed) - profile.Origin[axis]);
       }
-      rounding = std::max(rounding, Norm(difference));
+      rounding = std::max({rounding, Norm(difference), Norm(meshDifference)});
     }
     if (at + 1 < kRibbonAcross) {
       twist = std::max(twist, Norm((end[at + 1] - end[at]) - (start[at + 1] - start[at])) / 4);
@@ -176,10 +211,12 @@ std::expected<double, std::string_view> Envelope(const ReferenceLine &line,
 }
 }
 
-std::expected<RoadDisplayPlan, std::string_view> SampleRoadDisplay(const ReferenceLine &line,
-                                                                   Section section,
-                                                                   double errorM,
-                                                                   RoadDisplayLimits limits) {
+std::expected<RoadDisplayPlan, std::string_view>
+SampleRoadDisplay(const ReferenceLine &line,
+                  Section section,
+                  double errorM,
+                  RoadDisplayLimits limits,
+                  const RoadDisplayContacts &contacts) {
   if (!std::isfinite(errorM) || errorM <= 0 || !std::isfinite(section.HalfWidthM) ||
       section.HalfWidthM <= 0 || !std::isfinite(section.ShoulderM) || section.ShoulderM < 0 ||
       limits.StationsMost < 2 || limits.PoseQueriesMost < 4) {
@@ -193,14 +230,19 @@ std::expected<RoadDisplayPlan, std::string_view> SampleRoadDisplay(const Referen
   }
   auto profile = Prepare(line, section);
   if (!profile) { return std::unexpected(profile.error()); }
+  const auto displacement = ContactDisplacement(*profile, contacts);
+  if (!displacement) { return std::unexpected(displacement.error()); }
+  const double allowance = 2 * *truncation + *displacement;
+  if (!std::isfinite(allowance) || allowance > errorM) { return std::unexpected(kSource); }
   std::vector<Interval> pending{{.First = 0, .Last = line.LengthM()}};
-  RoadDisplayPlan result{.StationsM = {0}, .SourceTruncationM = *truncation};
+  RoadDisplayPlan result{
+      .StationsM = {0}, .SourceTruncationM = *truncation, .ContactDisplacementM = *displacement};
   while (!pending.empty()) {
     const Interval interval = pending.back();
     pending.pop_back();
     const auto bound = Envelope(line, section, *profile, interval, limits.PoseQueriesMost);
     if (!bound) { return std::unexpected(bound.error()); }
-    const double total = *bound + 2 * *truncation;
+    const double total = *bound + allowance;
     if (total <= errorM) {
       result.StationsM.push_back(interval.Last);
       result.PositionBoundM = std::max(result.PositionBoundM, total);

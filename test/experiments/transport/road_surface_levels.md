@@ -59,13 +59,25 @@ a short queried tail of a long segment. Closed arcs/straight segments use no qua
 Node/weight values and native integration operations remain unchanged.
 
 The sampler combines per-source-span second derivatives of height/bank/offset curves,
-seam residuals, triangle twist, stored Float32 endpoint rounding and twice the local
-source quadrature truncation allowance. It rejects offset folds, tangent poles,
+seam residuals, triangle twist, Float32 rounding in local and placed source frames,
+final contact displacement and twice the local source quadrature truncation allowance.
+`RoadRibbonContacts` returns the exact curve-ordered Float32 rings used by
+`AppendRoadRibbon`; both use the same port ordering. Contacts are supplied in the source
+east/up/south frame. The maximum endpoint displacement consumes the same position budget;
+it is never hidden by refining geometry. Reversed/nonfinite rings are rejected.
+It rejects offset folds, tangent poles,
 unbounded derivatives and inadequate source accuracy before render subdivision.
 The result is an analytic position-model bound, not a universal libm/IEEE certificate:
-accumulated source pose, coefficient/evaluation FP error, later world transforms and
-final port movement remain unqualified. Normal interpolation and complete bridge bodies
+accumulated source pose, coefficient/evaluation FP error and later world transforms
+remain unqualified. Normal interpolation and complete bridge bodies
 remain unqualified too. This module does not yet authorize World replacement or a lower
 runtime LOD error. Native controls independently inspect actual emitted triangle
 interpolation and exact quadratic chord error; a captured-corpus/native comparison is
 still required before integration.
+
+The contact controls use the production ribbon placement/stitching path. Four captured
+Wien ways supply endpoint coordinates, source DEM heights and widths for isolated
+straight-approach controls; their original curved routes, stairs, bridges and failed
+final junction plan are not reconstructed by that test. Separate controls cover imposed
+contact movement, reversed rings and a source-frame Float32 precision floor. These are
+endpoint/model tests, not a complete native transport-corpus or World acceptance.
