@@ -84,6 +84,10 @@ public:
 
   [[nodiscard]] std::optional<double> MaxAbsCurvaturePerM(double fromM, double toM) const noexcept;
 
+  // Local Gauss truncation from stored segment entries; excludes pose and FP errors.
+  [[nodiscard]] std::optional<double> PlanarTruncationBoundM(double fromM,
+                                                             double toM) const noexcept;
+
   [[nodiscard]] double LengthM() const { return Length_; }
 
   [[nodiscard]] size_t SegmentCount() const { return Laid_.size(); }

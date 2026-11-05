@@ -1,5 +1,6 @@
 #include "ReferenceLine.h"
 #include "SegmentEvaluation.h"
+#include "Gauss8.h"
 
 #include <array>
 #include <algorithm>
@@ -54,24 +55,6 @@ bool Valid(const Segment &segment) {
          std::isfinite(segment.LengthM) && segment.LengthM > 0.0 &&
          std::isfinite(segment.EntryCurvature) && std::isfinite(segment.ExitCurvature);
 }
-
-constexpr size_t kNodes = 8;
-constexpr std::array<double, kNodes> kAbscissa = {{-0.9602898564975363,
-                                                   -0.7966664774136267,
-                                                   -0.5255324099163290,
-                                                   -0.1834346424956498,
-                                                   0.1834346424956498,
-                                                   0.5255324099163290,
-                                                   0.7966664774136267,
-                                                   0.9602898564975363}};
-constexpr std::array<double, kNodes> kWeight = {{0.1012285362903763,
-                                                 0.2223810344533745,
-                                                 0.3137066458778873,
-                                                 0.3626837833783620,
-                                                 0.3626837833783620,
-                                                 0.3137066458778873,
-                                                 0.2223810344533745,
-                                                 0.1012285362903763}};
 
 double HeadingAlong(const Segment &along, double byM) {
   const double rate =
@@ -252,11 +235,11 @@ Placed AdvanceAlong(const Placed &from, const Segment &along, double byM) noexce
   double east = 0.0;
   double north = 0.0;
   const double half = 0.5 * byM;
-  for (size_t node = 0; node < kNodes; ++node) {
-    const double at = half * (kAbscissa[node] + 1.0);
+  for (size_t node = 0; node < Gauss8::Nodes.size(); ++node) {
+    const double at = half * (Gauss8::Nodes[node] + 1.0);
     const double heading = from.HeadingRad + HeadingAlong(along, at);
-    east += kWeight[node] * std::cos(heading);
-    north += kWeight[node] * std::sin(heading);
+    east += Gauss8::Weights[node] * std::cos(heading);
+    north += Gauss8::Weights[node] * std::sin(heading);
   }
   out.EastM = from.EastM + half * east;
   out.NorthM = from.NorthM + half * north;
