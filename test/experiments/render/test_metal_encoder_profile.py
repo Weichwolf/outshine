@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from metal_encoder_profile import benchmark_window, gpurow_window, counter_timeline
+from metal_encoder_profile import (
+    benchmark_window, gpurow_window, counter_timeline, submission_timeline,
+)
 
 
 def inputs():
@@ -36,6 +38,47 @@ def counter_row(first, last):
     return {"calibration_cpu_ns": [0, 1000000], "calibration_gpu": [0, 1000000],
             "encoders": [{"kind": "compute", "available": True,
                           "ticks": [first, last, 0, 0]}]}
+
+
+class SubmissionTimeline(unittest.TestCase):
+    @staticmethod
+    def row(start, end):
+        return {"submission_gpu_interval_ns": [start, end], "submission_gpu_ns": end - start}
+
+    def test_native_endpoints_separate_latency_from_completion_spacing(self):
+        result = submission_timeline([self.row(1000000, 21000000),
+                                      self.row(11000000, 31000000)])
+        self.assertEqual(result["interval_sum_ms"], 40)
+        self.assertEqual(result["interval_union_ms"], 30)
+        self.assertEqual(result["completion_intervals"]["samples"], 1)
+        self.assertEqual(result["completion_intervals"]["p99_ms"], 10)
+
+    def test_single_or_unordered_completions_do_not_invent_a_cadence(self):
+        single = self.row(1, 2000001)
+        for rows in ([single], [single, self.row(2, 1000001)]):
+            result = submission_timeline(rows)
+            self.assertEqual(result["completion_intervals"]["samples"], 0)
+            self.assertIsNone(result["completion_intervals"]["p99_ms"])
+        self.assertFalse(submission_timeline([single, self.row(2, 1000001)])["ordered_completions"])
+
+    def test_legacy_trace_has_no_native_endpoint_evidence(self):
+        self.assertIsNone(submission_timeline([{"submission_gpu_ns": 12}]))
+
+    def test_gaps_are_not_counted_as_gpu_interval_work(self):
+        result = submission_timeline([self.row(1, 1000001), self.row(3000001, 4000001)])
+        self.assertEqual(result["interval_union_ms"], 2)
+        self.assertEqual(result["completion_intervals"]["p99_ms"], 3)
+
+    def test_incomplete_invalid_or_mismatched_endpoints_fail(self):
+        valid = self.row(1, 1000001)
+        invalid = [None, [], [1], [0, 1], [2, 1], [1, float("inf")], [1, 1000]]
+        for interval in invalid:
+            with self.subTest(interval=interval), self.assertRaises(ValueError):
+                submission_timeline([valid, {**valid, "submission_gpu_interval_ns": interval}])
+        with self.assertRaises(ValueError):
+            submission_timeline([])
+        with self.assertRaises(ValueError):
+            submission_timeline([{**self.row(1, 1), "submission_gpu_ns": -0.5}])
 
 
 class CounterTimeline(unittest.TestCase):

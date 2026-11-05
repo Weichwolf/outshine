@@ -2,6 +2,7 @@
 #include "Check.h"
 #import <Foundation/Foundation.h>
 #include <SDL3/SDL_stdinc.h>
+#include <cmath>
 #include <filesystem>
 #include <print>
 #include <string>
@@ -35,6 +36,15 @@ void ReadOutput(const std::filesystem::path &path, const Expected &expected) {
   CHECK(submissions.count == 1, "one completed command buffer is retained");
   if (submissions.count != 1) { return; }
   NSDictionary *const submission = submissions.firstObject;
+  NSArray *const interval = submission[@"submission_gpu_interval_ns"];
+  CHECK(interval.count == 2, "the completed command buffer preserves both GPU endpoints");
+  if (interval.count == 2) {
+    const double start = [interval[0] doubleValue];
+    const double end = [interval[1] doubleValue];
+    CHECK(start > 0 && end >= start, "native GPU endpoints are positive and ordered");
+    CHECK(std::abs((end - start) - [submission[@"submission_gpu_ns"] doubleValue]) < 1.0,
+          "native GPU endpoints preserve the recorded duration within a nanosecond");
+  }
   NSArray *const encoders = submission[@"encoders"];
   CHECK(encoders.count == expected.Encoders,
         "the bounded trace preserves the expected natural encoders");

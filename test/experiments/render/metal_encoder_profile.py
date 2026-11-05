@@ -172,6 +172,42 @@ def gpurow_window(document, log):
     return window
 
 
+def submission_timeline(window):
+    if not window:
+        raise ValueError("empty submission window")
+    intervals = [row.get("submission_gpu_interval_ns") for row in window]
+    if all(interval is None for interval in intervals):
+        return None
+    for interval, row in zip(intervals, window):
+        if (interval is None or len(interval) != 2
+                or not all(math.isfinite(value) for value in interval)
+                or interval[0] <= 0 or interval[1] < interval[0]
+                or not math.isfinite(row["submission_gpu_ns"])
+                or row["submission_gpu_ns"] < 0
+                or not math.isclose(interval[1] - interval[0], row["submission_gpu_ns"],
+                                    rel_tol=1e-9, abs_tol=1.0)):
+            raise ValueError("incomplete or inconsistent native GPU endpoints")
+    endings = [interval[1] for interval in intervals]
+    ordered = all(b > a for a, b in zip(endings, endings[1:]))
+    spacings = sorted((b - a) / 1e6 for a, b in zip(endings, endings[1:])) if ordered else []
+    merged = []
+    for first, last in sorted(intervals):
+        if merged and first <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], last)
+        else:
+            merged.append([first, last])
+    return {
+        "scope": "Native command-buffer GPU intervals; overlap is not exclusive work or utilization. Completion spacings are not presentation cadence or a budget verdict.",
+        "interval_sum_ms": sum(last - first for first, last in intervals) / 1e6,
+        "interval_union_ms": sum(last - first for first, last in merged) / 1e6,
+        "ordered_completions": ordered,
+        "completion_intervals": {
+            "samples": len(spacings),
+            **{f"p{percentile}_ms": spacings[math.ceil(len(spacings) * percentile / 100) - 1]
+               if spacings else None for percentile in (50, 95, 99)}},
+    }
+
+
 def counter_timeline(window):
     spans, scales = [], []
     for submission in window:
@@ -288,6 +324,7 @@ def analyse(trace, log, output, benchmark=None):
         "scope": "Counter stages overlap; do not sum them or substitute CPU waits.",
         "overhead": "Collection only; allocation and GPU sampling cost not isolated.",
         "counter_timeline": counter_timeline(window),
+        "submission_timeline": submission_timeline(window),
         "encoders": list(groups.values()),
     }
     for group in result["encoders"]:

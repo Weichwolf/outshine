@@ -36,6 +36,7 @@ struct ProfiledSubmission {
   uint64_t Serial = 0;
   uint64_t Dropped = 0;
   double GpuNs = 0;
+  double GpuStartNs = 0, GpuEndNs = 0;
   double CpuBeginNs = 0, CpuEndNs = 0;
   uint64_t GpuBegin = 0, GpuEnd = 0;
   std::vector<ProfiledEncoder> Encoders;
@@ -94,6 +95,11 @@ void WriteSubmission(std::ostream &stream, const ProfiledSubmission &submission)
   stream << R"({"serial":)" << submission.Serial << R"(,"dropped_encoders":)" << submission.Dropped
          << R"(,"submission_gpu_ns":)";
   Number(stream, submission.GpuNs);
+  stream << R"(,"submission_gpu_interval_ns":[)";
+  Number(stream, submission.GpuStartNs);
+  stream << ',';
+  Number(stream, submission.GpuEndNs);
+  stream << ']';
   stream << R"(,"calibration_cpu_ns":[)";
   Number(stream, submission.CpuBeginNs);
   stream << ',';
@@ -289,6 +295,8 @@ void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,
                                 .Dropped = profile->Dropped,
                                 .GpuNs = (commands.GPUEndTime - commands.GPUStartTime) *
                                          kNanosecondsPerSecond,
+                                .GpuStartNs = commands.GPUStartTime * kNanosecondsPerSecond,
+                                .GpuEndNs = commands.GPUEndTime * kNanosecondsPerSecond,
                                 .CpuBeginNs = profile->CalibrationCpuNs,
                                 .CpuEndNs = sampled.CpuNs,
                                 .GpuBegin = profile->CalibrationGpu,

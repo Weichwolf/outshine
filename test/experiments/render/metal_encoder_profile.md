@@ -21,6 +21,16 @@ A prototype incorrectly applied the Mach timebase to already-normalized CPU
 samples; its failed conversion is retained privately. The actual capture does
 not assume that conversion or a fixed counter rate.
 
+Completed records also preserve `MTLCommandBuffer` GPU start/end times in
+`submission_gpu_interval_ns`. The analyser validates each pair against its recorded
+duration and reports interval sums/unions separately from consecutive completion
+spacings. Overlapping submission latency is not exclusive GPU work. Completion
+spacings describe GPU command buffers, not display presentation or an independent
+60-fps budget pass. A 60-frame window supplies only 59 spacings; no initial sample
+is invented. Old traces without endpoints report no submission timeline evidence.
+Encoder envelopes remain a separate counter-clock diagnostic and omit unprofiled
+commands; neither timeline estimates GPU utilisation.
+
 Sample buffers, metadata and their session remain owned through GPU completion.
 The completion callback resolves shared counter storage after the GPU has finished;
 no texture readback, extra GPU transfer, encoder or fence is added. Formatting and
