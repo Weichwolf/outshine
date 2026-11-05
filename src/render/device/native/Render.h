@@ -116,6 +116,20 @@ static_assert(offsetof(IndexedIndirectArguments, FirstIndex) == 8);
 static_assert(offsetof(IndexedIndirectArguments, BaseVertex) == 12);
 static_assert(offsetof(IndexedIndirectArguments, FirstInstance) == 16);
 
+struct alignas(8) IndexedCommandSpan {
+  uint32_t First = 0;
+  uint32_t Count = 0;
+};
+
+static_assert(sizeof(IndexedCommandSpan) == 8 && alignof(IndexedCommandSpan) == 8);
+static_assert(offsetof(IndexedCommandSpan, First) == 0 && offsetof(IndexedCommandSpan, Count) == 4);
+
+class IndexedCommands {
+public:
+  virtual ~IndexedCommands() = default;
+  [[nodiscard]] virtual uint64_t AllocatedBytes() const noexcept = 0;
+};
+
 struct IndirectRange {
   const Buffer *Data = nullptr;
   uint64_t Offset = 0;

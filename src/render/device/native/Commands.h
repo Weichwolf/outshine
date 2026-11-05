@@ -92,6 +92,16 @@ public:
         Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
   }
 
+  // Preparation applies to these spans until argument or index data is written again.
+  [[nodiscard]] virtual Result<void>
+  PrepareIndexedCommands([[maybe_unused]] IndexedCommands &commands,
+                         [[maybe_unused]] const IndexBuffer &indices,
+                         [[maybe_unused]] const Buffer &arguments,
+                         [[maybe_unused]] std::span<const IndexedCommandSpan> ranges) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "prepared indexed commands unavailable"});
+  }
+
   [[nodiscard]] virtual Result<void>
   DrawIndexedIndirect([[maybe_unused]] const IndirectDrawDescription &description) {
     return std::unexpected(

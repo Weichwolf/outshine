@@ -32,6 +32,11 @@ public:
     return Backing_.CreateBuffer(description, label);
   }
 
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::IndexedCommands>>
+  CreateIndexedCommands(uint32_t capacity) override {
+    return Backing_.CreateIndexedCommands(capacity);
+  }
+
   [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::Texture>>
   CreateTexture(Render::Native::TextureDescription description,
                 std::string_view label = {}) override {

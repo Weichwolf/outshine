@@ -92,6 +92,7 @@ Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, Buff
         destinationOffset:region.DestinationOffset
                      size:region.Bytes];
     [blit endEncoding];
+    UpdateAccess(to->State->Native, Access::Write);
     return {};
   }
 }
@@ -135,6 +136,13 @@ Result<void> MetalCommands::PrepareResources(std::span<const ShaderArgument> arg
 
 void MetalCommands::UpdateAccess(id<MTLResource> resource, Access usage) {
   if (resource == nil) { return; }
+  if (usage != Access::Read) {
+    for (auto &prepared : PreparedIndexed) {
+      if (prepared.Arguments->Native == resource || prepared.Indices->Native == resource) {
+        prepared.Current = false;
+      }
+    }
+  }
   const auto [existing, inserted] = Accesses.try_emplace(
       ResourceKey(resource), TrackedResource{.Resource = resource, .Usage = usage});
   if (!inserted && existing->second.Usage != usage) { existing->second.Usage = Access::ReadWrite; }

@@ -1,4 +1,5 @@
 #include "MetalInternal.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -58,6 +59,57 @@ Result<std::shared_ptr<BufferState>> IndirectArguments(IndirectRange range, uint
   return buffer->State;
 }
 
+void DrawArguments(id<MTLRenderCommandEncoder> encoder,
+                   const IndexArgument &index,
+                   id<MTLBuffer> arguments,
+                   uint64_t offset,
+                   uint32_t count,
+                   uint32_t stride) {
+  for (uint32_t draw = 0; draw < count; ++draw) {
+    [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                         indexType:index.Type
+                       indexBuffer:index.State->Native
+                 indexBufferOffset:index.Range.Offset
+                    indirectBuffer:arguments
+              indirectBufferOffset:offset + uint64_t{draw} * stride];
+  }
+}
+
+bool DrawPrepared(id<MTLRenderCommandEncoder> encoder,
+                  const PreparedIndexedCommands &execution,
+                  const IndexArgument &index,
+                  IndirectRange range) {
+  const uint32_t first = static_cast<uint32_t>(range.Offset / kIndexedIndirectBytes);
+  const uint64_t last = uint64_t{first} + range.Count;
+  auto span = std::ranges::lower_bound(execution.Spans, first, {}, &IndexedCommandSpan::First);
+  if (span == execution.Spans.end() || uint64_t{span->First} + span->Count > last) { return false; }
+  [encoder useResource:index.State->Native usage:MTLResourceUsageRead stages:MTLRenderStageVertex];
+  [encoder useResource:execution.State->Commands
+                 usage:MTLResourceUsageRead
+                stages:MTLRenderStageVertex];
+  uint64_t cursor = first;
+  for (; span != execution.Spans.end() && uint64_t{span->First} + span->Count <= last; ++span) {
+    DrawArguments(encoder,
+                  index,
+                  execution.Arguments->Native,
+                  cursor * kIndexedIndirectBytes,
+                  static_cast<uint32_t>(span->First - cursor),
+                  kIndexedIndirectBytes);
+    const size_t at = static_cast<size_t>(span - execution.Spans.begin());
+    [encoder executeCommandsInBuffer:execution.State->Commands
+                      indirectBuffer:execution.State->Ranges
+                indirectBufferOffset:at * sizeof(IndexedCommandSpan)];
+    cursor = uint64_t{span->First} + span->Count;
+  }
+  DrawArguments(encoder,
+                index,
+                execution.Arguments->Native,
+                cursor * kIndexedIndirectBytes,
+                static_cast<uint32_t>(last - cursor),
+                kIndexedIndirectBytes);
+  return true;
+}
+
 }
 
 Result<void> MetalCommands::DrawIndexed(const IndexedDrawDescription &description) {
@@ -97,14 +149,23 @@ Result<void> MetalCommands::DrawIndexedIndirect(const IndirectDrawDescription &d
   const auto prepared = PrepareDraw(description.State, {}, DrawKind::Indirect, reads);
   if (!prepared) { return prepared; }
   const auto range = description.Range;
-  for (uint32_t draw = 0; draw < range.Count; ++draw) {
-    [Render->Encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                                 indexType:index->Type
-                               indexBuffer:index->State->Native
-                         indexBufferOffset:index->Range.Offset
-                            indirectBuffer:(*arguments)->Native
-                      indirectBufferOffset:range.Offset + uint64_t{draw} * range.Stride];
+  const auto *pipeline = static_cast<const MetalGraphicsPipeline *>(description.State.Pipeline);
+  if (pipeline->State->Native.supportIndirectCommandBuffers &&
+      range.Stride == kIndexedIndirectBytes && range.Offset % kIndexedIndirectBytes == 0 &&
+      range.Offset / kIndexedIndirectBytes <= UINT32_MAX) {
+    for (const auto &execution : PreparedIndexed) {
+      if (!execution.Current || execution.Arguments != *arguments ||
+          execution.Indices != index->State ||
+          execution.IndexBinding.Type != description.Indices.Type ||
+          execution.IndexBinding.Range.Offset != index->Range.Offset ||
+          execution.IndexBinding.Range.Bytes != index->Range.Bytes) {
+        continue;
+      }
+      if (DrawPrepared(Render->Encoder, execution, *index, range)) { return {}; }
+    }
   }
+  DrawArguments(
+      Render->Encoder, *index, (*arguments)->Native, range.Offset, range.Count, range.Stride);
   return {};
 }
 

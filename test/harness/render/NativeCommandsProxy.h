@@ -71,6 +71,14 @@ public:
   }
 
   [[nodiscard]] Render::Native::Result<void>
+  PrepareIndexedCommands(Render::Native::IndexedCommands &commands,
+                         const Render::Native::IndexBuffer &indices,
+                         const Render::Native::Buffer &arguments,
+                         std::span<const Render::Native::IndexedCommandSpan> spans) override {
+    return Backing_->PrepareIndexedCommands(commands, indices, arguments, spans);
+  }
+
+  [[nodiscard]] Render::Native::Result<void>
   DrawIndexedIndirect(const Render::Native::IndirectDrawDescription &description) override {
     return Backing_->DrawIndexedIndirect(description);
   }
