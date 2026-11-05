@@ -29,6 +29,8 @@ public:
     uint64_t GroundGeneration = 0;
   };
 
+  enum class OcclusionDepth { None, CurrentFrame };
+
   struct SelectionProjection {
     Mat4f Clip{};
     Vec2f GuardNdc{};
@@ -56,18 +58,12 @@ public:
   [[nodiscard]] Native::Result<void> Configure(Source source, const Gpu &gpu);
   void Binds(Source source) noexcept;
 
-  void Invalidate() noexcept {
-    Cache_.Invalidate();
-    DepthForSelection_ = false;
-  }
-
-  void DepthSubmitted(bool pyramidWritten) noexcept {
-    DepthForSelection_ = pyramidWritten && Cache_.Submitted();
-  }
+  void Invalidate() noexcept { Cache_.Invalidate(); }
 
   [[nodiscard]] Native::Result<void> EncodeRoots(const FrameContext &ctx,
                                                  const PassRecording &into,
-                                                 const SelectionProjection &projection);
+                                                 const SelectionProjection &projection,
+                                                 OcclusionDepth depth = OcclusionDepth::None);
   [[nodiscard]] Native::Result<void> EncodeCull(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeScan(const PassRecording &into);
   [[nodiscard]] Native::Result<void> EncodeCompact(const PassRecording &into);
@@ -77,6 +73,12 @@ public:
   [[nodiscard]] bool EncodedOcclusion() const noexcept { return Swept_ != 0 && OccludeThisFrame_; }
 
   [[nodiscard]] bool HasAcceptedSelection() const noexcept { return Cache_.Submitted(); }
+
+  [[nodiscard]] bool HasSelectionFor(const GeometryResidency &resident,
+                                     uint64_t generation) const noexcept {
+    return Cache_.Submitted() && Source_.Resident == &resident &&
+           LastGeometryGeneration_ == generation;
+  }
 
   void Projects(float heightPx) {
     if (HeightPx_ != heightPx) { Invalidate(); }
@@ -117,8 +119,6 @@ private:
   StageCache Cache_;
   bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
-  bool Refined_ = false;
-  bool DepthForSelection_ = false;
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastGeometryGeneration_ = 0;
@@ -129,6 +129,7 @@ private:
                  std::unique_ptr<Native::ComputePipeline> &into);
   void Standing(const FrameContext &ctx, const SelectionProjection &projection);
 
+  OcclusionDepth LastOcclusionDepth_ = OcclusionDepth::None;
   Source Source_;
   CullView View_{};
   std::unique_ptr<Native::ComputePipeline> Root_, Cull_, Scan_, Compact_;

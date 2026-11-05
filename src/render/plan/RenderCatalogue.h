@@ -38,6 +38,8 @@ enum class Resource {
   AoBuffer,
   SceneLinear,
   DepthPyramid,
+  OccluderDepth,
+  OccluderPyramid,
   GroundPyramid,
   GroundSelection,
 
@@ -91,6 +93,8 @@ enum class Resource {
     case Resource::SceneSurfaceMetalRough:
     case Resource::AoBuffer:
     case Resource::DepthPyramid:
+    case Resource::OccluderDepth:
+    case Resource::OccluderPyramid:
     case Resource::GroundPyramid:
     case Resource::GroundSelection:
 
@@ -126,6 +130,8 @@ enum class Stage {
   EnvironmentSpecular,
   AutoExposure,
 
+  OccluderDepth,
+  OccluderPyramid,
   GeometryRootCull,
   GeometryCull,
   GeometryScan,
@@ -172,7 +178,7 @@ enum class TexelFormat {
   Depth32Float
 };
 
-inline constexpr size_t kMaxEdges = 8;
+inline constexpr size_t kMaxEdges = 9;
 
 inline constexpr size_t kMaxColourAttachments = 8;
 
@@ -398,6 +404,19 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .AliasOf = kNoEdge,
      .Format = TexelFormat::Table,
      .Name = "depthPyramid",
+     .Stride = static_cast<uint32_t>(sizeof(float))},
+    {.Id = Resource::OccluderDepth,
+     .Kind = ResourceKind::Attachment,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Depth32Float,
+     .Name = "occluderDepth"},
+    {.Id = Resource::OccluderPyramid,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Table,
+     .Name = "occluderPyramid",
      .Stride = static_cast<uint32_t>(sizeof(float))},
     {.Id = Resource::GroundPyramid,
      .Kind = ResourceKind::Derived,
@@ -625,6 +644,25 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .Writes = {Resource::Meter, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion},
+    {.Id = Stage::OccluderDepth,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Raster,
+     .Phase = StagePhase::WorldPreparation,
+     .Name = "occluderDepth",
+     .Reads = {Resource::GeometryPlacements, kNoEdge},
+     .Writes = {kNoEdge},
+     .Contributes = {Resource::OccluderDepth, kNoEdge},
+     .FusesInto = kNoFusion,
+     .ReadsLastFrame = {Resource::DrawIndex, Resource::DrawArguments, kNoEdge}},
+    {.Id = Stage::OccluderPyramid,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
+     .Name = "occluderPyramid",
+     .Reads = {Resource::OccluderDepth, Resource::LinearSampler, kNoEdge},
+     .Writes = {Resource::OccluderPyramid, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion},
     {.Id = Stage::GeometryRootCull,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
@@ -648,14 +686,14 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                Resource::ClusterChunks,
                Resource::ClusterChunkState,
                Resource::ClusterPrefix,
-               Resource::ClusterReset},
+               Resource::ClusterReset,
+               Resource::OccluderPyramid},
      .Writes = {Resource::ClusterKept,
                 Resource::ClusterSelected,
                 Resource::ClusterSelectedState,
                 kNoEdge},
      .Contributes = {kNoEdge},
-     .FusesInto = kNoFusion,
-     .ReadsLastFrame = {Resource::DepthPyramid, kNoEdge}},
+     .FusesInto = kNoFusion},
     {.Id = Stage::GeometryScan,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,

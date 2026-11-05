@@ -130,6 +130,12 @@ public:
 
   void SetSeparateTransmission(bool enabled) { Binding().GlassDrawnElsewhere = enabled; }
 
+  [[nodiscard]] Native::Result<void>
+  EncodeOccluders(const FrameContext &ctx,
+                  const PassRecording &into,
+                  const std::array<std::unique_ptr<Native::GraphicsPipeline>, 2> &pipelines,
+                  bool hasSelection);
+
   void ShadowedBy(Native::Texture *atlas,
                   Native::Sampler *exact,
                   size_t lightIndex,
@@ -472,6 +478,8 @@ public:
 
   [[nodiscard]] const EncodedWork &Work() const noexcept { return EncodedWork_; }
 
+  [[nodiscard]] const EncodedWork &OccluderWork() const noexcept { return OccluderWork_; }
+
   [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedWork_.DrawRequests; }
 
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
@@ -576,6 +584,7 @@ private:
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
   EncodedWork EncodedWork_;
+  EncodedWork OccluderWork_;
 
   struct Piece {
     GeometryResidency::Range V;
@@ -603,6 +612,8 @@ private:
   std::vector<uint32_t> TableOrder_;
   std::vector<GeometryClusterTemplate> TableTemplates_;
   std::vector<GeometryRoot> TableRoots_;
+  std::vector<uint8_t> Occluders_;
+  void PrepareOccluders();
   GeometryHierarchyAdmission Hierarchy_;
   uint64_t TableRevision_ = 0;
   bool RootBoundsStale_ = false;

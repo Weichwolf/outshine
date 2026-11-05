@@ -13,6 +13,7 @@ FrameTargets::Slot FrameTargets::Index(Resource resource) noexcept {
     case Resource::SceneHdr: return Slot::Hdr;
     case Resource::SceneVelocity: return Slot::Velocity;
     case Resource::SceneDepth: return Slot::Depth;
+    case Resource::OccluderDepth: return Slot::OccluderDepth;
     case Resource::SceneShadingNormal: return Slot::ShadingNormal;
     case Resource::SceneSurfaceIdentity: return Slot::SurfaceIdentity;
     case Resource::SceneSurfaceBase: return Slot::SurfaceBase;
@@ -56,8 +57,9 @@ FrameTargets::Replace(Native::Device &device, Extent extent, const ExecutionPlan
   for (size_t at = 0; at < kResourceCount; ++at) {
     const auto resource = static_cast<Resource>(at);
     if (!Owns(resource) || !plan.Holds(resource)) { continue; }
-    const auto use = resource == Resource::SceneDepth ? Native::TextureUse::DepthAttachment
-                                                      : Native::TextureUse::ColourAttachment;
+    const auto use = Row(resource).Format == TexelFormat::Depth32Float
+                         ? Native::TextureUse::DepthAttachment
+                         : Native::TextureUse::ColourAttachment;
     const size_t count = resource == Resource::SceneLinear ? 2 : 1;
     for (size_t backing = 0; backing < count; ++backing) {
       auto image = device.CreateTexture(

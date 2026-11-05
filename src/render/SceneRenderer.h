@@ -57,6 +57,7 @@ struct SDL_Window;
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "visibility/DepthPyramidPass.h"
+#include "visibility/GeometryOcclusionPass.h"
 #include "shadow/SunShadowPass.h"
 #include "shadow/ShadowDemand.h"
 #include "stages/GeometryCullStage.h"
@@ -918,7 +919,7 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 23;
+  static constexpr size_t kExecutorCount = 25;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
@@ -1018,6 +1019,15 @@ private:
                                                      const ExecutionPlan &plan,
                                                      bool drawsGlass,
                                                      std::string &error);
+  [[nodiscard]] static bool ConfigureOcclusion(SceneRenderer &renderer,
+                                               FrameResources &frame,
+                                               const ExecutionPlan &plan,
+                                               bool drawsGlass,
+                                               std::string &error);
+  [[nodiscard]] Native::Result<void> EncodeOccluders(const FrameContext &ctx,
+                                                     const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeOccluderPyramid(const FrameContext &ctx,
+                                                           const PassRecording &into);
   [[nodiscard]] static bool ConfigureGeometryCull(SceneRenderer &renderer,
                                                   FrameResources &frame,
                                                   const ExecutionPlan &plan,
@@ -1110,6 +1120,7 @@ private:
     TonemapStage Tonemap;
     DepthPyramidPass DepthPyramid;
     DepthPyramidPass GroundPyramid;
+    GeometryOcclusionPass Occlusion;
     SkyStage Sky;
     SunShadowPass Shadow;
     GeometryCullStage Cull;

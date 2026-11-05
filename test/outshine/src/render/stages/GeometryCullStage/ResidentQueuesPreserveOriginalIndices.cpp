@@ -124,16 +124,17 @@ void Run(Device &device,
          GeometryCullStage &stage,
          const FrameContext &ctx,
          bool submit,
-         const GeometryCullStage::SelectionProjection *projection = nullptr) {
+         const GeometryCullStage::SelectionProjection *projection = nullptr,
+         GeometryCullStage::OcclusionDepth depth = GeometryCullStage::OcclusionDepth::None) {
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
   const PassRecording recording{
       .Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}};
-  Require(stage.EncodeRoots(ctx,
-                            recording,
-                            projection != nullptr
-                                ? *projection
-                                : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp}));
+  Require(stage.EncodeRoots(
+      ctx,
+      recording,
+      projection != nullptr ? *projection : GeometryCullStage::SelectionProjection{.Clip = ctx.Mvp},
+      depth));
   Require(stage.EncodeCull(recording));
   Require(stage.EncodeScan(recording));
   Require(stage.EncodeCompact(recording));
@@ -352,17 +353,30 @@ void Exercise(Device &device) {
   Compare(device, resident, translated);
   CHECK(stage.JobsAdmitted() == 0,
         "repeated accepted preparation reuses selection without treating it as depth history");
-  stage.DepthSubmitted(true);
-  Run(device, stage, frame, true);
+  GeometryCullStage::SelectionProjection guarded{.Clip = frame.Mvp, .GuardNdc = {{0.01f, 0.01f}}};
+  frame.Mvp[12] = 0.002f;
+  Run(device, stage, frame, true, &guarded, GeometryCullStage::OcclusionDepth::CurrentFrame);
+  CHECK(stage.EncodedOcclusion(),
+        "current depth remains valid across jitter and guarded selection");
+  CHECK(stage.HasSelectionFor(resident, 1) && !stage.HasSelectionFor(resident, 2),
+        "occluder indices require the exact resident geometry generation");
   const auto occluded = Read(device, resident, Stream::DrawArguments, input.Arguments.size());
   for (size_t batch = 0; batch < 3; ++batch) {
     CHECK(occluded[batch * 5] == 0,
-          "the preserved previous depth rejects hidden clusters on the stable refinement");
+          "current camera depth rejects hidden clusters without authorizing historical depth");
   }
-  Reuse(stage, frame);
+  Run(device, stage, frame, true, &guarded);
+  Compare(device, resident, translated);
+  CHECK(!stage.EncodedOcclusion(), "disabling current depth cannot reuse an occluded selection");
+  Run(device, stage, frame, true, &guarded, GeometryCullStage::OcclusionDepth::CurrentFrame);
+  std::fill(covered.begin(), covered.end(), 0.0f);
+  Upload(resident, Stream::Previous, covered.data(), covered.size() * sizeof(float));
+  Require(RetryOffline([&] { return resident.SubmitPendingUploads(); }, std::chrono::seconds(5)));
   frame.PreViewTranslation[0] = 0;
-  Run(device, stage, frame, true);
+  frame.Mvp[12] = 0;
+  Run(device, stage, frame, true, &guarded, GeometryCullStage::OcclusionDepth::CurrentFrame);
   Compare(device, resident, input);
+  CHECK(stage.EncodedOcclusion(), "newly revealed geometry is tested against fresh cleared depth");
   JitteredSelection(device, stage, resident, spheres);
 }
 }

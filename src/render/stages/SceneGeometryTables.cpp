@@ -169,6 +169,7 @@ bool GeometryRenderer::UploadTables(std::string &error) {
     return false;
   }
   Hierarchy_ = std::move(*admitted);
+  PrepareOccluders();
   Args_.assign(Batches.size() * kArgWords, 0u);
   uint32_t base = 0;
   for (size_t at = 0; at < Batches.size(); ++at) {
@@ -235,6 +236,7 @@ bool GeometryRenderer::HandRootBounds(std::string &error) {
                                   .From = roots.data(),
                                   .Bytes = static_cast<uint32_t>(roots.size_bytes())}};
   if (!Accepted(Bound().Cross(crossing, true), error)) { return false; }
+  PrepareOccluders();
   RootBoundsStale_ = false;
   return true;
 }

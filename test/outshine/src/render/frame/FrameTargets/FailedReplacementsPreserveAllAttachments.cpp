@@ -73,27 +73,27 @@ void Exercise(Native::Device &backing) {
     CHECK(targets.Replace(device, {.WidthPx = 16, .HeightPx = 8}, **basic),
           "the old attachment set is complete");
     const Native::Texture *const previous = targets.Get(Resource::SceneHdr);
-    CHECK(previous && targets.Count() == 2, "the old view retains exactly its requested images");
+    CHECK(previous && targets.Count() == 3, "the old view retains exactly its requested images");
     if (previous == nullptr) { return; }
     for (const Extent invalid : {Extent{}, Extent{.WidthPx = -1, .HeightPx = 8}}) {
       const auto before = counts.Calls;
       CHECK(!targets.Replace(device, invalid, **temporal) && counts.Calls == before,
             "invalid dimensions fail before touching the GPU");
     }
-    constexpr unsigned kFrameImages = 13;
+    constexpr unsigned kFrameImages = 14;
     for (unsigned failure = 1; failure <= kFrameImages; ++failure) {
       counts.RejectAt = counts.Calls + failure;
       const auto replaced = targets.Replace(device, {.WidthPx = 32, .HeightPx = 16}, **temporal);
       CHECK(!replaced && replaced.error().Kind == Native::ErrorKind::OutOfMemory,
             "every candidate allocation can fail explicitly");
-      CHECK(targets.Get(Resource::SceneHdr) == previous && targets.Count() == 2 &&
-                counts.Created - counts.Released == 2,
+      CHECK(targets.Get(Resource::SceneHdr) == previous && targets.Count() == 3 &&
+                counts.Created - counts.Released == 3,
             "failure destroys partial candidates and preserves every old attachment");
     }
     counts.RejectAt = 0;
     counts.Empty = true;
     CHECK(!targets.Replace(device, {.WidthPx = 32, .HeightPx = 16}, **temporal) &&
-              targets.Get(Resource::SceneHdr) == previous && counts.Created - counts.Released == 2,
+              targets.Get(Resource::SceneHdr) == previous && counts.Created - counts.Released == 3,
           "a device returning an empty success cannot publish a missing attachment");
     counts.Empty = false;
     CHECK(targets.Replace(device, {.WidthPx = 32, .HeightPx = 16}, **temporal),

@@ -167,6 +167,12 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Irradiance,
          .Configure = &SceneRenderer::ConfigureIrradiance,
          .Encode = &SceneRenderer::EncodeIrradiance},
+        {.Named = Stage::OccluderDepth,
+         .Configure = &SceneRenderer::ConfigureOcclusion,
+         .Encode = &SceneRenderer::EncodeOccluders},
+        {.Named = Stage::OccluderPyramid,
+         .Configure = &SceneRenderer::ConfigureOcclusion,
+         .Encode = &SceneRenderer::EncodeOccluderPyramid},
         {.Named = Stage::GeometryRootCull,
          .Configure = &SceneRenderer::ConfigureGeometryCull,
          .Encode = &SceneRenderer::EncodeGeometryRoots},
@@ -531,7 +537,8 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
     for (const auto *texture : {frame.Offscreen.get(), frame.Shadow.Atlas()}) {
       if (texture != nullptr) { ++counts.Textures; }
     }
-    for (const auto *buffer : {frame.DepthPyramid.Buffer(), frame.GroundPyramid.Buffer()}) {
+    for (const auto *buffer :
+         {frame.DepthPyramid.Buffer(), frame.GroundPyramid.Buffer(), frame.Occlusion.Buffer()}) {
       if (buffer != nullptr) { ++counts.Buffers; }
     }
     if (frame.Samp) { ++counts.Samplers; }
@@ -547,6 +554,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
     case Resource::DepthPyramid: return frame.DepthPyramid.Buffer() != nullptr;
     case Resource::GroundPyramid: return frame.GroundPyramid.Buffer() != nullptr;
+    case Resource::OccluderPyramid: return frame.Occlusion.Buffer() != nullptr;
     case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return frame.Shadow.Atlas() != nullptr;
     case Resource::AtmosphereUniform:
@@ -614,6 +622,7 @@ SceneRenderer::Target(const FrameResources &frame, Resource resource, size_t lin
     case Resource::IrradianceBuffer:
     case Resource::Meter:
     case Resource::GroundPyramid:
+    case Resource::OccluderPyramid:
     case Resource::GroundSelection:
     case Resource::DepthPyramid:
     case Resource::AoBuffer:
@@ -983,16 +992,19 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
   spent.IndirectRecords = 0;
   spent.Surfaces = 0;
   spent.Placements = 0;
-  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry) {
-    const GeometryRenderer &drew = stage == Stage::OpaqueGeometry ? ActiveContent().Geometry()
-                                                                  : ActiveContent().Transmission();
-    const auto &work = drew.Work();
+  if (stage == Stage::OpaqueGeometry || stage == Stage::TransmissiveGeometry ||
+      stage == Stage::OccluderDepth) {
+    const GeometryRenderer &drew = stage == Stage::TransmissiveGeometry
+                                       ? ActiveContent().Transmission()
+                                       : ActiveContent().Geometry();
+    const auto &work = stage == Stage::OccluderDepth ? drew.OccluderWork() : drew.Work();
     spent.Draws = work.DrawRequests;
     spent.DirectTriangles = work.DirectTriangles;
     spent.IndirectInputTriangles = work.IndirectInputTriangles;
     spent.IndirectRecords = work.IndirectRecords;
     spent.Surfaces = work.SurfaceSlotLimit;
     spent.Placements = work.PlacementSlotLimit;
+    if (stage == Stage::OccluderDepth) { return result; }
     spent.Textured = drew.Textured();
     spent.Palettes = drew.ColourImages();
     spent.DeviceBytes = drew.HeldBytes();
@@ -1236,7 +1248,7 @@ bool SceneRenderer::ConfigureGeometryCull(SceneRenderer &renderer,
                                           std::string &error) {
   (void)plan;
   (void)drawsGlass;
-  frame.Cull.PyramidFrom(frame.DepthPyramid.Buffer(), frame.DepthPyramid.Shape());
+  frame.Cull.PyramidFrom(frame.Occlusion.Buffer(), frame.Occlusion.Shape());
   return Accepted(
       frame.Cull.Configure(CullSource(renderer.ActiveContent().Geometry()), frame.Handles), error);
 }
@@ -1253,7 +1265,8 @@ Native::Result<void> SceneRenderer::EncodeGeometryRoots(const FrameContext &ctx,
       .GuardNdc = temporal ? Vec2f{{1.0f / static_cast<float>(lens.WidePx),
                                     1.0f / static_cast<float>(lens.HighPx)}}
                            : Vec2f{}};
-  const auto encoded = ActiveFrame().Cull.EncodeRoots(ctx, into, projection);
+  const auto encoded = ActiveFrame().Cull.EncodeRoots(
+      ctx, into, projection, GeometryCullStage::OcclusionDepth::CurrentFrame);
   if (!encoded) { return encoded; }
   if (ActiveFrame().Cull.JobsAdmitted() == 0) {
     ++Costs_.ReusedSelections;
@@ -1547,8 +1560,7 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission,
                                          const CameraBasis &camera) {
   ActiveContent().Scene().Meshes().CommitCrossings();
   stageSubmission.Commit();
-  ActiveFrame().Cull.DepthSubmitted(ActiveState().Plan->Holds(Stage::DepthPyramid) &&
-                                    DepthPyramidNeeded(*ActiveState().Plan));
+
   ActiveContent().Geometry().CarryFrame();
   ActiveContent().Transmission().CarryFrame();
 

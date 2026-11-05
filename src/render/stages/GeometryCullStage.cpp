@@ -121,17 +121,17 @@ void GeometryCullStage::Standing(const FrameContext &ctx, const SelectionProject
 
 Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
                                                     const PassRecording &into,
-                                                    const SelectionProjection &projection) {
+                                                    const SelectionProjection &projection,
+                                                    OcclusionDepth depth) {
   Swept_ = 0;
-  const bool unchanged = Cache_.Submitted() && LastProjection_ == projection &&
+  const bool unchanged = Cache_.Submitted() && LastOcclusionDepth_ == depth &&
+                         LastProjection_ == projection &&
                          LastPreViewTranslation_ == ctx.PreViewTranslation &&
                          LastGeometryGeneration_ == Source_.Generation &&
                          LastGroundGeneration_ == Source_.GroundGeneration;
-  if (!unchanged) { DepthForSelection_ = false; }
-  OccludeThisFrame_ = DepthForSelection_ && PyramidBuffer_ != nullptr && unchanged &&
-                      projection.GuardNdc == Vec2f{} && projection.Clip == ctx.Mvp;
-  CullThisFrame_ = Source_.Resident != nullptr && Source_.Jobs != 0 &&
-                   (!unchanged || (OccludeThisFrame_ && !Refined_));
+  OccludeThisFrame_ = PyramidBuffer_ != nullptr && depth == OcclusionDepth::CurrentFrame;
+  CullThisFrame_ =
+      Source_.Resident != nullptr && Source_.Jobs != 0 && (!unchanged || OccludeThisFrame_);
   if (!CullThisFrame_) {
     gJobsAdmitted.store(0, std::memory_order_relaxed);
     return {};
@@ -174,11 +174,11 @@ Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
                       .Value = Native::Uniform{std::as_bytes(std::span(&hierarchy.View, 1))}}};
   const auto encoded = into.Commands->Dispatch(*Root_, bindings, hierarchy.RootGroups);
   if (!encoded) { return encoded; }
+  LastOcclusionDepth_ = depth;
   LastProjection_ = projection;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
   LastGeometryGeneration_ = Source_.Generation;
   LastGroundGeneration_ = Source_.GroundGeneration;
-  Refined_ = OccludeThisFrame_;
   Swept_ = Source_.Jobs;
   gJobsAdmitted.store(Swept_, std::memory_order_relaxed);
   return {};

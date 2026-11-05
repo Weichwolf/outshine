@@ -26,6 +26,8 @@ SceneRenderer::Create(FrameResources &frame, const ExecutionPlan &plan, Resource
     case Resource::DepthPyramid:
       return (resource == Resource::DepthPyramid ? frame.DepthPyramid : frame.GroundPyramid)
           .Allocate(*Device_, {.WidthPx = frame.Width, .HeightPx = frame.Height});
+    case Resource::OccluderPyramid:
+      return frame.Occlusion.Allocate(*Device_, {.WidthPx = frame.Width, .HeightPx = frame.Height});
     case Resource::ShadowAtlas: return frame.Shadow.Allocate(*Device_);
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:

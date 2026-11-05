@@ -23,6 +23,15 @@ int main() {
   const auto at = [&plan](Stage stage) {
     return std::distance(plan.Order().begin(), std::ranges::find(plan.Order(), stage));
   };
+  CHECK(at(Stage::OccluderDepth) < at(Stage::OccluderPyramid) &&
+            at(Stage::OccluderPyramid) < at(Stage::GeometryCull) &&
+            at(Stage::GeometryCompact) < at(Stage::OpaqueGeometry) &&
+            plan.Stored(Resource::OccluderDepth),
+        "current-frame occluder depth precedes selection independently of scene depth");
+  CHECK(Names(Row(Stage::GeometryCull).Reads, Resource::OccluderPyramid) &&
+            !Names(Row(Stage::GeometryCull).ReadsLastFrame, Resource::DepthPyramid) &&
+            Names(Row(Stage::OccluderDepth).ReadsLastFrame, Resource::DrawIndex),
+        "only the seed geometry is historical; its current raster depth drives culling");
   CHECK(at(Stage::OpaqueGeometry) < at(Stage::GroundPyramid) &&
             at(Stage::GroundPyramid) < at(Stage::GroundSelection) &&
             at(Stage::GroundSelection) < at(Stage::Ground),

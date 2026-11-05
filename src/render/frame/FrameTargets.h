@@ -30,6 +30,7 @@ private:
     Hdr,
     Velocity,
     Depth,
+    OccluderDepth,
     ShadingNormal,
     SurfaceIdentity,
     SurfaceBase,
