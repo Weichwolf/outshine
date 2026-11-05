@@ -195,6 +195,12 @@ void Engine::State::PublishGroundRenderMeasurements(std::chrono::steady_clock::t
   Published.RecordMetric("cook: clusters in all",
                          static_cast<double>(Picture.Standing->Clustering().Clusters),
                          "clusters");
+  Published.RecordMetric("geometry: parts with prepared clusters",
+                         static_cast<double>(Picture.Standing->Clustering().RestoredParts),
+                         "parts");
+  Published.RecordMetric("geometry: parts requiring cluster construction",
+                         static_cast<double>(Picture.Standing->Clustering().CookedParts),
+                         "parts");
   Published.RecordMetric(
       "rebuild: planning draw runs", Picture.Standing->TransferMetrics().DrawPlanMs, "ms");
   Published.RecordMetric(

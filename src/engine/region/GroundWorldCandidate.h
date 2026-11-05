@@ -22,6 +22,7 @@ struct GroundBuildProducts {
   ::outshine::Generators::Osm::BuildingField Footprints;
   Render::GeometryPageResidency Pieces;
   Geometry Ground;
+  GeometryClusters GroundClusters;
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
   std::vector<float> ClassPalette;
@@ -107,8 +108,12 @@ public:
   }
 
   [[nodiscard]] std::expected<void, std::string>
-  BeginGroundGeometryBuild(Geometry geometry, MaterialInstance groundSurface, Material material) {
-    return World_.BeginGeneratedGeometryBuild(std::move(geometry), groundSurface, material);
+  BeginGroundGeometryBuild(Geometry geometry,
+                           MaterialInstance groundSurface,
+                           Material material,
+                           GeometryClusters clusters = {}) {
+    return World_.BeginGeneratedGeometryBuild(
+        std::move(geometry), groundSurface, material, std::move(clusters));
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvanceGroundGeometryBuild(size_t itemsMost) {

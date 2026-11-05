@@ -1163,9 +1163,23 @@ std::expected<void, std::string> RuntimeScene::ValidGeometryBuild(const Geometry
   return {};
 }
 
-std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
-    std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing) {
+std::expected<void, std::string>
+RuntimeScene::BeginRetainedGeometryBuild(std::shared_ptr<const Geometry> built,
+                                         size_t drivenParts,
+                                         Material wearing,
+                                         GeometryClusters clusters) {
   if (!built) { return std::unexpected(Says::InvalidInitialGeometry); }
+  if (!clusters.empty()) {
+    if (!std::cmp_equal(clusters.size(), built->parts())) {
+      return std::unexpected("prepared cluster parts differ from their geometry");
+    }
+    for (int part = 0; part < built->parts(); ++part) {
+      if (!clusters[static_cast<size_t>(part)].empty() &&
+          (built->placementOf(part) != Mat4{} || built->normalsOf(part).empty())) {
+        return std::unexpected("prepared clusters require unchanged source-frame attributes");
+      }
+    }
+  }
   if (auto valid = ValidGeometryBuild(*built, drivenParts); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -1186,26 +1200,39 @@ std::expected<void, std::string> RuntimeScene::BeginRetainedGeometryBuild(
     RestoreGeometryBuildState();
     return std::unexpected(std::string(Describe(bound.error())));
   }
-  ClusterBuild_.emplace(GeometryStorage_, GeometryStorage_.Surfaces);
+  ClusterBuild_.emplace(GeometryStorage_, GeometryStorage_.Surfaces, std::move(clusters));
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   return {};
 }
 
-std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
-    outshine::Geometry &&generated, MaterialInstance groundSurface, Material wearing) {
+std::expected<void, std::string>
+RuntimeScene::BeginGeneratedGeometryBuild(outshine::Geometry &&generated,
+                                          MaterialInstance groundSurface,
+                                          Material wearing,
+                                          GeometryClusters clusters) {
   if (!groundSurface.bound() || groundSurface.index() >= generated.surfaces()) {
     return std::unexpected(Says::InvalidGroundSurface);
   }
   if (DrivenParts_ == 0) {
     GroundSurface_ = groundSurface.index();
-    return BeginGeometryBuild(std::move(generated), 0, wearing);
+    return BeginRetainedGeometryBuild(
+        std::make_shared<const Geometry>(std::move(generated)), 0, wearing, std::move(clusters));
+  }
+  if (!clusters.empty()) {
+    if (!std::cmp_equal(clusters.size(), generated.parts())) {
+      return std::unexpected("prepared cluster parts differ from generated geometry");
+    }
+    clusters.insert(clusters.begin(), DrivenParts_, std::vector<DagCluster>{});
   }
   Geometry driven = DrivenGeometry_.Snapshot().clone();
   const int surfaceBase = driven.surfaces();
   if (!driven.append(generated)) { return std::unexpected(Says::GeneratedGeometryAppendFailed); }
   GroundSurface_ = surfaceBase + groundSurface.index();
-  return BeginGeometryBuild(std::move(driven), DrivenParts_, wearing);
+  return BeginRetainedGeometryBuild(std::make_shared<const Geometry>(std::move(driven)),
+                                    DrivenParts_,
+                                    wearing,
+                                    std::move(clusters));
 }
 
 std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {

@@ -16,6 +16,8 @@ struct ClusterBuildMetrics {
   double BuildMs = 0;
   size_t RootClusters = 0;
   size_t Clusters = 0;
+  size_t RestoredParts = 0;
+  size_t CookedParts = 0;
 };
 
 struct RenderGeometryStorage {

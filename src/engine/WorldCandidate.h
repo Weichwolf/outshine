@@ -71,10 +71,14 @@ public:
     return Scene().BeginGeometryBuild(std::move(geometry), drivenParts, material);
   }
 
-  [[nodiscard]] std::expected<void, std::string> BeginGeneratedGeometryBuild(
-      Geometry geometry, MaterialInstance groundSurface, Material material) {
+  [[nodiscard]] std::expected<void, std::string>
+  BeginGeneratedGeometryBuild(Geometry geometry,
+                              MaterialInstance groundSurface,
+                              Material material,
+                              GeometryClusters clusters = {}) {
     const auto editing = Renderer_.EditWorldCandidate();
-    return Scene().BeginGeneratedGeometryBuild(std::move(geometry), groundSurface, material);
+    return Scene().BeginGeneratedGeometryBuild(
+        std::move(geometry), groundSurface, material, std::move(clusters));
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost) {

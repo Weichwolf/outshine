@@ -29,6 +29,23 @@ std::string_view Describe(ClusterError error) noexcept {
   return index < Says::kClusterErrors.size() ? Says::kClusterErrors[index] : std::string_view{};
 }
 
+bool ValidClusterRanges(std::span<const DagCluster> clusters, size_t indices) noexcept {
+  const auto finite = [](float value) { return std::isfinite(value); };
+  size_t first = 0;
+  for (const auto &cluster : clusters) {
+    if (!std::ranges::all_of(cluster.SelfCenter, finite) ||
+        !std::ranges::all_of(cluster.ParentCenter, finite) || !finite(cluster.SelfRadius) ||
+        !finite(cluster.ParentRadius) || !finite(cluster.SelfErr) || !finite(cluster.ParentErr) ||
+        cluster.SelfRadius < 0 || cluster.ParentRadius < 0 || cluster.SelfErr < 0 ||
+        cluster.ParentErr < 0 || cluster.First != first || first > indices || cluster.Count == 0 ||
+        cluster.Count % 3 != 0 || cluster.Count > indices - first) {
+      return false;
+    }
+    first += cluster.Count;
+  }
+  return first == indices;
+}
+
 namespace {
 constexpr uint32_t kMortonBits = 0x3ffu;
 constexpr uint32_t kMortonSpread16 = 0x030000ffu;

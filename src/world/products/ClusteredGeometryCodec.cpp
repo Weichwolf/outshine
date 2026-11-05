@@ -1,4 +1,5 @@
 #include "ClusteredGeometryCodec.h"
+#include "ClusterCook.h"
 #include "GeometryProductCodec.h"
 #include "BinaryValueArchive.h"
 #include <algorithm>
@@ -28,15 +29,6 @@ template <class Archive, class Cluster> bool Transfer(Archive &io, Cluster &clus
             cluster.Level);
 }
 
-bool ValidCluster(const DagCluster &cluster, size_t first, size_t indices) {
-  const auto finite = [](float value) { return std::isfinite(value); };
-  return std::ranges::all_of(cluster.SelfCenter, finite) &&
-         std::ranges::all_of(cluster.ParentCenter, finite) && finite(cluster.SelfRadius) &&
-         finite(cluster.ParentRadius) && finite(cluster.SelfErr) && finite(cluster.ParentErr) &&
-         cluster.SelfRadius >= 0 && cluster.ParentRadius >= 0 && cluster.SelfErr >= 0 &&
-         cluster.ParentErr >= 0 && cluster.First == first && first <= indices &&
-         cluster.Count > 0 && cluster.Count % 3 == 0 && cluster.Count <= indices - first;
-}
 }
 
 bool ValidGeometryClusters(const Geometry &geometry,
@@ -46,12 +38,7 @@ bool ValidGeometryClusters(const Geometry &geometry,
   }
   for (size_t part = 0; part < clusters.size(); ++part) {
     const size_t indices = geometry.trianglesOf(static_cast<int>(part)).size();
-    size_t first = 0;
-    for (const auto &cluster : clusters[part]) {
-      if (!ValidCluster(cluster, first, indices)) { return false; }
-      first += cluster.Count;
-    }
-    if (first != indices) { return false; }
+    if (!ValidClusterRanges(clusters[part], indices)) { return false; }
   }
   return true;
 }

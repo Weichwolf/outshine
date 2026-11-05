@@ -226,8 +226,11 @@ public:
   SetGeometry(outshine::Geometry &&built, size_t drivenParts, std::string &error);
   [[nodiscard]] std::expected<void, std::string>
   BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts, Material wearing);
-  [[nodiscard]] std::expected<void, std::string> BeginGeneratedGeometryBuild(
-      outshine::Geometry &&generated, MaterialInstance groundSurface, Material wearing);
+  [[nodiscard]] std::expected<void, std::string>
+  BeginGeneratedGeometryBuild(outshine::Geometry &&generated,
+                              MaterialInstance groundSurface,
+                              Material wearing,
+                              GeometryClusters clusters = {});
   [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost);
   [[nodiscard]] std::expected<bool, std::string> AdvancePieceResourceRestore(size_t &nextPiece,
                                                                              size_t piecesMost);
@@ -367,8 +370,11 @@ private:
                                          size_t drivenParts,
                                          const Material &wearing,
                                          std::string &error);
-  [[nodiscard]] std::expected<void, std::string> BeginRetainedGeometryBuild(
-      std::shared_ptr<const Geometry> built, size_t drivenParts, Material wearing);
+  [[nodiscard]] std::expected<void, std::string>
+  BeginRetainedGeometryBuild(std::shared_ptr<const Geometry> built,
+                             size_t drivenParts,
+                             Material wearing,
+                             GeometryClusters clusters = {});
 
   friend class ::outshine::Engine;
 

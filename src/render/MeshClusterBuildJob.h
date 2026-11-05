@@ -19,7 +19,10 @@ struct RenderGeometryPart;
 
 class MeshClusterBuildJob {
 public:
-  MeshClusterBuildJob(RenderGeometryStorage &into, std::span<const Material> surfaces) noexcept;
+  // Prepared clusters refer to validated, unchanged source attributes and part-local index ranges.
+  MeshClusterBuildJob(RenderGeometryStorage &into,
+                      std::span<const Material> surfaces,
+                      GeometryClusters prepared = {}) noexcept;
 
   [[nodiscard]] std::expected<bool, ClusterError> Advance(size_t itemsMost);
 
@@ -43,6 +46,7 @@ private:
 
   RenderGeometryStorage *Into_ = nullptr;
   std::span<const Material> Surfaces_;
+  GeometryClusters Prepared_;
   std::optional<ClusterCookJob> Cook_;
   ClusteredMesh Built_;
   std::vector<uint32_t> LocalIndices_;

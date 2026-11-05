@@ -9,8 +9,6 @@
 #include <vector>
 
 namespace outshine {
-using GeometryClusters = std::vector<std::vector<DagCluster>>;
-
 struct ClusteredGeometryProduct {
   Geometry Mesh;
   GeometryClusters Clusters;

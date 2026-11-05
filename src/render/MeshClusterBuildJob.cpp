@@ -14,8 +14,9 @@
 namespace outshine::Render {
 
 MeshClusterBuildJob::MeshClusterBuildJob(RenderGeometryStorage &into,
-                                         std::span<const Material> surfaces) noexcept
-    : Into_(&into), Surfaces_(surfaces) {}
+                                         std::span<const Material> surfaces,
+                                         GeometryClusters prepared) noexcept
+    : Into_(&into), Surfaces_(surfaces), Prepared_(std::move(prepared)) {}
 
 bool MeshClusterBuildJob::Ready() const noexcept {
   return Stage_ == Stage::Complete;
@@ -50,7 +51,9 @@ MeshClusterBuildJob::PlanParts(size_t &itemsLeft) {
     if (KeepsClusters(part)) {
       const size_t triangles = part.IndexCount / 3;
       const size_t clusters =
-          triangles / kClusterTriangles + (triangles % kClusterTriangles != 0 ? 1u : 0u);
+          !Prepared_.empty() && !Prepared_[Part_].empty()
+              ? Prepared_[Part_].size()
+              : triangles / kClusterTriangles + (triangles % kClusterTriangles != 0 ? 1u : 0u);
       if (clusters > std::numeric_limits<uint32_t>::max() - PlannedClusters_) {
         return std::unexpected(Fail(ClusterError::CapacityExceeded));
       }
@@ -86,6 +89,17 @@ std::expected<MeshClusterBuildJob::Flow, ClusterError> MeshClusterBuildJob::Begi
     return std::unexpected(Fail(ClusterError::InvalidLayout));
   }
   LocalIndices_.clear();
+  if (!Prepared_.empty() && !Prepared_[Part_].empty() && KeepsClusters(part)) {
+    if (!ValidClusterRanges(Prepared_[Part_], part.IndexCount)) {
+      return std::unexpected(Fail(ClusterError::InvalidLayout));
+    }
+    Built_.Clusters = std::move(Prepared_[Part_]);
+    Cursor_ = 0;
+    ++Into_->Clustering.RestoredParts;
+    Stage_ = Stage::Clusters;
+    return Flow::Continue;
+  }
+  ++Into_->Clustering.CookedParts;
   LocalIndices_.reserve(part.IndexCount);
   Cursor_ = 0;
   Stage_ = Stage::Rebase;
@@ -197,6 +211,9 @@ MeshClusterBuildJob::AdvanceStage(size_t &itemsLeft) {
       Into_->ClusterSpheres.clear();
       if (Into_->Indices.size() > std::numeric_limits<uint32_t>::max()) {
         return std::unexpected(Fail(ClusterError::CapacityExceeded));
+      }
+      if (!Prepared_.empty() && Prepared_.size() != Into_->Parts.size()) {
+        return std::unexpected(Fail(ClusterError::InvalidLayout));
       }
       Stage_ = Stage::Plan;
       return Flow::Continue;

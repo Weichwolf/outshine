@@ -1673,8 +1673,10 @@ bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
     Published.RecordMetric(
         "in this many parts", static_cast<double>(build.Ground.parts()), "parts");
-    auto began = candidate.BeginGroundGeometryBuild(
-        std::move(build.Ground), build.GroundSurface, build.GroundMaterial);
+    auto began = candidate.BeginGroundGeometryBuild(std::move(build.Ground),
+                                                    build.GroundSurface,
+                                                    build.GroundMaterial,
+                                                    std::move(build.GroundClusters));
     if (!began) {
       Error = std::move(began.error());
       return false;

@@ -30,6 +30,8 @@ struct DagCluster {
   [[nodiscard]] bool operator==(const DagCluster &) const = default;
 };
 
+using GeometryClusters = std::vector<std::vector<DagCluster>>;
+
 inline constexpr float kDagRootErr = 3.0e38f;
 
 struct Bounding {

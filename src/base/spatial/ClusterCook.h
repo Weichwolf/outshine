@@ -39,6 +39,9 @@ enum class ClusterError {
 
 [[nodiscard]] std::string_view Describe(ClusterError error) noexcept;
 
+[[nodiscard]] bool ValidClusterRanges(std::span<const DagCluster> clusters,
+                                      size_t indices) noexcept;
+
 class ClusterCookJob {
 public:
   explicit ClusterCookJob(ClusterMeshInput input, uint32_t triangleLimit) noexcept;

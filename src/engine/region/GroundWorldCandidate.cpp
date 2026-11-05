@@ -12,6 +12,8 @@
 
 namespace outshine {
 [[nodiscard]] size_t GroundBuildProducts::OwnedHeapBytes() const noexcept {
+  size_t clusterBytes = GroundClusters.capacity() * sizeof(std::vector<DagCluster>);
+  for (const auto &part : GroundClusters) { clusterBytes += part.capacity() * sizeof(DagCluster); }
   size_t alignmentBytes = RoadAlignments.capacity() * sizeof(NamedRoadAlignment);
   for (const NamedRoadAlignment &route : RoadAlignments) {
     alignmentBytes += route.Id.capacity();
@@ -24,7 +26,7 @@ namespace outshine {
   }
   return TerrainSurface.HeapBytes(TerrainHeapScope::Additional) +
          Footprints.HeapBytes(::outshine::Generators::Osm::BuildingField::HeapScope::Additional) +
-         Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() +
+         Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() + clusterBytes +
          PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
          ClassPalette.capacity() * sizeof(float);
 }
@@ -38,6 +40,7 @@ GroundWorldCandidate::GroundWorldCandidate(
                 .Footprints = footprints.SnapshotAccepted(),
                 .Pieces = world.Pieces,
                 .Ground = {},
+                .GroundClusters = {},
                 .PositionsM = {},
                 .Indices = {},
                 .ClassPalette = {},
