@@ -33,6 +33,10 @@ public:
   [[nodiscard]] std::expected<Error, std::string>
   Project(const CameraBasis &camera, const Lens &lens, const Mat4 &worldFromField) const;
 
+  // Any visible rotation at this eye, including a half-pixel temporal jitter guard.
+  [[nodiscard]] std::expected<Error, std::string>
+  ProjectPanoramic(const Vec3 &eye, const Lens &lens, const Mat4 &worldFromField = {}) const;
+
 private:
   ImpostorPoseBounds() = default;
   using Point = std::array<DistanceArithmetic::Interval, 3>;

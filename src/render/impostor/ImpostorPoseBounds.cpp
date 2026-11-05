@@ -247,6 +247,83 @@ MapWorld(const CameraBasis &camera, const Mat4f &projection, const Mat4 &frame) 
   return result;
 }
 
+double MinimumDistance(const Point &bounds) {
+  auto squared = Exact(0);
+  for (const auto axis : bounds) {
+    const auto closest = Exact(std::max({axis.Lower, 0.0, -axis.Upper}));
+    squared = Add(squared, Multiply(closest, closest));
+  }
+  return std::max(0.0,
+                  std::nextafter(std::sqrt(std::max(0.0, squared.Lower)),
+                                 -std::numeric_limits<double>::infinity()));
+}
+
+struct PanoramicExtrema {
+  Point Envelope{{{.Lower = std::numeric_limits<double>::infinity(),
+                   .Upper = -std::numeric_limits<double>::infinity()},
+                  {.Lower = std::numeric_limits<double>::infinity(),
+                   .Upper = -std::numeric_limits<double>::infinity()},
+                  {.Lower = std::numeric_limits<double>::infinity(),
+                   .Upper = -std::numeric_limits<double>::infinity()}}};
+  double Height = 0, Numerator = 0;
+
+  bool Include(Interval height, const Point &ray, const Point &direction) {
+    Height = std::max(Height, Magnitude(height));
+    Numerator = std::max(Numerator, UpperNorm(Cross(ray, direction)));
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const auto support = Subtract(ray[axis], Multiply(height, direction[axis]));
+      if (!Finite(ray[axis]) || !Finite(support)) { return false; }
+      Envelope[axis].Lower = std::min({Envelope[axis].Lower, ray[axis].Lower, support.Lower});
+      Envelope[axis].Upper = std::max({Envelope[axis].Upper, ray[axis].Upper, support.Upper});
+    }
+    return std::isfinite(Height) && std::isfinite(Numerator);
+  }
+
+  [[nodiscard]] std::expected<ImpostorPoseBounds::Error, std::string>
+  Project(const Lens &lens) const {
+    const auto matrix = lens.Projection();
+    const auto slope = [&](size_t axis) {
+      const double pixels = axis == 0 ? lens.WidePx : lens.HighPx;
+      const auto guard = std::max(std::abs(matrix[8 + axis]), 1.0f / static_cast<float>(pixels));
+      return Divide(Add(Exact(1), Exact(guard)), Exact(matrix[axis * 5]));
+    };
+    const double scale = UpperNorm({Exact(1), slope(0), slope(1)});
+    Point widths;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      widths[axis] = Subtract(Exact(Envelope[axis].Upper), Exact(Envelope[axis].Lower));
+    }
+    const auto basisSquared = Enclose(1 - 3 * kBasisTolerance, 1 + 3 * kBasisTolerance);
+    const auto basis = Enclose(std::sqrt(basisSquared.Lower), std::sqrt(basisSquared.Upper));
+    const double depth = Subtract(Multiply(Exact(basis.Lower),
+                                           Divide(Exact(MinimumDistance(Envelope)), Exact(scale))),
+                                  Multiply(Exact(basis.Upper), Exact(UpperNorm(widths))))
+                             .Lower;
+    const double near = Divide(Exact(matrix[14]), Add(Exact(1), Exact(matrix[10]))).Upper;
+    const double far = matrix[10] > 0 ? Divide(Exact(matrix[14]), Exact(matrix[10])).Lower
+                                      : std::numeric_limits<double>::infinity();
+    const auto most = Multiply(Exact(basis.Upper), Exact(UpperNorm(Envelope)));
+    const double infinity = std::numeric_limits<double>::infinity();
+    ImpostorPoseBounds::Error result{.AxisUpperPx = {{infinity, infinity}},
+                                     .L1UpperPx = infinity,
+                                     .DepthInside = depth >= near && most.Upper <= far};
+    if (!(depth > 0)) { return result; }
+    const Point focal{Multiply(Exact(lens.WidePx * .5), Exact(matrix[0])),
+                      Multiply(Exact(lens.HighPx * .5), Exact(matrix[5])),
+                      Exact(0)};
+    const auto numerator =
+        Multiply(Multiply(Exact(Height), Exact(Numerator)), Exact(basisSquared.Upper));
+    const auto divisor = Multiply(Exact(depth), Exact(depth));
+    for (size_t axis = 0; axis < 2; ++axis) {
+      result.AxisUpperPx[axis] = Divide(Multiply(numerator, focal[axis]), divisor).Upper;
+    }
+    result.L1UpperPx = Divide(Multiply(numerator, Exact(UpperNorm(focal))), divisor).Upper;
+    if (!std::isfinite(result.L1UpperPx)) {
+      return std::unexpected("panoramic geometric projection overflow");
+    }
+    return result;
+  }
+};
+
 }
 
 std::expected<ImpostorPoseBounds, std::string>
@@ -349,5 +426,49 @@ std::expected<ImpostorPoseBounds::Error, std::string> ImpostorPoseBounds::Projec
                  }
                  return result;
                });
+}
+
+std::expected<ImpostorPoseBounds::Error, std::string> ImpostorPoseBounds::ProjectPanoramic(
+    const Vec3 &eye, const Lens &lens, const Mat4 &worldFromField) const {
+  const CameraBasis camera{.EyeM = eye};
+  if (!Valid(camera, lens) || lens.OrthoM > 0) {
+    return std::unexpected("invalid panoramic geometric operands");
+  }
+  const auto matrix = lens.Projection();
+  if (!std::ranges::all_of(matrix, [](float value) { return std::isfinite(value); })) {
+    return std::unexpected("nonfinite panoramic geometric projection");
+  }
+  const auto mapped = MapWorld(camera, matrix, worldFromField);
+  if (!mapped) { return std::unexpected(mapped.error()); }
+  if (!(Dot(Relative(mapped->Eye, Centre_), Exact(Direction_)).Lower > 0) ||
+      !(Dot(Relative(mapped->Eye, SupportCentre_), Exact(SupportNormal_)).Lower > 0)) {
+    return std::unexpected("panoramic support faces away from the viewer");
+  }
+  const auto direction = Exact(Direction_);
+  const auto denominator = Dot(direction, Exact(SupportNormal_));
+  const auto relative = Relative(Exact(worldFromField.Translation()), eye);
+  Point worldDirection;
+  for (size_t row = 0; row < 3; ++row) {
+    worldDirection[row] = Exact(0);
+    for (size_t col = 0; col < 3; ++col) {
+      worldDirection[row] =
+          Add(worldDirection[row], Multiply(Exact(worldFromField.At(row, col)), direction[col]));
+    }
+  }
+  PanoramicExtrema extrema;
+  for (const auto &corner : Corners_) {
+    const auto height =
+        Divide(Dot(Relative(corner, SupportCentre_), Exact(SupportNormal_)), denominator);
+    Point world = relative;
+    for (size_t row = 0; row < 3; ++row) {
+      for (size_t col = 0; col < 3; ++col) {
+        world[row] = Add(world[row], Multiply(Exact(worldFromField.At(row, col)), corner[col]));
+      }
+    }
+    if (!Finite(height) || !extrema.Include(height, world, worldDirection)) {
+      return std::unexpected("panoramic geometric support overflow");
+    }
+  }
+  return extrema.Project(lens);
 }
 }
