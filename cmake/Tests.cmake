@@ -38,6 +38,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/pipelines/PipelineShape/TextureArgumentsRetainViewsAndSamplers
   outshine/src/render/device/native/Device/MemorySnapshotsObserveLiveResources
   outshine/src/render/device/native/Device/PitchedTextureCopiesUseOnlyActualTexelSpan
   outshine/src/render/terrain/ClipmapHeightUpload/ToroidalBandsReachOnlyTheirGpuSlots
@@ -208,6 +209,18 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
       OR name STREQUAL "outshine/integration/engine/streaming/RoadPageQueue/BusyReadsRetainSlotsAndSelectedCoverage"))
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+  if(name STREQUAL "outshine/src/render/pipelines/PipelineShape/TextureArgumentsRetainViewsAndSamplers")
+    set(output "${PROJECT_BINARY_DIR}/test-shaders/texture-arguments.frag.spv")
+    file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+    add_custom_command(OUTPUT "${output}"
+      COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+        "${PROJECT_SOURCE_DIR}/test/outshine/data/render/texture-arguments.frag" -o "${output}"
+      DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/texture-arguments.frag"
+      VERBATIM)
+    add_custom_target(test_texture_argument_shader DEPENDS "${output}")
+    add_dependencies(${target} test_texture_argument_shader)
+    target_compile_definitions(${target} PRIVATE "OUTSHINE_TEXTURE_ARGUMENT_SHADER=\"${output}\"")
   endif()
   if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
     set(indirect_shaders "")

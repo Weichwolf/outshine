@@ -1,5 +1,7 @@
 #include "MetalInternal.h"
 #include <spirv_cross_c.h>
+#include <spirv_msl.hpp>
+#include <array>
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -25,16 +27,17 @@ CompileFunction(id<MTLDevice> device, const Shader &shader, MTLFunctionType type
 }
 
 Result<MetalDevice::CompiledShader *> MetalDevice::ShaderProgram(std::span<const uint32_t> spirv,
-                                                                 std::string_view entry) {
+                                                                 std::string_view entry,
+                                                                 bool textureArguments) {
   std::string key = std::to_string(entry.size());
-  key.push_back(':');
+  key.push_back(textureArguments ? 'a' : ':');
   key += entry;
   if (!spirv.empty()) {
     key.append(reinterpret_cast<const char *>(spirv.data()), spirv.size_bytes());
   }
   const auto cached = Shaders_.find(key);
   if (cached != Shaders_.end()) { return &cached->second; }
-  auto translated = Translate(spirv, entry);
+  auto translated = Translate(spirv, entry, textureArguments);
   if (!translated) { return std::unexpected(translated.error()); }
   const auto inserted =
       Shaders_.emplace(std::move(key), CompiledShader{.Translated = std::move(*translated)});
@@ -45,6 +48,12 @@ Result<id<MTLFunction>> MetalDevice::Function(CompiledShader &shader, MTLFunctio
   if (shader.Function == nil) {
     const auto function = CompileFunction(Native_, shader.Translated, type);
     if (!function) { return std::unexpected(function.error()); }
+    if (shader.Translated.TextureArguments) {
+      shader.TextureArguments = [*function newArgumentEncoderWithBufferIndex:kTextureArgumentsSlot];
+      if (shader.TextureArguments == nil) {
+        return Failure(ErrorKind::Driver, "Metal texture argument encoder creation failed");
+      }
+    }
     shader.Function = *function;
     std::string{}.swap(shader.Translated.Source);
   }
@@ -158,7 +167,134 @@ Result<void> Reflect(spvc_compiler compiler,
 
 }
 
-Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry) {
+namespace {
+struct TextureBinding {
+  uint32_t Set, Slot;
+};
+
+struct TextureLayout {
+  uint32_t DescriptorSet = 0;
+  std::vector<TextureBinding> Sources;
+};
+
+Result<uint32_t>
+MapBufferBindings(spvc_compiler compiler, spvc_resources resources, SpvExecutionModel stage) {
+  std::array<bool, spirv_cross::kMaxArgumentBuffers> used{};
+  uint32_t directSlot = 0;
+  for (const auto type : {SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, SPVC_RESOURCE_TYPE_STORAGE_BUFFER}) {
+    const spvc_reflected_resource *items = nullptr;
+    size_t count = 0;
+    if (spvc_resources_get_resource_list_for_type(resources, type, &items, &count) !=
+        SPVC_SUCCESS) {
+      return Failure(ErrorKind::Invalid, "MSL buffer resource reflection failed");
+    }
+    for (size_t at = 0; at < count; ++at) {
+      const auto set =
+          spvc_compiler_get_decoration(compiler, items[at].id, SpvDecorationDescriptorSet);
+      if (directSlot >= kTextureArgumentsSlot) {
+        return Failure(ErrorKind::Unsupported, "MSL direct buffer slots overlap texture arguments");
+      }
+      spvc_msl_resource_binding_2 binding;
+      spvc_msl_resource_binding_init_2(&binding);
+      binding.stage = stage;
+      binding.desc_set = set;
+      binding.binding = spvc_compiler_get_decoration(compiler, items[at].id, SpvDecorationBinding);
+      binding.msl_buffer = directSlot++;
+      if (spvc_compiler_msl_add_resource_binding_2(compiler, &binding) != SPVC_SUCCESS) {
+        return Failure(ErrorKind::Invalid, "MSL direct buffer remapping failed");
+      }
+      if (set < used.size()) { used[set] = true; }
+      if (spvc_compiler_msl_add_discrete_descriptor_set(compiler, set) != SPVC_SUCCESS) {
+        return Failure(ErrorKind::Invalid, "MSL discrete buffer configuration failed");
+      }
+    }
+  }
+  const auto *const free = std::ranges::find(used, false);
+  if (free == used.end()) {
+    return Failure(ErrorKind::Unsupported, "MSL descriptor sets leave no texture argument set");
+  }
+  return static_cast<uint32_t>(free - used.begin());
+}
+
+Result<TextureLayout>
+TextureBindings(spvc_compiler compiler, spvc_compiler_options options, SpvExecutionModel stage) {
+  spvc_resources resources = nullptr;
+  if (spvc_compiler_create_shader_resources(compiler, &resources) != SPVC_SUCCESS) {
+    return Failure(ErrorKind::Invalid, "MSL texture argument reflection failed");
+  }
+  const auto descriptorSet = MapBufferBindings(compiler, resources, stage);
+  if (!descriptorSet) { return std::unexpected(descriptorSet.error()); }
+  TextureLayout result{.DescriptorSet = *descriptorSet, .Sources = {}};
+  for (const auto type : {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, SPVC_RESOURCE_TYPE_STORAGE_IMAGE}) {
+    const spvc_reflected_resource *items = nullptr;
+    size_t count = 0;
+    if (spvc_resources_get_resource_list_for_type(resources, type, &items, &count) !=
+        SPVC_SUCCESS) {
+      return Failure(ErrorKind::Invalid, "MSL texture resource reflection failed");
+    }
+    for (size_t at = 0; at < count; ++at) {
+      const auto id = items[at].id;
+      result.Sources.push_back(
+          {.Set = spvc_compiler_get_decoration(compiler, id, SpvDecorationDescriptorSet),
+           .Slot = spvc_compiler_get_decoration(compiler, id, SpvDecorationBinding)});
+      spvc_compiler_set_decoration(compiler, id, SpvDecorationDescriptorSet, result.DescriptorSet);
+      spvc_compiler_set_decoration(
+          compiler, id, SpvDecorationBinding, static_cast<uint32_t>(result.Sources.size() - 1));
+    }
+  }
+  if (result.Sources.empty()) { return result; }
+  spvc_msl_resource_binding_2 binding;
+  spvc_msl_resource_binding_init_2(&binding);
+  binding.stage = stage;
+  binding.desc_set = result.DescriptorSet;
+  binding.binding = SPVC_MSL_ARGUMENT_BUFFER_BINDING;
+  binding.msl_buffer = kTextureArgumentsSlot;
+  if (spvc_compiler_msl_add_resource_binding_2(compiler, &binding) != SPVC_SUCCESS ||
+      spvc_compiler_options_set_bool(
+          options, SPVC_COMPILER_OPTION_MSL_ARGUMENT_BUFFERS, SPVC_TRUE) != SPVC_SUCCESS) {
+    return Failure(ErrorKind::Invalid, "MSL texture argument configuration failed");
+  }
+  return result;
+}
+
+Result<void> FinalizeBindings(Shader &shader, const TextureLayout &textures) {
+  shader.TextureArguments =
+      !textures.Sources.empty() && std::ranges::any_of(shader.Resources, [](const auto &binding) {
+        return binding.Source.Kind == BindingKind::SampledTexture ||
+               binding.Source.Kind == BindingKind::StorageTexture;
+      });
+  if (shader.TextureArguments) {
+    for (size_t at = 0; at < shader.Resources.size(); ++at) {
+      auto &binding = shader.Resources[at];
+      if (binding.Source.Kind != BindingKind::SampledTexture &&
+          binding.Source.Kind != BindingKind::StorageTexture) {
+        continue;
+      }
+      if (binding.Source.Set != textures.DescriptorSet ||
+          binding.Source.Slot >= textures.Sources.size()) {
+        return Failure(ErrorKind::Invalid, "MSL texture argument source mapping is invalid");
+      }
+      const auto original = textures.Sources[binding.Source.Slot];
+      binding.Source.Set = original.Set;
+      binding.Source.Slot = original.Slot;
+      shader.Layout.Bindings[at] = binding.Source;
+    }
+  }
+  for (const auto &binding : shader.Resources) {
+    if ((binding.Source.Kind == BindingKind::Uniform ||
+         binding.Source.Kind == BindingKind::StorageBuffer) &&
+        binding.Buffer >= (shader.TextureArguments ? kTextureArgumentsSlot : kBufferSizesSlot)) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "MSL buffer slots exceed the reserved layout"});
+    }
+  }
+  return {};
+}
+
+}
+
+Result<Shader>
+Translate(std::span<const uint32_t> spirv, std::string_view entry, bool textureArguments) {
   constexpr size_t headerWords = 5;
   constexpr uint32_t magic = 0x07230203u;
   if (spirv.size() < headerWords || spirv.front() != magic || entry.empty() ||
@@ -199,8 +335,13 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
                                      kBufferSizesSlot) != SPVC_SUCCESS ||
       spvc_compiler_options_set_bool(options,
                                      SPVC_COMPILER_OPTION_MSL_PAD_FRAGMENT_OUTPUT_COMPONENTS,
-                                     SPVC_TRUE) != SPVC_SUCCESS ||
-      spvc_compiler_install_compiler_options(compiler, options) != SPVC_SUCCESS) {
+                                     SPVC_TRUE) != SPVC_SUCCESS) {
+    return failure();
+  }
+  const auto textures = textureArguments ? TextureBindings(compiler, options, model)
+                                         : Result<TextureLayout>(TextureLayout{});
+  if (!textures) { return std::unexpected(textures.error()); }
+  if (spvc_compiler_install_compiler_options(compiler, options) != SPVC_SUCCESS) {
     return failure();
   }
   const char *source = nullptr;
@@ -232,14 +373,8 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
     const auto reflected = Reflect(compiler, resources, type, kind, shader);
     if (!reflected) { return std::unexpected(reflected.error()); }
   }
-  for (const auto &binding : shader.Resources) {
-    if ((binding.Source.Kind == BindingKind::Uniform ||
-         binding.Source.Kind == BindingKind::StorageBuffer) &&
-        binding.Buffer >= kBufferSizesSlot) {
-      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
-                                   .Message = "MSL buffer slots exceed the reserved layout"});
-    }
-  }
+  const auto finalized = FinalizeBindings(shader, *textures);
+  if (!finalized) { return std::unexpected(finalized.error()); }
   return shader;
 }
 

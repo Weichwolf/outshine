@@ -93,6 +93,7 @@ struct GraphicsDescription {
   Cull Culling = Cull::Back;
   Winding Front = Winding::CounterClockwise;
   bool ClampDepth = false;
+  bool PreparedIndexedCommands = false;
   std::string_view Label;
 };
 
