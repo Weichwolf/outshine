@@ -32,6 +32,7 @@ struct RoadPageAsset {
 };
 
 [[nodiscard]] std::string RoadPageKey(const RoadPageAddress &address);
+[[nodiscard]] bool RoadPageHeaderFits(const RoadPageAddress &address, size_t bytesMost);
 [[nodiscard]] std::expected<std::vector<uint8_t>, std::string_view>
 EncodeRoadPageAsset(const RoadPageAsset &page, size_t bytesMost);
 [[nodiscard]] std::optional<RoadPageAsset> DecodeRoadPageAsset(std::span<const uint8_t> bytes,

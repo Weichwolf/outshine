@@ -12,13 +12,6 @@
 
 namespace outshine::Generators {
 namespace {
-bool FitsHeader(const RoadPageAddress &address, size_t bytesMost) {
-  RoadPageAsset empty;
-  empty.Address = address;
-  empty.Geometry.Parts = address.Parts;
-  return EncodeRoadPageAsset(empty, bytesMost).has_value();
-}
-
 bool OptionalKey(const std::string &key) {
   return key.empty() || (key.size() == 64 && std::ranges::all_of(key, [](char value) {
                            return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
@@ -31,7 +24,7 @@ std::expected<std::string, std::string> RequestKey(const RoadPageRequest &reques
   if (!OptionalKey(request.Parent) || !OptionalKey(request.RequestKey)) {
     return std::unexpected("invalid road page hierarchy or request identity");
   }
-  if (!FitsHeader(request.Address, request.NativeBytesMost)) {
+  if (!RoadPageHeaderFits(request.Address, request.NativeBytesMost)) {
     return std::unexpected(std::string("road page header exceeds its byte budget"));
   }
   return key;
@@ -109,7 +102,7 @@ std::expected<std::optional<RoadPageLease>, PreparedRoadPages::Failure>
 PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
   const auto key = RoadPageKey(address);
   if (key.empty()) { return std::unexpected(std::string("invalid road page address")); }
-  if (!FitsHeader(address, bytesMost)) {
+  if (!RoadPageHeaderFits(address, bytesMost)) {
     return std::unexpected(std::string("road page header exceeds its byte budget"));
   }
   return Read(key, bytesMost);
@@ -118,7 +111,7 @@ PreparedRoadPages::Load(const RoadPageAddress &address, size_t bytesMost) {
 std::expected<std::optional<AssetRecord>, PreparedRoadPages::Failure>
 PreparedRoadPages::Inspect(const RoadPageAddress &address, size_t bytesMost) {
   const auto key = RoadPageKey(address);
-  if (key.empty() || !FitsHeader(address, bytesMost)) {
+  if (key.empty() || !RoadPageHeaderFits(address, bytesMost)) {
     return std::unexpected(std::string("road page metadata needs a valid bounded address"));
   }
   auto record = ReadRecord(key, address, bytesMost);

@@ -178,6 +178,14 @@ bool ValidDiagnostics(const RoadPageAsset &page) {
   return refused == page.Geometry.Swept.Refused;
 }
 
+bool ProductFields(BinaryValueWriter &out, const RoadPageAsset &page) {
+  const auto &mesh = page.Geometry.Mesh;
+  return AddressFields(out, page.Address) && StatsFields(out, page.Geometry.Swept) &&
+         DiagnosticsFields(out, page.Geometry.Diagnostics) && out.Array<float>(mesh.PositionM) &&
+         out.Array<float>(mesh.NormalM) && out.Array<float>(mesh.ColourRgba) &&
+         out.Array<uint32_t>(mesh.Index);
+}
+
 std::string_view MeshError(const RoadPageAsset &page) {
   if (page.Geometry.Parts != page.Address.Parts) {
     return "road page mesh ownership differs from its address";
@@ -210,6 +218,14 @@ std::string RoadPageKey(const RoadPageAddress &address) {
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
+bool RoadPageHeaderFits(const RoadPageAddress &address, size_t bytesMost) {
+  if (!ValidAddress(address)) { return false; }
+  BinaryValueWriter out(bytesMost);
+  RoadPageAsset empty;
+  empty.Address = address;
+  return ProductFields(out, empty);
+}
+
 std::expected<std::vector<uint8_t>, std::string_view> EncodeRoadPageAsset(const RoadPageAsset &page,
                                                                           size_t bytesMost) {
   if (!ValidAddress(page.Address)) { return std::unexpected("road page address is invalid"); }
@@ -218,11 +234,7 @@ std::expected<std::vector<uint8_t>, std::string_view> EncodeRoadPageAsset(const 
     return std::unexpected("road page diagnostics disagree with its parts or refused total");
   }
   BinaryValueWriter out(bytesMost);
-  const auto &mesh = page.Geometry.Mesh;
-  if (!AddressFields(out, page.Address) || !StatsFields(out, page.Geometry.Swept) ||
-      !DiagnosticsFields(out, page.Geometry.Diagnostics) || !out.Array<float>(mesh.PositionM) ||
-      !out.Array<float>(mesh.NormalM) || !out.Array<float>(mesh.ColourRgba) ||
-      !out.Array<uint32_t>(mesh.Index)) {
+  if (!ProductFields(out, page)) {
     return std::unexpected("road page exceeds its native byte budget");
   }
   return std::move(out.Out).TakeBytes();

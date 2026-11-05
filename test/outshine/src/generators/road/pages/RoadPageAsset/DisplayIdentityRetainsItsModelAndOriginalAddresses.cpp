@@ -2,6 +2,7 @@
 #include "Check.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 
@@ -29,6 +30,13 @@ void Roundtrip(const RoadPageAsset &page) {
   const auto bytes = EncodeRoadPageAsset(page, kLimit);
   CHECK(bytes.has_value(), "the complete page has a bounded portable representation");
   if (!bytes) { return; }
+  const auto &mesh = page.Geometry.Mesh;
+  const size_t payload =
+      (mesh.PositionM.size() + mesh.NormalM.size() + mesh.ColourRgba.size()) * sizeof(float) +
+      mesh.Index.size() * sizeof(uint32_t);
+  const size_t header = bytes->size() - payload;
+  CHECK(RoadPageHeaderFits(page.Address, header) && !RoadPageHeaderFits(page.Address, header - 1),
+        "header admission checks exact framing bytes independently of replacement validity");
   const auto decoded = DecodeRoadPageAsset(*bytes, kLimit);
   CHECK(decoded && decoded->Address.UpperModelErrorM == page.Address.UpperModelErrorM &&
             decoded->Address.Appearance == page.Address.Appearance &&
