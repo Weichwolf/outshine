@@ -119,7 +119,6 @@ struct BuildingFieldStreaming::State {
                const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
-  static void SelectGroups(Context &context, const Tile &tile, Cell &cell);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
   void PollCell(Context &context, Tile &tile, Cell &cell);
   void PollFields(Context &context);

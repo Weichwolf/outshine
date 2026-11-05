@@ -206,18 +206,7 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   return true;
 }
 
-void BuildingFieldStreaming::State::SelectGroups(Context &context, const Tile &tile, Cell &cell) {
-  if (cell.Alternatives.empty()) { return; }
-  if (DemandFor(context, tile.Source, cell.Groups.front().Bounds, WorldCamera(context))) { return; }
-  cell.Groups = std::move(cell.Alternatives);
-  cell.Alternatives.clear();
-}
-
 void BuildingFieldStreaming::State::RequestOne(Context &context) {
-  if (!Render::Lens::From(
-          context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH())) {
-    return;
-  }
   for (const auto &tile : Tiles) {
     if (std::ranges::any_of(tile.Cells, [](const Cell &cell) {
           return std::ranges::any_of(cell.Groups,
@@ -232,7 +221,6 @@ void BuildingFieldStreaming::State::RequestOne(Context &context) {
     if (source != tile.SourceKey) { continue; }
     for (auto &cell : tile.Cells) {
       if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { continue; }
-      SelectGroups(context, tile, cell);
       for (auto &group : cell.Groups) {
         if (RequestGroup(context, tile, cell, group)) { return; }
         if (cell.Where == Phase::Rejected) { break; }
