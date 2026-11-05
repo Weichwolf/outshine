@@ -41,7 +41,7 @@ No native speed, full road coverage or 720p60 claim follows from this experiment
 
 ## Native sampling step
 
-`src/generators/road/surface/RoadDisplaySampler.h` consumes a native `ReferenceLine`
+`src/generators/road/meshing/RoadDisplaySampler.h` consumes a native `ReferenceLine`
 and caller-supplied station/pose budgets. It produces only ordered render stations,
 position-model bounds and work counters. `Sweep` can consume those stations directly
 by using the full curve length as its uniform step. No Fine ribbon is an input.
