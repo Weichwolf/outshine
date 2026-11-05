@@ -1,6 +1,7 @@
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-output")
 include("${PROJECT_SOURCE_DIR}/cmake/AssetExperiments.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/BuildingFieldExperiments.cmake")
+include("${PROJECT_SOURCE_DIR}/cmake/RenderExperiments.cmake")
 file(STRINGS "${PROJECT_SOURCE_DIR}/test/world-gate.txt" gate_scopes)
 file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/test/outshine/integration/*.cpp")

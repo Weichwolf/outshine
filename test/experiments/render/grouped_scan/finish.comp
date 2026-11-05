@@ -1,0 +1,22 @@
+#version 450
+layout(local_size_x = 256) in;
+layout(std430, set = 0, binding = 0) readonly buffer Prefix { uvec2 prefix[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Parents { uvec2 parents[]; };
+layout(std430, set = 1, binding = 0) writeonly buffer Slots { uint slots[]; };
+layout(std430, set = 1, binding = 1) buffer Arguments { uint args[]; };
+layout(std140, set = 2, binding = 0) uniform View { uint count; uint gridWidth; } view;
+void main() {
+  uint block = gl_WorkGroupID.y * view.gridWidth + gl_WorkGroupID.x;
+  uint lane = gl_LocalInvocationID.x;
+  uint at = block * 256u + lane;
+  if (at >= view.count) { return; }
+  uvec2 item = prefix[at];
+  uint mine = item.x;
+  if (lane > 0u && prefix[at - 1u].y == item.y) { mine -= prefix[at - 1u].x; }
+  if (block > 0u && parents[block - 1u].y == item.y) { item.x += parents[block - 1u].x; }
+  slots[at] = mine == 0u ? 0xffffffffu : item.x - mine;
+  if (at + 1u == view.count || prefix[at + 1u].y != item.y) {
+    args[5u * item.y] = item.x;
+    slots[view.count + item.y] = 1u;
+  }
+}
