@@ -69,6 +69,14 @@ class SubmissionTimeline(unittest.TestCase):
         self.assertEqual(result["interval_union_ms"], 2)
         self.assertEqual(result["completion_intervals"]["p99_ms"], 3)
 
+    def test_long_uptime_preserves_endpoint_rounding_without_accepting_timing_drift(self):
+        row = self.row(1e17, 1e17 + 20000000)
+        row["submission_gpu_ns"] += 8
+        self.assertEqual(submission_timeline([row])["interval_sum_ms"], 20)
+        row["submission_gpu_ns"] += 1000
+        with self.assertRaises(ValueError):
+            submission_timeline([row])
+
     def test_incomplete_invalid_or_mismatched_endpoints_fail(self):
         valid = self.row(1, 1000001)
         invalid = [None, [], [1], [0, 1], [2, 1], [1, float("inf")], [1, 1000]]

@@ -4,6 +4,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 #include <print>
 #include <string>
 #include <system_error>
@@ -42,8 +43,10 @@ void ReadOutput(const std::filesystem::path &path, const Expected &expected) {
     const double start = [interval[0] doubleValue];
     const double end = [interval[1] doubleValue];
     CHECK(start > 0 && end >= start, "native GPU endpoints are positive and ordered");
-    CHECK(std::abs((end - start) - [submission[@"submission_gpu_ns"] doubleValue]) < 1.0,
-          "native GPU endpoints preserve the recorded duration within a nanosecond");
+    const double duration = [submission[@"submission_gpu_ns"] doubleValue];
+    const double rounding = 1.0 + std::numeric_limits<double>::epsilon() * (start + end + duration);
+    CHECK(std::abs((end - start) - duration) <= rounding,
+          "native GPU endpoints preserve duration within endpoint conversion rounding");
   }
   NSArray *const encoders = submission[@"encoders"];
   CHECK(encoders.count == expected.Encoders,

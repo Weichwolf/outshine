@@ -185,7 +185,9 @@ def submission_timeline(window):
                 or not math.isfinite(row["submission_gpu_ns"])
                 or row["submission_gpu_ns"] < 0
                 or not math.isclose(interval[1] - interval[0], row["submission_gpu_ns"],
-                                    rel_tol=1e-9, abs_tol=1.0)):
+                                    rel_tol=1e-9, abs_tol=max(
+                                        1.0, math.ulp(interval[0]) + math.ulp(interval[1])
+                                        + math.ulp(row["submission_gpu_ns"])))):
             raise ValueError("incomplete or inconsistent native GPU endpoints")
     endings = [interval[1] for interval in intervals]
     ordered = all(b > a for a, b in zip(endings, endings[1:]))
