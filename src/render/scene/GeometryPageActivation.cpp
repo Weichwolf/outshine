@@ -98,12 +98,31 @@ bool GeometryPageResidency::ActivateProducts(uint32_t tile,
                                              std::span<const std::string_view> main,
                                              std::span<const std::string_view> shadow,
                                              std::string &error) {
+  if (main.empty() || shadow.empty()) {
+    error = "geometry product activation needs complete pass selections";
+    return false;
+  }
+  return ActivateProducts(tile,
+                          sourceKey,
+                          {.Expected = expected, .Keys = main},
+                          {.Expected = expected, .Keys = shadow},
+                          error);
+}
+
+bool GeometryPageResidency::ActivateProducts(uint32_t tile,
+                                             uint64_t sourceKey,
+                                             ProductSelection mainSelection,
+                                             ProductSelection shadowSelection,
+                                             std::string &error) {
+  const auto main = mainSelection.Keys;
+  const auto shadow = shadowSelection.Keys;
   const auto ordered = [](auto keys) {
     return std::adjacent_find(keys.begin(), keys.end(), [](auto a, auto b) { return a >= b; }) ==
            keys.end();
   };
-  if (Renderer_ == nullptr || sourceKey == 0 || main.empty() || shadow.empty() || !ordered(main) ||
-      !ordered(shadow)) {
+  if (Renderer_ == nullptr || sourceKey == 0 || !ordered(main) || !ordered(shadow) ||
+      mainSelection.Expected.Revision() != shadowSelection.Expected.Revision() ||
+      mainSelection.Expected.SourceCount() != shadowSelection.Expected.SourceCount()) {
     error = "geometry product activation needs ordered unique keys and complete pass selections";
     return false;
   }
@@ -139,8 +158,8 @@ bool GeometryPageResidency::ActivateProducts(uint32_t tile,
                         shadow.size());
     return false;
   }
-  if (!SourceCoverage::Partition(expected, mainSources) ||
-      !SourceCoverage::Partition(expected, shadowSources)) {
+  if (!SourceCoverage::Partition(mainSelection.Expected, mainSources) ||
+      !SourceCoverage::Partition(shadowSelection.Expected, shadowSources)) {
     error = "geometry products do not cover their complete revision in both passes";
     return false;
   }

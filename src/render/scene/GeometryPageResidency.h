@@ -68,7 +68,18 @@ public:
 
   [[nodiscard]] std::expected<const SourceCoverage *, std::string>
   BindCoverage(ProductAddress address, const SourceCoverage &coverage);
+
   // Sorted unique asset keys; each pass must partition the declared source coverage.
+  struct ProductSelection {
+    const SourceCoverage &Expected;
+    std::span<const std::string_view> Keys;
+  };
+
+  [[nodiscard]] bool ActivateProducts(uint32_t tile,
+                                      uint64_t sourceKey,
+                                      ProductSelection main,
+                                      ProductSelection shadow,
+                                      std::string &error);
   [[nodiscard]] bool ActivateProducts(uint32_t tile,
                                       uint64_t sourceKey,
                                       const SourceCoverage &expected,
@@ -147,12 +158,15 @@ public:
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
     std::string_view AssetKey;
     const SourceCoverage *Coverage = nullptr;
+    const ViewReuseDomain *View = nullptr;
   };
 
   template <typename Each>
-  void ForEachDigest(Each each, GeometryPasses passes = GeometryPasses::Main) const {
+  void ForEachDigest(Each each,
+                     GeometryPasses passes = GeometryPasses::Main,
+                     bool includeHidden = false) const {
     for (const auto &stood : Pages_) {
-      if (!stood.Visible ||
+      if ((!stood.Visible && !includeHidden) ||
           (passes != GeometryPasses::MainAndShadow &&
            stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
         continue;
@@ -166,7 +180,8 @@ public:
                         .OccupiedCells = stood.OccupiedCells,
                         .Passes = stood.Passes,
                         .AssetKey = stood.AssetKey,
-                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr});
+                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
+                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr});
     }
   }
 

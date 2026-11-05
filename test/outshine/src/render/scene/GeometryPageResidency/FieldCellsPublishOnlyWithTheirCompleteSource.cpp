@@ -610,6 +610,32 @@ void CheckOriginalProducts(SceneRenderer &renderer,
   constexpr size_t pixel = (size_t{16} * 32 + 8) * 4;
   CHECK(after[pixel] == .75f && after[pixel] != before[pixel],
         "the complete mixed cut changes the actual native image");
+  const std::array<std::string_view, 1> shadowRight{"original-right"};
+  CHECK(pages.ActivateProducts(kTile,
+                               kSource,
+                               {.Expected = *expected, .Keys = main},
+                               {.Expected = *right, .Keys = shadowRight},
+                               error) &&
+            Draw(renderer) == after,
+        "main and shadow products partition their independently declared source needs");
+  const auto empty = SourceCoverage::FromRanges("originals", 2, {});
+  CHECK(empty, "an explicit empty shadow need keeps the same immutable source domain");
+  if (!empty) { return; }
+  const auto selected = pages.Digest();
+  CHECK(!pages.ActivateProducts(kTile,
+                                kSource,
+                                {.Expected = *expected, .Keys = main},
+                                {.Expected = *left, .Keys = shadowRight},
+                                error) &&
+            pages.Digest() == selected,
+        "independent pass declarations cannot forgive missing or foreign source coverage");
+  CHECK(pages.ActivateProducts(kTile,
+                               kSource,
+                               {.Expected = *expected, .Keys = main},
+                               {.Expected = *empty, .Keys = {}},
+                               error) &&
+            Draw(renderer) == after,
+        "a complete main cut can publish without loading any unneeded shadow product");
 }
 
 void CheckConsolidation(SceneRenderer &renderer,
