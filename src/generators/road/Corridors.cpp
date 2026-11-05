@@ -481,7 +481,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     }
     made.AtE = into.Along[at - 1u].EastM;
     made.AtN = into.Along[at - 1u].NorthM;
-    made.PlateauM = into.Along[at - 1u].GradeM;
+    made.PlateauM = into.Along[at - 1u].GradeM - kPavementLipM;
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;

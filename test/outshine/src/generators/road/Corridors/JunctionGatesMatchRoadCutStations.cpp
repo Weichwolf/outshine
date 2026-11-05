@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <algorithm>
 #include <array>
@@ -78,10 +79,9 @@ int main() {
           "a three-arm junction publishes a contact at the shared source node");
     double mostDriftM = 0;
     const EarthworkStamp *witness = nullptr;
-    // The junction footing is below its pavement; adjoining contacts stay on the surface.
     for (size_t at = 1; at < contacts.size(); ++at) {
       const auto &contact = contacts[at];
-      const double driftM = std::abs(contact.PlateauM - .1 * contact.AtN);
+      const double driftM = std::abs(contact.PlateauM + kPavementLipM - .1 * contact.AtN);
       if (driftM > mostDriftM) {
         mostDriftM = driftM;
         witness = &contact;

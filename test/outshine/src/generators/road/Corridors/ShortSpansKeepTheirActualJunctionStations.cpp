@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <algorithm>
 #include <array>
@@ -17,11 +18,13 @@ namespace {
 class ObservedMesher final : public outshine::RoadMesher {
 public:
   mutable std::vector<outshine::RoadGate> Gates;
+  mutable std::vector<outshine::RoadStation> Stations;
   outshine::Generators::ProfiledRoadMesher Native;
 
   outshine::RoadMeshingStats Sweep(std::span<const outshine::RoadStation> along,
                                    outshine::RoadSweep how,
                                    outshine::RoadMeshBuffers &into) const override {
+    Stations.insert(Stations.end(), along.begin(), along.end());
     return Native.Sweep(along, how, into);
   }
 
@@ -38,6 +41,7 @@ public:
 
 namespace {
 void CheckAnalyticGates(std::span<const outshine::RoadGate> gates,
+                        std::span<const outshine::RoadStation> stations,
                         std::span<const outshine::EarthworkStamp> contacts,
                         const outshine::TangentFrame &frame,
                         double north,
@@ -55,9 +59,14 @@ void CheckAnalyticGates(std::span<const outshine::RoadGate> gates,
   CHECK(toN - fromN >= std::min(2.0, .5 * lengthM) - .00001,
         "opposing junction cuts leave a positive connecting span even on a sub-two-metre road");
   double mostDriftM = 0;
+  for (const auto &station : stations) {
+    mostDriftM =
+        std::max(mostDriftM, std::abs(station.GradeM - grade(station.EastM, station.NorthM)));
+  }
   for (size_t at = 2; at < contacts.size(); ++at) {
     const auto &contact = contacts[at];
-    mostDriftM = std::max(mostDriftM, std::abs(contact.PlateauM - grade(contact.AtE, contact.AtN)));
+    mostDriftM = std::max(
+        mostDriftM, std::abs(contact.PlateauM + kPavementLipM - grade(contact.AtE, contact.AtN)));
   }
   CHECK(mostDriftM < .00001,
         "short spans and quantized node offsets preserve their actual analytic cut heights");
@@ -131,13 +140,15 @@ int main() {
                                              .EyeLonDeg = origin.LongitudeDeg,
                                              .Projection = {.FocalPx = 800}};
       mesher.Gates.clear();
+      mesher.Stations.clear();
       Geometry geometry;
       std::vector<EarthworkStamp> contacts;
       std::vector<DiagnosticSample> notes;
       CHECK(corridors.Lay(site, geometry, contacts, notes) && contacts.size() >= 2 &&
                 mesher.Gates.size() == 6,
             "both three-arm junctions produce native gates and contacts");
-      CheckAnalyticGates(mesher.Gates, contacts, frame, north, grade);
+      CHECK(!mesher.Stations.empty(), "the mesher receives real road profile stations");
+      CheckAnalyticGates(mesher.Gates, mesher.Stations, contacts, frame, north, grade);
     }
   }
   return Report();

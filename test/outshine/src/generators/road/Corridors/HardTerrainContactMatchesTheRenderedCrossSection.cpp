@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <algorithm>
 #include <array>
@@ -87,6 +88,15 @@ int main() {
     }
     double contactHalfWidth = 0;
     for (const auto &stamp : contacts) {
+      for (size_t at = 0; at < mesher.Positions.size(); at += 3) {
+        const double bed =
+            stamp.WantsAt({.EastM = mesher.Positions[at], .NorthM = -mesher.Positions[at + 2]});
+        CHECK_NEAR(static_cast<double>(mesher.Positions[at + 1]) - bed,
+                   kPavementLipM,
+                   0.0001,
+                   "metres",
+                   "the physical road surface stays above its terrain bed like its junctions");
+      }
       for (size_t at = 0; at < stamp.RingEastNorthM.size(); at += 2) {
         contactHalfWidth = std::max(contactHalfWidth, std::abs(stamp.RingEastNorthM[at]));
       }
