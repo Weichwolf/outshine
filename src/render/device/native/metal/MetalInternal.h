@@ -53,6 +53,42 @@ public:
   std::shared_ptr<BufferState> State;
 };
 
+struct IndexedKernel {
+  id<MTLComputePipelineState> Pipeline;
+  id<MTLArgumentEncoder> Arguments;
+};
+
+struct IndexedCommandState {
+  id<MTLIndirectCommandBuffer> Commands;
+  id<MTLBuffer> Argument;
+  id<MTLBuffer> Ranges;
+  std::shared_ptr<IndexedKernel> Kernel;
+  uint64_t Device = 0;
+  uint32_t Capacity = 0;
+};
+
+class MetalIndexedCommands final : public IndexedCommands {
+public:
+  explicit MetalIndexedCommands(std::shared_ptr<IndexedCommandState> state)
+      : State(std::move(state)) {}
+
+  [[nodiscard]] uint64_t AllocatedBytes() const noexcept override {
+    return State->Commands.allocatedSize + State->Argument.allocatedSize +
+           State->Ranges.allocatedSize;
+  }
+
+  std::shared_ptr<IndexedCommandState> State;
+};
+
+struct PreparedIndexedCommands {
+  std::shared_ptr<IndexedCommandState> State;
+  std::shared_ptr<BufferState> Arguments;
+  std::shared_ptr<BufferState> Indices;
+  IndexBuffer IndexBinding;
+  std::vector<IndexedCommandSpan> Spans;
+  bool Current = true;
+};
+
 class MetalCommands;
 
 struct TextureRecording {
@@ -201,6 +237,7 @@ struct CommandPermit {
 };
 
 struct SubmissionResources {
+  std::vector<PreparedIndexedCommands> Indexed;
   std::vector<Reservation> Buffers;
   std::shared_ptr<CommandPermit> Permit;
   std::unique_ptr<PresentFrame> Presentation;
@@ -275,6 +312,10 @@ public:
   Result<void> Draw(const DrawDescription &description) override;
   Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
   Result<void> DrawIndexedIndirect(const IndirectDrawDescription &description) override;
+  Result<void> PrepareIndexedCommands(IndexedCommands &commands,
+                                      const IndexBuffer &indices,
+                                      const Buffer &arguments,
+                                      std::span<const IndexedCommandSpan> ranges) override;
   Result<void> Present(std::unique_ptr<PresentFrame> frame) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
@@ -288,6 +329,7 @@ private:
 
   uint64_t Device;
   id<MTLCommandBuffer> Native;
+  std::vector<PreparedIndexedCommands> PreparedIndexed;
   std::vector<Reservation> Held;
   std::unordered_set<const BufferState *> HeldStates;
   std::vector<std::shared_ptr<TextureRecording>> HeldImages;
@@ -342,6 +384,7 @@ public:
                                                  std::string_view label) override;
   Result<std::unique_ptr<Sampler>> CreateSampler(SamplerDescription description,
                                                  std::string_view label) override;
+  Result<std::unique_ptr<IndexedCommands>> CreateIndexedCommands(uint32_t capacity) override;
   Result<std::unique_ptr<ComputePipeline>> CreateComputePipeline(std::span<const uint32_t> spirv,
                                                                  ComputeOptions settings) override;
   Result<std::unique_ptr<GraphicsPipeline>>
@@ -375,6 +418,7 @@ private:
   [[nodiscard]] Result<CompiledShader *> ShaderProgram(std::span<const uint32_t> spirv,
                                                        std::string_view entry);
   [[nodiscard]] Result<id<MTLFunction>> Function(CompiledShader &shader, MTLFunctionType type);
+  std::shared_ptr<IndexedKernel> IndexedKernel_;
   std::unordered_map<std::string, CompiledShader> Shaders_;
   id<MTLDevice> Native_;
   id<MTLCommandQueue> Queue_;

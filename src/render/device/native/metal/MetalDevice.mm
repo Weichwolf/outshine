@@ -49,6 +49,7 @@ MetalDevice::MetalDevice(uint64_t identity,
   Limits_.MaxWorkgroupInvocations = baselineInvocations;
   Limits_.GpuTimestamps = true;
   Limits_.DepthClamp = true;
+  Limits_.PreparedIndexedCommands = [Native_ supportsFamily:MTLGPUFamilyApple4];
 }
 
 MetalDevice::~MetalDevice() {

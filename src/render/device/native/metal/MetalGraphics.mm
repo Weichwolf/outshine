@@ -191,6 +191,8 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     }
     MTLRenderPipelineDescriptor *const pipeline = [MTLRenderPipelineDescriptor new];
     pipeline.label = Text(description.Label);
+    pipeline.supportIndirectCommandBuffers =
+        description.PreparedIndexedCommands && Limits_.PreparedIndexedCommands;
     if (auto valid = Targets(*this, description, pipeline); !valid) {
       return std::unexpected(valid.error());
     }
@@ -224,7 +226,8 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     NSError *error = nil;
     state->Native = [Native_ newRenderPipelineStateWithDescriptor:pipeline error:&error];
     if (state->Native == nil) {
-      return Failure(ErrorKind::Invalid, error.localizedDescription.UTF8String);
+      return Failure(ErrorKind::Invalid,
+                     std::string(description.Label) + ": " + error.localizedDescription.UTF8String);
     }
     MTLDepthStencilDescriptor *const depth = [MTLDepthStencilDescriptor new];
     depth.depthCompareFunction = MTLCompareFunctionAlways;

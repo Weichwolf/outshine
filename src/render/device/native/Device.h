@@ -32,6 +32,7 @@ struct Capabilities {
   uint32_t MaxWorkgroupInvocations = 0;
   bool GpuTimestamps = false;
   bool DepthClamp = false;
+  bool PreparedIndexedCommands = false;
 };
 
 struct Completion {
@@ -96,6 +97,12 @@ public:
   CreateSampler(SamplerDescription description, std::string_view label = {}) = 0;
   [[nodiscard]] virtual Result<std::unique_ptr<ComputePipeline>>
   CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options = {}) = 0;
+
+  [[nodiscard]] virtual Result<std::unique_ptr<IndexedCommands>>
+  CreateIndexedCommands([[maybe_unused]] uint32_t capacity) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "prepared indexed commands unavailable"});
+  }
 
   [[nodiscard]] virtual Result<std::unique_ptr<GraphicsPipeline>>
   CreateGraphicsPipeline([[maybe_unused]] const GraphicsDescription &description) {

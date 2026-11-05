@@ -38,6 +38,7 @@ set(capture_cases
   outshine/src/engine/RuntimeScene/PieceInstancesShareTheirGeometry
 )
 set(metal_validation_cases
+  outshine/src/render/device/native/Commands/PreparedIndexedCommandsPreserveDraws
   outshine/src/render/device/native/Device/MemorySnapshotsObserveLiveResources
   outshine/src/render/device/native/Device/PitchedTextureCopiesUseOnlyActualTexelSpan
   outshine/src/render/terrain/ClipmapHeightUpload/ToroidalBandsReachOnlyTheirGpuSlots
@@ -208,6 +209,24 @@ foreach(source IN LISTS cases)
       OR name STREQUAL "outshine/integration/generators/building/PreparedBuildingAssets/ConcurrentRepairSurvivesBasisRead"
       OR name STREQUAL "outshine/integration/engine/streaming/RoadPageQueue/BusyReadsRetainSlotsAndSelectedCoverage"))
     target_link_libraries(${target} PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+  if(name STREQUAL "outshine/src/render/device/native/Commands/PreparedIndexedCommandsPreserveDraws")
+    set(indexed_shaders "")
+    foreach(stage vert frag)
+      set(output "${PROJECT_BINARY_DIR}/test-shaders/indexed-preparation.${stage}.spv")
+      file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-shaders")
+      add_custom_command(OUTPUT "${output}"
+        COMMAND "${OUTSHINE_GLSLANG}" -V --target-env vulkan1.0
+          "${PROJECT_SOURCE_DIR}/test/outshine/data/render/indexed-preparation.${stage}" -o "${output}"
+        DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/data/render/indexed-preparation.${stage}"
+        VERBATIM)
+      list(APPEND indexed_shaders "${output}")
+    endforeach()
+    add_custom_target(test_indexed_preparation_shaders DEPENDS ${indexed_shaders})
+    add_dependencies(${target} test_indexed_preparation_shaders)
+    target_compile_definitions(${target} PRIVATE
+      "OUTSHINE_INDEXED_VERTEX_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/indexed-preparation.vert.spv\""
+      "OUTSHINE_INDEXED_FRAGMENT_SHADER=\"${PROJECT_BINARY_DIR}/test-shaders/indexed-preparation.frag.spv\"")
   endif()
   if(name STREQUAL "outshine/src/render/device/native/Commands/GpuCountsDriveIndirectWork")
     set(indirect_shaders "")

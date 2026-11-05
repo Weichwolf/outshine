@@ -1,4 +1,5 @@
 #include "MetalInternal.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -97,6 +98,44 @@ Result<void> MetalCommands::DrawIndexedIndirect(const IndirectDrawDescription &d
   const auto prepared = PrepareDraw(description.State, {}, DrawKind::Indirect, reads);
   if (!prepared) { return prepared; }
   const auto range = description.Range;
+  const auto *pipeline = static_cast<const MetalGraphicsPipeline *>(description.State.Pipeline);
+  if (pipeline->State->Native.supportIndirectCommandBuffers &&
+      range.Stride == kIndexedIndirectBytes && range.Offset % kIndexedIndirectBytes == 0 &&
+      range.Offset / kIndexedIndirectBytes <= UINT32_MAX) {
+    for (const auto &execution : PreparedIndexed) {
+      if (!execution.Current || execution.Arguments != *arguments ||
+          execution.Indices != index->State ||
+          execution.IndexBinding.Type != description.Indices.Type ||
+          execution.IndexBinding.Range.Offset != index->Range.Offset ||
+          execution.IndexBinding.Range.Bytes != index->Range.Bytes) {
+        continue;
+      }
+      const uint32_t first = static_cast<uint32_t>(range.Offset / kIndexedIndirectBytes);
+      const auto begin =
+          std::ranges::lower_bound(execution.Spans, first, {}, &IndexedCommandSpan::First);
+      auto end = begin;
+      uint64_t covered = first;
+      while (end != execution.Spans.end() && end->First == covered &&
+             covered < uint64_t{first} + range.Count) {
+        covered += end->Count;
+        ++end;
+      }
+      if (covered != uint64_t{first} + range.Count || begin == end) { continue; }
+      [Render->Encoder useResource:index->State->Native
+                             usage:MTLResourceUsageRead
+                            stages:MTLRenderStageVertex];
+      [Render->Encoder useResource:execution.State->Commands
+                             usage:MTLResourceUsageRead
+                            stages:MTLRenderStageVertex];
+      for (auto span = begin; span != end; ++span) {
+        const size_t at = static_cast<size_t>(span - execution.Spans.begin());
+        [Render->Encoder executeCommandsInBuffer:execution.State->Commands
+                                  indirectBuffer:execution.State->Ranges
+                            indirectBufferOffset:at * sizeof(IndexedCommandSpan)];
+      }
+      return {};
+    }
+  }
   for (uint32_t draw = 0; draw < range.Count; ++draw) {
     [Render->Encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                                  indexType:index->Type
