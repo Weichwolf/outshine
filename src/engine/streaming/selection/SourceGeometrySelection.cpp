@@ -156,9 +156,8 @@ SourceProductSelection::SelectGeometry(const Render::CameraBasis &camera,
     const double hull = projection.AllowedErrorPx > 0
                             ? HullError(domain, projection.FocalPx, orthographic)
                             : std::numeric_limits<double>::infinity();
-    const double limit = ShellLimit(domain, projection, orthographic);
     const double shell =
-        traits.ShellErrorM && *traits.ShellErrorM <= limit
+        traits.ShellErrorM
             ? ShellError(domain, projection.FocalPx, *traits.ShellErrorM, orthographic)
             : std::numeric_limits<double>::infinity();
     selected = GeometryCandidate(at, hull, shell, projection.AllowedErrorPx);

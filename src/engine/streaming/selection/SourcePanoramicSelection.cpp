@@ -109,8 +109,7 @@ SourceProductSelection::SelectGeometry(const Vec3 &eye,
     const double hull = projection.AllowedErrorPx > 0
                             ? envelope.Bound(distance, {.WorldM = traits.Radius * 2})
                             : std::numeric_limits<double>::infinity();
-    const double limit = envelope.Limit(distance, projection.AllowedErrorPx);
-    const double shell = traits.ShellErrorM && *traits.ShellErrorM <= limit
+    const double shell = traits.ShellErrorM
                              ? envelope.Bound(distance,
                                               {.WorldM = *traits.ShellErrorM,
                                                .BoundsExpansionM = *traits.ShellErrorM})

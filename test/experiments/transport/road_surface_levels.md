@@ -150,6 +150,7 @@ scale `S`, displacement scale `F` and nearest distance `d`, its inverse is
 `e = p*d/(F*S+p*(S+1))`. Motion reduces the available depth/distance first.
 Denominators round outward, budgets inward, and the same forward function rechecks
 every admitted positive value. Invalid/overflowing demands return zero, preserving
-the original. Metadata candidate selection uses the same inverse; native road demand
-still needs wiring to qualified source bounds and exact view/pass/reuse domains.
+the original. Stored candidates retain the direct forward check; the inverse is for
+generation demand, not extra work for each known candidate. Native road demand still
+needs wiring to qualified source bounds and exact view/pass/reuse domains.
 These are candidate position budgets, not material/normal/GPU qualification.
