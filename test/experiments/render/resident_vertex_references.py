@@ -38,10 +38,20 @@ def measure(metadata, streams):
     selected_vertex_references = 0
     selected_clusters = 0
     all_clusters = 0
+    states = {}
     for root_index, root in enumerate(roots):
         first, count, logical, batch, _, base, _, flags = map(int, root[4:])
         if first + count > len(templates) or logical + count > len(kept) or batch >= len(batches):
             raise ValueError("root exceeds template, logical or batch addressing")
+        key = tuple(map(int, batches[batch, [0, 1, 2, 3, 4, 5, 11]]))
+        state = states.setdefault(key, {"batches": set(), "roots": 0,
+                                        "visible_main_roots": 0,
+                                        "root_input_indices": 0,
+                                        "main_selected_indices": 0})
+        state["batches"].add(batch)
+        state["roots"] += 1
+        main_visible = bool(visible[root_index]) and not flags & 4
+        state["visible_main_roots"] += main_visible
         for local, item in enumerate(templates[first:first + count]):
             start, indices = base + int(item[1]), int(item[2])
             if start + indices > len(source) or indices % 3:
@@ -52,12 +62,14 @@ def measure(metadata, streams):
                 unique_ranges[key] = len(np.unique(references))
                 source_spans[key] = int(references.max()) - int(references.min()) + 1 if indices else 0
             all_clusters += 1
-            if not visible[root_index] or flags & 4:
+            state["root_input_indices"] += indices
+            if not main_visible:
                 continue
             value = int(kept[logical + local])
             if value not in (0, int(item[2])):
                 raise ValueError("selected cluster count disagrees with its template")
             selected[batch] += value
+            state["main_selected_indices"] += value
             selected_clusters += value > 0
             selected_vertex_references += unique_ranges[key] if value else 0
     clustered = batches[:, 10] > 0
@@ -75,6 +87,12 @@ def measure(metadata, streams):
     maximum_corners = max((count for _, count in unique_ranges), default=0)
     corner_shift = max(0, maximum_corners - 1).bit_length()
     compatible = {tuple(map(int, batch[[0, 1, 2, 3, 4, 5, 11]])) for batch in batches}
+    columns = ("material", "layout", "pipeline", "motion", "passes", "instances",
+               "surface_kind")
+    state_costs = [dict(zip(columns, key), **{**state, "batches": len(state["batches"])})
+                   for key, state in states.items()]
+    state_costs.sort(key=lambda row: (-row["main_selected_indices"], row["material"],
+                                     row["layout"], row["pipeline"]))
     return {
         "generation": metadata["generation"],
         "scope": metadata["scope"],
@@ -85,6 +103,7 @@ def measure(metadata, streams):
         "unique_source_ranges": len(unique_ranges),
         "selected_clusters": selected_clusters,
         "selected_indices": int(selected.sum()),
+        "state_costs": state_costs,
         "selected_cluster_vertex_references": selected_vertex_references,
         "unique_vertices_per_cluster_max": maximum,
         "unique_vertices_per_cluster_p50_p95_p99": (

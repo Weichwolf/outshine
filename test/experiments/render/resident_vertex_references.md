@@ -15,6 +15,10 @@ The output directory must be new. `geometry.json` is written last as the complet
 marker; `benchmark.json` records the measurement before snapshot allocation/readback.
 The Python comparison validates sizes, source ranges and selected index counts against
 native draw arguments. Rejected roots cannot contribute stale `kept` values.
+`state_costs` separates selected main indices by material/layout/pipeline/motion/pass/
+instance-count/surface-kind. Root input counts include rejected and shadow-only roots;
+they count references, not unique resident storage. Material numbers carry no producer
+semantics; establish ownership from the native publication path and matching batch counts.
 
 ## Tokyo observation, 2026-11-05
 
