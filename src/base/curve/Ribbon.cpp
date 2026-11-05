@@ -220,7 +220,7 @@ bool AppendSections(const ReferenceLine &along,
 
     std::array<Astride, kRibbonAcross> stood{};
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      stood[which] = StandAt(along, {.AlongM = atM, .AcrossM = acrossAt[which], .HalfWidthM = 0.0});
+      stood[which] = StandAt(on, {.AlongM = atM, .AcrossM = acrossAt[which], .HalfWidthM = 0.0});
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
       Put(out.PositionM,
@@ -326,7 +326,7 @@ Ribbon Sweep(const ReferenceLine &along,
       out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
       return out;
     }
-    const Astride surface = StandAt(along, {.AlongM = fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
+    const Astride surface = StandAt(first, {.AlongM = fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
     out.OriginM[0] = first.EastM;
     out.OriginM[1] = surface.HeightM;
     out.OriginM[2] = RenderFrame::ZOfNorth(first.NorthM);

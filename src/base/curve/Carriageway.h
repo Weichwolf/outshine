@@ -24,6 +24,7 @@ struct Astraddle {
 Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby about);
 
 [[nodiscard]] Astride StandAt(const ReferenceLine &over, Astraddle at);
+[[nodiscard]] Astride StandAt(const Placed &on, Astraddle at);
 
 }
 

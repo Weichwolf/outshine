@@ -7,9 +7,7 @@
 
 namespace outshine {
 
-namespace {
-
-Astride Surface(const Placed &on, Astraddle at) {
+Astride StandAt(const Placed &on, Astraddle at) {
   const double alongM = at.AlongM;
   const double acrossM = at.AcrossM;
   const double halfWidthM = at.HalfWidthM;
@@ -38,8 +36,6 @@ Astride Surface(const Placed &on, Astraddle at) {
   return out;
 }
 
-}
-
 Astride Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby about) {
   const std::optional<double> found = over.Nearest(at, about);
   if (!found) { return {}; }
@@ -48,13 +44,13 @@ Astride Stand(const ReferenceLine &over, EastNorth at, double halfWidthM, Nearby
   if (!over.At(alongM, on)) { return {}; }
   const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
   const double acrossM = (at.EastM - on.EastM) * left[0] + (at.NorthM - on.NorthM) * left[1];
-  return Surface(on, {.AlongM = alongM, .AcrossM = acrossM, .HalfWidthM = halfWidthM});
+  return StandAt(on, {.AlongM = alongM, .AcrossM = acrossM, .HalfWidthM = halfWidthM});
 }
 
 Astride StandAt(const ReferenceLine &over, Astraddle at) {
   Placed on;
   if (!over.At(at.AlongM, on)) { return {}; }
-  return Surface(on, at);
+  return StandAt(on, at);
 }
 
 }
