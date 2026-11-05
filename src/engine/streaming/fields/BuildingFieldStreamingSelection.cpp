@@ -135,7 +135,7 @@ BuildingFieldStreaming::State::SelectReplacements(std::span<const OriginalProduc
 
 bool BuildingFieldStreaming::State::Select(Context &context, std::string &error) {
   Statistics.Active = Statistics.ActiveGroups = Statistics.SelectedProducts =
-      Statistics.OriginalCellsSkipped = 0;
+      Statistics.FieldOnlyCells = 0;
   for (auto &tile : Tiles) {
     if (!SelectTile(context, tile, error)) { return false; }
   }
@@ -157,7 +157,7 @@ BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
     if (cell.ShadowNeeded) { tile.ShadowCells |= uint64_t{1} << (cell.Source.Cell - 1u); }
     if (cell.Qualified) {
       candidates.push_back(&cell);
-      Statistics.OriginalCellsSkipped += cell.ShadowNeeded ? 0u : 1u;
+      Statistics.FieldOnlyCells += cell.ShadowNeeded ? 0u : 1u;
     }
   }
   return candidates;

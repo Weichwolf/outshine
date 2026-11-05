@@ -834,7 +834,7 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
     if (revision.Purpose != BuildPurpose::TerrainContacts && !revision.RequestedDetail) {
-      task.UseInitialCells(revision.OriginalCells.value_or(~uint64_t{0}));
+      task.UseInitialCells(revision.OriginalCells);
     }
   }
   if (revision.Purpose == BuildPurpose::TerrainContacts) { task.UseTerrainContacts(); }

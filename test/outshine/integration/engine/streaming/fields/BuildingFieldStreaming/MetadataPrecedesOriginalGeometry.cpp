@@ -61,8 +61,8 @@ void PublishWithoutOriginals(BuildingFieldStreaming &fields,
   CHECK(source && fields.ProductsReady({.Tile = 0, .Key = *source}) &&
             fields.OriginalCells({.Tile = 0, .Key = *source}) == 0,
         "a qualified field completes the source without requesting original cells");
-  CHECK(fields.Read().Active == 1 && fields.Read().OriginalCellsSkipped == 1,
-        "field publication records the skipped original cell");
+  CHECK(fields.Read().Active == 1 && fields.Read().FieldOnlyCells == 1,
+        "field publication records the cell needing no original product");
   const auto after = context.Surface.BuildingAssets()->Costs();
   CHECK(after.GeometryReadBytes == before.GeometryReadBytes &&
             after.GeometryPreparations == before.GeometryPreparations,

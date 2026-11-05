@@ -80,7 +80,7 @@ public:
                        std::string requestKey = {});
   [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
   void UseTerrainContacts();
-  void UseInitialCells(uint64_t selected = ~uint64_t{0});
+  void UseInitialCells(std::optional<uint64_t> selected = std::nullopt);
   [[nodiscard]] uint64_t InitialCells() const noexcept;
   void SelectNextCell(uint32_t cell);
   void Start(Tasks &pool,

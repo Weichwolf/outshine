@@ -41,7 +41,7 @@ public:
     size_t Sources = 0, Pending = 0, Ready = 0, Active = 0, Rejected = 0;
     size_t ReadyGroups = 0, ActiveGroups = 0;
     size_t SelectedProducts = 0;
-    size_t OriginalCellsSkipped = 0;
+    size_t FieldOnlyCells = 0;
   };
 
   BuildingFieldStreaming();

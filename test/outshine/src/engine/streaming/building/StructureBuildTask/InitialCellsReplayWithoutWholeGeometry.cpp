@@ -358,6 +358,21 @@ void SelectChildBeforeWholePayload(const std::filesystem::path &root) {
                     : after.GeometryReadBytes == before.GeometryReadBytes && mesher->Calls == 1),
           "cold child generation skips the whole payload; warm replay reads only the child");
   }
+  StructureBuildTask allCells(outshine::Test::JobLease(),
+                              0,
+                              *basis,
+                              std::make_unique<RawTile>(raw),
+                              std::make_unique<StructureBuildTask::Output>(),
+                              mesher->Scratch());
+  const auto occupied = selected | (uint64_t{1} << (raw.Structures.back().Cell.Index - 1u));
+  allCells.UseNativeAssets(*cache, std::string(kKey));
+  allCells.UseInitialCells(occupied);
+  Complete(allCells, pool, mesher);
+  CHECK(allCells.Result().Status && allCells.Result().Tile &&
+            allCells.Result().Tile->RequestedCell ==
+                static_cast<uint32_t>(std::countr_zero(occupied)) + 1u &&
+            allCells.InitialCells() == occupied,
+        "explicit product demand stays staged as cells even when every source cell is needed");
 }
 
 void ReuseWholeProduct(const std::filesystem::path &root) {

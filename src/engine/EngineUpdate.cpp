@@ -478,8 +478,8 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building fields: selected products",
                          static_cast<double>(counts.SelectedProducts),
                          "products");
-  Published.RecordMetric("building fields: original cells skipped",
-                         static_cast<double>(counts.OriginalCellsSkipped),
+  Published.RecordMetric("building fields: cells needing no original",
+                         static_cast<double>(counts.FieldOnlyCells),
                          "cells");
   return true;
 }

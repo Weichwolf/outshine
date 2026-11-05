@@ -415,10 +415,8 @@ struct StructureBuildTask::NativeProducts {
         occupied |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
       }
     }
-    if ((occupied & Selection) == occupied && Lookup(raw, base, basis, output, stopping)) {
-      return true;
-    }
-    const uint64_t selected = occupied & Selection;
+    if (!Selection && Lookup(raw, base, basis, output, stopping)) { return true; }
+    const uint64_t selected = occupied & Selection.value_or(~uint64_t{0});
     Cells = selected;
     if (selected == 0) {
       if (occupied == 0) { return false; }
@@ -487,7 +485,7 @@ struct StructureBuildTask::NativeProducts {
   std::string RequestKey;
   Phase Current = Phase::Lookup;
   std::optional<uint64_t> Cells;
-  uint64_t Selection = ~uint64_t{0};
+  std::optional<uint64_t> Selection;
   std::optional<Generators::PreparedBuildingAssets::BaseWrite> BasePublication;
   std::optional<Generators::PreparedBuildingAssets::GeometryWrite> Geometry;
   std::optional<Generators::BakedTile> PendingTile;
@@ -733,7 +731,7 @@ void StructureBuildTask::UseTerrainContacts() {
   Payload_->Requested = Payload::Product::TerrainContacts;
 }
 
-void StructureBuildTask::UseInitialCells(uint64_t selected) {
+void StructureBuildTask::UseInitialCells(std::optional<uint64_t> selected) {
   assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
          !Payload_->Raw->RequestedDetail);
   Payload_->Native->Cells = 0;
