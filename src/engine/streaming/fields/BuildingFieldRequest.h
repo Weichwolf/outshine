@@ -28,6 +28,7 @@ class BuildingFieldRequest {
 
 public:
   enum class CoordinateSpace : uint8_t { CaptureLocal, World };
+  enum class ViewDomain : uint8_t { Directional, Panoramic };
 
   struct Pose {
     // Snapshot only; movement requires a fresh geometric evaluation before replacement.
@@ -35,6 +36,7 @@ public:
     Render::Lens Optics;
     double GeometryErrorMostPx = 0;
     CoordinateSpace Space = CoordinateSpace::CaptureLocal;
+    ViewDomain Domain = ViewDomain::Directional;
     Vec3 SupportDepthCoefficients{};
   };
 

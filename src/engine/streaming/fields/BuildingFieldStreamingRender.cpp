@@ -182,12 +182,11 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
   return cell.Staged;
 }
 
-bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Group &group) {
+bool BuildingFieldStreaming::State::ValidPose(const Context &context, Group &group) {
   if (!group.Support || !group.Metadata || !group.Metadata->WorldFromField) { return false; }
   const auto lens =
       Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
-  const auto hull = Render::ImpostorPoseBounds::From(group.Support->Plane);
-  if (!lens || !hull) { return false; }
+  if (!lens) { return false; }
   const auto camera = WorldCamera(context);
   const double radius = Length(group.Bounds.Span());
   const double distance = Length(camera.EyeM - group.Bounds.Middle()) - radius;
@@ -195,8 +194,24 @@ bool BuildingFieldStreaming::State::ValidPose(const Context &context, const Grou
   if (distance <= 0 || 4 * projection.FocalPx * radius / distance + 2 > group.Metadata->Pixels) {
     return false;
   }
-  const auto bound = hull->Project(camera, *lens, *group.Metadata->WorldFromField);
-  return bound && bound->DepthInside && bound->L1UpperPx <= projection.AllowedErrorPx;
+  auto &view = group.Support->View;
+  if (view.Domain != BuildingFieldRequest::ViewDomain::Panoramic ||
+      view.Space != BuildingFieldRequest::CoordinateSpace::World ||
+      view.Camera.EyeM != camera.EyeM || view.Optics.WidePx != lens->WidePx ||
+      view.Optics.HighPx != lens->HighPx ||
+      !std::ranges::equal(view.Optics.Projection(), lens->Projection())) {
+    const auto hull = Render::ImpostorPoseBounds::From(group.Support->Plane);
+    if (!hull) { return false; }
+    const auto bound = hull->ProjectPanoramic(camera.EyeM, *lens, *group.Metadata->WorldFromField);
+    if (!bound) { return false; }
+    group.Support->Bounds = *bound;
+    view.Camera = camera;
+    view.Optics = *lens;
+    view.Domain = BuildingFieldRequest::ViewDomain::Panoramic;
+    view.Space = BuildingFieldRequest::CoordinateSpace::World;
+  }
+  return group.Support->Bounds.DepthInside &&
+         group.Support->Bounds.L1UpperPx <= projection.AllowedErrorPx;
 }
 
 }

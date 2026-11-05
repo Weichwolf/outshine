@@ -64,6 +64,8 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   context.Pages.BindRenderer(&context.Renderer);
   context.Pages.SetFrame(context.Frame);
   context.Camera.EyeM = {{0, 30, 1000}};
+  context.Camera.Forward = {{0, 0, 1}};
+  context.Camera.Right = {{-1, 0, 0}};
   context.Camera.YfovRad = 1;
   context.Camera.ZNearM = .1;
   context.Camera.ZFarM = 240000;
@@ -85,7 +87,7 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
                  error);
   }
   CHECK(error.empty() && counts.Ready == 1 && counts.Pending == 0 && counts.Rejected == 0,
-        "a qualified native field is ready before any original geometry is loaded");
+        "a field behind the camera is ready before any original geometry is loaded");
   CHECK(counts.Active == 0 && counts.SelectedProducts == 0,
         "preparation alone cannot publish an incomplete main or shadow source cut");
   CHECK(after.GeometryReadBytes == before.GeometryReadBytes &&

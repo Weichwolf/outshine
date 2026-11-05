@@ -142,9 +142,9 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   for (const auto &original : *originals) { shadowKeys.push_back(original.Key); }
   std::ranges::sort(shadowKeys);
   std::vector<const Cell *> candidates;
-  for (const auto &cell : tile.Cells) {
+  for (auto &cell : tile.Cells) {
     if (cell.Where == Phase::Ready && cell.Staged &&
-        std::ranges::all_of(cell.Groups, [&](const Group &g) { return ValidPose(context, g); })) {
+        std::ranges::all_of(cell.Groups, [&](Group &g) { return ValidPose(context, g); })) {
       candidates.push_back(&cell);
     }
   }

@@ -73,8 +73,7 @@ DemandFor(const BuildingFieldStreaming::Context &context,
   const double radius = Length(bounds.Span());
   const double distance = Length(camera.EyeM - bounds.Middle()) - radius;
   const auto projection = context.Surface.Footprints().Projection();
-  if (distance <= 0 || Dot(bounds.Middle() - camera.EyeM, camera.Forward) <= radius ||
-      projection.AllowedErrorPx <= 0 ||
+  if (distance <= 0 || projection.AllowedErrorPx <= 0 ||
       projection.FocalPx * radius * radius / (distance * distance) > projection.AllowedErrorPx) {
     return std::nullopt;
   }
@@ -98,7 +97,8 @@ DemandFor(const BuildingFieldStreaming::Context &context,
                                           .Camera = camera,
                                           .Optics = *lens,
                                           .GeometryErrorMostPx = projection.AllowedErrorPx,
-                                          .Space = BuildingFieldRequest::CoordinateSpace::World}};
+                                          .Space = BuildingFieldRequest::CoordinateSpace::World,
+                                          .Domain = BuildingFieldRequest::ViewDomain::Panoramic}};
 }
 
 std::optional<BuildingFieldRequest::Budget> BudgetFor(

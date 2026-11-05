@@ -127,7 +127,7 @@ struct BuildingFieldStreaming::State {
                                        const BuildingFieldRequest::Product &product,
                                        std::string &error);
   static void Reject(Cell &cell);
-  [[nodiscard]] static bool ValidPose(const Context &context, const Group &group);
+  [[nodiscard]] static bool ValidPose(const Context &context, Group &group);
   [[nodiscard]] static Render::CameraBasis WorldCamera(const Context &context);
 };
 }

@@ -69,6 +69,21 @@ bool Matches(const ImpostorViewAssets::Description &metadata,
   expected.SetTranslation(source.AnchorEcef);
   return *metadata.WorldFromField == expected;
 }
+
+std::expected<Render::ImpostorPoseBounds::Error, std::string>
+ProjectSupport(const Render::ImpostorPoseBounds &hull,
+               const BuildingFieldRequest::Pose &pose,
+               const Mat4 &world) {
+  using Request = BuildingFieldRequest;
+  if (pose.Domain == Request::ViewDomain::Panoramic) {
+    return hull.ProjectPanoramic(pose.Camera.EyeM,
+                                 pose.Optics,
+                                 pose.Space == Request::CoordinateSpace::World ? world : Mat4{});
+  }
+  return pose.Space == Request::CoordinateSpace::World
+             ? hull.Project(pose.Camera, pose.Optics, world)
+             : hull.Project(pose.Camera, pose.Optics);
+}
 }
 
 struct BuildingFieldRequest::State {
@@ -129,9 +144,7 @@ struct BuildingFieldRequest::State {
                                           .DepthCoefficients = pose.SupportDepthCoefficients};
       const auto hull = Render::ImpostorPoseBounds::From(support);
       if (!hull) { return std::unexpected(hull.error()); }
-      const auto error = pose.Space == CoordinateSpace::World
-                             ? hull->Project(pose.Camera, pose.Optics, *worldFromField)
-                             : hull->Project(pose.Camera, pose.Optics);
+      const auto error = ProjectSupport(*hull, pose, *worldFromField);
       if (!error) { return std::unexpected(error.error()); }
       if (!error->DepthInside || error->L1UpperPx > pose.GeometryErrorMostPx) {
         return std::unexpected("building field pose exceeds its geometric domain or error budget");
@@ -256,6 +269,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
                                !std::ranges::all_of(
                                    demand.GeometricView->SupportDepthCoefficients,
                                    [](double value) { return std::isfinite(value); }) ||
+                               (demand.GeometricView->Domain != ViewDomain::Directional &&
+                                demand.GeometricView->Domain != ViewDomain::Panoramic) ||
                                (demand.GeometricView->Space != CoordinateSpace::CaptureLocal &&
                                 demand.GeometricView->Space != CoordinateSpace::World))) {
     return std::unexpected(AssetPublicationError::InvalidRequest);

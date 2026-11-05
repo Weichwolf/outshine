@@ -86,6 +86,13 @@ void Boundaries(const Fixture &fixture, const BuildingSourceDemand::Source &sour
   invalid.View.Value = 2;
   CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, invalid, Budget()),
         "a view outside its declared catalogue is refused before admission");
+  invalid = Demand();
+  invalid.GeometricView.emplace();
+  invalid.GeometricView->Domain = static_cast<BuildingFieldRequest::ViewDomain>(255);
+  CHECK(
+      !BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, invalid, Budget()) &&
+          pipeline.Counts().Jobs == 0 && pipeline.Counts().Consumers == 0,
+      "an unknown view domain cannot start source or field work");
   auto limited = Budget();
   limited.Capture.Samples = 1023;
   CHECK(!BuildingFieldRequest::Start(pipeline, workers, cache, nullptr, source, Demand(), limited),
