@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <vector>
 #include <expected>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <utility>
@@ -52,9 +53,26 @@ RoadPageMeshProducer::Produce(const RoadPageRequest &request, std::stop_token st
   if (ProductKey_.empty() || RoadPageKey(request.Address) != ProductKey_) {
     return std::unexpected("road page producer does not own the requested product");
   }
-  const ProfiledRoadMesher mesher;
+  std::optional<RoadDisplayRequest> display;
+  const auto &error = request.Address.UpperModelErrorM;
+  if (error) {
+    const auto &limits = request.SweepLimits;
+    if (!limits) {
+      return std::unexpected("Upper display generation needs an explicit sampling budget");
+    }
+    for (const auto &interval : Recipe_.Intervals) {
+      if (interval.StepBody || interval.Surface.Form != RibbonForm::Surface) {
+        return std::unexpected("Upper display generation cannot replace closed or step bodies");
+      }
+    }
+    display = RoadDisplayRequest{.ErrorM = *error, .Limits = *limits};
+  }
+  const ProfiledRoadMesher mesher = display ? ProfiledRoadMesher(*display) : ProfiledRoadMesher{};
   auto result = MeshRoadPage(mesher, Recipe_, stop);
   if (!result) { return std::unexpected(std::string(result.error())); }
+  if (display && (result->Swept.Refused != 0 || !result->Diagnostics.empty())) {
+    return std::unexpected("Upper display generation cannot publish incomplete source coverage");
+  }
   return std::move(*result);
 }
 }

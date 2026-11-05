@@ -91,8 +91,7 @@ streams while preserving preexisting mesh contents. No silent Fine fallback is e
 under a coarse request. Page publication must still require complete source coverage.
 The 1024 m planar straight control emits six rather than 192 triangles with identical
 contact words; this is a control-case geometry reduction, not a Tokyo or GPU speedup.
-World/page demand, canonical recipe persistence and independently keyed cached display
-products remain unconnected.
+World/page demand and canonical recipe persistence remain unconnected.
 
 Road-page addresses can separately identify `UpperModelErrorM`. The optional value
 describes the fitted Upper position model only; it is not full FP/material/normal or
@@ -100,3 +99,12 @@ device qualification. Version 4 encodes the value and the appearance variant exp
 Absent values retain the original version 2/3 address bytes and keys. Nonpositive/
 nonfinite values, incomplete replacement diagnostics and empty replacements for nonempty
 source sets are rejected. Spatial `Level` remains separate from the model budget.
+
+Both native road-page producers accept this explicit model demand with caller-supplied
+per-Sweep station/pose limits. Closed/step bodies and incomplete page coverage fail;
+they never fall back to fine geometry under a display key. PreparedRoadPages persists
+successful display products independently of originals. Hits require neither producer
+nor sampling budget. Header admission checks framing size without pretending an empty
+display page is a valid replacement. The six-versus-192-triangle cache control is one
+straight planar recipe, not a scene performance result. Sampling limits exclude fitting,
+corner generation and total page allocation; those costs still need admission evidence.

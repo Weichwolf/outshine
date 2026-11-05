@@ -3,8 +3,10 @@
 
 #include "AssetCache.h"
 #include "RoadPageAsset.h"
+#include "RoadDisplaySampler.h"
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace outshine::Generators {
@@ -13,6 +15,7 @@ struct RoadPageRequest {
   std::string Parent;
   std::string RequestKey;
   size_t NativeBytesMost = 0;
+  std::optional<RoadDisplayLimits> SweepLimits = std::nullopt;
 };
 
 struct RoadPageLease {

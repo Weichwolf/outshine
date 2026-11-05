@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <expected>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <utility>
@@ -50,9 +51,31 @@ TransportRoadPageProducer::Produce(const RoadPageRequest &request, std::stop_tok
   if (RoadPageKey(request.Address) != ProductKey_) {
     return std::unexpected("transport road page producer does not own the requested product");
   }
-  const ProfiledRoadMesher mesher;
+  std::optional<RoadDisplayRequest> display;
+  const auto &error = request.Address.UpperModelErrorM;
+  if (error) {
+    const auto &limits = request.SweepLimits;
+    if (!limits) {
+      return std::unexpected("Upper display generation needs an explicit sampling budget");
+    }
+    for (const auto &part : Parts_) {
+      if (part.Part.Kind != RoadPagePartKind::Interval) { continue; }
+      if (part.Part.Index >= Plan_->Paths.size()) {
+        return std::unexpected("unknown Upper display path");
+      }
+      const auto &path = Plan_->Paths[part.Part.Index];
+      if (path.Bridge || path.Body) {
+        return std::unexpected("Upper display generation cannot replace closed or step bodies");
+      }
+    }
+    display = RoadDisplayRequest{.ErrorM = *error, .Limits = *limits};
+  }
+  const ProfiledRoadMesher mesher = display ? ProfiledRoadMesher(*display) : ProfiledRoadMesher{};
   auto product = MeshTransportRoadPage(mesher, *Plan_, Parts_, stop);
   if (!product) { return std::unexpected(std::string(product.error())); }
+  if (display && (product->Swept.Refused != 0 || !product->Diagnostics.empty())) {
+    return std::unexpected("Upper display generation cannot publish incomplete source coverage");
+  }
   return std::move(*product);
 }
 }
