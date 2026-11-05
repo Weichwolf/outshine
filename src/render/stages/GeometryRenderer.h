@@ -196,6 +196,8 @@ public:
 
   [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
 
+  [[nodiscard]] Native::Result<void> PrepareIndexedCommands(const PassRecording &into);
+
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
 
   [[nodiscard]] const GeometryHierarchyAdmission &Hierarchy() const noexcept { return Hierarchy_; }
@@ -533,6 +535,8 @@ private:
   size_t NativeMaterialSlots_ = 0;
   uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
+  std::unique_ptr<Native::IndexedCommands> IndexedCommands_;
+  uint32_t IndexedCommandCapacity_ = 0;
 
   std::vector<VertexLayout> BatchLayout;
 

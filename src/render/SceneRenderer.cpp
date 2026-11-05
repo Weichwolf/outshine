@@ -1277,7 +1277,9 @@ Native::Result<void> SceneRenderer::EncodeGeometryScan([[maybe_unused]] const Fr
 
 Native::Result<void> SceneRenderer::EncodeGeometryCompact([[maybe_unused]] const FrameContext &ctx,
                                                           const PassRecording &into) {
-  return ActiveFrame().Cull.EncodeCompact(into);
+  const auto compact = ActiveFrame().Cull.EncodeCompact(into);
+  if (!compact) { return compact; }
+  return ActiveContent().Geometry().PrepareIndexedCommands(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ctx,

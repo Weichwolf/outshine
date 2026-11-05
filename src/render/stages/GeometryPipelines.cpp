@@ -336,6 +336,7 @@ Native::Result<void> GeometryRenderer::ConfigureVariant(
          .Depth = Native::DepthTarget{.Write = SurfaceState::WritesDepth(kind)},
          .Culling = cullsBack ? Native::Cull::Back : Native::Cull::None,
          .ClampDepth = true,
+         .PreparedIndexedCommands = true,
          .Label = FragmentEntry(domain, kind, layout)});
     if (!made) { return std::unexpected(made.error()); }
     pipelines[PipelineAt(domain, layout, kind, cullsBack)] = std::move(*made);
