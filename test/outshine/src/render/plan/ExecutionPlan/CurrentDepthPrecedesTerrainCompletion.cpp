@@ -6,11 +6,11 @@
 int main() {
   using namespace outshine::Render;
   using namespace outshine::Test;
-  CHECK(AccumulatedAttachmentHasEarlierProducer(Stage::GroundPyramid, Resource::SceneDepth),
+  CHECK(AccumulatedAttachmentHasEarlierProducer(Stage::OpaqueDepthPyramid, Resource::SceneDepth),
         "current attachment depth has preceding opaque producers");
   CHECK(!AccumulatedAttachmentHasEarlierProducer(Stage::GeometryCull, Resource::SceneDepth),
         "an attachment read before its first contributor is invalid");
-  CHECK(!AccumulatedAttachmentHasEarlierProducer(Stage::GroundPyramid, Resource::DepthPyramid),
+  CHECK(!AccumulatedAttachmentHasEarlierProducer(Stage::OpaqueDepthPyramid, Resource::DepthPyramid),
         "accumulated reads cannot hide derived-resource dependency cycles");
   const auto compiled = ExecutionPlan::Compile({.Outputs = {Resource::SceneHdr},
                                                 .Content = {Stage::OpaqueGeometry},
@@ -23,13 +23,13 @@ int main() {
   const auto at = [&plan](Stage stage) {
     return std::distance(plan.Order().begin(), std::ranges::find(plan.Order(), stage));
   };
-  CHECK(at(Stage::OpaqueGeometry) < at(Stage::GroundPyramid) &&
-            at(Stage::GroundPyramid) < at(Stage::GroundSelection) &&
+  CHECK(at(Stage::OpaqueGeometry) < at(Stage::OpaqueDepthPyramid) &&
+            at(Stage::OpaqueDepthPyramid) < at(Stage::GroundSelection) &&
             at(Stage::GroundSelection) < at(Stage::Ground),
         "opaque draw, current depth, selection and terrain have distinct ordered phases");
   CHECK(plan.Stored(Resource::SceneDepth),
         "depth survives the read between its raster contributors");
-  CHECK(!ExecutionPlan::Compile({.Outputs = {Resource::GroundPyramid},
+  CHECK(!ExecutionPlan::Compile({.Outputs = {Resource::OpaqueDepthPyramid},
                                  .Content = {},
                                  .Exposure = {},
                                  .Display = {},

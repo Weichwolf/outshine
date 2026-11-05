@@ -293,7 +293,14 @@ void Engine::State::PublishGroundMemoryMeasurements() {
                                "world: geometry cluster kept buffer",
                                "world: geometry cluster slot buffer",
                                "world: geometry draw index buffer",
-                               "world: geometry draw argument buffer"};
+                               "world: geometry draw argument buffer",
+                               "world: geometry prediction mask buffer",
+                               "world: geometry completion kept buffer",
+                               "world: geometry completion selected queue buffer",
+                               "world: geometry completion selected state buffer",
+                               "world: geometry completion slot buffer",
+                               "world: geometry completion index buffer",
+                               "world: geometry completion arguments buffer"};
     static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
     for (size_t stream = 0; stream < names.size(); ++stream) {
       Published.RecordMetric(

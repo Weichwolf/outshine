@@ -54,6 +54,7 @@ set(metal_validation_cases
   outshine/integration/render/scene/SceneResources/HeightAtlasGrowsWithoutChangingExistingPages
   outshine/integration/render/scene/SceneResources/HeightPageBatchesPreserveAcceptedContents
   outshine/src/engine/RuntimeScene/SynchronousGeometryCompletesAcceptedUploads
+  outshine/src/render/SceneRenderer/CurrentDepthCompletesPredictedVisibility
   outshine/src/render/SceneRenderer/ResidentRootsReachTheFrameGraph
   outshine/src/render/device/ReadbackTransfer/MovesRetainCompletionAndMappedBytes
   outshine/src/render/device/ReadbackTransfer/TextureBatchesShareOneCompletion

@@ -4,12 +4,12 @@ vec4 planes[6];
   uint jobs;
 
   float errorPerMetre;
-  uint pad0, pad1;
+  uvec2 predictionEpoch;
 
   mat4 clip;
   uvec4 pyramidWide;
   uvec4 pyramidHigh;
   uvec4 pyramidAt;
   uint occludes;
-  uint sourceWide, sourceHigh, pad2;
+  uint sourceWide, sourceHigh, predictionAvailable;
 } view;

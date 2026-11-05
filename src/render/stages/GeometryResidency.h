@@ -80,8 +80,30 @@ struct GeometryResidency {
     ClusterSlot,
     DrawIndex,
     DrawArguments,
+    PredictionAccepted,
+    CompletionKept,
+    CompletionSelected,
+    CompletionSelectedState,
+    CompletionSlot,
+    CompletionDrawIndex,
+    CompletionDrawArguments,
     Count
   };
+
+  enum class SelectionPhase { Primary, Completion };
+
+  [[nodiscard]] static constexpr Stream SelectionStream(Stream stream, SelectionPhase phase) {
+    if (phase == SelectionPhase::Primary) { return stream; }
+    switch (stream) {
+      case Stream::ClusterKept: return Stream::CompletionKept;
+      case Stream::ClusterSelected: return Stream::CompletionSelected;
+      case Stream::ClusterSelectedState: return Stream::CompletionSelectedState;
+      case Stream::ClusterSlot: return Stream::CompletionSlot;
+      case Stream::DrawIndex: return Stream::CompletionDrawIndex;
+      case Stream::DrawArguments: return Stream::CompletionDrawArguments;
+      default: return stream;
+    }
+  }
 
   enum class ExistingContents { Preserve, Discard };
 

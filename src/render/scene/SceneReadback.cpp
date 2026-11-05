@@ -32,12 +32,13 @@ constexpr uint32_t kSingleInfinity = 0x7F800000u;
 
 bool ReadSelectionQueues(Native::Device *device,
                          const GeometryResidency &resident,
-                         KeptDraws &into) {
+                         KeptDraws &into,
+                         GeometryResidency::SelectionPhase phase) {
   for (const auto &[stream, state] :
        std::array{std::pair{GeometryResidency::Stream::ClusterChunkState, &into.RootWork},
                   std::pair{GeometryResidency::Stream::ClusterSelectedState, &into.ClusterWork}}) {
     Readback queue;
-    const auto *buffer = resident.Buffer(stream).get();
+    const auto *buffer = resident.Buffer(GeometryResidency::SelectionStream(stream, phase)).get();
     if (buffer == nullptr || queue.FromBuffer(device, buffer, sizeof(*state)) != ReadState::Ready) {
       return false;
     }
@@ -95,6 +96,31 @@ float HalfToFloat(uint16_t bits) {
   float value = 0;
   std::memcpy(&value, &assembled, sizeof value);
   return value;
+}
+
+}
+
+namespace {
+bool ReadPredictionMask(Native::Device *device,
+                        const GeometryResidency &resident,
+                        uint32_t jobs,
+                        uint64_t epoch,
+                        KeptDraws &into) {
+  const auto *accepted = resident.Buffer(GeometryResidency::Stream::PredictionAccepted).get();
+  Readback next;
+  const uint32_t stampBytes = jobs * 2u * static_cast<uint32_t>(sizeof(uint32_t));
+  if (accepted == nullptr || next.FromBuffer(device, accepted, stampBytes) != ReadState::Ready) {
+    into = {};
+    return false;
+  }
+  const auto *values = reinterpret_cast<const uint32_t *>(next.Rows());
+  into.NextVisibility.resize(jobs);
+  for (uint32_t at = 0; at < jobs; ++at) {
+    const uint64_t value = uint64_t{values[2u * at]} | (uint64_t{values[2u * at + 1u]} << 32);
+    into.NextVisibility[at] = value == epoch ? 1u : 0u;
+  }
+  into.ReadbackBytes += stampBytes;
+  return true;
 }
 
 }
@@ -210,17 +236,24 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
+ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into,
+                                               GeometryReadback detail,
+                                               GeometryResidency::SelectionPhase phase) {
   into = {};
   const GeometryResidency &resident = ActiveContent().Geometry().Resident();
-  const Native::Buffer *const args =
-      resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
+  const Native::Buffer *const args = resident
+                                         .Buffer(GeometryResidency::SelectionStream(
+                                             GeometryResidency::Stream::DrawArguments, phase))
+                                         .get();
   const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
-  if (!ActiveState().Ready || !ActiveFrame().Cull.HasAcceptedSelection() || args == nullptr ||
-      rows == 0) {
+  if (!ActiveState().Ready ||
+      !(phase == GeometryResidency::SelectionPhase::Primary ? ActiveFrame().Cull
+                                                            : ActiveFrame().Completion)
+           .HasAcceptedSelection() ||
+      args == nullptr || rows == 0) {
     return ReadState::Failed;
   }
-  if (!ReadSelectionQueues(Device_.get(), resident, into)) {
+  if (!ReadSelectionQueues(Device_.get(), resident, into, phase)) {
     into = {};
     return ReadState::Failed;
   }
@@ -241,7 +274,10 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
   }
   if (detail == GeometryReadback::Counters) { return ReadState::Ready; }
   const uint32_t jobs = ActiveContent().Geometry().ClusterJobs();
-  const Native::Buffer *const kept = resident.Buffer(GeometryResidency::Stream::ClusterKept).get();
+  const Native::Buffer *const kept =
+      resident
+          .Buffer(GeometryResidency::SelectionStream(GeometryResidency::Stream::ClusterKept, phase))
+          .get();
   if (jobs > 0 && kept != nullptr) {
     Readback visibility;
     const uint32_t keptBytes = jobs * static_cast<uint32_t>(sizeof(uint32_t));
@@ -259,7 +295,20 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
     }
     into.ReadbackBytes += rows * sizeof(uint32_t);
   }
-  const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
+  if (phase == GeometryResidency::SelectionPhase::Completion && jobs > 0) {
+    if (!ReadPredictionMask(
+            Device_.get(), resident, jobs, ActiveFrame().Completion.PredictionEpoch(), into) ||
+        !MaskRejectedRoots(
+            Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.NextVisibility)) {
+      into = {};
+      return ReadState::Failed;
+    }
+    into.ReadbackBytes += rows * sizeof(uint32_t);
+  }
+  const Native::Buffer *const index =
+      resident
+          .Buffer(GeometryResidency::SelectionStream(GeometryResidency::Stream::DrawIndex, phase))
+          .get();
   if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
   Readback drawn;
   uint64_t end = 0;

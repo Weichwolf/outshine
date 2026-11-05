@@ -221,7 +221,7 @@ bool GeometryRenderer::UploadTables(std::string &error) {
     return false;
   }
   RootBoundsStale_ = false;
-  return HandDrawArguments(true, error);
+  return PrepareCompletionBuffers(error) && HandDrawArguments(true, error);
 }
 
 bool GeometryRenderer::HandRootBounds(std::string &error) {

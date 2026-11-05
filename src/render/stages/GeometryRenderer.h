@@ -251,6 +251,13 @@ public:
 
   [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
 
+  [[nodiscard]] bool AllowsVisibilityPrediction() const {
+    return std::ranges::none_of(Slots,
+                                [](const auto &slot) { return slot.Kind == SurfaceKind::Blended; });
+  }
+
+  [[nodiscard]] uint64_t ClusterTopologyGeneration() const noexcept { return TableRevision_; }
+
   [[nodiscard]] uint64_t Generation() const { return Moved_ + Reshaped_ + Prisms_->Generation(); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
@@ -382,7 +389,8 @@ private:
                                                     size_t first,
                                                     bool culled,
                                                     size_t end,
-                                                    const DrawResources &resources);
+                                                    const DrawResources &resources,
+                                                    GeometryResidency::SelectionPhase phase);
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
@@ -412,7 +420,10 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void>
+  Encode(const FrameContext &ctx,
+         const PassRecording &into,
+         GeometryResidency::SelectionPhase phase = GeometryResidency::SelectionPhase::Primary);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 
@@ -639,6 +650,7 @@ private:
   [[nodiscard]] bool PrepareMainMeshTables(std::string &error);
   [[nodiscard]] bool AppendRoot(GeometryRoot root, std::string &error);
   [[nodiscard]] bool HandRootBounds(std::string &error);
+  [[nodiscard]] bool PrepareCompletionBuffers(std::string &error);
   void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();

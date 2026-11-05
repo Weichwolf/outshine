@@ -15,13 +15,13 @@ Native::Result<TerrainRenderer::DrawArguments> SceneRenderer::ReadGroundDrawArgu
   return ActiveContent().Geometry().Ground().ReadDrawArguments();
 }
 
-bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &renderer,
-                                           FrameResources &frame,
-                                           [[maybe_unused]] const ExecutionPlan &plan,
-                                           [[maybe_unused]] bool drawsGlass,
-                                           std::string &error) {
+bool SceneRenderer::ConfigureOpaqueDepthPyramid([[maybe_unused]] SceneRenderer &renderer,
+                                                FrameResources &frame,
+                                                [[maybe_unused]] const ExecutionPlan &plan,
+                                                [[maybe_unused]] bool drawsGlass,
+                                                std::string &error) {
   return Accepted(
-      frame.GroundPyramid.Configure(frame.Targets.Get(Resource::SceneDepth), frame.Samp.get()),
+      frame.OpaqueDepthPyramid.Configure(frame.Targets.Get(Resource::SceneDepth), frame.Samp.get()),
       error);
 }
 
@@ -44,10 +44,14 @@ bool SceneRenderer::ConfigureGround(SceneRenderer &renderer,
                   error);
 }
 
-Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,
-                                                        const PassRecording &into) {
-  if (ActiveContent().Geometry().Ground().Drawn() == 0) { return {}; }
-  return ActiveFrame().GroundPyramid.Encode(into);
+Native::Result<void>
+SceneRenderer::EncodeOpaqueDepthPyramid([[maybe_unused]] const FrameContext &ctx,
+                                        const PassRecording &into) {
+  if (ActiveContent().Geometry().Ground().Drawn() == 0 &&
+      !ActiveState().Plan->Holds(Stage::GeometryCompletionCull)) {
+    return {};
+  }
+  return ActiveFrame().OpaqueDepthPyramid.Encode(into);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ctx,
@@ -57,8 +61,8 @@ Native::Result<void> SceneRenderer::EncodeGroundSelection(const FrameContext &ct
   return ActiveContent().Geometry().Ground().SelectPatches(ctx,
                                                            geometry.AnchorM(),
                                                            Picture(true, into),
-                                                           *frame.GroundPyramid.Buffer(),
-                                                           frame.GroundPyramid.Shape());
+                                                           *frame.OpaqueDepthPyramid.Buffer(),
+                                                           frame.OpaqueDepthPyramid.Shape());
 }
 
 Native::Result<void> SceneRenderer::EncodeGround(const FrameContext &ctx,
