@@ -4,6 +4,7 @@
 #include "AssetCache.h"
 #include "TransportPlanCodec.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -40,6 +41,11 @@ public:
   LoadProduct(const TransportPlanDefinition &definition,
               const std::array<uint8_t, 32> &inputBinding,
               TransportPlanCodecLimits limits);
+  [[nodiscard]] std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
+  LoadProduct(const TransportPlanDefinition &definition,
+              const std::array<uint8_t, 32> &inputBinding,
+              TransportPlanCodecLimits limits,
+              size_t readBufferBytesMost);
 
   [[nodiscard]] std::expected<AssetRecord, TransportPlanAssetError>
   StoreComplete(const TransportPlan &plan,

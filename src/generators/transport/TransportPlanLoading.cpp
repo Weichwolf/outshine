@@ -1,8 +1,10 @@
 #include "PreparedTransportPlans.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -25,11 +27,21 @@ std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
 PreparedTransportPlans::LoadProduct(const TransportPlanDefinition &definition,
                                     const std::array<uint8_t, 32> &inputBinding,
                                     TransportPlanCodecLimits limits) {
+  return LoadProduct(definition, inputBinding, limits, std::numeric_limits<size_t>::max());
+}
+
+std::expected<std::optional<TransportPlanAsset>, TransportPlanAssetError>
+PreparedTransportPlans::LoadProduct(const TransportPlanDefinition &definition,
+                                    const std::array<uint8_t, 32> &inputBinding,
+                                    TransportPlanCodecLimits limits,
+                                    size_t readBufferBytesMost) {
   const auto key = TransportPlanContentKey(definition, inputBinding);
   if (!key) { return std::unexpected(TransportPlanAssetError::InvalidRequest); }
   auto cached = [&] {
     const std::scoped_lock lock(Lock_);
-    return Cache_->Load(*key, limits.PackageBytesMost);
+    return Cache_->Load(
+        *key,
+        {.PackageBytesMost = limits.PackageBytesMost, .BufferBytesMost = readBufferBytesMost});
   }();
   return Decode(std::move(cached), definition, limits);
 }

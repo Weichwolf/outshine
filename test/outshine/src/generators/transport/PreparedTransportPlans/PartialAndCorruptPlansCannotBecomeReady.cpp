@@ -18,6 +18,23 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
 
+void CheckReadAdmission(PreparedTransportPlans &store,
+                        const AssetCache &cache,
+                        const TransportPlan &plan,
+                        const std::string &key) {
+  const auto read = cache.PlanRead(key, kTransportFixtureLimits.PackageBytesMost);
+  CHECK(read && *read && (**read).BufferBytesMost > 0,
+        "metadata derives the whole stored/native/decompression buffer requirement");
+  if (!read || !*read || (**read).BufferBytesMost == 0) { return; }
+  const auto small = store.LoadProduct(
+      plan.Definition, plan.InputBinding, kTransportFixtureLimits, (**read).BufferBytesMost - 1);
+  CHECK(!small && small.error() == TransportPlanAssetError::CapacityExceeded,
+        "a read one byte below its metadata requirement fails with the capacity contract");
+  const auto exact = store.LoadProduct(
+      plan.Definition, plan.InputBinding, kTransportFixtureLimits, (**read).BufferBytesMost);
+  CHECK(exact && *exact, "exact read admission restores the complete native plan");
+}
+
 void Exercise(const std::string &directory) {
   auto store = PreparedTransportPlans::Open(outshine::Test::OpenAssetStore(directory));
   auto raw = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
@@ -28,6 +45,7 @@ void Exercise(const std::string &directory) {
   const auto record = (*store)->StoreComplete(*plan, bounds, kTransportFixtureLimits);
   CHECK(record.has_value(), "the complete control is published");
   if (!record) { return; }
+  CheckReadAdmission(**store, **raw, *plan, record->Key);
   const TransportPlanAddress address{.Definition = plan->Definition,
                                      .Inputs = TransportInputScopeId(std::array<uint8_t, 32>{})};
   auto geometryOnly = *plan;
