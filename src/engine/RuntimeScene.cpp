@@ -411,6 +411,7 @@ void RuntimeScene::ClearGeometry() {
   DrivenGeometry_.Clear();
   Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
+  ShadowCentreStoodM_.reset();
   DrivenParts_ = 0;
   PendingDrivenParts_.reset();
   Stoodup_ = false;
@@ -480,12 +481,19 @@ void RuntimeScene::WearsPieces() {
 
 void RuntimeScene::StandsShadowRadius() {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
-  if (ShadowRadiusStoodM_ > 0.0 || GeometryView_.TriangleCount() == 0) { return; }
+  ShadowCentreStoodM_ = GroundSurface_ >= 0 ? std::optional(Vec3{}) : std::nullopt;
+  if ((ShadowRadiusStoodM_ > 0.0 && GroundSurface_ < 0) || GeometryView_.TriangleCount() == 0) {
+    return;
+  }
   const auto boundedFrom = std::chrono::steady_clock::now();
   const Box bounded = GeometryView_.BoundsOf(DrivenParts_);
   BoundsMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
           .count();
+  if (GroundSurface_ >= 0 && !bounded.Empty()) {
+    ShadowCentreStoodM_ = bounded.Middle() * Declared_.MetresPerUnit;
+  }
+  if (ShadowRadiusStoodM_ > 0.0) { return; }
   double across = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     const double span = (bounded.Max[axis] - bounded.Min[axis]) * Declared_.MetresPerUnit;
@@ -530,8 +538,12 @@ void RuntimeScene::StandsKeyLight() {
                          Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
                      .EyeHeightM = 0.0f});
   if (ShadowRadiusStoodM_ > 0.0) {
-    Renderer_->SetShadowFrame(
-        toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0, GeometryView_.Lamps.size());
+    Renderer_->SetShadowFrame(toSun,
+                              up,
+                              ShadowRadiusStoodM_,
+                              GroundSurface_ >= 0,
+                              GeometryView_.Lamps.size(),
+                              ShadowCentreStoodM_);
   }
 }
 

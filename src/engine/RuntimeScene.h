@@ -434,6 +434,7 @@ private:
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;
   double ShadowRadiusStoodM_ = 0.0;
+  std::optional<Vec3> ShadowCentreStoodM_;
   std::shared_ptr<const Render::ExecutionPlan> Plan_;
   std::shared_ptr<const Render::ExecutionPlan> PreparationPlan_;
   Render::CameraState Camera_;
