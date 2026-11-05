@@ -38,3 +38,34 @@ Upper boundaries do not contain final native port stitching. Normal interpolatio
 material/UV behavior, junctions, bridge lower/wall/cap geometry and whole-world placement
 remain separate requirements. Existing references for those contracts remain authoritative.
 No native speed, full road coverage or 720p60 claim follows from this experiment.
+
+## Native sampling step
+
+`src/generators/road/surface/RoadDisplaySampler.h` consumes a native `ReferenceLine`
+and caller-supplied station/pose budgets. It produces only ordered render stations,
+position-model bounds and work counters. `Sweep` can consume those stations directly
+by using the full curve length as its uniform step. No Fine ribbon is an input.
+Source admission precedes qualification/evaluation; exhaustion returns an error without
+a partial plan. Screen projection, cache keys/LOD metadata and World selection remain
+consumer responsibilities.
+
+Native spirals use Gauss8, whereas the Python reconstruction uses Gauss16.
+`ReferenceLine::PlanarTruncationBoundM` therefore uses the native rule:
+`C8 = (8!)^4 / (17 * (16!)^3)`, rounded upward, with dimensionless majorants
+`a = max|curvature| * L`, `b = |curvature_rate| * L^2`,
+`B0=1`, `B1=a`, `B(m+1)=a*Bm+m*b*B(m-1)`, remainder `L*C8*B16`.
+Every query pays for integration from its original stored segment entry, including
+a short queried tail of a long segment. Closed arcs/straight segments use no quadrature.
+Node/weight values and native integration operations remain unchanged.
+
+The sampler combines per-source-span second derivatives of height/bank/offset curves,
+seam residuals, triangle twist, stored Float32 endpoint rounding and twice the local
+source quadrature truncation allowance. It rejects offset folds, tangent poles,
+unbounded derivatives and inadequate source accuracy before render subdivision.
+The result is an analytic position-model bound, not a universal libm/IEEE certificate:
+accumulated source pose, coefficient/evaluation FP error, later world transforms and
+final port movement remain unqualified. Normal interpolation and complete bridge bodies
+remain unqualified too. This module does not yet authorize World replacement or a lower
+runtime LOD error. Native controls independently inspect actual emitted triangle
+interpolation and exact quadratic chord error; a captured-corpus/native comparison is
+still required before integration.
