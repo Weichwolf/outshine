@@ -20,6 +20,7 @@ BuildingFieldStreaming::State::OriginalCoverage(const Tile &tile, uint64_t cells
   if (!tile.Coverage || (cells & ~tile.Source.Cells) != 0) {
     return std::unexpected("original geometry contains sources outside its metadata domain");
   }
+  if (cells == tile.Source.Cells) { return *tile.Coverage; }
   std::vector<SourceCoverage::Range> ranges;
   for (const auto &cell : tile.Cells) {
     if ((cells & (uint64_t{1} << (cell.Source.Cell - 1u))) == 0) { continue; }
