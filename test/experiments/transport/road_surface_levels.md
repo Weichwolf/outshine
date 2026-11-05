@@ -116,3 +116,16 @@ but restoration requires a nonoverlapping selected cut and verifies payload/mode
 before adopting geometry. An explicitly selected display page restores while its original
 payload has a deliberately invalid CRC; the original metadata remains present. This checks
 selection before payload IO, not an automatic camera/LOD policy or model qualification.
+
+`StoredTransportRoadPageProducer` composes the existing functional TransportPlan store
+and native page producer. Binding performs no plan IO. Only Produce, invoked by the
+existing page miss path on a worker, reads the exact saved definition/input binding.
+Read/decompression buffers and decoded plan capacities have separate caller-supplied
+limits, reserved in its input capacity before loading; they are not a complete bound
+on validation/meshing/allocation peaks. The read limit is rechecked before blob IO.
+Fresh-process controls build a display miss from a stored plan, then evict that plan:
+the page hit still succeeds without sampling or source inputs. Appearance bindings
+remain explicit caller inputs. No second recipe format, source reload, solver or job
+graph is introduced. This does not migrate the legacy World planner or supply an
+automatic camera/pass selection policy; grouped misses should share a loaded plan
+lease through the existing bound producer rather than decode the same plan per page.
