@@ -97,7 +97,8 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
   world.SetTranslation(group.AnchorEcef);
   return GeometryAsset::Product{
       .Layout = {.Bounds = bounds, .WorldFromLocal = world, .Coverage = std::move(*coverage)},
-      .Mesh = std::move(*geometry)};
+      .Mesh = std::move(*geometry),
+      .Clusters = {}};
 }
 }
 

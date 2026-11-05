@@ -117,7 +117,8 @@ std::expected<GeometryAsset::Product, std::string> BuildingImpostorSource::Geome
   if (stop.stop_requested()) { return std::unexpected("building geometry generation cancelled"); }
   auto layout = Layout(*source);
   if (!layout) { return std::unexpected(layout.error()); }
-  GeometryAsset::Product product{.Layout = std::move(*layout), .Mesh = std::move(*originals)};
+  GeometryAsset::Product product{
+      .Layout = std::move(*layout), .Mesh = std::move(*originals), .Clusters = {}};
   const auto stored = GeometryAsset::Publish(
       cache, key, Recipe_.BaseKey, product.Layout, product.Mesh, budget.GeometryBytesMost);
   if (!stored) { return std::unexpected("building geometry asset publication failed"); }

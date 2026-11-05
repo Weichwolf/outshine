@@ -90,15 +90,12 @@ struct GeometryAssetRequest::State {
     }
     const size_t fixed = sizeof(State) + Key.capacity() + Parent.capacity() + 2;
     const auto retained = [&](size_t extra) -> std::optional<size_t> {
-      const size_t mesh = (**loaded).Mesh.storageBytes();
-      const auto &coverage = (**loaded).Layout.Coverage;
-      const size_t metadata = coverage ? coverage->CapacityBytes() : 0;
-      if (fixed > Limits.ConsumerBytes || mesh > Limits.ConsumerBytes - fixed ||
-          metadata > Limits.ConsumerBytes - fixed - mesh ||
-          extra > Limits.ConsumerBytes - fixed - mesh - metadata) {
+      const size_t product = (**loaded).HeapBytes();
+      if (fixed > Limits.ConsumerBytes || product > Limits.ConsumerBytes - fixed ||
+          extra > Limits.ConsumerBytes - fixed - product) {
         return std::nullopt;
       }
-      return fixed + mesh + metadata + extra;
+      return fixed + product + extra;
     };
     if (!retained(0)) { return std::unexpected("decoded geometry exceeds consumer admission"); }
     if (Cancelled()) { return std::unexpected("geometry load cancelled"); }

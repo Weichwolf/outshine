@@ -1,5 +1,6 @@
 #include "GeometryAsset.h"
 #include "GeometryProductCodec.h"
+#include "ClusteredGeometryCodec.h"
 #include "AssetPublication.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
@@ -20,6 +21,7 @@ namespace outshine {
 namespace {
 constexpr uint64_t kFormat = 0x3154455353414547ULL;
 constexpr uint64_t kCoverageFormat = 0x3254455353414547ULL;
+constexpr uint64_t kClusteredFormat = 0x3354455353414547ULL;
 
 std::string DescriptionKey(std::string_view key) {
   const auto recipe = "geometry-asset-info-1/" + std::string(key);
@@ -61,10 +63,16 @@ bool ReadCoverage(BinaryValueReader &in, GeometryAsset::Description &description
 }
 
 bool WriteDescription(BinaryValueWriter &out, const GeometryAsset::Description &description) {
-  if (!out(description.Coverage ? kCoverageFormat : kFormat,
+  uint64_t format = description.Coverage ? kCoverageFormat : kFormat;
+  if (description.ClusteredParts != 0) { format = kClusteredFormat; }
+  if (!out(format,
            description.Bounds.Min.Axis,
            description.Bounds.Max.Axis,
            description.WorldFromLocal.Column)) {
+    return false;
+  }
+  if (description.ClusteredParts != 0 &&
+      !out(description.ClusteredParts, description.Coverage.has_value())) {
     return false;
   }
   if (!description.Coverage) { return true; }
@@ -92,6 +100,28 @@ bool Contains(const Geometry &geometry, const Box &bounds) {
   return true;
 }
 
+std::optional<ClusteredGeometryProduct>
+ReadPayload(std::span<const uint8_t> bytes, size_t bytesMost, bool clustered) {
+  if (clustered) { return DecodeClusteredGeometry(bytes, bytesMost); }
+  auto geometry = DecodeGeometryProduct(bytes, bytesMost);
+  if (!geometry) { return std::nullopt; }
+  return ClusteredGeometryProduct{.Mesh = std::move(*geometry), .Clusters = {}};
+}
+
+}
+
+size_t GeometryAsset::Product::HeapBytes() const noexcept {
+  size_t bytes = Mesh.storageBytes() + Clusters.capacity() * sizeof(std::vector<DagCluster>);
+  for (const auto &part : Clusters) { bytes += part.capacity() * sizeof(DagCluster); }
+  return bytes + (Layout.Coverage ? Layout.Coverage->CapacityBytes() : 0);
+}
+
+std::expected<void, AssetCacheError> GeometryAsset::Publish(AssetCache &cache,
+                                                            const std::string &key,
+                                                            const std::string &parent,
+                                                            const Product &product,
+                                                            size_t bytesMost) {
+  return Publish(cache, key, parent, product.Layout, product.Mesh, bytesMost, product.Clusters);
 }
 
 std::expected<std::optional<GeometryAsset::Description>, AssetCacheError> GeometryAsset::Describe(
@@ -105,15 +135,18 @@ std::expected<std::optional<GeometryAsset::Description>, AssetCacheError> Geomet
   const auto &record = (**loaded).Record();
   BinaryValueReader in((**loaded).Bytes());
   uint64_t format = 0;
+  bool hasCoverage = false;
   Description description;
   if (record.Kind != "native-geometry-info" || record.Parent != parent ||
       !in(format,
           description.Bounds.Min.Axis,
           description.Bounds.Max.Axis,
           description.WorldFromLocal.Column) ||
-      (format != kFormat && format != kCoverageFormat) ||
-      (format == kCoverageFormat && !ReadCoverage(in, description)) || in.In.Remaining() != 0 ||
-      !Valid(description) ||
+      (format != kFormat && format != kCoverageFormat && format != kClusteredFormat) ||
+      (format == kClusteredFormat &&
+       (!in(description.ClusteredParts, hasCoverage) || description.ClusteredParts == 0)) ||
+      ((format == kCoverageFormat || hasCoverage) && !ReadCoverage(in, description)) ||
+      in.In.Remaining() != 0 || !Valid(description) ||
       description.Bounds.Through(description.WorldFromLocal) != record.Bounds) {
     return std::unexpected(AssetCacheError::Storage);
   }
@@ -124,36 +157,43 @@ std::expected<std::optional<GeometryAsset::Product>, AssetCacheError> GeometryAs
     const AssetCache &cache, std::string_view key, std::string_view parent, size_t bytesMost) {
   auto description = Describe(cache, key, parent, bytesMost);
   if (!description) { return std::unexpected(description.error()); }
-  if (!*description) { return std::nullopt; }
+  if (!*description) { return std::optional<Product>{}; }
   auto loaded = cache.Load(key, bytesMost);
   if (!loaded) { return std::unexpected(loaded.error()); }
-  if (!*loaded) { return std::nullopt; }
+  if (!*loaded) { return std::optional<Product>{}; }
   const auto &record = (**loaded).Record();
-  auto geometry = DecodeGeometryProduct((**loaded).Bytes(), bytesMost);
+  auto product = ReadPayload((**loaded).Bytes(), bytesMost, (**description).ClusteredParts != 0);
   if (record.Kind != "native-geometry" || record.Parent != parent ||
-      record.Bounds != (**description).Bounds.Through((**description).WorldFromLocal) ||
-      !geometry || geometry->parts() == 0 || !Contains(*geometry, (**description).Bounds)) {
+      record.Bounds != (**description).Bounds.Through((**description).WorldFromLocal) || !product ||
+      product->Mesh.parts() == 0 || product->Clusters.size() != (**description).ClusteredParts ||
+      !Contains(product->Mesh, (**description).Bounds)) {
     return std::unexpected(AssetCacheError::Storage);
   }
-  return Product{.Layout = **description, .Mesh = std::move(*geometry)};
+  return Product{.Layout = **description,
+                 .Mesh = std::move(product->Mesh),
+                 .Clusters = std::move(product->Clusters)};
 }
 
-std::expected<void, AssetCacheError> GeometryAsset::Publish(AssetCache &cache,
-                                                            const std::string &key,
-                                                            const std::string &parent,
-                                                            const Description &description,
-                                                            const Geometry &geometry,
-                                                            size_t bytesMost) {
+std::expected<void, AssetCacheError>
+GeometryAsset::Publish(AssetCache &cache,
+                       const std::string &key,
+                       const std::string &parent,
+                       const Description &description,
+                       const Geometry &geometry,
+                       size_t bytesMost,
+                       std::span<const std::vector<DagCluster>> clusters) {
   if (!AssetProductKey::Parse(key) || (!parent.empty() && !AssetProductKey::Parse(parent)) ||
       !Valid(description) || geometry.parts() == 0 || !geometry.wellFormed() ||
-      !Contains(geometry, description.Bounds)) {
+      !Contains(geometry, description.Bounds) || description.ClusteredParts != clusters.size() ||
+      (!clusters.empty() && !ValidGeometryClusters(geometry, clusters))) {
     return std::unexpected(AssetCacheError::InvalidInput);
   }
   BinaryValueWriter out(bytesMost);
   if (!WriteDescription(out, description)) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
-  auto encoded = EncodeGeometryProduct(geometry, bytesMost);
+  auto encoded = clusters.empty() ? EncodeGeometryProduct(geometry, bytesMost)
+                                  : EncodeClusteredGeometry(geometry, clusters, bytesMost);
   if (!encoded) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   const auto bounds = description.Bounds.Through(description.WorldFromLocal);
   const AssetRecord record{.Key = key,
