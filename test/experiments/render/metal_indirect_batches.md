@@ -92,3 +92,27 @@ slide 12, motivates multi-draw/cluster batching and warns about primitive order 
 index-storage tradeoffs. Its costs are not Metal measurements. The installed
 Metal SDK's MTLIndirectCommandBuffer/MTLIndirectCommandEncoder declarations define
 inheritance and draw contracts; real device validation checks their use here.
+
+## Production shader prerequisite (#1955, 2026-11-05)
+
+A separate A18 Pro probe compares five fragment binding layouts with identical
+vertex code, both with and without ICB support. All five regular pipelines compile.
+With ICB enabled, a plain buffer and an argument buffer containing a texture/sampler
+compile; direct texture reads, constexpr samplers with a direct texture, and direct
+texture/sampler bindings fail with `Fragment shader cannot be used with indirect
+command buffers`. Thus a constexpr sampler alone does not fix the restriction.
+
+```
+clang++ -std=c++23 -fobjc-arc -fno-exceptions -O2 -Wall -Wextra -Werror \
+  -framework Foundation -framework Metal \
+  test/harness/render/MetalIndirectBindingProbe.mm \
+  -o /tmp/outshine-metal-indirect-bindings
+MTL_DEBUG_LAYER=1 /tmp/outshine-metal-indirect-bindings
+```
+
+The probe checks ten pipeline outcomes and exits nonzero on any mismatch. This is
+a device/API diagnostic, not a scene-performance result. Our current production
+shaders use direct texture bindings: sparse-command compaction cannot be integrated
+by merely enabling ICB pipelines. First implement and measure the native argument
+buffer binding path, including resource lifetime and material equivalence; retain
+the existing drawing path until an actual scene comparison justifies replacement.
