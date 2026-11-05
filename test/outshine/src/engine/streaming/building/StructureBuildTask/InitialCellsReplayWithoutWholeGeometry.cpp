@@ -322,6 +322,44 @@ void ParallelReplay(const std::filesystem::path &root,
   CHECK(retained.expired(), "the last geometry lease releases the immutable source basis");
 }
 
+void SelectChildBeforeWholePayload(const std::filesystem::path &root) {
+  Data::RawSourceCache store({.Directory = (root / "sources").string()});
+  const Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(outshine::Test::OpenAssetStore(root.string()), sources);
+  CHECK(cache, "selective replay opens the existing whole-product cache");
+  if (!cache) { return; }
+  const auto basis = (*cache)->LoadBasis(std::string(kKey));
+  CHECK(basis && *basis, "source metadata precedes the selective payload lookup");
+  if (!basis || !*basis) { return; }
+  const auto raw = Inputs();
+  const auto cell = raw.Structures.front().Cell.Index;
+  const auto selected = uint64_t{1} << (cell - 1u);
+  const auto mesher = std::make_shared<CountingMesh>();
+  Tasks pool(1);
+  for (const bool warm : {false, true}) {
+    const auto before = (*cache)->Costs();
+    mesher->Calls = 0;
+    StructureBuildTask task(outshine::Test::JobLease(),
+                            0,
+                            *basis,
+                            std::make_unique<RawTile>(raw),
+                            std::make_unique<StructureBuildTask::Output>(),
+                            mesher->Scratch());
+    task.UseNativeAssets(*cache, std::string(kKey));
+    task.UseInitialCells(selected);
+    Complete(task, pool, mesher);
+    const auto &tile = task.Result().Tile;
+    CHECK(task.Result().Status && tile && tile->RequestedCell == cell && tile->Prints.size() == 1 &&
+              task.InitialCells() == selected,
+          "a restricted demand returns only the selected cell despite a cached whole mesh");
+    const auto after = (*cache)->Costs();
+    CHECK(task.Result().CacheHit == warm &&
+              (warm ? after.GeometryHits == before.GeometryHits + 1 && mesher->Calls == 0
+                    : after.GeometryReadBytes == before.GeometryReadBytes && mesher->Calls == 1),
+          "cold child generation skips the whole payload; warm replay reads only the child");
+  }
+}
+
 void ReuseWholeProduct(const std::filesystem::path &root) {
   Data::RawSourceCache store({.Directory = (root / "sources").string()});
   const Data::SourceSet sources(store);
@@ -396,6 +434,7 @@ int main() {
   Replay(root, true, keys);
   ParallelReplay(root, keys);
   ReuseWholeProduct(root / "existing-whole");
+  SelectChildBeforeWholePayload(root / "existing-whole");
   std::error_code error;
   std::filesystem::remove_all(root, error);
   CHECK(!error, "the isolated generated products are removed");

@@ -402,6 +402,34 @@ struct StructureBuildTask::NativeProducts {
     return true;
   }
 
+  bool LookupInitial(Generators::RawTile &raw,
+                     const Generators::PreparedStructureTile *base,
+                     const Generators::PreparedBuildingAssets::Basis &basis,
+                     Output &output,
+                     const std::atomic_bool &stopping) {
+    uint64_t occupied = 0;
+    if (basis != nullptr) {
+      for (const auto &source : basis->Sources) { occupied |= uint64_t{1} << (source.Cell - 1u); }
+    } else {
+      for (const auto &source : base->Structures) {
+        occupied |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
+      }
+    }
+    if ((occupied & Selection) == occupied && Lookup(raw, base, basis, output, stopping)) {
+      return true;
+    }
+    const uint64_t selected = occupied & Selection;
+    Cells = selected;
+    if (selected == 0) {
+      if (occupied == 0) { return false; }
+      output.Status = std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
+      Current = Phase::Complete;
+      return true;
+    }
+    raw.RequestedCell = static_cast<uint32_t>(std::countr_zero(selected)) + 1u;
+    return Lookup(raw, base, basis, output, stopping);
+  }
+
   bool BeforeBake(Generators::RawTile &raw,
                   const Ground::HeightField *heights,
                   std::shared_ptr<const Generators::PreparedStructureTile> &base,
@@ -416,19 +444,10 @@ struct StructureBuildTask::NativeProducts {
     if (basis == nullptr && !EnsureBase(raw, heights, base, basis.get(), output, stopping)) {
       return true;
     }
-    if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
     if (Cells && !raw.RequestedCell) {
-      if (basis != nullptr) {
-        for (const auto &source : basis->Sources) { *Cells |= uint64_t{1} << (source.Cell - 1u); }
-      } else {
-        for (const auto &source : base->Structures) {
-          *Cells |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
-        }
-      }
-      if (*Cells != 0) {
-        raw.RequestedCell = static_cast<uint32_t>(std::countr_zero(*Cells)) + 1u;
-        if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
-      }
+      if (LookupInitial(raw, base.get(), basis, output, stopping)) { return true; }
+    } else if (Lookup(raw, base.get(), basis, output, stopping)) {
+      return true;
     }
     if (!EnsureBase(raw, heights, base, basis.get(), output, stopping)) { return true; }
     Current = Phase::Generating;
@@ -468,6 +487,7 @@ struct StructureBuildTask::NativeProducts {
   std::string RequestKey;
   Phase Current = Phase::Lookup;
   std::optional<uint64_t> Cells;
+  uint64_t Selection = ~uint64_t{0};
   std::optional<Generators::PreparedBuildingAssets::BaseWrite> BasePublication;
   std::optional<Generators::PreparedBuildingAssets::GeometryWrite> Geometry;
   std::optional<Generators::BakedTile> PendingTile;
@@ -713,10 +733,11 @@ void StructureBuildTask::UseTerrainContacts() {
   Payload_->Requested = Payload::Product::TerrainContacts;
 }
 
-void StructureBuildTask::UseInitialCells() {
+void StructureBuildTask::UseInitialCells(uint64_t selected) {
   assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
          !Payload_->Raw->RequestedDetail);
   Payload_->Native->Cells = 0;
+  Payload_->Native->Selection = selected;
 }
 
 uint64_t StructureBuildTask::InitialCells() const noexcept {
