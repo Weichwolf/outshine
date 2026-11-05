@@ -56,9 +56,7 @@ int Write(sqlite3_file *file, const void *data, int bytes, sqlite3_int64 offset)
   const int sized = f.Native->pMethods->xFileSize(f.Native, &previous);
   if (sized != SQLITE_OK) { return sized; }
   const auto end = offset + bytes;
-  if (!f.Wal && end <= previous) {
-    return f.Native->pMethods->xWrite(f.Native, data, bytes, offset);
-  }
+  if (end <= previous) { return f.Native->pMethods->xWrite(f.Native, data, bytes, offset); }
   State::Mutation mutation(*f.Owner);
   const int admitted = mutation.Admit(f.Path, static_cast<uint64_t>(end), f.Wal);
   return admitted == SQLITE_OK ? f.Native->pMethods->xWrite(f.Native, data, bytes, offset)
