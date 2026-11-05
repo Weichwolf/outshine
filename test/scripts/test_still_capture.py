@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,7 +31,7 @@ class StillCapture(unittest.TestCase):
         self.source = self.work / "scene.scenario"
         self.source.write_text(SCENE)
 
-    def capture(self, output):
+    def capture(self, output, *arguments):
         return subprocess.run(
             [
                 str(CLIENT),
@@ -42,6 +43,7 @@ class StillCapture(unittest.TestCase):
                 str(self.work / "sources"),
                 "--into",
                 str(output),
+                *arguments,
                 str(self.source),
                 "Still",
             ],
@@ -85,6 +87,28 @@ class StillCapture(unittest.TestCase):
         self.assertEqual(output.read_bytes(), b"existing content")
         self.assertIn("capture output directory", result.stdout + result.stderr)
         self.assertIn("\tstatus\tfailed\t", result.stdout)
+
+    def test_selected_view_captures_the_requested_refined_world(self):
+        output = self.work / "selected"
+        result = self.capture(
+            output, "--view", "station", "--at-seconds", "0", "--quality", "refined"
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("STAT\tStill\trequested_quality\trefined\tquality", result.stdout)
+        self.assertEqual(len(list(output.glob("*.png"))), 1)
+
+    def test_unknown_view_is_rejected_before_unavailable_world_data(self):
+        source = ET.fromstring(SCENE)
+        world = source.find("world")
+        world.remove(world.find("relief"))
+        world.remove(world.find("osm"))
+        ET.ElementTree(source).write(self.source)
+        result = self.capture(
+            self.work / "missing", "--view", "missing", "--at-seconds", "0"
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("view selection: the scenario declares no view", result.stderr)
+        self.assertNotIn("preload", result.stderr)
 
 
 if __name__ == "__main__":

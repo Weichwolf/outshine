@@ -3,11 +3,11 @@
 import csv
 import json
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
@@ -17,7 +17,7 @@ class MotionProfiles(unittest.TestCase):
     def test_fixed_physics_reaches_same_pose_at_each_render_rate(self):
         with tempfile.TemporaryDirectory(prefix='outshine-motion-profiles-') as directory:
             work = Path(directory)
-            (work / 'src').symlink_to(ROOT / 'src', target_is_directory=True)
+            (work / 'data').symlink_to(ROOT / 'data', target_is_directory=True)
             (work / 'build').mkdir()
             source = ET.parse(ROOT / 'test/outshine/data/diagnostic-places/Hockenheimring.scenario')
             ET.SubElement(source.getroot().find('world'), 'relief',
@@ -33,7 +33,8 @@ class MotionProfiles(unittest.TestCase):
                          '--motion', '--rows', '--offline', '--cache-dir', str(work / 'sources'),
                          '--into', str(folder), '--scenario-overrides',
                          json.dumps({'render': {'widthPx': 160, 'heightPx': 90, 'fps': rate}}),
-                         str(path), 'Route'], cwd=work, capture_output=True, text=True, timeout=60)
+                         str(path), 'Route'], cwd=work, capture_output=True, text=True, timeout=60,
+                        check=False)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     rows = [line.split('\t') for line in result.stdout.splitlines()]
                     motion = next(row for row in rows if row[0] == 'MOTION')

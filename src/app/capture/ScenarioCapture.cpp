@@ -207,6 +207,29 @@ PrepareCapturePath(Engine &engine, std::string_view viewId, double durationS) {
   return route;
 }
 
+[[nodiscard]] Result PrepareCaptureView(Engine &engine, const ScenarioCaptureOptions &options) {
+  const bool route = std::ranges::any_of(engine.declaration().Views, [&](const auto &view) {
+    return view.Id == options.View && view.Placement == Scenario::CameraPlacement::Route;
+  });
+  if (route) {
+    if (const auto ready = engine.preload(kPreloadBudgetS); !ready) {
+      return std::unexpected(Refusal("route prerequisites", ready.error()));
+    }
+  }
+  if (const auto selected = engine.setView(options.View); !selected) {
+    return std::unexpected(Refusal("view selection", selected.error()));
+  }
+  if (!route) {
+    const WorldQuality quality =
+        options.AwaitRefined ? WorldQuality::Refined : WorldQuality::Playable;
+    const double budgetS = options.AwaitRefined ? kRefinedPreloadBudgetS : kPreloadBudgetS;
+    if (const auto ready = engine.preload(budgetS, quality); !ready) {
+      return std::unexpected(Refusal("capture world preload", ready.error()));
+    }
+  }
+  return {};
+}
+
 [[nodiscard]] std::expected<MotionContact, std::string>
 ReadPublishedRoadContact(const Engine &engine, std::string_view routeId, const MotionState &state) {
   const auto pose = engine.sampleRoute(routeId, state.StationM);
@@ -412,11 +435,8 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   }
   const auto timing = FrameTiming::At(engine.declaration().Render.FrameRateHz);
   if (!timing) { return std::unexpected(timing.error()); }
-  if (const auto ready = engine.preload(kPreloadBudgetS); !ready) {
-    return std::unexpected(Refusal("initial world preload", ready.error()));
-  }
-  if (const auto selected = engine.setView(options.View); !selected) {
-    return std::unexpected(Refusal("view selection", selected.error()));
+  if (const auto ready = PrepareCaptureView(engine, options); !ready) {
+    return std::unexpected(ready.error());
   }
   const double stepS = options.RenderMotion ? 1.0 / timing->RateHz : engine.stepSeconds();
   if (!std::isfinite(stepS) || stepS <= 0.0) {
