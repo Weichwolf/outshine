@@ -42,6 +42,10 @@ class SourceGeometryCostsTests(unittest.TestCase):
         self.assertEqual(rows["unknown"]["sources"], 1)
         self.assertEqual(rows["fine"]["sources"], 1)
         self.assertEqual(sum(row["sources"] for row in rows.values()), 4)
+        admission = report["cell_parent_admission"]
+        self.assertEqual(admission["generate_groups"], 0)
+        self.assertEqual(admission["keep_parent_cells"], [1])
+        self.assertEqual(admission["deferred_known_sources"], 3)
 
     def test_unresolved_members_never_poison_known_recipe_groups(self):
         data, _, _ = index()

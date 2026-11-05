@@ -17,6 +17,7 @@ import numpy as np
 from panoramic_geometry_cut import PanoramicView
 from source_geometry_cut import GeometrySources
 from source_product_cut import SourceProducts
+from source_product_admission import admit, ordinals
 
 
 MEMBER = np.dtype([("cell", "<u4"), ("field", "u1"), ("faces", "<u4"), ("shell", "<f8")])
@@ -151,9 +152,29 @@ def cut(sources, eye, viewport, focal, allowed, hulls):
     unknown_cells = {group["cell"] for group in groups if group["kind"] == "unknown"}
     return {"visited_nodes": visited, "representations": kinds,
             "groups": groups,
+            "cell_parent_admission": cell_parent_admission(groups),
             "known_fine_sources_sharing_cells_with_unknown": sum(
                 sum(count for _, count in group["source_ranges"])
                 for group in groups if group["kind"] == "fine" and group["cell"] in unknown_cells)}
+
+
+def cell_parent_admission(groups):
+    cells = {}
+    for group in groups:
+        cells.setdefault(group["cell"], []).extend(ordinals(group["source_ranges"]))
+    parents = [ranges(members) for members in cells.values()]
+    decision = admit(parents, groups)
+    accepted = set(decision["generate"])
+    deferred = [group for at, group in enumerate(groups)
+                if at not in accepted and group["kind"] != "unknown"]
+    return {"scope": "model: one indivisible original parent per source cell; not resident World coverage",
+            "generate_groups": len(accepted),
+            "keep_parent_cells": [cell for at, cell in enumerate(cells)
+                                  if at in decision["keep_parents"]],
+            "deferred_known_groups": len(deferred),
+            "deferred_known_sources": sum(count for group in deferred
+                                           for _, count in group["source_ranges"]),
+            "deferred_source_faces": sum(group["source_faces"] for group in deferred)}
 
 
 def ecef(latitude, longitude, height):
