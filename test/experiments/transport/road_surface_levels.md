@@ -81,3 +81,15 @@ straight-approach controls; their original curved routes, stairs, bridges and fa
 final junction plan are not reconstructed by that test. Separate controls cover imposed
 contact movement, reversed rings and a source-frame Float32 precision floor. These are
 endpoint/model tests, not a complete native transport-corpus or World acceptance.
+
+`ProfiledRoadMesher(RoadDisplayRequest)` integrates sampling into the existing fitted
+profile path: no Fine mesh is built first. Sampling pose/station budgets span all
+fitted pieces in one Sweep; fitting and unchanged corner construction are separate work.
+The default mesher retains the original path. Display mode accepts Upper surfaces only;
+failed sampling or a failed required corner rolls back all four appended vertex/index
+streams while preserving preexisting mesh contents. No silent Fine fallback is emitted
+under a coarse request. Page publication must still require complete source coverage.
+The 1024 m planar straight control emits six rather than 192 triangles with identical
+contact words; this is a control-case geometry reduction, not a Tokyo or GPU speedup.
+World/page demand, canonical recipe persistence and independently keyed cached display
+products remain unconnected.

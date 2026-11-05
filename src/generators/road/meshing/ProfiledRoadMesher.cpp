@@ -14,6 +14,7 @@
 #include <string>
 #include <cstddef>
 #include <vector>
+#include <utility>
 
 namespace outshine::Generators {
 
@@ -99,7 +100,8 @@ bool LayPiece(std::span<const double> eastNorthM,
               ElevationSamples elevation,
               const RoadSweep &how,
               RoadMeshBuffers &into,
-              RoadMeshingRejections &rejections) {
+              RoadMeshingRejections &rejections,
+              RoadDisplayRequest *display) {
   ReferenceLine line;
   double tightestM = 0.0;
   if (!FitPiece(eastNorthM, line, tightestM, rejections)) { return false; }
@@ -135,13 +137,30 @@ bool LayPiece(std::span<const double> eastNorthM,
   }
 
   std::vector<double> requiredStations;
-  requiredStations.reserve(rise.size());
-  for (const Knot &knot : rise) { requiredStations.push_back(knot.AlongM); }
+  double step = line.LengthM();
+  if (display != nullptr) {
+    auto plan = SampleRoadDisplay(line,
+                                  RoadSection(how.HalfWidthM, how.Profile),
+                                  display->ErrorM,
+                                  display->Limits,
+                                  RoadRibbonContacts(how));
+    if (!plan) {
+      ++rejections.Sweep;
+      return false;
+    }
+    display->Limits.PoseQueriesMost -= plan->PoseQueries;
+    display->Limits.StationsMost -= plan->StationsM.size();
+    requiredStations = std::move(plan->StationsM);
+  } else {
+    step = StepFor(tightestM);
+    requiredStations.reserve(rise.size());
+    for (const Knot &knot : rise) { requiredStations.push_back(knot.AlongM); }
+  }
   const Ribbon woven = Sweep(line,
                              RoadSection(how.HalfWidthM, how.Profile),
                              0.0,
                              line.LengthM(),
-                             StepFor(tightestM),
+                             step,
                              how.Form,
                              requiredStations);
   if (!woven.Woven) {
@@ -164,54 +183,74 @@ PieceSettings(RoadSweep how, std::span<const RoadStation> along, size_t first, s
   return how;
 }
 
-}
+struct RoadSamples {
+  std::vector<double> EastNorth;
+  std::vector<double> Grade;
+  std::vector<double> Reached;
+};
 
-RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
-                                           RoadSweep how,
-                                           RoadMeshBuffers &into) const {
-  const double halfWidthM = how.HalfWidthM;
-  const Vec3f &wearsLinear = how.WearsLinear;
-  RoadMeshingStats tally;
-  RoadMeshingRejections &rejections = tally.Rejections;
-  if (along.size() < 2 || !(halfWidthM > 0.0)) { return tally; }
-
-  std::vector<double> eastNorth;
-  std::vector<double> grade;
-  std::vector<double> reached;
-  eastNorth.reserve(along.size() * 2u);
-  grade.reserve(along.size());
-  reached.reserve(along.size());
+RoadSamples GatherRoadSamples(std::span<const RoadStation> along) {
+  RoadSamples result;
+  result.EastNorth.reserve(along.size() * 2u);
+  result.Grade.reserve(along.size());
+  result.Reached.reserve(along.size());
   for (size_t one = 0; one < along.size(); ++one) {
-    eastNorth.push_back(along[one].EastM);
-    eastNorth.push_back(along[one].NorthM);
-    grade.push_back(along[one].GradeM);
+    result.EastNorth.push_back(along[one].EastM);
+    result.EastNorth.push_back(along[one].NorthM);
+    result.Grade.push_back(along[one].GradeM);
     if (one == 0) {
-      reached.push_back(0.0);
+      result.Reached.push_back(0.0);
     } else {
       const double spanE = along[one].EastM - along[one - 1u].EastM;
       const double spanN = along[one].NorthM - along[one - 1u].NorthM;
-      reached.push_back(reached[one - 1u] + std::sqrt(spanE * spanE + spanN * spanN));
+      result.Reached.push_back(result.Reached[one - 1u] + std::sqrt(spanE * spanE + spanN * spanN));
     }
   }
 
+  return result;
+}
+
+bool AppendRoadCorner(const ProfiledRoadMesher &mesher,
+                      std::span<const RoadStation> along,
+                      size_t at,
+                      const RoadSweep &surface,
+                      RoadMeshBuffers &mesh) {
+  if (at == 0 || at + 1 >= along.size()) { return true; }
+  const Section section = RoadSection(surface.HalfWidthM, surface.Profile);
+  const std::array gates{RoadEndGate(along.subspan(at - 1, 2), true, section),
+                         RoadEndGate(along.subspan(at, 2), false, section)};
+  const size_t before = mesh.Index.size();
+  mesher.Junction(gates, {}, surface.WearsLinear, mesh);
+  return mesh.Index.size() != before;
+}
+
+RoadMeshingStats AppendRoadPieces(const ProfiledRoadMesher &mesher,
+                                  std::span<const RoadStation> along,
+                                  const RoadSweep &how,
+                                  const RoadSamples &samples,
+                                  RoadMeshBuffers &into,
+                                  RoadDisplayRequest *display) {
+  RoadMeshingStats tally;
+  RoadMeshingRejections &rejections = tally.Rejections;
   size_t from = 0;
   while (from + 2u <= along.size()) {
     ReferenceLine probe;
-    const CurveFitResult got =
-        Fit(std::span<const double>(eastNorth.data() + from * 2u, (along.size() - from) * 2u),
-            kLayWithinM,
-            kLayTightestM,
-            probe);
+    const CurveFitResult got = Fit(
+        std::span<const double>(samples.EastNorth.data() + from * 2u, (along.size() - from) * 2u),
+        kLayWithinM,
+        kLayTightestM,
+        probe);
     const size_t upTo = got.Succeeded ? along.size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
     if (count >= 2u) {
       const RoadSweep piece = PieceSettings(how, along.subspan(from, count), from, along.size());
-      if (LayPiece(std::span<const double>(eastNorth.data() + from * 2u, count * 2u),
-                   {.GradeM = std::span<const double>(grade.data() + from, count),
-                    .ReachedM = std::span<const double>(reached.data() + from, count)},
+      if (LayPiece(std::span<const double>(samples.EastNorth.data() + from * 2u, count * 2u),
+                   {.GradeM = std::span<const double>(samples.Grade.data() + from, count),
+                    .ReachedM = std::span<const double>(samples.Reached.data() + from, count)},
                    piece,
                    into,
-                   rejections)) {
+                   rejections,
+                   display)) {
         ++tally.Pieces;
       } else {
         ++tally.Refused;
@@ -220,22 +259,51 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
       ++tally.Refused;
       ++rejections.TooShort;
     }
+    if (display != nullptr && tally.Refused != 0) { break; }
     if (got.Succeeded) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {
       ++tally.Refused;
       break;
     }
     ++tally.Cuts;
-    {
-      const size_t at = from + upTo;
-      if (at > 0 && at + 1u < along.size()) {
-        const Section section = RoadSection(halfWidthM, how.Profile);
-        const std::array corner{RoadEndGate(along.subspan(at - 1, 2), true, section),
-                                RoadEndGate(along.subspan(at, 2), false, section)};
-        Junction(std::span<const RoadGate>(corner.data(), 2), {}, wearsLinear, into);
-      }
+    const bool joined = AppendRoadCorner(mesher, along, from + upTo, how, into);
+    if (display != nullptr && !joined) {
+      ++tally.Refused;
+      ++rejections.Sweep;
+      break;
     }
     from += upTo;
+  }
+  return tally;
+}
+
+}
+
+RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
+                                           RoadSweep how,
+                                           RoadMeshBuffers &into) const {
+  const double halfWidthM = how.HalfWidthM;
+  RoadMeshingStats tally;
+  RoadMeshingRejections &rejections = tally.Rejections;
+  if (along.size() < 2 || !(halfWidthM > 0.0) || (Display_ && how.Form != RibbonForm::Surface)) {
+    if (Display_) {
+      tally.Refused = 1;
+      ++rejections.Sweep;
+    }
+    return tally;
+  }
+  const std::array before{
+      into.PositionM.size(), into.NormalM.size(), into.ColourRgba.size(), into.Index.size()};
+  auto display = Display_;
+
+  const auto samples = GatherRoadSamples(along);
+  tally = AppendRoadPieces(*this, along, how, samples, into, display ? &*display : nullptr);
+  if (display && tally.Refused != 0) {
+    into.PositionM.resize(before[0]);
+    into.NormalM.resize(before[1]);
+    into.ColourRgba.resize(before[2]);
+    into.Index.resize(before[3]);
+    tally.Pieces = 0;
   }
   return tally;
 }

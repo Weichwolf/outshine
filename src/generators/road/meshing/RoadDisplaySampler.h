@@ -17,6 +17,11 @@ struct RoadDisplayLimits {
   size_t PoseQueriesMost = 0;
 };
 
+struct RoadDisplayRequest {
+  double ErrorM = 0;
+  RoadDisplayLimits Limits;
+};
+
 struct RoadDisplayPlan {
   std::vector<double> StationsM;
   double PositionBoundM = 0;
