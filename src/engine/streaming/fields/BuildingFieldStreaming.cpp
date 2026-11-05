@@ -170,18 +170,19 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
 
 void BuildingFieldStreaming::State::RequestOne(Context &context) {
   for (const auto &tile : Tiles) {
-    for (const auto &cell : tile.Cells) {
-      if (std::ranges::any_of(cell.Groups,
-                              [](const Group &g) { return g.Where == Phase::Pending; })) {
-        return;
-      }
+    if (std::ranges::any_of(tile.Cells, [](const Cell &cell) {
+          return std::ranges::any_of(cell.Groups,
+                                     [](const Group &g) { return g.Where == Phase::Pending; });
+        })) {
+      return;
     }
   }
   for (auto &tile : Tiles) {
+    const auto source =
+        StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
+    if (source != tile.SourceKey) { continue; }
     for (auto &cell : tile.Cells) {
-      if (tile.Originals.empty() || cell.Where == Phase::Rejected || cell.Where == Phase::Ready) {
-        continue;
-      }
+      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { continue; }
       for (auto &group : cell.Groups) {
         if (RequestGroup(context, tile, cell, group)) { return; }
         if (cell.Where == Phase::Rejected) { break; }

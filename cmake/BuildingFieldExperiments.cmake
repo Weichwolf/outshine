@@ -7,5 +7,6 @@ target_link_libraries(test_harness_building_source_capture PUBLIC
   outshine_engine_streaming outshine_core PkgConfig::nlohmann_json)
 
 set(building_field_gpu_cases
+  outshine/integration/engine/streaming/fields/BuildingFieldStreaming/MetadataPrecedesOriginalGeometry
   outshine/integration/engine/streaming/fields/BuildingFieldRequest/WorldDescriptorsResolveOnlyTheirRequestedField
   outshine/integration/render/impostor/ImpostorViewAssets/CachedViewsPreservePublishedWorlds)
