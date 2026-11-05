@@ -114,6 +114,7 @@ struct EncoderProfileSession {
   std::filesystem::path Output;
   std::mutex Mutex;
   std::vector<ProfiledSubmission> Submissions;
+  size_t NextSubmission = 0;
   uint64_t Dropped = 0;
   uint64_t AllocationFailures = 0;
   double CollectCpuNs = 0;
@@ -124,15 +125,16 @@ struct EncoderProfileSession {
       std::println(stderr, "Metal encoder profile: cannot write {}", Output.c_str());
       return;
     }
-    stream << std::boolalpha << std::setprecision(std::numeric_limits<double>::max_digits10)
-           << R"({"schema":1,"scope":"natural_encoder_boundaries",)"
-           << R"("counter_ticks_require_calibration":true,"dropped_submissions":)" << Dropped
-           << R"(,"allocation_failures":)" << AllocationFailures << R"(,"collect_cpu_ns":)";
+    stream
+        << std::boolalpha << std::setprecision(std::numeric_limits<double>::max_digits10)
+        << R"({"schema":1,"scope":"natural_encoder_boundaries",)"
+        << R"("counter_ticks_require_calibration":true,"retention":"latest_completed_submissions","dropped_submissions":)"
+        << Dropped << R"(,"allocation_failures":)" << AllocationFailures << R"(,"collect_cpu_ns":)";
     Number(stream, CollectCpuNs);
     stream << R"(,"submissions":[)";
     for (size_t at = 0; at < Submissions.size(); ++at) {
       if (at != 0) { stream << ','; }
-      WriteSubmission(stream, Submissions[at]);
+      WriteSubmission(stream, Submissions[(NextSubmission + at) % Submissions.size()]);
     }
     stream << "]}\n";
     stream.close();
@@ -297,6 +299,8 @@ void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,
   if (session->Submissions.size() < kMaxSubmissions) {
     session->Submissions.push_back(std::move(submission));
   } else {
+    session->Submissions[session->NextSubmission] = std::move(submission);
+    session->NextSubmission = (session->NextSubmission + 1) % kMaxSubmissions;
     ++session->Dropped;
   }
   session->CollectCpuNs +=

@@ -37,7 +37,7 @@ def probe(output):
     row = next(
         item for item in database if item["file"].endswith("/MetalEncoderProfile.mm")
     )
-    if Path(row["directory"]).resolve() != ROOT:
+    if not Path(row["directory"]).resolve().is_relative_to(ROOT):
         raise ValueError("build a compilation database for this checkout first")
     flags = row.get("arguments") or shlex.split(row["command"])
     flags = flags.copy()
@@ -104,6 +104,12 @@ def probe(output):
 
 
 def benchmark_window(document, benchmark):
+    if document.get("allocation_failures", 0):
+        raise ValueError("the diagnostic trace has allocation failures")
+    if document.get("dropped_submissions", 0) and document.get("retention") != (
+        "latest_completed_submissions"
+    ):
+        raise ValueError("the diagnostic trace has unknown missing submissions")
     gpu = benchmark["gpu_times"]
     frames = benchmark["motion"]["frames"]
     samples = gpu["samples"]
@@ -167,7 +173,9 @@ def gpurow_window(document, log):
 
 def analyse(trace, log, output, benchmark=None):
     document = json.loads(trace.read_text())
-    if document["dropped_submissions"] or document["allocation_failures"]:
+    if document["allocation_failures"] or (
+        document["dropped_submissions"] and benchmark is None
+    ):
         raise ValueError("the diagnostic trace is incomplete")
     window = (
         benchmark_window(document, json.loads(benchmark.read_text()))

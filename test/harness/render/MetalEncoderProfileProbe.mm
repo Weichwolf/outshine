@@ -89,7 +89,7 @@ void Exercise(id<MTLDevice> device, const std::filesystem::path &prefix, Encoder
       pass.colorAttachments[0].texture = target;
       pass.colorAttachments[0].loadAction = MTLLoadActionClear;
       pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-      ProfileRenderEncoder(profile.get(), pass);
+      ProfileRenderEncoder(profile.get(), pass, "retention-boundary");
       const id<MTLRenderCommandEncoder> encoder =
           [commands renderCommandEncoderWithDescriptor:pass];
       [encoder endEncoding];
@@ -109,6 +109,52 @@ void Exercise(id<MTLDevice> device, const std::filesystem::path &prefix, Encoder
               .Dropped = compute ? 0u : overCapacity - capacity,
               .Label = compute ? label : nil});
 }
+
+void RetainLatest(id<MTLDevice> device, const std::filesystem::path &prefix) {
+  CHECK(SDL_SetEnvironmentVariable(
+            SDL_GetEnvironment(), "OUTSHINE_METAL_ENCODER_PROFILE", prefix.c_str(), true),
+        "the retention probe owns its output prefix");
+  constexpr uint64_t identity = 78;
+  constexpr uint64_t submitted = 300;
+  constexpr uint64_t retained = 256;
+  auto session = CreateEncoderProfileSession(device, identity);
+  CHECK(session, "the retention probe has a timestamp session");
+  if (!session) { return; }
+  const id<MTLCommandQueue> queue = [device newCommandQueue];
+  for (uint64_t serial = 1; serial <= submitted; ++serial) {
+    @autoreleasepool {
+      const auto profile = CreateEncoderProfile(session);
+      CHECK(profile, "each retained submission has a real timestamp buffer");
+      if (!profile) { return; }
+      MTLComputePassDescriptor *const pass = [MTLComputePassDescriptor computePassDescriptor];
+      ProfileComputeEncoder(*profile, pass, @"retention");
+      const id<MTLCommandBuffer> commands = [queue commandBuffer];
+      const id<MTLComputeCommandEncoder> encoder =
+          [commands computeCommandEncoderWithDescriptor:pass];
+      [encoder endEncoding];
+      [commands commit];
+      [commands waitUntilCompleted];
+      CHECK(commands.status == MTLCommandBufferStatusCompleted, "the submission completed");
+      if (commands.status != MTLCommandBufferStatusCompleted) { return; }
+      CollectEncoderProfile(profile, commands, serial);
+    }
+  }
+  session.reset();
+  NSString *const file = [NSString stringWithUTF8String:Output(prefix, identity).c_str()];
+  NSData *const data = [NSData dataWithContentsOfFile:file];
+  NSError *error = nil;
+  NSDictionary *const document =
+      data != nil ? [NSJSONSerialization JSONObjectWithData:data options:0 error:&error] : nil;
+  CHECK(document != nil && error == nil, "the wrapped trace is valid JSON");
+  NSArray *const submissions = document[@"submissions"];
+  CHECK(submissions.count == retained, "retention stays bounded after wrapping");
+  CHECK([document[@"dropped_submissions"] unsignedLongLongValue] == submitted - retained,
+        "evicted preload submissions remain explicit");
+  for (size_t at = 0; at < submissions.count; ++at) {
+    CHECK([submissions[at][@"serial"] unsignedLongLongValue] == submitted - retained + at + 1,
+          "the latest completed submissions retain their order across wraparound");
+  }
+}
 }
 
 int main(int argc, char *const *argv) {
@@ -126,6 +172,7 @@ int main(int argc, char *const *argv) {
     CHECK(!CreateEncoderProfileSession(device, 1), "non-temp diagnostic output is rejected");
     Exercise(device, std::filesystem::path(argv[1]) / "quota", EncoderKind::Render);
     Exercise(device, std::filesystem::path(argv[1]) / "labels", EncoderKind::Compute);
+    RetainLatest(device, std::filesystem::path(argv[1]) / "retention");
   }
   return Report();
 }

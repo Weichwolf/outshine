@@ -25,7 +25,9 @@ Sample buffers, metadata and their session remain owned through GPU completion.
 The completion callback resolves shared counter storage after the GPU has finished;
 no texture readback, extra GPU transfer, encoder or fence is added. Formatting and
 file IO happen after the retained session dies. Bounds:128encoders per submission,
-256completed submissions per device. Dropped records, allocation failures and
+The latest256completed submissions per device are retained in completion order.
+Older submissions are evicted so a long preload cannot fill the trace before
+the measurement window. Dropped records, allocation failures and
 unavailable samples stay explicit. Counter collection CPU cost is measured; buffer
 creation and GPU sampling overhead are not isolated or claimed free.
 
@@ -67,7 +69,7 @@ the trace but are excluded by IDs. Tests reject swapped durations with equal
 totals, missing/duplicate/reordered/cross-device samples and incomplete windows.
 Historical GPUROW logs can use `--log`: exactly one complete GPUROW is required,
 and the serial-ordered trace tail must reproduce its entire measured sum. A wrong
-fresh-process log, mismatched windows, dropped records and unavailable samples
+fresh-process log, mismatched windows, dropped measured records and unavailable samples
 are refused rather than converted into timings.
 
 ## Current e2ae80985 countercheck

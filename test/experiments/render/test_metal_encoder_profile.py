@@ -33,6 +33,17 @@ def inputs():
 
 
 class MetalBenchmarkWindow(unittest.TestCase):
+    def test_evicted_preload_is_allowed_only_with_a_complete_matched_window(self):
+        document, benchmark = inputs()
+        document["dropped_submissions"] = 300
+        with self.assertRaises(ValueError):
+            benchmark_window(document, benchmark)
+        document["retention"] = "latest_completed_submissions"
+        self.assertEqual(len(benchmark_window(document, benchmark)), 2)
+        document["submissions"] = document["submissions"][2:]
+        with self.assertRaises(ValueError):
+            benchmark_window(document, benchmark)
+
     def test_historical_gpurow_keeps_its_exact_tail_sum_check(self):
         document, _ = inputs()
         document["submissions"] = document["submissions"][1:3]
