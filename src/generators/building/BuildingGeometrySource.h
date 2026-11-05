@@ -19,6 +19,7 @@ public:
     uint64_t SourceCount = 0;
     std::vector<uint32_t> Sources;
     LevelOfDetail Detail = LevelOfDetail::Fine;
+    uint32_t ClusterTriangles = 128;
     [[nodiscard]] std::string Key() const;
   };
 

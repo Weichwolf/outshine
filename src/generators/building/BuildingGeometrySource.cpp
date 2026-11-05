@@ -9,6 +9,7 @@
 #include "AssetPublication.h"
 #include "BinaryValueArchive.h"
 #include "GeometryProductCodec.h"
+#include "ClusterCook.h"
 #include "TileGeodesy.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -48,11 +49,11 @@ bool Matches(const GeometryAsset::Description &layout,
              std::span<const uint32_t> selected) {
   if (!layout.Coverage) { return false; }
   const auto expected = SourceCoverage::FromSources(recipe.BaseKey, recipe.SourceCount, selected);
-  return expected && *expected == *layout.Coverage;
+  return expected && layout.ClusteredParts != 0 && *expected == *layout.Coverage;
 }
 
-std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup group,
-                                                           const std::string &revision) {
+std::expected<GeometryAsset::Product, std::string>
+Convert(BakedStructureGroup group, const std::string &revision, uint32_t clusterTriangles) {
   const auto geo = Ground::EcefToGeoWgs84(
       {.X = group.AnchorEcef[0], .Y = group.AnchorEcef[1], .Z = group.AnchorEcef[2]});
   const BuildingCaptureFrame frame{
@@ -61,6 +62,7 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
   auto geometry = Materials();
   if (!geometry) { return std::unexpected(geometry.error()); }
   Box bounds;
+  std::vector<std::vector<DagCluster>> clusters;
   const auto &raised = group.Mesh;
   const std::array parts{BuildingMeshPart{.Vertices = raised.WallCorners,
                                           .Indices = raised.WallRun,
@@ -74,6 +76,10 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
     if (parts[at].Vertices.empty()) { continue; }
     auto mesh = ConvertBuildingMesh(parts[at], frame.Axes);
     if (!mesh) { return std::unexpected(std::string(mesh.error())); }
+    auto cooked =
+        CookClusters({.PositionsM = mesh->PositionsM, .Indices = mesh->Indices}, clusterTriangles);
+    if (!cooked) { return std::unexpected(std::string(Describe(cooked.error()))); }
+    mesh->Indices = std::move(cooked->Index);
     for (size_t vertex = 0; vertex < mesh->PositionsM.size(); vertex += 3) {
       bounds.Cover(Vec3{
           {mesh->PositionsM[vertex], mesh->PositionsM[vertex + 1], mesh->PositionsM[vertex + 2]}});
@@ -84,6 +90,7 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
     if (!part || !geometry->adoptMesh(*part, *mesh)) {
       return std::unexpected("invalid native building group geometry");
     }
+    clusters.push_back(std::move(cooked->Clusters));
   }
   auto coverage = SourceCoverage::FromSources(revision, group.SourceCount, group.Sources);
   if (!coverage || bounds.Empty()) { return std::unexpected("incomplete native building group"); }
@@ -96,16 +103,19 @@ std::expected<GeometryAsset::Product, std::string> Convert(BakedStructureGroup g
   }
   world.SetTranslation(group.AnchorEcef);
   return GeometryAsset::Product{
-      .Layout = {.Bounds = bounds, .WorldFromLocal = world, .Coverage = std::move(*coverage)},
+      .Layout = {.Bounds = bounds,
+                 .WorldFromLocal = world,
+                 .Coverage = std::move(*coverage),
+                 .ClusteredParts = static_cast<uint32_t>(clusters.size())},
       .Mesh = std::move(*geometry),
-      .Clusters = {}};
+      .Clusters = std::move(clusters)};
 }
 }
 
 std::string BuildingGeometrySource::Recipe::Key() const {
   if ((Detail != LevelOfDetail::Fine && Detail != LevelOfDetail::Shell) ||
       !AssetProductKey::Parse(BaseKey) || SourceCount == 0 || Sources.empty() ||
-      Sources.size() > std::numeric_limits<uint32_t>::max()) {
+      Sources.size() > std::numeric_limits<uint32_t>::max() || ClusterTriangles == 0) {
     return {};
   }
   const auto sources = Canonical(*this);
@@ -117,9 +127,9 @@ std::string BuildingGeometrySource::Recipe::Key() const {
   const auto encoded = EncodeGeometryProduct(*materials, std::numeric_limits<size_t>::max());
   if (!encoded) { return {}; }
   BinaryValueWriter out(std::numeric_limits<size_t>::max());
-  const char *const family = Detail == LevelOfDetail::Fine ? "building-native-fine-group-1"
-                                                           : "building-native-shell-group-1";
-  if (!out.Text(family) || !out.Text(BaseKey) || !out(SourceCount) ||
+  const char *const family = Detail == LevelOfDetail::Fine ? "building-native-fine-group-2"
+                                                           : "building-native-shell-group-2";
+  if (!out.Text(family) || !out.Text(BaseKey) || !out(SourceCount, ClusterTriangles) ||
       !out.Array<uint32_t>(sources) || !out.Out.Put(*encoded)) {
     return {};
   }
@@ -171,11 +181,11 @@ BuildingGeometrySource::Resolve(AssetCache &cache,
     }
     return std::unexpected(std::string(Describe(baked.error())));
   }
-  auto product = Convert(std::move(*baked), recipe.BaseKey);
+  auto product = Convert(std::move(*baked), recipe.BaseKey, recipe.ClusterTriangles);
   if (!product) { return product; }
   if (stop.stop_requested()) { return std::unexpected("building group generation cancelled"); }
-  const auto stored = GeometryAsset::Publish(
-      cache, key, recipe.BaseKey, product->Layout, product->Mesh, budget.EncodedBytesMost);
+  const auto stored =
+      GeometryAsset::Publish(cache, key, recipe.BaseKey, *product, budget.EncodedBytesMost);
   if (!stored) { return std::unexpected("native building group publication failed"); }
   return product;
 }

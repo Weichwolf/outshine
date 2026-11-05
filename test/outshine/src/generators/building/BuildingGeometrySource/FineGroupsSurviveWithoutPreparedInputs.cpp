@@ -9,6 +9,7 @@
 #include "SourceSet.h"
 #include "GeometryProductCodec.h"
 #include "Check.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -59,8 +60,10 @@ void CheckKeys(const std::string &key) {
       .BaseKey = key, .SourceCount = 2, .Sources = {0, 0}};
   const BuildingGeometrySource::Recipe other{
       .BaseKey = std::string(64, 'b'), .SourceCount = 2, .Sources = {0, 1}};
+  auto differentlyClustered = recipe;
+  differentlyClustered.ClusterTriangles = 1;
   CHECK(!recipe.Key().empty() && reordered.Key() == recipe.Key() && duplicate.Key().empty() &&
-            other.Key() != recipe.Key(),
+            other.Key() != recipe.Key() && differentlyClustered.Key() != recipe.Key(),
         "group identity is canonical, revision bound and unambiguous");
 }
 
@@ -120,7 +123,8 @@ void Exercise(const std::filesystem::path &root) {
   if (!base || !*base) { return; }
   CheckKeys(key);
   CheckShell(*cache, **assets, key, **base);
-  const BuildingGeometrySource::Recipe recipe{.BaseKey = key, .SourceCount = 2, .Sources = {0}};
+  const BuildingGeometrySource::Recipe recipe{
+      .BaseKey = key, .SourceCount = 2, .Sources = {0}, .ClusterTriangles = 2};
   auto denied = kBudget;
   denied.TriangleAttempts = 1;
   CHECK(!BuildingGeometrySource::Resolve(*cache, assets->get(), recipe, denied),
@@ -131,6 +135,16 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(product && product->Layout.Coverage && product->Layout.Coverage->SourceCount() == 2,
         "the render group retains its complete immutable source domain");
   if (!product || !product->Layout.Coverage) { return; }
+  CHECK(
+      product->Layout.ClusteredParts == product->Clusters.size() &&
+          std::ranges::all_of(product->Clusters,
+                              [&](const auto &part) {
+                                return std::ranges::all_of(part, [&](const auto &cluster) {
+                                  return cluster.Count <= recipe.ClusterTriangles * 3 &&
+                                         cluster.SelfErr == 0 && cluster.ParentErr == kDagRootErr;
+                                });
+                              }),
+      "native clusters obey their recipe and preserve the exact geometry without lower LOD error");
   const auto coverage = SourceCoverage::FromSources(key, 2, recipe.Sources);
   CHECK(coverage && *product->Layout.Coverage == *coverage,
         "one selected source does not claim its unselected neighbour");
@@ -152,8 +166,10 @@ void Exercise(const std::filesystem::path &root) {
       *fresh, nullptr, recipe, {.EncodedBytesMost = kBytes, .TriangleAttempts = 0});
   CHECK(hit && EncodeGeometryProduct(hit->Mesh, kBytes) == encoded &&
             hit->Layout.Coverage == product->Layout.Coverage &&
-            hit->Layout.WorldFromLocal == product->Layout.WorldFromLocal,
-        "a fresh hit restores materials, geometry, frame and exact coverage without its producer");
+            hit->Layout.WorldFromLocal == product->Layout.WorldFromLocal &&
+            hit->Clusters == product->Clusters && !hit->Clusters.empty(),
+        "a fresh hit restores cooked clusters, materials, geometry, frame and coverage without its "
+        "producer");
   const auto after = (*assets)->Costs();
   CHECK(after.ReadBytes == before.ReadBytes && after.SurfaceReadBytes == before.SurfaceReadBytes,
         "the hit reads no prepared headers or forms");
@@ -165,7 +181,8 @@ void Exercise(const std::filesystem::path &root) {
   CHECK(!BuildingGeometrySource::Resolve(*fresh, nullptr, recipe, kBudget, cancelled.get_token()),
         "cancelled hits cannot acquire a product");
   const BuildingGeometrySource::Recipe other{.BaseKey = key, .SourceCount = 2, .Sources = {1}};
-  CHECK(GeometryAsset::Publish(*fresh, other.Key(), key, product->Layout, product->Mesh, kBytes),
+  CHECK(GeometryAsset::Publish(
+            *fresh, other.Key(), key, product->Layout, product->Mesh, kBytes, product->Clusters),
         "an intentionally misbound counterexample is stored");
   CHECK(!BuildingGeometrySource::Resolve(*fresh, assets->get(), other, kBudget),
         "a recipe never accepts another group's valid but incorrect source coverage");
@@ -173,7 +190,8 @@ void Exercise(const std::filesystem::path &root) {
   ++domain.SourceCount;
   CHECK(
       domain.Key() != recipe.Key() &&
-          GeometryAsset::Publish(*fresh, domain.Key(), key, product->Layout, product->Mesh, kBytes),
+          GeometryAsset::Publish(
+              *fresh, domain.Key(), key, product->Layout, product->Mesh, kBytes, product->Clusters),
       "a changed source domain has its own recipe identity");
   CHECK(!BuildingGeometrySource::Resolve(*fresh, nullptr, domain, kBudget),
         "identical ordinals in a foreign source domain cannot satisfy the recipe");
