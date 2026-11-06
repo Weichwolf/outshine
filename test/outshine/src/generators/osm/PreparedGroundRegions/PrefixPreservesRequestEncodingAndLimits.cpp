@@ -113,12 +113,12 @@ int main() {
   constexpr size_t kLargeRecipeBytes = size_t{160} * 1024;
   std::string rules(kLargeRecipeBytes, 'r');
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-102",
+      "prepared-ground-region-103",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);
   auto previous = Generators::AssetSourceRecipe(
-      "prepared-ground-region-99",
+      "prepared-ground-region-102",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   previous.append(rules);
@@ -133,7 +133,7 @@ int main() {
       const auto old = LegacyMessage(previous, shape, 4, MvtSchema::Shortbread, {}, {});
       CHECK(!old.empty() && (*opened)->RequestKey(4, MvtSchema::Shortbread, shape, {}, {}) !=
                                 Sha256Hex(old.data(), old.size()),
-            "corrected contact selection cannot reuse previous prepared-region requests");
+            "regions without stored road inputs cannot alias the new prepared-region request");
     }
   }
   {

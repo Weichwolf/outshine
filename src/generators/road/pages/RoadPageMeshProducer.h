@@ -15,6 +15,9 @@ public:
 
   [[nodiscard]] size_t InputCapacityBytes() const noexcept override { return InputBytes_; }
 
+  [[nodiscard]] std::expected<std::optional<AssetPackage>, std::string>
+  PrepareInput(const RoadPageRequest &request) const override;
+
   [[nodiscard]] std::expected<RoadPageGeometry, std::string>
   Produce(const RoadPageRequest &request, std::stop_token stop) const override;
 

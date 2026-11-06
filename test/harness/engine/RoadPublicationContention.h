@@ -40,7 +40,8 @@ inline Generators::RoadPageGeometry Triangle() {
                    .Index = {0, 1, 2}},
           .Swept = {},
           .Diagnostics = {},
-          .Parts = {{.Kind = Generators::RoadPagePartKind::Interval, .Index = 7}}};
+          .Parts = {{.Kind = Generators::RoadPagePartKind::Interval, .Index = 7}},
+          .Clusters = {}};
 }
 
 struct Fixture {

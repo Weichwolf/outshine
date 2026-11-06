@@ -226,11 +226,35 @@ std::expected<void, PreparedRoadPages::Failure> PreparedRoadPages::GeneratePage(
   }
   auto package = ProducePackage(write.Request_, write.Key_, *producer, stop);
   if (!package) { return std::unexpected(std::move(package.error())); }
+  auto input = producer->PrepareInput(write.Request_);
+  if (!input) { return std::unexpected(std::move(input.error())); }
+  if (*input) {
+    auto &source = **input;
+    if (source.Records.size() != 1 || package->Records.size() != 1) {
+      return std::unexpected(std::string("road page input needs a single bound source product"));
+    }
+    source.Records[0].Bounds = package->Records[0].Bounds;
+    auto prepared = Cache_->PreparePublication(std::move(source.Records), std::move(source.Bytes));
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    write.InputPackage_.emplace(std::move(*prepared));
+  }
   ++write.Costs_.Preparations;
   auto prepared =
       Cache_->PreparePublication(std::move(package->Records), std::move(package->Bytes));
   if (!prepared) { return std::unexpected(prepared.error()); }
   write.Package_.emplace(std::move(*prepared));
+  write.Phase_ = write.InputPackage_ ? PageWrite::Phase::Input : PageWrite::Phase::Check;
+  return {};
+}
+
+std::expected<void, PreparedRoadPages::Failure> PreparedRoadPages::PublishInput(PageWrite &write) {
+  if (!write.InputPackage_) {
+    return std::unexpected(std::string("road input publication lost its package"));
+  }
+  ++write.Costs_.InputPublications;
+  const auto published = Cache_->Publish(*write.InputPackage_);
+  if (!published) { return std::unexpected(published.error()); }
+  write.InputPackage_.reset();
   write.Phase_ = PageWrite::Phase::Check;
   return {};
 }
@@ -253,6 +277,11 @@ std::expected<AssetRecord, PreparedRoadPages::Failure> PreparedRoadPages::Prepar
       case Phase::Generate: {
         auto generated = GeneratePage(write, producer, stop);
         if (!generated) { return std::unexpected(std::move(generated.error())); }
+        break;
+      }
+      case Phase::Input: {
+        auto published = PublishInput(write);
+        if (!published) { return std::unexpected(std::move(published.error())); }
         break;
       }
       case Phase::Publish: {

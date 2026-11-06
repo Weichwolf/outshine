@@ -98,7 +98,7 @@ std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroun
     std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources, std::string_view rules) {
   if (!cache) { return std::unexpected("ground regions require an asset store"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-102",
+      "prepared-ground-region-103",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }

@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_ROAD_PAGES_ROADPAGEPRODUCER_H
 
 #include "RoadPageProduct.h"
+#include "AssetPackage.h"
 #include <cstddef>
 #include <expected>
 #include <stop_token>
@@ -12,6 +13,12 @@ class RoadPageProducer {
 public:
   virtual ~RoadPageProducer() = default;
   [[nodiscard]] virtual size_t InputCapacityBytes() const noexcept = 0;
+
+  [[nodiscard]] virtual std::expected<std::optional<AssetPackage>, std::string>
+  PrepareInput([[maybe_unused]] const RoadPageRequest &request) const {
+    return std::nullopt;
+  }
+
   [[nodiscard]] virtual std::expected<RoadPageGeometry, std::string>
   Produce(const RoadPageRequest &request, std::stop_token stop) const = 0;
 };

@@ -77,6 +77,17 @@ keep their bytes/keys. Misses use the native producer; hits need no functional p
 or sampling budget, also in a fresh process. World selection before fine IO, projection,
 terrain/material/raster comparisons and native device gains remain required.
 
+Native World generation also persists a separate `road-page-recipe` package: source
+stations, complete port planes/profiles, junctions, colours and shared native height
+solids. Solver workspace/reference arrays are not part of this input. Its key excludes
+render LOD/layout/error; material, source plan, parts and anchor remain bound.
+`StoredRoadPageMeshProducer` admits source IO/decode ownership before loading this
+package. A fresh process can generate a display miss after deleting the fine page;
+a later display hit works after evicting the recipe. Busy retains both prepared
+packages without regeneration, and cancellation releases their publication ownership.
+Ground recipe 103 rebuilds older regions once so their new inputs are populated;
+source acquisition itself is unchanged. Automatic World selection remains separate.
+
 ```sh
 python -m unittest discover -s test/experiments/transport -p test_upper_strip_envelope.py
 python test/experiments/transport/compare_upper_strip_envelope.py --output /tmp/outshine-upper-strip.json

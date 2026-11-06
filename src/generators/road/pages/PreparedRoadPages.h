@@ -6,6 +6,7 @@
 #include "AssetCache.h"
 #include "RoadPageProduct.h"
 #include "RoadPageProducer.h"
+#include "RoadPageRecipeCodec.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -28,7 +29,7 @@ public:
   class PageWrite {
   public:
     struct Counters {
-      size_t MetadataReads = 0, Preparations = 0, Publications = 0;
+      size_t MetadataReads = 0, Preparations = 0, Publications = 0, InputPublications = 0;
     };
 
     [[nodiscard]] Counters Costs() const noexcept { return Costs_; }
@@ -38,12 +39,13 @@ public:
     }
 
     [[nodiscard]] size_t PublicationBytes() const noexcept {
-      return Package_ ? Package_->CapacityBytes() : 0;
+      return (Package_ ? Package_->CapacityBytes() : 0) +
+             (InputPackage_ ? InputPackage_->CapacityBytes() : 0);
     }
 
   private:
     friend class PreparedRoadPages;
-    enum class Phase { Lookup, Generate, Check, Publish, Restore, Bind, Complete };
+    enum class Phase { Lookup, Generate, Input, Check, Publish, Restore, Bind, Complete };
 
     PageWrite(RoadPageRequest request, std::string key)
         : Request_(std::move(request)), Key_(std::move(key)) {}
@@ -52,6 +54,7 @@ public:
     std::string Key_;
     Phase Phase_ = Phase::Lookup;
     std::optional<PreparedAssetWrite> Package_;
+    std::optional<PreparedAssetWrite> InputPackage_;
     AssetRecord Record_;
     Counters Costs_;
   };
@@ -117,11 +120,17 @@ public:
           const RoadPageProducer *producer = nullptr,
           const std::stop_token &stop = {});
 
+  [[nodiscard]] std::expected<std::optional<AssetCache::ReadPlan>, Failure>
+  PlanRecipeRead(const RoadPageAddress &address, size_t bytesMost) const;
+  [[nodiscard]] std::expected<std::optional<RoadPageRecipe>, Failure> LoadRecipe(
+      const RoadPageAddress &address, const AssetCache::ReadPlan &read, size_t capacityMost) const;
+
 private:
   explicit PreparedRoadPages(std::shared_ptr<AssetCache> cache);
   [[nodiscard]] std::expected<void, Failure> ResolvePageRecord(PageWrite &write);
   [[nodiscard]] std::expected<void, Failure>
   GeneratePage(PageWrite &write, const RoadPageProducer *producer, const std::stop_token &stop);
+  [[nodiscard]] std::expected<void, Failure> PublishInput(PageWrite &write);
   [[nodiscard]] std::expected<std::optional<RoadPageLease>, Failure> Read(const std::string &key,
                                                                           size_t bytesMost);
   [[nodiscard]] std::expected<std::optional<AssetRecord>, Failure>
