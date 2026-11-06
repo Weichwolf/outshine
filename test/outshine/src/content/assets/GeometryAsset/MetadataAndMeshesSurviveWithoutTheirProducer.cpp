@@ -1,5 +1,6 @@
 #include "GeometryAsset.h"
 #include "GeometryProductCodec.h"
+#include "BinaryValueArchive.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>
@@ -31,6 +32,39 @@ Geometry Triangle() {
             geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
         "native geometry is ready before cache publication");
   return geometry;
+}
+
+void CheckLegacyDescriptor(AssetCache &cache,
+                           AssetRecord record,
+                           const GeometryAsset::Description &layout,
+                           const std::string &key,
+                           const std::string &parent) {
+  std::vector<uint8_t> original;
+  {
+    const auto loaded = cache.Load(record.Key, kBytes);
+    if (!loaded || !*loaded) { return; }
+    original.assign((**loaded).Bytes().begin(), (**loaded).Bytes().end());
+  }
+  BinaryValueWriter legacy(kBytes);
+  CHECK(legacy(uint64_t{0x3154455353414547ULL},
+               layout.Bounds.Min.Axis,
+               layout.Bounds.Max.Axis,
+               layout.WorldFromLocal.Column),
+        "the prior cache version contains bounds and a pose but no cost metadata");
+  record.Package.clear();
+  record.OffsetBytes = 0;
+  record.ByteCount = legacy.Out.Bytes().size();
+  CHECK(cache.Remove(record.Key) && cache.Publish(std::span(&record, 1), legacy.Out.Bytes()),
+        "an engine upgrade can encounter an existing unmeasured asset");
+  const auto descriptor = GeometryAsset::Describe(cache, key, parent, kBytes);
+  const auto admitted = GeometryAsset::Load(cache, key, parent, kBytes, 72);
+  const auto refused = GeometryAsset::Load(cache, key, parent, kBytes, 71);
+  CHECK(descriptor && *descriptor && !(**descriptor).Metrics && admitted && *admitted && !refused &&
+            refused.error() == AssetCacheError::CapacityExceeded,
+        "legacy data stays renderable and an unknown footprint is checked after decode");
+  record.ByteCount = original.size();
+  CHECK(cache.Remove(record.Key) && cache.Publish(std::span(&record, 1), original),
+        "measured metadata can replace the old descriptor without rebuilding its geometry");
 }
 
 void CheckCoverage(AssetCache &cache,
@@ -121,8 +155,15 @@ void Exercise(const std::filesystem::path &root) {
   }
   const auto metadata = GeometryAsset::Describe(**fresh, key, parent, kBytes);
   CHECK(metadata && *metadata && (**metadata).Bounds == layout.Bounds &&
-            (**metadata).WorldFromLocal == layout.WorldFromLocal,
+            (**metadata).WorldFromLocal == layout.WorldFromLocal && (**metadata).Metrics &&
+            (**metadata).Metrics->Vertices == 3 && (**metadata).Metrics->Indices == 3 &&
+            (**metadata).Metrics->AttributeBytes == 15 * sizeof(float) &&
+            (**metadata).Metrics->ImageBytes == 0 && (**metadata).Metrics->Clusters == 0 &&
+            (**metadata).Metrics->BufferBytes() == 72,
         "source-free metadata preserves local bounds and the world transform");
+  const auto limited = GeometryAsset::Load(**fresh, key, parent, kBytes, 71);
+  CHECK(!limited && limited.error() == AssetCacheError::CapacityExceeded,
+        "a temporarily small streaming budget rejects required buffers before decoding them");
   const auto loaded = GeometryAsset::Load(**fresh, key, parent, kBytes);
   CHECK(loaded && *loaded && EncodeGeometryProduct((**loaded).Mesh, kBytes) == encoded,
         "a fresh owner gets the same renderable geometry without a producer");
@@ -152,13 +193,16 @@ void Exercise(const std::filesystem::path &root) {
                                       .Radius = std::nullopt,
                                       .Planes = {},
                                       .Parent = parent});
-  CHECK(rows && rows->size() == 1 && rows->front().ByteCount == 8 + 22 * 8,
+  CHECK(rows && rows->size() == 1 && rows->front().ByteCount == 8 + 22 * 8 + 4 + 1 + 5 * 8,
         "spatial selection finds one fixed-size descriptor without reading its mesh");
   if (!rows || rows->size() != 1) { return; }
+  CheckLegacyDescriptor(**fresh, rows->front(), layout, key, parent);
   CHECK((*fresh)->Remove(key), "the mesh can be evicted independently");
   const auto infoOnly = GeometryAsset::Describe(**fresh, key, parent, kBytes);
+  const auto unadmitted = GeometryAsset::Load(**fresh, key, parent, kBytes, 71);
   const auto evicted = GeometryAsset::Load(**fresh, key, parent, kBytes);
-  CHECK(infoOnly && *infoOnly && evicted && !*evicted,
+  CHECK(infoOnly && *infoOnly && !unadmitted &&
+            unadmitted.error() == AssetCacheError::CapacityExceeded && evicted && !*evicted,
         "metadata survives eviction but is not reported as a resident mesh product");
   auto record = rows->front();
   CHECK((*fresh)->Remove(record.Key), "the prior descriptor is removed for a corruption case");

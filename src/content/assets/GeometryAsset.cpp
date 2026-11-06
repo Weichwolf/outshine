@@ -22,6 +22,7 @@ namespace {
 constexpr uint64_t kFormat = 0x3154455353414547ULL;
 constexpr uint64_t kCoverageFormat = 0x3254455353414547ULL;
 constexpr uint64_t kClusteredFormat = 0x3354455353414547ULL;
+constexpr uint64_t kMeasuredFormat = 0x3454455353414547ULL;
 
 std::string DescriptionKey(std::string_view key) {
   const auto recipe = "geometry-asset-info-1/" + std::string(key);
@@ -32,7 +33,12 @@ bool Valid(const GeometryAsset::Description &description) {
   const auto finite = [](double value) { return std::isfinite(value); };
   const auto &bounds = description.Bounds;
   const auto &world = description.WorldFromLocal;
-  if (!std::ranges::all_of(bounds.Min, finite) || !std::ranges::all_of(bounds.Max, finite) ||
+  if ((description.Metrics &&
+       (!description.Metrics->BufferBytes() || description.Metrics->Vertices == 0 ||
+        description.Metrics->Indices == 0 || description.Metrics->Indices % 3 != 0 ||
+        description.Metrics->Vertices >
+            description.Metrics->AttributeBytes / (3 * sizeof(float)))) ||
+      !std::ranges::all_of(bounds.Min, finite) || !std::ranges::all_of(bounds.Max, finite) ||
       !std::ranges::all_of(world.Column, finite)) {
     return false;
   }
@@ -63,16 +69,20 @@ bool ReadCoverage(BinaryValueReader &in, GeometryAsset::Description &description
 }
 
 bool WriteDescription(BinaryValueWriter &out, const GeometryAsset::Description &description) {
-  uint64_t format = description.Coverage ? kCoverageFormat : kFormat;
-  if (description.ClusteredParts != 0) { format = kClusteredFormat; }
-  if (!out(format,
-           description.Bounds.Min.Axis,
-           description.Bounds.Max.Axis,
-           description.WorldFromLocal.Column)) {
+  if (!description.Metrics || !out(kMeasuredFormat,
+                                   description.Bounds.Min.Axis,
+                                   description.Bounds.Max.Axis,
+                                   description.WorldFromLocal.Column)) {
     return false;
   }
-  if (description.ClusteredParts != 0 &&
-      !out(description.ClusteredParts, description.Coverage.has_value())) {
+  const auto &metrics = *description.Metrics;
+  if (!out(description.ClusteredParts,
+           description.Coverage.has_value(),
+           metrics.Vertices,
+           metrics.Indices,
+           metrics.AttributeBytes,
+           metrics.ImageBytes,
+           metrics.Clusters)) {
     return false;
   }
   if (!description.Coverage) { return true; }
@@ -142,10 +152,26 @@ std::expected<std::optional<GeometryAsset::Description>, AssetCacheError> Geomet
           description.Bounds.Min.Axis,
           description.Bounds.Max.Axis,
           description.WorldFromLocal.Column) ||
-      (format != kFormat && format != kCoverageFormat && format != kClusteredFormat) ||
+      (format != kFormat && format != kCoverageFormat && format != kClusteredFormat &&
+       format != kMeasuredFormat) ||
       (format == kClusteredFormat &&
-       (!in(description.ClusteredParts, hasCoverage) || description.ClusteredParts == 0)) ||
-      ((format == kCoverageFormat || hasCoverage) && !ReadCoverage(in, description)) ||
+       (!in(description.ClusteredParts, hasCoverage) || description.ClusteredParts == 0))) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  if (format == kMeasuredFormat) {
+    ContentMetrics metrics;
+    if (!in(description.ClusteredParts,
+            hasCoverage,
+            metrics.Vertices,
+            metrics.Indices,
+            metrics.AttributeBytes,
+            metrics.ImageBytes,
+            metrics.Clusters)) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    description.Metrics = metrics;
+  }
+  if (((format == kCoverageFormat || hasCoverage) && !ReadCoverage(in, description)) ||
       in.In.Remaining() != 0 || !Valid(description) ||
       description.Bounds.Through(description.WorldFromLocal) != record.Bounds) {
     return std::unexpected(AssetCacheError::Storage);
@@ -153,21 +179,38 @@ std::expected<std::optional<GeometryAsset::Description>, AssetCacheError> Geomet
   return description;
 }
 
-std::expected<std::optional<GeometryAsset::Product>, AssetCacheError> GeometryAsset::Load(
-    const AssetCache &cache, std::string_view key, std::string_view parent, size_t bytesMost) {
+std::expected<std::optional<GeometryAsset::Product>, AssetCacheError>
+GeometryAsset::Load(const AssetCache &cache,
+                    std::string_view key,
+                    std::string_view parent,
+                    size_t bytesMost,
+                    std::optional<uint64_t> bufferBytesMost) {
   auto description = Describe(cache, key, parent, bytesMost);
   if (!description) { return std::unexpected(description.error()); }
   if (!*description) { return std::optional<Product>{}; }
+  if (bufferBytesMost && (**description).Metrics) {
+    const auto bytes = (**description).Metrics->BufferBytes();
+    if (!bytes) { return std::unexpected(AssetCacheError::Storage); }
+    if (*bytes > *bufferBytesMost) { return std::unexpected(AssetCacheError::CapacityExceeded); }
+  }
   auto loaded = cache.Load(key, bytesMost);
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (!*loaded) { return std::optional<Product>{}; }
   const auto &record = (**loaded).Record();
   auto product = ReadPayload((**loaded).Bytes(), bytesMost, (**description).ClusteredParts != 0);
+  if (!product) { return std::unexpected(AssetCacheError::Storage); }
+  const auto metrics = MeasureContent(product->Mesh, product->Clusters);
+  const auto bufferBytes = metrics.BufferBytes();
   if (record.Kind != "native-geometry" || record.Parent != parent ||
-      record.Bounds != (**description).Bounds.Through((**description).WorldFromLocal) || !product ||
-      product->Mesh.parts() == 0 || product->Clusters.size() != (**description).ClusteredParts ||
+      record.Bounds != (**description).Bounds.Through((**description).WorldFromLocal) ||
+      !bufferBytes || product->Mesh.parts() == 0 ||
+      product->Clusters.size() != (**description).ClusteredParts ||
+      ((**description).Metrics && *(**description).Metrics != metrics) ||
       !Contains(product->Mesh, (**description).Bounds)) {
     return std::unexpected(AssetCacheError::Storage);
+  }
+  if (bufferBytesMost && *bufferBytes > *bufferBytesMost) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   return Product{.Layout = **description,
                  .Mesh = std::move(product->Mesh),
@@ -189,7 +232,9 @@ GeometryAsset::Publish(AssetCache &cache,
     return std::unexpected(AssetCacheError::InvalidInput);
   }
   BinaryValueWriter out(bytesMost);
-  if (!WriteDescription(out, description)) {
+  auto measured = description;
+  measured.Metrics = MeasureContent(geometry, clusters);
+  if (!WriteDescription(out, measured)) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   auto encoded = clusters.empty() ? EncodeGeometryProduct(geometry, bytesMost)
