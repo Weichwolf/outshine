@@ -1,4 +1,5 @@
 #include "BuildingSourceView.h"
+#include "PreparedStructurePlan.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -42,11 +43,13 @@ BuildingSourceView::BuildingSourceView(std::shared_ptr<const PreparedStructureTi
                                        BuildingCaptureFrame frame,
                                        Box bounds,
                                        std::vector<uint32_t> sources,
+                                       std::vector<uint32_t> covered,
                                        std::vector<uint32_t> unsupported)
     : Base_(std::move(base)),
       Frame_(frame),
       Bounds_(bounds),
       Sources_(std::move(sources)),
+      Covered_(std::move(covered)),
       Unsupported_(std::move(unsupported)) {}
 
 std::expected<BuildingSourceView, BuildingSourceView::Error>
@@ -84,12 +87,17 @@ BuildingSourceView::OpenSources(std::shared_ptr<const PreparedStructureTile> bas
                                  .Message = "building source ordinal outside prepared inputs"});
   }
   std::vector<uint32_t> ordinals;
+  std::vector<uint32_t> covered;
   std::vector<uint32_t> unsupported;
   Box bounds;
   for (const uint32_t at : selected) {
     const auto &source = base->Surfaces[at];
     if (source.FaceCount() == 0 || source.Bounds().Empty()) {
-      unsupported.push_back(static_cast<uint32_t>(at));
+      if (KnownEmptyPreparedStructure(*base, at)) {
+        covered.push_back(at);
+      } else {
+        unsupported.push_back(at);
+      }
       continue;
     }
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -100,6 +108,7 @@ BuildingSourceView::OpenSources(std::shared_ptr<const PreparedStructureTile> bas
       }
     }
     ordinals.push_back(static_cast<uint32_t>(at));
+    covered.push_back(at);
     for (unsigned corner = 0; corner < 8; ++corner) {
       const auto local = frame.Local(source.Bounds().Corner(corner));
       if (!std::ranges::all_of(local, [](double value) { return std::isfinite(value); })) {
@@ -112,8 +121,12 @@ BuildingSourceView::OpenSources(std::shared_ptr<const PreparedStructureTile> bas
   if (ordinals.empty() || ordinals.size() >= std::numeric_limits<uint32_t>::max()) {
     return std::unexpected(Error{.Message = "building source selection unavailable"});
   }
-  return BuildingSourceView(
-      std::move(base), frame, bounds, std::move(ordinals), std::move(unsupported));
+  return BuildingSourceView(std::move(base),
+                            frame,
+                            bounds,
+                            std::move(ordinals),
+                            std::move(covered),
+                            std::move(unsupported));
 }
 
 }

@@ -70,15 +70,17 @@ def geometry_inputs(data, index, revision):
     if len(data) < 12:
         raise ValueError("source member header missing")
     magic, count = struct.unpack_from("<QI", data)
-    if magic != 0x3250524752435342 or len(data) != 12 + count * MEMBER.itemsize:
+    if magic not in (0x3250524752435342, 0x3350524752435342) or len(data) != 12 + count * MEMBER.itemsize:
         raise ValueError("source member schema differs")
     members = np.frombuffer(data, MEMBER, count, 12)
-    if (np.any(members["field"] > 1) or np.any(members["cell"] == 0)
+    maximum_state = 2 if magic == 0x3350524752435342 else 1
+    if (np.any(members["field"] > maximum_state) or np.any(members["cell"] == 0)
             or np.any(members["cell"] > 64)
-            or np.any((members["faces"] == 0) & ((members["field"] != 0) | (members["shell"] != -1)))):
+            or np.any((members["faces"] == 0) & ((members["field"] == 1) | (members["shell"] != -1)))
+            or np.any((members["field"] == 2) & (members["faces"] != 0))):
         raise ValueError("invalid source traits")
     tree = SourceProducts(index, list(map(int, members["cell"])),
-                          bytes(members["field"]), revision=revision)
+                          bytes((members["field"] == 1).astype(np.uint8)), revision=revision)
     revision_bytes = revision.encode()
     encoded = struct.pack("<QII", 0x3152544D4F454753, count, len(revision_bytes)) + revision_bytes
     encoded += b"".join(struct.pack("<dI", r["shell"], r["faces"]) for r in members)
@@ -92,6 +94,20 @@ def inputs(cache, record):
     if index is None:
         raise ValueError("source hierarchy missing")
     return geometry_inputs(data, cache.load(index), record["parent"])
+
+
+def source_records(cache):
+    records = {}
+    for record in cache.db.execute("SELECT * FROM assets WHERE kind='building-source-groups'"):
+        for version in (2, 3):
+            expected = hashlib.sha256(
+                (f"building-source-groups-{version}/" + record["parent"]).encode()
+            ).hexdigest()
+            if record["key"] == expected:
+                previous = records.get(record["parent"])
+                if previous is None or previous[0] < version:
+                    records[record["parent"]] = version, record
+    return [record for _, record in records.values()]
 
 
 class ShellView(PanoramicView):
@@ -202,8 +218,7 @@ def main():
         parser.error("finite positive viewport/FOV/tile count and nonnegative error required")
     eye = ecef(*args.eye)
     cache = Cache(args.database)
-    records = [record for record in cache.db.execute("SELECT * FROM assets WHERE kind='building-source-groups'")
-               if record["key"] == hashlib.sha256(("building-source-groups-2/" + record["parent"]).encode()).hexdigest()]
+    records = source_records(cache)
     records.sort(key=lambda r: sum(max(r["min" + a] - eye[i], 0, eye[i] - r["max" + a]) ** 2
                                    for i, a in enumerate("xyz")))
     reports = []
@@ -212,6 +227,7 @@ def main():
         members, sources = inputs(cache, record)
         focal = args.viewport[1] / (2 * math.tan(math.radians(args.fov) / 2))
         reports.append({"base_key": record["parent"], "sources": len(members),
+                        "known_empty_sources": int(np.count_nonzero(members["field"] == 2)),
                         "source_faces": int(members["faces"].astype(np.uint64).sum()),
                         "fine_shell": cut(sources, eye, args.viewport, focal, args.error_px, False),
                         "fine_shell_hull": cut(sources, eye, args.viewport, focal, args.error_px, True)})

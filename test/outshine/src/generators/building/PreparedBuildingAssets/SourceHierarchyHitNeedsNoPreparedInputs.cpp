@@ -115,8 +115,9 @@ void CachedGroups(const std::filesystem::path &root,
         "fresh group hits decode neither prepared headers nor form blocks");
   if (hit && *hit) {
     for (const auto &member : (**hit).Members) {
-      CHECK(member.Cell == 1 && member.FieldSupported && member.Faces > 0 && member.ShellErrorM &&
-                *member.ShellErrorM >= 0,
+      CHECK(member.Cell == 1 &&
+                member.Availability == PreparedBuildingAssets::SourceMember::State::Surface &&
+                member.Faces > 0 && member.ShellErrorM && *member.ShellErrorM >= 0,
             "cached sources retain native support and declared geometry errors without source IO");
     }
     MalformedGroups(*cache, **owner, key, (**hit).Index->Hierarchy.Nodes().front().Bounds, bytes);
@@ -172,8 +173,9 @@ void Exercise(const std::filesystem::path &root) {
   if (groups && *groups) {
     for (const auto &member : (**groups).Members) {
       CHECK(
-          member.Cell == 1 && member.FieldSupported && member.Faces > 0 && member.ShellErrorM &&
-              *member.ShellErrorM >= 0,
+          member.Cell == 1 &&
+              member.Availability == PreparedBuildingAssets::SourceMember::State::Surface &&
+              member.Faces > 0 && member.ShellErrorM && *member.ShellErrorM >= 0,
           "native headers expose cohort, geometry support and declared shell error without forms");
     }
   }

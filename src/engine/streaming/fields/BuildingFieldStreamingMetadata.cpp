@@ -55,7 +55,10 @@ bool BuildingFieldStreaming::State::PrepareCells(
   if (!PrepareCellSources(tile, groups)) { return false; }
   uint64_t unsupportedCells = 0;
   for (const auto &member : groups.Members) {
-    if (!member.FieldSupported) { unsupportedCells |= uint64_t{1} << (member.Cell - 1u); }
+    if (member.Availability ==
+        Generators::PreparedBuildingAssets::SourceMember::State::Unresolved) {
+      unsupportedCells |= uint64_t{1} << (member.Cell - 1u);
+    }
   }
   for (const auto &product : cut.Products) {
     const auto members = selection.Members(cut, product);
@@ -156,10 +159,12 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
           std::vector<SourceProductSelection::Source> traits;
           traits.reserve((**groups).Members.size());
           for (const auto &member : (**groups).Members) {
-            traits.push_back({.Cohort = member.Cell,
-                              .FieldSupported = member.FieldSupported,
-                              .Faces = member.Faces,
-                              .ShellErrorM = member.ShellErrorM});
+            traits.push_back(
+                {.Cohort = member.Cell,
+                 .FieldSupported = member.Availability ==
+                                   Generators::PreparedBuildingAssets::SourceMember::State::Surface,
+                 .Faces = member.Faces,
+                 .ShellErrorM = member.ShellErrorM});
           }
           const auto &index = (**groups).Index;
           auto selected = SourceProductSelection::Of(

@@ -1,4 +1,5 @@
 #include "PreparedBuildingAssets.h"
+#include "PreparedStructurePlan.h"
 #include "PageIndexAsset.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
@@ -16,11 +17,12 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kGroupFormat = 0x3250524752435342ULL;
+constexpr uint64_t kGroupFormat = 0x3350524752435342ULL;
 using Members = std::vector<PreparedBuildingAssets::SourceMember>;
+using SourceState = PreparedBuildingAssets::SourceMember::State;
 
 std::string GroupKey(const std::string &base) {
-  const auto identity = "building-source-groups-2/" + base;
+  const auto identity = "building-source-groups-3/" + base;
   return Sha256Hex(identity.data(), identity.size());
 }
 
@@ -43,13 +45,14 @@ LoadMembers(const AssetCache &cache, const std::string &key, size_t bytesMost) {
     uint8_t supported = 0;
     double shellError = -1;
     if (!bytes.Number(member.Cell) || member.Cell == 0 || member.Cell > 64 ||
-        !bytes.Number(supported) || supported > 1 || !bytes.Number(member.Faces) ||
+        !bytes.Number(supported) || supported > 2 || !bytes.Number(member.Faces) ||
         !bytes.Number(shellError) || !std::isfinite(shellError) ||
         (shellError < 0 && shellError != -1) ||
-        (member.Faces == 0 && (supported != 0 || shellError != -1))) {
+        (member.Faces == 0 && (supported == 1 || shellError != -1)) ||
+        (supported == 2 && member.Faces != 0)) {
       return std::unexpected(AssetCacheError::Storage);
     }
-    member.FieldSupported = supported != 0;
+    member.Availability = static_cast<SourceState>(supported);
     if (shellError >= 0) { member.ShellErrorM = shellError; }
   }
   if (bytes.Remaining() != 0) { return std::unexpected(AssetCacheError::Storage); }
@@ -67,8 +70,9 @@ StoreMembers(AssetCache &cache,
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   for (const auto &member : members) {
-    if (!bytes.Number(member.Cell) || !bytes.Number(static_cast<uint8_t>(member.FieldSupported)) ||
-        !bytes.Number(member.Faces) || !bytes.Number(member.ShellErrorM.value_or(-1))) {
+    const auto state = static_cast<uint8_t>(member.Availability);
+    if (!bytes.Number(member.Cell) || !bytes.Number(state) || !bytes.Number(member.Faces) ||
+        !bytes.Number(member.ShellErrorM.value_or(-1))) {
       return std::unexpected(AssetCacheError::CapacityExceeded);
     }
   }
@@ -103,8 +107,14 @@ std::expected<Members, StructureBakeError> SourceMembers(const PreparedStructure
     if (shell && (!std::isfinite(*shell) || *shell < 0)) {
       return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
     }
+    auto state = SourceState::Unresolved;
+    if (surface.FaceCount() != 0 && !surface.Bounds().Empty()) {
+      state = SourceState::Surface;
+    } else if (KnownEmptyPreparedStructure(base, at)) {
+      state = SourceState::Empty;
+    }
     members.push_back({.Cell = cell,
-                       .FieldSupported = surface.FaceCount() != 0 && !surface.Bounds().Empty(),
+                       .Availability = state,
                        .Faces = static_cast<uint32_t>(surface.FaceCount()),
                        .ShellErrorM = shell});
   }

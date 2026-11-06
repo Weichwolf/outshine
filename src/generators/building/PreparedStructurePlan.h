@@ -11,5 +11,8 @@ namespace outshine::Generators {
                                                   std::span<const double> corners,
                                                   const Vec3 &anchor);
 
+// Valid faceless native records only; unavailable form headers remain unresolved.
+[[nodiscard]] bool KnownEmptyPreparedStructure(const PreparedStructureTile &base, size_t source);
+
 }
 #endif
