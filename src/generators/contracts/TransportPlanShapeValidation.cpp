@@ -112,27 +112,6 @@ bool ValidPort(const TransportPort &port, GeoCellId core) {
                              });
 }
 
-bool ValidBody(const HeightSolid &body) {
-  return !body.Points.empty() && !body.Faces.empty() && body.SurfaceFaces > 0 &&
-         body.SurfaceFaces <= body.Faces.size() && std::isfinite(body.VolumeM3) &&
-         body.VolumeM3 >= 0 && body.WallParents.size() == body.WallKinds.size() &&
-         std::ranges::all_of(body.Points, [](const auto &point) { return Finite(point); }) &&
-         std::ranges::all_of(body.Faces,
-                             [&](const auto &face) {
-                               return face[0] != face[1] && face[1] != face[2] &&
-                                      face[2] != face[0] &&
-                                      std::ranges::all_of(face, [&](uint32_t index) {
-                                        return index < body.Points.size();
-                                      });
-                             }) &&
-         std::ranges::all_of(body.WallParents,
-                             [&](uint32_t parent) { return parent < body.SurfaceFaces; }) &&
-         std::ranges::all_of(body.WallKinds, [](auto kind) {
-           return kind == HeightSolidWallKind::Boundary ||
-                  kind == HeightSolidWallKind::Discontinuity;
-         });
-}
-
 bool ValidContact(const EarthworkStamp &stamp) {
   return Ring(stamp.RingEastNorthM, true) &&
          std::ranges::all_of(stamp.HoleRingsEastNorthM,
