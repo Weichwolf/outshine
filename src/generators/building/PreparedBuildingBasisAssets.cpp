@@ -166,8 +166,10 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
     record.RequestKey.reset();
     if (auto product = LoadResidentBasis(record)) {
       ++BasisResidentHits_;
-      return RequestedBasis{
-          .BaseKey = record.Parent, .Product = std::move(product), .Bounds = record.Bounds};
+      return RequestedBasis{.BaseKey = record.Parent,
+                            .Product = std::move(product),
+                            .Bounds = record.Bounds,
+                            .PackageKey = record.Package};
     }
     auto basis = LoadBasis(record.Parent);
     if (!basis) { return std::unexpected(basis.error()); }
@@ -182,8 +184,10 @@ PreparedBuildingAssets::LoadBasisRequest(const std::string &requestKey) {
     if (!*current) { return std::optional<RequestedBasis>{}; }
     (**current).RequestKey.reset();
     if (**current != record) { continue; }
-    return RequestedBasis{
-        .BaseKey = record.Parent, .Product = std::move(*basis), .Bounds = record.Bounds};
+    return RequestedBasis{.BaseKey = record.Parent,
+                          .Product = std::move(*basis),
+                          .Bounds = record.Bounds,
+                          .PackageKey = record.Package};
   }
   return std::unexpected(StructureBakeErrorKind::ArtifactBusy);
 }

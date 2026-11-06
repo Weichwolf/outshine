@@ -4,6 +4,7 @@
 #include "AssetCache.h"
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingBasis.h"
+#include "BuildingSourceMetadata.h"
 #include "Box.h"
 #include <cstddef>
 #include "TilePool.h"
@@ -57,12 +58,21 @@ public:
     std::string BaseKey;
     Basis Product;
     Box Bounds;
+    std::string PackageKey;
+  };
+
+  struct RequestedSource {
+    std::string BaseKey;
+    Box Bounds;
+    BuildingSourceMetadata Metadata;
   };
 
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Writes = 0, ReadBytes = 0;
     uint64_t BasisHits = 0, BasisMisses = 0, BasisWrites = 0, BasisReadBytes = 0;
     uint64_t BasisResidentHits = 0;
+    uint64_t SourceMetadataHits = 0, SourceMetadataMisses = 0, SourceMetadataWrites = 0;
+    uint64_t SourceMetadataReadBytes = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
     uint64_t SurfacePreparations = 0;
@@ -85,6 +95,8 @@ public:
                                        std::string_view inputDigest) const;
   [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
   LoadBasisRequest(const std::string &requestKey);
+  [[nodiscard]] std::expected<std::optional<RequestedSource>, StructureBakeError>
+  LoadSourceRequest(const std::string &requestKey);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadBasis(const std::string &key, const std::string &requestKey = {});
   [[nodiscard]] std::expected<bool, StructureBakeError>
@@ -224,6 +236,8 @@ private:
   SurfaceCosts SurfaceCosts_;
   std::atomic_uint64_t BasisHits_{0}, BasisMisses_{0}, BasisWrites_{0}, BasisReadBytes_{0};
   std::atomic_uint64_t BasisResidentHits_{0};
+  std::atomic_uint64_t SourceMetadataHits_{0}, SourceMetadataMisses_{0}, SourceMetadataWrites_{0};
+  std::atomic_uint64_t SourceMetadataReadBytes_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},
       GeometryReadBytes_{0};
