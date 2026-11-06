@@ -28,6 +28,7 @@ constexpr uint64_t kAppearanceFormat = 0x000331504452ULL;
 constexpr uint64_t kDisplayFormat = 0x000431504452ULL;
 constexpr uint64_t kOriginalBodiesFormat = 0x000531504452ULL;
 constexpr uint64_t kClusteredFormat = 0x000631504452ULL;
+constexpr uint64_t kStoredSurfaceFormat = 0x000731504452ULL;
 constexpr size_t kClusterBytes = 10 * sizeof(float) + 3 * sizeof(uint32_t);
 
 bool HashKey(const std::string &key) {
@@ -42,12 +43,13 @@ bool Before(const RoadPagePart &left, const RoadPagePart &right) {
 
 bool ValidAddress(const RoadPageAddress &address) {
   if ((address.DisplayPolicy != RoadDisplayPolicy::UpperOnly &&
-       address.DisplayPolicy != RoadDisplayPolicy::UpperWithOriginalBodies) ||
-      (!address.UpperModelErrorM && address.DisplayPolicy != RoadDisplayPolicy::UpperOnly)) {
+       address.DisplayPolicy != RoadDisplayPolicy::UpperWithOriginalBodies &&
+       address.DisplayPolicy != RoadDisplayPolicy::StoredSurfaceEnvelope) ||
+      (!address.PositionErrorM && address.DisplayPolicy != RoadDisplayPolicy::UpperOnly)) {
     return false;
   }
-  if (address.UpperModelErrorM &&
-      (!std::isfinite(*address.UpperModelErrorM) || *address.UpperModelErrorM <= 0)) {
+  if (address.PositionErrorM &&
+      (!std::isfinite(*address.PositionErrorM) || *address.PositionErrorM <= 0)) {
     return false;
   }
   return HashKey(address.PlanKey) && HashKey(address.MaterialKey) &&
@@ -68,18 +70,21 @@ bool ValidAddress(const RoadPageAddress &address) {
 bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
   const bool appearance = std::holds_alternative<RoadPageAppearanceV2>(address.Appearance);
   auto format = appearance ? kAppearanceFormat : kLegacyFormat;
-  if (address.UpperModelErrorM) { format = kDisplayFormat; }
+  if (address.PositionErrorM) { format = kDisplayFormat; }
   if (address.DisplayPolicy == RoadDisplayPolicy::UpperWithOriginalBodies) {
     format = kOriginalBodiesFormat;
   }
   if (address.Clustered) { format = kClusteredFormat; }
-  if (!out(format) || !out.Text(address.PlanKey) || !out.Text(address.MaterialKey)) {
+  const bool stored = address.DisplayPolicy == RoadDisplayPolicy::StoredSurfaceEnvelope;
+  if (stored) { format = kStoredSurfaceFormat; }
+  if (!out(format) || (stored && !out(address.Clustered)) || !out.Text(address.PlanKey) ||
+      !out.Text(address.MaterialKey)) {
     return false;
   }
-  if ((address.UpperModelErrorM || address.Clustered) && !out(static_cast<uint32_t>(appearance))) {
+  if ((address.PositionErrorM || address.Clustered) && !out(static_cast<uint32_t>(appearance))) {
     return false;
   }
-  if (address.Clustered && !out(address.UpperModelErrorM.has_value())) { return false; }
+  if ((address.Clustered || stored) && !out(address.PositionErrorM.has_value())) { return false; }
   if (!WriteRoadPageAppearance(out, address.Appearance) ||
       !out(address.MaterialIndex,
            address.Anchor.LatitudeDeg,
@@ -88,29 +93,50 @@ bool AddressFields(BinaryValueWriter &out, const RoadPageAddress &address) {
            static_cast<uint32_t>(address.Parts.size()))) {
     return false;
   }
-  if (address.UpperModelErrorM && !out(*address.UpperModelErrorM)) { return false; }
-  if ((format == kOriginalBodiesFormat || address.Clustered) && !out(address.DisplayPolicy)) {
+  if (address.PositionErrorM && !out(*address.PositionErrorM)) { return false; }
+  if ((format == kOriginalBodiesFormat || address.Clustered || stored) &&
+      !out(address.DisplayPolicy)) {
     return false;
   }
   return std::ranges::all_of(address.Parts,
                              [&](const auto &part) { return out(part.Kind, part.Index); });
 }
 
-bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
+struct AddressFraming {
+  uint64_t Format = 0;
+  uint32_t Appearance = 0;
+  bool Stored = false;
+  bool Display = false;
+};
+
+std::optional<AddressFraming> ReadFraming(BinaryValueReader &in, RoadPageAddress &address) {
   uint64_t version = 0;
-  uint32_t count = 0;
-  if (!in(version) ||
-      (version != kLegacyFormat && version != kAppearanceFormat && version != kDisplayFormat &&
-       version != kOriginalBodiesFormat && version != kClusteredFormat) ||
-      !in.Text(address.PlanKey) || !in.Text(address.MaterialKey)) {
-    return false;
+  if (!in(version) || (version != kLegacyFormat && version != kAppearanceFormat &&
+                       version != kDisplayFormat && version != kOriginalBodiesFormat &&
+                       version != kClusteredFormat && version != kStoredSurfaceFormat)) {
+    return std::nullopt;
+  }
+  const bool stored = version == kStoredSurfaceFormat;
+  address.Clustered = version == kClusteredFormat;
+  if ((stored && !in(address.Clustered)) || !in.Text(address.PlanKey) ||
+      !in.Text(address.MaterialKey)) {
+    return std::nullopt;
   }
   uint32_t appearance = version == kAppearanceFormat ? 1 : 0;
-  address.Clustered = version == kClusteredFormat;
   bool display = version == kDisplayFormat || version == kOriginalBodiesFormat;
-  if ((display || address.Clustered) && (!in(appearance) || appearance > 1)) { return false; }
-  if (address.Clustered && !in(display)) { return false; }
-  if (!ReadRoadPageAppearance(in, appearance != 0, address.Appearance) ||
+  if ((display || address.Clustered || stored) && (!in(appearance) || appearance > 1)) {
+    return std::nullopt;
+  }
+  if ((address.Clustered || stored) && !in(display)) { return std::nullopt; }
+  return AddressFraming{
+      .Format = version, .Appearance = appearance, .Stored = stored, .Display = display};
+}
+
+bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
+  const auto framing = ReadFraming(in, address);
+  if (!framing) { return false; }
+  uint32_t count = 0;
+  if (!ReadRoadPageAppearance(in, framing->Appearance != 0, address.Appearance) ||
       !in(address.MaterialIndex,
           address.Anchor.LatitudeDeg,
           address.Anchor.LongitudeDeg,
@@ -119,16 +145,20 @@ bool AddressFields(BinaryValueReader &in, RoadPageAddress &address) {
       count > in.In.Remaining() / (2 * sizeof(uint32_t))) {
     return false;
   }
-  if (display) {
+  if (framing->Display) {
     double errorM = 0;
     if (!in(errorM)) { return false; }
-    address.UpperModelErrorM = errorM;
+    address.PositionErrorM = errorM;
   }
-  if ((version == kOriginalBodiesFormat || address.Clustered) && !in(address.DisplayPolicy)) {
+  if ((framing->Format == kOriginalBodiesFormat || address.Clustered || framing->Stored) &&
+      !in(address.DisplayPolicy)) {
     return false;
   }
-  if (version == kOriginalBodiesFormat &&
+  if (framing->Format == kOriginalBodiesFormat &&
       address.DisplayPolicy != RoadDisplayPolicy::UpperWithOriginalBodies) {
+    return false;
+  }
+  if (framing->Stored != (address.DisplayPolicy == RoadDisplayPolicy::StoredSurfaceEnvelope)) {
     return false;
   }
   address.Parts.resize(count);
@@ -189,7 +219,7 @@ bool DiagnosticsFields(BinaryValueReader &in, std::vector<RoadPageDiagnostic> &d
 }
 
 bool ValidDiagnostics(const RoadPageAsset &page) {
-  if (page.Address.UpperModelErrorM &&
+  if (page.Address.PositionErrorM &&
       (page.Geometry.Swept.Refused != 0 || !page.Geometry.Diagnostics.empty() ||
        (!page.Address.Parts.empty() && page.Geometry.Mesh.Index.empty()))) {
     return false;

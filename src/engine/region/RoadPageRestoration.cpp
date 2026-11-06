@@ -194,7 +194,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
       Loaded_->Address.Anchor.LongitudeDeg != Manifest_->Anchor.LongitudeDeg ||
       Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
       Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
-      Loaded_->Address.UpperModelErrorM != reference.UpperModelErrorM ||
+      Loaded_->Address.PositionErrorM != reference.PositionErrorM ||
       Loaded_->Address.DisplayPolicy != reference.DisplayPolicy ||
       Loaded_->Address.Clustered != reference.Clustered ||
       loaded->NativeBytes != reference.ByteCount) {

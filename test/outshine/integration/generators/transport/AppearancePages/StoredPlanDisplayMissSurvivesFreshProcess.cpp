@@ -55,7 +55,7 @@ bool Prepare(const std::filesystem::path &directory) {
   return metadata.good();
 }
 
-void CheckMissAndHit(const std::filesystem::path &directory) {
+void CheckMissAndHit(const std::filesystem::path &directory, RoadDisplayPolicy policy) {
   std::array<uint8_t, 32> inputs{};
   RoadPageRequest request{
       .Address = {.PlanKey = {},
@@ -65,11 +65,12 @@ void CheckMissAndHit(const std::filesystem::path &directory) {
                   .Level = 0,
                   .Parts = {kParts[0].Part},
                   .Appearance = RoadPageAppearanceV2{RoadPageAppearanceKey(kParts)},
-                  .UpperModelErrorM = 1},
+                  .PositionErrorM = 1,
+                  .DisplayPolicy = policy},
       .Parent = {},
       .RequestKey = {},
       .NativeBytesMost = kPageBytes,
-      .SweepLimits = RoadDisplayLimits{.StationsMost = 8, .PoseQueriesMost = 256}};
+      .SweepLimits = RoadDisplayLimits{.StationsMost = 128, .PoseQueriesMost = 256}};
   StoredTransportRoadPageLimits limits{.Plan = kTransportFixtureLimits};
   std::ifstream metadata(directory / "request.txt");
   metadata >> request.Address.PlanKey >> request.Address.Anchor.LongitudeDeg >>
@@ -109,7 +110,7 @@ void CheckMissAndHit(const std::filesystem::path &directory) {
   CHECK(!producer->Produce(request, canceled.get_token()), "canceled misses do not read the plan");
   const auto built = PrepareAndLoadRoadPage(**pages, request, &*producer);
   CHECK(built && !built->Page->Geometry.Mesh.Index.empty() &&
-            built->Page->Address.UpperModelErrorM == 1,
+            built->Page->Address.PositionErrorM == 1,
         "the fresh process directly builds the display miss from the saved functional plan");
   CHECK(cache->Remove(request.Address.PlanKey).has_value(),
         "the functional plan is evicted to expose accidental reads on a page hit");
@@ -126,8 +127,11 @@ void CheckMissAndHit(const std::filesystem::path &directory) {
   CHECK(!producer->Produce(request, {}), "a genuine later producer call detects the absent plan");
 }
 
-bool Spawn(const std::string &executable, const std::string &directory) {
-  std::array<std::string, 3> values{executable, "--offline", directory};
+bool Spawn(const std::string &executable, const std::string &directory, RoadDisplayPolicy policy) {
+  std::array<std::string, 3> values{
+      executable,
+      policy == RoadDisplayPolicy::StoredSurfaceEnvelope ? "--offline-envelope" : "--offline",
+      directory};
   std::array<char *, 4> arguments{values[0].data(), values[1].data(), values[2].data(), nullptr};
 #ifdef __APPLE__
   char *const *const environment = *_NSGetEnviron();
@@ -147,8 +151,12 @@ bool Spawn(const std::string &executable, const std::string &directory) {
 }
 
 int main(int argc, char *const *argv) {
-  if (argc == 3 && std::string_view(argv[1]) == "--offline") {
-    CheckMissAndHit(argv[2]);
+  if (argc == 3 && (std::string_view(argv[1]) == "--offline" ||
+                    std::string_view(argv[1]) == "--offline-envelope")) {
+    CheckMissAndHit(argv[2],
+                    std::string_view(argv[1]) == "--offline-envelope"
+                        ? RoadDisplayPolicy::StoredSurfaceEnvelope
+                        : RoadDisplayPolicy::UpperOnly);
     return Report();
   }
   const auto directory = std::filesystem::temp_directory_path() /
@@ -157,7 +165,11 @@ int main(int argc, char *const *argv) {
   std::filesystem::create_directories(directory, error);
   CHECK(!error && Prepare(directory),
         "only the parent process constructs and stores source inputs");
-  CHECK(Spawn(argv[0], directory.string()), "the source-free child validates display miss and hit");
+  CHECK(Spawn(argv[0], directory.string(), RoadDisplayPolicy::UpperOnly),
+        "the source-free child validates display miss and hit");
+  CHECK(Prepare(directory) &&
+            Spawn(argv[0], directory.string(), RoadDisplayPolicy::StoredSurfaceEnvelope),
+        "a second source-free child validates the separately keyed stored-surface miss and hit");
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "the private native asset store is removed after the child exits");
   return Report();

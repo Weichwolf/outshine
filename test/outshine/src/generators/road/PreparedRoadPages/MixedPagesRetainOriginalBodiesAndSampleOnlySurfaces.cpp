@@ -88,7 +88,7 @@ int main() {
                                       .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 0},
                                                 {.Kind = RoadPagePartKind::Interval, .Index = 1},
                                                 {.Kind = RoadPagePartKind::Interval, .Index = 2}},
-                                      .UpperModelErrorM = 1,
+                                      .PositionErrorM = 1,
                                       .DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies},
                           .Parent = {},
                           .RequestKey = {},

@@ -1,6 +1,6 @@
 # Transverse ribbon envelopes
 
-Owner: #915 / #1955. Python reference; no production default or native LOD admission.
+Owner: #915 / #1955. Python reference and native producer; no World LOD admission.
 Inputs: [fixed native road parts](native_road_parts.md), unchanged archive SHA
 `5aafb7b17b2820135b45ed26ca57a7e48d575e84ee6262ead81fc438713810fb`.
 
@@ -22,7 +22,7 @@ span respectively. Contacts are counted in the study, not omitted as overhead.
 
 Project each inner source-ring point onto its ordered outer segment. Let the largest
 residual be delta. The idealized source triangulation lies inside the four-corner
-tetrahedron; its XY projection covers the convex outer quad. The maximum vertical
+tetrahedron; its XZ projection covers the convex outer quad. The maximum vertical
 distance between the upper/lower roofs occurs at their diagonal crossing: gap.
 Thus symmetric geometric distance to the unstitched roof is at most `gap + delta`.
 Restoring actual source boundary vertices perturbs that roof by at most delta;
@@ -62,9 +62,25 @@ bounds must choose products before fine payload work. Original remainders, exact
 run contacts and existing full-body silhouettes remain mandatory. Native image,
 terrain-contact, material/normal and total-cost comparisons precede adoption.
 
+The native `RibbonEnvelope` kernel uses outward interval arithmetic on final Float32
+source rings. `check_native_ribbon_envelope.py` independently checks actual operands,
+roof choice and bounds with exact rationals. `RoadSurfaceEnvelope` evaluates canonical
+stations before mesh allocation, classifies adjacent spans and directly emits only
+needed vertices/triangles, including complete run ends. Closed/step bodies and
+junctions retain their original emission. Unqualified/isolated spans retain originals.
+Exactly coincident stored contact profiles need no extra corner triangles; an empty
+fan alone does not imply missing coverage. Continuous-curve error remains separate.
+
+`RoadPageAddress.PositionErrorM` takes its reference from `DisplayPolicy`.
+`StoredSurfaceEnvelope` has independent asset-v7/manifest-v6 identities; older products
+keep their bytes/keys. Misses use the native producer; hits need no functional plan
+or sampling budget, also in a fresh process. World selection before fine IO, projection,
+terrain/material/raster comparisons and native device gains remain required.
+
 ```sh
 python -m unittest discover -s test/experiments/transport -p test_upper_strip_envelope.py
 python test/experiments/transport/compare_upper_strip_envelope.py --output /tmp/outshine-upper-strip.json
 ```
 
-Requires existing NumPy; no native gate for this Python-only reference.
+Python checks require existing NumPy. Native mesher/cache tests cover production;
+they do not establish World image quality or frame-budget compliance.

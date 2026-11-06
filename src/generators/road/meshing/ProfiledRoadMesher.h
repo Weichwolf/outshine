@@ -14,7 +14,7 @@ class ProfiledRoadMesher final : public RoadMesher {
 public:
   ProfiledRoadMesher() = default;
 
-  // Fitted Upper position model only; sampling budgets span a Sweep, apart from fitting/corners.
+  // Policy names the reference; sampling budgets span a Sweep, apart from fitting/corners.
   explicit ProfiledRoadMesher(RoadDisplayRequest display) : Display_(display) {}
 
   [[nodiscard]] RoadMeshingStats

@@ -43,7 +43,7 @@ void Roundtrip(const RoadPageAsset &page) {
   CHECK(RoadPageHeaderFits(page.Address, header) && !RoadPageHeaderFits(page.Address, header - 1),
         "header admission checks exact framing bytes independently of replacement validity");
   const auto decoded = DecodeRoadPageAsset(*bytes, kLimit);
-  CHECK(decoded && decoded->Address.UpperModelErrorM == page.Address.UpperModelErrorM &&
+  CHECK(decoded && decoded->Address.PositionErrorM == page.Address.PositionErrorM &&
             decoded->Address.Appearance == page.Address.Appearance &&
             decoded->Address.DisplayPolicy == page.Address.DisplayPolicy &&
             RoadPageKey(decoded->Address) == RoadPageKey(page.Address) &&
@@ -68,7 +68,7 @@ void CheckPrepared(RoadPageAsset page) {
   const auto decoded = bytes ? DecodeRoadPageAsset(*bytes, kLimit) : std::nullopt;
   CHECK(decoded && decoded->Address.Clustered &&
             decoded->Address.Appearance == page.Address.Appearance &&
-            decoded->Address.UpperModelErrorM == page.Address.UpperModelErrorM &&
+            decoded->Address.PositionErrorM == page.Address.PositionErrorM &&
             decoded->Address.DisplayPolicy == page.Address.DisplayPolicy &&
             decoded->Geometry.Clusters == page.Geometry.Clusters &&
             decoded->Geometry.Mesh.Index == mesh.Index &&
@@ -94,9 +94,11 @@ int main() {
     auto prepared = Triangle();
     if (appearance) { prepared.Address.Appearance = RoadPageAppearanceV2{std::string(64, 'c')}; }
     CheckPrepared(prepared);
-    prepared.Address.UpperModelErrorM = 1;
+    prepared.Address.PositionErrorM = 1;
     CheckPrepared(prepared);
     prepared.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
+    CheckPrepared(prepared);
+    prepared.Address.DisplayPolicy = RoadDisplayPolicy::StoredSurfaceEnvelope;
     CheckPrepared(prepared);
   }
   auto page = Triangle();
@@ -105,22 +107,22 @@ int main() {
         "independently encoded original v2 address keeps its existing key");
   Roundtrip(page);
   const std::string originalKey = RoadPageKey(page.Address);
-  page.Address.UpperModelErrorM = 1;
+  page.Address.PositionErrorM = 1;
   const std::string displayKey = RoadPageKey(page.Address);
   CHECK(displayKey.size() == 64 && displayKey != originalKey,
         "a bounded Upper display product cannot alias its original");
   Roundtrip(page);
-  page.Address.UpperModelErrorM = 0.25;
+  page.Address.PositionErrorM = 0.25;
   CHECK(RoadPageKey(page.Address) != displayKey,
         "different model budgets have distinct identities");
   Roundtrip(page);
-  page.Address.UpperModelErrorM.reset();
+  page.Address.PositionErrorM.reset();
   page.Address.Appearance = RoadPageAppearanceV2{.Key = std::string(64, 'c')};
   CHECK(RoadPageKey(page.Address) ==
             "0dc1dd00223452520fe3db38157f4ea499e33dd3fd8d877875c2bd31237a1455",
         "independently encoded original v3 appearance address keeps its existing key");
   Roundtrip(page);
-  page.Address.UpperModelErrorM = 1;
+  page.Address.PositionErrorM = 1;
   Roundtrip(page);
   const auto upperKey = RoadPageKey(page.Address);
   CHECK(upperKey == "fc8044587115e14ae827fbf81444795065ceb871ba5d2ff7dfd1be6a45a274ec",
@@ -129,18 +131,23 @@ int main() {
   CHECK(RoadPageKey(page.Address) != upperKey,
         "keeping original bodies requires a distinct explicit product identity");
   Roundtrip(page);
+  const auto mixedKey = RoadPageKey(page.Address);
+  page.Address.DisplayPolicy = RoadDisplayPolicy::StoredSurfaceEnvelope;
+  CHECK(RoadPageKey(page.Address) != mixedKey && RoadPageKey(page.Address) != upperKey,
+        "a stored-surface reference cannot alias either continuous Upper model");
+  Roundtrip(page);
   page.Address.DisplayPolicy = static_cast<RoadDisplayPolicy>(99);
   CHECK(RoadPageKey(page.Address).empty() && !EncodeRoadPageAsset(page, kLimit),
         "unknown display policies cannot identify native products");
   page.Address.DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
-  page.Address.UpperModelErrorM.reset();
+  page.Address.PositionErrorM.reset();
   CHECK(RoadPageKey(page.Address).empty(), "a mixed policy requires an explicit Upper model");
   page.Address.DisplayPolicy = RoadDisplayPolicy::UpperOnly;
   for (const double bad : {0.0,
                            -1.0,
                            std::numeric_limits<double>::infinity(),
                            std::numeric_limits<double>::quiet_NaN()}) {
-    page.Address.UpperModelErrorM = bad;
+    page.Address.PositionErrorM = bad;
     CHECK(RoadPageKey(page.Address).empty() && !EncodeRoadPageAsset(page, kLimit),
           "nonpositive or nonfinite display precision cannot identify a product");
   }
@@ -152,11 +159,11 @@ int main() {
                                        .Empty = true});
   CHECK(EncodeRoadPageAsset(page, kLimit).has_value(),
         "original pages retain explicit omission diagnostics");
-  page.Address.UpperModelErrorM = 1;
+  page.Address.PositionErrorM = 1;
   CHECK(!EncodeRoadPageAsset(page, kLimit),
         "incomplete pages cannot advertise a bounded replacement");
   page = Triangle();
-  page.Address.UpperModelErrorM = 1;
+  page.Address.PositionErrorM = 1;
   page.Geometry.Mesh.Index.clear();
   CHECK(!EncodeRoadPageAsset(page, kLimit),
         "a nonempty source set cannot be replaced by an empty page");

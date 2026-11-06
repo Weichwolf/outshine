@@ -55,7 +55,7 @@ void CheckModels(bool appearance, RoadDisplayPolicy policy) {
   CHECK(reader(version) && version == (appearance ? 0x0002314d4452ULL : 0x0001314d4452ULL),
         "absent model metadata keeps the existing v1/v2 manifest version");
   auto coarse = manifest->Pages.front();
-  coarse.UpperModelErrorM = 1;
+  coarse.PositionErrorM = 1;
   coarse.DisplayPolicy = policy;
   coarse.Key = RoadPageKey({.PlanKey = manifest->PlanKey,
                             .MaterialKey = manifest->MaterialKey,
@@ -64,7 +64,7 @@ void CheckModels(bool appearance, RoadDisplayPolicy policy) {
                             .Level = coarse.Level,
                             .Parts = coarse.Parts,
                             .Appearance = coarse.Appearance,
-                            .UpperModelErrorM = coarse.UpperModelErrorM,
+                            .PositionErrorM = coarse.PositionErrorM,
                             .DisplayPolicy = coarse.DisplayPolicy});
   manifest->Pages.push_back(coarse);
   if (appearance) {
@@ -72,8 +72,8 @@ void CheckModels(bool appearance, RoadDisplayPolicy policy) {
   }
   const auto bytes = EncodeRoadPageManifest(*manifest, kLimit);
   const auto decoded = bytes ? DecodeRoadPageManifest(*bytes, kLimit) : std::nullopt;
-  CHECK(decoded && decoded->Pages.size() == 2 && !decoded->Pages[0].UpperModelErrorM &&
-            decoded->Pages[1].UpperModelErrorM == 1 && decoded->Pages[1].DisplayPolicy == policy &&
+  CHECK(decoded && decoded->Pages.size() == 2 && !decoded->Pages[0].PositionErrorM &&
+            decoded->Pages[1].PositionErrorM == 1 && decoded->Pages[1].DisplayPolicy == policy &&
             decoded->Pages[0].Parts == decoded->Pages[1].Parts &&
             EncodeRoadPageManifest(*decoded, kLimit) == bytes,
         "metadata independently identifies original and display variants of the same sources");
@@ -84,7 +84,7 @@ void CheckModels(bool appearance, RoadDisplayPolicy policy) {
     }
   }
   for (const double error : {2.0, 0.0, -1.0, std::numeric_limits<double>::infinity()}) {
-    manifest->Pages[1].UpperModelErrorM = error;
+    manifest->Pages[1].PositionErrorM = error;
     CHECK(!EncodeRoadPageManifest(*manifest, kLimit),
           "an invalid or differently keyed model cannot masquerade as the stored product");
   }
@@ -98,8 +98,9 @@ void CheckModels(bool appearance, RoadDisplayPolicy policy) {
 }
 
 int main() {
-  for (const auto policy :
-       {RoadDisplayPolicy::UpperOnly, RoadDisplayPolicy::UpperWithOriginalBodies}) {
+  for (const auto policy : {RoadDisplayPolicy::UpperOnly,
+                            RoadDisplayPolicy::UpperWithOriginalBodies,
+                            RoadDisplayPolicy::StoredSurfaceEnvelope}) {
     CheckModels(false, policy);
     CheckModels(true, policy);
   }

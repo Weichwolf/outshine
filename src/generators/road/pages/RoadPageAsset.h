@@ -24,7 +24,8 @@ struct RoadPageAddress {
   uint32_t Level = 0;
   std::vector<RoadPagePart> Parts;
   RoadPageAppearance Appearance = LegacyRoadPageV1{};
-  std::optional<double> UpperModelErrorM = std::nullopt;
+  // DisplayPolicy defines whether the position reference is continuous or stored.
+  std::optional<double> PositionErrorM = std::nullopt;
   RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
   bool Clustered = false;
 };

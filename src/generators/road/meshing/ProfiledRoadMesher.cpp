@@ -1,6 +1,7 @@
 #include "Units.h"
 #include "ProfiledRoadMesher.h"
 #include "RoadRibbonMesh.h"
+#include "RoadSurfaceEnvelope.h"
 #include "RoadCrossSection.h"
 #include "Vec3.h"
 
@@ -8,8 +9,10 @@
 #include "ReferenceLine.h"
 #include "Ribbon.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <span>
 #include <string>
 #include <cstddef>
@@ -97,13 +100,10 @@ std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
   return rise;
 }
 
-bool LayPiece(ReferenceLine line,
-              double tightestM,
-              ElevationSamples elevation,
-              const RoadSweep &how,
-              RoadMeshBuffers &into,
-              RoadMeshingRejections &rejections,
-              RoadDisplayRequest *display) {
+std::optional<std::vector<Knot>> ApplyRoadProfiles(ReferenceLine &line,
+                                                   ElevationSamples elevation,
+                                                   const RoadSweep &how,
+                                                   RoadMeshingRejections &rejections) {
   auto rise = ElevationKnots(elevation, line.LengthM());
   std::array<Knot, 2> bank = {
       {Knot{.AlongM = 0.0, .Value = how.Crossfall, .RatePerM = 0.0},
@@ -114,7 +114,7 @@ bool LayPiece(ReferenceLine line,
     Placed pose;
     if (!line.At(bank[end].AlongM, pose)) {
       ++rejections.Rise;
-      return false;
+      return std::nullopt;
     }
     const RoadPlane &plane = endPort->Plane;
     const double east = std::cos(pose.HeadingRad);
@@ -128,16 +128,29 @@ bool LayPiece(ReferenceLine line,
   std::string said;
   if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
     ++rejections.Rise;
-    return false;
+    return std::nullopt;
   }
   if (!line.Bank(std::span<const Knot>(bank.data(), 2), said)) {
     ++rejections.Bank;
-    return false;
+    return std::nullopt;
   }
+
+  return rise;
+}
+
+bool LayPiece(ReferenceLine line,
+              double tightestM,
+              ElevationSamples elevation,
+              const RoadSweep &how,
+              RoadMeshBuffers &into,
+              RoadMeshingRejections &rejections,
+              RoadDisplayRequest *display) {
+  const auto rise = ApplyRoadProfiles(line, elevation, how, rejections);
+  if (!rise) { return false; }
 
   std::vector<double> requiredStations;
   double step = line.LengthM();
-  if (display != nullptr) {
+  if (display != nullptr && display->Policy != RoadDisplayPolicy::StoredSurfaceEnvelope) {
     auto plan = SampleRoadDisplay(line,
                                   RoadSection(how.HalfWidthM, how.Profile),
                                   display->ErrorM,
@@ -152,8 +165,28 @@ bool LayPiece(ReferenceLine line,
     requiredStations = std::move(plan->StationsM);
   } else {
     step = StepFor(tightestM);
-    requiredStations.reserve(rise.size());
-    for (const Knot &knot : rise) { requiredStations.push_back(knot.AlongM); }
+    requiredStations.reserve(rise->size());
+    for (const Knot &knot : *rise) { requiredStations.push_back(knot.AlongM); }
+  }
+  if (display != nullptr && display->Policy == RoadDisplayPolicy::StoredSurfaceEnvelope) {
+    const auto sampling = PrepareRibbonSampling(line,
+                                                RoadSection(how.HalfWidthM, how.Profile),
+                                                0.0,
+                                                line.LengthM(),
+                                                step,
+                                                requiredStations);
+    if (!sampling || sampling->StationsM.size() > display->Limits.StationsMost ||
+        sampling->StationsM.size() >= display->Limits.PoseQueriesMost) {
+      ++rejections.Sweep;
+      return false;
+    }
+    display->Limits.StationsMost -= sampling->StationsM.size();
+    display->Limits.PoseQueriesMost -= sampling->StationsM.size() + 1;
+    if (!AppendRoadSurfaceEnvelope(line, *sampling, how, display->ErrorM, into)) {
+      ++rejections.Sweep;
+      return false;
+    }
+    return true;
   }
   const Ribbon woven = Sweep(line,
                              RoadSection(how.HalfWidthM, how.Profile),
@@ -220,7 +253,10 @@ bool AppendRoadCorner(const ProfiledRoadMesher &mesher,
                          RoadEndGate(along.subspan(at, 2), false, section)};
   const size_t before = mesh.Index.size();
   mesher.Junction(gates, {}, surface.WearsLinear, mesh);
-  return mesh.Index.size() != before;
+  if (mesh.Index.size() != before) { return true; }
+  auto end = RoadPortPositions({.Gate = gates[0], .Plane = {}});
+  std::ranges::reverse(end);
+  return end == RoadPortPositions({.Gate = gates[1], .Plane = {}});
 }
 
 RoadMeshingStats AppendRoadPieces(const ProfiledRoadMesher &mesher,
@@ -295,7 +331,7 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
   RoadMeshingStats tally;
   RoadMeshingRejections &rejections = tally.Rejections;
   auto display = Display_;
-  if (display && display->Policy == RoadDisplayPolicy::UpperWithOriginalBodies &&
+  if (display && display->Policy != RoadDisplayPolicy::UpperOnly &&
       how.Form == RibbonForm::ClosedShell) {
     display.reset();
   }

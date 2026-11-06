@@ -63,7 +63,7 @@ Prepare(const std::filesystem::path &directory, bool display, bool clustered) {
         .Anchor = manifest->Anchor,
         .Level = 0,
         .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = index}},
-        .UpperModelErrorM = display && index % 2 != 0 ? std::optional<double>(1) : std::nullopt,
+        .PositionErrorM = display && index % 2 != 0 ? std::optional<double>(1) : std::nullopt,
         .Clustered = clustered};
     const auto result = pages->Prepare(
         {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
@@ -83,7 +83,7 @@ Prepare(const std::filesystem::path &directory, bool display, bool clustered) {
                                .ByteCount = result->ByteCount,
                                .Level = 0,
                                .Parts = address.Parts,
-                               .UpperModelErrorM = address.UpperModelErrorM,
+                               .PositionErrorM = address.PositionErrorM,
                                .Clustered = address.Clustered});
   }
   auto key = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
@@ -259,7 +259,7 @@ void CheckDisplaySelection(Tasks &pool,
   CHECK(original && *original, "the control payload is available before controlled corruption");
   if (!original || !*original) { return; }
   auto address = (**original).Page->Address;
-  address.UpperModelErrorM = 1;
+  address.PositionErrorM = 1;
   const auto product = fixture.Pages->Prepare(
       {.Address = address, .Parent = {}, .RequestKey = {}, .NativeBytesMost = 4096},
       RoadProducer([&](const RoadPageRequest &, const std::stop_token &) {
@@ -279,7 +279,7 @@ void CheckDisplaySelection(Tasks &pool,
                       .ByteCount = product->ByteCount,
                       .Level = address.Level,
                       .Parts = address.Parts,
-                      .UpperModelErrorM = address.UpperModelErrorM,
+                      .PositionErrorM = address.PositionErrorM,
                       .Clustered = address.Clustered}};
   const auto key = StoreRoadManifest(*fixture.Pages, *manifest);
   CHECK(!RoadPageRestoration::Begin(pool, fixture.Pages, manifest),
@@ -300,11 +300,11 @@ void CheckDisplaySelection(Tasks &pool,
   CHECK(retained && *retained, "unselected corruption does not invalidate the manifest");
   const auto unread = fixture.Pages->Inspect((**original).Page->Address, 4096);
   CHECK(unread && *unread, "unselected corrupt payload was not read and evicted");
-  manifest->Pages[1].UpperModelErrorM = 2;
+  manifest->Pages[1].PositionErrorM = 2;
   const auto wrong = RestoreSelected(pool, fixture, manifest);
   CHECK(!wrong && wrong.error().contains("differs from"),
         "payload model identity must match the selected metadata before geometry publication");
-  manifest->Pages[1].UpperModelErrorM = 1;
+  manifest->Pages[1].PositionErrorM = 1;
   manifest->Pages[1].DisplayPolicy = RoadDisplayPolicy::UpperWithOriginalBodies;
   const auto wrongPolicy = RestoreSelected(pool, fixture, manifest);
   CHECK(!wrongPolicy && wrongPolicy.error().contains("differs from"),

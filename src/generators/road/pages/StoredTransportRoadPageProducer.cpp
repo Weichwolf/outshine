@@ -71,8 +71,8 @@ StoredTransportRoadPageProducer::Produce(const RoadPageRequest &request,
   if (RoadPageKey(request.Address) != ProductKey_) {
     return std::unexpected("stored road producer does not own the requested product");
   }
-  if (request.Address.UpperModelErrorM && !request.SweepLimits) {
-    return std::unexpected("Upper display generation needs an explicit sampling budget");
+  if (request.Address.PositionErrorM && !request.SweepLimits) {
+    return std::unexpected("road display generation needs an explicit sampling budget");
   }
   const auto loaded =
       Plans_->LoadProduct(Definition_, Inputs_, Limits_.Plan, Limits_.ReadBufferBytesMost);

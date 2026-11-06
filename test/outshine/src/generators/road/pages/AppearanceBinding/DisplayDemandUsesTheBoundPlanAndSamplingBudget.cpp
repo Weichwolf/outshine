@@ -33,7 +33,7 @@ int main() {
                   .Level = 0,
                   .Parts = {parts[0].Part},
                   .Appearance = RoadPageAppearanceV2{RoadPageAppearanceKey(parts)},
-                  .UpperModelErrorM = 1},
+                  .PositionErrorM = 1},
       .Parent = {},
       .RequestKey = {},
       .NativeBytesMost = size_t{1024} * 1024};
@@ -66,7 +66,7 @@ int main() {
             mixed->Mesh.ColourRgba == originalBody->Mesh.ColourRgba &&
             mixed->Mesh.Index == originalBody->Mesh.Index,
         "the explicit mixed policy preserves the native plan's entire original body");
-  request.Address.UpperModelErrorM = 2;
+  request.Address.PositionErrorM = 2;
   CHECK(!producer->Produce(request, {}), "another error demand belongs to another product");
   return Report();
 }

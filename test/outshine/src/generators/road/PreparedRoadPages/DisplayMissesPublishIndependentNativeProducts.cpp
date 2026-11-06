@@ -27,7 +27,7 @@ RoadPageRecipe Recipe() {
   return recipe;
 }
 
-void CheckCache(PreparedRoadPages &pages) {
+void CheckCache(PreparedRoadPages &pages, RoadDisplayPolicy policy) {
   const RoadPageRequest original{
       .Address = {.PlanKey = std::string(64, 'a'),
                   .MaterialKey = std::string(64, 'b'),
@@ -42,7 +42,8 @@ void CheckCache(PreparedRoadPages &pages) {
   const auto fine = PrepareAndLoadRoadPage(pages, original, &fineProducer);
   CHECK(fine.has_value(), "the original native page remains independently available");
   auto display = original;
-  display.Address.UpperModelErrorM = 1;
+  display.Address.PositionErrorM = 1;
+  display.Address.DisplayPolicy = policy;
   const RoadPageMeshProducer displayProducer(RoadPageKey(display.Address), Recipe());
   CHECK(!pages.Prepare(display, &displayProducer),
         "a display miss needs an explicit sampling work budget");
@@ -51,11 +52,12 @@ void CheckCache(PreparedRoadPages &pages) {
         "a failed display sweep cannot publish a partial product");
   const auto absent = pages.Load(display.Address, kLimit);
   CHECK(absent && !*absent, "failed production leaves the display key absent");
-  display.SweepLimits = {.StationsMost = 8, .PoseQueriesMost = 256};
+  display.SweepLimits = {.StationsMost = 128, .PoseQueriesMost = 256};
   const auto coarse = PrepareAndLoadRoadPage(pages, display, &displayProducer);
-  CHECK(coarse && fine && coarse->Page->Geometry.Mesh.Index.size() == 18 &&
+  const size_t expectedIndices = policy == RoadDisplayPolicy::StoredSurfaceEnvelope ? 204 : 18;
+  CHECK(coarse && fine && coarse->Page->Geometry.Mesh.Index.size() == expectedIndices &&
             fine->Page->Geometry.Mesh.Index.size() == size_t{32} * 18,
-        "the cache miss directly creates six display triangles beside the fine reference");
+        "the cache miss directly creates its policy-specific geometry beside the fine reference");
   display.SweepLimits.reset();
   const auto hit = PrepareAndLoadRoadPage(pages, display);
   CHECK(hit && coarse && hit->Page->Geometry.Mesh.Index == coarse->Page->Geometry.Mesh.Index &&
@@ -65,6 +67,7 @@ void CheckCache(PreparedRoadPages &pages) {
   CHECK(fineHit && fine &&
             fineHit->Page->Geometry.Mesh.PositionM == fine->Page->Geometry.Mesh.PositionM,
         "publishing a display product preserves the independently keyed original");
+  if (policy != RoadDisplayPolicy::UpperOnly) { return; }
   auto closed = Recipe();
   closed.Intervals[0].Surface.Form = RibbonForm::ClosedShell;
   const RoadPageMeshProducer closedProducer(RoadPageKey(display.Address), std::move(closed));
@@ -82,7 +85,10 @@ int main() {
   {
     auto pages = PreparedRoadPages::Open(OpenAssetStore(root.string()));
     CHECK(pages.has_value(), "the test opens a private native asset store");
-    if (pages) { CheckCache(**pages); }
+    if (pages) {
+      CheckCache(**pages, RoadDisplayPolicy::UpperOnly);
+      CheckCache(**pages, RoadDisplayPolicy::StoredSurfaceEnvelope);
+    }
   }
   std::error_code error;
   std::filesystem::remove_all(root, error);

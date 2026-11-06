@@ -52,21 +52,21 @@ TransportRoadPageProducer::Produce(const RoadPageRequest &request, std::stop_tok
     return std::unexpected("transport road page producer does not own the requested product");
   }
   std::optional<RoadDisplayRequest> display;
-  const auto &error = request.Address.UpperModelErrorM;
+  const auto &error = request.Address.PositionErrorM;
   if (error) {
     const auto &limits = request.SweepLimits;
     if (!limits) {
-      return std::unexpected("Upper display generation needs an explicit sampling budget");
+      return std::unexpected("road display generation needs an explicit sampling budget");
     }
     for (const auto &part : Parts_) {
       if (part.Part.Kind != RoadPagePartKind::Interval) { continue; }
       if (part.Part.Index >= Plan_->Paths.size()) {
-        return std::unexpected("unknown Upper display path");
+        return std::unexpected("unknown road display path");
       }
       const auto &path = Plan_->Paths[part.Part.Index];
       if (request.Address.DisplayPolicy == RoadDisplayPolicy::UpperOnly &&
           (path.Bridge || path.Body)) {
-        return std::unexpected("Upper display generation cannot replace closed or step bodies");
+        return std::unexpected("road display generation cannot replace closed or step bodies");
       }
     }
     display = RoadDisplayRequest{
@@ -76,7 +76,7 @@ TransportRoadPageProducer::Produce(const RoadPageRequest &request, std::stop_tok
   auto product = MeshTransportRoadPage(mesher, *Plan_, Parts_, stop);
   if (!product) { return std::unexpected(std::string(product.error())); }
   if (display && (product->Swept.Refused != 0 || !product->Diagnostics.empty())) {
-    return std::unexpected("Upper display generation cannot publish incomplete source coverage");
+    return std::unexpected("road display generation cannot publish incomplete source coverage");
   }
   return std::move(*product);
 }
