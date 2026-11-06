@@ -85,11 +85,15 @@ struct GeometryAssetRequest::State {
     const size_t fixed = sizeof(State) + Key.capacity() + Parent.capacity() + 2;
     auto loaded = GeometryAsset::Load(
         *Cache, Key, Parent, Limits.EncodedBytesMost, Limits.ConsumerBytes - fixed);
+    const auto record = Cache->Find(Key);
+    if (!record || !*record || !Receipt || **record != *Receipt) {
+      (void)Ticket.Reject();
+      return std::unexpected("published geometry changed or became unavailable before loading");
+    }
     if (!loaded && loaded.error() == AssetCacheError::CapacityExceeded) {
       return std::unexpected("geometry buffers exceed consumer admission before payload decode");
     }
-    const auto record = Cache->Find(Key);
-    if (!loaded || !*loaded || !record || !*record || !Receipt || **record != *Receipt) {
+    if (!loaded || !*loaded) {
       (void)Ticket.Reject();
       return std::unexpected("published geometry changed or became unavailable before loading");
     }
