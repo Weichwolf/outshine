@@ -107,7 +107,8 @@ std::expected<ImpostorViewAssets, std::string> BuildingImpostorSource::ResolveMe
 std::expected<GeometryAsset::Product, std::string> BuildingImpostorSource::GeometryFor(
     AssetCache &cache, Budget budget, const std::stop_token &stop) const {
   const auto key = Recipe_.GeometryKey();
-  auto cached = GeometryAsset::Load(cache, key, Recipe_.BaseKey, budget.GeometryBytesMost);
+  auto cached = GeometryAsset::Load(
+      cache, key, Recipe_.BaseKey, budget.GeometryBytesMost, budget.GeometryBytesMost);
   if (!cached) { return std::unexpected("building geometry asset lookup failed"); }
   if (*cached) { return std::move(**cached); }
   const auto source = Source();

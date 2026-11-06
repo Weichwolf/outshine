@@ -82,13 +82,21 @@ struct GeometryAssetRequest::State {
 
   std::expected<GeometryAsset::Product, std::string> Read() {
     if (Cancelled()) { return std::unexpected("geometry load cancelled"); }
-    auto loaded = GeometryAsset::Load(*Cache, Key, Parent, Limits.EncodedBytesMost);
+    const size_t fixed = sizeof(State) + Key.capacity() + Parent.capacity() + 2;
+    auto loaded = GeometryAsset::Load(
+        *Cache, Key, Parent, Limits.EncodedBytesMost, Limits.ConsumerBytes - fixed);
     const auto record = Cache->Find(Key);
-    if (!loaded || !*loaded || !record || !*record || !Receipt || **record != *Receipt) {
+    if (!record || !*record || !Receipt || **record != *Receipt) {
       (void)Ticket.Reject();
       return std::unexpected("published geometry changed or became unavailable before loading");
     }
-    const size_t fixed = sizeof(State) + Key.capacity() + Parent.capacity() + 2;
+    if (!loaded && loaded.error() == AssetCacheError::CapacityExceeded) {
+      return std::unexpected("geometry buffers exceed consumer admission before payload decode");
+    }
+    if (!loaded || !*loaded) {
+      (void)Ticket.Reject();
+      return std::unexpected("published geometry changed or became unavailable before loading");
+    }
     const auto retained = [&](size_t extra) -> std::optional<size_t> {
       const size_t product = (**loaded).HeapBytes();
       if (fixed > Limits.ConsumerBytes || product > Limits.ConsumerBytes - fixed ||

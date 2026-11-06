@@ -127,10 +127,13 @@ triangle counts alone do not establish a native performance result.
 ## Native mesh-cache reuse
 
 The field producer also consumes camera-independent `GeometryAsset` products.
-Their fixed descriptor is `8+(6+16)*8=184` bytes: version, local bounds and world
-transform. Mesh/material streams use `GeometryProductCodec` in a separate package,
-so metadata queries do not decode meshes. Missing meshes remain misses; a retained
-descriptor may still reconstruct view metadata. No descriptor certifies LOD error.
+Descriptors contain bounds/frame, optional source coverage and clustered-part layout.
+Current publications also persist vertex/index/cluster counts and logical attribute/image
+bytes. Without coverage the measured descriptor occupies `8+22*8+4+1+5*8=229` bytes;
+use the indexed record size, not a fixed descriptor limit. Legacy descriptors remain readable
+with unknown costs. Mesh/material streams use a separate `GeometryProductCodec` package.
+Known costs can reject a buffer budget before mesh IO/decode; containers, workspace and
+GPU allocations remain separate. Missing meshes stay misses. No count certifies LOD error.
 
 ```sh
 cmake --build build --target outshine_experiment_building_geometry_cache --parallel
