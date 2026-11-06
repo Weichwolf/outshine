@@ -84,7 +84,7 @@ Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, Buff
     held = Hold(to->State);
     if (!held) { return held; }
     Finish();
-    const id<MTLBlitCommandEncoder> blit = [Native blitCommandEncoder];
+    const id<MTLBlitCommandEncoder> blit = CreateBlitEncoder(Profile.get(), Native, "bufferCopy");
     if (blit == nil) { return Failure(ErrorKind::Driver, "Metal blit encoder creation failed"); }
     [blit copyFromBuffer:from->State->Native
              sourceOffset:region.SourceOffset

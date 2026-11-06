@@ -90,6 +90,13 @@ class SubmissionTimeline(unittest.TestCase):
 
 
 class CounterTimeline(unittest.TestCase):
+    def test_blit_encoder_has_one_interval_without_fragment_samples(self):
+        row = counter_row(1000000, 2000000)
+        row["encoders"][0]["kind"] = "blit"
+        result = counter_timeline([row])
+        self.assertEqual(result["envelope_sum_ms"], 1)
+        self.assertEqual(result["envelope_union_ms"], 1)
+
     def test_overlapping_latencies_are_not_added_as_frame_work(self):
         result = counter_timeline([counter_row(1000000, 21000000),
                                    counter_row(11000000, 31000000)])

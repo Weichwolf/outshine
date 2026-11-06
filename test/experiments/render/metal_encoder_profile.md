@@ -9,12 +9,13 @@ printed once when the device's retained diagnostic session is destroyed.
 
 The A18 Pro supports stage-boundary timestamps, but reports no draw-, dispatch-,
 tile-dispatch- or blit-boundary sampling. The implementation therefore observes
-existing render and compute encoders. It never splits or merges them for timing,
+existing render, compute and blit encoders. It never splits or merges them for timing,
 and does not advertise per-dispatch samples. A compute label identifies the first
 pipeline in its possibly multi-dispatch encoder, not an isolated kernel duration.
 
-Render records preserve separate vertex/fragment endpoints; compute records have
-one encoder interval. They can overlap across encoders. Never add their spans or
+Render records preserve separate vertex/fragment endpoints; compute and blit records
+have one encoder interval. Buffer/texture copies include their natural encoder
+boundaries. They can overlap across encoders. Never add their spans or
 substitute CPU encoding, fence waits or command-buffer duration for shader time.
 Counter ticks stay raw, with independent GPU/steady-clock calibration pairs.
 A prototype incorrectly applied the Mach timebase to already-normalized CPU

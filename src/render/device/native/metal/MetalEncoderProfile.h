@@ -13,7 +13,7 @@ namespace outshine::Render::Native::Metal {
 
 struct EncoderProfileSession;
 
-enum class EncoderKind { Compute, Render };
+enum class EncoderKind { Compute, Render, Blit };
 
 struct ProfiledEncoder {
   EncoderKind Kind = EncoderKind::Compute;
@@ -43,6 +43,8 @@ void ProfileRenderEncoder(EncoderProfile *profile,
 void ProfileComputeEncoder(EncoderProfile &profile,
                            MTLComputePassDescriptor *description,
                            NSString *label);
+[[nodiscard]] id<MTLBlitCommandEncoder>
+CreateBlitEncoder(EncoderProfile *profile, id<MTLCommandBuffer> commands, std::string_view label);
 void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,
                            id<MTLCommandBuffer> commands,
                            uint64_t serial);

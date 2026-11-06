@@ -46,7 +46,8 @@ MetalCommands::Copy(const Buffer &source, Texture &destination, TextureTransfer 
     const auto held = Hold(from->State);
     if (!held) { return held; }
     Finish();
-    const id<MTLBlitCommandEncoder> copy = [Native blitCommandEncoder];
+    const id<MTLBlitCommandEncoder> copy =
+        CreateBlitEncoder(Profile.get(), Native, "textureUpload");
     if (copy == nil) { return Failure(ErrorKind::Driver, "Metal texture upload encoder failed"); }
     [copy copyFromBuffer:from->State->Native
                sourceOffset:region.BufferOffset
@@ -82,7 +83,8 @@ MetalCommands::Copy(const Texture &source, Buffer &destination, TextureTransfer 
     const auto held = Hold(to->State);
     if (!held) { return held; }
     Finish();
-    const id<MTLBlitCommandEncoder> copy = [Native blitCommandEncoder];
+    const id<MTLBlitCommandEncoder> copy =
+        CreateBlitEncoder(Profile.get(), Native, "textureReadback");
     if (copy == nil) { return Failure(ErrorKind::Driver, "Metal texture readback encoder failed"); }
     [copy copyFromTexture:from->Native
                      sourceSlice:region.Region.Layer
@@ -123,7 +125,7 @@ Result<void> MetalCommands::Copy(const Texture &source,
     const auto reserved = HoldImages(images);
     if (!reserved) { return reserved; }
     Finish();
-    const id<MTLBlitCommandEncoder> copy = [Native blitCommandEncoder];
+    const id<MTLBlitCommandEncoder> copy = CreateBlitEncoder(Profile.get(), Native, "textureCopy");
     if (copy == nil) { return Failure(ErrorKind::Driver, "Metal texture copy encoder failed"); }
     [copy copyFromTexture:from->Native
               sourceSlice:sourceRegion.Layer

@@ -21,6 +21,7 @@ struct Expected {
   size_t Encoders = 0;
   size_t Dropped = 0;
   NSString *Label = nil;
+  bool Blits = false;
 };
 
 void ReadOutput(const std::filesystem::path &path, const Expected &expected) {
@@ -59,6 +60,17 @@ void ReadOutput(const std::filesystem::path &path, const Expected &expected) {
     CHECK([encoders.firstObject[@"label"] isEqualToString:expected.Label],
           "quoted UTF-8 and embedded control characters survive JSON encoding");
   }
+  if (expected.Blits) {
+    for (NSDictionary *encoder in encoders) {
+      CHECK([encoder[@"kind"] isEqualToString:@"blit"], "copies have their own encoder kind");
+      CHECK([encoder[@"available"] boolValue], "real blit timestamps are available");
+      NSArray *const ticks = encoder[@"ticks"];
+      CHECK([ticks[0] unsignedLongLongValue] > 0 &&
+                [ticks[1] unsignedLongLongValue] >= [ticks[0] unsignedLongLongValue] &&
+                [ticks[2] unsignedLongLongValue] == 0 && [ticks[3] unsignedLongLongValue] == 0,
+            "blits preserve one ordered interval without invented fragment samples");
+    }
+  }
 }
 
 void Exercise(id<MTLDevice> device, const std::filesystem::path &prefix, EncoderKind kind) {
@@ -88,6 +100,16 @@ void Exercise(id<MTLDevice> device, const std::filesystem::path &prefix, Encoder
     const id<MTLComputeCommandEncoder> encoder =
         [commands computeCommandEncoderWithDescriptor:pass];
     [encoder endEncoding];
+  } else if (kind == EncoderKind::Blit) {
+    const id<MTLBuffer> target = [device newBufferWithLength:1024
+                                                     options:MTLResourceStorageModeShared];
+    CHECK(target != nil, "the blit probe allocates its real destination");
+    if (target == nil) { return; }
+    for (size_t at = 0; at < overCapacity; ++at) {
+      const auto encoder = CreateBlitEncoder(profile.get(), commands, "bufferFill");
+      [encoder fillBuffer:target range:NSMakeRange(at * 4, 4) value:static_cast<uint8_t>(at + 1)];
+      [encoder endEncoding];
+    }
   } else {
     MTLTextureDescriptor *const image =
         [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
@@ -120,7 +142,8 @@ void Exercise(id<MTLDevice> device, const std::filesystem::path &prefix, Encoder
   ReadOutput(output,
              {.Encoders = compute ? 1u : capacity,
               .Dropped = compute ? 0u : overCapacity - capacity,
-              .Label = compute ? label : nil});
+              .Label = compute ? label : nil,
+              .Blits = kind == EncoderKind::Blit});
 }
 
 void RetainLatest(id<MTLDevice> device, const std::filesystem::path &prefix) {
@@ -189,6 +212,7 @@ int main(int argc, char *const *argv) {
     CHECK(!CreateEncoderProfileSession(device, 1), "non-temp diagnostic output is rejected");
     Exercise(device, std::filesystem::path(argv[1]) / "quota", EncoderKind::Render);
     Exercise(device, std::filesystem::path(argv[1]) / "labels", EncoderKind::Compute);
+    Exercise(device, std::filesystem::path(argv[1]) / "copies", EncoderKind::Blit);
     RetainLatest(device, std::filesystem::path(argv[1]) / "retention");
   }
   return Report();

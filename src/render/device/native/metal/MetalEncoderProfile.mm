@@ -78,8 +78,8 @@ void Number(std::ostream &stream, double value) {
 }
 
 void WriteEncoder(std::ostream &stream, const ProfiledEncoder &encoder) {
-  stream << R"({"kind":")" << (encoder.Kind == EncoderKind::Render ? "render" : "compute")
-         << R"(","label":)";
+  constexpr std::array names{"compute", "render", "blit"};
+  stream << R"({"kind":")" << names[static_cast<size_t>(encoder.Kind)] << R"(","label":)";
   Quoted(stream, encoder.Label);
   stream << R"(,"width":)" << encoder.Width << R"(,"height":)" << encoder.Height << R"(,"colours":)"
          << encoder.Colours << R"(,"depth":)" << encoder.Depth << R"(,"available":)"
@@ -261,6 +261,24 @@ void ProfileComputeEncoder(EncoderProfile &profile,
   attachment.startOfEncoderSampleIndex = first;
   attachment.endOfEncoderSampleIndex = first + 1;
   profile.Encoders.push_back(std::move(encoder));
+}
+
+id<MTLBlitCommandEncoder>
+CreateBlitEncoder(EncoderProfile *profile, id<MTLCommandBuffer> commands, std::string_view label) {
+  if (profile == nullptr) { return [commands blitCommandEncoder]; }
+  if (profile->Encoders.size() == kMaxEncoders) {
+    ++profile->Dropped;
+    return [commands blitCommandEncoder];
+  }
+  MTLBlitPassDescriptor *const description = [MTLBlitPassDescriptor blitPassDescriptor];
+  const auto first = profile->Encoders.size() * kSamplesPerEncoder;
+  auto *const attachment = description.sampleBufferAttachments[0];
+  attachment.sampleBuffer = profile->Samples;
+  attachment.startOfEncoderSampleIndex = first;
+  attachment.endOfEncoderSampleIndex = first + 1;
+  ProfiledEncoder encoder{.Kind = EncoderKind::Blit, .Label = std::string(label)};
+  profile->Encoders.push_back(std::move(encoder));
+  return [commands blitCommandEncoderWithDescriptor:description];
 }
 
 void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,

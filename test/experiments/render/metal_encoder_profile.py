@@ -223,7 +223,7 @@ def counter_timeline(window):
         scales.append(ratio)
         ticks = []
         for encoder in submission["encoders"]:
-            if encoder["kind"] not in ("render", "compute") or not encoder["available"]:
+            if encoder["kind"] not in ("render", "compute", "blit") or not encoder["available"]:
                 raise ValueError("encoder counter samples unavailable")
             count = 4 if encoder["kind"] == "render" else 2
             used = encoder["ticks"][:count]
